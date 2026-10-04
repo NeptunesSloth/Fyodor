@@ -91,6 +91,10 @@ EXTRA = [
          power="1", toughness="1", colors=["B"], color_identity=["B"], oracle_text="Lifelink\nEquipped creature has lifelink.\nReconfigure {4} "
          "({4}: Attach to another target creature you control; or unattach from a creature. Reconfigure only as a sorcery. While attached, "
          "this isn't a creature.)", keywords=["Lifelink", "Reconfigure"]),
+    card("Resize", set_code="tst", number="D21", mana_cost="{1}{G}", cmc=2.0, type_line="Instant", colors=["G"], color_identity=["G"],
+         oracle_text="Target creature gets +3/+3 until end of turn.\nRecover {1}{G} (When a creature is put into your graveyard from the "
+         "battlefield, you may pay {1}{G}. If you do, return this card from your graveyard to your hand. Otherwise, exile this card.)",
+         keywords=["Recover"]),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -302,6 +306,28 @@ def test_reconfigure_attaches_stops_being_a_creature_and_unattaches(cards):
     act(s, "p1", type="activate_ability", card_id=gauntlet.id, ability=4)
     answer(s)
     assert s.state.cards[gauntlet.id].attached_to is None and ch(s, gauntlet).is_creature
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_recover_returns_the_card_when_paid_and_exiles_it_otherwise(cards, pay):
+    s = build(cards, p1=("Resize", "Test Bear", "Lightning Bolt"))
+    resize = put(s, "Resize", "graveyard")
+    bear = put(s, "Test Bear", "battlefield")
+    bolt = put(s, "Lightning Bolt", "hand")
+    mana(s, R=1, G=2)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[bear.id])  # a creature dies: recover triggers (702.59a)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None:
+            if s.state.zones.get("stack"):
+                act(s, s.state.rules.priority, type="pass_priority")
+                continue
+            break
+        ids = [o.id for o in d.options]
+        want = [i for i in ids if (i.lower().startswith(("pay", "yes")) if pay else i.lower().startswith(("decline", "no")))]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=(want or ids)[:1])
+    assert s.state.cards[resize.id].zone == ("p1:hand" if pay else "p1:exile")
     roundtrip(s)
 
 

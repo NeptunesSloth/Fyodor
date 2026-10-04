@@ -50,6 +50,7 @@ KEYWORDS = frozenset({
     "myriad", "melee", "friends forever", "choose a background", "doctor's companion", "space sculptor", "gift",
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",
+    "recover", "amplify", "assist",  # -- casting extras (wave 18E) -- 702.59, 702.38, 702.132
     "phasing", "transmute",  # (wave 3R4: casting.transmute)
     "aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate", "increment",  # -- static_other sweep (wave 16B) -- 702.127 (casting.from_graveyard / cast_grant)
     "ripple",  # -- static_other sweep (wave 17C) -- 702.60 (casting._ripple_triggers)

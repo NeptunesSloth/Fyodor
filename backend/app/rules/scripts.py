@@ -3145,7 +3145,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
-                if to_gy:
+                if to_gy or any(e.get("who") == "self_gy" for e in effects):  # (-- casting extras (wave 18E) -- recover: "If you don't, exile ~" too)
                     effects = [{**e, "who": "self_gy"} if e.get("who") == "self" else e for e in effects]
                 if aura_card:
                     aura_effects = _aura_card_effects(effects)
