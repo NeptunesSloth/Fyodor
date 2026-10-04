@@ -408,6 +408,7 @@ class CastNote(BaseModel):
     colors: list[str] = Field(default_factory=list)
     mv: float = 0
     cast_from: str | None = Field(default=None, max_length=20)  # "hand", "graveyard", "exile", "command" …
+    alt: str | None = Field(default=None, max_length=20)  # -- void (wave 19E) -- the alternative cost it was cast for ("warp": 702.185a)
     became: str | None = Field(default=None, max_length=80)  # the permanent a permanent spell became (608.3)
 
 
@@ -870,6 +871,7 @@ class RulesState(BaseModel):
     # (wave 17A) "<key>#<id>" -> a shield that has an additional effect (615.5): its rider and who made it
     prevention_riders: dict[str, dict[str, Any]] = Field(default_factory=dict)
     regen_shields: dict[str, int] = Field(default_factory=dict)  # object id -> regeneration shields this turn
+    no_regen: list[str] = Field(default_factory=list)  # -- can't regenerate (wave 19E) -- objects that can't be regenerated this turn
     linked_exile: dict[str, list[str]] = Field(default_factory=dict)  # source object -> cards exiled "until it leaves"
     # -- exiled with (wave 6D) -- source object -> the objects its abilities exiled (607.2a: "the exiled card",
     # "cards exiled with ~"; app/rules/exiled_with.py)

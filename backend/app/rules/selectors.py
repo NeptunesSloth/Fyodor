@@ -253,6 +253,11 @@ def _dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "dealt_damage_you" if m["you"] else "dealt_damage"))
 
 
+@_suffix(r"dealt damage by (?:this creature|~) this turn")  # -- damage history (wave 19E) -- "a creature dealt damage by ~ this turn"
+def _dealt_damage_by_source(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "dealt_damage_by_source"))
+
+
 @_suffix(r"(?:that (?:was|were) )?dealt damage this turn")
 def _was_dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "was_dealt_damage"))
@@ -388,6 +393,11 @@ def _compare(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"with power or toughness (?P<n>\d+) or (?P<dir>less|greater)")  # (wave 15A: Tetsuko Umezawa — either one)
 def _power_or_toughness(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"pot:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))
+
+
+@_suffix(r"with total power and toughness (?P<n>\d+) or (?P<dir>less|greater)")  # -- put from hand (wave 19E) -- Meek Attack
+def _total_pt(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"pts:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))
 
 
 @_suffix(r"with (?P<what>mana value|power|toughness) (?P<dir>greater|less) than " + _NUM)  # (wave 15A: strictly, 107.1)
@@ -777,6 +787,38 @@ def _targets_suffix(s: Selector, m: re.Match[str]) -> Selector:
 _SUFFIXES.insert(0, (re.compile(r" that targets (?P<w>(?!only\b).+)$"), _targets_suffix))
 
 
+# -- copy abilities (wave 19E) -- "target activated or triggered ability you control from an enchantment source" / "… from another
+# legendary source that's not a commander" (Weaver of Harmony, Peregrine Dynamo): the ability's source as it last existed
+# (608.2h; ``source_matches``), encoded as the extras "src:<selector key>" and "src_nc".
+_FROM_SOURCE = re.compile(r" from (?P<o>another )?(?:an? )?(?P<w>[a-z]+(?: [a-z]+)*?) source(?P<nc> that's not a commander)?$")
+
+
+def _from_source_suffix(s: Selector, m: re.Match[str]) -> Selector:
+    if " or " in m["w"]:
+        raise ValueError("unread source condition")  # ("an artifact or enchantment source": a union, not read)
+    sub = next((x for w in (m["w"], m["w"] + " permanent") if (x := parse(("another " if m["o"] else "") + w)) is not None
+                and x.zones == ("battlefield",) and x.player is None and not x.extras and x.ability is None and not x.card), None)
+    if sub is None:
+        raise ValueError("unread source condition")
+    return replace(s, extras=(*s.extras, f"src:{sub.key()}", *(("src_nc",) if m["nc"] else ())))
+
+
+_SUFFIXES.insert(0, (_FROM_SOURCE, _from_source_suffix))
+
+
+def source_matches(plan: Plan, card: CardInstance, extra: str, you: str, source: str | None) -> bool:
+    """Is the source of this ability on the stack what the "src:" / "src_nc" extra names (as it last existed)?"""
+    from app.rules import triggers  # (triggers imports this module)
+
+    entry = plan.rules.stack.get(card.id) if plan.rules is not None else None
+    then = triggers._object_then(plan, entry.source_card, entry.source_object) if entry is not None else None
+    if then is None:
+        return False
+    if extra == "src_nc":
+        return then[0].commander_key is None
+    return matches(plan, from_key(extra[4:]), then[0], then[1], you, source)
+
+
 def targets_match(plan: Plan, card: CardInstance, extra: str, you: str, source: str | None) -> bool:
     """Does this spell or ability on the stack target what the "targets:" extra names?"""
     entry = plan.rules.stack.get(card.id) if plan.rules is not None else None
@@ -827,7 +869,9 @@ def _outlaws(phrase: str) -> Selector | None:
     return replace(base, extras=(*base.extras, "subtype_any:" + OUTLAW_TYPES)) if base is not None else None
 
 
-_EITHER = re.compile(r"^(?P<head>[a-z]+(?:, [a-z]+)*),? or (?P<last>[a-z]+ (?:with|without) .+)$")
+_EITHER = re.compile(r"^(?P<head>[a-z]+(?:, [a-z]+)*),? or (?P<last>[a-z]+ (?:with|without) .+)$"
+                     # -- target forms (wave 19E) -- "noncreature artifact or noncreature enchantment": each kind has its own qualifier
+                     r"|^(?P<head2>non[a-z]+ [a-z]+) or (?P<last2>non[a-z]+ [a-z]+)$")
 
 
 def parse_either(phrase: str) -> Selector | None:
@@ -836,7 +880,7 @@ def parse_either(phrase: str) -> Selector | None:
     m = _EITHER.match(phrase.strip())
     if m is None:
         return None
-    a, b = _parse(m["head"]), _parse(m["last"])
+    a, b = _parse(m["head"] or m["head2"]), _parse(m["last"] or m["last2"])
     if a is None or b is None or a.player or b.player or a.zones != ("battlefield",) or b.zones != ("battlefield",):
         return None
     return Selector(either=(a.key(), b.key()))
@@ -1132,6 +1176,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if "single_target" in sel.extras and (zone != "stack" or not single_target(plan, card)):  # (wave 5B)
         return False
+    if any(x.startswith("src") and (zone != "stack" or card.ability is None or not source_matches(plan, card, x, you, source))
+           for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
+        return False
     for extra in sel.extras:  # (wave 5B) "… that targets you or a creature you control"
         if extra.startswith("targets:") and (zone != "stack" or not targets_match(plan, card, extra, you, source)):
             return False
@@ -1255,6 +1302,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             vals = [v for v in (_stat(ch, "power"), _stat(ch, "toughness")) if v is not None]
             if not any(v <= n if op == "<=" else v >= n for v in vals):
                 return False
+        if extra.startswith("pts:"):  # -- put from hand (wave 19E) -- the power and toughness added (a * is no number: no match)
+            pw, tg = _stat(ch, "power"), _stat(ch, "toughness")
+            if pw is None or tg is None or not (pw + tg <= int(extra[6:]) if extra[4:6] == "<=" else pw + tg >= int(extra[6:])):
+                return False
         if extra.startswith("counter:") and not _has_counter(card, extra[8:]):  # (wave 5H: any kind, "*")
             return False
         if extra.startswith("nocounter:") and _has_counter(card, extra[10:]):  # -- counters (wave 5H) --
@@ -1281,10 +1332,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "drawn_this_turn" and not drawn_now(plan, card):  # -- drawn this turn (wave 18G) --
             return False
-        if extra in ("was_dealt_damage", "dealt_damage", "dealt_damage_you"):  # -- damage history (wave 6B) --
+        if extra in ("was_dealt_damage", "dealt_damage", "dealt_damage_you", "dealt_damage_by_source"):  # -- damage history (wave 6B) --
             from app.rules import damage_history
 
-            if not damage_history.matches(plan, card, extra, you):
+            if not damage_history.matches(plan, card, extra, you, source):
                 return False
         if extra in ("blocking_source", "blocked_by_source"):  # -- damage wordings (wave 6B) -- the source's block now
             src = plan.state.cards.get(source or "")

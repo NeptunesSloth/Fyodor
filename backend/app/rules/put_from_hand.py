@@ -27,26 +27,42 @@ if TYPE_CHECKING:
 Context = dict[str, Any]
 
 _PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Planeswalker", "Battle"})
-PATTERN = r"put (?:a|an) (?P<what>[^.]+?) card from your hand onto the battlefield(?P<tapped> tapped(?P<atk> and attacking)?)?"
+PATTERN = (r"put (?:a|an) (?P<what>[^.]+?) card(?P<q> with total power and toughness \d+ or (?:less|greater))? from your hand "
+           r"onto the battlefield(?P<tapped> tapped(?P<atk> and attacking)?)?")
+
+
+def _selector(what: str, q: str) -> Any:
+    from app.rules import selectors
+
+    sel = selectors.parse(f"{what} card{q} from your hand")
+    if sel is None or sel.zones != ("hand",) or sel.zone_owner != "you" or sel.player is not None or sel.either \
+            or any(x not in ("historic", "all_types") and not x.startswith("pts:") for x in sel.extras):  # (-- put from hand (wave 19E) -- historic: 700.6; "artifact creature")
+        return None
+    if not sel.types and not sel.subtypes:
+        return None  # ("a card": an instant or sorcery can't be put onto the battlefield)
+    return None if sel.types and not set(sel.types) <= _PERMANENT_TYPES else sel
 
 
 def parse(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     """The effect, or None (manual) when the card it names could be something that can't enter the battlefield."""
-    from app.rules import selectors
-
-    sel = selectors.parse(f"{m['what']} card from your hand")
-    if sel is None or sel.zones != ("hand",) or sel.zone_owner != "you" or sel.player is not None or sel.extras:
+    # -- put from hand (wave 19E) -- "a red creature card or an artifact creature card" (Purphoros): either kind
+    sels = [_selector(w, m["q"] or "") for w in re.split(r" card or (?:an? )?", m["what"])]
+    if None in sels:
         return None
-    if not sel.types and not sel.subtypes:
-        return None  # ("a card": an instant or sorcery can't be put onto the battlefield)
-    if sel.types and not set(sel.types) <= _PERMANENT_TYPES:
-        return None
-    effect: dict[str, Any] = {"do": "put_from_hand", "sel": sel.key(), "label": m["what"]}
+    effect: dict[str, Any] = {"do": "put_from_hand", "sel": sels[0].key(), "label": m["what"]}
+    if len(sels) > 1:
+        effect["alt"] = [x.key() for x in sels[1:]]
     if m["tapped"]:
         effect["tapped"] = True
     if m["atk"]:  # -- trigger tail (wave 15B) -- 508.4: its controller chooses whom it attacks (looking.attack_with_entered)
         effect["attacking"] = True
     return [effect], None
+
+
+def _matches(plan: Plan, e: dict[str, Any], card: Any, ch: Any, pid: str, source: str | None) -> bool:
+    from app.rules import selectors
+
+    return any(selectors.matches(plan, selectors.from_key(k), card, ch, pid, source) for k in (e["sel"], *e.get("alt", ())))
 
 
 def put_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -55,8 +71,10 @@ def put_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.plan import decide
 
     pid = ctx["controller"]
-    options = [c for c in selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card"))
+    options = [c for k in (e["sel"], *e.get("alt", ()))
+               for c in selectors.candidates(plan, selectors.from_key(k), pid, ctx.get("source_card"))
                if plan.state.cards[c].zone == f"{pid}:hand" and _permanent_card(plan, c)]
+    options = list(dict.fromkeys(options))
     if not options:
         effects._remember(plan, ctx, e, [])
         return True  # (nothing is announced: the hand is hidden)
@@ -78,17 +96,16 @@ def _permanent_card(plan: Plan, cid: str) -> bool:
 
 def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.game.errors import ActionError
-    from app.rules import attachments, effects, selectors
+    from app.rules import attachments, effects
     from app.rules import characteristics as chars
 
     ctx, e = d.resume["ctx"], d.resume["e"]
     pid = ctx["controller"]
-    sel = selectors.from_key(e["sel"])
     cards = []
     for cid in chosen[:1]:
         card = plan.state.cards.get(cid)
         if card is None or card.zone != f"{pid}:hand" or not _permanent_card(plan, cid) \
-                or not selectors.matches(plan, sel, card, chars.of(card, plan.info), pid, ctx.get("source_card")):
+                or not _matches(plan, e, card, chars.of(card, plan.info), pid, ctx.get("source_card")):
             raise ActionError("Choose a matching card from your hand")
         cards.append(cid)
     before = effects._remember(plan, ctx, e, cards)

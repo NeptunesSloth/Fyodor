@@ -809,6 +809,17 @@ def _resolution(m: re.Match[str]) -> Condition:
     return {"history": "resolution", "n": ["first", "second", "third", "fourth", "fifth"].index(m["nth"]) + 1}
 
 
+@_history_pattern(r"this ability has been activated (?P<n>\w+) or more times this turn")
+def _activations(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])  # -- activations (wave 19E) -- Dragon Whelp: counted as each is activated (ability_uses), read as it resolves
+    return None if n is None else {"history": "activations", "n": n}
+
+
+@_history_pattern(r"a spell was warped this turn")
+def _warped(m: re.Match[str]) -> Condition:
+    return {"history": "warped"}  # -- void (wave 19E) -- 702.185a: cast for its warp cost
+
+
 @_history_pattern(r"you(?:'ve| have)? played a land this turn")
 def _played_land(m: re.Match[str]) -> Condition:
     return {"history": "lands", "n": 1}  # 305.1 / 701.18a: played, not put onto the battlefield

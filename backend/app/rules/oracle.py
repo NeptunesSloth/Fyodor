@@ -74,6 +74,7 @@ class AbilityText:
     cost: str | None = None  # for activated/loyalty abilities: the text before the colon
     intrinsic: bool = False  # granted by a basic land type rather than printed
     section: int = 1  # -- Class (wave 16A) -- 716.2a: the class level whose "as long as this Class is level N or greater" it is under
+    special: str | None = None  # -- mana for special abilities (wave 19E) -- "equip": an equip ability (702.6); a "Power-up — " line reads as "power_up"
 
 
 def strip_reminders(text: str) -> str:

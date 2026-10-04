@@ -356,6 +356,31 @@ def exchange_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return replace.gain_life(plan, [(low, diff)], actor=ctx["controller"], then=_then(ctx, e), ctx=ctx)
 
 
+def exchange_life_stat(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- exchange (wave 19E) -- 701.12g: "Exchange your life total with this creature's toughness." (Tree of Redemption, Evra): the
+    player gains or loses what it takes to equal the stat (replacements and triggers apply, as in set_life) and a continuous effect
+    (613.4b, layer 7b) with no duration sets the creature's stat to the life total it had. 701.12a: if the whole exchange can't be done
+    (the creature is gone, 119.7: a player who can't gain life can't be given a higher total) none of it is."""
+    from app.rules import cant_gain
+
+    players = _players(plan, ctx, e["who"])
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    if len(players) != 1 or card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != ctx.get("source_object"):
+        return True
+    pt = plan.ch(card).pt
+    if pt is None:
+        return True
+    power = e["stat"] == "power"
+    value, life = pt[0 if power else 1], plan.state.players[players[0]].life
+    if value > life and (why := cant_gain.why_not(plan, players[0])) is not None:
+        plan.note(f"{why}: nothing is exchanged", actor=ctx["controller"])
+        return True
+    layers.add_effect(plan, affected=[plan.oid(card)], layer="7b", source=ctx.get("source_object"), controller=ctx["controller"],
+                      power=life if power else None, toughness=None if power else life, duration="permanent",
+                      label=f"{e['stat'].capitalize()} {life}")
+    return set_life(plan, ctx, {"who": e["who"], "n": value})
+
+
 class _Source:
     """What deals damage: the spell or ability's source, or a creature the text names ("target
     creature you control deals damage equal to its power to …", a fight). ``keywords`` and ``ch``
@@ -716,7 +741,8 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 # (the table marker's value is at most 20 characters: app/game/actions.py AddEffect.value)
 RESTRICTION_LABELS = {"cant_block": "Can't block", "cant_attack": "Can't attack", "cant_attack_or_block": "Can't attack/block",
-                      "cant_be_blocked": "Can't be blocked", "must_attack": "Attacks if able"}
+                      "cant_be_blocked": "Can't be blocked", "must_attack": "Attacks if able",
+                      "assign_none": "Assigns no combat damage"}
 
 
 _GROUPS = {"each_creature": selectors.Selector(types=("Creature",)).key(),
@@ -1014,6 +1040,14 @@ def regenerate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for cid in cards:
         regeneration.add_shield(plan, cid)
         _mark(plan, [cid], "Regeneration shield")
+    return True
+
+
+def no_regen_turn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- can't regenerate (wave 19E) -- "Target creature can't be regenerated this turn." (701.19c: shields aren't applied to it)."""
+    for cid in _cards(plan, ctx, e["who"]):
+        if not e.get("types") or set(e["types"]) & plan.ch(plan.state.cards[cid]).types:
+            plan.rules.no_regen.append(plan.oid(cid))
     return True
 
 
@@ -2113,7 +2147,7 @@ PRIMITIVES = {
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
-    "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
+    "discard": discard, "regenerate": regenerate, "no_regen": no_regen, "no_regen_turn": no_regen_turn,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
     "sacrifice": sacrifice, "ascend": ascend, "explore": explore, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,
@@ -3731,6 +3765,7 @@ from app.rules import bounce_forms as _bounce_forms  # noqa: E402
 
 PRIMITIVES.update(_bounce_forms.PRIMITIVES)  # "return target A and target B to their owners' hands" (one move)
 PRIMITIVES["exchange_life"] = exchange_life
+PRIMITIVES["exchange_life_stat"] = exchange_life_stat
 PRIMITIVES["set_life"] = set_life  # (wave 16C)  # -- activated wordings (wave 15D) --
 PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
 PRIMITIVES.update(graveyard_grants.PRIMITIVES)  # "gains flashback until end of turn" (app/rules/graveyard_grants.py)

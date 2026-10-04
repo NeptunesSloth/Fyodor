@@ -57,7 +57,6 @@ def test_selectors(phrase, fields):
 
 
 @pytest.mark.parametrize("phrase", [
-    "activated ability from an artifact source",  # (the source's qualities aren't read)
     "activated or triggered ability from your graveyard", "artifact creature or Vehicle",
 ])
 def test_refused_selectors(phrase):

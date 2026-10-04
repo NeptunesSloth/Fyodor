@@ -1447,6 +1447,11 @@ def _no_regeneration(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
     return [{"do": "no_regen"}], None  # the destruction of this spell/ability ignores regeneration shields
 
 
+@effect(r"(?P<sel>{SEL}) can't be regenerated this turn")  # -- can't regenerate (wave 19E) -- 701.19c
+def _no_regeneration_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "no_regen_turn", "who": "target"}], SELECTORS[m["sel"]]
+
+
 @effect(r"regenerate (?P<who>~|it|target creature|target creature you control|enchanted creature|equipped creature)")
 def _regenerate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if m["who"] in ("enchanted creature", "equipped creature"):  # -- attached events (wave 4L) -- (701.19a)
@@ -3411,6 +3416,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             # -- X sized by a count (wave 19F) -- "Sacrifice another creature: Draw X cards, where X is that creature's power.": the only
             # object the cost names (as it last existed, 608.2h), read as "the sacrificed creature's power"
             body = re.sub(r"\bthat (creature|permanent|artifact|enchantment|land)'s (?=power|toughness|mana value)", r"the sacrificed \1's ", body)
+        # -- activated sweep (wave 19E) -- "This creature gets +2/+0 and gains indestructible until end of turn. Tap it.": the only
+        # object the ability names is the source, so "it" is that creature
+        body = re.sub(r"^(\s*~ (?:gets|gains) [^.\"]+\.) Tap it\.$", r"\1 Tap ~.", body)
         parsed = _own_choice(parse_effects(body, "self_gone" if gone else own))  # (_own_choice: wave 3R5)
         if parsed is None or parsed[2]:
             return None
@@ -3844,7 +3852,7 @@ _UNLESS_OPPONENTS = re.compile(r"^you have (?P<n>\w+) or more opponents$")
 # The object's own "instead": "If ~ would die, exile it instead." / "… be put into a graveyard from anywhere …"
 EXILE_INSTEAD_SELF = re.compile(r"^If ~ would (?P<what>die|be put into a graveyard from anywhere), exile it instead\.$")
 # Statics: "If a creature an opponent controls would die, exile it instead." / Rest in Peace / Leyline of the Void
-EXILE_INSTEAD_STATIC = re.compile(r"^If (?P<subject>a card or token|a card|(?:a|an) (?P<sel>[a-z][a-z' ]+?)) would "
+EXILE_INSTEAD_STATIC = re.compile(r"^If (?P<subject>a card or token|a card|(?:a|an) (?P<sel>[a-z][a-z' ~]+?)) would "
                                   r"(?P<what>die|be put into (?P<whose>a|your|an opponent's) graveyard from anywhere), "
                                   r"exile (?:it|that card) instead\.$")
 # Prevention: "Prevent all [combat] damage that would be dealt [this turn] [to …] [by …] [this turn]."
@@ -4271,6 +4279,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 # replacements.replace_move with the other "exile instead" effects (700.4: dies = put into a
 # graveyard from the battlefield). Read by the hook in _parse_effects (before its "If …," condition).
 _DIES_THIS_TURN = re.compile(r"^if (?P<det>that|a|an) (?P<what>.+?) would die this turn, exile it instead$")
+_CREATURE_NO_REGEN_EXILE = re.compile(r"^if it's a creature, it can't be regenerated this turn, and if it would die this turn, exile it instead$")
 _DIES_THAT = {"creature": ["Creature"], "permanent": [], "creature or planeswalker": ["Creature", "Planeswalker"],
               "planeswalker": ["Planeswalker"]}
 _DIES_DEALT = re.compile(r"(?P<what>creature|permanent|creature or planeswalker) dealt damage this way")
@@ -4308,6 +4317,14 @@ def _turn_record(text: str) -> list[dict[str, Any]] | None:
 
 def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
     """A sentence that sets up a replacement effect for the rest of the turn, or None."""
+    if _CREATURE_NO_REGEN_EXILE.match(text):  # -- can't regenerate (wave 19E) -- "If it's a creature, it can't be regenerated this turn, …"
+        refs = {e["who"] for e in effects if isinstance(e.get("who"), str) and _group_of(e) is not None}
+        found = [w for w in refs if (g := _group_of({"who": w})) is not None and g < len(groups)
+                 and _player_target(groups[g].get("what") or "") is not True]
+        if len(found) != 1 or len(refs) != 1:
+            return None  # (Disintegrate, Carbonize: the one target, "any target" or an object)
+        return [{"do": "no_regen_turn", "who": found[0], "types": ["Creature"]},
+                {"do": "exile_if_dies", "who": found[0], "types": ["Creature"]}]
     m = _DIES_THIS_TURN.match(text)
     if m is None:
         return _turn_record(text)
@@ -4965,7 +4982,7 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 # is still legal is acted on). An object named any other way ("exile it": the card may have left where it
 # was) might not be there: "If you do" would then be false, which this reading can't tell.
 _CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token"})
-_CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce"})
+_CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce", "gain_control"})  # (wave 19E: gain control of a chosen target: it changes hands or the ability fizzles)
 _PROBED = frozenset({"draw", "exile", "bounce", "add_counters"})  # (their "If you do" reads the result: effects._did)
 
 
@@ -5413,7 +5430,8 @@ def _for_each_of_them_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]
 
 
 @_first
-@effect(r"(?P<may>you may )?put (?:a|an) [^.]+? card from your hand onto the battlefield(?: tapped(?: and attacking)?)?")
+@effect(r"(?P<may>you may )?put (?:a|an) [^.]+? card(?: with total power and toughness \d+ or (?:less|greater))? from your hand "
+        r"onto the battlefield(?: tapped(?: and attacking)?)?")
 def _put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     """"You may put an Equipment card from your hand onto the battlefield." (Stoneforge Mystic): app/rules/put_from_hand.py.
     "You may" after another instruction ("Draw a card. You may put a land card …"): choosing no card."""

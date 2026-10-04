@@ -101,6 +101,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         return creatures_died(plan, controller=me if cond.get("who") == "you" else None, last=bool(cond.get("last"))) >= n
     if kind == "left":
         return sum(1 for d in log.left if cond.get("who") != "you" or d.controller == me) >= n
+    if kind == "warped":  # -- void (wave 19E) -- "a spell was warped this turn": cast for its warp cost (702.185a), by anyone
+        return any(c.alt == "warp" for c in log.casts)
     if kind == "entered":  # -- refused modal/conditional (wave 3R1) --
         return entered(plan, ctx, cond, log) >= n
     if kind == "entered_self":
@@ -169,7 +171,8 @@ def note_cast(plan: Plan, card: Any) -> None:
     record = plan.rules.payments.get(plan.oid(card))
     log.casts.append(CastNote(player=card.controller, object_id=plan.oid(card), types=sorted(ch.types),
                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
-                              mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None))
+                              mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None,
+                              alt=record.alternative if record is not None else None))
 
 
 def _stack_mv(card: Any, ch: Any) -> int:
@@ -289,6 +292,18 @@ def note_resolution(plan: Plan, key: str) -> int:
         return 0
     log.resolved[key] = log.resolved.get(key, 0) + 1
     return log.resolved[key]
+
+
+def counting_activations(effects: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
+    """-- activations (wave 19E) -- "If this ability has been activated four or more times this turn": the ability's own count
+    (``RulesState.ability_uses``, recorded as each activation is made, 602.2) is named in the condition, as the object and ability
+    index it is; a copy of the ability is no activation."""
+    import json
+
+    text = json.dumps(effects)
+    if '"history": "activations"' not in text:
+        return effects
+    return json.loads(text.replace('"history": "activations"', f'"history": "activations", "key": "{key}"'))
 
 
 def counting_resolutions(effects: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
@@ -477,6 +492,8 @@ _WAVE_4D: dict[str, Any] = {
     "departed": _departed,
     "lands": lambda plan, ctx, cond, log: plan.rules.lands_this_turn(ctx["controller"], plan.state.turn.number) >= int(cond.get("n", 1)),
     "resolution": lambda plan, ctx, cond, log: resolution_holds(ctx, cond),
+    "activations": lambda plan, ctx, cond, log: bool(cond.get("key")) and plan.rules.ability_uses.get(
+        f"{cond['key']}:t{plan.state.turn.number}", 0) >= int(cond["n"]),
     "self_attacked": lambda plan, ctx, cond, log: _source_object(plan, ctx) in {a for v in log.attackers.values() for a in v},
     "graveyard_cards": lambda plan, ctx, cond, log: _graveyard_cards(plan, ctx, cond, log),
 }

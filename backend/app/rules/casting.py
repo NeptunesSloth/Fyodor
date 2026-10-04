@@ -8,6 +8,7 @@ tap lands yourself first (``activate_ability`` on their mana ability) to pay a p
 
 from __future__ import annotations
 
+import json
 import re
 import secrets
 from dataclasses import dataclass, replace
@@ -137,8 +138,9 @@ def _with_chosen_type(spend: str, creature_type: str) -> str:
 # -- end refused copy/mana (wave 3R3) --
 
 
-def _land_mana(state: GameState, players: list[str], info: CardInfo, *, skip: str) -> set[str]:
-    """Types of mana lands these players control could produce (Reflecting Pool, Exotic Orchard)."""
+def _land_mana(state: GameState, players: list[str], info: CardInfo, *, skip: str, only: str = "land") -> set[str]:
+    """Types of mana lands these players control could produce (Reflecting Pool, Exotic Orchard); ``only``: "basic" lands or
+    "Gate" lands (-- mana (wave 19E) -- Star Compass, Gond Gate)."""
     out: set[str] = set()
     from app.rules import (
         mana_replace,  # -- mana replacements (wave 9C) -- 106.7: replacement effects change what lands produce
@@ -152,12 +154,12 @@ def _land_mana(state: GameState, players: list[str], info: CardInfo, *, skip: st
                 continue
             card = state.cards[cid]
             ch = chars.of(card, info)
-            if not ch.is_land:
+            if not ch.is_land or (only == "basic" and "Basic" not in ch.supertypes) or (only == "Gate" and "Gate" not in ch.subtypes):
                 continue
             for ab in ch.abilities:
                 if ab.kind != "mana":
                     continue
-                parsed = M.parse_mana_ability(ab.text)
+                parsed = M.parse_mana_ability(ab.text, commander_identity(state, p, info))  # (wave 19E: Command Tower: its controller's identity)
                 if parsed is None:
                     continue
                 for opt in parsed.options:
@@ -234,6 +236,10 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
             out.append(tuple(color if m == "CHOSEN" else m for m in opt))
         elif opt == ("LANDS",):
             out += [(m,) for m in M.ALL_MANA if m in _land_mana(state, [card.controller], info, skip=card.id)]
+        elif opt[0].startswith("LANDS:"):  # -- mana (wave 19E) -- any color / type a (basic / Gate) land you control could produce
+            _, kind, only = opt[0].split(":")
+            produced = _land_mana(state, [card.controller], info, skip=card.id, only=only)
+            out += [(m,) for m in (M.ALL_MANA if kind == "type" else M.COLORS) if m in produced]
         elif opt == ("LANDS_OPP",):
             opponents = [p for p in state.seat_order if p != card.controller]
             out += [(m,) for m in M.COLORS if m in _land_mana(state, opponents, info, skip=card.id)]
@@ -428,6 +434,8 @@ def spend_allowed(kind: str | None, purpose: Purpose | None) -> bool:
         spec = json.loads(kind[2:])
         if spec.get("cost_x"):  # -- mana provenance (wave 18B) -- "only on costs that contain {X}"
             return purpose.cost_x
+        if purpose.special and purpose.special in (spec.get("special") or ()):  # -- mana for special abilities (wave 19E) --
+            return True
         side, ch = ("cast", spell) if spell is not None else ("ability", source)
         allowed = spec.get(side)
         if ch is None or allowed is None or any(a.get("chosen") for a in allowed if isinstance(allowed, list)):
@@ -849,6 +857,9 @@ class Purpose:
     own: bool = True
     # -- mana provenance (wave 18B) -- the cost being paid contains {X} ("Spend this mana only on costs that contain {X}", Rosheen Meanderer)
     cost_x: bool = False
+    # -- mana for special abilities (wave 19E) -- what else the mana pays for: "equip", "power_up" (an ability of that kind: ``ability_of``
+    # is its source), "turn_up" (the cost to turn a permanent face up, 116.2b), "foretell" (116.2h)
+    special: str | None = None
 
 
 def _solve_with_filters(cost: M.ManaCost, pool: dict[str, int], plain: list[M.Source], filters: list[M.Source],
@@ -1645,12 +1656,12 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
         cost = M.parse_cost(cost_text)
         if payment_mode(plan, plan.actor) == "self":  # (review 18B: a special action, 116.2b: Purpose() — mana only for abilities or spells can't pay it)
             pay_from_pool(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up",
-                          purpose=Purpose())
+                          purpose=Purpose(special="turn_up"))
         else:
-            if not can_pay(plan.state, plan.actor, cost, plan.info, purpose=Purpose()):
+            if not can_pay(plan.state, plan.actor, cost, plan.info, purpose=Purpose(special="turn_up")):
                 raise ActionError(f"Not enough mana to pay {cost.text()}")
             pay(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up", sources=a.sources,
-                purpose=Purpose())
+                purpose=Purpose(special="turn_up"))
     plan.do({"type": "face_down", "card_ids": [card.id], "face_down": False})
     turned_up(plan, card)
     plan.rules.passed = []
@@ -2572,9 +2583,10 @@ def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateA
     if plan.state.turn.active_player != plan.actor:
         raise ActionError("You can foretell a card only during your turn (702.143a)")
     cost = M.parse_cost("{2}")
-    if payment_step(plan, a, cost, f"foretelling {ch.name}", purpose=Purpose(spell=ch)):
+    if payment_step(plan, a, cost, f"foretelling {ch.name}", purpose=Purpose(spell=ch, special="foretell")):
         return
-    pay(plan, plan.actor, cost, "paid {2} to foretell a card", sources=a.sources, purpose=Purpose(spell=ch))
+    pay(plan, plan.actor, cost, "paid {2} to foretell a card", sources=a.sources,
+        purpose=Purpose(spell=ch, special="foretell"))
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "foretell"}})
     plan.rules.foretold[card.id] = plan.state.turn.number
     plan.note(f"{plan.name(plan.actor)} foretells a card")
@@ -3244,9 +3256,15 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
                 helpers = len(cost_payment.candidates(Plan.view(state, player, info), comp, player, card))
                 mana = mana.plus_generic(-min(comp.amount, helpers))
         if not can_pay(state, player, mana, info, exclude=(card.id,) if cost.tap else (),
-                       purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana)):
+                       purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability))):
             return f"Not enough mana to pay {mana.text()}"
     return None
+
+
+def _special(ability: AbilityText) -> str | None:
+    """-- mana for special abilities (wave 19E) -- the kind of ability "Spend this mana only to activate an equip ability / power-up
+    abilities" asks about (702.6 equip; 702.193 power-up)."""
+    return ability.special or ("power_up" if ability.text.startswith("Power-up — ") else None)
 
 
 def equip_ability(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility,
@@ -3257,7 +3275,7 @@ def equip_ability(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Acti
     cost, target, tail = equip
     if "Equipment" not in ch.subtypes or ch.is_creature:
         raise ActionError(f"{ch.name} can't equip a creature" + (" while it's a creature" if ch.is_creature else ""))
-    ability = AbilityText(index=a.ability, kind="activated", cost=cost,
+    ability = AbilityText(index=a.ability, kind="activated", cost=cost, special="equip",
                           text=f"{cost}: Attach {ch.name} to target creature you control. Activate only as a sorcery."
                                + (f" {tail}" if tail else ""))
     definition = {"kind": "activated", "effects": [{"do": "attach_self"}], "target": {"what": target}}
@@ -3308,7 +3326,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
             mana = mana.plus_generic(-len(cost_objects.get(i, [])))
     not_mana = cost_payment.excluded(cost, card, cost_objects)  # (they can't also tap for mana)
     if payment_step(plan, a, mana.with_x(a.x_value or 0), f"{ch.name}’s ability",
-                    exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana)):
+                    exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability))):
         return
     effect = ability.text.split(":", 1)[1].strip() if ":" in ability.text else ability.text
     created = plan.do({"type": "create_ability", "text": effect[:500], "source_id": card.id, "kind": "activated"})
@@ -3325,7 +3343,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if cost.life:
         plan.do({"type": "life", "player": plan.actor, "delta": -cost.life})
     paid = pay(plan, plan.actor, mana.with_x(a.x_value or 0), f"paid {mana.with_x(a.x_value or 0).text()} to activate {ch.name}",
-               sources=a.sources, exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana))
+               sources=a.sources, exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability)))
     record = PaymentRecord(card=ability_id or card.id, controller=plan.actor, total_cost=ability.cost or "",
                            mana_spent=dict(paid.spent) if paid else {}, life=cost.life + (paid.life if paid else 0),
                            tapped=list(paid.tapped) if paid else [], x=a.x_value)
@@ -3345,7 +3363,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
                                          name=ch.name, x=a.x_value, **picked_targets.entry(definition),
                                          # -- this-turn history (wave 4D) -- "the second time this ability has resolved"
-                                         effects=history.counting_resolutions(list(definition["effects"]), f"{oid}:{a.ability}"))
+                                         effects=history.counting_activations(history.counting_resolutions(list(definition["effects"]), f"{oid}:{a.ability}"),
+                                                                f"{oid}:{a.ability}"))
     if chosen and ability_id:
         from app.rules.triggers import targeted
 
@@ -3358,8 +3377,9 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         if r.loyalty_used.get(oid) == plan.state.turn.number:
             r.loyalty_second[oid] = plan.state.turn.number  # -- static_other sweep (wave 19A) -- the second use (Oath of Teferi)
         r.loyalty_used[oid] = plan.state.turn.number
-    if restrictions.limited(restrictions.parse(_own_text(ability.text, ch.name)) or []):  # "Activate only once each turn" / "… only once"
-        restrictions.record_use(r, oid, ability.index, plan.state.turn.number)
+    if restrictions.limited(restrictions.parse(_own_text(ability.text, ch.name)) or []) or (  # "Activate only once each turn" / "… only once"
+            definition is not None and '"history": "activations"' in json.dumps(definition["effects"])):
+        restrictions.record_use(r, oid, ability.index, plan.state.turn.number)  # (wave 19E: also for "activated N or more times this turn")
     r.passed = []
     r.priority = plan.actor
     if r.prefs_for(plan.actor).hold_priority:

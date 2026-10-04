@@ -503,10 +503,10 @@ _SEARCHERS = {**{k: v for k, v in PLAYER_GROUPS.items() if k in ("its controller
               # per player, in turn order, 101.4)
               "each opponent": "each_opponent", "each other player": "each_opponent", "each player": "each_player"}
 _SEARCH = re.compile(
-    rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) may )?"
-    rf"search (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"
+    rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) (?:may |(?=searches ))?)?"  # (wave 19E: "searches")
+    rf"searche?s? (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"
     rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, ))?"
-    rf"(?:put (?:(?P<one>one) (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE}))(?P<shuf>, then shuffle)?"
+    rf"(?:puts? (?:(?P<one>one) (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE}))(?P<shuf>, then shuffles?)?"
     rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
     rf"|then shuffle and put {_PRON} on top(?: in any order)?)")  # ("in any order": wave 3R4)
 _DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
@@ -608,6 +608,9 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         return None
     if (m["who"] is None) != (m["lib"] == "your"):
         raise _Fail  # ("their library" is a named player's; "your library" is the one who controls the effect's)
+    forced = " searches " in text  # -- search (wave 19E) -- "Each player searches their library …, puts it …, then shuffles." (no "may")
+    if forced and (m["exile"] or " put " in text or text.count(" shuffle") != text.count(" shuffles")):
+        raise _Fail
     extra: dict[str, Any] = {}
     sel_text = m["sel"]
     # -- refused zones/sized (wave 3R4) -- "up to three Aura cards with different names": the cards found must
@@ -682,7 +685,7 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         extra["shuffle"] = False  # (only when the text says so: 701.23e)
     return [{"do": "search", "who": _SEARCHERS[m["who"]] if m["who"] else "you", "label": m["sel"], "max": n,
              "to": to, "reveal": bool(m["reveal"]), "upto": bool(m["upto"]) or anything,
-             **({"face_down": True} if m["fd"] else {}), **({"may": True} if m["who"] else {}), **extra}], None
+             **({"face_down": True} if m["fd"] else {}), **({"may": True} if m["who"] and not forced else {}), **extra}], None
 
 
 # -- refused zones/sized (wave 3R4) -- "Search your library and/or graveyard for a card named …, reveal it, and
@@ -1205,6 +1208,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = re.fullmatch(r"exchange life totals with (?P<o>target opponent|target player)", text)
     if m and rider is None:
         return [{"do": "exchange_life", "who": "you", "with": "target"}], _one(target_group(m["o"]))
+    # -- exchange (wave 19E) -- 701.12g: "Exchange target opponent's life total with this creature's toughness." (Tree of Perdition)
+    m = re.fullmatch(r"exchange (?P<s>your|target opponent's) life total with (?:~|this creature)'s (?P<stat>power|toughness)", text)
+    if m and rider is None:
+        if m["s"] == "your":
+            return [{"do": "exchange_life_stat", "who": "you", "stat": m["stat"]}], None
+        return [{"do": "exchange_life_stat", "who": "target", "stat": m["stat"]}], _one(target_group("target opponent"))
     m = re.fullmatch(r"(?P<o>two target players) exchange life totals", text)
     if m and rider is None:
         return [{"do": "exchange_life", "who": "target"}], _one(target_group(m["o"]))
@@ -1444,6 +1453,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], _one(group)
+    # -- no combat damage (wave 19E) -- "If you do, this creature assigns no combat damage this turn." (510.1a: it assigns 0; read by
+    # combat._assigns; a rule-modifying effect, not prevention: lifelink, deathtouch and damage replacements see no damage at all)
+    m = re.fullmatch(r"(?P<o>~|it|this creature|that creature|target creature) assigns no combat damage this turn", text)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": ["assign_none"]}], _one(group)
     # -- multiple blocks (wave 13B) -- "Target creature can block any number of creatures this turn." (509.1a: block_extra)
     m = re.fullmatch(r"(?P<o>.+?) (?P<r>can block (?:an additional creature|an additional \w+ creatures|up to \w+ additional creatures"
                      r"|any number of creatures)) this turn", text)
@@ -2420,6 +2437,13 @@ def _with_list(text: str, out: dict[str, Any]) -> None:
         else:
             out["p"], out["t"] = int(m["p"]), int(m["t"])
         rest = rest[: m.start()]
+    # -- become (wave 19E) -- "with base power and toughness 8/8, flying, and first strike" (Figure of Destiny): the setting first
+    m = re.match(r"base power and toughness (?P<p>\d+)/(?P<t>\d+)(?:,? and |, )(?P<rest>.+)$", rest) if m is None else None
+    if m:
+        if out.get("p") is not None:
+            raise _Fail
+        out["p"], out["t"] = int(m["p"]), int(m["t"])
+        rest = m["rest"]
     if re.search(r"(?:^|,? and |, )all creature types$", rest):
         out["all_creature_types"] = True
         rest = re.sub(r"(?:,? and |, )?all creature types$", "", rest)
@@ -2545,9 +2569,12 @@ def _become(text: str) -> tuple[Effects, Any]:
         e["duration"] = "permanent"  # 611.2a
     out: Effects = [e]
     if m["gain"]:
-        if e["duration"] != "end_of_turn":
+        if e["duration"] == "permanent":  # -- become (wave 19E) -- "… becomes a 3/2 Human Faerie Rogue and gains double strike." (Kellan): the same effect
+            e["keywords"] = [*e.get("keywords", []), *_animation_keywords(m["gain"])]
+        elif e["duration"] != "end_of_turn":
             raise _Fail
-        out.append({"do": "grant", "who": who, "keywords": _animation_keywords(m["gain"])})
+        else:
+            out.append({"do": "grant", "who": who, "keywords": _animation_keywords(m["gain"])})
     if m["cbb"]:  # -- animation keywords (wave 7E) -- "… artifact creature until end of turn and can't be blocked this turn"
         if not m["trail"] and not m["lead"]:
             raise _Fail
