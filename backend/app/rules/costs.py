@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
 from app.rules import selectors
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 _MANA_ONLY = re.compile(r"^(\{(?:\d+|[WUBRGCXS]|[WUBRG2]/[WUBRGP]|[WUBRG]/[WUBRG]/P)\})+$")
 _SELF = r"(?:this \w+|it|~)"
 _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it|~|(?P<name>.+))$")
-_GRANTER_COST = re.compile(rf"^(?P<verb>Sacrifice|Unattach) (?P<g>{selectors.GRANTER})$")  # (wave 18F) the object a quoted grant came from
+_GRANTER_COST = re.compile(rf"^(?P<verb>Sacrifice|Unattach|Tap) (?P<g>{selectors.GRANTER})$")  # (wave 18F) the object a quoted grant came from
 _LIFE = re.compile(r"^Pay (?P<n>\d+) life$")
 _ENERGY = re.compile(r"^Pay (?:(?P<symbols>(?:\{E\})+)|(?P<n>\w+) \{E\})$")
 _REMOVE = re.compile(
@@ -188,10 +188,6 @@ def _n(word: str) -> int:
 
 def _selector(phrase: str, *, zone: str, other: bool = False) -> str | None:
     """The selector key for a cost's noun phrase, or None if it isn't a plain one we understand."""
-    from dataclasses import replace
-
-    from app.rules import selectors
-
     if phrase in ("token", "tokens"):
         phrase = "token permanent"
     sel = selectors.parse(phrase)
@@ -223,8 +219,11 @@ def _component(part: str, card_name: str) -> CostComponent | None:
     if _MANA_ONLY.match(part):
         return CostComponent(MANA, text=part)
     if m := _GRANTER_COST.match(part):  # -- granted from object (wave 18F) -- paid with that object (601.2h): the one choice, made for you
-        key = selectors.parse(m["g"]).key()  # type: ignore[union-attr]
-        return CostComponent(SACRIFICE if m["verb"] == "Sacrifice" else UNATTACH, selector=key, text=part)
+        sel = selectors.parse(m["g"])
+        assert sel is not None
+        if m["verb"] == "Tap":  # (an untapped one: 118.3)
+            return CostComponent(TAP_OTHER, selector=replace(sel, tapped=False).key(), text=part)
+        return CostComponent(SACRIFICE if m["verb"] == "Sacrifice" else UNATTACH, selector=sel.key(), text=part)
     if (m := _SAC_SELF.match(part)) and (not m.group("name") or m.group("name") == card_name):
         return CostComponent(SACRIFICE, text=part)
     if m := _LIFE.match(part):

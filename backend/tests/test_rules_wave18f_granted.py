@@ -25,6 +25,13 @@ EXTRA = [
     card("Heartseeker", set_code="tst", number="18F2", mana_cost="{4}", cmc=4.0, type_line="Artifact — Equipment",
          oracle_text='Equipped creature gets +2/+1 and has "{T}, Unattach Heartseeker: Destroy target creature."\n'
          'Equip {5} ({5}: Attach to target creature you control. Equip only as a sorcery.)'),
+    card("Spare Dagger", set_code="tst", number="18F3", mana_cost="{1}", cmc=1.0, type_line="Artifact — Equipment",
+         oracle_text='Equipped creature gets +1/+0 and has "Whenever this creature attacks, you may sacrifice Spare Dagger. When you do, '
+         'this creature deals 1 damage to any target."\nEquip {1}'),
+    card("Trusty Boomerang", set_code="tst", number="18F4", mana_cost="{1}", cmc=1.0, type_line="Artifact — Equipment",
+         oracle_text='Equipped creature has "{1}, {T}: Tap target creature. Return Trusty Boomerang to its owner\'s hand."\nEquip {1}'),
+    card("Fishing Pole", set_code="tst", number="18F5", mana_cost="{1}", cmc=1.0, type_line="Artifact — Equipment",
+         oracle_text='Equipped creature has "{1}, {T}, Tap Fishing Pole: Put a bait counter on Fishing Pole."\nEquip {1}'),
 ]
 
 
@@ -102,3 +109,43 @@ def test_a_tapped_creature_cannot_pay(cards):
     s.state.cards[bear.id].tapped = True
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=bear.id, ability=ability.index, targets=["p2"])
+
+
+def test_spare_dagger_is_sacrificed_by_the_granted_attack_trigger(cards):
+    from tests.test_rules_wave5c_combat import declare, to_attack, to_blocks
+
+    s, gear, bear = _equipped(cards, "Spare Dagger")
+    _attach(s, gear, bear)
+    to_attack(s)
+    declare(s, (bear, "p2"))
+    to_blocks(s)  # the granted trigger: "you may sacrifice Spare Dagger" - paid with the Dagger, not the creature
+    answer(s)
+    assert s.state.cards[gear.id].zone.endswith(":graveyard") and s.state.cards[bear.id].zone.endswith(":battlefield")
+    assert s.state.players["p2"].life < 40
+    roundtrip(s)
+
+
+def test_trusty_boomerang_returns_itself_not_the_creature(cards):
+    s, gear, bear = _equipped(cards, "Trusty Boomerang", p2=("Test Small",))
+    victim = put(s, "Test Small", "battlefield", "p2")
+    _attach(s, gear, bear)
+    ability = next(a for a in _derived(s, "Test Small").abilities if a.index >= 100 and a.kind == "activated")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=bear.id, ability=ability.index, targets=[victim.id])
+    answer(s)
+    assert s.state.cards[victim.id].tapped  # (a creature's {T} ability)
+    assert s.state.cards[gear.id].zone.endswith(":hand")  # 607.1a: the Boomerang, not the creature
+    assert s.state.cards[bear.id].zone.endswith(":battlefield")
+    roundtrip(s)
+
+
+def test_fishing_pole_taps_itself_and_gets_the_counter(cards):
+    s, gear, bear = _equipped(cards, "Fishing Pole")
+    _attach(s, gear, bear)
+    ability = next(a for a in _derived(s, "Test Small").abilities if a.index >= 100 and a.kind == "activated")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=bear.id, ability=ability.index)
+    assert s.state.cards[gear.id].tapped and s.state.cards[bear.id].tapped  # both tapped to pay
+    answer(s)
+    assert s.state.cards[gear.id].counters.get("bait") == 1 and not s.state.cards[bear.id].counters
+    roundtrip(s)

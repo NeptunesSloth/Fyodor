@@ -35,11 +35,10 @@ from typing import Any, Literal
 from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
 from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
-from app.rules import restrictions, this_way  # (this_way: wave 4A)
+from app.rules import restrictions, selectors, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
 from app.rules.costs import DISCARD, SACRIFICE, parse_ability_cost, spell_additional_cost
 from app.rules.oracle import AbilityText, parse_abilities, split_sentences, word_prefix
-from app.rules.selectors import GRANTER  # (wave 18F)
 from app.rules.values import UNMODELED_COUNTERS
 
 Definition = dict[str, Any]
@@ -1092,10 +1091,9 @@ def _lose_life_lost(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]
     return [{"do": "lose_life", "who": "each_opponent", "n": {"per_player": {"turn_history": "lost"}}}], None
 
 
-@effect(r"(?P<src>~|it|" + GRANTER + r") deals {N} damage to (?P<sel>{SEL})")
+@effect(r"(?P<src>~|it) deals {N} damage to (?P<sel>{SEL})")
 def _damage(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    src = {"src": f"obj:{m['oid'] or ''}"} if m["src"].startswith("‹") else _it_source(m["src"])  # (wave 18F: a granter)
-    return [{"do": "damage", "who": "target", "n": num(m["n"]), **src}], SELECTORS[m["sel"]]
+    return [{"do": "damage", "who": "target", "n": num(m["n"]), **_it_source(m["src"])}], SELECTORS[m["sel"]]
 
 
 @effect(r"~ deals {N} damage to each opponent")
@@ -2810,9 +2808,40 @@ def parse_anthem(text: str) -> Definition | None:
     return statics.parse(text)
 
 
+# -- granted from object (wave 18F) -- an activated ability a static grant gave, whose effect names only its granter ("Blazing Torch deals
+# 2 damage to any target", "Return Trusty Boomerang to its owner's hand"): read as the object's own ability (the granter is "~"), then
+# its instructions' subject is that object, bound by the id the grant carries (selectors.GRANTER). An effect that also names the
+# creature ("this creature", "it") is ambiguous to the grammar and stays unread.
+_GRANTER_RE = re.compile(selectors.GRANTER)
+_OTHER_SELF = re.compile(r"\b(?:this \w+|it|its(?! owner)|that creature|equipped creature)\b", re.IGNORECASE)
+_GRANTER_SUBJECT = {"add_counters", "bounce", "sacrifice", "tap", "untap"}
+
+
+def _granter_view(ability: AbilityText) -> tuple[AbilityText, str] | None:
+    head, _, effect = ability.text.partition(":")
+    found = _GRANTER_RE.search(effect)
+    if ability.kind != "activated" or found is None or _OTHER_SELF.search(_GRANTER_RE.sub("", effect)):
+        return None
+    return replace(ability, text=f"{head}:{_GRANTER_RE.sub('this permanent', effect)}"), found["oid"] or ""
+
+
+def _granter_bound(d: Definition, oid: str) -> Definition | None:
+    effects = []
+    for e in d["effects"]:
+        if e.get("do") in _GRANTER_SUBJECT and e.get("who") == "self":
+            e = {**e, "who": f"obj:{oid}"}
+        elif e.get("do") == "damage" and not e.get("src"):
+            e = {**e, "src": f"obj:{oid}"}
+        effects.append(e)
+    return None if '"self"' in json.dumps(effects) else {**d, "effects": effects}
+
+
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
-    d = _define(ability, ch)
+    view = _granter_view(ability) if "‹granter" in ability.text else None
+    d = _define(view[0] if view else ability, ch)
+    if view and d is not None:
+        d = _granter_bound(d, view[1])
     # -- exiled with (wave 6D) -- 607.2a linked abilities (app/rules/exiled_with.py)
     from app.rules import exiled_with
 
