@@ -66,6 +66,8 @@ EXTRA += [
     real("Esgaroth Garrison", "{2}{W}", 3, "Creature — Human Soldier", "When this creature enters, recruit. (Draw a card, then discard a card. If you discarded a nonland card, create a 1/1 white Human Soldier creature token.)", ("2", "2"), "W"),
     real("Affectionate Indrik", "{4}{G}", 5, "Creature — Beast", "When this creature enters, you may have it fight target creature you don't control.", ("4", "4"), "G"),
     real("Vernal Sovereign", "{3}{G}{W}", 5, "Creature — Elemental", "Whenever this creature enters or attacks, create a green and white Elemental creature token with \"This token's power and toughness are each equal to the number of creatures you control.\"", ("4", "4"), "GW"),
+    real("Preeminent Captain", "{2}{W}", 3, "Creature — Kithkin Soldier", "First strike\nWhenever this creature attacks, you may put a Soldier creature card from your hand onto the battlefield tapped and attacking.", ("2", "2"), "W"),
+    real("Test Soldier", "{1}{W}", 2, "Creature — Human Soldier", "", ("1", "1"), "W"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -351,6 +353,30 @@ def test_a_token_with_a_characteristic_defining_ability_counts_itself(cards):
     token = next(c for c in s.state.cards.values() if c.name == "Elemental" and c.zone == "p1:battlefield")
     ch = Plan(s.state, "p1", s.cards, None).ch(token)
     assert (sba.power(token, ch), sba.toughness(token, ch)) == (3, 3)  # Llanowar Elves, Vernal Sovereign and the token
+    check(s)
+
+
+def test_put_a_soldier_from_your_hand_onto_the_battlefield_tapped_and_attacking(cards):
+    # 508.4: it is attacking (never "declared"), its controller chooses what it attacks; it enters tapped
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, turn_on
+    from tests.test_rules_combat import attack
+
+    alice = deck(cards, "Krenko, Mob Boss", [(1, "Preeminent Captain"), (1, "Test Soldier"), (8, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    s = GameSession(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False), cards=cards)
+    captain, soldier = card_named(s, "Preeminent Captain"), card_named(s, "Test Soldier")
+    act(s, "p1", type="move", card_ids=[captain.id], to={"zone": "battlefield"})
+    act(s, "p1", type="move", card_ids=[soldier.id], to={"zone": "hand"})
+    turn_on(s)
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="pass_priority")  # → Alice declares attackers
+    attack(s, (s.state.cards[captain.id], "p2"))
+    answer(s)
+    got = s.state.cards[soldier.id]
+    assert got.zone == "p1:battlefield" and got.tapped  # entered tapped ...
+    assert s.state.players["p2"].life == 37  # ... and attacking: the Captain's 2 and the Soldier's 1 combat damage
     check(s)
 
 
