@@ -54,6 +54,11 @@ EXTRA = [
           "Defender\n{T}: Exchange target opponent's life total with this creature's toughness.", ["B"], power="0", toughness="13"),
     _card("Evra, Halcyon Witness", "W14", "{4}{W}{W}", "Legendary Creature — Avatar",
           "Lifelink\n{4}: Exchange your life total with Evra's power.", ["W"], power="4", toughness="4"),
+    _card("Figure of Destiny", "W15", "{R/W}", "Creature — Kithkin",
+          "{R/W}: This creature becomes a Kithkin Spirit with base power and toughness 2/2.\n{R/W}{R/W}{R/W}: If this creature is a "
+          "Spirit, it becomes a Kithkin Spirit Warrior with base power and toughness 4/4.\n{R/W}{R/W}{R/W}{R/W}{R/W}{R/W}: If this "
+          "creature is a Warrior, it becomes a Kithkin Spirit Warrior Avatar with base power and toughness 8/8, flying, and first "
+          "strike.", ["R", "W"], power="1", toughness="1"),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -204,4 +209,25 @@ def test_exchange_life_total_with_toughness_and_power(cards):
     act(s, "p1", type="activate_ability", card_id=evra.id, ability=1)
     pass_until_stack_empty(s)
     assert life(s, "p1") == 4 and ch(s, evra).pt == (40, 4)
+    replay_matches(s)
+
+
+def test_level_up_creature_becomes_with_base_pt_and_keywords(cards):
+    """Figure of Destiny: each step only applies if the creature is the previous type (the 8/8's "base power and toughness 8/8, flying,
+    and first strike", 613.4b / 613.1d); out of order it does nothing."""
+    s = table(cards, ["Figure of Destiny"], [])
+    fig = named(s, "Figure of Destiny")
+    pay(s, R=6)
+    act(s, "p1", type="activate_ability", card_id=fig.id, ability=2)  # not a Warrior yet: nothing
+    pass_until_stack_empty(s)
+    assert ch(s, fig).pt == (1, 1)
+    pay(s, R=4)
+    for ability in (0, 1):
+        act(s, "p1", type="activate_ability", card_id=fig.id, ability=ability)
+        pass_until_stack_empty(s)
+    assert ch(s, fig).pt == (4, 4) and "Warrior" in ch(s, fig).subtypes
+    pay(s, R=6)
+    act(s, "p1", type="activate_ability", card_id=fig.id, ability=2)
+    pass_until_stack_empty(s)
+    assert ch(s, fig).pt == (8, 8) and {"flying", "first strike"} <= ch(s, fig).keywords and "Avatar" in ch(s, fig).subtypes
     replay_matches(s)

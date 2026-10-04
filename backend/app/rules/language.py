@@ -2418,6 +2418,13 @@ def _with_list(text: str, out: dict[str, Any]) -> None:
         else:
             out["p"], out["t"] = int(m["p"]), int(m["t"])
         rest = rest[: m.start()]
+    # -- become (wave 19E) -- "with base power and toughness 8/8, flying, and first strike" (Figure of Destiny): the setting first
+    m = re.match(r"base power and toughness (?P<p>\d+)/(?P<t>\d+)(?:,? and |, )(?P<rest>.+)$", rest) if m is None else None
+    if m:
+        if out.get("p") is not None:
+            raise _Fail
+        out["p"], out["t"] = int(m["p"]), int(m["t"])
+        rest = m["rest"]
     if re.search(r"(?:^|,? and |, )all creature types$", rest):
         out["all_creature_types"] = True
         rest = re.sub(r"(?:,? and |, )?all creature types$", "", rest)
@@ -2540,9 +2547,12 @@ def _become(text: str) -> tuple[Effects, Any]:
         e["duration"] = "permanent"  # 611.2a
     out: Effects = [e]
     if m["gain"]:
-        if e["duration"] != "end_of_turn":
+        if e["duration"] == "permanent":  # -- become (wave 19E) -- "… becomes a 3/2 Human Faerie Rogue and gains double strike." (Kellan): the same effect
+            e["keywords"] = [*e.get("keywords", []), *_animation_keywords(m["gain"])]
+        elif e["duration"] != "end_of_turn":
             raise _Fail
-        out.append({"do": "grant", "who": who, "keywords": _animation_keywords(m["gain"])})
+        else:
+            out.append({"do": "grant", "who": who, "keywords": _animation_keywords(m["gain"])})
     if m["cbb"]:  # -- animation keywords (wave 7E) -- "… artifact creature until end of turn and can't be blocked this turn"
         if not m["trail"] and not m["lead"]:
             raise _Fail
