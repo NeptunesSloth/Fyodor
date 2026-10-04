@@ -218,6 +218,10 @@ _URZA = re.compile(r"^If you control an? (?P<what>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*
 # played, not put onto the battlefield): ``instead_if`` holds this marker instead of permanents to control
 _PLAYED_LAND = re.compile(r"^If you played a land this turn, add (?P<add>(?:\{[WUBRGC]\})+) instead$")
 PLAYED_LAND = ("@played_land",)
+# -- opening hand (wave 18C) -- "If Gemstone Caverns has a luck counter on it, instead add one mana of any color." (122.1: the
+# source's own counters, checked as the ability resolves, 605.3a): ``instead_if`` holds ("@counter", <kind>)
+_OWN_COUNTER_INSTEAD = re.compile(r"^If (?:~|this [a-z]+|[A-Z][\w',-]*(?: (?:of |the |[A-Z])[\w',-]*)*) has an? (?P<k>[a-z]+) counter on "
+                                  r"it, instead (?P<add>add .+)$")
 # -- kicked / instead (wave 4G) -- "If you control four or more creatures, add {G}{G} instead." (Leafkin Druid); "If you
 # control a creature with power 4 or greater, add two mana of any one color instead." (Ilysian Caryatid). 605.3a: a mana
 # ability resolves as it's activated, so the condition is checked then (608.2c: the "instead" replaces the first "Add").
@@ -417,6 +421,11 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             marker = ("@power", ci.group("p")) if ci.group("p") else \
                 ("@count", _COUNT_TYPES[ci.group("what").rstrip("s")], str(_NUM[ci.group(1)]))
             instead_if, instead = (marker,), more
+        elif (oc := _OWN_COUNTER_INSTEAD.fullmatch(s)) and not instead and len(options) == 1:  # -- opening hand (wave 18C) --
+            more = _effect_options("A" + oc.group("add")[1:], identity)
+            if more is None or not all(more):
+                return None
+            instead_if, instead = (("@counter", oc.group("k")),), more
         elif (pl := _PLAYED_LAND.fullmatch(s)) and not instead and len(options) == 1:  # -- this-turn history (wave 4D) --
             more = _effect_options("Add " + pl.group("add"), identity)
             if more is None or len(more) != 1:

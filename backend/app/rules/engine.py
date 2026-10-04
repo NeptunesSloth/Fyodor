@@ -44,6 +44,7 @@ from app.rules import (
     looking,
     modal_abilities,
     next_untap,  # -- next untap step (wave 6A) --
+    opening_hand,  # -- opening hand (wave 18C) --
     optional_payment,
     permissions,
     phasing,  # -- phasing (wave 13D) --
@@ -114,6 +115,15 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         remember_intent(plan, intent)
     permissions.refresh_reveals(plan.state, plan.info)  # 401.5: which top library cards the table reveals now
     plan.rules.engine_version = RULES_ENGINE_VERSION
+    plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
+    return plan.steps
+
+
+def compile_opening(state: GameState, actor: str, info: CardInfo, rng: Any) -> list[dict[str, Any]]:
+    """-- opening hand (wave 18C) -- 103.6: the steps that ask the first player about their opening-hand actions (the mulligan
+    action that ended the pregame carries them; ``state`` is the table as it leaves that action)."""
+    plan = Plan(state, actor, info, rng)
+    opening_hand.start(plan)
     plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
     return plan.steps
 
@@ -1322,6 +1332,8 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "mana_ability": casting.resume_mana_ability,
     "crew": casting.resume_crew,
     "ability_cost": cost_payment.resume_choice,
+    "opening_hand": opening_hand.resume,  # -- opening hand (wave 18C) -- 103.6
+    "opening_exile": opening_hand.resume_exile,
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,

@@ -2934,6 +2934,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
         if (tapped := tap_mana.definition(text)) is not None:
             return tapped
+    if ability.kind == "static" and "opening hand" in text:  # -- opening hand (wave 18C) -- 103.6 (app/rules/opening_hand.py)
+        from app.rules import opening_hand
+
+        return opening_hand.definition(text, ch)
     if ability.kind == "static" and text.startswith("You may exert "):  # -- static wordings (wave 6E) -- 701.43d
         from app.rules import exert
 

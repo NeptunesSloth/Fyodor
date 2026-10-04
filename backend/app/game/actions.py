@@ -141,6 +141,7 @@ class MulliganKeep(Base):
     type: Literal["mulligan_keep"] = "mulligan_keep"
     player: Id | None = None
     r: ShuffleData | None = None  # final shuffle of set-aside cards (if the policy asks for one)
+    opening: list[dict[str, Any]] | None = None  # -- opening hand (wave 18C) -- 103.6: the compiled first opening-hand decision
 
 
 class MulliganBottom(Base):
@@ -150,12 +151,14 @@ class MulliganBottom(Base):
     player: Id | None = None
     card_ids: Annotated[list[Id], Field(min_length=1, max_length=20)]
     r: ShuffleData | None = None
+    opening: list[dict[str, Any]] | None = None  # (wave 18C)
 
 
 class MulliganFinish(Base):
     """Host override: end the opening-hand phase now (undecided players keep what they hold)."""
 
     type: Literal["mulligan_finish"] = "mulligan_finish"
+    opening: list[dict[str, Any]] | None = None  # (wave 18C)
 
 
 class Reveal(Base):
