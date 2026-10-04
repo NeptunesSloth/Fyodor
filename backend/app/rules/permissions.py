@@ -92,11 +92,11 @@ TOP_LOOK = "you may look at the top card of your library any time"
 # instruction of the same ability moved (400.7j: found where it went); with no such instruction
 # the ability stays manual. A bare "You may cast that card." (no duration) means "cast it now, as
 # this resolves, ignoring timing" — not a permission that lasts: refused.
-GRANT_THAT = re.compile(r"^(?:(?P<until>until end of turn|until the end of your next turn), )?you may (?P<verb>play|cast) "
+GRANT_THAT = re.compile(r"^(?:(?P<until>until end of turn|until the end of your next turn|until your next end step), )?you may (?P<verb>play|cast) "
                         r"(?P<what>that card|those cards|it)(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?$")
 # -- refused grants/replacements (wave 3R2) -- "You may play that card until the end of your next turn."
 _TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|those cards|it|them)(?: without paying (?:its|their) mana costs?)?) "
-                             r"(?P<until>until end of turn|until the end of your next turn)$")
+                             r"(?P<until>until end of turn|until the end of your next turn|until your next end step)$")
 # -- end refused grants/replacements (wave 3R2) --
 # "Until end of turn, you may play lands and cast spells from your graveyard." (Yawgmoth's Will)
 GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>play lands and cast spells|play lands|cast spells)"
@@ -537,7 +537,7 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         if (m["until"] and m["this_turn"]) or not (m["until"] or m["this_turn"]):
             return None  # (a bare "you may cast that card": cast it as this resolves, not modelled)
         free = bool(m["free"])  # (wave 3C) "... without paying its mana cost" (118.9)
-        until = "end_of_next_turn" if m["until"] == "until the end of your next turn" else "end_of_turn"
+        until = {"until the end of your next turn": "end_of_next_turn", "until your next end step": "next_end_step"}.get(m["until"], "end_of_turn")
         # "who": a pronoun for scripts.resolve_it — the object(s) the preceding instruction moved
         # ("that card": a card — never a token the same sentence created, 111.1: scripts.resolve_it)
         return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play",
@@ -887,7 +887,10 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
     r = plan.rules
     turn = plan.state.turn.number
+    if e["until"] == "next_end_step" and plan.active == pid and plan.state.turn.phase in ("end", "cleanup"):
+        turn += 1  # (granted in its own end step or later: the next one is the following turn's)
     when = "until the end of their next turn" if e["until"] == "end_of_next_turn" else \
+        "until their next end step" if e["until"] == "next_end_step" else \
         "for as long as it remains there" if e["until"] == "permanent" else "this turn"  # (permanent: wave 3E, 611.2a)
     verb = "play" if e["play"] else "cast"
     if e.get("who"):
@@ -927,6 +930,14 @@ def expire(plan: Plan) -> None:
     r.permissions = keep
     r.cost_modifiers = [m for m in r.cost_modifiers if m.until != "end_of_turn"
                         and not (m.until == "next_turn" and r.turn_started.get(m.controller, 0) > m.turn)]
+
+
+def expire_end_step(plan: Plan) -> None:
+    """-- trigger tail (wave 15B) -- "until your next end step" (611.2a): the permission ends as that player's end step begins
+    (``turn`` is the first turn whose end step may end it: grant_play), before anything is played in it."""
+    turn = plan.state.turn.number
+    plan.rules.permissions = [p for p in plan.rules.permissions
+                              if not (p.until == "next_end_step" and p.player == plan.active and turn >= p.turn)]
 
 
 def cost_modifier(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

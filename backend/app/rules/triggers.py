@@ -58,6 +58,7 @@ from app.game.rules_state import (
     PendingTrigger,
     StackEntry,
     TriggerEvent,
+    TurnCount,
     emit,
     track,
 )
@@ -365,7 +366,17 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         from app.rules import unless_pays
 
         info["kinds_before"] = unless_pays.mark_cast(plan, e.player or "", plan.ch(spell).types)
-        return [("cast", spell, plan.ch(spell), e.player, info)]
+        out: list[Fact] = [("cast", spell, plan.ch(spell), e.player, info)]
+        # -- trigger tail (wave 15B) -- 700.14: the mana spent to cast it adds to the caster's total this turn (a spell cast by
+        # hand, or for free, adds none known); "expend N" is the Nth mana reached by this spell (one event per spell)
+        record = r.payments.get(plan.oid(spell))
+        if e.player and record is not None and record.mana_known and sum(record.mana_spent.values()) > 0:
+            turn, spent = plan.state.turn.number, sum(record.mana_spent.values())
+            have = r.mana_cast.get(e.player)
+            before = have.count if have is not None and have.turn == turn else 0
+            r.mana_cast[e.player] = TurnCount(turn=turn, count=before + spent)
+            out.append(("expend", None, None, e.player, {"before": before, "after": before + spent, "actor": e.player}))
+        return out
     if e.kind == "spell_copied":  # -- refused copy/mana (wave 3R3) -- 707.10: a copy put on the stack, not cast
         spell = plan.state.cards.get(e.card or "")
         if spell is None or spell.zone != "stack" or plan.oid(spell) != e.object_id:
@@ -489,7 +500,8 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     recipient_is_walker = got is not None and "Planeswalker" in got[1].types
     recipient_is_battle = got is not None and "Battle" in got[1].types  # (120.3h)
     dealt_info = {**base, "combat": e.combat, "recipient": e.player, "recipient_creature": recipient_is_creature,
-                  "recipient_planeswalker": recipient_is_walker, "recipient_battle": recipient_is_battle}
+                  "recipient_planeswalker": recipient_is_walker, "recipient_battle": recipient_is_battle,
+                  "recipient_subtypes": list(got[1].subtypes) if got is not None else []}  # (wave 15B)
     if got is not None:  # -- other side (wave 6D) -- "deals damage to a creature, destroy that creature" (other_side.py)
         dealt_info.update(other=got[0].id, other_oid=e.object_id)
     out.append(("deal_damage", src[0], src[1], src[0].controller, dealt_info))
@@ -670,6 +682,12 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
         return False
+    if event == "leave" and cond.get("dest") and _zone(info.get("to")) != cond["dest"]:  # -- trigger tail (wave 15B) -- "put into exile"
+        return False
+    if event == "explore" and cond.get("kind") and info.get("revealed") != (1 if cond["kind"] == "land" else 2):
+        return False  # (-- trigger tail (wave 15B) -- "explores a land card": the card it revealed)
+    if event == "expend" and not info["before"] < cond["n"] <= info["after"]:
+        return False
     if event == "to_graveyard" and cond.get("from") and info.get("from") != cond["from"]:  # -- into a graveyard (wave 6D)
         return False
     # -- graveyard owner (wave 6D) -- "put into your / an opponent's graveyard": its owner's graveyard (400.3)
@@ -692,6 +710,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         if (to == "player" and recipient is None) or (to == "you" and recipient != you) or \
                 (to == "opponent" and (recipient is None or recipient == you)) or \
                 (to == "creature" and not info.get("recipient_creature")) or \
+                (cond.get("to_types") and not set(cond["to_types"]) & set(info.get("recipient_subtypes") or ())) or \
                 (to == "planeswalker" and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_pw" and recipient is None and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_battle" and recipient is None and not info.get("recipient_battle")) or \
@@ -913,7 +932,7 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             card, ch = _snapshot_card(plan, snap)
             left[id(card)] = snap.object_id
             watchers += [((card, ch, i, d), entered.get(snap.object_id, -big), e.batch)
-                         for i, d in abilities(plan, ch, "event") if d.get("cond")]
+                         for i, d in abilities(plan, ch, "event") if d.get("cond") and not arrives_in_graveyard(d)]
     watchers += [(w, entered.get(plan.oid(w[0]), -big), big) for w in _event_watchers(plan)]
     for e in events:
         if e.manual:
@@ -1024,7 +1043,14 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
 def graveyard_ability(d: dict[str, Any]) -> bool:
     import json
 
-    return '"self_gy"' in json.dumps(d, default=str)
+    return '"self_gy"' in json.dumps(d, default=str) or arrives_in_graveyard(d)
+
+
+def arrives_in_graveyard(d: dict[str, Any]) -> bool:
+    """-- trigger tail (wave 15B) -- "When ~ is put into a graveyard from anywhere" (603.6c: never a leaves-the-battlefield
+    ability): it triggers on the card's new object in the graveyard, and works only from there."""
+    cond = d.get("cond") or {}
+    return cond.get("event") == "to_graveyard" and cond.get("subject") == "self"
 
 
 def graveyard_abilities(plan: Plan, card: CardInstance, trigger: str,
@@ -1051,7 +1077,8 @@ def graveyard_trigger_ok(d: dict[str, Any]) -> bool:
         return False
     cond = d.get("cond") or {}
     return trigger != "event" or (cond.get("event") not in _GY_LOOK_BACK
-                                  and cond.get("subject") not in ("self", "self_or", "host", "self_or_host"))
+                                  and cond.get("subject") not in ("self", "self_or", "host", "self_or_host")) \
+        or arrives_in_graveyard(d)
 
 
 def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics, oid: str, batch: int = 0) -> None:

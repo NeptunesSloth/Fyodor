@@ -190,18 +190,21 @@ def parse(text: str) -> Definition | None:
                     return None
                 body = m["rest"]
             else:
-                m = re.match(r"^(?P<rest>.+?) (?:as long as|(?P<r>unless|if)) (?P<cond>(?!able\b).+)$", body)
+                # (-- trigger tail (wave 15B) -- a condition inside a quoted granted ability is that ability's own: masked here)
+                masked = re.sub(r'"[^"]*"', lambda q: "\0" * len(q[0]), body)
+                m = re.match(r"^(?P<rest>.+?) (?:as long as|(?P<r>unless|if)) (?P<cond>(?!able\b).+)$", masked)
                 if m:
-                    cond = _condition(m["cond"])
+                    cond_text, rest_text = body[m.start("cond"):m.end("cond")], body[m.start("rest"):m.end("rest")]
+                    cond = _condition(cond_text)
                     if cond is None:
                         return None
-                    names_source = _names_source(m["cond"])  # -- conditional statics (wave 4B) --
+                    names_source = _names_source(cond_text)  # -- conditional statics (wave 4B) --
                     if m["r"]:
                         rule_cond = True
                         if m["r"] == "unless":
                             cond = {"static": "not", "cond": cond}
                     conds.append(cond)
-                    body = m["rest"]
+                    body = rest_text
     if " as long as " in body or " unless " in body or body.startswith(("As long as", "During ", "If ", "if ")):
         return None
     # -- conditional statics (wave 4B) -- "Creatures you control also get +1/+0 and have trample as long as …"

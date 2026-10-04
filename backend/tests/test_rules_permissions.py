@@ -495,7 +495,7 @@ def test_effect_wordings():
     assert P.parse_clause("you may play that card this turn")[0][0] == {
         "do": "grant_play", "who": "it:card", "play": True, "cast": True, "until": "end_of_turn", "optional": True}
     assert P.parse_clause("until end of turn, you may play that card this turn") is None
-    assert P.parse_clause("you may play that card until your next end step") is None
+    assert P.parse_clause("you may play that card until your next end step")[0][0]["until"] == "next_end_step"  # (wave 15B)
     # a bare "you may cast that card": cast it as this resolves, ignoring timing — not a permission
     # that lasts the turn (Chandra, Torch of Defiance's wording): refused, never a turn-long grant
     assert P.parse_clause("you may cast that card") is None
