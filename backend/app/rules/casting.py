@@ -1869,7 +1869,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else \
         "flashback" if flashback else "free" if free else "escape" if escaping else \
-        "alternative" if alt_offer is not None else None  # ("escape": 702.138b, wave 5I)
+        (alt_offer.tag or "alternative") if alt_offer is not None else None  # ("escape": 702.138b, wave 5I; blitz: 15E)
     if alt_offer is not None:  # -- cost changers (wave 4I) --
         if alt_offer.once_key:
             plan.rules.once_per_turn[alt_offer.once_key] = plan.state.turn.number  # ("once each turn")

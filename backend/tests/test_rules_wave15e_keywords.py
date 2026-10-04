@@ -42,6 +42,7 @@ EXTRA = [
     card('Sacred Cat', set_code='tst', number='X23', mana_cost='{W}', cmc=1.0, type_line='Creature — Cat', oracle_text="Lifelink\nEmbalm {W} ({W}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a white Zombie Cat with no mana cost. Embalm only as a sorcery.)", power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=['Lifelink', 'Embalm']),  # noqa: E501
     card('Adorned Pouncer', set_code='tst', number='X24', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Cat', oracle_text="Double strike\nEternalize {3}{W}{W} ({3}{W}{W}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a 4/4 black Zombie Cat with no mana cost. Eternalize only as a sorcery.)", power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=['Double strike', 'Eternalize']),  # noqa: E501
     card('Skewer the Critics', set_code='tst', number='X25', mana_cost='{2}{R}', cmc=3.0, type_line='Sorcery', oracle_text='Spectacle {R} (You may cast this spell for its spectacle cost rather than its mana cost if an opponent lost life this turn.)\nSkewer the Critics deals 3 damage to any target.', power=None, toughness=None, colors=['R'], color_identity=['R'], keywords=['Spectacle']),  # noqa: E501
+    card('Night Clubber', set_code='tst', number='X26', mana_cost='{1}{B}{B}', cmc=3.0, type_line='Creature — Human Warrior', oracle_text='When this creature enters, creatures your opponents control get -1/-1 until end of turn.\nBlitz {2}{B} (If you cast this spell for its blitz cost, it gains haste and "When this creature dies, draw a card." Sacrifice it at the beginning of the next end step.)', power='2', toughness='2', colors=['B'], color_identity=['B'], keywords=['Blitz']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -532,4 +533,18 @@ def test_spectacle_alternative_cost_needs_an_opponent_to_have_lost_life(cards):
     act(s, "p1", type="cast_spell", card_id=skewer.id, targets=["p2"], alt_cost=f"{skewer.id}:0")
     settle(s)
     assert s.state.players["p2"].life == 36 and s.state.cards[skewer.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_blitz_haste_draw_and_sacrifice_at_the_end_step(cards):
+    s = build(cards, "Night Clubber")
+    clubber = to_hand(s, "Night Clubber")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=clubber.id, alt_cost=f"{clubber.id}:1")
+    settle(s)
+    assert "haste" in chars(s, clubber).keywords  # 702.152a
+    until(s, lambda s: s.state.cards[clubber.id].zone == "p1:graveyard")  # sacrificed at the beginning of the next end step
+    settle(s)
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + 1  # cast (-1), and the blitz draw (+1)
     check(s)

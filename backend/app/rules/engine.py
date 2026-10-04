@@ -853,6 +853,15 @@ def resolve_top_of_stack(plan: Plan) -> None:
             layers.add_effect(plan, affected=[oid], layer="6", source=None, controller=controller,
                               add_keywords=("haste",), duration="permanent", label="Haste (dash)")
             delayed.create_move(plan, controller, top_id, oid, "hand", entered_now.name)  # (a delayed trigger, 603.7)
+    rec = plan.rules.payments.get(plan.oid(top_id))
+    if rec is not None and rec.alternative == "blitz" and entering and not manual:  # -- keywords (wave 15E) -- 702.152a
+        entered_now = plan.state.cards.get(top_id)
+        if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            oid = plan.oid(top_id)
+            layers.add_effect(plan, affected=[oid], layer="6", source=None, controller=controller, add_keywords=("haste",),
+                              duration="permanent", label="Haste (blitz)",
+                              add_abilities=["When this permanent is put into a graveyard from the battlefield, draw a card."])
+            delayed.create_move(plan, controller, top_id, oid, "graveyard", entered_now.name, sacrifice=True)
     if top_id in plan.rules.suspend_haste:  # 702.62e: a suspended creature has haste
         plan.rules.suspend_haste = [c for c in plan.rules.suspend_haste if c != top_id]
         entered_now = plan.state.cards.get(top_id)
