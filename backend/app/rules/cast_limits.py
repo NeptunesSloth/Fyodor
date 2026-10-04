@@ -113,10 +113,10 @@ STATIC_AFFINITY = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells you 
 # stack), one instance per word quoted. A grant to the spell's own copy or to a spell cast by another player isn't read.
 _FROM_ZONES = {"your hand": "hand", "exile": "exile", "anywhere other than your hand": "not_hand"}
 STATIC_CASCADE = re.compile(
-    r"^(?:(?P<first>the first) )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? you cast"
+    r"^(?:each |(?P<first>the first) )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? you cast"
     r"(?: from (?P<frm>your hand|exile|anywhere other than your hand))?"
     r"(?: (?P<tail>with mana value \d+ or (?:greater|less)))?(?P<each> each turn)? "
-    r"(?:has|have) (?P<kw>cascade|storm|ripple \d+|\"[Cc]ascade, cascade\.?\")$")  # (wave 17C: storm 702.40a, ripple 702.60a)
+    r"(?:has|have) (?P<kw>cascade|storm|conspire|ripple \d+|\"[Cc]ascade, cascade\.?\")$")  # (wave 17C: storm 702.40a, ripple 702.60a, conspire 702.78a)
 
 
 def _cascade_definition(m: re.Match[str]) -> Definition | None:
@@ -136,8 +136,8 @@ def _cascade_definition(m: re.Match[str]) -> Definition | None:
         if key is None and (phrase or m["tail"]):
             return None  # (a wording the spell selector doesn't read)
         first = None
-    return {"kind": "static", "static": "spell_keyword", "keyword": "storm" if m["kw"] == "storm" else "ripple" if m["kw"].startswith("ripple")
-            else "cascade", **({"n": int(m["kw"].split()[1])} if m["kw"].startswith("ripple") else {}),
+    return {"kind": "static", "static": "spell_keyword", "keyword": m["kw"] if m["kw"] in ("storm", "conspire") else "ripple"
+            if m["kw"].startswith("ripple") else "cascade", **({"n": int(m["kw"].split()[1])} if m["kw"].startswith("ripple") else {}),
             "count": 2 if m["kw"].startswith('"') else 1, "filter": key,
             "from": _FROM_ZONES[m["frm"]] if m["frm"] else None, "first": first, "effects": []}
 
@@ -599,6 +599,14 @@ def granted_affinities(state: GameState, player: str, card: CardInstance, spell:
 
     return [d["what"] for src, d in _statics(state, info, "spell_helper") if src.controller == player and d["keyword"] == "affinity"
             and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))]
+
+
+def from_ok(d: Definition, card: CardInstance) -> bool:
+    """-- static_other sweep (wave 17C) -- a granted keyword's "from exile" / "from your hand" zone, for a spell not yet cast (the card is
+    where it is cast from) — "first … each turn" statics are not offered ahead (conspire reads none)."""
+    zone = d.get("from")
+    where = card.zone.rsplit(":", 1)[-1]
+    return d.get("first") is None and (zone is None or (where != "hand" if zone == "not_hand" else where == zone))
 
 
 def granted_cascade(plan: Plan, spell_card: str, spell: Characteristics, cast_from: str | None, keyword: str = "cascade") -> int:

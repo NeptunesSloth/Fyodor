@@ -54,6 +54,8 @@ KEYWORDS = frozenset({
     "aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate", "increment",  # -- static_other sweep (wave 16B) -- 702.127 (casting.from_graveyard / cast_grant)
     "ripple",  # -- static_other sweep (wave 17C) -- 702.60 (casting._ripple_triggers)
     "prowl",  # (702.76: alt_costs.KEYWORD_CONDS)
+    "cipher",  # (702.99: recursion.cipher)
+    "conspire", "teamwork",  # (702.78, 702.194: cost_changes.optional_offers)
     "ingest", "poisonous", "frenzy", "afterlife", "modular", "split second", "graft", "sunburst", "devour",  # -- static wordings (wave 6E) -- (app/rules/keyword_triggers.py)
 })
 

@@ -362,6 +362,12 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return affinity_filter(Characteristics(name="", abilities=(AbilityText(index=0, text=line, kind="keywords",
                                                                               keywords=("affinity",)),))) is not None
+    if kw == "conspire":  # -- static_other sweep (wave 17C) -- cost_changes.optional_offers / casting._conspire_trigger
+        return line.strip().rstrip(".").lower() == "conspire"
+    if kw == "teamwork":  # (702.194a: its optional cost, and "cast using teamwork" in the text)
+        return re.fullmatch(r"teamwork \d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "cipher":  # -- static_other sweep (wave 17C) -- recursion.cipher: an instant or sorcery's own line (spell_definition appends it)
+        return line.strip().rstrip(".").lower() == "cipher"
     if kw == "ripple":  # -- static_other sweep (wave 17C) -- casting._ripple_triggers: "Ripple N", each instance its own line
         return re.fullmatch(r"ripple \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "echo":  # triggers.echo_cost: a mana echo cost

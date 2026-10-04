@@ -145,6 +145,31 @@ EXTRA = [
          oracle_text="As an additional cost to cast this spell, tap two untapped artifacts, creatures, and/or lands you control."),
     card("Test Drone", set_code="tst", number="C41", mana_cost="{2}", cmc=2.0, type_line="Artifact Creature — Eldrazi Drone", power="3",
          toughness="3", oracle_text=""),
+    card("Transguild Courier", set_code="tst", number="C42", mana_cost="{4}", cmc=4.0, type_line="Artifact Creature — Golem", power="3",
+         toughness="3", oracle_text="Transguild Courier is all colors."),
+    card("Stonework Packbeast", set_code="tst", number="C43", mana_cost="{2}", cmc=2.0, type_line="Artifact Creature — Beast", power="2",
+         toughness="1", oracle_text="Stonework Packbeast is also a Cleric, Rogue, Warrior, and Wizard.\n{2}: Add one mana of any color."),
+    card("Oblation", set_code="tst", number="C44", mana_cost="{2}{W}", cmc=3.0, type_line="Instant", colors=["W"], color_identity=["W"],
+         oracle_text="The owner of target nonland permanent shuffles it into their library, then draws two cards."),
+    card("Lost Days", set_code="tst", number="C45", mana_cost="{4}{U}", cmc=5.0, type_line="Instant — Lesson", colors=["U"],
+         color_identity=["U"], oracle_text="The owner of target creature or enchantment puts it into their library second from the top or "
+         "on the bottom. You create a Clue token. (It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")"),
+    card("Unsubstantiate", set_code="tst", number="C46", mana_cost="{1}{U}", cmc=2.0, type_line="Instant", colors=["U"],
+         color_identity=["U"], oracle_text="Return target spell or creature to its owner's hand."),
+    card("Sink into Stupor // Soporific Springs", set_code="tst", number="C47", layout="modal_dfc", mana_cost="{1}{U}{U} // ", cmc=3.0,
+         type_line="Instant // Land", colors=["U"], color_identity=["U"], image_uris=None,
+         card_faces=[
+             {"object": "card_face", "name": "Sink into Stupor", "mana_cost": "{1}{U}{U}", "type_line": "Instant", "colors": ["U"],
+              "oracle_text": "Return target spell or nonland permanent an opponent controls to its owner's hand."},
+             {"object": "card_face", "name": "Soporific Springs", "mana_cost": "", "type_line": "Land", "colors": [],
+              "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {U}."}]),
+    card("Shadow Slice", set_code="tst", number="C48", mana_cost="{4}{B}", cmc=5.0, type_line="Sorcery", colors=["B"], color_identity=["B"],
+         oracle_text="Target opponent loses 3 life.\nCipher (Then you may exile this spell card encoded on a creature you control. "
+         "Whenever that creature deals combat damage to a player, its controller may cast a copy of the encoded card without paying "
+         "its mana cost.)"),
+    card("Hijack Bolt", set_code="tst", number="C49", mana_cost="{R}", cmc=1.0, type_line="Instant", colors=["R"], color_identity=["R"],
+         oracle_text="Hijack Bolt deals 2 damage to target player.\nConspire (As you cast this spell, you may tap two untapped creatures "
+         "you control that share a color with it. When you do, copy it and you may choose a new target for the copy.)"),
     card("Hexing Squelcher", set_code="tst", number="C05", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Goblin Sorcerer",
          power="2", toughness="2", colors=["R"], color_identity=["R"],
          oracle_text="This spell can't be countered.\nWard—Pay 2 life.\nSpells you control can't be countered.\nOther creatures you control have \"Ward—Pay 2 life.\""),
@@ -313,7 +338,7 @@ def _derived(s, name, pid="p1"):
 def test_ygra_makes_creatures_foods_with_a_granted_sacrifice_ability(cards):
     s = build(cards, p1=("Ygra, Eater of All", "Test Small"))
     put(s, "Ygra, Eater of All", "battlefield")
-    small = put(s, "Test Small", "battlefield")
+    put(s, "Test Small", "battlefield")
     _, ch = _derived(s, "Test Small")
     assert "Artifact" in ch.types and "Food" in ch.subtypes and "Elf" in ch.subtypes  # 613.1d, 205.1b: in addition to its other types
     ab = next(a for a in ch.abilities if a.index >= 100 and a.kind == "activated")
@@ -485,7 +510,8 @@ def test_thrumming_stone_gives_every_spell_ripple(cards):
 
 
 def _prowl_offers(s, name):
-    from app.rules import alt_costs, characteristics as chars
+    from app.rules import alt_costs
+    from app.rules import characteristics as chars
 
     c = find(s, name)
     return c, [o for o in alt_costs.offers(s.state, "p1", c, chars.of(c, s.cards), s.cards) if o.tag == "prowl"]
@@ -611,4 +637,123 @@ def test_tap_two_untapped_artifacts_creatures_or_lands(cards):
     answer(s)
     assert find(s, "Warlord's Elite").zone == "p1:battlefield"
     assert sum(1 for c in s.state.cards.values() if c.owner == "p1" and c.zone == "p1:battlefield" and c.tapped) >= 2
+    roundtrip(s)
+
+
+def test_is_all_colors_and_is_also_a_list_of_types_in_every_zone(cards):
+    s = build(cards, p1=("Transguild Courier", "Stonework Packbeast"))
+    put(s, "Transguild Courier", "hand")
+    put(s, "Stonework Packbeast", "hand")
+    assert _derived(s, "Transguild Courier")[1].colors == frozenset("WUBRG")  # 604.3, 105.2c: in the hand too
+    assert {"Beast", "Cleric", "Rogue", "Warrior", "Wizard"} <= _derived(s, "Stonework Packbeast")[1].subtypes
+    roundtrip(s)
+
+
+def test_the_owner_shuffles_it_into_their_library_then_draws(cards):
+    s = build(cards, p1=("Oblation",), p2=("Test Brute",))
+    brute = put(s, "Test Brute", "battlefield", "p2")
+    spell = put(s, "Oblation", "hand")
+    hand = len(s.state.zones["p2:hand"])
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[brute.id])
+    answer(s)
+    assert s.state.cards[brute.id].zone == "p2:library" and len(s.state.zones["p2:hand"]) == hand + 2  # Bob (the owner) draws
+    roundtrip(s)
+
+
+def test_the_owner_puts_it_second_from_the_top_and_you_create_a_clue(cards):
+    s = build(cards, p1=("Lost Days",), p2=("Test Brute",))
+    brute = put(s, "Test Brute", "battlefield", "p2")
+    spell = put(s, "Lost Days", "hand")
+    mana(s, U=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[brute.id])
+    d = s.state.rules.decision
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is not None and d.player == "p2":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p2" and [o.id for o in d.options] == ["second", "bottom"]  # the owner chooses
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["second"])
+    answer(s)
+    assert s.state.zones["p2:library"].index(brute.id) == 1
+    assert any(c.name == "Clue" and c.controller == "p1" for c in s.state.cards.values())
+    roundtrip(s)
+
+
+def test_return_target_spell_or_creature(cards):
+    s = build(cards, p1=("Unsubstantiate", "Lightning Bolt", "Test Small"))
+    bolt = put(s, "Lightning Bolt", "hand")
+    cast = put(s, "Unsubstantiate", "hand")
+    mana(s, R=1, U=2)
+    act(s, "p1", type="set_stops", hold_priority=True)  # (the Bolt waits on the stack, Arena's full control)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    act(s, "p1", type="cast_spell", card_id=cast.id, targets=[bolt.id])  # 115.1: a spell on the stack is a legal target
+    answer(s)
+    assert s.state.cards[bolt.id].zone == "p1:hand" and s.state.players["p2"].life == 40  # returned before it resolved
+    small = put(s, "Test Small", "battlefield")
+    put(s, "Unsubstantiate", "hand")
+    mana(s, U=2)
+    act(s, "p1", type="cast_spell", card_id=cast.id, targets=[small.id])  # ... and a creature permanent too
+    answer(s)
+    assert s.state.cards[small.id].zone == "p1:hand"
+    roundtrip(s)
+
+
+def test_cipher_encodes_then_casts_a_copy_when_the_creature_connects(cards):
+    s = build(cards, p1=("Shadow Slice",))
+    spell = put(s, "Shadow Slice", "hand")
+    act(s, "p1", type="create_token", player="p1", token={"name": "Scout", "type_line": "Token Creature — Rogue", "power": "2",
+                                                          "toughness": "2", "text": "Haste"})
+    scout = next(c for c in s.state.cards.values() if c.name == "Scout")
+    mana(s, B=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"])
+    d = None
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1" and {o.id for o in d.options} == {scout.id}  # 702.99a: a creature you control
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[scout.id])
+    answer(s)
+    assert s.state.players["p2"].life == 37 and s.state.cards[spell.id].zone == "p1:exile"
+    roundtrip(s)
+    act(s, "p1", type="pass_priority")  # → declare attackers
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": scout.id, "target": "p2"}])
+    for _ in range(40):  # 2 combat damage, then the encoded card's copy: asked whether to copy and whether to cast it (each "yes")
+        d = s.state.rules.decision
+        if d is None and s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"] if "yes" in ids else ["p2"] if "p2" in ids else ids[:1])
+    assert s.state.players["p2"].life == 37 - 2 - 3  # the Scout's 2 and the copy's 3 (cast without paying)
+    assert s.state.cards[spell.id].zone == "p1:exile"  # (the card stays encoded; the copy ceased to exist)
+    roundtrip(s)
+
+
+def test_conspire_taps_two_creatures_and_copies_the_spell(cards):
+    s = build(cards, p1=("Hijack Bolt",))
+    spell = put(s, "Hijack Bolt", "hand")
+    for n in ("A", "B"):
+        act(s, "p1", type="create_token", player="p1", token={"name": "Imp" + n, "type_line": "Token Creature — Imp", "power": "1",
+                                                              "toughness": "1", "colors": ["R"]})
+    imps = [c for c in s.state.cards.values() if c.name.startswith("Imp")]
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"], optional_costs=[f"{spell.id}:conspire"])
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        ids = [o.id for o in d.options]
+        pick = ["yes"] if "yes" in ids else [i.id for i in imps] if all(i.id in ids for i in imps) else ["p2"] if "p2" in ids else ids[:1]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+    assert all(s.state.cards[i.id].tapped for i in imps)
+    assert s.state.players["p2"].life == 40 - 4  # the spell and its copy
     roundtrip(s)

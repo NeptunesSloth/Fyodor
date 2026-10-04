@@ -72,6 +72,9 @@ def parse(text: str) -> dict[str, Any] | None:
         return _definition(m["s"], {"add_types": ["Land"], "add_subtypes": [m["t"]]})
     if (m := _ARE_ALSO.fullmatch(text)) is not None and (found := _also(m)) is not None:
         return found
+    if re.fullmatch(r"~ is also an? [A-Z][A-Za-z]*(?:(?:, | and |, and )[A-Z][A-Za-z]*)*\.", text) \
+            or re.fullmatch(r"~ is all colors\.(?: This ability doesn't affect its color identity\.)?", text):
+        return {"kind": "static", "static": "cda", "effects": []}  # -- static_other sweep (wave 17C) -- characteristics.changeling / all_colors
     if text == "~ is every creature type.":  # (Mistform Ultimus: a characteristic-defining ability, 604.3 —
         return {"kind": "static", "static": "cda", "effects": []}  # characteristics.changeling applies it in every zone)
     if text == MASKWOOD:

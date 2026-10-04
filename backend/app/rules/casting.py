@@ -1787,6 +1787,9 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
     for offer in cost_changes.optional_offers(state, player, card, ch, info):
         if state.players[player].life < offer.life:
             continue
+        if offer.kind and cost_payment.problem(permissions._view(state, player, info),
+                                               costs.AbilityCost(components=(cost_changes.keyword_component(offer),)), card, player):
+            continue  # (-- static_other sweep (wave 17C) -- conspire / teamwork: the creatures to tap aren't there)
         try:
             cost = cost_changes.reduce_only(spell_cost(state, card, ch, info=info, player=player,
                                                        free=grant is not None and grant.free), (offer.mana,))
@@ -1957,7 +1960,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if a.optional_costs and not plan.manual(card) else []  # -- cost changers (wave 4I) -- (601.2b)
     if a.optional_costs and plan.manual(card):
         raise ActionError("That card is played by hand: pay its costs with the table tools")
-    cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional))  # ("reduces only the amount of green mana")
+    cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # ("reduces only the amount of green mana")
     cost = M.spend_as(cost, grant.spend) if grant is not None and grant.spend else cost  # -- as long as (wave 9B) -- 118.14
     cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for
     # -- costs (wave 3$) -- 601.2b: an additional cost ("sacrifice a creature", "discard a card", "pay 2 life") is
@@ -1979,7 +1982,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         add_cost = alt_costs.merged(add_cost, extra_cost)
     if optional:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(components=tuple(
-            costs.CostComponent(costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life") for o in optional)))
+            cost_changes.keyword_component(o) if o.kind else costs.CostComponent(costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life")
+            for o in optional), life=sum(o.life for o in optional)))
     add_objects: dict[int, list[str]] = {}
     if add_cost is not None:
         problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
@@ -2074,6 +2078,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if not a.face_down and not plan.manual(card):
         _storm_triggers(plan, card, ch, record.cast_from)
         _ripple_triggers(plan, card, ch, record.cast_from)
+        _conspire_trigger(plan, card, ch, record)
     if "replicate" in ch.keywords and not a.face_down and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
@@ -2414,6 +2419,17 @@ def _replicate_trigger(plan: Plan, card: CardInstance, ch: Characteristics, time
         _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6150,
              definition={"kind": "triggered", "trigger": "storm", "optional": False, "target": None,
                          "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": times}]})
+
+
+def _conspire_trigger(plan: Plan, card: CardInstance, ch: Characteristics, record: PaymentRecord) -> None:
+    """-- static_other sweep (wave 17C) -- 702.78a: "When you cast this spell, if its conspire cost was paid, copy it. If the spell has
+    any targets, you may choose new targets for the copy." (the copy is storm's: copying.storm)"""
+    from app.rules.triggers import _add
+
+    if f"optional:{card.id}:conspire" in record.additional:
+        _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6160,
+             definition={"kind": "triggered", "trigger": "storm", "optional": False, "target": None,
+                         "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": 1}]})
 
 
 def _ripple_triggers(plan: Plan, card: CardInstance, ch: Characteristics, cast_from: str | None) -> None:

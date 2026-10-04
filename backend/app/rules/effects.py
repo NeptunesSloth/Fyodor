@@ -192,6 +192,10 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         return context.objects(plan, ctx, context.EVENT_NEW)
     if who.startswith(context.PREFIX):  # an earlier effect's objects ("it", "cards exiled this way")
         return context.objects(plan, ctx, who[len(context.PREFIX):])
+    if who.startswith("exiled_card:"):  # -- static_other sweep (wave 17C) -- one card in exile, while it is still that object (cipher)
+        oid = who[len("exiled_card:"):]
+        card = plan.state.cards.get(oid.rsplit(".", 1)[0])
+        return [card.id] if card is not None and card.zone.endswith(":exile") and plan.oid(card) == oid else []
     if who.startswith("object:"):  # one specific rules object (e.g. the creature that attacked alone)
         oid = who[7:]
         return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid]
@@ -2407,10 +2411,13 @@ def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                      "index": e["place"] - 1}, actor=ctx["controller"])
         _moved(plan, ctx, e, before)
         return True
-    if e["place"] == "choice" and len(cards) == 1:
+    if e["place"] in ("choice", "choice_second") and len(cards) == 1:
         card = plan.state.cards[cards[0]]
-        decide(plan, player=card.owner, kind="choose_one", prompt=f"Put {card.name} on the top or the bottom of your library?",
-               options=[DecisionOption(id="top", label="On top"), DecisionOption(id="bottom", label="On the bottom")],
+        second = e["place"] == "choice_second"  # -- static_other sweep (wave 17C) -- "second from the top or on the bottom" (Lost Days)
+        decide(plan, player=card.owner, kind="choose_one",
+               prompt=f"Put {card.name} " + ("second from the top or on the bottom of your library?" if second else "on the top or the bottom of your library?"),
+               options=[DecisionOption(id="second" if second else "top", label="Second from the top" if second else "On top"),
+                        DecisionOption(id="bottom", label="On the bottom")],
                resume={"step": "library_place", "card": card.id, "ctx": ctx, "e": e, "before": [r.model_dump(mode="json") for r in before]},
                source=card)
         return False
@@ -2436,8 +2443,8 @@ def resume_library_place(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = r["ctx"], r["e"]
     card = plan.state.cards.get(r["card"])
     if card is not None:
-        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "library"}, "position": chosen[0]},
-                actor=d.player)
+        where = {"index": 1} if chosen[0] == "second" else {"position": chosen[0]}  # (the index: 2nd from the top, 401.4)
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "library"}, **where}, actor=d.player)
     _moved(plan, ctx, e, [ObjectRef.model_validate(x) for x in r["before"]])
     continue_effects(plan, ctx)
 

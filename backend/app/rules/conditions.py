@@ -1141,15 +1141,15 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
             from app.rules.stack_interaction import mana_value
 
             value = mana_value(card, ch)
-        n = cond["n"]
-        if isinstance(n, dict):  # -- static_other sweep (wave 17C) -- the card a spell's cost revealed
-            n = values.evaluate(plan, ctx, n) if values._object(plan, ctx, "cost:revealed") is not None else None
-        return value is not None and n is not None and _OPS[cond["op"]](value, n)
+        bound: Any = cond["n"]
+        if isinstance(bound, dict):  # -- static_other sweep (wave 17C) -- the card a spell's cost revealed
+            bound = values.evaluate(plan, ctx, bound) if values._object(plan, ctx, "cost:revealed") is not None else None
+        return value is not None and bound is not None and bool(_OPS[cond["op"]](value, bound))
     # "it's a land card" / "that creature is a Human": its characteristics, wherever it is (a card in
     # a library, a graveyard or exile, or a permanent as it last existed): the zone is not the test
     sel = replace(selectors.from_key(cond["is"]), zones=(card.zone.rsplit(":", 1)[-1],))
-    found = selectors.matches(plan, sel, card, ch, ctx["controller"], ctx.get("source_card"))
-    return not found if cond.get("negate") else found
+    hit = selectors.matches(plan, sel, card, ch, ctx["controller"], ctx.get("source_card"))
+    return not hit if cond.get("negate") else hit
 
 
 def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
@@ -1206,6 +1206,8 @@ _SPENT_OVER_PT = re.compile(r"the amount of mana you spent is greater than (?:th
 
 def _cast_how(t: str) -> Condition | None:
     """A condition about how the source was cast, or None."""
+    if t in ("this spell was cast using teamwork", "it was cast using teamwork"):  # -- static_other sweep (wave 17C) -- 702.194b
+        return {"object": "self", "cast": {"optional": "teamwork"}}
     if t in ("this spell's prowl cost was paid", "its prowl cost was paid"):  # -- static_other sweep (wave 17C) -- 702.76a
         return {"object": "self", "cast": {"alt": "prowl"}}
     if t in ("it escaped", "~ escaped"):  # -- escape (wave 5I) -- 702.138b
@@ -1282,6 +1284,8 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return False
     if how.get("escaped") and record.alternative != "escape":  # -- escape (wave 5I) -- 702.138b
         return False
+    if how.get("optional") and f"optional:{ctx.get('source_card')}:{how['optional']}" not in record.additional:
+        return False  # -- static_other sweep (wave 17C) -- teamwork 702.194b: the caster declared paying it
     if how.get("alt") and record.alternative != how["alt"]:  # -- static_other sweep (wave 17C) -- "if this spell's prowl cost was paid"
         return False
     zone = how.get("from")

@@ -193,7 +193,8 @@ def _target_key(phrase: str) -> str:
     m = re.match(r"^(another )?target (.+)$", phrase)
     if not m:
         raise _Fail
-    sel = selectors.parse(("another " if m[1] else "") + m[2]) or (None if m[1] else selectors.parse_either(m[2]))  # (wave 15A)
+    sel = selectors.parse(("another " if m[1] else "") + m[2]) or (None if m[1] else selectors.parse_either(m[2])
+                                                                   or selectors.parse_spell_or(m[2]))  # (wave 15A; 17C: spell or permanent)
     if sel is None:
         raise _Fail
     return sel.key()
@@ -771,6 +772,11 @@ _TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_
 _NTH_FROM_TOP = re.compile(rf"put (?P<o>.+?) into {_OWNERS} library (?P<nth>second|third|fourth|fifth|sixth|seventh) from the top")
 _SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
 _OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that permanent's) owner shuffles it into their library")
+# -- static_other sweep (wave 17C) -- "The owner of target creature or enchantment puts it into their library second from the top or on the
+# bottom." (Lost Days, Temporal Cleansing): its owner's choice between the two places; "The owner of target artifact or enchantment an
+# opponent controls shuffles it into their library." (Cathartic Parting)
+_OWNER_SECOND = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it into their library second from the top or on the bottom")
+_OWNER_SHUFFLES_TARGET = re.compile(r"the owner of (?P<o>target .+?) shuffles it into their library")
 _OWNER_CHOICE = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it on their choice of the top or bottom of their library")
 # (-- static_other sweep (wave 16B) -- "the cards from your hand": the hand alone, for a count of what was shuffled in)
 _SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)?|shuffle (?:your|the cards from your) (?P<z>graveyard|hand and graveyard|hand) into your library"
@@ -1020,6 +1026,18 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         if kind not in ("target", "self", "it"):
             raise _Fail
         return [{"do": "to_library", "who": _who(kind, key), "place": "choice"}], _one(group)
+    m = _OWNER_SECOND.fullmatch(text)
+    if m:
+        kind, key, group = ref(m["o"] or m["o2"])
+        if kind not in ("target", "self", "it"):
+            raise _Fail
+        return [{"do": "to_library", "who": _who(kind, key), "place": "choice_second"}], _one(group)
+    m = _OWNER_SHUFFLES_TARGET.fullmatch(text)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind != "target":
+            raise _Fail
+        return [{"do": "to_library", "who": _who(kind, key), "place": "shuffle"}], _one(group)
     return None
 
 

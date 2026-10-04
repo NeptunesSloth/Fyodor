@@ -831,6 +831,27 @@ def parse_either(phrase: str) -> Selector | None:
     return Selector(either=(a.key(), b.key()))
 
 
+_SPELL_OR = re.compile(r"^spell or (?P<perm>.+)$")
+
+
+def parse_spell_or(phrase: str) -> Selector | None:
+    """-- static_other sweep (wave 17C) -- "spell or nonland permanent an opponent controls" / "spell or creature" / "spell or permanent
+    that's red or green" (a target phrase: a spell on the stack, or a permanent): the qualifiers (who controls it, a color, a mana
+    value) are both kinds'; "nonland", a card type or a subtype is the permanent's own (a spell is never a land, and "creature" is no
+    limit on spells here)."""
+    m = _SPELL_OR.match(phrase.strip())
+    if m is None:
+        return None
+    perm = _parse(m["perm"])
+    if perm is None or perm.player or perm.card or perm.zones != ("battlefield",) or perm.either or perm.ability or perm.union or perm.extras:
+        return None
+    spell = replace(perm, zones=("stack",), types=(), not_types=(), subtypes=(), not_subtypes=(), supertypes=(), not_supertypes=(),
+                    token=None, tapped=None, attacking=False, blocking=False, in_combat=False)
+    if spell.controller == "you" and perm.controller != "you":
+        return None
+    return Selector(either=(spell.key(), perm.key()), zones=("stack", "battlefield"))
+
+
 @lru_cache(maxsize=8192)
 def _parse(phrase: str) -> Selector | None:
     if "outlaw" in phrase:
@@ -1063,8 +1084,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     zone = card.zone.split(":")[-1] if ":" in card.zone else card.zone
     if sel.player is not None:
         return False
-    if sel.either:  # (wave 15A) any one of the alternatives
-        return zone == "battlefield" and any(matches(plan, from_key(k), card, ch, you, source, attacker) for k in sel.either)
+    if sel.either:  # (wave 15A) any one of the alternatives (each reads its own zone: wave 17C, "spell or nonland permanent")
+        return zone in sel.zones and any(matches(plan, from_key(k), card, ch, you, source, attacker) for k in sel.either)
     if sel.zones and zone not in sel.zones:
         return False
     if not sel.zones and zone in ("battlefield", "stack"):
@@ -1216,6 +1237,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # (wave 5H)
         if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
             return False
+        if extra == "shares_color_source" and ((src := plan.state.cards.get(source or "")) is None or not plan.ch(src).colors & ch.colors):
+            return False  # -- static_other sweep (wave 17C) -- conspire 702.78a: a creature that shares a color with the spell
         if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
             return False  # (wave 12C)
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):

@@ -29,6 +29,7 @@ from app.rules import costs as C
 from app.rules import selectors
 from app.rules.costs import AbilityCost, CostComponent
 from app.rules.plan import Plan, decide
+from app.rules.sba import power
 
 _VERBS = {C.SACRIFICE: "sacrifice", C.DISCARD: "discard", C.EXILE_FROM_GRAVEYARD: "exile",
           C.RETURN_PERMANENT: "return to its owner's hand", C.TAP_OTHER: "tap", C.REMOVE_COUNTER: "remove counters from"}
@@ -183,6 +184,10 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
             return f"You don't have {energy_amount(comp, x)} energy to pay"
         elif (why := _new_part_problem(plan, comp, card, player, x)) is not None:  # (wave 4H)
             return why
+        elif comp.kind == "TAP_POWER":  # -- static_other sweep (wave 17C) -- teamwork 702.194a: untapped creatures with total power N or more
+            usable = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
+            if sum(max(0, power(plan.state.cards[c], plan.ch(plan.state.cards[c])) or 0) for c in usable) < comp.amount:
+                return f"You can't pay “{comp.text}”"
         elif comp.selector is not None and comp.kind != C.COLLECT_EVIDENCE:  # (collect evidence: _new_part_problem, wave 4H)
             usable = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
             if len(usable) < objects_needed(comp, x):  # (X / one permanent for its counters: wave 4H)
@@ -207,6 +212,12 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell, cost: AbilityCost, ca
     used: set[str] = set()
     x = getattr(a, "x_value", None)  # (wave 4H: "Sacrifice X Treasures" — X announced as it's activated, 107.3a)
     for i, comp in cost.choices:
+        if comp.kind == "TAP_POWER":  # -- static_other sweep (wave 17C) -- one choice of creatures, validated as a whole
+            found = _choose_power(plan, a, i, comp, cost, card, what, given.get(i), used)
+            if found is None:
+                return None
+            out[i] = found
+            continue
         if comp.counter == C.ANY_COUNTER or comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # -- activation costs (wave 4H) --
             chooser = _choose_counters if comp.counter == C.ANY_COUNTER else _choose_flexible
             found = chooser(plan, a, i, comp, cost, card, what, given.get(i), used)
@@ -240,6 +251,31 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell, cost: AbilityCost, ca
         out[i] = list(chosen)
         used |= set(chosen)
     return out
+
+
+def _choose_power(plan: Plan, a: A.ActivateAbility | A.CastSpell, i: int, comp: CostComponent, cost: AbilityCost, card: CardInstance,
+                  what: str, given: list[str] | None, used: set[str]) -> list[str] | None:
+    """-- static_other sweep (wave 17C) -- teamwork N (702.194a): any number of untapped creatures you control with total power N or
+    more; the payer picks them (validated as a whole, 601.2h)."""
+    options = [c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card) and c not in used]
+    total = lambda ids: sum(max(0, power(plan.state.cards[c], plan.ch(plan.state.cards[c])) or 0) for c in ids)  # noqa: E731
+    if given is not None:
+        if len(set(given)) != len(given) or any(c not in options for c in given) or total(given) < comp.amount:
+            raise ActionError(f"Those creatures don't pay “{comp.text}”")
+        chosen = list(given)
+    elif total(options) < comp.amount:
+        raise ActionError(f"You can't pay “{comp.text}”")  # 118.3
+    else:
+        decide(plan, player=plan.actor, kind="choose_cards",
+               prompt=f"{what}: choose the creatures to tap (“{comp.text}”), or none to cancel",
+               options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name or 'Creature'} ({total([c])})", card_id=c) for c in options],
+               min_choices=0, max_choices=len(options),
+               resume={"step": "ability_cost", "component": i, "amount": None,
+                       "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
+               source=card)
+        return None
+    used |= set(chosen)
+    return chosen
 
 
 def _choose_counters(plan: Plan, a: A.ActivateAbility | A.CastSpell, i: int, comp: CostComponent, cost: AbilityCost,
@@ -326,7 +362,7 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             plan.do({"type": "tap", "card_ids": [card.id], "tapped": False})
         elif comp.kind == C.PAY_ENERGY and energy_amount(comp, record.x):  # (107.14: remove that many energy counters)
             plan.do({"type": "resource", "player": player, "key": "energy", "delta": -energy_amount(comp, record.x)})
-        elif comp.kind == C.TAP_OTHER:
+        elif comp.kind in (C.TAP_OTHER, "TAP_POWER"):
             plan.do({"type": "tap", "card_ids": ids, "tapped": True})
             record.tapped_for_cost += ids
         elif comp.kind == C.REMOVE_COUNTER and comp.selector is not None:

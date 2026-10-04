@@ -1753,6 +1753,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     body = re.sub(r"(?i)(?:^|(?<=, )|(?<=\. ))(?:you )?recruit(?=[.,]|$)",
                   "draw a card, then discard a card, then create a 1/1 white Human Soldier creature token for each nonland card "
                   "discarded this way", body)
+    # -- static_other sweep (wave 17C) -- "The owner of target nonland permanent shuffles it into their library, then draws two cards."
+    # (Oblation): the shuffle, then its owner's draw
+    body = re.sub(r"(?i)^the owner of (target [^.,]+?) shuffles it into their library, then draws (\w+) cards?\b",
+                  r"Shuffle \1 into its owner's library. Its owner draws \2 cards", body)
     # -- static_other sweep (wave 17C) -- 701.16a: "Its controller investigates." is "Its controller creates a Clue token." (Fateful Absence)
     body = re.sub(r"(?i)\b(its controller|that creature's controller|that permanent's controller) investigates\b", r"\1 creates a Clue token", body)
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
@@ -3617,6 +3621,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     effects = shuffled
     if ch.is_instant_or_sorcery and any(ab.kind == "keywords" and "ascend" in ab.keywords for ab in ch.abilities):
         effects = [{"do": "ascend"}, *effects]  # -- keywords (wave 15E) -- 702.131a: the spell ability, first
+    if ch.is_instant_or_sorcery and any(ab.kind == "keywords" and ab.keywords == ("cipher",) for ab in ch.abilities):
+        effects = [*effects, {"do": "cipher"}]  # -- static_other sweep (wave 17C) -- 702.99a: encoded last (recursion.cipher)
     effects, target = _finish_targets(effects, groups)
     return {"kind": "spell", "effects": effects, **target_fields(target)}
 
