@@ -105,6 +105,7 @@ _MULTI = {"enters": "enter", "dies": "die", "attacks": "attack", "leaves the bat
           "becomes blocked": "blocked", "becomes tapped": "tapped", "becomes untapped": "untapped",
           "is dealt damage": "dealt_damage",
           "is put into a graveyard from the battlefield": "die",  # (700.4; wave 5D: Ichor Wellspring)
+          "deals combat damage to a player": "deal_combat_damage_player",  # (wave 17D: Park Heights Maverick)
           "is turned face up": "turned_face_up"}  # -- face up (wave 6D) -- "~ enters or is turned face up" (702.37e)
 _MULTI_RE = "|".join(sorted((re.escape(k) for k in _MULTI), key=len, reverse=True))
 _P = r"(?P<p>you|an opponent|a player|enchanted player)"
@@ -320,7 +321,7 @@ def _parse(c: str) -> Condition | None:
         return found
     # -- triggers (wave 5D) -- "Whenever another creature you control enters or dies" (Daxos): either event of the
     # same objects (603.2), each read on its own ("~ enters or dies" is the "multi" form above)
-    m = re.fullmatch(r"(?P<s>(?!~ )(?!one or more ).+?) (?P<a>enters|dies|attacks|blocks|leaves the battlefield) or "
+    m = re.fullmatch(r"(?P<s>(?!~ (?:enters|dies|attacks|blocks|leaves))(?!one or more ).+?) (?P<a>enters|dies|attacks|blocks|leaves the battlefield) or "
                      r"(?P<b>enters|dies|attacks|blocks|leaves the battlefield|deals combat damage to a player)", c)
     if m:
         a, b = _parse(f"{m['s']} {m['a']}"), _parse(f"{m['s']} {m['b']}")
@@ -351,7 +352,7 @@ def _parse(c: str) -> Condition | None:
     for part in re.finditer(r" or ", c):
         a, b = _parse(c[:part.start()]), _parse(c[part.end():])
         if a is None or b is None or a["event"] in ("either", "multi") or b["event"] in ("either", "multi") \
-                or a.get("aggregate") or b.get("aggregate") or a["event"] == b["event"]:
+                or a.get("aggregate") or b.get("aggregate") or (a["event"] == b["event"] and a["subject"] == b["subject"]):
             continue
         return {"event": "either", "subject": a["subject"] if a["subject"] == b["subject"] else "mixed", "conds": [a, b]}
     m = _GETS_COUNTERS.fullmatch(c)  # -- counters & designations (wave 3E): "whenever you get one or more {E}" (122.6) --

@@ -92,12 +92,22 @@ EXTRA = [
     real('Ammit Eternal', '{2}{B}', 3, 'Creature — Zombie Crocodile Demon',
          'Afflict 3 (Whenever this creature becomes blocked, defending player loses 3 life.)\nWhenever an opponent casts a spell, put a -1/-1 counter on this creature.\nWhenever this creature deals combat damage to a player, remove all -1/-1 counters from it.', ("5", "5"), 'B'),
     real("Test Exile", "{W}", 1, "Sorcery", "Exile target creature.", None, "W"),
+    real('Wilhelt, the Rotcleaver', '{2}{U}{B}', 4, 'Legendary Creature — Zombie Warrior',
+         "Whenever another Zombie you control dies, if it didn't have decayed, create a 2/2 black Zombie creature token with decayed. (It can't block. When it attacks, sacrifice it at end of combat.)\nAt the beginning of your end step, you may sacrifice a Zombie. If you do, draw a card.", ("3", "3"), 'BU'),
+    real('Park Heights Maverick', '{2}{G}', 3, 'Creature — Human Soldier',
+         "Dethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)\nThis creature can't be blocked by creatures with power 2 or less.\nWhenever this creature deals combat damage to a player or dies, proliferate.", ("2", "2"), 'G'),
+    real('Millicent, Restless Revenant', '{5}{W}{U}', 7, 'Legendary Creature — Spirit Soldier',
+         'Affinity for Spirits (This spell costs {1} less to cast for each Spirit you control.)\nFlying\nWhenever Millicent or another nontoken Spirit you control dies or deals combat damage to a player, create a 1/1 white Spirit creature token with flying.', ("4", "4"), 'UW'),
+    real('Massacre Girl, Known Killer', '{2}{B}{B}', 4, 'Legendary Creature — Human Assassin',
+         'Menace\nCreatures you control have wither. (They deal damage to creatures in the form of -1/-1 counters.)\nWhenever a creature an opponent controls dies, if its toughness was less than 1, draw a card.', ("4", "4"), 'B'),
+    real("Test Zombie", "{1}{B}", 2, "Creature — Zombie", "", ("2", "2"), "B"),
     real("Test Bounce", "{U}", 1, "Sorcery", "Return target creature to its owner's hand.", None, "U"),
     real("Test Burst", "{R}", 1, "Instant", "Test Burst deals 1 damage to any target.", None, "R"),
 ]
 
 NAMES = ["Torens, Fist of the Angels", "Dour Port-Mage", "Glowing One", "Screeching Scorchbeast", "Staff of the Death Magus",
-         "Rug of Smothering", "Wyleth, Soul of Steel", "Soulherder", "Aetherworks Marvel",
+         "Rug of Smothering", "Wilhelt, the Rotcleaver", "Park Heights Maverick", "Millicent, Restless Revenant",
+         "Massacre Girl, Known Killer", "Wyleth, Soul of Steel", "Soulherder", "Aetherworks Marvel",
          "Vorinclex, Voice of Hunger", "Firespitter Whelp", "Ghostly Pilferer", "Jadelight Ranger", "Ammit Eternal", "Phytotitan", "Within Range", "Hapatra, Vizier of Poisons", "Nest of Scarabs", "Path of Discovery", "Necropotence", "Prosperous Thief", "Forsaken Monument", "Parhelion II",
          "Poetic Ingenuity", "Scytheclaw Raptor", "Price of Glory"]
 
@@ -405,4 +415,17 @@ def test_explores_twice(cards):
     act(s, "p1", type="cast_spell", card_id=ranger.id)
     answer(s)
     assert len(zone(s.state, "p1", "hand")) == hand - 1 + 2  # two Forests revealed, both to the hand
+    check(s)
+
+
+def test_another_zombie_dies_unless_it_had_decayed(cards):
+    # Wilhelt: "if it didn't have decayed" is read from the creature as it last existed (608.2h)
+    s = build(cards, ["Wilhelt, the Rotcleaver", "Test Zombie"], [])
+    put(s, "Wilhelt, the Rotcleaver")
+    put(s, "Test Zombie")
+    token_of(s, "p1", "Rotted", "Token Creature — Zombie", "2/2", "Decayed")
+    kill(s, "Rotted")
+    assert not any(c.name == "Zombie" and c.is_token for c in s.state.cards.values())
+    kill(s, "Test Zombie")
+    assert sum(1 for c in s.state.cards.values() if c.name == "Zombie" and c.is_token and c.zone == "p1:battlefield") == 1
     check(s)

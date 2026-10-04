@@ -113,7 +113,7 @@ _ALL_GRAVEYARDS = re.compile(r"there are (?P<n>\w+) or more (?P<sel>.+?) (?:tota
 _GRAVEYARD_TYPES = re.compile(r"there are (?P<n>\w+) or more card types among cards in your graveyard")
 _NONE_ON_BATTLEFIELD = re.compile(r"(?:there are )?no (?P<sel>[\w' -]+?)(?: are)? on the battlefield")
 _OBJECT_STAT = re.compile(r"(?P<who>its|that creature's|that permanent's|that card's|that spell's|~'s|the sacrificed (?:creature|permanent|artifact)'s) (?P<stat>power|toughness|mana value) "
-                          r"(?:is|was) (?P<n>\w+) or (?P<cmp>less|greater|more|fewer)")
+                          r"(?:is|was) (?:(?P<n>\w+) or (?P<cmp>less|greater|more|fewer)|(?P<cmp2>less|greater|more|fewer) than (?P<n2>\w+))")  # (17D: "than")
 _X_IS = re.compile(r"x is (?P<n>\w+)(?: or (?P<cmp>more|greater|less|fewer))?", re.IGNORECASE)
 _VERSUS = re.compile(r"an opponent (?:(?P<controls>controls)|has) more (?P<what>.+?) than you")
 # -- intervening ifs (wave 11F) -- 603.4: the player the trigger event names ("that player"), the player a creature
@@ -147,7 +147,7 @@ _HAD_COUNTERS = re.compile(r"(?P<who>it|~|that creature|that permanent) (?:had|h
                            r"counters? on (?:it|them|~|him|her)")
 # -- refused modal/conditional (wave 3R1) -- an ability the object has (a characteristic, 109.3: as it is, or as it
 # last existed, 608.2h — granted ones included). Keyword abilities only; "protection" (which quality?) isn't read.
-_HAS_KEYWORD = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card)) has (?P<kw>flying|reach|haste|trample|deathtouch|"
+_HAS_KEYWORD = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card)) (?:has|had|(?P<neg>doesn't have|didn't have)) (?P<kw>decayed|flying|reach|haste|trample|deathtouch|"
                           r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible|defender|infect|"
                           r"toxic|wither|flash|madness|flashback|shroud|cycling)")
 
@@ -842,20 +842,24 @@ def _object(t: str) -> Condition | None:
     it last existed); physical state (tapped, attacking) only of the source itself."""
     m = _OBJECT_STAT.fullmatch(t)
     if m:  # "its mana value was 3 or less", "its power is 4 or greater"
-        n = _num(m["n"])
+        n = _num(m["n"] or m["n2"])
         if n is None:
             return None
+        cmp = m["cmp"] or m["cmp2"]
+        if m["cmp2"]:  # "less than 1" is at most 0, "greater than 3" at least 4 (whole numbers)
+            n += -1 if cmp in ("less", "fewer") else 1
         who = m["who"]
         return {"object": "self" if who == "~'s" else "cost:sacrificed" if who.startswith("the sacrificed") else "it",
                 "stat": m["stat"].replace(" ", "_"),
-                "op": "<=" if m["cmp"] in ("less", "fewer") else ">=", "n": n}
+                "op": "<=" if cmp in ("less", "fewer") else ">=", "n": n}
     m = _HAD_COUNTERS.fullmatch(t)  # -- counters (wave 5H) --
     if m:
         out_c: Condition = {"object": _OBJECT_WORDS[m["who"]], "counters": m["k"] or "*"}
         return {"not": out_c} if m["neg"] else out_c
     m = _HAS_KEYWORD.fullmatch(t)  # -- refused modal/conditional (wave 3R1) -- "if that creature has toxic"
-    if m:
-        return {"object": _OBJECT_WORDS[m["who"]], "has": m["kw"]}
+    if m:  # (wave 17D: "if it didn't have decayed" / "if it had flying": as it last existed, 608.2h)
+        has: Condition = {"object": _OBJECT_WORDS[m["who"]], "has": m["kw"]}
+        return {"not": has} if m["neg"] else has
     m = _BEATS_SELF.fullmatch(t)  # -- intervening ifs (wave 11F) -- "if that creature has greater power or toughness than ~"
     if m:
         stats = [x for x in (m["a"], m["b"]) if x] if m["a"] else ["power"] + (["toughness"] if "toughness" in t else [])
