@@ -2585,10 +2585,10 @@ def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateA
     if plan.state.turn.active_player != plan.actor:
         raise ActionError("You can foretell a card only during your turn (702.143a)")
     cost = M.parse_cost("{2}")
-    if payment_step(plan, a, cost, f"foretelling {ch.name}", purpose=Purpose(spell=ch, special="foretell")):
+    if payment_step(plan, a, cost, f"foretelling {ch.name}", purpose=Purpose(special="foretell")):  # (review 19: 116.2h, not a cast)
         return
     pay(plan, plan.actor, cost, "paid {2} to foretell a card", sources=a.sources,
-        purpose=Purpose(spell=ch, special="foretell"))
+        purpose=Purpose(special="foretell"))
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "foretell"}})
     plan.rules.foretold[card.id] = plan.state.turn.number
     plan.note(f"{plan.name(plan.actor)} foretells a card")

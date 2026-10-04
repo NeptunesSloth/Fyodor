@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from collections.abc import Iterator
 from dataclasses import replace
 from functools import lru_cache
@@ -1940,25 +1941,33 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     # (what the wrappers around the sentence grammar bind afterwards — "this way" counts, the target player's hand — is not read)
     if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"|"cost:exiled"', json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):
         return None
-    outer = list(_X_NOW)
-    _X_NOW[:] = [value, False]  # (-- X sized by a count (wave 19F) -- swapped in by _parse_effects before it binds the pronouns)
+    now = _x_now()
+    outer = list(now)
+    now[:] = [value, False]  # (-- X sized by a count (wave 19F) -- swapped in by _parse_effects before it binds the pronouns)
     try:
         got = _parse_effects_checked(rest.replace("\0", re.sub(r"\bX\b", str(_X_SENTINEL), head)), it, event_player)
-        hit = _X_NOW[1]
+        hit = now[1]
     finally:
-        _X_NOW[:] = outer
+        now[:] = outer
     if got is None or str(_X_SENTINEL) in json.dumps(got[1]) or not hit:
         return None
     return got
 
 
-_X_NOW: list[Any] = []  # [value, swapped?] while _where_x parses its stand-in sentence
+_X_LOCAL = threading.local()  # (review 19: per thread — games may parse cards concurrently)
+
+
+def _x_now() -> list[Any]:
+    """[value, swapped?] while _where_x parses its stand-in sentence (empty otherwise)."""
+    if not hasattr(_X_LOCAL, "v"):
+        _X_LOCAL.v = []
+    return _X_LOCAL.v  # type: ignore[no-any-return]
 
 
 def _swap_x(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """-- X sized by a count (wave 19F) -- the stand-in of _where_x → the value, in amount fields only (a pronoun in the value is
     bound by the resolve_it that follows: "where X is that creature's power", "… the milled card's mana value")."""
-    value = _X_NOW[0]
+    value = _x_now()[0]
 
     def swap(v: Any, key: str | None) -> Any:
         if isinstance(v, list):
@@ -1969,7 +1978,7 @@ def _swap_x(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
             return v
         if key not in _X_KEYS or (v < 0 and key == "n"):
             raise _NoMatch
-        _X_NOW[1] = True
+        _x_now()[1] = True
         return value if v > 0 else {"neg": value}
 
     return swap(effects, None)
@@ -2504,7 +2513,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 return None
             found, sel = parsed_clause
             effects += _add_groups(groups, found, sel)
-    if _X_NOW:
+    if _x_now():
         effects = _swap_x(effects)
     resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
     if resolved is not None:  # -- refused modal/conditional (wave 3R1) -- an "instead" pronoun naming the target
