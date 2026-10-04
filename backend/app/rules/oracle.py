@@ -51,7 +51,7 @@ KEYWORDS = frozenset({
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",
     "phasing", "transmute",  # (wave 3R4: casting.transmute)
-    "aftermath", "gravestorm", "dredge", "fuse",  # -- static_other sweep (wave 16B) -- 702.127 (casting.from_graveyard / cast_grant)
+    "aftermath", "gravestorm", "dredge", "fuse", "awaken",  # -- static_other sweep (wave 16B) -- 702.127 (casting.from_graveyard / cast_grant)
     "ingest", "poisonous", "frenzy", "afterlife", "modular", "split second", "graft", "sunburst", "devour",  # -- static wordings (wave 6E) -- (app/rules/keyword_triggers.py)
 })
 
@@ -247,6 +247,15 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
             lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
                               "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
                               "its owner's control."]
+    # -- static_other sweep (wave 16B) -- 702.113a: "Awaken N—[cost]" means "You may cast this spell for [cost]" and "If you cast this spell for
+    # its awaken cost, put N +1/+1 counters on target land you control. That land becomes a 0/0 Elemental creature with haste. It's still a
+    # land." The cost is the keyword line's (casting: CastSpell.awaken); the effect is read as the spell's own "if kicked" line (the same
+    # optional-payment flag the kicker gates read: no card has both)
+    if spell:
+        for line in list(lines):
+            if m := re.fullmatch(r"Awaken (\d+)—(?:\{[^}]+\})+", line):
+                lines.append(f"If this spell was kicked, put {m[1]} +1/+1 counters on target land you control. If this spell was kicked, "
+                             "that land becomes a 0/0 Elemental creature with haste and it's still a land.")
     # -- static_other sweep (wave 16B) -- 706.3: a results table's rows (one per line) belong to the roll before them
     merged: list[str] = []
     for line in lines:

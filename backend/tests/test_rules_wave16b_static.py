@@ -65,6 +65,10 @@ EXTRA = [
     card("Test Relic", set_code="tst", number="B21", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
     card("Test Aura Wall", set_code="tst", number="B22", mana_cost="{1}{W}", cmc=2.0, type_line="Enchantment", colors=["W"],
          color_identity=["W"], oracle_text=""),
+    card("Clutch of Currents", set_code="tst", number="B23", mana_cost="{1}{U}", cmc=2.0, type_line="Sorcery", colors=["U"],
+         color_identity=["U"], oracle_text="Return target creature to its owner's hand.\nAwaken 3—{4}{U} (If you cast this spell for "
+         "{4}{U}, also put three +1/+1 counters on target land you control and it becomes a 0/0 Elemental creature with haste. It's "
+         "still a land.)"),
     card("Deep Analysis", set_code="tst", number="B19", mana_cost="{3}{U}", cmc=4.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
          oracle_text="Target player draws two cards.\nFlashback—{1}{U}, Pay 3 life. (You may cast this card from your graveyard for "
          "its flashback cost. Then exile it.)"),
@@ -410,4 +414,35 @@ def test_a_fuse_card_still_casts_one_half(cards):
     act(s, "p1", type="cast_spell", card_id=c.id, face=1, targets=[wall.id])  # Tear alone, for {W}
     answer(s)
     assert find(s, "Test Aura Wall", "p2").zone == "p2:graveyard" and find(s, "Wear // Tear").zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_awaken_cost_puts_counters_on_a_land_that_becomes_an_elemental_creature(cards):
+    s = build(cards, p1=("Clutch of Currents",), p2=("Test Small",))
+    victim = put(s, "Test Small", "battlefield", "p2")
+    forest = next(x for x in s.state.cards.values() if x.name == "Forest" and x.owner == "p1")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"player": "p1", "zone": "battlefield"})
+    c = put(s, "Clutch of Currents", "hand")
+    mana(s, C=4, U=1)  # the awaken cost {4}{U}, not the mana cost {1}{U} (702.113a)
+    act(s, "p1", type="cast_spell", card_id=c.id, awaken=True, targets=[victim.id, forest.id], target_counts=[1, 1])
+    answer(s)
+    assert find(s, "Test Small", "p2").zone == "p2:hand"
+    land = s.state.cards[forest.id]
+    assert land.counters.get("+1/+1") == 3
+    ch = chars.of(land, s.cards)
+    from app.rules.layers import derive
+
+    d = derive(s.state, land, ch, s.cards)
+    assert {"Land", "Creature"} <= d.types and "Elemental" in d.subtypes and "haste" in d.keywords and d.pt == (3, 3)
+    roundtrip(s)
+
+
+def test_cast_normally_awaken_does_nothing_and_needs_no_land_target(cards):
+    s = build(cards, p1=("Clutch of Currents",), p2=("Test Small",))
+    victim = put(s, "Test Small", "battlefield", "p2")
+    c = put(s, "Clutch of Currents", "hand")
+    mana(s, C=1, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[victim.id], target_counts=[1, 0])
+    answer(s)
+    assert find(s, "Test Small", "p2").zone == "p2:hand"
     roundtrip(s)
