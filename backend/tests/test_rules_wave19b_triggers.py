@@ -68,6 +68,10 @@ EXTRA = [
     real('Probe Rock', '{3}', 3, 'Artifact', '', None),
     real('Probe Giant', '{5}', 5, 'Creature — Giant', '', ("5", "5")),
     real('God-Eternal Bontu', '{3}{B}{B}', 5, 'Legendary Creature — Zombie God', "Menace\nWhen God-Eternal Bontu enters, sacrifice any number of other permanents, then draw that many cards.\nWhen God-Eternal Bontu dies or is put into exile from the battlefield, you may put her into her owner's library third from the top.", ("5", "6"), 'B'),
+    real('Lord of Shatterskull Pass', '{3}{R}', 4, 'Creature — Minotaur Shaman', 'Level up {1}{R} ({1}{R}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 1-5\n6/6\nLEVEL 6+\n6/6\nWhenever this creature attacks, it deals 6 damage to each creature defending player controls.', ("3", "3"), 'R'),
+    real('Font of Magic', '{3}{U}', 4, 'Enchantment', "Instant and sorcery spells you cast cost {1} less to cast for each time you've cast a commander from the command zone this game.", None, 'U'),
+    real('Probe Divination', '{2}{U}', 3, 'Sorcery', 'You gain 1 life.', None, 'U'),
+    real('Renounce', '{1}{W}', 2, 'Instant', 'Sacrifice any number of permanents. You gain 2 life for each permanent sacrificed this way.', None, 'W'),
 ]
 
 NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
@@ -85,6 +89,15 @@ def card_db(settings):
 @pytest.mark.parametrize("name", NAMES)
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_that_many_after_sacrificing_any_number_stays_manual(cards):
+    # Scapeshift: "up to that many" is the number of lands sacrificed, not an event's amount - not read (wrong automation otherwise)
+    from tests.fixtures.cards import card
+
+    scape = card("Scapeshift", set_code="tst", number="19B1", mana_cost="{2}{G}{G}", cmc=4.0, type_line="Sorcery", colors=["G"],
+                 color_identity=["G"], keywords=[], oracle_text="Sacrifice any number of lands. Search your library for up to that many land cards, put them onto the battlefield tapped, then shuffle.")
+    assert coverage.of_card_data(scape).level != "FULL"
 
 
 def test_hellrider_damages_what_each_attacker_attacks(cards):
@@ -373,4 +386,41 @@ def test_sacrifice_any_number_of_other_permanents_then_draw_that_many(cards, cou
     answer(s)
     assert len(zone(s.state, "p1", "hand")) == hand + count
     assert (s.state.cards[rock.id].zone == "p1:graveyard") == (count == 2)
+    check(s)
+
+
+def test_leveled_up_creature_hits_only_the_defending_players_creatures(cards):
+    # the grant at LEVEL 6+ is a quoted trigger: the same "each creature defending player controls" (508.5), one defender of three
+    s = combat_build(cards, "Lord of Shatterskull Pass", players=3)
+    lord = combat_put(s, "Lord of Shatterskull Pass")
+    act(s, "p1", type="counter", card_ids=[lord.id], kind="level", delta=6)
+    walls = {pid: next(c for c in s.state.cards.values() if c.name == f"Wall {pid}") for pid in ("p2", "p3")}
+    to_attack(s, 4)
+    declare(s, (lord, "p2"))
+    to_blocks(s)
+    assert walls["p2"].id not in s.state.cards and s.state.cards[walls["p3"].id].zone == "p3:battlefield"  # (a token dies: gone)
+    check(s)
+
+
+def test_spells_cost_less_for_each_commander_cast_from_the_command_zone(cards):
+    s = build(cards, ["Font of Magic", "Probe Divination"], [])
+    put(s, "Font of Magic")
+    krenko = next(c for c in s.state.cards.values() if c.name == "Krenko, Mob Boss" and c.owner == "p1")
+    mana(s, "p1", R=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=krenko.id)  # one cast from the command zone
+    answer(s)
+    cast(s, "Probe Divination", U=1, C=1)  # {2}{U} less {1}: only two mana are in the pool
+    assert life(s, "p1") == 41
+    check(s)
+
+
+def test_renounce_gains_2_life_for_each_permanent_sacrificed_this_way(cards):
+    s = build(cards, ["Renounce", "Probe Rock", "Probe Blade"], [])
+    rock, blade = put(s, "Probe Rock"), put(s, "Probe Blade")
+    cast(s, "Renounce", W=1, C=1)
+    d = s.state.rules.decision
+    assert d is not None and d.min_choices == 0
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[rock.id, blade.id])
+    answer(s)
+    assert life(s, "p1") == 44 and s.state.cards[rock.id].zone == "p1:graveyard"
     check(s)

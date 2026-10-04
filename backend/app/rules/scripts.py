@@ -2470,6 +2470,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         if e["do"] == "mill":
             mill_k = k
+        if k and any(x.get("upto") and x["do"] == "sacrifice_choice" for x in resolved[:k]) and "event_amount" in json.dumps(e):
+            return None  # -- triggers (wave 19B) -- "up to that many" after "sacrifice any number of": the sacrificed count, not the event's
         if e.get("put") and not str(e.get("who")).startswith("event"):
             return None  # -- triggers (wave 19B) -- "put it onto the battlefield" is read only for the trigger event's card (a graveyard card)
         if e["do"] == "pick_looked" and not looked and mill_k is None and e.get("which") in ("that", "all") and not e.get("sel") \
