@@ -3118,6 +3118,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if granted is not None:
             return granted
     if ability.kind == "triggered":
+        text = re.sub(r"^((?:When|Whenever) [^,]+?) while this card is in your graveyard, ", r"\1, if this card is in your graveyard, ", text)  # (wave 19C)
         for pattern, trigger in TRIGGERS:
             m = pattern.match(text)
             if m and trigger == "event":  # -- triggers (wave 5D) -- a condition with commas in it ("an Aura, Equipment,
@@ -3280,6 +3281,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     out["cond"] = cond
                 if intervening is not None:
                     out["if"] = intervening
+                    if intervening == {"object": "self", "test": "in_graveyard"}:
+                        out["gy_watch"] = True  # -- graveyard triggers (wave 19C) -- it sees the events that come after the card is there
                 if kicked is not None:
                     out["if_kicked"] = True
                 if limit is not None:

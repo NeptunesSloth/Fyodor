@@ -73,8 +73,12 @@ EXTRA = [
          oracle_text='Bloodrush — {1}{R}, Discard this card: Target attacking creature gets +3/+1 until end of turn.\nWhenever one or more creatures you control deal combat damage to a player, if this card is in your graveyard, you may pay {3}. If you do, return this card to your hand.', power='3', toughness='1', colors=['R'], color_identity=['R'], keywords=['Bloodrush']),
     card('Ichorid', set_code='tst', number='W60', mana_cost='{3}{B}', cmc=4.0, type_line='Creature — Horror',
          oracle_text='Haste\nAt the beginning of the end step, sacrifice this creature.\nAt the beginning of your upkeep, if this card is in your graveyard, you may exile a black creature card other than this card from your graveyard. If you do, return this card to the battlefield.', power='3', toughness='1', colors=['B'], color_identity=['B'], keywords=['Haste']),
+    card('Furious Forebear', set_code='tst', number='W70', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Spirit Warrior',
+         oracle_text='Whenever a creature you control dies while this card is in your graveyard, you may pay {1}{W}. If you do, return this card from your graveyard to your hand.', power='3', toughness='1', colors=['W'], color_identity=['W'], keywords=[]),
+    card('Boneyard Scourge', set_code='tst', number='W71', mana_cost='{2}{B}{B}', cmc=4.0, type_line='Creature — Zombie Dragon',
+         oracle_text='Flying\nWhenever a Dragon you control dies while this card is in your graveyard, you may pay {1}{B}. If you do, return this card from your graveyard to the battlefield.', power='4', toughness='3', colors=['B'], color_identity=['B'], keywords=['Flying']),
 ]
-FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor', 'Gigapede', 'Blood Operative', 'Pyrewild Shaman', 'Ichorid']
+FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor', 'Gigapede', 'Blood Operative', 'Pyrewild Shaman', 'Ichorid', 'Furious Forebear', 'Boneyard Scourge']
 # --EXTRA-END--
 
 
@@ -450,4 +454,38 @@ def test_ichorid_exiles_another_black_creature_card_never_itself(cards):
     pick(s, "pay")
     play_out(s, prefer=(fodder.id,))
     assert s.state.cards[ichorid.id].zone == "p1:battlefield" and s.state.cards[fodder.id].zone == "p1:exile"
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("already_there", [True, False])
+def test_furious_forebear_sees_a_creature_die_only_after_it_is_in_the_graveyard(cards, already_there):
+    """"Whenever a creature you control dies while this card is in your graveyard, you may pay {1}{W}. If you do, return this card
+    from your graveyard to your hand." Not when it dies at the same moment as the creature (603.10a: it wasn't there before)."""
+    s = build(cards, p1=("Rain of Daggers",), p2=("Furious Forebear",))
+    forebear = to_zone(s, find(s, "Furious Forebear", "p2"), "graveyard" if already_there else "battlefield")
+    token_creature(s, "p2", "Bear")
+    rain = to_hand(s, "Rain of Daggers")
+    add_mana(s, "p1", B=2, C=4)
+    add_mana(s, "p2", W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=rain.id, targets=["p2"])
+    asked = None
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None and {o.id for o in d.options} >= {"pay", "decline"}:
+            asked = d
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    if already_there:
+        assert asked is not None and asked.player == "p2"
+        roundtrip(s)
+        pick(s, "pay")
+        play_out(s)
+        assert s.state.cards[forebear.id].zone == "p2:hand"
+    else:
+        assert asked is None and s.state.cards[forebear.id].zone == "p2:graveyard"  # both died together: it never triggers
     roundtrip(s)

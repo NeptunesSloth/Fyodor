@@ -987,8 +987,10 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             card, ch = _snapshot_card(plan, snap)
             left[id(card)] = snap.object_id
             watchers += [((card, ch, i, d), entered.get(snap.object_id, -big), e.batch)
-                         for i, d in abilities(plan, ch, "event") if d.get("cond") and not arrives_in_graveyard(d)]
-    watchers += [(w, entered.get(plan.oid(w[0]), -big), big) for w in _event_watchers(plan)]
+                         for i, d in abilities(plan, ch, "event") if d.get("cond") and not arrives_in_graveyard(d) and not d.get("gy_watch")]
+    # (-- graveyard triggers (wave 19C) -- a ``gy_watch`` ability works from the graveyard only and sees the events after the card got there:
+    # not the one that put it there (603.10a: before it, it wasn't in the graveyard), nor its own death as a permanent)
+    watchers += [(w, entered.get(plan.oid(w[0]), -big) + (1 if w[3].get("gy_watch") else 0), big) for w in _event_watchers(plan)]
     for e in events:
         if e.manual:
             continue
