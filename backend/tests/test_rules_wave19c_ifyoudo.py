@@ -65,8 +65,14 @@ EXTRA = [
          oracle_text='Instant and sorcery spells you cast cost {1} less to cast.\nWhenever a spell or ability you control counters a spell, you may draw a card. If you do, discard a card.', power='1', toughness='3', colors=['U'], color_identity=['U'], keywords=[]),
     card('Lullmage Mentor', set_code='tst', number='W41', mana_cost='{1}{U}{U}', cmc=3.0, type_line='Creature — Merfolk Wizard',
          oracle_text='Whenever a spell or ability you control counters a spell, you may create a 1/1 blue Merfolk creature token.\nTap seven untapped Merfolk you control: Counter target spell.', power='2', toughness='2', colors=['U'], color_identity=['U'], keywords=[]),
+    card('Gigapede', set_code='tst', number='W50', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Insect',
+         oracle_text="Shroud (This creature can't be the target of spells or abilities.)\nAt the beginning of your upkeep, if this card is in your graveyard, you may discard a card. If you do, return this card to your hand.", power='6', toughness='1', colors=['G'], color_identity=['G'], keywords=['Shroud']),
+    card('Blood Operative', set_code='tst', number='W51', mana_cost='{1}{B}{B}', cmc=3.0, type_line='Creature — Vampire Assassin',
+         oracle_text='Lifelink\nWhen this creature enters, you may exile target card from a graveyard.\nWhenever you surveil, if this card is in your graveyard, you may pay 3 life. If you do, return this card to your hand.', power='3', toughness='1', colors=['B'], color_identity=['B'], keywords=['Lifelink']),
+    card('Pyrewild Shaman', set_code='tst', number='W52', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Goblin Shaman',
+         oracle_text='Bloodrush — {1}{R}, Discard this card: Target attacking creature gets +3/+1 until end of turn.\nWhenever one or more creatures you control deal combat damage to a player, if this card is in your graveyard, you may pay {3}. If you do, return this card to your hand.', power='3', toughness='1', colors=['R'], color_identity=['R'], keywords=['Bloodrush']),
 ]
-FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor']
+FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor', 'Gigapede', 'Blood Operative', 'Pyrewild Shaman']
 # --EXTRA-END--
 
 
@@ -372,4 +378,44 @@ def test_baral_does_not_loot_for_a_spell_that_is_not_countered(cards):
     act(s, "p1", type="cast_spell", card_id=elves.id)
     play_out(s, prefer=("yes",))
     assert s.state.cards[elves.id].zone == "p1:battlefield" and len(zone(s.state, "p2", "library")) == library
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_blood_operative_returns_from_the_graveyard_when_you_surveil(cards, pay):
+    """"Whenever you surveil, if this card is in your graveyard, you may pay 3 life. If you do, return this card to your hand."
+    (the trigger works from the graveyard only; "this card" there is the one in the graveyard, 113.6)"""
+    s = build(cards, p1=("Blood Operative", "Master of Death"))
+    operative = to_zone(s, find(s, "Blood Operative"), "graveyard")
+    master = to_hand(s, "Master of Death")
+    life = s.state.players["p1"].life
+    add_mana(s, "p1", U=1, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=master.id)  # its enters trigger: surveil 2
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and {o.id for o in d.options} >= {"pay", "decline"}:
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1" and s.state.cards[operative.id].zone == "p1:graveyard"
+    pick(s, "pay" if pay else "decline")
+    play_out(s)
+    assert (s.state.cards[operative.id].zone == "p1:hand") is pay
+    assert s.state.players["p1"].life == life - (3 if pay else 0)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_gigapede_discards_a_card_to_return_from_the_graveyard(cards, pay):
+    s = build(cards, p1=("Gigapede", "Llanowar Elves"))
+    gigapede = to_zone(s, find(s, "Gigapede"), "graveyard")
+    elves = to_zone(s, find(s, "Llanowar Elves"), "hand")
+    d = to_upkeep_choice(s)
+    assert d.player == "p1" and s.state.turn.number == 3
+    pick(s, "pay" if pay else "decline")
+    play_out(s, prefer=(elves.id,))
+    assert (s.state.cards[gigapede.id].zone == "p1:hand") is pay  # "If you do, return this card to your hand"
+    assert (s.state.cards[elves.id].zone == "p1:graveyard") is pay  # the discard is the cost
     roundtrip(s)

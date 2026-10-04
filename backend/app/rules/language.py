@@ -2742,7 +2742,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     obj = m["o"]
     if may and not _RA_CHOICE.fullmatch(obj):
         return None  # (only a choice models its own "may": choosing none)
-    if _RA_SELF.fullmatch(obj):  # works from the graveyard (113.6m): coverage keeps it to activated abilities
+    if _RA_SELF.fullmatch(obj) or obj == "this card":  # works from the graveyard (113.6m): coverage keeps it to activated abilities
+        # (wave 19C: "return this card to your hand" — a card that isn't on the battlefield: the one in the graveyard, nothing if it left)
         return [{**effect, "who": "self_gy"}], None
     # -- reanimation (wave 10A) -- one instruction, several cards of different kinds: "Return up to one target instant card
     # and up to one target sorcery card from your graveyard to your hand." (one target group each, 115.1, 601.2c; the zone
