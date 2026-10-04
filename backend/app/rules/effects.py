@@ -1153,6 +1153,33 @@ def cascade(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
+def ripple_split(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- static_other sweep (wave 17C) -- 702.60a: of the revealed cards, those with the spell's name may be cast; the others go on the
+    bottom. Two or more copies revealed (a game with several of one card) is a choice this does not carry out: all stay on top."""
+    looked = ctx.get("looked") or []
+    same = [c for c in looked if plan.state.cards[c].name == e["name"]]
+    if len(same) > 1:
+        plan.note(f"Ripple: several cards named {e['name']} were revealed; cast them by hand and put the others on the bottom")
+        ctx["looked"] = []
+        return True
+    ctx["ripple_same"] = same
+    ctx["looked"] = [c for c in looked if c not in same]
+    return True
+
+
+def ripple_cast(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """702.60a: the revealed card with the spell's name may be cast without paying its mana cost; if not, it goes on the bottom."""
+    same = ctx.pop("ripple_same", None) or []
+    if not same:
+        return True
+    card = plan.state.cards[same[0]]
+    plan.rules.free_casts.append(card.id)
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Ripple: cast {card.name} without paying its mana cost?",
+           options=[DecisionOption(id="yes", label="Cast it"), DecisionOption(id="no", label="Put it on the bottom")],
+           resume={"step": "suspend_cast", "ctx": ctx, "card": card.id, "decline": "bottom"}, source=card)
+    return False
+
+
 def unearth(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cid = e["card"]
     card = plan.state.cards.get(cid)
@@ -2448,6 +2475,7 @@ def resume_shuffle_library(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
+PRIMITIVES.update({"ripple_split": ripple_split, "ripple_cast": ripple_cast})  # (wave 17C)
 PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looked": rest_looked, "exile_top": exile_top,
                    "to_library": to_library, "shuffle_library": shuffle_library, "grant_play": permissions.grant_play,
                    "free_cast": permissions.free_cast,  # (free_cast: wave 3C)

@@ -2073,6 +2073,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         _cascade_triggers(plan, card, ch, more_cascade)
     if not a.face_down and not plan.manual(card):
         _storm_triggers(plan, card, ch, record.cast_from)
+        _ripple_triggers(plan, card, ch, record.cast_from)
     if "replicate" in ch.keywords and not a.face_down and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
@@ -2415,6 +2416,24 @@ def _replicate_trigger(plan: Plan, card: CardInstance, ch: Characteristics, time
                          "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": times}]})
 
 
+def _ripple_triggers(plan: Plan, card: CardInstance, ch: Characteristics, cast_from: str | None) -> None:
+    """-- static_other sweep (wave 17C) -- 702.60a ripple N: "When you cast this spell, you may reveal the top N cards of your library. You may
+    cast any of the revealed cards with the same name as this spell without paying their mana costs. Put all revealed cards not cast this
+    way on the bottom of your library in any order." One trigger per instance (702.60b), its own and those a static ability gave it."""
+    from app.rules import cast_limits
+    from app.rules.triggers import _add
+
+    ns = [int(m[1]) for ab in ch.abilities if ab.kind == "keywords" for m in [re.fullmatch(r"(?i)ripple (\d+)\.?", ab.text.strip())] if m]
+    ns += [int(d["n"]) for d in cast_limits.granted_instances(plan, card.id, ch, cast_from, "ripple")]
+    for k, n in enumerate(ns):
+        _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6200 + k,
+             definition={"kind": "triggered", "trigger": "ripple", "optional": False, "target": None, "effects": [
+                 {"do": "look_top", "n": n, "player": "you", "reveal": True, "optional": True},
+                 {"do": "ripple_split", "name": ch.name},
+                 {"do": "rest_looked", "to": "bottom_any"},
+                 {"do": "ripple_cast"}]})
+
+
 def _storm_triggers(plan: Plan, card: CardInstance, ch: Characteristics, cast_from: str | None) -> None:
     """The storm triggers of a spell just cast: one per instance, its own (gravestorm too) and those a static ability gave it
     (-- static_other sweep (wave 17C) -- 702.40b: each triggers separately)."""
@@ -2572,6 +2591,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         _cascade_triggers(plan, card, ch, extra)
     if not plan.manual(card):
         _storm_triggers(plan, card, ch, record.cast_from)
+        _ripple_triggers(plan, card, ch, record.cast_from)
     if "replicate" in ch.keywords and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):

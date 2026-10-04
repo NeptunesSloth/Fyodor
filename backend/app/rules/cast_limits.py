@@ -116,7 +116,7 @@ STATIC_CASCADE = re.compile(
     r"^(?:(?P<first>the first) )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? you cast"
     r"(?: from (?P<frm>your hand|exile|anywhere other than your hand))?"
     r"(?: (?P<tail>with mana value \d+ or (?:greater|less)))?(?P<each> each turn)? "
-    r"(?:has|have) (?P<kw>cascade|storm|\"[Cc]ascade, cascade\.?\")$")  # (wave 17C: storm, 702.40a)
+    r"(?:has|have) (?P<kw>cascade|storm|ripple \d+|\"[Cc]ascade, cascade\.?\")$")  # (wave 17C: storm 702.40a, ripple 702.60a)
 
 
 def _cascade_definition(m: re.Match[str]) -> Definition | None:
@@ -136,7 +136,8 @@ def _cascade_definition(m: re.Match[str]) -> Definition | None:
         if key is None and (phrase or m["tail"]):
             return None  # (a wording the spell selector doesn't read)
         first = None
-    return {"kind": "static", "static": "spell_keyword", "keyword": "storm" if m["kw"] == "storm" else "cascade",
+    return {"kind": "static", "static": "spell_keyword", "keyword": "storm" if m["kw"] == "storm" else "ripple" if m["kw"].startswith("ripple")
+            else "cascade", **({"n": int(m["kw"].split()[1])} if m["kw"].startswith("ripple") else {}),
             "count": 2 if m["kw"].startswith('"') else 1, "filter": key,
             "from": _FROM_ZONES[m["frm"]] if m["frm"] else None, "first": first, "effects": []}
 
@@ -604,16 +605,22 @@ def granted_cascade(plan: Plan, spell_card: str, spell: Characteristics, cast_fr
     """-- static statics (wave 10B) -- how many extra instances of cascade (702.85a) the permanents ``plan.actor``
     controls give this spell as it is cast from ``cast_from`` (the zone's name). "The first spell you cast each turn"
     reads the spells cast before this one (it isn't counted yet: 601.2i), "from exile" those cast from exile."""
+    return len(granted_instances(plan, spell_card, spell, cast_from, keyword))
+
+
+def granted_instances(plan: Plan, spell_card: str, spell: Characteristics, cast_from: str | None, keyword: str) -> list[Definition]:
+    """The statics (one entry per instance) that give this spell ``keyword`` as it is cast (-- static_other sweep (wave 17C) -- ripple
+    reads each one's N)."""
     found = _statics(plan.state, plan.info, "spell_keyword")
     card = plan.state.cards.get(spell_card)
     if not found or card is None or plan.rules is None:
-        return 0
+        return []
     from app.rules.permissions import spell_matches
 
     player, turn = plan.actor, plan.state.turn.number
     log = plan.rules.turn_log if plan.rules.turn_log.turn == turn else None
     earlier = [c for c in (log.casts if log else []) if c.player == player and c.object_id != plan.oid(card)]
-    total = 0
+    total: list[Definition] = []
     for src, d in found:
         if src.controller != player or d.get("keyword") != keyword:
             continue
@@ -627,7 +634,7 @@ def granted_cascade(plan: Plan, spell_card: str, spell: Characteristics, cast_fr
             continue
         if d.get("filter") is not None and not spell_matches(plan.state, player, card, spell, d["filter"], plan.info):
             continue
-        total += int(d.get("count", 1))
+        total += [d] * int(d.get("count", 1))
     return total
 
 

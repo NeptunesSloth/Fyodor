@@ -109,6 +109,14 @@ EXTRA = [
          oracle_text="When Astor enters, look at the top seven cards of your library. You may reveal an Equipment or Vehicle card "
          "from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\nEquipment you "
          "control have equip {1}.\nVehicles you control have crew 1."),
+    card("Surging Flame", set_code="tst", number="C31", mana_cost="{1}{R}", cmc=2.0, type_line="Instant", colors=["R"],
+         color_identity=["R"], oracle_text="Ripple 4 (When you cast this spell, you may reveal the top four cards of your library. You "
+         "may cast spells with the same name as this spell from among those cards without paying their mana costs. Put the rest on "
+         "the bottom of your library.)\nSurging Flame deals 2 damage to any target."),
+    card("Thrumming Stone", set_code="tst", number="C32", mana_cost="{5}", cmc=5.0, type_line="Legendary Artifact",
+         oracle_text="Spells you cast have ripple 4. (Whenever you cast a spell, you may reveal the top four cards of your library. You "
+         "may cast spells with the same name as that spell from among the revealed cards without paying their mana costs. Put the "
+         "rest on the bottom of your library.)"),
     card("Hexing Squelcher", set_code="tst", number="C05", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Goblin Sorcerer",
          power="2", toughness="2", colors=["R"], color_identity=["R"],
          oracle_text="This spell can't be countered.\nWard—Pay 2 life.\nSpells you control can't be countered.\nOther creatures you control have \"Ward—Pay 2 life.\""),
@@ -395,3 +403,54 @@ def test_granted_equip_and_crew(cards):
     assert s.state.cards[sledge.id].attached_to == small.id  # 702.6a: attached for the granted {1}
     roundtrip(s)
     assert wagon.id
+
+
+def _flames(s):
+    return [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Surging Flame"]
+
+
+def test_ripple_casts_the_copy_it_reveals(cards):
+    s = build(cards, p1=("Surging Flame", "Surging Flame"))
+    first, second = _flames(s)
+    act(s, "p1", type="move", card_ids=[first.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="move", card_ids=[second.id], to={"player": "p1", "zone": "library"}, position="top")
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=first.id, targets=["p2"])
+    for _ in range(30):  # reveal (yes), order the rest, cast the copy (yes) at Bob (the copy has ripple too: its own reveal)
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["p2"] if "p2" in ids else ids[:max(1, d.min_choices)])
+    assert s.state.players["p2"].life == 40 - 4  # 702.60a: the spell and the Flame it revealed, cast without paying
+    assert s.state.cards[second.id].zone == "p1:graveyard" and s.state.cards[first.id].zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_ripple_with_no_copy_puts_the_revealed_cards_on_the_bottom(cards):
+    s = build(cards, p1=("Surging Flame",))
+    (flame,) = _flames(s)
+    act(s, "p1", type="move", card_ids=[flame.id], to={"player": "p1", "zone": "hand"})
+    top4 = list(s.state.zones["p1:library"][:4])
+    below = list(s.state.zones["p1:library"][4:6])
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=flame.id, targets=["p2"])
+    answer(s, limit=40)
+    library = s.state.zones["p1:library"]
+    assert library[:2] == below and set(library[-4:]) == set(top4)  # 702.60a: the revealed cards now at the bottom
+    roundtrip(s)
+
+
+def test_thrumming_stone_gives_every_spell_ripple(cards):
+    s = build(cards, p1=("Thrumming Stone", "Lightning Bolt"))
+    put(s, "Thrumming Stone", "battlefield")
+    bolt = put(s, "Lightning Bolt", "hand")
+    top4 = list(s.state.zones["p1:library"][:4])
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    answer(s, limit=40)
+    assert set(s.state.zones["p1:library"][-4:]) == set(top4)
+    roundtrip(s)
