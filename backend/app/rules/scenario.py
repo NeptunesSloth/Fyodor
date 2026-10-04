@@ -52,7 +52,8 @@ def redact(state: GameState, keep: set[str]) -> dict[str, Any]:
             card.commander_key = card.commander_key  # (commanders are public)
     out.log = []
     out.views = []
-    out.hidden_salt = ""
+    # (the salt stays: the ids of cards turned face down are derived from it, ops.renumber, and a replay must reproduce them; it
+    # tells nothing the scenario doesn't show: its hidden cards are redacted, its face-down ones are not)
     return out.model_dump(mode="json")
 
 

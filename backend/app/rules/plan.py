@@ -8,6 +8,7 @@ from typing import Any
 from app.game import actions as A
 from app.game.control import controller_of
 from app.game.errors import ActionError
+from app.game.ops import down_public, seen_move, zone_name
 from app.game.rules_state import (
     AutomationOptions,
     Decision,
@@ -43,6 +44,21 @@ class Plan:
         self.max_steps = MAX_STEPS
         self.hold: str | None = None  # a player keeping priority right now (HOLD PRIORITY, a cancelled cast)
         self.probe_903: list[tuple[str, str]] | None = None  # a look ahead for 903.9b (replacements.ask_903_9b_first)
+        # -- review (face-down ids) -- whether each card is face down in view (as the intent began, then after each of its moves)
+        self.began: dict[str, bool] | None = {cid: down_public(c) for cid, c in self.state.cards.items()}
+        self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
+
+    began: dict[str, bool] | None = None
+
+    def renumber_face_down(self) -> bool:
+        """406.3, 708.5: at the end of the intent (so nothing that is still working with the old ids breaks), the cards that became face
+        down where others see them get new ids: one recorded step, then the rules state is re-dumped by the caller."""
+        if self.began is None:
+            return False
+        fresh = [cid for cid, seen in self.moved.items() if seen and (c := self.state.cards.get(cid)) is not None and down_public(c)]
+        if fresh:
+            self.do({"type": "renumber", "card_ids": fresh})
+        return bool(fresh)
 
     @classmethod
     def view(cls, state: GameState, actor: str, info: CardInfo) -> Plan:
@@ -72,14 +88,23 @@ class Plan:
             from app.rules.replacements import replace_move  # (replacements → plan for type hints only)
 
             payload = replace_move(self, payload, actor)
+        if payload.get("type") in ("move", "mill", "put_top_face_down"):
+            payload = {**payload, "keep_ids": True}  # (renumber_face_down)
+        if payload.get("type") == "rules_sync" and self.renumber_face_down():
+            payload = {**payload, "rules": self.rules.model_dump(mode="json")}  # (the ids changed)
         action = A.parse_action(payload)
         resolved = resolve(self.state, action, actor=actor or self.actor, cards=self.info, rng=self.rng, trusted=True)
         leaving = self._battlefield_lki(payload)
-        before = capture(self.state)
+        before = capture(self.state) if resolved.type != "renumber" else None
         if before is not None:  # (the turn log: what a permanent was as it left, layers applied)
             before.types = self._battlefield_types(payload)
         entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
         HANDLERS[resolved.type](self.state, resolved)
+        if before is not None and self.began is not None:
+            for cid, zone in before.zones.items():
+                if (c := self.state.cards.get(cid)) is not None and zone_name(zone) != zone_name(c.zone):
+                    was, self.began[cid] = self.began.get(cid, False), down_public(c)
+                    self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
               put_by=wither_put_by(resolved))  # (5H, 7C, 17D)
         if entered_before is not None:  # -- refused modal/conditional (wave 3R1) -- what entered was, as it entered (608.2i)
@@ -96,6 +121,7 @@ class Plan:
                     snap.power, snap.toughness = pt
                 # -- quoted grants (wave 2D) -- its abilities, keywords and types as they last existed (603.10a)
                 snap.abilities, snap.keywords, snap.traits = abilities, keywords, traits
+        self.state.renames().clear()
         self.steps.append(resolved.model_dump(mode="json"))
         if payload.get("type") == "rules_mana" and self.rules.kept_mana:  # -- refused copy/mana (wave 3R3) --
             from app.rules.kept_mana import clamp  # (never more kept than the pool holds)

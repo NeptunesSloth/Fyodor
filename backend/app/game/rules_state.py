@@ -1256,6 +1256,13 @@ KEYWORD_COUNTERS = frozenset({"flying", "first strike", "double strike", "deatht
 def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, actor: str | None = None,
           group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None) -> None:
     departures = state.departures()
+    if state.renames():  # -- review (face-down ids) -- a card renumbered in this step is the same card: follow it
+        names = state.renames()
+        from app.game.ops import rewrite  # (ops imports this module's state)
+
+        before.zones = {names.get(k, k): v for k, v in before.zones.items()}
+        before.snaps = rewrite(dict(before.snaps), names)  # (its last known information too: no old id left in the rules state)
+        before.types = {names.get(k, k): v for k, v in before.types.items()}
     for card_id, old_zone in _entry_order(state, before):
         card = state.cards.get(card_id)
         new_zone = card.zone if card is not None else departures.get(card_id)

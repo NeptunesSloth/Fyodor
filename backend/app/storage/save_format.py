@@ -17,7 +17,7 @@ from collections.abc import Callable
 from typing import Any
 
 SAVE_FORMAT = "fyodor-save"
-SAVE_VERSION = 6
+SAVE_VERSION = 7
 MAX_SAVE_BYTES = 64 * 1024 * 1024  # decompressed
 
 Migration = Callable[[dict[str, Any]], dict[str, Any]]
@@ -173,8 +173,26 @@ def _v5_to_v6(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _v6_to_v7(payload: dict[str, Any]) -> dict[str, Any]:
+    """v7: a card that becomes face down where others see it gets a new id (ops.renumber). The moves recorded before did not:
+    replaying them (undo, history) keeps their ids, as they were played."""
+    def walk(v: Any) -> None:
+        if isinstance(v, dict):
+            if v.get("type") in ("move", "mill", "put_top_face_down") and "actor" in v:
+                v.setdefault("keep_ids", True)
+            for x in v.values():
+                walk(x)
+        elif isinstance(v, list):
+            for x in v:
+                walk(x)
+
+    walk(payload.get("history"))
+    walk(payload.get("state"))  # (an intent waiting in a response window)
+    return payload
+
+
 # MIGRATIONS[n] upgrades a version-n payload to version n + 1.
-MIGRATIONS: dict[int, Migration] = {1: _v1_to_v2, 2: _v2_to_v3, 3: _v3_to_v4, 4: _v4_to_v5, 5: _v5_to_v6}
+MIGRATIONS: dict[int, Migration] = {1: _v1_to_v2, 2: _v2_to_v3, 3: _v3_to_v4, 4: _v4_to_v5, 5: _v5_to_v6, 6: _v6_to_v7}
 
 
 class SaveFormatError(ValueError):

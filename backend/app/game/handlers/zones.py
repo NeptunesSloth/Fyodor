@@ -59,6 +59,7 @@ def move(state: GameState, a: A.Move) -> None:
                                                 or c.zone == STACK and not dest.endswith(":battlefield")):
             who_saw[c.id] = {ALL}
     commander_casts: list[CardInstance] = []
+    was_down = {c.id: c.face_down for c in moving}
 
     for i, (c, dest) in enumerate(zip(moving, dests, strict=True)):
         lib_top = ops.zone_name(dest) == "library" and a.position != "bottom"
@@ -85,6 +86,11 @@ def move(state: GameState, a: A.Move) -> None:
                 # -- as long as (wave 9B) -- 406.3: a card another player exiles face down is looked at by the one who exiled
                 # it (Gonti, Thief of Sanity), not by its owner: the face-down rule shows an exiled card to its "controller"
                 c.controller = a.actor
+
+    if not a.keep_ids:  # -- review (face-down ids) -- 406.3: a card that went face down where others see it is a new object
+        fresh = renumber_down(state, [(c, sources[c.id], was_down[c.id]) for c in moving])
+        who_saw = {fresh.get(k, k): v for k, v in who_saw.items()}
+        sources = {fresh.get(k, k): v for k, v in sources.items()}
 
     for c in commander_casts:
         caster = state.players[c.owner]
@@ -119,6 +125,15 @@ def move(state: GameState, a: A.Move) -> None:
     if cast:
         names = ", ".join("a face-down spell" if c.face_down else c.name for c in cast)
         response.on_stack_add(state, a.actor, f"cast {names}")
+
+
+def renumber_down(state: GameState, moved: list[tuple[CardInstance, str, bool]]) -> dict[str, str]:
+    """(card, the zone it came from, was it face down) -> the new ids of those that need one (ops.needs_fresh_id)."""
+    return ops.renumber(state, [c.id for c, source, was in moved if c.id in state.cards and ops.needs_fresh_id(source, c.zone, was, c)])
+
+
+def renumber(state: GameState, a: A.Renumber) -> None:
+    ops.renumber(state, a.card_ids)
 
 
 def set_position(state: GameState, a: A.SetPosition) -> None:
@@ -225,6 +240,7 @@ def mill(state: GameState, a: A.Mill) -> None:
         raise ActionError(f"{state.players[pid].name}'s library is empty")
     milled = [state.cards[cid] for cid in lib[: a.count]]
     dest = zone_key(pid, a.to)
+    moved = [(c, c.zone, c.face_down) for c in milled]
     for c in milled:
         ops.move_card(state, c, dest, face_down=a.face_down if a.to == "exile" else None)
         if c.face_down:
@@ -232,6 +248,8 @@ def mill(state: GameState, a: A.Mill) -> None:
             c.unseen = a.blind  # (-- hidden exile (wave 18A) --)
         if a.to == "graveyard" and c.zone == dest:  # -- triggers (wave 17D) -- 701.17a (not a card a replacement sent elsewhere)
             emit(state, "milled", card=c.id, player=pid)
+    if not a.keep_ids:
+        renumber_down(state, moved)
     verb = "milled" if a.to == "graveyard" else ("exiled face down" if a.face_down else "exiled")
     log(state, a.actor, a.ts, [pname(state, pid), text(f" {verb} "), group(state, milled)])
 
@@ -248,6 +266,8 @@ def put_top_face_down(state: GameState, a: A.PutTopFaceDown) -> None:
         x, y = positions.get(c.id, (80 + i * 22, 80 + i * 22))
         ops.move_card(state, c, dest, x=x, y=y, face_down=True)
         c.face_down_kind = a.kind
+    if not a.keep_ids:
+        renumber_down(state, [(c, zone_key(pid, "library"), False) for c in cards_])
     what = {"manifest": "manifested", "cloak": "cloaked", "generic": "put face down"}[a.kind]
     n = len(cards_)
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" {what} the top {'card' if n == 1 else f'{n} cards'} of "),
