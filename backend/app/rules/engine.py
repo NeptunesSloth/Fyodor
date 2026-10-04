@@ -1157,7 +1157,7 @@ def _settle_decision(plan: Plan, d: Decision, leaver: str) -> None:
         # 800.4f-g: the choice isn't made; the resolution goes on — with the other players still to
         # choose in APNAP order ("each opponent discards a card"), then its next instruction
         plan.note(f"{plan.name(leaver)} left the game: their choice isn't made")
-        if "rest" in resume and "picked" in resume and str(resume.get("step")) in RESUME:
+        if ("rest" in resume and "picked" in resume or resume.get("step") == "vote") and str(resume.get("step")) in RESUME:
             RESUME[str(resume["step"])](plan, d, [])
         else:
             effects.continue_effects(plan, ctx)

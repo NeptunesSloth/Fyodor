@@ -52,6 +52,7 @@ _NUMBER_OF = re.compile(r"^(?P<e>.+?) a number of (?P<what>.+?) equal to (?P<twi
 _DRAW_NUMBER = re.compile(r"^(?:You )?[Dd]raw cards equal to the number of (?P<w>[\w' ]+?) votes\.$")
 _LEADERS = re.compile(r"^(?P<pre>Otherwise, )?(?P<verb>[A-Za-z]+) each (?P<noun>[a-z ]+?) with the most votes or tied for most votes"
                       r"(?P<rest>[^.]*)\.$")
+_SCALED = ("add_counters", "create_token", "gain_life", "lose_life", "draw", "discard", "mill", "edict")
 _COND = re.compile(r"^(?:(?P<w>[\w' ]+?) gets more votes(?P<tie> or the vote is tied)?|no (?P<none>[a-z ]+?) got votes)$")
 
 
@@ -138,11 +139,14 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
         effects.extend(found[0])
         return True
 
-    def repeat(word: str, text: str) -> bool:
+    def repeat(word: str, text: str, scale: bool = True) -> bool:
         inner = _plain(parse(text[:1].upper() + text[1:].rstrip(".") + "."))
         if inner is None or not words or word.lower() not in opts:
             return False
-        effects.extend([{"do": "vote_repeat", "choice": word.lower(), "skip": len(inner)}, *inner])
+        # "X for each W vote" is one instruction for all the votes (Capital Punishment ruling: the creatures are sacrificed at
+        # once): its amount is multiplied (one event: Hardened Scales adds one counter, a life-gain trigger triggers once)
+        one = scale and len(inner) == 1 and inner[0].get("do") in _SCALED and type(inner[0].get("n")) is int
+        effects.extend([{"do": "vote_repeat", "choice": word.lower(), "skip": len(inner), **({"scale": True} if one else {})}, *inner])
         return True
 
     for sentence in split_sentences(head["rest"]):
@@ -154,7 +158,7 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
             if not (flush() and repeat(m["w1"], e1) and repeat(m["w2"], e2)):
                 return None
         elif (m := _FOR_EACH.match(sentence)) is not None or (m := _SUFFIX_EACH.match(sentence)) is not None:
-            if not (flush() and repeat(m["w"], m["e"])):
+            if not (flush() and repeat(m["w"], m["e"], not sentence.startswith("For each "))):
                 return None
         elif (m := _NUMBER_OF.match(sentence)) is not None:  # "Put a number of X equal to twice the number of W votes."
             what = m["what"] if m["twice"] else re.sub(r"\b(tokens|counters)\b", lambda t: t[1][:-1], m["what"], count=1)
@@ -278,15 +282,23 @@ def _ask(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     v = ctx["vote"]
     while v["i"] < len(v["schedule"]):
         pid, extra = v["schedule"][v["i"]]
-        if not v["opts"]:
+        if not v["opts"] or pid not in plan.live():  # (800.4a: a player who left the game doesn't vote)
             v["i"] += 1
             continue
+        chooser = _chooser(plan, pid)
+        if extra and chooser != pid and v.get("taken") != v["i"]:
+            # Illusion of Choice ruling: the voter decides whether to take a "may" additional vote; the chooser picks it
+            decide(plan, player=pid, kind="confirm", prompt="Vote an additional time?",
+                   options=[DecisionOption(id="yes", label="Yes"), DecisionOption(id="no", label="No")],
+                   resume={"step": "vote", "ctx": ctx, "e": e, "extra": True})
+            return False
+        if v.get("taken") == v["i"]:
+            extra = False
         options = [DecisionOption(id=o, label=lab) if "sel" not in e else DecisionOption(id=o, label=lab, card_id=o)
                    for o, lab in zip(v["opts"], v["labels"], strict=True)]
         optional = extra or bool(e.get("upto"))
         if optional and "sel" not in e:
             options.append(DecisionOption(id=NONE_LEFT, label="Don't vote again"))
-        chooser = _chooser(plan, pid)
         decide(plan, player=chooser, kind="choose_cards" if optional and "sel" in e else "choose_one",
                prompt="Vote" + (f" for {plan.name(pid)}" if chooser != pid else "") + (" (secret)" if v["secret"] else "")
                + (": " + " or ".join(v["labels"]) if "sel" not in e else ""),
@@ -302,7 +314,16 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     v = ctx["vote"]
     pid, _ = v["schedule"][v["i"]]
-    v["i"] += 1
+    if d.resume.get("extra"):
+        if chosen == ["yes"]:
+            v["taken"] = v["i"]
+        else:
+            v["i"] += 1
+        chosen = []
+    elif d.player != pid and d.player not in plan.live() and pid in plan.live():
+        chosen = []  # (the player choosing the votes left the game: the voter votes for themself, 800.4a)
+    else:
+        v["i"] += 1
     if chosen and chosen[0] != NONE_LEFT:
         v["ballots"].append([pid, chosen[0]])
         if not v["secret"]:
@@ -339,6 +360,9 @@ def repeat(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     times = int(ctx["vote"]["tally"].get(e["choice"], 0))
     if times == 0:
         ctx["next"] = at + n
+        return True
+    if e.get("scale"):
+        effects[at] = {**effects[at], "n": int(effects[at]["n"]) * times}
         return True
     block = effects[at:at + n]
     effects[at + n:at + n] = [copy.deepcopy(x) for _ in range(times - 1) for x in block]

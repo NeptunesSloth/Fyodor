@@ -4,8 +4,8 @@ white Rabbit creature token. For each opponent who does, you draw a card and you
 with Bunnies, Glory, Immortality, Vengeance, Reflections, Discovery). Researched against CR 2026-09-25.
 
 * 207.2c: "Tempting offer" is an ability word. The spell's controller does the action first.
-* 101.4 / 608.2d: "each opponent may [do it]": the opponents choose in turn order (APNAP), each privately and each carrying the action
-  out as they choose, before the next is asked. The action is the opponent's own: they are "you" for it (their library, their
+* 101.4 / 608.2d: "each opponent may [do it]": the opponents choose in turn order (APNAP), all before any of them carries the action
+  out (rulings), then each who accepted does it in turn order (approximating "simultaneously"). The action is the opponent's own: they are "you" for it (their library, their
   creatures, their graveyard, their tokens; a chosen target of the spell stays the spell's, 608.2b).
 * "For each opponent who does, you [do it]": once more for each opponent who did, after all of them have chosen.
 * Tempt with Discovery: "who searches a library this way" is the opponent who chose to search; "Then each player who searched a
@@ -77,9 +77,10 @@ def tempt(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     tag = f"t{at}_"
     opponents = [p for p in plan.apnap() if p != me]
     added: list[dict[str, Any]] = []
+    # rulings: every opponent decides, in turn order, before the effect happens for each one who accepted
+    added += [{"do": "tempt_ask", "player": p, "bind": f"{tag}{i}", "text": e["text"]} for i, p in enumerate(opponents)]
     for i, p in enumerate(opponents):
-        added += [{"do": "tempt_ask", "player": p, "bind": f"{tag}{i}", "text": e["text"]},
-                  {"do": "only_if", "cond": {"flag": f"{tag}{i}"}, "skip": n + 2}, {"do": "as_player", "player": p},
+        added += [{"do": "only_if", "cond": {"flag": f"{tag}{i}"}, "skip": n + 2}, {"do": "as_player", "player": p},
                   *copy.deepcopy(template), {"do": "as_player_end"}]
     for i, _ in enumerate(opponents):
         added += [{"do": "only_if", "cond": {"flag": f"{tag}{i}"}, "skip": n}, *copy.deepcopy(template)]

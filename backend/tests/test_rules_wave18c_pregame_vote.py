@@ -520,3 +520,98 @@ def test_illusion_of_choice_makes_its_controller_cast_every_vote_this_turn(cards
     assert s.state.rules.decision is None and s.state.players["p2"].life == 36
     assert "Bob voted for torture" in json.dumps(s.view("p1")["log"])
     roundtrip(s)
+
+
+# -- review (system 18C) ---------------------------------------------------------------------------------
+EXTRA += [
+    real("Hardened Scales", "{G}", 1, "Enchantment",
+         "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+         colors="G"),
+]
+
+
+def build3(cards, *names):
+    """Alice (p1, active, in her main phase), Bob (p2) and Carol (p3)."""
+    from tests.game_helpers import enable
+
+    alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in names), (9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    carol = deck(cards, "Krenko, Mob Boss", [(10, "Mountain")])
+    players = [PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob), PlayerSetup("Carol", cards=carol)]
+    s = GameSession(enable(new_game(players, shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    return s
+
+
+def test_a_voter_leaving_mid_vote_does_not_stop_the_count(cards):
+    # 800.4a: the leaver's vote isn't made; the others still vote, and the result is counted
+    s = build3(cards, "Tyrant's Choice")
+    cast(s, "Tyrant's Choice", B=2)
+    settle_stack(s)
+    ballot(s, "p1", "torture")
+    act(s, "p3", type="concede")  # Carol leaves while Bob is voting: she is skipped later
+    ballot(s, "p2", "death")
+    assert s.state.rules.decision is None and s.state.players["p2"].life == 36  # tied: torture
+    roundtrip(s)
+    s = build3(cards, "Tyrant's Choice")
+    cast(s, "Tyrant's Choice", B=2)
+    settle_stack(s)
+    ballot(s, "p1", "torture")
+    act(s, "p2", type="concede")  # Bob leaves while it is his vote: Carol still votes
+    ballot(s, "p3", "death")
+    assert s.state.rules.decision is None and s.state.players["p3"].life == 36
+    roundtrip(s)
+
+
+def test_illusion_of_choice_the_ballot_broker_player_decides_on_the_extra_vote(cards):
+    # Illusion of Choice ruling: Bob (Ballot Broker) decides whether he takes the additional vote; Alice chooses what it is
+    s = build(cards, "Illusion of Choice", "Tyrant's Choice", p2=["Ballot Broker"])
+    broker = next(c for c in s.state.cards.values() if c.name == "Ballot Broker")
+    act(s, "p2", type="move", card_ids=[broker.id], to={"player": "p2", "zone": "battlefield"})
+    cast(s, "Illusion of Choice", U=1)
+    settle_stack(s)
+    cast(s, "Tyrant's Choice", B=2)
+    settle_stack(s)
+    ballot(s, "p1", "torture")  # Alice's own vote
+    d = s.state.rules.decision
+    assert d.player == "p1" and "Don't vote again" not in {o.label for o in d.options}  # Bob's normal vote: Alice picks it
+    ballot(s, "p1", "death")
+    answer_yes(s, "p2")  # Bob: an additional vote?
+    d = s.state.rules.decision
+    assert d.player == "p1" and "Don't vote again" not in {o.label for o in d.options}
+    ballot(s, "p1", "death")  # Alice chooses it
+    assert s.state.rules.decision is None and s.state.players["p2"].life == 40  # death 2, torture 1
+    roundtrip(s)
+
+
+def test_votes_for_counters_are_one_instruction_not_one_per_vote(cards):
+    # "Put a +1/+1 counter on this creature for each strength vote": one event of N counters (Hardened Scales adds one, not N)
+    s = build(cards, "Lieutenants of the Guard", "Hardened Scales")
+    from tests.test_rules_conditionals import on_field
+
+    on_field(s, "Hardened Scales")
+    lt = cast(s, "Lieutenants of the Guard", W=1, C=4)
+    settle_stack(s)
+    ballot(s, "p1", "strength")
+    ballot(s, "p2", "strength")
+    settle_stack(s)
+    assert s.state.cards[lt.id].counters.get("+1/+1") == 3
+    roundtrip(s)
+
+
+def test_tempting_offer_every_opponent_decides_before_anyone_acts(cards):
+    # ruling: the opponents decide in turn order, then the effect happens for each who accepted
+    s = build3(cards, "Tempt with Discovery")
+    cast(s, "Tempt with Discovery", G=1, C=3)
+    settle_stack(s)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    answer_yes(s, "p2")
+    answer_yes(s, "p3")  # Carol decides before Bob searches
+    for pid in ("p2", "p3", "p1", "p1"):
+        d = s.state.rules.decision
+        assert d.player == pid and d.kind == "choose_cards", d
+        act(s, pid, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    settle_stack(s)
+    assert len([c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Forest"]) == 3
+    roundtrip(s)
