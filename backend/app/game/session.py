@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from app.game import engine
 from app.game.actions import INTENT_TYPES, Action, parse_action
+from app.game.control import is_controlled
 from app.game.errors import ActionError, AutomationError
 from app.game.history import History
 from app.game.ops import pname, text
@@ -21,6 +22,11 @@ from app.rules import RulesRegistry, Suggestion
 log = logging.getLogger(__name__)
 
 NOTICE_LIMIT = 200
+# -- controlling another player (wave 18H) -- what a controlled player may still send (723.5, 723.6): their rules intents
+# (routed or refused by the engine; a concede always goes through), their own stops, and table chatter. Every other table
+# tool would make a choice the controller makes, so it waits until the control ends (or the host pauses automation).
+CONTROLLED_MAY = (INTENT_TYPES - {"set_card_automation"}) | {"chat", "set_position", "end_view", "rename_player",
+                                                            "set_appearance", "set_table_playmat"}
 
 
 def describe(action: Action) -> str:
@@ -49,6 +55,8 @@ class GameSession:
         if actor not in self.state.players:
             raise ActionError("Only seated players can act")
         action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
         try:
             resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
         except ActionError:
@@ -81,13 +89,19 @@ class GameSession:
         self.updated_at = time.time()
         return resolved
 
+    def _check_not_controlled(self, actor: str) -> None:
+        if is_controlled(self.state, actor):
+            raise ActionError("Another player is making your choices right now (you can still concede)")
+
     def undo(self, actor: str) -> Action:
+        self._check_not_controlled(actor)
         state, undone = self.history.undo()
         self.state = state
         self._notice(actor, [pname(self.state, actor), text(f" undid: {describe(undone)}")])
         return undone
 
     def redo(self, actor: str) -> Action:
+        self._check_not_controlled(actor)
         state, redone = self.history.redo(self.state)
         self.state = state
         self._notice(actor, [pname(self.state, actor), text(f" redid: {describe(redone)}")])

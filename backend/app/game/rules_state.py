@@ -71,6 +71,7 @@ class PlayerControl(BaseModel):
     controlled: str
     controller: str
     status: Literal["pending", "active"] = "pending"
+    turn: int = 0  # the turn number it became active on (723.1: it ends with that turn)
     extra_after: int = 0  # Emrakul: "After that turn, that player takes an extra turn" (kept when 723.1a overwrites)
     label: str = ""
 

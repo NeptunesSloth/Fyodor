@@ -76,7 +76,7 @@ def turn_began(plan: Plan) -> None:
     for c in r.player_control:
         if c.controlled != plan.active:
             continue
-        c.status = "active"
+        c.status, c.turn = "active", plan.state.turn.number
         for _ in range(c.extra_after):  # 500.7: "after that turn" (the latest created is taken first)
             r.extra_turns.append({"player": c.controlled, "label": c.label})
         if c.controller in live:

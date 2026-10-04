@@ -22,7 +22,7 @@ from collections.abc import Callable
 from typing import Any
 
 from app.game import actions as A
-from app.game.control import acting_as, controller_of
+from app.game.control import acting_as, controller_of, decider_of
 from app.game.errors import ActionError
 from app.game.rules_state import Decision, DecisionOption, PaymentRecord, PlayerPrefs, TurnCount, Yield
 from app.game.state import STACK, CardInstance, GameState, zone_key
@@ -555,6 +555,7 @@ def start_next_turn(plan: Plan) -> None:
             break
         skipped.append((plan.active, plan.state.turn.number))
     plan.rules.turn_base = base if extra else plan.active  # -- extra turns (wave 8A) -- 500.7
+    player_control.turn_began(plan)  # -- controlling another player (wave 18H) -- 723.1: the whole turn, its untap choices too
     if untap_choice.ask(plan, asked, {"stunned": stunned, "previous": list(previous), "skipped": [list(s) for s in skipped],
                                       "plain": stay is None, "keep": keep}, limited):  # (wave 7F) the untap step waits for the choice
         return
@@ -567,7 +568,6 @@ def finish_turn_start(plan: Plan, stunned: list[str], previous: tuple[str, int],
     stay: list[str] | None = None if plain else []
     effects.keyword_actions.lose_stun(plan, [c for c in stunned if c in plan.state.cards and plan.state.cards[c].controller == plan.active],
                                       plan.active)
-    player_control.turn_began(plan)  # -- controlling another player (wave 18H) -- 723.1
     delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
     if stay is None:  # -- activation costs (wave 4H) -- 701.43a: that untap step happened; 614.10a: a skipped one doesn't count
         plan.rules.exerted = {k: p for k, p in plan.rules.exerted.items()
@@ -1071,7 +1071,7 @@ def choose(plan: Plan, a: A.Choose) -> None:
     if a.remember is not None:
         if d.memory_key is None:
             raise ActionError("This answer can't be remembered")
-        prefs = plan.prefs(d.decider or plan.actor)  # (-- controlling another player (wave 18H) -- the decider's own preference)
+        prefs = plan.prefs(decider_of(plan.state, d))  # (-- controlling another player (wave 18H) -- the decider's own preference)
         prefs.yields = [y for y in prefs.yields if y.key != d.memory_key][-49:]
         prefs.yields.append(Yield(kind=a.remember, key=d.memory_key, context=d.memory_context,
                                   turn=plan.state.turn.number))

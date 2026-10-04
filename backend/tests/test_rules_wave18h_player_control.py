@@ -147,7 +147,9 @@ def test_the_controller_acts_for_the_controlled_player_and_nobody_else_can(cards
     act(s, "p1", type="play_land", card_id=island.id)  # Alice plays Bob's land for him (723.5, 723.5a: from his hand)
     assert s.state.cards[island.id].zone == "p2:battlefield" and s.state.cards[island.id].controller == "p2"
     # her own cards stay hers (723.3) and Bob's resources pay for what he casts (723.5a)
-    mana(s, "p2", C=1)
+    with pytest.raises(ActionError, match="making your choices"):  # (review) Bob's table tools wait too: Alice makes his choices
+        mana(s, "p2", C=1)
+    act(s, "p1", type="add_mana", player="p2", mana={"C": 1})
     act(s, "p1", type="cast_spell", card_id=gem.id)
     drive(s, lambda s: not s.state.zones.get("stack"))
     assert s.state.cards[gem.id].zone == "p2:battlefield"
@@ -190,7 +192,7 @@ def test_a_private_choice_goes_only_to_the_controller(cards):
     for who in ("p2", "p3", SPECTATOR):
         v = rules_view(s.state, who, s.cards)["decision"]
         assert v["kind"] == "waiting" and not v.get("options") and v["source_id"] is None
-        assert v["prompt"] == "Bob is making a choice"
+        assert v["prompt"] == "Alice (for Bob) is making a choice"
     with pytest.raises(ActionError, match="making this choice for you"):
         act(s, "p2", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
     with pytest.raises(ActionError):

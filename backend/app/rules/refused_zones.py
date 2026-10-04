@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
 from app.game.state import zone_key
-from app.rules import selectors
+from app.rules import player_control, selectors
 from app.rules.plan import decide
 
 if TYPE_CHECKING:
@@ -118,7 +118,8 @@ def gifts(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 if selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
     decide(plan, player=pid, kind="choose_cards", prompt=f"Search your library (up to {e['max']} {e['label']} with different names)",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in matching],
-           min_choices=0, max_choices=min(e["max"], len(matching)), resume={"step": "gifts_found", "ctx": ctx, "e": e})
+           min_choices=0, max_choices=min(e["max"], len(matching)), resume={"step": "gifts_found", "ctx": ctx, "e": e},
+           decider=player_control.search_controller(plan, pid))  # (wave 18H) 723.2: Opposition Agent
     return False
 
 
@@ -131,6 +132,12 @@ def resume_gifts_found(plan: Plan, d: Any, chosen: list[str]) -> None:
         from app.game.errors import ActionError
 
         raise ActionError("The cards you find must have different names")
+    if agents := player_control.search_exile(plan, d.player):  # (wave 18H) Opposition Agent: each card found is exiled (a new
+        for cid in chosen:  # object, 400.7: the piles are never made) and its controller may play it
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": d.player, "zone": "exile"}}, actor=d.player)
+        player_control.permit_exiled(plan, agents, list(chosen))
+        _gifts_finish(plan, ctx, e, [], [])
+        return
     for cid in chosen:
         plan.do({"type": "reveal", "card_ids": [cid]}, actor=d.player)  # 701.20a: to everyone
     found = list(chosen)

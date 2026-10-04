@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.game.control import acting_as, controller_of
+from app.game.control import acting_as, controller_of, decider_of
 from app.game.rules_state import preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
@@ -61,10 +61,12 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
     if viewer in state.players and viewer in live_players(state) and not r.paused:
         try:  # -- controlling another player (wave 18H) -- 723.5: the controller's hints are for the player they act as
             seat = acting_as(state, viewer)
-        except ValueError:
-            seat = viewer
-        out["hints"] = hints(state, seat, info)
-        out["acting_as"] = seat if seat != viewer else None
+        except ValueError:  # the controlled player: nothing to do but concede (723.6)
+            out["hints"] = {"has_priority": False}
+            out["controlled_by"] = controller_of(state, viewer) if r.decision is None else decider_of(state, r.decision)
+        else:
+            out["hints"] = hints(state, seat, info)
+            out["acting_as"] = seat if seat != viewer else None
     return out
 
 
@@ -99,7 +101,7 @@ def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
     prompt, options, labels, source card or presentation hints: a decision made while a spell is
     still in its caster's hand (601.2a: its targets, modes, division, costs) or about hidden cards
     (a search, a look, a private cost) must not reveal them (hidden information, 400.2)."""
-    decider = d.decider or controller_of(state, d.player)  # -- controlling another player (wave 18H) -- 723.5
+    decider = decider_of(state, d)  # -- controlling another player (wave 18H) -- 723.5
     if viewer in (decider, OMNISCIENT):
         # -- keyword actions & face-down (wave 3F) -- 708.5: a face-down card the chooser may not look
         # at is never named in the prompt or an option's label
@@ -116,6 +118,8 @@ def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
             full["for_player"] = d.player  # the player this choice is made for
         return full
     chooser = state.players[d.player].name if d.player in state.players else "A player"
+    if decider != d.player and decider in state.players:  # (wave 18H) 723.5: who makes it is public, as who controls whom
+        chooser = f"{state.players[decider].name} (for {chooser})"
     doing = _PUBLIC_KINDS.get(d.kind)
     return {"id": d.id, "player": d.player, "kind": d.kind if doing else "waiting",
             "prompt": f"{chooser} {doing or 'is making a choice'}", "source_id": None,
