@@ -364,6 +364,20 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return affinity_filter(Characteristics(name="", abilities=(AbilityText(index=0, text=line, kind="keywords",
                                                                               keywords=("affinity",)),))) is not None
+    if kw == "amplify":  # -- casting extras (wave 18E) -- app/rules/amplify.py (one instance)
+        from app.rules import amplify
+
+        return amplify.supported(line)
+    if kw == "assist":  # -- casting extras (wave 18E) -- app/rules/assist.py
+        from app.rules import assist
+
+        return assist.supported(line)
+    if kw == "enlist":  # -- casting extras (wave 18E) -- app/rules/enlist.py: a plain keyword line (each instance asks on its own)
+        from app.rules import enlist
+
+        return enlist.supported(line)
+    if kw == "casualty":  # -- casting extras (wave 18E) -- cost_changes.optional_offers / casting._conspire_trigger (one instance)
+        return re.fullmatch(r"casualty \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "conspire":  # -- static_other sweep (wave 17C) -- cost_changes.optional_offers / casting._conspire_trigger
         return line.strip().rstrip(".").lower() == "conspire"
     if kw == "teamwork":  # (702.194a: its optional cost, and "cast using teamwork" in the text)
@@ -386,11 +400,25 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return escalate_parts(line) is not None
     if kw == "awaken":  # -- static_other sweep (wave 16B) -- casting.AWAKEN: "Awaken N—{cost}"
         return re.fullmatch(r"awaken \d+—(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
-    if kw in ("embalm", "eternalize"):  # -- keywords (wave 15E) -- app/rules/graveyard_keywords.py
+    if kw == "miracle":  # -- casting extras (wave 18E) -- app/rules/miracle.py: a mana miracle cost without X
+        return re.fullmatch(r"miracle (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
+    if kw == "prototype":  # -- casting extras (wave 18E) -- app/rules/prototype.py: "Prototype {cost} — P/T"
+        return re.fullmatch(r"prototype (?:\{[^}x]+\})+ [—-] \d+/\d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "reconfigure":  # -- casting extras (wave 18E) -- oracle.parse_abilities: the attach / unattach abilities and the static it adds
+        return re.fullmatch(r"reconfigure (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+    if kw == "harmonize":  # -- casting extras (wave 18E) -- app/rules/harmonize.py: a mana harmonize cost without X
+        from app.rules import harmonize
+
+        return harmonize.parse(line) is not None
+    if kw == "disturb":  # -- casting extras (wave 18E) -- app/rules/disturb.py: a mana disturb cost (the back face is the spell)
+        from app.rules import disturb
+
+        return disturb.parse(line) is not None
+    if kw in ("embalm", "eternalize", "encore"):  # -- keywords (wave 15E; encore: 18E) -- app/rules/graveyard_keywords.py
         from app.rules import graveyard_keywords
 
         return graveyard_keywords.supported(kw, line)
-    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
+    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "emerge"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(line) is not None
@@ -439,7 +467,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         )
 
         return kicker_line(line) and (kw == "replicate" or keyword_triggers.supported(kw, line))
-    if kw in ("kicker", "multikicker"):  # casting.cost_with_kicker: one mana kicker cost
+    if kw in ("kicker", "multikicker", "entwine"):  # casting.cost_with_kicker: one mana kicker cost (entwine, wave 18E: modal spells' all-modes cost)
         from app.rules.costs import kicker_line
 
         return kicker_line(line)
@@ -518,6 +546,16 @@ def features_of(ch: Characteristics) -> list[Feature]:
             add(f"script:{ab.index}", ab.text, True)
         elif ab.kind == "keywords":
             for kw in ab.keywords:
+                if kw == "splice":  # -- casting extras (wave 18E) -- app/rules/splice.py
+                    from app.rules import splice
+
+                    add("keyword:splice", "Splice", splice.spliceable(ch))
+                    continue
+                if kw == "overload":  # -- casting extras (wave 18E) -- the spell read with "each" for "target" (702.96a)
+                    from app.rules import overload
+
+                    add("keyword:overload", "Overload", _keyword_supported(kw, ab.text) and overload.supported(ch))
+                    continue
                 add(f"keyword:{kw}", kw.capitalize(), _keyword_supported(kw, ab.text) if kw != "backup" else all(
                     keyword_triggers.backup_definition(ch, ab, n) is not None
                     for n in range(len(keyword_triggers.pieces("backup", ab.text)))) and bool(

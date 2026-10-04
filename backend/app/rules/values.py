@@ -200,6 +200,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"hand": "target"}
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
         return {"opponents": 1}
+    if what == "opponent you attacked with a creature this combat":  # -- casting extras (wave 18E) -- melee 702.121a
+        return {"attacked_opponents": 1}
     if what in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
         return {"kicked": 1}
     if what in ("creature it devoured", "creature ~ devoured"):  # -- keyword mechanics (wave 9D) -- 702.82b
@@ -489,6 +491,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sum(len(plan.state.zones.get(f"{p}:library", [])) for p in players if p in plan.live())
     if "opponents" in v:
         return sum(1 for p in plan.live() if p != you)
+    if "attacked_opponents" in v:  # -- casting extras (wave 18E) -- the players its controller attacked in the latest declaration
+        return sum(1 for p in plan.rules.attacked_players.get(you, []) if p in plan.live() and p != you)
     if "life" in v:
         if v["life"] == "you":
             return max(0, plan.state.players[you].life)

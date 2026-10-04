@@ -176,8 +176,10 @@ def define(t: str) -> dict[str, Any] | None:
 # (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
 PROWL_COND = "a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell"  # 702.76a
 KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None,
-                 "prowl": PROWL_COND}  # (wave 17C: prowl)
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+                 "prowl": PROWL_COND, "overload": None, "emerge": None}  # (wave 17C: prowl)
+# (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge)(?: from (?P<q>[A-Za-z]+))? "
+                           r"(?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
 # when the prowl condition holds for that spell
 GRANT_PROWL = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells you cast have prowl (?P<cost>(?:\{[^}X]+\})+)$")
@@ -202,7 +204,15 @@ def keyword_definition(line: str) -> dict[str, Any] | None:
         return None
     kw = m["kw"].lower()
     cond = KEYWORD_CONDS[kw]
-    found = define(f"you may pay {m['cost']} rather than pay ~'s mana cost" + (f" if {cond}" if cond else ""))
+    if m["q"] and kw != "emerge":
+        return None  # ("from …" is emerge's)
+    pay = f"pay {m['cost']}"
+    if kw == "emerge":  # 702.119a: "pay [cost] and sacrificing a creature" (702.119b: "a [quality] permanent")
+        what = (m["q"] or "creature").lower()
+        if what not in ("creature", "artifact", "enchantment", "land"):
+            return None
+        pay += f" and sacrifice {'an' if what[0] in 'aeiou' else 'a'} {what}"
+    found = define(f"you may {pay} rather than pay ~'s mana cost" + (f" if {cond}" if cond else ""))
     # ("tag": what the cast record says it was cast for; warp: only "from your hand", 702.185a)
     return {**found, "tag": kw, **({"hand_only": True} if kw == "warp" else {})} if found is not None else None
 

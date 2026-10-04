@@ -27,6 +27,7 @@ from app.game.errors import ActionError
 from app.game.rules_state import Decision, DecisionOption, PaymentRecord, PlayerPrefs, TurnCount, Yield
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import (
+    assist,  # -- casting extras (wave 18E) --
     attachments,
     battles,
     bestow,
@@ -38,11 +39,13 @@ from app.rules import (
     coverage,
     delayed,
     effects,
+    enlist,  # -- casting extras (wave 18E) --
     exert,  # -- static wordings (wave 6E) --
     extra_turns,  # -- extra turns (wave 8A) --
     kinship,  # -- kinship (wave 9C) --
     layers,
     looking,
+    miracle,  # -- casting extras (wave 18E) --
     modal_abilities,
     next_untap,  # -- next untap step (wave 6A) --
     opening_hand,  # -- opening hand (wave 18C) --
@@ -115,6 +118,8 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         what = NOT_YET.get(intent.type, intent.type)
         raise ActionError(f"{what} through the rules engine arrives with the next milestone. "
                           "Use the table tools for now (e.g. drag the card to the stack).")
+    if intent.type in ACTION_INTENTS or intent.type == "pass_priority":
+        miracle.clear(plan)  # -- casting extras (wave 18E) -- 702.94a: the moment to reveal a just-drawn card has passed
     if intent.type in ACTION_INTENTS:
         plan.rules.actions += 1  # for "pass until next action"
         plan.rules.last_actor = actor
@@ -473,6 +478,7 @@ def empty_pools(plan: Plan) -> None:
 
 
 def next_step(plan: Plan) -> None:
+    miracle.clear(plan)  # -- casting extras (wave 18E) -- 702.94a: a draw is over once the game moves on
     empty_pools(plan)
     r = plan.rules
     phase = plan.state.turn.phase
@@ -737,7 +743,7 @@ def turn_cleanup(plan: Plan) -> None:
     permissions.expire(plan)  # "you may play that card this turn" and friends
     delayed.cleanup(plan)  # "when … this turn" delayed triggers stop watching (514.2)
     for card in list(plan.state.cards.values()):
-        for marker in [m for m in card.effects if m.text == "until end of turn"]:
+        for marker in [m for m in card.effects if m.text in ("until end of turn", "this combat")]:
             plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
 
 
@@ -813,6 +819,7 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
 
 
 def resolve_top_of_stack(plan: Plan) -> None:
+    miracle.clear(plan)  # -- casting extras (wave 18E) --
     top_id = plan.state.zones[STACK][-1]
     top = plan.state.cards[top_id]
     entry = plan.rules.stack.get(top_id)
@@ -867,6 +874,9 @@ def resolve_top_of_stack(plan: Plan) -> None:
     from app.rules import devour  # -- keyword mechanics (wave 9D) -- 702.82a
 
     devour.sacrifice(plan, ep, controller)
+    from app.rules import amplify  # -- casting extras (wave 18E) -- 702.38a
+
+    amplify.reveal(plan, ep, controller)
     leave_stack(plan, top_id, controller, tapped=bool(ep["tapped"]))
     if entering:
         rooms.entered(plan, top_id)  # -- Rooms (wave 18G) -- 709.5d: the cast half's door is unlocked as it enters
@@ -1278,6 +1288,7 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "cast_spell": casting.cast_spell,
     "turn_face_up": casting.turn_face_up,
     "unlock_door": rooms.unlock_action,
+    "miracle_reveal": miracle.reveal,  # -- casting extras (wave 18E) --
     "activate_ability": casting.activate_ability,
     "declare_attackers": combat.declare_attackers,
     "declare_blockers": combat.declare_blockers,
@@ -1352,6 +1363,8 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "opening_hand": opening_hand.resume,  # -- opening hand (wave 18C) -- 103.6
     "opening_exile": opening_hand.resume_exile,
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
+    "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
+    "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
     **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)

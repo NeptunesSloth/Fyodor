@@ -163,6 +163,12 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
         return [c for c in (record.exiled if record is not None else []) if c in plan.state.cards
                 and plan.state.cards[c].zone.endswith(":exile")]
+    if who == "cost_exiled_self":  # -- casting extras (wave 18E) -- craft 702.167a: the source itself, exiled as part of the cost
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        src = ctx.get("source_card")
+        return [src] if record is not None and src in record.exiled and src in plan.state.cards \
+            and plan.state.cards[src].zone.endswith(":exile") else []
     if who == "self_gy":  # -- reanimation (wave 3R) -- "return this card from your graveyard": the source, only
         # while it is still the same object in a graveyard (400.7)
         src = plan.state.cards.get(ctx.get("source_card") or "")
@@ -737,7 +743,7 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                           duration=duration)
     if cards:
         _mark(plan, cards, ", ".join(RESTRICTION_LABELS.get(r, r) for r in e["rules"]),
-              text="until end of turn" if duration == "end_of_turn" else "as long as it's on the battlefield")
+              text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"))
     return True
 
 
@@ -1100,6 +1106,12 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
         r.free_casts = [c for c in r.free_casts if c != cid]
         r.suspended = [c for c in r.suspended if c != cid]
         r.alt_costs.pop(cid, None)
+        if d.resume.get("decline") == "miracle":  # -- casting extras (wave 18E) -- 702.94a: it stays in the hand (and is hidden again)
+            from app.rules import miracle
+
+            miracle.done(plan, cid)
+            plan.note(f"{plan.name(d.player)} keeps it in their hand")
+            return
         if d.resume.get("decline") == "graveyard" and cid in plan.state.cards:  # madness
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "graveyard"}},
                     actor=d.player)
@@ -2061,6 +2073,14 @@ def attach_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def unattach_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- casting extras (wave 18E) -- 702.151a reconfigure: "Unattach this permanent." (701.3d: nothing if it isn't attached)."""
+    src = _cards(plan, ctx, "self")
+    if src and plan.state.cards[src[0]].attached_to:
+        plan.do({"type": "detach", "card_ids": [src[0]]}, actor=ctx["controller"])
+    return True
+
+
 def use_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """A modal spell's next mode: its own target slot (empty if that target became illegal: the
     mode's targeted parts then do nothing, 608.2b)."""
@@ -2073,7 +2093,7 @@ PRIMITIVES = {
     "use_targets": use_targets,
     "remove_counters": remove_counters, "restrict": restrict,
     "sacrifice_choice": sacrifice_choice, "return_card": return_card,
-    "attach_self": attach_self,
+    "attach_self": attach_self, "unattach_self": unattach_self,
     "draw": draw, "gain_life": gain_life, "lose_life": lose_life, "damage": damage, "pump": pump, "grant": grant,
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
@@ -3750,6 +3770,9 @@ PRIMITIVES.update(_combat_rules.PRIMITIVES)
 from app.rules import ninjutsu as _ninjutsu  # noqa: E402  -- keywords (wave 15E) -- 702.49
 
 PRIMITIVES["ninjutsu_enter"] = _ninjutsu.enter
+from app.rules import miracle as _miracle  # noqa: E402, I001  -- casting extras (wave 18E) -- 702.94a
+
+PRIMITIVES["miracle_offer"] = _miracle.offer
 RESUME.update(_combat_rules.RESUME)
 
 # -- triggers (wave 5D) -- "then put two cards from your hand on top of your library in any order" (app/rules/put_back.py)

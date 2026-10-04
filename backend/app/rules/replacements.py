@@ -154,6 +154,11 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
 
     devour.plan_entry(plan, card, controller, answers, out, set(reserved or ()))
     from app.rules import (
+        amplify,  # -- casting extras (wave 18E) -- amplify N (702.38a): which cards to reveal as it enters
+    )
+
+    amplify.plan_entry(plan, card, controller, answers, out)
+    from app.rules import (
         riot,  # -- keywords (wave 15E) -- riot / unleash: the +1/+1 counter or haste (app/rules/riot.py)
     )
 
@@ -242,10 +247,13 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                     for piece in keyword_triggers.pieces(kw, ab.text):
                         counters[kind] = counters.get(kind, 0) + int(piece.split()[1])
         from app.rules import (
+            amplify,  # -- casting extras (wave 18E) -- 702.38a: N for each card revealed as it entered
             devour,  # -- keyword mechanics (wave 9D) -- 702.82a: N for each permanent sacrificed as it entered
             riot,  # -- keywords (wave 15E) -- 702.136a / 702.98a: the additional +1/+1 counter chosen
         )
 
+        if amplify.counters(ch, choices):
+            counters["+1/+1"] = counters.get("+1/+1", 0) + amplify.counters(ch, choices)
         if riot.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + riot.counters(ch, choices)
         if devour.counters(ch, choices):
@@ -352,6 +360,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
 
     if devour.is_choice(what):
         return devour.prompt(plan, card, controller, choice)
+    from app.rules import amplify  # -- casting extras (wave 18E) -- private: the cards in their hand
+
+    if amplify.is_choice(what):
+        return amplify.prompt(plan, card, controller, choice)
     from app.rules import riot  # -- keywords (wave 15E) --
 
     if riot.is_choice(what):
@@ -372,6 +384,10 @@ def _answer(entry_or_answers: dict[str, Any], choice: dict[str, Any], chosen: st
 
     if devour.is_choice(choice["what"]):
         chosen = devour.merge((entry_or_answers.get("choices") or {}).get(choice["what"]), chosen)
+    from app.rules import amplify  # -- casting extras (wave 18E) -- amplify's picks pile up too
+
+    if amplify.is_choice(choice["what"]):
+        chosen = amplify.merge((entry_or_answers.get("choices") or {}).get(choice["what"]), chosen)
     return {**entry_or_answers, "choices": {**(entry_or_answers.get("choices") or {}), choice["what"]: chosen}}
 
 
@@ -446,8 +462,13 @@ def stack_entry_choice(plan: Plan, card: CardInstance, controller: str) -> bool:
 
 
 def _picked(plan: Plan, d: Any, chosen: str) -> str:
-    from app.rules import devour  # -- keyword mechanics (wave 9D) --
+    from app.rules import (
+        amplify,  # -- casting extras (wave 18E) --
+        devour,  # -- keyword mechanics (wave 9D) --
+    )
 
+    if amplify.is_choice(d.resume["what"]):
+        return amplify.merge(plan.rules.entry_choices.get(d.resume["card"], {}).get(amplify.WHAT), chosen)
     if not devour.is_choice(d.resume["what"]):
         return chosen
     return devour.merge(plan.rules.entry_choices.get(d.resume["card"], {}).get(devour.WHAT), chosen)
@@ -510,6 +531,9 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         from app.rules import devour
 
         devour.sacrifice(plan, ep, entry["player"])
+        from app.rules import amplify  # -- casting extras (wave 18E) -- 702.38a: revealed as it enters
+
+        amplify.reveal(plan, ep, entry["player"])
     # -- end entering for a cost (wave 5G) --
     if not planned:
         return

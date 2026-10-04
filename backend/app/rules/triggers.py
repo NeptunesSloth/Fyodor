@@ -1112,6 +1112,8 @@ def graveyard_trigger_ok(d: dict[str, Any]) -> bool:
     event (603.10a: a card arriving in the graveyard with the event would have to be told apart),
     nor one about this object or the permanent it was attached to (they left the battlefield)."""
     trigger = str(d.get("trigger"))
+    if d.get("gy_watch"):  # -- casting extras (wave 18E) -- recover 702.59a: the card is already in the graveyard when the creature dies (no look-back)
+        return d.get("kind") == "triggered"
     if d.get("kind") != "triggered" or not (trigger in _GY_TRIGGERS or trigger.startswith("step:")):
         return False
     cond = d.get("cond") or {}

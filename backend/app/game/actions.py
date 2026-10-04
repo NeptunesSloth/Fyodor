@@ -936,6 +936,10 @@ class CastSpell(_Intent):
     evoke: bool = False  # 702.74: cast for its evoke cost (sacrificed when it enters)
     dash: bool = False  # 702.109: cast for its dash cost (haste; returns to hand at the next end step)
     awaken: bool = False  # 702.113: cast for its awaken cost (and put its counters on a land)
+    splice: list[Id] = Field(default_factory=list, max_length=10)  # 702.47a: cards revealed from your hand to splice onto this spell, in order
+    assist: str | None = None  # 702.132a: the player chosen to help pay generic mana ("" = no one; None = not asked yet)
+    assist_amount: int | None = Field(default=None, ge=0, le=200)  # how much of it that player pays
+    prototype: bool = False  # 702.160a: cast it prototyped (its alternative mana cost, power and toughness, 718.3)
     fuse: bool = False  # 702.102a: cast both halves of a split card with fuse from your hand (one fused split spell)
     # Cost contributions that aren't mana (convoke / improvise / delve): validated and applied
     # only when the rest of the total cost is paid (601.2h: no partial payments).
@@ -951,6 +955,13 @@ class CastSpell(_Intent):
     # "As an additional cost to cast green permanent spells, you may pay 2 life" (Defiler of Vigor): the permanents whose
     # optional additional cost is paid (601.2b); the hints list them (``optional_costs``)
     optional_costs: list[Id] = Field(default_factory=list, max_length=10)
+
+
+class MiracleReveal(_Intent):
+    """702.94a: reveal a card with miracle as you draw it (only while its owner's window is open: app/rules/miracle.py)."""
+
+    type: Literal["miracle_reveal"] = "miracle_reveal"
+    card_id: Id
 
 
 class TurnFaceUp(_Intent):
@@ -1214,7 +1225,8 @@ class RulesLog(Base):
 
 INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
-     "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door"}
+     "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
+     "miracle_reveal"}
 )
 SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage"})
 
@@ -1316,6 +1328,7 @@ Action = Annotated[
     | CastSpell
     | TurnFaceUp
     | UnlockDoor
+    | MiracleReveal
     | ActivateAbility
     | DeclareAttackers
     | DeclareBlockers

@@ -217,8 +217,8 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
             return f"it can't enchant {hch.name or 'that'}"
         return None
     if kind == "equipment":
-        if sch.is_creature:
-            return "an Equipment that's also a creature can't equip"  # 301.5c
+        if sch.is_creature and "reconfigure" not in sch.keywords:  # (301.5c; 702.151: reconfigure, wave 18E)
+            return "an Equipment that's also a creature can't equip"
         return None if hch.is_creature else "Equipment can only equip a creature"
     if sch.is_creature:
         return "a Fortification that's also a creature can't fortify"  # 301.6

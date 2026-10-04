@@ -65,7 +65,10 @@ EXILE_TO_GY = "EXILE_TO_GY"
 # -- activated sweep (wave 17B) -- "Waterbend {3}" (701.67a): {3}, and for each generic mana in it the payer may tap an untapped artifact
 # or creature they control instead of paying that mana; the cost is the MANA part plus this one, which holds how many may be tapped
 WATERBEND = "WATERBEND"
-WAVE_4H_KINDS = frozenset({PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE, WATERBEND})
+# -- casting extras (wave 18E) -- craft (702.167a): "Exile [materials] from among permanents you control and/or cards in your graveyard",
+# one part for each description; ``selector`` the permanents it may take, ``alt`` the graveyard cards, ``amount`` how many ("or more": ``more``)
+CRAFT = "CRAFT"
+WAVE_4H_KINDS = frozenset({PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE, WATERBEND, CRAFT})
 ANY_COUNTER = "*"
 
 
@@ -87,12 +90,14 @@ class CostComponent:
     life_rule: str | None = None
     alt: str | None = None  # (wave 4H) "Sacrifice another creature or an artifact": a second selector, either matches
     named_self: bool = False  # (wave 4H) grandeur, "Discard another card named ~": a card with the source's name
+    more: bool = False  # -- casting extras (wave 18E) -- "N or more" (craft materials)
+    up_to: bool = False  # -- casting extras (wave 18E) -- "up to N" (harmonize 702.180a: "tapping up to one untapped creature"): none is a choice
 
     @property
     def chosen(self) -> bool:
         """Does paying it need a choice of objects (casting.cost_choices)?"""
         return (self.selector is not None and not self.random) or self.counter == ANY_COUNTER \
-            or self.kind in (COLLECT_EVIDENCE, FORAGE)  # (wave 4H)
+            or self.kind in (COLLECT_EVIDENCE, FORAGE, CRAFT)  # (wave 4H; craft: 18E)
 
     @property
     def objects(self) -> int:
@@ -332,6 +337,9 @@ _EXILE_CHOSEN = re.compile(rf"^Exile {_N} (?P<what>[^,]+ you control)$")
 _EXILE_TO_GY = re.compile(r"^Put (?:(?P<one>a) card an opponent owns from exile into that player's graveyard"
                           r"|(?P<n>two|three) cards your opponents own from exile into their owners' graveyards)$")  # (wave 15C)
 _EVIDENCE = re.compile(r"^Collect evidence (?P<n>\d+)$")
+# "Exile an artifact from among permanents you control and/or cards in your graveyard" / "…two creatures…" / "…one or more Dinosaurs…"
+_CRAFT = re.compile(r"^Exile (?P<n>a|an|one|two|three|four|five|six|seven|\d+)(?P<more> or more)?(?: (?P<what>[^,]+?))? from among "
+                    r"permanents you control and/or cards in your graveyard$")
 _WATERBEND = re.compile(r"^Waterbend \{(?P<n>\d+)\}$")
 _SAC_OR = re.compile(r"^Sacrifice (?P<a>a|an|another) (?P<w1>[\w\-]+) or (?P<b>a|an|another) (?P<w2>[\w\-]+)$")  # (no article: refused)
 _GRANDEUR = re.compile(r"^Discard another card named ~$")  # (grandeur, an ability word: 207.2c)
@@ -355,6 +363,24 @@ def _exile_to_gy(part: str) -> CostComponent | None:
         return None
     key = selectors.Selector(card=True, zones=("exile",), zone_owner="opponent").key()
     return CostComponent(EXILE_TO_GY, amount=1 if m["one"] else _n(m["n"]), selector=key, text=part)
+
+
+def _craft_part(m: re.Match[str], part: str) -> CostComponent | None:
+    """-- casting extras (wave 18E) -- 702.167a-b: a material described by a card type or subtype alone is a permanent you control or a
+    card in your graveyard of that type; with the word "card" (109.2) only a graveyard card. "one or more" alone: any object."""
+    what = re.sub(r"\b(\w+?)s\b$", r"\1", m["what"] or "", count=1) if m["what"] and not m["what"].endswith("Merfolk") else m["what"] or ""
+    n = _n(m["n"]) if m["n"].isdigit() or m["n"] in _WORDS else None
+    if n is None or " with " in what or what.endswith("nonland") or "share" in what:
+        return None  # (conditions on the objects, "that share a card type": not read)
+    if not what:
+        perm, grave = _selector("permanent you control", zone="battlefield"), _selector("card from your graveyard", zone="graveyard")
+    elif what.endswith(" card") or what == "card":
+        perm, grave = None, _selector(what + " from your graveyard", zone="graveyard")
+    else:
+        perm, grave = _selector(what + " you control", zone="battlefield"), _selector(what + " card from your graveyard", zone="graveyard")
+    if (perm is None and grave is None) or (not what.endswith(" card") and what != "card" and (perm is None or grave is None)):
+        return None
+    return CostComponent(CRAFT, amount=n, selector=perm, alt=grave, more=bool(m["more"]), text=part)
 
 
 def _one_4h(part: str, card_name: str) -> CostComponent | None:
@@ -392,6 +418,8 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(EXILE, amount=_n(m["n"]), selector=key, text=part) if key else None
     if (processed := _exile_to_gy(part)) is not None:  # (wave 15C)
         return processed
+    if m := _CRAFT.match(part):  # -- casting extras (wave 18E) -- 702.167a / 702.167b
+        return _craft_part(m, part)
     if m := _EVIDENCE.match(part):  # 701.59a
         key = _selector("cards from your graveyard", zone="graveyard")
         return CostComponent(COLLECT_EVIDENCE, amount=int(m["n"]), selector=key, text=part) if key and int(m["n"]) > 0 else None
@@ -452,12 +480,26 @@ def _self_text(part: str, card_name: str) -> str:
 # -- kicker (702.33) -------------------------------------------------------------------------
 # -- keywords (wave 15E) -- squad (702.157: "you may pay [cost] any number of times"), replicate (702.56: the same) and offspring
 # (702.175: once) are optional additional mana costs paid as kicker is (``CastSpell.kicker`` times): the engine's count is theirs
-_KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)) (?P<cost>(?:\{[^}]+\})+)$",
+_KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)|(?P<entwine>entwine)) (?P<cost>(?:\{[^}]+\})+)$",
                      re.IGNORECASE)
+
+
+# -- casting extras (wave 18E) -- 702.42a: an entwine cost that isn't mana ("Entwine—Sacrifice three lands.") is paid as additional costs are
+_ENTWINE_EXTRA = re.compile(r"^entwine—(?P<rest>[^{}.]+)$", re.IGNORECASE)
+
+
+def _entwine_extra(line: str) -> str | None:
+    """The non-mana entwine cost of a line the engine pays ("sacrifice two lands"), or None."""
+    from app.rules import alt_costs
+
+    m = _ENTWINE_EXTRA.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
+    return m["rest"].strip() if m is not None and alt_costs.parse_cost(m["rest"].strip()) is not None else None
 
 
 def kicker_line(line: str) -> bool:
     """Is this keyword line a kicker the engine pays ("Kicker {2}{R}", "Multikicker {1}")?"""
+    if _entwine_extra(line) is not None:
+        return True
     m = _KICKER.fullmatch(line.strip().rstrip("."))
     return m is not None and "{X}" not in m["cost"].upper() and _MANA_ONLY.match(m["cost"]) is not None
 
@@ -466,6 +508,8 @@ def kicker_line(line: str) -> bool:
 class Kicker:
     cost: str  # mana symbols, e.g. "{2}{R}"
     multi: bool = False  # 702.33c multikicker: any number of times
+    entwine: bool = False  # -- casting extras (wave 18E) -- 702.42a: the count 1 means "choose all modes" (paid as kicker is)
+    extra: str = ""  # (an entwine cost that isn't mana: "sacrifice two lands", paid with the additional costs)
 
 
 def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
@@ -474,12 +518,15 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
     ("Kicker—Sacrifice a land") and X in the cost stay manual."""
     found: list[Kicker] = []
     for ab in abilities:
-        if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring"} & set(ab.keywords)):
+        if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"} & set(ab.keywords)):
+            continue
+        if (extra := _entwine_extra(ab.text)) is not None:
+            found.append(Kicker("", entwine=True, extra=extra))
             continue
         m = _KICKER.fullmatch(ab.text.strip().rstrip("."))
         if m is None or not kicker_line(ab.text):
             return None
-        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"])))
+        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"]), entwine=bool(m["entwine"])))
     return found[0] if len(found) == 1 else None
 
 

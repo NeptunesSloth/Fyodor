@@ -145,6 +145,7 @@ _BEATS_SELF = re.compile(r"(?P<who>it|that creature) has greater (?P<a>power|tou
 # or as it last existed
 _CONTROLLED = re.compile(r"you (?:(?P<neg>didn't|did not) control|controlled) (?:it|that (?:creature|permanent|card|land|token|artifact|enchantment|planeswalker))")
 _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking", "blocking": "blocking",
+           "attached to a creature": "attached_to",  # (-- casting extras (wave 18E) -- reconfigure 702.151a: the source's own state)
            "suspected": "suspected", "prepared": "prepared"}  # (prepared: wave 13C, 722.3; suspected: wave 12A, 701.60 — a designation of the source, like its other states)
 # -- counters (wave 5H) -- "if it had counters on it", "if it had a +1/+1 counter on it", "if ~ has counters on it",
 # "if it doesn't have an indestructible counter on it": the object's counters as it is, or as it last existed
@@ -1190,8 +1191,11 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
         if snap is None:
             return False
         tapped, attacking, blocking = snap.tapped, snap.attacking, snap.blocking
-        if test in ("suspected", "prepared"):
+        if test in ("suspected", "prepared", "attached_to"):
             return False
+    if test == "attached_to":  # -- casting extras (wave 18E) -- attached to a permanent that's on the battlefield (a creature, as only one can be)
+        host = plan.state.cards.get(card.attached_to or "") if card is not None else None
+        return host is not None and host.zone.endswith(":battlefield")
     return {"tapped": tapped, "untapped": not tapped, "attacking": attacking, "blocking": blocking}[test]
 
 

@@ -2945,7 +2945,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     text = self_text(ability.text, ch.name)
-    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",)):  # -- keywords (wave 15E) -- alt_costs
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",)):  # -- keywords (wave 15E) -- alt_costs
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(ability.text)
@@ -3170,7 +3170,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
-                if to_gy:
+                if to_gy or any(e.get("who") == "self_gy" for e in effects):  # (-- casting extras (wave 18E) -- recover: "If you don't, exile ~" too)
                     effects = [{**e, "who": "self_gy"} if e.get("who") == "self" else e for e in effects]
                 if aura_card:
                     aura_effects = _aura_card_effects(effects)
@@ -5105,6 +5105,23 @@ def _token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if m["each"]:  # -- keywords (wave 15E) -- squad 702.157a: once for each time its cost was paid (702.33d's count)
         found[0][0]["n"] = {"kicked": 1}
     return found
+
+
+# -- casting extras (wave 18E) -- 702.167a craft: "Return this card to the battlefield transformed under its owner's control" (the card
+# the cost exiled: effects._cards "cost_exiled_self")
+@_first
+@effect(r"return this card to the battlefield transformed under its owner's control")
+def _craft_return(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "return_card", "who": "cost_exiled_self", "to": "battlefield", "tapped": False, "under": "owner",
+             "transformed": True}], None
+
+
+# -- casting extras (wave 18E) -- 702.141a encore: one token copy for each opponent (one creation event), each attacking its opponent
+@_first
+@effect(r"for each opponent, create a token that's a copy of the card exiled to activate this ability that attacks that opponent "
+        r"this turn if able")
+def _encore_copies(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "token_copy", "n": {"opponents": 1}, "who": "cost_exiled"}, {"do": "encore_attack", "who": "it"}], None
 
 
 # -- if you do (wave 8C) -- "that creature's controller creates a token that's a copy of that creature" (Bramble Sovereign):

@@ -497,6 +497,9 @@ def keyword_component(o: Optional) -> Any:
     from app.rules.selectors import Selector
 
     untapped = Selector(types=("Creature",), controller="you", tapped=False)
+    if o.kind == "casualty":  # -- casting extras (wave 18E) -- 702.153a: "you may sacrifice a creature with power N or greater"
+        key = C._selector(f"creature you control with power {o.n} or greater", zone="battlefield")
+        return C.CostComponent(C.SACRIFICE, amount=1, selector=key, text=f"Sacrifice a creature with power {o.n} or greater")
     if o.kind == "conspire":
         key = Selector(types=("Creature",), controller="you", tapped=False, extras=("shares_color_source",)).key()
         return C.CostComponent(C.TAP_OTHER, amount=2, selector=key, text="Tap two untapped creatures you control that share a color with it")
@@ -521,6 +524,10 @@ def optional_offers(state: GameState, player: str, card: CardInstance, ch: Chara
                                 and cast_limits.from_ok(d, card) for src, d in cast_limits._statics(state, info, "spell_keyword")):
         out.append(Optional(f"{card.id}:conspire", "Conspire: tap two untapped creatures that share a color with it", 0, "", "conspire"))
     for text in own:
+        # -- casting extras (wave 18E) -- 702.153a casualty (one instance: 702.153b's several are refused)
+        if (m := re.fullmatch(r"Casualty (\d+)", text)) is not None and sum(t.startswith("Casualty") for t in own) == 1:
+            out.append(Optional(f"{card.id}:casualty", f"Casualty {m[1]}: sacrifice a creature with power {m[1]} or greater", 0, "",
+                                "casualty", int(m[1])))
         if (m := re.fullmatch(r"Teamwork (\d+)", text)) is not None:
             out.append(Optional(f"{card.id}:teamwork", f"Teamwork {m[1]}: tap creatures with total power {m[1]} or more", 0, "", "teamwork",
                                 int(m[1])))

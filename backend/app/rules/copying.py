@@ -114,8 +114,13 @@ def base_recipe(card: CardInstance) -> CopyRecipe:
 def recipe_of(plan: Plan, card: CardInstance) -> CopyRecipe:
     """707.2 / 707.3: this object's copiable values as a recipe to copy from — the recipe of the
     copy effect that applies to it (with that effect's exceptions), else its printed values."""
+    from app.rules import (
+        prototype,  # -- casting extras (wave 18E) -- 718.3c-d: a prototyped object's copy is prototyped too
+    )
+
     found = copy_recipe_of(plan.rules, plan.oid(card))
-    return found.model_copy(deep=True) if found is not None else base_recipe(card)
+    recipe = found.model_copy(deep=True) if found is not None else base_recipe(card)
+    return recipe.model_copy(update={"prototyped": True}) if prototype.is_prototyped(plan.state, card) else recipe
 
 
 def with_excepts(recipe: CopyRecipe, excepts: list[CopyExcept]) -> CopyRecipe:
@@ -144,6 +149,10 @@ def _base(recipe: CopyRecipe, info: CardInfo) -> Characteristics:
         data = info.get(recipe.printing)
         if data is not None:
             ch = chars.printed_from_data(data, recipe.face)
+            if recipe.prototyped:  # -- casting extras (wave 18E) -- 718.2a
+                from app.rules import prototype
+
+                ch = prototype.overlay(ch)
             # -- review (casting) -- 202.3b / 712.8e: a copy of the back face of a transforming double-faced object has mana
             # value 0 (the printed back face reads its front face's cost only for the card itself, 712.8e)
             return replace(ch, mana_value=0.0) if recipe.face and data.get("layout") == "transform" else ch

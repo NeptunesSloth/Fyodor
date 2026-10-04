@@ -555,6 +555,13 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
 
         if bestow.is_bestowed(state, card):
             ch = bestow.overlay(ch)
+    if state.rules is not None and state.rules.payments:  # -- casting extras (wave 18E) -- 718.3b: a prototyped spell / permanent
+        from app.game.rules_state import copy_recipe_of
+        from app.rules import prototype
+
+        # (review 18E: a copy effect on it gives it the copied object's values instead, 718.3b values being copiable: 707.2)
+        if prototype.is_prototyped(state, card) and copy_recipe_of(state.rules, state.rules.object_id(card.id)) is None:
+            ch = prototype.overlay(ch)
     effects = affecting(state, card)
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
@@ -899,7 +906,7 @@ def _group_imposed(state: GameState, card: CardInstance, ch: Characteristics, in
 
 
 Layer = Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
-Duration = Literal["end_of_turn", "permanent"]
+Duration = Literal["end_of_turn", "permanent", "end_of_combat"]
 
 
 def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | None, controller: str,
@@ -927,7 +934,7 @@ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | N
 def end_of_turn(plan: Plan) -> None:
     """514.2: "until end of turn" effects end in the cleanup step."""
     r = plan.rules
-    r.effects = [e for e in r.effects if e.duration != "end_of_turn"]
+    r.effects = [e for e in r.effects if e.duration not in ("end_of_turn", "end_of_combat")]  # (a combat a turn ended in, 18E review)
     control_sync(plan)  # -- control (wave 3K) -- a Threaten effect ends: the creature goes back (613.1b)
 
 

@@ -50,6 +50,7 @@ KEYWORDS = frozenset({
     "myriad", "melee", "friends forever", "choose a background", "doctor's companion", "space sculptor", "gift",
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",
+    "recover", "amplify", "assist",  # -- casting extras (wave 18E) -- 702.59, 702.38, 702.132
     "phasing", "transmute",  # (wave 3R4: casting.transmute)
     "aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate", "increment",  # -- static_other sweep (wave 16B) -- 702.127 (casting.from_graveyard / cast_grant)
     "ripple",  # -- static_other sweep (wave 17C) -- 702.60 (casting._ripple_triggers)
@@ -176,6 +177,9 @@ _WATCH_LINE = re.compile(r"^(?:Whenever .+? this turn, |When you next cast .+? t
                          r"|When (?:target|that) [^,]+? (?:dies|leaves the battlefield) this turn, )")  # -- turn watches (wave 7D; 16D: "When target creature dies this turn,") --
 
 
+CRAFT_FROM = " from among permanents you control and/or cards in your graveyard"  # -- casting extras (wave 18E) -- 702.167a
+
+
 def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], str | None]:
     if _MANA_ABILITY.match(line):
         return "mana", (), "{T}"
@@ -212,7 +216,7 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
             return "activated", (), cost
     if ":" in line:
         cost = line.split(":", 1)[0]
-        if _COST_START.match(cost) and len(cost) < 120:
+        if _COST_START.match(cost) and len(cost.replace(CRAFT_FROM, "")) < 120:  # (wave 18E: craft's materials parts are long)
             return "activated", (), cost
     if kws is not None:  # keyword with a cost after a colon, e.g. "Equip: {2}" style oddities
         return "keywords", kws, None
@@ -293,6 +297,7 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
             level = int(m[2])
         else:
             sections.append(level)
+    tail: list[tuple[str, int]] = []
     for n, line in enumerate(lines):
         # -- keyword meanings (wave 11B) -- 702.107a: "Outlast [cost]" means "[Cost], {T}: Put a +1/+1 counter on this
         # creature. Activate only as a sorcery." (read as that activated ability)
@@ -302,6 +307,21 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         # card as an additional cost to cast it." (a permission with an additional cost, 601.2b: permissions.SELF_GY_BY)
         if line == "Retrace":
             line = "You may cast this card from your graveyard by discarding a land card in addition to paying its other costs."
+        # -- keyword meanings (wave 18E) -- 702.167a: "Craft with [materials] [cost]" means "[Cost], Exile this permanent, Exile [materials]
+        # from among permanents you control and/or cards in your graveyard: Return this card to the battlefield transformed under its
+        # owner's control. Activate only as a sorcery." (one cost part for each material description, costs._CRAFT)
+        if (m := re.fullmatch(r"Craft with (?P<mats>.+?) (?P<cost>(?:\{[^}]+\})+)", line)) and not spell:
+            pieces = re.split(r", (?:and )?", m["mats"]) if re.match(r"(?:a|an) ", m["mats"]) else [m["mats"]]
+            pieces = [p if re.match(r"(?:a|an|one|two|three|four|five|six|seven|\d+) ", p) or p == "one or more"
+                      else ("an " if p[:1].lower() in "aeiou" else "a ") + p for p in pieces]
+            exiles = ", ".join(f"Exile {p}{CRAFT_FROM}" for p in pieces)
+            line = (f"{m['cost']}, Exile this permanent, {exiles}: Return this card to the battlefield transformed under its owner's "
+                    "control. Activate only as a sorcery.")
+        # -- keyword meanings (wave 18E) -- 702.133a: "Jump-start" means "You may cast this card from your graveyard by discarding a card as
+        # an additional cost to cast it" and "If this spell was cast using its jump-start ability, exile this card instead of putting
+        # it anywhere else any time it would leave the stack." (a permission with an additional cost, as retrace's; ``exile``)
+        if line == "Jump-start":
+            line = "You may cast this card from your graveyard by discarding a card in addition to paying its other costs. Then exile this card."
         # -- keyword meanings (wave 12B) -- 702.97a: "Scavenge [cost]" means "[Cost], Exile this card from your graveyard: Put a
         # number of +1/+1 counters equal to the power of the card you exiled on target creature. Activate only as a sorcery."
         if m := re.fullmatch(r"Scavenge ((?:\{[^}]+\})+)", line):
@@ -313,4 +333,15 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
             line = f"{m[2]}, Discard this card: Put {m[1]} +1/+1 counters on target creature."
         kind, kws, cost = classify(line, spell=spell)
         out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n]))
+        # -- keyword meanings (wave 18E) -- 702.151a: "Reconfigure [cost]" is two activated abilities, "[Cost]: Attach this permanent to another
+        # target creature you control. Activate only as a sorcery." and "[Cost]: Unattach this permanent. Activate only if this permanent is
+        # attached to a creature and only as a sorcery."; 702.151b: attached to a creature, it isn't a creature (a static of its own).
+        # (review 18E: added after the printed lines, so a printed line's ability number is its line number — the card menu's mapping)
+        if (rm := re.fullmatch(r"Reconfigure ((?:\{[^}]+\})+)", line)) and not spell:
+            tail += [(f"{rm[1]}: Attach ~ to another target creature you control. Activate only as a sorcery.", sections[n]),
+                     (f"{rm[1]}: Unattach ~. Activate only if ~ is attached to a creature and only as a sorcery.", sections[n]),
+                     ("As long as ~ is attached to a creature, ~ isn't a creature.", sections[n])]
+    for extra, section in tail:
+        ekind, ekws, ecost = classify(extra, spell=spell)
+        out.append(AbilityText(index=len(out), text=extra, kind=ekind, keywords=ekws, cost=ecost, section=section))
     return out

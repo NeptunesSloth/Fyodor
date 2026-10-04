@@ -77,7 +77,18 @@ MEANINGS: dict[str, str] = {
     "offspring": "When this creature enters, if it was kicked, create a token that's a copy of it, except it's 1/1.",
     "mentor": "Whenever this creature attacks, put a +1/+1 counter on target attacking creature with power less than this "
               "creature's power.",  # 702.134a
+    # -- casting extras (wave 18E) -- 702.121a melee (values.parse_count: the opponents attacked directly, 506.3)
+    "melee": "Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked with a creature this combat.",
+    # 702.39a provoke: "you may choose to have target creature … block … If you do, untap that creature" — the whole of it is the "may"
+    # (``_OPTIONAL``); the requirement ends with this combat (block_effects: a turn may have several combats, 500.8)
+    "provoke": "Whenever this creature attacks, target creature defending player controls blocks this creature this combat if able. "
+               "Untap that creature.",
+    # 702.59a recover [cost]: a triggered ability that functions in a graveyard (the effects' "~ from your graveyard", scripts.define);
+    # "Otherwise" is "If you don't"; a mana cost only ({cost})
+    "recover": "Whenever a creature is put into your graveyard from the battlefield, you may pay {cost}. If you do, return ~ from your "
+               "graveyard to your hand. If you don't, exile ~.",
 }
+_OPTIONAL = frozenset({"provoke"})  # (the controller may choose not to do it, when it resolves)
 _COSTED = frozenset({"squad", "offspring"})  # keywords written with a cost (paid as kicker is: costs.kicker_cost)
 _NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict", "mobilize", "vanishing", "fading", "backup", "rampage"})
 
@@ -87,7 +98,7 @@ def pieces(kw: str, line: str) -> list[str]:
     out = []
     for p in re.split(r"[,;]\s*", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")):
         p = p.strip().lower()
-        if p == kw or (kw in _NUMBERED and re.fullmatch(rf"{re.escape(kw)} \d+", p)):
+        if p == kw or (kw in _NUMBERED and re.fullmatch(rf"{re.escape(kw)} \d+", p)) or kw == "recover" and re.fullmatch(r"recover (?:\{[^}x]+\})+", p):
             out.append(p)
         elif kw in _COSTED and re.fullmatch(rf"{re.escape(kw)} (?:\{{[^}}]+\}})+", p):  # (wave 15E) "squad {1}{g}": the keyword
             out.append(kw)
@@ -102,19 +113,22 @@ def _definition(piece: str) -> str | None:
     from app.rules.characteristics import Characteristics
 
     kw, _, n = piece.rpartition(" ") if piece.split(" ")[-1].isdigit() else (piece, "", "")
+    cost = ""
+    if piece.startswith("recover "):  # -- casting extras (wave 18E) -- 702.59a
+        kw, cost = "recover", piece[len("recover "):].upper()
     meaning = MEANINGS.get(kw)
     if meaning is None or (kw in _NUMBERED) != bool(n):
         return None
     one = n == "1"
     word = "a" if one else {"2": "two", "3": "three", "4": "four", "5": "five"}.get(n, n)
     out = []
-    for text in meaning.format(n=n, w=word, s="" if one else "s", be="'s" if one else " are",
+    for text in meaning.format(n=n, w=word, s="" if one else "s", be="'s" if one else " are", cost=cost,
                                them="it" if one else "them").split("\n"):
         ab = AbilityText(index=0, text=text, kind="triggered")
         d = scripts.define(ab, Characteristics(name="\u0000", abilities=(ab,), types=frozenset({"Creature"})))
         if d is None or d.get("kind") != "triggered" or not scripts._event_refs_ok(d):
             return None
-        out.append(d)
+        out.append({**d, "optional": True} if kw in _OPTIONAL else {**d, "gy_watch": True} if kw == "recover" else d)
     return json.dumps(out)
 
 

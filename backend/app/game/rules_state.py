@@ -233,6 +233,7 @@ class CopyRecipe(BaseModel):
     token: dict[str, Any] | None = None  # {"name", "power", "toughness", "colors", "type_line", "text"}
     excepts: list[CopyExcept] = Field(default_factory=list)
     source: str = Field(default="", max_length=200)  # the name of what was copied (for labels)
+    prototyped: bool = False  # -- casting extras (wave 18E) -- 718.2a / 718.3c-d: the alternative cost, power and toughness are copiable
 
 
 # -- game objects, last known information, events -------------------------------------------
@@ -497,7 +498,7 @@ class ContinuousEffect(BaseModel):
     # it" (``counter`` names the kind; an affected object that has none left drops out, and the effect
     # ends with the last one: 611.2b, app/rules/delayed.expire).
     duration: Literal["end_of_turn", "permanent", "next_turn", "source_on_battlefield", "source_controlled",
-                      "source_tapped", "source_controlled_tapped", "while_counter"] = "end_of_turn"
+                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat"] = "end_of_turn"
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
     turn: int = 0  # the turn the effect began (next_turn: it ends on a later turn of until_player)
@@ -711,6 +712,7 @@ class PaymentRecord(BaseModel):
     tapped_for_cost: list[str] = Field(default_factory=list)  # "Tap an untapped creature you control" (not for mana)
     kicked: int = 0  # 702.33d: times its kicker cost was paid
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
+    prototyped: bool = False  # -- casting extras (wave 18E) -- 718.3: cast prototyped (the spell and the permanent have the alternative values)
     additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
     x: int | None = None
     # -- refused modal/conditional (wave 3R1) -- how the spell was cast, for "if you cast it [from your hand]",
@@ -849,6 +851,14 @@ class RulesState(BaseModel):
     conceded: list[str] = Field(default_factory=list)
     lost: dict[str, str] = Field(default_factory=dict)  # player -> why (0 life, poison, …)
     winner: str | None = None
+    # -- casting extras (wave 18E) -- miracle (app/rules/miracle.py): the cards whose owner may reveal them now (never sent to anyone else),
+    # the last turn each player drew (for "the first card you've drawn this turn"), and the free casts that are miracle casts
+    # (melee, 702.121a: the opponents each attacking player attacked directly — not through a planeswalker or battle, 506.3 — in the
+    # latest declaration of attackers: "for each opponent you attacked with a creature this combat")
+    attacked_players: dict[str, list[str]] = Field(default_factory=dict)
+    miracle: list[str] = Field(default_factory=list)
+    miracle_turn: dict[str, int] = Field(default_factory=dict)
+    miracled: list[str] = Field(default_factory=list)
     drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check
     deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
     prevention: dict[str, int] = Field(default_factory=dict)  # player / object id -> damage to prevent this turn

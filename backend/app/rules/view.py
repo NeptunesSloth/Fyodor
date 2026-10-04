@@ -175,6 +175,10 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
 def hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     """What the viewer could do right now, for highlighting. Only about the viewer's own cards."""
     out: dict[str, Any] = {"has_priority": state.rules is not None and state.rules.priority == viewer}
+    if state.rules is not None and state.rules.miracle:  # -- casting extras (wave 18E) -- only the owner's own windows (app/rules/miracle.py)
+        mine = [c for c in state.rules.miracle if c in state.cards and state.cards[c].owner == viewer]
+        if mine:
+            out["miracle"] = mine
     if not out["has_priority"]:
         return out
     # Your hand, your commander, your graveyard and exile (flashback, "you may play that card this

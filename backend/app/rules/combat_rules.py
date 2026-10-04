@@ -56,6 +56,7 @@ Effects = list[dict[str, Any]]
 TAX = "attack_tax"
 TAX_PW = "attack_tax_pw"  # (also attacking a planeswalker the player controls)
 OTHER_THAN = "attack_other_than"
+ATTACK_PLAYER = "attack_player"  # -- casting extras (wave 18E) -- "attacks that opponent this turn if able" (encore, 702.141a): ``attack_player:<player>``
 CANT_BLOCK_CTRL = "cant_block_ctrl"
 CANT_BLOCK_CTRL_POWER = "cant_block_ctrl_power"
 LIMIT = "attack_limit"
@@ -229,6 +230,11 @@ def other_than(ch: Characteristics) -> set[str]:
     return {r.split(":", 1)[1] for r in ch.imposed if r.startswith(OTHER_THAN + ":")}
 
 
+def attack_players(ch: Characteristics) -> set[str]:
+    """-- casting extras (wave 18E) -- Players this creature attacks this turn if able (encore's tokens, 702.141a)."""
+    return {r.split(":", 1)[1] for r in ch.imposed if r.startswith(ATTACK_PLAYER + ":")}
+
+
 def requirements_problem(plan: Plan, eligible: set[str], places: dict[str, list[str]],
                          declared: dict[str, str], caps: dict[str, int]) -> str | None:
     """508.1d over the whole declaration when some player limits how many creatures attack them: the number of
@@ -244,11 +250,12 @@ def requirements_problem(plan: Plan, eligible: set[str], places: dict[str, list[
         ch = plan.ch(plan.state.cards[cid])
         attack = len(goaded_by(ch) & live) + (1 if "must_attack" in scripts.statics(ch) else 0)
         others = (goaded_by(ch) | other_than(ch)) & live
+        wants = attack_players(ch) & live
 
-        def score(place: str | None, attack: int = attack, others: set[str] = others) -> int:
+        def score(place: str | None, attack: int = attack, others: set[str] = others, wants: set[str] = wants) -> int:
             if place is None:
                 return 0
-            return attack + sum(1 for g in others if place in plan.state.players and place != g)
+            return attack + (place in wants) + sum(1 for g in others if place in plan.state.players and place != g)
 
         weights.append({None: 0, **{t: score(t) for t in places[cid]}})
         obeyed += score(declared.get(cid))
@@ -658,7 +665,21 @@ def myriad_create(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"extra_phases": extra_phases, "create_attacking_each": create_attacking_each,
+def encore_attack(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """-- casting extras (wave 18E) -- 702.141a: "For each opponent, create a token that's a copy of this card that attacks that
+    opponent this turn if able": one token was made for each opponent (one creation event); each is paired with one of them (the
+    tokens are identical, so which is which is no choice) and must attack that player this turn if able (508.1d)."""
+    from app.rules import effects, layers
+
+    tokens = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    for cid, pid in zip(tokens, [p for p in plan.apnap() if p != ctx["controller"] and p in plan.live()], strict=False):
+        layers.add_effect(plan, affected=[plan.oid(plan.state.cards[cid])], layer="6", source=ctx.get("source_object"),
+                          controller=ctx["controller"], imposes=(f"{ATTACK_PLAYER}:{pid}",), label="Attacks that player if able",
+                          source_card=ctx.get("source_card"))
+    return True
+
+
+PRIMITIVES = {"encore_attack": encore_attack, "extra_phases": extra_phases, "create_attacking_each": create_attacking_each,
               "remove_from_combat": remove_from_combat, "double_pt": double_pt,
               "myriad_choose": myriad_choose, "myriad_create": myriad_create}
 RESUME = {"attack_each_opponent": resume_attack_each, "myriad_pick": resume_myriad}
