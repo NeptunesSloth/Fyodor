@@ -437,7 +437,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         )
 
         return kicker_line(line) and (kw == "replicate" or keyword_triggers.supported(kw, line))
-    if kw in ("kicker", "multikicker"):  # casting.cost_with_kicker: one mana kicker cost
+    if kw in ("kicker", "multikicker", "entwine"):  # casting.cost_with_kicker: one mana kicker cost (entwine, wave 18E: modal spells' all-modes cost)
         from app.rules.costs import kicker_line
 
         return kicker_line(line)

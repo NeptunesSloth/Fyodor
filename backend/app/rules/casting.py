@@ -1940,6 +1940,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
     definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
+    if a.kicker and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine and not (definition or {}).get("modes"):
+        raise ActionError(f"{ch.name} can be entwined only as a modal spell")  # -- casting extras (wave 18E) -- 702.42a
     aura = None if plan.manual(card) or a.face_down else attachments.enchant_selector(ch)
     slots: list[list[TargetRef]] = []
     slot_specs: list[dict[str, Any] | None] = []
@@ -1948,6 +1950,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if definition is not None and definition.get("modes"):
         from app.rules.modal_abilities import printed_order
 
+        if a.kicker and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine:  # -- casting extras (wave 18E) --
+            # 702.42a: entwined, the spell's controller chooses all its modes (each must be choosable, 700.2a)
+            a.modes = list(range(len(definition["modes"])))
+            definition = {**definition, "modal": {**definition["modal"], "min": len(a.modes), "max": len(a.modes), "repeat": False}}
         a.modes, a.targets = printed_order(definition, a.modes, a.targets)  # (wave 1A) 608.2c: carried out as printed
         modes = choose_modes(plan, a, definition, ch.name or "it")  # 601.2b: modes first …
         if modes is None:
@@ -2071,7 +2077,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if bestowed_cast:  # -- keywords (wave 15E) -- 702.103b: the spell on the stack is a bestowed Aura spell
         plan.rules.bestowed.append(plan.oid(card))
         tags.append("Bestowed")
-    if a.kicker:
+    if a.kicker and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine:  # -- casting extras (wave 18E) --
+        tags.append("Entwined")
+    elif a.kicker:
         tags.append("Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}")
     if a.awaken:
         tags.append("Awakened")

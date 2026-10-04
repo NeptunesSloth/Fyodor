@@ -452,7 +452,7 @@ def _self_text(part: str, card_name: str) -> str:
 # -- kicker (702.33) -------------------------------------------------------------------------
 # -- keywords (wave 15E) -- squad (702.157: "you may pay [cost] any number of times"), replicate (702.56: the same) and offspring
 # (702.175: once) are optional additional mana costs paid as kicker is (``CastSpell.kicker`` times): the engine's count is theirs
-_KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)) (?P<cost>(?:\{[^}]+\})+)$",
+_KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)|(?P<entwine>entwine)) (?P<cost>(?:\{[^}]+\})+)$",
                      re.IGNORECASE)
 
 
@@ -466,6 +466,7 @@ def kicker_line(line: str) -> bool:
 class Kicker:
     cost: str  # mana symbols, e.g. "{2}{R}"
     multi: bool = False  # 702.33c multikicker: any number of times
+    entwine: bool = False  # -- casting extras (wave 18E) -- 702.42a: the count 1 means "choose all modes" (paid as kicker is)
 
 
 def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
@@ -474,12 +475,12 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
     ("Kicker—Sacrifice a land") and X in the cost stay manual."""
     found: list[Kicker] = []
     for ab in abilities:
-        if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring"} & set(ab.keywords)):
+        if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"} & set(ab.keywords)):
             continue
         m = _KICKER.fullmatch(ab.text.strip().rstrip("."))
         if m is None or not kicker_line(ab.text):
             return None
-        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"])))
+        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"]), entwine=bool(m["entwine"])))
     return found[0] if len(found) == 1 else None
 
 
