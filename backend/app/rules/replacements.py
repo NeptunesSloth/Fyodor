@@ -1022,6 +1022,12 @@ def _target_in_scope(plan: Plan, sc: dict[str, Any], you: str, source_card: str 
 def _source_in_scope(plan: Plan, sc: dict[str, Any], you: str, source_card: str | None, ev: DamageEvent) -> bool:
     if sc.get("by_oids"):
         return ev.get("source_oid") in sc["by_oids"]
+    if sc.get("by_source"):  # -- prevention riders (wave 17A) -- "red sources", "sources you don't control" (609.7c)
+        from app.rules import replace
+
+        who = replace.Candidate(id="", event="damage", match={}, op={}, controller=you, source_card=source_card, source_oid=None,
+                                seq=(0,), label="")
+        return replace._source_matches(plan, sc["by_source"], who, ev)
     if sc.get("by_objects"):
         src = _source_card(plan, ev)
         return src is not None and _object_matches(plan, sc["by_objects"], src, you, source_card)

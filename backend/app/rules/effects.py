@@ -1347,6 +1347,13 @@ def resume_explore(plan: Plan, d: Any, chosen: list[str]) -> None:
 def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """615.7: "Prevent the next N damage that would be dealt to … this turn" — a shield."""
     r = plan.rules
+    if (shares := divided(ctx, e)) is not None:  # -- prevention riders (wave 17A) -- 601.2d: each target's share, an illegal target's lost
+        legal = {*_cards(plan, ctx, e["who"]), *_players(plan, ctx, e["who"])}
+        for t, share in shares.items():
+            if t in legal and share > 0:
+                key = plan.oid(t) if t in plan.state.cards else t
+                r.prevention[key] = r.prevention.get(key, 0) + share
+        return True
     keys = [plan.oid(c) for c in _cards(plan, ctx, e["who"])] + _players(plan, ctx, e["who"])
     n = _amount(plan, ctx, e["n"])  # (wave 12C: "prevent the next X damage, where X is …": the amount as it resolves, 608.2h)
     for key in keys:

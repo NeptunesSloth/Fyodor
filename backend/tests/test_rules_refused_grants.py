@@ -80,13 +80,11 @@ def test_read(text):
 
 
 @pytest.mark.parametrize("text", [
-    # a rider on the prevented damage (615.5), redirection (614.9), half, a target or no recipient: still manual
-    "{1}: The next time a source of your choice would deal damage to you this turn, prevent that damage. If damage is "
-    "prevented this way, Deflecting Palm deals that much damage to that source's controller.",
+    # redirection (614.9), half, no recipient: still manual (wave 17A reads a rider on the prevented damage, 615.5, and a target
+    # as the recipient: tests/test_rules_wave17a_prevention.py)
     "{1}: The next time a source of your choice would deal damage this turn, that damage is dealt to that source's "
     "controller instead.",
     "{T}: The next time a source of your choice would deal damage to you this turn, prevent half that damage, rounded down.",
-    "Sacrifice a creature: The next time a source of your choice would deal damage to any target this turn, prevent that damage.",
     "{1}: The next time a black or red source of your choice would deal damage this turn, prevent that damage.",
     "{W}: The next time a source of your choice of the chosen color would deal damage to you this turn, prevent that damage.",
     "{1}: The next time an artifact or red source of your choice would deal damage to you this turn, prevent that damage.",

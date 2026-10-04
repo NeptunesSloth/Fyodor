@@ -728,6 +728,8 @@ def _object_matches(plan: Plan, spec: dict[str, Any], c: Candidate, card: CardIn
                     oid: str | None) -> bool:
     if card is None:
         return False
+    if spec.get("oids") is not None:  # (-- prevention riders (wave 17A) -- the permanent a shield was made for, as that object)
+        return oid in spec["oids"]
     if spec.get("counter") and not card.counters.get(spec["counter"]):  # (-- prevention riders (wave 17A) -- "while it has a +1/+1 counter on it")
         return False
     if spec.get("self"):
@@ -1224,6 +1226,10 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
         return False
     if spec.get("colors") and not set(spec["colors"]) & set(src.get("colors") or ()):
         return False
+    if spec.get("colorless") and src.get("colors"):  # (-- prevention riders (wave 17A) -- "colorless sources", "non-Human sources")
+        return False
+    if spec.get("not_subtypes") and set(spec["not_subtypes"]) & set(src.get("subtypes") or ()):
+        return False
     if spec.get("types") and not set(spec["types"]) & set(src.get("types") or ()):
         return False
     if spec.get("not_types") and set(spec["not_types"]) & set(src.get("types") or ()):
@@ -1236,6 +1242,8 @@ def _recipient_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event
         return True
     target = ev["target"]
     if target in plan.state.players:
+        if spec.get("pids") is not None:  # (-- prevention riders (wave 17A) -- the player a shield was made for)
+            return target in spec["pids"]
         want = spec.get("players")
         if want is None:
             return False

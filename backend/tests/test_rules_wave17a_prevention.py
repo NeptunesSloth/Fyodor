@@ -16,7 +16,7 @@ from tests.game_helpers import act
 from tests.test_rules_attachments import build, token
 from tests.test_rules_effects import replay_matches
 from tests.test_rules_refused_grants import _choose, life, supported
-from tests.test_rules_replacements2 import activate, permanent, red_creature, reload, rules
+from tests.test_rules_replacements2 import activate, decision, permanent, red_creature, reload, rules
 
 PINGER = "{1}: Pinger deals 3 damage to any target."
 REVERSE = ("{1}: The next time a source of your choice would deal damage to you this turn, prevent that damage. You gain life "
@@ -189,3 +189,113 @@ def test_combat_damage_to_a_hydra_is_prevented_and_it_grows(cards):
     assert s.state.cards[hydra.id].damage == 0 and s.state.cards[hydra.id].counters.get("+1/+1") == 1
     assert s.state.cards[krenko.id].damage == 2
     replay_matches(s)
+
+
+# -- sources named by property, recipients named by the effect (609.7c, 615.7, 615.8) ------------------------------------------------
+LUMINESCE = "{1}: Prevent all damage that black sources and red sources would deal this turn."  # Luminesce
+ENERGY_FIELD = "Prevent all damage that would be dealt to you by sources you don't control."  # Energy Field (last line)
+HONORABLE = ("{1}: The next time a source of your choice would deal damage to any target this turn, prevent that damage. If damage "
+             "from a red source is prevented this way, Passage deals that much damage to the source's controller.")
+REMEDY = "{1}: Prevent the next 5 damage that would be dealt this turn to any number of targets, divided as you choose."  # Remedy
+KITSUNE = "{1}: Prevent the next 1 damage that would be dealt to each creature you control this turn."  # (Samite Censer-Bearer)
+
+
+@pytest.mark.parametrize("text", [
+    LUMINESCE, ENERGY_FIELD, HONORABLE, REMEDY, KITSUNE,
+    "Prevent all damage that would be dealt by instant and sorcery spells.",  # Energy Storm
+    "Prevent all damage that would be dealt to this creature by artifact sources.",  # Argothian Treefolk
+    "{1}: Prevent all combat damage blue creatures and black creatures would deal this turn.",  # Radiant Kavu
+    "{1}: Prevent all damage that would be dealt this turn by non-Human sources.",  # Repel the Abominable
+    "{1}: Prevent all combat damage target creature would deal this turn.",  # Azorius Ploy
+    "{1}: Prevent all damage one or two target creatures would deal this turn.",  # Soul Parry
+    "Sacrifice this Aura: The next time a source of your choice would deal damage to enchanted creature this turn, prevent that "
+    "damage.",  # Kithkin Armor
+    "Remove a healing counter from this Aura: Prevent the next 1 damage that would be dealt to enchanted creature this turn.",  # Fylgja
+    "{1}: Prevent the next 1 damage that would be dealt to each creature and each player this turn.",  # Kitsune Palliator
+])
+def test_read_sources_and_recipients(text):
+    assert all(supported(text, name="Passage")), text
+
+
+def test_luminesce_prevents_only_black_and_red_sources(cards):
+    s = build(cards)
+    lum = permanent(s, "p1", "Luminesce", "Enchantment", LUMINESCE)
+    red = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    green = token(s, "p1", "Grower", "1/1", "{1}: Grower deals 3 damage to any target.")
+    activate(s, lum)
+    activate(s, red, targets=["p1"])
+    assert life(s, "p1") == 40
+    activate(s, green, targets=["p1"])
+    assert life(s, "p1") == 37
+    replay_matches(s)
+    assert life(reload(s, cards), "p1") == 37
+
+
+def test_energy_field_prevents_damage_from_sources_you_dont_control(cards):
+    s = build(cards)
+    permanent(s, "p2", "Energy Field", "Enchantment", ENERGY_FIELD)
+    pinger = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    activate(s, pinger, targets=["p2"])  # p1's source, p2's field
+    assert life(s, "p2") == 40
+    activate(s, pinger, targets=["p1"])  # (it protects only its controller)
+    assert life(s, "p1") == 37
+    replay_matches(s)
+
+
+def test_a_source_of_your_choice_to_any_target_with_a_color_rider(cards):
+    s = build(cards)
+    passage = permanent(s, "p1", "Passage", "Enchantment", HONORABLE)
+    red = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    bear = token(s, "p1", "Bear", "2/2")
+    green = token(s, "p1", "Grower", "1/1", "{1}: Grower deals 3 damage to any target.")
+    activate(s, passage, targets=[bear.id])
+    assert [o.label for o in decision(s).options if "Pinger" in o.label or "Grower" in o.label]
+    _choose(s, "Grower")
+    activate(s, green, targets=["p1"])  # not the bear: the shield stays
+    assert life(s, "p1") == 37
+    activate(s, green, targets=[bear.id])  # prevented, but not a red source: no rider
+    assert s.state.cards[bear.id].damage == 0 and life(s, "p1") == 37
+    replay_matches(s)
+    s2 = reload(s, cards)
+    assert life(s2, "p1") == 37
+    replay_matches(s2)
+    # the red source: the rider hits its controller
+    s3 = build(cards)
+    passage = permanent(s3, "p1", "Passage", "Enchantment", HONORABLE)
+    red = red_creature(s3, "p1", "Pinger", "1/1", PINGER)
+    bear = token(s3, "p1", "Bear", "2/2")
+    activate(s3, passage, targets=[bear.id])
+    _choose(s3, "Pinger")
+    activate(s3, red, targets=[bear.id])
+    assert s3.state.cards[bear.id].damage == 0 and life(s3, "p1") == 37
+    replay_matches(s3)
+
+
+def test_a_divided_shield_protects_each_target_by_its_share(cards):
+    s = build(cards)
+    remedy = permanent(s, "p1", "Remedy", "Enchantment", REMEDY)
+    pinger = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    bear = token(s, "p1", "Bear", "2/2")
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    act(s, "p1", type="activate_ability", card_id=remedy.id, ability=0, targets=[bear.id, "p1"], target_counts=[2], division=[2, 3])
+    from tests.test_rules_effects import pass_until_stack_empty
+
+    pass_until_stack_empty(s)
+    assert rules(s).prevention == {rules(s).object_id(bear.id): 2, "p1": 3}
+    activate(s, pinger, targets=[bear.id])  # 3 damage, 2 prevented
+    assert s.state.cards[bear.id].damage == 1
+    activate(s, pinger, targets=["p1"])  # 3 damage, all prevented
+    assert life(s, "p1") == 40
+    replay_matches(s)
+
+
+def test_each_creature_you_control_gets_its_own_shield(cards):
+    s = build(cards)
+    shield = permanent(s, "p1", "Censer", "Enchantment", KITSUNE)
+    pinger = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    bear = token(s, "p1", "Bear", "4/4")
+    activate(s, shield)
+    late = token(s, "p1", "Late", "4/4")  # (a creature that comes later isn't shielded: 615.11)
+    activate(s, pinger, targets=[bear.id])
+    activate(s, pinger, targets=[late.id])
+    assert s.state.cards[bear.id].damage == 2 and s.state.cards[late.id].damage == 3
