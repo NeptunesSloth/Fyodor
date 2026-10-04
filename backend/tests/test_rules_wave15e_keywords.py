@@ -11,7 +11,7 @@ import pytest
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_conditionals import settle, token_of, until
+from tests.test_rules_conditionals import attack, settle, through_combat, token_of, until
 from tests.test_rules_effects import replay_matches
 from tests.test_rules_wave6c_tokens_pumps import build, mana, put, reloaded, to_hand, tokens
 from tests.test_rules_wave6e_statics import attack_with
@@ -31,6 +31,7 @@ EXTRA = [
     card('Hyena Umbra', set_code='tst', number='X12', mana_cost='{W}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature gets +1/+1 and has first strike.\nUmbra armor (If enchanted creature would be destroyed, instead remove all damage from it and destroy this Aura.)', power=None, toughness=None, colors=['W'], color_identity=['W'], keywords=['Enchant', 'Umbra armor']),  # noqa: E501
     card('Wayward Swordtooth', set_code='tst', number='X13', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Dinosaur', oracle_text="Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nYou may play an additional land on each of your turns.\nThis creature can't attack or block unless you have the city's blessing.", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Ascend']),  # noqa: E501
     card('Secrets of the Golden City', set_code='tst', number='X14', mana_cost='{1}{U}{U}', cmc=3.0, type_line='Sorcery', oracle_text="Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nDraw two cards. If you have the city's blessing, draw three cards instead.", power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=['Ascend']),  # noqa: E501
+    card('Snake Cult Initiation', set_code='tst', number='X15', mana_cost='{3}{B}', cmc=4.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature has poisonous 3. (Whenever it deals combat damage to a player, that player gets three poison counters. A player with ten or more poison counters loses the game.)', power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=['Enchant']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -311,4 +312,19 @@ def test_ascend_sorcery_counts_before_the_draw(cards):
     settle(s)
     assert s.state.players["p1"].city_blessing  # 702.131a
     assert len(s.state.zones["p1:hand"]) == hand - 1 + 3  # the card is cast; three cards drawn instead of two
+    check(s)
+
+
+def test_a_granted_triggered_keyword_works(cards):
+    s = build(cards, "Snake Cult Initiation")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    aura = to_hand(s, "Snake Cult Initiation")
+    mana(s, B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=aura.id, targets=[bear.id])
+    settle(s)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.rules.decision is not None
+          and s.state.rules.decision.kind == "declare_attackers")
+    attack(s, (bear, "p2"))
+    through_combat(s)
+    assert s.state.players["p2"].resources.get("poison", 0) == 3  # 702.70a, granted by the Aura (613.1f)
     check(s)

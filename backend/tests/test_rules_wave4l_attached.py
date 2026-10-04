@@ -153,7 +153,7 @@ def test_definitions_of_the_full_cards():
     "Creatures you control lose all abilities.",  # (only an Aura's or Equipment's)
     "As long as you control an Elf, enchanted creature loses all abilities.",  # (conditional: not read)
     "Enchanted creature has ward—pay 2 life.",
-    "Enchanted creature gets +2/+2 and has annihilator 2.",
+    "Enchanted creature gets +2/+2 and has banding.",  # (annihilator: wave 15E)
 ])
 def test_refused_wordings(text):
     assert statics.parse(text) is None
