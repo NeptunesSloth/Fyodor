@@ -98,7 +98,7 @@ def quote(text: str) -> str | None:
     # that has the ability — scripts.self_text leaves the granter's name alone inside a quote)
     # (a comma just before the closing quotation mark belongs to the sentence around it: "…, each creature,")
     t = re.sub(r"(^|: |\. )~", r"\1This permanent", text.strip().rstrip(",;")).replace("~", "this permanent")
-    if not t:
+    if not t or "‹granter" in t:  # (wave 18F: a granter is bound only by a static grant, layers.py — a resolved effect's isn't)
         return None
     if not t.endswith((".", "!", "?")):
         t += "."

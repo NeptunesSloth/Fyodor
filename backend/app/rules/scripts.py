@@ -39,6 +39,7 @@ from app.rules import restrictions, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
 from app.rules.costs import DISCARD, SACRIFICE, parse_ability_cost, spell_additional_cost
 from app.rules.oracle import AbilityText, parse_abilities, split_sentences, word_prefix
+from app.rules.selectors import GRANTER  # (wave 18F)
 from app.rules.values import UNMODELED_COUNTERS
 
 Definition = dict[str, Any]
@@ -266,8 +267,14 @@ def self_text(text: str, name: str) -> str:
 
     # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the
     # object that gets it ("this creature" is): it stays as written, so no ~ there means the granter
+    # (wave 18F: a granter's name — not a "card named …" — is ‹granter›, 607.1a, bound to the object by app/rules/layers.py)
+    def granter(part: str) -> str:
+        for n in names:
+            part = re.sub(rf"(?<!named )(?<!\w){re.escape(n)}(?!\w)", "‹granter›", part)
+        return part
+
     parts = out.split('"')
-    out = '"'.join(own(p) if i % 2 == 0 else p for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
+    out = '"'.join(own(p) if i % 2 == 0 else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
     return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem)\b", "~", out)
 
 
@@ -1085,9 +1092,10 @@ def _lose_life_lost(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]
     return [{"do": "lose_life", "who": "each_opponent", "n": {"per_player": {"turn_history": "lost"}}}], None
 
 
-@effect(r"(?P<src>~|it) deals {N} damage to (?P<sel>{SEL})")
+@effect(r"(?P<src>~|it|" + GRANTER + r") deals {N} damage to (?P<sel>{SEL})")
 def _damage(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    return [{"do": "damage", "who": "target", "n": num(m["n"]), **_it_source(m["src"])}], SELECTORS[m["sel"]]
+    src = {"src": f"obj:{m['oid'] or ''}"} if m["src"].startswith("‹") else _it_source(m["src"])  # (wave 18F: a granter)
+    return [{"do": "damage", "who": "target", "n": num(m["n"]), **src}], SELECTORS[m["sel"]]
 
 
 @effect(r"~ deals {N} damage to each opponent")

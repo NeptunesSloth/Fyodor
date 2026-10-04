@@ -852,8 +852,15 @@ def parse_spell_or(phrase: str) -> Selector | None:
     return Selector(either=(spell.key(), perm.key()), zones=("stack", "battlefield"))
 
 
+# -- granted from object (wave 18F) -- 607.1a / 613.1f: a quoted grant that names its granter ("Sacrifice Blazing Torch"): the
+# granting object, as it is now (layers.py binds ‹granter› to its object id; none yet while the grant is only being read)
+GRANTER = r"‹granter(?:#(?P<oid>[^›]+))?›"
+
+
 @lru_cache(maxsize=8192)
 def _parse(phrase: str) -> Selector | None:
+    if (g := re.fullmatch(GRANTER, phrase)) is not None:
+        return Selector(extras=("oid:" + (g["oid"] or ""),))
     if "outlaw" in phrase:
         return _outlaws(phrase)
     s = Selector()
@@ -1241,6 +1248,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "shares_color_source" and ((src := plan.state.cards.get(source or "")) is None or not plan.ch(src).colors & ch.colors):
             return False  # -- static_other sweep (wave 17C) -- conspire 702.78a: a creature that shares a color with the spell
+        if extra.startswith("oid:") and plan.oid(card) != extra[4:]:  # (wave 18F) the granting object
+            return False
         if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
             return False  # (wave 12C)
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):

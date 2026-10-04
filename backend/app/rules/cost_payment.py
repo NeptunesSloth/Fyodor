@@ -34,6 +34,7 @@ from app.rules.sba import power
 _VERBS = {C.SACRIFICE: "sacrifice", C.DISCARD: "discard", C.EXILE_FROM_GRAVEYARD: "exile",
           C.RETURN_PERMANENT: "return to its owner's hand", C.TAP_OTHER: "tap", C.UNTAP_OTHER: "untap", C.REMOVE_COUNTER: "remove counters from"}
 _VERBS["EXILE_FROM_HAND"] = "exile"
+_VERBS[C.UNATTACH] = "unattach"
 _VERBS["REVEAL_FROM_HAND"] = "reveal"  # (wave 15C)
 _VERBS[C.BEHOLD] = "behold"  # (wave 17C) 701.4a
 _VERBS[C.EXILE_TO_GY] = "put into its owner's graveyard"  # (wave 15C)
@@ -397,6 +398,8 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             plan.do({"type": "tap", "card_ids": ids, "tapped": False})
         elif comp.kind == C.REMOVE_COUNTER and comp.selector is not None:
             plan.do({"type": "counter", "card_ids": ids, "kind": comp.counter, "delta": -comp.amount})
+        elif comp.kind == C.UNATTACH:  # -- granted from object (wave 18F) -- 701.3d: the granting Equipment stays on the battlefield
+            plan.do({"type": "detach", "card_ids": ids})
         elif comp.kind == C.SACRIFICE and comp.selector is not None:
             sacrifice += ids
         elif comp.kind == C.DISCARD:

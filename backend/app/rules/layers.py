@@ -612,12 +612,14 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     static_wipes = [wipe_key(st) for st in hits if st.definition.get("lose_all")]
     if static_wipes:
         wipe = max([*static_wipes, *([wipe] if wipe is not None else [])])
-    grants = [text for st in hits if wipe is None or (st.seq, 0, 0) > wipe for text in st.definition["grants"]]
+    grants = [(st, text) for st in hits if wipe is None or (st.seq, 0, 0) > wipe for text in st.definition["grants"]]
     if grants:  # layer 6: granted abilities, numbered after the printed ones (100, 101, …)
         from app.rules.scripts import granted_ability
 
         extra = []
-        for k, text in enumerate(grants):
+        for k, (st, text) in enumerate(grants):
+            if "‹granter›" in text and state.rules is not None:  # -- granted from object (wave 18F) -- 607.1a: the granting object
+                text = text.replace("‹granter›", f"‹granter#{state.rules.object_id(st.source)}›")
             ab = granted_ability(text)
             if ab is not None:
                 extra.append(replace(ab, index=100 + k))

@@ -20,6 +20,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from app.rules import selectors
+
 if TYPE_CHECKING:
     from app.rules.oracle import AbilityText
 
@@ -28,6 +30,7 @@ if TYPE_CHECKING:
 _MANA_ONLY = re.compile(r"^(\{(?:\d+|[WUBRGCXS]|[WUBRG2]/[WUBRGP]|[WUBRG]/[WUBRG]/P)\})+$")
 _SELF = r"(?:this \w+|it|~)"
 _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it|~|(?P<name>.+))$")
+_GRANTER_COST = re.compile(rf"^(?P<verb>Sacrifice|Unattach) (?P<g>{selectors.GRANTER})$")  # (wave 18F) the object a quoted grant came from
 _LIFE = re.compile(r"^Pay (?P<n>\d+) life$")
 _ENERGY = re.compile(r"^Pay (?:(?P<symbols>(?:\{E\})+)|(?P<n>\w+) \{E\})$")
 _REMOVE = re.compile(
@@ -65,7 +68,9 @@ EXILE_TO_GY = "EXILE_TO_GY"
 # -- activated sweep (wave 17B) -- "Waterbend {3}" (701.67a): {3}, and for each generic mana in it the payer may tap an untapped artifact
 # or creature they control instead of paying that mana; the cost is the MANA part plus this one, which holds how many may be tapped
 WATERBEND = "WATERBEND"
-WAVE_4H_KINDS = frozenset({PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE, WATERBEND})
+# -- granted from object (wave 18F) -- "Unattach Heartseeker" (701.3d): the granting Equipment (selectors.GRANTER), moved away from its creature
+UNATTACH = "UNATTACH"
+WAVE_4H_KINDS = frozenset({PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE, WATERBEND, UNATTACH})
 ANY_COUNTER = "*"
 
 
@@ -217,6 +222,9 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(UNTAP, text=part)
     if _MANA_ONLY.match(part):
         return CostComponent(MANA, text=part)
+    if m := _GRANTER_COST.match(part):  # -- granted from object (wave 18F) -- paid with that object (601.2h): the one choice, made for you
+        key = selectors.parse(m["g"]).key()  # type: ignore[union-attr]
+        return CostComponent(SACRIFICE if m["verb"] == "Sacrifice" else UNATTACH, selector=key, text=part)
     if (m := _SAC_SELF.match(part)) and (not m.group("name") or m.group("name") == card_name):
         return CostComponent(SACRIFICE, text=part)
     if m := _LIFE.match(part):
