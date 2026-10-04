@@ -63,8 +63,12 @@ EXTRA = [
          oracle_text='At the beginning of your upkeep, you may reveal a Dinosaur card from your hand. If you do, you gain 2 life.\n{3}{W}{W}, Sacrifice this creature: Search your library for a Dinosaur card, reveal it, put it into your hand, then shuffle.', power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=[]),
     card('Crypt Incursion', set_code='tst', number='W16', mana_cost='{2}{B}', cmc=3.0, type_line='Instant',
          oracle_text="Exile all creature cards from target player's graveyard. You gain 3 life for each card exiled this way.", power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=[]),
+    card('Nightsnare', set_code='tst', number='W17', mana_cost='{3}{B}', cmc=4.0, type_line='Sorcery',
+         oracle_text="Target opponent reveals their hand. You may choose a nonland card from it. If you do, that player discards that card. If you don't, that player discards two cards.", power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=[]),
+    card('Oildeep Gearhulk', set_code='tst', number='W18', mana_cost='{U}{U}{B}{B}', cmc=4.0, type_line='Artifact Creature — Construct',
+         oracle_text="Lifelink, ward {1}\nWhen this creature enters, look at target player's hand. You may choose a card from it. If you do, that player discards that card, then draws a card.", power='4', toughness='4', colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Lifelink', 'Ward']),
 ]
-FULL = ['Murk Strider', 'Dark Supplicant', 'Gate to the Afterlife', 'Scion of Darkness', 'Void Attendant', 'Ruin Processor', 'Processor Assault', 'Wrexial, the Risen Deep', 'Deluxe Dragster', 'Zombie Cannibal', 'Fire Nation Salvagers', 'Traumatize', 'Genesis Wave', 'Elven Farsight', 'Armored Kincaller', 'Priest of the Wakening Sun', 'Crypt Incursion']
+FULL = ['Murk Strider', 'Dark Supplicant', 'Gate to the Afterlife', 'Scion of Darkness', 'Void Attendant', 'Ruin Processor', 'Processor Assault', 'Wrexial, the Risen Deep', 'Deluxe Dragster', 'Zombie Cannibal', 'Fire Nation Salvagers', 'Traumatize', 'Genesis Wave', 'Elven Farsight', 'Armored Kincaller', 'Priest of the Wakening Sun', 'Crypt Incursion', 'Nightsnare', 'Oildeep Gearhulk']
 # --EXTRA-END--
 
 
@@ -362,6 +366,30 @@ def test_crypt_incursion_exiles_only_the_creature_cards_and_gains_for_each(cards
     assert all(c.id in zone(s.state, "p2", "exile") for c in scions) and island.id in zone(s.state, "p2", "graveyard")
     assert mine.id in zone(s.state, "p1", "graveyard")
     assert s.state.players["p1"].life == before + 6  # 3 life for each card exiled this way
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("choose", [True, False])
+def test_nightsnare_may_choose_a_card_and_if_not_the_opponent_discards_two(cards, choose):
+    """"You may choose a nonland card from it. If you do, that player discards that card. If you don't, that player discards
+    two cards." (608.2c: the second and third sentences read whether a card was chosen)"""
+    s = build(cards, p1=("Nightsnare",), p2=("Murk Strider", "Dark Supplicant"))
+    spell = to_hand(s, "Nightsnare")
+    mine, spare = to_zone(s, find(s, "Murk Strider", "p2"), "hand"), to_zone(s, find(s, "Dark Supplicant", "p2"), "hand")
+    lands = [to_zone(s, c, "hand") for c in [c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2"][:2]]
+    add_mana(s, "p1", B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"])
+    d = until_asked(s)
+    assert d is not None and d.player == "p1" and d.kind == "choose_cards" and d.min_choices == 0
+    assert {o.id for o in d.options} == {mine.id, spare.id}  # nonland cards only
+    pick(s, *([mine.id] if choose else []))
+    if not choose:  # "that player discards two cards": their own choice
+        d = until_asked(s)
+        assert d is not None and d.player == "p2"
+        pick(s, *[o.id for o in d.options][:2], pid="p2")
+    settle(s)
+    gy = zone(s.state, "p2", "graveyard")
+    assert (len(gy) == 1 and mine.id in gy) if choose else len(gy) == 2
     roundtrip(s)
 
 

@@ -2765,6 +2765,8 @@ def choose_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if most == 0:
         plan.note(f"Nothing to choose ({e.get('label', 'card')})", actor=pid)
         _remember(plan, ctx, e, [])
+        if e.get("did"):  # -- if you do (wave 15C) -- "You may choose a card from it. If you do, …": nothing was chosen
+            context.bind_payment(ctx, e["did"], False)
         return _after_hand_choice(plan, ctx, [])
     owners = sorted({plan.state.cards[c].owner for c in pool})
     whose = ", ".join(f"{plan.name(o)}'s hand" for o in owners) or "the revealed hand"
@@ -2789,6 +2791,8 @@ def resume_choose_from_hand(plan: Plan, d: Any, chosen: list[str]) -> None:
     if chosen:
         plan.note(f"{plan.name(d.player)} chooses {_labels(plan, chosen)}", chosen, actor=d.player)
     _remember(plan, ctx, e, chosen)  # "that card" / "those cards": the chosen cards, in that hand
+    if e.get("did"):  # -- if you do (wave 15C) -- "You may choose a card from it. If you do, …": a card was chosen (608.2c)
+        context.bind_payment(ctx, e["did"], bool(chosen))
     _after_hand_choice(plan, ctx, chosen)
     continue_effects(plan, ctx)
 

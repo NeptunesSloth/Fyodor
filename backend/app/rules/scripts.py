@@ -2013,6 +2013,18 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 pick_gate: dict[str, Any] = {"succeeded": name, **({"negate": True} if if_do["neg"] else {})}
                 effects += [{"do": "only_if", "cond": pick_gate, "skip": len(added)}, *added]
                 continue
+            chooser = next((e for e in reversed(effects) if e["do"] == "choose_from_hand"), None)
+            if bind is None and chooser is not None and chooser.get("optional") and (chooser.get("did") or effects[-1] is chooser):
+                # -- if you do (wave 15C) -- "Target opponent reveals their hand. You may choose a nonland card from it. If you do,
+                # that player discards that card. If you don't, …": whether a card was chosen (effects.resume_choose_from_hand)
+                inner = _clause(if_do["rest"]) if not if_do["rest"].startswith("you may ") else None
+                if inner is None:
+                    return None
+                name = chooser.setdefault("did", f"hdid{sum(1 for x in effects if x.get('did'))}")
+                added = _add_groups(groups, *inner)
+                effects += [{"do": "only_if", "cond": {"succeeded": name, **({"negate": True} if if_do["neg"] else {})},
+                             "skip": len(added)}, *added]
+                continue
             if bind is None and not optional and (did_r1 := _if_you_do_after_mandatory(if_do, effects, prev_start)) is not None:
                 name, inner = did_r1  # -- refused modal/conditional (wave 3R1) -- "Sacrifice ~. If you do, …"
                 added = _add_groups(groups, *inner)
