@@ -1349,6 +1349,13 @@ def _investigate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
              "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
 
 
+@effect(r"investigate that many times")  # -- triggers (wave 19B) -- 701.16a: one Clue each time, as many times as the event's amount
+def _investigate_many(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    type_line, text = PREDEFINED_TOKENS["Clue"]
+    return [{"do": "create_token", "who": "you", "n": {"event_amount": 1},
+             "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
+
+
 @effect(r"investigate twice")  # -- trigger tail (wave 15B) -- 701.16a: investigating twice makes two Clues
 def _investigate_twice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{**_investigate(m)[0][0], "n": 2}], None

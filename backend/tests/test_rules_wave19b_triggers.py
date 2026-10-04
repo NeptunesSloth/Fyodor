@@ -10,6 +10,7 @@
   land cards a mill put into the graveyard - the trigger event's cards, found where they went.
 * 701.3a: "attach up to one target Equipment you control to that creature" (the creature that entered), "attach target Equipment you
   control to up to one target creature you control".
+* 701.16a: "investigate that many times" - one Clue for each point of damage / each counter the event counted.
 * 508.1b: "deals 1 damage to the player or planeswalker it's attacking" - what the attacker the trigger is about attacks now.
 """
 
@@ -20,7 +21,7 @@ import pytest
 from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act, zone
-from tests.test_rules_conditionals import token_of
+from tests.test_rules_conditionals import through_combat, token_of
 from tests.test_rules_wave5c_combat import build as combat_build
 from tests.test_rules_wave5c_combat import declare, to_attack, to_blocks
 from tests.test_rules_wave5c_combat import put as combat_put
@@ -49,6 +50,8 @@ EXTRA = [
     real('Kemba, Kha Enduring', '{1}{W}', 2, 'Legendary Creature — Cat Cleric', 'Whenever Kemba or another Cat you control enters, attach up to one target Equipment you control to that creature.\nEquipped creatures you control get +1/+1.\n{3}{W}{W}: Create a 2/2 white Cat creature token.', ("2", "2"), 'W'),
     real('Iron Hills Stalwart', '{4}{R}', 5, 'Creature — Dwarf Warrior', 'Reach, trample\nWhen this creature enters, attach target Equipment you control to up to one target creature you control.', ("4", "5"), 'R'),
     real('Probe Blade', '{1}', 1, 'Artifact — Equipment', 'Equipped creature gets +1/+1.\nEquip {1}', None),
+    real('Piper Wright, Publick Reporter', '{1}{U}', 2, 'Legendary Creature — Human Detective', 'Whenever Piper Wright deals combat damage to a player, investigate that many times. (To investigate, create a Clue token. It\'s an artifact with "{2}, Sacrifice this token: Draw a card.")\nWhenever you sacrifice a Clue, put a +1/+1 counter on target creature you control.', ("1", "2"), 'U'),
+    real('Lonis, Genetics Expert', '{1}{G/U}{G/U}', 3, 'Legendary Creature — Snake Elf Detective', 'Evolve (Whenever a creature you control enters, if that creature has greater power or toughness than this creature, put a +1/+1 counter on this creature.)\nWhenever one or more +1/+1 counters are put on Lonis, investigate that many times.\nWhenever you sacrifice a Clue, put a +1/+1 counter on another target creature you control.', ("1", "2"), 'GU'),
 ]
 
 NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
@@ -253,4 +256,19 @@ def test_equipment_attaches_to_up_to_one_target_creature(cards):
     cast(s, "Iron Hills Stalwart", R=1, C=4)
     answer(s, blade.id, soldier.id)
     assert s.state.cards[blade.id].attached_to == soldier.id
+    check(s)
+
+
+def clues(s):
+    return sum(1 for c in s.state.cards.values() if c.name == "Clue" and c.zone == "p1:battlefield")
+
+
+def test_investigate_as_many_times_as_damage_dealt(cards):
+    s = combat_build(cards, "Piper Wright, Publick Reporter")
+    piper = combat_put(s, "Piper Wright, Publick Reporter")
+    act(s, "p1", type="counter", card_ids=[piper.id], kind="+1/+1", delta=2)  # 3 power
+    to_attack(s, 3)
+    declare(s, (piper, "p2"))
+    through_combat(s)
+    assert clues(s) == 3
     check(s)
