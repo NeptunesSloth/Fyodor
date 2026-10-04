@@ -961,14 +961,14 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
                  **({"face_down": True} if m["fd"] else {})}], _one(group)  # (face down: wave 18A)
     m = _PILE.fullmatch(text)  # -- hidden exile (wave 18A) --
     if m and has_primitive("manifest_pile"):
-        e: dict[str, Any] = {"do": "manifest_pile", "kind": m["v"], "tapped": bool(m["tap"])}
+        pile: dict[str, Any] = {"do": "manifest_pile", "kind": m["v"], "tapped": bool(m["tap"])}
         if not m["obj"]:
             kind, key, group = "players", "target", _chooser("target player")[1]
-            return [{**e, "gy": True, "who": "target"}], group
+            return [{**pile, "gy": True, "who": "target"}], group
         kind, key, group = ref(m["obj"])
         if m["obj"] == "it" or kind != "target":
-            return [{**e, "who": "it", "top": count(m) if "top" in m["src"] else 0}], None
-        return [{**e, "who": "target", "top": count(m)}], group
+            return [{**pile, "who": "it", "top": count(m) if "top" in m["src"] else 0}], None
+        return [{**pile, "who": "target", "top": count(m)}], group
     m = _PUT_DOWN.fullmatch(text)  # -- hidden exile (wave 18A) --
     if m and has_primitive("put_down"):
         spec = chars.parse_spec(m["spec"]) if m["spec"] else None
