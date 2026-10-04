@@ -2344,14 +2344,22 @@ def crew_power(ch: Characteristics, index: int) -> int | None:
     return None
 
 
+def crew_value(c: CardInstance, ch: Characteristics) -> int:
+    """What a creature counts toward crewing a Vehicle (702.122a: its power) — -- static_other sweep (wave 17C) -- or its toughness,
+    or its power as though it were greater, while a static says so ("crews Vehicles using its toughness rather than its power")."""
+    from app.rules.combat import power
+    from app.rules.sba import toughness
+
+    base = (toughness(c, ch) if "crew_toughness" in ch.imposed else power(c, ch)) or 0
+    return max(0, base + sum(int(r.split(":")[1]) for r in ch.imposed if r.startswith("crew_plus:")))
+
+
 def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int) -> None:
     """Crew N: tap any number of untapped creatures you control with total power N or greater:
     this Vehicle becomes an artifact creature until end of turn. (Summoning-sick creatures may crew.)"""
-    from app.rules.combat import power
-
     def crew_power_of(cid: str) -> int:
         c = plan.state.cards[cid]
-        return max(0, power(c, plan.ch(c)) or 0)
+        return crew_value(c, plan.ch(c))
 
     candidates = [c.id for c in plan.state.cards.values() if c.zone == card.zone and c.controller == plan.actor
                   and c.id != card.id and not c.tapped and plan.in_game(c) and plan.ch(c).is_creature
@@ -3065,7 +3073,6 @@ def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteris
 
     if cast_limits.activation_problem(state, player, card, ch, info) is not None:
         return False
-    from app.rules.combat import power
     from app.rules.layers import derive
 
     total = 0
@@ -3073,7 +3080,7 @@ def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteris
         if c.zone == card.zone and c.controller == player and c.id != card.id and not c.tapped:
             cch = derive(state, c, chars.of(c, info), info)
             if cch.is_creature and "cant_crew" not in cch.imposed:
-                total += max(0, power(c, cch) or 0)
+                total += crew_value(c, cch)
     return total >= n
 
 

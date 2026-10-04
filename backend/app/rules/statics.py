@@ -481,7 +481,7 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
     if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
         return goaded["s"], goaded["p"]
-    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?(?= combat damage))\b", body)  # (assigns: wave 6E)
+    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?(?= combat damage)|crews(?= Vehicles))\b", body)  # (assigns: wave 6E; crews: 17C)
     if m is None or m.start() == 0:
         return None, None
     return body[: m.start()].strip(), body[m.start():].strip()
@@ -705,7 +705,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
 # (702.164: combat.py). Only qualities and costs the engine enforces (coverage._keyword_supported).
 _FROM_JOIN = "\u0001from "
 _PARAM_KEYWORDS = ("protection", "ward", "toxic", "annihilator", "afflict", "poisonous", "bushido", "mobilize", "frenzy",
-                   "soulshift", "afterlife")  # (wave 15E: keywords whose line is carried out wherever it is: keyword_triggers)
+                   "soulshift", "afterlife", "crew", "equip")  # (wave 15E: keywords whose line is carried out wherever it is: keyword_triggers; 17C: crew, equip)
 
 
 def keyword_line(rest: str) -> str | None:
@@ -786,6 +786,13 @@ def _rule(piece: str) -> list[str] | None:
     if m:
         n = 1 if m["one"] else 999 if m["any"] else _num(m["a"] or m["b"])
         return [f"block_extra:{n}:@src"] if n else None
+    # -- static_other sweep (wave 17C) -- 702.122: "This creature crews Vehicles as though its power were 2 greater." / "… using its toughness
+    # rather than its power." — the number it counts toward crew (casting.crew_value)
+    m = re.fullmatch(r"crews Vehicles as though its power were (?P<n>\w+) greater", piece)
+    if m and _num(m["n"]):
+        return [f"crew_plus:{_num(m['n'])}"]
+    if piece == "crews Vehicles using its toughness rather than its power":
+        return ["crew_toughness"]
     m = re.fullmatch(r"can't be blocked except by (?P<n>\w+) or more creatures", piece)
     if m:
         n = _num(m["n"])

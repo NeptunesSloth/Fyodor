@@ -96,6 +96,19 @@ EXTRA = [
          "Whenever a permanent you control is turned face up, you draw a card and you lose 1 life."),
     card("Test Brute", set_code="tst", number="C26", mana_cost="{4}{G}", cmc=5.0, type_line="Creature — Ogre", power="5", toughness="5",
          colors=["G"], color_identity=["G"], oracle_text=""),
+    card("Giant Ox", set_code="tst", number="C27", mana_cost="{1}{W}", cmc=2.0, type_line="Creature — Ox", power="0", toughness="6",
+         colors=["W"], color_identity=["W"], oracle_text="This creature crews Vehicles using its toughness rather than its power."),
+    card("Hotshot Mechanic", set_code="tst", number="C28", mana_cost="{W}", cmc=1.0, type_line="Artifact Creature — Fox Pilot",
+         power="2", toughness="1", colors=["W"], color_identity=["W"],
+         oracle_text="This creature crews Vehicles as though its power were 2 greater."),
+    card("Test Wagon", set_code="tst", number="C29", mana_cost="{3}", cmc=3.0, type_line="Artifact — Vehicle", power="4", toughness="4",
+         oracle_text="Crew 4 (Tap any number of untapped creatures you control with total power 4 or more: This Vehicle becomes an "
+         "artifact creature until end of turn.)"),
+    card("Astor, Bearer of Blades", set_code="tst", number="C30", mana_cost="{2}{R}{W}", cmc=4.0,
+         type_line="Legendary Creature — Human Warrior", power="4", toughness="4", colors=["R", "W"], color_identity=["R", "W"],
+         oracle_text="When Astor enters, look at the top seven cards of your library. You may reveal an Equipment or Vehicle card "
+         "from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\nEquipment you "
+         "control have equip {1}.\nVehicles you control have crew 1."),
     card("Hexing Squelcher", set_code="tst", number="C05", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Goblin Sorcerer",
          power="2", toughness="2", colors=["R"], color_identity=["R"],
          oracle_text="This spell can't be countered.\nWard—Pay 2 life.\nSpells you control can't be countered.\nOther creatures you control have \"Ward—Pay 2 life.\""),
@@ -351,3 +364,34 @@ def test_roshan_assassins_on_the_battlefield_and_in_hand(cards):
     assert "Assassin" in _derived(s, "Test Brute")[1].subtypes and "Assassin" in _derived(s, "Test Small")[1].subtypes
     assert "Assassin" in _derived(s, "Roshan, Hidden Magister")[1].subtypes  # (a printed Assassin, whatever "other" says)
     roundtrip(s)
+
+
+@pytest.mark.parametrize("crewer, can", [("Giant Ox", True), ("Hotshot Mechanic", True), ("Test Small", False)])
+def test_crew_counts_toughness_or_extra_power(cards, crewer, can):
+    from app.rules.casting import activatable
+
+    s = build(cards, p1=(crewer, "Test Wagon"))
+    wagon = put(s, "Test Wagon", "battlefield")
+    put(s, crewer, "battlefield")
+    # 702.122a: Crew 4 — a 0/6 counting its toughness (6) and a 2/1 counting 2 greater (4) can; a plain 2/2 can't
+    assert any(a["card_id"] == wagon.id for a in activatable(s.state, "p1", cards)) == can
+    roundtrip(s)
+
+
+def test_granted_equip_and_crew(cards):
+    s = build(cards, p1=("Astor, Bearer of Blades", "Behemoth Sledge", "Test Wagon", "Test Small"))
+    put(s, "Astor, Bearer of Blades", "battlefield")
+    sledge = put(s, "Behemoth Sledge", "battlefield")
+    wagon = put(s, "Test Wagon", "battlefield")
+    small = put(s, "Test Small", "battlefield")
+    _, ch = _derived(s, "Behemoth Sledge")
+    granted = next(a for a in ch.abilities if a.index >= 100 and "equip" in a.keywords)
+    assert granted.text == "Equip {1}"  # 613.1f: a second equip ability next to its own {3}
+    _, wch = _derived(s, "Test Wagon")
+    assert any(a.index >= 100 and a.text == "Crew 1" for a in wch.abilities)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=sledge.id, ability=granted.index, targets=[small.id])
+    answer(s)
+    assert s.state.cards[sledge.id].attached_to == small.id  # 702.6a: attached for the granted {1}
+    roundtrip(s)
+    assert wagon.id
