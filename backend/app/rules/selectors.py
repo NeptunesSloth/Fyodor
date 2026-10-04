@@ -273,7 +273,7 @@ def _toughness_over_power(s: Selector, m: re.Match[str]) -> Selector:
 # -- end damage history (wave 6B) --
 
 
-@_suffix(r"that['’]s attacking you")
+@_suffix(r"(?:that(?:['’]s| are) )?attacking you")  # (wave 17D: also plural / bare)
 def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
 

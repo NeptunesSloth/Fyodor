@@ -71,12 +71,14 @@ EXTRA = [
          'Whenever Hapatra deals combat damage to a player, you may put a -1/-1 counter on target creature.\nWhenever you put one or more -1/-1 counters on a creature, create a 1/1 green Snake creature token with deathtouch.', ("2", "2"), 'BG'),
     real('Nest of Scarabs', '{2}{B}', 3, 'Enchantment',
          'Whenever you put one or more -1/-1 counters on a creature, create that many 1/1 black Insect creature tokens.', None, 'B'),
+    real('Within Range', '{3}{B}', 4, 'Enchantment',
+         'When this enchantment enters, create two 1/1 red Warrior creature tokens.\nWhenever you attack, each opponent loses life equal to the number of creatures attacking them.', None, 'B'),
     real("Test Bounce", "{U}", 1, "Sorcery", "Return target creature to its owner's hand.", None, "U"),
     real("Test Burst", "{R}", 1, "Instant", "Test Burst deals 1 damage to any target.", None, "R"),
 ]
 
 NAMES = ["Torens, Fist of the Angels", "Dour Port-Mage", "Glowing One", "Screeching Scorchbeast", "Staff of the Death Magus",
-         "Rug of Smothering", "Hapatra, Vizier of Poisons", "Nest of Scarabs", "Path of Discovery", "Necropotence", "Prosperous Thief", "Forsaken Monument", "Parhelion II",
+         "Rug of Smothering", "Within Range", "Hapatra, Vizier of Poisons", "Nest of Scarabs", "Path of Discovery", "Necropotence", "Prosperous Thief", "Forsaken Monument", "Parhelion II",
          "Poetic Ingenuity", "Scytheclaw Raptor", "Price of Glory"]
 
 
@@ -326,4 +328,16 @@ def test_wither_counters_are_put_by_the_sources_controller(cards):
     through_combat(s)
     assert s.state.cards[ogre.id].counters.get("-1/-1") == 1
     assert not any(c.name == "Insect" for c in s.state.cards.values()), [(c.name, c.zone) for c in s.state.cards.values() if c.name == "Insect"]
+    check(s)
+
+
+def test_each_opponent_loses_life_for_the_creatures_attacking_them(cards):
+    # Within Range: read for each opponent on its own; only the creatures attacking that player count (506.3)
+    s = combat_build(cards, "Within Range", players=3)
+    combat_put(s, "Within Range")
+    a, b, c = (token_of(s, "p1", n, "Token Creature — Ogre", "2/2", "Haste") for n in ("Ogre", "Orc", "Imp"))
+    to_attack(s)
+    declare(s, (a, "p2"), (b, "p2"), (c, "p3"))
+    to_blocks(s)
+    assert (s.state.players["p2"].life, s.state.players["p3"].life) == (38, 39)
     check(s)

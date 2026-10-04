@@ -1115,6 +1115,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["stat"]:  # "… gains life equal to its toughness"
             if rider is not None:
                 raise _Fail
+            pp = sized_damage.per_player(m["stat"]) if verb == "lose_life" and who in ("each_opponent", "each_player") else None
+            if pp is not None:  # -- triggers (wave 17D) -- "each opponent loses life equal to the number of creatures attacking them"
+                return [{"do": verb, "who": who, "n": pp}], target
             n = _stat(m["stat"])
             return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
