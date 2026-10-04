@@ -1010,7 +1010,9 @@ def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristic
     (each paying one symbol, 702.51a / 702.126a / 702.66a) and mana for everything else — all at
     once. Returns how it was paid; contributions are not mana spent."""
     player = plan.actor
-    purpose = Purpose(spell=ch, zone=origin or card.zone, player=player, kicked=bool(a.kicker))  # (wave 17B: origin: before the stack)
+    kick = kicker_cost(ch.abilities) if a.kicker else None  # (an entwined spell isn't kicked: review 18E)
+    purpose = Purpose(spell=ch, zone=origin or card.zone, player=player,
+                      kicked=bool(a.kicker) and not (kick is not None and kick.entwine))  # (wave 17B: origin: before the stack)
     if a.contributions:
         helpers = helpers_for(plan.state, player, plan.info, ch, card.id, [c.model_dump() for c in a.contributions])
     elif a.sources is None and payment_mode(plan, player) != "self":
@@ -1954,7 +1956,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
     definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
-    if a.kicker and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine and not (definition or {}).get("modes"):
+    entwined = bool(a.kicker) and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine  # (an entwined spell isn't kicked: review 18E)
+    kicked = 0 if entwined else a.kicker
+    if entwined and not (definition or {}).get("modes"):
         raise ActionError(f"{ch.name} can be entwined only as a modal spell")  # -- casting extras (wave 18E) -- 702.42a
     splice_extra: list[AbilityCost] = []
     if a.splice:  # -- casting extras (wave 18E) -- 702.47: the spliced cards' text is part of the spell; their costs are additional costs
@@ -2079,7 +2083,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     not_mana = cost_payment.excluded(add_cost, card, add_objects) if add_cost is not None else ()
     origin = card.zone  # (wave 17B: where it is cast from, before it moves to the stack)
     if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,
-                    purpose=Purpose(spell=ch, zone=origin, player=plan.actor, kicked=bool(a.kicker))):
+                    purpose=Purpose(spell=ch, zone=origin, player=plan.actor, kicked=bool(kicked))):
         return
     commander_cast = from_command_zone(card, plan.actor)
     harmonized = alt_offer is not None and alt_offer.tag == "harmonize"  # -- casting extras (wave 18E) -- 702.180a: exiled as it leaves the stack
@@ -2126,10 +2130,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if alt_offer.once_key:
             plan.rules.once_per_turn[alt_offer.once_key] = plan.state.turn.number  # ("once each turn")
         plan.note(f"{plan.name(plan.actor)} cast {ch.name} for an alternative cost ({alt_offer.label})", [card.id])
-    record.additional = (["buyback"] if a.buyback else []) + (["kicker"] if a.kicker else []) \
+    record.additional = (["buyback"] if a.buyback else []) + (["entwine"] if entwined else ["kicker"] if a.kicker else []) \
         + [f"optional:{o.source}" for o in optional]  # (wave 4I: Defiler of Vigor's life)
     record.prototyped = a.prototype  # -- casting extras (wave 18E) -- 718.3b
-    record.kicked = a.kicker or int(a.awaken)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as "If this spell was kicked")
+    record.kicked = kicked or int(a.awaken)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as "If this spell was kicked")
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Harmonize"] if harmonized else ["Jump-start"] if jumped else \
@@ -2188,16 +2192,16 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=modal_effects(definition, picked, True), x=a.x_value, modes=picked,
-                                      **picked_targets.entry(None), kicked=a.kicker or int(a.awaken))  # (-- static_other sweep (wave 16B) --)
+                                      **picked_targets.entry(None), kicked=kicked or int(a.awaken))  # (-- static_other sweep (wave 16B) --)
     elif definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
         effects_in_order = modal_effects(definition, picked, False)
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
-                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=a.kicker or int(a.awaken))
+                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=kicked or int(a.awaken))
     elif definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=a.x_value,
-                                      **picked_targets.entry(definition), kicked=a.kicker or int(a.awaken))
+                                      **picked_targets.entry(definition), kicked=kicked or int(a.awaken))
     if aura is not None and chosen:
         r.aura_targets = {k: v for k, v in r.aura_targets.items() if plan.state.cards.get(k) is not None
                           and plan.state.cards[k].zone == STACK}
@@ -2599,6 +2603,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         raise ActionError("You can't cast that without paying its mana cost now")
     if a.splice or a.prototype:
         raise ActionError("Splice and prototype by hand: Fyodor does them only when a spell is cast with its cost")
+    if a.kicker and (ek := kicker_cost(ch.abilities)) is not None and ek.entwine:  # (-- review (wave 18E) -- 702.42a: all modes, by hand here)
+        raise ActionError("Entwine by hand: Fyodor entwines a spell only when it is cast with its cost")
     if "Legendary" in ch.supertypes and ch.is_instant_or_sorcery and not _controls_legendary(plan.state, plan.actor, plan.info):
         raise ActionError(f"{ch.name} needs you to control a legendary creature or planeswalker")  # 205.4e
     # -- cast limits (wave 5E) -- 601.3 applies to a cast as something resolves too

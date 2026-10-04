@@ -8,8 +8,23 @@ from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.test_rules_effects import mana
 from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
-from tests.test_rules_wave18e_casting import EXTRA  # noqa: F401  (the fixture cards)
-from tests.test_rules_wave18e_casting import card_db  # noqa: F401
+from tests.fixtures.cards import card, fixture_cards
+from tests.test_rules_wave18e_casting import EXTRA
+
+MORE = [
+    card("Rust Goliath", set_code="tst", number="R01", mana_cost="{10}", cmc=10.0, type_line="Artifact Creature — Construct", power="10",
+         toughness="10", oracle_text="Prototype {3}{G}{G} — 3/5 (You may cast this spell with different mana cost, color, and size. It keeps "
+         "its abilities and types.)\nReach, trample", keywords=["Reach", "Trample", "Prototype"]),
+]
+
+
+@pytest.fixture()
+def card_db(settings):
+    from app.cards.importer import build_database
+
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), *EXTRA, *MORE], settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
 
 
 def test_assist_with_an_asked_payment_takes_the_helpers_mana_off_once(cards):
@@ -38,6 +53,25 @@ def test_reconfigure_abilities_come_after_the_printed_lines():
     abs_ = parse_abilities("Reconfigure {2}\n{1}: This creature gets +1/+0 until end of turn.")
     assert [a.text for a in abs_[:2]] == ["Reconfigure {2}", "{1}: This creature gets +1/+0 until end of turn."]
     assert abs_[2].text.startswith("{2}: Attach ~ to another target creature") and abs_[3].text.startswith("{2}: Unattach ~.")
+
+
+def test_a_prototyped_permanent_that_becomes_a_copy_has_the_copied_values(cards):
+    """718.3b / 707.2: the prototype's values are copiable values; a copy effect on the permanent replaces them (layer 1)."""
+    from app.rules import copying
+    from app.rules.plan import Plan
+    from tests.test_rules_attachments import ch
+
+    s = build(cards, p1=("Skitterbeam Battalion", "Rust Goliath"))
+    sk = put(s, "Skitterbeam Battalion", "hand")
+    goliath = put(s, "Rust Goliath", "battlefield")  # (not cast: not prototyped)
+    mana(s, R=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=sk.id, prototype=True)
+    answer(s)
+    assert ch(s, s.state.cards[sk.id]).pt == (2, 2)
+    plan = Plan(s.state, "p1", s.cards, None)
+    copying.add_copy_effect(plan, [plan.oid(sk.id)], copying.base_recipe(s.state.cards[goliath.id]), "p1")
+    now = plan.ch(plan.state.cards[sk.id])
+    assert now.name == "Rust Goliath" and now.pt == (10, 10) and now.mana_value == 10  # (not Rust Goliath's prototype 3/5)
 
 
 def _ready_counter(s, caster="p2"):

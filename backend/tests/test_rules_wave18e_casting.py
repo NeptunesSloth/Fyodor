@@ -133,13 +133,16 @@ def test_coverage_full(cards, name):
 
 
 def test_entwine_chooses_both_modes_for_the_entwine_cost(cards):
-    s = build(cards, p1=("Rain of Rust",), p2=("Test Relic",))
+    s = build(cards, p1=("Rain of Rust",), p2=("Test Relic", "Counterspell"))
+    put(s, "Counterspell", "hand", pid="p2")  # (p2 could respond: the spell waits on the stack)
+    mana(s, "p2", U=2)
     rain = put(s, "Rain of Rust", "hand")
     relic = put(s, "Test Relic", "battlefield", pid="p2")
     land = next(c for c in s.state.cards.values() if c.owner == "p2" and c.name == "Island")
     act(s, "p2", type="move", card_ids=[land.id], to={"player": "p2", "zone": "battlefield"})
     mana(s, R=3, C=6)
     act(s, "p1", type="cast_spell", card_id=rain.id, kicker=1, targets=[relic.id, land.id])  # 702.42a: both modes, a target each
+    assert s.state.rules.stack[rain.id].kicked == 0  # (review 18E) entwined, not kicked: "if that spell was kicked" (702.33d) doesn't see it
     answer(s)
     assert s.state.cards[relic.id].zone == "p2:graveyard" and s.state.cards[land.id].zone == "p2:graveyard"
     assert find(s, "Rain of Rust").zone == "p1:graveyard"
