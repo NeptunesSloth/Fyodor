@@ -299,6 +299,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         return {"not": theirs} if m["neg"] else theirs
     if t in _STATUS:
         return {"status": _STATUS[t]}
+    if t.lower() == "you chose a creature other than ~ as your ring-bearer":  # -- triggers (wave 19B) -- 701.54a: the creature this tempt chose
+        return {"ring_other": True}
     if t == "you have a full party":  # -- refused modal/conditional (wave 3R1) -- 700.8c: four creatures in your party
         return {"value": {"party": "you"}, "op": ">=", "n": 4}
     found = _history(t)
@@ -1026,6 +1028,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return plan.state.turn.active_player == ctx["controller"]
     if "status" in cond:
         return _status(plan, ctx["controller"], cond["status"])
+    if "ring_other" in cond:  # -- triggers (wave 19B) -- the Ring-bearer the tempting chose (the event's ``other``), not the source
+        chosen = ((ctx.get("event") or {}).get("other") or {}).get("card")
+        return bool(chosen) and chosen != ctx.get("source_card")
     if "history" in cond:
         from app.rules import history
 

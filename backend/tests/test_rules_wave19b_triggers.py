@@ -3,6 +3,7 @@
 * 608.2d: "its controller may draw a card" - the controller of the creature that dealt the damage decides.
 * 701.17a: "mill four cards, then you may put a creature or land card from among the milled cards on top of your library", and
   "a creature card and/or a land card from among them into your hand" - the pick is from the cards the mill put into the graveyard.
+* 701.54a: "if you chose a creature other than Gandalf as your Ring-bearer" - the creature this tempting chose.
 * 508.1b: "deals 1 damage to the player or planeswalker it's attacking" - what the attacker the trigger is about attacks now.
 """
 
@@ -28,9 +29,12 @@ EXTRA = [
     real('Synapse Sliver', '{3}{U}', 4, 'Creature — Sliver', "Whenever a Sliver deals combat damage to a player, its controller may draw a card.", ("1", "1"), 'U'),
     real('Lluwen, Imperfect Naturalist', '{B}{G}', 2, 'Legendary Creature — Elf Druid', "When Lluwen enters, mill four cards, then you may put a creature or land card from among the milled cards on top of your library.\n{2}{B/G}{B/G}, Discard a land card: Create a 1/1 black and green Worm creature token for each land card in your graveyard.", ("1", "3"), 'BG'),
     real('Sludge Titan', '{4}{B}{G}', 6, 'Creature — Phyrexian Zombie Giant', "Whenever this creature enters or attacks, mill five cards. You may put a creature card and/or a land card from among them into your hand.", ("5", "5"), 'BG'),
+    real('Gandalf, Friend of the Shire', '{3}{U}', 4, 'Legendary Creature — Avatar Wizard', 'Flash\nYou may cast sorcery spells as though they had flash.\nWhenever the Ring tempts you, if you chose a creature other than Gandalf as your Ring-bearer, draw a card.', ("2", "4"), 'U'),
+    real('Probe Temptation', '{1}', 1, 'Sorcery', 'The Ring tempts you.', None),
+    real('Probe Soldier', '{1}{W}', 2, 'Creature — Human Soldier', '', ("1", "1"), 'W'),
 ]
 
-NAMES = [e["name"] for e in EXTRA]
+NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
 
 
 @pytest.fixture()
@@ -120,4 +124,17 @@ def test_mill_then_put_a_creature_and_a_land_into_the_hand(cards):
     answer(s)
     assert len(zone(s.state, "p1", "hand")) == hand + 1  # five Forests milled: one land (a creature and a land are two kinds)
     assert len(s.state.zones["p1:graveyard"]) == 4
+    check(s)
+
+
+@pytest.mark.parametrize("chosen, drawn", [("Probe Soldier", 1), ("Gandalf, Friend of the Shire", 0)])
+def test_ring_bearer_other_than_the_source_draws(cards, chosen, drawn):
+    s = combat_build(cards, "Gandalf, Friend of the Shire", "Probe Soldier", "Probe Temptation")
+    combat_put(s, "Gandalf, Friend of the Shire")
+    soldier = combat_put(s, "Probe Soldier")
+    cast(s, "Probe Temptation", C=1)
+    pick = soldier.id if chosen == "Probe Soldier" else next(c.id for c in s.state.cards.values() if c.name == chosen)
+    hand = len(zone(s.state, "p1", "hand"))
+    answer(s, pick)
+    assert len(zone(s.state, "p1", "hand")) == hand + drawn
     check(s)

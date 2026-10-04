@@ -863,7 +863,8 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         defended=info.get("defended") if kind == "you_attack" else _attack_defended(plan, kind, obj),
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
-                        if kind in _PAIRED.values() and info.get("other") in plan.state.cards else None)
+                        if kind in _PAIRED.values() and info.get("other") in plan.state.cards
+                        else _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None)  # (wave 19B: the Ring-bearer chosen)
 
 
 def _attack_defended(plan: Plan, kind: str, obj: CardInstance | None) -> str | None:

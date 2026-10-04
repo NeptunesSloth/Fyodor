@@ -202,7 +202,7 @@ def facts(plan: Plan, e: Event) -> list[Any]:
     if e.counter == "initiative" and e.player:
         return [("take_initiative", None, None, e.player, {})]
     if e.counter == "ring" and e.player:
-        out: list[Any] = [("ring_tempts", None, None, e.player, {})]
+        out: list[Any] = [("ring_tempts", None, None, e.player, {"bearer": e.object_id} if e.object_id else {})]  # (wave 19B: for "if you chose …")
         if e.object_id:  # 701.54a: a creature was chosen as their Ring-bearer
             out.append(("ring_bearer", None, None, e.player, {"bearer": e.object_id}))
         return out
