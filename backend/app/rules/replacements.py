@@ -153,6 +153,9 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
     from app.rules import devour
 
     devour.plan_entry(plan, card, controller, answers, out, set(reserved or ()))
+    if any(d["replacement"] == "enters_turn_down" for d in defs):  # -- hidden exile (wave 18A) -- Ixidron: the nontoken creatures there now
+        out["turn_down"] = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and not c.is_token
+                            and not c.face_down and c.id != card.id and plan.ch(c).is_creature]
     from app.rules import (
         amplify,  # -- casting extras (wave 18E) -- amplify N (702.38a): which cards to reveal as it enters
     )
@@ -495,6 +498,13 @@ def move_onto_battlefield(plan: Plan, entry: Entry) -> None:
     move_together(plan, [entry])
 
 
+def turn_down(plan: Plan, ep: dict[str, Any], actor: str) -> None:
+    """-- hidden exile (wave 18A) -- 708.2a: the creatures an "as it enters, turn … face down" names become 2/2 face-down creatures."""
+    ids = [c for c in ep.get("turn_down") or [] if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+    if ids:
+        plan.do({"type": "face_down", "card_ids": ids, "face_down": True, "kind": "generic"}, actor=actor)
+
+
 def move_together(plan: Plan, entries: list[Entry]) -> None:
     """Put cards onto the battlefield at once, each under ``entry["player"]``'s control with its
     "enters" replacements applied: one event (603.6a), every replacement judged against the table
@@ -534,6 +544,7 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         from app.rules import amplify  # -- casting extras (wave 18E) -- 702.38a: revealed as it enters
 
         amplify.reveal(plan, ep, entry["player"])
+        turn_down(plan, ep, entry["actor"])
     # -- end entering for a cost (wave 5G) --
     if not planned:
         return

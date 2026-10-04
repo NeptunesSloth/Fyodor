@@ -81,6 +81,8 @@ interface CardBase {
   face_down: boolean;
   /** How it got face down (public). */
   face_down_kind?: FaceDownKind;
+  /** What the effect made it face down, e.g. "Forest land" (708.2a; public). */
+  face_down_as?: string;
   x?: number;
   y?: number;
   tapped?: boolean;
@@ -153,7 +155,8 @@ export interface CommanderInfo {
   name: string;
   card_id: string | null;
   instance_id: string | null;
-  zone: string;
+  /** null: a face-down commander this viewer can't look at (708.5). */
+  zone: string | null;
   tax: number;
   /** Times cast from the command zone. */
   casts?: number;

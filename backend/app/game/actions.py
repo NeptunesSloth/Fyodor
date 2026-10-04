@@ -80,6 +80,7 @@ class Move(Base):
     y: Coord | None = None
     face_down: bool | None = None
     face_down_kind: FaceDownKind | None = None  # morph / disguise / manifest / cloak …
+    face_down_as: str | None = Field(default=None, max_length=80)  # -- hidden exile (wave 18A) -- 708.2a: see FaceDown
     tapped: bool = False  # enters the battlefield tapped (a replacement effect, not a tap afterwards)
     # Permanents entering the battlefield at once (one event, 603.6a / 614.12) whose replacements
     # differ: the ones among them that enter tapped, and whose battlefield each enters (default: ``to``)
@@ -100,6 +101,8 @@ class Shuffle(Base):
     type: Literal["shuffle"] = "shuffle"
     player: Id | None = None
     zone: Literal["library", "hand", "graveyard", "exile"] = "library"
+    # -- review (sys 18A) -- only these cards of the zone (a face-down pile, 406.3): they swap places among themselves, re-keyed
+    card_ids: list[Id] | None = Field(default=None, max_length=250)
     r: ShuffleData | None = None
 
 
@@ -109,6 +112,7 @@ class Mill(Base):
     count: int = Field(default=1, ge=1, le=500)
     to: Literal["graveyard", "exile"] = "graveyard"
     face_down: bool = False
+    blind: bool = False  # -- hidden exile (wave 18A) -- an effect exiled it face down: nobody has looked at it (state.CardInstance.unseen)
 
 
 class Mulligan(Base):
@@ -341,6 +345,7 @@ class FaceDown(Base):
     card_ids: IdList
     face_down: bool | None = None  # None = toggle
     kind: FaceDownKind | None = None  # when turning face down
+    face_down_as: str | None = Field(default=None, max_length=80)  # -- hidden exile (wave 18A) -- 708.2a: the characteristics the effect gives it
 
 
 class Note(Base):
@@ -973,6 +978,7 @@ class TurnFaceUp(_Intent):
     # -- keyword actions & face-down (wave 3F) -- which way, when there are several: its morph cost
     # (702.37e), its disguise cost (702.168d), or a manifested / cloaked creature card's mana cost (701.40b)
     method: Literal["morph", "disguise", "mana_cost"] | None = None
+    cost_choices: list[CostChoice] = Field(default_factory=list)  # -- hidden exile (wave 18A) -- what pays a non-mana morph cost (602.2b)
 
 
 class UnlockDoor(_Intent):

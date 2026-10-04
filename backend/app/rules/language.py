@@ -23,6 +23,7 @@ import re
 from dataclasses import replace
 from typing import Any
 
+from app.rules import characteristics as chars
 from app.rules import selectors, sized_damage, this_way, values  # (this_way: wave 4A; sized_damage: wave 4E)
 
 Effects = list[dict[str, Any]]
@@ -727,14 +728,30 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
 
 # -- the top of a library (401, 701.20 reveal, 701.20e look, 701.24 shuffle) ----------------------
 # Whose library: "your library" (default), a target player's (a target group), everyone's.
-_LIB = r"(?P<lib>your|target player's|target opponent's|that player's|each player's|each opponent's) library"
+_LIB = r"(?P<lib>your|target player's|target opponent's|that player's|their|each player's|each opponent's) library"
 _LIB_WHO = {"your": "you", "target player's": "target player", "target opponent's": "target opponent",
-            "that player's": "that player", "each player's": "each player", "each opponent's": "each opponent"}
+            "that player's": "that player", "their": "that player", "each player's": "each player", "each opponent's": "each opponent"}
 _SUBJECTS = r"(?P<subj>target player|target opponent|that player|defending player|each player|each opponent|each of your opponents)"
 _N_CARDS = rf"(?:(?P<n>{AMT}) cards|card)"
 _TOP = re.compile(rf"(?P<verb>look at|reveal) the top {_N_CARDS} of {_LIB}(?P<back>, then put them back in any order)?")
-_SUBJ_TOP = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) the top {_N_CARDS} of their library")
+_SUBJ_TOP = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) the top {_N_CARDS} of their library(?P<fd> face down)?")
 _EXILE_TOP = re.compile(rf"exile the top {_N_CARDS} of {_LIB}(?P<fd> face down)?")
+# -- hidden exile (wave 18A) -- "Put the top two cards of that player's library onto the battlefield face down under your control as
+# 2/2 Cyberman artifact creatures." (Cybership), "Put any number of cards from your hand onto the battlefield face down as 5/5 artifact
+# creatures." (Tezzeret, Cruel Machinist): facedown.put_down (708.2a: the characteristics come with the instruction)
+# -- hidden exile (wave 18A) -- "Exile all creature cards from target player's graveyard in a face-down pile, shuffle that pile, then
+# manifest those cards." (Ghastly Conscription), "exile it and the top card of your library in a face-down pile, …" (Jeskai Infiltrator),
+# "Exile target nontoken creature you own and the top two cards of your library in a face-down pile, shuffle that pile, then cloak those
+# cards [tapped]." (Become Anonymous): facedown.manifest_pile
+_PILE = re.compile(rf"exile (?P<src>all creature cards from target player's graveyard|(?P<obj>it|target nontoken creature you own)"
+                   rf"(?: and the top {_N_CARDS} of your library)?) in a face-down pile, shuffle that pile, then (?P<v>manifest|cloak) "
+                   r"those cards(?P<tap> tapped)?")
+_PUT_DOWN = re.compile(rf"put (?:the top {_N_CARDS} of {_LIB}|(?P<hand>any number of cards from your hand)) onto the battlefield face down"
+                       r"(?P<under> under your control)?(?: as (?P<spec>.+))?")
+# -- hidden exile (wave 18A) -- looking.join_down_piles: a face-down pile and a face-up pile (700.3), one clause
+_DOWN = re.compile(rf"(?P<s>target opponent|an opponent|you) separates? the top {_N_CARDS} of your library into a face-down pile and a "
+                   r"face-up pile, then (?P<tail>you put one pile into your hand and the other into your graveyard|an opponent chooses "
+                   r"one of them, then you put that pile into your hand and the other into your graveyard)")
 _UNTIL = re.compile(rf"(?P<verb>reveal|exile) cards from the top of {_LIB} until you (?P=verb) (?:a|an) (?P<sel>.+)")
 # -- look and distribute (wave 3L) -- where the picked / remaining cards go; a library may be "that library"
 # / "that player's library" (the one looked at), a graveyard "their graveyard"
@@ -906,6 +923,15 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     order / into your graveyard", "exile the rest". Also "put target creature on top / on the
     bottom of its owner's library", "shuffle ~ into its owner's library", "shuffle [your graveyard
     into your library]"."""
+    down = _DOWN.fullmatch(text) if has_primitive("piles_down") else None  # -- hidden exile (wave 18A) --
+    if down is not None:
+        if (down["s"] == "you") != down["tail"].startswith("an opponent"):
+            raise _Fail
+        pe: dict[str, Any] = {"do": "piles_down", "n": _amount(down["n"]) if down["n"] else 1,
+                             "by": "you" if down["s"] == "you" else "opponent", "choose": "opponent" if down["s"] == "you" else "you"}
+        if down["s"] == "target opponent":
+            return [{**pe, "who": "target"}], {"what": "opponent", "min": 1, "max": 1}
+        return [pe], None
     chained = _chain(text)  # -- look and distribute (wave 3L) --
     if chained is not None:
         return chained
@@ -929,7 +955,29 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     if m:
         kind, key, group = ref(m["subj"])
         do = "look_top" if m["verb"] == "reveals" else "exile_top"
-        return [{"do": do, "n": count(m), "player": _who(kind, key), **({"reveal": True} if do == "look_top" else {})}], _one(group)
+        if m["fd"] and do == "look_top":
+            raise _Fail
+        return [{"do": do, "n": count(m), "player": _who(kind, key), **({"reveal": True} if do == "look_top" else {}),
+                 **({"face_down": True} if m["fd"] else {})}], _one(group)  # (face down: wave 18A)
+    m = _PILE.fullmatch(text)  # -- hidden exile (wave 18A) --
+    if m and has_primitive("manifest_pile"):
+        pile: dict[str, Any] = {"do": "manifest_pile", "kind": m["v"], "tapped": bool(m["tap"])}
+        if not m["obj"]:
+            kind, key, group = "players", "target", _chooser("target player")[1]
+            return [{**pile, "gy": True, "who": "target"}], group
+        kind, key, group = ref(m["obj"])
+        if m["obj"] == "it" or kind != "target":
+            return [{**pile, "who": "it", "top": count(m) if "top" in m["src"] else 0}], None
+        return [{**pile, "who": "target", "top": count(m)}], group
+    m = _PUT_DOWN.fullmatch(text)  # -- hidden exile (wave 18A) --
+    if m and has_primitive("put_down"):
+        spec = chars.parse_spec(m["spec"]) if m["spec"] else None
+        if (m["spec"] and spec is None) or (m["lib"] and m["lib"] != "your" and not m["under"]):
+            raise _Fail
+        if m["hand"]:
+            return [{"do": "put_down", "from": "hand", "spec": spec}], None
+        who, group = _lib_owner(m["lib"])
+        return [{"do": "put_down", "from": "library", "n": count(m), "player": who, "spec": spec}], _one(group)
     m = _EXILE_TOP.fullmatch(text)
     if m:
         who, group = _lib_owner(m["lib"])
@@ -976,6 +1024,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
                 raise _Fail
         else:
             e["which"] = "that" if m["that"] else "all"
+            if not m["that"]:
+                e["n"] = 99  # (all of them: a pronoun for the cards moved names several, scripts.resolve_it)
         if e["to"] in ("top", "bottom") and (e.get("which") == "all" or e["n"] != 1):
             raise _Fail  # (several cards put into a library: their order is a choice not read here)
         out = [e]
@@ -998,6 +1048,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "shuffle_library", "who": who, "zones": zones, **({"optional": True} if m["may"] else {})}], _one(group)
     # -- trigger tail (wave 16C) -- "Shuffle all creature cards from your graveyard into your library." (Barishi): those cards, then
     # the shuffle (701.24a; effects.shuffle_library with a selector)
+    if text == "shuffle all cards from your graveyard into your library":  # (wave 18A: Inverter of Truth — all of it, as "your graveyard")
+        return [{"do": "shuffle_library", "who": "you", "zones": ["graveyard"]}], None
     m = re.fullmatch(r"shuffle all (?P<what>[a-z ]+?) cards? from your graveyard into your library", text)
     sel = selectors.parse(f"{m['what']} card from your graveyard") if m else None
     if sel is not None and _graveyard_cards(sel.key()):
@@ -2080,7 +2132,8 @@ _PRONOUN_SACRIFICE = {"them": "them", "those tokens": "them", "those creatures":
                       "those permanents": "them", "that creature": "it", "that token": "it", "the token": "it",
                       "that permanent": "it", "that card": "it"}
 _PRONOUN_SACRIFICE.update({"the creature": "it", "that artifact": "it"})  # -- permanent effects (wave 6A) -- Sneak Attack, Arms Race
-_OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)? under (?:their|its) owner's control$")
+_OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)?(?P<fd> face down)? under (?P<u>their owner's|its owner's|your) control"
+                           r"(?: as (?P<spec>.+))?$")
 
 
 def parse_sacrifice_pronoun(phrase: str) -> tuple[Effects, Any] | None:
@@ -2103,8 +2156,14 @@ def parse_return_owner(text: str) -> tuple[Effects, Any] | None:
         return None
     if kind not in ("it", "them"):
         return parse_sentence(text)  # ("return all creature cards from your graveyard …": the grammar above)
+    if (m["u"] == "your" or m["spec"]) and not m["fd"]:
+        return None  # (-- hidden exile (wave 18A) -- "under your control" / "as a …" are read only for the face-down return)
+    spec = chars.parse_spec(m["spec"]) if m["spec"] else None
+    if m["spec"] and spec is None:
+        return None
     return [{"do": "return_card", "who": _who(kind, key), "to": "battlefield", "tapped": bool(m["t"]),
-             "under": "owner"}], _one(group)
+             "under": "you" if m["u"] == "your" else "owner", **({"face_down": True} if m["fd"] else {}),
+             **({"spec": spec} if spec else {})}], _one(group)
 
 
 def parse_exile_until(phrase: str) -> tuple[Effects, Any] | None:
@@ -2571,7 +2630,7 @@ _RA_WITH = (r"(?: with (?:(?:an?|one) (?P<add1>additional )?(?P<ck>[+-]\d+/[+-]\
 # "… attached to this creature / that creature" (303.4f, 303.4i, 301.5e): app/rules/effects._return_cards
 _RA_HOST = r"(?: attached to (?P<host>this creature|~|that creature))?"
 _RA_RETURN = re.compile(rf"return (?P<o>.+?) to (?:(?P<h>your hand|its owner's hand|their owner's hand|their owners' hands|their hand)|"
-                        rf"the battlefield(?P<t> tapped(?P<atk> and attacking)?)?{_RA_UNDER}{_RA_WITH}{_RA_HOST})")
+                        rf"the battlefield(?P<t> tapped(?P<atk> and attacking)?)?(?P<fd> face down)?{_RA_UNDER}{_RA_WITH}{_RA_HOST})")  # (face down: wave 18A, 708.4)
 _RA_PUT = re.compile(rf"put (?P<o>.+?) onto the battlefield(?P<t> tapped(?P<atk> and attacking)?)?{_RA_UNDER}{_RA_WITH}{_RA_HOST}")
 _RA_ZONE = r"(?:your graveyard|a graveyard|an opponent's graveyard)"
 _RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any number of )|(?P<n>{AMT}) )(?P<what>[^,]+?)(?P<rand> at random)?"
@@ -2666,6 +2725,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     effect: dict[str, Any] = {"do": "return_card", "to": "hand" if hand else "battlefield"}
     if not hand:  # (110.2a: the one instructed controls it unless the text says "its owner's")
         effect.update(tapped=bool(m["t"]), under="owner" if m["u"] and m["u"] != "your" else "you")
+        if m.groupdict().get("fd"):  # -- hidden exile (wave 18A) -- "return it to the battlefield face down" (708.4: a 2/2 face-down creature)
+            effect["face_down"] = True
         if m["ck"]:  # -- refused zones/sized (wave 3R4) --
             if m["ck"] in values.UNMODELED_COUNTERS:
                 return None
@@ -2930,6 +2991,8 @@ def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
             return None
         return [{"do": "manifest", "dread": True, "kind": "manifest", "who": {None: "you", "its controller": "it.controller",
                                                                               "that player": "that_player"}[m["p"]], "n": n}], None
+    if (hand := re.fullmatch(r"(?P<v>manifest|cloak) a card from your hand", text)) is not None:  # -- hidden exile (wave 18A) --
+        return [{"do": "manifest", "kind": hand["v"], "who": "you", "n": 1, "from": "hand"}], None  # (Scroll of Fate, Vannifar)
     m = _MANIFEST.fullmatch(text)
     if m is None:
         return None
@@ -2951,6 +3014,32 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         found = _manifest_forms(text)
         if found is not None:
             return found
+    if text == "look at all face-down creatures that player controls" and has_primitive("look_face_down"):  # -- hidden exile (wave 18A) -- Spy Network
+        return [{"do": "look_face_down", "who": _that_player_controls("each face-down creature that player controls")}], None
+    m = re.fullmatch(r"look at (?P<o>target face-down .+)", text)  # -- hidden exile (wave 18A) -- 708.5 / 701.20e
+    if m and has_primitive("look_face_down"):
+        try:
+            kind, key, group = ref(m["o"])
+        except _Fail:
+            return None
+        return ([{"do": "look_face_down", "who": "target"}], _one(group)) if kind == "target" and on_battlefield_only(key) else None
+    m = re.fullmatch(r"turn (?P<o>.+?) face (?P<d>up|down)(?: as (?P<spec>.+))?", text)  # -- hidden exile (wave 18A) -- 701.40g / 708.2a / 708.8
+    if m and has_primitive("turn_face_up"):
+        up = m["d"] == "up"
+        choose = re.fullmatch(r"an? (face-down (?:creature|permanent|artifact|enchantment|land)) you control", m["o"]) if up else None
+        if choose:
+            sel = selectors.parse(f"{choose[1]} you control")
+            return ([{"do": "turn_face_up", "choose": sel.key()}], None) if sel is not None else None
+        try:
+            kind, key, group = ref("this permanent" if re.fullmatch(r"this (?:enchantment|artifact|land)", m["o"]) else m["o"])
+        except _Fail:
+            return None
+        if kind not in ("target", "self", "it", "them", "host") or (kind == "target" and not on_battlefield_only(key)):
+            return None
+        spec = chars.parse_spec(m["spec"]) if m["spec"] else None
+        if m["spec"] and (up or spec is None):
+            return None
+        return [{"do": "turn_face_up" if up else "turn_face_down", "who": _who(kind, key), **({"spec": spec} if spec else {})}], _one(group)
     m = re.fullmatch(r"(?:you )?incubate (?P<n>\d+|[xX])", text)
     if m and has_primitive("incubate"):  # 701.53a
         return [{"do": "incubate", "n": _amount(m["n"])}], None

@@ -118,7 +118,7 @@ def move_card(
         if face_down is not None:
             c.face_down = face_down
             if not face_down:
-                c.face_down_kind = None
+                c.face_down_kind = c.face_down_as = None
         return True
 
     # (-- review (wave 14R) -- a phased-out permanent changing controller, 702.26d: the same object, as on the battlefield)
@@ -181,12 +181,13 @@ def move_card(
     if dst_zone in HIDDEN_ZONES or src_zone in HIDDEN_ZONES or (src_zone == "battlefield" and dst_zone != "battlefield"):
         c.face = 0  # (-- transform, wave 11A -- 712.8a: off the battlefield and the stack a double-faced card shows its front face)
     c.revealed_to = []  # a reveal ends when the card changes zones
+    c.unseen = False
     if face_down is not None:
         c.face_down = bool(face_down)
     elif not same_object:
         c.face_down = False  # (a control change keeps a face-down permanent face down)
     if not c.face_down:
-        c.face_down_kind = None
+        c.face_down_kind = c.face_down_as = None
     if dst_zone == "battlefield":
         c.controller = split_zone(dest)[0] or c.controller
         if x is not None and y is not None:

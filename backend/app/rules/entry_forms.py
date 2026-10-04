@@ -106,3 +106,12 @@ def color_options(what: str) -> list[str] | None:
     if not what.startswith(OTHER_THAN) or what[len(OTHER_THAN):] not in _COLORS:
         return None
     return [c.capitalize() for c in _COLORS if c != what[len(OTHER_THAN):]]
+
+
+# -- hidden exile (wave 18A) -- "As this creature enters, turn all other nontoken creatures face down." (Ixidron): applied as it
+# enters (614.1c, 614.12a), before it is on the battlefield, to the nontoken creatures there then (708.2a)
+_TURN_DOWN = re.compile(r"^As (?:it|~) enters, turn all other nontoken creatures face down\.(?: \(They're 2/2 creatures\.\))?$")
+
+
+def turn_others_down(text: str) -> dict[str, Any] | None:
+    return {"kind": "replacement", "replacement": "enters_turn_down", "effects": []} if _TURN_DOWN.fullmatch(text) else None

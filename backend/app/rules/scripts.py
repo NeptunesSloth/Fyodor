@@ -32,6 +32,7 @@ from dataclasses import replace
 from functools import lru_cache
 from typing import Any, Literal
 
+from app.rules import characteristics as _chars  # (-- hidden exile (wave 18A) --)
 from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
 from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
@@ -91,7 +92,6 @@ TRIGGERS = [
     (re.compile(r"^When ~ becomes the target of a spell or ability, (?P<body>.+)$"), "targeted_self"),
     # -- keyword actions & face-down (wave 3F) -- 702.37e / 702.168d / 701.40b: fired by casting.turn_face_up
     (re.compile(r"^When ~ is turned face up, (?P<body>.+)$"), "turned_face_up_self"),
-    (re.compile(r"^Whenever a permanent you control is turned face up, (?P<body>.+)$"), "turned_face_up_you"),
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
@@ -291,6 +291,7 @@ _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untap
 _STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive"})  # -- becomes monstrous (wave 6D) --
 _STAYING.add("to_graveyard")  # -- into a graveyard (wave 6D) -- the card(s) there, as they are there
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
+_STAYING.add("turned_face_up")  # -- hidden exile (wave 18A) -- "Whenever a creature you control is turned face up, put a counter on it"
 # Zone-change events after which "it" is the new object the card became where it went — found
 # only there (400.7e, 603.6, 603.6c): "When ~ dies, return it to its owner's hand"
 _GONE = {"die", "leave"}
@@ -562,7 +563,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         same = [i for i in fitting if sentence_of(i.index) == latest]
         # -- looks (wave 8B) -- "Reveal the top card of your library and put that card into your hand. You lose life equal
         # to its mana value.": "that card" is the card revealed, so the one card is the pick (not two candidates)
-        if any(i.do == "pick_looked" and out[i.index].get("which") == "that" for i in same):
+        if any(i.do == "pick_looked" and out[i.index].get("which") in ("that", "all") for i in same):
             same = [i for i in same if i.do != "look_top"]
         # ("target creature gets +2/+2 and gains reach": two effects on one target are one candidate)
         distinct = {(("g", _group_of(out[i.index])) if _group_of(out[i.index]) is not None else ("i", i.index)): i
@@ -590,6 +591,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if not i.objects or (skip_gated and closed_gate(i.index, index)):
                 return False
             if verb == "card":  # "that card": a card, so not a token an instruction created (111.1)
+                if i.do == "look_top" and any(o.get("do") == "pick_looked" and o.get("to") == "exile" for o in out[i.index + 1:index]):
+                    return False  # -- hidden exile (wave 18A) -- "look at …, exile two of them, … You may play those cards": the exiled ones
                 return i.do not in _TOKEN_MAKERS and (i.number is None or number is None or i.number == number)
             if verb is not None:
                 return i.verb == verb
@@ -656,7 +659,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                         return None
                 else:
                     intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
-                if e.get("do") in ("grant_play", "free_cast") and (intro is None or intro.do not in _MOVERS):
+                if e.get("do") in ("grant_play", "free_cast", "look_exiled") and (intro is None or intro.do not in _MOVERS):
                     # "You may play that card this turn": only what an earlier instruction of this
                     # ability moved (exiled, found), where it went (400.7h/j) — never the source,
                     # a trigger's object, or a card an instruction put in a hidden zone ("draw a
@@ -1712,7 +1715,7 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                   r"\g<a>, then \g<b>, then ", text)
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
-                                 r"remove|add|investigate|prevent|amass|proliferate)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
+                                 r"remove|add|investigate|prevent|amass|proliferate|manifest)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
@@ -2039,6 +2042,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import name_search  # -- name search (wave 11D) --
 
     body = name_search.rewrite(body)
+    from app.rules import looking as _looking
+    from app.rules import permissions as _permissions  # -- hidden exile (wave 18A) --
+
+    body = _permissions.join_exile_play(body)
+    body = _chars.join_spec(body)  # -- hidden exile (wave 18A) --
+    body = _looking.join_down_piles(body)
     # -- activated wordings (wave 15D) -- "Choose a creature type [other than Wall]. Each creature you control becomes that type until
     # end of turn." is one choice made as it resolves (608.2d): read as "… becomes the creature type [other than Wall] of your choice …"
     body = re.sub(r"([^.]+?) (gets [+−-]\d+/[+−-]\d+) and (becomes the color of your choice) until end of turn\.",
@@ -2945,7 +2954,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     text = self_text(ability.text, ch.name)
-    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",)):  # -- keywords (wave 15E) -- alt_costs
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",)):  # -- keywords (wave 15E) -- alt_costs
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(ability.text)
@@ -3145,7 +3154,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                             "its owner shuffles their graveyard into their library.":
                                 "shuffle your graveyard into your library."}.get(body, body)
                 if ante is None and (cond is None or cond.get("subject") == "player") and re.match(r"^if ~ ", body) \
-                        and name not in ("cast_you", "cast_self", "turned_face_up_you") and (cond or {}).get("event") != "cast":
+                        and name not in ("cast_you", "cast_self") and (cond or {}).get("event") != "cast":
                     # -- intervening ifs (wave 11F) -- "At the beginning of your upkeep, if ~ has no charge counters on it, return
                     # it …": a step or a player's event names no object, so the "if" names the only one: ~
                     ante = "self"
@@ -3963,6 +3972,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return tapped_choice
     if (standalone := entry_forms.standalone_choice(text)) is not None:  # -- static statics (wave 10B) --
         return standalone
+    if (turn_down := entry_forms.turn_others_down(text)) is not None:  # -- hidden exile (wave 18A) --
+        return turn_down
     m = ENTERS_TAPPED_UNLESS.match(text)
     if m:  # check lands, fast lands, battle lands, Battlebond lands (614.1d)
         cond = _unless_condition(m["cond"])
@@ -4210,6 +4221,49 @@ def _reveal_any_in_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | N
     return [{"do": "reveal_hand_cards", "sel": sel.key(), "n": 99}], None
 
 
+# -- hidden exile (wave 18A) -- Scroll Rack / Ignorant Bliss: the hand cards exiled face down are "exiled this way" (facedown.py)
+@effect(r"exile (?P<k>all|any number of|a) cards? from your hand face down")
+def _exile_hand_down(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if m["k"] == "a":  # (Ethereal Valkyrie: one card, chosen on resolution)
+        return [{"do": "exile_hand_down", "all": False, "pick": 1, "n": 1}], None
+    return [{"do": "exile_hand_down", "all": m["k"] == "all", "n": 99}], None  # (n: several cards, for "those cards")
+
+
+@effect(r"reveal (?P<o>target face-down permanent) and you may turn it face up if it's a creature card")
+def _reveal_turn_up(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import language
+
+    group = language.target_group(m["o"])
+    if group is None:
+        raise _NoMatch
+    return [{"do": "reveal_turn_up", "who": "target"}], group["what"]
+
+
+@effect(r"it becomes foretold(?: with a foretell cost of its mana cost reduced by \{{(?P<n>\d+)\}})?")
+def _becomes_foretold(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "become_foretold", "who": "it", **({"reduce": int(m["n"])} if m["n"] else {})}], None
+
+
+@effect(r"exile all cards from your library face down")
+def _exile_library_down(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "exile_top", "n": 99999, "player": "you", "face_down": True}], None  # (the whole library: min'd with its size)
+
+
+@effect(r"each player exiles all but the bottom {N} cards of their library face down")  # (Doomsday Excruciator)
+def _exile_all_but_bottom(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "exile_top", "n": 0, "keep_bottom": num(m["n"]), "player": "each_player", "face_down": True}], None
+
+
+@effect(r"put that many cards from the top of your library into your hand")
+def _top_to_hand_that_many(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "top_to_hand", "n": {"this_way": "exiled", "of": None}}], None
+
+
+@effect(r"look at the exiled cards and put them on top of your library in any order")
+def _look_exiled_to_top(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "to_library", "who": "them:exiled", "place": "top"}], None
+
+
 @effect(r"(?P<text>prevent all (?:combat |noncombat )?damage (?:that would be dealt|(?:that )?(?!would be dealt).+? would deal).*)")
 def _prevent_all_this_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     got = parse_prevent_all(m["text"])
@@ -4314,7 +4368,7 @@ def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         if group is None:
             raise _NoMatch
         sel = group["what"]
-    return _delayed.wrap_when(effects, when, who=who, this_turn=True), sel
+    return _delayed.wrap_when(effects, when, who=who, this_turn=bool(m["turn"])), sel  # (-- hidden exile (wave 18A) -- no "this turn": it waits for as long as it takes, 603.7)
 
 
 # -- turn watches (wave 7D; app/rules/watches.py) -- "Whenever you cast a spell this turn, draw a card." / "When you next
@@ -4373,7 +4427,8 @@ def _sacrifice_pronoun(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return _from_language(language.parse_sacrifice_pronoun(m["o"]))
 
 
-@effect(r"return (?P<o>.+?) to the battlefield(?P<t> tapped)? under (?:their|its) owner's control")
+@effect(r"return (?P<o>.+?) to the battlefield(?P<t> tapped)?(?:(?P<fd> face down) under (?:their owner's|its owner's|your) control(?: as .+)?"
+        r"| under (?:their|its) owner's control)")
 def _return_owner(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
@@ -5401,9 +5456,9 @@ def _exile_until_monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # -- keyword actions & face-down (wave 3F) -- goad names its objects ("goad it" after a target, "tap it and goad
 # it"); manifest / cloak put cards onto the battlefield ("then put X +1/+1 counters on it": the face-down
 # permanent it made, app/rules/facedown.py binds it)
-_RECORDING.update({"goad": None, "manifest": None, "detain": None, "suspect": None})  # (detain, suspect: wave 12A)
-_MOVERS.add("manifest")
-_CHOSEN["manifest"] = "n"
+_RECORDING.update({"goad": None, "manifest": None, "detain": None, "suspect": None, "exile_hand_down": "exiled"})  # (detain, suspect: wave 12A; exile_hand_down: 18A)
+_MOVERS.update({"manifest", "exile_hand_down"})  # (exile_hand_down: wave 18A)
+_CHOSEN.update({"manifest": "n", "exile_hand_down": "n"})
 
 
 # -- refused grants/replacements (wave 3R2) -- source-of-your-choice shields (609.7, 615.8) and "Damage can't be

@@ -54,7 +54,8 @@ def move(state: GameState, a: A.Move) -> None:
     for c, dest in zip(moving, dests, strict=True):  # -- keyword actions & face-down (wave 3F) --
         # 708.9: a face-down permanent leaving the battlefield, or a face-down spell leaving the stack
         # other than for the battlefield, is revealed to all players as it moves (the log names it to all)
-        if c.face_down and not a.face_down and (c.zone.endswith(":battlefield") and not dest.endswith(":battlefield")
+        # (-- review (sys 18A) -- even when it goes on face down, e.g. into a face-down pile: 708.9 has no exception)
+        if c.face_down and (c.zone.endswith(":battlefield") and not dest.endswith(":battlefield")
                                                 or c.zone == STACK and not dest.endswith(":battlefield")):
             who_saw[c.id] = {ALL}
     commander_casts: list[CardInstance] = []
@@ -79,6 +80,7 @@ def move(state: GameState, a: A.Move) -> None:
             c.face = 1  # -- transform (wave 11A) -- 712.14a
         if c.face_down and a.face_down:
             c.face_down_kind = a.face_down_kind or ("exile" if ops.zone_name(dest) == "exile" else "generic")
+            c.face_down_as = a.face_down_as  # (-- hidden exile (wave 18A) -- 708.2a)
             if ops.zone_name(dest) == "exile" and a.actor in state.players and a.actor != c.owner:
                 # -- as long as (wave 9B) -- 406.3: a card another player exiles face down is looked at by the one who exiled
                 # it (Gonti, Thief of Sanity), not by its owner: the face-down rule shows an exiled card to its "controller"
@@ -171,9 +173,14 @@ def draw(state: GameState, a: A.Draw) -> None:
     log(state, a.actor, a.ts, parts)
 
 
-def rekey_zone(state: GameState, key: str, perm: list[int], new_ids: list[str]) -> None:
-    """Reorder a zone and give its cards fresh ids so their identities cannot be tracked."""
-    old = state.zone(key)
+def rekey_zone(state: GameState, key: str, perm: list[int], new_ids: list[str], only: list[str] | None = None) -> None:
+    """Reorder a zone and give its cards fresh ids so their identities cannot be tracked. ``only``: just these cards of the zone,
+    among their own places, and they stay face down (-- review (sys 18A) -- a face-down pile that is shuffled, 406.3)."""
+    zone = state.zone(key)
+    slots = [i for i, cid in enumerate(zone) if only is None or cid in only]
+    if only is not None and len(slots) != len(set(only)):
+        raise ActionError("Shuffle data does not match the zone (state changed?)")
+    old = [zone[i] for i in slots]
     if sorted(perm) != list(range(len(old))) or len(new_ids) != len(old):
         raise ActionError("Shuffle data does not match the zone (state changed?)")
     reordered = [state.cards[old[i]] for i in perm]
@@ -187,10 +194,14 @@ def rekey_zone(state: GameState, key: str, perm: list[int], new_ids: list[str]) 
     for c, new_id in zip(reordered, new_ids, strict=True):
         c.id = new_id
         c.revealed_to = []
-        c.face_down = False
-        c.face_down_kind = None
+        if only is None:
+            c.face_down = False
+            c.face_down_kind = None
+        else:
+            c.unseen = c.face_down  # 406.3: nobody may look at a shuffled face-down pile any more
         state.cards[new_id] = c
-    state.zones[key] = list(new_ids)
+    for i, new_id in zip(slots, new_ids, strict=True):
+        zone[i] = new_id
     # Shuffling invalidates every positional view of the zone.
     state.views = [v for v in state.views if v.zone != key]
     for other in state.cards.values():
@@ -203,7 +214,7 @@ def shuffle(state: GameState, a: A.Shuffle) -> None:
     if a.r is None:
         raise ActionError("unresolved shuffle")
     key = zone_key(pid, a.zone)
-    rekey_zone(state, key, a.r.perm, a.r.new_ids)
+    rekey_zone(state, key, a.r.perm, a.r.new_ids, a.card_ids)
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" shuffled {zone_label(state, key, a.actor)}")])
 
 
@@ -218,6 +229,7 @@ def mill(state: GameState, a: A.Mill) -> None:
         ops.move_card(state, c, dest, face_down=a.face_down if a.to == "exile" else None)
         if c.face_down:
             c.face_down_kind = "exile"
+            c.unseen = a.blind  # (-- hidden exile (wave 18A) --)
         if a.to == "graveyard" and c.zone == dest:  # -- triggers (wave 17D) -- 701.17a (not a card a replacement sent elsewhere)
             emit(state, "milled", card=c.id, player=pid)
     verb = "milled" if a.to == "graveyard" else ("exiled face down" if a.face_down else "exiled")
