@@ -440,6 +440,20 @@ def test_sacrifice_it_unless_you_tap_an_untapped_artifact_or_land(cards):
         check(s)
 
 
+def test_blocks_a_creature_destroy_both_creatures(cards):
+    from tests.test_rules_combat import attack, automate, block, creature, table
+
+    s = table(cards)
+    bear = creature(s, "p1", "Bear", "2/2")
+    zealot = creature(s, "p2", "Zealot", "1/1", "When ~ blocks a creature, destroy both creatures.")
+    automate(s)
+    attack(s, (bear, "p2"))
+    block(s, "p2", (zealot, bear))
+    answer(s)
+    assert bear.id not in s.state.cards and zealot.id not in s.state.cards and s.state.players["p2"].life == 40
+    check(s)
+
+
 @pytest.mark.parametrize("text", [
     # "that many" after a discard the player sizes is the cards discarded: only "then draw that many cards" is read (above)
     "Discard any number of cards. Search your library for up to that many basic land cards, reveal them, put them into your hand, then shuffle.",

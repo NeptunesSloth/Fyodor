@@ -2899,6 +2899,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
                 if cond is not None and other_side.wanted(cond) and cond.get("subject") == "host" and "that creature" not in body:
                     body = body.replace("the other creature", "that creature")  # (wave 11E: Venom, Mammoth Harness)
+                if cond is not None and other_side.wanted(cond) and cond.get("subject", "self") == "self":
+                    # -- trigger tail (wave 15B) -- "When this creature blocks a creature, destroy both creatures / that creature and
+                    # this creature.": the creature on the other side, then this one (509.3b)
+                    body = re.sub(r"^destroy (?:both creatures|that creature and ~)\.$", "destroy that creature. Destroy ~.", body)
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
                 if ante == "self_gone":  # -- trigger tail (wave 15B) -- "put her into her owner's library third from the top"
                     # (a gendered pronoun is written ~): the card after it left, found where it went (400.7e), like "it"
