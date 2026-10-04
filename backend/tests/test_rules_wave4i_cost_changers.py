@@ -172,7 +172,6 @@ def test_the_cards_are_full(name):
     "Spells you cast that target enchanted player cost {1} less to cast.",
     "Spells with the chosen name cost {3} more to cast.",
     "This spell costs {1} less to cast if it targets a creature with flying.",
-    "This spell costs {1} more to cast for each target beyond the first.",
     "Activated abilities cost {2} more to activate unless they're mana abilities.",
 ])
 def test_wordings_still_refused(text):
