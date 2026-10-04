@@ -942,6 +942,13 @@ class CastSpell(_Intent):
     optional_costs: list[Id] = Field(default_factory=list, max_length=10)
 
 
+class MiracleReveal(_Intent):
+    """702.94a: reveal a card with miracle as you draw it (only while its owner's window is open: app/rules/miracle.py)."""
+
+    type: Literal["miracle_reveal"] = "miracle_reveal"
+    card_id: Id
+
+
 class TurnFaceUp(_Intent):
     """Morph's special action (702.37e): pay the morph cost and turn your face-down permanent up."""
 
@@ -1188,7 +1195,8 @@ class RulesLog(Base):
 
 INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
-     "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up"}
+     "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up",
+     "miracle_reveal"}
 )
 SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage"})
 
@@ -1288,6 +1296,7 @@ Action = Annotated[
     | PlayLand
     | CastSpell
     | TurnFaceUp
+    | MiracleReveal
     | ActivateAbility
     | DeclareAttackers
     | DeclareBlockers

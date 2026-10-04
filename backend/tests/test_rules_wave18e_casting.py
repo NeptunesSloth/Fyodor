@@ -64,6 +64,9 @@ EXTRA = [
          power="4", toughness="4", oracle_text="Prototype {3}{R}{R} — 2/2 (You may cast this spell with different mana cost, color, and "
          "size. It keeps its abilities and types.)\nTrample, haste\nWhen this creature enters, if you cast it, create two tokens that are "
          "copies of it.", keywords=["Prototype", "Trample", "Haste"]),
+    card("Thunderous Wrath", set_code="tst", number="D13", mana_cost="{4}{R}{R}", cmc=6.0, type_line="Instant", colors=["R"],
+         color_identity=["R"], oracle_text="Thunderous Wrath deals 5 damage to any target.\nMiracle {R} (You may cast this card for its "
+         "miracle cost when you draw it if it's the first card you drew this turn.)", keywords=["Miracle"]),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -217,6 +220,59 @@ def test_disturb_casts_the_back_face_from_the_graveyard(cards):
     from tests.test_rules_attachments import ch
 
     assert ch(s, now).name == "Luminous Phantom" and "flying" in ch(s, now).keywords
+    roundtrip(s)
+
+
+def _first_draw_with_opt(cards, top):
+    s = build(cards, p1=("Elvish Visionary", top))
+    put(s, top, "library", position="top")
+    viz = put(s, "Elvish Visionary", "hand")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=viz.id)  # "When this creature enters, draw a card."
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, "p1", type="pass_priority")
+            act(s, "p2", type="pass_priority")
+        else:
+            break
+    return s
+
+
+def test_miracle_reveals_the_first_card_drawn_and_casts_it_for_the_miracle_cost(cards):
+    from app.game.views import SPECTATOR
+
+    s = _first_draw_with_opt(cards, "Thunderous Wrath")
+    wrath = find(s, "Thunderous Wrath")
+    assert wrath.zone == "p1:hand" and s.state.rules.miracle == [wrath.id]  # 702.94a: the first card drawn this turn
+    for v in ("p2", SPECTATOR):  # nothing tells the table about the window: no name, no id, no decision, no hint
+        view = seen(s, v)
+        assert "Thunderous Wrath" not in view and wrath.id not in view and "miracle" not in view.lower()
+    assert s.view("p2")["rules"]["hints"].get("miracle") is None and s.view("p1")["rules"]["hints"]["miracle"] == [wrath.id]
+    mana(s, R=1)
+    act(s, "p1", type="miracle_reveal", card_id=wrath.id)
+    assert "Thunderous Wrath" in seen(s, "p2")  # revealed to everyone now (702.94b)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        pick = "p2" if any(o.id == "p2" for o in d.options) else "yes" if any(o.id == "yes" for o in d.options) else d.options[0].id
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+    answer(s)
+    assert s.state.players["p2"].life == 35 and find(s, "Thunderous Wrath").zone == "p1:graveyard"  # cast for {R}, 5 damage
+    assert s.state.rules.miracle == [] and s.state.rules.miracled == []
+    roundtrip(s)
+
+
+def test_miracle_is_only_for_the_first_card_drawn_and_closes_with_the_next_action(cards):
+    s = _first_draw_with_opt(cards, "Thunderous Wrath")
+    wrath = find(s, "Thunderous Wrath")
+    act(s, "p1", type="pass_priority")  # the moment to reveal has passed
+    with pytest.raises(ActionError):
+        act(s, "p1", type="miracle_reveal", card_id=wrath.id)
+    assert s.state.rules.miracle == []
     roundtrip(s)
 
 

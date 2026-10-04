@@ -42,6 +42,7 @@ from app.rules import (
     kinship,  # -- kinship (wave 9C) --
     layers,
     looking,
+    miracle,  # -- casting extras (wave 18E) --
     modal_abilities,
     next_untap,  # -- next untap step (wave 6A) --
     optional_payment,
@@ -106,6 +107,8 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         what = NOT_YET.get(intent.type, intent.type)
         raise ActionError(f"{what} through the rules engine arrives with the next milestone. "
                           "Use the table tools for now (e.g. drag the card to the stack).")
+    if intent.type in ACTION_INTENTS or intent.type == "pass_priority":
+        miracle.clear(plan)  # -- casting extras (wave 18E) -- 702.94a: the moment to reveal a just-drawn card has passed
     if intent.type in ACTION_INTENTS:
         plan.rules.actions += 1  # for "pass until next action"
         plan.rules.last_actor = actor
@@ -455,6 +458,7 @@ def empty_pools(plan: Plan) -> None:
 
 
 def next_step(plan: Plan) -> None:
+    miracle.clear(plan)  # -- casting extras (wave 18E) -- 702.94a: a draw is over once the game moves on
     empty_pools(plan)
     r = plan.rules
     phase = plan.state.turn.phase
@@ -794,6 +798,7 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
 
 
 def resolve_top_of_stack(plan: Plan) -> None:
+    miracle.clear(plan)  # -- casting extras (wave 18E) --
     top_id = plan.state.zones[STACK][-1]
     top = plan.state.cards[top_id]
     entry = plan.rules.stack.get(top_id)
@@ -1253,6 +1258,7 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "play_land": play_land,
     "cast_spell": casting.cast_spell,
     "turn_face_up": casting.turn_face_up,
+    "miracle_reveal": miracle.reveal,  # -- casting extras (wave 18E) --
     "activate_ability": casting.activate_ability,
     "declare_attackers": combat.declare_attackers,
     "declare_blockers": combat.declare_blockers,

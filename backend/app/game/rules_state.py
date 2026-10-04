@@ -830,6 +830,11 @@ class RulesState(BaseModel):
     conceded: list[str] = Field(default_factory=list)
     lost: dict[str, str] = Field(default_factory=dict)  # player -> why (0 life, poison, …)
     winner: str | None = None
+    # -- casting extras (wave 18E) -- miracle (app/rules/miracle.py): the cards whose owner may reveal them now (never sent to anyone else),
+    # the last turn each player drew (for "the first card you've drawn this turn"), and the free casts that are miracle casts
+    miracle: list[str] = Field(default_factory=list)
+    miracle_turn: dict[str, int] = Field(default_factory=dict)
+    miracled: list[str] = Field(default_factory=list)
     drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check
     deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
     prevention: dict[str, int] = Field(default_factory=dict)  # player / object id -> damage to prevent this turn

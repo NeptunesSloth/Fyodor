@@ -1106,6 +1106,12 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
         r.free_casts = [c for c in r.free_casts if c != cid]
         r.suspended = [c for c in r.suspended if c != cid]
         r.alt_costs.pop(cid, None)
+        if d.resume.get("decline") == "miracle":  # -- casting extras (wave 18E) -- 702.94a: it stays in the hand (and is hidden again)
+            from app.rules import miracle
+
+            miracle.done(plan, cid)
+            plan.note(f"{plan.name(d.player)} keeps it in their hand")
+            return
         if d.resume.get("decline") == "graveyard" and cid in plan.state.cards:  # madness
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "graveyard"}},
                     actor=d.player)
@@ -3724,6 +3730,9 @@ PRIMITIVES.update(_combat_rules.PRIMITIVES)
 from app.rules import ninjutsu as _ninjutsu  # noqa: E402  -- keywords (wave 15E) -- 702.49
 
 PRIMITIVES["ninjutsu_enter"] = _ninjutsu.enter
+from app.rules import miracle as _miracle  # noqa: E402, I001  -- casting extras (wave 18E) -- 702.94a
+
+PRIMITIVES["miracle_offer"] = _miracle.offer
 RESUME.update(_combat_rules.RESUME)
 
 # -- triggers (wave 5D) -- "then put two cards from your hand on top of your library in any order" (app/rules/put_back.py)
