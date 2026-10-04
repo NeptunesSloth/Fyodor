@@ -793,6 +793,8 @@ _FROM_SOURCE = re.compile(r" from (?P<o>another )?(?:an? )?(?P<w>[a-z]+(?: [a-z]
 
 
 def _from_source_suffix(s: Selector, m: re.Match[str]) -> Selector:
+    if " or " in m["w"]:
+        raise ValueError("unread source condition")  # ("an artifact or enchantment source": a union, not read)
     sub = next((x for w in (m["w"], m["w"] + " permanent") if (x := parse(("another " if m["o"] else "") + w)) is not None
                 and x.zones == ("battlefield",) and x.player is None and not x.extras and x.ability is None and not x.card), None)
     if sub is None:
