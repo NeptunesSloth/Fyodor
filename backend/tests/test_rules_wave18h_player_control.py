@@ -259,3 +259,13 @@ def test_mindslaver_is_sacrificed_to_control_a_player(cards):
     assert [(c.controlled, c.controller) for c in s.state.rules.player_control] == [("p2", "p1")]
     assert s.state.cards[slaver.id].zone == "p1:graveyard"
     roundtrip(s)
+
+
+def test_cards_outside_the_game_stay_the_controlled_players_alone(cards):
+    s = table(cards, players=2)
+    side = next(c for c in s.state.cards.values() if c.owner == "p2" and c.name == "Island")
+    act(s, "p2", type="move", card_ids=[side.id], to={"player": "p2", "zone": "sideboard"})
+    cast_on(s, "Worst Fears", "p2")
+    bobs_turn(s)
+    assert s.state.cards[side.id].zone == "p2:sideboard"
+    assert side.id in seen_by(s, "p2") and side.id not in seen_by(s, "p1")  # 723.4: only cards in the game are shared

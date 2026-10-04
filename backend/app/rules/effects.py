@@ -3642,8 +3642,7 @@ from app.rules import next_untap as _next_untap  # noqa: E402
 
 PRIMITIVES.update(_next_untap.PRIMITIVES)  # 502.3 "doesn't untap during its controller's next untap step"
 from app.rules import extra_turns as _extra_turns  # noqa: E402  -- extra turns (wave 8A) --
-
-from app.rules import player_control as _player_control  # noqa: E402  -- controlling another player (wave 18H) --
+from app.rules import player_control as _player_control  # noqa: E402  (wave 18H)
 
 PRIMITIVES.update(_player_control.PRIMITIVES)  # 723.1 "You control target player during that player's next turn."
 PRIMITIVES.update(_extra_turns.PRIMITIVES)  # 500.7 "Take an extra turn after this one."

@@ -3911,7 +3911,9 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (multiplier := trigger_multipliers.static_definition(text)) is not None:
         return multiplier
-    from app.rules import player_control  # -- controlling another player (wave 18H) -- Opposition Agent (723.2)
+    from app.rules import (
+        player_control,  # -- controlling another player (wave 18H) -- Opposition Agent (723.2)
+    )
 
     if (searching := player_control.static_definition(text)) is not None:
         return searching

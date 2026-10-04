@@ -169,7 +169,7 @@ function useShortcuts() {
           s.openDialog("help");
           break;
         case "pass":
-          if (view.rules && view.rules.priority === me && !view.rules.decision) void passPriority();
+          if (view.rules && (view.rules.priority === me || (!!view.rules.acting_as && view.rules.priority === view.rules.acting_as)) && !view.rules.decision) void passPriority();
           else if (w?.waiting.includes(me)) void send({ type: "response_pass" });
           break;
         case "respond":

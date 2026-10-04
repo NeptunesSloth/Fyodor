@@ -40,7 +40,6 @@ from app.rules import (
     effects,
     exert,  # -- static wordings (wave 6E) --
     extra_turns,  # -- extra turns (wave 8A) --
-    player_control,  # -- controlling another player (wave 18H) --
     kinship,  # -- kinship (wave 9C) --
     layers,
     looking,
@@ -49,6 +48,7 @@ from app.rules import (
     optional_payment,
     permissions,
     phasing,  # -- phasing (wave 13D) --
+    player_control,  # -- controlling another player (wave 18H) --
     reconcile,
     recursion,  # -- static_other sweep (wave 17C) --
     replacements,
