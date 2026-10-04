@@ -281,6 +281,13 @@ def test_a_self_static_with_no_opponent_creature_and_graveyard_conditions(cards)
     check(s)
 
 
+def test_a_host_condition_is_refused_for_a_subject_that_is_not_attached():
+    from app.rules import statics
+
+    assert statics.parse("~ can't attack or block unless its power is 6 or greater.") is None  # (Technodrome: its own power)
+    assert statics.parse("Equipped creature can't be blocked as long as its power is 3 or less.") is not None
+
+
 def test_sentences_inside_a_granted_quote_are_the_quotes_own():
     from app.rules import statics
 

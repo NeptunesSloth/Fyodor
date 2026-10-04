@@ -261,6 +261,8 @@ def parse(text: str) -> Definition | None:
     who, kind = _subject(subject, plural=re.match(r"(?:get|have) ", predicate) is not None)
     if who is None:
         return None
+    if who != "attached" and any(_mentions(c, ("attached_stat", "attached_ctrl")) for c in conds):
+        return None  # -- attached events (wave 16F) -- "its power / its controller" names the object an Aura or Equipment is on
     if who.startswith(UNION) and (conds or x_phrase is not None or defender_sel or rule_cond):
         return None  # -- static wordings (wave 6E) -- (a union subject: only plain grants)
     if layer4 is not None and who != "self":
@@ -886,6 +888,15 @@ def _condition(text: str) -> dict[str, Any] | None:
         return found
     found = conditions.parse(c)
     return found if found is not None else static_conditions.compound(c)
+
+
+def _mentions(cond: Any, kinds: tuple[str, ...]) -> bool:
+    """Does the condition (or one nested in it) have one of these static kinds?"""
+    if isinstance(cond, dict):
+        return cond.get("static") in kinds or any(_mentions(v, kinds) for v in cond.values())
+    if isinstance(cond, list):
+        return any(_mentions(v, kinds) for v in cond)
+    return False
 
 
 def condition(text: str) -> dict[str, Any] | None:
