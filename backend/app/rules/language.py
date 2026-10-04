@@ -496,10 +496,10 @@ _SEARCHERS = {**{k: v for k, v in PLAYER_GROUPS.items() if k in ("its controller
               # per player, in turn order, 101.4)
               "each opponent": "each_opponent", "each other player": "each_opponent", "each player": "each_player"}
 _SEARCH = re.compile(
-    rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) may )?"
-    rf"search (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"
+    rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) (?:may |(?=searches ))?)?"  # (wave 19E: "searches")
+    rf"searche?s? (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"
     rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, ))?"
-    rf"(?:put (?:(?P<one>one) (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE}))(?P<shuf>, then shuffle)?"
+    rf"(?:puts? (?:(?P<one>one) (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE}))(?P<shuf>, then shuffles?)?"
     rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
     rf"|then shuffle and put {_PRON} on top(?: in any order)?)")  # ("in any order": wave 3R4)
 _DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
@@ -601,6 +601,9 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         return None
     if (m["who"] is None) != (m["lib"] == "your"):
         raise _Fail  # ("their library" is a named player's; "your library" is the one who controls the effect's)
+    forced = " searches " in text  # -- search (wave 19E) -- "Each player searches their library …, puts it …, then shuffles." (no "may")
+    if forced and (m["exile"] or " put " in text or text.count(" shuffle") != text.count(" shuffles")):
+        raise _Fail
     extra: dict[str, Any] = {}
     sel_text = m["sel"]
     # -- refused zones/sized (wave 3R4) -- "up to three Aura cards with different names": the cards found must
@@ -675,7 +678,7 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         extra["shuffle"] = False  # (only when the text says so: 701.23e)
     return [{"do": "search", "who": _SEARCHERS[m["who"]] if m["who"] else "you", "label": m["sel"], "max": n,
              "to": to, "reveal": bool(m["reveal"]), "upto": bool(m["upto"]) or anything,
-             **({"face_down": True} if m["fd"] else {}), **({"may": True} if m["who"] else {}), **extra}], None
+             **({"face_down": True} if m["fd"] else {}), **({"may": True} if m["who"] and not forced else {}), **extra}], None
 
 
 # -- refused zones/sized (wave 3R4) -- "Search your library and/or graveyard for a card named …, reveal it, and

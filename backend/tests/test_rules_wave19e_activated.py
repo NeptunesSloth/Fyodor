@@ -45,6 +45,10 @@ EXTRA = [
           "have haste.\n{2}{R}: You may put a red creature card or an artifact creature card from your hand onto the battlefield. "
           "Sacrifice it at the beginning of the next end step.", ["R"], power="7", toughness="6"),
     _card("Hill Giant", "W10", "{3}{R}", "Creature — Giant", "", ["R"], power="3", toughness="3"),
+    _card("Field of Ruin", "W11", "", "Land",
+          "{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Destroy target nonbasic land an opponent controls. Each player searches their "
+          "library for a basic land card, puts it onto the battlefield, then shuffles.", []),
+    _card("Command Tower", "W12", "", "Land", "{T}: Add one mana of any color in your commander's color identity.", []),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -57,14 +61,16 @@ def card_db(settings: Settings) -> Path:
     return settings.cards_db_path
 
 
-def table(cards, on_battlefield, hand):
+def table(cards, on_battlefield, hand, bob_on_battlefield=()):
     """Alice's main phase; ``on_battlefield`` was already there (not summoning sick)."""
     names = [*on_battlefield, *hand]
     alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in names), (9, "Forest")])
-    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [*((1, n) for n in bob_on_battlefield), (10, "Island")])
     s = GameSession(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False), cards=cards)
     for n in on_battlefield:
         act(s, "p1", type="move", card_ids=[named(s, n).id], to={"player": "p1", "zone": "battlefield"})
+    for n in bob_on_battlefield:
+        act(s, "p2", type="move", card_ids=[named(s, n).id], to={"player": "p2", "zone": "battlefield"})
     turn_on(s)
     act(s, "p1", type="pass_priority")
     responsive(s)
@@ -157,4 +163,24 @@ def test_put_from_hand_narrowed_by_the_wording(cards, name, cost, offered):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
     pass_until_stack_empty(s)
     assert s.state.cards[named(s, offered).id].zone == "p1:battlefield"
+    replay_matches(s)
+
+
+def test_each_player_searches_for_a_basic_land(cards):
+    """Field of Ruin: destroy a nonbasic land an opponent controls, then each player (not "may") searches for a basic land card, puts
+    it onto the battlefield and shuffles (701.23, 101.4): the activator and the opponent each get one."""
+    s = table(cards, ["Field of Ruin"], [], bob_on_battlefield=["Command Tower"])
+    tower = named(s, "Command Tower")
+    pay(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=named(s, "Field of Ruin").id, ability=1, targets=[tower.id])
+    resolve_top(s)
+    for _ in range(4):  # each searcher's private choice, the active player first
+        d = s.state.rules.decision
+        if d is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[tower.id].zone == "p2:graveyard"
+    on = {p: sorted(s.state.cards[c].name for c in zone(s.state, p, "battlefield")) for p in ("p1", "p2")}
+    assert on == {"p1": ["Forest"], "p2": ["Island"]}
     replay_matches(s)
