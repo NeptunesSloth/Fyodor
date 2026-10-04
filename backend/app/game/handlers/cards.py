@@ -191,7 +191,7 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
             raise ActionError("id collision")
         c = CardInstance(
             id=new_id,
-            card_id=src.card_id,
+            card_id=a.printing or src.card_id,
             name=src.name,
             owner=pid,
             controller=pid,

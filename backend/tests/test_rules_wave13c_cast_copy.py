@@ -55,6 +55,9 @@ REAL = [
               "oracle_text": "At the beginning of your upkeep, if this creature isn't prepared, it becomes prepared. (While it's "
               "prepared, you may cast a copy of its spell. Doing so unprepares it.)"},
              {"name": "Soul Tether", "mana_cost": "{2}{R/G}", "type_line": "Sorcery", "oracle_text": "Draw a card."}]),
+    card("Cackling Counterpart", set_code="tst", number="R1306", mana_cost="{1}{U}{U}", cmc=3.0, type_line="Instant", colors=["U"],
+         color_identity=["U"], oracle_text="Create a token that's a copy of target creature you control.\nFlashback {5}{U}{U} (You may "
+         "cast this card from your graveyard for its flashback cost. Then exile it.)", keywords=["Flashback"]),
 ]
 
 
@@ -223,5 +226,62 @@ def test_woodwork_prodigy_becomes_prepared_at_upkeep_only_if_it_isnt(cards):
     run_until(s, lambda s: s.state.turn.number == 5 and s.state.turn.phase == "main1")
     assert len(s.state.rules.prepared) == 1 and s.state.cards[prodigy.id].zone == "p1:battlefield"  # still prepared: nothing happens
     assert sum(1 for c in s.state.cards.values() if c.is_token and c.copy_of is not None) == 1
+    replay_matches(s)
+    replay_matches(GameSession(s.history.rebuild(), cards=s.cards))
+
+
+# -- review (casting) -- 722.2b: a copy of a preparation card has its prepare spell among its copiable values (the CR's
+# Croaking Counterpart example); 722.3c: a prepared permanent that phases in gets its exiled copy anew
+def test_a_token_copy_of_a_prepare_creature_becomes_prepared_with_the_copied_cards_spell(cards):
+    s = build(cards)
+    prodigy = put(s, PRODIGY, "battlefield")
+    counterpart = put(s, "Cackling Counterpart", "hand")
+    mana(s, U=3)
+    act(s, "p1", type="cast_spell", card_id=counterpart.id, targets=[prodigy.id])
+    pass_until_stack_empty(s)
+    tok = next(c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield")
+    assert name_of(s, tok) == "Woodwork Prodigy"
+    run_until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    assert len(s.state.rules.prepared) == 2  # 722.3a: the card and its token copy each became prepared
+    copies = [c for c in s.state.cards.values() if c.is_token and c.copy_of is not None and c.zone == "p1:exile"]
+    assert len(copies) == 2 and {name_of(s, c) for c in copies} == {"Soul Tether"}  # 722.3c: the prepare spell's characteristics
+    toks = s.state.rules.prepared[s.state.rules.object_id(tok.id)]
+    assert s.state.cards[toks].card_id == prodigy.card_id  # 722.2b: the copied card's prepare spell
+    mana(s, R=3)
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="cast_spell", card_id=toks)
+    assert len(s.state.rules.prepared) == 1 and s.state.rules.object_id(tok.id) not in s.state.rules.prepared  # 601.2i
+    pass_until_stack_empty(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1 and toks not in s.state.cards  # Soul Tether resolved: 704.5e
+    replay_matches(s)
+    replay_matches(GameSession(s.history.rebuild(), cards=s.cards))
+
+
+def test_a_prepared_permanent_that_phases_out_loses_its_copy_and_gets_one_as_it_phases_in(cards):
+    from tests.test_rules_effects import token
+
+    s = build(cards)
+    first = put(s, FIRST_YEAR, "hand")
+    stack = token(s, "p1", "Haystack", "1/1", "{2}, {T}: Target creature you control phases out. (Treat it and anything attached "
+                  "to it as though they don't exist until your next turn.)")
+    run_until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")  # (Haystack untapped, no summoning sickness)
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=first.id)
+    pass_until_stack_empty(s)
+    oid = s.state.rules.object_id(first.id)
+    copy = copy_in_exile(s)
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=stack.id, ability=0, targets=[first.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[first.id].zone == "p1:phased" and copy.id not in s.state.cards  # 702.26b: the copy can't stay (722.3c)
+    assert s.state.rules.prepared == {oid: copy.id}  # 702.26d: the same object, still with the designation
+    replay_matches(s)
+    run_until(s, lambda s: s.state.turn.number == 5 and s.state.turn.phase == "main1")  # past her untap step: it phased in
+    assert s.state.cards[first.id].zone == "p1:battlefield" and s.state.rules.object_id(first.id) == oid
+    again = copy_in_exile(s)
+    assert again.id != copy.id and name_of(s, again) == "Rampant Growth" and s.state.rules.prepared == {oid: again.id}  # 722.3c
+    mana(s, G=2)
+    act(s, "p1", type="cast_spell", card_id=again.id)
+    assert s.state.cards[again.id].zone == "stack" and s.state.rules.prepared == {}
     replay_matches(s)
     replay_matches(GameSession(s.history.rebuild(), cards=s.cards))
