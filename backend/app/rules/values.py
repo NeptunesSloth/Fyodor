@@ -127,8 +127,8 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     number for each player it could name (the target player's, the recipient's: app/rules/sized_damage.py): never read
     through the selectors' trigger-bound "that player" (selectors.THAT_PLAYER)."""
     v = _parse_count(phrase, it=it)
-    if v is not None and ("chosen" in str(v) and it != "self"):  # (wave 16F: "the chosen player" of the very object that counts)
-        return None
+    if v is not None and it != "self" and any(k in str(v) for k in ('"controller":"chosen"', '"zone_owner":"chosen"', "'hand': 'chosen'")):
+        return None  # (wave 16F: "the chosen player" of the very object that counts)
     return None if v is not None and f'"controller":"{selectors.THAT_PLAYER}"' in str(v) else v
 
 
