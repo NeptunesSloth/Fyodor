@@ -2052,6 +2052,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         # -- if you do (wave 6F) -- "Each opponent may …. Each opponent who doesn't …"
         from app.rules import each_may as _each_may
 
+        if (unless_each := _each_may.unless_sentence(text)) is not None:  # -- if you do (wave 15C) -- "Each opponent … unless they …"
+            effects += unless_each
+            continue
         if (each := _each_may.pair(text, texts[i + 1] if i + 1 < len(texts) else None, effects, _last_payment(effects))) is not None:
             effects += each
             skip_to = i + 2
@@ -2077,6 +2080,19 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         text = _PICK_NEG.sub(r"if you \1, ", text)  # -- look and distribute (wave 3L) -- "If you don't put the card into your hand, …"
         if _PICK_DIDNT.match(text) and any(x["do"] == "pick_looked" and x["to"] == "hand" for x in effects):
             text = _PICK_DIDNT.sub("if you don't, ", text)  # -- if you do (wave 10C) -- "If you didn't put a card into your hand this way, …"
+        or_if = re.match(r"^if you do or if (?P<c>[^,]+), (?P<rest>.+)$", text)
+        if or_if is not None and _last_payment(effects) is not None:
+            # -- if you do (wave 15C) -- "…, you may reveal a Dinosaur card from your hand. If you do or if you control another
+            # Dinosaur, you gain 3 life.": the payment was made, or the condition holds — either one (608.2c)
+            from app.rules import conditions
+
+            cond_or = conditions.parse(or_if["c"], objects=True)
+            inner_or = _clause(or_if["rest"]) if cond_or is not None and not or_if["rest"].startswith("you may ") else None
+            if inner_or is None:
+                return None
+            added = _add_groups(groups, *inner_or)
+            effects += [{"do": "only_if", "cond": {"any": [{"succeeded": _last_payment(effects)}, cond_or]}, "skip": len(added)}, *added]
+            continue
         if (if_do := _IF_YOU_DO.match(text)) is not None:
             bind = _last_payment(effects)
             pick = next((e for e in reversed(effects) if e["do"] == "pick_looked"), None)
@@ -2091,6 +2107,18 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 added = _add_groups(groups, *inner)
                 pick_gate: dict[str, Any] = {"succeeded": name, **({"negate": True} if if_do["neg"] else {})}
                 effects += [{"do": "only_if", "cond": pick_gate, "skip": len(added)}, *added]
+                continue
+            chooser = next((e for e in reversed(effects) if e["do"] == "choose_from_hand"), None)
+            if bind is None and chooser is not None and chooser.get("optional") and (chooser.get("did") or effects[-1] is chooser):
+                # -- if you do (wave 15C) -- "Target opponent reveals their hand. You may choose a nonland card from it. If you do,
+                # that player discards that card. If you don't, …": whether a card was chosen (effects.resume_choose_from_hand)
+                inner = _clause(if_do["rest"]) if not if_do["rest"].startswith("you may ") else None
+                if inner is None:
+                    return None
+                name = chooser.setdefault("did", f"hdid{sum(1 for x in effects if x.get('did'))}")
+                added = _add_groups(groups, *inner)
+                effects += [{"do": "only_if", "cond": {"succeeded": name, **({"negate": True} if if_do["neg"] else {})},
+                             "skip": len(added)}, *added]
                 continue
             if bind is None and not optional and (did_r1 := _if_you_do_after_mandatory(if_do, effects, prev_start)) is not None:
                 name, inner = did_r1  # -- refused modal/conditional (wave 3R1) -- "Sacrifice ~. If you do, …"
@@ -2150,6 +2178,13 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             gate: dict[str, Any] = {"succeeded": bind, **({"negate": True} if if_do["neg"] else {})}
             effects += [{"do": "only_if", "cond": gate, "skip": len(added)}, *added]
             continue
+        # -- if you do (wave 15C) -- "Scry 3, then you may reveal the top card of your library. If a creature card is revealed
+        # this way, …": the one card the reveal before showed (701.20a), the same question as "If it's a creature card"
+        last_look = next((e for e in reversed(effects) if e["do"] == "look_top"), None)
+        revealed = re.match(r"^if (?:a|an) (?P<w>[^,]+? card) is revealed this way, (?P<r>.+)$", text)
+        if revealed is not None and last_look is not None and last_look.get("reveal") and last_look.get("n") == 1 \
+                and not last_look.get("until") and last_look.get("player") == "you":
+            text = f"if it's a {revealed['w']}, {revealed['r']}"
         cond_m = re.match(r"^if (?P<c>[^,]+), (?P<rest>.+)$", text)
         if cond_m:  # "If you control a Forest, draw a card." (608.2c): a condition on this sentence
             from app.rules import conditions
@@ -2179,7 +2214,13 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (extra_land := _land_plays.sentence(text)) is not None:  # -- one-shot extra land plays (wave 8A) -- 305.2 (a permission)
             effects += extra_land
             continue
+        if effects and text.startswith("then you may ") and _may_then_if_you_do(text[5:], texts[i + 1:], effects, probe=False) is not None:
+            text = text[5:]  # (-- if you do (wave 15C) -- "then" only orders, 608.2c)
         if text.startswith("you may "):
+            if effects and (mid := _may_then_if_you_do(text, texts[i + 1:], effects)) is not None:
+                effects += _add_groups(groups, *mid)  # -- if you do (wave 15C) -- "…. You may draw a card. If you do, discard a card."
+                skip_to = i + 2
+                continue
             if effects:
                 # "…. You may reveal … from among them …": a clause that models its own choice
                 own = _clause(text)
@@ -2402,7 +2443,7 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     object (the trigger's own source); "When you do" (a reflexive trigger, 603.12) isn't read."""
     from app.rules import optional_payment
 
-    if not text.startswith("you may ") or not following or not re.match(r"^(?:If you (?:do|don't)|When you do), ", following[0]):
+    if not text.startswith("you may ") or not following or not re.match(r"^(?:If you (?:do|don't)|If you do or if [^,]+|When you do), ", following[0]):
         return None
     phrase = text[len("you may "):]
     if re.search(r"\bit\b", phrase) and it != "self":
@@ -2441,9 +2482,13 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
     phrase = rest if verb.startswith("pay") else f"{verb[:-1] if verb.endswith('s') else verb} {rest}"
     if (it == "self" or m["lead"] == "sacrifice ~") and re.search(r"^remove an? [^ ]+ counter from it$", phrase):
         phrase = phrase[:-2] + "~"  # -- trigger tail (wave 15B) -- "sacrifice ~ unless you remove a +1/+1 counter from it": it is the source
+    phrase = re.sub(r" or (pays?|discards?|sacrifices?|returns?|exiles?) ", lambda v: f" or {v[1].rstrip('s')} ", phrase)  # (wave 15C)
     if re.search(r"\bit\b", phrase):
         return None
     cost = optional_payment.cost_text(phrase)
+    alts = optional_payment.alternatives(phrase) if cost is None else None  # -- if you do (wave 15C) -- "sacrifice … or discard a card"
+    if alts is not None:
+        cost = alts[0]
     # -- unless pays (wave 4C) -- a cost sized as it resolves ("{X}", "{X}, where X is …", "{1} for each …")
     sized: dict[str, Any] | None = None
     if cost is None and verb.startswith("pay"):
@@ -2492,6 +2537,8 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         return None
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
     pay: dict[str, Any] = {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind}
+    if alts is not None:
+        pay["alts"] = alts
     if sized is not None:  # -- unless pays (wave 4C) --
         pay.update(sized)
     gated = [{"do": "may_rest"}, *found] if may else found  # (wave 4C: the "you may" after the payment, 118.12a)
@@ -3168,7 +3215,7 @@ def _event_refs_ok(d: Definition) -> bool:
         mine = d.get("kind") == "activated" and not re.search(r"\b[Ss]acrifice (?:this|~)", str(d.get("cost")))
         if not (self_trigger or mine):
             return False
-    if '\\"controller\\":\\"that_player\\"' in json.dumps(d):
+    if '\\"controller\\":\\"that_player\\"' in json.dumps(d) or '\\"zone_owner\\":\\"that_player\\"' in json.dumps(d):
         cond = d.get("cond") if d.get("trigger") == "event" else None
         about_player = step_names_player(d) or (cond is not None and cond["event"] != "multi" and _has_player(cond))
         specs = [d.get("target") or {}, *(d.get("targets") or [])]
@@ -4496,13 +4543,15 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 # was) might not be there: "If you do" would then be false, which this reading can't tell.
 _CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token"})
 _CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce"})
-_PROBED = frozenset({"draw", "exile", "bounce"})  # (their "If you do" reads the result: effects._did)
+_PROBED = frozenset({"draw", "exile", "bounce", "add_counters"})  # (their "If you do" reads the result: effects._did)
 
 
 def _probed_move(e: dict[str, Any]) -> bool:
     """-- refused modal/conditional (wave 3R1) -- Academy Rector: "When this creature dies, you may exile it. If you
     do, …": the exile is probed (effects._did: the card it became in the graveyard reached exile), so "If you do" is
     false when the card had already left (400.7: there's nothing to exile) — no certainty is needed."""
+    if e["do"] == "add_counters":  # -- if you do (wave 15C) -- counters on a chosen object: probed (effects._did_counters_up)
+        return isinstance(e.get("who"), str) and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")
     return e["do"] in ("exile", "bounce") and isinstance(e.get("who"), str) and not e.get("optional")
 
 
@@ -4532,6 +4581,31 @@ def _if_you_do_after_may(if_do: re.Match[str], effects: list[dict[str, Any]], op
     if found is None or not found[0]:
         return None
     return found[0], found[1]
+
+
+def _may_then_if_you_do(text: str, following: list[str], effects: list[dict[str, Any]], probe: bool = True) -> tuple[list[dict[str, Any]], Any] | None:
+    """-- if you do (wave 15C) -- "[A]. You may draw a card. If you do, discard a card." as the last two sentences of an ability
+    that did something first (The Celestus, Gate to the Afterlife): the player is asked once as the resolution reaches it
+    (608.2d, unless_pays.may_rest: "no" ends the resolution), and "if you do" reads what the draw actually did (a draw
+    replaced or impossible is not "done", 608.2c) — the same certainty rule as the whole-ability form above."""
+    m = _IF_YOU_DO.match(_lower_first(following[0].rstrip(".").strip())) if len(following) == 1 else None
+    if m is None or m["neg"] or m["rest"].startswith("you may "):
+        return None
+    a, b = _clause(text[len("you may "):]), _clause(m["rest"])
+    if a is None or b is None or a[1] is not None or not a[0] or not b[0]:
+        return None
+    if not all(_certain_when_chosen(e) or _probed_move(e) for e in a[0]):
+        return None
+    taken = sum(1 for e in effects if str(e.get("did") or "").startswith("midid"))
+    probes = [f"midid{taken + k}" for k, e in enumerate(e for e in a[0] if e["do"] in _PROBED)]
+    for e, name in zip((e for e in a[0] if e["do"] in _PROBED), probes, strict=True):
+        if probe:  # (probe=False: only asking whether the sentence is read; nothing is marked)
+            e["did"] = name
+    gate: list[dict[str, Any]] = []
+    if probes:
+        cond: dict[str, Any] = {"succeeded": probes[0]} if len(probes) == 1 else {"all": [{"succeeded": n} for n in probes]}
+        gate = [{"do": "only_if", "cond": cond, "skip": len(b[0])}]
+    return [{"do": "may_rest"}, *a[0], *gate, *b[0]], b[1]
 
 
 def _refs_in(value: Any) -> Iterator[str]:

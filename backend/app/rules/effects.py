@@ -17,6 +17,7 @@ controller", "its toughness" (608.2h: as they were), "return it" (400.7j: where 
 
 from __future__ import annotations
 
+import itertools
 from typing import Any
 
 from app.game.rules_state import DecisionOption, ObjectRef, StackEntry
@@ -131,7 +132,11 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
         return _controlled_by(plan, ctx, who)
     if who.startswith("graveyard_of:"):  # -- graveyard exile (wave 4J) -- "target player's graveyard": every card in it
-        return [c for p in _players(plan, ctx, who[len("graveyard_of:"):]) for c in plan.state.zones.get(f"{p}:graveyard", [])]
+        ref, _, key = who[len("graveyard_of:"):].partition("|")  # (wave 15C: "|<selector>" — only the cards of that kind)
+        sel = selectors.from_key(key) if key else None
+        return [c for p in _players(plan, ctx, ref) for c in plan.state.zones.get(f"{p}:graveyard", [])
+                if sel is None or selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), ctx["controller"],
+                                                    ctx.get("source_card"))]
     if who.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- "all other creatures" after "Create X
         name, _, key = who[len("except:"):].partition("|")  # … tokens" (Martial Coup): other than what it made
         made = set(context.objects(plan, ctx, name))
@@ -1313,6 +1318,8 @@ def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     before: list[ObjectRef] = []
     for pid in _players(plan, ctx, e["who"]):
         library = plan.state.zones.get(zone_key(pid, "library"), [])
+        if e.get("half"):  # -- if you do (wave 15C) -- 107.1a: half the library as it is now, rounded as the text says
+            want = (len(library) + 1) // 2 if e["half"] == "up" else len(library) // 2
         n = min(want, len(library))
         before += [r for r in (context.ref_of(plan, c) for c in library[:n]) if r is not None]
         if n:
@@ -1530,6 +1537,9 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("graveyard") and "zones" not in e:  # -- refused zones/sized (wave 3R4) -- "your library and/or graveyard"
         options = [DecisionOption(id="both", label="Search your library and graveyard"),
                    DecisionOption(id="graveyard", label="Search your graveyard only")]
+        if e.get("search_zones"):  # -- if you do (wave 15C) -- "your graveyard, hand, and/or library": any of the zones named (701.23a)
+            subsets = [c for n in range(len(e["search_zones"]), 0, -1) for c in itertools.combinations(e["search_zones"], n)]
+            options = [DecisionOption(id="+".join(c), label="Search your " + " and ".join(c)) for c in subsets]
         if e.get("may"):
             options.append(DecisionOption(id="none", label="Don't search"))
         decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: search for a {e.get('label') or 'card'}",
@@ -1562,7 +1572,8 @@ def resume_search_zones(plan: Plan, d: Any, chosen: list[str]) -> None:
         plan.note(f"{plan.name(d.player)} chose not to search (no shuffle)", actor=d.player)
         continue_effects(plan, ctx)
         return
-    _ask_search(plan, ctx, {**e, "zones": ["library", "graveyard"] if chosen[0] == "both" else ["graveyard"]}, d.player, 0, [])
+    zones = {"both": ["library", "graveyard"], "graveyard": ["graveyard"]}.get(chosen[0]) or chosen[0].split("+")
+    _ask_search(plan, ctx, {**e, "zones": zones}, d.player, 0, [])
 
 
 def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int, picked: list[str]) -> bool:
@@ -1575,7 +1586,11 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
             graveyard = [c for c in plan.state.zones.get(zone_key(pid, "graveyard"), []) if c not in picked]
             keys = [selectors.replace(selectors.from_key(k), zones=("graveyard",)).key() for k in (e.get("alts") or [e["sel"]])]
             matching += _search_matches(plan, ctx, {**e, "alts": keys}, pid, None, graveyard)
-        what = e.get("label") or "cards"
+        if "hand" in zones:  # -- if you do (wave 15C) -- the searcher's own hand: private to them, as is this decision
+            hand = [c for c in plan.state.zones.get(zone_key(pid, "hand"), []) if c not in picked]
+            keys = [selectors.replace(selectors.from_key(k), zones=("hand",)).key() for k in (e.get("alts") or [e["sel"]])]
+            matching += _search_matches(plan, ctx, {**e, "alts": keys}, pid, None, hand)
+        what =e.get("label") or "cards"
     else:
         matching = [c for c in library if _matches(plan, c, e["filter"])]
         what = e["filter"].replace("_", " ")
@@ -2039,6 +2054,11 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards down to and including the first match are revealed; that match is "that card"
     (ctx["found"]), the others "the rest". With ``player``: another player's library."""
     owners = _library_owner(plan, ctx, e)
+    if e.get("optional") and not ctx.pop("reveal_asked", None):  # -- if you do (wave 15C) -- "you may reveal the top card": asked first
+        decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: reveal the top card of your library?",
+               options=[DecisionOption(id="yes", label="Reveal it"), DecisionOption(id="no", label="Don't reveal")],
+               resume={"step": "look_may", "ctx": ctx, "e": e})
+        return False
     ctx["looked"], ctx["found"] = [], None
     ctx.pop("looked_zone", None)  # (wave 10C: a look is at a library; a mill's cards are in a graveyard)
     ctx["looked_owner"] = owners[0] if len(owners) == 1 else None
@@ -2062,6 +2082,18 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # (the objects looked at, for "that card's mana value" and the like: still in the library)
     _remember(plan, ctx, e, [ctx["found"]] if ctx.get("found") else cards)
     return True
+
+
+def resume_look_may(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen[0] == "yes":
+        ctx["reveal_asked"] = True
+        look_top(plan, ctx, e)
+    else:
+        plan.note(f"{plan.name(d.player)} chose not to reveal", actor=d.player)
+        ctx["looked"], ctx["found"] = [], None
+        _remember(plan, ctx, e, [])
+    continue_effects(plan, ctx)
 
 
 def _looked(plan: Plan, ctx: Context) -> tuple[str, list[str]]:
@@ -2378,6 +2410,21 @@ def _did(fn: Any, kind: str) -> Any:
 
 for _name in ("draw", "exile", "bounce"):
     PRIMITIVES[_name] = _did(PRIMITIVES[_name], {"draw": "draw", "exile": "exile", "bounce": "hand"}[_name])
+
+
+def _did_counters_up(fn: Any) -> Any:
+    """-- if you do (wave 15C) -- "You may put three +1/+1 counters on target land you control. If you do, …": counters really
+    reached the object (122.6; a replacement or prevention — Solemnity — may stop them, so "if you do" is false then, 608.2c)."""
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        if name and name not in context.refs(ctx):
+            context.refs(ctx)[name] = {"kind": "probe", "counter": e["kind"], "counters_up": {
+                c: [plan.oid(plan.state.cards[c]), plan.state.cards[c].counters.get(e["kind"], 0)] for c in _cards(plan, ctx, e["who"])}}
+        return bool(fn(plan, ctx, e))
+    return run
+
+
+PRIMITIVES["add_counters"] = _did_counters_up(PRIMITIVES["add_counters"])
 
 
 # -- refused modal/conditional (wave 3R1) -- "Sacrifice this enchantment. If you do, …", "Remove a +1/+1 counter
@@ -2775,6 +2822,8 @@ def choose_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not ctx.get("look"):  # (after a private look, that nothing fit would tell the table what the hand holds: review of 11D)
             plan.note(f"Nothing to choose ({e.get('label', 'card')})", actor=pid)
         _remember(plan, ctx, e, [])
+        if e.get("did"):  # -- if you do (wave 15C) -- "You may choose a card from it. If you do, …": nothing was chosen
+            context.bind_payment(ctx, e["did"], False)
         return _after_hand_choice(plan, ctx, [])
     owners = sorted({plan.state.cards[c].owner for c in pool})
     whose = ", ".join(f"{plan.name(o)}'s hand" for o in owners) or "the revealed hand"
@@ -2799,6 +2848,8 @@ def resume_choose_from_hand(plan: Plan, d: Any, chosen: list[str]) -> None:
     if chosen:
         plan.note(f"{plan.name(d.player)} chooses {_labels(plan, chosen)}", chosen, actor=d.player)
     _remember(plan, ctx, e, chosen)  # "that card" / "those cards": the chosen cards, in that hand
+    if e.get("did"):  # -- if you do (wave 15C) -- "You may choose a card from it. If you do, …": a card was chosen (608.2c)
+        context.bind_payment(ctx, e["did"], bool(chosen))
     _after_hand_choice(plan, ctx, chosen)
     continue_effects(plan, ctx)
 
@@ -3403,6 +3454,7 @@ RESUME["gain_control"] = resume_gain_control
 # -- end control (wave 3K) --
 
 RESUME["search_may"] = resume_search_may
+RESUME["look_may"] = resume_look_may  # (wave 15C)
 RESUME["search_zones"] = resume_search_zones  # -- refused zones/sized (wave 3R4) --
 # -- counters & designations (wave 3E) --------------------------------------------------------------
 # Rad counters (728), the monarch (725), the initiative (726), venture into the dungeon (701.49, 309),
