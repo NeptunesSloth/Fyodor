@@ -55,6 +55,11 @@ EXTRA = [
          toughness="2", colors=["U"], color_identity=["U"], oracle_text="Your maximum hand size is increased by two."),
     card("Silent Arbiter", set_code="tst", number="B16", mana_cost="{4}", cmc=4.0, type_line="Artifact Creature — Construct", power="1",
          toughness="5", oracle_text="No more than one creature can attack each combat.\nNo more than one creature can block each combat."),
+    card("Darkblast", set_code="tst", number="B17", mana_cost="{B}", cmc=1.0, type_line="Instant", colors=["B"], color_identity=["B"],
+         oracle_text="Target creature gets -1/-1 until end of turn.\nDredge 3 (If you would draw a card, you may instead mill three "
+         "cards and return this card from your graveyard to your hand.)"),
+    card("Divination", set_code="tst", number="B18", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
+         oracle_text="Draw two cards."),
     card("Contact Other Plane", set_code="tst", number="B12", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"],
          color_identity=["U"], oracle_text="Roll a d20.\n1—9 | Draw two cards.\n10—19 | Scry 2, then draw two cards.\n"
          "20 | Scry 3, then draw three cards."),
@@ -288,3 +293,53 @@ def test_no_more_than_one_creature_can_attack_or_block_each_combat(cards):
         act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": x.id, "attacker_id": a.id}, {"blocker_id": y.id, "attacker_id": a.id}])
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": x.id, "attacker_id": a.id}])
     replay_matches(s)
+
+
+def divination(cards, library_size=None):
+    s = build(cards, p1=("Divination", "Darkblast"))
+    put(s, "Darkblast", "graveyard")
+    c = put(s, "Divination", "hand")
+    if library_size is not None:
+        extra = s.state.zones["p1:library"][library_size:]
+        act(s, "p1", type="move", card_ids=extra, to={"player": "p1", "zone": "exile"})
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    return s
+
+
+def test_dredge_replaces_one_draw_and_the_milled_cards_are_considered_for_the_next(cards):
+    s = divination(cards)
+    for _ in range(3):
+        act(s, "p1", type="pass_priority") if s.state.rules.decision is None else None
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and {o.id for o in d.options} == {"o0", "decline"}  # 702.52a: its owner's choice
+    lib, hand = len(s.state.zones["p1:library"]), hand_size(s, "p1")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["o0"])
+    answer(s)
+    assert find(s, "Darkblast").zone == "p1:hand"  # returned from the graveyard
+    assert len(s.state.zones["p1:library"]) == lib - 3 - 1  # three milled, one card drawn for the second draw
+    assert hand_size(s, "p1") == hand + 1 + 1
+    assert sum(1 for x in s.state.cards.values() if x.zone == "p1:graveyard") >= 3  # (the milled cards, and Divination)
+    roundtrip(s)
+
+
+def test_dredge_may_be_declined(cards):
+    s = divination(cards)
+    for _ in range(3):
+        act(s, "p1", type="pass_priority") if s.state.rules.decision is None else None
+    d = s.state.rules.decision
+    hand = hand_size(s, "p1")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["decline"])
+    for _ in range(2):  # (the second draw asks again: it is its own draw)
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=["decline"])
+    answer(s)
+    assert find(s, "Darkblast").zone == "p1:graveyard" and hand_size(s, "p1") == hand + 2
+    roundtrip(s)
+
+
+def test_dredge_needs_at_least_n_cards_in_the_library(cards):
+    s = divination(cards, library_size=2)  # (two cards left: Dredge 3 can't be used)
+    answer(s)
+    assert s.state.rules.decision is None and find(s, "Darkblast").zone == "p1:graveyard"
