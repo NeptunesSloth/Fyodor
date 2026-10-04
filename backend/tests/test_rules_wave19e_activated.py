@@ -62,6 +62,9 @@ EXTRA = [
     _card("Frostwielder", "W16", "{2}{R}{R}", "Creature — Human Shaman",
           "If a creature dealt damage by this creature this turn would die, exile it instead.\n{T}: This creature deals 1 damage to any "
           "target.", ["R"], power="1", toughness="2"),
+    _card("Carbonize", "W17", "{2}{R}", "Instant",
+          "Carbonize deals 3 damage to any target. If it's a creature, it can't be regenerated this turn, and if it would die this "
+          "turn, exile it instead.", ["R"]),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -249,4 +252,18 @@ def test_creature_dealt_damage_by_this_creature_is_exiled(cards, pinged):
     act(s, "p1", type="cast_spell", card_id=named(s, "Lightning Bolt").id, targets=[bears.id])
     pass_until_stack_empty(s)
     assert s.state.cards[bears.id].zone == ("p2:exile" if pinged else "p2:graveyard")
+    replay_matches(s)
+
+
+def test_if_its_a_creature_it_cant_be_regenerated_and_is_exiled(cards):
+    """Carbonize on a creature with a regeneration shield: the shield isn't applied (701.19c) and it's exiled instead of dying."""
+    s = table(cards, ["Drudge Skeletons"], ["Carbonize"])
+    skeletons = named(s, "Drudge Skeletons")
+    pay(s, B=1)
+    act(s, "p1", type="activate_ability", card_id=skeletons.id, ability=0)
+    resolve_top(s)
+    pay(s, R=3)
+    act(s, "p1", type="cast_spell", card_id=named(s, "Carbonize").id, targets=[skeletons.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[skeletons.id].zone == "p1:exile"
     replay_matches(s)

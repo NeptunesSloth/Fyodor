@@ -1046,7 +1046,8 @@ def regenerate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def no_regen_turn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """-- can't regenerate (wave 19E) -- "Target creature can't be regenerated this turn." (701.19c: shields aren't applied to it)."""
     for cid in _cards(plan, ctx, e["who"]):
-        plan.rules.no_regen.append(plan.oid(cid))
+        if not e.get("types") or set(e["types"]) & plan.ch(plan.state.cards[cid]).types:
+            plan.rules.no_regen.append(plan.oid(cid))
     return True
 
 

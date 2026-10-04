@@ -4211,6 +4211,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 # replacements.replace_move with the other "exile instead" effects (700.4: dies = put into a
 # graveyard from the battlefield). Read by the hook in _parse_effects (before its "If …," condition).
 _DIES_THIS_TURN = re.compile(r"^if (?P<det>that|a|an) (?P<what>.+?) would die this turn, exile it instead$")
+_CREATURE_NO_REGEN_EXILE = re.compile(r"^if it's a creature, it can't be regenerated this turn, and if it would die this turn, exile it instead$")
 _DIES_THAT = {"creature": ["Creature"], "permanent": [], "creature or planeswalker": ["Creature", "Planeswalker"],
               "planeswalker": ["Planeswalker"]}
 _DIES_DEALT = re.compile(r"(?P<what>creature|permanent|creature or planeswalker) dealt damage this way")
@@ -4248,6 +4249,14 @@ def _turn_record(text: str) -> list[dict[str, Any]] | None:
 
 def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
     """A sentence that sets up a replacement effect for the rest of the turn, or None."""
+    if _CREATURE_NO_REGEN_EXILE.match(text):  # -- can't regenerate (wave 19E) -- "If it's a creature, it can't be regenerated this turn, …"
+        refs = {e["who"] for e in effects if isinstance(e.get("who"), str) and _group_of(e) is not None}
+        found = [w for w in refs if (g := _group_of({"who": w})) is not None and g < len(groups)
+                 and _player_target(groups[g].get("what") or "") is not True]
+        if len(found) != 1 or len(refs) != 1:
+            return None  # (Disintegrate, Carbonize: the one target, "any target" or an object)
+        return [{"do": "no_regen_turn", "who": found[0], "types": ["Creature"]},
+                {"do": "exile_if_dies", "who": found[0], "types": ["Creature"]}]
     m = _DIES_THIS_TURN.match(text)
     if m is None:
         return _turn_record(text)
