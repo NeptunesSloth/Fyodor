@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.rules import cards as scripts
+from app.rules import keyword_triggers
 from app.rules import protection
 from app.rules import scripts as templates
 from app.rules.characteristics import HALVES, Characteristics, half_from_data, printed_from_data
@@ -475,7 +476,10 @@ def features_of(ch: Characteristics) -> list[Feature]:
             add(f"script:{ab.index}", ab.text, True)
         elif ab.kind == "keywords":
             for kw in ab.keywords:
-                add(f"keyword:{kw}", kw.capitalize(), _keyword_supported(kw, ab.text))
+                add(f"keyword:{kw}", kw.capitalize(), _keyword_supported(kw, ab.text) if kw != "backup" else all(
+                    keyword_triggers.backup_definition(ch, ab, n) is not None
+                    for n in range(len(keyword_triggers.pieces("backup", ab.text)))) and bool(
+                        keyword_triggers.pieces("backup", ab.text)))  # (wave 15E: the abilities below it, 702.165a)
         elif ab.kind == "mana":
             add("mana:ability", ab.text, "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None)
         else:

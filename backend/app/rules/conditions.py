@@ -798,6 +798,7 @@ def _object(t: str) -> Condition | None:
         stats = [x for x in (m["a"], m["b"]) if x] if m["a"] else ["power"] + (["toughness"] if "toughness" in t else [])
         return {"object": "it", "beats_self": stats}
     t = re.sub(r"^(it|that (?:creature|permanent|card|land|token|artifact))'s ", r"\1 is ", t)
+    t = re.sub(r"^that's (?=another )", "that creature is ", t)  # -- keywords (wave 15E) -- backup 702.165a: "If that's another creature"
     m = _OBJECT.fullmatch(t)
     if m is None:
         return None
@@ -812,7 +813,9 @@ def _object(t: str) -> Condition | None:
             return None  # (tapped / untapped / attacking / blocking: the source's own state, never an LKI guess)
         out: Condition = {"object": who, "test": _STATES[what]}
     else:
-        det = re.match(r"(?:a|an) (?P<rest>.+)", what)
+        det = re.match(r"(?:a|an|another) (?P<rest>.+)", what) if what != "another" else None
+        if det is not None and what.startswith("another "):
+            det = re.match(r"(?P<rest>another .+)", what)
         if det is None and re.fullmatch(r"(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*", what):
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "it's blue": a color test, on whatever it is
         if det is None and re.fullmatch(r"(?:non)?(?:basic|legendary|snow)", what):  # -- damage wordings (wave 6B) --

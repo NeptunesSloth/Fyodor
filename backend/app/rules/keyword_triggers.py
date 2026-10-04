@@ -65,7 +65,7 @@ MEANINGS: dict[str, str] = {
     "mentor": "Whenever this creature attacks, put a +1/+1 counter on target attacking creature with power less than this "
               "creature's power.",  # 702.134a
 }
-_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict", "mobilize", "vanishing", "fading"})
+_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict", "mobilize", "vanishing", "fading", "backup"})
 
 
 def pieces(kw: str, line: str) -> list[str]:
@@ -148,3 +148,43 @@ def partner_with_definition(line: str) -> dict[str, Any] | None:
         return None
     return {"kind": "triggered", "trigger": "enters_self", "optional": False, "target": {"what": "player"},
             "effects": [{**d["effects"][0], "who": "target", "may": True}]}
+
+
+# -- keywords (wave 15E) -- backup N (702.165a): "When this creature enters, put N +1/+1 counters on target creature. If that's
+# another creature, it gains the following abilities until end of turn." The abilities are those written below the keyword
+# on the card (keyword pieces and quoted abilities); each instance triggers separately (702.165b).
+_COUNT_WORDS = {1: "a", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine"}
+
+
+def backup_definition(ch: Any, ab: AbilityText, nth: int = 0) -> dict[str, Any] | None:
+    """The triggered ability of the ``nth`` backup instance on ability line ``ab`` of ``ch``, or None when not read."""
+    from app.rules import scripts
+    from app.rules.characteristics import Characteristics
+
+    found = pieces("backup", ab.text)
+    following = [x for x in ch.abilities if x.index > ab.index]
+    if nth >= len(found) or not following:
+        return None
+    n = int(found[nth].split()[1]) if " " in found[nth] else 0
+    if n not in _COUNT_WORDS:
+        return None
+    keywords: list[str] = []
+    quotes: list[str] = []
+    for x in following:
+        text = re.sub(r"\s*\(.*?\)", "", x.text).strip()
+        if x.kind == "keywords":
+            keywords += [p.strip().lower() for p in re.split(r"[,;]\s*", text.rstrip(".")) if p.strip()]
+        elif '"' not in text:
+            quotes.append(text)
+        else:
+            return None
+    gains = [*keywords, *(f'"{q}"' for q in quotes)]
+    if not gains:
+        return None
+    gained = ", ".join(gains[:-1]) + (", and " if len(gains) > 2 else " and ") + gains[-1] if len(gains) > 1 else gains[0]
+    counters = f"{_COUNT_WORDS[n]} +1/+1 counter{'' if n == 1 else 's'}"
+    text = (f"When this creature enters, put {counters} on target creature. If that's another creature, until end of turn, "
+            f"it gains {gained}.")
+    probe = AbilityText(index=0, text=text, kind="triggered")
+    d = scripts.define(probe, Characteristics(name="\u0000", abilities=(probe,), types=frozenset({"Creature"})))
+    return d if d is not None and d.get("kind") == "triggered" and scripts._event_refs_ok(d) else None

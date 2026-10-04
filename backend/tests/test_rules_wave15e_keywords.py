@@ -13,7 +13,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import attack, settle, through_combat, token_of, until
 from tests.test_rules_effects import replay_matches
-from tests.test_rules_wave6c_tokens_pumps import build, mana, put, reloaded, to_hand, tokens
+from tests.test_rules_wave6c_tokens_pumps import build, chars, mana, put, reloaded, to_hand, tokens
 from tests.test_rules_wave6e_statics import attack_with
 
 EXTRA = [
@@ -32,6 +32,7 @@ EXTRA = [
     card('Wayward Swordtooth', set_code='tst', number='X13', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Dinosaur', oracle_text="Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nYou may play an additional land on each of your turns.\nThis creature can't attack or block unless you have the city's blessing.", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Ascend']),  # noqa: E501
     card('Secrets of the Golden City', set_code='tst', number='X14', mana_cost='{1}{U}{U}', cmc=3.0, type_line='Sorcery', oracle_text="Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nDraw two cards. If you have the city's blessing, draw three cards instead.", power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=['Ascend']),  # noqa: E501
     card('Snake Cult Initiation', set_code='tst', number='X15', mana_cost='{3}{B}', cmc=4.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature has poisonous 3. (Whenever it deals combat damage to a player, that player gets three poison counters. A player with ten or more poison counters loses the game.)', power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=['Enchant']),  # noqa: E501
+    card('Boon-Bringer Valkyrie', set_code='tst', number='X16', mana_cost='{3}{W}{W}', cmc=5.0, type_line='Creature — Angel Warrior', oracle_text="Backup 1 (When this creature enters, put a +1/+1 counter on target creature. If that's another creature, it gains the following abilities until end of turn.)\nFlying, first strike, lifelink", power='4', toughness='4', colors=['W'], color_identity=['W'], keywords=['Flying', 'Lifelink', 'Backup', 'First strike']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -327,4 +328,19 @@ def test_a_granted_triggered_keyword_works(cards):
     attack(s, (bear, "p2"))
     through_combat(s)
     assert s.state.players["p2"].resources.get("poison", 0) == 3  # 702.70a, granted by the Aura (613.1f)
+    check(s)
+
+
+def test_backup_gives_another_creature_the_abilities_until_end_of_turn(cards):
+    s = build(cards, "Boon-Bringer Valkyrie")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    valkyrie = to_hand(s, "Boon-Bringer Valkyrie")
+    mana(s, W=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=valkyrie.id)
+    until(s, lambda s: s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bear.id])  # the trigger's target
+    settle(s)
+    assert counters(s, bear) == 1 and counters(s, valkyrie) == 0  # 702.165a
+    assert {"flying", "first strike", "lifelink"} <= chars(s, bear).keywords
     check(s)
