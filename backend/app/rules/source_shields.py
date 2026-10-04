@@ -38,6 +38,7 @@ doesn't apply it. Protection's damage prevention (702.16e) is a prevention effec
 
 from __future__ import annotations
 
+import json
 import re
 from typing import TYPE_CHECKING, Any
 
@@ -407,6 +408,115 @@ def source_shield(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
+# -- prevention riders (wave 17A) -- 615.5: "Some prevention effects also include an additional effect, which may refer to
+# the amount of damage that was prevented. The prevention takes place at the time the original event would have happened;
+# the rest of the effect takes place immediately afterward." The additional effect is a ``rider`` on the prevention effect
+# (a shield's ``prevention_riders``, a record's or a static's op): the damage events it prevented some of carry it
+# (``ev["riders"]``, replace._damage_apply), and replace.do_damage carries it out once the damage is dealt (``run_rider``),
+# "the damage prevented this way" being that effect's own amount. 615.12: a static's rider still happens for damage that can't
+# be prevented (nothing is prevented then). Read: "You gain life equal to the damage prevented this way.", "If damage is
+# prevented this way, ~ deals that much damage to that source's controller.", "For each 1 damage prevented this way, put a
+# +1/+1 counter on that creature.", "Remove a +1/+1 counter from this creature." (a static's). Refused: "When damage is
+# prevented this way, …" (a reflexive trigger, 603.12), choices and targets in the rider ("deals that much damage to any
+# target"), riders after "of your choice" shields to several recipients.
+RIDER_DOS = frozenset({"gain_life", "damage", "add_counters", "remove_counters", "create_token", "mill", "exile_top", "lose_life"})
+PREVENTIONS = frozenset({"source_shield", "prevent", "prevent_all"})
+_RIDER_IF = re.compile(r"^if damage(?: from (?P<col>an? (?:white|blue|black|red|green) source))? is prevented this way, (?P<body>.+)$")
+_ANAPHORS = (("that source's controller", "target player", "from_ctrl"), ("the source's controller", "target player", "from_ctrl"),
+             ("that creature", "target creature", "to"))
+_READING: list[int] = []
+_WHO_OK = frozenset({"you", "self", "each_opponent", "each_player"})
+_COLORS_BY_WORD = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
+
+
+def rider_body(body: str, it: str | None = None) -> list[dict[str, Any]] | None:
+    """The effects of a rider sentence (first letter lower-cased, no final period), or None (not read). ``it``: what "it" /
+    "him" / "her" mean in a static's rider: "self" (the permanent itself) or "to" (the creature the damage was dealt to)."""
+    from app.rules import scripts
+
+    text, target = body, None
+    if it:
+        text = re.sub(r"\b(?:it|him|her)\b", "this creature" if it == "self" else "that creature", text)
+    lead = re.match(r"^for each 1 damage prevented this way, (?P<rest>.+)$", text)
+    if lead:
+        text = f"{lead['rest']} for each 1 damage prevented this way"
+    for phrase, surrogate, name in _ANAPHORS:
+        if phrase in text:
+            if target is not None:
+                return None
+            text, target = text.replace(phrase, surrogate), (surrogate, name)
+    text = re.sub(r"\bthat much (damage|life)\b", r"X \1", text)
+    text = re.sub(r"\bthat many\b", "X", text)
+    if re.search(r"\bX\b", text):
+        text += ", where X is the damage prevented this way"
+    _READING.append(1)  # (the rider is read as a sentence of its own: rider() must not look for a prevention before it)
+    try:
+        found = scripts.parse_effects(text[:1].upper() + text[1:] + ".")
+    finally:
+        _READING.pop()
+    if found is None:
+        return None
+    effects, spec, optional = found
+    if optional or spec != ({"from_ctrl": "player", "to": 'sel:{"types":["Creature"]}'}[target[1]] if target else None):
+        return None
+    out = []
+    for e in effects:
+        if e.get("do") not in RIDER_DOS or e.get("optional") or e.get("may"):
+            return None
+        who = e.get("who")
+        if who == "target" and target is not None:
+            e = {**e, "who": f"ref:{target[1]}"}
+        elif who is not None and who not in _WHO_OK and e.get("do") != "create_token":
+            return None
+        out.append(e)
+    return out
+
+
+def rider(text: str, effects: list[dict[str, Any]]) -> bool | None:
+    """Scripts' sentence hook: a sentence about "the damage prevented this way" after a prevention effect: attach it to that
+    effect. None: not such a sentence. False: such a sentence that isn't read (the whole text stays manual)."""
+    if _READING or "prevented this way" not in text and not text.startswith("when damage"):
+        return None
+    if text.startswith("when damage"):
+        return False
+    m = _RIDER_IF.match(text)
+    body = m["body"] if m else text
+    if effects == [] or effects[-1].get("do") not in PREVENTIONS or effects[-1].get("rider"):
+        return False
+    last = effects[-1]
+    scope = last.get("scope") or {}
+    receives = last["do"] == "prevent" or (last["do"] == "prevent_all" and not any(k.startswith("by_") for k in scope)
+                                           and any(k.startswith("to_") for k in scope))
+    found = rider_body(body)
+    if found is None or (not receives and "ref:to" in json.dumps(found)):  # ("that creature": the one the damage was dealt to)
+        return False
+    cols = [_COLORS_BY_WORD[m["col"].split()[1]]] if m and m["col"] else []
+    effects[-1]["rider"] = {"effects": found, "if": bool(m), **({"colors": cols} if cols else {})}
+    return True
+
+
+def run_rider(plan: Plan, r: dict[str, Any]) -> None:
+    """Carry out a prevention effect's additional effect (615.5) after the damage it prevented some of."""
+    from app.rules import context, effects
+
+    rider_, ev, n = r["rider"], r["ev"], int(r["n"])
+    if rider_.get("if") and n <= 0:
+        return
+    if rider_.get("colors") and not set(rider_["colors"]) & set((ev.get("src") or {}).get("colors") or ()):
+        return
+    ctx: Context = {"controller": r["by"], "source_card": r["card"], "source_object": r["oid"], "name": r["name"],
+                    "effects": rider_["effects"], "next": 0, "stack_id": ""}
+    context.bind_amount(ctx, "prevented", n)
+    to = ev["target"]
+    if to in plan.state.players:
+        context.bind_players(ctx, "to", [to])
+    else:
+        context.bind_objects(plan, ctx, "to", [to])
+    context.bind_players(ctx, "from_ctrl", [p for p in [(ev.get("src") or {}).get("controller")] if p in plan.live()])
+    for e in rider_["effects"]:
+        effects.PRIMITIVES[e["do"]](plan, ctx, e)
+
+
 BECOMES = "becomes:"  # (an "oids" entry: the permanent the spell object after it becomes)
 
 
@@ -416,7 +526,8 @@ def _record(plan: Plan, ctx: Context, e: dict[str, Any], oids: list[str], label:
     pid = ctx["controller"]
     match: dict[str, Any] = {"source": {"oids": list(oids), **(e.get("props") or {})},
                              "to": {"players": "you"} if e.get("to") == "you" else {}}
-    op: dict[str, Any] = {"do": "prevent_all", "prevention": True, **({"once": True} if e.get("once") else {})}
+    op: dict[str, Any] = {"do": "prevent_all", "prevention": True, **({"once": True} if e.get("once") else {}),
+                          **({"rider": e["rider"]} if e.get("rider") else {})}  # (wave 17A) 615.5
     replace.add_record(plan, event="damage", match=match, op=op, controller=pid, source=ctx.get("source_object"),
                        source_card=ctx.get("source_card"), label=ctx.get("name") or "a prevention effect")
     plan.note(f"{plan.name(pid)} chose {label}: {_describe(e)}", actor=pid)

@@ -713,6 +713,7 @@ def turn_cleanup(plan: Plan) -> None:
         layers.end_of_turn(plan)
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
     plan.rules.prevention = {}  # and so do prevention shields
+    plan.rules.prevention_riders = {}
     permissions.expire(plan)  # "you may play that card this turn" and friends
     delayed.cleanup(plan)  # "when … this turn" delayed triggers stop watching (514.2)
     for card in list(plan.state.cards.values()):

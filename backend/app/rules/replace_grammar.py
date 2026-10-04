@@ -341,7 +341,50 @@ def _recipient(phrase: str | None) -> dict[str, Any] | None:
     return out
 
 
+# -- prevention riders (wave 17A) -- "If damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter from it."
+# (Phantom Nishoba), "If damage would be dealt to another creature you control, prevent that damage. Put a +1/+1 counter on that
+# creature for each 1 damage prevented this way." (Vigor), "If ~ would be dealt damage while it has a +1/+1 counter on it, prevent that
+# damage and remove that many +1/+1 counters from it." (Polukranos): the recipient (and its state) in the match, the additional effect (615.5)
+# as the prevention's rider (app/rules/source_shields.py)
+_DAMAGE_TO = re.compile(r"^If (?P<kind>combat |noncombat )?damage would be dealt to (?P<to>.+?)(?P<cond> while [^,]+)?, (?P<rest>.+)$")
+_DAMAGE_BE = re.compile(r"^If (?P<to>.+?) would be dealt (?P<kind>combat |noncombat )?damage(?P<cond> while [^,]+)?, (?P<rest>.+)$")
+_CONDS = {" while it has a +1/+1 counter on it": {"counter": "+1/+1"}, " while you're the monarch": {"monarch": True}}
+_RIDER = re.compile(r"^prevent that damage(?:\. | and )(?P<rider>.+?)\.?$")
+
+
+def _prevention_rider(rest: str, it: str | None) -> Definition | None:
+    from app.rules import source_shields
+
+    m = _RIDER.match(rest)
+    effects = source_shields.rider_body(m["rider"][:1].lower() + m["rider"][1:], it) if m else None
+    return {"effects": effects, "if": False} if effects else None
+
+
+def _damage_to(text: str) -> Definition | None:
+    m = _DAMAGE_TO.match(text) or _DAMAGE_BE.match(text)
+    if m is None or (m["cond"] and m["cond"] not in _CONDS):
+        return None
+    to = _recipient(m["to"].replace("this creature", "~").replace("this permanent", "~"))
+    if to is None or not to.get("objects") or to.get("players"):
+        return None
+    match: dict[str, Any] = {"source": {}, "to": to}
+    if m["kind"]:
+        match["combat"] = m["kind"] == "combat "
+    if m["cond"]:
+        if _CONDS[m["cond"]] == {"monarch": True}:
+            match["monarch"] = True
+        else:
+            to["objects"] = {**to["objects"], **_CONDS[m["cond"]]}
+    rest = m["rest"].strip()
+    if rest in ("prevent that damage.", "prevent that damage"):
+        return _static("damage", match, {"do": "prevent_all", "prevention": True})
+    rider = _prevention_rider(rest, "self" if to["objects"].get("self") else "to")
+    return _static("damage", match, {"do": "prevent_all", "prevention": True, "rider": rider}) if rider else None
+
+
 def _damage(text: str) -> Definition | None:
+    if (d := _damage_to(text)) is not None:
+        return d
     m = _DAMAGE.match(text)
     if not m:
         return None
@@ -350,6 +393,9 @@ def _damage(text: str) -> Definition | None:
     if src is None or to is None:
         return None
     rest = m["rest"]
+    if (rider := _prevention_rider(rest, "self" if (to.get("objects") or {}).get("self") else "to")) is not None:
+        match0: dict[str, Any] = {"source": src, "to": to, **({"combat": m["kind"] == "combat "} if m["kind"] else {})}
+        return _static("damage", match0, {"do": "prevent_all", "prevention": True, "rider": rider})
     if m["to"] == "you" and rest.endswith(" to you instead"):  # -- kicked / instead (wave 4G) -- "… deals double that
         rest = rest[: -len(" to you instead")] + " instead"  # damage to you instead" (Goldnight Castigator): the same recipient
     for pattern, kind in _DAMAGE_OPS:

@@ -176,6 +176,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     sized = _sized(what, it)  # -- sized amounts (wave 3D) --
     if sized is not None:
         return sized
+    if what == "1 damage prevented this way":  # -- prevention riders (wave 17A) -- "for each 1 damage prevented this way"
+        return {"ref_amount": "prevented"}
     if what in ("cards in your hand", "card in your hand"):
         return {"hand": "you"}
     if what in ("creatures in your party", "creature in your party"):  # -- refused modal/conditional (wave 3R1) --
@@ -207,6 +209,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"player_counters": m["kind"]}
     if _EXCESS_DEALT.fullmatch(what):  # -- as long as (wave 9B) -- 120.10: scripts bind it to the damage just before (this_way.excess_dealt)
         return {"ref_amount": "excess_dealt"}
+    if what in ("the damage prevented this way", "damage prevented this way"):  # -- prevention riders (wave 17A) -- 615.5
+        return {"ref_amount": "prevented"}  # (source_shields.rider: bound by the prevention effect when it prevented damage)
     if what == "the damage dealt this way":  # -- if you do (wave 5G) -- what the damage just before dealt (this_way)
         return {"ref_amount": "damage_dealt"}
     if what == "the life lost this way":  # -- refused zones/sized (wave 3R4) -- what the lose_life just before lost

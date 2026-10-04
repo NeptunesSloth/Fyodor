@@ -1105,5 +1105,6 @@ def prevent_all(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             scope[locked] = [source]
     plan.rules.replacements.append({"id": secrets.token_hex(4), "kind": "prevent", "turn": plan.state.turn.number,
                                     "controller": ctx["controller"], "source": source,
-                                    "source_card": ctx.get("source_card"), "scope": scope})
+                                    "source_card": ctx.get("source_card"), "scope": scope,
+                                    **({"rider": e["rider"]} if e.get("rider") else {})})  # (wave 17A) 615.5
     return True

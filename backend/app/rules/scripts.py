@@ -2064,6 +2064,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             for e in dealt:
                 e["unpreventable"] = True
             continue
+        # -- prevention riders (wave 17A) -- 615.5: "You gain life equal to the damage prevented this way." after a prevention
+        if (attached := _source_shields.rider(text, effects)) is not None:
+            if not attached:
+                return None
+            continue
         # "The flashback cost is equal to its mana cost." (the grant before it)
         from app.rules import graveyard_grants
 
