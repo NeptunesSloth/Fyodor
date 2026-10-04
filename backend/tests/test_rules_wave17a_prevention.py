@@ -523,3 +523,22 @@ def test_prismatic_ward_and_prismatic_strands(cards):
     replay_matches(s)
     s2 = reload(s, cards)
     assert life(s2, "p1") == 37
+
+
+def test_colorless_sources_cant_hurt_the_creature_this_turn(cards):
+    """Lithomancer's Focus: the creature the first sentence names is the recipient of the prevention ("that creature")."""
+    s = build(cards)
+    focus = permanent(s, "p1", "Focus", "Enchantment", "{1}: Target creature gets +2/+2 until end of turn. Prevent all damage that "
+                      "would be dealt to that creature this turn by colorless sources.")
+    bear = token(s, "p1", "Bear", "3/3")
+    other = token(s, "p1", "Other", "3/3")
+    colorless = token(s, "p1", "Pinger", "1/1", PINGER)
+    red = red_creature(s, "p1", "Burner", "1/1", "{1}: Burner deals 3 damage to any target.")
+    activate(s, focus, targets=[bear.id])
+    activate(s, colorless, targets=[bear.id])  # a colorless source
+    assert s.state.cards[bear.id].damage == 0
+    activate(s, red, targets=[bear.id])  # a red one
+    assert s.state.cards[bear.id].damage == 3
+    activate(s, colorless, targets=[other.id])  # (another creature)
+    assert other.id not in s.state.cards or s.state.cards[other.id].damage == 3
+    replay_matches(s)

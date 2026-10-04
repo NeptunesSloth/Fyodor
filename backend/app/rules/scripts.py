@@ -3732,7 +3732,8 @@ def _prevent_scope(kind: str | None, to: str | None, by: str | None) -> tuple[De
                 return None
     elif to in SELECTORS and SELECTORS[to] in ("creature", "creature_you_control", "creature_opponent_controls"):
         target, role = SELECTORS[to], "to"
-    elif to == "it" and by is None:  # "Untap target creature. Prevent all damage that would be dealt to it this turn." (Djeru's Resolve)
+    elif to in ("it", "that creature"):  # "Untap target creature. Prevent all damage that would be dealt to it this turn." (Djeru's Resolve);
+        # -- prevention riders (wave 17A) -- "… to that creature this turn by colorless sources." (Lithomancer's Focus)
         target, role = "it", "to"
     # -- prevention variants (wave 12B) -- "to target legendary creature", "to up to two target creatures", "to target
     # creature with power 5 or greater": the creatures chosen as the spell or ability is put on the stack (115.1); the
