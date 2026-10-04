@@ -50,4 +50,11 @@ def offers(state: GameState, player: str, card: CardInstance, info: CardInfo) ->
 def cast_face(state: GameState, player: str, card: CardInstance, info: CardInfo, alt_cost: str | None) -> bool:
     """Whether this cast of a card from the graveyard is a disturb cast (the alternative cost named, or the only way)."""
     found = offers(state, player, card, info)
-    return bool(found) and (alt_cost is None or any(o.key == alt_cost for o in found))
+    if not found or alt_cost is not None:
+        return any(o.key == alt_cost for o in found)
+    # (-- review (wave 18E) -- unnamed: disturb only when nothing else lets them cast the front face from there, as escape: casting.cast_grant)
+    from app.rules import characteristics as chars
+    from app.rules import permissions
+
+    front = chars.as_cast(card, info, None)
+    return not any(g.zone_ok and not g.free for g in permissions.grants(state, player, card, front, info, verb="cast"))

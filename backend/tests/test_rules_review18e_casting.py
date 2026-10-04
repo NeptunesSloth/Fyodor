@@ -15,6 +15,10 @@ MORE = [
     card("Rust Goliath", set_code="tst", number="R01", mana_cost="{10}", cmc=10.0, type_line="Artifact Creature — Construct", power="10",
          toughness="10", oracle_text="Prototype {3}{G}{G} — 3/5 (You may cast this spell with different mana cost, color, and size. It keeps "
          "its abilities and types.)\nReach, trample", keywords=["Reach", "Trample", "Prototype"]),
+    card("Karador, Ghost Chieftain", set_code="tst", number="R02", mana_cost="{5}{W}{B}{G}", cmc=8.0,
+         type_line="Legendary Creature — Centaur Spirit", power="3", toughness="4", colors=["B", "G", "W"], color_identity=["B", "G", "W"],
+         oracle_text="This spell costs {1} less to cast for each creature card in your graveyard.\nOnce during each of your turns, you may "
+         "cast a creature spell from your graveyard."),
 ]
 
 
@@ -125,4 +129,19 @@ def test_miracle_cast_is_offered_only_as_its_trigger_resolves(cards):
     with pytest.raises(ActionError):  # no cast for {R} while it is on the stack (it could still be countered)
         act(s, "p1", type="cast_spell", card_id=wrath.id, free=True, targets=["p2"])
     assert wrath.id not in s.state.rules.free_casts and wrath.id not in s.state.rules.alt_costs
+    roundtrip(s)
+
+
+def test_a_disturb_card_cast_from_the_graveyard_by_another_permission_is_its_front_face(cards):
+    """702.146a: disturb is a choice (an alternative cost). Cast from the graveyard by another permission without naming the disturb
+    cost, the spell is the front face for its own mana cost (not the back face)."""
+    name = "Lunarch Veteran // Luminous Phantom"
+    s = build(cards, p1=(name, "Karador, Ghost Chieftain"))
+    vet = put(s, name, "graveyard")
+    put(s, "Karador, Ghost Chieftain", "battlefield")
+    mana(s, W=1)
+    act(s, "p1", type="cast_spell", card_id=vet.id)  # {W}: Karador's permission, the front face
+    answer(s)
+    now = s.state.cards[vet.id]
+    assert now.zone == "p1:battlefield" and now.face == 0
     roundtrip(s)

@@ -1850,7 +1850,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     card = plan.state.cards.get(a.card_id)
     if card is None:
         raise ActionError("That card isn't here any more")
-    if card.zone == zone_key(plan.actor, "graveyard") and a.face is None and not a.fuse:  # -- casting extras (wave 18E) -- 702.146a
+    if card.zone == zone_key(plan.actor, "graveyard") and a.face is None and not a.fuse and not a.free:  # -- casting extras (wave 18E) -- 702.146a
         from app.rules import disturb
 
         if disturb.cast_face(plan.state, plan.actor, card, plan.info, a.alt_cost):
