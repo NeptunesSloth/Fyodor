@@ -615,3 +615,56 @@ def test_tempting_offer_every_opponent_decides_before_anyone_acts(cards):
     settle_stack(s)
     assert len([c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Forest"]) == 3
     roundtrip(s)
+
+
+def table3(cards, alice, bob, carol):
+    decks = [deck(cards, cmdr, [*((1, n) for n in names), (20, land)]) for cmdr, names, land in
+             (("Krenko, Mob Boss", alice, "Forest"), ("Atraxa, Praetors' Voice", bob, "Island"), ("Krenko, Mob Boss", carol, "Mountain"))]
+    state = new_game([PlayerSetup(n, cards=d) for n, d in zip(("Alice", "Bob", "Carol"), decks, strict=True)],
+                     settings=GameSettings(mulligan=COMMANDER_LONDON), shuffle=False)
+    state.settings.automation = "full"
+    state.settings.automation_options = AUTOMATION_PRESETS["full"].model_copy()
+    start_rules(state)
+    engine_pays(state)
+    return GameSession(state, cards=cards)
+
+
+def test_opening_hand_players_leaving_and_a_save_mid_step(cards):
+    s = table3(cards, ["Leyline of Sanctity"], ["Chancellor of the Dross"], ["Leyline of Sanctity"])
+    for p in ("p1", "p2", "p3"):
+        act(s, p, type="mulligan_keep")
+    answer(s, "p1", ["Leyline of Sanctity"])
+    answer(s, "p2", ["Chancellor of the Dross"])  # Bob reveals; then Carol is asked
+    assert s.state.rules.decision.player == "p3"
+    roundtrip(s)  # a save and a load (and a replay) mid-step
+    act(s, "p2", type="concede")  # Bob leaves before the game begins: his revealed card and delayed trigger go with him
+    assert s.state.rules.decision.player == "p3"
+    act(s, "p3", type="concede")  # Carol leaves while it is her decision: Alice is the last player standing
+    assert s.state.rules.winner == "p1"
+    roundtrip(s)
+    s = table3(cards, [], ["Chancellor of the Dross"], [])
+    for p in ("p1", "p2", "p3"):
+        act(s, p, type="mulligan_keep")
+    answer(s, "p1")
+    act(s, "p2", type="concede")  # Bob leaves while it is his decision: Carol still decides, then the game begins
+    answer(s, "p3")
+    assert s.state.rules.decision is None and s.state.rules.priority == "p1"
+    assert s.state.rules.opening_revealed == [] and s.state.players["p1"].life == 40
+    roundtrip(s)
+
+
+def test_a_non_starting_players_chancellor_triggers_in_the_first_upkeep(cards):
+    s = table3(cards, [], ["Chancellor of the Dross"], [])
+    for p in ("p1", "p2", "p3"):
+        act(s, p, type="mulligan_keep")
+    answer(s, "p1")
+    for viewer in ("p1", "p3", SPECTATOR):  # the pending decision says nothing about Bob's hand
+        assert "Chancellor" not in json.dumps(s.view(viewer))
+    answer(s, "p2", ["Chancellor of the Dross"])
+    assert "Chancellor of the Dross" in {c.get("name") for c in s.view("p3")["cards"].values()}  # revealed (103.6b)
+    answer(s, "p3")
+    assert "Chancellor of the Dross" not in {c.get("name") for c in s.view("p3")["cards"].values()}
+    assert "Chancellor of the Dross" not in {c.get("name") for c in s.view(SPECTATOR)["cards"].values()}
+    # "the first upkeep" is Alice's (the starting player's): each of Bob's opponents loses 3, Bob gains 6
+    assert [s.state.players[p].life for p in ("p1", "p2", "p3")] == [37, 46, 37]
+    roundtrip(s)
