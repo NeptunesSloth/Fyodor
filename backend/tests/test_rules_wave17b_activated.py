@@ -145,9 +145,11 @@ EXTRA = [
          "Waterbend {3}: This creature can't be blocked this turn. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nIslandcycling {2} ({2}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)", ('5', '7'), 'U'),
     real('Flexible Waterbender', '{3}{U}', 4, 'Creature — Human Warrior Ally',
          'Vigilance\nWaterbend {3}: This creature has base power and toughness 5/2 until end of turn. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)', ('2', '5'), 'U'),
+    real('Disembowel', '{X}{B}', 1, 'Instant',
+         'Destroy target creature with mana value X.', None, 'B'),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
-FULL = ["Ruthless Waterbender", "North Pole Patrol", "Katara, Bending Prodigy", "Geyser Leaper", "Giant Koi",
+FULL = ["Disembowel", "Ruthless Waterbender", "North Pole Patrol", "Katara, Bending Prodigy", "Geyser Leaper", "Giant Koi",
         "Flexible Waterbender", "Axebane Guardian", "Vivi Ornitier", "Lavinia, Foil to Conspiracy", "Pernicious Deed", "Dauntless Dismantler", "Godo's Irregulars", "Knight of Dusk", "Jabari's Banner", "Reckless Pyrosurfer", "Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
         "Volshe Tideturner", "Phelddagrif", "Leering Gargoyle", "Canopy Dragon", "Turtle-Duck", "Gargoyle Sentinel", "Singing Tree", "Island of Wak-Wak"]
 
@@ -636,4 +638,20 @@ def test_waterbend_with_tap_symbol_cannot_tap_itself_to_help(cards):
     settle(s)
     assert s.state.cards[bears.id].tapped and s.state.cards[patrol.id].tapped
     assert all(s.state.cards[h.id].tapped for h in helpers)
+    roundtrip(s)
+
+
+def test_target_creature_with_mana_value_exactly_x(cards):
+    """"Destroy target creature with mana value X." (Disembowel): the X announced with the spell (107.3f, 202.3e) is the mana value the
+    target must have, read for a permanent as for a card in a graveyard."""
+    s = build(cards, "Disembowel", p2=("Grizzly Bears",))
+    bears = on_field(s, "Grizzly Bears", "p2")  # (mana value 2)
+    spell = next(c for c in s.state.cards.values() if c.name == "Disembowel")
+    act(s, "p1", type="move", card_ids=[spell.id], to={"zone": "hand"})
+    mana(s, "p1", B=1, C=3)
+    with pytest.raises(ActionError):  # (X = 3: the Bears' mana value is 2)
+        act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id], x_value=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id], x_value=2)
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:graveyard"
     roundtrip(s)
