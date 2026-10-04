@@ -758,7 +758,8 @@ class TopReveal(BaseModel):
 
     source: str  # the permanent's card id
     player: str
-    to: Literal["all", "owner"]
+    to: Literal["all", "owner", "none"]  # (-- hidden exile (wave 18A) -- "none": only the face-down looking below)
+    face_down: bool = False  # 708.5 exception: ``player`` may also look at the face-down creatures others control
 
 
 class ReconcileItem(BaseModel):

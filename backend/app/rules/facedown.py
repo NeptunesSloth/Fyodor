@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.game.rules_state import DecisionOption
+from app.game.visibility import can_see
 from app.game.state import CardInstance, zone_key
 from app.rules import effects, selectors
 from app.rules.plan import Plan, decide
@@ -184,5 +185,29 @@ def turn_face_down(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down}
-RESUME: dict[str, Any] = {"manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up}
+def look_face_down(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Look at target face-down creature" (Aven Soulgazer, Smoke Teller): shown to the looking player alone (701.20e, as "look
+    at target player's hand") until they say they're done, then anonymous again. A target that isn't face down any more, or the
+    looker's own face-down creature (708.5 already lets them look), shows nothing."""
+    me = ctx["controller"]
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].face_down
+             and plan.state.cards[c].zone.endswith(":battlefield") and not can_see(plan.state, plan.state.cards[c], me)]
+    if not cards:
+        return True
+    plan.do({"type": "reveal", "card_ids": cards, "to": [me]}, actor=me)
+    decide(plan, player=me, kind="confirm", prompt=f"{ctx.get('name') or 'Look'}: you look at the face-down creature",
+           options=[DecisionOption(id="ok", label="Done looking")], resume={"step": "look_face_down", "ctx": ctx, "cards": cards})
+    return False
+
+
+def resume_look_face_down(plan: Plan, d: Any, chosen: list[str]) -> None:
+    left = [c for c in d.resume["cards"] if c in plan.state.cards and plan.state.cards[c].face_down and plan.state.cards[c].revealed_to]
+    if left:
+        plan.do({"type": "hide", "card_ids": left}, actor=d.player)
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
+PRIMITIVES: dict[str, Any] = {"manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down,
+                              "look_face_down": look_face_down}
+RESUME: dict[str, Any] = {"manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up,
+                          "look_face_down": resume_look_face_down}

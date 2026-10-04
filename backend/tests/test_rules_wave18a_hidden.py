@@ -16,7 +16,7 @@ from app.game.visibility import SPECTATOR
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_conditionals import settle, until
+from tests.test_rules_conditionals import settle, until, until_asked
 from tests.test_rules_effects import replay_matches
 from tests.test_rules_keywords3f import REAL as FACE_DOWN_CARDS
 from tests.test_rules_keywords3f import build as build3, ch, hidden_from, named
@@ -30,6 +30,8 @@ EXTRA = [
     card('Wall of Deceit', set_code='tst', number='Y03', mana_cost='{1}{U}', cmc=2.0, type_line='Creature — Wall', oracle_text="Defender (This creature can't attack.)\n{3}: Turn this creature face down.\nMorph {U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)", power='0', toughness='5', colors=['U'], color_identity=['U'], keywords=['Morph', 'Defender']),  # noqa: E501
     card('Skirk Alarmist', set_code='tst', number='Y04', mana_cost='{1}{R}', cmc=2.0, type_line='Creature — Human Wizard', oracle_text='Haste\n{T}: Turn target face-down creature you control face up. At the beginning of the next end step, sacrifice it.', power='1', toughness='2', colors=['R'], color_identity=['R'], keywords=['Haste']),  # noqa: E501
     card('Backslide', set_code='tst', number='Y05', mana_cost='{U}', cmc=1.0, type_line='Instant', oracle_text='Turn target creature with a morph ability face down.\nCycling {U}', power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=['Cycling']),  # noqa: E501
+    card('Smoke Teller', set_code='tst', number='Y06', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Human Shaman', oracle_text='{1}{U}: Look at target face-down creature.', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
+    card('Lens of Clarity', set_code='tst', number='Y07', mana_cost='{1}', cmc=1.0, type_line='Artifact', oracle_text="You may look at the top card of your library and at face-down creatures you don't control any time.", power=None, toughness=None, colors=[], color_identity=[], keywords=[]),  # noqa: E501
     card('Doomskar', set_code='tst', number='Y01', mana_cost='{3}{W}{W}', cmc=5.0, type_line='Sorcery', oracle_text='Destroy all creatures.\nForetell {1}{W}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)', power=None, toughness=None, colors=['W'], color_identity=['W'], keywords=['Foretell']),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
@@ -172,4 +174,45 @@ def test_backslide_turns_a_creature_with_a_morph_ability_face_down(cards):
     act(s, "p1", type="cast_spell", card_id=slide.id, targets=[wall.id])
     settle(s)
     assert s.state.cards[wall.id].face_down and hidden_from_session(s, "p2", wall)
+    check(s)
+
+
+def face_down_hermit(s):
+    """Bob's Thelonite Hermit on his battlefield face down (the table tool; the rules treat it as any face-down morph)."""
+    hermit = named(s, "Thelonite Hermit", "p2")
+    act(s, "p2", type="move", card_ids=[hermit.id], to={"player": "p2", "zone": "battlefield"}, face_down=True, face_down_kind="morph")
+    return hermit
+
+
+def test_look_at_target_face_down_creature_is_private_to_the_looker(cards):
+    s = build3(cards, "Smoke Teller", bob=("Thelonite Hermit",), players=2)
+    teller = to_hand3(s, "Smoke Teller", "p1")
+    act(s, "p1", type="move", card_ids=[teller.id], to={"player": "p1", "zone": "battlefield"})
+    hermit = face_down_hermit(s)
+    assert hidden_from(s, "p1", hermit)
+    mana3(s, "p1", U=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=teller.id, ability=0, targets=[hermit.id])
+    d = until_asked(s)
+    assert d is not None and d.player == "p1"
+    assert "Thelonite Hermit" in blob(s, "p1")  # the looker sees it now ...
+    for viewer in ("p2", SPECTATOR):  # ... and nobody else's view of the decision shows anything
+        assert "Thelonite Hermit" not in json.dumps(s.view(viewer)["rules"]["decision"])
+    assert hidden_from(s, SPECTATOR, hermit) and hidden_from(s, "p2", named(s, "Smoke Teller", "p1")) is False
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["ok"])
+    settle(s)
+    assert hidden_from_session(s, "p1", hermit) and s.state.cards[hermit.id].face_down  # looking changes nothing (its log line stays)
+    check(s)
+
+
+def test_lens_of_clarity_lets_you_look_at_face_down_creatures_you_dont_control(cards):
+    s = build3(cards, "Lens of Clarity", bob=("Thelonite Hermit",), players=2)
+    lens = to_hand3(s, "Lens of Clarity", "p1")
+    hermit = face_down_hermit(s)
+    assert hidden_from(s, "p1", hermit)
+    act(s, "p1", type="move", card_ids=[lens.id], to={"player": "p1", "zone": "battlefield"})
+    assert "Thelonite Hermit" in blob(s, "p1")  # 708.5 exception: any time, as long as the artifact is there
+    assert hidden_from(s, SPECTATOR, hermit)
+    assert not hidden_from(s, "p2", hermit)  # (its controller always may)
+    act(s, "p1", type="move", card_ids=[lens.id], to={"zone": "graveyard"})
+    assert hidden_from(s, "p1", hermit)
     check(s)

@@ -39,7 +39,7 @@ def can_see(state: GameState, card: CardInstance, viewer: str) -> bool:
         return True
     _, zone = split_zone(card.zone)
     if zone in PUBLIC_ZONES:
-        return not card.face_down or viewer == card.controller
+        return not card.face_down or viewer == card.controller or looks_at_face_down(state, card, viewer)
     if zone in OWNER_VISIBLE_ZONES and viewer == card.owner:
         return True
     for view in state.views:
@@ -68,9 +68,24 @@ def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
                 or rules.card_mode(source.id) == "manual":
             continue
         controller = source.controller
-        if card.zone != f"{controller}:library" or (reveal.to == "owner" and viewer != controller):
+        if reveal.to == "none" or card.zone != f"{controller}:library" or (reveal.to == "owner" and viewer != controller):
             continue
         return True
+    return False
+
+
+def looks_at_face_down(state: GameState, card: CardInstance, viewer: str) -> bool:
+    """-- hidden exile (wave 18A) -- "You may look at face-down creatures you don't control any time." (Found Footage, Keeper of
+    the Lens): the source's controller sees the face-down creatures on the battlefield that others control (a static ability
+    that works while its source is on the battlefield face up and automated, as ``top_revealed``)."""
+    rules = state.rules
+    if rules is None or not card.zone.endswith(":battlefield") or card.controller == viewer:
+        return False
+    for reveal in rules.top_reveals:
+        source = state.cards.get(reveal.source)
+        if reveal.face_down and reveal.player == viewer and source is not None and not source.face_down \
+                and source.zone.endswith(":battlefield") and source.controller == viewer and rules.card_mode(source.id) != "manual":
+            return True
     return False
 
 

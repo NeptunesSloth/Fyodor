@@ -2923,6 +2923,13 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         found = _manifest_forms(text)
         if found is not None:
             return found
+    m = re.fullmatch(r"look at (?P<o>target face-down .+)", text)  # -- hidden exile (wave 18A) -- 708.5 / 701.20e
+    if m and has_primitive("look_face_down"):
+        try:
+            kind, key, group = ref(m["o"])
+        except _Fail:
+            return None
+        return ([{"do": "look_face_down", "who": "target"}], _one(group)) if kind == "target" and on_battlefield_only(key) else None
     m = re.fullmatch(r"turn (?P<o>.+) face (?P<d>up|down)", text)  # -- hidden exile (wave 18A) -- 701.40g / 708.2a / 708.8
     if m and has_primitive("turn_face_up"):
         up = m["d"] == "up"
