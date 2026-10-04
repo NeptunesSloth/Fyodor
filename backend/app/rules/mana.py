@@ -139,6 +139,7 @@ class ManaAbility:
     # -- mana provenance (wave 18B) -- "When that mana is spent to cast …, …" / "If that mana is spent on …, that spell can't be
     # countered": the riders (JSON dicts, mana_units.RIDERS) the mana it adds carries (106.6)
     on_spend: tuple[str, ...] = ()
+    spend_text: str = ""  # the restriction sentence, for the pool display
 
     @property
     def penalty(self) -> int:
@@ -381,6 +382,7 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         return None
     riders: list[tuple[str, int]] = []
     on_spend: list[str] = []  # -- mana provenance (wave 18B) -- 106.6 riders (mana_units.rider)
+    spend_text = ""
     spend_only: str | None = None
     instead_if: tuple[tuple[str, ...], ...] = ()
     instead: tuple[tuple[str, ...], ...] = ()
@@ -437,13 +439,13 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             q = spend_kind(s)  # (-- refused copy/mana (wave 3R3) -- the general restriction grammar)
             if q is None or spend_only is not None:
                 return None  # a rider the engine doesn't know: leave the ability manual
-            spend_only = q
+            spend_only, spend_text = q, s + "."
     if spend_only is not None and from_hand:
         return None  # (-- wave 18B -- activated from the hand by mana_riders.activate_from_hand, which adds plain mana: manual)
     return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
                        riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition,
                        count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter,
-                       from_hand=from_hand, on_spend=tuple(on_spend))
+                       from_hand=from_hand, on_spend=tuple(on_spend), spend_text=spend_text)
 
 
 @dataclass(frozen=True)

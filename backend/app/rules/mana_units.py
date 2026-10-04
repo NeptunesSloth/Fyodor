@@ -78,6 +78,7 @@ class Slot:
     riders: list[dict[str, Any]]
     src: str
     unit: int | None = None
+    note: str = ""
 
 
 def settle(plan: Plan, player: str, payment: M.Payment) -> dict[str, Any]:
@@ -94,14 +95,14 @@ def settle(plan: Plan, player: str, payment: M.Payment) -> dict[str, Any]:
     for cid, opt in payment.slots:
         if cid.startswith(PREFIX):
             u = units[int(cid[len(PREFIX):])]
-            slots.append(Slot(u.sym, list(u.tags), u.only, list(u.riders), u.src, unit=u.id))
+            slots.append(Slot(u.sym, list(u.tags), u.only, list(u.riders), u.src, unit=u.id, note=u.note))
             continue
         card = state.cards[cid]
         ab = dict(mana_abilities(state, card, plan.info)).get(used.get(cid, -1))
         only = ab.spend_only if ab else None
         riders = rider_specs(ab, plan.ch(card).name)
         tags = tags_of(plan.ch(card))
-        slots += [Slot(m, tags, only, riders, plan.oid(card)) for m in opt]
+        slots += [Slot(m, tags, only, riders, plan.oid(card), note=ab.spend_text if ab else "") for m in opt]
     delta: dict[str, int] = {}
     spend: list[int] = []
     add: list[dict[str, Any]] = []
@@ -118,7 +119,7 @@ def settle(plan: Plan, player: str, payment: M.Payment) -> dict[str, Any]:
             if s.unit is not None:
                 continue
             if needs_unit(plan, s.only, s.riders, s.tags):
-                add.append({"sym": s.sym, "src": s.src, "tags": s.tags, "only": s.only, "riders": s.riders})
+                add.append({"sym": s.sym, "src": s.src, "tags": s.tags, "only": s.only, "riders": s.riders, "note": s.note})
             else:
                 delta[sym] = delta.get(sym, 0) + 1
     return {"delta": {k: v for k, v in delta.items() if v}, "spend_units": spend, "add_units": add}
@@ -145,7 +146,8 @@ def restrict(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     before = {u.id for u in plan.state.players[pid].mana_units}
     plan.do({"type": "rules_mana", "player": pid, "tap": [], "sacrifice": [], "life": 0, "label": "",
              "delta": {s: -n for s, n in added_.items()},
-             "add_units": [{"sym": s, "src": src, "tags": tags, "only": e["only"], "riders": list(e.get("riders") or [])}
+             "add_units": [{"sym": s, "src": src, "tags": tags, "only": e["only"], "riders": list(e.get("riders") or []),
+                            "note": e.get("note", "")}
                            for s, n in added_.items() for _ in range(n)]}, actor=pid)
     ctx["_mana_unit_ids"] = [u.id for u in plan.state.players[pid].mana_units if u.id not in before]
     return True
@@ -160,7 +162,7 @@ def added(plan: Plan, card: Any, ability: Any, mana: dict[str, int]) -> dict[str
     if not needs_unit(plan, only, riders, tags):
         return {"delta": mana}
     src = plan.oid(card)
-    return {"add_units": [{"sym": m, "src": src, "tags": tags, "only": only, "riders": riders}
+    return {"add_units": [{"sym": m, "src": src, "tags": tags, "only": only, "riders": riders, "note": getattr(ability, "spend_text", "")}
                           for m, n in mana.items() for _ in range(n)]}
 
 

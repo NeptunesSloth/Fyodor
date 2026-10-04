@@ -5390,7 +5390,7 @@ def _restrict_mana(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     only = mana_.spend_kind(m["s"][:1].upper() + m["s"][1:])
     if only is None:
         raise _NoMatch
-    return [{"do": "restrict_mana", "only": only}], None
+    return [{"do": "restrict_mana", "only": only, "note": m["s"][:1].upper() + m["s"][1:] + "."}], None
 
 
 # "Add six {R}" / "add eight {C}" / "add that much {G}" (the trigger event's amount, 608.2k): n of one type

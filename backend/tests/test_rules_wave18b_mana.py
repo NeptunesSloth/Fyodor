@@ -426,3 +426,62 @@ def test_pyromancers_goggles_copy_the_red_spell(cards):
     settle(s)
     assert s.state.players["p2"].life == 34  # 3 + the copy's 3
     roundtrip(s)
+
+
+def geosurged(cards, *names):
+    s = build(cards, "Geosurge", *names)
+    to_hand(s, "Geosurge")
+    for n in names:
+        to_hand(s, n)
+    mana(s, "p1", R=4)
+    act(s, "p1", type="cast_spell", card_id=next(c.id for c in s.state.cards.values() if c.name == "Geosurge"))
+    settle(s)
+    return s
+
+
+def test_restricted_units_pay_in_the_tap_your_own_mana_mode(cards):
+    s = geosurged(cards, "Monastery Swiftspear")
+    s.state.rules.prefs["p1"].payment = "self"  # (the internal mode: the player taps their own mana, the pool pays)
+    act(s, "p1", type="cast_spell", card_id=next(c.id for c in s.state.cards.values() if c.name == "Monastery Swiftspear"))
+    settle(s)
+    assert len(units(s)) == 6 and any(c.name == "Monastery Swiftspear" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    roundtrip(s)
+
+
+def test_manual_sources_still_spend_the_pools_restricted_mana_first(cards):
+    s = geosurged(cards, "Monastery Swiftspear")
+    act(s, "p1", type="cast_spell", card_id=next(c.id for c in s.state.cards.values() if c.name == "Monastery Swiftspear"), sources=[])
+    settle(s)
+    assert len(units(s)) == 6
+    roundtrip(s)
+
+
+def test_old_saves_load_with_plain_counts_and_no_units(cards):
+    s = build(cards, "Lightning Bolt")
+    mana(s, "p1", R=1)
+    dump = s.state.model_dump(mode="json")
+    for p in dump["players"].values():  # (a save from before wave 18B)
+        p.pop("mana_units", None), p.pop("mana_seq", None)
+    dump["rules"].pop("provenance", None)
+    loaded = GameSession(GameState.model_validate(dump), cards=s.cards)
+    assert loaded.state.players["p1"].mana == {"R": 1} and loaded.state.players["p1"].mana_units == []
+    b = bolt(loaded)
+    act(loaded, "p1", type="cast_spell", card_id=b.id, targets=["p2"])  # (the plain {R} pays: unrestricted)
+    settle(loaded)
+    assert loaded.state.players["p2"].life == 37
+
+
+def test_views_show_the_same_pool_to_everyone_and_nothing_hidden(cards):
+    import json
+
+    from app.game.views import SPECTATOR, build_view
+
+    s = geosurged(cards, "Monastery Swiftspear")
+    secret = next(c for c in s.state.cards.values() if c.name == "Monastery Swiftspear" and c.zone == "p1:hand")
+    views = {v: build_view(s.state, v) for v in ("p1", "p2", SPECTATOR)}
+    pools = {v: [p["mana_units"] for p in views[v]["players"] if p["id"] == "p1"][0] for v in views}
+    assert pools["p1"] == pools["p2"] == pools[SPECTATOR] and len(pools["p1"]) == 7
+    assert set(pools["p2"][0]) == {"id", "sym", "src", "tags", "only", "note", "riders"}
+    assert secret.name not in json.dumps(views["p2"]) and secret.name not in json.dumps(views[SPECTATOR])  # (the hand stays hidden)
+    d = s.state.rules.decision
+    assert d is None

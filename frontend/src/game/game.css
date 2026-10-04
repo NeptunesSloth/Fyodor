@@ -430,6 +430,7 @@ body.picking .table-card, body.picking .player-panel, body.picking .stack-item {
   display: inline-flex; align-items: baseline; gap: 2px; padding: 0 4px; min-width: 26px; font-size: 10.5px; cursor: pointer;
   background: rgba(0, 0, 0, 0.3); border: 1px solid var(--room-edge); border-radius: 2px; color: var(--room-bone-dim);
 }
+.mana-unit { font-size: 11px; padding: 0 5px; border: 1px dashed var(--room-bone-dim); border-radius: 8px; color: var(--room-bone); cursor: help; }
 .mana-pip b { font-size: 12px; color: var(--room-bone-dim); }
 .mana-pip.on b { color: var(--room-bone); }
 .mana-pip.w.on { border-color: var(--mana-w); } .mana-pip.u.on { border-color: var(--mana-u); } .mana-pip.b.on { border-color: var(--mana-b); }
