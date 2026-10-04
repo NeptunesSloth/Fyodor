@@ -423,6 +423,8 @@ def spend_allowed(kind: str | None, purpose: Purpose | None) -> bool:
         import json
 
         spec = json.loads(kind[2:])
+        if spec.get("cost_x"):  # -- mana provenance (wave 18B) -- "only on costs that contain {X}"
+            return purpose.cost_x
         side, ch = ("cast", spell) if spell is not None else ("ability", source)
         allowed = spec.get(side)
         if ch is None or allowed is None or any(a.get("chosen") for a in allowed if isinstance(allowed, list)):
@@ -437,6 +439,8 @@ def _cast_origin_ok(alt: dict[str, Any], purpose: Purpose) -> bool:
     zone it's cast from (exile / a graveyard / your graveyard / not your hand)."""
     zone = purpose.zone.rsplit(":", 1)[-1] if purpose.zone else None
     if alt.get("kicked") and not purpose.kicked:
+        return False
+    if alt.get("not_own") and purpose.own:  # (-- mana provenance (wave 18B) --)
         return False
     if alt.get("zone") and (zone != alt["zone"] or (alt.get("own") and (purpose.zone or "").split(":")[0] != purpose.player)):
         return False
@@ -838,6 +842,10 @@ class Purpose:
     zone: str | None = None
     player: str | None = None
     kicked: bool = False
+    # -- mana provenance (wave 18B) -- does the player own the spell ("spells you don't own", Thieving Varmint)
+    own: bool = True
+    # -- mana provenance (wave 18B) -- the cost being paid contains {X} ("Spend this mana only on costs that contain {X}", Rosheen Meanderer)
+    cost_x: bool = False
 
 
 def _solve_with_filters(cost: M.ManaCost, pool: dict[str, int], plain: list[M.Source], filters: list[M.Source],
@@ -1024,7 +1032,10 @@ def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristic
     (each paying one symbol, 702.51a / 702.126a / 702.66a) and mana for everything else — all at
     once. Returns how it was paid; contributions are not mana spent."""
     player = plan.actor
-    purpose = Purpose(spell=ch, zone=origin or card.zone, player=player, kicked=bool(a.kicker))  # (wave 17B: origin: before the stack)
+    # (wave 17B: origin: before the stack; wave 18B: the spell's mana value with the X it was announced with, 202.3e, and who owns it)
+    spell_ch = replace(ch, mana_value=ch.mana_value + (a.x_value or 0) * ch.mana_cost.count("{X}")) if a.x_value else ch
+    purpose = Purpose(spell=spell_ch, zone=origin or card.zone, player=player, kicked=bool(a.kicker), own=card.owner == player,
+                      cost_x="{X}" in ch.mana_cost)
     if a.contributions:
         helpers = helpers_for(plan.state, player, plan.info, ch, card.id, [c.model_dump() for c in a.contributions])
     elif a.sources is None and payment_mode(plan, player) != "self":
@@ -1782,7 +1793,8 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
                           targets=_hint_targets(ch))  # -- review (Codex) --
         if grant is not None and grant.spend:  # -- as long as (wave 9B) -- 118.14
             cost = M.spend_as(cost, grant.spend)
-        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player)):
+        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
+                                                              cost_x="{X}" in ch.mana_cost)):
             return True
     return False
 
@@ -1821,7 +1833,8 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
             continue
         cost = spell_cost(state, card, ch, info=info, player=player, alternative=offer.alt.mana_cost,
                           targets=_hint_targets(ch))  # -- review (Codex) --
-        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player)):
+        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
+                                                              cost_x="{X}" in ch.mana_cost)):
             out.append({"id": offer.key, "label": offer.label})
     return out
 
@@ -1845,7 +1858,8 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
                                                        free=grant is not None and grant.free), (offer.mana,))
         except ActionError:
             continue
-        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player)):
+        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
+                                                              cost_x="{X}" in ch.mana_cost)):
             out.append({"id": offer.source, "label": offer.label})
     return out
 # -- end cost changers (wave 4I) --
@@ -2927,7 +2941,8 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
             if comp.kind == "WATERBEND":
                 helpers = len(cost_payment.candidates(Plan.view(state, player, info), comp, player, card))
                 mana = mana.plus_generic(-min(comp.amount, helpers))
-        if not can_pay(state, player, mana, info, exclude=(card.id,) if cost.tap else (), purpose=Purpose(ability_of=ch)):
+        if not can_pay(state, player, mana, info, exclude=(card.id,) if cost.tap else (),
+                       purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana)):
             return f"Not enough mana to pay {mana.text()}"
     return None
 
@@ -2991,7 +3006,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
             mana = mana.plus_generic(-len(cost_objects.get(i, [])))
     not_mana = cost_payment.excluded(cost, card, cost_objects)  # (they can't also tap for mana)
     if payment_step(plan, a, mana.with_x(a.x_value or 0), f"{ch.name}’s ability",
-                    exclude=not_mana, purpose=Purpose(ability_of=ch)):
+                    exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana)):
         return
     effect = ability.text.split(":", 1)[1].strip() if ":" in ability.text else ability.text
     created = plan.do({"type": "create_ability", "text": effect[:500], "source_id": card.id, "kind": "activated"})
@@ -3008,7 +3023,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if cost.life:
         plan.do({"type": "life", "player": plan.actor, "delta": -cost.life})
     paid = pay(plan, plan.actor, mana.with_x(a.x_value or 0), f"paid {mana.with_x(a.x_value or 0).text()} to activate {ch.name}",
-               sources=a.sources, exclude=not_mana, purpose=Purpose(ability_of=ch))
+               sources=a.sources, exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana))
     record = PaymentRecord(card=ability_id or card.id, controller=plan.actor, total_cost=ability.cost or "",
                            mana_spent=dict(paid.spent) if paid else {}, life=cost.life + (paid.life if paid else 0),
                            tapped=list(paid.tapped) if paid else [], x=a.x_value)

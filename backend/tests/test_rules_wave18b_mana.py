@@ -16,6 +16,7 @@ from app.game.errors import ActionError
 from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import casting, coverage
+from app.rules.oracle import AbilityText
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, zone
 from tests.test_rules_conditionals import build, creature, on_field, to_hand
@@ -62,6 +63,9 @@ EXTRA = [
          "{T}: Add {G}. When you spend this mana to cast a Dragon creature spell, you gain 2 life.", ("1", "2"), "G"),
     real("Pyromancer's Goggles", "{5}", 5, "Legendary Artifact",
          "{T}: Add {R}. When that mana is spent to cast a red instant or sorcery spell, copy that spell and you may choose new targets for the copy."),
+    real("Rosheen Meanderer", "{3}{G}", 4, "Legendary Creature — Giant Shaman",
+         "{T}: Add {C}{C}{C}{C}. Spend this mana only on costs that contain {X}.", ("4", "4"), "G"),
+    real("Blaze", "{X}{R}", 1, "Sorcery", "Blaze deals X damage to any target.", None, "R"),
     real("Berg Strider", "{4}{U}", 5, "Snow Creature — Giant Wizard",
          "When this creature enters, tap target artifact or creature an opponent controls. If {S} was spent to cast this spell, that permanent "
          "doesn't untap during its controller's next untap step. ({S} is mana from a snow source.)", ("4", "4"), "U"),
@@ -70,7 +74,7 @@ EXTRA = [
          "At the beginning of your upkeep, add {C} for each artifact you control. This mana can't be spent to cast nonartifact spells. "
          "Until end of turn, you don't lose this mana as steps and phases end.", ("*", "*"), ""),
 ]
-FULL = ["Delighted Halfling", "Hall of the Bandit Lord", "Scaled Nurturer", "Pyromancer's Goggles", "Spoils of the Hunt", "Geosurge", "Grand Architect", "Master of Dark Rites", "Smaug, Wicked Worm", "Tundra Fumarole", "Coin of Mastery",
+FULL = ["Rosheen Meanderer", "Delighted Halfling", "Hall of the Bandit Lord", "Scaled Nurturer", "Pyromancer's Goggles", "Spoils of the Hunt", "Geosurge", "Grand Architect", "Master of Dark Rites", "Smaug, Wicked Worm", "Tundra Fumarole", "Coin of Mastery",
         "Jaded Sell-Sword", "Berg Strider", "Karn, Legacy Reforged"]
 
 
@@ -485,3 +489,56 @@ def test_views_show_the_same_pool_to_everyone_and_nothing_hidden(cards):
     assert secret.name not in json.dumps(views["p2"]) and secret.name not in json.dumps(views[SPECTATOR])  # (the hand stays hidden)
     d = s.state.rules.decision
     assert d is None
+
+
+@pytest.mark.parametrize(("sentence", "changes", "own", "ok"), [
+    ("Spend this mana only to cast spells with mana value 5 or greater or spells with {X} in their mana costs.", {}, True, False),
+    ("Spend this mana only to cast spells with mana value 5 or greater or spells with {X} in their mana costs.", {"mana_value": 5}, True, True),
+    ("Spend this mana only to cast spells with mana value 5 or greater or spells with {X} in their mana costs.", {"mana_cost": "{X}{G}"}, True, True),
+    ("Spend this mana only to cast creature spells with mana value 4 or greater or creature spells with {X} in their mana costs.",
+     {"mana_value": 4}, True, True),
+    ("Spend this mana only to cast spells you don't own.", {}, True, False),
+    ("Spend this mana only to cast spells you don't own.", {}, False, True),
+    ("Spend this mana only to cast a spell with devoid.", {}, True, False),
+    ("Spend this mana only to cast a spell with devoid.", {"granted": frozenset({"devoid"})}, True, True),
+    ("Spend this mana only to cast creature spells with no abilities.", {}, True, True),
+    ("Spend this mana only to cast creature spells with no abilities.", {"abilities": (AbilityText(0, "Trample", "keywords", ("trample",)),)}, True, False),
+])
+def test_spend_only_by_what_the_spell_is(cards, sentence, changes, own, ok):
+    from dataclasses import replace
+
+    s = build(cards, "Grizzly Bears")
+    kind = M_parse_spend(sentence)
+    assert kind is not None
+    bears = chars(s, next(c for c in s.state.cards.values() if c.name == "Grizzly Bears"))
+    spell = replace(bears, **changes)
+    assert casting.spend_allowed(kind, casting.Purpose(spell=spell, zone="p1:hand", player="p1", own=own)) is ok
+
+
+def M_parse_spend(sentence):
+    from app.rules import mana as M
+
+    return M.spend_kind(sentence.rstrip("."))
+
+
+def test_rosheens_mana_pays_only_costs_that_contain_x_and_the_rest_stays_restricted(cards):
+    s = build(cards, "Rosheen Meanderer", "Blaze", "Lightning Bolt", "Mountain")
+    rosheen = on_field(s, "Rosheen Meanderer")
+    s.state.rules.controlled_since[rosheen.id].turn = 0
+    on_field(s, "Mountain")
+    blaze = to_hand(s, "Blaze")
+    act(s, "p1", type="cast_spell", card_id=blaze.id, x_value=3, targets=["p2"])  # {X}{R}: X = 3 from Rosheen's {C}{C}{C}{C}, {R} from the Mountain
+    settle(s)
+    assert s.state.players["p2"].life == 37 and s.state.cards[rosheen.id].tapped
+    assert len(units(s)) == 1 and units(s)[0][0] == "C"  # (its fourth {C}: still restricted to costs with {X})
+    roundtrip(s)
+
+
+def test_rosheens_mana_cannot_pay_a_cost_without_x(cards):
+    s = build(cards, "Rosheen Meanderer", "Grizzly Bears")
+    rosheen = on_field(s, "Rosheen Meanderer")
+    s.state.rules.controlled_since[rosheen.id].turn = 0
+    bears = to_hand(s, "Grizzly Bears")
+    assert not casting.castable(s.state, "p1", bears, s.cards)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bears.id)

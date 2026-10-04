@@ -682,20 +682,37 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
     return out
 
 
+# -- mana provenance (wave 18B) -- what a spell is besides its types: "spells with mana value 5 or greater", "spells with {X} in their
+# mana costs", "a spell with devoid" / "that has freerunning", "creature spells with no abilities", "spells you don't own" (601.2h: the
+# spell's characteristics and who owns it are known as it is paid)
+_SPELL_WITH = [
+    (re.compile(r"^(?P<pre>.*?) ?spells? with mana value (?P<n>\d+)_ge$"), lambda m: {"mv_min": int(m["n"])}),
+    (re.compile(r"^(?P<pre>.*?) ?spells? with \{X\} in (?:their|its) mana costs?$"), lambda m: {"has_x": True}),
+    (re.compile(r"^(?P<pre>.*?) ?spells? (?:with|that has) (?P<kw>devoid|freerunning|flash|haste)$"), lambda m: {"kw": m["kw"]}),
+    (re.compile(r"^(?P<pre>.*?) ?spells? with no abilities$"), lambda m: {"no_abilities": True}),
+    (re.compile(r"^(?P<pre>.*?) ?spells? you don't own$"), lambda m: {"not_own": True}),
+]
+
+
 def _alts(phrase: str, *, source: bool) -> list[dict[str, object]] | None:
     p = re.sub(r"^(?:an?|one or more) ", "", phrase.strip())
+    p = re.sub(r"(\d+) or greater", r"\1_ge", p)  # (its "or" isn't an alternative)
     parts = [x for x in re.split(r",? and/or |,? or |, and |, | and ", p) if x]
     out = []
     for part in parts:
         part = re.sub(r"^(?:an?) ", "", part)
+        extra: dict[str, object] = {}
+        if not source:
+            for rx, make in _SPELL_WITH:
+                if (w := rx.fullmatch(part)) is not None:
+                    extra, part = make(w), w["pre"]
+                    break
         if not source:  # ("instant and sorcery spells": the noun may come once, at the end)
             part = re.sub(r" spells?(?= of the chosen type$)| spells?$", "", part)
-        alt = _alt(part, source=source)
+        alt = _alt(part, source=source) if part or not extra else {}
         if alt is None:
             return None
-        out.append(alt)
-    if any(a.get("chosen") for a in out) and len(out) > 1:
-        return None
+        out.append({**alt, **extra})
     return out or None
 
 
@@ -724,6 +741,8 @@ def parse_spend(sentence: str) -> str | None:
     import json
 
     s = sentence.strip().rstrip(".")
+    if s == "Spend this mana only on costs that contain {X}":  # -- mana provenance (wave 18B) -- casting.Purpose.cost_x
+        return "q:" + json.dumps({"cast": None, "ability": None, "cost_x": True}, sort_keys=True)
     if s == "This mana can't be spent to cast spells":
         return "q:" + json.dumps({"cast": None, "ability": "any"}, sort_keys=True)
     if s == "This mana can't be spent to cast spells from your hand":
@@ -772,6 +791,12 @@ def spend_alt_matches(alt: dict[str, Any], ch: Any) -> bool:
     if any(t in types for t in alt.get("non") or []):
         return False
     if alt.get("kw") and alt["kw"] not in ch.keywords:
+        return False
+    if alt.get("mv_min") is not None and ch.mana_value < alt["mv_min"]:  # -- mana provenance (wave 18B) --
+        return False
+    if alt.get("has_x") and "{X}" not in ch.mana_cost:
+        return False
+    if alt.get("no_abilities") and ch.abilities:
         return False
     color = alt.get("color")
     if color == "colorless" and colors:
