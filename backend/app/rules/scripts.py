@@ -193,6 +193,9 @@ def _short_name(name: str, text: str = "") -> str | None:
     first word), unless that word is also a creature type ("Soldier of the Pantheon")."""
     from app.rules.creature_types import CREATURE_TYPES
 
+    two = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]+ [A-ZÀ-ÖØ-Þ][\w'-]+) (?:the|of) ", name)  # -- trigger tail (wave 15B) -- "Tor Wauki the Younger"
+    if two is not None and re.search(rf"\b{re.escape(two[1])}\b", text):
+        return two[1]
     m = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]{2,}) (?:the|of) ", name)  # (-- extremes (wave 8B) -- a capital with an accent: Éomer)
     if m is None:
         # -- grammar (wave 11C) -- 201.5c: "Elanor Gardner" is "Elanor" in its own text; taken only where that word acts as

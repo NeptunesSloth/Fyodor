@@ -593,10 +593,19 @@ def _player_action(c: str) -> Condition | None:
     # -- entry forms (wave 5F) -- "When you play another land" (City of Traitors), "Whenever a player plays a land": 305.1
     # (playing a land — not putting one onto the battlefield)
     # -- trigger tail (wave 15B) -- "Whenever you expend 4" (700.14: as you spend your fourth total mana to cast spells this turn)
+    m = re.fullmatch(r"(?P<p>you|a player|an opponent) plays? (?P<a>an? [\w ]*?land) or casts? (?P<b>an? [\w ]*?spell)", c)
+    if m:  # "Whenever you play a land or cast a spell" (305.1: playing a land is no cast): either event, each its own (603.2)
+        p = m["p"]
+        verb = "play" if p == "you" else "plays"
+        land, spell = _parse(f"{p} {verb} {m['a']}"), _parse(f"{p} {'cast' if p == 'you' else 'casts'} {m['b']}")
+        if land is None or spell is None or land.get("event") != "land_played" or spell.get("event") != "cast" \
+                or land.get("aggregate") or spell.get("aggregate"):
+            return None
+        return {"event": "either", "subject": "player", "player": land["player"], "conds": [land, spell]}
     m = re.fullmatch(r"you expend (?P<n>\d+)", c)
     if m:
         return {"event": "expend", "subject": "player", "player": "you", "n": int(m["n"])}
-    m = re.fullmatch(rf"{_P} plays? (?P<o>a land|another land)", c)
+    m = re.fullmatch(rf"{_P} plays? (?P<o>another land|an? (?:[a-z]+ )?land)", c)
     if m:
         return {"event": "land_played", "subject": "player", "player": _PLAYERS[m["p"]], "obj": _object_sel(m["o"]),
                 "aggregate": False}

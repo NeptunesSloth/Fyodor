@@ -59,6 +59,7 @@ EXTRA += [
     real("Teapot Slinger", "{3}{R}", 4, "Creature — Raccoon Warrior", "Menace\nWhenever you expend 4, this creature deals 2 damage to each opponent.", ("3", "3"), "R"),
     real("Raise the Alarm Copy", "{1}{W}", 2, "Instant", "Create two 1/1 white Soldier creature tokens.", None, "W"),
     real("God-Eternal Oketra", "{3}{W}{B}", 5, "Legendary Creature — Zombie God", "Double strike\nWhenever you cast a Zombie creature spell, create a 4/4 black Zombie Warrior creature token with vigilance.\nWhen God-Eternal Oketra dies or is put into exile from the battlefield, you may put it into its owner's library third from the top.", ("3", "6"), "WB"),
+    real("The Endstone", "{3}", 3, "Artifact", "Whenever you play a land or cast a spell, draw a card.", None),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -196,6 +197,23 @@ def test_dies_puts_it_third_from_the_top_of_its_owners_library(cards):
     kill(s, "God-Eternal Oketra")
     answer(s, "yes")
     assert s.state.zones["p1:library"].index(card_named(s, "God-Eternal Oketra").id) == 2
+    check(s)
+
+
+def test_play_a_land_or_cast_a_spell_triggers_on_each(cards):
+    s = build(cards, ["The Endstone", "Opt"], [])
+    put(s, "The Endstone")
+    forest = to_hand(s, "Forest")
+    hand0 = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="play_land", card_id=forest.id)
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == hand0  # -1 land played, +1 drawn
+    opt = to_hand(s, "Opt")
+    before = len(s.state.zones["p1:hand"])
+    mana(s, "p1", U=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == before - 1 + 2  # Opt cast, +1 from The Endstone, +1 from Opt
     check(s)
 
 
