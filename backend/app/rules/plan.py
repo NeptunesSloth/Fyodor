@@ -133,7 +133,9 @@ class Plan:
         return out
 
     def note(self, message: str, card_ids: list[str] | tuple[str, ...] = (), *, actor: str | None = None) -> None:
-        self.do({"type": "rules_log", "text": message, "card_ids": list(card_ids)}, actor=actor)
+        from app.game.ops import shown  # (review 18F: a granter is read as its name, never its object id)
+
+        self.do({"type": "rules_log", "text": shown(self.state, message), "card_ids": list(card_ids)}, actor=actor)
 
     def ch(self, card: CardInstance) -> Characteristics:
         """Current characteristics: printed, then continuous effects in layer order."""
@@ -227,9 +229,12 @@ def require_priority(plan: Plan) -> None:
 def decide(plan: Plan, *, player: str, kind: str, prompt: str, options: list[DecisionOption], resume: dict[str, Any],
            min_choices: int = 1, max_choices: int = 1, source: CardInstance | None = None,
            memory_key: str | None = None, memory_context: str = "", display: dict[str, Any] | None = None, decider: str | None = None) -> None:
+    from app.game.ops import shown  # (review 18F: a granter is read as its name)
+
     source_id = source.id if source is not None and publicly_visible(plan.state, source) else None
+    options = [o.model_copy(update={"label": shown(plan.state, o.label)}) if "‹" in o.label else o for o in options]
     plan.rules.decision = Decision(
-        id=secrets.token_hex(6), player=player, kind=kind, prompt=prompt[:300], options=options,  # type: ignore[arg-type]
+        id=secrets.token_hex(6), player=player, kind=kind, prompt=shown(plan.state, prompt)[:300], options=options,  # type: ignore[arg-type]
         min_choices=min_choices, max_choices=max_choices, source_id=source_id, resume=resume,
         memory_key=memory_key, memory_context=memory_context, display=display,
         # -- controlling another player (wave 18H) -- 723.5: who makes this choice for ``player`` (None: they do)

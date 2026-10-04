@@ -786,6 +786,8 @@ def _targets_ok(plan: Plan, want: str, watcher: CardInstance, targets: list[tupl
     """115.9b: "a spell that targets ~ / a creature you control" — the spell's targets as they are now."""
     from app.rules import selectors
 
+    if want == "self_only":  # -- copied abilities (wave 18F) -- "that targets only ~": every target, and at least one, is the watcher (115.9b)
+        return bool(targets) and all(c == watcher.id and (o is None or plan.oid(watcher) == o) for c, o in targets)
     for card_id, oid in targets:
         card = plan.state.cards.get(card_id)
         if card is None or (oid is not None and plan.oid(card) != oid):
@@ -1495,14 +1497,17 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
                                          "effects": effects})
 
 
-def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False) -> None:
+def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False, ability_id: str | None = None) -> None:
     """-- activation (wave 11F) -- 602.2: an activated ability (not a mana ability) was put on the stack by ``plan.actor``:
     "Whenever an opponent activates an ability of a creature …" (603.2). The source is the object that activated it,
     as it last existed if paying the cost moved it (603.10a, 608.2h)."""
     snap = None if plan.oid(card) == oid else plan.rules.lki.get(oid)
     obj, och = _snapshot_card(plan, snap) if snap is not None else (card, plan.ch(card))
+    ability = plan.state.cards.get(ability_id or "")  # (wave 18F: the activated ability itself, for "copy that ability")
     _fire_generic(plan, [("activate", obj, och, plan.actor,
-                          {"oid": oid, "snap": snap, "actor": plan.actor, "amount": 1, "loyalty": loyalty})], -1, {})
+                          {"oid": oid, "snap": snap, "actor": plan.actor, "amount": 1, "loyalty": loyalty,
+                           "source_ref": ObjectRef(card=ability.id, object_id=plan.oid(ability), zone=ability.zone) if ability else None})],
+                  -1, {})
 
 
 def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -> None:

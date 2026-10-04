@@ -995,7 +995,7 @@ class ActivateAbility(_Intent):
     card_id: Id
     # index into the card's abilities (app/rules/oracle.py): printed 0…99, granted by a static ability 100…, granted
     # by a resolved effect 10 000 + 16 × its timestamp + k (app/rules/granted.py ``index_of``, ``MAX_INDEX``)
-    ability: int = Field(ge=0, le=2_000_000)
+    ability: int = Field(ge=0, le=10_000_000)  # (borrowed abilities, app/rules/abilities_of.py: 2 000 000 + 32 × the lender's object number + k)
     targets: list[Id] = Field(default_factory=list, max_length=20)
     target_counts: TargetCounts = Field(default_factory=list)  # (see CastSpell)
     division: Division = Field(default_factory=list)

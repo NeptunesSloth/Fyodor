@@ -172,6 +172,8 @@ def parse(text: str) -> Definition | None:
                   lambda m: f"{'~' if m['o'] in ('~', 'this creature') else m['o'].capitalize()} must be blocked by all {m['w']} able",
                   body)
     body = re.sub(r"(?P<sep>, and| and|,) all creatures able to block it do so$", r"\g<sep> must be blocked by all creatures able", body)
+    # -- borrowed abilities (wave 18F) -- "As long as ~ is on the battlefield, …": a static of a permanent works there only (611.3b)
+    body = re.sub(r"^As long as (?:~|it) is on the battlefield, ", "", body)
     conds: list[dict[str, Any]] = []
     names_source = False  # -- conditional statics (wave 4B) -- the condition names the source as "~", not "it"
     defender_sel: str | None = None  # "… as long as defending player controls an artifact"
@@ -297,7 +299,7 @@ def parse(text: str) -> Definition | None:
         return None
     if x_value is not None and parts["each"] is None:
         return None  # ("where X is …" with no X in the sentence)
-    if who == "self" and not conds and not parts["rules"] and parts["each"] is None:
+    if who == "self" and not conds and not parts["rules"] and parts["each"] is None and parts["abilities_of"] is None:
         return None  # "~ has flying." unconditionally is a keyword line, not a static: not a template
     if rule_cond and not parts["rules"]:
         return None  # "~ gets +1/+1 if …" isn't how a static grant is worded
@@ -382,12 +384,15 @@ def zone_static(d: Definition) -> bool:
 
 def _definition(who: str, kind: str | None, conds: list[dict[str, Any]], *, p: int = 0, t: int = 0,
                 base: list[int] | None = None, keywords: list[str] | None = None, grants: list[str] | None = None,
-                rules: list[str] | None = None, each: dict[str, Any] | None = None) -> Definition:
+                rules: list[str] | None = None, each: dict[str, Any] | None = None,
+                abilities_of: dict[str, Any] | None = None) -> Definition:
     out: Definition = {"kind": "static", "static": "grant", "effects": [], "who": who, "attached_kind": kind,
            "conditions": conds, "p": p, "t": t, "base": base, "keywords": keywords or [], "grants": grants or [],
            "rules": rules or []}
     if each is not None:
         out["each"] = each
+    if abilities_of is not None:  # -- borrowed abilities (wave 18F) --
+        out["abilities_of"] = abilities_of
     return out
 
 
@@ -623,6 +628,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
     grants: list[str] = []
     rules: list[str] = []
     each: dict[str, Any] | None = None
+    lent: dict[str, Any] | None = None  # -- borrowed abilities (wave 18F) --
     verb: str | None = None
     # -- attached events (wave 4L) -- "protection from black and from green" is one keyword (702.16g): not split
     if "protection from " in predicate and '"' not in predicate:
@@ -674,6 +680,14 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
                 return None
             base = [int(b["p"]), int(b["t"])]
             continue
+        if rest.startswith("all activated abilities of "):  # -- borrowed abilities (wave 18F) -- app/rules/abilities_of.py
+            from app.rules import abilities_of
+
+            found_lent = abilities_of.parse(rest)
+            if found_lent is None or lent is not None or verb != "have":
+                return None
+            lent = found_lent
+            continue
         q = _QUOTED.match(rest)
         if q:
             text = q["q"] if q["q"][-1] in ".)" else q["q"] + "."  # (wave 16F: a quote ending a clause has no period of its own)
@@ -693,10 +707,10 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
             grants.append(line)
             continue
         return None
-    if not (p or t or base or keywords or grants or rules or each or extra):
+    if not (p or t or base or keywords or grants or rules or each or extra or lent):
         return None
     return {"p": p, "t": t, "base": base, "keywords": keywords, "grants": grants, "rules": rules, "each": each,
-            "extra": extra}
+            "extra": extra, "abilities_of": lent}
 
 
 # -- attached events (wave 4L) ---------------------------------------------------------------------------------

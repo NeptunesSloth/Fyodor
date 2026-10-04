@@ -158,6 +158,9 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
             return [src.id]
         return []  # the source left: "it" is gone (a new object isn't affected)
+    if who.startswith("obj:"):  # -- granted from object (wave 18F) -- the granting object, while it is still that object here
+        obj = plan.state.cards.get(who[4:].rsplit(".", 1)[0])
+        return [obj.id] if obj is not None and obj.zone.endswith(":battlefield") and plan.oid(obj) == who[4:] else []
     if who == "cost_exiled":  # -- keywords (wave 15E) -- the card an activation cost exiled from the graveyard (embalm: "this card")
         sid = ctx.get("stack_id")
         record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
@@ -397,6 +400,8 @@ def _named_source(plan: Plan, ctx: Context, who: str) -> _Source | None:
         refs = [(t["id"], t.get("object_id")) for t in target_refs(ctx, who) if t["id"] in plan.state.cards]
     elif who == "host":
         refs = [(c, plan.oid(c)) for c in _cards(plan, ctx, "host")]
+    elif who.startswith("obj:"):  # -- granted from object (wave 18F) -- "Blazing Torch deals 2 damage": the granter, as it last existed if it left
+        refs = [(who[4:].rsplit(".", 1)[0], who[4:])]
     elif who == "event" or who.startswith("ref:"):
         name = context.EVENT if who == "event" else who[4:]
         refs = [(r.card, r.object_id) for r in context._object_refs(ctx, name, was=True)]

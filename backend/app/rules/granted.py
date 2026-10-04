@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 # the keyword triggers' (1000 + 10 × index + k), exalted (2000…), achievements (4200…), delayed (7000).
 INDEX_BASE = 10_000
 INDEX_STRIDE = 16  # abilities one effect can grant
-MAX_INDEX = 2_000_000  # app/game/actions.py ActivateAbility.ability's bound (a game with ~120 000 effects)
+MAX_INDEX = 2_000_000  # app/game/actions.py ActivateAbility.ability's bound (a game with ~120 000 effects; borrowed abilities, abilities_of.py, above)
 MAX_GRANTED = INDEX_STRIDE
 
 
@@ -98,7 +98,7 @@ def quote(text: str) -> str | None:
     # that has the ability — scripts.self_text leaves the granter's name alone inside a quote)
     # (a comma just before the closing quotation mark belongs to the sentence around it: "…, each creature,")
     t = re.sub(r"(^|: |\. )~", r"\1This permanent", text.strip().rstrip(",;")).replace("~", "this permanent")
-    if not t:
+    if not t or "‹granter" in t:  # (wave 18F: a granter is bound only by a static grant, layers.py — a resolved effect's isn't)
         return None
     if not t.endswith((".", "!", "?")):
         t += "."

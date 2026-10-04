@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.game import ops
 from app.game.control import acting_as, controller_of, decider_of
 from app.game.rules_state import preset_name
 from app.game.state import GameState, zone_key
@@ -140,7 +141,7 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
         printed = chars.of(card, info)
         now = derive(state, card, printed, info)
         entry: dict[str, Any] = {}
-        granted = [{"index": a.index, "text": a.text, "kind": a.kind} for a in now.abilities if a.index >= 100]
+        granted = [{"index": a.index, "text": ops.shown(state, a.text), "kind": a.kind} for a in now.abilities if a.index >= 100]
         if granted:
             entry["abilities"] = granted  # granted by other permanents (All Slivers have "…")
         if now.doors is not None:

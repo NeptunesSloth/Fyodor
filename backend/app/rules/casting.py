@@ -2485,7 +2485,7 @@ def _stacked(plan: Plan, card: CardInstance, oid: str, ch: Characteristics, abil
                                          name=ch.name, effects=effects, targets=[], target_spec=None)
         from app.rules.triggers import activated  # -- activation (wave 11F) --
 
-        activated(plan, card, oid)
+        activated(plan, card, oid, ability_id=ability_id)
     r.passed = []
     r.priority = plan.actor
     if r.prefs_for(plan.actor).hold_priority:
@@ -2831,6 +2831,10 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         picked_targets = found_targets
     chosen = picked_targets.flat
     alt = r.alt_costs.get(card.id)
+    pending = r.free_cast_then  # -- cast a copy (wave 18F) -- 707.12: "You may cast the copy." pays its mana cost (never a flashback cost)
+    paid = pending is not None and pending["card"] == card.id and bool(pending["e"].get("paid"))
+    if paid:
+        alt = ch.mana_cost
     # 118.9d / 601.2b: a spell's own additional cost ("As an additional cost to cast this spell,
     # sacrifice a creature": Fling cast by cascade) is still paid — chosen now, paid with the rest
     add_cost = None if plan.manual(card) else costs.spell_additional_cost(ch.abilities)
@@ -2858,9 +2862,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
                         purpose=Purpose(spell=ch, zone=card.zone, player=plan.actor, kicked=bool(a.kicker))):
             return
         kind = "miracle" if card.id in r.miracled else "madness"  # -- casting extras (wave 18E) -- 702.94a: its miracle cost
-        record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (f" ({kind})" if alt else ""),
+        record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (f" ({kind})" if alt and not paid else ""),
                            not_mana=not_mana)
-        record.alternative = kind if alt is not None else "free"
+        record.alternative = "" if paid else kind if alt is not None else "free"
         record.additional = ["kicker"] if a.kicker else []
         record.kicked = a.kicker
         r.alt_costs.pop(card.id, None)
@@ -2886,7 +2890,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
             record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile …
     plan.do({"type": "set_stack_info", "card_id": card.id,
-             "tags": [f"Cast for its {kind} cost" if alt is not None else "Cast without paying its mana cost"]
+             "tags": ([] if paid else [f"Cast for its {kind} cost" if alt is not None else "Cast without paying its mana cost"])
              + (["Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}"] if a.kicker else [])})
     record.x = a.x_value
     record_payment(plan, card.id, record)
@@ -3335,7 +3339,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if ability_id:  # -- activation (wave 11F) -- 602.2: "Whenever a player activates an ability …"
         from app.rules.triggers import activated
 
-        activated(plan, card, oid, loyalty=ability.kind == "loyalty")
+        activated(plan, card, oid, loyalty=ability.kind == "loyalty", ability_id=ability_id)
     if ability.kind == "loyalty":
         r.loyalty_used[oid] = plan.state.turn.number
     if restrictions.limited(restrictions.parse(_own_text(ability.text, ch.name)) or []):  # "Activate only once each turn" / "… only once"

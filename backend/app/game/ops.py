@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 
 from app.game.errors import ActionError
@@ -19,6 +20,16 @@ from app.game.state import (
 from app.game.visibility import publicly_visible, seers
 
 LOG_LIMIT = 2000
+
+
+def shown(state: GameState, text: str) -> str:
+    """-- granted from object (wave 18F) -- an ability's text as people read it: the ‹granter#object› a static grant bound
+    (rules/granted.py) is the granting object's name (a face-down one: "it", nothing about it leaks)."""
+    def name(m: re.Match[str]) -> str:
+        c = state.cards.get((m["oid"] or "").rsplit(".", 1)[0])
+        return c.name if c is not None and not c.face_down and c.name else "it"
+
+    return re.sub(r"‹granter(?:#(?P<oid>[^›]+))?›", name, text) if "‹" in text else text
 
 
 def card(state: GameState, card_id: str) -> CardInstance:

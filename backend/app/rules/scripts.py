@@ -36,7 +36,7 @@ from app.rules import characteristics as _chars  # (-- hidden exile (wave 18A) -
 from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
 from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
-from app.rules import restrictions, this_way  # (this_way: wave 4A)
+from app.rules import restrictions, selectors, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
 from app.rules.costs import DISCARD, SACRIFICE, parse_ability_cost, spell_additional_cost
 from app.rules.oracle import AbilityText, parse_abilities, split_sentences, word_prefix
@@ -266,8 +266,13 @@ def self_text(text: str, name: str) -> str:
 
     # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the
     # object that gets it ("this creature" is): it stays as written, so no ~ there means the granter
+    # (wave 18F: a granter's name — not a "card named …" — is ‹granter›, 607.1a, bound to the object by app/rules/layers.py)
+    def granter(part: str) -> str:
+        part = re.sub(rf"(?<!named )(?<!\w){re.escape(name)}(?!\w)", "‹granter›", part)  # (the full name: "each Garruk you control" is no granter)
+        return part
+
     parts = out.split('"')
-    out = '"'.join(own(p) if i % 2 == 0 else p for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
+    out = '"'.join(own(p) if i % 2 == 0 else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
     return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
 
 
@@ -637,6 +642,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 # -- cast a copy (wave 13C) -- "Exile target … card. Copy it.": the card an earlier instruction moved
                 e.update(do="copy_cards", who="ref:" + bound(moved))
                 e.pop("first")
+                intros.append(_Introducer(index, e, groups))  # (wave 18F: the copies, for "You may cast the copy" next)
                 continue
             if e.get("player") == "that_player":  # -- static wordings (wave 6E) -- "that player exiles the top card of
                 intro = find(lambda i: i.player, index)  # their library": whose library, bound like "who" below
@@ -2157,6 +2163,15 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if _FREE_EXILE_GY.fullmatch(text) and effects and effects[-1]["do"] == "free_cast":
             effects[-1] = {**effects[-1], "exile_gy": True}  # -- refused look/cast-free (wave 3R5) -- 614.1a, on the spell cast
             continue
+        if text.startswith("if you do, you may cast the cop") and effects and effects[-1]["do"] == "copy_cards":
+            text = text[len("if you do, "):]  # -- copied abilities (wave 18F) -- "You may copy the exiled card. If you do, …": the first sentence's "may"
+            # is the whole choice (a copy that isn't cast ceases to exist, 707.10a)
+        if text.startswith("you may copy ") and not effects and _exiled_with._COPY.match(text):
+            effects += [{"do": "copy_cards", "who": _exiled_with.WHO}]  # (the "may" is the cast's: a copy not cast ceases to exist, 707.10a)
+            continue
+        if text.startswith("you may exile ") and not effects and (imprint := _exiled_with.imprint(text)) is not None:
+            effects += imprint  # -- copied abilities (wave 18F) -- "Imprint — … you may exile an instant card from your hand."
+            continue
         # -- unless pays (wave 4C) -- the riders of "Counter target spell unless its controller pays …" (608.2c, 118.12)
         if (rider := _unless_rider(text, effects, prev_start)) is not None:
             if rider is False:
@@ -2206,7 +2221,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects.append(reflex)
             break  # (the rest of the ability is the reflexive trigger's)
         if (dont := _FREE_DONT.match(text)) is not None and effects and effects[-1]["do"] == "free_cast":
-            gated = _free_dont(dont["rest"], effects)  # -- refused look/cast-free (wave 3R5) -- "If you don't cast it, …"
+            gated = _free_dont(dont["rest"], effects, dont["neg"] == "don't")  # -- refused look/cast-free (wave 3R5) -- "If you don't cast it, …"
             if gated is None:
                 return None
             effects += gated
@@ -2540,13 +2555,16 @@ def _piles(texts: list[str], i: int, effects: list[dict[str, Any]]) -> tuple[lis
 
 
 _WIN_IF_X = re.compile(r"^if [xX] is greater than or equal to the number of cards in your library, you win the game$")
-_FREE_DONT = re.compile(r"^if you don't(?: cast (?:it|that card|the exiled card|the revealed card)(?: this way)?)?, (?P<rest>.+)$")
+# (wave 18F: "You may cast the copy. If you do, you lose 2 life." too: the same record of what the cast did)
+_FREE_DONT = re.compile(r"^if you (?P<neg>don't|do)(?: cast (?:it|that card|the exiled card|the revealed card)(?: this way)?)?, (?P<rest>.+)$")
 
 
-def _free_dont(rest: str, effects: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+def _free_dont(rest: str, effects: list[dict[str, Any]], negate: bool = True) -> list[dict[str, Any]] | None:
     """-- refused look/cast-free (wave 3R5) -- "If you don't cast it, put it into your hand / draw a card"
     after a free cast (608.2c: it reads what the cast did; the cast records it as ``did``)."""
     if rest in ("put it into your hand", "put that card into your hand"):
+        if not negate:
+            return None
         inner: list[dict[str, Any]] = [{"do": "found_to", "to": "hand"}]  # (checked against the cast's source below)
     else:
         parsed = _clause(rest)
@@ -2557,7 +2575,7 @@ def _free_dont(rest: str, effects: list[dict[str, Any]]) -> list[dict[str, Any]]
             return None
     name = effects[-1].get("did") or f"fdid{len(effects)}"
     effects[-1] = {**effects[-1], "did": name}
-    return [{"do": "only_if", "cond": {"succeeded": name, "negate": True}, "skip": len(inner)}, *inner]
+    return [{"do": "only_if", "cond": {"succeeded": name, **({"negate": True} if negate else {})}, "skip": len(inner)}, *inner]
 
 
 # -- optional payments (118.12 / 118.12a): app/rules/optional_payment.py ------------------------------
@@ -2828,9 +2846,44 @@ def parse_anthem(text: str) -> Definition | None:
     return statics.parse(text)
 
 
+# -- granted from object (wave 18F) -- an activated ability a static grant gave, whose effect names only its granter ("Blazing Torch deals
+# 2 damage to any target", "Return Trusty Boomerang to its owner's hand"): read as the object's own ability (the granter is "~"), then
+# its instructions' subject is that object, bound by the id the grant carries (selectors.GRANTER). An effect that also names the
+# creature ("this creature", "it") is ambiguous to the grammar and stays unread.
+_GRANTER_RE = re.compile(selectors.GRANTER)
+_OTHER_SELF = re.compile(r"\b(?:this \w+|it|its(?! owner)|that creature|equipped creature)\b", re.IGNORECASE)
+_GRANTER_SUBJECT = {"add_counters", "bounce", "sacrifice", "tap", "untap"}
+
+
+def _granter_view(ability: AbilityText) -> tuple[AbilityText, str] | None:
+    head, _, effect = ability.text.partition(":")
+    found = _GRANTER_RE.search(effect)
+    if ability.kind != "activated" or found is None or _OTHER_SELF.search(_GRANTER_RE.sub("", effect)):
+        return None
+    return replace(ability, text=f"{head}:{_GRANTER_RE.sub('this permanent', effect)}"), found["oid"] or ""
+
+
+def _granter_bound(d: Definition, oid: str) -> Definition | None:
+    effects = []
+    for e in d["effects"]:
+        if e.get("do") in _GRANTER_SUBJECT and e.get("who") == "self":
+            e = {**e, "who": f"obj:{oid}"}
+        elif e.get("do") == "damage" and not e.get("src"):
+            e = {**e, "src": f"obj:{oid}"}
+        effects.append(e)
+    return None if '"self"' in json.dumps(effects) else {**d, "effects": effects}
+
+
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
-    d = _define(ability, ch)
+    from app.rules import abilities_of
+
+    if abilities_of.manual(ability):  # (review 18F: a borrowed linked or modal ability, 607.5)
+        return None
+    view = _granter_view(ability) if "‹granter" in ability.text else None
+    d = _define(view[0] if view else ability, ch)
+    if view and d is not None:
+        d = _granter_bound(d, view[1])
     # -- exiled with (wave 6D) -- 607.2a linked abilities (app/rules/exiled_with.py)
     from app.rules import exiled_with
 
@@ -5581,6 +5634,29 @@ def _copy_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [out], None
 
 
+# -- copied abilities (wave 18F) -- "Whenever you activate an ability of an artifact, … copy that ability." (Kurkesh, 707.10): the
+# activated ability the trigger's event is about (``_event_spell_ok``: only in an activation trigger)
+@_first
+@effect(r"copy that ability")
+def _copy_event_ability(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "copy_ability", "who": "event_ability"}], None
+
+
+# -- copied for each (wave 18F) -- 707.10d: "Copy that spell for each other creature you control that the spell could target. Each copy
+# targets a different one of those creatures." (Zada, Hedron Grinder; Mirrorwing Dragon's "that player copies …": the caster)
+@_first
+@effect(r"(?:(?P<you>copy that spell for each other creature you control)|(?P<they>that player copies that spell for each other "
+        r"creature they control)) that the spell could target")
+def _copy_each_target(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "copy_each", "who": "event_spell", "by": "you" if m["you"] else "event_player"}], None
+
+
+@_first
+@effect(r"each copy targets a different one of those creatures")
+def _copy_each_marker(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "copy_each_marker"}], None  # (707.10d: read by the copy instruction before it, ``_event_spell_ok``)
+
+
 # -- cast a copy (wave 13C) -- "Copy that card [three times]." / "Copy those cards." (707.12): copies of the card(s) an
 # earlier instruction exiled, made in exile (copying.copy_cards) for "You may cast the copy without paying its mana cost"
 # ("copy it" is read above as a cast trigger's spell; resolve_it turns it into this after a moved card).
@@ -5637,6 +5713,14 @@ def _counter_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 def _event_spell_ok(d: Definition) -> bool:
     """A copy of "that spell" belongs to a trigger on casting a spell (603.2: the event names it)."""
     effects = list(d.get("effects") or [])
+    for k, e in enumerate(effects):  # -- copied for each (wave 18F) -- the instruction and its "Each copy targets …" sentence go together
+        nxt = effects[k + 1].get("do") if k + 1 < len(effects) else None
+        if (e.get("do") == "copy_each" and nxt != "copy_each_marker") or (
+                e.get("do") == "copy_each_marker" and (not k or effects[k - 1].get("do") != "copy_each")):
+            return False
+    if any(e.get("who") == "event_ability" for e in effects):  # -- copied abilities (wave 18F) -- the ability an activation trigger is about
+        cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
+        return cond is not None and cond.get("event") == "activate" and cond.get("subject") == "player" and not cond.get("loyalty")
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     watched = watches.deferred_event_effects(effects)

@@ -133,7 +133,7 @@ def create_ability(state: GameState, a: A.CreateAbility) -> None:
     source = ops.card(state, a.source_id) if a.source_id else None
     new_id = a.r.ids[0]
     ability = AbilityDef(
-        text=a.text,
+        text=ops.shown(state, a.text),
         source_id=source.id if source else None,
         source_card_id=source.card_id if source and ops.visible_to_all_players(state, source) else None,
         source_name=source.name if source and ops.visible_to_all_players(state, source) else None,
