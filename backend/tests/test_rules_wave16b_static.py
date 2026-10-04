@@ -85,6 +85,9 @@ EXTRA = [
          color_identity=["B"], oracle_text="Escalate—Discard a card. (Discard a card for each mode chosen beyond the first.)\n"
          "Choose one or more —\n• Target opponent reveals their hand. You choose an instant or sorcery card from it. That player "
          "discards that card.\n• Target creature gets -2/-2 until end of turn.\n• Target opponent loses 2 life and you gain 2 life."),
+    card("Hungry Graffalon", set_code="tst", number="B29", mana_cost="{3}{G}", cmc=4.0, type_line="Creature — Giraffe", power="3",
+         toughness="4", colors=["G"], color_identity=["G"], oracle_text="Reach\nIncrement (Whenever you cast a spell, if the amount "
+         "of mana you spent is greater than this creature's power or toughness, put a +1/+1 counter on this creature.)"),
     card("Deep Analysis", set_code="tst", number="B19", mana_cost="{3}{U}", cmc=4.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
          oracle_text="Target player draws two cards.\nFlashback—{1}{U}, Pay 3 life. (You may cast this card from your graveyard for "
          "its flashback cost. Then exile it.)"),
@@ -532,4 +535,19 @@ def test_escalate_discard_is_paid_once_for_each_extra_mode(cards):
     answer(s)
     assert hand_size(s, "p1") == hand - 1 - 1  # the spell, and one card discarded for the second mode
     assert s.state.players["p2"].life == life - 2 and find(s, "Test Flyer", "p2").zone == "p2:graveyard"
+    roundtrip(s)
+
+
+def test_increment_counts_the_mana_spent_against_the_smaller_of_power_and_toughness(cards):
+    s = build(cards, p1=("Hungry Graffalon", "Divination", "Funeral Rites"))
+    g = put(s, "Hungry Graffalon", "battlefield")
+    d, f = put(s, "Divination", "hand"), put(s, "Funeral Rites", "hand")
+    mana(s, C=2, U=1)  # three mana: not more than the 3 of its power
+    act(s, "p1", type="cast_spell", card_id=d.id)
+    answer(s)
+    assert not s.state.cards[g.id].counters.get("+1/+1")
+    mana(s, C=3, B=1)  # four mana: more than 3
+    act(s, "p1", type="cast_spell", card_id=f.id)
+    answer(s)
+    assert s.state.cards[g.id].counters.get("+1/+1") == 1  # 702.190a
     roundtrip(s)

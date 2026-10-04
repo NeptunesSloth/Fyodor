@@ -46,6 +46,9 @@ MEANINGS: dict[str, str] = {
     # 702.156a: the triggered half of ravenous (its "enters with X +1/+1 counters" half is replacements.entering_counters;
     # X is 0 when it isn't cast, 107.3m)
     "ravenous": "When this permanent enters, if X is 5 or more, draw a card.",
+    # -- static_other sweep (wave 16B) -- 702.190a: the mana spent is read from the cast spell's payment record (conditions._total_mana_spent)
+    "increment": "Whenever you cast a spell, if the amount of mana you spent is greater than this creature's power or toughness, put a "
+                 "+1/+1 counter on this creature.",
 }
 _NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict"})
 

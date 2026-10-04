@@ -1084,6 +1084,7 @@ def _cast_who(word: str) -> str:
 _NO_MANA = re.compile(r"no mana was spent to cast (?:it|that spell)")  # -- if you do (wave 5G) --
 # -- ability words (wave 9C) -- opus: "If five or more mana was spent to cast that spell, …" (a cast trigger's spell)
 _SPENT_TOTAL_THAT = re.compile(r"(?P<n>\w+) or more mana was spent to cast that spell")
+_SPENT_OVER_PT = re.compile(r"the amount of mana you spent is greater than (?:this creature's|~'s) power or toughness")  # (increment, wave 16B)
 
 
 def _cast_how(t: str) -> Condition | None:
@@ -1095,6 +1096,8 @@ def _cast_how(t: str) -> Condition | None:
     t = re.sub(r"^at least (\w+) mana was spent", r"\1 or more mana was spent", t)  # (wave 11F: the same thing)
     if (m := _SPENT_TOTAL_THAT.fullmatch(t)) is not None and (n := _num(m["n"])):  # -- ability words (wave 9C) -- opus
         return {"object": "it", "cast": {"total": n, "event_spell": True}}
+    if _SPENT_OVER_PT.fullmatch(t):  # -- static_other sweep (wave 16B) -- increment: more than the source's power or toughness (702.190a)
+        return {"object": "it", "cast": {"total": "over_min_pt", "event_spell": True}}
     m = _CAST.fullmatch(t)
     if m:
         how: dict[str, Any] = {"by_you": bool(m["you"])}
@@ -1146,7 +1149,7 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if cond.get("object") == "event" and how.get("no_mana"):  # -- if you do (wave 5G) --
         return _no_mana_spent(plan, ctx)
     if cond.get("object") == "event" and how.get("event_spell"):  # -- ability words (wave 9C) -- opus
-        return _total_mana_spent(plan, ctx, int(how["total"]))
+        return _total_mana_spent(plan, ctx, how["total"])
     if cond.get("object") != "self":
         return False
     record = plan.rules.payments.get(ctx.get("source_object") or "")
@@ -1175,7 +1178,7 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
 
 
 # -- ability words (wave 9C) --
-def _total_mana_spent(plan: Plan, ctx: dict[str, Any], need: int) -> bool:
+def _total_mana_spent(plan: Plan, ctx: dict[str, Any], need: int | str) -> bool:
     """Opus: "If five or more mana was spent to cast that spell, …": the total mana that paid the cast spell's cost
     (601.2h; its X counts, a cost reduction doesn't), from its payment record, read while the spell is still on the
     stack (the trigger resolves above it). If the spell is already gone, or was cast by hand (what paid for it unknown),
@@ -1189,7 +1192,14 @@ def _total_mana_spent(plan: Plan, ctx: dict[str, Any], need: int) -> bool:
         plan.note(f"{name}: how much mana was spent to cast it isn't known — apply the ability by hand",
                   [record.card] if record is not None and record.card in plan.state.cards else ())
         return False
-    return sum(record.mana_spent.values()) >= need
+    if need == "over_min_pt":  # increment: strictly more than the smaller of the source's power and toughness (as it is now, 603.4)
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        if src is None or not src.zone.endswith(":battlefield"):
+            return False
+        ch = plan.ch(src)
+        stats = [s for s in (values._stat_of(ch, "power"), values._stat_of(ch, "toughness")) if s is not None]
+        return bool(stats) and sum(record.mana_spent.values()) > min(stats)
+    return sum(record.mana_spent.values()) >= int(need)
 
 
 # -- if you do (wave 5G) --
