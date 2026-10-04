@@ -91,6 +91,12 @@ EXTRA = [
     card("Pop Quiz", set_code="tst", number="B30", mana_cost="{1}{U}", cmc=2.0, type_line="Sorcery — Lesson", colors=["U"],
          color_identity=["U"], oracle_text="Draw a card.\nLearn. (You may reveal a Lesson card you own from outside the game and put it "
          "into your hand, or discard a card to draw a card.)"),
+    card("Torpor Orb", set_code="tst", number="B31", mana_cost="{2}", cmc=2.0, type_line="Artifact",
+         oracle_text="Creatures entering don't cause abilities to trigger."),
+    card("Test Healer", set_code="tst", number="B32", mana_cost="{1}{W}", cmc=2.0, type_line="Creature — Cleric", power="1", toughness="1",
+         colors=["W"], color_identity=["W"], oracle_text="When this creature enters, you gain 2 life."),
+    card("Test Gem", set_code="tst", number="B33", mana_cost="{1}", cmc=1.0, type_line="Artifact",
+         oracle_text="When this artifact enters, you gain 1 life."),
     card("Deep Analysis", set_code="tst", number="B19", mana_cost="{3}{U}", cmc=4.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
          oracle_text="Target player draws two cards.\nFlashback—{1}{U}, Pay 3 life. (You may cast this card from your graveyard for "
          "its flashback cost. Then exile it.)"),
@@ -566,4 +572,30 @@ def test_learn_is_the_rummage_without_cards_outside_the_game(cards):
     answer(s)  # draws a card, discards one to draw one (701.48a: the Lesson reveal needs a card outside the game)
     assert hand_size(s, "p1") == hand - 1 + 1  # the spell leaves, one card drawn, one discarded and one drawn
     assert sum(1 for x in s.state.cards.values() if x.zone == "p1:graveyard") == 2  # the spell and the discarded card
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("orb,gain", [(False, 2), (True, 0)])
+def test_creatures_entering_do_not_cause_abilities_to_trigger(cards, orb, gain):
+    s = build(cards, p1=("Test Healer", "Torpor Orb"))
+    if orb:
+        put(s, "Torpor Orb", "battlefield")
+    c = put(s, "Test Healer", "hand")
+    life = s.state.players["p1"].life
+    mana(s, C=1, W=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert find(s, "Test Healer").zone == "p1:battlefield" and s.state.players["p1"].life == life + gain
+    roundtrip(s)
+
+
+def test_a_noncreature_entering_still_triggers_under_torpor_orb(cards):
+    s = build(cards, p1=("Test Gem", "Torpor Orb"))
+    put(s, "Torpor Orb", "battlefield")
+    c = put(s, "Test Gem", "hand")
+    life = s.state.players["p1"].life
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert s.state.players["p1"].life == life + 1
     roundtrip(s)

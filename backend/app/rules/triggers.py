@@ -115,6 +115,10 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
          cause: TriggerEvent | None = None) -> PendingTrigger | None:
     if manual:
         return None
+    from app.rules import trigger_multipliers  # -- static_other sweep (wave 16B) -- "Creatures entering don't cause abilities to trigger"
+
+    if trigger_multipliers.suppressed(plan, event if event is not None else cause):
+        return None
     if definition.get("if_kicked"):  # 603.4: "When ~ enters, if it was kicked, …" (702.33e)
         record = plan.rules.payments.get(source_object)
         if record is None or not record.kicked:
