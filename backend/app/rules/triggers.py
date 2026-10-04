@@ -62,7 +62,7 @@ from app.game.rules_state import (
     emit,
     track,
 )
-from app.game.state import CardInstance, StackInfo, TokenDef
+from app.game.state import COMBAT_PHASES, CardInstance, StackInfo, TokenDef
 from app.rules import characteristics as chars
 from app.rules import delayed, designations, layers, scripts, selectors
 from app.rules.characteristics import Characteristics
@@ -651,6 +651,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if event in ("scry", "surveil") and cond.get("nth") and info.get("nth") != cond["nth"]:  # -- looks (wave 8B) --
         return False
     if event == "die" and cond.get("damaged_by_self") and not _damaged_by(plan, watcher, info.get("oid")):  # (wave 7C)
+        return False
+    if event == "die" and cond.get("in_combat") and plan.state.turn.phase not in COMBAT_PHASES:  # (wave 16C: "dies during combat")
         return False
     n = cond.get("min_attackers")
     if n:

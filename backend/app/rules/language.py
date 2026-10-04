@@ -963,6 +963,12 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
             who = _who(kind, key)
         zones = {"graveyard": ["graveyard"], "hand and graveyard": ["hand", "graveyard"], "hand": ["hand"]}.get(m["z"] or m["z2"] or "", [])
         return [{"do": "shuffle_library", "who": who, "zones": zones, **({"optional": True} if m["may"] else {})}], _one(group)
+    # -- trigger tail (wave 16C) -- "Shuffle all creature cards from your graveyard into your library." (Barishi): those cards, then
+    # the shuffle (701.24a; effects.shuffle_library with a selector)
+    m = re.fullmatch(r"shuffle all (?P<what>[a-z ]+?) cards? from your graveyard into your library", text)
+    sel = selectors.parse(f"{m['what']} card from your graveyard") if m else None
+    if sel is not None and _graveyard_cards(sel.key()):
+        return [{"do": "shuffle_library", "who": "you", "zones": ["graveyard"], "sel": sel.key()}], None
     found_lib = gy_to_library(text)  # -- refused zones/sized (wave 3R4) --
     if found_lib is not None:
         return found_lib
@@ -1095,12 +1101,20 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = re.fullmatch(r"(?P<o>two target players) exchange life totals", text)
     if m and rider is None:
         return [{"do": "exchange_life", "who": "target"}], _one(target_group(m["o"]))
+    # -- trigger tail (wave 16C) -- 119.5: "Target player's life total becomes 10." (Magister Sphinx), "Your life total becomes half your
+    # starting life total, rounded up." (The Endstone): the player gains or loses the difference (effects.set_life)
+    m = re.fullmatch(r"(?P<s>target player's|your) life total becomes (?P<n>\d+|half your starting life total, rounded up)", text)
+    if m and rider is None:
+        n = "half_start" if m["n"][0] == "h" else int(m["n"])
+        if m["s"] == "your":
+            return [{"do": "set_life", "who": "you", "n": n}], None
+        return [{"do": "set_life", "who": "target", "n": n}], _LEGACY_TARGETS["target player"]
     # -- attached events (wave 8D) -- "that player loses half their life, rounded up" (119.3; half of the life total as it is
     # when the instruction is carried out, 107.1a; effects.lose_life)
-    m = re.fullmatch(_SUBJ + r"loses? half (?:their|your) life, rounded (?P<r>up|down)", text)
+    m = re.fullmatch(_SUBJ + r"loses? (?P<f>half|a third of) (?:their|your) life, rounded (?P<r>up|down)", text)
     if m and rider is None and (m["s"] in (None, "you")) == (text.endswith("your life, rounded " + m["r"])):
-        who, target = _subject(m)
-        return [{"do": "lose_life", "who": who, "n": 0, "half": m["r"]}], target
+        who, target = _subject(m)  # (wave 16C: "a third of their life, rounded up", Dire Fleet Ravager)
+        return [{"do": "lose_life", "who": who, "n": 0, "half": m["r"], **({"of": 3} if m["f"] != "half" else {})}], target
     m = re.fullmatch(_SUBJ + rf"discards? (?P<n>{AMT}) cards? at random", text)  # -- refused zones/sized (wave 3R4) --
     if m:  # 701.9b: the cards are chosen at random (effects.discard: the table picks; the move records which)
         who, target = _subject(m)
@@ -1145,6 +1159,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if greatest:
             sel = replace(sel, extras=(*sel.extras, "greatest_power_own"))
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
+    # -- trigger tail (wave 16C) -- "Exile a land you control." (Wormfang Newt, Turtle): you choose it as this resolves (608.2d),
+    # then it's exiled (no sacrifice, 701.21a: sacrificing is putting into a graveyard); linked for "the exiled card" (607.2a)
+    m = re.fullmatch(r"exile (?P<n>a|an|one|two|three) (?P<sel>[a-z -]+? you control)", text)
+    if m and rider is None:
+        sel = selectors.parse(m["sel"])
+        if sel is None or sel.player is not None or sel.controller != "you" or sel.zones != ("battlefield",):
+            raise _Fail
+        return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": _amount(m["n"]), "exile": True}], None
     # -- static grants & selectors (wave 15A) -- "Each player sacrifices all permanents they control that are one or more colors"
     # (701.21a: a player sacrifices only what they control; every match goes at once, 101.4: sacrifice_choice with no choice left)
     m = re.fullmatch(_SUBJ + r"sacrifices? all (?P<sel>.+?)(?: (?:they|you) control)?(?P<tail> that .+)?", text)

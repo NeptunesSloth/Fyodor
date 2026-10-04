@@ -1031,6 +1031,16 @@ def _put_back(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if bool(m["one"]) == bool(m["any"]):
         raise _NoMatch  # (several cards come with "in any order"; one card never does)
     return [{"do": "put_back", "n": 1 if m["one"] else num(m["n"])}], None
+
+
+# -- trigger tail (wave 16C) -- "Target opponent puts a card from their hand on top of their library." (Chimney Imp), "Each player
+# puts a card from their hand on top of their library." (Sadistic Augermage): each chooses privately from their own hand (401.4), in
+# turn order (101.4)
+@effect(r"(?P<who>each player|each opponent|target opponent|target player) puts a card from their hand on top of their library")
+def _each_put_back(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    who = m["who"]
+    return [{"do": "put_back", "n": 1, "who": "target" if who.startswith("target") else who.replace(" ", "_")}], \
+        {"target opponent": "opponent", "target player": "player"}.get(who)
 # -- end triggers (wave 5D) --
 
 
@@ -1239,9 +1249,9 @@ def _counters(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "add_counters", "who": who, "kind": m["kind"], "n": num(m["n"])}], SELECTORS.get(m["who"])
 
 
-@effect(r"proliferate")
+@effect(r"proliferate(?P<again>, then proliferate again| twice)?")
 def _proliferate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    return [{"do": "proliferate", "who": "you"}], None
+    return [{"do": "proliferate", "who": "you"}] * (2 if m["again"] else 1), None  # (wave 16C: 701.34a, one after the other)
 
 
 WIPES = {"creatures": ["Creature"], "artifacts": ["Artifact"], "enchantments": ["Enchantment"],
@@ -1348,8 +1358,10 @@ def _scry_x(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": m["verb"], "who": "you", "n": _x_amount(m["xdef"])}], None  # (wave 4K: 701.22, 701.25)
 
 
-@effect(r"(?P<src>~|it) explores")
+@effect(r"(?P<src>~|it|target creature you control) explores")
 def _explore(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if m["src"] == "target creature you control":  # -- trigger tail (wave 16C) -- 701.44a: the creature explores (you control it)
+        return [{"do": "explore", "who": "target"}], "creature_you_control"
     return [{"do": "explore", **_it_source(m["src"])}], None
 
 
@@ -1676,7 +1688,7 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                   r"\g<a>, then \g<b>, then ", text)
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
-                                 r"remove|add|investigate|prevent)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
+                                 r"remove|add|investigate|prevent|amass|proliferate)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
@@ -1721,6 +1733,9 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # into your hand. If you don't, you may discard a card. If you do, draw a card." A game here has no cards outside it (no sideboard is
     # modelled: the decks are the games'), so the reveal never has a Lesson to show and the rest is the rummage
     body = re.sub(r"(^|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
+    # -- trigger tail (wave 16C) -- "Create a 4/4 … token with flying at the beginning of the next end step." (Rukh Egg): the same delayed
+    # trigger (603.7) as the leading wording, which the token grammar reads whole
+    body = re.sub(rf"(?i)^(create [^.]+?) (at the beginning of (?:{_delayed.WHEN_RE}))(\.?)$", r"\2, \1\3", body)
     # -- trigger tail (wave 15B) -- "Discard any number of cards, then draw that many cards.": "that many" is the cards discarded
     # this way (701.9a), not a trigger event's amount; "plus one" would be a different (single) draw: not read
     body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus)",
