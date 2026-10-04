@@ -2448,6 +2448,9 @@ def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for pid, mine in pending:
         if len(mine) == 1:
             plan.do({"type": "move", "card_ids": mine, "to": {"player": pid, "zone": "library"}, "position": place}, actor=ctx["controller"])
+            pile = [c for c in _merged.pieces(plan, mine) if plan.state.cards[c].zone == zone_key(pid, "library")]
+            if len(pile) > 1:  # -- review (wave 18D) -- 730.3a / 712.21a: a merged permanent's owner arranges its cards (unrevealed)
+                multiple.append((pid, pile))
     if not multiple:
         _moved(plan, ctx, e, before)
         return True
@@ -2466,6 +2469,11 @@ def resume_library_place(plan: Plan, d: Any, chosen: list[str]) -> None:
     if card is not None:
         where = {"index": 1} if chosen[0] == "second" else {"position": chosen[0]}  # (the index: 2nd from the top, 401.4)
         plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "library"}, **where}, actor=d.player)
+        pile = [c for c in _merged.pieces(plan, [card.id]) if plan.state.cards[c].zone == zone_key(card.owner, "library")]
+        if len(pile) > 1 and chosen[0] != "second":  # -- review (wave 18D) -- 730.3a: its owner arranges a merged permanent's cards
+            ctx.update(library_before=r["before"], library_e=e, library_queue=[])
+            _ask_order(plan, ctx, card.owner, card.owner, pile, chosen[0])
+            return
     _moved(plan, ctx, e, [ObjectRef.model_validate(x) for x in r["before"]])
     continue_effects(plan, ctx)
 

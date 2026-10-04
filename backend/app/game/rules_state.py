@@ -1281,8 +1281,6 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             if card_id not in rules.objects or shell is not None:  # a created object is numbered like one that entered (613.7d)
                 rules.next_object += 1
                 rules.objects[card_id] = rules.next_object
-            if shell is not None and _zone_name(card.zone) in ("library", "hand"):
-                continue  # (private: as for any card put into a hidden zone)
             emit(state, "zone_change", new_object_id=rules.object_id(card_id), card=card_id, player=card.controller,
                  to_zone=card.zone, **({"from_zone": shell.zone} if shell is not None else {}))  # created: a token, a copy, an ability on the stack
             if shell is not None and _zone_name(card.zone) == "graveyard" and (log := turn_log_now(state)) is not None:
