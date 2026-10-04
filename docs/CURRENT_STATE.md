@@ -265,8 +265,7 @@ Known approximations (correct in normal play; listed so nobody is surprised):
 
 ## Next session start instructions
 
-1. Start from PR #14 (`claude/beautiful-ramanujan-l9pev4`); merge `claude/review-facedown-ids` if it is
-   green and not yet merged; check CI.
+1. Start from PR #14 (`claude/beautiful-ramanujan-l9pev4`; the face-down id fix is merged, 6,698 tests); check CI.
 2. Set up: `cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]' 'mypy==2.3.1'
    pytest-xdist`; the card DB with `scripts/update-cards.sh --images none`; `cd frontend && npm ci`.
 3. Read this file and `.claude/skills/fyodor-game-development/SKILL.md`.
@@ -274,7 +273,9 @@ Known approximations (correct in normal play; listed so nobody is surprised):
    unexpected rules error (wrap `resolve._opening_steps`); squad/replicate/offspring still count as "kicked";
    madness grants its cast before its trigger resolves (fixed for miracle only); borrowed abilities don't
    include abilities the lender has only from other effects (613.8); the controller's own stops drive the
-   controlled player's priority; `RulesState.unlocked`/`foretold` keep stale entries.
+   controlled player's priority; `RulesState.unlocked`/`foretold` keep stale entries. Face-down ids (18R review): an open decision whose
+   `source_id` was the old card shows the new id; turning an exiled face-up card face down in place keeps its id;
+   the older face-down `shuffle` renaming in `handlers/zones.py` rewrites only `copy_of`, not rules state.
 5. Still manual on purpose: unsettled rulings (a copied Room spell's door 709.5d, Hellrider-style damage
    after leaving combat, "lands enter untapped"), Attractions (per-printing lights aren't in the data),
    Bolas's Citadel, Garth One-Eye/Magar, Chrome Mox, Word of Command.
