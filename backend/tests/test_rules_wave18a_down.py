@@ -21,6 +21,7 @@ from app.rules.characteristics import face_down_characteristics, parse_spec
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import until
+from tests.test_rules_effects import replay_matches
 from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
 
 EXTRA = [
@@ -37,6 +38,8 @@ EXTRA = [
     card('Yedora, Grave Gardener', set_code='tst', number='Z30', mana_cost='{4}{G}', cmc=5.0, type_line='Legendary Creature — Treefolk Druid', oracle_text="Whenever another nontoken creature you control dies, you may return it to the battlefield face down under its owner's control. It's a Forest land. (It has no other types or abilities.)", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
     card('Tezzeret, Cruel Machinist', set_code='tst', number='Z31', mana_cost='{4}{U}{U}', cmc=6.0, type_line='Legendary Planeswalker — Tezzeret', oracle_text="+1: Draw a card.\n0: Until your next turn, target artifact you control becomes a 5/5 creature in addition to its other types.\n−7: Put any number of cards from your hand onto the battlefield face down. They're 5/5 artifact creatures.", power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
     card('Cybership', set_code='tst', number='Z32', mana_cost='{6}', cmc=6.0, type_line='Artifact — Vehicle', oracle_text="Flying\nWhenever this Vehicle deals combat damage to a player, put the top two cards of that player's library onto the battlefield face down under your control. They're 2/2 Cyberman artifact creatures.\nCrew 4", power='8', toughness='8', colors=[], color_identity=[], keywords=['Flying', 'Crew']),  # noqa: E501
+    card('Ethereal Valkyrie', set_code='tst', number='Z33', mana_cost='{4}{W}{U}', cmc=6.0, type_line='Creature — Spirit Angel', oracle_text='Flying\nWhenever this creature enters or attacks, draw a card, then exile a card from your hand face down. It becomes foretold. Its foretell cost is its mana cost reduced by {2}. (On a later turn, you may cast it for its foretell cost, even if this creature has left the battlefield.)', power='4', toughness='4', colors=['U', 'W'], color_identity=['U', 'W'], keywords=['Flying']),  # noqa: E501
+    card('The Foretold Soldier', set_code='tst', number='Z34', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Creature — Alien Zombie Soldier', oracle_text="This creature must be blocked if able.\nThis creature can't be blocked by more than one creature.\nWhenever this creature deals damage, exile it face down. It becomes foretold.\nForetell {1}{G} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)", power='6', toughness='6', colors=['G'], color_identity=['G'], keywords=['Foretell']),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -343,3 +346,101 @@ def test_a_card_that_leaves_the_battlefield_face_down_is_revealed(cards):
     assert s.state.cards[phoenix.id].zone == "p1:graveyard" and not s.state.cards[phoenix.id].face_down
     assert "Ashcloud Phoenix" in blob(s, "p2")  # 708.9: revealed to all players as it moves
     roundtrip(s)
+
+
+def to_own_turn(s, n):
+    until(s, lambda s: s.state.turn.number >= n and s.state.turn.phase == "main1" and s.state.rules.decision is None
+          and s.state.turn.active_player == "p1")
+
+
+def test_ethereal_valkyrie_foretells_a_card_from_your_hand_for_its_mana_cost_less_two(cards):
+    s = build(cards, p1=("Ethereal Valkyrie", "Grizzly Bears"))
+    valkyrie = put(s, "Ethereal Valkyrie", "hand")
+    bears = put(s, "Grizzly Bears", "hand")
+    mana(s, W=1, U=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=valkyrie.id)
+    d = None
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1" and d.min_choices == 1  # exile a card from your hand face down: a private choice
+    for viewer in ("p2", SPECTATOR):
+        assert "options" not in s.view(viewer)["rules"]["decision"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p1:foretell" and s.state.rules.foretold[bears.id] == s.state.turn.number  # 702.143d
+    assert s.state.rules.foretell_costs[bears.id] == "{G}"  # {1}{G} reduced by {2}
+    assert unseen_by(s, bears, "p2", SPECTATOR) and not unseen_by(s, bears, "p1")
+    mana(s, G=1)
+    with pytest.raises(ActionError):  # not the turn it became foretold
+        act(s, "p1", type="cast_spell", card_id=bears.id)
+    to_own_turn(s, 3)
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield"  # cast for {G}
+    roundtrip(s)
+
+
+def attack_with(s, c):
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_attackers" and d.player == "p1":
+            act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"}])
+            return
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    raise AssertionError("never attacked")
+
+
+def test_the_foretold_soldier_exiles_itself_face_down_and_becomes_foretold(cards):
+    s = build(cards, p1=("The Foretold Soldier",))
+    soldier = put(s, "The Foretold Soldier", "battlefield")
+    to_own_turn(s, 3)
+    attack_with(s, soldier)
+    until(s, lambda s: s.state.cards[soldier.id].zone == "p1:foretell")  # "Whenever this creature deals damage, exile it face down"
+    assert unseen_by(s, soldier, "p2", SPECTATOR) and s.state.rules.foretold[soldier.id] == s.state.turn.number
+    to_own_turn(s, 5)
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=soldier.id)  # for its printed foretell cost {1}{G}
+    answer(s)
+    assert s.state.cards[soldier.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_cybership_puts_the_top_cards_of_their_library_onto_the_battlefield_face_down(cards):
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, turn_on
+    from tests.test_rules_combat import creature
+    from tests.test_rules_effects import pass_until_stack_empty, run_until
+
+    alice = deck(cards, "Krenko, Mob Boss", [(1, "Cybership"), (9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(1, "Ambush Viper"), (1, "Grizzly Bears"), (10, "Island")])
+    s = GameSession(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False), cards=cards)
+    ship = find(s, "Cybership")
+    act(s, "p1", type="move", card_ids=[ship.id], to={"zone": "battlefield"})
+    viper = put(s, "Ambush Viper", "library", pid="p2", position="top")
+    bears = put(s, "Grizzly Bears", "library", pid="p2", position="top")
+    pilot = creature(s, "p1", "Pilot", "4/4")
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # → main 1
+    from app.rules.casting import activatable
+
+    crew = next(a for a in activatable(s.state, "p1", cards) if a["card_id"] == ship.id)
+    act(s, "p1", type="activate_ability", card_id=ship.id, ability=crew["ability"], crew=[pilot.id])
+    pass_until_stack_empty(s)
+    act(s, "p1", type="pass_priority")  # → combat
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": ship.id, "target": "p2"}])
+    run_until(s, lambda s: s.state.cards[bears.id].zone == "p1:battlefield")
+    for c in (bears, viper):
+        card_ = s.state.cards[c.id]
+        assert card_.zone == "p1:battlefield" and card_.face_down and card_.owner == "p2" and card_.controller == "p1"
+        ch = chars_of(s, c)
+        assert ch.types == {"Artifact", "Creature"} and ch.subtypes == {"Cyberman"} and (ch.power, ch.toughness) == ("2", "2")
+        assert unseen_by(s, c, "p2", SPECTATOR) and not unseen_by(s, c, "p1")
+    replay_matches(s)

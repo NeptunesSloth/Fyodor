@@ -239,7 +239,8 @@ def exile_hand_down(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True
     decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'Exile'}: choose any number of cards from your hand to exile "
            "face down", options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
-           min_choices=0, max_choices=len(hand), resume={"step": "exile_hand_down", "ctx": ctx, "e": e})
+           min_choices=min(1, len(hand)) if e.get("pick") else 0, max_choices=1 if e.get("pick") else len(hand),
+           resume={"step": "exile_hand_down", "ctx": ctx, "e": e})
     return False
 
 
@@ -289,6 +290,27 @@ def resume_put_down(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+def become_foretold(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"It becomes foretold [with a foretell cost of its mana cost reduced by {2}]" (702.143d): a card in exile becomes a foretold card
+    — kept in its owner's foretell exile (only its owner may look), castable for a foretell cost it has after this turn has ended, even
+    if it has no foretell ability. ``reduce``: the cost an effect gives it, its mana cost with that much less generic mana."""
+    from app.rules import mana as M
+
+    for cid in effects._cards(plan, ctx, e["who"]):
+        card = plan.state.cards[cid]
+        if not card.zone.endswith(":exile"):
+            continue
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "foretell"}}, actor=ctx["controller"])
+        plan.rules.foretold[cid] = plan.state.turn.number
+        if e.get("reduce") is not None:
+            cost = M.parse_cost(plan.ch(card.model_copy(update={"zone": zone_key(card.owner, "hand")})).mana_cost)
+            if cost.unsupported or cost.is_free or cost.x:
+                continue
+            less = M.ManaCost(generic=max(0, cost.generic - int(e["reduce"])), colored=cost.colored, hybrid=cost.hybrid, phyrexian=cost.phyrexian)
+            plan.rules.foretell_costs[cid] = less.text()
+    return True
+
+
 def top_to_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Put that many cards from the top of your library into your hand" (Scroll Rack): not a draw (121.1), so no draw replacement or
     trigger; as many as there are when the library has fewer."""
@@ -299,7 +321,7 @@ def top_to_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"put_down": put_down, "exile_hand_down": exile_hand_down, "top_to_hand": top_to_hand, "manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down,
+PRIMITIVES: dict[str, Any] = {"become_foretold": become_foretold, "put_down": put_down, "exile_hand_down": exile_hand_down, "top_to_hand": top_to_hand, "manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down,
                               "look_face_down": look_face_down, "look_exiled": look_exiled}
 RESUME: dict[str, Any] = {"put_down": resume_put_down, "exile_hand_down": resume_exile_hand_down, "manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up,
                           "look_face_down": resume_look_face_down}

@@ -247,6 +247,10 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
         alt = parse_cost(d["cost"])
         if alt is not None:
             out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt, tag=d.get("tag")))
+    given = r.foretell_costs.get(card.id)  # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave it
+    if given and card.zone == f"{player}:foretell" and card.owner == player and r.foretold.get(card.id, 0) < state.turn.number \
+            and (alt := parse_cost(f"pay {given}")) is not None:
+        out.append(Offer(f"{card.id}:foretell", f"{ch.name}: {given}", alt, tag="foretell"))
     where = card.zone.rsplit(":", 1)[-1]
     for src, index, d in permissions._table_statics(state, info, {"alt_cost"}):
         if not d.get("table") or src.controller != player or where == "foretell":

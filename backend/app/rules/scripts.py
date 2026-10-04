@@ -4187,9 +4187,21 @@ def _reveal_any_in_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | N
 
 
 # -- hidden exile (wave 18A) -- Scroll Rack / Ignorant Bliss: the hand cards exiled face down are "exiled this way" (facedown.py)
-@effect(r"exile (?P<k>all|any number of) cards from your hand face down")
+@effect(r"exile (?P<k>all|any number of|a) cards? from your hand face down")
 def _exile_hand_down(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if m["k"] == "a":  # (Ethereal Valkyrie: one card, chosen on resolution)
+        return [{"do": "exile_hand_down", "all": False, "pick": 1, "n": 1}], None
     return [{"do": "exile_hand_down", "all": m["k"] == "all", "n": 99}], None  # (n: several cards, for "those cards")
+
+
+@effect(r"exile (?:it|~) face down")
+def _exile_it_face_down(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "exile", "who": "it", "face_down": True}], None  # (The Foretold Soldier)
+
+
+@effect(r"it becomes foretold(?: with a foretell cost of its mana cost reduced by \{{(?P<n>\d+)\}})?")
+def _becomes_foretold(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "become_foretold", "who": "it", **({"reduce": int(m["n"])} if m["n"] else {})}], None
 
 
 @effect(r"exile all cards from your library face down")
