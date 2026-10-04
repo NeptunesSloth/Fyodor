@@ -1860,11 +1860,14 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         from app.rules import alt_costs as _alt
         from app.rules import bestow
 
-        if any(o.key == a.alt_cost and o.tag == "bestow" for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info)):
+        tag = next((o.tag for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info) if o.key == a.alt_cost), None)
+        if tag == "overload":  # -- casting extras (wave 18E) -- 702.96a: "target" is "each" (no targets, 702.96b)
+            from app.rules import overload
+
+            ch = overload.overlay(ch)
+        bestowed_cast = tag == "bestow"
+        if bestowed_cast:
             ch = bestow.overlay(ch)
-            bestowed_cast = True
-        else:
-            bestowed_cast = False
     else:
         bestowed_cast = False
     face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --

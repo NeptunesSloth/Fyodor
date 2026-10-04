@@ -388,7 +388,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import graveyard_keywords
 
         return graveyard_keywords.supported(kw, line)
-    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
+    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(line) is not None
@@ -516,6 +516,11 @@ def features_of(ch: Characteristics) -> list[Feature]:
             add(f"script:{ab.index}", ab.text, True)
         elif ab.kind == "keywords":
             for kw in ab.keywords:
+                if kw == "overload":  # -- casting extras (wave 18E) -- the spell read with "each" for "target" (702.96a)
+                    from app.rules import overload
+
+                    add("keyword:overload", "Overload", _keyword_supported(kw, ab.text) and overload.supported(ch))
+                    continue
                 add(f"keyword:{kw}", kw.capitalize(), _keyword_supported(kw, ab.text) if kw != "backup" else all(
                     keyword_triggers.backup_definition(ch, ab, n) is not None
                     for n in range(len(keyword_triggers.pieces("backup", ab.text)))) and bool(
