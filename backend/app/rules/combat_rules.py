@@ -32,8 +32,7 @@ the Comprehensive Rules of 2026-09-25 (data/rules/comprehensive_rules/).
 
 Refused (manual): attack costs sized by a count or covering planeswalkers (Sphere of Safety), "attacks a player each
 combat" (Nahiri), "Only land creatures can attack during that combat phase" (Bumi), additional phases scheduled for a
-later phase ("After the second main phase this turn", World at War), "can't attack a player it has already attacked
-this turn" (Port Razer), costs to block (Heat Wave's second line).
+later phase ("After the second main phase this turn", World at War), costs to block (Heat Wave's second line).
 """
 
 from __future__ import annotations

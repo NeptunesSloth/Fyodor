@@ -463,6 +463,7 @@ class TurnLog(BaseModel):
     casts: list[CastNote] = Field(default_factory=list)  # spells cast, as they became cast (601.2i)
     facts: list[TurnFact] = Field(default_factory=list)  # tokens created, discards, sacrifices, damage to players …
     attackers: dict[str, list[str]] = Field(default_factory=dict)  # player -> creatures (objects) declared as attackers
+    attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
     # "<source object>:<ability index>" -> how many times that ability resolved this turn (copies included)
     resolved: dict[str, int] = Field(default_factory=dict)
     # -- end this-turn history (wave 4D) --
@@ -1169,7 +1170,7 @@ def _note_player_fact(state: GameState, kind: str, player: str | None, amount: i
     book[player] = book.get(player, 0) + amount
 
 
-def note_attack(state: GameState, player: str, attackers: list[str] | None = None) -> None:
+def note_attack(state: GameState, player: str, attackers: list[str] | None = None, targets: list[str] | None = None) -> None:
     """508.1: ``player`` declared one or more attackers this turn ("if you attacked this turn"); ``attackers``: the
     objects declared (wave 4D: "if you attacked with two or more creatures this turn" — every combat of the turn)."""
     log = turn_log_now(state)
@@ -1178,6 +1179,9 @@ def note_attack(state: GameState, player: str, attackers: list[str] | None = Non
     if log is not None and attackers:  # -- this-turn history (wave 4D) --
         seen = log.attackers.setdefault(player, [])
         seen += [a for a in attackers if a not in seen]
+        for a, t in zip(attackers, targets or (), strict=True):  # -- static_other sweep (wave 19A) -- 508.1c: "a player it has already attacked"
+            if t in state.players and t not in log.attacked_who.setdefault(a, []):
+                log.attacked_who[a].append(t)
 
 
 def wither_put_by(action: Any) -> dict[tuple[str, str], dict[str, int]] | None:

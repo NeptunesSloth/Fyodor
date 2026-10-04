@@ -42,7 +42,7 @@ names right now (611.3a: a creature that enters later too) and are read by app/r
 the untap step. The vocabulary (``RULES`` plus parameterised ones, ``name:value``):
 
     cant_block, cant_attack, cant_attack_or_block, cant_be_blocked, must_attack, must_block,
-    must_be_blocked, doesnt_untap, max_one_blocker, cant_attack_alone, cant_block_alone,
+    must_be_blocked, doesnt_untap, max_one_blocker, cant_attack_alone, cant_block_alone, cant_attack_attacked (wave 19A),
     cant_activate, attack_despite_defender (wave 4B: "can attack as though it didn't have defender"),
     min_blockers:N                         "can't be blocked except by N or more creatures"
     cant_be_blocked_by:<sel>[|<sel>…]       "can't be blocked by artifact creatures"
@@ -748,6 +748,7 @@ RULES: dict[str, tuple[str, ...]] = {
     "can't be blocked": ("cant_be_blocked",),
     "can't attack alone": ("cant_attack_alone",),
     "can't block alone": ("cant_block_alone",),
+    "can't attack a player it has already attacked this turn": ("cant_attack_attacked",),  # -- static_other sweep (wave 19A) -- 508.1c
     "can't attack or block alone": ("cant_attack_alone", "cant_block_alone"),
     "can't be blocked by more than one creature": ("max_one_blocker",),
     "attacks each combat if able": ("must_attack",),

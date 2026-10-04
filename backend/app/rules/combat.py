@@ -307,6 +307,9 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
                 defender_of(plan.state, A.AttackTarget(kind="card", id=decl.target))
             if not _controls_land(plan.state, defender or "", "Island", plan.info):
                 raise ActionError(f"{card.name} can't attack unless defending player controls an Island")
+        if "cant_attack_attacked" in plan.ch(card).imposed and decl.target in (  # -- static_other sweep (wave 19A) -- 508.1c (Port Razer)
+                plan.rules.turn_log.attacked_who.get(plan.oid(card), ()) if plan.rules.turn_log.turn == plan.state.turn.number else ()):
+            raise ActionError(f"{card.name} can't attack a player it has already attacked this turn")
         if decl.card_id in seen:
             raise ActionError(f"{card.name} can only attack once")
         seen.add(decl.card_id)
@@ -372,7 +375,8 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         plan.rules.attacked_players[plan.actor] = sorted({x.target for x in a.attackers if x.target in plan.state.players})  # (melee: 18E)
 
         note_attack(plan.state, plan.actor,  # (wave 4D: the attacking objects)
-                    [plan.oid(plan.state.cards[x.card_id]) for x in a.attackers])  # 508.1: "if you attacked this turn" (conditional clauses, wave 1B)
+                    [plan.oid(plan.state.cards[x.card_id]) for x in a.attackers],  # 508.1: "if you attacked this turn" (conditional clauses, wave 1B)
+                    [x.target for x in a.attackers])
         # -- static wordings (wave 6E) -- 508.1g / 701.43d: "You may exert this creature as it attacks" (app/rules/exert.py)
         from app.rules import exert
 

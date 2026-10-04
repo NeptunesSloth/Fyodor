@@ -1790,7 +1790,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # -- static_other sweep (wave 16B) -- 701.48a: "Learn." means "You may reveal a Lesson card you own from outside the game and put it
     # into your hand. If you don't, you may discard a card. If you do, draw a card." A game here has no cards outside it (no sideboard is
     # modelled: the decks are the games'), so the reveal never has a Lesson to show and the rest is the rummage
-    body = re.sub(r"(^|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
+    body = re.sub(r"(^|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)
+    body = _extra_turns.one_sentence(body)  # -- static_other sweep (wave 19A) -- Final Fortune  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     # -- trigger tail (wave 16C) -- "Create a 4/4 … token with flying at the beginning of the next end step." (Rukh Egg): the same delayed
     # trigger (603.7) as the leading wording, which the token grammar reads whole
     body = re.sub(rf"(?i)^(create [^.]+?) (at the beginning of (?:{_delayed.WHEN_RE}))(\.?)$", r"\2, \1\3", body)
@@ -4574,7 +4575,7 @@ def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # their layers, 613.6); "It's still a land." is ``still_a``, which turns the types it set into
 # types added (205.1b). A quoted ability it grants must be one the engine carries out
 # (``granted_ability``), else the ability stays manual.
-@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:(?:a|an) |the basic land type of your choice|the (?:creature type|color)(?: other than [A-Z][a-z]+)? of your choice).+)")
+@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:(?:a|an) |(?=\d+/\d+ [A-Za-z ]*creatures)|the basic land type of your choice|the (?:creature type|color)(?: other than [A-Z][a-z]+)? of your choice).+)")
 def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
@@ -4627,7 +4628,7 @@ _RECORDING["enters_as"] = None
 
 
 @_first  # (before agent J's "until your next turn" wrapper, which only wraps pumps, grants and restrictions)
-@effect(r"(?P<text>(?:until your next turn, (?:have )?.+? becomes? (?:a|an) .+|(?:have )?.+? becomes? (?:a|an) .+ until your next turn))")
+@effect(r"(?P<text>(?:until your next turn, (?:have )?.+? becomes? (?:(?:a|an) |(?=\d+/\d+ )).+|(?:have )?.+? becomes? (?:(?:a|an) |(?=\d+/\d+ )).+ until your next turn))")
 def _become_next_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return _become(m)
 
@@ -4639,6 +4640,26 @@ def _base_pt(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         return _language.parse_base_pt(m)
     except _language._Fail:
         raise _NoMatch from None
+
+
+# -- static_other sweep (wave 19A) -- "Until end of turn, creatures target player controls lose all abilities and have base power and
+# toughness 0/2." (Sudden Spoiling), "… each creature target player controls loses all abilities and becomes a blue Frog with base
+# power and toughness 1/1" (Polymorphist's Jest), "Until your next turn, creatures target player controls have base power and toughness
+# 1/1" (Mass Diminish): the group's own grammar for "all creatures …", over the creatures that player controls as it resolves (608.2c),
+# locked in then (611.2c)
+@_first
+@effect(r"(?P<lead>(?:until end of turn|until your next turn), )?(?:each creature|creatures) target (?P<pl>player|opponent) controls "
+        r"(?P<rest>(?:loses? all abilities and )?(?:becomes? .+|(?:has|have) base .+))")
+def _their_creatures_become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    text = f"{m['lead'] or ''}all creatures {re.sub(r'^lose ', 'loses ', m['rest'])}"
+    bm = _language.re.fullmatch(_language.BASE_PT, text)
+    try:
+        found = _language.parse_base_pt(bm) if bm else _language.parse_become(text)
+    except _language._Fail:
+        raise _NoMatch from None
+    if found is None or any(e["do"] != "become" or e.get("abilities") or not e["who"].startswith("sel:") for e in found[0]):
+        raise _NoMatch
+    return [{**e, "who": f"controlled:target|{e['who']}"} for e in found[0]], SELECTORS[f"target {m['pl']}"]
 
 
 @effect(_language.STILL_A)

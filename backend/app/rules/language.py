@@ -2376,7 +2376,7 @@ _DESC = re.compile(  # (each part optional, space-separated: "legendary 8/12 gre
     r"(?: ?(?P<subs>[A-Z][\w’'-]+(?: [A-Z][\w’'-]+)*))?(?: ?(?P<kinds>(?:artifact |enchantment )?(?:creature|artifact|enchantment)))?"
     r"(?: with (?P<with>.+))?$")
 _QUOTED = re.compile(r'"([^"]+)"')
-STILL_A = r"it's still an? (?P<t>land|artifact|enchantment|planeswalker|creature)"
+STILL_A = r"(?:it's still an?|they're still) (?P<t>land|artifact|enchantment|planeswalker|creature)s?"  # (wave 19A: "They're still lands.")
 _STAT_WORDS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
 
 
@@ -2469,6 +2469,9 @@ def _become(text: str) -> tuple[Effects, Any]:
     from app.rules.creature_types import CREATURE_TYPES
 
     text, rider = _with_rider(text)
+    # -- static_other sweep (wave 19A) -- "All lands you control become 2/2 Elemental creatures with reach …" (Sylvan Awakening): a group
+    # becomes the plural of the singular wording read below
+    text = re.sub(r"^(?P<pre>.+? becomes?) (?P<d>(?:\d+/\d+ )(?:[A-Z][\w'-]+ )*)creatures\b", r"\g<pre> a \g<d>creature", text)
     if rider is None and (land := _BECOME_LAND.fullmatch(text)) is not None:
         return _become_land(land)
     if rider is None and (pick := _BECOME_PICK.fullmatch(text)) is not None:  # -- activated wordings (wave 15D) --
@@ -2566,7 +2569,7 @@ def _become_color(m: re.Match[str]) -> tuple[Effects, Any]:
     return out, _one(group)
 
 
-BASE_PT = (r"(?:(?P<lead>until end of turn|until your next turn), )?(?P<o>.+?) (?:has|have) base "
+BASE_PT = (r"(?:(?P<lead>until end of turn|until your next turn), )?(?P<o>.+?)(?: (?P<lose>loses? all abilities and))? (?:has|have) base "
            r"(?:power and toughness (?P<p>\d+|X)/(?P<t>\d+|X)(?P<all> and gain all creature types)?(?:, where X is (?P<xdef>[^\"]+?))?"  # (X: wave 4K)
            # -- activated sweep (wave 17B) -- "has base power 4 and gains trample" (Turtle-Duck): one of the two, layer 7b (613.4b)
            rf"|(?P<one>power|toughness) (?P<n>\d+)(?: and gains? (?P<gk>{_KW_ONLY}))?)"
@@ -2593,7 +2596,7 @@ def parse_base_pt(m: re.Match[str]) -> tuple[Effects, Any]:
         if x is None or "X" not in (m["p"], m["t"]) or '"it"' in json.dumps(x):
             raise _Fail
     if m["one"]:
-        if duration != "end_of_turn":
+        if duration != "end_of_turn" or m["lose"]:
             raise _Fail
         who = _who(kind, key)
         one: Effects = [{"do": "become", "who": who, "types": [], "duration": duration,
@@ -2607,6 +2610,8 @@ def parse_base_pt(m: re.Match[str]) -> tuple[Effects, Any]:
                            "p": x if m["p"] == "X" else int(m["p"]), "t": x if m["t"] == "X" else int(m["t"]), "duration": duration}
     if m["all"]:
         out["all_creature_types"] = True
+    if m["lose"]:  # -- static_other sweep (wave 19A) -- "loses all abilities and has base power and toughness 0/1" (Ovinize): layers 6 and 7b
+        out["lose_abilities"] = True
     return [out], _one(group)
 
 
