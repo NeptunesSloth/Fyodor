@@ -849,11 +849,11 @@ def surveil(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     pid = ctx["controller"]
     n = _amount(plan, ctx, e["n"])
+    top = plan.state.zones.get(zone_key(pid, "library"), [])[:n]
     if n > 0:  # -- this-turn history (wave 4D) -- 701.22b/d, 701.25c/d: N > 0 scries / surveils, even an empty library
         from app.rules import history
 
-        history.note_look(plan, pid, "scry" if where == "bottom" else "surveil")
-    top = plan.state.zones.get(zone_key(pid, "library"), [])[:n]
+        history.note_look(plan, pid, "scry" if where == "bottom" else "surveil", len(top))
     if not top:
         return True
     options = [DecisionOption(id=cid, label=plan.state.cards[cid].name or "Card", card_id=cid) for cid in top]

@@ -209,7 +209,7 @@ def facts(plan: Plan, e: Event) -> list[Any]:
     if e.counter == "dungeon" and e.player:
         return [("complete_dungeon", None, None, e.player, {})]
     if e.counter in ("scry", "surveil") and e.player:  # -- looks (wave 8B) -- 701.22b, 701.25c (history.note_look)
-        return [(e.counter, None, None, e.player, {"nth": e.amount})]
+        return [(e.counter, None, None, e.player, {"nth": e.amount, "amount": e.looked})]  # (wave 19C: "cards looked at while scrying this way")
     if e.counter == "roll" and e.player:  # -- rolling dice (wave 13E) -- "Whenever you roll one or more dice" (app/rules/dice.py)
         return [("roll", None, None, e.player, {"high": e.amount})]
     if e.counter == "crime" and e.player:  # -- crimes (wave 6D) -- 700.13
