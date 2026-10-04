@@ -1268,6 +1268,11 @@ def _investigate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
              "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
 
 
+@effect(r"investigate twice")  # -- trigger tail (wave 15B) -- 701.16a: investigating twice makes two Clues
+def _investigate_twice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{**_investigate(m)[0][0], "n": 2}], None
+
+
 # -- life lost (wave 8B) -- "Investigate for each opponent who lost life this turn." (Teysa): one Clue per counted thing
 # (701.16a: investigating is creating a Clue token; the count is worked out as the instruction is carried out, 608.2h)
 @effect(r"investigate (?:once )?for each (?P<what>.+)")
@@ -1616,6 +1621,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return gifts
     from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
 
+    # -- trigger tail (wave 15B) -- "Discard any number of cards, then draw that many cards.": "that many" is the cards discarded
+    # this way (701.9a), not a trigger event's amount; "plus one" would be a different (single) draw: not read
+    body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?), then draw that many cards\b(?! plus)",
+                  r"\1, then draw a card for each card discarded this way", body)
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     from app.rules import per_opponent  # -- per-opponent targets (wave 12C) --
 

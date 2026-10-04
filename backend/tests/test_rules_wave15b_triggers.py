@@ -53,6 +53,9 @@ EXTRA += [
     real("Wiccan, Young Avenger", "{1}{U}{R}", 3, "Legendary Creature — Human Wizard",
          "Whenever you cast a noncreature spell, exile the top card of your library. Until your next end step, you may play that card.",
          ("2", "2"), "UR"),
+    real("Kinetic Augur", "{3}{R}", 4, "Creature — Human Wizard",
+         "When this creature enters, discard up to two cards, then draw that many cards.", ("2", "3"), "R"),
+    real("Armed with Proof", "{3}", 3, "Enchantment", "When this enchantment enters, investigate twice.", None),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -140,6 +143,33 @@ def test_until_your_next_end_step_ends_as_that_end_step_begins(cards):
         else:
             act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.rules.permissions == []  # it ended as the end step began (the engine does not stop there)
+    check(s)
+
+
+def test_discard_up_to_two_then_draw_that_many(cards):
+    # 701.9a: the player chooses how many (0 to 2); "that many" is the cards discarded this way, not a guess
+    for chosen, drawn in ((1, 1), (0, 0)):
+        s = build(cards, ["Kinetic Augur"], [])
+        act(s, "p1", type="draw", player="p1", count=3)
+        augur = to_hand(s, "Kinetic Augur")
+        hand = [c for c in s.state.zones["p1:hand"] if c != augur.id]
+        mana(s, "p1", R=1, C=3)
+        act(s, "p1", type="cast_spell", card_id=augur.id)
+        d = s.state.rules.decision
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=hand[:chosen])
+        answer(s)
+        assert len(s.state.zones["p1:hand"]) == len(hand) - chosen + drawn
+        assert len(s.state.zones["p1:graveyard"]) == chosen
+        check(s)
+
+
+def test_investigate_twice_makes_two_clues(cards):
+    s = build(cards, ["Armed with Proof"], [])
+    spell = to_hand(s, "Armed with Proof")
+    mana(s, "p1", C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    answer(s)
+    assert len(on_battlefield(s, "Clue")) == 2  # 701.16a
     check(s)
 
 
