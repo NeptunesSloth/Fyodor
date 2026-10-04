@@ -1656,6 +1656,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     if (each_opp := per_opponent.parse(body, lambda b: parse_effects(b, it, event_player=event_player))) is not None:
         return each_opp
     found = _parse_effects_checked(body, it, event_player)
+    if found is not None and '"target_sel"' in json.dumps(found[0], default=str):
+        return None  # (-- static_other sweep (wave 16B) -- a "target …" an amount names that no instruction declared as its target)
     if found is not None and '{"x": 1}' not in json.dumps(found[0]):
         return found
     return _where_x(body, it, event_player) or found  # (X left as a cast X by the sentence grammar: read as the text defines it, if it can be)

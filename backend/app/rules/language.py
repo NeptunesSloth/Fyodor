@@ -295,6 +295,14 @@ def _stat(phrase: str, its: str = "it") -> Any:
         # named another object (Deekah: "create a … token. Put X +1/+1 counters on it, where X is that spell's mana
         # value"); scripts._bind_stats binds it ("it" where no trigger spell is meant)
         return {_STATS[m["stat"]]: "self" if m["self"] else (its if m["its"] else "that_spell" if m["spell"] else "it")}
+    # -- static_other sweep (wave 16B) -- "the power of target creature you control" / "target creature's toughness": the sentence's own
+    # target (115.1: declared with it), the object whose characteristic it is (608.2h: as it is, or as it last existed)
+    m = re.fullmatch(r"the (?P<stat>power|toughness|mana value) of target (?P<sel>.+)|target (?P<sel2>[^']+)'s (?P<stat2>power|toughness|mana value)", phrase)
+    if m:
+        sel = selectors.parse(m["sel"] or m["sel2"])
+        if sel is None or sel.player is not None or sel.zones not in ((), ("battlefield",)) or sel.other:
+            raise _Fail
+        return {_STATS[m["stat"] or m["stat2"]]: "target", "target_sel": sel.key()}
     m = re.fullmatch(r"twice (?P<v>.+)", phrase)
     if m:
         return {"times": [2, _stat(m["v"], its)]}
@@ -340,10 +348,25 @@ def _wants_target_player(v: Any) -> bool:
     return v.get("hand") == "target" or v.get("life") == "target" or any(_wants_target_player(x) for x in v.values())
 
 
+def _pop_target_sel(v: Any) -> str | None:
+    """The selector of the "target …" a value names (``_stat``), taken out of it."""
+    if isinstance(v, list):
+        return next((k for x in v if (k := _pop_target_sel(x)) is not None), None)
+    if not isinstance(v, dict):
+        return None
+    if "target_sel" in v:
+        return str(v.pop("target_sel"))
+    return next((k for x in v.values() if (k := _pop_target_sel(x)) is not None), None)
+
+
 def _value_target(n: Any, target: str | None) -> str | None:
     """The sentence's target once its amount is known: a value reading "target player" is that
     sentence's one target (115.1) — declared here so it's chosen on casting and checked on
     resolution — unless the sentence already targets something else (then it's not read)."""
+    if (own := _pop_target_sel(n)) is not None:  # -- static_other sweep (wave 16B) -- "equal to the power of target creature you control"
+        if target is not None:
+            raise _Fail  # (a second target: which one does the amount read?)
+        return own
     if not _wants_target_player(n):
         return target
     if target is None:
