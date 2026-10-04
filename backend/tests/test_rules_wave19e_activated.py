@@ -70,6 +70,10 @@ EXTRA = [
           "activate an equip ability.", ["R"], power="1", toughness="1"),
     _card("Short Sword", "W19", "{1}", "Artifact — Equipment",
           "Equipped creature gets +1/+1.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)", []),
+    _card("Cut Down", "W20", "{B}", "Instant", "Destroy target creature with total power and toughness 5 or less.", ["B"]),
+    _card("Rust", "W21", "{G}", "Instant", "Counter target activated ability from an artifact source. (Mana abilities can't be targeted.)",
+          ["G"]),
+    _card("Aeolipile", "W22", "{2}", "Artifact", "{1}, {T}, Sacrifice this artifact: It deals 2 damage to any target.", []),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -284,4 +288,34 @@ def test_mana_only_for_an_equip_ability(cards):
     act(s, "p1", type="activate_ability", card_id=sword.id, ability=1, targets=[bears.id])
     pass_until_stack_empty(s)
     assert s.state.cards[sword.id].attached_to == bears.id and s.state.cards[named(s, "Freya Crescent").id].tapped
+    replay_matches(s)
+
+
+def test_target_creature_with_total_power_and_toughness(cards):
+    """Cut Down: Grizzly Bears (2+2) is a legal target, Hill Giant (3+3) is not (the sum of power and toughness, 5 or less)."""
+    s = table(cards, ["Grizzly Bears", "Hill Giant"], ["Cut Down"])
+    pay(s, B=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=named(s, "Cut Down").id, targets=[named(s, "Hill Giant").id])
+    act(s, "p1", type="cast_spell", card_id=named(s, "Cut Down").id, targets=[named(s, "Grizzly Bears").id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[named(s, "Grizzly Bears").id].zone == "p1:graveyard"
+    assert s.state.cards[named(s, "Hill Giant").id].zone == "p1:battlefield"
+    replay_matches(s)
+
+
+def test_counter_target_activated_ability_from_an_artifact_source(cards):
+    """Rust counters Aeolipile's ability (an artifact source, as it last existed: it was sacrificed to pay) but can't target an ability
+    of a creature source (Drudge Skeletons)."""
+    s = table(cards, ["Aeolipile", "Drudge Skeletons"], ["Rust"])
+    pay(s, C=1, B=1, G=1)
+    act(s, "p1", type="activate_ability", card_id=named(s, "Drudge Skeletons").id, ability=0)
+    skeleton_ability = next(c for c, e in s.state.rules.stack.items() if e.kind == "activated")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=named(s, "Rust").id, targets=[skeleton_ability])
+    act(s, "p1", type="activate_ability", card_id=named(s, "Aeolipile").id, ability=0, targets=["p2"])
+    bolt = next(c for c, e in s.state.rules.stack.items() if e.kind == "activated" and c != skeleton_ability)
+    act(s, "p1", type="cast_spell", card_id=named(s, "Rust").id, targets=[bolt])
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 40
     replay_matches(s)
