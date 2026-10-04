@@ -118,8 +118,8 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   forms (Tip the Scales).
 - **Chosen selectors**: Roaming Throne, Cloud Key's chosen card type, protection from the chosen color;
   a trigger whose source left the battlefield matches nothing for "the chosen type".
-- **Sylvan Library** (per-card "drawn this turn" is hidden information), Lim-Dûl's Vault, Djinn of
-  Wishes, Protean Hulk.
+- Lim-Dûl's Vault, Djinn of Wishes, Protean Hulk. (Sylvan Library: wave 18G, `drawn_toll.py`; the per-card "drawn this turn"
+  record is `TurnLog.drawn`, private. Jandor's Ring's "discard the last card you drew this turn" cost can use it, not done.)
 - **Copies**: cast-a-copy only as "[exile a card and] copy it / that card [N times]. You may cast the copy without paying its
   mana cost" (wave 13C, 707.12: `copying.copy_cards` + `permissions.FREE_COPY`; the copy is made in the card's own zone;
   a non-free "You may cast the copy", "cast the copy by paying …" and copies of imprinted / "exiled with" cards stay manual),
@@ -135,10 +135,10 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   enchanted.
 - **Replacements**: life-loss replacements (no choke point yet), "shuffle into its library instead"
   (Blightsteel, Progenitus), Academy Manufactor, Vorinclex-style counter replacements, count-level
-  draw replacements (Alms Collector), Kalitas against another "exile instead", Level/Class/Room lines.
+  draw replacements (Alms Collector), Kalitas against another "exile instead".
 - **Costs**: K'rrik and Dream Halls (per-mana payment), Suppression Field (crew and unearth skip the
   cost-modifier path), activation costs that depend on a target, "Remove X counters from among …",
-  comma-listed sacrifice choices, Room cards' cost lines (locked doors aren't modelled).
+  comma-listed sacrifice choices.
 - **Modal**: "choose X/up to X", "choose two at random", modes with "you may", target groups or
   divisions, restriction lines after modes.
 - **"Unless pays"**: "each opponent … unless they pay" (simultaneous edicts), "unless any player
@@ -259,3 +259,15 @@ Known approximations (correct in normal play; listed so nobody is surprised):
   their context grows, and run fewer in parallel when limits matter.
 - Targeted tests while implementing; full verification at integration checkpoints. The full backend suite
   takes 2–6 minutes with `-n 8`, depending on load.
+
+## Rooms (wave 18G)
+CR 709.5: a Room is a split card with one shared type line. `RulesState.unlocked` (object -> unlocked doors, 1 left / 2 right) is the
+designation; `characteristics._room` is the card with both doors (the right door's abilities carry `section=2`), `copying.with_level`
+narrows it to the doors that count (a locked half has no name, mana cost or text; on the stack only the cast half), and
+`scripts.definitions` drops a locked door's abilities. Casting a half unlocks it as the Room enters (`rooms.entered`; the cast face is
+kept on the stack object); the unlock cost is the `unlock_door` special action (`rooms.unlock_action`); "When you unlock this door" is a
+`designation` event (`counter="unlocked"`) read by `designations.facts`. Not done: "fully unlocks" / "lock" wordings (no Commander
+card), and the Room cards with other blockers: Smoky Lounge // Misty Salon (restricted trigger mana), Central Elevator // Promising
+Stairs, Dollmaker's Shop // Porcelain Gallery, Secret Arcade // Dusty Parlor, Charred Foyer, Cramped Vents, Greenhouse, Walk-In
+Closet, Polluted Cistern, Experimental Lab. Attractions (CR 717) are not built: the lit-up numbers are per printing and not in the
+card data, and the supplementary Attraction deck needs deck-building support.
