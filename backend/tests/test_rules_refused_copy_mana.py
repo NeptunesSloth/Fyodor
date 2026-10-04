@@ -302,8 +302,9 @@ def test_restriction_grammar():
     assert M.parse_spend("Spend this mana only to cast Vampire, Cleric, and/or Demon spells") is not None
     assert M.parse_spend("Spend this mana only to cast a Time Lord or Alien spell or activate an ability of a Time Lord or Alien")
     # refused: what the payer can't check
-    for text in ("Spend this mana only to cast spells from exile", "Spend this mana only to pay cumulative upkeep costs",
-                 "Spend this mana only to cast kicked spells", "Spend this mana only to cast spells you don't own"):
+    # (wave 17B: where the spell is cast from and kicked are checked now: test_rules_wave17b_activated.py)
+    for text in ("Spend this mana only to cast spells from the top of your library", "Spend this mana only to pay cumulative upkeep costs",
+                 "Spend this mana only to cast spells you don't own"):
         assert M.parse_spend(text) is None
     assert M.parse_mana_ability("{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, "
                                 "and that spell can't be countered.") is None  # (a rider: manual)

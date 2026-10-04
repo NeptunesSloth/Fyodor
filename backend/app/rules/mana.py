@@ -202,7 +202,7 @@ _CONTROL_COUNT = re.compile(rf"^Activate only if you control {_N} or more (?P<wh
 _COUNTERS_FOR_EACH = re.compile(r"^Add \{(?P<sym>[WUBRGC])\} for each (?P<kind>[a-z]+) counter on (?:this \w+|~)$")
 _FOR_EACH = re.compile(r"^Add \{(?P<sym>[WUBRGC])\} for each (?P<what>creature|artifact|enchantment|land|[A-Z][a-z]+) you control$")
 _COUNT_TYPES = {"creature": "Creature", "artifact": "Artifact", "enchantment": "Enchantment", "land": "Land"}
-_POWER_OF = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?:this creature|[A-Z][^.]{0,60}?)'s power$")
+_POWER_OF = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?:this creature|[A-Z][^.]{0,60}?)'s (?P<stat>power|toughness)$")  # (toughness: wave 17B, Vhal)
 _X_POWER = re.compile(r"^Add X mana of any one color, where X is (?:this creature|[A-Z][^.]{0,60}?)'s power$")
 # -- X sized by a count (wave 4K) -- "Add X mana of any one color, where X is the number of enchantments you control."
 # (Sanctum Weaver): counted as the ability resolves (605.3a: at once), like "Add {G} for each …"
@@ -337,7 +337,7 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     elif c := _COUNTERS_FOR_EACH.fullmatch(first):
         count, options = f"counters:{c.group('kind')}", ((c.group("sym"),),)
     elif c := _POWER_OF.fullmatch(first):
-        count, options = "power", ((c.group("sym"),),)
+        count, options = c.group("stat"), ((c.group("sym"),),)
     elif _X_POWER.fullmatch(first):
         count, options = "power", tuple((col,) for col in COLORS)
     elif c := _X_COUNT.fullmatch(first):  # (wave 4K)
@@ -611,6 +611,8 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
             out["color"] = w
         elif w in ("noncreature", "nonartifact"):
             out["non"] = [_CARD_TYPES[w[3:]]]
+        elif w == "kicked":  # -- activated sweep (wave 17B) -- "kicked spells" (702.33): casting.Purpose.kicked
+            out["kicked"] = True
         elif w[:1].isupper() and (_known_subtype(w) or _known_subtype(bare)):
             subs.append(w if _known_subtype(w) else bare)
         elif w[:1].isupper() and i + 1 < len(tokens) and tokens[i + 1] == "planeswalker":
@@ -620,7 +622,7 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
         else:
             return None
         i += 1
-    if not (types or subs or supers or "color" in out or "non" in out):
+    if not (types or subs or supers or "color" in out or "non" in out or out.get("kicked")):
         return None
     if out.get("chosen") and types != ["Creature"]:
         return None
@@ -655,6 +657,12 @@ _GENERIC_SPEND = re.compile(
     r"(?: of (?P<src>.+))?))?|(?P<act2>activate (?:an ability|abilities)(?: of (?P<src2>.+?))?)(?: or (?:to )?cast (?P<spells2>.+))?)$")
 
 
+# -- activated sweep (wave 17B) -- where the spell is cast from: "Spend this mana only to cast spells from exile / a spell from your
+# graveyard / spells with flashback from a graveyard"; "This mana can't be spent to cast spells from your hand" (the zone is the
+# one the spell is cast from, 601.2a; casting.Purpose.zone)
+_ORIGIN = re.compile(r"^Spend this mana only to cast (?:a spell|spells)(?: with (?P<kw>flashback))? from (?P<z>exile|your graveyard|a graveyard)$")
+
+
 def parse_spend(sentence: str) -> str | None:
     """A general "Spend this mana only to …" restriction as "q:<json>" (None: not one the payer checks)."""
     import json
@@ -662,6 +670,13 @@ def parse_spend(sentence: str) -> str | None:
     s = sentence.strip().rstrip(".")
     if s == "This mana can't be spent to cast spells":
         return "q:" + json.dumps({"cast": None, "ability": "any"}, sort_keys=True)
+    if s == "This mana can't be spent to cast spells from your hand":
+        return "q:" + json.dumps({"cast": [{"not_zone": "hand"}], "ability": "any"}, sort_keys=True)
+    if m := _ORIGIN.fullmatch(s):
+        alt: dict[str, object] = {"zone": "exile" if m["z"] == "exile" else "graveyard", "own": m["z"] == "your graveyard"}
+        if m["kw"]:
+            alt["kw"] = m["kw"]
+        return "q:" + json.dumps({"cast": [alt], "ability": None}, sort_keys=True)
     m = _GENERIC_SPEND.fullmatch(s)
     if m is None:
         return None
@@ -699,6 +714,8 @@ def spend_alt_matches(alt: dict[str, Any], ch: Any) -> bool:
     if any(t not in ch.supertypes for t in alt.get("supertypes") or []):
         return False
     if any(t in types for t in alt.get("non") or []):
+        return False
+    if alt.get("kw") and alt["kw"] not in ch.keywords:
         return False
     color = alt.get("color")
     if color == "colorless" and colors:

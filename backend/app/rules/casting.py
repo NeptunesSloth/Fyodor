@@ -165,11 +165,12 @@ def _mana_count(state: GameState, card: CardInstance, count: str, info: CardInfo
     """How many times a counted mana ability's mana is added (Gaea's Cradle, Cabal Coffers, …)."""
     from app.rules.layers import derive
 
-    if count == "power":
+    if count in ("power", "toughness"):
         ch = derive(state, card, chars.of(card, info), info)
         if ch.pt:
-            return max(0, ch.pt[0])
-        return int(ch.power) if ch.power and ch.power.isdigit() else 0
+            return max(0, ch.pt[0 if count == "power" else 1])
+        stat = ch.power if count == "power" else ch.toughness
+        return int(stat) if stat and stat.isdigit() else 0
     if count.startswith("counters:"):  # (wave 3M) "for each charge counter on this artifact"
         return card.counters.get(count.split(":", 1)[1], 0)
     if count == "chosen_type":  # -- refused copy/mana (wave 3R3) -- "creatures you control of the chosen type"
@@ -421,8 +422,20 @@ def spend_allowed(kind: str | None, purpose: Purpose | None) -> bool:
         allowed = spec.get(side)
         if ch is None or allowed is None or any(a.get("chosen") for a in allowed if isinstance(allowed, list)):
             return False
-        return allowed == "any" or any(M.spend_alt_matches(a, ch) for a in allowed)
+        return allowed == "any" or any(M.spend_alt_matches(a, ch) and (side == "ability" or _cast_origin_ok(a, purpose))
+                                       for a in allowed)
     return False
+
+
+def _cast_origin_ok(alt: dict[str, Any], purpose: Purpose) -> bool:
+    """-- activated sweep (wave 17B) -- the origin parts of a "Spend this mana only to cast …" alternative: kicked (702.33), the
+    zone it's cast from (exile / a graveyard / your graveyard / not your hand)."""
+    zone = purpose.zone.rsplit(":", 1)[-1] if purpose.zone else None
+    if alt.get("kicked") and not purpose.kicked:
+        return False
+    if alt.get("zone") and (zone != alt["zone"] or (alt.get("own") and (purpose.zone or "").split(":")[0] != purpose.player)):
+        return False
+    return not (alt.get("not_zone") and (zone is None or zone == alt["not_zone"]))
 
 
 def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose | None = None) -> list[M.Source]:
@@ -815,6 +828,11 @@ class Purpose:
     # The spell's card: set only for the castability hint, which then counts convoke / improvise /
     # delve helpers too (the spell can't delve itself). Payments never treat helpers as mana.
     card: str | None = None
+    # -- activated sweep (wave 17B) -- where the spell is cast from, by whom, and whether kicked ("Spend this mana only to cast
+    # kicked spells", "…spells from exile"; 601.2h: the cost is paid with these locked in, 601.2a-b)
+    zone: str | None = None
+    player: str | None = None
+    kicked: bool = False
 
 
 def _solve_with_filters(cost: M.ManaCost, pool: dict[str, int], plain: list[M.Source], filters: list[M.Source],
@@ -963,14 +981,14 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[
     return payment
 
 
-def _auto_helpers(plan: Plan, cost: M.ManaCost, spell: Characteristics, spell_card: str) -> list[P.Helper]:
+def _auto_helpers(plan: Plan, cost: M.ManaCost, spell: Characteristics, spell_card: str, purpose: Purpose) -> list[P.Helper]:
     """The engine pays (AUTO/ASK — tests and the sandbox payer): use convoke / improvise / delve
     only when mana alone can't pay, choosing them with the castability solver."""
     state, player = plan.state, plan.actor
     if not helper_kinds(spell, state, player, spell_card, plan.info) or can_pay(state, player, cost, plan.info,
-                                                                               purpose=Purpose(spell=spell)):
+                                                                               purpose=purpose):
         return []
-    plain = [s for s in mana_sources(state, player, plan.info, Purpose(spell=spell)) if s.activation is None]
+    plain = [s for s in mana_sources(state, player, plan.info, purpose) if s.activation is None]
     try:
         found = M.solve(cost, dict(state.players[player].mana),
                         _helper_sources(state, player, plan.info, spell, spell_card, plain), life=state.players[player].life)
@@ -982,16 +1000,16 @@ def _auto_helpers(plan: Plan, cost: M.ManaCost, spell: Characteristics, spell_ca
 
 
 def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics, cost: M.ManaCost,
-              label: str, *, not_mana: tuple[str, ...] = ()) -> PaymentRecord:
+              label: str, *, not_mana: tuple[str, ...] = (), origin: str | None = None) -> PaymentRecord:
     """601.2h: pay a spell's locked-in total cost — the convoke / improvise / delve contributions
     (each paying one symbol, 702.51a / 702.126a / 702.66a) and mana for everything else — all at
     once. Returns how it was paid; contributions are not mana spent."""
     player = plan.actor
-    purpose = Purpose(spell=ch)
+    purpose = Purpose(spell=ch, zone=origin or card.zone, player=player, kicked=bool(a.kicker))  # (wave 17B: origin: before the stack)
     if a.contributions:
         helpers = helpers_for(plan.state, player, plan.info, ch, card.id, [c.model_dump() for c in a.contributions])
     elif a.sources is None and payment_mode(plan, player) != "self":
-        helpers = _auto_helpers(plan, cost, ch, card.id)
+        helpers = _auto_helpers(plan, cost, ch, card.id, purpose)
     else:
         helpers = []
     if any(h.card in not_mana for h in helpers):  # (wave 3$) an object an additional cost uses can't also help pay
@@ -1720,7 +1738,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
                           targets=_hint_targets(ch))  # -- review (Codex) --
         if grant is not None and grant.spend:  # -- as long as (wave 9B) -- 118.14
             cost = M.spend_as(cost, grant.spend)
-        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
+        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player)):
             return True
     return False
 
@@ -1759,7 +1777,7 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
             continue
         cost = spell_cost(state, card, ch, info=info, player=player, alternative=offer.alt.mana_cost,
                           targets=_hint_targets(ch))  # -- review (Codex) --
-        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
+        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player)):
             out.append({"id": offer.key, "label": offer.label})
     return out
 
@@ -1783,7 +1801,7 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
                                                        free=grant is not None and grant.free), (offer.mana,))
         except ActionError:
             continue
-        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
+        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player)):
             out.append({"id": offer.source, "label": offer.label})
     return out
 # -- end cost changers (wave 4I) --
@@ -1976,7 +1994,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             return  # waiting for the payer's choice; nothing has been paid
         add_objects = found_objects
     not_mana = cost_payment.excluded(add_cost, card, add_objects) if add_cost is not None else ()
-    if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=Purpose(spell=ch)):
+    origin = card.zone  # (wave 17B: where it is cast from, before it moves to the stack)
+    if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,
+                    purpose=Purpose(spell=ch, zone=origin, player=plan.actor, kicked=bool(a.kicker))):
         return
     commander_cast = from_command_zone(card, plan.actor)
     flashback = from_graveyard(card, plan.actor, ch, plan.state) and not escaping  # (wave 5I: escape instead, 118.9a)
@@ -1994,7 +2014,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.rules.prepared = {o: c for o, c in plan.rules.prepared.items() if c != card.id}
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
-    record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name or 'a face-down spell'}", not_mana=not_mana)
+    record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name or 'a face-down spell'}", not_mana=not_mana,
+                       origin=origin)
     if add_cost is not None:
         if add_cost.life:
             plan.do({"type": "life", "player": plan.actor, "delta": -add_cost.life})  # 119.4: paying life is losing it
@@ -2490,7 +2511,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
                       additional=(M.parse_cost(either.mana),) if either is not None and either.mana else ())  # (wave 6E)
     cost = _locked(plan, cost)  # (wave 4I: 601.2f)
     if alt is not None or not cost.is_free:
-        if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=Purpose(spell=ch)):
+        if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,
+                        purpose=Purpose(spell=ch, zone=card.zone, player=plan.actor, kicked=bool(a.kicker))):
             return
         record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (" (madness)" if alt else ""),
                            not_mana=not_mana)
