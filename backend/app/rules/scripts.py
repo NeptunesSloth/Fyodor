@@ -2798,8 +2798,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # -- triggers (wave 5D) -- "When ~ enters and whenever an opponent draws a card …" (Orcish
                     # Bowmasters): one ability, two trigger conditions — it triggers on each (603.2)
                     both = re.fullmatch(r"(?P<a>.+?) and (?:(?:when|whenever) |(?=at the beginning of your (?:upkeep|end step)))(?P<b>.+)", m["cond"])
-                    halves = [_half_trigger(both["a"]), _half_trigger(both["b"])] if both else []
-                    if both:  # -- trigger tail (wave 15B) -- two conditions, at most one of them generic: "When you cycle this
+                    pair = (both["a"], both["b"]) if both else None
+                    if pair is None and event_grammar.parse_condition(m["cond"]) is None and (
+                            either := re.fullmatch(r"(~ (?:enters|dies|attacks)) or ((?:becomes|deals|enters|dies|attacks) .+)", m["cond"])):
+                        pair = (either[1], "~ " + either[2])  # "~ enters or becomes monstrous": each its own (603.2)
+                    halves = [_half_trigger(pair[0]), _half_trigger(pair[1])] if pair else []
+                    if pair:  # -- trigger tail (wave 15B) -- two conditions, at most one of them generic: "When you cycle this
                         # card and when ~ dies", "When you cast this spell and whenever ~ attacks" (603.2: it triggers on each)
                         if None in halves:
                             return None
