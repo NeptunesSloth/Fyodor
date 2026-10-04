@@ -156,7 +156,8 @@ def hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     # turn" …) and the top card of your library — that one only when you can see it (601.3f in
     # spirit: a card you can't look at isn't offered, so the hint reveals nothing about it).
     candidates = [cid for key in (zone_key(viewer, "hand"), zone_key(viewer, "command"), zone_key(viewer, "graveyard"),
-                                  zone_key(viewer, "exile"), zone_key(viewer, "foretell")) for cid in state.zones.get(key, [])]
+                                  zone_key(viewer, "exile"), zone_key(viewer, "foretell")) for cid in state.zones.get(key, [])
+                  if can_see(state, state.cards[cid], viewer)]  # (-- review (sys 18A) -- not a face-down exiled card nobody looked at, 406.3)
     library = state.zones.get(zone_key(viewer, "library"), [])
     if library and can_see(state, state.cards[library[0]], viewer):
         candidates.append(library[0])

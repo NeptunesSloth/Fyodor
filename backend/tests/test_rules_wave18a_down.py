@@ -484,8 +484,8 @@ def test_ghastly_conscription_manifests_the_creature_cards_of_a_graveyard(cards)
 def test_become_anonymous_cloaks_your_creature_and_the_top_two_cards_tapped(cards):
     s = build(cards, p1=("Become Anonymous", "Ambush Viper", "Grizzly Bears", "Giant Growth"))
     viper = put(s, "Ambush Viper", "battlefield")
-    top1 = put(s, "Grizzly Bears", "library", position="top")
-    top2 = put(s, "Giant Growth", "library", position="top")
+    put(s, "Grizzly Bears", "library", position="top")
+    put(s, "Giant Growth", "library", position="top")
     spell = put(s, "Become Anonymous", "hand")
     mana(s, U=2, C=2)
     old = viper.id
