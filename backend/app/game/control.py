@@ -27,10 +27,13 @@ def controller_of(state: GameState, pid: str) -> str:
 
 
 def controlled_by(state: GameState, viewer: str) -> list[str]:
-    """The players ``viewer`` controls right now (not themselves)."""
-    if state.rules is None or not state.rules.player_control:
+    """The players ``viewer`` controls right now (not themselves): during their turn (Mindslaver) or while the pending
+    decision is made for them (Opposition Agent's search, 723.2)."""
+    r = state.rules
+    if r is None or not (r.player_control or (r.decision is not None and r.decision.decider)):
         return []
-    return [p for p in state.seat_order if p != viewer and controller_of(state, p) == viewer]
+    return [p for p in state.seat_order if p != viewer and (
+        controller_of(state, p) == viewer or (r.decision is not None and r.decision.player == p and r.decision.decider == viewer))]
 
 
 def acting_as(state: GameState, client: str) -> str:
