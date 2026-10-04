@@ -94,7 +94,8 @@ _DISTINCT = {"card types": "types", "different card types": "types", "card type"
              "colors": "colors", "different colors": "colors", "color": "colors",
              "basic land types": "basic_land_types", "basic land type": "basic_land_types",
              "creature types": "creature_types", "different creature types": "creature_types",
-             "creature type": "creature_types"}
+             "creature type": "creature_types",
+             "different power": "powers", "different powers": "powers"}  # (wave 17B: Selvala, Eager Trailblazer)
 _AMONG = re.compile(r"^(?P<kind>" + "|".join(sorted(map(re.escape, _DISTINCT), key=len, reverse=True)) + r") among (?P<sel>.+)$")
 _DEVOTION = re.compile(r"^your devotion to (?P<c1>white|blue|black|red|green)(?: and (?P<c2>white|blue|black|red|green))?$")
 _AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power|toughness|mana value) "

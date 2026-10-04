@@ -13,6 +13,11 @@
   color" (Petalmane Baku, Haruspex), "…an amount of {C} equal to X plus one" (Kyren Toy) and "Tap X untapped tokens you control: Add X mana
   in any combination of colors" (Hazel of the Rootbloom): X is announced as the cost is paid (107.3a), 605.3a. A mana ability that is
   activated by hand with a spending restriction (Crucible of the Spirit Dragon) stays manual: the pool carries no restriction.
+* "Sacrifice an artifact: Add an amount of {B} equal to the sacrificed artifact's mana value" (Priest of Yawgmoth): the mana value of
+  what the cost sacrificed (608.2h), a mana ability activated by hand (the sacrifice is the payer's choice).
+* "Choose a color of a permanent you control. Add one mana of that color." (Meteor Crater; 105.2: never colorless) and "Choose a color.
+  Add one mana of that color for each different power among creatures you control." (Selvala, Eager Trailblazer): counted as it's
+  activated, 605.3b.
 * "has base power 4 and gains trample" (613.4b: layer 7b, power only).
 
 Real Oracle text; each scenario replays the history and survives a save/load round trip."""
@@ -90,9 +95,17 @@ EXTRA = [
          '{1}, {T}: Put a charge counter on this artifact.\n{T}, Remove X charge counters from this artifact: Add an amount of {C} equal to X plus one.', None, ''),
     real('Hazel of the Rootbloom', '{2}{B}{G}', 4, 'Legendary Creature — Squirrel Druid',
          "{T}, Pay 2 life, Tap X untapped tokens you control: Add X mana in any combination of colors.\nAt the beginning of your end step, create a token that's a copy of target token you control. If that token is a Squirrel, instead create two tokens that are copies of it.", ('3', '5'), 'BG'),
+    real('Priest of Yawgmoth', '{1}{B}', 2, 'Creature — Phyrexian Human Cleric',
+         "{T}, Sacrifice an artifact: Add an amount of {B} equal to the sacrificed artifact's mana value.", ('1', '2'), 'B'),
+    real('Meteor Crater', '', 0, 'Land',
+         '{T}: Choose a color of a permanent you control. Add one mana of that color.', None, ''),
+    real('Selvala, Eager Trailblazer', '{2}{G}{W}', 4, 'Legendary Creature — Elf Scout',
+         'Vigilance\nWhenever you cast a creature spell, create a 1/1 red Mercenary creature token with "{T}: Target creature you control gets +1/+0 until end of turn. Activate only as a sorcery."\n{T}: Choose a color. Add one mana of that color for each different power among creatures you control.', ('4', '5'), 'GW'),
+    real('Corrupted Grafstone', '{2}', 2, 'Artifact',
+         'This artifact enters tapped.\n{T}: Choose a color of a card in your graveyard. Add one mana of that color.', None, ''),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
-FULL = ["Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
+FULL = ["Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
         "Volshe Tideturner", "Phelddagrif", "Leering Gargoyle", "Canopy Dragon", "Turtle-Duck", "Gargoyle Sentinel", "Singing Tree", "Island of Wak-Wak"]
 
 
@@ -379,4 +392,41 @@ def test_tap_x_untapped_tokens_for_x_mana(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["0"])
     assert [s.state.cards[t.id].tapped for t in tokens] == [True, True, False]
     assert sum(s.state.players["p1"].mana.values()) == 2 and s.state.players["p1"].life == 38
+    roundtrip(s)
+
+
+def test_sacrifice_an_artifact_for_mana_equal_to_its_mana_value(cards):
+    s = build(cards, "Priest of Yawgmoth", "Kyren Toy")
+    priest = on_field(s, "Priest of Yawgmoth")
+    s.state.rules.controlled_since[priest.id].turn = 0
+    toy = on_field(s, "Kyren Toy")  # (mana value 3)
+    act(s, "p1", type="activate_ability", card_id=priest.id, ability=0)
+    settle(s)
+    assert s.state.cards[toy.id].zone == "p1:graveyard" and s.state.players["p1"].mana == {"B": 3}
+    roundtrip(s)
+
+
+def test_choose_a_color_of_a_permanent_you_control(cards):
+    s = build(cards, "Meteor Crater", "Selvala, Eager Trailblazer")
+    crater = on_field(s, "Meteor Crater")
+    on_field(s, "Selvala, Eager Trailblazer")
+    act(s, "p1", type="activate_ability", card_id=crater.id, ability=ability(s, crater, "{T}"))
+    d = s.state.rules.decision
+    assert sorted(o.label for o in d.options) == ["{G}", "{W}"]  # (Selvala's colors; a land has none)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "{G}")])
+    assert s.state.players["p1"].mana == {"G": 1}
+    roundtrip(s)
+
+
+def test_one_mana_of_the_chosen_color_for_each_different_power(cards):
+    s = build(cards, "Selvala, Eager Trailblazer")
+    selvala = on_field(s, "Selvala, Eager Trailblazer")  # (power 4)
+    s.state.rules.controlled_since[selvala.id].turn = 0
+    creature(s, "p1", "Mouse", pt="1/1")
+    creature(s, "p1", "Bear", pt="2/2")
+    creature(s, "p1", "Other Bear", pt="2/3")  # (the same power as the Bear)
+    act(s, "p1", type="activate_ability", card_id=selvala.id, ability=ability(s, selvala, "{T}"))
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "{G}{G}{G}")])
+    assert s.state.players["p1"].mana == {"G": 3}  # (powers 4, 1 and 2)
     roundtrip(s)

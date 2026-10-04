@@ -121,7 +121,7 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
 
 
 # (wave 3R3: "{2}, {T}: Choose a color. Add …" (Nykthos) is a mana ability too, 605.1a: it could add mana)
-_ADD_MANA = re.compile(r"^(?P<cost>[^:]+): (?:Choose a color\. )?Add ")
+_ADD_MANA = re.compile(r"^(?P<cost>[^:]+): (?:Choose a color(?: of (?:a permanent you control|a card in your graveyard))?\. )?Add ")  # (wave 17B: Meteor Crater)
 
 
 # -- refused zones/sized (wave 3R4) -- 207.2c ability words and 207.2d flavor words have no rules

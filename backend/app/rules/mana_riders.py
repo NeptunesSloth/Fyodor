@@ -73,8 +73,17 @@ def _n(word: str) -> int:
     return int(word) if word.isdigit() else _NUM[word]
 
 
+# -- activated sweep (wave 17B) -- "Choose a color of a permanent you control. Add one mana of that color." (Meteor Crater), "…of a card in
+# your graveyard…" (Corrupted Grafstone): the color is chosen among those the objects have (105.2: never colorless), as "any color among"
+_CHOOSE_AMONG = re.compile(r"^(?P<cost>[^:]+): Choose a color of (?:a permanent you control|a card in your graveyard)\. "
+                           r"Add one mana of that color\.$")
+
+
 def normalise(text: str) -> str:
     """Bloom Tender's "For each color among permanents you control, add one mana of that color." in the Add form."""
+    if m := _CHOOSE_AMONG.match(text):
+        what = "permanents you control" if "permanent" in text else "cards in your graveyard"
+        return f"{m['cost']}: Add one mana of any color among {what}."
     m = EACH_COLOR_LINE.match(text)
     return f"{m['cost']}: {_EACH_COLOR}." if m else text
 
