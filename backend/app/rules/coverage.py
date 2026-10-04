@@ -255,8 +255,7 @@ SUPPORTED_KEYWORD_ACTIONS.add("populate")  # -- token copies & attach on entry (
 # report can rank it (never a guess at what the card does). ``refusal(text)`` gives the reason.
 REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     # (fight (701.14) and "choose … target" are read now: effects.fight, effects.choose_targets)
-    (re.compile(r"\bfor each target beyond the first\b", re.I),
-     "a cost per extra target (601.2b/601.2c): the cost grammar doesn't read it"),
+    # (-- static_other sweep (wave 16B) -- "costs {N} more to cast for each target beyond the first" is read now: permissions._PER_TARGET)
     # (-- graveyard exile (wave 4J) -- "exile target player's graveyard" itself is read: app/rules/graveyard_exile.py)
     (re.compile(r"(?<!exile )\btarget (?:player|opponent)'s (?:graveyard|hand|library)\b", re.I),
      "a target player's zone as the object set (\"exile all creature cards from target player's graveyard\"): the "
