@@ -81,6 +81,12 @@ EXTRA = [
          toughness="2", colors=["G"], color_identity=["G"], oracle_text="Provoke (Whenever this creature attacks, you may have target "
          "creature defending player controls untap and block it if able.)\nThis creature can't be blocked by more than one creature.",
          keywords=["Provoke"]),
+    card("Radical Idea", set_code="tst", number="D18", mana_cost="{1}{U}", cmc=2.0, type_line="Instant", colors=["U"], color_identity=["U"],
+         oracle_text="Draw a card.\nJump-start (You may cast this card from your graveyard by discarding a card in addition to paying its "
+         "other costs. Then exile this card.)", keywords=["Jump-start"]),
+    card("Unending Whisper", set_code="tst", number="D19", mana_cost="{U}", cmc=1.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
+         oracle_text="Draw a card.\nHarmonize {5}{U} (You may cast this card from your graveyard for its harmonize cost. You may tap an "
+         "untapped creature you control to reduce that cost by {X}, where X is its power. Then exile this spell.)", keywords=["Harmonize"]),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -234,6 +240,42 @@ def test_disturb_casts_the_back_face_from_the_graveyard(cards):
     from tests.test_rules_attachments import ch
 
     assert ch(s, now).name == "Luminous Phantom" and "flying" in ch(s, now).keywords
+    roundtrip(s)
+
+
+def test_jump_start_discards_a_card_and_exiles_the_spell(cards):
+    s = build(cards, p1=("Radical Idea", "Test Bear"))
+    idea = put(s, "Radical Idea", "graveyard")
+    bear = put(s, "Test Bear", "hand")
+    mana(s, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=idea.id)  # 702.133a: discarding a card as an additional cost
+    assert s.state.cards[bear.id].zone == "p1:graveyard"
+    answer(s)
+    assert s.state.cards[idea.id].zone == "p1:exile"  # exiled instead of anywhere else as it leaves the stack
+    roundtrip(s)
+
+
+def test_harmonize_taps_a_creature_to_reduce_the_cost_and_exiles_the_spell(cards):
+    s = build(cards, p1=("Unending Whisper", "Test Bear"))
+    whisper = put(s, "Unending Whisper", "graveyard")
+    bear = put(s, "Test Bear", "battlefield")  # power 2
+    mana(s, U=1, C=3)  # {5}{U} less 2 = {3}{U}
+    act(s, "p1", type="cast_spell", card_id=whisper.id, cost_choices=[{"component": 0, "cards": [bear.id]}])  # 702.180a
+    assert s.state.cards[bear.id].tapped
+    answer(s)
+    assert s.state.cards[whisper.id].zone == "p1:exile"
+    roundtrip(s)
+
+
+def test_harmonize_without_tapping_a_creature(cards):
+    s = build(cards, p1=("Unending Whisper", "Test Bear"))
+    whisper = put(s, "Unending Whisper", "graveyard")
+    bear = put(s, "Test Bear", "battlefield")
+    mana(s, U=1, C=5)
+    act(s, "p1", type="cast_spell", card_id=whisper.id, cost_choices=[{"component": 0, "cards": []}])  # "up to one": none
+    assert not s.state.cards[bear.id].tapped
+    answer(s)
+    assert s.state.cards[whisper.id].zone == "p1:exile"
     roundtrip(s)
 
 

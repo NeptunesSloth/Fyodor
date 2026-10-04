@@ -315,6 +315,11 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
             exiles = ", ".join(f"Exile {p}{CRAFT_FROM}" for p in pieces)
             line = (f"{m['cost']}, Exile this permanent, {exiles}: Return this card to the battlefield transformed under its owner's "
                     "control. Activate only as a sorcery.")
+        # -- keyword meanings (wave 18E) -- 702.133a: "Jump-start" means "You may cast this card from your graveyard by discarding a card as
+        # an additional cost to cast it" and "If this spell was cast using its jump-start ability, exile this card instead of putting
+        # it anywhere else any time it would leave the stack." (a permission with an additional cost, as retrace's; ``exile``)
+        if line == "Jump-start":
+            line = "You may cast this card from your graveyard by discarding a card in addition to paying its other costs. Then exile this card."
         # -- keyword meanings (wave 12B) -- 702.97a: "Scavenge [cost]" means "[Cost], Exile this card from your graveyard: Put a
         # number of +1/+1 counters equal to the power of the card you exiled on target creature. Activate only as a sorcery."
         if m := re.fullmatch(r"Scavenge ((?:\{[^}]+\})+)", line):

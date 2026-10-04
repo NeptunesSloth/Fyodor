@@ -390,6 +390,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"miracle (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "prototype":  # -- casting extras (wave 18E) -- app/rules/prototype.py: "Prototype {cost} — P/T"
         return re.fullmatch(r"prototype (?:\{[^}x]+\})+ [—-] \d+/\d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "harmonize":  # -- casting extras (wave 18E) -- app/rules/harmonize.py: a mana harmonize cost without X
+        from app.rules import harmonize
+
+        return harmonize.parse(line) is not None
     if kw == "disturb":  # -- casting extras (wave 18E) -- app/rules/disturb.py: a mana disturb cost (the back face is the spell)
         from app.rules import disturb
 

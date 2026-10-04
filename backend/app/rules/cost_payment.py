@@ -204,7 +204,7 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
                 return f"You can't pay “{comp.text}”"
         elif comp.selector is not None and comp.kind not in (C.COLLECT_EVIDENCE, C.WATERBEND):  # (collect evidence: _new_part_problem, wave 4H; waterbend: any number, even none)
             usable = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
-            if len(usable) < objects_needed(comp, x):  # (X / one permanent for its counters: wave 4H)
+            if len(usable) < objects_needed(comp, x) and not comp.up_to:  # (X / one permanent for its counters: wave 4H)
                 return f"You can't pay “{comp.text}”"
     return None
 
@@ -248,22 +248,24 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell, cost: AbilityCost, ca
         usable = [c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card) and c not in used]
         if i in given:
             chosen = given[i]
-            if len(chosen) != need or len(set(chosen)) != len(chosen) or any(c not in usable for c in chosen):
-                raise ActionError(f"Choose {need} to pay “{comp.text}”" + (" (each object pays one part of the cost)"
-                                                                           if any(c in used for c in chosen) else ""))
-        elif len(usable) < need:
+            if (len(chosen) > need if comp.up_to else len(chosen) != need) or len(set(chosen)) != len(chosen) \
+                    or any(c not in usable for c in chosen):
+                raise ActionError(f"Choose {'up to ' if comp.up_to else ''}{need} to pay “{comp.text}”"
+                                  + (" (each object pays one part of the cost)" if any(c in used for c in chosen) else ""))
+        elif len(usable) < need and not comp.up_to:
             raise ActionError(f"You can't pay “{comp.text}”")  # 118.3
-        elif need == 0:  # -- review (Codex) -- X announced as 0 (107.3a): nothing to choose, and an empty pick would cancel
+        elif need == 0 or (comp.up_to and not usable):  # -- review (Codex) -- X announced as 0 (107.3a): nothing to choose, and an empty pick would cancel
             chosen = []
-        elif len(usable) == need:
+        elif len(usable) == need and not comp.up_to:
             chosen = usable  # (no choice to make)
         else:
             verb = _VERBS.get(comp.kind, "use")
             decide(plan, player=plan.actor, kind="choose_cards",
-                   prompt=f"{what}: choose {need} to {verb} (“{comp.text}”), or none to cancel",
+                   prompt=f"{what}: choose {'up to ' if comp.up_to else ''}{need} to {verb} (“{comp.text}”), or "
+                          + ("none to pay without" if comp.up_to else "none to cancel"),
                    options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
                    min_choices=0, max_choices=need,
-                   resume={"step": "ability_cost", "component": i, "amount": need,
+                   resume={"step": "ability_cost", "component": i, "amount": None if comp.up_to else need, "empty_ok": comp.up_to,
                            "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
                    source=card)
             return None

@@ -88,7 +88,8 @@ PERMISSION = re.compile(
     r"(?P<what>play lands and cast spells|play lands|cast spells|play a land|"
     r"cast (?:a |an )?(?P<sel>[a-z][a-z' ,-]*?) spells?(?P<qual> with mana value \d+ or less)?|cast (?:this card|~))"
     r" from (?P<zone>your graveyard|the top of your library)$")
-SELF_GY_BY = re.compile(r"^you may cast (?:this card|~) from your graveyard by (?P<cost>.+) in addition to paying its other costs$")
+SELF_GY_BY = re.compile(r"^you may cast (?:this card|~) from your graveyard by (?P<cost>.+) in addition to paying its other costs"
+                        r"(?P<exile>\. Then exile this card)?$")  # (-- casting extras (wave 18E) -- jump-start 702.133a: exiled as it leaves the stack)
 # -- keyword grants (wave 17C) -- 702.81a: "Instant and sorcery cards in your graveyard have retrace." / "During your turn, nonland
 # permanent cards in your graveyard have retrace." — a permission to cast those cards from the graveyard whose additional cost is
 # discarding a land card (the granted keyword's meaning, as the card's own retrace line says it)
@@ -377,7 +378,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         if costs.parse_additional_cost(extra) is None:
             return None
         return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True,
-                "play": False, "cast": True, "filter": None, "extra": extra, "effects": []}
+                "play": False, "cast": True, "filter": None, "extra": extra, "effects": [], **({"exile": True} if m["exile"] else {})}
     if kind != "static":
         return None
     # -- small wordings (wave 11E) -- "Creature spells you control can't be countered." (101.2, 701.6)
@@ -613,6 +614,7 @@ class Grant:
     once_key: str | None = None  # a static "once during each of your turns" ability's key
     sorcery: bool = False  # -- keywords (wave 15E) -- plot 702.170d: only in your main phase with an empty stack, whatever it is
     extra: str = ""  # -- cost alt (wave 16F) -- an additional cost the permission names ("discard a card"), paid with the rest (601.2b)
+    exile: bool = False  # -- casting extras (wave 18E) -- jump-start 702.133a: exile the card instead of putting it anywhere else as it leaves the stack
 
 
 def _view(state: GameState, player: str, info: CardInfo) -> Plan:
@@ -712,7 +714,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 if d.get("while") is not None and not _while_holds(state, info, player, card, d["while"]):
                     continue  # -- conditional statics (wave 4B) -- "as long as you control a Zombie"
                 out.append(Grant("permission", f"{ch.name}: cast it from your graveyard", once_key=key if d["once"] else None,
-                                 extra=d.get("extra") or ""))
+                                 extra=d.get("extra") or "", exile=bool(d.get("exile"))))
     if verb == "cast" and where == "hand":  # -- cast without paying (wave 3C) -- the card's own "cast this spell without paying"
         for d in _definitions(ch).values():
             if d.get("static") == "permission" and d.get("self") and d.get("free") and d["zone"] == "hand" \

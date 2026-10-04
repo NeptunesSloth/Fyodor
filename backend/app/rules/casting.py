@@ -2045,11 +2045,13 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if found_objects is None:
             return  # waiting for the payer's choice; nothing has been paid
         add_objects = found_objects
-    emerge_reduction = 0  # -- casting extras (wave 18E) -- 702.119a: reduced by the sacrificed permanent's mana value
-    if alt_offer is not None and alt_offer.tag == "emerge":
+    emerge_reduction = 0  # -- casting extras (wave 18E) -- 702.119a: reduced by the sacrificed permanent's mana value; 702.180a: harmonize, by
+    # the tapped creature's power
+    if alt_offer is not None and alt_offer.tag in ("emerge", "harmonize"):
         n_alt = len(alt_offer.alt.cost.components)
-        emerge_reduction = sum(int(plan.ch(plan.state.cards[c]).mana_value) for i, ids in add_objects.items()
-                               if alt_at <= i < alt_at + n_alt for c in ids)
+        emerge_reduction = sum(max(0, int(plan.ch(plan.state.cards[c]).mana_value if alt_offer.tag == "emerge"
+                                          else plan.ch(plan.state.cards[c]).pt[0] if plan.ch(plan.state.cards[c]).pt else 0))
+                               for i, ids in add_objects.items() if alt_at <= i < alt_at + n_alt for c in ids)
     # (-- casting extras (wave 18E) -- the additional costs are chosen before the total cost is worked out: emerge's reduction reads
     # the creature sacrificed for it, 702.119a)
     # 601.2f (after the targets, 601.2c): the total cost in the rules' order — kicker is an additional cost (118.8)
@@ -2067,7 +2069,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
                     purpose=Purpose(spell=ch, zone=origin, player=plan.actor, kicked=bool(a.kicker))):
         return
     commander_cast = from_command_zone(card, plan.actor)
+    harmonized = alt_offer is not None and alt_offer.tag == "harmonize"  # -- casting extras (wave 18E) -- 702.180a: exiled as it leaves the stack
     flashback = from_graveyard(card, plan.actor, ch, plan.state) and not escaping  # (wave 5I: escape instead, 118.9a)
+    jumped = grant is not None and grant.exile  # -- casting extras (wave 18E) -- 702.133a: cast with jump-start
     card_was_in_hand = card.zone == zone_key(plan.actor, "hand")
     cast_zone = card.zone.rsplit(":", 1)[-1]  # -- refused modal/conditional (wave 3R1) -- where it was cast from
     from_where = {"graveyard": "the graveyard", "exile": "exile", "library": "the library", "hand": "the hand"}.get(
@@ -2097,8 +2101,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.splice:  # -- casting extras (wave 18E) -- 702.47a: the spliced cards are revealed (they stay in the hand)
         plan.do({"type": "reveal", "card_ids": list(a.splice)}, actor=plan.actor)
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else "awaken" if a.awaken else \
-        "flashback" if flashback else "free" if free else "disturb" if escaping and alt_offer is not None and alt_offer.tag == "disturb" \
-        else "escape" if escaping else \
+        "harmonize" if harmonized else "flashback" if flashback else "free" if free \
+        else "disturb" if escaping and alt_offer is not None and alt_offer.tag == "disturb" else "escape" if escaping else \
         (alt_offer.tag or "alternative") if alt_offer is not None else None  # ("escape": 702.138b, wave 5I; blitz: 15E)
     if alt_offer is not None:  # -- cost changers (wave 4I) --
         if alt_offer.once_key:
@@ -2110,7 +2114,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     record.kicked = a.kicker or int(a.awaken)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as "If this spell was kicked")
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
     record_payment(plan, card.id, record)
-    tags = ["Cast from the command zone"] if commander_cast else ["Aftermath" if "aftermath" in ch.keywords else "Flashback"] if flashback else ["Dashed"] if a.dash else \
+    tags = ["Cast from the command zone"] if commander_cast else ["Harmonize"] if harmonized else ["Jump-start"] if jumped else \
+        ["Aftermath" if "aftermath" in ch.keywords else "Flashback"] if flashback else ["Dashed"] if a.dash else \
         ["Disturbed" if alt_offer is not None and alt_offer.tag == "disturb" else "Escaped"] if escaping else []  # (wave 5I; 18E)
     if grant is not None and grant.how == "permission":
         permissions.consume(plan, grant)  # (a "once during each of your turns" permission is used up)
@@ -2138,8 +2143,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.rules.evoked.append(card.id)
     if "rebound" in ch.keywords and card_was_in_hand:
         plan.rules.rebound_cast.append(plan.oid(card))
-    if flashback:
-        plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else
+    if flashback or harmonized or jumped:
+        plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else (702.133a, 702.180a)
     if a.x_value is not None or tags:
         info: dict[str, Any] = {"type": "set_stack_info", "card_id": card.id}
         if a.x_value is not None:

@@ -91,6 +91,7 @@ class CostComponent:
     alt: str | None = None  # (wave 4H) "Sacrifice another creature or an artifact": a second selector, either matches
     named_self: bool = False  # (wave 4H) grandeur, "Discard another card named ~": a card with the source's name
     more: bool = False  # -- casting extras (wave 18E) -- "N or more" (craft materials)
+    up_to: bool = False  # -- casting extras (wave 18E) -- "up to N" (harmonize 702.180a: "tapping up to one untapped creature"): none is a choice
 
     @property
     def chosen(self) -> bool:
