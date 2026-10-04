@@ -26,6 +26,7 @@ from app.game.errors import ActionError
 from app.game.rules_state import Decision, DecisionOption, PaymentRecord, PlayerPrefs, TurnCount, Yield
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import (
+    assist,  # -- casting extras (wave 18E) --
     attachments,
     battles,
     bestow,
@@ -1333,6 +1334,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "ability_cost": cost_payment.resume_choice,
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
+    "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
     **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)

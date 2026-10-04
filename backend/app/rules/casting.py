@@ -2063,6 +2063,15 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # ("reduces only the amount of green mana")
     cost = M.spend_as(cost, grant.spend) if grant is not None and grant.spend else cost  # -- as long as (wave 9B) -- 118.14
     cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for
+    helper, helper_pays = None, 0  # -- casting extras (wave 18E) -- 702.132a assist: another player pays some generic mana (601.2g-h)
+    if "assist" in ch.keywords and not plan.manual(card) and not a.face_down:
+        from app.rules import assist
+
+        found_helper = assist.announce(plan, a, card, ch, cost)
+        if found_helper is assist.WAITING:
+            return
+        helper, helper_pays = found_helper
+        cost = cost.plus_generic(-helper_pays)
     not_mana = cost_payment.excluded(add_cost, card, add_objects) if add_cost is not None else ()
     origin = card.zone  # (wave 17B: where it is cast from, before it moves to the stack)
     if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,
@@ -2088,6 +2097,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.rules.prepared = {o: c for o, c in plan.rules.prepared.items() if c != card.id}
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
+    if helper is not None and helper_pays:  # (the helper's mana first: 601.2g, then the caster's own payment, 601.2h)
+        from app.rules import assist
+
+        assist.pay(plan, helper, helper_pays, card, ch)
     record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name or 'a face-down spell'}", not_mana=not_mana,
                        origin=origin)
     if add_cost is not None:

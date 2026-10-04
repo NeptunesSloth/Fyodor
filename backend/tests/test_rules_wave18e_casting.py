@@ -99,6 +99,9 @@ EXTRA = [
          toughness="3", colors=["W"], color_identity=["W"], oracle_text="Vigilance\nEnlist (As this creature attacks, you may tap a "
          "nonattacking creature you control without summoning sickness. When you do, add its power to this creature's until end of turn.)",
          keywords=["Vigilance", "Enlist"]),
+    card("Fan Favorite", set_code="tst", number="D23", mana_cost="{3}{B}", cmc=4.0, type_line="Creature — Bear", power="2", toughness="2",
+         colors=["B"], color_identity=["B"], oracle_text="Assist (Another player can pay up to {3} of this spell's cost.)\n{2}: This "
+         "creature gets +1/+1 until end of turn. Any player may activate this ability.", keywords=["Assist"]),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -310,6 +313,25 @@ def test_reconfigure_attaches_stops_being_a_creature_and_unattaches(cards):
     act(s, "p1", type="activate_ability", card_id=gauntlet.id, ability=4)
     answer(s)
     assert s.state.cards[gauntlet.id].attached_to is None and ch(s, gauntlet).is_creature
+    roundtrip(s)
+
+
+def test_assist_another_player_pays_some_of_the_generic_mana(cards):
+    s = build(cards, p1=("Fan Favorite",))
+    fav = put(s, "Fan Favorite", "hand")
+    mana(s, "p1", B=1, C=1)  # {3}{B}: the helper pays two of the generic, the caster {1}{B}
+    mana(s, "p2", C=2)
+    act(s, "p1", type="cast_spell", card_id=fav.id)
+    d = s.state.rules.decision
+    assert d.player == "p1" and "p2" in [o.id for o in d.options]  # 702.132a: choose another player (or no one)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+    d = s.state.rules.decision
+    assert d.player == "p2" and [o.id for o in d.options] == ["0", "1", "2"]  # they can pay up to what they have
+    assert "options" not in s.view("p1")["rules"]["decision"]  # (the helper's own question: the caster sees only who is choosing)
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["2"])
+    answer(s)
+    assert s.state.cards[fav.id].zone == "p1:battlefield"
+    assert s.state.players["p2"].mana.get("C", 0) == 0 and s.state.players["p1"].mana.get("C", 0) == 0
     roundtrip(s)
 
 

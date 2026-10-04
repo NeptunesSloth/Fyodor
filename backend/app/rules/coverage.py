@@ -362,6 +362,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return affinity_filter(Characteristics(name="", abilities=(AbilityText(index=0, text=line, kind="keywords",
                                                                               keywords=("affinity",)),))) is not None
+    if kw == "assist":  # -- casting extras (wave 18E) -- app/rules/assist.py
+        from app.rules import assist
+
+        return assist.supported(line)
     if kw == "enlist":  # -- casting extras (wave 18E) -- app/rules/enlist.py: a plain keyword line (each instance asks on its own)
         from app.rules import enlist
 
