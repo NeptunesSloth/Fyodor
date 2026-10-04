@@ -52,7 +52,6 @@ def test_ooze_has_a_modal_ability_of_a_graveyard_creature(cards):
     mana(s, C=1)
     act(s, "p1", type="activate_ability", card_id=ooze.id, ability=ab.index)
     assert s.state.cards[ooze.id].zone.endswith(":graveyard")  # (the cost is paid; what it does is done by hand)
-    print(s.state.rules.decision, s.state.zones.get("stack"))
     roundtrip(s)
 
 
@@ -100,7 +99,6 @@ def test_kurkesh_copy_new_target(cards):
             act(s, s.state.rules.priority, type="pass_priority")
         else:
             break
-    print(seen)
     assert s.state.players["p2"].life == 39 and s.state.cards[small.id].damage == 1, seen
     roundtrip(s)
 
@@ -148,7 +146,6 @@ def test_scepter_copy_of_a_modal_charm(cards):
             act(s, s.state.rules.priority, type="pass_priority")
         else:
             break
-    print(seen)
     assert s.state.cards[small.id].zone.endswith(":graveyard"), seen
     roundtrip(s)
 
@@ -165,7 +162,6 @@ def test_scepter_copy_of_an_x_spell(cards):
     act(s, "p1", type="set_prefs", hold_priority=True)
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     act(s, "p1", type="set_prefs", hold_priority=False)
-    print("AFTER BOLT", s.state.zones.get("stack"), s.state.cards[bolt.id].zone, s.state.rules.decision, s.state.rules.priority)
     mana(s, C=2)
     act(s, "p1", type="activate_ability", card_id=scepter.id, ability=1)
     seen = []
@@ -177,10 +173,8 @@ def test_scepter_copy_of_an_x_spell(cards):
             act(s, s.state.rules.priority, type="pass_priority")
             continue
         seen.append((d.kind, d.prompt, [(o.id, o.label) for o in d.options], list(s.state.zones.get("stack", []))))
-        print(seen[-1], bolt.id)
         pick = [o.id for o in d.options if o.card_id == bolt.id] or [o.id for o in d.options][:max(1, d.min_choices)]
         act(s, d.player, type="choose", decision_id=d.id, option_ids=pick[:1])
-    print(seen, s.state.players["p2"].life, s.state.cards[bolt.id].zone)
     assert any("pay {0}" in x[1] for x in seen)  # 107.3b: cast without paying its mana cost, X is 0
     roundtrip(s)
 
@@ -298,7 +292,8 @@ def test_tricksters_talisman_is_sacrificed_for_a_copy(cards):
         else:
             break
     shown += [str(s.view("p1")["log"]), str(s.view("p1").get("stack"))]
-    assert not [x for x in shown if "‹" in x], shown  # (what people read names the Talisman)
+    import re  # noqa: PLC0415
+    assert not [m for x in shown for m in re.findall(r".{0,80}‹.{0,40}", x)], [m for x in shown for m in re.findall(r".{0,80}‹.{0,40}", x)]  # (what people read names the Talisman)
     tokens = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
     assert s.state.cards[gear.id].zone.endswith(":graveyard") and s.state.cards[bear.id].zone.endswith(":battlefield")
     assert [t.name for t in tokens] == ["Test Small"] and s.state.players["p2"].life == 37  # (3: equipped +1/+1)
