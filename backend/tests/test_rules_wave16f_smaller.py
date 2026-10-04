@@ -29,6 +29,14 @@ EXTRA.append(real("Jackdaw Savior", "{3}{W}", 4, "Creature — Bird Soldier",
                   "Flying\nWhenever this creature or another creature you control with flying dies, return another target creature "
                   "card with lesser mana value from your graveyard to the battlefield.", ("2", "2"), "W"))
 
+EXTRA.append(real("Deepwood Legate", "{4}{G}{G}", 6, "Creature — Treefolk",
+                  "If an opponent controls a Forest and you control a Swamp, you may cast this spell without paying its mana cost.\n"
+                  "{B}: This creature gets +1/+1 until end of turn.", ("4", "4"), "G"))
+
+EXTRA.append(real("Rona, Sheoldred's Faithful", "{2}{B}", 3, "Legendary Creature — Human Cleric",
+                  "Whenever you cast an instant or sorcery spell, each opponent loses 1 life.\nYou may cast this card from your "
+                  "graveyard by discarding two cards in addition to paying its other costs.", ("2", "2"), "B"))
+
 IDOLIZED = ("Enchant creature\nEnchanted creature has \"Whenever this creature attacks alone, it gets +X/+X until end of turn, "
             "where X is the number of nonland permanents you control.\"")
 
@@ -256,4 +264,46 @@ def test_lesser_mana_value_is_than_the_creature_that_died(cards):
     kill(s, "Jackdaw Savior")
     assert card_named(s, "Llanowar Elves").zone == "p1:battlefield"
     assert card_named(s, "Twisted Abomination").zone == "p1:graveyard"
+    check(s)
+
+
+def test_legate_is_cast_for_free_only_while_the_condition_holds(cards):
+    # 118.9: an alternative cost of {0}, announced as the spell is cast; the Swamp/Forest condition is checked then (601.2b)
+    from app.game.errors import ActionError
+    from tests.wave9c_kit import card_named, put
+
+    s = build(cards, ["Deepwood Legate"], [])
+    legate = to_hand(s, "Deepwood Legate")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=legate.id, alt_cost=f"{legate.id}:0")  # (no Forest or Swamp yet)
+    for pid, land in (("p1", "Forest"), ("p2", "Forest")):
+        act(s, pid, type="create_token", player=pid, token={
+            "name": f"{land} {pid}", "type_line": f"Token Land — {'Swamp' if pid == 'p1' else 'Forest'}", "power": None,
+            "toughness": None, "colors": [], "text": ""})
+    act(s, "p1", type="cast_spell", card_id=legate.id, alt_cost=f"{legate.id}:0")
+    answer(s)
+    assert card_named(s, "Deepwood Legate").zone == "p1:battlefield"
+    check(s)
+
+
+def test_cast_from_the_graveyard_by_discarding_two_cards(cards):
+    # 601.2b / 601.2f: Rona's permission names an additional cost, announced and paid with the mana cost; with fewer cards in hand
+    # than it needs she can't be cast that way
+    from app.game.errors import ActionError
+    from tests.wave9c_kit import card_named
+
+    s = build(cards, ["Rona, Sheoldred's Faithful"], [])
+    rona = card_named(s, "Rona, Sheoldred's Faithful")
+    act(s, "p1", type="move", card_ids=[rona.id], to={"zone": "graveyard"})
+    act(s, "p1", type="draw", count=1)
+    mana(s, B=1, C=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=rona.id)  # (one card in hand: it can't pay for two)
+    act(s, "p1", type="draw", count=2)
+    hand = [c.id for c in s.state.cards.values() if c.zone == "p1:hand"]
+    act(s, "p1", type="cast_spell", card_id=rona.id)
+    answer(s, hand[:2])
+    assert s.state.cards[rona.id].zone == "p1:battlefield"
+    gone = [c for c in hand if s.state.cards[c].zone == "p1:graveyard"]
+    assert len(gone) == 2 and len([c for c in s.state.cards.values() if c.zone == "p1:hand"]) == len(hand) - 2
     check(s)

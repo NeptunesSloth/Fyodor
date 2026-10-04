@@ -1450,7 +1450,7 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
             return permissions.Grant(how, flash=flash)
     if not ways:
         return None
-    best = ways[0]
+    best = min(ways, key=lambda g: bool(g.extra))  # (a way with no extra cost to pay first: the cheaper of two permissions)
     return replace(best, flash=flash or best.flash)
 
 
@@ -1853,6 +1853,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         add_cost = either if either.components else None
     if alt_offer is not None:  # -- cost changers (wave 4I) -- its other parts are paid with the rest (601.2h)
         add_cost = alt_costs.merged(add_cost, alt_offer.alt.cost)
+    if grant is not None and grant.extra:  # -- cost alt (wave 16F) -- "cast this card from your graveyard by discarding a card"
+        add_cost = alt_costs.merged(add_cost, costs.parse_additional_cost(grant.extra))
     if optional:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(components=tuple(
             costs.CostComponent(costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life") for o in optional)))

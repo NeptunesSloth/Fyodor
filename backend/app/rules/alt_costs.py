@@ -121,6 +121,10 @@ def _cond(text: str | None) -> Any:
 
 def define(t: str) -> dict[str, Any] | None:
     """The definition of an alternative-cost line (``t``: lowercased first letter, name as ~), or None."""
+    # -- cost alt (wave 16F) -- 118.9: "If an opponent controls a Forest and you control a Swamp, you may cast this spell without paying
+    # its mana cost." (the Legates) is an alternative cost of {0}, used under that condition
+    t = re.sub(r"^(if [^,]+), you may cast (?:this spell|~) without paying its mana cost$", r"\1, you may pay {0} rather than pay "
+               r"this spell's mana cost", t)
     m = SELF.fullmatch(t)
     if m:
         if m["c1"] and m["c2"]:

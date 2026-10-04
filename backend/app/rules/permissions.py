@@ -88,6 +88,8 @@ PERMISSION = re.compile(
     r"(?P<what>play lands and cast spells|play lands|cast spells|play a land|"
     r"cast (?:a |an )?(?P<sel>[a-z][a-z' ,-]*?) spells?(?P<qual> with mana value \d+ or less)?|cast (?:this card|~))"
     r" from (?P<zone>your graveyard|the top of your library)$")
+SELF_GY_BY = re.compile(r"^you may cast (?:this card|~) from your graveyard by (?P<cost>.+) in addition to paying its other costs$")
+_GERUND = {"discarding": "discard", "paying": "pay", "sacrificing": "sacrifice", "exiling": "exile"}
 SELF_GY_WHILE = re.compile(r"^you may cast (?:this card|~) from your graveyard as long as (?P<cond>.+)$")  # (wave 4B)
 # "You may cast creature spells as though they had flash." (601.3b)
 FLASH = re.compile(rf"^you may cast (?:{_SEL} )?spells as though they had flash$")
@@ -322,7 +324,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     if cost_changes.is_self(t):
         change = cost_changes.self_change(t)
         return {"kind": "static", "static": "self_cost", "change": change, "effects": []} if change else None
-    if " rather than pay " in t:  # alternative costs (118.9): app/rules/alt_costs.py
+    if " rather than pay " in t or (" without paying its mana cost" in t and t.startswith("if ")):  # alternative costs (118.9): app/rules/alt_costs.py
         from app.rules import alt_costs
 
         found_alt = alt_costs.define(t)
@@ -418,6 +420,15 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True,
                 "play": False, "cast": True, "filter": None, "while": cond, "effects": []}
+    # -- cost alt (wave 16F) -- "You may cast this card from your graveyard by discarding a card in addition to paying its other
+    # costs." (Alien Symbiosis): a permission to cast it from there whose additional cost (601.2b) is paid with its mana cost
+    m = SELF_GY_BY.fullmatch(t)
+    if m:
+        extra = re.sub(r"\b(discarding|paying|sacrificing|exiling)\b", lambda g: _GERUND[g[1]], m["cost"])
+        if costs.parse_additional_cost(extra) is None:
+            return None
+        return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True,
+                "play": False, "cast": True, "filter": None, "extra": extra, "effects": []}
     # -- top of library (wave 5I) -- "You may cast Dragon spells / artifact spells and colorless spells / creature spells of
     # the chosen type … from the top of your library", Radha's look-and-play line (app/rules/top_library.py)
     from app.rules import escape, top_library
@@ -578,6 +589,7 @@ class Grant:
     spend: str = ""  # -- as long as (wave 9B) -- "" | "type" | "color": how mana may be spent casting with it (118.14, 609.4b)
     once_key: str | None = None  # a static "once during each of your turns" ability's key
     sorcery: bool = False  # -- keywords (wave 15E) -- plot 702.170d: only in your main phase with an empty stack, whatever it is
+    extra: str = ""  # -- cost alt (wave 16F) -- an additional cost the permission names ("discard a card"), paid with the rest (601.2b)
 
 
 def _view(state: GameState, player: str, info: CardInfo) -> Plan:
@@ -676,7 +688,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                     continue
                 if d.get("while") is not None and not _while_holds(state, info, player, card, d["while"]):
                     continue  # -- conditional statics (wave 4B) -- "as long as you control a Zombie"
-                out.append(Grant("permission", f"{ch.name}: cast it from your graveyard", once_key=key if d["once"] else None))
+                out.append(Grant("permission", f"{ch.name}: cast it from your graveyard", once_key=key if d["once"] else None,
+                                 extra=d.get("extra") or ""))
     if verb == "cast" and where == "hand":  # -- cast without paying (wave 3C) -- the card's own "cast this spell without paying"
         for d in _definitions(ch).values():
             if d.get("static") == "permission" and d.get("self") and d.get("free") and d["zone"] == "hand" \
