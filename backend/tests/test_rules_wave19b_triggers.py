@@ -43,6 +43,7 @@ EXTRA = [
     real('Hedge Shredder', '{2}{G}{G}', 4, 'Artifact — Vehicle', 'Whenever this Vehicle attacks, you may mill two cards.\nWhenever one or more land cards are put into your graveyard from your library, put them onto the battlefield tapped.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)', ("5", "5"), 'G'),
     real('Probe Edict', '{B}', 1, 'Sorcery', 'Target opponent sacrifices a creature.', None, 'B'),
     real('Probe Mill', '{U}', 1, 'Sorcery', 'Target player mills three cards.', None, 'U'),
+    real('Fecundity', '{2}{G}', 3, 'Enchantment', "Whenever a creature dies, that creature's controller may draw a card.", None, 'G'),
 ]
 
 NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
@@ -205,4 +206,26 @@ def test_lands_milled_into_the_graveyard_enter_tapped(cards):
     forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:battlefield"]
     assert len(forests) == 3 and all(c.tapped for c in forests)
     assert not [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:graveyard"]
+    check(s)
+
+
+@pytest.mark.parametrize("take, drawn", [("yes", 1), ("no", 0)])
+def test_the_dead_creatures_controller_is_the_one_asked_to_draw(cards, take, drawn):
+    s = build(cards, ["Fecundity", "Probe Edict"], ["Probe Soldier"])
+    put(s, "Fecundity")
+    put(s, "Probe Soldier", "p2")
+    cast(s, "Probe Edict", B=1)
+    hand = len(zone(s.state, "p2", "hand"))
+    seen = []
+    for _ in range(10):  # the target, then Bob's own choice: whoever is asked
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        seen.append((d.player, d.kind))
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=["p2"] if d.kind != "confirm" else [take])
+    assert ("p2", "confirm") in seen
+    assert len(zone(s.state, "p2", "hand")) == hand + drawn
     check(s)
