@@ -165,7 +165,7 @@ def test_still_manual_lines():
 @pytest.mark.parametrize("text", [
     "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you.",
     "~ can't attack you unless its controller pays {2}.",
-    "No more than two creatures can block each combat.",
+    "No more than six creatures can block each combat.",
     "Creatures with power less than ~'s power can't block it.",  # (Wandering Wolf: its own grammar, not this)
 ])
 def test_refused_or_other_wordings(text):
