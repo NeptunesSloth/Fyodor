@@ -225,6 +225,9 @@ def add_mana(state: GameState, a: A.AddMana) -> None:
     pid = ops.player(state, a.player, a.actor)
     pool = state.players[pid].mana
     for color, amount in a.mana.items():
+        short = -(pool.get(color, 0) + amount)  # (review 18B: views show unrestricted units as plain mana; removing it takes them too)
+        for u in [u for u in state.players[pid].mana_units if u.sym == color and not u.only and not u.riders][:max(0, short)]:
+            state.players[pid].mana_units.remove(u)
         value = max(0, pool.get(color, 0) + amount)
         if value:
             pool[color] = value

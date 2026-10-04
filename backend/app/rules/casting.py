@@ -901,13 +901,17 @@ def life_for_mana(state: GameState, player: str, info: CardInfo, cost: M.ManaCos
     """-- mana provenance (wave 18B) -- K'rrik, Son of Yawgmoth: "For each {B} in a cost, you may pay 2 life rather than pay that mana."
     Each {B} of the cost becomes a Phyrexian {B/P} while its controller has one (the solver pays mana first and life only where
     mana can't, one symbol at a time; a hybrid {B/…} isn't a {B}, left as it is)."""
+    from app.rules.layers import derive
+
     if "B" not in cost.colored:
         return cost
     for z, ids in state.zones.items():
         if z.endswith(":battlefield"):
             for cid in ids:
                 c = state.cards[cid]
-                if c.controller == player and not c.face_down and LIFE_FOR_MANA in chars.of(c, info).oracle_text:
+                printed = chars.of(c, info)  # (review 18B: its current abilities: not once it lost them, 613.1f)
+                if c.controller == player and LIFE_FOR_MANA in printed.oracle_text and \
+                        any(ab.text == LIFE_FOR_MANA for ab in derive(state, c, printed, info).abilities):
                     n = cost.colored.count("B")
                     return M.ManaCost(cost.generic, tuple(x for x in cost.colored if x != "B"), cost.hybrid, cost.phyrexian + ("B",) * n,
                                       cost.x, cost.unsupported)
@@ -1098,7 +1102,7 @@ def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristic
     return PaymentRecord(card=card.id, controller=player, total_cost=cost.text(),
                          mana_spent=dict(payment.spent) if payment else {}, contributions=contributions,
                          mana_tags=payment.tags if payment else [],
-                         mana_riders=mana_units.matching(plan, payment.riders, card, ch, player) if payment else [],
+                         mana_riders=mana_units.matching(plan, payment.riders, card, spell_ch, player) if payment else [],
                          life=payment.life if payment else 0, tapped=list(payment.tapped) if payment else [],
                          sacrificed=list(payment.sacrificed) if payment else [], x=a.x_value)
 
@@ -1166,13 +1170,13 @@ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCos
     return True
 
 
-def pool_covers(state: GameState, player: str, cost: M.ManaCost, purpose: Purpose | None = None) -> bool:
+def pool_covers(state: GameState, player: str, cost: M.ManaCost, purpose: Purpose | None = None, info: CardInfo | None = None) -> bool:
     """Can ``cost`` be paid from the player's mana pool alone (plus life for Phyrexian mana)? (-- mana provenance (wave 18B) --
-    the units that may pay for ``purpose`` are in the pool.)"""
+    the units that may pay for ``purpose`` are in the pool; review 18B: with ``info``, K'rrik's life too.)"""
     from app.rules import mana_units
 
     try:
-        M.solve(cost, dict(state.players[player].mana), mana_units.unit_sources(state, player, purpose),
+        M.solve(life_for_mana(state, player, info, cost) if info is not None else cost, dict(state.players[player].mana), mana_units.unit_sources(state, player, purpose),
                 life=state.players[player].life)
     except M.ManaError:
         return False
@@ -1182,7 +1186,7 @@ def pool_covers(state: GameState, player: str, cost: M.ManaCost, purpose: Purpos
 def pay_from_pool(plan: Plan, player: str, cost: M.ManaCost, label: str, *, purpose: Purpose | None = None) -> None:
     """Pay from the mana pool only (players tap their own lands), or explain what's missing."""
     if not cost.is_free and payment_mode(plan, player) == "self":
-        if not pool_covers(plan.state, player, cost, purpose):
+        if not pool_covers(plan.state, player, cost, purpose, plan.info):
             raise ActionError(f"Tap your mana first: {cost.text()} isn't in your mana pool")
         pay(plan, player, cost, label, sources=[], purpose=purpose)
     else:
@@ -1224,7 +1228,8 @@ def _covered(plan: Plan, player: str, cost: M.ManaCost, helpers: list[P.Helper],
 
     p = plan.state.players[player]
     units = mana_units.unit_sources(plan.state, player, _prompt_purpose(plan, resume) if resume else None)
-    return P.assign(cost, helpers, P.pool_pays(dict(p.mana), p.life, units))
+    covers = P.pool_pays(dict(p.mana), p.life, units)
+    return P.assign(cost, helpers, lambda rest: covers(life_for_mana(plan.state, player, plan.info, rest)))  # (review 18B: K'rrik)
 
 
 def _tap_display(plan: Plan, player: str, cost: M.ManaCost, what: str, resume: dict[str, Any]) -> dict[str, Any]:
@@ -1566,14 +1571,14 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
         raise ActionError("It can't be turned face up that way: turn it face up with the table tools")
     cost_text, kind = ways[method]
     cost = M.parse_cost(cost_text)
-    if payment_mode(plan, plan.actor) == "self":
+    if payment_mode(plan, plan.actor) == "self":  # (review 18B: a special action, 116.2b: Purpose() — mana only for abilities or spells can't pay it)
         pay_from_pool(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up",
-                      purpose=Purpose(ability_of=printed))
+                      purpose=Purpose())
     else:
-        if not can_pay(plan.state, plan.actor, cost, plan.info, purpose=Purpose(ability_of=printed)):
+        if not can_pay(plan.state, plan.actor, cost, plan.info, purpose=Purpose()):
             raise ActionError(f"Not enough mana to pay {cost.text()}")
         pay(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up", sources=a.sources,
-            purpose=Purpose(ability_of=printed))
+            purpose=Purpose())
     plan.do({"type": "face_down", "card_ids": [card.id], "face_down": False})
     emit(plan.state, "turned_face_up", object_id=plan.oid(card), card=card.id, player=plan.actor)
     from app.rules import triggers  # (triggers imports this module)
@@ -2352,9 +2357,9 @@ def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAb
     if problem:
         raise ActionError(problem)
     cost = M.parse_cost(cost_text)
-    if payment_step(plan, a, cost, f"suspending {ch.name}", purpose=Purpose(spell=ch)):
+    if payment_step(plan, a, cost, f"suspending {ch.name}", purpose=Purpose()):  # (review 18B: a special action, 116.2f: not a cast — restricted mana for spells or abilities doesn't pay it)
         return
-    pay(plan, plan.actor, cost, f"paid {cost.text()} to suspend {ch.name}", sources=a.sources, purpose=Purpose(spell=ch))
+    pay(plan, plan.actor, cost, f"paid {cost.text()} to suspend {ch.name}", sources=a.sources, purpose=Purpose())
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}})
     if n:
         plan.do({"type": "counter", "card_ids": [card.id], "kind": "time", "delta": n})
@@ -2374,9 +2379,9 @@ def plot(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
     if state.turn.active_player != plan.actor or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
         raise ActionError("You can plot a card only in your main phase while the stack is empty")
     cost = M.parse_cost(cost_text)
-    if payment_step(plan, a, cost, f"plotting {ch.name}", purpose=Purpose(spell=ch)):
+    if payment_step(plan, a, cost, f"plotting {ch.name}", purpose=Purpose()):  # (review 18B: a special action, 116.2k)
         return
-    pay(plan, plan.actor, cost, f"paid {cost.text()} to plot {ch.name}", sources=a.sources, purpose=Purpose(spell=ch))
+    pay(plan, plan.actor, cost, f"paid {cost.text()} to plot {ch.name}", sources=a.sources, purpose=Purpose())
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}})
     plan.rules.permissions.append(Permission(
         id=secrets.token_hex(4), player=card.owner, cast=True, zone="any", object_id=plan.oid(card), card=card.id, free=True,

@@ -500,7 +500,7 @@ def _solve(reqs: list[tuple[str, ...]], generic: int, pool: dict[str, int], sour
     def generic_from(units: dict[str, int], remaining: list[Source], n: int, chosen: Chosen) -> Found | None:
         units = dict(units)
         # tap the sources that give the most mana first (Sol Ring before a Forest)
-        for src in sorted(remaining, key=lambda s: (not s.preferred, -max(len(o) for o in s.options), s.flexibility, s.rank)):
+        for src in sorted(remaining, key=lambda s: (s.rank >= 0, not s.preferred, -max(len(o) for o in s.options), s.flexibility, s.rank)):
             if sum(units.values()) >= n:
                 break
             opt = max(src.options, key=len)
@@ -562,10 +562,16 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
     """Find a payment for ``cost`` (X already fixed). Raises ManaError if there is none."""
     if cost.unsupported:
         raise ManaError(f"Can't pay {' '.join('{' + s + '}' for s in cost.unsupported)} automatically")
-    ordered = sorted(sources, key=lambda s: (not s.preferred, s.flexibility, s.rank, -max(len(o) for o in s.options)))
+    # (review 18B: mana already in the pool — mana_units' pseudo-sources, rank -1 — before anything is tapped, as the plain pool)
+    ordered = sorted(sources, key=lambda s: (s.rank >= 0, not s.preferred, s.flexibility, s.rank, -max(len(o) for o in s.options)))
     base = [(c,) for c in cost.colored] + sorted(cost.hybrid, key=len)
-    # Phyrexian symbols with mana first, then one more with 2 life each time (107.4f: each symbol on its own; wave 18B: K'rrik too)
-    attempts = [(base + [(c,) for c in cost.phyrexian[k:]], 2 * k) for k in range(len(cost.phyrexian) + 1)]
+    # Phyrexian symbols with mana first, then one more with 2 life each time (107.4f: each symbol on its own; wave 18B: K'rrik too;
+    # review 18B: any k of them, so {W/P}{U/P} with only {W} pays 2 life, not 4)
+    from itertools import combinations
+
+    phy = cost.phyrexian
+    by_life = {tuple(sorted(phy[i] for i in ix)): ix for k in range(len(phy) + 1) for ix in combinations(range(len(phy)), k)}
+    attempts = [(base + [(c,) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
     for reqs, life_cost in attempts:
         if life_cost and life_cost >= life:
             continue
