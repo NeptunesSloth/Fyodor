@@ -137,8 +137,9 @@ def _with_chosen_type(spend: str, creature_type: str) -> str:
 # -- end refused copy/mana (wave 3R3) --
 
 
-def _land_mana(state: GameState, players: list[str], info: CardInfo, *, skip: str) -> set[str]:
-    """Types of mana lands these players control could produce (Reflecting Pool, Exotic Orchard)."""
+def _land_mana(state: GameState, players: list[str], info: CardInfo, *, skip: str, only: str = "land") -> set[str]:
+    """Types of mana lands these players control could produce (Reflecting Pool, Exotic Orchard); ``only``: "basic" lands or
+    "Gate" lands (-- mana (wave 19E) -- Star Compass, Gond Gate)."""
     out: set[str] = set()
     from app.rules import (
         mana_replace,  # -- mana replacements (wave 9C) -- 106.7: replacement effects change what lands produce
@@ -152,12 +153,12 @@ def _land_mana(state: GameState, players: list[str], info: CardInfo, *, skip: st
                 continue
             card = state.cards[cid]
             ch = chars.of(card, info)
-            if not ch.is_land:
+            if not ch.is_land or (only == "basic" and "Basic" not in ch.supertypes) or (only == "Gate" and "Gate" not in ch.subtypes):
                 continue
             for ab in ch.abilities:
                 if ab.kind != "mana":
                     continue
-                parsed = M.parse_mana_ability(ab.text)
+                parsed = M.parse_mana_ability(ab.text, commander_identity(state, p, info))  # (wave 19E: Command Tower: its controller's identity)
                 if parsed is None:
                     continue
                 for opt in parsed.options:
@@ -234,6 +235,10 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
             out.append(tuple(color if m == "CHOSEN" else m for m in opt))
         elif opt == ("LANDS",):
             out += [(m,) for m in M.ALL_MANA if m in _land_mana(state, [card.controller], info, skip=card.id)]
+        elif opt[0].startswith("LANDS:"):  # -- mana (wave 19E) -- any color / type a (basic / Gate) land you control could produce
+            _, kind, only = opt[0].split(":")
+            produced = _land_mana(state, [card.controller], info, skip=card.id, only=only)
+            out += [(m,) for m in (M.ALL_MANA if kind == "type" else M.COLORS) if m in produced]
         elif opt == ("LANDS_OPP",):
             opponents = [p for p in state.seat_order if p != card.controller]
             out += [(m,) for m in M.COLORS if m in _land_mana(state, opponents, info, skip=card.id)]

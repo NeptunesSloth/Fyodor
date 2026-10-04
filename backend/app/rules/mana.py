@@ -173,6 +173,10 @@ def _effect_options(effect: str, identity: tuple[str, ...]) -> tuple[tuple[str, 
         return ((m.group(2),) * _NUM[m.group(1)],)
     if effect == "Add one mana of any type that a land you control could produce":
         return (("LANDS",),)
+    # -- mana (wave 19E) -- "any color that a land / basic land / Gate you control could produce", "any type that a Gate …":
+    # ("LANDS:<color|type>:<land|basic|Gate>",) read by casting.mana_abilities
+    if m := re.fullmatch(r"Add one mana of any (?P<k>color|type) that an? (?P<f>land|basic land|Gate) you control could produce", effect):
+        return ((f"LANDS:{m['k']}:{m['f'].split()[0]}",),)
     if effect == "Add one mana of any color that a land an opponent controls could produce":
         return (("LANDS_OPP",),)
     body = effect[len("Add "):]

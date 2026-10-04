@@ -76,6 +76,10 @@ EXTRA = [
     _card("Aeolipile", "W22", "{2}", "Artifact", "{1}, {T}, Sacrifice this artifact: It deals 2 damage to any target.", []),
     _card("Haywire Mite", "W23", "{2}", "Artifact Creature — Insect",
           "{G}, Sacrifice this creature: Exile target noncreature artifact or noncreature enchantment.", [], power="1", toughness="1"),
+    _card("Star Compass", "W24", "{2}", "Artifact",
+          "This artifact enters tapped.\n{T}: Add one mana of any color that a basic land you control could produce.", []),
+    _card("Harvester Druid", "W25", "{1}{G}", "Creature — Human Druid",
+          "{T}: Add one mana of any color that a land you control could produce.", ["G"], power="1", toughness="1"),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -336,4 +340,16 @@ def test_target_noncreature_artifact_or_noncreature_enchantment(cards):
     act(s, "p1", type="activate_ability", card_id=mite.id, ability=0, targets=[sword.id])
     pass_until_stack_empty(s)
     assert s.state.cards[sword.id].zone == "p1:exile"
+    replay_matches(s)
+
+
+def test_mana_of_a_color_a_basic_or_any_land_could_produce(cards):
+    """Star Compass: only a basic land's colors (the Forest's G, not Command Tower's); Harvester Druid: any land's, Command Tower's
+    included (Krenko's red); no land at all: no mana (106.7)."""
+    s = table(cards, ["Star Compass", "Forest", "Command Tower"], [])
+    act(s, "p1", type="activate_ability", card_id=named(s, "Star Compass").id, ability=1)
+    assert s.state.players["p1"].mana == {"G": 1}
+    s = table(cards, ["Harvester Druid", "Command Tower"], [])
+    act(s, "p1", type="activate_ability", card_id=named(s, "Harvester Druid").id, ability=0)
+    assert s.state.players["p1"].mana == {"R": 1}
     replay_matches(s)
