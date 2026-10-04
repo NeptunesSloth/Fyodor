@@ -1783,8 +1783,7 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
     when the ability targets one player (and names no other), else the player the trigger was about — only when the
     ability also says "that player" for its recipient (``event_player``: _event_refs_ok checks the trigger has one)."""
     text = json.dumps(found[0]) if found is not None else ""
-    zone = "library" if found is not None and '{"library": "that_player"}' in text else "hand"  # (wave 15A: "half their library")
-    marker = '{"' + zone + '": "that_player"}'
+    marker = '{"hand": "that_player"}'
     if found is None or marker not in text:
         return found
     if found[1] in ("player", "opponent") and '"event_player"' not in text:
@@ -1793,7 +1792,7 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
         bound = "event"
     else:
         return None
-    return json.loads(text.replace(marker, '{"' + zone + '": "' + bound + '"}')), found[1], found[2]
+    return json.loads(text.replace(marker, '{"hand": "' + bound + '"}')), found[1], found[2]
 
 
 def _attached_host(found: tuple[list[dict[str, Any]], Any, bool] | None, it: str | None,
