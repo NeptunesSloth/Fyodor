@@ -81,8 +81,12 @@ EXTRA = [
          oracle_text='Haste\nShadow (This creature can block or be blocked by only creatures with shadow.)\nWhenever another creature is put into your graveyard from the battlefield, you may pay {B}. If you do, return this card from your graveyard to the battlefield.', power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=['Shadow', 'Haste']),
     card('Nim Deathmantle', set_code='tst', number='W81', mana_cost='{2}', cmc=2.0, type_line='Artifact — Equipment',
          oracle_text="Equipped creature gets +2/+2, has intimidate, and is a black Zombie. (A creature with intimidate can't be blocked except by artifact creatures and/or creatures that share a color with it.)\nWhenever a nontoken creature is put into your graveyard from the battlefield, you may pay {4}. If you do, return that card to the battlefield and attach this Equipment to it.\nEquip {4}", power=None, toughness=None, colors=[], color_identity=[], keywords=['Equip']),
+    card("Erebos's Titan", set_code='tst', number='W82', mana_cost='{1}{B}{B}{B}', cmc=4.0, type_line='Creature — Giant',
+         oracle_text='As long as your opponents control no creatures, this creature has indestructible. (Damage and effects that say "destroy" don\'t destroy it.)\nWhenever a creature card leaves an opponent\'s graveyard, you may discard a card. If you do, return this card from your graveyard to your hand.', power='5', toughness='5', colors=['B'], color_identity=['B'], keywords=[]),
+    card('Crypt Incursion', set_code='tst', number='W90', mana_cost='{2}{B}', cmc=3.0, type_line='Instant',
+         oracle_text="Exile all creature cards from target player's graveyard. You gain 3 life for each card exiled this way.", power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=[]),
 ]
-FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor', 'Gigapede', 'Blood Operative', 'Pyrewild Shaman', 'Ichorid', 'Furious Forebear', 'Boneyard Scourge', 'Nether Traitor', 'Nim Deathmantle']
+FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor', 'Gigapede', 'Blood Operative', 'Pyrewild Shaman', 'Ichorid', 'Furious Forebear', 'Boneyard Scourge', 'Nether Traitor', 'Nim Deathmantle', "Erebos's Titan", 'Crypt Incursion']
 # --EXTRA-END--
 
 
@@ -552,4 +556,36 @@ def test_nim_deathmantle_returns_the_creature_and_attaches_itself(cards, pay):
         assert back.zone == "p1:battlefield" and s.state.cards[mantle.id].attached_to == back.id  # (the Equipment is the attached one)
     else:
         assert back.zone == "p1:graveyard"
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("whose", ["p2", "p1"])
+def test_erebos_titan_discards_to_return_when_a_creature_card_leaves_an_opponents_graveyard(cards, whose):
+    s = build(cards, p1=("Erebos's Titan", "Llanowar Elves", "Forest", "Crypt Incursion"), p2=("Llanowar Elves",))
+    titan = to_zone(s, find(s, "Erebos's Titan"), "graveyard")
+    elves = to_zone(s, find(s, "Llanowar Elves", whose), "graveyard")
+    to_zone(s, find(s, "Forest"), "hand")  # (something to discard)
+    spell = to_hand(s, "Crypt Incursion")
+    add_mana(s, "p1", B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[whose])  # exile all creature cards from that graveyard
+    asked = None
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None and {o.id for o in d.options} >= {"pay", "decline"}:
+            asked = d
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[elves.id].zone == f"{whose}:exile"
+    if whose == "p2":
+        assert asked is not None and asked.player == "p1"
+        pick(s, "pay")
+        play_out(s)
+        assert s.state.cards[titan.id].zone == "p1:hand"  # "you may discard a card. If you do, return this card …"
+    else:
+        assert asked is None and s.state.cards[titan.id].zone == "p1:exile"  # (her own graveyard, the Titan's too: not "an opponent's")
     roundtrip(s)
