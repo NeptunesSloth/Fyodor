@@ -113,13 +113,16 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     items.push({ label: "Reveal for miracle", onClick: () => void send({ type: "miracle_reveal", card_id: card.id }) });
   }
   // 702.151a / 702.167a: reconfigure's attach and unattach abilities and craft are activated abilities the server adds after / in place of their
-  // keyword line (rules/oracle.py): the next two abilities after the "Reconfigure {cost}" line, the line itself for "Craft with …".
+  // keyword line (rules/oracle.py): reconfigure's two come after all the printed lines (numbers n and n + 1 for n printed lines, so no
+  // printed line's number moves), craft's is the line itself.
   if (mine && zone === "battlefield") {
-    abilityLines(oracle).forEach((line, i) => {
+    const lines = abilityLines(oracle);
+    lines.forEach((line, i) => {
       if (/^reconfigure (?:\{[^}]+\})+$/i.test(line)) {
         const ready = (n: number) => !!hints.activatable?.some((a) => a.card_id === card.id && a.ability === n);
-        items.push({ label: `Reconfigure: attach (${line.replace(/^reconfigure /i, "")})`, disabled: !ready(i + 1), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i + 1 }) });
-        items.push({ label: `Reconfigure: unattach (${line.replace(/^reconfigure /i, "")})`, disabled: !ready(i + 2), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i + 2 }) });
+        const [attach, unattach] = [lines.length, lines.length + 1];
+        items.push({ label: `Reconfigure: attach (${line.replace(/^reconfigure /i, "")})`, disabled: !ready(attach), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: attach }) });
+        items.push({ label: `Reconfigure: unattach (${line.replace(/^reconfigure /i, "")})`, disabled: !ready(unattach), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: unattach }) });
       } else if (/^craft with /i.test(line)) {
         const ready = !!hints.activatable?.some((a) => a.card_id === card.id && a.ability === i);
         items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !ready, onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });

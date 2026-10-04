@@ -297,6 +297,22 @@ describe("rules card menu", () => {
     expect(sent[3]).toEqual({ type: "miracle_reveal", card_id: "w1" });
   });
 
+  it("numbers reconfigure's abilities after every printed line (702.151a)", () => {
+    const base = view({ ...RULES, hints: { activatable: [{ card_id: "r1", ability: 2 }] } });
+    const v = { ...base, cards: { ...base.cards, r1: card("r1", "p1:battlefield", "gear") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        gear: { id: "gear", name: "Test Gear", type_line: "Artifact Creature — Equipment", oracle_text: "Reconfigure {2} (Attach or unattach.)\n{1}: Scry 1." } as CardData,
+      },
+    });
+    const attach = item(rulesMenu(v.cards.r1!, v, "p1"), "Reconfigure: attach ({2})");
+    expect(attach.disabled).toBe(false);
+    attach.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "r1", ability: 2 }]);
+    expect(item(rulesMenu(v.cards.r1!, v, "p1"), "Reconfigure: unattach ({2})").disabled).toBe(true);
+  });
+
   it("offers graveyard-activated abilities (113.6m) only for graveyard costs or server-listed ones", () => {
     const base = view({ ...RULES, hints: { activatable: [{ card_id: "g1", ability: 1 }] } });
     const v = { ...base, cards: { ...base.cards, g1: card("g1", "p1:graveyard", "scrounger"), g2: card("g2", "p1:graveyard", "looter"),

@@ -30,6 +30,16 @@ def test_assist_with_an_asked_payment_takes_the_helpers_mana_off_once(cards):
     roundtrip(s)
 
 
+def test_reconfigure_abilities_come_after_the_printed_lines():
+    """702.151a: the two abilities reconfigure stands for are numbered after every printed line, so a printed line's ability number
+    is its line number (the card menu's mapping) even when a line follows the keyword."""
+    from app.rules.oracle import parse_abilities
+
+    abs_ = parse_abilities("Reconfigure {2}\n{1}: This creature gets +1/+0 until end of turn.")
+    assert [a.text for a in abs_[:2]] == ["Reconfigure {2}", "{1}: This creature gets +1/+0 until end of turn."]
+    assert abs_[2].text.startswith("{2}: Attach ~ to another target creature") and abs_[3].text.startswith("{2}: Unattach ~.")
+
+
 def _ready_counter(s, caster="p2"):
     cs = put(s, "Counterspell", "hand", pid=caster)
     mana(s, caster, U=2)
