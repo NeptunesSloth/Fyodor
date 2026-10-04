@@ -350,6 +350,8 @@ def _layer4_safe(cond: dict[str, Any]) -> bool:
     (700.5a: mana costs after copy effects only), life totals, whose turn it is."""
     if cond.get("static") in ("self_counter", "your_turn", "life_vs_start", "opp_life"):
         return True
+    if cond == {"static": "self", "test": "attached_to_a_creature"}:  # -- casting extras (wave 18E) -- reconfigure 702.151b
+        return True
     value = cond.get("value")
     return cond.get("static") is None and isinstance(value, dict) and set(value) == {"devotion"}
 
@@ -874,7 +876,7 @@ def _condition(text: str) -> dict[str, Any] | None:
     c = text.strip()
     if c in ("it's your turn",):
         return {"static": "your_turn"}
-    m = re.fullmatch(r"(?:it|~)(?:'s| is) (?P<test>attacking alone|attacking|blocking|tapped|untapped|enchanted|equipped)", c)
+    m = re.fullmatch(r"(?:it|~)(?:'s| is) (?P<test>attacking alone|attacking|blocking|tapped|untapped|enchanted|equipped|attached to a creature)", c)
     if m:
         return {"static": "self", "test": m["test"].replace(" ", "_")}
     if c in ("it entered this turn", "~ entered this turn"):  # -- refused modal/conditional (wave 3R1) -- (Crew Captain)
@@ -940,6 +942,9 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
             from app.rules import static_conditions
 
             return static_conditions.modified(plan, source)
+        if test == "attached_to_a_creature":  # -- casting extras (wave 18E) -- reconfigure 702.151b (judged without the host's types)
+            host = plan.state.cards.get(source.attached_to or "")
+            return host is not None and host.zone.endswith(":battlefield")
         sub = "Aura" if test == "enchanted" else "Equipment"
         return any(c.attached_to == source.id and c.zone.endswith(":battlefield") and sub in plan.ch(c).subtypes
                    for c in plan.state.cards.values())

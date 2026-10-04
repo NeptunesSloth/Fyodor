@@ -390,6 +390,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"miracle (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "prototype":  # -- casting extras (wave 18E) -- app/rules/prototype.py: "Prototype {cost} — P/T"
         return re.fullmatch(r"prototype (?:\{[^}x]+\})+ [—-] \d+/\d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "reconfigure":  # -- casting extras (wave 18E) -- oracle.parse_abilities: the attach / unattach abilities and the static it adds
+        return re.fullmatch(r"reconfigure (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "harmonize":  # -- casting extras (wave 18E) -- app/rules/harmonize.py: a mana harmonize cost without X
         from app.rules import harmonize
 

@@ -331,4 +331,13 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
             line = f"{m[2]}, Discard this card: Put {m[1]} +1/+1 counters on target creature."
         kind, kws, cost = classify(line, spell=spell)
         out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n]))
+        # -- keyword meanings (wave 18E) -- 702.151a: "Reconfigure [cost]" is two activated abilities, "[Cost]: Attach this permanent to another
+        # target creature you control. Activate only as a sorcery." and "[Cost]: Unattach this permanent. Activate only if this permanent is
+        # attached to a creature and only as a sorcery."; 702.151b: attached to a creature, it isn't a creature (a static of its own)
+        if (rm := re.fullmatch(r"Reconfigure ((?:\{[^}]+\})+)", line)) and not spell:
+            for extra in (f"{rm[1]}: Attach ~ to another target creature you control. Activate only as a sorcery.",
+                          f"{rm[1]}: Unattach ~. Activate only if ~ is attached to a creature and only as a sorcery.",
+                          "As long as ~ is attached to a creature, ~ isn't a creature."):
+                ekind, ekws, ecost = classify(extra, spell=spell)
+                out.append(AbilityText(index=len(out), text=extra, kind=ekind, keywords=ekws, cost=ecost, section=sections[n]))
     return out

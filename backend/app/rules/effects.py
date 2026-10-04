@@ -2064,6 +2064,14 @@ def attach_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def unattach_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- casting extras (wave 18E) -- 702.151a reconfigure: "Unattach this permanent." (701.3d: nothing if it isn't attached)."""
+    src = _cards(plan, ctx, "self")
+    if src and plan.state.cards[src[0]].attached_to:
+        plan.do({"type": "detach", "card_ids": [src[0]]}, actor=ctx["controller"])
+    return True
+
+
 def use_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """A modal spell's next mode: its own target slot (empty if that target became illegal: the
     mode's targeted parts then do nothing, 608.2b)."""
@@ -2076,7 +2084,7 @@ PRIMITIVES = {
     "use_targets": use_targets,
     "remove_counters": remove_counters, "restrict": restrict,
     "sacrifice_choice": sacrifice_choice, "return_card": return_card,
-    "attach_self": attach_self,
+    "attach_self": attach_self, "unattach_self": unattach_self,
     "draw": draw, "gain_life": gain_life, "lose_life": lose_life, "damage": damage, "pump": pump, "grant": grant,
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,

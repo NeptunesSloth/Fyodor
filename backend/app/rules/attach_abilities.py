@@ -15,7 +15,8 @@ import re
 from typing import Any
 
 _SELF = r"(?:~|this (?:Equipment|equipment|permanent|Aura|aura))"
-_ONE = re.compile(rf"^attach {_SELF} to (?P<tgt>(?:up to one )?target [^,.]+)$")  # (wave 16D: "up to one")
+_ONE = re.compile(rf"^attach {_SELF} to (?P<tgt>(?:up to one )?(?:another )?target [^,.]+)$")  # (wave 16D: "up to one"; 18E: "another")
+_UNATTACH = re.compile(rf"^unattach {_SELF}$")  # -- casting extras (wave 18E) -- 702.151a (reconfigure)
 _PAIR = re.compile(r"^attach (?P<src>target [^,.]+?) to (?P<dst>target [^,.]+)$")
 _TO_SELF = re.compile(rf"^attach (?P<src>target [^,.]+?) to {_SELF}$")
 _TO_THIS_CREATURE = re.compile(r"^attach (?P<src>target [^,.]+?) to this creature$")
@@ -39,10 +40,21 @@ def _group(phrase: str, *, kinds: tuple[str, ...], upto: bool = False) -> dict[s
 def _one(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules.scripts import _NoMatch
 
-    g = _group(m["tgt"], kinds=("Creature",), upto=m["tgt"].startswith("up to"))
+    another = "another target" in m["tgt"]  # -- casting extras (wave 18E) -- 702.151a: another creature than the source (a creature itself)
+    g = _group(m["tgt"].replace("another target", "target"), kinds=("Creature",), upto=m["tgt"].startswith("up to"))
     if g is None:
         raise _NoMatch
+    if another:
+        from dataclasses import replace
+
+        from app.rules import selectors
+
+        g = {**g, "what": replace(selectors.from_key(g["what"]), other=True).key()}
     return [{"do": "attach_to", "src": "self", "who": "target"}], g
+
+
+def _unattach(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "unattach_self"}], None
 
 
 def _pair(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -64,4 +76,4 @@ def _to_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_ONE, _one), (_PAIR, _pair), (_TO_SELF, _to_self),
-                                                (_TO_THIS_CREATURE, _to_self)]
+                                                (_TO_THIS_CREATURE, _to_self), (_UNATTACH, _unattach)]

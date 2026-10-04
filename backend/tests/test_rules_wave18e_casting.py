@@ -87,6 +87,10 @@ EXTRA = [
     card("Unending Whisper", set_code="tst", number="D19", mana_cost="{U}", cmc=1.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
          oracle_text="Draw a card.\nHarmonize {5}{U} (You may cast this card from your graveyard for its harmonize cost. You may tap an "
          "untapped creature you control to reduce that cost by {X}, where X is its power. Then exile this spell.)", keywords=["Harmonize"]),
+    card("Leech Gauntlet", set_code="tst", number="D20", mana_cost="{1}{B}", cmc=2.0, type_line="Artifact Creature — Equipment Leech",
+         power="1", toughness="1", colors=["B"], color_identity=["B"], oracle_text="Lifelink\nEquipped creature has lifelink.\nReconfigure {4} "
+         "({4}: Attach to another target creature you control; or unattach from a creature. Reconfigure only as a sorcery. While attached, "
+         "this isn't a creature.)", keywords=["Lifelink", "Reconfigure"]),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -276,6 +280,28 @@ def test_harmonize_without_tapping_a_creature(cards):
     assert not s.state.cards[bear.id].tapped
     answer(s)
     assert s.state.cards[whisper.id].zone == "p1:exile"
+    roundtrip(s)
+
+
+def test_reconfigure_attaches_stops_being_a_creature_and_unattaches(cards):
+    s = build(cards, p1=("Leech Gauntlet", "Test Bear"))
+    gauntlet = put(s, "Leech Gauntlet", "battlefield")
+    bear = put(s, "Test Bear", "battlefield")
+    from tests.test_rules_attachments import ch
+
+    assert ch(s, gauntlet).is_creature
+    mana(s, C=8)
+    with pytest.raises(ActionError):  # 702.151a: unattach only while it's attached to a creature
+        act(s, "p1", type="activate_ability", card_id=gauntlet.id, ability=4)
+    with pytest.raises(ActionError):  # (another creature: not itself)
+        act(s, "p1", type="activate_ability", card_id=gauntlet.id, ability=3, targets=[gauntlet.id])
+    act(s, "p1", type="activate_ability", card_id=gauntlet.id, ability=3, targets=[bear.id])
+    answer(s)
+    assert s.state.cards[gauntlet.id].attached_to == bear.id
+    assert not ch(s, gauntlet).is_creature and "lifelink" in ch(s, bear).keywords  # 702.151b
+    act(s, "p1", type="activate_ability", card_id=gauntlet.id, ability=4)
+    answer(s)
+    assert s.state.cards[gauntlet.id].attached_to is None and ch(s, gauntlet).is_creature
     roundtrip(s)
 
 
