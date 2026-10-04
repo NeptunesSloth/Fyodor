@@ -4,6 +4,7 @@
 * 701.17a: "mill four cards, then you may put a creature or land card from among the milled cards on top of your library", and
   "a creature card and/or a land card from among them into your hand" - the pick is from the cards the mill put into the graveyard.
 * 701.54a: "if you chose a creature other than Gandalf as your Ring-bearer" - the creature this tempting chose.
+* 903.8: "for each time you've cast a commander from the command zone this game" - the casts counted so far.
 * 508.1b: "deals 1 damage to the player or planeswalker it's attacking" - what the attacker the trigger is about attacks now.
 """
 
@@ -32,6 +33,7 @@ EXTRA = [
     real('Gandalf, Friend of the Shire', '{3}{U}', 4, 'Legendary Creature — Avatar Wizard', 'Flash\nYou may cast sorcery spells as though they had flash.\nWhenever the Ring tempts you, if you chose a creature other than Gandalf as your Ring-bearer, draw a card.', ("2", "4"), 'U'),
     real('Probe Temptation', '{1}', 1, 'Sorcery', 'The Ring tempts you.', None),
     real('Probe Soldier', '{1}{W}', 2, 'Creature — Human Soldier', '', ("1", "1"), 'W'),
+    real('Jirina Kudro', '{1}{R}{W}{B}', 4, 'Legendary Creature — Human Soldier', "When Jirina Kudro enters, create a 1/1 white Human Soldier creature token for each time you've cast a commander from the command zone this game.\nOther Humans you control get +2/+0.", ("3", "3"), 'BRW'),
 ]
 
 NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
@@ -137,4 +139,16 @@ def test_ring_bearer_other_than_the_source_draws(cards, chosen, drawn):
     hand = len(zone(s.state, "p1", "hand"))
     answer(s, pick)
     assert len(zone(s.state, "p1", "hand")) == hand + drawn
+    check(s)
+
+
+def test_tokens_for_each_commander_cast_from_the_command_zone(cards):
+    s = combat_build(cards, "Jirina Kudro")
+    krenko = next(c for c in s.state.cards.values() if c.name == "Krenko, Mob Boss" and c.owner == "p1")
+    mana(s, "p1", R=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=krenko.id)  # the commander: one cast from the command zone
+    answer(s)
+    cast(s, "Jirina Kudro", C=1, R=1, W=1, B=1)
+    answer(s)
+    assert sum(1 for c in s.state.cards.values() if c.name == "Human Soldier" and c.zone == "p1:battlefield") == 1
     check(s)

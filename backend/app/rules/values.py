@@ -196,6 +196,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"hand": "chosen"}
     if what in ("creatures in your party", "creature in your party"):  # -- refused modal/conditional (wave 3R1) --
         return {"party": "you"}  # 700.8
+    if what in ("time you've cast a commander from the command zone this game", "times you've cast a commander from the command zone this game"):
+        return {"commander_casts": 1}  # -- triggers (wave 19B) -- 903.8: every cast of one of your commanders from the command zone
     if what in ("cards in target player's hand", "cards in target opponent's hand"):
         return {"hand": "target"}
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
@@ -513,6 +515,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return max(0, int(plan.state.players[you].resources.get(v["player_counters"], 0)))
     if "party" in v:  # -- refused modal/conditional (wave 3R1) --
         return party_size(plan, you)
+    if "commander_casts" in v:  # -- triggers (wave 19B) --
+        return sum(plan.state.players[you].commander_casts.values())
     if "distinct" in v:
         return _distinct(plan, ctx, v["distinct"], v["among"])
     if "devotion" in v:
