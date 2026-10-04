@@ -555,9 +555,8 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         if bestow.is_bestowed(state, card):
             ch = bestow.overlay(ch)
     if state.rules is not None and state.rules.payments:  # -- casting extras (wave 18E) -- 718.3b: a prototyped spell / permanent
-        from app.rules import prototype
-
         from app.game.rules_state import copy_recipe_of
+        from app.rules import prototype
 
         # (review 18E: a copy effect on it gives it the copied object's values instead, 718.3b values being copiable: 707.2)
         if prototype.is_prototyped(state, card) and copy_recipe_of(state.rules, state.rules.object_id(card.id)) is None:

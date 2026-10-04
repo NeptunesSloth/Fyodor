@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 
 from app.game.errors import ActionError
+from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import mana
-from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
-from tests.fixtures.cards import card, fixture_cards
+from tests.test_rules_wave9b_exile_permission import answer, build, put, roundtrip
 from tests.test_rules_wave18e_casting import EXTRA
 
 MORE = [

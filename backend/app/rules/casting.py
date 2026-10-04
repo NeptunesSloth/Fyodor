@@ -940,7 +940,13 @@ def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.Ma
                      "lifelink": {}, "combat": False,
                      "dealt": [{"source": plan.oid(card.id), "target": card.controller, "amount": n}]}, actor=card.controller)
         elif kind == "draw":
+            from app.rules import (
+                miracle,  # (-- review (wave 18E) -- a draw like any other: "the first card you've drawn this turn")
+            )
+
+            top = list(plan.state.zones.get(zone_key(card.controller, "library"), [])[:n])
             plan.do({"type": "draw", "player": card.controller, "count": n}, actor=card.controller)
+            miracle.on_draw(plan, card.controller, top)
         else:  # -- mana riders (wave 5A) -- "You gain 2 life.", "Each opponent gains 1 life."
             from app.rules import mana_riders
 
