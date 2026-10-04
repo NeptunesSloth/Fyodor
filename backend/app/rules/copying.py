@@ -224,14 +224,26 @@ def layer1(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     """613.2a: the copy effect that applies to the object gives its copiable values (the latest
     by timestamp, 613.7); 613.2b: a face-down object keeps its face-down characteristics (708.2),
     which ``characteristics.of`` already gave. ``ch`` is the object's printed (or defined) values."""
-    return with_level(state, card, _layer1(state, card, ch, info))
+    return with_level(state, card, _layer1(state, card, ch, info), info)
 
 
-def with_level(state: GameState, card: CardInstance, ch: Characteristics) -> Characteristics:
+def with_level(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> Characteristics:
     """-- Class (wave 16A) -- 716.2b: the object's own class level (never a copied one; 716.2d: none is level 1), so that
-    ``scripts.definitions`` leaves out the abilities under a level bar it hasn't reached."""
+    ``scripts.definitions`` leaves out the abilities under a level bar it hasn't reached.
+    -- Rooms (wave 18G) -- 709.5c: likewise the doors the object itself has unlocked (designations aren't copiable); on the
+    stack only the half that was cast counts (709.3a); off the table both halves are there."""
     r = state.rules
-    if r is not None and any(a.section > 1 for a in ch.abilities):
+    if ch.doors is not None and r is not None and info is not None:
+        recipe = copy_recipe_of(r, r.object_id(card.id))  # (a copy of a Room shows the copied card's halves)
+        data = info.get(recipe.printing if recipe is not None and recipe.printing else card.card_id or "")
+        if data is None or not chars.room(data):
+            return ch
+        if card.zone.endswith(":battlefield"):
+            doors = frozenset(r.unlocked.get(r.object_id(card.id), ()))
+        else:
+            doors = frozenset({card.face + 1}) if card.zone == "stack" else ch.doors
+        return chars.with_doors(ch, data, doors)
+    if r is not None and ch.doors is None and any(a.section > 1 for a in ch.abilities):
         ch = replace(ch, level=r.levels.get(r.object_id(card.id), 1))
     return ch
 
@@ -877,8 +889,8 @@ def _own(plan: Plan, card: CardInstance) -> Characteristics:
                 and (best is None or e.timestamp > best.timestamp):
             best = e
     if best is not None and best.copy_recipe is not None:
-        return with_level(plan.state, card, characteristics(best.copy_recipe, plan.info))
-    return with_level(plan.state, card, chars.of(card, plan.info))
+        return with_level(plan.state, card, characteristics(best.copy_recipe, plan.info), plan.info)
+    return with_level(plan.state, card, chars.of(card, plan.info), plan.info)
 
 
 def enter_definition(plan: Plan, card: CardInstance) -> dict[str, Any] | None:

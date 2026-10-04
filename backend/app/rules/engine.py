@@ -50,6 +50,7 @@ from app.rules import (
     reconcile,
     recursion,  # -- static_other sweep (wave 17C) --
     replacements,
+    rooms,  # -- Rooms (wave 18G) --
     sba,
     scripts,
     triggers,
@@ -69,7 +70,7 @@ NOT_YET: dict[str, str] = {}
 RULES_ENGINE_VERSION = 2  # bump when the rules engine's behaviour changes (saved with scenarios/diagnostics)
 PREF_INTENTS = frozenset({"set_stops", "set_prefs", "set_card_automation"})  # allowed any time
 ACTION_INTENTS = frozenset({"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers",
-                            "repeat_sequence", "turn_face_up"})
+                            "repeat_sequence", "turn_face_up", "unlock_door"})
 
 
 def automation_on(state: GameState) -> bool:
@@ -849,6 +850,8 @@ def resolve_top_of_stack(plan: Plan) -> None:
 
     devour.sacrifice(plan, ep, controller)
     leave_stack(plan, top_id, controller, tapped=bool(ep["tapped"]))
+    if entering:
+        rooms.entered(plan, top_id)  # -- Rooms (wave 18G) -- 709.5d: the cast half's door is unlocked as it enters
     if aura_target is not None and not manual and plan.state.cards[top_id].zone.endswith(":battlefield"):
         attachments.attach(plan, top_id, aura_target.id, controller)  # 303.4f: it enters attached to its target
     if entering:
@@ -1253,6 +1256,7 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "play_land": play_land,
     "cast_spell": casting.cast_spell,
     "turn_face_up": casting.turn_face_up,
+    "unlock_door": rooms.unlock_action,
     "activate_ability": casting.activate_ability,
     "declare_attackers": combat.declare_attackers,
     "declare_blockers": combat.declare_blockers,

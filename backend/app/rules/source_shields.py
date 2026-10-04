@@ -438,8 +438,6 @@ def _statics(plan: Plan) -> list[tuple[dict[str, Any], str, str]]:
         if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         ch = plan.ch(c)
-        if "Room" in ch.subtypes:
-            continue  # (a Room door is unlocked or not: not modelled)
         skip = conditional_lines(ch)  # (a leveler's / Class's level lines: the level isn't tracked)
         for i, d in scripts.definitions(ch).items():
             if i not in skip and d.get("kind") == "static" and d.get("static") == "unpreventable":

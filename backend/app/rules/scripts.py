@@ -268,7 +268,7 @@ def self_text(text: str, name: str) -> str:
     # object that gets it ("this creature" is): it stays as written, so no ~ there means the granter
     parts = out.split('"')
     out = '"'.join(own(p) if i % 2 == 0 else p for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
-    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem)\b", "~", out)
+    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
 
 
 EFFECTS: list[tuple[re.Pattern[str], Any]] = []
@@ -3387,6 +3387,8 @@ def _cached(ch: Characteristics) -> dict[int, Definition]:
     for ab in ch.abilities:
         if ch.level is not None and ab.section > ch.level:
             continue  # -- Class (wave 16A) -- 716.2a: an ability under a level bar the permanent hasn't reached
+        if ch.doors is not None and ab.section not in ch.doors:
+            continue  # -- Rooms (wave 18G) -- 709.5: the rules text of a locked door isn't there
         if out.get(ab.index, {}).get("kind") == "mode":
             continue  # (a mode line of the modal ability above it)
         d = define(ab, ch)
@@ -3400,6 +3402,8 @@ def _cached(ch: Characteristics) -> dict[int, Definition]:
                 out.update(found)
             continue
         if d is not None and _event_refs_ok(d):
+            if ch.doors is not None and (d.get("cond") or {}).get("event") == "unlock_door":  # -- Rooms (wave 18G) -- 709.5h: its own door
+                d = {**d, "cond": {**d["cond"], "door": ab.section}}
             out[ab.index] = d
     _merge_instead_lines(ch, out)  # -- refused copy/mana (wave 3R3) --
     return out

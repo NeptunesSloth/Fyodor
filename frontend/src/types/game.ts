@@ -498,6 +498,8 @@ export interface CardStats {
   gained?: string[];
   lost?: string[];
   creature?: boolean;
+  /** A Room's unlocked doors (709.5c): 1 = left half, 2 = right half. */
+  doors?: number[];
   /** Abilities granted by other permanents (numbered from 100). */
   abilities?: { index: number; text: string; kind: string }[];
 }

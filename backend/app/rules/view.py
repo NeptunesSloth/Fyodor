@@ -127,6 +127,8 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
         granted = [{"index": a.index, "text": a.text, "kind": a.kind} for a in now.abilities if a.index >= 100]
         if granted:
             entry["abilities"] = granted  # granted by other permanents (All Slivers have "…")
+        if now.doors is not None:
+            entry["doors"] = sorted(now.doors)  # -- Rooms (wave 18G) -- 709.5c: public (the designations are on the table)
         if not now.is_creature:
             if entry:
                 out[cid] = entry

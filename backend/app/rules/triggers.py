@@ -656,6 +656,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event == "become_level" and cond.get("level") != info.get("level"):  # -- Class (wave 16A) --
         return False
+    if event == "unlock_door" and cond.get("door") != info.get("door"):  # -- Rooms (wave 18G) -- only the door that was unlocked
+        return False
     if event in ("scry", "surveil") and cond.get("nth") and info.get("nth") != cond["nth"]:  # -- looks (wave 8B) --
         return False
     if event == "die" and cond.get("damaged_by_self") and not _damaged_by(plan, watcher, info.get("oid")):  # (wave 7C)
