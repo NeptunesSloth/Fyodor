@@ -333,6 +333,10 @@ def printed_order(definition: Definition, modes: list[int], targets: list[str]) 
     if modes == sorted(modes):
         return list(modes), list(targets)
     specs = definition["modes"]
+    if any(specs[i].get("groups") for i in modes):  # -- static_other sweep (wave 16B) -- a mode with several target groups: which are whose?
+        if targets:
+            raise ActionError("List the modes in printed order when you give targets for a mode with several targets")
+        return sorted(modes), []
     need = [i for i in modes if specs[i]["target"]]
     if len(targets) > len(need):
         return sorted(modes), list(targets)  # (too many: the target choice refuses them)

@@ -485,7 +485,6 @@ def test_whenever_you_proliferate_triggers_even_when_nothing_is_chosen(cards):
 @pytest.mark.parametrize("text", [
     # "that many" after a discard the player sizes is the cards discarded: only "then draw that many cards" is read (above)
     "Discard any number of cards. Search your library for up to that many basic land cards, reveal them, put them into your hand, then shuffle.",
-    "Discard any number of cards, then draw that many cards plus one.",
     "Whenever you cast a spell, you may have it deal 1 damage to each opponent.",  # ("it" is the spell, not the source)
 ])
 def test_wordings_that_stay_manual(text):

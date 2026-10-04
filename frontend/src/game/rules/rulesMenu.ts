@@ -29,8 +29,13 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   } else if (mine && (zone === "hand" || zone === "command")) {
     items.push({ label: "Cast", disabled: !hints.castable?.includes(card.id), onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
   } else if (mine && elsewhere && hints.castable?.includes(card.id)) {
+    // 702.127a: the aftermath half of a split card is cast from the graveyard, as that half (face 1).
+    const aftermath = zone === "graveyard" && data?.faces?.[1] && /^aftermath\b/im.test(data.faces[1].oracle_text ?? "");
+    if (aftermath) {
+      items.push({ label: `Cast ${data?.faces?.[1]?.name ?? "the second half"} (aftermath)`, onClick: () => void send({ type: "cast_spell", card_id: card.id, face: 1 }) });
+    }
     const flashback = zone === "graveyard" && abilityLines(oracle).some((l) => /^flashback \{/i.test(l));
-    items.push({ label: flashback ? "Cast with flashback" : `Cast from ${zone}`, onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
+    if (!aftermath) items.push({ label: flashback ? "Cast with flashback" : `Cast from ${zone}`, onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
   }
   if (mine && hints.free_castable?.includes(card.id) && !isLand(card.id, view)) {
     items.push({ label: "Cast without paying its mana cost", onClick: () => void send({ type: "cast_spell", card_id: card.id, free: true }) });
@@ -56,6 +61,16 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   const dash = abilityLines(oracle).find((l) => /^dash \{/i.test(l));
   if (mine && zone === "hand" && dash) {
     items.push({ label: `Cast with ${dash}`, onClick: () => void send({ type: "cast_spell", card_id: card.id, dash: true }) });
+  }
+  // 702.113a: awaken is an alternative cost: "Awaken 3—{4}{U}" (the counters go on a land chosen as a target).
+  const awaken = abilityLines(oracle).find((l) => /^awaken \d+—/i.test(l));
+  if (mine && zone === "hand" && awaken) {
+    items.push({ label: `Cast with ${awaken}`, onClick: () => void send({ type: "cast_spell", card_id: card.id, awaken: true }) });
+  }
+  // 702.102a: a split card with fuse may be cast as both halves from the hand (one fused split spell).
+  if (mine && zone === "hand" && abilityLines(oracle).some((l) => /^fuse\b/i.test(l))) {
+    items.push({ label: "Cast both halves (fuse)", disabled: !hints.castable?.includes(card.id),
+      onClick: () => void send({ type: "cast_spell", card_id: card.id, fuse: true }) });
   }
   const buyback = abilityLines(oracle).find((l) => /^buyback \{/i.test(l));
   if (mine && zone === "hand" && buyback) {

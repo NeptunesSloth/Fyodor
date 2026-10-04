@@ -59,6 +59,8 @@ OTHER_THAN = "attack_other_than"
 CANT_BLOCK_CTRL = "cant_block_ctrl"
 CANT_BLOCK_CTRL_POWER = "cant_block_ctrl_power"
 LIMIT = "attack_limit"
+LIMIT_ALL = "attack_limit_all"  # -- static_other sweep (wave 16B) -- "No more than one creature can attack each combat." (Silent Arbiter)
+BLOCK_LIMIT_ALL = "block_limit_all"  # … "can block each combat": the creatures that block, all players together
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 
 
@@ -70,6 +72,7 @@ _TAX_PW_RE = re.compile(r"(?P<sub>.+?) can't attack you or planeswalkers you con
 _CTRL_RE = re.compile(r"(?P<sub>.+?) can't block creatures you control\.")
 _POWER_SUB = re.compile(r"Creatures with power less than (?:~|this creature)'s power")
 _LIMIT_RE = re.compile(r"No more than (?P<n>one|two|three|four|five) creatures? can attack you each combat\.")
+_LIMIT_ALL_RE = re.compile(r"No more than (?P<n>one|two|three|four|five) creatures? can (?P<v>attack|block) each combat\.")
 
 
 def static_definition(text: str) -> Definition | None:
@@ -80,6 +83,9 @@ def static_definition(text: str) -> Definition | None:
     m = _LIMIT_RE.fullmatch(t)
     if m:
         return {"kind": "static", "static": LIMIT, "n": _NUMBERS[m["n"]], "effects": []}
+    m = _LIMIT_ALL_RE.fullmatch(t)
+    if m:
+        return {"kind": "static", "static": LIMIT_ALL if m["v"] == "attack" else BLOCK_LIMIT_ALL, "n": _NUMBERS[m["n"]], "effects": []}
     m = _TAX_RE.fullmatch(t) or _TAX_PW_RE.fullmatch(t)
     if m:
         from app.rules import mana as M
@@ -190,8 +196,9 @@ def taxed(plan: Plan, ch: Characteristics, target: str) -> bool:
 
 
 # -- attack limits (508.1c) ------------------------------------------------------------------------------------------
-def limits(plan: Plan) -> dict[str, int]:
-    """Players and the most creatures that can attack them each combat (the smallest of their limits)."""
+def limits(plan: Plan, kind: str = LIMIT) -> dict[str, int]:
+    """Players and the most creatures that can attack them each combat (the smallest of their limits); ``"*"``: the most
+    that can attack at all (``LIMIT_ALL``), or that can block at all (``kind`` BLOCK_LIMIT_ALL, key ``"*"`` only)."""
     from app.rules import scripts
 
     out: dict[str, int] = {}
@@ -199,16 +206,20 @@ def limits(plan: Plan) -> dict[str, int]:
         if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         for d in scripts.definitions(plan.ch(c)).values():
-            if d.get("kind") == "static" and d.get("static") == LIMIT:
+            if d.get("kind") != "static":
+                continue
+            if d.get("static") == kind == LIMIT:
                 out[c.controller] = min(out.get(c.controller, 99), int(d["n"]))
+            elif d.get("static") == (BLOCK_LIMIT_ALL if kind == BLOCK_LIMIT_ALL else LIMIT_ALL):
+                out["*"] = min(out.get("*", 99), int(d["n"]))
     return out
 
 
 def limit_problem(plan: Plan, declared: list[tuple[str, str]], caps: dict[str, int]) -> str | None:
     for player, n in caps.items():
-        k = sum(1 for _, t in declared if t == player)
+        k = len(declared) if player == "*" else sum(1 for _, t in declared if t == player)
         if k > n:
-            return f"No more than {n} creature{'s' if n != 1 else ''} can attack {plan.name(player)} each combat"
+            return f"No more than {n} creature{'s' if n != 1 else ''} can attack {'' if player == '*' else plan.name(player) + ' '}each combat"
     return None
 
 
@@ -251,13 +262,10 @@ def requirements_problem(plan: Plan, eligible: set[str], places: dict[str, list[
         for place, w in weights[i].items():
             if place is None:
                 continue
-            if place in caps:
-                j = order.index(place)
-                if left[j] <= 0:
-                    continue
-                top = max(top, w + best(i + 1, left[:j] + (left[j] - 1,) + left[j + 1:]))
-            else:
-                top = max(top, w + best(i + 1, left))
+            pools = [j for j, p in enumerate(order) if p in (place, "*")]  # (the place's own limit, and the one for all attackers)
+            if any(left[j] <= 0 for j in pools):
+                continue
+            top = max(top, w + best(i + 1, tuple(n - (j in pools) for j, n in enumerate(left))))
         return top
 
     if obeyed < best(0, tuple(caps[p] for p in order)):

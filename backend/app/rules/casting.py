@@ -609,7 +609,7 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
     if isinstance(a, A.CastSpell):  # -- kicked / instead (wave 4G) -- 601.2c / 702.33g: targets tied to the kicker
         from app.rules import kicked_instead
 
-        specs = kicked_instead.applicable(specs, a.kicker)
+        specs = kicked_instead.applicable(specs, a.kicker or int(a.awaken))  # (awaken: -- static_other sweep (wave 16B) --)
     found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id), a.card_id, list(a.targets),
                           list(a.target_counts), list(a.division), a.x_value, what, exclude)
     if found.ask is not None:
@@ -670,6 +670,32 @@ def _controls_commander(plan: Plan, player: str) -> bool:
                for c in plan.state.cards.values())
 
 
+def modal_groups(definition: dict[str, Any], picked: list[int]) -> list[dict[str, Any]] | None:
+    """-- static_other sweep (wave 16B) -- a modal spell with a mode that has several target groups (or "up to N", or a division)
+    chooses its targets as one list of groups, each chosen mode's after the one before it (601.2c); None when every chosen mode has at
+    most one plain target (each mode's own slot, ``choose_slot_targets``)."""
+    modes = [definition["modes"][i] for i in picked]
+    if not any(m.get("groups") for m in modes):
+        return None
+    return [g for m in modes for g in (m.get("groups") or ([{"what": m["target"]["what"]}] if m["target"] else []))]
+
+
+def modal_effects(definition: dict[str, Any], picked: list[int], grouped: bool) -> list[dict[str, Any]]:
+    """The chosen modes' effects in printed order (608.2c): each with its own target slot, or (``grouped``) with its target words
+    renumbered to the spell's groups."""
+    out: list[dict[str, Any]] = []
+    offset = 0
+    for k, i in enumerate(picked):
+        mode = definition["modes"][i]
+        if not grouped:
+            out += [{"do": "use_targets", "slot": k}, *mode["effects"]]
+            continue
+        n = len(mode.get("groups") or ([mode["target"]] if mode["target"] else []))
+        out += scripts._renumber(mode["effects"], list(range(offset, offset + n))) if n else mode["effects"]
+        offset += n
+    return out
+
+
 def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any], what: str,
                  *, exclude: tuple[int, ...] = ()) -> list[int] | None:
     """700.2a / 601.2b: the modes of a modal spell (or activated ability: 602.2b), validated if given,
@@ -681,7 +707,9 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
         hi = 2  # "If you control a commander as you cast this spell, you may choose both instead."
     src = source_of(plan, a.card_id)
     allowed = [i for i, m in enumerate(modes) if i not in exclude
-               and (not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, a.card_id))]
+               and (not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, a.card_id))
+               and all(len(legal_targets(plan, g["what"], plan.actor, src, a.card_id)) >= g.get("min", 1)  # (several groups: wave 16B)
+                       for g in m.get("groups") or ())]
     if a.modes:
         if not lo <= len(a.modes) <= hi:
             raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}")
@@ -1297,14 +1325,70 @@ def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, 
 FLASHBACK = re.compile(r"^flashback (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
-def flashback_cost(ch: Characteristics) -> str | None:
-    """702.34: the mana flashback cost printed on the card ("Flashback {2}{R}"), or None.
-    Flashback with other costs ("Flashback—Sacrifice …") stays manual."""
+# -- static_other sweep (wave 16B) -- 702.34a: a flashback cost with other parts: "Flashback—{1}{U}, Pay 3 life.", "Flashback—Sacrifice a
+# creature.", "Flashback—Tap three untapped white creatures you control." — the parts alt_costs reads (never X, "behold", loyalty counters)
+FLASHBACK_MORE = re.compile(r"^flashback—(?P<mana>(?:\{[^}]+\})+)?(?:, )?(?P<rest>[^{}]+)$", re.IGNORECASE)
+
+
+def flashback_parts(text: str) -> tuple[str, AbilityCost | None] | None:
+    """The flashback line's (mana cost, other cost parts) — "{0}" when it has no mana — or None when a part isn't read."""
+    from app.rules import alt_costs
+
+    t = text.strip().rstrip(".")
+    if (m := FLASHBACK.fullmatch(t)) is not None:
+        return m["cost"], None
+    m = FLASHBACK_MORE.fullmatch(t)
+    if m is None:
+        return None
+    parts = [alt_costs._part(p.strip()) for p in m["rest"].split(", ")]
+    if any(p is None or isinstance(p, str) or getattr(p, "x", False) for p in parts):
+        return None
+    comps = tuple(p for p in parts if not isinstance(p, str) and p is not None)
+    return m["mana"] or "{0}", AbilityCost(components=comps, life=sum(c.amount for c in comps if c.kind == costs.PAY_LIFE))
+
+
+# -- static_other sweep (wave 16B) -- 702.120a: "Escalate {cost}" / "Escalate—Discard a card.": "for each mode you choose beyond the first, you pay
+# [cost] as an additional cost to cast this spell" (a mana cost, or other parts alt_costs reads)
+ESCALATE = re.compile(r"^escalate(?: (?P<mana>(?:\{[^}]+\})+)|—(?P<rest>[^{}]+))$", re.IGNORECASE)
+
+
+def escalate_parts(text: str) -> tuple[str, AbilityCost | None] | None:
+    """The escalate line's (mana cost, other cost parts) per extra mode, or None when it isn't read."""
+    from app.rules import alt_costs
+
+    m = ESCALATE.fullmatch(text.strip().rstrip("."))
+    if m is None:
+        return None
+    if m["mana"]:
+        return m["mana"], None
+    parts = [alt_costs._part(p.strip()) for p in m["rest"].split(", ")]
+    if any(p is None or isinstance(p, str) or getattr(p, "x", False) for p in parts):
+        return None
+    comps = tuple(p for p in parts if not isinstance(p, str) and p is not None)
+    return "{0}", AbilityCost(components=comps, life=sum(c.amount for c in comps if c.kind == costs.PAY_LIFE))
+
+
+def escalate_cost(ch: Characteristics) -> tuple[str, AbilityCost | None] | None:
     for ab in ch.abilities:
-        if ab.kind == "keywords" and "flashback" in ab.keywords:
-            m = FLASHBACK.fullmatch(ab.text.strip().rstrip("."))
-            if m:
-                return m["cost"]
+        if ab.kind == "keywords" and "escalate" in ab.keywords and (found := escalate_parts(ab.text)) is not None:
+            return found
+    return None
+
+
+def flashback_cost(ch: Characteristics) -> str | None:
+    """702.34: the mana part of the flashback cost printed on the card ("Flashback {2}{R}"), or None (``flashback_extra``: the
+    other parts of "Flashback—{1}{U}, Pay 3 life")."""
+    for ab in ch.abilities:
+        if ab.kind == "keywords" and "flashback" in ab.keywords and (found := flashback_parts(ab.text)) is not None:
+            return found[0]
+    return None
+
+
+def flashback_extra(ch: Characteristics) -> AbilityCost | None:
+    """-- static_other sweep (wave 16B) -- the non-mana parts of the flashback cost, paid with the mana (118.9a, 601.2h)."""
+    for ab in ch.abilities:
+        if ab.kind == "keywords" and "flashback" in ab.keywords and (found := flashback_parts(ab.text)) is not None:
+            return found[1]
     return None
 
 
@@ -1313,7 +1397,8 @@ def from_graveyard(card: CardInstance, player: str, ch: Characteristics, state: 
     own, or (wave 3R2, ``state``) one an effect gave it this turn (app/rules/graveyard_grants.py)."""
     if card.zone != zone_key(player, "graveyard") or card.owner != player:
         return False
-    return flashback_cost(ch) is not None or (state is not None and _granted_flashback(state, card, ch) is not None)
+    # -- static_other sweep (wave 16B) -- 702.127a: the aftermath half is cast from a graveyard and exiled as it leaves the stack
+    return "aftermath" in ch.keywords or flashback_cost(ch) is not None or (state is not None and _granted_flashback(state, card, ch) is not None)
 
 
 def _granted_flashback(state: GameState, card: CardInstance, ch: Characteristics) -> str | None:
@@ -1437,6 +1522,8 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
         how = "prepared"  # -- prepared (wave 13C) -- 722.3c: its controller may cast the copy in exile
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
     flash = any(g.flash for g in found)
+    if "aftermath" in ch.keywords:  # -- static_other sweep (wave 16B) -- 702.127a: "can't be cast from any zone other than a graveyard"
+        return permissions.Grant("flashback", flash=flash) if how == "flashback" else None
     if how is None and info is not None and card.zone == zone_key(player, "graveyard") and not free \
             and not any(g.zone_ok and not g.free for g in found) and _escape_offers(state, player, card, ch, info):
         how = "escape"  # -- escape (wave 5I) -- 702.138a: cast from the graveyard for an escape cost (only that way)
@@ -1726,8 +1813,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     card = plan.state.cards.get(a.card_id)
     if card is None:
         raise ActionError("That card isn't here any more")
-    ch = chars.as_cast(card, plan.info, a.face)  # split cards / adventures: the half being cast
-    if a.alt_cost is not None and (a.free or a.evoke or a.dash or a.face_down):  # -- cost changers (wave 4I) --
+    ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
+    if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
+        raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")
+    if a.alt_cost is not None and (a.free or a.evoke or a.dash or a.awaken or a.face_down):  # -- cost changers (wave 4I) --
         raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
     if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
         cast_free(plan, card, ch, a)
@@ -1775,6 +1864,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if dash is None or card.zone != zone_key(plan.actor, "hand"):
             raise ActionError("Only a card with dash can be cast for its dash cost from your hand")
         alternative = M.parse_cost(dash)
+    if a.awaken:  # -- static_other sweep (wave 16B) -- 702.113a: an alternative cost; its text is the spell's "if cast for its awaken cost" line
+        if a.evoke or a.dash or a.face_down or alternative is not None or keyword_cost(ch, "awaken", AWAKEN) is None \
+                or card.zone != zone_key(plan.actor, "hand"):
+            raise ActionError("Only a card with awaken can be cast for its awaken cost from your hand, with no other alternative cost")
+        alternative = M.parse_cost(keyword_cost(ch, "awaken", AWAKEN) or "")
     if free and (alternative is not None or a.face_down):
         raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
     # -- cost changers (wave 4I) -- an alternative cost written on a card (Force of Will, Jodah: app/rules/alt_costs.py)
@@ -1815,6 +1909,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     slots: list[list[TargetRef]] = []
     slot_specs: list[dict[str, Any] | None] = []
     picked: list[int] = []
+    escalate_more: AbilityCost | None = None
     if definition is not None and definition.get("modes"):
         from app.rules.modal_abilities import printed_order
 
@@ -1823,12 +1918,22 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if modes is None:
             return
         picked = modes
-        slot_specs = [definition["modes"][i]["target"] for i in picked]
-        found = choose_slot_targets(plan, a, slot_specs, ch.name or "it")  # … then each mode's target (601.2c)
-        if found is None:
-            return
-        slots = found
-        picked_targets: ChosenTargets | None = ChosenTargets(flat=[t for slot in slots for t in slot])
+        if len(picked) > 1 and (esc := escalate_cost(ch)) is not None:  # -- static_other sweep (wave 16B) -- 702.120a: each mode beyond the first
+            more = len(picked) - 1
+            one = M.parse_cost(esc[0])
+            additional.append(M.ManaCost(one.generic * more, one.colored * more, one.hybrid * more, one.phyrexian * more, 0, one.unsupported * more))
+            if esc[1] is not None:
+                escalate_more = AbilityCost(components=esc[1].components * more, life=esc[1].life * more)
+        grouped = modal_groups(definition, picked)  # -- static_other sweep (wave 16B) --
+        if grouped is not None:
+            picked_targets: ChosenTargets | None = choose_targets(plan, a, {"targets": grouped}, ch.name or "it")
+        else:
+            slot_specs = [definition["modes"][i]["target"] for i in picked]
+            found = choose_slot_targets(plan, a, slot_specs, ch.name or "it")  # … then each mode's target (601.2c)
+            if found is None:
+                return
+            slots = found
+            picked_targets = ChosenTargets(flat=[t for slot in slots for t in slot])
     else:
         picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
     if picked_targets is None:
@@ -1853,6 +1958,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         add_cost = either if either.components else None
     if alt_offer is not None:  # -- cost changers (wave 4I) -- its other parts are paid with the rest (601.2h)
         add_cost = alt_costs.merged(add_cost, alt_offer.alt.cost)
+    if escalate_more is not None:  # -- static_other sweep (wave 16B) -- escalate's non-mana parts, once for each mode beyond the first
+        add_cost = alt_costs.merged(add_cost, escalate_more)
+    if grant is not None and grant.how == "flashback" and not escaping and (fb_more := flashback_extra(ch)) is not None \
+            and card.zone == zone_key(plan.actor, "graveyard"):  # -- static_other sweep (wave 16B) -- the flashback cost's other parts
+        add_cost = alt_costs.merged(add_cost, fb_more)
     if optional:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(components=tuple(
             costs.CostComponent(costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life") for o in optional)))
@@ -1893,7 +2003,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             plan.do({"type": "life", "player": plan.actor, "delta": -a.x_value})
             record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
-    record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else \
+    record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else "awaken" if a.awaken else \
         "flashback" if flashback else "free" if free else "escape" if escaping else \
         (alt_offer.tag or "alternative") if alt_offer is not None else None  # ("escape": 702.138b, wave 5I; blitz: 15E)
     if alt_offer is not None:  # -- cost changers (wave 4I) --
@@ -1902,10 +2012,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.note(f"{plan.name(plan.actor)} cast {ch.name} for an alternative cost ({alt_offer.label})", [card.id])
     record.additional = (["buyback"] if a.buyback else []) + (["kicker"] if a.kicker else []) \
         + [f"optional:{o.source}" for o in optional]  # (wave 4I: Defiler of Vigor's life)
-    record.kicked = a.kicker  # 702.33d
+    record.kicked = a.kicker or int(a.awaken)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as "If this spell was kicked")
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
     record_payment(plan, card.id, record)
-    tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else ["Dashed"] if a.dash else \
+    tags = ["Cast from the command zone"] if commander_cast else ["Aftermath" if "aftermath" in ch.keywords else "Flashback"] if flashback else ["Dashed"] if a.dash else \
         ["Escaped"] if escaping else []  # (wave 5I)
     if grant is not None and grant.how == "permission":
         permissions.consume(plan, grant)  # (a "once during each of your turns" permission is used up)
@@ -1917,6 +2027,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         tags.append("Bestowed")
     if a.kicker:
         tags.append("Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}")
+    if a.awaken:
+        tags.append("Awakened")
     if a.buyback:
         tags.append("Buyback")
         plan.rules.buyback.append(plan.oid(card))
@@ -1943,20 +2055,23 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     more_cascade = 0 if a.face_down or plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
     if more_cascade or ("cascade" in ch.keywords and not a.face_down and not plan.manual(card)):
         _cascade_triggers(plan, card, ch, more_cascade)
-    if "storm" in ch.keywords and not a.face_down and not plan.manual(card):
+    if ("storm" in ch.keywords or "gravestorm" in ch.keywords) and not a.face_down and not plan.manual(card):
         _storm_trigger(plan, card, ch)
     if "replicate" in ch.keywords and not a.face_down and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
-    if definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
-        effects_in_order = [e for k, i in enumerate(picked)
-                            for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]
+    if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
+        r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
+                                      name=ch.name, effects=modal_effects(definition, picked, True), x=a.x_value, modes=picked,
+                                      **picked_targets.entry(None), kicked=a.kicker or int(a.awaken))  # (-- static_other sweep (wave 16B) --)
+    elif definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
+        effects_in_order = modal_effects(definition, picked, False)
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
-                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=a.kicker)
+                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=a.kicker or int(a.awaken))
     elif definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=a.x_value,
-                                      **picked_targets.entry(definition), kicked=a.kicker)
+                                      **picked_targets.entry(definition), kicked=a.kicker or int(a.awaken))
     if aura is not None and chosen:
         r.aura_targets = {k: v for k, v in r.aura_targets.items() if plan.state.cards.get(k) is not None
                           and plan.state.cards[k].zone == STACK}
@@ -2153,6 +2268,7 @@ MADNESS = re.compile(r"^madness (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 BUYBACK = re.compile(r"^buyback (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 EVOKE = re.compile(r"^evoke (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 DASH = re.compile(r"^dash (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+AWAKEN = re.compile(r"^awaken (?P<n>\d+)—(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)  # (wave 16B) 702.113a
 
 
 def kicker_extra(ch: Characteristics, times: int, *, face_down: bool = False) -> M.ManaCost:
@@ -2282,6 +2398,10 @@ def _storm_trigger(plan: Plan, card: CardInstance, ch: Characteristics) -> None:
     r = plan.rules
     turn = plan.state.turn.number
     before = sum(r.spells_this_turn(p, turn) for p in plan.state.seat_order)
+    if "gravestorm" in ch.keywords:  # -- static_other sweep (wave 16B) -- 702.69a: each permanent put into a graveyard from the battlefield this turn (tokens too)
+        from app.rules import history
+
+        before = sum(1 for d in history.log_for(plan).left if d.to == "graveyard")
     if before:
         _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6100,
              definition={"kind": "triggered", "trigger": "storm", "optional": False, "target": None,
@@ -2326,12 +2446,20 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         if modes is None:
             return
         picked = modes
-        slot_specs = [definition["modes"][i]["target"] for i in picked]
-        found = choose_slot_targets(plan, a, slot_specs, ch.name or "it")
-        if found is None:
-            return
-        slots = found
-        picked_targets = ChosenTargets(flat=[t for slot in slots for t in slot])
+        if len(picked) > 1 and escalate_cost(ch) is not None:  # (-- static_other sweep (wave 16B) -- its escalate cost is still paid, 118.9d)
+            raise ActionError("Choose one mode: the escalate cost of a spell cast without paying its mana cost is paid by hand")
+        grouped = modal_groups(definition, picked)  # -- static_other sweep (wave 16B) --
+        if grouped is not None:
+            picked_targets = choose_targets(plan, a, {"targets": grouped}, ch.name or "it")
+            if picked_targets is None:
+                return
+        else:
+            slot_specs = [definition["modes"][i]["target"] for i in picked]
+            found = choose_slot_targets(plan, a, slot_specs, ch.name or "it")
+            if found is None:
+                return
+            slots = found
+            picked_targets = ChosenTargets(flat=[t for slot in slots for t in slot])
     else:
         found_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
         if found_targets is None:
@@ -2406,13 +2534,16 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     extra = 0 if plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
     if extra or ("cascade" in ch.keywords and not plan.manual(card)):
         _cascade_triggers(plan, card, ch, extra)
-    if "storm" in ch.keywords and not plan.manual(card):
+    if ("storm" in ch.keywords or "gravestorm" in ch.keywords) and not plan.manual(card):
         _storm_trigger(plan, card, ch)
     if "replicate" in ch.keywords and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
-    if definition is not None and picked:
-        effects_in_order = [e for k, i in enumerate(picked)
-                            for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]
+    if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
+        r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
+                                      name=ch.name, effects=modal_effects(definition, picked, True), x=a.x_value, modes=picked,
+                                      **picked_targets.entry(None), kicked=a.kicker)
+    elif definition is not None and picked:
+        effects_in_order = modal_effects(definition, picked, False)
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
                                       x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=a.kicker)

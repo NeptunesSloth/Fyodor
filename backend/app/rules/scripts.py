@@ -1622,6 +1622,39 @@ _YOU_IMPERATIVE = re.compile(r"you (?=(?:create|untap|tap|put|return|exile|destr
                              r"investigate|sacrifice|discard|mill|shuffle)\b)")
 
 
+# -- static_other sweep (wave 16B) -- "Each player discards all the cards in their hand, then draws that many cards [minus one]." /
+# "Discard any number of cards, then draw that many cards plus one." / "… then creates that many 2/2 black Zombie creature tokens.":
+# "that many" is the cards the discard before it put into the graveyard (701.9a), for each player their own (108.4a: a card's owner)
+_THAT_MANY = re.compile(r"^(?P<s>(?:target player|each player|each opponent|that player|defending player) )?(?P<v>draws?|creates?) "
+                        r"that many (?P<what>cards|[^,.]+? tokens)(?: (?P<d>plus|minus) one)?$")
+
+
+def _that_many(left: tuple[list[dict[str, Any]], Any], text: str) -> tuple[list[dict[str, Any]], Any] | None:
+    m = _THAT_MANY.match(text)
+    first = left[0][0] if len(left[0]) == 1 else {}
+    kind = "discarded" if first.get("do") == "discard" and (first.get("all") or first.get("upto")) else \
+        "shuffled" if first.get("do") == "shuffle_library" and first.get("zones") == ["hand"] else None
+    if m is None or kind is None:
+        return None
+    s, plural = m["s"] or "", bool(m["s"]) and m["s"].startswith("each")
+    verb = m["v"] if s else m["v"].rstrip("s")
+    if verb.startswith("draw"):
+        right = _clause(f"{s}{verb} a card for each card discarded this way")
+        if right is None or len(right[0]) != 1 or right[0][0].get("do") != "draw":
+            return None
+        if kind == "shuffled":  # (the shuffle is no introducer of "it": its binding is named here)
+            first["as"] = "shuffled"
+        n = {**right[0][0]["n"], "this_way": kind, **({"ref_count": "shuffled"} if kind == "shuffled" else {}), **({"delta": 1 if m["d"] == "plus" else -1} if m["d"] else {}),
+             **({"each_owner": True} if plural else {})}
+        return [{**right[0][0], "n": n}], right[1]
+    if m["d"] or m["what"] == "cards":
+        return None
+    right = _clause(f"{s}{verb} a {m['what'][:-1]}")
+    if right is None or len(right[0]) != 1 or right[0][0].get("do") != "create_token" or right[0][0].get("n") != 1:
+        return None
+    return [{**right[0][0], "per_controller": {"this_way": kind, "of": None}}], right[1]
+
+
 def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """An instruction, or two joined by ", then" / "and" ("Scry 1, then draw a card.", "You draw
     two cards and you lose 2 life."): each half must be understood. Each "target" word is its
@@ -1648,6 +1681,9 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     # order: 608.2c): read as the same instructions joined by "and"; each part must still be understood on its own
     if (serial := re.fullmatch(r"([^,]+(?:, [^,]+)+), and ([^,]+)", text)) is not None:
         text = serial[1].replace(", ", " and ") + " and " + serial[2]
+    # -- static_other sweep (wave 16B) -- "You draw two cards, lose 2 life, then mill two cards." is three instructions in order (608.2c)
+    text = re.sub(r"^(?P<a>(?:you )?(?:gain|lose|draw|mill|scry|surveil)\b[^,.]*), (?P<b>(?:draw|lose|gain|mill|scry|surveil|investigate)\b[^,.]*), then ",
+                  r"\g<a>, then \g<b>, then ", text)
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
                                  r"remove|add|investigate|prevent|amass|proliferate)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
@@ -1663,7 +1699,9 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                              r"returns|creates|searches|scry|surveil|gets)\b", parts[1]):
             parts[1] = f"{subj[1]} {parts[1]}"
             same_target = subj[1].startswith("target")  # (one word "target": the same target)
-        left, right = _clause(parts[0]), _clause(parts[1])
+        left = _clause(parts[0])
+        right = _that_many(left, parts[1]) if left is not None else None  # -- static_other sweep (wave 16B) --
+        right = right or _clause(parts[1])
         if left is None or right is None:
             continue
         lgroups, rgroups = _as_groups(left[1]), _as_groups(right[1])
@@ -1688,6 +1726,11 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return gifts
     from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
 
+    body = _dice.plain(trigger_words.plain_amounts(_dice.rewrite(body)))  # (rewrite: a results table, wave 16B)
+    # -- static_other sweep (wave 16B) -- 701.48a: "Learn." means "You may reveal a Lesson card you own from outside the game and put it
+    # into your hand. If you don't, you may discard a card. If you do, draw a card." A game here has no cards outside it (no sideboard is
+    # modelled: the decks are the games'), so the reveal never has a Lesson to show and the rest is the rummage
+    body = re.sub(r"(^|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     # -- trigger tail (wave 16C) -- "Create a 4/4 … token with flying at the beginning of the next end step." (Rukh Egg): the same delayed
     # trigger (603.7) as the leading wording, which the token grammar reads whole
     body = re.sub(rf"(?i)^(create [^.]+?) (at the beginning of (?:{_delayed.WHEN_RE}))(\.?)$", r"\2, \1\3", body)
@@ -1706,6 +1749,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     if (each_opp := per_opponent.parse(body, lambda b: parse_effects(b, it, event_player=event_player))) is not None:
         return each_opp
     found = _parse_effects_checked(body, it, event_player)
+    if found is not None and '"target_sel"' in json.dumps(found[0], default=str):
+        return None  # (-- static_other sweep (wave 16B) -- a "target …" an amount names that no instruction declared as its target)
     if found is not None and '{"x": 1}' not in json.dumps(found[0]):
         return found
     return _where_x(body, it, event_player) or found  # (X left as a cast X by the sentence grammar: read as the text defines it, if it can be)
@@ -2926,7 +2971,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import trigger_words  # or Vehicle spell", "a noncreature, nonland card")
 
                 m = trigger_words.comma_condition(text, m)
-            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b", m["body"]):  # (3R3: copy it)
+            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b", m["body"]):  # (3R3: copy it; wave 16B: increment)
                 continue  # -- sized amounts (wave 3D) -- it reads the spell cast: the generic condition's event carries it
             if m:
                 name = step_trigger(m) if trigger == "step" else trigger
@@ -3470,7 +3515,11 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
             return None
         effects, target, _ = parsed
         if target is not None and not isinstance(target, str):
-            return None  # (a mode with several targets or a division: not yet)
+            # -- static_other sweep (wave 16B) -- a mode with several target groups, "up to N targets" or a division: its groups join the
+            # spell's (601.2c: casting.modal_groups); the effects name them as the mode's own "target" / "target:<k>"
+            modes.append({"text": ab.text[2:], "effects": rename_bindings(effects, f"m{len(modes)}_"), "target": None,
+                          "groups": _as_groups(target)})
+            continue
         modes.append({"text": ab.text[2:], "effects": rename_bindings(effects, f"m{len(modes)}_"),
                       "target": {"what": target} if target else None})
     if not repeat and lo > len(modes):
@@ -3481,11 +3530,17 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
             "modal": {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": condition}}
 
 
+def _from_hand_ability(ab: AbilityText) -> bool:
+    return ab.kind == "activated" and re.search(r"(?:^|, )Discard (?:this card|~)(?:,|$)", ab.cost or "") is not None
+
+
 def spell_definition(ch: Characteristics) -> Definition | None:
     """A whole instant/sorcery as one definition, if every line is automated (else None)."""
     if not ch.is_instant_or_sorcery:
         return None
-    text_lines = [ab for ab in ch.abilities if ab.kind != "keywords"]
+    # (-- static_other sweep (wave 16B) -- a hand ability on the card — reinforce 702.77a, "{cost}, Discard this card: …" — is not
+    # part of what the spell does)
+    text_lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab)]
     if text_lines and text_lines[0].text in _MODAL_HEADERS:
         modal = modal_definition(text_lines, ch.name)
         # (a spell has no trigger event: "that player" / "that much" can't be bound)
@@ -3493,7 +3548,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
-    lines = [ab for ab in ch.abilities if ab.kind != "keywords"
+    lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab)
              and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction")  # (alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self") and defs[ab.index].get("free"))]
     if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):

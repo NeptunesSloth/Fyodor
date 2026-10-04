@@ -242,8 +242,16 @@ def _moved(plan: Plan, ctx: Context, e: dict[str, Any], before: list[ObjectRef])
 def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- replacement effects stage 2 (wave 2E): the draw choke point (app/rules/replace.py: 121.2,
     # 121.2c APNAP, 121.6a / 614.11 with an empty library, 704.5b) --
-    want = _amount(plan, ctx, e["n"])
     players = _players(plan, ctx, e["who"])
+    if isinstance(e["n"], dict) and e["n"].get("each_owner"):  # -- static_other sweep (wave 16B) -- "each player discards …, then draws that
+        # many cards [plus / minus one]": each draws as many as they discarded (this_way.by_controller: a card's owner, 108.4a)
+        from app.rules import this_way
+
+        counts = this_way.by_controller(plan, ctx, e["n"])
+        each = {p: max(0, counts.get(p, 0) + int(e["n"].get("delta", 0))) for p in players}
+        players = [p for p in players if each[p] > 0]
+        return not players or replace.draw_cards(plan, players, each, then=_then(ctx, e), ctx=ctx)
+    want = _amount(plan, ctx, e["n"])
     if e.get("also"):  # -- triggers (wave 5D) -- "You and target opponent each draw a card": one instruction (121.2c)
         players = list(dict.fromkeys([*_players(plan, ctx, e["also"]), *players]))
     if want <= 0 or not players:
@@ -1777,7 +1785,8 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
             picked = [*picked, *hand]
             continue
         decide(plan, player=pid, kind="choose_cards",
-               prompt=f"{'Exile' if dest == 'exile' else 'Discard'} {n} card{'s' if n != 1 else ''}"  # (wave 11D: "exiles two cards from their hand")
+               prompt=(f"Discard up to {n} cards" if upto else
+                       f"{'Exile' if dest == 'exile' else 'Discard'} {n} card{'s' if n != 1 else ''}")  # (wave 11D: "exiles two cards from their hand")
                + (f" from your {src}" if dest == "exile" else ""),
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
                min_choices=0 if upto else n, max_choices=n,  # (-- trigger tail (wave 15B) -- "up to N" / "any number": 701.9a)
@@ -2394,7 +2403,10 @@ def shuffle_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                options=[DecisionOption(id="yes", label="Shuffle"), DecisionOption(id="no", label="Don't shuffle")],
                resume={"step": "shuffle_library", "ctx": ctx, "e": {**e, "optional": False}})
         return False
-    for pid in _players(plan, ctx, e["who"]):
+    players = _players(plan, ctx, e["who"])
+    # (-- static_other sweep (wave 16B) -- "then draws that many cards": the cards shuffled in are the binding "as", each its owner's)
+    before = _remember(plan, ctx, e, [c for pid in players for zone in e.get("zones") or [] for c in plan.state.zones.get(zone_key(pid, zone), [])])
+    for pid in players:
         for zone in e.get("zones") or []:
             cards = list(plan.state.zones.get(zone_key(pid, zone), []))
             if e.get("sel"):  # (wave 16C: "all creature cards from your graveyard")
@@ -2403,6 +2415,7 @@ def shuffle_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             if cards:
                 plan.do({"type": "move", "card_ids": cards, "to": {"player": pid, "zone": "library"}}, actor=pid)
         plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
+    _moved(plan, ctx, e, before)
     return True
 
 

@@ -115,6 +115,7 @@ def mana_value(cost: str) -> float:
 
 
 _printed_cache: dict[tuple[str, int], Characteristics] = {}
+_fused_cache: dict[str, Characteristics | None] = {}  # (wave 16B)
 _CACHE_MAX = 5000
 
 
@@ -246,15 +247,37 @@ def half_from_data(data: dict[str, Any], face: int) -> Characteristics:
     return hit
 
 
+def fused_from_data(data: dict[str, Any]) -> Characteristics | None:
+    """-- static_other sweep (wave 16B) -- 702.102b / 709.4d: a fused split spell has the combined characteristics of its two halves:
+    both names, the two mana costs (702.102c) added up, each card type and each ability of either half (the text of the left half
+    first: 702.102d). None unless both halves have fuse."""
+    faces = data.get("faces") or []
+    if data.get("layout") != "split" or len(faces) != 2:
+        return None
+    key = str(data.get("id"))
+    if key not in _fused_cache:
+        a, b = half_from_data(data, 0), half_from_data(data, 1)
+        fuse = [any(x.kind == "keywords" and "fuse" in x.keywords for x in h.abilities) for h in (a, b)]
+        rest = [x for x in (*a.abilities, *b.abilities) if not (x.kind == "keywords" and x.keywords == ("fuse",))]
+        _fused_cache[key] = replace(
+            a, name=f"{a.name} // {b.name}", mana_cost=a.mana_cost + b.mana_cost, mana_value=a.mana_value + b.mana_value,
+            supertypes=a.supertypes | b.supertypes, types=a.types | b.types, subtypes=a.subtypes | b.subtypes, colors=a.colors | b.colors,
+            oracle_text=f"{a.oracle_text}\n{b.oracle_text}", abilities=tuple(replace(x, index=i) for i, x in enumerate(rest))) \
+            if all(fuse) else None
+    return _fused_cache[key]
+
+
 def is_two_spell_card(card: CardInstance, info: CardInfo) -> bool:
     data = info.get(card.card_id) if card.card_id else None
     return bool(data and data.get("faces") and data.get("layout") in HALVES)
 
 
-def as_cast(card: CardInstance, info: CardInfo, face: int | None) -> Characteristics:
+def as_cast(card: CardInstance, info: CardInfo, face: int | None, fused: bool = False) -> Characteristics:
     """The spell you cast from this card: for split cards and adventures, the half you chose
-    (its own cost and type), otherwise the card as it is (after turning it to ``face``)."""
+    (its own cost and type), otherwise the card as it is (after turning it to ``face``). ``fused``: both halves (702.102a)."""
     data = info.get(card.card_id) if card.card_id else None
+    if fused and data and card.ability is None and not card.token and (both := fused_from_data(data)) is not None:
+        return both
     if data and data.get("faces") and data.get("layout") in HALVES and card.ability is None and not card.token:
         return half_from_data(data, face or 0)
     return of(card.model_copy(update={"face": face}) if face is not None else card, info)

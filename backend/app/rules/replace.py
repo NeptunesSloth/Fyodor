@@ -19,6 +19,11 @@ tests/test_rules_replacements2.py fails if a table action in app/rules bypasses 
     each of ``players`` draws ``n`` (121.2: one at a time; 121.2c: in APNAP order).
 ``gain_life(plan, gains, *, then=None)``
     [(player, n), …]: each a separate life gain event (119.10, 702.15e).
+-- static_other sweep (wave 16B) -- Dredge (702.52a): a card with "Dredge N" in its owner's graveyard is an OPTIONAL replacement of that
+owner's draw ("As long as you have at least N cards in your library, if you would draw a card, you may instead mill N cards and
+return this card from your graveyard to your hand"): the draw's affected player is asked before anything else applies (a decline
+lets the other effects apply as before), and the cards a dredge mills may be dredged for the next draw of the same instruction, so
+the draws after one are planned again once it has happened (``draw_cards``). It is no draw: nothing triggers on drawing (614.6).
 ``plan_damage(plan, events, *, answers, order)``
     one simultaneous damage batch (120.4b): replacement and prevention effects per event, 615.7
     shields, then the results — lifelink gains, wither/infect counters, poison — through the life
@@ -206,6 +211,10 @@ class Ask(Exception):
         self.chooser, self.fp, self.ev, self.applicable, self.outcomes = chooser, fp, ev, applicable, outcomes
 
 
+class AskOptional(Ask):
+    """The affected player chooses whether to apply an optional replacement effect, and which (dredge: one card each)."""
+
+
 class _TooMany(Exception):
     pass
 
@@ -231,6 +240,7 @@ class Planner:
     answers: dict[str, str] = field(default_factory=dict)
     ask: bool = True  # False: a site that can't pause (remembered answers only)
     left: list[tuple[Event, list[str]]] = field(default_factory=list)  # (event, effects left to the players)
+    opt_n: int = 0  # (optional replacements met so far in this pass: each is its own question, wave 16B)
 
     # -- kind-specific rules ------------------------------------------------------------------------
     def applies(self, c: Candidate, ev: Event, sim: Sim) -> bool:
@@ -253,7 +263,7 @@ class Planner:
             fn(self.plan, ev, sim)
 
     def applicable(self, ev: Event, sim: Sim) -> list[Candidate]:
-        found = [c for c in self.cands if self.applies(c, ev, sim)]
+        found = [c for c in self.cands if self.applies(c, ev, sim) and not c.op.get("optional")]
         selfs = [c for c in found if c.self_repl]  # 616.1a: a self-replacement effect first
         return sorted(selfs or found, key=lambda c: c.seq)
 
@@ -262,6 +272,10 @@ class Planner:
         """616.1: apply one effect at a time until none applies; each final event is performed in
         ``sim`` and handed to ``on_final`` in order (614.11a / 121.6b: a replacement's events
         complete before the sequence goes on)."""
+        if (opt := self.optional(ev, sim)) is not None:  # -- static_other sweep (wave 16B) -- dredge: the player took it
+            for nxt in self.apply(opt, ev, sim):
+                self.settle(nxt, sim, on_final)
+            return
         found = self.applicable(ev, sim)
         if not found:
             self.perform(ev, sim)
@@ -280,6 +294,22 @@ class Planner:
                 chosen = picked
         for nxt in self.apply(chosen, ev, sim):
             self.settle(nxt, sim, on_final)
+
+    def optional(self, ev: Event, sim: Sim) -> Candidate | None:
+        """The optional replacement ("you may instead") the affected player applies to this event, if any: asked once per event
+        (a recorded answer: the candidate's id, or "decline")."""
+        opts = [c for c in self.cands if c.op.get("optional") and self.applies(c, ev, sim)]
+        if not opts:
+            return None
+        self.opt_n += 1
+        fp = f"opt{self.opt_n}:{_fingerprint(ev, opts)}"
+        said = self.answers.get(fp)
+        if said is not None:
+            return next((c for c in opts if c.id == said), None)
+        chooser = affected(self.plan, ev)
+        if self.ask and chooser:
+            raise AskOptional(chooser, fp, ev, opts, {})
+        return None  # (a site that can't pause: no draw is replaced; every site of a draw can pause)
 
     def _by_first(self, ev: Event, found: list[Candidate], sim: Sim) -> dict[str, set[str]] | None:
         """The results reachable when each candidate is applied first (every later order tried):
@@ -388,6 +418,8 @@ def describe(plan: Plan, ev: Event) -> str:
         return f"{n} {ev['counter']} counter{'s' if n != 1 else ''} for {plan.name(ev['player'])}"
     if kind == "draw":
         return f"{plan.name(ev['player'])} draws a card"
+    if kind == "dredge":
+        return f"{plan.name(ev['player'])} dredges {ev['n']}"
     if kind == "win":
         return f"{plan.name(ev['player'])} wins the game"
     if kind == "life":
@@ -433,6 +465,12 @@ def ask(plan: Plan, q: Ask, answers: dict[str, str], resume: dict[str, Any]) -> 
     if base.get("ctx") is not None:
         base["order"] = list(base["ctx"].pop(SHIELDS, None) or base.get("order") or [])
         base["ctx"].pop(ANSWERS, None)
+    if isinstance(q, AskOptional):  # -- static_other sweep (wave 16B) -- 702.52a: "you may instead" (public: a card in a graveyard)
+        decide(plan, player=q.chooser, kind="choose_one", prompt=f"{what}: apply a replacement effect instead? (702.52)",
+               options=[*(DecisionOption(id=f"o{i}", label=f"{c.label}: mill {c.op['n']}, return it to your hand", card_id=c.source_card)
+                          for i, c in enumerate(q.applicable)), DecisionOption(id="decline", label="Draw normally")],
+               resume={**base, "map": {**{f"o{i}": c.id for i, c in enumerate(q.applicable)}, "decline": "decline"}})
+        return
     if len(q.applicable) == 2:
         a, b = pair_order(q.applicable)
         key, context = memory([a, b], q.ev)
@@ -882,7 +920,7 @@ def draws_this_step(plan: Plan, pid: str) -> int:
 
 def _draw_sim(plan: Plan, players: list[str]) -> Sim:
     return {"library": {p: len(plan.state.zones.get(zone_key(p, "library"), [])) for p in plan.state.players},
-            "step": {p: draws_this_step(plan, p) for p in plan.state.players}}
+            "step": {p: draws_this_step(plan, p) for p in plan.state.players}, "dredged": []}
 
 
 def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
@@ -890,6 +928,8 @@ def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if pid not in plan.live():
         return False
     m = c.match
+    if c.op.get("do") == "dredge":  # 702.52a: at least N cards in the library, the card still in the graveyard
+        return sim["library"].get(pid, 0) >= int(c.op["n"]) and c.op["card"] not in sim["dredged"] and pid == m["player"]
     who = m.get("who")
     if who == "you" and pid != c.controller or who == "opponent" and pid == c.controller:
         return False
@@ -913,6 +953,8 @@ def _draw_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         return []
     if op == "steal":  # "instead that player skips that draw and you draw a card"
         return [{"kind": "draw", "player": c.controller}]
+    if op == "dredge":  # -- static_other sweep (wave 16B) -- 702.52a (performed by do_draws)
+        return [{"kind": "dredge", "player": ev["player"], "card": c.op["card"], "n": int(c.op["n"])}]
     if op == "draw":
         return [{"kind": "draw", "player": ev["player"]} for _ in range(int(c.op["n"]))]
     return [ev]
@@ -926,7 +968,41 @@ def _draw_perform(plan: Plan, ev: Event, sim: Sim) -> None:
         sim["step"][pid] = sim["step"].get(pid, 0) + 1
 
 
-def draw_cards(plan: Plan, players: list[str], n: int, *, then: dict[str, Any] | None = None,
+def _dredge_perform(plan: Plan, ev: Event, sim: Sim) -> None:
+    sim["library"][ev["player"]] = sim["library"].get(ev["player"], 0) - int(ev["n"])
+    sim["dredged"].append(ev["card"])
+
+
+def dredge_amount(ch: Any) -> int | None:
+    """702.52a: the N of the card's "Dredge N" line."""
+    for ab in ch.abilities:
+        if ab.kind == "keywords" and "dredge" in ab.keywords and (m := re.fullmatch(r"dredge (\d+)", ab.text.strip().rstrip(".").lower())):
+            return int(m[1])
+    return None
+
+
+def dredge_candidates(plan: Plan, players: list[str]) -> list[Candidate]:
+    """-- static_other sweep (wave 16B) -- the dredge cards in each player's own graveyard (702.52a: "from your graveyard")."""
+    out: list[Candidate] = []
+    for pid in players:
+        for cid in plan.state.zones.get(zone_key(pid, "graveyard"), []):
+            card = plan.state.cards[cid]
+            if card.owner != pid or card.is_token or plan.manual(card) or (n := dredge_amount(plan.ch(card))) is None:
+                continue
+            out.append(Candidate(id=f"d:{cid}", event="draw", match={"player": pid}, op={"do": "dredge", "card": cid, "n": n, "optional": True},
+                                 controller=pid, source_card=cid, source_oid=plan.oid(card), seq=(0, 2, 0), label=f"Dredge {n} ({card.name})"))
+    return out
+
+
+def _dredge(plan: Plan, f: Event) -> None:
+    """Mill N cards, then return the dredged card from the graveyard to its owner's hand (702.52a)."""
+    pid, card = f["player"], plan.state.cards.get(f["card"])
+    plan.do({"type": "mill", "player": pid, "count": int(f["n"])}, actor=pid)
+    if card is not None and card.zone == zone_key(pid, "graveyard"):
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": pid, "zone": "hand"}}, actor=pid)
+
+
+def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then: dict[str, Any] | None = None,
                answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None) -> bool:
     """THE draw choke point (see the module docstring). 121.2: one card at a time; 121.2c: the
     active player draws all their cards first, then the others in turn order; 121.6a / 614.11:
@@ -935,12 +1011,12 @@ def draw_cards(plan: Plan, players: list[str], n: int, *, then: dict[str, Any] |
     answers = answers if answers is not None else _ctx_answers(ctx)
     order = plan.apnap()
     who = sorted([p for p in players if p in plan.live()], key=lambda p: order.index(p) if p in order else len(order))
-    planner = Planner(plan, candidates(plan, "draw"), answers, ask=then is not None)
+    planner = Planner(plan, [*candidates(plan, "draw"), *dredge_candidates(plan, who)], answers, ask=then is not None)
     sim = _draw_sim(plan, who)
     actions: list[tuple[Event, list[Event]]] = []
     try:
         for pid in who:
-            for _ in range(max(0, int(n))):
+            for _ in range(max(0, int(n[pid] if isinstance(n, dict) else n))):  # (a dict: each player's own count, wave 16B)
                 ev: Event = {"kind": "draw", "player": pid, "applied": []}
                 out: list[Event] = []
                 planner.settle(ev, sim, out.append)
@@ -951,7 +1027,17 @@ def draw_cards(plan: Plan, players: list[str], n: int, *, then: dict[str, Any] |
             return False
         raise
     left_to_players(plan, planner)
+    # -- static_other sweep (wave 16B) -- a dredge mills cards that may be dredged for the next draw: those draws are planned again
+    # once it has happened (answers start over: the question for the next one is its own)
+    cut = next((k for k, (_, out) in enumerate(actions) if any(f["kind"] == "dredge" for f in out)), None)
+    rest: dict[str, int] = {}
+    if cut is not None:
+        for before, _ in actions[cut + 1:]:
+            rest[before["player"]] = rest.get(before["player"], 0) + 1
+        actions = actions[: cut + 1]
     do_draws(plan, actions)
+    if rest:
+        return draw_cards(plan, [p for p in who if p in rest], rest, then=then, answers={})
     return True
 
 
@@ -982,7 +1068,10 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]]) -> None:
             flush()
             note_applied(plan, before, out, actor=before["player"])
         for f in out:
-            if f["kind"] == "draw":
+            if f["kind"] == "dredge":
+                flush()
+                _dredge(plan, f)
+            elif f["kind"] == "draw":
                 if run and run[0] != f["player"]:
                     flush()
                 run.append(f["player"])
@@ -1015,7 +1104,8 @@ def _win(plan: Plan, pid: str) -> None:
 
 
 def _run_draw(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
-    if draw_cards(plan, list(request["players"]), int(request["n"]), then=then, answers=answers):
+    n = request["n"]
+    if draw_cards(plan, list(request["players"]), n if isinstance(n, dict) else int(n), then=then, answers=answers):
         run_then(plan, then)
 
 
@@ -1539,5 +1629,5 @@ _APPLIES: dict[str, Any] = {"tokens": _tokens_applies, "counters": _counters_app
                             "draw": _draw_applies, "life": _life_applies, "damage": _damage_applies}
 _APPLY: dict[str, Any] = {"tokens": _tokens_apply, "counters": _counters_apply, "player_counters": _counters_apply,
                           "draw": _draw_apply, "life": _life_apply, "damage": _damage_apply}
-_PERFORM: dict[str, Any] = {"draw": _draw_perform}
+_PERFORM: dict[str, Any] = {"draw": _draw_perform, "dredge": _dredge_perform}
 SITES: dict[str, Any] = {"tokens": _run_tokens, "counters": _run_counters, "draw": _run_draw, "life": _run_life}

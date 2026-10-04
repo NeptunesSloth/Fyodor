@@ -319,6 +319,13 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return {"kind": "static", "static": "additional_cost", "cost": extra, "effects": []} if ok else None
     # -- cost changers (wave 4I) -- "This spell costs {X} less to cast, where X is …" / "… for each …" / "… if …" / "{G} less"
     # (app/rules/cost_changes.py: read as the total cost is determined, 601.2f)
+    # -- static_other sweep (wave 16B) -- strive (207.2c ability word) / Fireball: "This spell costs {1}{W} more to cast for each target beyond the
+    # first." — an additional cost determined once the targets are chosen (601.2b, 601.2f: total_cost reads them)
+    if (sv := _PER_TARGET.fullmatch(t)) is not None:
+        pc = M.parse_cost(sv["cost"])
+        if pc.hybrid or pc.phyrexian or pc.x or pc.unsupported or pc.is_free:
+            return None
+        return {"kind": "static", "static": "self_cost", "per_target": sv["cost"], "effects": []}
     if cost_changes.is_self(t):
         change = cost_changes.self_change(t)
         return {"kind": "static", "static": "self_cost", "change": change, "effects": []} if change else None
@@ -792,6 +799,9 @@ def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteris
     return out
 
 
+_PER_TARGET = re.compile(r"^(?:this spell|~) costs (?P<cost>(?:\{[^}]+\})+) more to cast for each target beyond the first$")
+
+
 def self_reduction(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> int:
     """The spell's own reductions: "costs {1} less to cast for each …" / "… if …", undaunted (702.125)."""
     from app.rules import conditions
@@ -803,7 +813,7 @@ def self_reduction(state: GameState, player: str, card: CardInstance, ch: Charac
         total += opponents
     view = None
     for d in _definitions(ch).values():
-        if d.get("static") != "self_cost" or "change" in d:  # (wave 4I: a "change" is cost_changes.own_changes')
+        if d.get("static") != "self_cost" or "change" in d or "per_target" in d:  # (wave 4I: a "change" is cost_changes.own_changes')
             continue
         if d.get("per") == "opponent":
             total += d["n"] * opponents
@@ -843,6 +853,11 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
         reduction += own.reduction
         changes.colored_more += own.colored_more
         changes.colored_less += own.colored_less
+        for d in _definitions(ch).values():  # -- static_other sweep (wave 16B) -- strive: for each target beyond the first
+            if d.get("static") == "self_cost" and d.get("per_target"):
+                more, each = max(0, len(targets) - 1), M.parse_cost(d["per_target"])
+                increase += each.generic * more
+                changes.colored_more += tuple(each.colored) * more
     cost = cost_changes.add_colored(cost.plus_generic(increase), changes.colored_more)
     cost = cost_changes.reduce_colored(cost, changes.colored_less)  # (colored first: what's left over reduces generic, 118.7c)
     return cost.plus_generic(-min(cost.generic, reduction))

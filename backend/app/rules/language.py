@@ -295,6 +295,14 @@ def _stat(phrase: str, its: str = "it") -> Any:
         # named another object (Deekah: "create a … token. Put X +1/+1 counters on it, where X is that spell's mana
         # value"); scripts._bind_stats binds it ("it" where no trigger spell is meant)
         return {_STATS[m["stat"]]: "self" if m["self"] else (its if m["its"] else "that_spell" if m["spell"] else "it")}
+    # -- static_other sweep (wave 16B) -- "the power of target creature you control" / "target creature's toughness": the sentence's own
+    # target (115.1: declared with it), the object whose characteristic it is (608.2h: as it is, or as it last existed)
+    m = re.fullmatch(r"the (?P<stat>power|toughness|mana value) of target (?P<sel>.+)|target (?P<sel2>[^']+)'s (?P<stat2>power|toughness|mana value)", phrase)
+    if m:
+        sel = selectors.parse(m["sel"] or m["sel2"])
+        if sel is None or sel.player is not None or sel.zones not in ((), ("battlefield",)) or sel.other:
+            raise _Fail
+        return {_STATS[m["stat"] or m["stat2"]]: "target", "target_sel": sel.key()}
     m = re.fullmatch(r"twice (?P<v>.+)", phrase)
     if m:
         return {"times": [2, _stat(m["v"], its)]}
@@ -340,10 +348,25 @@ def _wants_target_player(v: Any) -> bool:
     return v.get("hand") == "target" or v.get("life") == "target" or any(_wants_target_player(x) for x in v.values())
 
 
+def _pop_target_sel(v: Any) -> str | None:
+    """The selector of the "target …" a value names (``_stat``), taken out of it."""
+    if isinstance(v, list):
+        return next((k for x in v if (k := _pop_target_sel(x)) is not None), None)
+    if not isinstance(v, dict):
+        return None
+    if "target_sel" in v:
+        return str(v.pop("target_sel"))
+    return next((k for x in v.values() if (k := _pop_target_sel(x)) is not None), None)
+
+
 def _value_target(n: Any, target: str | None) -> str | None:
     """The sentence's target once its amount is known: a value reading "target player" is that
     sentence's one target (115.1) — declared here so it's chosen on casting and checked on
     resolution — unless the sentence already targets something else (then it's not read)."""
+    if (own := _pop_target_sel(n)) is not None:  # -- static_other sweep (wave 16B) -- "equal to the power of target creature you control"
+        if target is not None:
+            raise _Fail  # (a second target: which one does the amount read?)
+        return own
     if not _wants_target_player(n):
         return target
     if target is None:
@@ -747,8 +770,9 @@ _NTH_FROM_TOP = re.compile(rf"put (?P<o>.+?) into {_OWNERS} library (?P<nth>seco
 _SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
 _OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that permanent's) owner shuffles it into their library")
 _OWNER_CHOICE = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it on their choice of the top or bottom of their library")
-_SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)?|shuffle your (?P<z>graveyard|hand and graveyard) into your library"
-                      rf"|{_SUBJECTS} shuffles(?: their library| their (?P<z2>graveyard|hand and graveyard) into their library)?)")
+# (-- static_other sweep (wave 16B) -- "the cards from your hand": the hand alone, for a count of what was shuffled in)
+_SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)?|shuffle (?:your|the cards from your) (?P<z>graveyard|hand and graveyard|hand) into your library"
+                      rf"|{_SUBJECTS} shuffles(?: their library| (?:their|the cards from their) (?P<z2>graveyard|hand and graveyard|hand) into their library)?)")
 
 
 # -- refused look/cast-free (wave 3R5) -- one card of each listed kind, each a different card: "You may put a
@@ -937,7 +961,7 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         if m["subj"]:
             kind, key, group = ref(m["subj"])
             who = _who(kind, key)
-        zones = {"graveyard": ["graveyard"], "hand and graveyard": ["hand", "graveyard"]}.get(m["z"] or m["z2"] or "", [])
+        zones = {"graveyard": ["graveyard"], "hand and graveyard": ["hand", "graveyard"], "hand": ["hand"]}.get(m["z"] or m["z2"] or "", [])
         return [{"do": "shuffle_library", "who": who, "zones": zones, **({"optional": True} if m["may"] else {})}], _one(group)
     # -- trigger tail (wave 16C) -- "Shuffle all creature cards from your graveyard into your library." (Barishi): those cards, then
     # the shuffle (701.24a; effects.shuffle_library with a selector)
@@ -1103,7 +1127,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "discard", "who": who, "n": 0, "all": True}], target
     # -- trigger tail (wave 15B) -- "discard up to two cards" / "discard any number of cards": the player chooses how many (701.9a)
     m = re.fullmatch(_SUBJ + rf"discards? (?:up to (?P<n>{AMT})|(?P<any>any number of)) cards?", text)
-    if m and rider is None and m["s"] in (None, "you"):
+    if m and rider is None:
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": 0 if m["any"] else _amount(m["n"]), "upto": True}], target
     # -- if you do (wave 15C) -- "target player mills half their library, rounded up" (107.1a: half of the cards in the

@@ -51,9 +51,12 @@ KEYWORDS = frozenset({
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",
     "phasing", "transmute",  # (wave 3R4: casting.transmute)
+    "aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate", "increment",  # -- static_other sweep (wave 16B) -- 702.127 (casting.from_graveyard / cast_grant)
     "ingest", "poisonous", "frenzy", "afterlife", "modular", "split second", "graft", "sunburst", "devour",  # -- static wordings (wave 6E) -- (app/rules/keyword_triggers.py)
 })
 
+_FORMS = {"awaken": r"awaken \d+—.*", "escalate": r"escalate(?: \{.*|—.*)", "dredge": r"dredge \d+", "fuse": "fuse",
+          "aftermath": "aftermath", "gravestorm": "gravestorm", "increment": "increment"}
 _PARAM = re.compile(r"(\{[^}]*\}|\d+|—.*$|\bfrom\b.*$| with .*$|walk$)")
 
 
@@ -96,6 +99,9 @@ def keyword_name(piece: str) -> str | None:
     first = raw.split()[0]
     if first == "devour" and not re.match(r"devour (?:(?:land|artifact|food) )?(?:\d+|x)\b", raw):  # -- keyword mechanics (wave 9D) --
         return None  # ("Devour in Flames deals 5 damage …" is a card's name, not the keyword)
+    # -- static_other sweep (wave 16B) -- ordinary words that open a card's rules text ("Awaken the Inferno deals 6 damage …"): the keyword has its form
+    if first in _FORMS and not re.fullmatch(_FORMS[first], raw):
+        return None
     if first in KEYWORDS:
         return first
     typecycling = _TYPECYCLING.match(raw)  # "Swampcycling {2}", "Basic landcycling {1}{G}", "Wizardcycling {3}"
@@ -105,6 +111,8 @@ def keyword_name(piece: str) -> str | None:
 def _keywords_line(line: str) -> tuple[str, ...] | None:
     if re.fullmatch(r"partner with [^;.]+", line.strip(), re.IGNORECASE):  # -- keyword pieces (wave 8A) -- 702.124j: the name has a comma
         return ("partner",)
+    if re.fullmatch(r"flashback—.+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 16B) -- 702.34a: "Flashback—{1}{U}, Pay 3 life."
+        return ("flashback",)  # (one keyword: the comma is inside its cost)
     pieces = [p for p in re.split(r"[,;]\s*", line) if p.strip()]
     names = [keyword_name(p) for p in pieces]
     if names and all(names):
@@ -247,6 +255,24 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
             lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
                               "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
                               "its owner's control."]
+    # -- static_other sweep (wave 16B) -- 702.113a: "Awaken N—[cost]" means "You may cast this spell for [cost]" and "If you cast this spell for
+    # its awaken cost, put N +1/+1 counters on target land you control. That land becomes a 0/0 Elemental creature with haste. It's still a
+    # land." The cost is the keyword line's (casting: CastSpell.awaken); the effect is read as the spell's own "if kicked" line (the same
+    # optional-payment flag the kicker gates read: no card has both)
+    if spell:
+        for line in list(lines):
+            if m := re.fullmatch(r"Awaken (\d+)—(?:\{[^}]+\})+", line):
+                lines.append(f"If this spell was kicked, put {m[1]} +1/+1 counters on target land you control. If this spell was kicked, "
+                             "that land becomes a 0/0 Elemental creature with haste and it's still a land.")
+    # -- static_other sweep (wave 16B) -- 706.3: a results table's rows (one per line) belong to the roll before them
+    merged: list[str] = []
+    for line in lines:
+        if merged and re.match(r"^\d+(?:[—–-]\d+|\+| or less)? \| ", line) and re.search(r"\broll a (?:d\d+|\w+-sided die)\b", merged[-1], re.I) \
+                and not re.search(r"\bactivate only\b", merged[-1], re.I):
+            merged[-1] += " " + line
+        else:
+            merged.append(line)
+    lines = merged
     # -- Class (wave 16A) -- 716.2a: "[Cost]: Level N" is "[Cost]: This Class's level becomes N. Activate only if this Class is
     # level N-1 and only as a sorcery."; the lines under it belong to level N (scripts.definitions gates them by the permanent's level)
     sections, level = [], 1
@@ -268,6 +294,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         if m := re.fullmatch(r"Scavenge ((?:\{[^}]+\})+)", line):
             line = (f"{m[1]}, Exile this card from your graveyard: Put X +1/+1 counters on target creature, where X is this "
                     "creature's power. Activate only as a sorcery.")  # (X: the exiled card's power, as it last existed)
+        # -- static_other sweep (wave 16B) -- 702.77a: "Reinforce N—[cost]" means "[Cost], Discard this card: Put N +1/+1 counters on
+        # target creature." (an activated ability that works only from the hand)
+        if m := re.fullmatch(r"Reinforce (\d+)—((?:\{[^}]+\})+)", line):
+            line = f"{m[2]}, Discard this card: Put {m[1]} +1/+1 counters on target creature."
         kind, kws, cost = classify(line, spell=spell)
         out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n]))
     return out

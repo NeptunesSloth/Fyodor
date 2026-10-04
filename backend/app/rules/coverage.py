@@ -227,6 +227,7 @@ SUPPORTED_KEYWORDS.add("read ahead")
 SUPPORTED_KEYWORDS.add("ascend")  # -- keywords (wave 15E) -- 702.131 (designations.ascend_permanents; effects.ascend)
 SUPPORTED_KEYWORDS.add("umbra armor")  # -- keywords (wave 15E) -- 702.89a (regeneration.umbra_armor)
 SUPPORTED_KEYWORDS.add("phasing")  # -- phasing (wave 13D) -- 702.26 (app/rules/phasing.py)
+SUPPORTED_KEYWORDS.update(("aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate"))  # -- static_other sweep (wave 16B) -- 702.127 (casting.cast_grant)
 SUPPORTED_KEYWORDS.add("split second")  # -- split second (wave 8A) -- 702.61 (app/rules/split_second.py, cast_limits)
 # -- end sagas & attached-object triggers (wave 3S) --
 
@@ -256,8 +257,7 @@ SUPPORTED_KEYWORD_ACTIONS.add("populate")  # -- token copies & attach on entry (
 # report can rank it (never a guess at what the card does). ``refusal(text)`` gives the reason.
 REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     # (fight (701.14) and "choose … target" are read now: effects.fight, effects.choose_targets)
-    (re.compile(r"\bfor each target beyond the first\b", re.I),
-     "a cost per extra target (601.2b/601.2c): the cost grammar doesn't read it"),
+    # (-- static_other sweep (wave 16B) -- "costs {N} more to cast for each target beyond the first" is read now: permissions._PER_TARGET)
     # (-- graveyard exile (wave 4J) -- "exile target player's graveyard" itself is read: app/rules/graveyard_exile.py)
     (re.compile(r"(?<!exile )\btarget (?:player|opponent)'s (?:graveyard|hand|library)\b", re.I),
      "a target player's zone as the object set (\"exile all creature cards from target player's graveyard\"): the "
@@ -370,6 +370,12 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"disguise (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "toxic":  # -- counters & designations (wave 3E) -- combat.py reads "toxic N" anywhere in a keyword line ("Menace, toxic 1")
         return re.search(r"(?:^|, )toxic \d+(?:,|$)", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()) is not None
+    if kw == "escalate":  # -- static_other sweep (wave 16B) -- casting.escalate_parts
+        from app.rules.casting import escalate_parts
+
+        return escalate_parts(line) is not None
+    if kw == "awaken":  # -- static_other sweep (wave 16B) -- casting.AWAKEN: "Awaken N—{cost}"
+        return re.fullmatch(r"awaken \d+—(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("embalm", "eternalize"):  # -- keywords (wave 15E) -- app/rules/graveyard_keywords.py
         from app.rules import graveyard_keywords
 
@@ -388,7 +394,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return riot.supported(kw, line)
     if kw == "soulshift":  # (wave 15E: each instance of the line, scripts.keyword_triggers)
         return re.fullmatch(r"soulshift \d+(?:, soulshift \d+)*", line.strip().rstrip(".").lower()) is not None
-    if kw in ("bushido", "renown", "bloodthirst", "toxic", "fabricate", "firebending"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
+    if kw in ("bushido", "renown", "bloodthirst", "toxic", "fabricate", "firebending", "dredge"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "plot":  # -- keywords (wave 15E) -- casting.plot: a mana plot cost
         return re.fullmatch(r"plot (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
@@ -433,8 +439,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return TRANSMUTE.fullmatch(line.strip().rstrip(".")) is not None
     if kw == "crew":  # casting.crew: "Crew N"
         return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None
-    if kw == "flashback":  # casting.flashback_cost: a mana flashback cost
-        return _MANA_FLASHBACK.fullmatch(line.strip().rstrip(".").lower()) is not None
+    if kw == "flashback":  # casting.flashback_parts: a mana flashback cost, with other parts alt_costs reads (wave 16B)
+        from app.rules.casting import flashback_parts  # (casting imports coverage, via the engine)
+
+        return flashback_parts(line) is not None
     if kw.endswith("cycling"):
         return _MANA_CYCLING.fullmatch(line.strip().rstrip(".").lower()) is not None
     return kw in SUPPORTED_KEYWORDS

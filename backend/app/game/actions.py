@@ -922,6 +922,8 @@ class CastSpell(_Intent):
     buyback: bool = False  # 702.27: pay the buyback cost too; it returns to your hand as it resolves
     evoke: bool = False  # 702.74: cast for its evoke cost (sacrificed when it enters)
     dash: bool = False  # 702.109: cast for its dash cost (haste; returns to hand at the next end step)
+    awaken: bool = False  # 702.113: cast for its awaken cost (and put its counters on a land)
+    fuse: bool = False  # 702.102a: cast both halves of a split card with fuse from your hand (one fused split spell)
     # Cost contributions that aren't mana (convoke / improvise / delve): validated and applied
     # only when the rest of the total cost is paid (601.2h: no partial payments).
     contributions: list[Contribution] = Field(default_factory=list, max_length=60)

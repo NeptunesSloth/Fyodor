@@ -126,7 +126,6 @@ def test_refused_forms(text):
 def test_refusals_are_registered():
     """Every refused wording names why (the missing piece), so the gap report can rank it."""
     for text, piece in [
-        ("This spell costs {1}{U} more to cast for each target beyond the first.", "extra target"),
         ("Return all creature cards from target player's graveyard to your hand.", "zone"),  # (exiling the graveyard: wave 4J, 15C)
         ("Destroy target creature that player controls.", "named earlier"),
         ("Target player shuffles up to four target cards from their graveyard into their library.", "earlier target"),
