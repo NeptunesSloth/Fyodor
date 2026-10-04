@@ -127,12 +127,19 @@ def _hand_to_bottom() -> AbilityCost | None:
 
 
 _EXILE_FROM_HAND = re.compile(r"^Exile (?:a|an|one) (?:[\w\-]+ )*card from your hand$")
+# -- if you do (wave 15C) -- "You may reveal a Dinosaur card from your hand. If you do, …" (Priest of the Wakening Sun): revealing is
+# the cost (701.20a: shown to everyone, it stays in the hand); payable only with such a card in hand (118.3)
+REVEAL_FROM_HAND = "REVEAL_FROM_HAND"
+_REVEAL_FROM_HAND = re.compile(r"^Reveal (?:a|an) (?P<what>[A-Za-z]+ card) from your hand$")
 
 
 def parse(text: str) -> AbilityCost | None:
     """The cost text as components, or None if any part isn't one the engine pays here."""
     if text == _HAND_TO_BOTTOM_TEXT:  # -- if you do (wave 6F) --
         return _hand_to_bottom()
+    if (r := _REVEAL_FROM_HAND.match(text)) is not None:  # -- if you do (wave 15C) --
+        key = C._selector(r["what"], zone="hand")
+        return AbilityCost(components=(C.CostComponent(REVEAL_FROM_HAND, selector=key, text=text),)) if key else None
     if (m := _EXILE_FROM_HAND.match(text)) is not None:  # -- if you do (wave 8C) -- "Exile a creature card from your hand"
         from app.rules import alt_costs
 
@@ -469,6 +476,9 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
         cost_payment.pay(plan, cost, source, chosen, record)
     finally:
         plan.actor = actor
+    for i, comp in enumerate(cost.components):  # -- if you do (wave 15C) -- shown to everyone, and it stays in the hand
+        if comp.kind == REVEAL_FROM_HAND and chosen.get(i):
+            plan.do({"type": "reveal", "card_ids": chosen[i]}, actor=payer)
     for i, comp in enumerate(cost.components):  # -- if you do (wave 6F) -- to the bottom of the payer's library
         if comp.kind == HAND_TO_BOTTOM:
             for cid in chosen.get(i, []):

@@ -1985,6 +1985,19 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         text = _PICK_NEG.sub(r"if you \1, ", text)  # -- look and distribute (wave 3L) -- "If you don't put the card into your hand, …"
         if _PICK_DIDNT.match(text) and any(x["do"] == "pick_looked" and x["to"] == "hand" for x in effects):
             text = _PICK_DIDNT.sub("if you don't, ", text)  # -- if you do (wave 10C) -- "If you didn't put a card into your hand this way, …"
+        or_if = re.match(r"^if you do or if (?P<c>[^,]+), (?P<rest>.+)$", text)
+        if or_if is not None and _last_payment(effects) is not None:
+            # -- if you do (wave 15C) -- "…, you may reveal a Dinosaur card from your hand. If you do or if you control another
+            # Dinosaur, you gain 3 life.": the payment was made, or the condition holds — either one (608.2c)
+            from app.rules import conditions
+
+            cond_or = conditions.parse(or_if["c"], objects=True)
+            inner_or = _clause(or_if["rest"]) if cond_or is not None and not or_if["rest"].startswith("you may ") else None
+            if inner_or is None:
+                return None
+            added = _add_groups(groups, *inner_or)
+            effects += [{"do": "only_if", "cond": {"any": [{"succeeded": _last_payment(effects)}, cond_or]}, "skip": len(added)}, *added]
+            continue
         if (if_do := _IF_YOU_DO.match(text)) is not None:
             bind = _last_payment(effects)
             pick = next((e for e in reversed(effects) if e["do"] == "pick_looked"), None)
@@ -2323,7 +2336,7 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     object (the trigger's own source); "When you do" (a reflexive trigger, 603.12) isn't read."""
     from app.rules import optional_payment
 
-    if not text.startswith("you may ") or not following or not re.match(r"^(?:If you (?:do|don't)|When you do), ", following[0]):
+    if not text.startswith("you may ") or not following or not re.match(r"^(?:If you (?:do|don't)|If you do or if [^,]+|When you do), ", following[0]):
         return None
     phrase = text[len("you may "):]
     if re.search(r"\bit\b", phrase) and it != "self":

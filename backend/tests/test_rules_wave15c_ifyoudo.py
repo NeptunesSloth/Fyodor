@@ -57,8 +57,14 @@ EXTRA = [
          oracle_text="Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren't put onto the battlefield into your graveyard.", power=None, toughness=None, colors=['G'], color_identity=['G'], keywords=[]),
     card('Elven Farsight', set_code='tst', number='W13', mana_cost='{G}', cmc=1.0, type_line='Sorcery',
          oracle_text='Scry 3, then you may reveal the top card of your library. If a creature card is revealed this way, draw a card.', power=None, toughness=None, colors=['G'], color_identity=['G'], keywords=['Scry']),
+    card('Armored Kincaller', set_code='tst', number='W14', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Dinosaur',
+         oracle_text='When this creature enters, you may reveal a Dinosaur card from your hand. If you do or if you control another Dinosaur, you gain 3 life.', power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=[]),
+    card('Priest of the Wakening Sun', set_code='tst', number='W15', mana_cost='{W}', cmc=1.0, type_line='Creature — Human Cleric',
+         oracle_text='At the beginning of your upkeep, you may reveal a Dinosaur card from your hand. If you do, you gain 2 life.\n{3}{W}{W}, Sacrifice this creature: Search your library for a Dinosaur card, reveal it, put it into your hand, then shuffle.', power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=[]),
+    card('Crypt Incursion', set_code='tst', number='W16', mana_cost='{2}{B}', cmc=3.0, type_line='Instant',
+         oracle_text="Exile all creature cards from target player's graveyard. You gain 3 life for each card exiled this way.", power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=[]),
 ]
-FULL = ['Murk Strider', 'Dark Supplicant', 'Gate to the Afterlife', 'Scion of Darkness', 'Void Attendant', 'Ruin Processor', 'Processor Assault', 'Wrexial, the Risen Deep', 'Deluxe Dragster', 'Zombie Cannibal', 'Fire Nation Salvagers', 'Traumatize', 'Genesis Wave', 'Elven Farsight']
+FULL = ['Murk Strider', 'Dark Supplicant', 'Gate to the Afterlife', 'Scion of Darkness', 'Void Attendant', 'Ruin Processor', 'Processor Assault', 'Wrexial, the Risen Deep', 'Deluxe Dragster', 'Zombie Cannibal', 'Fire Nation Salvagers', 'Traumatize', 'Genesis Wave', 'Elven Farsight', 'Armored Kincaller', 'Priest of the Wakening Sun', 'Crypt Incursion']
 # --EXTRA-END--
 
 
@@ -307,6 +313,55 @@ def test_elven_farsight_reveal_is_optional_and_a_revealed_creature_draws(cards, 
             pick(s, *[o.id for o in d.options][: d.min_choices])
     assert "confirm" in seen
     assert len(zone(s.state, "p1", "hand")) == hand_before + (1 if reveal else 0)  # 701.20a, 608.2c
+    roundtrip(s)
+
+
+@pytest.mark.parametrize(("hand_copy", "answer", "other_dino", "gain"), [
+    (True, "pay", False, 3), (True, "decline", False, 0), (True, "decline", True, 3), (False, None, False, 0), (False, None, True, 3)])
+def test_armored_kincaller_reveal_a_dinosaur_or_control_another(cards, hand_copy, answer, other_dino, gain):
+    """"You may reveal a Dinosaur card from your hand. If you do or if you control another Dinosaur, you gain 3 life.":
+    the reveal is a cost offered only while a Dinosaur card is in hand (118.3); the gain follows the payment or the other
+    Dinosaur, either one (608.2c)."""
+    s = build(cards, p1=("Armored Kincaller", "Armored Kincaller"))
+    if other_dino:
+        creature(s, "p1", "Raptor", "2/2", type_line="Token Creature — Dinosaur")
+    copies = [c for c in s.state.cards.values() if c.name == "Armored Kincaller" and c.owner == "p1"]
+    kincaller = to_zone(s, copies[0], "hand")
+    if hand_copy:
+        to_zone(s, copies[1], "hand")
+    before = s.state.players["p1"].life
+    add_mana(s, "p1", G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=kincaller.id)
+    for _ in range(6):
+        if s.state.cards[kincaller.id].zone.endswith(":battlefield"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = until_asked(s)
+    if answer is None:
+        assert d is None
+    else:
+        assert d is not None and d.player == "p1" and [o.id for o in d.options] == ["pay", "decline"]
+        pick(s, answer)
+    settle(s)
+    assert s.state.players["p1"].life == before + gain
+    roundtrip(s)
+
+
+def test_crypt_incursion_exiles_only_the_creature_cards_and_gains_for_each(cards):
+    s = build(cards, p1=("Crypt Incursion",), p2=("Scion of Darkness", "Scion of Darkness", "Murk Strider"))
+    spell = to_hand(s, "Crypt Incursion")
+    scions = [c for c in s.state.cards.values() if c.name == "Scion of Darkness" and c.owner == "p2"]
+    for c in scions:
+        to_zone(s, c, "graveyard")
+    island = to_zone(s, find(s, "Island", "p2"), "graveyard")  # a land card: stays
+    mine = to_zone(s, find(s, "Forest"), "graveyard")
+    before = s.state.players["p1"].life
+    add_mana(s, "p1", B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"])
+    settle(s)
+    assert all(c.id in zone(s.state, "p2", "exile") for c in scions) and island.id in zone(s.state, "p2", "graveyard")
+    assert mine.id in zone(s.state, "p1", "graveyard")
+    assert s.state.players["p1"].life == before + 6  # 3 life for each card exiled this way
     roundtrip(s)
 
 

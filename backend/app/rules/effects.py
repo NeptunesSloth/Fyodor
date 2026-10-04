@@ -132,7 +132,11 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
         return _controlled_by(plan, ctx, who)
     if who.startswith("graveyard_of:"):  # -- graveyard exile (wave 4J) -- "target player's graveyard": every card in it
-        return [c for p in _players(plan, ctx, who[len("graveyard_of:"):]) for c in plan.state.zones.get(f"{p}:graveyard", [])]
+        ref, _, key = who[len("graveyard_of:"):].partition("|")  # (wave 15C: "|<selector>" — only the cards of that kind)
+        sel = selectors.from_key(key) if key else None
+        return [c for p in _players(plan, ctx, ref) for c in plan.state.zones.get(f"{p}:graveyard", [])
+                if sel is None or selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), ctx["controller"],
+                                                    ctx.get("source_card"))]
     if who.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- "all other creatures" after "Create X
         name, _, key = who[len("except:"):].partition("|")  # … tokens" (Martial Coup): other than what it made
         made = set(context.objects(plan, ctx, name))
