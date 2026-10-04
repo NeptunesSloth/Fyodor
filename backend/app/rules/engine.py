@@ -401,6 +401,11 @@ def advance(plan: Plan) -> None:
             while holder in r.passed:
                 holder = plan.after(holder)
         r.priority = holder
+        if r.auto_pass is not None:  # -- core review -- the Arena-style pass after their own cast / activation (casting.py)
+            auto, r.auto_pass = r.auto_pass, None
+            if auto == holder:
+                r.passed.append(holder)
+                continue
         if is_stop(plan, holder):
             return
         r.passed.append(holder)  # no stop here: pass for them (Arena's auto-pass)

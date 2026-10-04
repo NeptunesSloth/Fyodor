@@ -775,6 +775,9 @@ class RulesState(BaseModel):
     step: str = ""  # "<turn>:<phase>" the engine last acted in; a mismatch means a manual step change
     priority: str | None = None  # player who may act
     passed: list[str] = Field(default_factory=list)  # players who passed in succession
+    # -- core review -- the player the engine passes for once, Arena-style, right after they cast a spell or activated an
+    # ability: consumed by engine.advance once the triggers that cast caused are on the stack (117.3c, 603.3)
+    auto_pass: str | None = None
     decision: Decision | None = None
     prefs: dict[str, PlayerPrefs] = Field(default_factory=dict)  # per-player automation preferences
     # Per-card automation override (right-click → Automation): "manual" cards are never automated;

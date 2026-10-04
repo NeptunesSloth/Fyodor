@@ -1941,9 +1941,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if r.prefs_for(plan.actor).hold_priority:
         plan.hold = plan.actor
         return  # HOLD PRIORITY: you keep it, whatever your RESPONSE setting says
-    r.passed.append(plan.actor)  # Arena-style: you pass after casting unless you hold priority
-    r.priority = plan.after(plan.actor)
-    advance(plan)
+    r.auto_pass = plan.actor  # Arena-style: you pass after casting unless you hold priority (engine.advance, once the
+    advance(plan)  # triggers that cast caused are on the stack: 117.3c, 603.3)
 
 
 # -- mana abilities ---------------------------------------------------------------------
@@ -2056,8 +2055,7 @@ def _stacked(plan: Plan, card: CardInstance, oid: str, ch: Characteristics, abil
     if r.prefs_for(plan.actor).hold_priority:
         plan.hold = plan.actor
         return
-    r.passed.append(plan.actor)
-    r.priority = plan.after(plan.actor)
+    r.auto_pass = plan.actor  # (as after a cast: engine.advance passes for you once the triggers are on the stack)
     advance(plan)
 
 
@@ -2753,8 +2751,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if r.prefs_for(plan.actor).hold_priority:
         plan.hold = plan.actor
         return
-    r.passed.append(plan.actor)
-    r.priority = plan.after(plan.actor)
+    r.auto_pass = plan.actor  # (as after a cast: engine.advance passes for you once the triggers are on the stack)
     advance(plan)
 
 
