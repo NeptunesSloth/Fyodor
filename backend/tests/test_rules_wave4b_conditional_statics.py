@@ -229,7 +229,7 @@ def test_coverage_of_the_lines():
               "Legendary Enchantment Creature — God")
     assert ok("You may cast this card from your graveyard as long as you control a Zombie.", "Gravecrawler", "Creature — Zombie")
     assert ok("If you control two or more other lands, this land enters tapped.", "Den of the Bugbear", "Land")
-    assert not ok("You may cast this card from your graveyard as long as you attacked this turn.")
+    assert ok("You may cast this card from your graveyard as long as you attacked this turn.")  # (wave 16D: history conditions are read)
     assert not ok("As long as Arixmethes has a slumber counter on it, it's a land.", "Arixmethes, Slumbering Isle")
 
 
