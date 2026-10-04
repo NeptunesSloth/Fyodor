@@ -1637,6 +1637,11 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # this way (701.9a), not a trigger event's amount; "plus one" would be a different (single) draw: not read
     body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?), then draw that many cards\b(?! plus)",
                   r"\1, then draw a card for each card discarded this way", body)
+    # 701.70a: "Recruit" means "Draw a card, then discard a card. If you discarded a nonland card this way, create a 1/1 white
+    # Human Soldier creature token." (one card is discarded, so the token is made once for it or not at all)
+    body = re.sub(r"(?i)(?:^|(?<=, )|(?<=\. ))(?:you )?recruit(?=[.,]|$)",
+                  "draw a card, then discard a card, then create a 1/1 white Human Soldier creature token for each nonland card "
+                  "discarded this way", body)
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     from app.rules import per_opponent  # -- per-opponent targets (wave 12C) --
 

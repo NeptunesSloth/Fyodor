@@ -63,6 +63,7 @@ EXTRA += [
     real("Unshakable Tail", "{1}{W}", 2, "Creature — Cat Rogue", "Menace\nWhen this creature enters and at the beginning of your upkeep, surveil 1.", ("1", "1"), "W"),
     real("Intimidation Campaign", "{3}{B}", 4, "Enchantment", "When this enchantment enters, each opponent loses 1 life, you gain 1 life, and you draw a card.\nWhenever you cast a creature spell, you may return this enchantment to its owner's hand.", None, "B"),
     real("Weapons Manufacturing", "{2}{R}", 3, "Enchantment", "Whenever a nontoken artifact you control enters, create a colorless artifact token named Munitions with \"When this token leaves the battlefield, it deals 2 damage to any target.\"", None, "R"),
+    real("Esgaroth Garrison", "{2}{W}", 3, "Creature — Human Soldier", "When this creature enters, recruit. (Draw a card, then discard a card. If you discarded a nonland card, create a 1/1 white Human Soldier creature token.)", ("2", "2"), "W"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -285,6 +286,21 @@ def test_a_named_artifact_token_carries_its_quoted_ability(cards):
     ch = Plan(s.state, "p1", s.cards, None).ch(token)
     assert token.is_token and "Artifact" in ch.types and "leaves the battlefield" in ch.oracle_text
     check(s)
+
+
+def test_recruit_draws_discards_and_makes_a_soldier_for_a_nonland_discard(cards):
+    # 701.70a: draw a card, then discard a card; a token only if the discarded card was a nonland card
+    for pick, soldiers in (("Opt", 1), ("Forest", 0)):
+        s = build(cards, ["Esgaroth Garrison", "Opt"], [])
+        garrison, opt = to_hand(s, "Esgaroth Garrison"), to_hand(s, "Opt")
+        mana(s, "p1", W=1, C=2)
+        act(s, "p1", type="cast_spell", card_id=garrison.id)
+        d = s.state.rules.decision
+        chosen = next(o.id for o in d.options if s.state.cards[o.card_id].name == pick)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[chosen])
+        answer(s)
+        assert len(on_battlefield(s, "Human Soldier")) == soldiers
+        check(s)
 
 
 def test_cast_trigger_of_the_combined_ability_destroys_and_gives_a_powerstone(cards):
