@@ -399,6 +399,7 @@ def _equal(s: Selector, m: re.Match[str]) -> Selector:
 # (608.2h). Only a card in a graveyard is read this way (_parse refuses the others: a spell or permanent selector has no
 # such users), and a source with no such value (no power: not a creature) matches nothing.
 SOURCE_STAT = "src:"
+EVENT_STAT = "evt:"
 _REF_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "==", "greater than or equal to": ">=",
             "greater than": ">"}
 _REF_STAT = {"mana value": "mv", "power": "power", "toughness": "toughness"}
@@ -411,6 +412,14 @@ def _compare_source(s: Selector, m: re.Match[str]) -> Selector:
         raise ValueError("incomplete reference")  # ("mana value less than ~'s": which characteristic?)
     ref = m["ref"] or m["what"]  # ("power less than Mirko's": the same characteristic)
     return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], _REF_OPS[m["op"]], SOURCE_STAT + _REF_STAT[ref])))
+
+
+@_suffix(r"with (?P<eq>equal or )?lesser (?P<what>mana value|power|toughness)(?: than the creature that died)?")
+def _compare_event(s: Selector, m: re.Match[str]) -> Selector:
+    # -- reanimation (wave 16F) -- "return target creature card with lesser mana value from your graveyard" (Jackdaw Savior,
+    # Riveteers Ascendancy): less than the object the trigger is about (the creature that died / was sacrificed), as it last
+    # existed (608.2h); triggers.bind_event_stat swaps in the number as the ability goes on the stack (an unbound one matches nothing)
+    return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], "<=" if m["eq"] else "<", EVENT_STAT + _REF_STAT[m["what"]])))
 
 
 def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
@@ -813,7 +822,7 @@ def _parse(phrase: str) -> Selector | None:
                     break
     except ValueError:
         return None
-    if any(isinstance(c[2], str) and c[2].startswith(SOURCE_STAT) for c in s.compare) and (
+    if any(isinstance(c[2], str) and c[2].startswith((SOURCE_STAT, EVENT_STAT)) for c in s.compare) and (
             (s.zones != ("graveyard",) or not s.card) and (s.zones != ("battlefield",) or s.card)):
         return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source; -- keywords
         # (wave 15E) -- or permanents: mentor's "target attacking creature with power less than this creature's power")

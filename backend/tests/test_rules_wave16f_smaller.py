@@ -25,6 +25,10 @@ EXTRA = [
          None, "B"),
 ]
 
+EXTRA.append(real("Jackdaw Savior", "{3}{W}", 4, "Creature — Bird Soldier",
+                  "Flying\nWhenever this creature or another creature you control with flying dies, return another target creature "
+                  "card with lesser mana value from your graveyard to the battlefield.", ("2", "2"), "W"))
+
 IDOLIZED = ("Enchant creature\nEnchanted creature has \"Whenever this creature attacks alone, it gets +X/+X until end of turn, "
             "where X is the number of nonland permanents you control.\"")
 
@@ -238,3 +242,18 @@ def test_sentences_inside_a_granted_quote_are_the_quotes_own():
     assert statics.parse('Enchanted creature has "{T}: This creature deals 1 damage to target player or planeswalker. '
                          'You draw a card."') is not None
     assert statics.parse('Enchanted creature has "{T}: Add {G}." It is blue.') is None  # (a second sentence outside the quote)
+
+
+def test_lesser_mana_value_is_than_the_creature_that_died(cards):
+    # 608.2h / 700.4: Jackdaw Savior dying returns a creature card with mana value less than its own (4): Elves (1), not Twisted Abomination (6)
+    from tests.test_rules_wave15b_triggers import kill
+    from tests.wave9c_kit import card_named, put
+
+    s = build(cards, ["Jackdaw Savior", "Llanowar Elves", "Twisted Abomination"])
+    put(s, "Jackdaw Savior")
+    for name in ("Llanowar Elves", "Twisted Abomination"):
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"zone": "graveyard"})
+    kill(s, "Jackdaw Savior")
+    assert card_named(s, "Llanowar Elves").zone == "p1:battlefield"
+    assert card_named(s, "Twisted Abomination").zone == "p1:graveyard"
+    check(s)

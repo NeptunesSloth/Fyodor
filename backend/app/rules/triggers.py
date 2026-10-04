@@ -1651,6 +1651,30 @@ def bind_that_player(t: PendingTrigger) -> None:
         marker = f'\\"{key}\\":\\"that_player\\"'
         raw = raw.replace(marker, f'\\"{key}\\":\\"player:{players[0]}\\"')
     t.ability = json.loads(raw)
+
+
+def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
+    """-- reanimation (wave 16F) -- "return target creature card with lesser mana value": the selectors' ``evt:<stat>`` becomes the
+    number the one object the trigger is about had (as it last existed, 608.2h), as the ability is put on the stack."""
+    from app.rules.selectors import EVENT_STAT, _stat
+
+    raw = json.dumps(t.ability)
+    if f'\\"{EVENT_STAT}' not in raw or t.event is None or len(t.event.objects) != 1:
+        return
+    ref = t.event.objects[0]
+    snap = ref.snapshot or plan.rules.lki.get(ref.object_id)
+    card = plan.state.cards.get(ref.card)
+    if snap is not None and (card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != ref.object_id):
+        ch = _lki_characteristics(plan, snap)
+    elif card is not None:
+        ch = plan.ch(card)
+    else:
+        return
+    for what in ("mv", "power", "toughness"):
+        n = _stat(ch, what)
+        if n is not None:
+            raw = raw.replace(f'\\"{EVENT_STAT}{what}\\"', str(n))
+    t.ability = json.loads(raw)
 # -- end damage wordings (wave 6B) --
 
 
@@ -1658,6 +1682,7 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
     """Put one trigger on the stack. False if it waits for its controller's target choice.
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
     bind_that_player(t)  # -- damage wordings (wave 6B) --
+    bind_event_stat(plan, t)  # -- reanimation (wave 16F) --
     from app.rules import (
         per_opponent,  # -- per-opponent targets (wave 12C) -- a group for each opponent, as it is put
     )

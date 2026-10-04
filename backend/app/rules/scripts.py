@@ -3218,6 +3218,9 @@ def _event_refs_ok(d: Definition) -> bool:
     if '"as": "event"' in raw and not (d.get("kind") == "triggered" and (step_names_player(d) or (
             ev is not None and ev["event"] != "multi" and _has_player(ev)))):
         return False
+    if '\\"evt:' in raw and not (ev is not None and ev["event"] != "multi" and not ev.get("aggregate") and (
+            ev.get("subject") in ("sel", "self", "self_or", "self_or_host", "host") or (ev.get("subject") == "player" and ev.get("obj")))):
+        return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
     if '"as": "defended"' in raw and not (d.get("trigger") == "attacks_self" or (
             ev is not None and ev["event"] in ("attack", "unblocked", "blocked", "you_attack"))):
         return False
