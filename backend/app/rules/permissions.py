@@ -88,7 +88,7 @@ PERMISSION = re.compile(
     r"(?P<what>play lands and cast spells|play lands|cast spells|play a land|"
     r"cast (?:a |an )?(?P<sel>[a-z][a-z' ,-]*?) spells?(?P<qual> with mana value \d+ or less)?|cast (?:this card|~))"
     r" from (?P<zone>your graveyard|the top of your library)$")
-SELF_GY_WHILE = re.compile(r"^you may cast (?:this card|~) from your graveyard as long as (?P<cond>.+)$")  # (wave 4B)
+SELF_GY_WHILE = re.compile(r"^you may cast (?:this card|~) from your graveyard (?:as long as|if) (?P<cond>.+)$")  # (wave 4B; 16D: "if")
 # "You may cast creature spells as though they had flash." (601.3b)
 FLASH = re.compile(rf"^you may cast (?:{_SEL} )?spells as though they had flash$")
 TOP_REVEAL = "play with the top card of your library revealed"
@@ -421,7 +421,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import conditions
 
         cond = conditions.parse(m["cond"])
-        if cond is None or "succeeded" in cond or "flag" in cond or "history" in cond:
+        if cond is None or "succeeded" in cond or "flag" in cond:
             return None
         return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True,
                 "play": False, "cast": True, "filter": None, "while": cond, "effects": []}

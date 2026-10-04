@@ -261,7 +261,7 @@ def self_text(text: str, name: str) -> str:
 
     def _own(part: str) -> str:
         for n in names:
-            part = re.sub(rf"\b{re.escape(n)}\b", "~", part)
+            part = re.sub(rf"(?<!\w){re.escape(n)}(?!\w)", "~", part)  # (wave 16D: a name ending in "!" has no \b after it)
         return part
 
     # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the
@@ -517,7 +517,7 @@ def _cast_trigger_spell_cond(cond: dict[str, Any]) -> bool:
     """-- ability words (wave 9C) -- is a condition (or a part of one, under "not" / "all" / "any" as an "instead" clause
     makes it) about the mana spent to cast a cast trigger's spell ("if no mana was spent to cast it", opus)?"""
     cast = cond.get("cast") or {}
-    return bool(cast.get("no_mana") or cast.get("event_spell")) or any(
+    return bool(cast.get("no_mana") or cast.get("event_spell")) or (cond.get("stat") == "mana_value" and cond.get("object") == "it") or any(
         _cast_trigger_spell_cond(c) for k in ("all", "any") for c in cond.get(k, ())) or (
         "not" in cond and _cast_trigger_spell_cond(cond["not"]))
 
@@ -1667,7 +1667,9 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         text = f"{twin['p']} {twin['a']} on {twin['x']}, then put {twin['b']} on {twin['y']}"
     # -- trigger tail (wave 15B) -- "You draw three cards, gain 6 life, and create three Bats." (a serial list of instructions, in
     # order: 608.2c): read as the same instructions joined by "and"; each part must still be understood on its own
-    if (serial := re.fullmatch(r"([^,]+(?:, [^,]+)+), and ([^,]+)", text)) is not None:
+    if (serial := re.fullmatch(r"([^,]+(?:, [^,]+)+), and ([^,]+)", text) or re.fullmatch(
+            r"((?![^,]*\b(?:search|reveal|look)\b)[^,]+(?:, (?!then\b)[^,]+)+), then ((?:investigate|surveil|scry|draw|gain|mill|explore)\b[^,]*)", text)) is not None:
+        # (wave 16D: "Gain 2 life, surveil 2, then investigate"; a search's ", then shuffle" is no list)
         text = serial[1].replace(", ", " and ") + " and " + serial[2]
     # -- static_other sweep (wave 16B) -- "You draw two cards, lose 2 life, then mill two cards." is three instructions in order (608.2c)
     text = re.sub(r"^(?P<a>(?:you )?(?:gain|lose|draw|mill|scry|surveil)\b[^,.]*), (?P<b>(?:draw|lose|gain|mill|scry|surveil|investigate)\b[^,.]*), then ",
@@ -3211,7 +3213,9 @@ def _intervening_may(body: str, it: str | None, event_player: bool) -> tuple[lis
     resolves) — the gate over the whole of the rest. A condition about an object ("if it's …") isn't read here."""
     from app.rules import conditions
 
-    m = re.match(r"^if (?P<c>[^,]+), (?P<rest>you may .+)$", body.strip(), re.DOTALL)
+    # (-- long tail (wave 16D) -- the rest may be any instructions, "…, you draw a card. If seven or more creatures died this
+    # turn, instead you draw seven cards.": the gate is still over the whole ability, 603.4)
+    m = re.match(r"^if (?P<c>[^,]+), (?P<rest>.+)$", body.strip(), re.DOTALL)
     if m is None:
         return None
     cond = conditions.parse(m["c"], objects=True)
@@ -4013,6 +4017,12 @@ def _turn_record(text: str) -> list[dict[str, Any]] | None:
     record of this resolution, lasting this turn (611.2a)."""
     from app.rules import replace_grammar  # (a leaf module)
 
+    # -- long tail (wave 16D) -- "This turn, each creature you control enters with an additional +1/+1 counter on it." (Zameck
+    # Guildmage): the static wording (replace_grammar._enter_extra) as a record of this resolution (614.1c, 611.2a)
+    if (enter := re.match(r"^this turn, (?P<rest>each .+ enters with .+)$", text)) is not None:
+        d = replace_grammar.parse(enter["rest"][0].upper() + enter["rest"][1:] + ".")
+        if d is not None and d.get("static") == "replace":
+            return [{"do": "replace_record", "event": d["event"], "match": d["match"], "op": d["op"]}]
     m = _UNTIL_EOT_IF.match(text)
     body = m["rest"] if m else None
     if body is None:
@@ -4156,7 +4166,7 @@ def _delayed_exile_return_transformed(m: re.Match[str]) -> tuple[list[dict[str, 
 
 @effect(_delayed.EVENT.pattern.lstrip("^").rstrip("$"))
 def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    inner = _clause(m["clause"])
+    inner = _clause(m["clause"].replace("the creature's controller", "that creature's controller"))  # (wave 16D)
     if inner is None or inner[1] is not None:  # (the deferred effect's own target: not modeled)
         raise _NoMatch
     effects = _delayed.inner_for_event(inner[0])

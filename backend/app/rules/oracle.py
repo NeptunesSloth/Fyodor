@@ -148,7 +148,9 @@ def word_prefix(line: str) -> tuple[str, str] | None:
 
     if word in ABILITY_WORDS:
         return m["w"], m["rest"]
-    if word in _NOT_FLAVOR or keyword_name(m["w"]) is not None or "{" in word:
+    kw = keyword_name(m["w"])
+    # (-- long tail (wave 16D) -- a flavor word that merely starts with a keyword's name, "Toxic Spores —", is still a flavor word)
+    if word in _NOT_FLAVOR or (kw is not None and (len(word.split()) == 1 or word.split()[0] != kw)) or "{" in word:
         return None
     if word.endswith("villainous choice"):  # -- review (wave 6R) -- "Each opponent faces a villainous choice — …" (701.55a)
         return None
@@ -164,7 +166,8 @@ def word_prefix(line: str) -> tuple[str, str] | None:
     return None
 
 
-_WATCH_LINE = re.compile(r"^(?:Whenever .+? this turn, |When you next cast .+? this turn, )")  # -- turn watches (wave 7D) --
+_WATCH_LINE = re.compile(r"^(?:Whenever .+? this turn, |When you next cast .+? this turn, "
+                         r"|When (?:target|that) [^,]+? (?:dies|leaves the battlefield) this turn, )")  # -- turn watches (wave 7D; 16D: "When target creature dies this turn,") --
 
 
 def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], str | None]:
