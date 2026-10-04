@@ -97,7 +97,8 @@ _PLAYER_VERBS = [
     (r"draws? a card", "draw"),
     (r"attacks?", "you_attack"),
 ]
-_PLAYERS = {"you": "you", "an opponent": "opponent", "a player": "any", "each opponent": "opponent"}
+_PLAYERS = {"you": "you", "an opponent": "opponent", "a player": "any", "each opponent": "opponent",
+            "enchanted player": "enchanted"}  # (wave 16F: a Curse's "enchanted player")
 _NTH = {"second": 2, "third": 3, "first": 1, "fourth": 4, "fifth": 5}
 _COUNT = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
 _MULTI = {"enters": "enter", "dies": "die", "attacks": "attack", "leaves the battlefield": "leave", "blocks": "block",
@@ -106,7 +107,7 @@ _MULTI = {"enters": "enter", "dies": "die", "attacks": "attack", "leaves the bat
           "is put into a graveyard from the battlefield": "die",  # (700.4; wave 5D: Ichor Wellspring)
           "is turned face up": "turned_face_up"}  # -- face up (wave 6D) -- "~ enters or is turned face up" (702.37e)
 _MULTI_RE = "|".join(sorted((re.escape(k) for k in _MULTI), key=len, reverse=True))
-_P = r"(?P<p>you|an opponent|a player)"
+_P = r"(?P<p>you|an opponent|a player|enchanted player)"
 # -- counters & designations (wave 3E) -- a player getting counters (122.6; one event per player per instruction)
 _GETS_COUNTERS = re.compile(r"(?P<p>you|an opponent|a player) gets? (?:one or more (?P<e>\{E\})|(?:one or more|an?) "
                             r"(?P<k>poison|experience|rad) counters?)")
@@ -389,7 +390,7 @@ def _parse(c: str) -> Condition | None:
         return {"event": "either", "subject": "player", "player": _PLAYERS[m["p"]],
                 "conds": [{"event": e, "subject": "player", "player": _PLAYERS[m["p"]]} for e in ("gain_life", "lose_life")]}
     for pattern, event in _PLAYER_VERBS:
-        m = re.fullmatch(rf"(?P<p>you|an opponent|a player|each opponent) (?:{pattern})", c)
+        m = re.fullmatch(rf"(?P<p>you|an opponent|a player|each opponent|enchanted player) (?:{pattern})", c)
         if m:
             return {"event": event, "subject": "player", "player": _PLAYERS[m["p"]]}
     for pattern, event in _EVENT_VERBS:

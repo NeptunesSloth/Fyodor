@@ -190,6 +190,12 @@ def _defending_controls(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="defending")
 
 
+@_suffix(r"(?:that )?enchanted player controls")
+def _enchanted_controls(s: Selector, m: re.Match[str]) -> Selector:
+    # -- attached events (wave 16F) -- the player the source (a Curse) enchants, 702.5d
+    return replace(s, controller="enchanted")
+
+
 @_suffix(r"that['’]s enchanted or equipped")  # -- grammar (wave 11C) -- an Aura or an Equipment on it (303.4, 301.5)
 def _enchanted_or_equipped(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "enchanted_or_equipped"))
@@ -1066,6 +1072,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.controller == "defending" and card.controller not in defending_players(plan, source, attacker):
         return False
+    if sel.controller == "enchanted":
+        src = plan.state.cards.get(source or "")
+        if src is None or src.attached_player is None or card.controller != src.attached_player:
+            return False
     if sel.owner == "you" and card.owner != you:
         return False
     if sel.owner == "opponent" and card.owner == you:

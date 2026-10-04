@@ -1,20 +1,46 @@
 """Wave 16F: the smaller non-keyword families. Real Oracle text; every scenario checks the replay and a save and a load.
 
+* 702.5d / 603.1: a Curse's triggers name "enchanted player": its draws and casts, the creatures and lands they control.
 * 604.1 / 603.1: a ", where X is …" that sits inside a quoted granted ability belongs to that ability, not to the Aura's sentence.
 """
 
 from __future__ import annotations
 
+import pytest
+
 from app.rules import coverage
+from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave12a_counters_keywords import answer
-from tests.wave9c_kit import check
+from tests.test_rules_wave12a_counters_keywords import answer, real
+from tests.test_rules_sagas import main_phase
+from tests.wave9c_kit import build, check, life, mana, to_hand
+
+EXTRA = [
+    real("Trespasser's Curse", "{1}{B}", 2, "Enchantment — Aura Curse",
+         "Enchant player\nWhenever a creature enchanted player controls enters, that player loses 1 life and you gain 1 life.",
+         None, "B"),
+    real("Curse of Fool's Wisdom", "{3}{B}", 4, "Enchantment — Aura Curse",
+         "Enchant player\nWhenever enchanted player draws a card, they lose 2 life and you gain 2 life.\nMadness {3}{B} (If you "
+         "discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+         None, "B"),
+]
 
 IDOLIZED = ("Enchant creature\nEnchanted creature has \"Whenever this creature attacks alone, it gets +X/+X until end of turn, "
             "where X is the number of nonland permanents you control.\"")
 
 
+@pytest.fixture()
+def card_db(settings):
+    from app.cards.importer import build_database
+
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
 def test_a_where_x_inside_a_granted_ability_is_that_abilitys(cards):
+    from app.rules import sba
+    from app.rules.plan import Plan
     from tests.test_rules_combat import attack, automate, creature, table
 
     s = table(cards)
@@ -28,9 +54,6 @@ def test_a_where_x_inside_a_granted_ability_is_that_abilitys(cards):
     automate(s)
     attack(s, (bear, "p2"))
     answer(s)
-    from app.rules import sba
-    from app.rules.plan import Plan
-
     ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bear.id])
     assert (sba.power(s.state.cards[bear.id], ch), sba.toughness(s.state.cards[bear.id], ch)) == (5, 5)  # Bear, Ox, the Aura: X = 3
     check(s)
@@ -44,3 +67,38 @@ def test_idolized_is_full():
     ch = Characteristics(name="Idolized", supertypes=sup, types=types, subtypes=subs, oracle_text=IDOLIZED,
                          abilities=tuple(parse_abilities(IDOLIZED, spell=False)), mana_cost="{1}{W}")
     assert coverage.of_characteristics(ch).level == "FULL"
+
+
+def curse_on_bob(cards, name, **cost):
+    s = build(cards, [name, "Llanowar Elves"], ["Llanowar Elves"])
+    c = to_hand(s, name)
+    mana(s, **cost)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"])
+    answer(s)
+    assert s.state.cards[c.id].attached_player == "p2"
+    return s
+
+
+def test_a_curse_triggers_on_creatures_the_enchanted_player_controls(cards):
+    s = curse_on_bob(cards, "Trespasser's Curse", B=1, C=1)
+    elves = to_hand(s, "Llanowar Elves")
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=elves.id)  # (Alice's own creature: not a trigger)
+    answer(s)
+    assert (life(s, "p1"), life(s, "p2")) == (40, 40)
+    main_phase(s, 2)
+    ox = to_hand(s, "Llanowar Elves", "p2")
+    mana(s, "p2", G=1)
+    act(s, "p2", type="cast_spell", card_id=ox.id)
+    answer(s)
+    assert (life(s, "p1"), life(s, "p2")) == (41, 39)
+    check(s)
+
+
+def test_a_curse_triggers_on_the_enchanted_players_draws(cards):
+    s = curse_on_bob(cards, "Curse of Fool's Wisdom", B=1, C=3)
+    assert (life(s, "p1"), life(s, "p2")) == (40, 40)  # (Alice drew nothing on turn 1)
+    main_phase(s, 2)  # Bob draws in his draw step
+    answer(s)
+    assert (life(s, "p1"), life(s, "p2")) == (42, 38)
+    check(s)

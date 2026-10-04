@@ -308,7 +308,7 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
     ch = _lki_characteristics(plan, snap)
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, is_token=snap.is_token,
-                        attached_to=snap.attached_to,
+                        attached_to=snap.attached_to, attached_player=snap.attached_player,
                         counters=dict(snap.counters))  # (wave 3S: "each page counter on this Aura", 608.2h)
     if snap.x is not None:  # -- stack interaction (wave 5B) -- a spell's X as it last existed on the stack (202.3e)
         card.stack_info = StackInfo(x=snap.x)
@@ -554,7 +554,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     subject = cond["subject"]
     if subject == "player":
         pw = cond["player"]
-        if player is None or (pw == "you" and player != you) or (pw == "opponent" and player == you):
+        if player is None or (pw == "you" and player != you) or (pw == "opponent" and player == you) \
+                or (pw == "enchanted" and player != watcher.attached_player):
             return False
         if event == "dealt_damage" and obj is not None:
             return False  # ("you're dealt damage": a player, not a permanent that player controls)

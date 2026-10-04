@@ -3191,7 +3191,7 @@ def _has_player(cond: dict[str, Any]) -> bool:
     # -- triggers (wave 5D) -- "Whenever a creature an opponent controls dies / enters, that player …": the opponent
     # who controlled it (one object per event: not "one or more", 603.2c; triggers._event)
     if cond.get("subject") == "sel" and cond["event"] in ("enter", "die", "leave") and not cond.get("aggregate") \
-            and '"controller":"opponent"' in str(cond.get("sel")):
+            and re.search(r'"controller":"(?:opponent|enchanted)"', str(cond.get("sel"))):
         return True
     # -- source damage (wave 11F) -- "that source's controller": the player who controlled the source (triggers._fire_generic)
     return cond["event"] == "deal_damage" and (cond.get("to") in ("player", "opponent", "you") or cond.get("subject") == "source")
