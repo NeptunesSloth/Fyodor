@@ -1685,6 +1685,9 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return gifts
     from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
 
+    # -- trigger tail (wave 16C) -- "Create a 4/4 … token with flying at the beginning of the next end step." (Rukh Egg): the same delayed
+    # trigger (603.7) as the leading wording, which the token grammar reads whole
+    body = re.sub(rf"(?i)^(create .+?) (at the beginning of (?:{_delayed.WHEN_RE}))(\.?)$", r"\2, \1\3", body)
     # -- trigger tail (wave 15B) -- "Discard any number of cards, then draw that many cards.": "that many" is the cards discarded
     # this way (701.9a), not a trigger event's amount; "plus one" would be a different (single) draw: not read
     body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus)",

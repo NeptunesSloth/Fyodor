@@ -209,6 +209,14 @@ def _parse(c: str) -> Condition | None:
         if inner is None or inner.get("event") != "die" or inner.get("subject") != "sel" or inner.get("aggregate"):
             return None
         return {**inner, "damaged_by_self": True}
+    # -- trigger tail (wave 16C) -- "When this creature dies during combat" (Mongrel Pack): it dies while a combat phase is going
+    # on (506.1: beginning of combat through end of combat); read as the event happens (triggers._details_ok)
+    m = re.fullmatch(r"(?P<s>.+?) dies during combat", c)
+    if m:
+        inner = _parse(f"{m['s']} dies")
+        if inner is None or inner.get("event") != "die" or inner.get("aggregate"):
+            return None
+        return {**inner, "in_combat": True}
     # "When ~ enters or dies", "Whenever ~ attacks or blocks": one ability, each event (603.2)
     m = re.fullmatch(rf"~ (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m:
@@ -298,6 +306,16 @@ def _parse(c: str) -> Condition | None:
                 or a.get("subject") not in ("sel", "self_or"):
             return None
         return {"event": "either", "subject": a["subject"], "conds": [a, b]}
+    # -- trigger tail (wave 16C) -- "Whenever a creature dies or a creature card is put into a graveyard from a library" (Dreadhound):
+    # two whole conditions, each its own event (603.2c); both halves must read on their own
+    m = re.fullmatch(r"(?P<a>(?:an?|another) [^,]+? (?:dies|attacks|enters)|(?:an?) [^,]+? (?:is|are) put into [^,]+?) or "
+                     r"(?P<b>(?:an?|another) [^,]+? (?:is|are) put into [^,]+?)", c)
+    if m:
+        a, b = _parse(m["a"]), _parse(m["b"])
+        if a is None or b is None or a.get("aggregate") or b.get("aggregate") or a["event"] in ("either", "multi") \
+                or b["event"] in ("either", "multi") or a["event"] == b["event"]:
+            return None
+        return {"event": "either", "subject": a["subject"] if a["subject"] == b["subject"] else "mixed", "conds": [a, b]}
     # -- triggers (wave 5D) -- "Whenever you create or sacrifice a token" (Mirkwood Bats): either action, each one its
     # own event (603.2c) — both halves must read on their own
     m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<a>[a-z]+) or (?P<b>[a-z]+) (?P<o>(?:an?) .+)", c)
@@ -356,7 +374,7 @@ def _parse(c: str) -> Condition | None:
     if c == "~ is put into a graveyard from anywhere":  # -- trigger tail (wave 15B) -- 603.6c: not a leaves-the-battlefield ability
         return {"event": "to_graveyard", "subject": "self"}  # (it triggers from the graveyard, on the card's new object)
     m = re.fullmatch(r"(?P<o>one or more .+? cards|an? .+? card|a card) (?:is|are) put into (?P<g>your|an opponent's|a) "
-                     r"graveyard from (?P<f>anywhere|your library)", c)
+                     r"graveyard from (?P<f>anywhere|your library|a library)", c)
     if m:
         gsel = selectors.from_key(_object_sel(m["o"], card=True))
         owner = {"your": "you", "an opponent's": "opponent"}.get(m["g"])
@@ -367,6 +385,8 @@ def _parse(c: str) -> Condition | None:
         if m["f"] == "your library":
             if owner != "you":
                 return None
+            out["from"] = "library"
+        elif m["f"] == "a library":  # (wave 16C: Dreadhound — any player's library)
             out["from"] = "library"
         return out
     # -- graveyard owner (wave 6D) -- "a creature is put into an opponent's graveyard from the battlefield", "a nontoken
