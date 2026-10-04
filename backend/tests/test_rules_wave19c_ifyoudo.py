@@ -79,8 +79,10 @@ EXTRA = [
          oracle_text='Flying\nWhenever a Dragon you control dies while this card is in your graveyard, you may pay {1}{B}. If you do, return this card from your graveyard to the battlefield.', power='4', toughness='3', colors=['B'], color_identity=['B'], keywords=['Flying']),
     card('Nether Traitor', set_code='tst', number='W80', mana_cost='{B}{B}', cmc=2.0, type_line='Creature — Spirit',
          oracle_text='Haste\nShadow (This creature can block or be blocked by only creatures with shadow.)\nWhenever another creature is put into your graveyard from the battlefield, you may pay {B}. If you do, return this card from your graveyard to the battlefield.', power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=['Shadow', 'Haste']),
+    card('Nim Deathmantle', set_code='tst', number='W81', mana_cost='{2}', cmc=2.0, type_line='Artifact — Equipment',
+         oracle_text="Equipped creature gets +2/+2, has intimidate, and is a black Zombie. (A creature with intimidate can't be blocked except by artifact creatures and/or creatures that share a color with it.)\nWhenever a nontoken creature is put into your graveyard from the battlefield, you may pay {4}. If you do, return that card to the battlefield and attach this Equipment to it.\nEquip {4}", power=None, toughness=None, colors=[], color_identity=[], keywords=['Equip']),
 ]
-FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor', 'Gigapede', 'Blood Operative', 'Pyrewild Shaman', 'Ichorid', 'Furious Forebear', 'Boneyard Scourge', 'Nether Traitor']
+FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor', 'Gigapede', 'Blood Operative', 'Pyrewild Shaman', 'Ichorid', 'Furious Forebear', 'Boneyard Scourge', 'Nether Traitor', 'Nim Deathmantle']
 # --EXTRA-END--
 
 
@@ -523,4 +525,31 @@ def test_nether_traitor_returns_when_another_creature_goes_to_your_graveyard(car
         assert s.state.cards[traitor.id].zone == "p1:battlefield"
     else:
         assert asked is None and s.state.cards[traitor.id].zone == "p1:graveyard"  # Bob's creature went to Bob's graveyard
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_nim_deathmantle_returns_the_creature_and_attaches_itself(cards, pay):
+    s = build(cards, p1=("Nim Deathmantle", "Llanowar Elves", "Lightning Bolt"))
+    mantle = to_zone(s, find(s, "Nim Deathmantle"), "battlefield")
+    elves = to_zone(s, find(s, "Llanowar Elves"), "battlefield")
+    bolt = to_hand(s, "Lightning Bolt")
+    add_mana(s, "p1", R=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[elves.id])
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None and {o.id for o in d.options} >= {"pay", "decline"}:
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    roundtrip(s)
+    pick(s, "pay" if pay else "decline")
+    play_out(s)
+    back = next(c for c in s.state.cards.values() if c.name == "Llanowar Elves" and c.owner == "p1")
+    if pay:  # "return that card to the battlefield and attach this Equipment to it"
+        assert back.zone == "p1:battlefield" and s.state.cards[mantle.id].attached_to == back.id  # (the Equipment is the attached one)
+    else:
+        assert back.zone == "p1:graveyard"
     roundtrip(s)
