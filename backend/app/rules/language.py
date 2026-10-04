@@ -593,7 +593,8 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         extra["distinct_names"] = True
     named = _NAMED.fullmatch(sel_text)
     if named:
-        if re.search(r" or an? ", named["name"]):  # -- wave 3S: "a card named X or an Equipment card" (alternatives): not read --
+        if re.search(r" or an? |and/or |\bnamed\b", named["name"]):  # -- wave 3S: "a card named X or an Equipment card" (alternatives): not read --
+            # (-- if you do (wave 15C) -- nor "a card named X and/or a card named Y": two names, not one)
             raise _Fail
         extra["name"] = named["name"]
         sel_text = named["rest"]
@@ -653,9 +654,13 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
 # deck cards): the searcher chooses to search the library and the graveyard, or the graveyard only (701.23a: a
 # search looks at all the cards in that zone); the second sentence (``gy_search_shuffle``, joined to the search
 # by scripts._gy_shuffle) shuffles only a library that was searched (701.24). One card, one destination.
-_SEARCH_GY = re.compile(rf"search your library and/or graveyard for (?P<q>(?:up to )?(?:{AMT})) (?P<sel>.+?)(?:,? and |, )"
+# -- if you do (wave 15C) -- also "your graveyard, hand, and/or library" (any of them, 701.23a) and "your graveyard, hand, and
+# library" (all three), the zones in any order; "…, then shuffle" after the destination
+_GY_ZONES = (r"(?P<zones>library and/or graveyard|graveyard and/or library|(?:graveyard|library), hand,? (?:and/or|and) (?:library|graveyard)"
+             r"|hand and/or library|library and/or hand)")
+_SEARCH_GY = re.compile(rf"search your {_GY_ZONES} for (?P<q>(?:up to )?(?:{AMT})) (?P<sel>.+?)(?:,? and |, )"
                         rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, )(?:then )?)?put (?P<pron>{_PRON}) "
-                        rf"(?P<dest>into your hand|onto the battlefield)")
+                        rf"(?P<dest>into your hand|onto the battlefield)(?P<then>, then shuffle)?")
 
 
 _GAMBLE = re.compile(r"search your library for a card, put (?:that card|it) into your hand, (?P<first>shuffle, then )?"
@@ -681,7 +686,15 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
     e = found[0][0]
     if e.get("parts") or e.get("to2") or e.get("who", "you") != "you" or e["max"] != 1:
         raise _Fail  # (several cards from two zones: not read)
-    return [{**e, "graveyard": True, "shuffle": False, **({"may": True, "optional": True} if may else {})}], None
+    zones = [z for z in ("library", "hand", "graveyard") if z in m["zones"]]
+    if " and/or " not in m["zones"] and len(zones) == 3:  # -- if you do (wave 15C) -- "your graveyard, hand, and library": all three
+        if may or not m["then"]:
+            raise _Fail  # (the library is searched, so it is shuffled: 701.24, only when told; a "may" is not read)
+        return [{**e, "zones": zones, "shuffle": True}], None
+    if m["then"]:
+        raise _Fail  # (a "may" search, "then shuffle": only the forced three zones, above)
+    extra = {"search_zones": zones} if "hand" in zones else {}
+    return [{**e, "graveyard": True, "shuffle": False, **extra, **({"may": True, "optional": True} if may else {})}], None
 
 
 # -- the top of a library (401, 701.20 reveal, 701.20e look, 701.24 shuffle) ----------------------
@@ -702,7 +715,8 @@ _REST = (r"(?:the rest|the rest of (?:those|the) cards|the rest of them|the othe
          r"all other cards revealed this way|"
          # -- refused look/cast-free (wave 3R5) -- after a free cast (608.2g): the cards it didn't cast
          r"all revealed cards not cast this way|the exiled cards not cast this way|the exiled cards that weren't cast this way|"
-         r"all cards exiled this way that weren't cast) "
+         r"all cards exiled this way that weren't cast|"
+         r"all cards revealed this way that weren't put onto the battlefield) "  # (-- if you do (wave 15C) -- Genesis Wave)
          rf"(?P<rest>into (?:your|their) graveyard|into your hand|on the bottom(?: of {_LIBREF})? in (?:any|a random) order|"
          rf"on the bottom of {_LIBREF}|(?:back )?on top of {_LIBREF} in any order)")
 _PICK_TO = ("into your hand|onto the battlefield tapped and attacking|onto the battlefield tapped|onto the battlefield|into your graveyard|"
@@ -843,6 +857,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     def count(m: re.Match[str]) -> Any:
         return _apply(_amount(m["n"]) if m["n"] else 1, rider)
 
+    if text == "you may reveal the top card of your library":  # -- if you do (wave 15C) -- the revealing is the choice (701.20a)
+        return [{"do": "look_top", "n": 1, "player": "you", "reveal": True, "optional": True}], None
     m = _TOP.fullmatch(text)
     if m:
         who, group = _lib_owner(m["lib"])
@@ -1082,6 +1098,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m and rider is None and m["s"] in (None, "you"):
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": 0 if m["any"] else _amount(m["n"]), "upto": True}], target
+    # -- if you do (wave 15C) -- "target player mills half their library, rounded up" (107.1a: half of the cards in the
+    # library as the instruction is carried out; 701.17a; effects.mill)
+    m = re.fullmatch(_SUBJ + r"mills? half (?:(?P<your>your)|their) library, rounded (?P<r>up|down)", text)
+    if m and rider is None and (m["your"] is not None) == (m["s"] in (None, "you")):
+        who, target = _subject(m)
+        return [{"do": "mill", "who": who, "n": 0, "half": m["r"]}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)

@@ -20,11 +20,20 @@ _PLAYERS = {"target player's": ("target", "player"), "target opponent's": ("targ
             "each opponent's": ("each_opponent", None), "each player's": ("each_player", None),
             "all": ("each_player", None)}
 _EXILE = re.compile(r"^exile (?P<p>target player's|target opponent's|each opponent's|each player's) graveyard$|"
-                    r"^exile (?P<all>all) graveyards$")
+                    r"^exile (?P<all>all) graveyards$|"
+                    r"^exile all (?P<sel>[a-z]+ cards) from (?P<p2>target player's|target opponent's) graveyard$")  # (wave 15C)
 
 
 def _effect(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    who, target = _PLAYERS[m["p"] or m["all"]]
+    who, target = _PLAYERS[m["p"] or m["p2"] or m["all"]]
+    if m["sel"]:  # -- if you do (wave 15C) -- "Exile all creature cards from target player's graveyard": only the cards of that kind
+        from app.rules import selectors
+        from app.rules.scripts import _NoMatch  # (scripts imports this module)
+
+        sel = selectors.parse(m["sel"][:-1] + " from a graveyard")
+        if sel is None or sel.zones != ("graveyard",) or not sel.card:
+            raise _NoMatch
+        who += "|" + sel.key()
     return [{"do": "exile", "who": PREFIX + who}], target
 
 
