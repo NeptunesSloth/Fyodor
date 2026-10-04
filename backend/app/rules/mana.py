@@ -564,9 +564,8 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
         raise ManaError(f"Can't pay {' '.join('{' + s + '}' for s in cost.unsupported)} automatically")
     ordered = sorted(sources, key=lambda s: (not s.preferred, s.flexibility, s.rank, -max(len(o) for o in s.options)))
     base = [(c,) for c in cost.colored] + sorted(cost.hybrid, key=len)
-    attempts = [(base + [(c,) for c in cost.phyrexian], 0)]  # Phyrexian with mana first …
-    if cost.phyrexian:
-        attempts.append((base, 2 * len(cost.phyrexian)))  # … else with 2 life each
+    # Phyrexian symbols with mana first, then one more with 2 life each time (107.4f: each symbol on its own; wave 18B: K'rrik too)
+    attempts = [(base + [(c,) for c in cost.phyrexian[k:]], 2 * k) for k in range(len(cost.phyrexian) + 1)]
     for reqs, life_cost in attempts:
         if life_cost and life_cost >= life:
             continue

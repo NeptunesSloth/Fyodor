@@ -888,9 +888,30 @@ def find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo
     """How to pay ``cost``: with exactly ``sources`` when given (MANUAL PAY), else automatically,
     PREFER sources first and SAVE sources only when there is no other way. Pool units that may pay for ``purpose`` (restricted or
     remembered mana, app/rules/mana_units.py) are spent like pool mana: ``Payment.slots`` names them ("unit:<id>"), ``tapped`` doesn't."""
-    payment = _find_payment(state, player, cost, info, sources=sources, exclude=exclude, purpose=purpose)
+    payment = _find_payment(state, player, life_for_mana(state, player, info, cost), info, sources=sources, exclude=exclude,
+                            purpose=purpose)
     payment.tapped = [c for c in payment.tapped if not c.startswith("unit:")]
     return payment
+
+
+LIFE_FOR_MANA = "For each {B} in a cost, you may pay 2 life rather than pay that mana."
+
+
+def life_for_mana(state: GameState, player: str, info: CardInfo, cost: M.ManaCost) -> M.ManaCost:
+    """-- mana provenance (wave 18B) -- K'rrik, Son of Yawgmoth: "For each {B} in a cost, you may pay 2 life rather than pay that mana."
+    Each {B} of the cost becomes a Phyrexian {B/P} while its controller has one (the solver pays mana first and life only where
+    mana can't, one symbol at a time; a hybrid {B/…} isn't a {B}, left as it is)."""
+    if "B" not in cost.colored:
+        return cost
+    for z, ids in state.zones.items():
+        if z.endswith(":battlefield"):
+            for cid in ids:
+                c = state.cards[cid]
+                if c.controller == player and not c.face_down and LIFE_FOR_MANA in chars.of(c, info).oracle_text:
+                    n = cost.colored.count("B")
+                    return M.ManaCost(cost.generic, tuple(x for x in cost.colored if x != "B"), cost.hybrid, cost.phyrexian + ("B",) * n,
+                                      cost.x, cost.unsupported)
+    return cost
 
 
 def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
@@ -1385,6 +1406,7 @@ def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, 
         everything = _helper_sources(state, player, info, purpose.spell, purpose.card, everything)
     from app.rules import mana_units
 
+    cost = life_for_mana(state, player, info, cost)
     try:
         _solve_with_filters(cost, dict(state.players[player].mana),
                             [s for s in everything if s.activation is None] + mana_units.unit_sources(state, player, purpose),

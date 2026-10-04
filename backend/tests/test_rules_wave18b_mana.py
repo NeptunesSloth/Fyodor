@@ -66,6 +66,10 @@ EXTRA = [
     real("Rosheen Meanderer", "{3}{G}", 4, "Legendary Creature — Giant Shaman",
          "{T}: Add {C}{C}{C}{C}. Spend this mana only on costs that contain {X}.", ("4", "4"), "G"),
     real("Blaze", "{X}{R}", 1, "Sorcery", "Blaze deals X damage to any target.", None, "R"),
+    real("K'rrik, Son of Yawgmoth", "{4}{B/P}{B/P}{B/P}", 7, "Legendary Creature — Phyrexian Horror Minion",
+         "({B/P} can be paid with either {B} or 2 life.)\nLifelink\nFor each {B} in a cost, you may pay 2 life rather than pay that mana.\n"
+         "Whenever you cast a black spell, put a +1/+1 counter on K'rrik.", ("2", "2"), "B"),
+    real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
     real("Berg Strider", "{4}{U}", 5, "Snow Creature — Giant Wizard",
          "When this creature enters, tap target artifact or creature an opponent controls. If {S} was spent to cast this spell, that permanent "
          "doesn't untap during its controller's next untap step. ({S} is mana from a snow source.)", ("4", "4"), "U"),
@@ -74,7 +78,7 @@ EXTRA = [
          "At the beginning of your upkeep, add {C} for each artifact you control. This mana can't be spent to cast nonartifact spells. "
          "Until end of turn, you don't lose this mana as steps and phases end.", ("*", "*"), ""),
 ]
-FULL = ["Rosheen Meanderer", "Delighted Halfling", "Hall of the Bandit Lord", "Scaled Nurturer", "Pyromancer's Goggles", "Spoils of the Hunt", "Geosurge", "Grand Architect", "Master of Dark Rites", "Smaug, Wicked Worm", "Tundra Fumarole", "Coin of Mastery",
+FULL = ["K'rrik, Son of Yawgmoth", "Rosheen Meanderer", "Delighted Halfling", "Hall of the Bandit Lord", "Scaled Nurturer", "Pyromancer's Goggles", "Spoils of the Hunt", "Geosurge", "Grand Architect", "Master of Dark Rites", "Smaug, Wicked Worm", "Tundra Fumarole", "Coin of Mastery",
         "Jaded Sell-Sword", "Berg Strider", "Karn, Legacy Reforged"]
 
 
@@ -542,3 +546,26 @@ def test_rosheens_mana_cannot_pay_a_cost_without_x(cards):
     assert not casting.castable(s.state, "p1", bears, s.cards)
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=bears.id)
+
+
+def test_krrik_pays_2_life_for_a_black_symbol(cards):
+    s = build(cards, "K'rrik, Son of Yawgmoth", "Murder")
+    on_field(s, "K'rrik, Son of Yawgmoth")
+    murder = to_hand(s, "Murder")
+    victim = creature(s, "p2", "Bob Bear", "2/2")
+    mana(s, "p1", C=1, B=1)  # {1}{B}{B}: the pool pays {1} and one {B}; the other {B} is 2 life
+    life = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[victim.id])
+    settle(s)
+    assert victim.id not in s.state.cards and s.state.players["p1"].life == life - 2
+    assert s.state.players["p1"].mana == {}
+    roundtrip(s)
+
+
+def test_without_krrik_the_black_mana_is_needed(cards):
+    s = build(cards, "Murder")
+    murder = to_hand(s, "Murder")
+    victim = creature(s, "p2", "Bob Bear", "2/2")
+    mana(s, "p1", C=1, B=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=murder.id, targets=[victim.id])
