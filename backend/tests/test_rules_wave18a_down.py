@@ -463,13 +463,21 @@ def test_ghastly_conscription_manifests_the_creature_cards_of_a_graveyard(cards)
     bolt = put(s, "Lightning Bolt", "graveyard", pid="p2")
     spell = put(s, "Ghastly Conscription", "hand")
     mana(s, B=2, C=5)
+    old = [viper.id, bears.id]  # (a rekey renames the same objects)
     act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"])
     answer(s)
-    for c in (viper, bears):  # the creature cards only, as face-down 2/2 creatures under Alice's control (701.40a)
-        card_ = s.state.cards[c.id]
-        assert card_.zone == "p1:battlefield" and card_.face_down and card_.face_down_kind == "manifest" and card_.controller == "p1"
+    down = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.face_down]
+    # the creature cards only, as face-down 2/2 creatures under Alice's control (701.40a)
+    assert sorted(c.name for c in down) == ["Ambush Viper", "Grizzly Bears"]
+    for c in down:
+        assert c.face_down_kind == "manifest" and c.controller == "p1"
         assert unseen_by(s, c, "p2", SPECTATOR) and not unseen_by(s, c, "p1")
+    # -- review (sys 18A) -- 406.3: the shuffled pile is re-keyed, so the ids Bob saw in his graveyard don't say which is which
+    assert old[0] not in s.state.cards and old[1] not in s.state.cards
+    for viewer in ("p2", SPECTATOR):
+        assert old[0] not in blob(s, viewer) and old[1] not in blob(s, viewer)
     assert s.state.cards[bolt.id].zone == "p2:graveyard"
+    replay_matches(s)
     roundtrip(s)
 
 
@@ -480,13 +488,16 @@ def test_become_anonymous_cloaks_your_creature_and_the_top_two_cards_tapped(card
     top2 = put(s, "Giant Growth", "library", position="top")
     spell = put(s, "Become Anonymous", "hand")
     mana(s, U=2, C=2)
+    old = viper.id
     act(s, "p1", type="cast_spell", card_id=spell.id, targets=[viper.id])
     answer(s)
-    for c in (viper, top1, top2):
-        card_ = s.state.cards[c.id]
-        assert card_.zone == "p1:battlefield" and card_.face_down and card_.face_down_kind == "cloak" and card_.tapped  # "They enter tapped"
-        assert unseen_by(s, c, "p2", SPECTATOR)
-        assert any(a.text.startswith("Ward") for a in chars_of(s, c).abilities)  # 701.58a: ward {2}
+    down = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.face_down]
+    assert sorted(c.name for c in down) == ["Ambush Viper", "Giant Growth", "Grizzly Bears"] and old not in s.state.cards
+    for card_ in down:
+        assert card_.face_down_kind == "cloak" and card_.tapped  # "They enter tapped"
+        assert unseen_by(s, card_, "p2", SPECTATOR)
+        assert any(a.text.startswith("Ward") for a in chars_of(s, card_).abilities)  # 701.58a: ward {2}
+    replay_matches(s)
     roundtrip(s)
 
 
@@ -505,11 +516,13 @@ def test_jeskai_infiltrator_manifests_itself_and_the_top_card(cards):
     turn_on(s)
     act(s, "p1", type="pass_priority")  # → main 1
     act(s, "p1", type="pass_priority")  # → combat
-    act(s, "p1", type="declare_attackers", attackers=[{"card_id": infiltrator.id, "target": "p2"}])
-    run_until(s, lambda s: s.state.cards[infiltrator.id].face_down or s.state.cards[top].face_down)
+    old = infiltrator.id  # (a rekey renames the same object)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": old, "target": "p2"}])
+    run_until(s, lambda s: any(c.face_down for c in s.state.cards.values() if c.zone == "p1:battlefield"))
     run_until(s, lambda s: s.state.rules.decision is None and not s.state.zones.get("stack"))
     mine = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.face_down]
-    assert {c.id for c in mine} == {infiltrator.id, top} and all(c.face_down_kind == "manifest" for c in mine)
+    assert sorted(c.name for c in mine) == ["Forest", "Jeskai Infiltrator"] and all(c.face_down_kind == "manifest" for c in mine)
+    assert old not in s.state.cards and top not in s.state.cards  # (406.3: the shuffled pile is re-keyed)
     for c in mine:
         assert unseen_by(s, c, "p2", SPECTATOR)
     replay_matches(s)

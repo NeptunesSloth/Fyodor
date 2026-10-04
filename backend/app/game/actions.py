@@ -101,6 +101,8 @@ class Shuffle(Base):
     type: Literal["shuffle"] = "shuffle"
     player: Id | None = None
     zone: Literal["library", "hand", "graveyard", "exile"] = "library"
+    # -- review (sys 18A) -- only these cards of the zone (a face-down pile, 406.3): they swap places among themselves, re-keyed
+    card_ids: list[Id] | None = Field(default=None, max_length=250)
     r: ShuffleData | None = None
 
 

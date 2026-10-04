@@ -78,7 +78,7 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
 
     if isinstance(a, A.Shuffle):
         pid = a.player or actor
-        a.r = shuffle_data(len(state.zones.get(zone_key(pid, a.zone), [])), rng)
+        a.r = shuffle_data(len(a.card_ids) if a.card_ids is not None else len(state.zones.get(zone_key(pid, a.zone), [])), rng)
     elif isinstance(a, A.Mulligan):
         pid = a.player or actor
         size = len(state.zones.get(zone_key(pid, "library"), [])) + len(state.zones.get(zone_key(pid, "hand"), []))

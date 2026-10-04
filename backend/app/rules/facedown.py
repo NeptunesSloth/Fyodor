@@ -333,10 +333,8 @@ def become_foretold(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def manifest_pile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Exile [the creature cards of a graveyard / it / a creature you own] [and the top N cards of your library] in a face-down pile,
     shuffle that pile, then manifest / cloak those cards [tapped]": the cards are exiled together face down, the pile's order is
-    shuffled (the table's randomness, recorded as the moves that follow: replay is deterministic), and each card is then manifested
-    or cloaked in turn, one at a time (701.40e, 701.58e) — nobody looks at the cards in between."""
-    import secrets
-
+    shuffled (a recorded table shuffle: replay is deterministic), and each card is then manifested or cloaked in turn, one at a
+    time (701.40e, 701.58e) — nobody looks at the cards in between."""
     pid = ctx["controller"]
     cards: list[str] = []
     if e.get("gy"):
@@ -349,8 +347,15 @@ def manifest_pile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not cards:
         return True
     plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}, "face_down": True, "face_down_kind": "exile"}, actor=pid)
-    pile = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
-    (plan.rng or secrets.SystemRandom()).shuffle(pile)
+    pile: list[str] = []
+    # -- review (sys 18A) -- 406.3: the pile is shuffled by a table shuffle that re-keys it (as a library shuffle does), so no card
+    # id links a manifested permanent to the card it was in the graveyard or on the battlefield; each owner's part is in their exile
+    exiled = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
+    for key in dict.fromkeys(plan.state.cards[c].zone for c in exiled):
+        part = [c for c in exiled if plan.state.cards[c].zone == key]
+        slots = [i for i, c in enumerate(plan.state.zones[key]) if c in part]
+        plan.do({"type": "shuffle", "player": key.split(":")[0], "zone": "exile", "card_ids": part}, actor=pid)
+        pile += [plan.state.zones[key][i] for i in slots]
     ctx.setdefault("manifested", [])
     for c in pile:
         _manifested(plan, ctx, pid, c, e["kind"], tapped=bool(e.get("tapped")))
