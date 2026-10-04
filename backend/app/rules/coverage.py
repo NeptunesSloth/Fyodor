@@ -365,7 +365,12 @@ def _keyword_supported(kw: str, line: str) -> bool:
     if kw == "echo":  # triggers.echo_cost: a mana echo cost
         return re.fullmatch(r"echo (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
-        return re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None  # (no X: wave 3F)
+        if re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None:  # (no X: wave 3F)
+            return True
+        from app.rules.casting import MORPH_COST, nonmana_cost  # -- hidden exile (wave 18A) -- "Morph—Discard a card."
+
+        found = MORPH_COST.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
+        return found is not None and nonmana_cost(found["cost"]) is not None
     if kw == "disguise":  # -- keyword actions & face-down (wave 3F) -- casting.disguise_cost: a mana disguise cost
         return re.fullmatch(r"disguise (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "toxic":  # -- counters & designations (wave 3E) -- combat.py reads "toxic N" anywhere in a keyword line ("Menace, toxic 1")

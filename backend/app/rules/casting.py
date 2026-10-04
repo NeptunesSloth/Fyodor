@@ -1432,6 +1432,19 @@ def _granted_flashback(state: GameState, card: CardInstance, ch: Characteristics
 
 
 MORPH = re.compile(r"^(?P<kind>morph|megamorph) (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+# -- hidden exile (wave 18A) -- a morph cost that isn't mana ("Morph—Discard a card.", "Morph—Reveal a blue card in your hand.", "Morph—Pay 5
+# life."): paid as an ability cost (602.2b's procedure, app/rules/cost_payment.py) when the permanent is turned face up (702.37e)
+MORPH_COST = re.compile(r"^(?P<kind>morph|megamorph)—(?P<cost>[^{}]+)$", re.IGNORECASE)
+
+
+def nonmana_cost(text: str) -> AbilityCost | None:
+    """The non-mana cost a morph line names, as parts the engine pays, or None."""
+    from app.rules import optional_payment
+
+    found = optional_payment.parse(re.sub(r" in your hand$", " from your hand", text.strip().rstrip(".")))
+    return found if found is not None and not found.mana and (found.components or found.life) else None
+
+
 FACE_DOWN = chars.face_down_characteristics("morph")  # (708.2a; disguise: chars.face_down_characteristics)
 
 
@@ -1441,6 +1454,9 @@ def morph_cost(ch: Characteristics) -> tuple[str, str] | None:
         if ab.kind == "keywords" and ({"morph", "megamorph"} & set(ab.keywords)):
             m = MORPH.fullmatch(ab.text.strip().rstrip("."))
             if m:
+                return m["kind"].lower(), m["cost"]
+            m = MORPH_COST.fullmatch(ab.text.strip().rstrip("."))
+            if m and nonmana_cost(m["cost"]) is not None:  # (wave 18A)
                 return m["kind"].lower(), m["cost"]
     return None
 
@@ -1477,6 +1493,33 @@ def face_up_ways(card: CardInstance, printed: Characteristics) -> dict[str, tupl
     return {w: v for w, v in ways.items() if "{X}" not in v[0]}
 
 
+def pay_nonmana_cost(plan: Plan, a: A.TurnFaceUp, card: CardInstance, printed: Characteristics, text: str) -> bool:
+    """-- hidden exile (wave 18A) -- 702.37e: pay a morph cost that isn't mana (discard, return, sacrifice, reveal, life), the
+    parts chosen as an activated ability's are (cost_payment.choose: a private decision when there is a choice, 118.3: only if
+    all of it can be paid). False while the player is asked what pays it."""
+    from app.rules import cost_payment
+
+    cost = nonmana_cost(text)
+    if cost is None:
+        raise ActionError("That morph cost can't be paid here: turn it face up with the table tools")
+    if (why := cost_payment.problem(plan, cost, card, plan.actor)) is not None:
+        raise ActionError(why)
+    if cost.life and plan.state.players[plan.actor].life < cost.life:
+        raise ActionError(f"You don't have {cost.life} life to pay")  # 119.4
+    chosen = cost_payment.choose(plan, a, cost, card, f"Turn {printed.name} face up")
+    if chosen is None:
+        return False
+    if cost.life:
+        plan.do({"type": "life", "player": plan.actor, "delta": -cost.life})
+    cost_payment.pay(plan, cost, card, chosen, PaymentRecord(card=card.id, controller=plan.actor, total_cost=text))
+    for i, comp in enumerate(cost.components):  # "Reveal a blue card in your hand": shown to everyone as the cost is paid (701.20a)
+        if comp.kind == "REVEAL_FROM_HAND" and chosen.get(i):
+            plan.do({"type": "reveal", "card_ids": chosen[i]}, actor=plan.actor)
+            plan.do({"type": "hide", "card_ids": chosen[i]}, actor=plan.actor)
+    plan.note(f"{plan.name(plan.actor)} paid “{text}” to turn a permanent face up")  # (702.37e: the cost is shown to all players)
+    return True
+
+
 def turned_up(plan: Plan, card: CardInstance) -> None:
     """-- hidden exile (wave 18A) -- the permanent was just turned face up (by the special action or by an effect): its "When ~ is
     turned face up" and the table's "Whenever a permanent you control is turned face up" abilities trigger (702.37e: not
@@ -1507,15 +1550,19 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
     if method is None or method not in ways:
         raise ActionError("It can't be turned face up that way: turn it face up with the table tools")
     cost_text, kind = ways[method]
-    cost = M.parse_cost(cost_text)
-    if payment_mode(plan, plan.actor) == "self":
-        pay_from_pool(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up",
-                      purpose=Purpose(ability_of=printed))
+    if not cost_text.startswith("{"):  # -- hidden exile (wave 18A) -- a morph cost that isn't mana (702.37e: "pay that cost")
+        if not pay_nonmana_cost(plan, a, card, printed, cost_text):
+            return  # (waiting for the choice of what pays it)
     else:
-        if not can_pay(plan.state, plan.actor, cost, plan.info, purpose=Purpose(ability_of=printed)):
-            raise ActionError(f"Not enough mana to pay {cost.text()}")
-        pay(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up", sources=a.sources,
-            purpose=Purpose(ability_of=printed))
+        cost = M.parse_cost(cost_text)
+        if payment_mode(plan, plan.actor) == "self":
+            pay_from_pool(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up",
+                          purpose=Purpose(ability_of=printed))
+        else:
+            if not can_pay(plan.state, plan.actor, cost, plan.info, purpose=Purpose(ability_of=printed)):
+                raise ActionError(f"Not enough mana to pay {cost.text()}")
+            pay(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up", sources=a.sources,
+                purpose=Purpose(ability_of=printed))
     plan.do({"type": "face_down", "card_ids": [card.id], "face_down": False})
     turned_up(plan, card)
     plan.rules.passed = []

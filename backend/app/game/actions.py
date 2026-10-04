@@ -950,6 +950,7 @@ class TurnFaceUp(_Intent):
     # -- keyword actions & face-down (wave 3F) -- which way, when there are several: its morph cost
     # (702.37e), its disguise cost (702.168d), or a manifested / cloaked creature card's mana cost (701.40b)
     method: Literal["morph", "disguise", "mana_cost"] | None = None
+    cost_choices: list[CostChoice] = Field(default_factory=list)  # -- hidden exile (wave 18A) -- what pays a non-mana morph cost (602.2b)
 
 
 class ActivateAbility(_Intent):

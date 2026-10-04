@@ -36,6 +36,9 @@ EXTRA = [
     card('Pine Walker', set_code='tst', number='Y09', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Elemental', oracle_text="Morph {4}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhenever this creature or another creature you control is turned face up, untap that creature.", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Morph']),  # noqa: E501
     card('Outrageous Robbery', set_code='tst', number='Y10', mana_cost='{X}{B}{B}', cmc=2.0, type_line='Instant', oracle_text="Target opponent exiles the top X cards of their library face down. You may look at and play those cards for as long as they remain exiled. If you cast a spell this way, you may spend mana as though it were mana of any type to cast it.", power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
     card('Siphon Insight', set_code='tst', number='Y11', mana_cost='{U}{B}', cmc=2.0, type_line='Instant', oracle_text="Look at the top two cards of target opponent's library. Exile one of them face down and put the other on the bottom of that library. You may play the exiled card for as long as it remains exiled, and you may spend mana as though it were mana of any color to cast that spell.\nFlashback {1}{U}{B}", power=None, toughness=None, colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Flashback']),  # noqa: E501
+    card('Ruthless Ripper', set_code='tst', number='Y12', mana_cost='{B}', cmc=1.0, type_line='Creature — Human Assassin', oracle_text='Deathtouch\nMorph—Reveal a black card in your hand. (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, target player loses 2 life.', power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=['Morph', 'Deathtouch']),  # noqa: E501
+    card('Gathan Raiders', set_code='tst', number='Y13', mana_cost='{3}{R}{R}', cmc=5.0, type_line='Creature — Human Warrior', oracle_text='Hellbent — This creature gets +2/+2 as long as you have no cards in hand.\nMorph—Discard a card. (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)', power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=['Morph', 'Hellbent']),  # noqa: E501
+    card('Zombie Cutthroat', set_code='tst', number='Y14', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Creature — Zombie', oracle_text='Morph—Pay 5 life. (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)', power='3', toughness='4', colors=['B'], color_identity=['B'], keywords=['Morph']),  # noqa: E501
     card('Doomskar', set_code='tst', number='Y01', mana_cost='{3}{W}{W}', cmc=5.0, type_line='Sorcery', oracle_text='Destroy all creatures.\nForetell {1}{W}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)', power=None, toughness=None, colors=['W'], color_identity=['W'], keywords=['Foretell']),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
@@ -255,6 +258,52 @@ def test_siphon_insight_privacy_while_choosing_and_after(cards):
         assert "Ambush Viper" not in seen and "Lightning Bolt" not in seen
     assert s.state.zones["p2:library"][-1] == bolt.id
     check(s)
+
+
+def cast_face_down(s, name, pid="p1"):
+    c = to_hand3(s, name, pid)
+    mana3(s, pid, C=3)
+    act(s, pid, type="cast_spell", card_id=c.id, face_down=True)
+    settle(s)
+    assert s.state.cards[c.id].face_down
+    return c
+
+
+def test_non_mana_morph_costs(cards):
+    # Ruthless Ripper: reveal a black card from your hand (the choice is private; the revealed card is shown to everyone)
+    s = build3(cards, "Ruthless Ripper", "Gathan Raiders", "Zombie Cutthroat", "Break Open", players=2)
+    ripper = cast_face_down(s, "Ruthless Ripper")
+    with pytest.raises(ActionError):  # 118.3: no black card to reveal
+        act(s, "p1", type="turn_face_up", card_id=ripper.id)
+    cutthroat = to_hand3(s, "Zombie Cutthroat")  # a black card
+    act(s, "p1", type="turn_face_up", card_id=ripper.id)
+    assert not s.state.cards[ripper.id].face_down and s.state.cards[cutthroat.id].zone == "p1:hand"  # (one candidate: no choice asked)
+    assert any("Reveal a black card" in json.dumps(l) for l in s.view("p2")["log"])  # 702.37e: the cost is shown to all players
+    assert hidden_from_session(s, "p2", cutthroat)  # the card revealed for the cost is hidden again
+    settle(s)  # "target player loses 2 life"
+    check(s)
+
+
+def test_discard_and_life_morph_costs(cards):
+    s = build3(cards, "Gathan Raiders", "Zombie Cutthroat", "Break Open", players=2)
+    raiders = cast_face_down(s, "Gathan Raiders")
+    open_ = to_hand3(s, "Break Open")
+    cut = to_hand3(s, "Zombie Cutthroat")
+    act(s, "p1", type="turn_face_up", card_id=raiders.id)  # Morph—Discard a card: two cards in hand, so Alice chooses (privately)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1"
+    assert {o.card_id for o in d.options} == {open_.id, cut.id}
+    for viewer in ("p2", SPECTATOR):
+        assert "Break Open" not in json.dumps(s.view(viewer)) and "options" not in s.view(viewer)["rules"]["decision"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[cut.id])
+    assert not s.state.cards[raiders.id].face_down and s.state.cards[cut.id].zone == "p1:graveyard"
+    # pay 5 life
+    s2 = build3(cards, "Zombie Cutthroat", players=2)
+    zc = cast_face_down(s2, "Zombie Cutthroat")
+    act(s2, "p1", type="turn_face_up", card_id=zc.id)
+    assert s2.state.players["p1"].life == 35 and not s2.state.cards[zc.id].face_down
+    check(s)
+    check(s2)
 
 
 def test_look_at_target_face_down_creature_is_private_to_the_looker(cards):

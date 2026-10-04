@@ -588,6 +588,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if not i.objects or (skip_gated and closed_gate(i.index, index)):
                 return False
             if verb == "card":  # "that card": a card, so not a token an instruction created (111.1)
+                if i.do == "look_top" and any(o.get("do") == "pick_looked" and o.get("to") == "exile" for o in out[i.index + 1:index]):
+                    return False  # -- hidden exile (wave 18A) -- "look at …, exile two of them, … You may play those cards": the exiled ones
                 return i.do not in _TOKEN_MAKERS and (i.number is None or number is None or i.number == number)
             if verb is not None:
                 return i.verb == verb

@@ -181,7 +181,7 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
     return None
 
 
-def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell, cost: AbilityCost, card: CardInstance, what: str) -> dict[int, list[str]] | None:
+def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, cost: AbilityCost, card: CardInstance, what: str) -> dict[int, list[str]] | None:
     """The validated objects for every part of ``cost`` that needs a choice, by component index;
     None while waiting for the payer's (private) choice. Each object pays for one part only."""
     given: dict[int, list[str]] = {}
@@ -239,7 +239,7 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell, cost: AbilityCost, ca
     return out
 
 
-def _choose_waterbend(plan: Plan, a: A.ActivateAbility | A.CastSpell, i: int, comp: CostComponent, cost: AbilityCost,
+def _choose_waterbend(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, i: int, comp: CostComponent, cost: AbilityCost,
                       card: CardInstance, what: str, given: list[str] | None, used: set[str]) -> list[str] | None:
     """-- activated sweep (wave 17B) -- "Waterbend {N}": the untapped artifacts and creatures the payer taps, at most N, each paying for
     {1} of it (701.67a); none at all is a choice (the mana pays it). Tapping them isn't a {T} cost: a creature that came under the
@@ -263,7 +263,7 @@ def _choose_waterbend(plan: Plan, a: A.ActivateAbility | A.CastSpell, i: int, co
     return None
 
 
-def _choose_counters(plan: Plan, a: A.ActivateAbility | A.CastSpell, i: int, comp: CostComponent, cost: AbilityCost,
+def _choose_counters(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, i: int, comp: CostComponent, cost: AbilityCost,
                      card: CardInstance, what: str, given: list[str] | None, used: set[str]) -> list[str] | None:
     """-- activation costs (wave 4H) -- "Remove two counters from this creature" / "Remove a counter from a creature you
     control": the payer picks the counters (122.1: any kinds; one permanent). Counters are public, but the pick is still
@@ -309,7 +309,7 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     if d.resume["amount"] is not None and len(chosen) != d.resume["amount"]:  # (None: validated as a whole, wave 4H)
         raise ActionError(f"Choose {d.resume['amount']}")
     intent = A.parse_action(d.resume["intent"])
-    assert isinstance(intent, A.ActivateAbility | A.CastSpell)
+    assert isinstance(intent, A.ActivateAbility | A.CastSpell | A.TurnFaceUp)
     intent.cost_choices = [*intent.cost_choices, A.CostChoice(component=d.resume["component"], cards=chosen)]
     plan.rules.passed = []
     INTENTS[intent.type](plan, intent)
@@ -415,7 +415,7 @@ def _flexible_ok(plan: Plan, comp: CostComponent, chosen: list[str]) -> bool:
     return (len(chosen) == 3 and zones == {"graveyard"}) or (len(chosen) == 1 and zones == {"battlefield"})
 
 
-def _choose_flexible(plan: Plan, a: A.ActivateAbility | A.CastSpell, i: int, comp: CostComponent, cost: AbilityCost,
+def _choose_flexible(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, i: int, comp: CostComponent, cost: AbilityCost,
                      card: CardInstance, what: str, given: list[str] | None, used: set[str]) -> list[str] | None:
     """-- activation costs (wave 4H) -- collect evidence N (any number of graveyard cards, total mana value N or more) /
     forage (three graveyard cards, or one Food): one choice of the cards, validated as a whole (601.2h)."""
