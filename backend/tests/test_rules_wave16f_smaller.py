@@ -37,6 +37,9 @@ EXTRA.append(real("Rona, Sheoldred's Faithful", "{2}{B}", 3, "Legendary Creature
                   "Whenever you cast an instant or sorcery spell, each opponent loses 1 life.\nYou may cast this card from your "
                   "graveyard by discarding two cards in addition to paying its other costs.", ("2", "2"), "B"))
 
+EXTRA.append(real("Tabernacle at Pendrell Vale", "", 0, "Legendary Land",
+                  "All creatures have \"At the beginning of your upkeep, destroy this creature unless you pay {1}.\"", None))
+
 IDOLIZED = ("Enchant creature\nEnchanted creature has \"Whenever this creature attacks alone, it gets +X/+X until end of turn, "
             "where X is the number of nonland permanents you control.\"")
 
@@ -306,4 +309,44 @@ def test_cast_from_the_graveyard_by_discarding_two_cards(cards):
     assert s.state.cards[rona.id].zone == "p1:battlefield"
     gone = [c for c in hand if s.state.cards[c].zone == "p1:graveyard"]
     assert len(gone) == 2 and len([c for c in s.state.cards.values() if c.zone == "p1:hand"]) == len(hand) - 2
+    check(s)
+
+
+def test_a_static_grants_every_creature_an_upkeep_payment(cards):
+    # 613.1f / 603.2: Tabernacle at Pendrell Vale: each creature has the ability, its own controller pays or it is destroyed
+    pass
+    from tests.wave9c_kit import card_named, put
+
+    s = build(cards, ["Tabernacle at Pendrell Vale"], [], forests=30, islands=30)
+    put(s, "Tabernacle at Pendrell Vale")
+    bear = _token(s, "p1", "Bear", "Token Creature — Bear")
+    foe = _token(s, "p2", "Foe", "Token Creature — Bear")
+    main_phase(s, 2)
+    assert (bear.id in s.state.cards and s.state.cards[bear.id].zone == "p1:battlefield")
+    assert foe.id not in s.state.cards  # (a token that left the battlefield ceases to exist) Bob couldn't pay at his upkeep: destroyed (not Alice's)
+    main_phase(s, 3)
+    assert bear.id not in s.state.cards  # Alice couldn't pay either
+    check(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_sacrifice_unless_you_pay_its_mana_cost(cards, pay):
+    # 701.21a / 118.12a: Pendrell Flux gives the creature "sacrifice this creature unless you pay its mana cost" ({1}{G})
+    from tests.test_rules_conditionals import until
+    from tests.wave9c_kit import card_named, put
+
+    s = build(cards, ["Grizzly Bears"], [], forests=30, islands=30)
+    bears = put(s, "Grizzly Bears")
+    aura = _token(s, "p1", "Flux", "Token Enchantment — Aura", (None, None), text=(
+        "Enchant creature\nEnchanted creature has \"At the beginning of your upkeep, sacrifice this creature unless you pay its "
+        "mana cost.\""))
+    act(s, "p1", type="attach", card_ids=[aura.id], to=bears.id)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.rules.decision is not None and s.state.rules.decision.player == "p1")
+    d = s.state.rules.decision
+    assert sorted(o.id for o in d.options) == ["pay", "sacrifice"]
+    if pay:
+        mana(s, G=1, C=1)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay" if pay else "sacrifice"])
+    answer(s)
+    assert (s.state.cards[bears.id].zone == "p1:battlefield") == pay
     check(s)

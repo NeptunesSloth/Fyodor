@@ -1363,6 +1363,11 @@ def _pay_or_sacrifice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | Non
     return [{"do": "pay_or_sacrifice", "cost": m["cost"]}], None
 
 
+@effect(r"sacrifice ~ unless you pay its mana cost")  # -- cost alt (wave 16F) -- (effects.pay_or_sacrifice reads the printed cost)
+def _pay_mana_cost_or_sacrifice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "pay_or_sacrifice", "cost": "mana_cost"}], None
+
+
 @effect(r"(?:it|they) can't be regenerated")
 def _no_regeneration(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "no_regen"}], None  # the destruction of this spell/ability ignores regeneration shields

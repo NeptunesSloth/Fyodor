@@ -1906,6 +1906,15 @@ def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # it already left — or 701.21a: another player controls it now (echo, "sacrifice ~ unless
         # you pay" after a control change): it can't be sacrificed, so there's nothing to choose
         return True
+    if e["cost"] == "mana_cost":  # -- cost alt (wave 16F) -- "unless you pay its mana cost": what is printed on it (X is 0 off the stack,
+        # 202.3e); an object with no mana cost has nothing to pay: it is sacrificed
+        printed = (plan.ch(plan.state.cards[src[0]]).mana_cost or "").replace("{X}", "")
+        if not printed:
+            decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name', '')}: it has no mana cost to pay: sacrifice it",
+                   options=[DecisionOption(id="sacrifice", label=f"Sacrifice {plan.state.cards[src[0]].name}")],
+                   resume={"step": "pay_or_sacrifice", "ctx": ctx, "cost": "{0}"}, source=plan.state.cards[src[0]])
+            return False
+        e = {**e, "cost": printed}
     cost = mana.parse_cost(e["cost"])
     if e.get("per"):  # cumulative upkeep: the cost once for each age counter
         n = plan.state.cards[src[0]].counters.get(e["per"], 0)

@@ -222,7 +222,8 @@ def parse(text: str) -> Definition | None:
                             cond = {"static": "not", "cond": cond}
                     conds.append(cond)
                     body = rest_text
-    if " as long as " in body or " unless " in body or body.startswith(("As long as", "During ", "If ", "if ")):
+    outside = re.sub(r'"[^"]*"', "", body)  # (wave 16F: a condition inside a quoted granted ability is that ability's own)
+    if " as long as " in outside or " unless " in outside or body.startswith(("As long as", "During ", "If ", "if ")):
         return None
     # -- conditional statics (wave 4B) -- "Creatures you control also get +1/+0 and have trample as long as …"
     # (Jetmir: "also" only says the effect adds to the line before it)
