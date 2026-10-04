@@ -229,6 +229,13 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
 
                     for piece in keyword_triggers.pieces(kw, ab.text):
                         counters["+1/+1"] = counters.get("+1/+1", 0) + int(piece.split()[1])
+        for ab in ch.abilities:  # -- keywords (wave 15E) -- 702.63a vanishing N / 702.32a fading N: "enters with N time / fade counters"
+            for kw, kind in (("vanishing", "time"), ("fading", "fade")):
+                if ab.kind == "keywords" and kw in ab.keywords:
+                    from app.rules import keyword_triggers
+
+                    for piece in keyword_triggers.pieces(kw, ab.text):
+                        counters[kind] = counters.get(kind, 0) + int(piece.split()[1])
         from app.rules import (
             devour,  # -- keyword mechanics (wave 9D) -- 702.82a: N for each permanent sacrificed as it entered
         )

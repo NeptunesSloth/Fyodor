@@ -1988,6 +1988,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         text = _PICK_NEG.sub(r"if you \1, ", text)  # -- look and distribute (wave 3L) -- "If you don't put the card into your hand, …"
         if _PICK_DIDNT.match(text) and any(x["do"] == "pick_looked" and x["to"] == "hand" for x in effects):
             text = _PICK_DIDNT.sub("if you don't, ", text)  # -- if you do (wave 10C) -- "If you didn't put a card into your hand this way, …"
+        if text.startswith("if you can't, ") and not optional and len(effects) - prev_start == 1 \
+                and effects[prev_start]["do"] == "remove_counters":  # -- keywords (wave 15E) -- fading 702.32a: "Remove a fade counter
+            text = "if you don't, " + text[len("if you can't, "):]  # from this permanent. If you can't, sacrifice it." (the removal
+            # of a counter that isn't there is the one that wasn't done, as "If you don't" reads it)
         if (if_do := _IF_YOU_DO.match(text)) is not None:
             bind = _last_payment(effects)
             pick = next((e for e in reversed(effects) if e["do"] == "pick_looked"), None)
@@ -3195,7 +3199,7 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
             if kw in KEYWORD_TRIGGERS:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
             if kw in _kw_meanings.MEANINGS:  # -- static wordings (wave 6E) -- read as its CR meaning (app/rules/keyword_triggers.py)
-                out += [(1000 + ab.index * 10 + k, d) for d in _kw_meanings.definitions(kw, ab.text)[:1]]
+                out += [(1000 + ab.index * 10 + k + 100000 * j, d) for j, d in enumerate(_kw_meanings.first_piece(kw, ab.text, ab.keywords[:k].count(kw)))]
             if kw == "partner" and (pw := _kw_meanings.partner_with_definition(ab.text)) is not None:  # -- keyword pieces (wave 8A) --
                 out.append((1000 + ab.index * 10 + k, pw))
             if kw == "decayed":  # -- token & pump wordings (wave 6C) -- 702.147a (app/rules/decayed.py)

@@ -656,6 +656,10 @@ def _object_event(c: str) -> Condition | None:
         return {**base, "event": "counters_put", **({"counter": m["k"]} if m["k"] else {}),
                 "by": "you" if m["p"] == "you" else "opponent", **({"own": True} if own else {})}
     # -- end counters (wave 5H) --
+    # -- keywords (wave 15E) -- 702.63a vanishing: "When the last time counter is removed from this permanent"
+    m = re.fullmatch(r"the last (?P<k>[a-z]+) counter is removed from ~", c)
+    if m:
+        return {"subject": "self", "event": "counters_removed", "counter": m["k"], "last": True}
     m = re.fullmatch(r"(?:one or more|an?) (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) )?counters? (?:is|are) put on (?P<s>.+)", c)
     if m:
         base = _subject(m["s"])

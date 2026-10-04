@@ -56,10 +56,16 @@ MEANINGS: dict[str, str] = {
     # 702.181a ("those tokens enter tapped and attacking" written as the grammar reads it; "a" for one, {w} the number word)
     "mobilize": "Whenever this creature attacks, create {w} 1/1 red Warrior creature token{s} that{be} tapped and attacking. "
                 "Sacrifice {them} at the beginning of the next end step.",
+    # 702.63a vanishing N: enters with N time counters (replacements.entering_counters), and these two
+    "vanishing": "At the beginning of your upkeep, if this permanent has a time counter on it, remove a time counter from it.\n"
+                 "When the last time counter is removed from this permanent, sacrifice this permanent.",
+    # 702.32a fading N: enters with N fade counters (replacements.entering_counters), and this
+    "fading": "At the beginning of your upkeep, remove a fade counter from this permanent. If you can't, sacrifice this "
+              "permanent.",
     "mentor": "Whenever this creature attacks, put a +1/+1 counter on target attacking creature with power less than this "
               "creature's power.",  # 702.134a
 }
-_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict", "mobilize"})
+_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict", "mobilize", "vanishing", "fading"})
 
 
 def pieces(kw: str, line: str) -> list[str]:
@@ -74,6 +80,8 @@ def pieces(kw: str, line: str) -> list[str]:
 
 @lru_cache(maxsize=256)
 def _definition(piece: str) -> str | None:
+    """The definitions of one keyword piece as JSON: a list, one per ability the keyword is ("\n" in its meaning: vanishing is
+    two triggered abilities, 702.63a)."""
     from app.rules import scripts  # (scripts imports this module)
     from app.rules.characteristics import Characteristics
 
@@ -83,20 +91,32 @@ def _definition(piece: str) -> str | None:
         return None
     one = n == "1"
     word = "a" if one else {"2": "two", "3": "three", "4": "four", "5": "five"}.get(n, n)
-    ab = AbilityText(index=0, text=meaning.format(n=n, w=word, s="" if one else "s", be="'s" if one else " are", them="it" if one else "them"), kind="triggered")
-    d = scripts.define(ab, Characteristics(name="\u0000", abilities=(ab,), types=frozenset({"Creature"})))
-    return json.dumps(d) if d is not None and d.get("kind") == "triggered" and scripts._event_refs_ok(d) else None
+    out = []
+    for text in meaning.format(n=n, w=word, s="" if one else "s", be="'s" if one else " are",
+                               them="it" if one else "them").split("\n"):
+        ab = AbilityText(index=0, text=text, kind="triggered")
+        d = scripts.define(ab, Characteristics(name="\u0000", abilities=(ab,), types=frozenset({"Creature"})))
+        if d is None or d.get("kind") != "triggered" or not scripts._event_refs_ok(d):
+            return None
+        out.append(d)
+    return json.dumps(out)
 
 
 def definitions(kw: str, line: str) -> list[dict[str, Any]]:
-    """The triggered abilities this keyword gives the line (one per instance), or [] when not read."""
-    out = []
+    """The triggered abilities this keyword gives the line (every ability of each instance), or [] when not read."""
+    out: list[dict[str, Any]] = []
     for piece in pieces(kw, line):
         found = _definition(piece)
         if found is None:
             return []
-        out.append(json.loads(found))
+        out += json.loads(found)
     return out
+
+
+def first_piece(kw: str, line: str, nth: int = 0) -> list[dict[str, Any]]:
+    """The abilities of the ``nth`` instance of the keyword on the line (each instance is its own keyword ability)."""
+    found = [_definition(p) for p in pieces(kw, line)[nth:nth + 1]]
+    return json.loads(found[0]) if found and found[0] is not None else []
 
 
 def supported(kw: str, line: str) -> bool:

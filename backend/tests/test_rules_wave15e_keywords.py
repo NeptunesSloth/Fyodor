@@ -26,6 +26,8 @@ EXTRA = [
     card('Demonmail Hauberk', set_code='tst', number='X07', mana_cost='{4}', cmc=4.0, type_line='Artifact — Equipment', oracle_text='Equipped creature gets +4/+2.\nEquip—Sacrifice a creature. (Sacrifice a creature: Attach to target creature you control. Equip only as a sorcery.)', power=None, toughness=None, colors=[], color_identity=[], keywords=['Equip']),  # noqa: E501
     card('Bureau Headmaster', set_code='tst', number='X08', mana_cost='{R}{W}', cmc=2.0, type_line='Creature — Human Assassin', oracle_text='Equipment spells you cast cost {1} less to cast.\nEquip abilities you activate cost {1} less to activate.', power='2', toughness='2', colors=['R', 'W'], color_identity=['R', 'W'], keywords=[]),  # noqa: E501
     card('Entangling Vines', set_code='tst', number='X09', mana_cost='{3}{G}', cmc=4.0, type_line='Enchantment — Aura', oracle_text="Enchant tapped creature\nEnchanted creature doesn't untap during its controller's untap step.", power=None, toughness=None, colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
+    card('Blastoderm', set_code='tst', number='X10', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Creature — Beast', oracle_text="Shroud (This creature can't be the target of spells or abilities.)\nFading 3 (This creature enters with three fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Shroud', 'Fading']),  # noqa: E501
+    card('Calciderm', set_code='tst', number='X11', mana_cost='{2}{W}{W}', cmc=4.0, type_line='Creature — Beast', oracle_text="Shroud (This creature can't be the target of spells or abilities.)\nVanishing 4 (This creature enters with four time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)", power='5', toughness='5', colors=['W'], color_identity=['W'], keywords=['Shroud', 'Vanishing']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -227,4 +229,39 @@ def test_ward_pay_life_declined_counters_the_spell(cards):
 def test_ward_pay_life_paid_lets_the_spell_resolve(cards):
     s, bolt, warden = _ward_life(cards, "pay")
     assert s.state.players["p1"].life == 37 and warden.id not in s.state.zones["p2:battlefield"]  # paid 3, Bolt killed it
+    check(s)
+
+
+def to_own_turn(s, n):
+    until(s, lambda s: s.state.turn.number >= n and s.state.turn.phase == "main1" and s.state.rules.decision is None
+          and s.state.turn.active_player == "p1")
+
+
+def test_fading_counts_down_then_sacrifices(cards):
+    s = build(cards, "Blastoderm")
+    beast = to_hand(s, "Blastoderm")
+    mana(s, G=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=beast.id)
+    settle(s)
+    assert s.state.cards[beast.id].counters.get("fade") == 3  # 702.32a
+    for turn, left in ((3, 2), (5, 1), (7, 0)):
+        to_own_turn(s, turn)
+        assert s.state.cards[beast.id].counters.get("fade", 0) == left and s.state.cards[beast.id].zone == "p1:battlefield"
+    to_own_turn(s, 9)  # no counter to remove: sacrificed
+    assert s.state.cards[beast.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_vanishing_sacrifices_when_the_last_counter_goes(cards):
+    s = build(cards, "Calciderm")
+    beast = to_hand(s, "Calciderm")
+    mana(s, W=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=beast.id)
+    settle(s)
+    assert s.state.cards[beast.id].counters.get("time") == 4  # 702.63a
+    act(s, "p1", type="counter", card_ids=[beast.id], kind="time", delta=-3)  # (by hand: not the last)
+    settle(s)
+    assert s.state.cards[beast.id].zone == "p1:battlefield"
+    to_own_turn(s, 3)  # the upkeep removes the last time counter: sacrificed
+    assert s.state.cards[beast.id].zone == "p1:graveyard"
     check(s)
