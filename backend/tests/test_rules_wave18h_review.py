@@ -231,3 +231,32 @@ def test_the_controlled_players_hand_and_the_search_reach_nobody_else(cards):
         act(s, s.state.rules.priority, type="pass_priority")
     assert own.id in seen_by(s, "p1") and own.id not in seen_by(s, "p3") and own.id not in seen_by(s, SPECTATOR)
     assert rules_view(s.state, "p3", s.cards)["decision"]["prompt"] == "Alice (for Bob) is making a choice"
+
+
+def test_opposition_agent_controls_a_name_search_of_ones_own_library(cards):
+    from tests.test_rules_effects import token
+    from tests.test_rules_wave11d_name_search import SURGICAL
+
+    setups = [PlayerSetup("Alice", cards=deck(cards, "Krenko, Mob Boss", [(1, "Opposition Agent"), (10, "Island")])),
+              PlayerSetup("Bob", cards=deck(cards, "Atraxa, Praetors' Voice", [(2, "Hidden Gem"), (10, "Island")]))]
+    s = GameSession(enable(new_game(setups, shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    agent = next(c for c in s.state.cards.values() if c.name == "Opposition Agent")
+    act(s, "p1", type="move", card_ids=[agent.id], to={"player": "p1", "zone": "battlefield"})
+    src = token(s, "p2", "Extractor", "1/1", text=f"{{1}}: {SURGICAL}")
+    while s.state.rules.priority != "p2":
+        act(s, s.state.rules.priority, type="pass_priority")
+    in_gy, in_library = [c for c in s.state.cards.values() if c.name == "Hidden Gem"]
+    act(s, "p2", type="move", card_ids=[in_gy.id], to={"player": "p2", "zone": "graveyard"})
+    act(s, "p2", type="move", card_ids=[in_library.id], to={"player": "p2", "zone": "library"})
+    in_library = next(c for c in s.state.cards.values() if c.name == "Hidden Gem" and c.zone == "p2:library")  # (a new id there)
+    mana(s, "p2", C=1)
+    act(s, "p2", type="activate_ability", card_id=src.id, ability=0, targets=[in_gy.id])
+    drive(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.resume.get("step") == "name_search")
+    d = s.state.rules.decision
+    assert d.player == "p2" and d.decider == "p1"  # 723.2: Bob searches his own library, so Alice chooses
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[in_gy.id, in_library.id])
+    drive(s, lambda s: not s.state.zones.get("stack") and s.state.rules.decision is None)
+    assert s.state.cards[in_gy.id].zone == "p2:exile" and s.state.cards[in_library.id].zone == "p2:exile"
+    assert [p.card for p in s.state.rules.permissions if p.player == "p1"] == [in_library.id]  # only what was in the library
+    roundtrip(s)

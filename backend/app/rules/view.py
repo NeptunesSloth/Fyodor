@@ -53,7 +53,8 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
         # -- counters & designations (wave 3E): dungeons, venture markers and the Ring (public, 309.2b / 701.54) --
         "designations": designations_view(state),
         # -- controlling another player (wave 18H) -- 723: who controls whom this turn is a public fact
-        "control": [{"controlled": c.controlled, "controller": c.controller, "status": c.status} for c in r.player_control],
+        "control": [{"controlled": c.controlled, "controller": c.controller, "status": c.status} for c in r.player_control
+                    if c.status == "pending" or controller_of(state, c.controlled) == c.controller],  # (an ended one: not shown)
     }
     d = r.decision
     if d is not None:

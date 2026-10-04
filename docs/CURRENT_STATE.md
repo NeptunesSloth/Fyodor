@@ -81,7 +81,10 @@ save/load checks.
   `rules/player_control.py` (Mindslaver, Worst Fears, Emrakul "next turn" effects: pending until that player's
   turn begins, latest wins; Opposition Agent: the search decision's `decider`, found cards exiled + playable,
   any-color mana). Manual: Word of Command, Cruel Entertainment, Secret of Bloodbending (a combat phase),
-  Dominion Bracelet / Cosmic Cube (other unread wordings), Sorin Markov's -3.
+  Dominion Bracelet / Cosmic Cube (other unread wordings), Sorin Markov's -3. Review: control is bound to the turn
+  number it began on (a turn passed by hand ends it) and starts before that turn's untap choices; a departed
+  controller/decider hands choices back (800.4a); a controlled player may only concede (`session.CONTROLLED_MAY`:
+  table tools, card automation and undo wait); Opposition Agent also covers Gifts-style and own-library name searches.
 - **Wave 9A**: discover, "where X is" keyword actions (bolster, amass, connive, endure), "the amount of
   mana spent to cast", "creatures that died under your control this turn".
 
