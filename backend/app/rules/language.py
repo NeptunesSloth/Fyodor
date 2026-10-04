@@ -914,11 +914,11 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     if down is not None:
         if (down["s"] == "you") != down["tail"].startswith("an opponent"):
             raise _Fail
-        e: dict[str, Any] = {"do": "piles_down", "n": _amount(down["n"]) if down["n"] else 1,
+        pe: dict[str, Any] = {"do": "piles_down", "n": _amount(down["n"]) if down["n"] else 1,
                              "by": "you" if down["s"] == "you" else "opponent", "choose": "opponent" if down["s"] == "you" else "you"}
         if down["s"] == "target opponent":
-            return [{**e, "who": "target"}], {"what": "opponent", "min": 1, "max": 1}
-        return [e], None
+            return [{**pe, "who": "target"}], {"what": "opponent", "min": 1, "max": 1}
+        return [pe], None
     chained = _chain(text)  # -- look and distribute (wave 3L) --
     if chained is not None:
         return chained

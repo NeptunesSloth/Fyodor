@@ -375,7 +375,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
         if re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None:  # (no X: wave 3F)
             return True
-        from app.rules.casting import MORPH_COST, nonmana_cost  # -- hidden exile (wave 18A) -- "Morph—Discard a card."
+        from app.rules.casting import (  # -- hidden exile (wave 18A) -- "Morph—Discard a card."
+            MORPH_COST,
+            nonmana_cost,
+        )
 
         found = MORPH_COST.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
         return found is not None and nonmana_cost(found["cost"]) is not None

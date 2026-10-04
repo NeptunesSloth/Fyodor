@@ -19,7 +19,8 @@ from tests.game_helpers import act
 from tests.test_rules_conditionals import settle, until, until_asked
 from tests.test_rules_effects import replay_matches
 from tests.test_rules_keywords3f import REAL as FACE_DOWN_CARDS
-from tests.test_rules_keywords3f import build as build3, ch, hidden_from, named
+from tests.test_rules_keywords3f import build as build3
+from tests.test_rules_keywords3f import ch, hidden_from, named
 from tests.test_rules_keywords3f import mana as mana3
 from tests.test_rules_keywords3f import to_hand as to_hand3
 from tests.test_rules_wave6c_tokens_pumps import build, mana, reloaded, to_hand, token_of
@@ -211,7 +212,9 @@ def test_turned_face_up_triggers_of_other_permanents(cards):
 
 
 def test_outrageous_robbery_exiles_unseen_cards_only_the_caster_may_look_at(cards):
-    from tests.test_rules_wave9b_exile_permission import answer, build as build9, put as put9
+    from tests.test_rules_wave9b_exile_permission import answer
+    from tests.test_rules_wave9b_exile_permission import build as build9
+    from tests.test_rules_wave9b_exile_permission import put as put9
 
     s = build9(cards, p1=("Outrageous Robbery",), p2=("Ambush Viper", "Lightning Bolt"))
     robbery = put9(s, "Outrageous Robbery", "hand")
@@ -236,7 +239,9 @@ def test_outrageous_robbery_exiles_unseen_cards_only_the_caster_may_look_at(card
 
 
 def test_siphon_insight_privacy_while_choosing_and_after(cards):
-    from tests.test_rules_wave9b_exile_permission import answer, build as build9, put as put9
+    from tests.test_rules_wave9b_exile_permission import answer
+    from tests.test_rules_wave9b_exile_permission import build as build9
+    from tests.test_rules_wave9b_exile_permission import put as put9
 
     s = build9(cards, p1=("Siphon Insight",), p2=("Ambush Viper", "Lightning Bolt"))
     siphon = put9(s, "Siphon Insight", "hand")
@@ -280,7 +285,7 @@ def test_non_mana_morph_costs(cards):
     cutthroat = to_hand3(s, "Zombie Cutthroat")  # a black card
     act(s, "p1", type="turn_face_up", card_id=ripper.id)
     assert not s.state.cards[ripper.id].face_down and s.state.cards[cutthroat.id].zone == "p1:hand"  # (one candidate: no choice asked)
-    assert any("Reveal a black card" in json.dumps(l) for l in s.view("p2")["log"])  # 702.37e: the cost is shown to all players
+    assert any("Reveal a black card" in json.dumps(ln) for ln in s.view("p2")["log"])  # 702.37e: the cost is shown to all players
     assert hidden_from_session(s, "p2", cutthroat)  # the card revealed for the cost is hidden again
     settle(s)  # "target player loses 2 life"
     check(s)
@@ -322,7 +327,8 @@ def view_text(s, pid):
 
 
 def test_fortunes_favor_the_opponent_separates_and_you_choose_blind(cards):
-    from tests.test_rules_wave9b_exile_permission import build as build9, put as put9
+    from tests.test_rules_wave9b_exile_permission import build as build9
+    from tests.test_rules_wave9b_exile_permission import put as put9
 
     s = build9(cards, p1=("Fortune's Favor", *TOP4), p2=())
     favor = put9(s, "Fortune's Favor", "hand")
@@ -354,7 +360,8 @@ def test_fortunes_favor_the_opponent_separates_and_you_choose_blind(cards):
 
 
 def test_riddles_in_the_dark_you_separate_and_the_opponent_chooses_blind(cards):
-    from tests.test_rules_wave9b_exile_permission import build as build9, put as put9
+    from tests.test_rules_wave9b_exile_permission import build as build9
+    from tests.test_rules_wave9b_exile_permission import put as put9
 
     s = build9(cards, p1=("Riddles in the Dark", *TOP4), p2=())
     riddles = put9(s, "Riddles in the Dark", "hand")
