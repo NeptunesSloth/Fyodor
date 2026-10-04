@@ -2051,9 +2051,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     # the tapped creature's power
     if alt_offer is not None and alt_offer.tag in ("emerge", "harmonize"):
         n_alt = len(alt_offer.alt.cost.components)
-        emerge_reduction = sum(max(0, int(plan.ch(plan.state.cards[c]).mana_value if alt_offer.tag == "emerge"
-                                          else plan.ch(plan.state.cards[c]).pt[0] if plan.ch(plan.state.cards[c]).pt else 0))
-                               for i, ids in add_objects.items() if alt_at <= i < alt_at + n_alt for c in ids)
+        for i, ids in add_objects.items():
+            if alt_at <= i < alt_at + n_alt:
+                for c in ids:
+                    now = plan.ch(plan.state.cards[c])
+                    emerge_reduction += max(0, int(now.mana_value) if alt_offer.tag == "emerge" else now.pt[0] if now.pt else 0)
     # (-- casting extras (wave 18E) -- the additional costs are chosen before the total cost is worked out: emerge's reduction reads
     # the creature sacrificed for it, 702.119a)
     # 601.2f (after the targets, 601.2c): the total cost in the rules' order — kicker is an additional cost (118.8)

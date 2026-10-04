@@ -1186,8 +1186,8 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
         if test in ("suspected", "prepared", "attached_to"):
             return False
     if test == "attached_to":  # -- casting extras (wave 18E) -- attached to a permanent that's on the battlefield (a creature, as only one can be)
-        return card.attached_to is not None and (host := plan.state.cards.get(card.attached_to)) is not None \
-            and host.zone.endswith(":battlefield")
+        host = plan.state.cards.get(card.attached_to or "") if card is not None else None
+        return host is not None and host.zone.endswith(":battlefield")
     return {"tapped": tapped, "untapped": not tapped, "attacking": attacking, "blocking": blocking}[test]
 
 

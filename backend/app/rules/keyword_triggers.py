@@ -98,9 +98,7 @@ def pieces(kw: str, line: str) -> list[str]:
     out = []
     for p in re.split(r"[,;]\s*", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")):
         p = p.strip().lower()
-        if p == kw or (kw in _NUMBERED and re.fullmatch(rf"{re.escape(kw)} \d+", p)):
-            out.append(p)
-        elif kw == "recover" and re.fullmatch(r"recover (?:\{[^}x]+\})+", p):  # (-- casting extras (wave 18E) -- its cost is in the meaning)
+        if p == kw or (kw in _NUMBERED and re.fullmatch(rf"{re.escape(kw)} \d+", p)) or kw == "recover" and re.fullmatch(r"recover (?:\{[^}x]+\})+", p):
             out.append(p)
         elif kw in _COSTED and re.fullmatch(rf"{re.escape(kw)} (?:\{{[^}}]+\}})+", p):  # (wave 15E) "squad {1}{g}": the keyword
             out.append(kw)

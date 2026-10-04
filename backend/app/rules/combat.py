@@ -378,7 +378,9 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
 
         if exert.ask(plan, [plan.state.cards[x.card_id] for x in a.attackers]):
             return
-        from app.rules import enlist  # -- casting extras (wave 18E) -- 702.154a: an optional cost to attack (508.1g)
+        from app.rules import (
+            enlist,  # -- casting extras (wave 18E) -- 702.154a: an optional cost to attack (508.1g)
+        )
 
         if enlist.ask(plan, [plan.state.cards[x.card_id] for x in a.attackers], []):
             return

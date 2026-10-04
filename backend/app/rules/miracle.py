@@ -78,8 +78,8 @@ def reveal(plan: Plan, a: A.MiracleReveal) -> None:
 
 def offer(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """702.94a: "When you reveal this card this way, you may cast it by paying [cost] rather than its mana cost." """
-    from app.rules.plan import decide
     from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
 
     cid = e["card"]
     card = plan.state.cards.get(cid)

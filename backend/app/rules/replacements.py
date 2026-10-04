@@ -153,7 +153,9 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
     from app.rules import devour
 
     devour.plan_entry(plan, card, controller, answers, out, set(reserved or ()))
-    from app.rules import amplify  # -- casting extras (wave 18E) -- amplify N (702.38a): which cards to reveal as it enters
+    from app.rules import (
+        amplify,  # -- casting extras (wave 18E) -- amplify N (702.38a): which cards to reveal as it enters
+    )
 
     amplify.plan_entry(plan, card, controller, answers, out)
     from app.rules import (
@@ -245,11 +247,10 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                     for piece in keyword_triggers.pieces(kw, ab.text):
                         counters[kind] = counters.get(kind, 0) + int(piece.split()[1])
         from app.rules import (
+            amplify,  # -- casting extras (wave 18E) -- 702.38a: N for each card revealed as it entered
             devour,  # -- keyword mechanics (wave 9D) -- 702.82a: N for each permanent sacrificed as it entered
             riot,  # -- keywords (wave 15E) -- 702.136a / 702.98a: the additional +1/+1 counter chosen
         )
-
-        from app.rules import amplify  # -- casting extras (wave 18E) -- 702.38a: N for each card revealed as it entered
 
         if amplify.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + amplify.counters(ch, choices)
@@ -455,9 +456,10 @@ def stack_entry_choice(plan: Plan, card: CardInstance, controller: str) -> bool:
 
 
 def _picked(plan: Plan, d: Any, chosen: str) -> str:
-    from app.rules import devour  # -- keyword mechanics (wave 9D) --
-
-    from app.rules import amplify  # -- casting extras (wave 18E) --
+    from app.rules import (
+        amplify,  # -- casting extras (wave 18E) --
+        devour,  # -- keyword mechanics (wave 9D) --
+    )
 
     if amplify.is_choice(d.resume["what"]):
         return amplify.merge(plan.rules.entry_choices.get(d.resume["card"], {}).get(amplify.WHAT), chosen)

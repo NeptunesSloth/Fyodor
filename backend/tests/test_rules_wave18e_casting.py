@@ -342,7 +342,7 @@ def test_reconfigure_attaches_stops_being_a_creature_and_unattaches(cards):
 def test_amplify_reveals_cards_sharing_a_creature_type_and_always_asks(cards):
     s = build(cards, p1=("Aven Warhawk", "Aven Warhawk", "Test Bear"))
     hawks = [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Aven Warhawk"]
-    bear = put(s, "Test Bear", "hand")
+    put(s, "Test Bear", "hand")
     for h in hawks:
         act(s, "p1", type="move", card_ids=[h.id], to={"player": "p1", "zone": "hand"})
     mana(s, W=1, C=4)

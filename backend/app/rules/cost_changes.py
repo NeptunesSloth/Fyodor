@@ -524,10 +524,10 @@ def optional_offers(state: GameState, player: str, card: CardInstance, ch: Chara
                                 and cast_limits.from_ok(d, card) for src, d in cast_limits._statics(state, info, "spell_keyword")):
         out.append(Optional(f"{card.id}:conspire", "Conspire: tap two untapped creatures that share a color with it", 0, "", "conspire"))
     for text in own:
-        if (m := re.fullmatch(r"Casualty (\d+)", text)) is not None:  # -- casting extras (wave 18E) -- 702.153a (one instance: 702.153b is refused)
-            if own.count(text) == 1 and sum(t.startswith("Casualty") for t in own) == 1:
-                out.append(Optional(f"{card.id}:casualty", f"Casualty {m[1]}: sacrifice a creature with power {m[1]} or greater", 0, "",
-                                    "casualty", int(m[1])))
+        # -- casting extras (wave 18E) -- 702.153a casualty (one instance: 702.153b's several are refused)
+        if (m := re.fullmatch(r"Casualty (\d+)", text)) is not None and sum(t.startswith("Casualty") for t in own) == 1:
+            out.append(Optional(f"{card.id}:casualty", f"Casualty {m[1]}: sacrifice a creature with power {m[1]} or greater", 0, "",
+                                "casualty", int(m[1])))
         if (m := re.fullmatch(r"Teamwork (\d+)", text)) is not None:
             out.append(Optional(f"{card.id}:teamwork", f"Teamwork {m[1]}: tap creatures with total power {m[1]} or more", 0, "", "teamwork",
                                 int(m[1])))

@@ -114,7 +114,9 @@ def base_recipe(card: CardInstance) -> CopyRecipe:
 def recipe_of(plan: Plan, card: CardInstance) -> CopyRecipe:
     """707.2 / 707.3: this object's copiable values as a recipe to copy from — the recipe of the
     copy effect that applies to it (with that effect's exceptions), else its printed values."""
-    from app.rules import prototype  # -- casting extras (wave 18E) -- 718.3c-d: a prototyped object's copy is prototyped too
+    from app.rules import (
+        prototype,  # -- casting extras (wave 18E) -- 718.3c-d: a prototyped object's copy is prototyped too
+    )
 
     found = copy_recipe_of(plan.rules, plan.oid(card))
     recipe = found.model_copy(deep=True) if found is not None else base_recipe(card)

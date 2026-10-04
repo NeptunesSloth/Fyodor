@@ -1061,7 +1061,9 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]]) -> None:
         if drawn:
             top = list(library[:drawn])
             plan.do({"type": "draw", "player": pid, "count": drawn}, actor=pid)
-            from app.rules import miracle  # -- casting extras (wave 18E) -- 702.94a: the first card drawn this turn
+            from app.rules import (
+                miracle,  # -- casting extras (wave 18E) -- 702.94a: the first card drawn this turn
+            )
 
             miracle.on_draw(plan, pid, top)
             key = _draw_step_key(plan)
