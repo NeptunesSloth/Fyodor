@@ -484,8 +484,22 @@ _KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P
                      re.IGNORECASE)
 
 
+# -- casting extras (wave 18E) -- 702.42a: an entwine cost that isn't mana ("Entwine—Sacrifice three lands.") is paid as additional costs are
+_ENTWINE_EXTRA = re.compile(r"^entwine—(?P<rest>[^{}.]+)$", re.IGNORECASE)
+
+
+def _entwine_extra(line: str) -> str | None:
+    """The non-mana entwine cost of a line the engine pays ("sacrifice two lands"), or None."""
+    from app.rules import alt_costs
+
+    m = _ENTWINE_EXTRA.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
+    return m["rest"].strip() if m is not None and alt_costs.parse_cost(m["rest"].strip()) is not None else None
+
+
 def kicker_line(line: str) -> bool:
     """Is this keyword line a kicker the engine pays ("Kicker {2}{R}", "Multikicker {1}")?"""
+    if _entwine_extra(line) is not None:
+        return True
     m = _KICKER.fullmatch(line.strip().rstrip("."))
     return m is not None and "{X}" not in m["cost"].upper() and _MANA_ONLY.match(m["cost"]) is not None
 
@@ -495,6 +509,7 @@ class Kicker:
     cost: str  # mana symbols, e.g. "{2}{R}"
     multi: bool = False  # 702.33c multikicker: any number of times
     entwine: bool = False  # -- casting extras (wave 18E) -- 702.42a: the count 1 means "choose all modes" (paid as kicker is)
+    extra: str = ""  # (an entwine cost that isn't mana: "sacrifice two lands", paid with the additional costs)
 
 
 def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
@@ -504,6 +519,9 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
     found: list[Kicker] = []
     for ab in abilities:
         if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"} & set(ab.keywords)):
+            continue
+        if (extra := _entwine_extra(ab.text)) is not None:
+            found.append(Kicker("", entwine=True, extra=extra))
             continue
         m = _KICKER.fullmatch(ab.text.strip().rstrip("."))
         if m is None or not kicker_line(ab.text):

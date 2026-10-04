@@ -102,6 +102,9 @@ EXTRA = [
     card("Fan Favorite", set_code="tst", number="D23", mana_cost="{3}{B}", cmc=4.0, type_line="Creature — Bear", power="2", toughness="2",
          colors=["B"], color_identity=["B"], oracle_text="Assist (Another player can pay up to {3} of this spell's cost.)\n{2}: This "
          "creature gets +1/+1 until end of turn. Any player may activate this ability.", keywords=["Assist"]),
+    card("Betrayal of Flesh", set_code="tst", number="D24", mana_cost="{5}{B}", cmc=6.0, type_line="Instant", colors=["B"], color_identity=["B"],
+         oracle_text="Choose one —\n• Destroy target creature.\n• Return target creature card from your graveyard to the battlefield.\n"
+         "Entwine—Sacrifice three lands. (Choose both if you pay the entwine cost.)"),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -137,6 +140,23 @@ def test_entwine_chooses_both_modes_for_the_entwine_cost(cards):
     answer(s)
     assert s.state.cards[relic.id].zone == "p2:graveyard" and s.state.cards[land.id].zone == "p2:graveyard"
     assert find(s, "Rain of Rust").zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_entwine_with_a_cost_that_is_not_mana(cards):
+    s = build(cards, p1=("Betrayal of Flesh", "Test Bear"), p2=("Test Bear",))
+    flesh = put(s, "Betrayal of Flesh", "hand")
+    back = put(s, "Test Bear", "graveyard")
+    theirs = put(s, "Test Bear", "battlefield", pid="p2")
+    forests = [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Forest"][:3]
+    for f in forests:
+        act(s, "p1", type="move", card_ids=[f.id], to={"player": "p1", "zone": "battlefield"})
+    mana(s, B=1, C=5)
+    act(s, "p1", type="cast_spell", card_id=flesh.id, kicker=1, targets=[theirs.id, back.id],  # 702.42a: both modes, for the sacrifice
+        cost_choices=[{"component": 0, "cards": [f.id for f in forests]}])
+    answer(s)
+    assert all(s.state.cards[f.id].zone == "p1:graveyard" for f in forests)
+    assert s.state.cards[theirs.id].zone == "p2:graveyard" and s.state.cards[back.id].zone == "p1:battlefield"
     roundtrip(s)
 
 
