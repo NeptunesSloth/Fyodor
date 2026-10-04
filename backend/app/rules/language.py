@@ -1523,10 +1523,19 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         e = _grant_effect(_who(kind, key), m["kw"])
-        if "quotes" not in e:
-            raise _Fail  # (keywords only: not read here)
+        if "quotes" not in e and not m["eot"]:
+            raise _Fail  # (keywords only: not read here, unless it states its duration)
         e = {**e, "remove": _keyword_list(m["rm"])}
         return [e if m["eot"] else {**e, "duration": "permanent"}], _one(group)
+    m = _GAIN_LOSE.fullmatch(text)  # -- activated sweep (wave 17B) -- "gains flying and loses trample until end of turn" (Canopy Dragon): 613.1f, one effect
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        e = _grant_effect(_who(kind, key), m["kw"])
+        if "quotes" in e or set(e["keywords"]) & set(_keyword_list(m["rm"])):
+            raise _Fail
+        return [{**e, "remove": _keyword_list(m["rm"])}], _one(group)
     # -- protection grants (wave 5E) -- "… gains protection from red / the color of your choice until end of turn"
     from app.rules import protection_grants
 
@@ -1634,9 +1643,10 @@ GRANT_KEYWORDS = KEYWORDS + "|" + "|".join(("fear", "shadow", "horsemanship", "i
                                              "desertwalk"))
 _GRANT_ITEM = rf"(?:{GRANT_KEYWORDS}|⟦\d+⟧)"  # (a keyword, or -- wave 2D -- a quoted ability set aside as ⟦n⟧)
 _KW_LIST = rf"{_GRANT_ITEM}(?:(?:, and |, | and ){_GRANT_ITEM})*"
+_KW_ONLY = rf"(?:{GRANT_KEYWORDS})(?:(?:, and |, | and )(?:{GRANT_KEYWORDS}))*"  # (wave 6C)
 # -- untap choice (wave 7F) -- "gets +2/+2 and has trample" (Everglove Courier): "has" reads like "gains"
 _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX]))"
-                   rf"(?: and (?:gains?|has|have) (?P<kw>{_KW_LIST}))? until end of turn"
+                   rf"(?: and (?:gains?|has|have) (?P<kw>{_KW_LIST})| and loses? (?P<lose>{_KW_ONLY}))? until end of turn"
                    r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn"
                    r"| and (?P<d>can attack this turn as though it didn't have defender)"  # (d: wave 6C)
                    r"| and (?P<mb>must be blocked this turn if able)"  # (mb: wave 6E, 509.1c)
@@ -1646,8 +1656,8 @@ _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw
 _GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
                         rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
 _GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? (?:gains?|has|have) (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
-_KW_ONLY = rf"(?:{GRANT_KEYWORDS})(?:(?:, and |, | and )(?:{GRANT_KEYWORDS}))*"  # (wave 6C)
 _LOSE_GAIN = re.compile(rf"(?P<o>.+?) loses? (?P<rm>{_KW_ONLY}) and gains? (?P<kw>{_KW_LIST})(?P<eot> until end of turn)?")
+_GAIN_LOSE = re.compile(rf"(?P<o>.+?) gains? (?P<kw>{_KW_ONLY}) and loses? (?P<rm>{_KW_ONLY}) until end of turn")
 _DOUBLE = re.compile(r"double (?P<o>target creature|~|this creature)'s power(?P<both> and toughness)? until end of turn")  # (wave 3D)
 _BITE = re.compile(r"(?P<s>.+?) deals damage equal to (?P<stat>its power|its toughness|twice its power|that creature's power) to (?P<o>.+)")
 _ITS = {"target": "target", "self": "self", "host": "host"}  # what "its" names for a pump's subject
@@ -1828,6 +1838,8 @@ def _pump(m: re.Match[str], rider: Any) -> tuple[Effects, Any]:
     out: Effects = [{"do": "pump", "who": who, "p": p, "t": t}]
     if m["kw"]:
         out.append(_grant_effect(who, m["kw"]))
+    if m["lose"]:  # -- activated sweep (wave 17B) -- "gets -2/+2 and loses flying until end of turn" (Leering Gargoyle): 613.1f
+        out.append({"do": "grant", "who": who, "keywords": [], "remove": _keyword_list(m["lose"])})
     if m["r"]:
         out.append({"do": "restrict", "who": who, "rules": RESTRICTIONS[m["r"]]})
     if m["d"]:  # -- token & pump wordings (wave 6C) -- 702.3b
@@ -2435,8 +2447,10 @@ def _become_color(m: re.Match[str]) -> tuple[Effects, Any]:
     return out, _one(group)
 
 
-BASE_PT = (r"(?:(?P<lead>until end of turn|until your next turn), )?(?P<o>.+?) (?:has|have) base power and toughness "
-           r"(?P<p>\d+|X)/(?P<t>\d+|X)(?P<all> and gain all creature types)?(?:, where X is (?P<xdef>[^\"]+?))?"  # (X: wave 4K)
+BASE_PT = (r"(?:(?P<lead>until end of turn|until your next turn), )?(?P<o>.+?) (?:has|have) base "
+           r"(?:power and toughness (?P<p>\d+|X)/(?P<t>\d+|X)(?P<all> and gain all creature types)?(?:, where X is (?P<xdef>[^\"]+?))?"  # (X: wave 4K)
+           # -- activated sweep (wave 17B) -- "has base power 4 and gains trample" (Turtle-Duck): one of the two, layer 7b (613.4b)
+           rf"|(?P<one>power|toughness) (?P<n>\d+)(?: and gains? (?P<gk>{_KW_ONLY}))?)"
            r"(?: (?P<trail>until end of turn|until your next turn))?")
 
 
@@ -2459,6 +2473,15 @@ def parse_base_pt(m: re.Match[str]) -> tuple[Effects, Any]:
         x = x_definition(m["xdef"])
         if x is None or "X" not in (m["p"], m["t"]) or '"it"' in json.dumps(x):
             raise _Fail
+    if m["one"]:
+        if duration != "end_of_turn":
+            raise _Fail
+        who = _who(kind, key)
+        one: Effects = [{"do": "become", "who": who, "types": [], "duration": duration,
+                         ("p" if m["one"] == "power" else "t"): int(m["n"])}]
+        if m["gk"]:
+            one.append({"do": "grant", "who": who, "keywords": _keyword_list(m["gk"])})
+        return one, _one(group)
     if (m["all"] or m["xdef"]) and duration == "permanent":
         raise _Fail
     out: dict[str, Any] = {"do": "become", "who": _who(kind, key), "types": [],

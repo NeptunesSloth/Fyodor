@@ -997,6 +997,12 @@ def _target_draws(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "draw", "who": "target", "n": num(m["n"])}], "player"
 
 
+# -- activated sweep (wave 17B) -- "Target opponent may draw a card." (Phelddagrif): that player decides (608.2d), on resolution
+@effect(r"target (?P<w>player|opponent) may draw {N} cards?")
+def _target_may_draw(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "draw", "who": "target", "n": num(m["n"]), "may": True}], m["w"]
+
+
 @effect(r"each player draws {N} cards?")
 def _each_draws(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "draw", "who": "each_player", "n": num(m["n"])}], None

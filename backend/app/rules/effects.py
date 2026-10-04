@@ -243,6 +243,11 @@ def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- replacement effects stage 2 (wave 2E): the draw choke point (app/rules/replace.py: 121.2,
     # 121.2c APNAP, 121.6a / 614.11 with an empty library, 704.5b) --
     players = _players(plan, ctx, e["who"])
+    if e.get("may") and players and ctx.get("may_ok") != ctx["next"]:  # -- activated sweep (wave 17B) -- "Target opponent may draw a card": their choice (608.2d)
+        decide(plan, player=players[0], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: draw a card?",
+               options=[DecisionOption(id="yes", label="Draw"), DecisionOption(id="no", label="Don't draw")],
+               resume={"step": "draw_may", "ctx": ctx, "e": e})
+        return False
     if isinstance(e["n"], dict) and e["n"].get("each_owner"):  # -- static_other sweep (wave 16B) -- "each player discards …, then draws that
         # many cards [plus / minus one]": each draws as many as they discarded (this_way.by_controller: a card's owner, 108.4a)
         from app.rules import this_way
@@ -2154,6 +2159,17 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def resume_draw_may(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen[0] == "yes":
+        ctx["may_ok"] = ctx["next"]
+        if not draw(plan, ctx, e):
+            return
+    else:
+        plan.note(f"{plan.name(d.player)} chose not to draw", actor=d.player)
+    continue_effects(plan, ctx)
+
+
 def resume_look_may(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     if chosen[0] == "yes":
@@ -3531,6 +3547,7 @@ RESUME["gain_control"] = resume_gain_control
 # -- end control (wave 3K) --
 
 RESUME["search_may"] = resume_search_may
+RESUME["draw_may"] = resume_draw_may  # (wave 17B)
 RESUME["look_may"] = resume_look_may  # (wave 15C)
 RESUME["search_zones"] = resume_search_zones  # -- refused zones/sized (wave 3R4) --
 # -- counters & designations (wave 3E) --------------------------------------------------------------
