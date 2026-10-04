@@ -268,8 +268,7 @@ def self_text(text: str, name: str) -> str:
     # object that gets it ("this creature" is): it stays as written, so no ~ there means the granter
     # (wave 18F: a granter's name — not a "card named …" — is ‹granter›, 607.1a, bound to the object by app/rules/layers.py)
     def granter(part: str) -> str:
-        for n in names:
-            part = re.sub(rf"(?<!named )(?<!\w){re.escape(n)}(?!\w)", "‹granter›", part)
+        part = re.sub(rf"(?<!named )(?<!\w){re.escape(name)}(?!\w)", "‹granter›", part)  # (the full name: "each Garruk you control" is no granter)
         return part
 
     parts = out.split('"')
