@@ -3106,6 +3106,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return {"kind": "static", "static": "day_as_enters", "effects": []}  # (wave 3E: app/rules/designations.py, 731.1)
     if ability.kind == "static" and text == "~ can be your commander.":
         return {"kind": "static", "static": "deckbuilding", "effects": []}  # 903.3a: deck construction only
+    # -- static_other sweep (wave 19A) -- 510.1c: "You may have this creature assign its combat damage as though it weren't blocked."
+    if ability.kind == "static" and re.fullmatch(r"You may have (?:~|this creature) assign (?:its|his|her|their) combat damage as though "
+                                                 r"(?:it|he|she|they|~) weren't blocked\.", text):
+        return {"kind": "static", "static": "assign_unblocked", "effects": []}
     if ability.kind == "static" and text in COMBAT_STATICS:
         return {"kind": "static", "static": COMBAT_STATICS[text], "effects": []}
     if ability.kind in ("static", "spell"):

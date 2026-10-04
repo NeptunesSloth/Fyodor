@@ -83,6 +83,9 @@ EXTRA = [
     real('Rude Awakening', '{4}{G}', 5, 'Sorcery',
          'Choose one —\n• Untap all lands you control.\n• Until end of turn, lands you control become 2/2 creatures that are still lands.\nEntwine {2}{G} (Choose both if you pay the entwine cost.)',
          None, 'G'),
+    real('Wolverine, Claws Out', '{3}{G}', 4, 'Legendary Creature — Mutant Berserker Hero',
+         "You may have Wolverine assign his combat damage as though he weren't blocked.\nWhenever a Mutant you control attacks, double its power until end of turn.",
+         ('2', '5'), 'G'),
 ]
 FULL = [e["name"] for e in EXTRA]
 
@@ -310,4 +313,41 @@ def test_eddymurk_crab_enters_tapped_only_when_it_is_not_your_turn(cards):
     act(s, "p1", type="cast_spell", card_id=other.id)
     no_targets(s)
     assert s.state.cards[other.id].zone == "p1:battlefield" and s.state.cards[other.id].tapped
+    roundtrip(s)
+
+
+def blocked_combat(cards, answer):
+    s = build(cards, "Wolverine, Claws Out")
+    wolverine = on_field(s, "Wolverine, Claws Out")
+    s.state.rules.controlled_since[wolverine.id].turn = 0
+    wall = creature(s, "p2", "Wall", "0/4", type_line="Token Creature — Wall")
+    while s.state.rules.decision is None or s.state.rules.decision.kind != "declare_attackers":
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": wolverine.id, "target": "p2"}])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": wolverine.id}])
+        elif d is not None and d.kind == "confirm" and "weren't blocked" in d.prompt:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[answer])
+            break
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    else:
+        raise AssertionError("never asked")
+    until(s, lambda s: s.state.turn.phase in ("main2", "end") or s.state.turn.number > 1)
+    return s, wall
+
+
+def test_wolverine_assigns_its_combat_damage_as_though_it_weren_t_blocked(cards):
+    s, wall = blocked_combat(cards, "yes")
+    assert s.state.players["p2"].life == 40 - 4 and s.state.cards[wall.id].damage == 0  # (doubled by its own trigger: 4)
+    roundtrip(s)
+
+
+def test_wolverine_may_assign_it_to_its_blocker_instead(cards):
+    s, wall = blocked_combat(cards, "no")
+    assert s.state.players["p2"].life == 40 and (wall.id not in s.state.cards or s.state.cards[wall.id].zone != "p2:battlefield")
     roundtrip(s)

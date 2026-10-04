@@ -810,7 +810,7 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
             continue
         blockers = [b for b in blockers_all if b.blocks(att.id)]
         dealt = 0
-        if att.id in r.blocked:
+        if att.id in r.blocked and not r.assign_unblocked.get(att.id):  # (wave 19A: 510.1c "as though it weren't blocked": all to what it attacks)
             trample = "trample" in ach.keywords
             need = [lethal(b, ach, p) for b in blockers]
             shares = r.block_split.get(att.id)
@@ -859,6 +859,15 @@ def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
     0; a trampler's damage may go to what it attacks only once every blocker has lethal). Asks the first creature (attackers
     first, 510.1) whose division isn't known yet; False: none is missing."""
     r = plan.rules
+    for att in attackers_on(plan.state):  # -- static_other sweep (wave 19A) -- 510.1c: "You may have this creature assign its combat damage as though it weren't blocked"
+        ach = plan.ch(att)
+        if att.id in r.blocked and att.id not in r.assign_unblocked and "assign_unblocked" in scripts.statics(ach) and _deals(ach, rnd) \
+                and (_assigns(att, ach) or 0) > 0:
+            decide(plan, player=att.controller, kind="confirm",
+                   prompt=f"Have {att.name} assign its combat damage as though it weren't blocked?",
+                   options=[DecisionOption(id="yes", label="As though it weren't blocked"), DecisionOption(id="no", label="Among its blockers")],
+                   resume={"step": "assign_unblocked", "round": rnd, "then": then, "creature": att.id})
+            return True
     todo: list[tuple[CardInstance, list[CardInstance], list[int]]] = []
     compute_combat_damage(plan, rnd, todo)
     if todo:
@@ -952,6 +961,7 @@ def deal_combat_damage(plan: Plan, rnd: Round, shield_order: list[str] | None = 
             key = (ev["target"], source.commander_key)
             commander[key] = commander.get(key, 0) + int(ev["amount"])
     plan.rules.block_split = {}
+    plan.rules.assign_unblocked = {}
     replace.do_damage(plan, out, actor=plan.active, combat=True, extra={
         "first_strike": rnd == "first",
         "commander": [{"player": pid, "commander": key, "amount": n} for (pid, key), n in commander.items()]})
@@ -986,5 +996,6 @@ def end_combat(plan: Plan) -> None:
                 plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
     r.blocked = []
     r.block_split = {}
+    r.assign_unblocked = {}
     r.no_attackers = False
     r.combat_round = ""

@@ -694,6 +694,14 @@ def _resume_block_split(plan: Plan, d: Decision, chosen: list[str]) -> None:
         _after_resolution(plan)
 
 
+def _resume_assign_unblocked(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    assert d.resume is not None
+    plan.rules.assign_unblocked[d.resume["creature"]] = chosen[0] == "yes"
+    combat_damage(plan, d.resume["round"], d.resume["then"])
+    if plan.rules.decision is None:
+        _after_resolution(plan)
+
+
 def _resume_combat_damage(plan: Plan, d: Decision, chosen: list[str]) -> None:
     assert d.resume is not None
     if chosen[0] == "yes":
@@ -1311,6 +1319,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "manual_done": _resume_manual_done,
     "combat_damage": _resume_combat_damage,
     "block_split": _resume_block_split,
+    "assign_unblocked": _resume_assign_unblocked,
     "cipher": recursion.resume_cipher,  # (wave 17C)
     "cleanup_manual": lambda plan, d, chosen: start_next_turn(plan),
     "untap_keep": untap_choice.resume,  # -- untap choice (wave 7F) --

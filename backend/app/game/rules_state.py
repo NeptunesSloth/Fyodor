@@ -949,6 +949,7 @@ class RulesState(BaseModel):
     # -- multiple blocks (wave 13B, 14A) -- 510.1c-d: how a creature divides its combat damage among the creatures it is
     # blocked by / blocks (creature card -> target card or player -> damage), answered before the round is dealt and dropped once it is
     block_split: dict[str, dict[str, int]] = Field(default_factory=dict)
+    assign_unblocked: dict[str, bool] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker -> "as though it weren't blocked"
     # -- combat (wave 5C) -- 500.8: the phases still to come after the current one when effects added some (the
     # last is the phase that would have come next), and how many combat phases began this turn
     extra_phases: list[str] = Field(default_factory=list)
