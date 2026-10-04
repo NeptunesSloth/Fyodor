@@ -202,6 +202,36 @@ def test_port_razer_can_not_attack_a_player_it_already_attacked(cards):
     roundtrip(s)
 
 
+def test_goaded_port_razer_is_not_required_to_attack_a_player_it_already_attacked(cards):
+    # Review 19: 508.1d - a requirement never asks for what a restriction forbids (508.1c); goaded, with only the player it
+    # already attacked left, it may stay home (before: neither declaration was accepted)
+    from app.rules import layers
+
+    s = build(cards, "Port Razer")
+    razer = on_field(s, "Port Razer")
+    s.state.rules.controlled_since[razer.id].turn = 0
+    while s.state.rules.decision is None or s.state.rules.decision.kind != "declare_attackers":
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": razer.id, "target": "p2"}])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    plan = Plan(s.state, "p2", s.cards, None)  # (goaded by p2: attacks each combat if able)
+    layers.add_effect(plan, affected=[plan.oid(razer.id)], layer="6", source=None, controller="p2", imposes=("goaded:p2",), label="goaded")
+    s.state = plan.state
+    with pytest.raises(ActionError):
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": razer.id, "target": "p2"}])
+    act(s, "p1", type="declare_attackers", attackers=[])
+    assert s.state.rules.decision is None or s.state.rules.decision.kind != "declare_attackers"
+
+
 def test_final_fortune_loses_the_game_at_the_end_step_of_the_extra_turn(cards):
     s = build(cards, "Final Fortune")
     cast(s, "Final Fortune", R=2)

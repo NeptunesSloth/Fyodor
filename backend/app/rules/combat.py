@@ -307,8 +307,7 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
                 defender_of(plan.state, A.AttackTarget(kind="card", id=decl.target))
             if not _controls_land(plan.state, defender or "", "Island", plan.info):
                 raise ActionError(f"{card.name} can't attack unless defending player controls an Island")
-        if "cant_attack_attacked" in plan.ch(card).imposed and decl.target in (  # -- static_other sweep (wave 19A) -- 508.1c (Port Razer)
-                plan.rules.turn_log.attacked_who.get(plan.oid(card), ()) if plan.rules.turn_log.turn == plan.state.turn.number else ()):
+        if _attacked_before(plan, card, plan.ch(card), decl.target):  # -- static_other sweep (wave 19A) -- 508.1c (Port Razer)
             raise ActionError(f"{card.name} can't attack a player it has already attacked this turn")
         if decl.card_id in seen:
             raise ActionError(f"{card.name} can only attack once")
@@ -334,7 +333,7 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
             card = plan.state.cards.get(cid)
             if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
                     attack_problem(plan.state, card, plan.ch(card)) is None and \
-                    any(not _closed(plan, plan.ch(card), t) for t in targets):  # (wave 4L: 508.1d; wave 5C: costs)
+                    any(not _closed(plan, plan.ch(card), t, card) for t in targets):  # (wave 4L: 508.1d; wave 5C: costs)
                 raise ActionError(f"{card.name} attacks each combat if able")
         goad_problem = goad_requirements(plan, eligible, targets, {x.card_id: x.target for x in a.attackers})
         if goad_problem:  # -- keyword actions & face-down (wave 3F) --
@@ -395,12 +394,19 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
 
 
 # -- combat (wave 5C) --------------------------------------------------------------------------
-def _closed(plan: Plan, ch: Characteristics, target: str) -> bool:
+def _attacked_before(plan: Plan, card: CardInstance, ch: Characteristics, target: str) -> bool:
+    """508.1c: "can't attack a player it has already attacked this turn" (Port Razer)."""
+    log = plan.rules.turn_log
+    return "cant_attack_attacked" in ch.imposed and log.turn == plan.state.turn.number \
+        and target in log.attacked_who.get(plan.oid(card), ())
+
+
+def _closed(plan: Plan, ch: Characteristics, target: str, card: CardInstance) -> bool:
     """508.1d: a place a requirement can't send the creature: a restriction forbids it, or attacking there has a
     cost (nobody is required to pay one)."""
     from app.rules import combat_rules
 
-    return attack_forbidden(plan, ch, target) or combat_rules.taxed(plan, ch, target)
+    return attack_forbidden(plan, ch, target) or _attacked_before(plan, card, ch, target) or combat_rules.taxed(plan, ch, target)
 
 
 def _required_places(plan: Plan, eligible: set[str], targets: set[str]) -> dict[str, list[str]]:
@@ -423,7 +429,7 @@ def _required_places(plan: Plan, eligible: set[str], targets: set[str]) -> dict[
             continue
         out[cid] = [t for t in sorted(targets) if ("attack_needs_island" not in st or _controls_land(
             plan.state, t if t in plan.state.players else plan.state.cards[t].controller, "Island", plan.info))
-            and not _closed(plan, ch, t)]
+            and not _closed(plan, ch, t, card)]
     return out
 
 
@@ -455,7 +461,7 @@ def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declare
             continue  # (it can't attack at all: alone is the only way it could)
         places = [t for t in targets if ("attack_needs_island" not in st
                   or _controls_land(plan.state, t if t in plan.state.players else plan.state.cards[t].controller,
-                                    "Island", plan.info)) and not _closed(plan, ch, t)]  # (wave 4L; wave 5C: costs)
+                                    "Island", plan.info)) and not _closed(plan, ch, t, card)]  # (wave 4L; wave 5C: costs)
         if not places:
             continue
 
