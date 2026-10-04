@@ -219,6 +219,12 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             return [(f"become_{e.counter}", card, plan.ch(card), card.controller, {"oid": e.object_id})]
         return []
+    if e.counter == "transformed" and e.card in plan.state.cards:  # -- transform (wave 16F) -- 701.28: it turned over (same object)
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            ch = plan.ch(card)
+            return [("transform", card, ch, card.controller, {"oid": e.object_id, "face_name": ch.name})]
+        return []
     if e.counter == "level" and e.card in plan.state.cards:  # -- Class (wave 16A) -- 716.2a: the Class became level N
         card = plan.state.cards[e.card]
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:

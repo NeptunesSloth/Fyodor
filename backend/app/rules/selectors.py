@@ -190,6 +190,23 @@ def _defending_controls(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="defending")
 
 
+@_suffix(r"(?:that )?enchanted player controls")
+def _enchanted_controls(s: Selector, m: re.Match[str]) -> Selector:
+    # -- attached events (wave 16F) -- the player the source (a Curse) enchants, 702.5d
+    return replace(s, controller="enchanted")
+
+
+@_suffix(r"(?:that )?the chosen player controls")
+def _chosen_controls(s: Selector, m: re.Match[str]) -> Selector:
+    # -- chosen type (wave 16F) -- the player the source chose as it entered (app/rules/chosen.py)
+    return replace(s, controller="chosen")
+
+
+@_suffix(r"(?:from|in) the chosen player's graveyard")
+def _chosen_graveyard(s: Selector, m: re.Match[str]) -> Selector:
+    return _in_zone(s, "graveyard", "chosen")
+
+
 @_suffix(r"that['’]s enchanted or equipped")  # -- grammar (wave 11C) -- an Aura or an Equipment on it (303.4, 301.5)
 def _enchanted_or_equipped(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "enchanted_or_equipped"))
@@ -393,6 +410,7 @@ def _equal(s: Selector, m: re.Match[str]) -> Selector:
 # (608.2h). Only a card in a graveyard is read this way (_parse refuses the others: a spell or permanent selector has no
 # such users), and a source with no such value (no power: not a creature) matches nothing.
 SOURCE_STAT = "src:"
+EVENT_STAT = "evt:"
 _REF_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "==", "greater than or equal to": ">=",
             "greater than": ">"}
 _REF_STAT = {"mana value": "mv", "power": "power", "toughness": "toughness"}
@@ -405,6 +423,14 @@ def _compare_source(s: Selector, m: re.Match[str]) -> Selector:
         raise ValueError("incomplete reference")  # ("mana value less than ~'s": which characteristic?)
     ref = m["ref"] or m["what"]  # ("power less than Mirko's": the same characteristic)
     return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], _REF_OPS[m["op"]], SOURCE_STAT + _REF_STAT[ref])))
+
+
+@_suffix(r"with (?P<eq>equal or )?lesser (?P<what>mana value|power|toughness)(?: than the creature that died)?")
+def _compare_event(s: Selector, m: re.Match[str]) -> Selector:
+    # -- reanimation (wave 16F) -- "return target creature card with lesser mana value from your graveyard" (Jackdaw Savior,
+    # Riveteers Ascendancy): less than the object the trigger is about (the creature that died / was sacrificed), as it last
+    # existed (608.2h); triggers.bind_event_stat swaps in the number as the ability goes on the stack (an unbound one matches nothing)
+    return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], "<=" if m["eq"] else "<", EVENT_STAT + _REF_STAT[m["what"]])))
 
 
 def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
@@ -807,7 +833,7 @@ def _parse(phrase: str) -> Selector | None:
                     break
     except ValueError:
         return None
-    if any(isinstance(c[2], str) and c[2].startswith(SOURCE_STAT) for c in s.compare) and (
+    if any(isinstance(c[2], str) and c[2].startswith((SOURCE_STAT, EVENT_STAT)) for c in s.compare) and (
             (s.zones != ("graveyard",) or not s.card) and (s.zones != ("battlefield",) or s.card)):
         return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source; -- keywords
         # (wave 15E) -- or permanents: mentor's "target attacking creature with power less than this creature's power")
@@ -1069,6 +1095,16 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.controller == "defending" and card.controller not in defending_players(plan, source, attacker):
         return False
+    if sel.controller == "chosen" or sel.zone_owner == "chosen":
+        from app.rules import chosen
+
+        who = chosen.player_of(plan, source) if source is not None else None
+        if who is None or (card.controller != who if sel.controller == "chosen" else card.owner != who):
+            return False
+    if sel.controller == "enchanted":
+        src = plan.state.cards.get(source or "")
+        if src is None or src.attached_player is None or card.controller != src.attached_player:
+            return False
     if sel.owner == "you" and card.owner != you:
         return False
     if sel.owner == "opponent" and card.owner == you:

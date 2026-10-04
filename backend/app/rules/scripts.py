@@ -1375,6 +1375,11 @@ def _pay_or_sacrifice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | Non
     return [{"do": "pay_or_sacrifice", "cost": m["cost"]}], None
 
 
+@effect(r"sacrifice ~ unless you pay its mana cost")  # -- cost alt (wave 16F) -- (effects.pay_or_sacrifice reads the printed cost)
+def _pay_mana_cost_or_sacrifice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "pay_or_sacrifice", "cost": "mana_cost"}], None
+
+
 @effect(r"(?:it|they) can't be regenerated")
 def _no_regeneration(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "no_regen"}], None  # the destruction of this spell/ability ignores regeneration shields
@@ -3255,7 +3260,7 @@ def _has_player(cond: dict[str, Any]) -> bool:
     # -- triggers (wave 5D) -- "Whenever a creature an opponent controls dies / enters, that player …": the opponent
     # who controlled it (one object per event: not "one or more", 603.2c; triggers._event)
     if cond.get("subject") == "sel" and cond["event"] in ("enter", "die", "leave") and not cond.get("aggregate") \
-            and '"controller":"opponent"' in str(cond.get("sel")):
+            and re.search(r'"controller":"(?:opponent|enchanted)"', str(cond.get("sel"))):
         return True
     # -- source damage (wave 11F) -- "that source's controller": the player who controlled the source (triggers._fire_generic)
     return cond["event"] == "deal_damage" and (cond.get("to") in ("player", "opponent", "you") or cond.get("subject") == "source")
@@ -3282,6 +3287,9 @@ def _event_refs_ok(d: Definition) -> bool:
     if '"as": "event"' in raw and not (d.get("kind") == "triggered" and (step_names_player(d) or (
             ev is not None and ev["event"] != "multi" and _has_player(ev)))):
         return False
+    if '\\"evt:' in raw and not (ev is not None and ev["event"] != "multi" and not ev.get("aggregate") and (
+            ev.get("subject") in ("sel", "self", "self_or", "self_or_host", "host") or (ev.get("subject") == "player" and ev.get("obj")))):
+        return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
     if '"as": "defended"' in raw and not (d.get("trigger") == "attacks_self" or (
             ev is not None and ev["event"] in ("attack", "unblocked", "blocked", "you_attack"))):
         return False
