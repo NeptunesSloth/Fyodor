@@ -311,6 +311,9 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     ("Whenever another creature you control enters, put a +1/+1 counter on it"); "event_gone" — that
     object after it died / left; "event_all" — every object of a "one or more" event ("they",
     "those creatures"); else None (a pronoun then leaves the ability manual)."""
+    if name.startswith("multi:") and not any(x in ("dies_self", "ltb_self") for x in name[6:].split("+")) \
+            and (cond is None or cond.get("event") not in _GONE) and "cast_self" not in name:
+        return "self"  # -- trigger tail (wave 15B) -- "When ~ enters and whenever you expend 4, put a counter on it": ~ is still there
     if name in ("dies_self", "ltb_self") or name.startswith("multi:"):
         return "self_gone"
     if name.endswith(":host_controller"):  # -- sagas & attached-object triggers (wave 3S) -- "that creature"

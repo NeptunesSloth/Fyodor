@@ -383,10 +383,10 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 
 # -- token & pump wordings (wave 6C) -- keywords a selector may ask about but a grant doesn't give ("if you control no
 # creatures with decayed": read from the object's keywords, like the others)
-_WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk")
+_WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke")
 
 
-@_suffix(r"with (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")
+@_suffix(r"(?:with|that has) (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")  # (wave 15B: "a spell that has convoke")
 def _with_kw(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, with_keywords=(*s.with_keywords, m["kw"]))
 
