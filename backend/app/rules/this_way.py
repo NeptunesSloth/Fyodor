@@ -170,10 +170,11 @@ def condition(text: str) -> dict[str, Any] | None:
         # (you sacrifice only what you control, 701.21a: "Each player sacrifices a creature. If you sacrificed a
         # creature this way" counts yours; an exile or destruction of your ability is yours; a player mills and
         # discards their own cards, so "you milled / discarded" after "each player …" isn't read)
-        if m["verb"] in ("milled", "discarded"):
-            return None
+        # (wave 19C: counted by owner — "each player discards a card. If you discarded a card this way": 701.9a, the card is its owner's)
         ctl = " you controlled" if m["verb"] == "sacrificed" else ""
         phrase = f"{m['what']}{ctl} {m['verb']} this way"
+        if m["verb"] in ("milled", "discarded") and (v := parse(phrase)) is not None:
+            return {"value": {**v, "by": "you"}, "op": ">=", "n": 1}
     v = parse(phrase) if phrase is not None else None
     if v is None:
         return hit_condition(text)  # -- if you do (wave 10C) --
@@ -290,6 +291,8 @@ def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[d
     for new, was in zip(news, wases, strict=False):
         if not _happened(plan, v["this_way"], new, was, you):
             continue
+        if v.get("by") == "you" and getattr(plan.state.cards.get(new["card"]), "owner", None) != you:
+            continue  # (wave 19C: only the cards the controller discarded / milled)
         if v["this_way"] == "your_graveyard" and not (new.get("zone") or "").startswith(f"{you}:"):
             continue
         if sel is not None:

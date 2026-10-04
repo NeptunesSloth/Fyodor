@@ -319,8 +319,9 @@ def test_the_new_wordings_are_covered_and_the_triggered_self_return_is_not(cards
                 oracle_text="At the beginning of your upkeep, return this card from your graveyard to your hand.", power="4",
                 toughness="4", colors=["G"], color_identity=["G"])
     assert coverage.of_characteristics(printed_from_data(fake, 0)).level == "FULL"
-    # … but not on a look-back event (603.10a: a card dying with the others would have to be told apart)
+    # … and (wave 19C) on another creature's death too: it sees only the deaths after it is in the graveyard, never the one that
+    # put it there (603.10a) — tests/test_rules_wave19c_ifyoudo.py
     dies = card("Test Mourner", set_code="tst", number="R11", mana_cost="{1}{B}", cmc=2.0, type_line="Creature — Zombie",
                 oracle_text="Whenever another creature dies, return this card from your graveyard to your hand.", power="1",
                 toughness="1", colors=["B"], color_identity=["B"])
-    assert coverage.of_characteristics(printed_from_data(dies, 0)).level != "FULL"
+    assert coverage.of_characteristics(printed_from_data(dies, 0)).level == "FULL"

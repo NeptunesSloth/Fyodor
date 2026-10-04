@@ -186,8 +186,9 @@ def test_unread_forms_stay_manual():
     assert scripts.parse_effects("Draw a card for each creature destroyed this way.") is None
     # "its controller" for each object, with a different instruction than creating tokens
     assert scripts.parse_effects("Destroy all creatures. For each creature destroyed this way, its controller draws a card.") is None
-    # "you discarded" after every player discarded: whose discard? (not read)
-    assert this_way.condition("you discarded a land card this way") is None
+    # (wave 19C: "you discarded" after every player discarded is read now: only the cards the controller discarded count —
+    # a discarded card is its owner's, 701.9a — tests/test_rules_wave19c_ifyoudo.py)
+    assert this_way.condition("you discarded a land card this way")["value"]["by"] == "you"
     # a counter's destination after anything but a counter
     assert scripts.parse_effects("Draw a card. If that spell is countered this way, exile it instead of putting it into its "
                                  "owner's graveyard.") is None

@@ -2347,6 +2347,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.rules.rebound_cast.append(plan.oid(card))
     if flashback or harmonized or jumped:
         plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else (702.133a, 702.180a)
+    if grant is not None and grant.exile_gy and (grant.exile_gy == "all" or ch.is_instant_or_sorcery):  # -- cast from graveyard (wave 19C) -- 614.1a
+        plan.rules.exile_if_graveyard.append(plan.oid(card))
     if a.x_value is not None or tags:
         info: dict[str, Any] = {"type": "set_stack_info", "card_id": card.id}
         if a.x_value is not None:

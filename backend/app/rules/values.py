@@ -190,6 +190,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return sized
     if what == "1 damage prevented this way":  # -- prevention riders (wave 17A) -- "for each 1 damage prevented this way"
         return {"ref_amount": "prevented"}
+    if what in ("cards looked at while scrying this way", "card looked at while scrying this way"):
+        return {"event_amount": 1}  # -- scry counts (wave 19C) -- 701.22d: the scry trigger's event (designations.facts)
     if what in ("cards in your hand", "card in your hand"):
         return {"hand": "you"}
     if what in ("cards in the chosen player's hand", "card in the chosen player's hand"):  # -- chosen type (wave 16F) --

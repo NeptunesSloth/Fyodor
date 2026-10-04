@@ -192,7 +192,7 @@ def parse(sentence: str) -> list[Effect] | None:
         # -- "this way" outcomes (wave 4A) -- "for each creature card milled this way"
         from app.rules import this_way
 
-        v = this_way.parse(each) or values.parse_count(each)
+        v = this_way.parse(each) or values.parse_count(each, it="it")  # (wave 19D: "for each +1/+1 counter on it": the trigger's object, bound by scripts)
         if v is None:
             return None
         n = v if n == 1 else {"times": [n, v]}

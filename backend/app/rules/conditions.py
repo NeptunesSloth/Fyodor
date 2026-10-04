@@ -150,7 +150,8 @@ _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking",
 # -- counters (wave 5H) -- "if it had counters on it", "if it had a +1/+1 counter on it", "if ~ has counters on it",
 # "if it doesn't have an indestructible counter on it": the object's counters as it is, or as it last existed
 # (603.10a, 122.2: they cease to exist as it leaves)
-_HAD_COUNTERS = re.compile(r"(?P<who>it|~|that creature|that permanent) (?:had|has|(?P<neg>doesn't have|didn't have)) "
+# (-- counters sweep (wave 19D) -- "if it had no counters on it" / "had no time counters on it": the same test, negated)
+_HAD_COUNTERS = re.compile(r"(?P<who>it|~|that creature|that permanent) (?:had|has|(?P<neg>doesn't have|didn't have|had no|has no)) "
                            r"(?:(?:a|an|one or more) )?(?:(?!no |any )(?P<k>\+1/\+1|-1/-1|[a-z]+) )?"
                            r"counters? on (?:it|them|~|him|her)")
 # -- refused modal/conditional (wave 3R1) -- an ability the object has (a characteristic, 109.3: as it is, or as it
@@ -901,6 +902,8 @@ def _object(t: str) -> Condition | None:
     m = _CONTROLLED.fullmatch(t)
     if m:
         return {"object": "it", "controlled_by": "you", **({"negate": True} if m["neg"] else {})}
+    if re.fullmatch(r"(?:this card|~) is in your graveyard", t):  # -- graveyard triggers (wave 19C) -- the source, still the object that triggered
+        return {"object": "self", "test": "in_graveyard"}
     m = _HAS_KEYWORD.fullmatch(t)  # -- refused modal/conditional (wave 3R1) -- "if that creature has toxic"
     if m:  # (wave 17D: "if it didn't have decayed" / "if it had flying": as it last existed, 608.2h)
         has: Condition = {"object": _OBJECT_WORDS[m["who"]], "has": m["kw"]}
@@ -1206,6 +1209,8 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
     """The source's own physical state ("~ is tapped"): as it is while it's still that object on the
     battlefield, else as it last existed there (608.2h)."""
     card = plan.state.cards.get(ctx.get("source_card") or "")
+    if test == "in_graveyard":  # -- graveyard triggers (wave 19C) -- 400.7: a card that left is a new object, which isn't there
+        return card is not None and card.zone == f"{card.owner}:graveyard" and plan.oid(card) == ctx.get("source_object")
     if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object"):
         tapped, attacking, blocking = card.tapped, card.attacking is not None, bool(card.blocking)
         if test == "suspected":

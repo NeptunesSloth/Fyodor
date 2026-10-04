@@ -1521,7 +1521,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{**e, "put": True} for e in found[0]], found[1]  # (scripts refuses it unless "it" is the trigger event's card)
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|their hand|your hand|"
                      r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?"
-                     r"(?: with (?:an?|one) (?P<ck>[+-]\d+/[+-]\d+|[a-z]+) counter on it)?)", text)
+                     r"(?: with (?:(?:an?|one) |(?P<cn>two|three|four|five) )(?P<ck>[+-]\d+/[+-]\d+|[a-z]+) counters? on it)?)", text)  # (wave 19D: N counters)
     if m:
         # -- activated sweep (wave 17B) -- "Return target commander you own from the battlefield to your hand." (Sanctum of Eternity)
         kind, key, group = ref(re.sub(r" from the battlefield$", "", m["o"]) if m["d"] == "your hand" else m["o"])
@@ -1541,7 +1541,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
             # (-- quoted grants, wave 2D -- "… with a +1/+1 counter on it": it enters with it, 122.6)
             return [{"do": "return_card", "who": who, "to": "battlefield", "tapped": bool(m["t"]),
                      "under": "owner" if m["u"] and m["u"] != "your" else "you",  # (110.2a: unless it says otherwise)
-                     **({"counter": m["ck"]} if m["ck"] else {})}], target
+                     **({"counter": m["ck"]} if m["ck"] else {}), **({"counter_n": values.NUMBERS[m["cn"]]} if m["cn"] else {})}], target
         if from_zone and kind not in ("it", "them"):
             return [{"do": "return_card", "who": who, "to": "hand", "under": "you" if m["d"] == "your hand" else "owner"}], target
         if m["d"] == "your hand" and kind not in ("it", "them") and (sel is None or sel.owner != "you"):
@@ -1616,6 +1616,27 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": _who(kind, key), "kind": kinds[0][0], "n": kinds[0][1],
                  "also": [{"kind": k, "n": n} for k, n in kinds[1:]]}], _one(group)
+    # -- counters sweep (wave 19D) -- "Put a +1/+1 counter on target creature, two +1/+1 counters on another target creature, and three
+    # +1/+1 counters on a third target creature." (Incremental Growth), "… on target creature you control and three … on target
+    # creature an opponent controls" (Evolutionary Escalation): each part is its own instruction on its own target (115.3), all in one
+    # resolution
+    if rider is None and text.startswith("put ") and " counter" in text:
+        pieces = re.split(rf",? and (?=(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+) counters? on )|, (?=(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+) counters? on )",
+                          text[len("put "):])
+        specs = [re.fullmatch(rf"(?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o>(?:a third |another |a second )?target .+)", p)
+                 for p in pieces]
+        if len(pieces) > 1 and all(specs) and not any(s["k"] in values.UNMODELED_COUNTERS for s in specs if s):
+            effects_out: list[dict[str, Any]] = []
+            groups_out: list[dict[str, Any]] = []
+            for s in specs:
+                assert s is not None
+                _kind, _key, group = ref(re.sub(r"^(?:a third|a second) ", "another ", s["o"]))
+                if group is None:
+                    raise _Fail
+                effects_out.append({"do": "add_counters", "who": "target" if not groups_out else f"target:{len(groups_out)}",
+                                    "kind": s["k"], "n": _amount(s["n"])})
+                groups_out.append(group)
+            return effects_out, _out(groups_out)
     # -- end counters (wave 5H) --
     m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o>.+)", text)
     if m:
@@ -2249,7 +2270,7 @@ _CHOOSERS = ("target player", "target opponent", "each opponent", "each of your 
              "that player", "its controller", "that creature's controller", "that permanent's controller", "defending player")
 CHOOSER = "|".join(re.escape(c) for c in sorted(_CHOOSERS, key=len, reverse=True))
 # (patterns are format()-ed by scripts.effect: no literal braces)
-EDICT = rf"(?P<s>{CHOOSER}) sacrifices (?P<n>{AMT}) (?P<sel>.+?) of their choice"
+EDICT = rf"(?P<s>{CHOOSER}) sacrifices (?P<n>{AMT}) (?P<sel>.+?) of their choice(?: for each (?P<each>.+))?"  # (each: wave 19D, Smokestack)
 EDICT_OTHERS = rf"each other player sacrifices (?P<n>{AMT}) (?P<sel>.+?)(?: of their choice)?"
 PLAYER_CHOOSES = (rf"(?P<s>{CHOOSER}) chooses (?:(?P<upto>up to )?(?P<n>{AMT})) (?P<sel>.+?) they control"
                   r"(?:, then (?:(?P<sac>sacrifices the rest)|(?P<des>the rest are destroyed)))?")  # (wave 11D: "… then sacrifices the rest")
@@ -2292,7 +2313,13 @@ def _permanent_sel(phrase: str) -> str:
 def edict(m: re.Match[str]) -> tuple[Effects, Any]:
     who, group = _chooser(m["s"] if "s" in m.groupdict() else "each other player")
     key = _permanent_sel(m["sel"])
-    return [{"do": "edict", "who": who, "sel": key, "n": _amount(m["n"]), "label": m["sel"]}], _one(group)
+    n = _amount(m["n"])
+    if m.groupdict().get("each"):  # -- counters sweep (wave 19D) -- "… of their choice for each soot counter on this artifact": a count read as it resolves
+        v = values.parse_count(m["each"], it="self")
+        if v is None:
+            raise _Fail
+        n = v if n == 1 else {"times": [n, v]}
+    return [{"do": "edict", "who": who, "sel": key, "n": n, "label": m["sel"]}], _one(group)
 
 
 def player_chooses(m: re.Match[str]) -> tuple[Effects, Any]:
@@ -2800,7 +2827,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     obj = m["o"]
     if may and not _RA_CHOICE.fullmatch(obj):
         return None  # (only a choice models its own "may": choosing none)
-    if _RA_SELF.fullmatch(obj):  # works from the graveyard (113.6m): coverage keeps it to activated abilities
+    if _RA_SELF.fullmatch(obj) or obj == "this card":  # works from the graveyard (113.6m): coverage keeps it to activated abilities
+        # (wave 19C: "return this card to your hand" — a card that isn't on the battlefield: the one in the graveyard, nothing if it left)
         return [{**effect, "who": "self_gy"}], None
     # -- reanimation (wave 10A) -- one instruction, several cards of different kinds: "Return up to one target instant card
     # and up to one target sorcery card from your graveyard to your hand." (one target group each, 115.1, 601.2c; the zone

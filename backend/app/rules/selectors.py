@@ -290,9 +290,9 @@ def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
 
 
-@_suffix(r"that(?:['’]s| is| are) (?P<c1>" + "|".join(COLORS) + r")(?: or (?P<c2>" + "|".join(COLORS) + r"))?")
-def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:
-    found = tuple(COLORS[c] for c in (m["c1"], m["c2"]) if c)
+@_suffix(r"that(?:['’]s| is| are) (?P<list>(?:" + "|".join(COLORS) + r")(?:, (?:" + "|".join(COLORS) + r"))*(?:,? or (?:" + "|".join(COLORS) + r"))?)")
+def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:  # (wave 19D: "that's white, blue, black, or red")
+    found = tuple(COLORS[c] for c in re.findall("|".join(COLORS), m["list"]))
     return replace(s, colors=(*s.colors, *found))
 
 
@@ -487,7 +487,9 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 
 # -- token & pump wordings (wave 6C) -- keywords a selector may ask about but a grant doesn't give ("if you control no
 # creatures with decayed": read from the object's keywords, like the others)
-_WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke")
+_WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke",
+                  "modular")  # (wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
+# an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
 
 @_suffix(r"(?:with|that has) (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")  # (wave 15B: "a spell that has convoke")
@@ -1064,7 +1066,10 @@ def _parse(phrase: str) -> Selector | None:
             continue
         if w in ("or", "and"):  # "black or red", "white and/or blue": colors are alternatives
             j = len(prefix_words) - 1 - k
-            if 0 < j < len(prefix_words) - 1 and prefix_words[j - 1].lower() in COLORS \
+            before = j - 1
+            while before > 0 and prefix_words[before] == ",":  # (wave 19D: "white, blue, black, or red": a list, 105.1)
+                before -= 1
+            if 0 < j < len(prefix_words) - 1 and prefix_words[before].lower() in COLORS \
                     and prefix_words[j + 1].lower() in COLORS and w == "or":
                 continue
             return None
