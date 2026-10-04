@@ -28,11 +28,11 @@ from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act, zone
 from tests.test_rules_conditionals import through_combat, token_of
+from tests.test_rules_effects import mana
 from tests.test_rules_wave5c_combat import build as combat_build
 from tests.test_rules_wave5c_combat import declare, to_attack, to_blocks
 from tests.test_rules_wave5c_combat import put as combat_put
 from tests.test_rules_wave12a_counters_keywords import answer, real
-from tests.test_rules_effects import mana
 from tests.wave9c_kit import build, card_named, check, life, put, to_hand
 
 EXTRA = [
