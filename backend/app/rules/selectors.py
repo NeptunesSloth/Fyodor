@@ -106,6 +106,9 @@ class Selector:
     # an activated or triggered ability on the stack (115.1c-d, 115.2b: "target activated or
     # triggered ability"): "any" | "activated" | "triggered". Mana abilities never use the stack.
     ability: str | None = None
+    # -- static grants (wave 15A) -- "artifact, enchantment, or creature with flying": any of these selectors (keys), the qualifier
+    # belonging to the last kind only. Only target phrases are read this way (parse_either); other consumers never see it.
+    either: tuple[str, ...] = ()
 
     def key(self) -> str:
         """Canonical and compact: only fields that differ from the defaults."""
@@ -252,7 +255,7 @@ def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
 
 
-@_suffix(r"that['’]s (?P<c1>" + "|".join(COLORS) + r")(?: or (?P<c2>" + "|".join(COLORS) + r"))?")
+@_suffix(r"that(?:['’]s| is| are) (?P<c1>" + "|".join(COLORS) + r")(?: or (?P<c2>" + "|".join(COLORS) + r"))?")
 def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:
     found = tuple(COLORS[c] for c in (m["c1"], m["c2"]) if c)
     return replace(s, colors=(*s.colors, *found))
@@ -269,9 +272,24 @@ def _thats_types(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "subtype_any:" + "|".join(c[1] for c in subs if c is not None)))
 
 
-@_suffix(r"that['’]s one or more colors")
+@_suffix(r"that(?:['’]s| is| are) one or more colors")  # (wave 15A: "permanents they control that are one or more colors")
 def _thats_colors(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, colorless=False)
+
+
+# -- static grants & selectors (wave 15A) -- "creatures that aren't enchanted", "nonland permanents that aren't legendary / that's
+# not historic" (a negated quality: 700.6 historic, 303.4 / 301.5 enchanted / equipped, 205.4 supertypes, 105 colors)
+_NOT_EXTRAS = ("not_enchanted", "not_equipped", "not_historic")
+
+
+@_suffix(r"that(?:['’]s not| isn['’]t| aren['’]t| is not| are not) (?P<w>enchanted|equipped|historic|legendary|snow|basic|" + "|".join(COLORS) + ")")
+def _thats_not(s: Selector, m: re.Match[str]) -> Selector:
+    w = m["w"]
+    if w in COLORS:
+        return replace(s, not_colors=(*s.not_colors, COLORS[w]))
+    if w in SUPERTYPES:
+        return replace(s, not_supertypes=(*s.not_supertypes, SUPERTYPES[w]))
+    return replace(s, extras=(*s.extras, "not_" + w))
 
 
 @_suffix(r"you own")
@@ -294,7 +312,7 @@ def _any_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", None)
 
 
-@_suffix(r"(?:from|in) an opponent's graveyard")
+@_suffix(r"(?:from|in) (?:an opponent's|your opponents') graveyards?")
 def _opp_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", "opponent")
 
@@ -331,6 +349,20 @@ def _compare(s: Selector, m: re.Match[str]) -> Selector:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
     return replace(s, compare=(*s.compare, (what, "<=" if m["dir"] == "less" else ">=", n)))
+
+
+@_suffix(r"with power or toughness (?P<n>\d+) or (?P<dir>less|greater)")  # (wave 15A: Tetsuko Umezawa — either one)
+def _power_or_toughness(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"pot:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))
+
+
+@_suffix(r"with (?P<what>mana value|power|toughness) (?P<dir>greater|less) than " + _NUM)  # (wave 15A: strictly, 107.1)
+def _compare_strict(s: Selector, m: re.Match[str]) -> Selector:
+    n = _n(m.group(3))
+    if n is None or m.group(3) == "x":
+        raise ValueError("X comparisons need a value")
+    what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
+    return replace(s, compare=(*s.compare, (what, ">" if m["dir"] == "greater" else "<", n)))
 
 
 @_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM.replace("|x)", "|[xX])"))
@@ -726,6 +758,21 @@ def _outlaws(phrase: str) -> Selector | None:
     return replace(base, extras=(*base.extras, "subtype_any:" + OUTLAW_TYPES)) if base is not None else None
 
 
+_EITHER = re.compile(r"^(?P<head>[a-z]+(?:, [a-z]+)*),? or (?P<last>[a-z]+ (?:with|without) .+)$")
+
+
+def parse_either(phrase: str) -> Selector | None:
+    """"artifact, enchantment, or creature with flying" (a target phrase: 115.1): an artifact, an enchantment, or a creature with
+    flying — the qualifier is the last kind's only."""
+    m = _EITHER.match(phrase.strip())
+    if m is None:
+        return None
+    a, b = _parse(m["head"]), _parse(m["last"])
+    if a is None or b is None or a.player or b.player or a.zones != ("battlefield",) or b.zones != ("battlefield",):
+        return None
+    return Selector(either=(a.key(), b.key()))
+
+
 @lru_cache(maxsize=8192)
 def _parse(phrase: str) -> Selector | None:
     if "outlaw" in phrase:
@@ -949,6 +996,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     zone = card.zone.split(":")[-1] if ":" in card.zone else card.zone
     if sel.player is not None:
         return False
+    if sel.either:  # (wave 15A) any one of the alternatives
+        return zone == "battlefield" and any(matches(plan, from_key(k), card, ch, you, source, attacker) for k in sel.either)
     if sel.zones and zone not in sel.zones:
         return False
     if not sel.zones and zone in ("battlefield", "stack"):
@@ -1064,9 +1113,16 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 c.attached_to == card.id and "Aura" in plan.ch(c).subtypes and c.controller == card.controller
                 for c in plan.state.cards.values())):
             return False
+        if extra in _NOT_EXTRAS and matches(plan, Selector(zones=sel.zones, card=sel.card, extras=(extra[4:],)), card, ch, you, source):
+            return False  # (wave 15A)
         # (700.6; set only by the look-and-distribute grammar: "a historic card from among them")
         if extra == "historic" and not ("Artifact" in ch.types or "Legendary" in ch.supertypes or "Saga" in ch.subtypes):
             return False
+        if extra.startswith("pot:"):  # (wave 15A) power or toughness (either) at most / at least n
+            op, n = ("<=", int(extra[6:])) if extra[4:6] == "<=" else (">=", int(extra[6:]))
+            vals = [v for v in (_stat(ch, "power"), _stat(ch, "toughness")) if v is not None]
+            if not any(v <= n if op == "<=" else v >= n for v in vals):
+                return False
         if extra.startswith("counter:") and not _has_counter(card, extra[8:]):  # (wave 5H: any kind, "*")
             return False
         if extra.startswith("nocounter:") and _has_counter(card, extra[10:]):  # -- counters (wave 5H) --

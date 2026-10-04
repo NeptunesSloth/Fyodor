@@ -246,6 +246,14 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"distinct": "names", "among": key} if key else None
     if what.startswith(("the ", "a ", "an ")):
         return None
+    # -- static grants (wave 15A) -- "for each land you control and each land card in your graveyard" (Multani): the sum of the
+    # two counts (an object that is both counts once for each, as "for each" reads)
+    m = re.fullmatch(r"(?P<a>.+?) and each (?P<b>.+)", what)
+    if m:
+        a, b = parse_count(m["a"], it=it), parse_count(m["b"], it=it)
+        if isinstance(a, dict) and isinstance(b, dict) and set(a) == set(b) == {"count"}:
+            return {"plus": [a, b]}
+        return None
     sel = selectors.parse(_normalise(what))
     if sel is None:
         return None
@@ -321,7 +329,7 @@ def _normalise(what: str) -> str:
     """Noun phrases the selector grammar spells differently: "cards in all graveyards" (400.1:
     every player's), "instant and sorcery cards" (cards of either type: a list, not "artifact
     creature"'s both-types reading)."""
-    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", re.sub(r" on the battlefield$", "", what))  # (sized amounts, wave 3D)
+    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", re.sub(r" on the battlefield(?=$| named ~)", "", what))  # (sized amounts, wave 3D)
     return re.sub(rf"\b(?P<a>{_TYPE_WORDS}) and (?P<b>{_TYPE_WORDS}) (?P<n>cards?|spells?)\b", r"\g<a> or \g<b> \g<n>", out)
 
 
@@ -418,6 +426,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "hand" in v:
         players = [you] if v["hand"] == "you" else _target_players(plan, ctx)
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in players)
+    if "library" in v:  # -- static grants (wave 15A) -- "half their library": the cards in the library of the player it names
+        from app.rules import context
+
+        players = [you] if v["library"] == "you" else context.players(plan, ctx, context.EVENT) if v["library"] == "event" \
+            else _target_players(plan, ctx)
+        return sum(len(plan.state.zones.get(f"{p}:library", [])) for p in players if p in plan.live())
     if "opponents" in v:
         return sum(1 for p in plan.live() if p != you)
     if "life" in v:

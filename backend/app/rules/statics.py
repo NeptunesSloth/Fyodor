@@ -93,6 +93,10 @@ GRANTABLE_KEYWORDS: frozenset[str] = frozenset({
 # ability of the object like a printed one (scripts.keyword_triggers: prowess 702.108a, persist 702.79a, undying
 # 702.93a; triggers._exalted: exalted 702.83a, each instance triggering separately, 702.83b / 702.108b)
 TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "undying"})
+# -- static grants (wave 15A) -- keywords whose whole meaning is one triggered ability (keyword_triggers.MEANINGS): granted as the
+# line itself (613.1f). Not modular / graft / living weapon / for mirrodin! / ravenous: those have a half that works as the
+# permanent enters (a granted one would miss it).
+MEANING_GRANTS = r"extort|battle cry|ingest|(?:poisonous|frenzy|afterlife|annihilator|afflict) \d+"
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
                      "enchanted permanent": "permanent", "enchanted artifact": "artifact",
@@ -121,6 +125,8 @@ def parse(text: str) -> Definition | None:
     if t.count(". ") or "\n" in t:
         return None  # two sentences: one of them says something we'd silently drop
     body = t[:-1] if t.endswith(".") else t
+    if re.fullmatch(r"A deck can have (?:any number of|up to \w+) cards named ~", body):
+        return {"kind": "static", "static": "deck_rule", "effects": []}  # -- static grants (wave 15A) -- 100.2a / 903.5b: deck building only
     cda = parse_cda(body)
     if cda is not None:
         return cda
@@ -161,6 +167,7 @@ def parse(text: str) -> Definition | None:
     rule_cond = False  # "unless …" / "if …": conditions only restrictions are worded with
     # "During your turn, …" / "As long as <condition>, …" / "… as long as <condition>"
     m = re.match(r"^(?:During your turn|As long as it's your turn), (?P<rest>.+)$", body)
+    m = m or re.match(r"^(?P<rest>.+? (?:has|have|gets?) .+) during your turn$", body)  # (wave 15A: "~ has first strike during your turn")
     if m:
         conds.append({"static": "your_turn"})
         body = m["rest"]
@@ -548,6 +555,7 @@ def _pieces(predicate: str) -> list[str]:
     i = 0
     predicate = predicate.replace("power and toughness", "power_and_toughness")
     predicate = predicate.replace("Aura and Equipment", "Aura_and_Equipment")  # (wave 6C: one count, values._ATTACHED_TO)
+    predicate = re.sub(r"(for each [^,\"]*?) and each ", r"\1 and_each ", predicate)  # (wave 15A: one sum, values._parse_count)
     while i < len(predicate):
         c = predicate[i]
         if c == '"':
@@ -567,7 +575,7 @@ def _pieces(predicate: str) -> list[str]:
         i += 1
     out.append(buf.strip())
     return [p.replace("power_and_toughness", "power and toughness").replace("Aura_and_Equipment", "Aura and Equipment")
-            for p in out if p]
+            .replace(" and_each ", " and each ") for p in out if p]
 
 
 def _predicate(predicate: str, x_value: values.Value | None = None, it: str | None = None) -> dict[str, Any] | None:
@@ -641,8 +649,8 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         if rest in GRANTABLE_KEYWORDS:
             keywords.append(rest)
             continue
-        if rest in TRIGGERED_GRANTS:  # -- static wordings (wave 6E) --
-            grants.append(rest.capitalize())
+        if rest in TRIGGERED_GRANTS or re.fullmatch(MEANING_GRANTS, rest):  # -- static wordings (wave 6E) --
+            grants.append(rest.capitalize())  # (wave 15A: "have extort", "have afflict 2": their CR meaning, keyword_triggers)
             continue
         line = keyword_line(rest.replace(_FROM_JOIN, " and from "))  # -- attached events (wave 4L) --
         if line is not None:

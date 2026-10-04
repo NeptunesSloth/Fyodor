@@ -1704,7 +1704,9 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
     when the ability targets one player (and names no other), else the player the trigger was about — only when the
     ability also says "that player" for its recipient (``event_player``: _event_refs_ok checks the trigger has one)."""
     text = json.dumps(found[0]) if found is not None else ""
-    if found is None or '{"hand": "that_player"}' not in text:
+    zone = "library" if found is not None and '{"library": "that_player"}' in text else "hand"  # (wave 15A: "half their library")
+    marker = '{"' + zone + '": "that_player"}'
+    if found is None or marker not in text:
         return found
     if found[1] in ("player", "opponent") and '"event_player"' not in text:
         bound = "target"
@@ -1712,7 +1714,7 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
         bound = "event"
     else:
         return None
-    return json.loads(text.replace('{"hand": "that_player"}', '{"hand": "' + bound + '"}')), found[1], found[2]
+    return json.loads(text.replace(marker, '{"' + zone + '": "' + bound + '"}')), found[1], found[2]
 
 
 def _attached_host(found: tuple[list[dict[str, Any]], Any, bool] | None, it: str | None,
@@ -1803,6 +1805,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     elif re.search(r"\bcreates? [^.]*\btokens?\b[^.]* and (?:exile|return|put|destroy|sacrifice|tap|untap) (?:that|the) cards?\b",
                  body, re.IGNORECASE):
         return None
+    # -- static grants (wave 15A) -- "Discard all the cards in your hand, then draw that many cards." (Tolarian Winds): one player's
+    # hand, so "that many" is the number of cards discarded (701.9a), which the "this way" count already reads
+    body = re.sub(r"(?P<d>^|\. )(?P<h>(?:[Dd]iscard|[Tt]arget player discards) (?:(?:your|their) hand|all the cards in (?:your|their) hand)), then "
+                  r"(?P<v>draw|(?:that player )?draws) that many cards\.",
+                  lambda m: f"{m['d']}{m['h']}, then {m['v']} a card for each card discarded this way.", body)
     from app.rules import radiance  # -- radiance (wave 9C) --
 
     if (rad := radiance.split(body)) is not None:
@@ -2533,6 +2540,8 @@ def granted_ability(text: str) -> AbilityText | None:
         from app.rules import statics
 
         line = ab.text.rstrip(".")  # -- protection grants (wave 5E) -- (a resolved grant's text ends with a period)
+        if re.fullmatch(statics.MEANING_GRANTS, line.lower()):  # -- static grants (wave 15A) -- "Extort", "Afflict 2": their CR meaning
+            return ab
         return ab if statics.keyword_line(line[0].lower() + line[1:]) == line else None
     probe = Characteristics(name="\u0000", abilities=(ab,))
     return ab if define(ab, probe) is not None else None

@@ -122,7 +122,7 @@ _ADD_MANA = re.compile(r"^(?P<cost>[^:]+): (?:Choose a color\. )?Add ")
 # Anything else is a flavor word only when what follows is a trigger or a cost-led activated ability; other lines are left as they were.
 _WORD_PREFIX = re.compile(r"^(?P<w>[A-Z][A-Za-z0-9'’!?,\- ]{0,48}?) — (?P<rest>\S.*)$")
 _NOT_FLAVOR = frozenset({"max speed", "power-up", "exhaust", "boast", "forecast", "visit", "companion", "prototype",
-                         "solved", "to solve", "jump", "station", "level up",
+                         "solved", "to solve", "station", "level up",
                          "prize"})  # (-- review (wave 6R) -- "Prize —" is part of an Attraction's visit ability: 702.159b)
 _ROMAN = re.compile(r"^[IVX]+(?:, [IVX]+)*$")
 

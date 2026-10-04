@@ -193,7 +193,7 @@ def _target_key(phrase: str) -> str:
     m = re.match(r"^(another )?target (.+)$", phrase)
     if not m:
         raise _Fail
-    sel = selectors.parse(("another " if m[1] else "") + m[2])
+    sel = selectors.parse(("another " if m[1] else "") + m[2]) or (None if m[1] else selectors.parse_either(m[2]))  # (wave 15A)
     if sel is None:
         raise _Fail
     return sel.key()
@@ -960,9 +960,17 @@ def _one(group: dict[str, Any] | None) -> Any:
     return _out([group] if group is not None else [])
 
 
+_ALL_AND_ALL = re.compile(r"^(?P<v>destroy|exile) (?P<q>all|each) (?P<a>creature|artifact|enchantment|land|planeswalker|battle)s?"
+                          r"(?P<c>(?: you control| you don't control| your opponents control)?) and (?P=q) "
+                          r"(?P<b>creature|artifact|enchantment|land|planeswalker|battle)s?(?P=c)$")
+
+
 def _parse(text: str) -> tuple[Effects, Any]:
     if (emblem := _emblem(text)) is not None:  # -- emblems (wave 13A) --
         return emblem
+    # -- static grants & selectors (wave 15A) -- "Destroy all creatures you don't control and all planeswalkers you don't control":
+    # one group of the two kinds under one qualifier (the "or" the selectors already read), all at once (701.8)
+    text = _ALL_AND_ALL.sub(lambda m: f"{m['v']} {m['q']} {m['a']}s or {m['b']}s{m['c']}", text)
     if '"' in text:  # -- quoted grants (wave 2D) -- the quoted abilities are read on their own
         return _quoted(text)
     lead = _EOT_LEAD.match(text)  # -- quoted grants (wave 2D) -- "Until end of turn, target creature gets +1/+0."
@@ -1037,13 +1045,19 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m and rider is None and (m["s"] in (None, "you")) == (text.endswith("your life, rounded " + m["r"])):
         who, target = _subject(m)
         return [{"do": "lose_life", "who": who, "n": 0, "half": m["r"]}], target
+    # -- static grants (wave 15A) -- "Target opponent mills half their library, rounded down." (107.1a: half of the cards in the
+    # library as the instruction is carried out; the player whose library it is: the one milled)
+    m = re.fullmatch(_SUBJ + r"mills? half (?P<own>their|your) library, rounded (?P<r>up|down)", text)
+    if m and rider is None and (m["own"] == "your") == (m["s"] in (None, "you")):
+        who, target = _subject(m)
+        return [{"do": "mill", "who": who, "n": {"half": {"library": "you" if m["own"] == "your" else "that_player"}, "round": m["r"]}}], target
     m = re.fullmatch(_SUBJ + rf"discards? (?P<n>{AMT}) cards? at random", text)  # -- refused zones/sized (wave 3R4) --
     if m:  # 701.9b: the cards are chosen at random (effects.discard: the table picks; the move records which)
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": _apply(_amount(m["n"]), rider), "random": True}], target
     # -- "this way" outcomes (wave 4A) -- "discard your hand" / "each player discards their hand" (701.9a: every card in
     # it; one choice-free discard, all at once, 101.4)
-    m = re.fullmatch(_SUBJ + r"discards? (?:(?P<your>your)|their) hand", text)
+    m = re.fullmatch(_SUBJ + r"discards? (?:all the cards in )?(?:(?P<your>your)|their) hand", text)
     if m and rider is None and (m["your"] is not None) == (m["s"] in (None, "you")):
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": 0, "all": True}], target
@@ -1070,6 +1084,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if greatest:
             sel = replace(sel, extras=(*sel.extras, "greatest_power_own"))
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
+    # -- static grants & selectors (wave 15A) -- "Each player sacrifices all permanents they control that are one or more colors"
+    # (701.21a: a player sacrifices only what they control; every match goes at once, 101.4: sacrifice_choice with no choice left)
+    m = re.fullmatch(_SUBJ + r"sacrifices? all (?P<sel>.+?)(?: (?:they|you) control)?(?P<tail> that .+)?", text)
+    if m and rider is None and not (m["tail"] and re.search(r"\b(?:they|you) control\b", m["tail"])):
+        who, target = _subject(m)
+        sel = selectors.parse(m["sel"] + (m["tail"] or ""))
+        if sel is None or sel.player is not None or sel.controller is not None or sel.zones != ("battlefield",):
+            raise _Fail
+        return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": 10**6}], target
     # -- grammar (wave 11C) -- "that player loses the game", "you lose the game", "target player loses the game" (104.3e)
     m = re.fullmatch(_SUBJ + r"loses? the game", text)
     if m and rider is None:

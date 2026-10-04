@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -36,6 +37,18 @@ def is_basic_or_unlimited(card: dict[str, Any] | None) -> bool:
         return False
     text = (card.get("oracle_text") or "").lower()
     return "Basic" in (card.get("type_line") or "") or "a deck can have any number of cards named" in text
+
+
+_UP_TO = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+
+
+def over_limit(card: dict[str, Any] | None, qty: int, normal: int) -> bool:
+    """-- static grants (wave 15A) -- too many copies of a card: ``normal`` is the format's limit (903.5b: 1, 100.2a: 4); "A deck
+    can have any number of cards named ~" and basic lands lift it, "A deck can have up to seven cards named ~" raises it."""
+    if is_basic_or_unlimited(card):
+        return False
+    m = re.search(r"a deck can have up to (\w+) cards named", ((card or {}).get("oracle_text") or "").lower())
+    return qty > (_UP_TO.get(m[1], normal) if m else normal)
 
 
 @dataclass
@@ -361,7 +374,7 @@ def validate(deck: DeckIn, cards: CardRepository, card_data: dict[str, dict[str,
                 per_name[e.name] += e.quantity
         for name, qty in per_name.items():
             entry = next(x for x in deck.entries if x.name == name)
-            if qty > 4 and not is_basic_or_unlimited(data.get(entry.printing_id or "")):
+            if over_limit(data.get(entry.printing_id or ""), qty, 4):
                 warnings.append(Warning(level="warning", message=f"{qty} copies of {name} (maximum 4).", card=name))
     return warnings
 
@@ -404,7 +417,7 @@ def _commander_checks(deck: DeckIn, data: dict[str, dict[str, Any]], count: Coun
         per_name[e.name] += e.quantity
     for name, qty in per_name.items():
         entry = next(x for x in playing if x.name == name)
-        if qty > 1 and not is_basic_or_unlimited(data.get(entry.printing_id or "")):
+        if over_limit(data.get(entry.printing_id or ""), qty, 1):
             warnings.append(Warning(level="warning", message=f"{qty} copies of {name} (Commander is singleton).", card=name))
     for e in playing:
         card = data.get(e.printing_id or "")
