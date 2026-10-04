@@ -75,12 +75,30 @@ EXTRA = [
          'When this enchantment enters, create two 1/1 red Warrior creature tokens.\nWhenever you attack, each opponent loses life equal to the number of creatures attacking them.', None, 'B'),
     real('Phytotitan', '{4}{G}{G}', 6, 'Creature — Plant Elemental',
          "When this creature dies, return it to the battlefield tapped under its owner's control at the beginning of their next upkeep.", ("7", "2"), 'G'),
+    real('Wyleth, Soul of Steel', '{1}{R}{W}', 3, 'Legendary Creature — Human Warrior',
+         'Trample\nWhenever Wyleth attacks, draw a card for each Aura and Equipment attached to it.', ("2", "2"), 'RW'),
+    real('Soulherder', '{1}{W}{U}', 3, 'Creature — Spirit',
+         "Whenever a creature is exiled from the battlefield, put a +1/+1 counter on this creature.\nAt the beginning of your end step, you may exile another target creature you control, then return that card to the battlefield under its owner's control.", ("1", "1"), 'UW'),
+    real('Aetherworks Marvel', '{4}', 4, 'Legendary Artifact',
+         'Whenever a permanent you control is put into a graveyard, you get {E} (an energy counter).\n{T}, Pay six {E}: Look at the top six cards of your library. You may cast a spell from among them without paying its mana cost. Put the rest on the bottom of your library in a random order.', None, ''),
+    real('Vorinclex, Voice of Hunger', '{6}{G}{G}', 8, 'Legendary Creature — Phyrexian Praetor',
+         "Trample\nWhenever you tap a land for mana, add one mana of any type that land produced.\nWhenever an opponent taps a land for mana, that land doesn't untap during its controller's next untap step.", ("7", "6"), 'G'),
+    real('Firespitter Whelp', '{2}{R}', 3, 'Creature — Dragon',
+         'Flying\nWhenever you cast a noncreature or Dragon spell, this creature deals 1 damage to each opponent.', ("2", "2"), 'R'),
+    real('Ghostly Pilferer', '{1}{U}', 2, 'Creature — Spirit Rogue',
+         "Whenever this creature becomes untapped, you may pay {2}. If you do, draw a card.\nWhenever an opponent casts a spell from anywhere other than their hand, draw a card.\nDiscard a card: This creature can't be blocked this turn.", ("2", "1"), 'U'),
+    real('Jadelight Ranger', '{1}{G}{G}', 3, 'Creature — Merfolk Scout Ranger',
+         "When this creature enters, it explores, then it explores again. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on this creature, then put the card back or put it into your graveyard. Then repeat this process.)", ("2", "1"), 'G'),
+    real('Ammit Eternal', '{2}{B}', 3, 'Creature — Zombie Crocodile Demon',
+         'Afflict 3 (Whenever this creature becomes blocked, defending player loses 3 life.)\nWhenever an opponent casts a spell, put a -1/-1 counter on this creature.\nWhenever this creature deals combat damage to a player, remove all -1/-1 counters from it.', ("5", "5"), 'B'),
+    real("Test Exile", "{W}", 1, "Sorcery", "Exile target creature.", None, "W"),
     real("Test Bounce", "{U}", 1, "Sorcery", "Return target creature to its owner's hand.", None, "U"),
     real("Test Burst", "{R}", 1, "Instant", "Test Burst deals 1 damage to any target.", None, "R"),
 ]
 
 NAMES = ["Torens, Fist of the Angels", "Dour Port-Mage", "Glowing One", "Screeching Scorchbeast", "Staff of the Death Magus",
-         "Rug of Smothering", "Phytotitan", "Within Range", "Hapatra, Vizier of Poisons", "Nest of Scarabs", "Path of Discovery", "Necropotence", "Prosperous Thief", "Forsaken Monument", "Parhelion II",
+         "Rug of Smothering", "Wyleth, Soul of Steel", "Soulherder", "Aetherworks Marvel",
+         "Vorinclex, Voice of Hunger", "Firespitter Whelp", "Ghostly Pilferer", "Jadelight Ranger", "Ammit Eternal", "Phytotitan", "Within Range", "Hapatra, Vizier of Poisons", "Nest of Scarabs", "Path of Discovery", "Necropotence", "Prosperous Thief", "Forsaken Monument", "Parhelion II",
          "Poetic Ingenuity", "Scytheclaw Raptor", "Price of Glory"]
 
 
@@ -356,4 +374,35 @@ def test_returns_at_the_beginning_of_their_next_upkeep(cards):
     assert s.state.cards[titan.id].zone == "p1:graveyard"
     until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")  # Alice's upkeep has passed
     assert s.state.cards[titan.id].zone == "p1:battlefield" and s.state.cards[titan.id].tapped
+    check(s)
+
+
+def test_a_creature_exiled_from_the_battlefield_adds_a_counter(cards):
+    # Soulherder: "is exiled from the battlefield" is a leave whose destination is exile (not a death)
+    s = build(cards, ["Soulherder", "Test Soldier", "Test Exile"], [])
+    herder = put(s, "Soulherder")
+    soldier = put(s, "Test Soldier")
+    cast(s, "Test Exile", W=1)
+    answer(s, soldier.id)
+    assert s.state.cards[soldier.id].zone == "p1:exile" and s.state.cards[herder.id].counters.get("+1/+1") == 1
+    check(s)
+
+
+def test_a_permanent_put_into_a_graveyard_gives_energy(cards):
+    s = build(cards, ["Aetherworks Marvel", "Test Soldier"], [])
+    put(s, "Aetherworks Marvel")
+    put(s, "Test Soldier")
+    kill(s, "Test Soldier")
+    assert s.state.players["p1"].resources.get("energy") == 1
+    check(s)
+
+
+def test_explores_twice(cards):
+    s = build(cards, ["Jadelight Ranger"], [])
+    ranger = to_hand(s, "Jadelight Ranger")
+    hand = len(zone(s.state, "p1", "hand"))
+    mana(s, "p1", G=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=ranger.id)
+    answer(s)
+    assert len(zone(s.state, "p1", "hand")) == hand - 1 + 2  # two Forests revealed, both to the hand
     check(s)

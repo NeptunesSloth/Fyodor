@@ -1372,6 +1372,11 @@ def _scry_x(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": m["verb"], "who": "you", "n": _x_amount(m["xdef"])}], None  # (wave 4K: 701.22, 701.25)
 
 
+@effect(r"(?P<src>~|it) explores, then (?:it|~) explores again")
+def _explore_twice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "explore", **_it_source(m["src"])}, {"do": "explore", **_it_source(m["src"])}], None  # -- triggers (wave 17D) -- 701.44a twice
+
+
 @effect(r"(?P<src>~|it|target creature you control) explores")
 def _explore(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if m["src"] == "target creature you control":  # -- trigger tail (wave 16C) -- 701.44a: the creature explores (you control it)
@@ -1962,6 +1967,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
         return None
+    if it == "self":  # -- triggers (wave 17D) -- "draw a card for each Aura and Equipment attached to it": "it" is the source (Wyleth)
+        body = re.sub(r"\b(Auras?|Equipment) attached to it\b", r"\1 attached to ~", body)
     # -- review (wave 7R) -- "Create a tapped 2/2 black Zombie creature token and exile that card." (Wight): "that card" is
     # the card the trigger is about, never the token just created (a token is no card), and the pronoun reader would bind it
     # to the token. The two instructions don't depend on each other: read as "Exile that card. Create …" (the trigger's

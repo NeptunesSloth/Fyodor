@@ -1043,7 +1043,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if sel.player is not None:
         return False
     if sel.either:  # (wave 15A) any one of the alternatives
-        return zone == "battlefield" and any(matches(plan, from_key(k), card, ch, you, source, attacker) for k in sel.either)
+        return zone in ("battlefield", "stack") and any(matches(plan, from_key(k), card, ch, you, source, attacker) for k in sel.either)  # (stack: wave 17D, "a noncreature or Dragon spell")
     if sel.zones and zone not in sel.zones:
         return False
     if not sel.zones and zone in ("battlefield", "stack"):

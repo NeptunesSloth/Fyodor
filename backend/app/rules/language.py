@@ -1517,13 +1517,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             _one(group)
-    m = re.fullmatch(rf"remove (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
+    m = re.fullmatch(rf"remove (?P<n>{AMT}|all) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
         kind, key, group = ref(m["o"])
-        if kind == "players":
+        if kind == "players" or (m["n"] == "all" and rider is not None):
             raise _Fail
-        return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
-            _one(group)
+        # (wave 17D: "remove all -1/-1 counters from it" - as many as there are, 122.8)
+        n = 10**6 if m["n"] == "all" else _apply(_amount(m["n"]), rider)
+        return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": n}], _one(group)
     # -- counters (wave 5H) -- "double the number of +1/+1 counters on each creature you control" (Kalonian Hydra),
     # "double the number of each kind of counter on target permanent" (Vorel): 701.10e, as many more as it has
     m = re.fullmatch(r"double the number of (?:(?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters|(?P<each>each kind of counter)) on (?P<o>.+)",

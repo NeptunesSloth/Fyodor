@@ -227,6 +227,13 @@ def _parse(c: str) -> Condition | None:
         if inner is None or inner.get("event") != "leave":
             return None
         return {**inner, "nodie": True}
+    # -- triggers (wave 17D) -- "Whenever a creature is exiled from the battlefield" (Soulherder): a leave whose destination is exile
+    m = re.fullmatch(r"(?P<s>.+?) (?:is|are) (?:exiled|put into exile) from the battlefield", c)
+    if m:
+        inner = _parse(f"{m['s']} leaves the battlefield")
+        if inner is None or inner.get("event") != "leave":
+            return None
+        return {**inner, "dest": "exile"}
     # "When ~ enters or dies", "Whenever ~ attacks or blocks": one ability, each event (603.2)
     m = re.fullmatch(rf"~ (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m:
@@ -420,11 +427,15 @@ def _parse(c: str) -> Condition | None:
     # -- graveyard owner (wave 6D) -- "a creature is put into an opponent's graveyard from the battlefield", "a nontoken
     # creature is put into your graveyard from the battlefield", "~ is put into your graveyard from the battlefield": it
     # died (700.4), and a card goes to its OWNER's graveyard (400.3; a token too, 111.7) — whose graveyard is the owner's
-    m = re.fullmatch(r"(?P<s>.+?) (?P<v>is|are) put into (?P<g>your|an opponent's) graveyard from the battlefield", c)
-    if m:
+    # -- triggers (wave 17D) -- "a permanent you control is put into a graveyard" (Aetherworks Marvel): a permanent is on the battlefield,
+    # so it is the same event ("a player's" / "a" graveyard: whoever owns it); a subject that isn't a card only
+    m = re.fullmatch(r"(?P<s>.+?) (?P<v>is|are) put into (?P<g>your|an opponent's|a player's|a) graveyard(?P<fb> from the battlefield)?", c)
+    if m and (m["fb"] or (m["g"] == "a" and "card" not in m["s"])):
         inner = _parse(f"{m['s']} {'dies' if m['v'] == 'is' else 'die'}")
         if inner is None or inner.get("event") != "die" or inner.get("subject") not in ("self", "sel"):
             return None
+        if m["g"] in ("a", "a player's"):
+            return inner
         return {**inner, "gy_owner": "you" if m["g"] == "your" else "opponent"}
     m = re.fullmatch(r"(?P<p>you|an opponent|a player|each opponent) gains? or loses? life", c)  # (wave 11C) each event: 603.2
     if m:
@@ -582,7 +593,8 @@ def _combat(c: str) -> Condition | None:
 
 
 _FROM = {"from exile": "exile", "from your graveyard": "graveyard", "from a graveyard": "graveyard",
-         "from anywhere other than your hand": "not_hand", "from your hand": "hand"}
+         "from anywhere other than your hand": "not_hand", "from your hand": "hand",
+         "from anywhere other than their hand": "not_hand"}  # (wave 17D: Ghostly Pilferer)
 
 
 def _cast(c: str) -> Condition | None:
@@ -626,7 +638,7 @@ def _cast(c: str) -> Condition | None:
     if spell.startswith(("your ", "their ")) or " each turn" in spell or "copy" in spell or " this turn" in spell:
         return None
     f = re.fullmatch(r"(?P<rest>.+?) (?P<from>from exile|from your graveyard|from a graveyard|"
-                     r"from anywhere other than your hand|from your hand)", spell)
+                     r"from anywhere other than your hand|from your hand|from anywhere other than their hand)", spell)
     if f:
         out["from"] = _FROM[f["from"]]
         spell = f["rest"]
@@ -645,7 +657,14 @@ def _cast(c: str) -> Condition | None:
         out["kicked"] = True
         spell = "a " + k["rest"]
     spell = re.sub(r"^an? ", "", spell)
+    spell = re.sub(r"^(\w+) spell or an? (\w+) spell$", r"\1 or \2 spell", spell)  # (wave 17D: "a noncreature spell or a Dragon spell")
     sel = selectors.parse(spell) if spell != "spell" else selectors.Selector(zones=("stack",))
+    if sel is None:  # -- triggers (wave 17D) -- "a noncreature or Dragon spell": two whole kinds, either one (601.2i)
+        alt = re.fullmatch(r"([a-z]+|[A-Z][a-z]+) or ([a-z]+|[A-Z][a-z]+) spell", spell)
+        halves = [selectors.parse(f"{w} spell") for w in alt.groups()] if alt else []
+        if len(halves) == 2 and all(h is not None and h.player is None for h in halves):
+            keys = tuple(selectors.replace(h, zones=("stack",)).key() for h in halves if h is not None)
+            return {**out, "spell": selectors.Selector(either=keys).key()}
     if sel is None or sel.player is not None:
         return None
     return {**out, "spell": selectors.replace(sel, zones=("stack",)).key()}

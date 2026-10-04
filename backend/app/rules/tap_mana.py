@@ -192,7 +192,7 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(re.compile(r"^until end of turn
 # (603), put on the stack the next time a player would receive priority (603.3) — after the spell being paid for is cast.
 # The event is a mana ability with {T} in its cost resolving and producing mana (106.12a): app/rules/casting.py emits
 # "mana_added" with counter "tap"; app/rules/triggers.py reads it as the fact "tapped_for_mana" (its player: who tapped).
-_CONDITION = re.compile(r"(?P<p>you|a player) taps? (?P<o>~|an? [^,]+?) for mana")
+_CONDITION = re.compile(r"(?P<p>you|a player|an opponent) taps? (?P<o>~|an? [^,]+?) for mana")  # (wave 17D: an opponent)
 
 
 def condition(c: str) -> dict[str, Any] | None:
@@ -206,7 +206,7 @@ def condition(c: str) -> dict[str, Any] | None:
     sel = selectors.parse(re.sub(r"^an? ", "", m["o"]))
     if sel is None or sel.player is not None or sel.zones not in ((), ("battlefield",)):
         return None
-    return {"event": "tapped_for_mana", "subject": "player", "player": "you" if m["p"] == "you" else "any", "obj": sel.key()}
+    return {"event": "tapped_for_mana", "subject": "player", "player": {"you": "you", "an opponent": "opponent"}.get(m["p"], "any"), "obj": sel.key()}
 
 
 def adds_mana(d: dict[str, Any]) -> bool:
