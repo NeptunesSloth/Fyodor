@@ -113,9 +113,12 @@ def _choice_cost_ok(extra: Any) -> bool:
     counters …) or objects the payer chooses (Ashnod's Altar's "Sacrifice a creature")."""
     from app.rules import costs as C
 
-    return not extra.unsupported and not extra.activation_only and all(  # (activation_only: wave 4H, 605)
-        c.kind in (C.MANA, C.TAP, C.PAY_LIFE) or (c.kind in (C.SACRIFICE, C.REMOVE_COUNTER) and c.selector is None)
-        or (c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random)
+    return not extra.unsupported and all(
+        c.kind in (C.MANA, C.TAP, C.PAY_LIFE, C.EXERT, C.UNTAP, C.FORAGE)  # (wave 17B: exert, {Q}, forage: paid by hand)
+        or (not c.activation_only and (
+            (c.kind in (C.SACRIFICE, C.REMOVE_COUNTER) and c.selector is None)
+            or (c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD)
+                and not c.random)))  # (activation_only: wave 4H, 605)
         for c in extra.components)
 
 

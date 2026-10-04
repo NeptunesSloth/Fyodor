@@ -5,6 +5,10 @@
 * "Spend this mana only to cast kicked spells / spells from exile / spells with flashback from a graveyard", "This mana can't be spent
   to cast spells from your hand" (601.2h: what the spell is, where it's cast from and whether kicked are known when it's paid), and
   "Add an amount of {C} equal to Vhal's toughness".
+* "Untap two tapped creatures you control" as a cost (Halo Fountain, Crackleburr: 701.26b) and "It deals 1 damage" after "Exert this
+  creature" (701.43: the exerted creature is the source).
+* Mana abilities whose cost exerts the source ("{T}, Exert this creature"), untaps it ("{2}, {Q}") or forages: paid by hand like a
+  sacrifice cost, 605.3a (Oasis Ritualist, Pili-Pala, Thornvault Forager).
 * "has base power 4 and gains trample" (613.4b: layer 7b, power only).
 
 Real Oracle text; each scenario replays the history and survives a save/load round trip."""
@@ -21,7 +25,7 @@ from app.rules import mana as M
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, zone
-from tests.test_rules_conditionals import build, on_field
+from tests.test_rules_conditionals import build, creature, on_field
 from tests.test_rules_effects import mana, replay_matches
 
 
@@ -62,9 +66,21 @@ EXTRA = [
          '{T}: Add {U}. Spend this mana only to cast an instant or sorcery spell or a kicked spell.', ('1', '3'), 'U'),
     real('Faithless Looting', '{R}', 1, 'Sorcery',
          'Draw two cards, then discard two cards.\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)', None, 'R'),
+    real('Halo Fountain', '{2}{W}', 3, 'Artifact',
+         '{W}, {T}, Untap a tapped creature you control: Create a 1/1 green and white Citizen creature token.\n{W}{W}, {T}, Untap two tapped creatures you control: Draw a card.\n{W}{W}{W}{W}{W}, {T}, Untap fifteen tapped creatures you control: You win the game.', None, 'W'),
+    real('Fervent Paincaster', '{2}{R}', 3, 'Creature — Human Wizard',
+         "{T}: This creature deals 1 damage to target player or planeswalker.\n{T}, Exert this creature: It deals 1 damage to target creature. (An exerted creature won't untap during your next untap step.)", ('3', '1'), 'R'),
+    real('Crackleburr', '{1}{U/R}{U/R}', 3, 'Creature — Elemental',
+         "{U/R}{U/R}, {T}, Tap two untapped red creatures you control: This creature deals 3 damage to any target.\n{U/R}{U/R}, {Q}, Untap two tapped blue creatures you control: Return target creature to its owner's hand. ({Q} is the untap symbol.)", ('2', '2'), 'RU'),
+    real('Oasis Ritualist', '{3}{G}', 4, 'Creature — Snake Druid',
+         "{T}: Add one mana of any color.\n{T}, Exert this creature: Add two mana of any one color. (An exerted creature won't untap during your next untap step.)", ('2', '4'), 'G'),
+    real('Pili-Pala', '{2}', 2, 'Artifact Creature — Scarecrow',
+         'Flying\n{2}, {Q}: Add one mana of any color. ({Q} is the untap symbol.)', ('1', '1'), ''),
+    real('Thornvault Forager', '{1}{G}', 2, 'Creature — Squirrel Ranger',
+         '{T}: Add {G}.\n{T}, Forage: Add two mana in any combination of colors. (To forage, exile three cards from your graveyard or sacrifice a Food.)\n{3}{G}, {T}: Search your library for a Squirrel card, reveal it, put it into your hand, then shuffle.', ('2', '2'), 'G'),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
-FULL = ["Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
+FULL = ["Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
         "Volshe Tideturner", "Phelddagrif", "Leering Gargoyle", "Canopy Dragon", "Turtle-Duck", "Gargoyle Sentinel", "Singing Tree", "Island of Wak-Wak"]
 
 
@@ -222,3 +238,84 @@ def test_spend_only_for_a_spell_with_flashback_from_a_graveyard(cards):
     assert casting.spend_allowed(kind, casting.Purpose(spell=by_name["Faithless Looting"], zone="p1:graveyard", player="p1"))
     assert not casting.spend_allowed(kind, casting.Purpose(spell=by_name["Faithless Looting"], zone="p1:hand", player="p1"))
     assert not casting.spend_allowed(kind, casting.Purpose(spell=by_name["Saproling Migration"], zone="p1:graveyard", player="p1"))
+
+
+def test_untap_tapped_creatures_you_control_as_a_cost(cards):
+    s = build(cards, "Halo Fountain")
+    fountain = on_field(s, "Halo Fountain")
+    bears = [creature(s, "p1", "Bear A"), creature(s, "p1", "Bear B")]
+    act(s, "p1", type="tap", card_ids=[b.id for b in bears], tapped=True)
+    mana(s, "p1", W=3)
+    act(s, "p1", type="activate_ability", card_id=fountain.id, ability=ability(s, fountain, "{W}{W}, {T}"))
+    settle(s)  # (both are untapped; the fountain tapped)
+    assert [s.state.cards[b.id].tapped for b in bears] == [False, False] and s.state.cards[fountain.id].tapped
+    assert s.state.players["p1"].mana == {"W": 1}
+    roundtrip(s)
+
+
+def test_untap_a_tapped_creature_cost_needs_one_and_makes_a_token(cards):
+    s = build(cards, "Halo Fountain")
+    fountain = on_field(s, "Halo Fountain")
+    a, b = creature(s, "p1", "Bear A"), creature(s, "p1", "Bear B")
+    mana(s, "p1", W=1)
+    with pytest.raises(ActionError):  # (no tapped creature to untap: 118.3)
+        act(s, "p1", type="activate_ability", card_id=fountain.id, ability=ability(s, fountain, "{W}, {T}"))
+    act(s, "p1", type="tap", card_ids=[a.id], tapped=True)
+    act(s, "p1", type="activate_ability", card_id=fountain.id, ability=ability(s, fountain, "{W}, {T}"))
+    settle(s)
+    assert not s.state.cards[a.id].tapped and not s.state.cards[b.id].tapped
+    assert any(c.name == "Citizen" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    roundtrip(s)
+
+
+def test_exert_as_a_cost_then_it_deals_damage(cards):
+    s = build(cards, "Fervent Paincaster", p2=("Grizzly Bears",))
+    c = on_field(s, "Fervent Paincaster")
+    s.state.rules.controlled_since[c.id].turn = 0
+    bears = on_field(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=ability(s, c, "{T}, Exert"), targets=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].damage == 1 and s.state.cards[c.id].tapped
+    assert s.state.rules.exerted  # (701.43a: it won't untap during its controller's next untap step)
+    roundtrip(s)
+
+
+def test_exert_as_a_mana_ability_cost(cards):
+    s = build(cards, "Oasis Ritualist")
+    c = on_field(s, "Oasis Ritualist")
+    s.state.rules.controlled_since[c.id].turn = 0
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=ability(s, c, "{T}, Exert"))
+    settle(s)
+    assert sum(s.state.players["p1"].mana.values()) == 2 and len(s.state.players["p1"].mana) == 1  # (two of one color)
+    assert s.state.cards[c.id].tapped and s.state.rules.exerted
+    roundtrip(s)
+
+
+def test_untap_symbol_as_a_mana_ability_cost(cards):
+    s = build(cards, "Pili-Pala")
+    c = on_field(s, "Pili-Pala")
+    s.state.rules.controlled_since[c.id].turn = 0
+    mana(s, "p1", C=2)
+    with pytest.raises(ActionError):  # ({Q}: it has to be tapped, 107.6)
+        act(s, "p1", type="activate_ability", card_id=c.id, ability=ability(s, c, "{2}, {Q}"))
+    act(s, "p1", type="tap", card_ids=[c.id], tapped=True)
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=ability(s, c, "{2}, {Q}"))
+    settle(s)
+    assert not s.state.cards[c.id].tapped and sum(s.state.players["p1"].mana.values()) == 1
+    roundtrip(s)
+
+
+def test_forage_as_a_mana_ability_cost(cards):
+    s = build(cards, "Thornvault Forager")
+    c = on_field(s, "Thornvault Forager")
+    s.state.rules.controlled_since[c.id].turn = 0
+    forests = [x for x in s.state.cards.values() if x.name == "Forest" and x.zone == "p1:library"][:3]
+    for f in forests:
+        act(s, "p1", type="move", card_ids=[f.id], to={"zone": "graveyard"})
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=ability(s, c, "{T}, Forage"))
+    d = s.state.rules.decision  # (the three graveyard cards to exile)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.card_id in {f.id for f in forests}])
+    settle(s)
+    assert all(s.state.cards[f.id].zone.endswith(":exile") for f in forests)  # (701.61a: three cards from the graveyard)
+    assert sum(s.state.players["p1"].mana.values()) == 2 and s.state.cards[c.id].tapped
+    roundtrip(s)

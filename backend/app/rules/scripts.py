@@ -3205,6 +3205,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         own = "self" if re.fullmatch(r"(?:(?:(?:\{[^}]+\})+|Pay \d+ life|Exert (?:~|this \w+)), )*Remove [^,]+ counters? from (?:~|this \w+)"
                                      r"(?:, (?:(?:\{[^}]+\})+|Pay \d+ life|Exert (?:~|this \w+)))*",
                                      self_text(ability.cost or "", ch.name)) else None
+        # -- activated sweep (wave 17B) -- "{T}, Exert this creature: It deals 1 damage to target creature.": the exerted object is the source
+        if own is None and re.fullmatch(r"(?:(?:(?:\{[^}]+\})+|Pay \d+ life), )*Exert (?:~|this \w+)(?:, (?:(?:\{[^}]+\})+|Pay \d+ life))*",
+                                        self_text(ability.cost or "", ch.name)):
+            own = "self"
         parsed = _own_choice(parse_effects(body, "self_gone" if gone else own))  # (_own_choice: wave 3R5)
         if parsed is None or parsed[2]:
             return None

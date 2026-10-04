@@ -31,7 +31,7 @@ from app.rules.costs import AbilityCost, CostComponent
 from app.rules.plan import Plan, decide
 
 _VERBS = {C.SACRIFICE: "sacrifice", C.DISCARD: "discard", C.EXILE_FROM_GRAVEYARD: "exile",
-          C.RETURN_PERMANENT: "return to its owner's hand", C.TAP_OTHER: "tap", C.REMOVE_COUNTER: "remove counters from"}
+          C.RETURN_PERMANENT: "return to its owner's hand", C.TAP_OTHER: "tap", C.UNTAP_OTHER: "untap", C.REMOVE_COUNTER: "remove counters from"}
 _VERBS["EXILE_FROM_HAND"] = "exile"
 _VERBS["REVEAL_FROM_HAND"] = "reveal"  # (wave 15C)
 _VERBS[C.EXILE_TO_GY] = "put into its owner's graveyard"  # (wave 15C)
@@ -43,7 +43,7 @@ def _reserved(cost: AbilityCost, comp: CostComponent, source: CardInstance) -> s
     when it's tapped ({T}) or leaves (sacrificed / exiled / returned) as part of the cost."""
     leaves = cost.sacrifice_self or any(c.selector is None and c.kind in (C.EXILE, C.RETURN_PERMANENT, C.EXILE_FROM_GRAVEYARD)
                                         for c in cost.components)
-    if leaves or (comp.kind == C.TAP_OTHER and cost.tap) or (comp.kind == C.TAP_OTHER and cost.untap):
+    if leaves or (comp.kind in (C.TAP_OTHER, C.UNTAP_OTHER) and (cost.tap or cost.untap)):
         return {source.id}
     return set()
 
@@ -315,6 +315,8 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
         elif comp.kind == C.TAP_OTHER:
             plan.do({"type": "tap", "card_ids": ids, "tapped": True})
             record.tapped_for_cost += ids
+        elif comp.kind == C.UNTAP_OTHER:  # -- activated sweep (wave 17B) -- 701.26b
+            plan.do({"type": "tap", "card_ids": ids, "tapped": False})
         elif comp.kind == C.REMOVE_COUNTER and comp.selector is not None:
             plan.do({"type": "counter", "card_ids": ids, "kind": comp.counter, "delta": -comp.amount})
         elif comp.kind == C.SACRIFICE and comp.selector is not None:

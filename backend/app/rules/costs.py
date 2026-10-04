@@ -33,7 +33,7 @@ _ENERGY = re.compile(r"^Pay (?:(?P<symbols>(?:\{E\})+)|(?P<n>\w+) \{E\})$")
 _REMOVE = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|four|five|six|seven|eight|\d+) (?P<kind>[\w+/\-]+) counters? from (this \w+|it|~|(?P<name>.+))$"
 )
-_N = r"(?P<n>a|an|another|one|two|three|four|five|six|seven|eight|nine|ten|thirteen|\d+)"  # (seven …: wave 4H)
+_N = r"(?P<n>a|an|another|one|two|three|four|five|six|seven|eight|nine|ten|thirteen|fifteen|\d+)"  # (seven …: wave 4H; fifteen: 17B)
 _SAC_CHOSEN = re.compile(rf"^Sacrifice {_N} (?P<what>.+)$")
 _DISCARD = re.compile(rf"^Discard {_N} (?P<what>(?:[\w\-]+ )*cards?)(?P<random> at random)?$")
 _DISCARD_SELF = re.compile(r"^Discard (?:this card|~)$")  # -- ability words (wave 4F) -- channel (113.6m)
@@ -43,16 +43,18 @@ _EXILE_GY = re.compile(rf"^Exile {_N} (?P<what>(?:[\w\-]+ )*cards? from your gra
 _RETURN_SELF = re.compile(rf"^Return {_SELF} to its owner's hand$")
 _RETURN = re.compile(rf"^Return {_N} (?P<what>.+? you control) to (?:its|their) owner's hands?$")
 _TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another )?untapped (?P<what>.+ you control)$")
+_UNTAP_OTHER = re.compile(rf"^Untap {_N} tapped (?P<what>.+ you control)$")  # -- activated sweep (wave 17B) -- Halo Fountain
 _REMOVE_CHOSEN = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|\d+) (?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? from (?:a|an|another) (?P<what>.+)$")
 _WORDS = {"a": 1, "an": 1, "another": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
-          "seven": 7, "eight": 8, "nine": 9, "ten": 10, "thirteen": 13}  # (seven …: wave 4H, "Exile seven cards from your graveyard")
+          "seven": 7, "eight": 8, "nine": 9, "ten": 10, "thirteen": 13, "fifteen": 15}  # (seven …: wave 4H, "Exile seven cards from your graveyard")
 _ENERGY_WORDS = {**_WORDS, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "fifty": 50}  # (wave 3E: "Pay eight {E}")
 
 # Component kinds (the parts of a cost, 118.1)
 MANA, TAP, UNTAP, SACRIFICE, DISCARD, PAY_LIFE, PAY_ENERGY = "MANA", "TAP", "UNTAP", "SACRIFICE", "DISCARD", "PAY_LIFE", "PAY_ENERGY"
 EXILE, EXILE_FROM_GRAVEYARD, REMOVE_COUNTER, RETURN_PERMANENT = "EXILE", "EXILE_FROM_GRAVEYARD", "REMOVE_COUNTER", "RETURN_PERMANENT"
 TAP_OTHER, REVEAL, LOYALTY, OTHER = "TAP_OTHER", "REVEAL", "LOYALTY", "OTHER"
+UNTAP_OTHER = "UNTAP_OTHER"  # -- activated sweep (wave 17B) -- "Untap two tapped creatures you control" (the payer picks, 701.26a)
 # -- activation costs (wave 4H) -- put counters (122.6; blight 701.68a), discard your hand, mill (701.17), exile from the
 # top of your library, exert the source (701.43a); ANY_COUNTER: "Remove a counter from …" (the payer picks the kind)
 PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT = "PUT_COUNTER", "DISCARD_HAND", "MILL", "EXILE_LIBRARY", "EXERT"
@@ -248,6 +250,9 @@ def _component(part: str, card_name: str) -> CostComponent | None:
     if m := _TAP_OTHER.match(part):
         key = _selector("untapped " + m["what"], zone="battlefield", other=bool(m["another"]) or m["n"] == "another")
         return CostComponent(TAP_OTHER, amount=_n(m["n"]), selector=key, text=part) if key else None
+    if m := _UNTAP_OTHER.match(part):
+        key = _selector("tapped " + m["what"], zone="battlefield")
+        return CostComponent(UNTAP_OTHER, amount=_n(m["n"]), selector=key, text=part) if key else None
     if m := _REMOVE_CHOSEN.match(part):
         other = part.split(" from ", 1)[1].startswith("another ")
         key = _selector(m["what"], zone="battlefield", other=other)
