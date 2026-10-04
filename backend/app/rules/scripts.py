@@ -3833,6 +3833,8 @@ def _unless_condition(text: str) -> Definition | None:
     if m:
         n = _word_num(m["n"])
         return {"value": {"life": "player_min"}, "op": "<=", "n": n} if n is not None else None
+    if t == "it's your turn":  # -- static_other sweep (wave 19A) -- "This creature enters tapped unless it's your turn." (Horned Loch-Whale)
+        return {"turn": "yours"}
     m = re.fullmatch(r"your opponents control (?P<n>\w+) or more (?P<what>[a-z]+)", t)
     if m:
         n = _word_num(m["n"])
@@ -3985,6 +3987,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     """A static line that is a replacement or prevention effect of the permanent itself."""
     if ability.kind != "static":
         return None
+    text = re.sub(r"^~ enters tapped if it's not your turn\.$", "~ enters tapped unless it's your turn.", text)  # (wave 19A: Eddymurk Crab)
     # -- refused grants/replacements (wave 3R2) -- "Damage can't be prevented." and friends (615.12)
     from app.rules import skips, source_shields
 

@@ -2367,7 +2367,7 @@ _BECOME = re.compile(
     r"(?P<lose>loses all abilities and )?becomes? "
     r"(?:a|an) (?P<desc>.+?)"
     r"(?P<addition> in addition to its other (?P<addcolors>colors and )?types)?"
-    r"(?P<still> that's still an? (?:land|artifact|enchantment|planeswalker|creature))?"
+    r"(?P<still> that(?:'s| are) still (?:an? )?(?:land|artifact|enchantment|planeswalker|creature)s?)?"  # (wave 19A: "that are still lands")
     r"(?: and gains? (?:(?P<gain>[a-z ]+)|(?P<gainq>\"[^\"]*\"(?:,? and \"[^\"]*\")*)))?"
     r"(?:(?P<trail> until end of turn)|(?P<ntrail> until your next turn))?"
     r"(?P<cbb> and can't be blocked this turn)?$")  # (cbb: wave 7E, Dimir Keyrune)

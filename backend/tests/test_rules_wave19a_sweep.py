@@ -71,6 +71,18 @@ EXTRA = [
     real('Teferi, Master of Time', '{2}{U}{U}', 4, 'Legendary Planeswalker — Teferi',
          "You may activate loyalty abilities of Teferi on any player's turn any time you could cast an instant.\n+1: Draw a card, then discard a card.\n−3: Target creature you don't control phases out. (Treat it and anything attached to it as though they don't exist until its controller's next turn.)\n−10: Take two extra turns after this one.",
          None, 'U', loyalty="3"),
+    real('Eddymurk Crab', '{5}{U}{U}', 7, 'Creature — Elemental Crab',
+         "Flash\nThis spell costs {1} less to cast for each instant and sorcery card in your graveyard.\nThis creature enters tapped if it's not your turn.\nWhen this creature enters, tap up to two target creatures.",
+         ('5', '5'), 'U'),
+    real("Nature's Revolt", '{3}{G}{G}', 5, 'Enchantment',
+         'All lands are 2/2 creatures that are still lands.',
+         None, 'G'),
+    real('Living Lands', '{3}{G}', 4, 'Enchantment',
+         'All Forests are 1/1 creatures that are still lands.',
+         None, 'G'),
+    real('Rude Awakening', '{4}{G}', 5, 'Sorcery',
+         'Choose one —\n• Untap all lands you control.\n• Until end of turn, lands you control become 2/2 creatures that are still lands.\nEntwine {2}{G} (Choose both if you pay the entwine cost.)',
+         None, 'G'),
 ]
 FULL = [e["name"] for e in EXTRA]
 
@@ -256,4 +268,46 @@ def test_oath_of_nissa_and_vizier_widen_how_some_spells_are_paid(cards):
     act(s, "p1", type="cast_spell", card_id=tef.id)
     settle(s)
     assert s.state.cards[tef.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_a_group_of_lands_that_are_still_lands_as_a_static(cards):
+    s = build(cards, "Nature's Revolt", "Living Lands", "Island")
+    forest, island = on_field(s, "Forest"), on_field(s, "Island")
+    cast(s, "Living Lands", G=4)
+    assert {"Land", "Creature"} <= now(s, forest).types and now(s, forest).pt == (1, 1) and "Creature" not in now(s, island).types
+    cast(s, "Nature's Revolt", G=5)
+    assert now(s, forest).pt == (2, 2) and now(s, island).pt == (2, 2) and "Island" in now(s, island).subtypes  # (the types stay)
+    roundtrip(s)
+
+
+def no_targets(s):
+    """Resolve everything, choosing no targets for an "up to" trigger."""
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.min_choices])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_eddymurk_crab_enters_tapped_only_when_it_is_not_your_turn(cards):
+    s = build(cards, "Eddymurk Crab", "Eddymurk Crab")
+    crab = to_hand(s, "Eddymurk Crab")
+    mana(s, U=7)
+    act(s, "p1", type="cast_spell", card_id=crab.id)
+    no_targets(s)
+    assert s.state.cards[crab.id].zone == "p1:battlefield" and not s.state.cards[crab.id].tapped
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_prefs", response="on")
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")
+    act(s, "p2", type="pass_priority")
+    other = next(c for c in s.state.cards.values() if c.name == "Eddymurk Crab" and c.id != crab.id and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[other.id], to={"zone": "hand"})
+    mana(s, U=7)
+    act(s, "p1", type="cast_spell", card_id=other.id)
+    no_targets(s)
+    assert s.state.cards[other.id].zone == "p1:battlefield" and s.state.cards[other.id].tapped
     roundtrip(s)

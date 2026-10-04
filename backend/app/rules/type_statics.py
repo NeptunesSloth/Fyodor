@@ -72,6 +72,10 @@ def parse(text: str) -> dict[str, Any] | None:
         return _definition(m["s"], {"add_types": ["Land"], "add_subtypes": [m["t"]]})
     if (m := _ARE_ALSO.fullmatch(text)) is not None and (found := _also(m)) is not None:
         return found
+    # -- static_other sweep (wave 19A) -- "All lands are 2/2 creatures that are still lands." (Nature's Revolt), "All Forests are 1/1 creatures that are still lands." (Living Lands): the lands keep their types (205.1b,
+    # "still lands") and are creatures with base power and toughness 2/2 (613.1d, 613.4b)
+    if (m := re.fullmatch(r"(?P<s>All (?:lands|Forests|Swamps|Islands|Mountains|Plains)) are (?P<p>\d+)/(?P<t>\d+) creatures that are still lands\.", text)) is not None:
+        return _definition(m["s"], {"add_types": ["Creature"]}, base=[int(m["p"]), int(m["t"])])
     if re.fullmatch(r"~ is also an? [A-Z][A-Za-z]*(?:(?:, | and |, and )[A-Z][A-Za-z]*)*\.", text) \
             or re.fullmatch(r"~ is all colors\.(?: This ability doesn't affect its color identity\.)?", text):
         return {"kind": "static", "static": "cda", "effects": []}  # -- static_other sweep (wave 17C) -- characteristics.changeling / all_colors
