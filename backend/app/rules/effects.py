@@ -777,8 +777,7 @@ def exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def exile_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
     before = _remember(plan, ctx, e, cards)
     if cards:
-        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}, **({"face_down": True, "face_down_kind": "exile"} if e.get("face_down") else {})},
-                actor=ctx["controller"])
+        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
     if e.get("link"):  # -- exiled with (wave 6D) -- 607.2a: what the linked ability will refer to
         from app.rules import exiled_with
 

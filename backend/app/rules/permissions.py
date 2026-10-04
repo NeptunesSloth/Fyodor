@@ -552,9 +552,12 @@ def join_exile_play(body: str) -> str:
     body = re.sub(r"([Ee]xile the top card of your library face down) and look at it\b", r"\1. You may look at it for as long as it remains exiled",
                   body)
     body = re.sub(r"\b([Pp])ut the exiled card into your hand\b", lambda m: ("R" if m[1] == "P" else "r") + "eturn the exiled card to your hand", body)
+    body = re.sub(r"Look at (target player's hand), (the top card of that player's library), and any face-down creatures they control\.",
+                  r"Look at \1. Look at \2. Look at all face-down creatures that player controls.", body)  # (Spy Network: 701.20e each)
     body = re.sub(r"Reveal (target face-down permanent)\. If it's a creature card, you may turn it face up\.",
                   r"Reveal \1 and you may turn it face up if it's a creature card.", body)  # (Hauntwoods Shrieker)
     body = re.sub(r"(cloak those cards)\. They enter tapped\.", r"\1 tapped.", body)  # (Become Anonymous)
+    body = re.sub(r"\b([Ee]xile it) face down\. (It becomes foretold\.)", r"\1. \2", body)  # (The Foretold Soldier: the foretell zone is face down)
     body = re.sub(r"\bIt becomes foretold\. Its foretell cost is its mana cost reduced by (\{\d+\})\.",
                   r"It becomes foretold with a foretell cost of its mana cost reduced by \1.", body)  # (Ethereal Valkyrie: 702.143d)
     body = re.sub(r"(You may (?:look at and )?(?:play|cast) )the exiled (card|cards)\b",

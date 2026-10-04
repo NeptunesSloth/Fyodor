@@ -4204,11 +4204,6 @@ def _reveal_turn_up(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]
     return [{"do": "reveal_turn_up", "who": "target"}], group["what"]
 
 
-@effect(r"exile (?:it|~) face down")
-def _exile_it_face_down(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    return [{"do": "exile", "who": "it", "face_down": True}], None  # (The Foretold Soldier)
-
-
 @effect(r"it becomes foretold(?: with a foretell cost of its mana cost reduced by \{{(?P<n>\d+)\}})?")
 def _becomes_foretold(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "become_foretold", "who": "it", **({"reduce": int(m["n"])} if m["n"] else {})}], None
@@ -4397,7 +4392,8 @@ def _sacrifice_pronoun(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return _from_language(language.parse_sacrifice_pronoun(m["o"]))
 
 
-@effect(r"return (?P<o>.+?) to the battlefield(?P<t> tapped)?(?P<fd> face down)? under (?:their owner's|its owner's|your) control(?: as .+)?")
+@effect(r"return (?P<o>.+?) to the battlefield(?P<t> tapped)?(?:(?P<fd> face down) under (?:their owner's|its owner's|your) control(?: as .+)?"
+        r"| under (?:their|its) owner's control)")
 def _return_owner(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 

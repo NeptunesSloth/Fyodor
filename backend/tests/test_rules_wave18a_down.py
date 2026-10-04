@@ -44,6 +44,7 @@ EXTRA = [
     card('Jeskai Infiltrator', set_code='tst', number='Z36', mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Human Monk', oracle_text="This creature can't be blocked as long as you control no other creatures.\nWhen this creature deals combat damage to a player, exile it and the top card of your library in a face-down pile, shuffle that pile, then manifest those cards. (To manifest a card, put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)", power='2', toughness='3', colors=['U'], color_identity=['U'], keywords=['Manifest']),  # noqa: E501
     card('Become Anonymous', set_code='tst', number='Z37', mana_cost='{2}{U}{U}', cmc=4.0, type_line='Instant', oracle_text="Exile target nontoken creature you own and the top two cards of your library in a face-down pile, shuffle that pile, then cloak those cards. They enter tapped. (To cloak a card, put it onto the battlefield face down as a 2/2 creature with ward {2}. Turn it face up any time for its mana cost if it's a creature card.)", power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=['Cloak']),  # noqa: E501
     card('Hauntwoods Shrieker', set_code='tst', number='Z38', mana_cost='{1}{G}{G}', cmc=3.0, type_line='Creature — Beast Mutant', oracle_text="Whenever this creature attacks, manifest dread. (Look at the top two cards of your library. Put one onto the battlefield face down as a 2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)\n{1}{G}: Reveal target face-down permanent. If it's a creature card, you may turn it face up.", power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Manifest', 'Manifest dread']),  # noqa: E501
+    card('Spy Network', set_code='tst', number='Z39', mana_cost='{U}', cmc=1.0, type_line='Instant', oracle_text="Look at target player's hand, the top card of that player's library, and any face-down creatures they control. Look at the top four cards of your library, then put them back in any order.", power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -534,4 +535,39 @@ def test_hauntwoods_shrieker_reveals_a_face_down_permanent_and_may_turn_a_creatu
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"])
     answer(s)
     assert not s.state.cards[bears.id].face_down and s.state.cards[bears.id].zone == "p2:battlefield"
+    roundtrip(s)
+
+
+def test_spy_network_looks_at_the_hand_the_top_card_and_the_face_down_creatures(cards):
+    s = build(cards, p1=("Spy Network", "Giant Growth", "Murder", "Lightning Bolt", "Grizzly Bears"),
+              p2=("Ambush Viper", "Giant Growth", "Lightning Bolt"))
+    viper = put(s, "Ambush Viper", "battlefield", pid="p2")
+    act(s, "p2", type="move", card_ids=[viper.id], to={"player": "p2", "zone": "battlefield"}, face_down=True, face_down_kind="morph")
+    growth = put(s, "Giant Growth", "hand", pid="p2")
+    bolt = put(s, "Lightning Bolt", "library", pid="p2", position="top")
+    spy = put(s, "Spy Network", "hand")
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=spy.id, targets=["p2"])
+    seen_by_alice = set()
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        assert d.player == "p1"
+        seen_by_alice |= {n for n, c in (("Giant Growth", growth), ("Lightning Bolt", bolt), ("Ambush Viper", viper))
+                          if not unseen_by(s, c, "p1")}
+        for viewer in ("p2", SPECTATOR):  # mid-decision: Alice's looking shows nobody else anything
+            assert "options" not in s.view(viewer)["rules"]["decision"] or d.kind == "confirm"
+            assert unseen_by(s, viper, viewer) and unseen_by(s, bolt, viewer) or viewer == "p2"
+            for o in d.options:  # (her own top cards, when she orders them)
+                if o.card_id and s.state.cards[o.card_id].owner == "p1":
+                    assert unseen_by(s, s.state.cards[o.card_id], viewer)
+        assert unseen_by(s, growth, SPECTATOR) and unseen_by(s, bolt, SPECTATOR) and unseen_by(s, viper, SPECTATOR)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    assert seen_by_alice == {"Giant Growth", "Lightning Bolt", "Ambush Viper"}  # 701.20e: she looked at all three
+    assert s.state.cards[viper.id].face_down
+    assert unseen_by(s, growth, SPECTATOR) and unseen_by(s, bolt, "p2", SPECTATOR) and unseen_by(s, viper, SPECTATOR)  # only Alice ever saw them
     roundtrip(s)

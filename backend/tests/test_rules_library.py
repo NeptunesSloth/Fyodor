@@ -320,7 +320,7 @@ def test_exile_the_top_cards_face_up_and_face_down(cards):
     activate(s, hider)
     assert s.state.cards[top].zone == "p1:exile" and s.state.cards[top].face_down
     assert s.state.cards[top].name not in json.dumps(s.view("p2"))  # face down: hidden from Bob
-    assert s.state.cards[top].name in json.dumps(s.view("p1"))  # (its controller may look)
+    assert s.state.cards[top].name not in json.dumps(s.view("p1"))  # 406.3: nobody may look at a card exiled face down (wave 18A) unless told to
     replay_matches(s)
 
 

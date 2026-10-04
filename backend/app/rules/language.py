@@ -3012,6 +3012,8 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         found = _manifest_forms(text)
         if found is not None:
             return found
+    if text == "look at all face-down creatures that player controls" and has_primitive("look_face_down"):  # -- hidden exile (wave 18A) -- Spy Network
+        return [{"do": "look_face_down", "who": _that_player_controls("each face-down creature that player controls")}], None
     m = re.fullmatch(r"look at (?P<o>target face-down .+)", text)  # -- hidden exile (wave 18A) -- 708.5 / 701.20e
     if m and has_primitive("look_face_down"):
         try:
