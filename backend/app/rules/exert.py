@@ -66,6 +66,10 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     for card in exerted:  # 701.43a
         plan.rules.exerted[plan.oid(card)] = card.controller
         plan.note(f"{plan.name(card.controller)} exerted {card.name or 'it'} as it attacked", [card.id])
+    from app.rules import enlist  # -- casting extras (wave 18E) -- 702.154a: asked after exert, before the attack triggers (508.1m)
+
+    if enlist.ask(plan, attackers, exerted):
+        return
     finish(plan, attackers, exerted)
 
 

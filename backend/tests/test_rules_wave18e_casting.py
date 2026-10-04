@@ -95,6 +95,10 @@ EXTRA = [
          oracle_text="Target creature gets +3/+3 until end of turn.\nRecover {1}{G} (When a creature is put into your graveyard from the "
          "battlefield, you may pay {1}{G}. If you do, return this card from your graveyard to your hand. Otherwise, exile this card.)",
          keywords=["Recover"]),
+    card("Benalish Faithbonder", set_code="tst", number="D22", mana_cost="{1}{W}", cmc=2.0, type_line="Creature — Human Cleric", power="1",
+         toughness="3", colors=["W"], color_identity=["W"], oracle_text="Vigilance\nEnlist (As this creature attacks, you may tap a "
+         "nonattacking creature you control without summoning sickness. When you do, add its power to this creature's until end of turn.)",
+         keywords=["Vigilance", "Enlist"]),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -306,6 +310,25 @@ def test_reconfigure_attaches_stops_being_a_creature_and_unattaches(cards):
     act(s, "p1", type="activate_ability", card_id=gauntlet.id, ability=4)
     answer(s)
     assert s.state.cards[gauntlet.id].attached_to is None and ch(s, gauntlet).is_creature
+    roundtrip(s)
+
+
+def test_enlist_taps_a_creature_that_didnt_attack_and_adds_its_power(cards):
+    s = build(cards, p1=("Benalish Faithbonder", "Test Bear", "Test Bear"))
+    fb = put(s, "Benalish Faithbonder", "battlefield")
+    bears = [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Test Bear"]
+    for b in bears:
+        act(s, "p1", type="move", card_ids=[b.id], to={"player": "p1", "zone": "battlefield"})
+    _my_next_attack(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": fb.id, "target": "p2"}, {"card_id": bears[1].id, "target": "p2"}])
+    d = s.state.rules.decision
+    assert d.kind == "choose_cards" and [o.id for o in d.options] == [bears[0].id]  # 702.154a: not the one that attacked, not itself
+    for other in ("p2",):
+        assert "options" not in s.view(other)["rules"]["decision"]  # (the chooser's own decision: others see only who is choosing)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears[0].id])
+    assert s.state.cards[bears[0].id].tapped
+    answer(s)
+    assert s.state.players["p2"].life == 40 - (1 + 2) - 2  # Faithbonder 1 + the tapped Bear's power 2, and the attacking Bear's 2
     roundtrip(s)
 
 
