@@ -646,6 +646,10 @@ def _cast(c: str) -> Condition | None:
     if f:
         out["from"] = _FROM[f["from"]]
         spell = f["rest"]
+    only = re.fullmatch(r"(?P<rest>.+?) that targets only ~", spell)  # -- copied abilities (wave 18F) -- Zada, Mirrorwing Dragon
+    if only:
+        out["targets"] = "self_only"
+        spell = only["rest"]
     tg = re.fullmatch(r"(?P<rest>.+?) that targets (?P<t>~|an? .+|one or more .+)", spell)
     if tg:
         if tg["t"] == "~":

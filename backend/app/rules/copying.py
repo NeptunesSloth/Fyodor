@@ -643,6 +643,11 @@ def _stack_objects(plan: Plan, ctx: Context, who: str) -> list[str]:
 
         return [c for c in context.objects(plan, ctx, context.EVENT) if plan.state.cards[c].zone == "stack"]
 
+    if who == "event_ability":  # -- copied abilities (wave 18F) -- the ability an activation trigger is about (603.2), while it's still on the stack
+        src = (ctx.get("event") or {}).get("source") or {}
+        return [src["card"]] if src.get("card") in plan.state.cards and plan.state.cards[src["card"]].zone == "stack" \
+            and plan.oid(src["card"]) == src.get("object_id") else []
+
     return [t["id"] for t in target_refs(ctx, who) if t and t["id"] in plan.state.cards
             and plan.state.cards[t["id"]].zone == "stack" and plan.oid(t["id"]) == t.get("object_id")]
 
@@ -695,6 +700,66 @@ def copy_cards(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                     resume={"step": "copy_manual", "job": job})
         return False
     return True
+
+
+# -- copied for each (wave 18F) -- 707.10d: a copy for each object the spell could target, each copy's targets all that object (not
+# legal for every instance of "target": no copy), put on the stack in the order its controller chooses
+def copy_each(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects, targets
+
+    spell = next(iter(_stack_objects(plan, ctx, "event_spell")), None)
+    entry = plan.rules.stack.get(spell or "")
+    if spell is None or entry is None:
+        return True  # (the spell is gone: nothing to copy)
+    pid = ctx["controller"] if e["by"] == "you" else next(iter(effects._players(plan, ctx, "event_player")), ctx["controller"])
+    card = plan.state.cards[spell]
+    pos = positions(entry)
+    if not pos or uncopyable(plan, card) is not None:
+        return True if not pos else _manual_each(plan, ctx, pid, card)
+    source = targets.source_of(plan, entry.source_card)
+    legal = [set(targets.legal_targets(plan, _spec(entry, p).get("what", "any"), pid, source, entry.source_card, None)) for p in pos]
+    victims = [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if c != ctx.get("source_card") and plan.state.cards[c].controller == pid
+               and plan.ch(plan.state.cards[c]).is_creature and all(c in ok for ok in legal)]
+    job = {"ctx": ctx, "spell": spell, "oid": plan.oid(card), "controller": pid, "victims": victims}
+    return _each_run(plan, job)
+
+
+def _manual_each(plan: Plan, ctx: Context, pid: str, card: CardInstance) -> bool:
+    _manual(plan, new_job(ctx, controller=pid, objects=[], retarget=False, label=ctx.get("name") or "Copy"),
+            f"Copying {plan.ch(card).name or 'that spell'} isn't automated: make the copies by hand, then press Done")
+    return False
+
+
+def _each_run(plan: Plan, job: dict[str, Any]) -> bool:
+    from app.rules import targets
+
+    pid = job["controller"]
+    while job["victims"]:
+        if len(job["victims"]) > 1 and not job.get("next"):  # 707.10d: the controller orders them (the first goes on first, resolves last)
+            plan_decide(plan, player=pid, kind="choose_one", prompt="Put the next copy on the stack: choose the creature it targets (707.10d)",
+                        options=[DecisionOption(id=v, label=targets.label(plan, v), card_id=v) for v in job["victims"]],
+                        resume={"step": "copy_each", "job": job})
+            return False
+        victim = job.pop("next", None) or job["victims"][0]
+        job["victims"].remove(victim)
+        card = plan.state.cards.get(job["spell"])
+        entry = plan.rules.stack.get(job["spell"])
+        if card is None or entry is None or card.zone != "stack" or plan.oid(card) != job["oid"]:
+            break
+        copy_id = make_copy(plan, card, pid, [])
+        if copy_id is None:
+            continue
+        pos = positions(entry)
+        plan.rules.stack[copy_id] = _retargeted(plan.rules.stack[copy_id], pos, [targets.ref(plan, victim)] * len(pos))
+        finalize(plan, copy_id, pid)
+    return True
+
+
+def resume_each(plan: Plan, d: Any, chosen: list[str]) -> None:
+    job = d.resume["job"]
+    job["next"] = chosen[0]
+    if _each_run(plan, job):
+        go_on(plan, job)
 
 
 def new_targets_marker(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1313,5 +1378,6 @@ def define_static(text: str) -> dict[str, Any] | None:
 
 
 PRIMITIVES = {"copy_spell": copy_stack_object, "copy_ability": copy_stack_object, "copy_new_targets": new_targets_marker,
+              "copy_each": copy_each, "copy_each_marker": new_targets_marker,
               "token_copy": token_copy, "become_copy": become_copy, "copy_cards": copy_cards}
-RESUME = {"copy_mode": resume_mode, "copy_target": resume_target, "copy_manual": resume_manual}
+RESUME = {"copy_each": resume_each, "copy_mode": resume_mode, "copy_target": resume_target, "copy_manual": resume_manual}

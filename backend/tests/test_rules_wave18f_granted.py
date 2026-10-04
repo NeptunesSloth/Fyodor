@@ -149,3 +149,79 @@ def test_fishing_pole_taps_itself_and_gets_the_counter(cards):
     answer(s)
     assert s.state.cards[gear.id].counters.get("bait") == 1 and not s.state.cards[bear.id].counters
     roundtrip(s)
+
+
+# -- copied abilities: Kurkesh (707.10) -----------------------------------------------------------------------------------
+EXTRA += [
+    card("Kurkesh, Onakke Ancient", set_code="tst", number="18F6", mana_cost="{2}{R}{R}", cmc=4.0, colors=["R"], color_identity=["R"],
+         type_line="Legendary Creature — Ogre Spirit", power="4", toughness="3",
+         oracle_text="Whenever you activate an ability of an artifact, if it isn't a mana ability, you may pay {R}. If you do, copy that "
+         "ability. You may choose new targets for the copy."),
+    card("Rod of Ruin", set_code="tst", number="18F7", mana_cost="{4}", cmc=4.0, type_line="Artifact",
+         oracle_text="{3}, {T}: Rod of Ruin deals 1 damage to any target."),
+]
+
+
+def _settle(s):
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+# -- copied for each (707.10d): Zada, Mirrorwing Dragon ----------------------------------------------------------------------
+EXTRA += [
+    card("Zada, Hedron Grinder", set_code="tst", number="18F8", mana_cost="{3}{R}", cmc=4.0, colors=["R"], color_identity=["R"],
+         type_line="Legendary Creature — Goblin Ninja", power="3", toughness="3",
+         oracle_text="Whenever you cast an instant or sorcery spell that targets only Zada, copy that spell for each other creature you "
+         "control that the spell could target. Each copy targets a different one of those creatures."),
+    card("Mirrorwing Dragon", set_code="tst", number="18F9", mana_cost="{3}{R}{R}", cmc=5.0, colors=["R"], color_identity=["R"],
+         type_line="Creature — Dragon", power="4", toughness="5", keywords=["Flying"],
+         oracle_text="Flying\nWhenever a player casts an instant or sorcery spell that targets only this creature, that player copies "
+         "that spell for each other creature they control that the spell could target. Each copy targets a different one of those "
+         "creatures."),
+]
+
+
+def test_zada_copies_the_bolt_for_each_other_creature_you_control(cards):
+    s = build(cards, p1=("Zada, Hedron Grinder", "Test Small", "Llanowar Elves", "Lightning Bolt"), p2=("Test Small",))
+    zada = put(s, "Zada, Hedron Grinder", "battlefield")
+    small = put(s, "Test Small", "battlefield")
+    elves = put(s, "Llanowar Elves", "battlefield")
+    theirs = put(s, "Test Small", "battlefield", "p2")
+    bolt = put(s, "Lightning Bolt", "hand")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[zada.id])
+    _settle(s)  # 707.10d: a copy for each of the two other creatures (ordered by you); the opponent's isn't one you control
+    assert all(s.state.cards[c.id].zone.endswith(":graveyard") for c in (zada, small, elves))  # each hit by a Bolt
+    assert s.state.cards[theirs.id].zone.endswith(":battlefield")
+    roundtrip(s)
+
+
+def test_mirrorwing_dragon_copies_for_the_caster(cards):
+    s = build(cards, p1=("Test Small", "Lightning Bolt"), p2=("Mirrorwing Dragon", "Llanowar Elves"))
+    dragon = put(s, "Mirrorwing Dragon", "battlefield", "p2")
+    elves = put(s, "Llanowar Elves", "battlefield", "p2")
+    mine = put(s, "Test Small", "battlefield")
+    bolt = put(s, "Lightning Bolt", "hand")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[dragon.id])
+    _settle(s)  # that player (Alice) copies it for each other creature *they* control that it could target: her Test Small
+    assert s.state.cards[mine.id].zone.endswith(":graveyard") and s.state.cards[elves.id].zone.endswith(":battlefield")
+    roundtrip(s)
+
+
+def test_kurkesh_copies_the_activated_artifact_ability(cards):
+    s = build(cards, p1=("Kurkesh, Onakke Ancient", "Rod of Ruin"))
+    put(s, "Kurkesh, Onakke Ancient", "battlefield")
+    rod = put(s, "Rod of Ruin", "battlefield")
+    mana(s, C=3, R=1)
+    act(s, "p1", type="activate_ability", card_id=rod.id, ability=0, targets=["p2"])
+    _settle(s)  # Kurkesh triggers (603.2): pay {R} (118.12), copy the ability (707.10)
+    assert s.state.players["p2"].life == 38  # the ability and its copy
+    roundtrip(s)

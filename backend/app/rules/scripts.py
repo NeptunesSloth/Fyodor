@@ -5491,6 +5491,29 @@ def _copy_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [out], None
 
 
+# -- copied abilities (wave 18F) -- "Whenever you activate an ability of an artifact, … copy that ability." (Kurkesh, 707.10): the
+# activated ability the trigger's event is about (``_event_spell_ok``: only in an activation trigger)
+@_first
+@effect(r"copy that ability")
+def _copy_event_ability(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "copy_ability", "who": "event_ability"}], None
+
+
+# -- copied for each (wave 18F) -- 707.10d: "Copy that spell for each other creature you control that the spell could target. Each copy
+# targets a different one of those creatures." (Zada, Hedron Grinder; Mirrorwing Dragon's "that player copies …": the caster)
+@_first
+@effect(r"(?:(?P<you>copy that spell for each other creature you control)|(?P<they>that player copies that spell for each other "
+        r"creature they control)) that the spell could target")
+def _copy_each_target(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "copy_each", "who": "event_spell", "by": "you" if m["you"] else "event_player"}], None
+
+
+@_first
+@effect(r"each copy targets a different one of those creatures")
+def _copy_each_marker(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "copy_each_marker"}], None  # (707.10d: read by the copy instruction before it, ``_event_spell_ok``)
+
+
 # -- cast a copy (wave 13C) -- "Copy that card [three times]." / "Copy those cards." (707.12): copies of the card(s) an
 # earlier instruction exiled, made in exile (copying.copy_cards) for "You may cast the copy without paying its mana cost"
 # ("copy it" is read above as a cast trigger's spell; resolve_it turns it into this after a moved card).
@@ -5547,6 +5570,14 @@ def _counter_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 def _event_spell_ok(d: Definition) -> bool:
     """A copy of "that spell" belongs to a trigger on casting a spell (603.2: the event names it)."""
     effects = list(d.get("effects") or [])
+    for k, e in enumerate(effects):  # -- copied for each (wave 18F) -- the instruction and its "Each copy targets …" sentence go together
+        nxt = effects[k + 1].get("do") if k + 1 < len(effects) else None
+        if (e.get("do") == "copy_each" and nxt != "copy_each_marker") or (
+                e.get("do") == "copy_each_marker" and (not k or effects[k - 1].get("do") != "copy_each")):
+            return False
+    if any(e.get("who") == "event_ability" for e in effects):  # -- copied abilities (wave 18F) -- the ability an activation trigger is about
+        cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
+        return cond is not None and cond.get("event") == "activate" and cond.get("subject") == "player" and not cond.get("loyalty")
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     watched = watches.deferred_event_effects(effects)
