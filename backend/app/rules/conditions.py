@@ -888,6 +888,8 @@ def _object(t: str) -> Condition | None:
     m = _CONTROLLED.fullmatch(t)
     if m:
         return {"object": "it", "controlled_by": "you", **({"negate": True} if m["neg"] else {})}
+    if re.fullmatch(r"(?:this card|~) is in your graveyard", t):  # -- graveyard triggers (wave 19C) -- the source, still the object that triggered
+        return {"object": "self", "test": "in_graveyard"}
     m = _HAS_KEYWORD.fullmatch(t)  # -- refused modal/conditional (wave 3R1) -- "if that creature has toxic"
     if m:  # (wave 17D: "if it didn't have decayed" / "if it had flying": as it last existed, 608.2h)
         has: Condition = {"object": _OBJECT_WORDS[m["who"]], "has": m["kw"]}
@@ -1190,6 +1192,8 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
     """The source's own physical state ("~ is tapped"): as it is while it's still that object on the
     battlefield, else as it last existed there (608.2h)."""
     card = plan.state.cards.get(ctx.get("source_card") or "")
+    if test == "in_graveyard":  # -- graveyard triggers (wave 19C) -- 400.7: a card that left is a new object, which isn't there
+        return card is not None and card.zone == f"{card.owner}:graveyard" and plan.oid(card) == ctx.get("source_object")
     if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object"):
         tapped, attacking, blocking = card.tapped, card.attacking is not None, bool(card.blocking)
         if test == "suspected":

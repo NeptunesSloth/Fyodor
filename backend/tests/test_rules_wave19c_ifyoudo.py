@@ -49,8 +49,16 @@ EXTRA = [
          oracle_text='When this creature enters, each player discards a card. If you discarded a card this way, draw a card.', power='2', toughness='2', colors=['B'], color_identity=['B'], keywords=[]),
     card("Talion's Messenger", set_code='tst', number='W8', mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Faerie Noble',
          oracle_text='Flying\nWhenever you attack with one or more Faeries, draw a card, then discard a card. When you discard a card this way, put a +1/+1 counter on target Faerie you control.', power='1', toughness='3', colors=['U'], color_identity=['U'], keywords=['Flying']),
+    card('Master of Death', set_code='tst', number='W20', mana_cost='{1}{U}{B}', cmc=3.0, type_line='Creature — Zombie Wizard',
+         oracle_text='When this creature enters, surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)\nAt the beginning of your upkeep, if this card is in your graveyard, you may pay 1 life. If you do, return it to your hand.', power='3', toughness='1', colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Surveil']),
+    card('Genesis', set_code='tst', number='W21', mana_cost='{4}{G}', cmc=5.0, type_line='Creature — Incarnation',
+         oracle_text='At the beginning of your upkeep, if this creature is in your graveyard, you may pay {2}{G}. If you do, return target creature card from your graveyard to your hand.', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=[]),
+    card('Pyre Zombie', set_code='tst', number='W22', mana_cost='{1}{B}{R}', cmc=3.0, type_line='Creature — Zombie',
+         oracle_text='At the beginning of your upkeep, if this card is in your graveyard, you may pay {1}{B}{B}. If you do, return it to your hand.\n{1}{R}{R}, Sacrifice this creature: It deals 2 damage to any target.', power='2', toughness='1', colors=['B', 'R'], color_identity=['B', 'R'], keywords=[]),
+    card('Ghastly Remains', set_code='tst', number='W23', mana_cost='{B}{B}{B}', cmc=3.0, type_line='Creature — Zombie',
+         oracle_text='Amplify 1 (As this creature enters, put a +1/+1 counter on it for each Zombie card you reveal in your hand.)\nAt the beginning of your upkeep, if this card is in your graveyard, you may pay {B}{B}{B}. If you do, return it to your hand.', power='0', toughness='0', colors=['B'], color_identity=['B'], keywords=['Amplify']),
 ]
-FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger"]
+FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains']
 # --EXTRA-END--
 
 
@@ -254,4 +262,51 @@ def test_fanatic_of_the_harrowing_draws_only_if_you_discarded(cards, hand):
     assert [s.state.cards[c].name for c in zone(s.state, "p2", "graveyard")] == ["Counterspell"]  # every player discards
     assert len(zone(s.state, "p1", "hand")) == (1 if hand else 0)  # "If you discarded a card this way, draw a card"
     assert len(zone(s.state, "p1", "graveyard")) == len(hand)
+    roundtrip(s)
+
+
+def to_upkeep_choice(s):
+    """Play on until the open decision is a pay / decline one."""
+    for _ in range(80):
+        d = s.state.rules.decision
+        if d is not None and {o.id for o in d.options} >= {"pay", "decline"}:
+            return d
+        if d is not None:  # (the cleanup discard to hand size, …: the first options)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no payment was offered")
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_master_of_death_returns_from_the_graveyard_at_upkeep_for_a_life(cards, pay):
+    s = build(cards, p1=("Master of Death",))
+    master = to_zone(s, find(s, "Master of Death"), "graveyard")
+    life = s.state.players["p1"].life
+    d = to_upkeep_choice(s)
+    assert d.player == "p1" and s.state.turn.number == 3 and s.state.cards[master.id].zone == "p1:graveyard"
+    roundtrip(s)
+    pick(s, "pay" if pay else "decline")
+    play_out(s)
+    assert (s.state.cards[master.id].zone == "p1:hand") is pay  # "If you do, return it to your hand"
+    assert s.state.players["p1"].life == life - (1 if pay else 0)
+    roundtrip(s)
+
+
+def test_a_graveyard_trigger_does_not_work_from_the_battlefield(cards):
+    """113.6: the "if this card is in your graveyard" ability functions only there; on the battlefield Master of Death asks nothing."""
+    s = build(cards, p1=("Master of Death",))
+    master = to_zone(s, find(s, "Master of Death"), "battlefield")
+    play_out(s)  # (its surveil)
+    life = s.state.players["p1"].life
+    for _ in range(40):
+        d = s.state.rules.decision
+        assert d is None or not {o.id for o in d.options} >= {"pay", "decline"}
+        if s.state.turn.number == 3 and s.state.turn.phase == "main1":
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.turn.number == 3 and s.state.players["p1"].life == life and s.state.cards[master.id].zone == "p1:battlefield"
     roundtrip(s)

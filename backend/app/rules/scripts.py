@@ -3265,6 +3265,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # ability doesn't trigger, or does nothing as it resolves
                     intervening = effects[0]["cond"]
                     effects = [{**effects[0], "skip": len(effects) - 1}, *effects[1:]]
+                    if intervening == {"object": "self", "test": "in_graveyard"}:  # -- graveyard triggers (wave 19C) -- "it" is the card there
+                        effects = [{**e, "who": "self_gy"} if e.get("who") == "self" else e for e in effects]
                 # (-- intervening ifs (wave 11F) -- a step, or an event about a player, has no other object: "another" is
                 # "other than ~", 603.4)
                 alone = _trigger_antecedent(name, cond) is None and (cond is None or cond.get("subject") == "player")

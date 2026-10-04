@@ -1098,7 +1098,11 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
 def graveyard_ability(d: dict[str, Any]) -> bool:
     import json
 
-    return '"self_gy"' in json.dumps(d, default=str) or arrives_in_graveyard(d)
+    # (-- graveyard triggers (wave 19C) -- "At the beginning of your upkeep, if this card is in your graveyard, …": it works there only)
+    return '"self_gy"' in json.dumps(d, default=str) or arrives_in_graveyard(d) or d.get("if") == IN_GRAVEYARD
+
+
+IN_GRAVEYARD = {"object": "self", "test": "in_graveyard"}
 
 
 def arrives_in_graveyard(d: dict[str, Any]) -> bool:
