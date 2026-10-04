@@ -37,6 +37,11 @@ EXTRA = [
          color_identity=["R"], oracle_text="Torrent of Stone deals 4 damage to target creature.\nSplice onto Arcane—Sacrifice two "
          "Mountains. (As you cast an Arcane spell, you may reveal this card from your hand and pay its splice cost. If you do, add "
          "this card's effects to that spell.)"),
+    card("Exquisite Huntmaster", set_code="tst", number="D09", mana_cost="{3}{B}", cmc=4.0, type_line="Creature — Elf Warrior",
+         power="3", toughness="3", colors=["B"], color_identity=["B"],
+         oracle_text="When this creature dies, create a 1/1 green Elf Warrior creature token.\nEncore {4}{B} ({4}{B}, Exile this card "
+         "from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. "
+         "Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)"),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -153,4 +158,26 @@ def test_splice_cost_that_is_not_mana_and_a_card_that_cant_splice(cards):
     answer(s)
     assert all(s.state.cards[m.id].zone == "p1:graveyard" for m in mts)
     assert s.state.cards[theirs.id].zone == "p2:graveyard" and s.state.cards[mine.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_encore_token_must_attack_the_opponent_and_is_sacrificed(cards):
+    s = build(cards, p1=("Exquisite Huntmaster",))
+    hm = put(s, "Exquisite Huntmaster", "graveyard")
+    mana(s, B=1, C=4)
+    act(s, "p1", type="activate_ability", card_id=hm.id, ability=1)
+    answer(s)
+    assert s.state.cards[hm.id].zone == "p1:exile"  # 702.141a: exiled as the cost
+    (tok,) = [c for c in s.state.cards.values() if c.token and c.name == "Exquisite Huntmaster"]
+    act(s, "p1", type="pass_priority")  # → combat: Alice declares attackers
+    with pytest.raises(ActionError):  # 508.1d: it attacks that opponent this turn if able
+        act(s, "p1", type="declare_attackers", attackers=[])
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": tok.id, "target": "p2"}])  # (haste: it just came in)
+    answer(s)
+    assert s.state.players["p2"].life == 37
+    until_end = 12
+    while tok.id in s.state.cards and until_end:  # the next end step: sacrificed (the delayed trigger, 702.141a)
+        act(s, s.state.rules.priority, type="pass_priority")
+        until_end -= 1
+    assert tok.id not in s.state.cards  # (a token that left the battlefield has ceased to exist)
     roundtrip(s)

@@ -5069,6 +5069,14 @@ def _token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return found
 
 
+# -- casting extras (wave 18E) -- 702.141a encore: one token copy for each opponent (one creation event), each attacking its opponent
+@_first
+@effect(r"for each opponent, create a token that's a copy of the card exiled to activate this ability that attacks that opponent "
+        r"this turn if able")
+def _encore_copies(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "token_copy", "n": {"opponents": 1}, "who": "cost_exiled"}, {"do": "encore_attack", "who": "it"}], None
+
+
 # -- if you do (wave 8C) -- "that creature's controller creates a token that's a copy of that creature" (Bramble Sovereign):
 # the copy's maker is the object's controller (111.2: the player who creates it owns it), not the ability's
 @_first

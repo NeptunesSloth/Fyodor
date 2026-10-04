@@ -404,7 +404,8 @@ def _required_places(plan: Plan, eligible: set[str], targets: set[str]) -> dict[
             continue
         ch = plan.ch(card)
         st = scripts.statics(ch)
-        if not ("must_attack" in st or goaded_by(ch) or combat_rules.other_than(ch)) or attack_problem(plan.state, card, ch):
+        if not ("must_attack" in st or goaded_by(ch) or combat_rules.other_than(ch) or combat_rules.attack_players(ch)) \
+                or attack_problem(plan.state, card, ch):
             continue
         if "cant_attack_alone" in st and len(eligible) == 1:
             continue
@@ -434,7 +435,8 @@ def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declare
         ch = plan.ch(card)
         goaders = goaded_by(ch)
         others_only = combat_rules.other_than(ch) - goaders
-        if not (goaders or others_only) or attack_problem(plan.state, card, ch) is not None:
+        wants = combat_rules.attack_players(ch) & live  # -- casting extras (wave 18E) -- encore: attacks that player if able
+        if not (goaders or others_only or wants) or attack_problem(plan.state, card, ch) is not None:
             continue
         st = scripts.statics(ch)
         if "cant_attack_alone" in st and len(eligible) == 1:
@@ -447,12 +449,15 @@ def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declare
 
         base = 1 if goaders or "must_attack" in st else 0
 
-        def obeyed(place: str | None, others: set[str] = (goaders | others_only) & live, base: int = base) -> int:
+        def obeyed(place: str | None, others: set[str] = (goaders | others_only) & live, base: int = base,
+                   wants: set[str] = wants) -> int:
             if place is None:
                 return 0
-            return base + sum(1 for g in others if place in plan.state.players and place != g)
+            return base + (place in wants) + sum(1 for g in others if place in plan.state.players and place != g)
 
         best = max(obeyed(t) for t in places)
+        if wants and not (goaders or others_only) and obeyed(declared.get(cid)) < best:
+            return f"{card.name} attacks {' or '.join(sorted(plan.name(w) for w in wants))} this turn if able"
         if obeyed(declared.get(cid)) < best:
             who = " or ".join(sorted(plan.name(g) for g in (goaders | others_only) & live)) or "anyone"
             what = "is goaded: it" if goaders else "must"

@@ -21,10 +21,13 @@ from app.rules.oracle import AbilityText
 if TYPE_CHECKING:
     from app.rules.characteristics import Characteristics
 
-_LINE = re.compile(r"^(?P<kw>embalm|eternalize) (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+_LINE = re.compile(r"^(?P<kw>embalm|eternalize|encore) (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 _EFFECT = {
     "embalm": "Create a token that's a copy of the card exiled to activate this ability, except it's white, it has no mana cost, and it's a Zombie in addition to its "
               "other types. Activate only as a sorcery.",
+    # -- casting extras (wave 18E) -- 702.141a encore (the tokens: scripts._encore_copies; "They" are the tokens just made)
+    "encore": "For each opponent, create a token that's a copy of the card exiled to activate this ability that attacks that opponent this turn "
+              "if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.",
     "eternalize": "Create a token that's a copy of the card exiled to activate this ability, except it's black, it's 4/4, it has no mana cost, and it's a Zombie in addition "
                   "to its other types. Activate only as a sorcery.",
 }

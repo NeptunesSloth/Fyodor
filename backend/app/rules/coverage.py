@@ -384,7 +384,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return escalate_parts(line) is not None
     if kw == "awaken":  # -- static_other sweep (wave 16B) -- casting.AWAKEN: "Awaken N—{cost}"
         return re.fullmatch(r"awaken \d+—(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
-    if kw in ("embalm", "eternalize"):  # -- keywords (wave 15E) -- app/rules/graveyard_keywords.py
+    if kw in ("embalm", "eternalize", "encore"):  # -- keywords (wave 15E; encore: 18E) -- app/rules/graveyard_keywords.py
         from app.rules import graveyard_keywords
 
         return graveyard_keywords.supported(kw, line)
