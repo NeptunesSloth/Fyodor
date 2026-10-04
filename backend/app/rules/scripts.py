@@ -220,12 +220,18 @@ def self_text(text: str, name: str) -> str:
         out = worded[1]
     short = _short_name(name, out)
     names = [n for n in sorted({name, name.split(",")[0].strip(), *([short] if short else [])}, key=len, reverse=True)
-             if len(n) >= 3]
+             if len(n) >= 3 or (len(n) == 2 and n.isupper())]  # (wave 15D: "MJ")
 
     def own(part: str) -> str:
+        # -- activated wordings (wave 15D) -- a token's name is its own ("a Kobold token named Kobolds of Kher Keep" on Kher Keep)
+        kept = re.split(r"(?:(?<=token named )|(?<=tokens named ))((?:[A-Z][\w'\-]*)(?: (?:(?:of|the|and|in) )?[A-Z][\w'\-]*)*)", part)
+        part = "".join(sub if i % 2 else _own(sub) for i, sub in enumerate(kept))
+        return _self_pronouns(part) if "~" in part else part
+
+    def _own(part: str) -> str:
         for n in names:
             part = re.sub(rf"\b{re.escape(n)}\b", "~", part)
-        return _self_pronouns(part) if "~" in part else part
+        return part
 
     # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the
     # object that gets it ("this creature" is): it stays as written, so no ~ there means the granter
@@ -1840,6 +1846,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import name_search  # -- name search (wave 11D) --
 
     body = name_search.rewrite(body)
+    # -- activated wordings (wave 15D) -- "Choose a creature type [other than Wall]. Each creature you control becomes that type until
+    # end of turn." is one choice made as it resolves (608.2d): read as "… becomes the creature type [other than Wall] of your choice …"
+    body = re.sub(r"([^.]+?) (gets [+−-]\d+/[+−-]\d+) and (becomes the color of your choice) until end of turn\.",
+                  r"\1 \2 until end of turn. \1 \3 until end of turn.", body)  # (Wild Mongrel: two instructions in order)
+    body = re.sub(r"Choose a creature type( other than [A-Z][a-z]+)?\. ([^.]+?) becomes? that type until end of turn\.",
+                  r"\2 becomes the creature type\1 of your choice until end of turn.", body)
     body = re.sub(r"(chooses [^.]*? they control)\. Destroy the rest\.", r"\1, then the rest are destroyed.", body)  # (wave 11D)
     # -- reveal until (wave 13E) -- 701.20b: the revealed cards stay in the library, so "shuffle the rest into your library" is a
     # shuffle of it ("…, then shuffle"); "you may reveal … until … If you do, put that card …": the reveal is the optional action
@@ -2952,7 +2964,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         gone = cost.sacrifice_self or re.search(r"\b(?:[Dd]iscard|[Ee]xile) (?:this card|~)", ability.cost or "") is not None
         # -- small wordings (wave 11E) -- "Remove a +1/+1 counter from this creature: It deals 1 damage …": the only object
         # the cost names is the source, so "it" is the source itself (a cost that names another object stays unbound)
-        own = "self" if re.fullmatch(r"Remove [^,]+ counters? from (?:~|this \w+)", (ability.cost or "").replace(ch.name, "~")) else None
+        # -- activated wordings (wave 15D) -- also with mana, {T}, life or an exert beside it: "{T}, Remove a javelin counter from this
+        # creature: It deals 1 damage to any target." (the only object any part names is the source)
+        own = "self" if re.fullmatch(r"(?:(?:(?:\{[^}]+\})+|Pay \d+ life|Exert (?:~|this \w+)), )*Remove [^,]+ counters? from (?:~|this \w+)"
+                                     r"(?:, (?:(?:\{[^}]+\})+|Pay \d+ life|Exert (?:~|this \w+)))*",
+                                     self_text(ability.cost or "", ch.name)) else None
         parsed = _own_choice(parse_effects(body, "self_gone" if gone else own))  # (_own_choice: wave 3R5)
         if parsed is None or parsed[2]:
             return None
@@ -4065,7 +4081,7 @@ def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # their layers, 613.6); "It's still a land." is ``still_a``, which turns the types it set into
 # types added (205.1b). A quoted ability it grants must be one the engine carries out
 # (``granted_ability``), else the ability stays manual.
-@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:(?:a|an) |the basic land type of your choice).+)")
+@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:(?:a|an) |the basic land type of your choice|the (?:creature type|color)(?: other than [A-Z][a-z]+)? of your choice).+)")
 def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 

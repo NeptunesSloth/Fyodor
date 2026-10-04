@@ -244,6 +244,11 @@ def _blocking_source(s: Selector, m: re.Match[str]) -> Selector:  # blocks (509.
     return replace(s, extras=(*s.extras, "blocking_source" if m["b"] == "blocking it" else "blocked_by_source"))
 
 
+@_suffix(r"with \{[xX]\} in (?:its|their) mana costs?")  # -- activated wordings (wave 15D) -- "a spell with {X} in its mana cost" (107.3)
+def _has_x_cost(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "x_cost"))
+
+
 @_suffix(r"with toughness greater than (?:its|their) power")  # (Ghalta the Immovable, Bedrock Tortoise)
 def _toughness_over_power(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "toughness_gt_power"))
@@ -1157,6 +1162,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                       if c.controller == card.controller and c.zone.endswith(":battlefield") and plan.ch(c).is_creature]
             if mine is None or any(p is None or p > mine for p in others):
                 return False
+        if extra == "x_cost" and "{X}" not in ch.mana_cost:  # -- activated wordings (wave 15D) -- (107.3: printed in its mana cost)
+            return False
         if extra == "toughness_gt_power":  # -- damage wordings (wave 6B) -- as it is now (611.3a for a static)
             p, t = _stat(ch, "power"), _stat(ch, "toughness")
             if p is None or t is None or t <= p:

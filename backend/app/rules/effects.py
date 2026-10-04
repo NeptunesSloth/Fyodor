@@ -278,6 +278,26 @@ def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def exchange_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- activated wordings (wave 15D) -- 701.12c: the player with the lower life total gains, the other loses, what it takes to
+    equal the other's previous total (replacement effects and triggers apply to the gain and the loss). 701.12a: if the whole
+    exchange can't be done (a target gone, 119.7: a player who can't gain life can't be given a higher total), none of it is."""
+    ps = list(dict.fromkeys([ctx["controller"], *_players(plan, ctx, e["with"])] if e.get("with") else _players(plan, ctx, e["who"])))
+    if len(ps) != 2:
+        return True
+    low, high = sorted(ps, key=lambda p: plan.state.players[p].life)
+    diff = plan.state.players[high].life - plan.state.players[low].life
+    if diff == 0:
+        return True
+    from app.rules import cant_gain
+
+    if (why := cant_gain.why_not(plan, low)) is not None:
+        plan.note(f"{why}: the life totals aren't exchanged", actor=ctx["controller"])
+        return True
+    plan.do({"type": "life", "player": high, "delta": -diff}, actor=ctx["controller"])
+    return replace.gain_life(plan, [(low, diff)], actor=ctx["controller"], then=_then(ctx, e), ctx=ctx)
+
+
 class _Source:
     """What deals damage: the spell or ability's source, or a creature the text names ("target
     creature you control deals damage equal to its power to …", a fight). ``keywords`` and ``ch``
@@ -1658,13 +1678,13 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("all"):  # -- "this way" outcomes (wave 4A) -- "discard your hand": every card, no choice (701.9a)
         picked = [c for pid in order for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
         return _discard_next(plan, ctx, 0, [], picked, e.get("as"))
-    return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("to", "graveyard"))
+    return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("to", "graveyard"), e.get("zone", "hand"))
 
 
 def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picked: list[str],
-                  binding: str | None = None, dest: str = "graveyard") -> bool:
+                  binding: str | None = None, dest: str = "graveyard", src: str = "hand") -> bool:
     for i, pid in enumerate(players):
-        hand = plan.state.zones.get(zone_key(pid, "hand"), [])
+        hand = plan.state.zones.get(zone_key(pid, src), [])  # (wave 15D: "exiles a card from their graveyard", public, 404.1)
         n = min(want, len(hand))
         if n == 0:
             continue
@@ -1673,13 +1693,13 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
             continue
         decide(plan, player=pid, kind="choose_cards",
                prompt=f"{'Exile' if dest == 'exile' else 'Discard'} {n} card{'s' if n != 1 else ''}"  # (wave 11D: "exiles two cards from their hand")
-               + (" from your hand" if dest == "exile" else ""),
+               + (f" from your {src}" if dest == "exile" else ""),
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
                min_choices=n, max_choices=n,
                resume={"step": "discard", "ctx": ctx, "want": want, "rest": players[i + 1:], "picked": picked,
-                       "as": binding, "to": dest})
+                       "as": binding, "to": dest, "zone": src})
         return False
-    cards = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(":hand")]
+    cards = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(f":{src}")]
     e = {"as": binding}
     before = _remember(plan, ctx, e, cards)
     if cards:  # each to its owner's graveyard (701.9a); -- hand disruption (wave 11D) -- or exiled, which is no discard (701.9a)
@@ -1692,7 +1712,7 @@ def resume_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx = d.resume["ctx"]
     picked = [*(d.resume.get("picked") or []), *chosen]
     if _discard_next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or [], picked, d.resume.get("as"),
-                     d.resume.get("to", "graveyard")):
+                     d.resume.get("to", "graveyard"), d.resume.get("zone", "hand")):
         continue_effects(plan, ctx)
 
 
@@ -2960,6 +2980,11 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                options=[DecisionOption(id=t, label=t) for t in e["land_pick"]],
                resume={"step": "become_land", "ctx": ctx, "e": e})
         return False
+    if e.get("pick"):  # -- activated wordings (wave 15D) -- "becomes the creature type / color of your choice": chosen as it resolves
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a {e['pick']}",
+               options=[o for o in _choice_options(plan, ctx, e["pick"]) if o.id != e.get("not")],
+               resume={"step": "become_pick", "ctx": ctx, "e": e})
+        return False
     per_object = _reads_it(e.get("p")) or _reads_it(e.get("t"))
     groups = [[c] for c in cards] if per_object else [cards]
     duration = e.get("duration", "end_of_turn")
@@ -3049,6 +3074,19 @@ def resume_become_land(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 RESUME["become_land"] = resume_become_land
+
+
+def resume_become_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen[0] not in {o.id for o in _choice_options(plan, ctx, e["pick"])} - {e.get("not")}:
+        raise ValueError("not an offered choice")
+    plan.note(f"{plan.name(d.player)} chooses {chosen[0]} ({e['pick']})", actor=d.player)
+    more = {"creature_types": [chosen[0]]} if e["pick"] == "creature type" else {"colors": [{"White": "W", "Blue": "U", "Black": "B", "Red": "R", "Green": "G"}[chosen[0]]]}
+    if become(plan, ctx, {**e, "pick": None, **more}):
+        continue_effects(plan, ctx)
+
+
+RESUME["become_pick"] = resume_become_pick
 
 
 def still_a(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -3379,6 +3417,7 @@ PRIMITIVES.update(_land_plays.PRIMITIVES)  # 305.2 "You may play an additional l
 from app.rules import bounce_forms as _bounce_forms  # noqa: E402
 
 PRIMITIVES.update(_bounce_forms.PRIMITIVES)  # "return target A and target B to their owners' hands" (one move)
+PRIMITIVES["exchange_life"] = exchange_life  # -- activated wordings (wave 15D) --
 PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
 PRIMITIVES.update(graveyard_grants.PRIMITIVES)  # "gains flashback until end of turn" (app/rules/graveyard_grants.py)
 RESUME.update(graveyard_grants.RESUME)  # ("Choose one of them.")
