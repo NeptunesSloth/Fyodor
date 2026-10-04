@@ -1293,7 +1293,9 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
     r.buyback = [o for o in r.buyback if o != oid]
     plan.note(f"{card.name or 'It'} is countered", [stack_id])
     if card.ability is None and by is not None:  # -- counter events (wave 19C) -- "Whenever a spell or ability you control counters a spell":
-        from app.game.rules_state import emit  # ``by`` is the controller of the spell or ability that countered it (701.6a)
+        from app.game.rules_state import (
+            emit,  # ``by`` is the controller of the spell or ability that countered it (701.6a)
+        )
 
         emit(plan.state, "designation", counter="counters_spell", player=by)
     if oid in r.flashback or exile:

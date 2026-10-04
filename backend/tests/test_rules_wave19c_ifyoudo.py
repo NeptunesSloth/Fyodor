@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.game.factory import PlayerSetup, new_game
 from app.game.errors import ActionError
+from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import coverage
@@ -143,7 +143,7 @@ def test_dark_depths_is_sacrificed_for_marit_lage_when_the_last_ice_counter_goes
     act(s, "p1", type="play_land", card_id=depths.id)
     settle(s)
     assert s.state.cards[depths.id].counters.get("ice") == 10  # (it enters with them: 122.6a)
-    for n in range(10):
+    for _n in range(10):
         assert "Marit Lage" not in field_names(s)  # (while a counter is left there is nothing to trigger on)
         add_mana(s, "p1", C=3)
         act(s, "p1", type="activate_ability", card_id=depths.id, ability=1)
@@ -158,7 +158,7 @@ def test_mazemind_tome_is_exiled_at_four_page_counters_and_gains_life(cards):
     s = build(cards, p1=("Mazemind Tome",))
     tome = to_zone(s, find(s, "Mazemind Tome"), "battlefield")
     life = s.state.players["p1"].life
-    for n in range(4):
+    for _n in range(4):
         assert tome.id in zone(s.state, "p1", "battlefield")  # (below four page counters nothing triggers)
         if s.state.cards[tome.id].tapped:
             act(s, "p1", type="tap", card_ids=[tome.id])  # (untapped by hand)
