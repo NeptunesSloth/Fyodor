@@ -42,7 +42,7 @@ _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled",), "sacrificed": ("sa
           "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned",), "your_hand": ("returned",),
           "graveyard": ("destroyed", "sacrificed", "milled", "discarded"), "your_graveyard": ("milled", "discarded"),
           "died": ("destroyed", "sacrificed"), "tapped": ("tapped",),
-          "revealed": ("revealed",)}  # (wave 10C: reveal_hand.py)
+          "revealed": ("revealed",), "shuffled": ("shuffled",)}  # (wave 10C: reveal_hand.py)
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
     r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?"
@@ -214,6 +214,8 @@ def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], y
     if kind in ("tapped", "revealed"):  # (tap_choice binds exactly the permanents it tapped; reveal_hand: the cards it showed, which stay put)
         return True
     old_card = plan.state.cards.get(was["card"])
+    if kind == "shuffled":  # (-- static_other sweep (wave 16B) -- a library shuffle gives its cards new ids: gone from where it was, or in a library)
+        return old_card is None or old_card.zone.endswith(":library")
     moved = old_card is None or plan.oid(old_card) != was["object_id"] or new["object_id"] != was["object_id"]
     if not moved:
         return False
@@ -260,7 +262,7 @@ def by_controller(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> dict[st
         snap = context.snapshot(plan, ObjectRef.model_validate(was))
         card = plan.state.cards.get(new["card"])
         pid = here[0].controller if here is not None else snap.controller if snap is not None else \
-            (card.owner if card is not None else None)
+            (card.owner if card is not None else (new.get("zone") or "").split(":")[0] or None)  # (a card put in a library is re-keyed: its old zone's owner)
         if pid is not None:
             out[pid] = out.get(pid, 0) + 1
     return out

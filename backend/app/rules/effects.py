@@ -1684,7 +1684,7 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                                                            min(want, len(plan.state.zones.get(zone_key(pid, "hand"), []))))]
         return _discard_next(plan, ctx, want, [], picked, e.get("as"))
     if e.get("any"):  # -- static_other sweep (wave 16B) -- "discards any number of cards": each player chooses how many (701.9a)
-        return _discard_next(plan, ctx, -1, order, [], e.get("as"))
+        return _discard_next(plan, ctx, -1 - int(e["up_to"]) if e.get("up_to") else -1, order, [], e.get("as"))  # (-1: any; -1 - N: up to N)
     if e.get("all"):  # -- "this way" outcomes (wave 4A) -- "discard your hand": every card, no choice (701.9a)
         picked = [c for pid in order for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
         return _discard_next(plan, ctx, 0, [], picked, e.get("as"))
@@ -1695,14 +1695,14 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
                   binding: str | None = None, dest: str = "graveyard", src: str = "hand") -> bool:
     for i, pid in enumerate(players):
         hand = plan.state.zones.get(zone_key(pid, src), [])  # (wave 15D: "exiles a card from their graveyard", public, 404.1)
-        n = min(want, len(hand)) if want >= 0 else len(hand)  # (want -1: any number, wave 16B)
+        n = min(want, len(hand)) if want >= 0 else len(hand) if want == -1 else min(-1 - want, len(hand))  # (wave 16B: any number / up to N)
         if n == 0:
             continue
         if n == len(hand) and want >= 0:
             picked = [*picked, *hand]
             continue
         decide(plan, player=pid, kind="choose_cards",
-               prompt=("Discard any number of cards" if want < 0 else
+               prompt=("Discard any number of cards" if want == -1 else f"Discard up to {n} cards" if want < 0 else
                        f"{'Exile' if dest == 'exile' else 'Discard'} {n} card{'s' if n != 1 else ''}")  # (wave 11D: "exiles two cards from their hand")
                + (f" from your {src}" if dest == "exile" else ""),
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
@@ -2292,12 +2292,16 @@ def shuffle_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                options=[DecisionOption(id="yes", label="Shuffle"), DecisionOption(id="no", label="Don't shuffle")],
                resume={"step": "shuffle_library", "ctx": ctx, "e": {**e, "optional": False}})
         return False
-    for pid in _players(plan, ctx, e["who"]):
+    players = _players(plan, ctx, e["who"])
+    # (-- static_other sweep (wave 16B) -- "then draws that many cards": the cards shuffled in are the binding "as", each its owner's)
+    before = _remember(plan, ctx, e, [c for pid in players for zone in e.get("zones") or [] for c in plan.state.zones.get(zone_key(pid, zone), [])])
+    for pid in players:
         for zone in e.get("zones") or []:
             cards = list(plan.state.zones.get(zone_key(pid, zone), []))
             if cards:
                 plan.do({"type": "move", "card_ids": cards, "to": {"player": pid, "zone": "library"}}, actor=pid)
         plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
+    _moved(plan, ctx, e, before)
     return True
 
 

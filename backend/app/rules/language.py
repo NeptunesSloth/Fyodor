@@ -732,8 +732,9 @@ _TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_
 _SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
 _OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that permanent's) owner shuffles it into their library")
 _OWNER_CHOICE = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it on their choice of the top or bottom of their library")
-_SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)?|shuffle your (?P<z>graveyard|hand and graveyard) into your library"
-                      rf"|{_SUBJECTS} shuffles(?: their library| their (?P<z2>graveyard|hand and graveyard) into their library)?)")
+# (-- static_other sweep (wave 16B) -- "the cards from your hand": the hand alone, for a count of what was shuffled in)
+_SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)?|shuffle (?:your|the cards from your) (?P<z>graveyard|hand and graveyard|hand) into your library"
+                      rf"|{_SUBJECTS} shuffles(?: their library| (?:their|the cards from their) (?P<z2>graveyard|hand and graveyard|hand) into their library)?)")
 
 
 # -- refused look/cast-free (wave 3R5) -- one card of each listed kind, each a different card: "You may put a
@@ -920,7 +921,7 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         if m["subj"]:
             kind, key, group = ref(m["subj"])
             who = _who(kind, key)
-        zones = {"graveyard": ["graveyard"], "hand and graveyard": ["hand", "graveyard"]}.get(m["z"] or m["z2"] or "", [])
+        zones = {"graveyard": ["graveyard"], "hand and graveyard": ["hand", "graveyard"], "hand": ["hand"]}.get(m["z"] or m["z2"] or "", [])
         return [{"do": "shuffle_library", "who": who, "zones": zones, **({"optional": True} if m["may"] else {})}], _one(group)
     found_lib = gy_to_library(text)  # -- refused zones/sized (wave 3R4) --
     if found_lib is not None:
@@ -1070,10 +1071,10 @@ def _parse(text: str) -> tuple[Effects, Any]:
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": 0, "all": True}], target
     # -- static_other sweep (wave 16B) -- "discards any number of cards" (701.9a: the player chooses how many, from none up to all)
-    m = re.fullmatch(_SUBJ + r"discards? any number of cards", text)
+    m = re.fullmatch(_SUBJ + rf"discards? (?:any number of|up to (?P<up>{AMT})) cards", text)
     if m and rider is None:
         who, target = _subject(m)
-        return [{"do": "discard", "who": who, "n": 0, "any": True}], target
+        return [{"do": "discard", "who": who, "n": 0, "any": True, **({"up_to": _amount(m["up"])} if m["up"] else {})}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)

@@ -43,6 +43,13 @@ EXTRA = [
     card("Awaken the Erstwhile", set_code="tst", number="B08", mana_cost="{3}{B}{B}", cmc=5.0, type_line="Sorcery", colors=["B"],
          color_identity=["B"], oracle_text="Each player discards all the cards in their hand, then creates that many 2/2 black Zombie "
          "creature tokens."),
+    card("Winds of Change", set_code="tst", number="B09", mana_cost="{R}", cmc=1.0, type_line="Sorcery", colors=["R"],
+         color_identity=["R"], oracle_text="Each player shuffles the cards from their hand into their library, then draws that many cards."),
+    card("Funeral Rites", set_code="tst", number="B10", mana_cost="{3}{B}", cmc=4.0, type_line="Sorcery", colors=["B"],
+         color_identity=["B"], oracle_text="You draw two cards, lose 2 life, then mill two cards."),
+    card("Cathartic Pyre", set_code="tst", number="B11", mana_cost="{2}{R}", cmc=3.0, type_line="Instant", colors=["R"],
+         color_identity=["R"], oracle_text="Choose one —\n• Cathartic Pyre deals 3 damage to target creature or planeswalker.\n"
+         "• Discard up to two cards, then draw that many cards."),
 ]
 
 
@@ -160,4 +167,40 @@ def test_each_player_discards_hand_then_creates_that_many_tokens(cards):
     answer(s)
     zombies = [x for x in s.state.cards.values() if x.token and x.zone.endswith(":battlefield") and x.token.name == "Zombie"]
     assert sorted(x.controller for x in zombies) == ["p1"] * 3 + ["p2"] * 2
+    roundtrip(s)
+
+
+def test_each_player_shuffles_hand_into_library_then_draws_that_many(cards):
+    s = build(cards, p1=("Winds of Change",))
+    c = put(s, "Winds of Change", "hand")
+    fill(s, "p1", 3), fill(s, "p2", 5)
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert (hand_size(s, "p1"), hand_size(s, "p2")) == (3, 5)  # each draws as many as they shuffled in
+    roundtrip(s)
+
+
+def test_three_instructions_in_order_draw_lose_mill(cards):
+    s = build(cards, p1=("Funeral Rites",))
+    c = put(s, "Funeral Rites", "hand")
+    life, lib = s.state.players["p1"].life, len(s.state.zones["p1:library"])
+    mana(s, C=3, B=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert s.state.players["p1"].life == life - 2 and hand_size(s, "p1") == 2 and len(s.state.zones["p1:library"]) == lib - 4
+    roundtrip(s)
+
+
+def test_discard_up_to_two_then_draw_that_many(cards):
+    s = build(cards, p1=("Cathartic Pyre",))
+    c = put(s, "Cathartic Pyre", "hand")
+    fill(s, "p1", 3)
+    mana(s, C=2, R=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, modes=[1])
+    d = s.state.rules.decision
+    assert d.min_choices == 0 and d.max_choices == 2  # up to two (701.9a)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:2])
+    answer(s)
+    assert hand_size(s, "p1") == 3  # discarded two, drew two
     roundtrip(s)

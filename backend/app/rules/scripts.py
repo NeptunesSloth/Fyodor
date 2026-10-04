@@ -373,6 +373,7 @@ _RECORDING: dict[str, str | None] = {
     "edict": "sacrificed",  # -- "this way" outcomes (wave 4A) -- "each opponent sacrifices a creature …" (effects._choose_next)
     "tap_choice": "tapped",  # (wave 4A) "tap any number of untapped creatures you control" (this_way.tap_choice)
     "double_counters": None, "lki_counters": None, "move_counters": None,  # -- counters (wave 5H) --
+    "shuffle_library": "shuffled",  # -- static_other sweep (wave 16B) -- "shuffle the cards from your hand into your library, then draw that many"
 }
 # Effects that introduce objects by themselves — by moving, choosing or creating them — rather than
 # by naming a target: a pronoun after them binds to their recorded objects (the object may be in
@@ -1556,7 +1557,10 @@ _THAT_MANY = re.compile(r"^(?P<s>(?:target player|each player|each opponent|that
 
 def _that_many(left: tuple[list[dict[str, Any]], Any], text: str) -> tuple[list[dict[str, Any]], Any] | None:
     m = _THAT_MANY.match(text)
-    if m is None or len(left[0]) != 1 or left[0][0].get("do") != "discard" or not (left[0][0].get("all") or left[0][0].get("any")):
+    first = left[0][0] if len(left[0]) == 1 else {}
+    kind = "discarded" if first.get("do") == "discard" and (first.get("all") or first.get("any")) else \
+        "shuffled" if first.get("do") == "shuffle_library" and first.get("zones") == ["hand"] else None
+    if m is None or kind is None:
         return None
     s, plural = m["s"] or "", bool(m["s"]) and m["s"].startswith("each")
     verb = m["v"] if s else m["v"].rstrip("s")
@@ -1564,14 +1568,15 @@ def _that_many(left: tuple[list[dict[str, Any]], Any], text: str) -> tuple[list[
         right = _clause(f"{s}{verb} a card for each card discarded this way")
         if right is None or len(right[0]) != 1 or right[0][0].get("do") != "draw":
             return None
-        n = {**right[0][0]["n"], **({"delta": 1 if m["d"] == "plus" else -1} if m["d"] else {}), **({"each_owner": True} if plural else {})}
+        n = {**right[0][0]["n"], "this_way": kind, **({"delta": 1 if m["d"] == "plus" else -1} if m["d"] else {}),
+             **({"each_owner": True} if plural else {})}
         return [{**right[0][0], "n": n}], right[1]
     if m["d"] or m["what"] == "cards":
         return None
     right = _clause(f"{s}{verb} a {m['what'][:-1]}")
     if right is None or len(right[0]) != 1 or right[0][0].get("do") != "create_token" or right[0][0].get("n") != 1:
         return None
-    return [{**right[0][0], "per_controller": {"this_way": "discarded", "of": None}}], right[1]
+    return [{**right[0][0], "per_controller": {"this_way": kind, "of": None}}], right[1]
 
 
 def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
@@ -1596,6 +1601,9 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                         r"(?P<y>.+)", text)
     if twin is not None:
         text = f"{twin['p']} {twin['a']} on {twin['x']}, then put {twin['b']} on {twin['y']}"
+    # -- static_other sweep (wave 16B) -- "You draw two cards, lose 2 life, then mill two cards." is three instructions in order (608.2c)
+    text = re.sub(r"^(?P<a>(?:you )?(?:gain|lose|draw|mill|scry|surveil)\b[^,.]*), (?P<b>(?:draw|lose|gain|mill|scry|surveil|investigate)\b[^,.]*), then ",
+                  r"\g<a>, then \g<b>, then ", text)
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
                                  r"remove|add|investigate|prevent)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
