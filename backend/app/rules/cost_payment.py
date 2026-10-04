@@ -43,7 +43,7 @@ def _reserved(cost: AbilityCost, comp: CostComponent, source: CardInstance) -> s
     when it's tapped ({T}) or leaves (sacrificed / exiled / returned) as part of the cost."""
     leaves = cost.sacrifice_self or any(c.selector is None and c.kind in (C.EXILE, C.RETURN_PERMANENT, C.EXILE_FROM_GRAVEYARD)
                                         for c in cost.components)
-    if leaves or (comp.kind in (C.TAP_OTHER, C.UNTAP_OTHER) and (cost.tap or cost.untap)):
+    if leaves or (comp.kind in (C.TAP_OTHER, C.UNTAP_OTHER, C.WATERBEND) and (cost.tap or cost.untap)):
         return {source.id}
     return set()
 
@@ -174,7 +174,7 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
             return f"You don't have {energy_amount(comp, x)} energy to pay"
         elif (why := _new_part_problem(plan, comp, card, player, x)) is not None:  # (wave 4H)
             return why
-        elif comp.selector is not None and comp.kind != C.COLLECT_EVIDENCE:  # (collect evidence: _new_part_problem, wave 4H)
+        elif comp.selector is not None and comp.kind not in (C.COLLECT_EVIDENCE, C.WATERBEND):  # (collect evidence: _new_part_problem, wave 4H; waterbend: any number, even none)
             usable = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
             if len(usable) < objects_needed(comp, x):  # (X / one permanent for its counters: wave 4H)
                 return f"You can't pay “{comp.text}”"
@@ -198,6 +198,12 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell, cost: AbilityCost, ca
     used: set[str] = set()
     x = getattr(a, "x_value", None)  # (wave 4H: "Sacrifice X Treasures" — X announced as it's activated, 107.3a)
     for i, comp in cost.choices:
+        if comp.kind == C.WATERBEND:  # -- activated sweep (wave 17B) -- up to N artifacts / creatures, each paying {1} (701.67a)
+            found = _choose_waterbend(plan, a, i, comp, cost, card, what, given.get(i), used)
+            if found is None:
+                return None
+            out[i] = found
+            continue
         if comp.counter == C.ANY_COUNTER or comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # -- activation costs (wave 4H) --
             chooser = _choose_counters if comp.counter == C.ANY_COUNTER else _choose_flexible
             found = chooser(plan, a, i, comp, cost, card, what, given.get(i), used)
@@ -231,6 +237,30 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell, cost: AbilityCost, ca
         out[i] = list(chosen)
         used |= set(chosen)
     return out
+
+
+def _choose_waterbend(plan: Plan, a: A.ActivateAbility | A.CastSpell, i: int, comp: CostComponent, cost: AbilityCost,
+                      card: CardInstance, what: str, given: list[str] | None, used: set[str]) -> list[str] | None:
+    """-- activated sweep (wave 17B) -- "Waterbend {N}": the untapped artifacts and creatures the payer taps, at most N, each paying for
+    {1} of it (701.67a); none at all is a choice (the mana pays it). Tapping them isn't a {T} cost: a creature that came under the
+    payer's control this turn can be tapped (302.6 is about the {T} and {Q} symbols)."""
+    usable = [c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card) and c not in used]
+    if given is not None:
+        if len(given) > comp.amount or len(set(given)) != len(given) or any(c not in usable for c in given):
+            raise ActionError(f"Choose at most {comp.amount} untapped artifacts and creatures to pay for “{comp.text}”")
+        used |= set(given)
+        return list(given)
+    if not usable:
+        return []
+    decide(plan, player=plan.actor, kind="choose_cards",
+           prompt=f"{what}: tap up to {comp.amount} untapped artifacts and creatures you control, each paying for {{1}} of “{comp.text}”"
+                  " (none: pay with mana only)",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
+           min_choices=0, max_choices=min(comp.amount, len(usable)),
+           resume={"step": "ability_cost", "component": i, "amount": None, "empty_ok": True,
+                   "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
+           source=card)
+    return None
 
 
 def _choose_counters(plan: Plan, a: A.ActivateAbility | A.CastSpell, i: int, comp: CostComponent, cost: AbilityCost,
@@ -272,7 +302,7 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
 
     assert d.resume is not None
     plan.rules.priority = d.player
-    if not chosen:
+    if not chosen and not d.resume.get("empty_ok"):
         plan.note(f"{plan.name(d.player)} cancelled")
         plan.hold = d.player
         return
@@ -312,8 +342,9 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             plan.do({"type": "tap", "card_ids": [card.id], "tapped": False})
         elif comp.kind == C.PAY_ENERGY and energy_amount(comp, record.x):  # (107.14: remove that many energy counters)
             plan.do({"type": "resource", "player": player, "key": "energy", "delta": -energy_amount(comp, record.x)})
-        elif comp.kind == C.TAP_OTHER:
-            plan.do({"type": "tap", "card_ids": ids, "tapped": True})
+        elif comp.kind in (C.TAP_OTHER, C.WATERBEND):  # (wave 17B: waterbend 701.67a — tapped to help pay)
+            if ids:
+                plan.do({"type": "tap", "card_ids": ids, "tapped": True})
             record.tapped_for_cost += ids
         elif comp.kind == C.UNTAP_OTHER:  # -- activated sweep (wave 17B) -- 701.26b
             plan.do({"type": "tap", "card_ids": ids, "tapped": False})

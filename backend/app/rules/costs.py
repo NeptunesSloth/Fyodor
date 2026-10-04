@@ -62,7 +62,10 @@ COLLECT_EVIDENCE, FORAGE = "COLLECT_EVIDENCE", "FORAGE"  # 701.59a, 701.61a: the
 # -- if you do (wave 15C) -- the Eldrazi processors: "Put a card an opponent owns from exile into that player's graveyard"
 # (a cost like any other: 118.1; the cards are chosen from the exile zones of the opponents and go to their owners', 400.3)
 EXILE_TO_GY = "EXILE_TO_GY"
-WAVE_4H_KINDS = frozenset({PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE})
+# -- activated sweep (wave 17B) -- "Waterbend {3}" (701.67a): {3}, and for each generic mana in it the payer may tap an untapped artifact
+# or creature they control instead of paying that mana; the cost is the MANA part plus this one, which holds how many may be tapped
+WATERBEND = "WATERBEND"
+WAVE_4H_KINDS = frozenset({PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE, WATERBEND})
 ANY_COUNTER = "*"
 
 
@@ -329,6 +332,7 @@ _EXILE_CHOSEN = re.compile(rf"^Exile {_N} (?P<what>[^,]+ you control)$")
 _EXILE_TO_GY = re.compile(r"^Put (?:(?P<one>a) card an opponent owns from exile into that player's graveyard"
                           r"|(?P<n>two|three) cards your opponents own from exile into their owners' graveyards)$")  # (wave 15C)
 _EVIDENCE = re.compile(r"^Collect evidence (?P<n>\d+)$")
+_WATERBEND = re.compile(r"^Waterbend \{(?P<n>\d+)\}$")
 _SAC_OR = re.compile(r"^Sacrifice (?P<a>a|an|another) (?P<w1>[\w\-]+) or (?P<b>a|an|another) (?P<w2>[\w\-]+)$")  # (no article: refused)
 _GRANDEUR = re.compile(r"^Discard another card named ~$")  # (grandeur, an ability word: 207.2c)
 _HALF_LIFE = "Pay half your life rounded up"
@@ -412,6 +416,10 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
 def wave4h_parts(part: str, card_name: str) -> list[CostComponent] | None:
     """The part as one or more components (two joined by "and": the second keeps the first's verb when it has none,
     "it" being the source), or None when any piece isn't read."""
+    if m := _WATERBEND.match(part):  # -- activated sweep (wave 17B) -- 701.67a (only a number: "Waterbend {X}" is not read)
+        key = _selector("untapped artifact or creature you control", zone="battlefield")
+        return [CostComponent(MANA, text=f"{{{m['n']}}}"),
+                CostComponent(WATERBEND, amount=int(m["n"]), selector=key, text=part)] if key and int(m["n"]) > 0 else None
     one = _one_4h(part, card_name)
     if one is not None:
         return [one]

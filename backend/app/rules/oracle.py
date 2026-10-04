@@ -25,7 +25,7 @@ _TRIGGER = re.compile(r"^(?:[A-Z][A-Za-z0-9'’!?,\- ]+ — )?(When|Whenever|At)
 # (-- attached events (wave 4L) -- "Equipped creature has "{T}: …"" is a static granting an ability, not a cost)
 _COST_START = re.compile(
     r"^(\{[^}]+\}|Sacrifice|Tap|Untap|Discard|Pay|Remove|Exile|Return|Put|Reveal|Mill|Collect|Forage|[Ee]quip(?!ped)|Crew|"
-    r"Channel|Cycling|Ninjutsu|Boast|Exhaust)"
+    r"Channel|Cycling|Ninjutsu|Boast|Exhaust|Waterbend)"
 )
 
 # Keyword *abilities* a line may consist of (lower case, parameters stripped). Keyword actions

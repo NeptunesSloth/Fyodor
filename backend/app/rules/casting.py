@@ -2878,6 +2878,10 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
             return found
     if info is not None and cost.mana:
         mana = M.parse_cost(cost.mana).with_x(x)
+        for _, comp in cost.choices:  # -- activated sweep (wave 17B) -- waterbend: the untapped artifacts and creatures that could help
+            if comp.kind == "WATERBEND":
+                helpers = len(cost_payment.candidates(Plan.view(state, player, info), comp, player, card))
+                mana = mana.plus_generic(-min(comp.amount, helpers))
         if not can_pay(state, player, mana, info, exclude=(card.id,) if cost.tap else (), purpose=Purpose(ability_of=ch)):
             return f"Not enough mana to pay {mana.text()}"
     return None
@@ -2937,6 +2941,9 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)
     if cost_objects is None:
         return  # waiting for the payer's choice; nothing has been paid
+    for i, comp in cost.choices:  # -- activated sweep (wave 17B) -- waterbend: each artifact / creature tapped pays for {1} (701.67a)
+        if comp.kind == "WATERBEND":
+            mana = mana.plus_generic(-len(cost_objects.get(i, [])))
     not_mana = cost_payment.excluded(cost, card, cost_objects)  # (they can't also tap for mana)
     if payment_step(plan, a, mana.with_x(a.x_value or 0), f"{ch.name}’s ability",
                     exclude=not_mana, purpose=Purpose(ability_of=ch)):

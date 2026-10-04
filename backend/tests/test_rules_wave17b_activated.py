@@ -27,6 +27,9 @@
 * "Add X mana in any combination of colors, where X is the number of creatures you control with defender" (Axebane Guardian) and "…of {U}
   and/or {R}, where X is Vivi Ornitier's power": X as the ability is activated (605.3b); "Activate only during your turn / an opponent's
   turn" on a mana ability (602.5b).
+* "Waterbend {2}: …" as an activation cost (701.67a): {2}, and for each generic mana in it the payer may tap an untapped artifact or
+  creature they control instead of paying that mana (not a {T} cost: summoning sickness doesn't matter, 302.6); the permanent that
+  taps itself for the ability can't also help pay.
 * "has base power 4 and gains trample" (613.4b: layer 7b, power only).
 
 Real Oracle text; each scenario replays the history and survives a save/load round trip."""
@@ -130,9 +133,22 @@ EXTRA = [
          "{0}: Add X mana in any combination of {U} and/or {R}, where X is Vivi Ornitier's power. Activate only during your turn and only once each turn.\nWhenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier and it deals 1 damage to each opponent.", ('0', '3'), 'RU'),
     real('Lavinia, Foil to Conspiracy', '{1}{W/U}{W/U}', 3, 'Legendary Creature — Human Detective',
          'Vigilance\nWhenever you cast your second spell each turn, investigate. (Create a Clue token. It\'s an artifact with "{2}, Sacrifice this token: Draw a card.")\n{T}: Add {C}{C}. Activate only during an opponent\'s turn.', ('2', '3'), 'UW'),
+    real('Ruthless Waterbender', '{1}{B}', 2, 'Creature — Human Soldier Ally',
+         'Waterbend {2}: This creature gets +1/+1 until end of turn. Activate only during your turn. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)', ('1', '3'), 'B'),
+    real('North Pole Patrol', '{2}{U}', 3, 'Creature — Human Soldier Ally',
+         '{T}: Untap another target permanent you control.\nWaterbend {3}, {T}: Tap target creature an opponent controls. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)', ('2', '3'), 'U'),
+    real('Katara, Bending Prodigy', '{2}{U}', 3, 'Legendary Creature — Human Warrior Ally',
+         'At the beginning of your end step, if Katara is tapped, put a +1/+1 counter on her.\nWaterbend {6}: Draw a card. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)', ('2', '3'), 'U'),
+    real('Geyser Leaper', '{4}{U}', 5, 'Creature — Human Warrior Ally',
+         'Flying\nWaterbend {4}: Draw a card, then discard a card. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)', ('4', '3'), 'U'),
+    real('Giant Koi', '{4}{U}{U}', 6, 'Creature — Fish',
+         "Waterbend {3}: This creature can't be blocked this turn. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)\nIslandcycling {2} ({2}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)", ('5', '7'), 'U'),
+    real('Flexible Waterbender', '{3}{U}', 4, 'Creature — Human Warrior Ally',
+         'Vigilance\nWaterbend {3}: This creature has base power and toughness 5/2 until end of turn. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)', ('2', '5'), 'U'),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
-FULL = ["Axebane Guardian", "Vivi Ornitier", "Lavinia, Foil to Conspiracy", "Pernicious Deed", "Dauntless Dismantler", "Godo's Irregulars", "Knight of Dusk", "Jabari's Banner", "Reckless Pyrosurfer", "Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
+FULL = ["Ruthless Waterbender", "North Pole Patrol", "Katara, Bending Prodigy", "Geyser Leaper", "Giant Koi",
+        "Flexible Waterbender", "Axebane Guardian", "Vivi Ornitier", "Lavinia, Foil to Conspiracy", "Pernicious Deed", "Dauntless Dismantler", "Godo's Irregulars", "Knight of Dusk", "Jabari's Banner", "Reckless Pyrosurfer", "Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
         "Volshe Tideturner", "Phelddagrif", "Leering Gargoyle", "Canopy Dragon", "Turtle-Duck", "Gargoyle Sentinel", "Singing Tree", "Island of Wak-Wak"]
 
 
@@ -568,3 +584,56 @@ def test_mana_ability_only_during_an_opponents_turn(cards):
     s.state.rules.controlled_since[lavinia.id].turn = 0
     with pytest.raises(ActionError):  # (it's Alice's turn)
         act(s, "p1", type="activate_ability", card_id=lavinia.id, ability=ability(s, lavinia, "{T}"))
+
+
+def waterbend_ruthless(cards, helpers, mana_c, pick):
+    s = build(cards, "Ruthless Waterbender")
+    c = on_field(s, "Ruthless Waterbender")
+    tokens = [creature(s, "p1", f"Helper {i}", pt="1/1") for i in range(helpers)]
+    if mana_c:
+        mana(s, "p1", C=mana_c)
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=ability(s, c, "Waterbend"))
+    if s.state.rules.decision is not None:
+        d = s.state.rules.decision
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[tokens[i].id for i in pick])
+    settle(s)
+    return s, c, tokens
+
+
+def test_waterbend_taps_artifacts_and_creatures_for_generic_mana(cards):
+    s, c, tokens = waterbend_ruthless(cards, 2, 1, [0])  # {2}: one Helper taps, {1} of mana
+    assert chars(s, c).pt == (2, 4) and s.state.players["p1"].mana == {}
+    assert [s.state.cards[t.id].tapped for t in tokens] == [True, False]
+    roundtrip(s)
+
+
+def test_waterbend_paid_with_mana_alone(cards):
+    s, c, tokens = waterbend_ruthless(cards, 1, 2, [])  # none tapped: {2} of mana
+    assert chars(s, c).pt == (2, 4) and s.state.players["p1"].mana == {} and not s.state.cards[tokens[0].id].tapped
+    roundtrip(s)
+
+
+def test_waterbend_needs_all_of_the_cost_paid(cards):
+    s = build(cards, "Ruthless Waterbender")
+    c = on_field(s, "Ruthless Waterbender")
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=ability(s, c, "Waterbend"))
+    d = s.state.rules.decision  # (the only helper is the Waterbender itself)
+    with pytest.raises(ActionError):  # ({1} of the cost is left and there's no mana for it)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[c.id])
+    assert not s.state.cards[c.id].tapped
+
+
+def test_waterbend_with_tap_symbol_cannot_tap_itself_to_help(cards):
+    s = build(cards, "North Pole Patrol", p2=("Grizzly Bears",))
+    patrol = on_field(s, "North Pole Patrol")
+    s.state.rules.controlled_since[patrol.id].turn = 0
+    bears = on_field(s, "Grizzly Bears", "p2")
+    helpers = [creature(s, "p1", f"Helper {i}", pt="1/1") for i in range(3)]
+    act(s, "p1", type="activate_ability", card_id=patrol.id, ability=ability(s, patrol, "Waterbend"), targets=[bears.id])
+    d = s.state.rules.decision
+    assert sorted(o.card_id for o in d.options) == sorted(h.id for h in helpers)  # (the Patrol itself taps for {T})
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[h.id for h in helpers])
+    settle(s)
+    assert s.state.cards[bears.id].tapped and s.state.cards[patrol.id].tapped
+    assert all(s.state.cards[h.id].tapped for h in helpers)
+    roundtrip(s)
