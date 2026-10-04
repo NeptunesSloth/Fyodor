@@ -402,8 +402,10 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             return []
         return [("cycle", card, plan.ch(card), e.player, {"oid": plan.oid(card), "actor": e.player, "amount": 1})]
     if e.kind == "milled":  # -- triggers (wave 17D) -- 701.17a: the card, as it is in its owner's graveyard now
-        got = _object_then(plan, e.card, e.object_id)
-        return [("mill", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "amount": 1})] if got is not None else []
+        card = plan.state.cards.get(e.card or "")
+        if card is None or not card.zone.endswith(":graveyard"):
+            return []
+        return [("mill", card, plan.ch(card), e.player, {"oid": plan.oid(card), "actor": e.player, "amount": 1})]
     if e.kind == "sacrificed":  # 701.21a; 603.10a: looks back in time
         got = _object_then(plan, e.card, e.object_id)
         if got is None:

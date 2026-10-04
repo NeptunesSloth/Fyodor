@@ -288,7 +288,7 @@ EventKind = Literal[
     "untapped",
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
     "cycled",  # a player cycled a card (702.29: "when you cycle …")
-    "milled",  # -- triggers (wave 17D) -- 701.17a: ``player`` milled ``card`` (the object it became in their graveyard is ``object_id``)
+    "milled",  # -- triggers (wave 17D) -- 701.17a: ``player`` milled ``card`` (read where it lies, in their graveyard)
     "land_played",  # -- entry forms (wave 5F) -- a player played a land (305.1: "when you play another land")
     "mana_added",  # a mana ability produced mana (106.3, 106.12a); convoke/improvise/delve never do
     "drew",  # a player drew a card (121.2: one event per card)
