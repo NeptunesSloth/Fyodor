@@ -3943,6 +3943,12 @@ def _turn_record(text: str) -> list[dict[str, Any]] | None:
     record of this resolution, lasting this turn (611.2a)."""
     from app.rules import replace_grammar  # (a leaf module)
 
+    # -- long tail (wave 16D) -- "This turn, each creature you control enters with an additional +1/+1 counter on it." (Zameck
+    # Guildmage): the static wording (replace_grammar._enter_extra) as a record of this resolution (614.1c, 611.2a)
+    if (enter := re.match(r"^this turn, (?P<rest>each .+ enters with .+)$", text)) is not None:
+        d = replace_grammar.parse(enter["rest"][0].upper() + enter["rest"][1:] + ".")
+        if d is not None and d.get("static") == "replace":
+            return [{"do": "replace_record", "event": d["event"], "match": d["match"], "op": d["op"]}]
     m = _UNTIL_EOT_IF.match(text)
     body = m["rest"] if m else None
     if body is None:

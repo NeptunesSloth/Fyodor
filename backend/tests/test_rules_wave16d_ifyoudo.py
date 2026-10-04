@@ -46,10 +46,11 @@ EXTRA = [
     card('Drag the Canal', set_code='tst', number='A13', mana_cost='{U}{B}', cmc=2.0, type_line='Instant', oracle_text='Create a 2/2 white and blue Detective creature token. If a creature died this turn, you gain 2 life, surveil 2, then investigate. (Create a Clue token. It\'s an artifact with "{2}, Sacrifice this token: Draw a card.")', colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Surveil', 'Investigate']),  # noqa: E501
     card('Sigardian Paladin', set_code='tst', number='A14', mana_cost='{2}{G}{W}', cmc=4.0, type_line='Creature — Human Knight', oracle_text="As long as you've put one or more +1/+1 counters on a creature this turn, this creature has trample and lifelink.\n{1}{G}{W}: Target creature you control with a +1/+1 counter on it gains trample and lifelink until end of turn.", colors=['G', 'W'], color_identity=['G', 'W'], keywords=[], power='4', toughness='4'),  # noqa: E501
     card('Fire Nation Salvagers', set_code='tst', number='A15', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Creature — Human Soldier', oracle_text="Menace\nWhen this creature enters, put a +1/+1 counter on target creature or Vehicle you control.\nWhenever one or more creatures you control with counters on them deal combat damage to a player, put target creature or Vehicle card from that player's graveyard onto the battlefield under your control.", colors=['B'], color_identity=['B'], keywords=['Menace'], power='3', toughness='3'),  # noqa: E501
+    card('Zameck Guildmage', set_code='tst', number='A16', mana_cost='{G}{U}', cmc=2.0, type_line='Creature — Elf Wizard', oracle_text='{G}{U}: This turn, each creature you control enters with an additional +1/+1 counter on it.\n{G}{U}, Remove a +1/+1 counter from a creature you control: Draw a card.', colors=['G', 'U'], color_identity=['G', 'U'], keywords=[], power='2', toughness='2'),  # noqa: E501
 ]
 FULL = ['Tallyman of Nurgle', 'Vrock', 'Desperate Measures', 'Searing Blood', 'Graceful Reprieve', "Witch's Oven",
         'Prismari Pianist', 'Lasting Tarfire', 'Oathsworn Vampire', 'Bespoke Battlegarb', 'Debt to the Deathless',
-        'Khaaaaaaaaaaaannn!', 'Drag the Canal', 'Sigardian Paladin', 'Fire Nation Salvagers']
+        'Khaaaaaaaaaaaannn!', 'Drag the Canal', 'Sigardian Paladin', 'Fire Nation Salvagers', 'Zameck Guildmage']
 # --EXTRA-END--
 
 
@@ -262,3 +263,21 @@ def test_drag_the_canal_gain_surveil_then_investigate(cards, died):
     assert names_on_field(s).count("Clue") == (1 if died else 0) and names_on_field(s).count("Detective") == 1
     replay_matches(s)
     saved(s)
+
+
+def test_zameck_guildmage_this_turn_creatures_enter_with_a_counter(cards):
+    """"{G}{U}: This turn, each creature you control enters with an additional +1/+1 counter on it." — your creatures only, and
+    only this turn (614.1c, 611.2a)."""
+    s = build(cards, "Zameck Guildmage", "Tallyman of Nurgle")
+    guild = put(s, "Zameck Guildmage")
+    mana(s, G=1, U=1)
+    act(s, "p1", type="activate_ability", card_id=guild.id, ability=0)
+    settle(s)
+    mana(s, B=1, C=2)
+    cast(s, to_hand(s, "Tallyman of Nurgle"))
+    assert named(s, "Tallyman of Nurgle").counters.get("+1/+1") == 1
+    assert creature(s, "p2", "Bear").counters.get("+1/+1", 0) == 0
+    s = saved(s)
+    replay_matches(s)
+    the_end_step(s)
+    assert creature(s, "p1", "Mouse").counters.get("+1/+1", 0) == 0
