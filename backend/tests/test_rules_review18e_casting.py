@@ -19,6 +19,9 @@ MORE = [
          type_line="Legendary Creature — Centaur Spirit", power="3", toughness="4", colors=["B", "G", "W"], color_identity=["B", "G", "W"],
          oracle_text="This spell costs {1} less to cast for each creature card in your graveyard.\nOnce during each of your turns, you may "
          "cast a creature spell from your graveyard."),
+    card("Cut of the Profits", set_code="tst", number="R03", mana_cost="{X}{B}{B}", cmc=2.0, type_line="Sorcery", colors=["B"],
+         color_identity=["B"], oracle_text="Casualty 3 (As you cast this spell, you may sacrifice a creature with power 3 or greater. When "
+         "you do, copy this spell.)\nYou draw X cards and you lose X life."),
 ]
 
 
@@ -144,4 +147,17 @@ def test_a_disturb_card_cast_from_the_graveyard_by_another_permission_is_its_fro
     answer(s)
     now = s.state.cards[vet.id]
     assert now.zone == "p1:battlefield" and now.face == 0
+    roundtrip(s)
+
+
+def test_probe_casualty_copy_keeps_x(cards):
+    s = build(cards, p1=("Cut of the Profits", "Krosan Vorine"))
+    cut = put(s, "Cut of the Profits", "hand")
+    vorine = put(s, "Krosan Vorine", "battlefield")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, B=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=cut.id, x_value=2, optional_costs=[f"{cut.id}:casualty"])
+    answer(s)
+    assert s.state.cards[vorine.id].zone == "p1:graveyard"
+    assert s.state.players["p1"].life == 36 and len(s.state.zones["p1:hand"]) == hand - 1 + 4  # 707.10: the copy's X is 2 too
     roundtrip(s)
