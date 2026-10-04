@@ -376,6 +376,11 @@ export interface RulesView {
   reconcile: { id: string; card: string | null; player: string | null; question: string }[];
   card_modes: Record<string, "manual" | "assisted">;
   hints: RulesHints;
+  /** Controlling another player (CR 723): the seat this viewer acts as right now (hints and priority are theirs), and who controls whom. */
+  acting_as?: string | null;
+  /** Set for the controlled player: who makes their choices now (they may only concede, 723.6). */
+  controlled_by?: string;
+  control?: { controlled: string; controller: string; status: "pending" | "active" }[];
   /** Current P/T and keyword changes of visible battlefield creatures (anthems, pumps, crew …). */
   stats?: Record<string, CardStats>;
   failure?: { intent: string; at: number };

@@ -60,6 +60,20 @@ class Decision(BaseModel):
     # Presentation hints for the decider's prompt (e.g. a payment's suggested sources), shown only
     # to the player deciding. Never needed to resolve the decision.
     display: dict[str, Any] | None = None
+    # -- controlling another player (wave 18H) -- 723.5: the player who makes this choice for ``player`` (None: they do)
+    decider: str | None = None
+
+
+class PlayerControl(BaseModel):
+    """-- controlling another player (wave 18H) -- 723.1: "You control target player during that player's next turn"
+    (app/rules/player_control.py). "pending" until the controlled player's next turn begins, then "active" for that turn."""
+
+    controlled: str
+    controller: str
+    status: Literal["pending", "active"] = "pending"
+    turn: int = 0  # the turn number it became active on (723.1: it ends with that turn)
+    extra_after: int = 0  # Emrakul: "After that turn, that player takes an extra turn" (kept when 723.1a overwrites)
+    label: str = ""
 
 
 class TurnCount(BaseModel):
@@ -859,6 +873,7 @@ class RulesState(BaseModel):
     # -- extra turns (wave 8A) -- 500.7 (app/rules/extra_turns.py): the extra turns waiting (the last is taken first),
     # {"player", "label"}; and the player whose regular turn was the latest (the turn order goes on after them)
     extra_turns: list[dict[str, Any]] = Field(default_factory=list)
+    player_control: list[PlayerControl] = Field(default_factory=list)  # -- controlling another player (wave 18H) --
     turn_base: str | None = None
     # … and "can't gain life this turn / for the rest of the game" (614.17; app/rules/cant_gain.py):
     # {"id", "player", "controller", "turn" (None: the rest of the game), "label"}

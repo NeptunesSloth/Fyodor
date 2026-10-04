@@ -1716,6 +1716,7 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
     forced = quantity_only and not e.get("upto", e.get("label") == "cards")
     decide(plan, player=pid, kind="choose_cards", prompt=f"Search your {' and '.join(zones)} ({what})",
            options=options, min_choices=min(most, len(options)) if forced else 0, max_choices=min(most, len(options)),
+           decider=_player_control.search_controller(plan, pid) if "library" in zones else None,  # (-- wave 18H -- 723.2: Opposition Agent)
            resume={"step": "search", "ctx": ctx, "e": e, "part": part, "picked": picked})
     return False
 
@@ -1757,16 +1758,24 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
 
     entering = []
     found = _remember(plan, ctx, e, chosen)  # (library objects: a hidden zone, so nothing is read from them)
+    # -- controlling another player (wave 18H) -- Opposition Agent: "they exile each card they find" (701.23): a card found in the
+    # library is exiled and nothing else the instruction says about it happens (it is a new object, 400.7); the Agent's
+    # controller may play it for as long as it remains exiled, spending mana as though it were any color
+    agents = _player_control.search_exile(plan, pid) if "library" in (e.get("zones") or ["library"]) else []
+    exiled = [c for c in chosen if agents and plan.state.cards[c].zone == zone_key(pid, "library")]
+    dest = {**dest, **{c: "exile" for c in exiled}}
     if e.get("reveal"):
         for cid in chosen:
-            plan.do({"type": "reveal", "card_ids": [cid]}, actor=pid)  # to everyone
+            if cid not in exiled:
+                plan.do({"type": "reveal", "card_ids": [cid]}, actor=pid)  # to everyone
     for cid in chosen:
         to = dest[cid]
         if to in ("hand", "graveyard", "exile"):
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": to},
-                     **({"face_down": True} if e.get("face_down") else {})}, actor=pid)
+                     **({"face_down": True} if e.get("face_down") and cid not in exiled else {})}, actor=pid)
         elif to in ("battlefield", "battlefield_tapped"):
             entering.append({"card": cid, "player": pid, "actor": pid, "tapped": to == "battlefield_tapped"})
+    _player_control.permit_exiled(plan, agents, exiled)
     shuffle = pid if e.get("shuffle", True) else None  # 701.24: a library is shuffled only when the text says so
     if "library" not in (e.get("zones") or ["library"]):
         shuffle = None  # -- refused zones/sized (wave 3R4) -- "If you search your library this way, shuffle"
@@ -3651,7 +3660,9 @@ from app.rules import next_untap as _next_untap  # noqa: E402
 
 PRIMITIVES.update(_next_untap.PRIMITIVES)  # 502.3 "doesn't untap during its controller's next untap step"
 from app.rules import extra_turns as _extra_turns  # noqa: E402  -- extra turns (wave 8A) --
+from app.rules import player_control as _player_control  # noqa: E402  (wave 18H)
 
+PRIMITIVES.update(_player_control.PRIMITIVES)  # 723.1 "You control target player during that player's next turn."
 PRIMITIVES.update(_extra_turns.PRIMITIVES)  # 500.7 "Take an extra turn after this one."
 from app.rules import land_plays as _land_plays  # noqa: E402  -- one-shot extra land plays (wave 8A) --
 

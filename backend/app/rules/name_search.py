@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
 from app.game.state import zone_key
+from app.rules import player_control
 
 if TYPE_CHECKING:
     from app.rules.effects import Context
@@ -87,7 +88,8 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     decide(plan, player=me, kind="choose_cards", prompt=f"{ctx.get('name') or 'Search'}: search {plan.name(pid)}'s graveyard, hand, "
            f"and library for cards named {name}", options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c)
                                                          for c in found],
-           min_choices=0, max_choices=len(found), resume={"step": "name_search", "ctx": ctx, "pid": pid, "name": name})
+           min_choices=0, max_choices=len(found), resume={"step": "name_search", "ctx": ctx, "pid": pid, "name": name},
+           decider=player_control.search_controller(plan, me) if pid == me else None)  # (wave 18H) 723.2: Opposition Agent
     return False
 
 
@@ -102,7 +104,10 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 def finish(plan: Plan, ctx: Context, pid: str, cards: list[str]) -> bool:
     """Exile what was found (each to its owner's exile, all at once), then the library's owner shuffles (701.24)."""
+    library = [c for c in cards if plan.state.cards[c].zone == zone_key(pid, "library")]
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
+    if pid == ctx["controller"]:  # (wave 18H) Opposition Agent: what they find in their own library its controller may play
+        player_control.permit_exiled(plan, player_control.search_exile(plan, pid), library)
     plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
     return True
