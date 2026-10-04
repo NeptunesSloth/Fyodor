@@ -157,7 +157,6 @@ def test_wordings(text, expected):
 
 @pytest.mark.parametrize("text", [
     "you've cast a spell with flying this turn",  # (keywords aren't recorded)
-    "a spell was warped this turn",  # (warp isn't modelled)
     "you attacked with two or more Merfolk this turn",  # (only how many creatures)
     "an opponent has cast another spell this turn",
     "it was the second spell you cast this turn",
