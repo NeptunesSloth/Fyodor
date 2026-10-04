@@ -170,8 +170,8 @@ def define(t: str) -> dict[str, Any] | None:
 # (702.137a: "You may cast this spell by paying [cost] rather than its mana cost if an opponent lost life this turn."), surge
 # (702.117a: "if you or a teammate has cast another spell this turn" — no teammates in Commander), freerunning
 # (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
-KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None}
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None}
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
 
 
 def keyword_definition(line: str) -> dict[str, Any] | None:

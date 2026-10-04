@@ -45,6 +45,7 @@ EXTRA = [
     card('Night Clubber', set_code='tst', number='X26', mana_cost='{1}{B}{B}', cmc=3.0, type_line='Creature — Human Warrior', oracle_text='When this creature enters, creatures your opponents control get -1/-1 until end of turn.\nBlitz {2}{B} (If you cast this spell for its blitz cost, it gains haste and "When this creature dies, draw a card." Sacrifice it at the beginning of the next end step.)', power='2', toughness='2', colors=['B'], color_identity=['B'], keywords=['Blitz']),  # noqa: E501
     card('Weftstalker Ardent', set_code='tst', number='X27', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Drix Artificer', oracle_text='Whenever another creature or artifact you control enters, this creature deals 1 damage to each opponent.\nWarp {R} (You may cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)', power='2', toughness='3', colors=['R'], color_identity=['R'], keywords=['Warp']),  # noqa: E501
     card('Highway Robbery', set_code='tst', number='X28', mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text='You may discard a card or sacrifice a land. If you do, draw two cards.\nPlot {1}{R} (You may pay {1}{R} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)', power=None, toughness=None, colors=['R'], color_identity=['R'], keywords=['Plot']),  # noqa: E501
+    card("Trickster's Elk", set_code='tst', number='X29', mana_cost='{2}{G}', cmc=3.0, type_line='Enchantment Creature — Elk', oracle_text="Bestow {1}{G} (If you cast this card for its bestow cost, it's an Aura spell with enchant creature. It becomes a creature again if it's not attached.)\nEnchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3.", power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Bestow']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -582,4 +583,46 @@ def test_plot_then_cast_free_on_a_later_turn(cards):
     act(s, "p1", type="cast_spell", card_id=robbery.id, free=True)
     settle(s)
     assert s.state.cards[robbery.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_bestow_aura_then_a_creature_again_when_unattached(cards):
+    s = build(cards, "Trickster's Elk", "Lightning Bolt")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2", "Flying")
+    elk = to_hand(s, "Trickster's Elk")
+    mana(s, G=2)
+    act(s, "p1", type="cast_spell", card_id=elk.id, targets=[bear.id], alt_cost=f"{elk.id}:0")  # bestowed: an Aura spell (702.103b)
+    settle(s)
+    assert s.state.cards[elk.id].attached_to == bear.id and not chars(s, elk).is_creature and "Aura" in chars(s, elk).subtypes
+    assert pt(s, bear) == (3, 3) and "flying" not in chars(s, bear).keywords  # the Aura's text: a vanilla 3/3 Elk
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[bear.id])
+    settle(s)
+    assert bear.id not in s.state.zones["p1:battlefield"]  # the 3/3 died
+    assert s.state.cards[elk.id].zone == "p1:battlefield" and chars(s, elk).is_creature  # 702.103f: a creature again, not in the graveyard
+    check(s)
+
+
+def test_bestow_target_illegal_on_resolution_resolves_as_a_creature(cards):
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    seats = [PlayerSetup("Alice", cards=deck(cards, "Krenko, Mob Boss", [(1, "Trickster's Elk"), (30, "Forest")])),
+             PlayerSetup("Bob", cards=deck(cards, "Atraxa, Praetors' Voice", [(1, "Lightning Bolt"), (30, "Island")]))]
+    s = GameSession(enable(new_game(seats, shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    act(s, "p2", type="set_prefs", response="on")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    elk = to_hand(s, "Trickster's Elk")
+    bolt = to_hand(s, "Lightning Bolt", pid="p2")
+    mana(s, G=2)
+    mana(s, "p2", R=1)
+    act(s, "p1", type="cast_spell", card_id=elk.id, targets=[bear.id], alt_cost=f"{elk.id}:0")
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[bear.id])  # in response: the target dies first
+    settle(s)
+    assert s.state.cards[elk.id].zone == "p1:battlefield" and chars(s, elk).is_creature  # 702.103e
     check(s)

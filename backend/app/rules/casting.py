@@ -1723,6 +1723,16 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
         cast_free(plan, card, ch, a)
         return
+    if a.alt_cost is not None and not plan.manual(card):  # -- keywords (wave 15E) -- bestow 702.103b/d: cast as an Aura spell
+        from app.rules import alt_costs as _alt, bestow
+
+        if any(o.key == a.alt_cost and o.tag == "bestow" for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info)):
+            ch = bestow.overlay(ch)
+            bestowed_cast = True
+        else:
+            bestowed_cast = False
+    else:
+        bestowed_cast = False
     face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
     if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
         if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
@@ -1892,6 +1902,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         tags.append(f"Cast from {from_where}" + (" without paying its mana cost" if free else ""))
     if a.dash:
         plan.rules.dashed.append(card.id)
+    if bestowed_cast:  # -- keywords (wave 15E) -- 702.103b: the spell on the stack is a bestowed Aura spell
+        plan.rules.bestowed.append(plan.oid(card))
+        tags.append("Bestowed")
     if a.kicker:
         tags.append("Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}")
     if a.buyback:

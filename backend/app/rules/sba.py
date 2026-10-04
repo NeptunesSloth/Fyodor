@@ -60,9 +60,10 @@ class Found:
         self.dying: list[tuple[CardInstance, str]] = []
         self.unattach: list[tuple[CardInstance, str]] = []
         self.protect: list[tuple[CardInstance, list[str]]] = []  # 310.11: battles needing a new protector
+        self.unbestow: list[CardInstance] = []  # -- keywords (wave 15E) -- 702.103f
 
     def visible(self) -> bool:
-        return bool(self.losers or self.annihilate or self.dying or self.unattach)
+        return bool(self.losers or self.annihilate or self.dying or self.unattach or self.unbestow)
 
     def fingerprint(self) -> str:
         return "|".join([*(f"L{p}" for p, _ in self.losers), *(f"D{c.id}:{why}" for c, why in self.dying),
@@ -158,6 +159,13 @@ def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found)
     kind = attachments.attach_kind(ch)
     host = card.attached_to or card.attached_player
     if kind == "aura":
+        from app.rules import bestow  # -- keywords (wave 15E) -- 702.103f: a bestowed Aura that is unattached or illegally attached
+
+        if bestow.is_bestowed(plan.state, card):  # stops being bestowed (a creature again) instead of going to the graveyard
+            problem = "its host is gone" if host is None else attachments.host_problem(plan, card, host)
+            if problem is not None and problem != "unknown":
+                out.unbestow.append(card)
+            return
         if host is None:
             out.dying.append((card, "an Aura attached to nothing"))
             return
@@ -209,6 +217,14 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         happened = True
     if found.unattach:
         plan.do({"type": "detach", "card_ids": [c.id for c, _ in found.unattach]}, actor=found.unattach[0][0].controller)
+        happened = True
+    if found.unbestow:  # -- keywords (wave 15E) -- 702.103f: unattached, and a creature again
+        from app.rules import bestow
+
+        for c in found.unbestow:
+            if c.attached_to or c.attached_player:
+                plan.do({"type": "detach", "card_ids": [c.id]}, actor=c.controller)
+            bestow.cease(plan, c, "it was unattached")
         happened = True
     if found.dying:  # -- keywords (wave 15E) -- 702.89a: lethal damage destroys; umbra armor replaces that
         from app.rules import regeneration

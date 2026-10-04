@@ -2670,7 +2670,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     text = self_text(ability.text, ch.name)
-    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",)):  # -- keywords (wave 15E) -- alt_costs
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",)):  # -- keywords (wave 15E) -- alt_costs
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(ability.text)

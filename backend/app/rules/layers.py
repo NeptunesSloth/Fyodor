@@ -548,6 +548,11 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     from app.rules.copying import layer1
 
     ch = layer1(state, card, ch, info)
+    if state.rules is not None and state.rules.bestowed:  # -- keywords (wave 15E) -- 702.103b: a bestowed Aura (spell or permanent)
+        from app.rules import bestow
+
+        if bestow.is_bestowed(state, card):
+            ch = bestow.overlay(ch)
     effects = affecting(state, card)
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
