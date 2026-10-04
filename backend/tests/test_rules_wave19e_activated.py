@@ -80,6 +80,9 @@ EXTRA = [
           "This artifact enters tapped.\n{T}: Add one mana of any color that a basic land you control could produce.", []),
     _card("Harvester Druid", "W25", "{1}{G}", "Creature — Human Druid",
           "{T}: Add one mana of any color that a land you control could produce.", ["G"], power="1", toughness="1"),
+    _card("Dragon Whelp", "W26", "{2}{R}{R}", "Creature — Dragon",
+          "Flying\n{R}: This creature gets +1/+0 until end of turn. If this ability has been activated four or more times this turn, "
+          "sacrifice this creature at the beginning of the next end step.", ["R"], power="2", toughness="3"),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -352,4 +355,28 @@ def test_mana_of_a_color_a_basic_or_any_land_could_produce(cards):
     s = table(cards, ["Harvester Druid", "Command Tower"], [])
     act(s, "p1", type="activate_ability", card_id=named(s, "Harvester Druid").id, ability=0)
     assert s.state.players["p1"].mana == {"R": 1}
+    replay_matches(s)
+
+
+@pytest.mark.parametrize("times", [3, 4])
+def test_ability_activated_four_or_more_times_this_turn(cards, times):
+    """Dragon Whelp: the count of activations this turn (602.2, counted as each is made); on the fourth the Whelp is sacrificed at the
+    beginning of the next end step, with three it stays."""
+    s = table(cards, ["Dragon Whelp"], [])
+    whelp = named(s, "Dragon Whelp")
+    for _ in range(times):
+        pay(s, R=1)
+        act(s, "p1", type="activate_ability", card_id=whelp.id, ability=1)
+        pass_until_stack_empty(s)
+    assert ch(s, whelp).pt == (2 + times, 3)
+    for _ in range(40):  # on to the end step
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="declare_attackers", attackers=[]) if d.kind == "declare_attackers" else act(
+                s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.turn.number > 1 or s.state.turn.phase in ("end", "cleanup") and not s.state.zones.get("stack"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[whelp.id].zone == ("p1:graveyard" if times == 4 else "p1:battlefield")
     replay_matches(s)

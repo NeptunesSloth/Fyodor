@@ -291,6 +291,18 @@ def note_resolution(plan: Plan, key: str) -> int:
     return log.resolved[key]
 
 
+def counting_activations(effects: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
+    """-- activations (wave 19E) -- "If this ability has been activated four or more times this turn": the ability's own count
+    (``RulesState.ability_uses``, recorded as each activation is made, 602.2) is named in the condition, as the object and ability
+    index it is; a copy of the ability is no activation."""
+    import json
+
+    text = json.dumps(effects)
+    if '"history": "activations"' not in text:
+        return effects
+    return json.loads(text.replace('"history": "activations"', f'"history": "activations", "key": "{key}"'))
+
+
 def counting_resolutions(effects: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
     """An ability that asks how many times it has resolved this turn counts its resolution first: the effect that
     does it goes ahead of the others (copied with them, 707.10: a copy of the ability counts too; an ability that
@@ -477,6 +489,8 @@ _WAVE_4D: dict[str, Any] = {
     "departed": _departed,
     "lands": lambda plan, ctx, cond, log: plan.rules.lands_this_turn(ctx["controller"], plan.state.turn.number) >= int(cond.get("n", 1)),
     "resolution": lambda plan, ctx, cond, log: resolution_holds(ctx, cond),
+    "activations": lambda plan, ctx, cond, log: bool(cond.get("key")) and plan.rules.ability_uses.get(
+        f"{cond['key']}:t{plan.state.turn.number}", 0) >= int(cond["n"]),
     "self_attacked": lambda plan, ctx, cond, log: _source_object(plan, ctx) in {a for v in log.attackers.values() for a in v},
     "graveyard_cards": lambda plan, ctx, cond, log: _graveyard_cards(plan, ctx, cond, log),
 }

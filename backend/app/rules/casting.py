@@ -8,6 +8,7 @@ tap lands yourself first (``activate_ability`` on their mana ability) to pay a p
 
 from __future__ import annotations
 
+import json
 import re
 import secrets
 from dataclasses import dataclass, replace
@@ -3353,7 +3354,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
                                          name=ch.name, x=a.x_value, **picked_targets.entry(definition),
                                          # -- this-turn history (wave 4D) -- "the second time this ability has resolved"
-                                         effects=history.counting_resolutions(list(definition["effects"]), f"{oid}:{a.ability}"))
+                                         effects=history.counting_activations(history.counting_resolutions(list(definition["effects"]), f"{oid}:{a.ability}"),
+                                                                f"{oid}:{a.ability}"))
     if chosen and ability_id:
         from app.rules.triggers import targeted
 
@@ -3364,8 +3366,9 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         activated(plan, card, oid, loyalty=ability.kind == "loyalty", ability_id=ability_id)
     if ability.kind == "loyalty":
         r.loyalty_used[oid] = plan.state.turn.number
-    if restrictions.limited(restrictions.parse(_own_text(ability.text, ch.name)) or []):  # "Activate only once each turn" / "… only once"
-        restrictions.record_use(r, oid, ability.index, plan.state.turn.number)
+    if restrictions.limited(restrictions.parse(_own_text(ability.text, ch.name)) or []) or (  # "Activate only once each turn" / "… only once"
+            definition is not None and '"history": "activations"' in json.dumps(definition["effects"])):
+        restrictions.record_use(r, oid, ability.index, plan.state.turn.number)  # (wave 19E: also for "activated N or more times this turn")
     r.passed = []
     r.priority = plan.actor
     if r.prefs_for(plan.actor).hold_priority:
