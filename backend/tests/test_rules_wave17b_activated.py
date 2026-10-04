@@ -20,6 +20,8 @@
   activated, 605.3b.
 * "Target creature gains flanking / battle cry / dethrone / toxic 1 until end of turn": the keyword line itself is granted (613.1f), so its
   triggered ability exists for as long as the grant does (702.25a flanking).
+* "…target creature blocking it / blocking this creature" in an activated ability of the attacker (509.1, 506.3d): only a creature
+  blocking the source is a legal target (115.2).
 * "has base power 4 and gains trample" (613.4b: layer 7b, power only).
 
 Real Oracle text; each scenario replays the history and survives a save/load round trip."""
@@ -109,9 +111,13 @@ EXTRA = [
          '{1}, {T}: Target creature gains flanking until end of turn. (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)', None, ''),
     real('Reckless Pyrosurfer', '{1}{R}', 2, 'Creature — Human Scout',
          'Haste\nLandfall — Whenever a land you control enters, this creature gains battle cry until end of turn. (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn. Each instance of battle cry triggers separately.)', ('2', '2'), 'R'),
+    real("Godo's Irregulars", '{R}', 1, 'Creature — Human Warrior',
+         '{R}: This creature deals 1 damage to target creature blocking it.', ('1', '1'), 'R'),
+    real('Knight of Dusk', '{1}{B}{B}', 3, 'Creature — Human Knight',
+         '{B}{B}: Destroy target creature blocking this creature.', ('2', '2'), 'B'),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
-FULL = ["Jabari's Banner", "Reckless Pyrosurfer", "Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
+FULL = ["Godo's Irregulars", "Knight of Dusk", "Jabari's Banner", "Reckless Pyrosurfer", "Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
         "Volshe Tideturner", "Phelddagrif", "Leering Gargoyle", "Canopy Dragon", "Turtle-Duck", "Gargoyle Sentinel", "Singing Tree", "Island of Wak-Wak"]
 
 
@@ -461,4 +467,27 @@ def test_granted_flanking_shrinks_the_blocker(cards):
             break
     assert guard.id not in s.state.cards  # (a 1/1 after flanking: the Knight's 2 damage kills it)
     assert s.state.cards[knight.id].zone == "p1:battlefield"  # (a 2/2 Guard would have killed the 2/2 Knight too)
+    roundtrip(s)
+
+
+def test_target_creature_blocking_this_creature(cards):
+    s = build(cards, "Godo's Irregulars", p2=("Grizzly Bears", "Grizzly Bears"))
+    godo = on_field(s, "Godo's Irregulars")
+    s.state.rules.controlled_since[godo.id].turn = 0
+    bear, other = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2"]
+    for c in (bear, other):
+        act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "battlefield"})
+    for _ in range(8):
+        if s.state.rules.decision is None and s.state.rules.priority:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.rules.decision.kind == "declare_attackers"
+    act(s, "p1", type="create_token", player="p1", token={"name": "Hill", "type_line": "Token Land — Mountain"})  # (R to pay with)
+    act(s, "p1", type="set_prefs", stops_my_turn=["declare_blockers"])
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": godo.id, "target": "p2"}])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bear.id, "attacker_id": godo.id}])
+    with pytest.raises(ActionError):  # (the other Bear isn't blocking it)
+        act(s, "p1", type="activate_ability", card_id=godo.id, ability=0, targets=[other.id])
+    act(s, "p1", type="activate_ability", card_id=godo.id, ability=0, targets=[bear.id])
+    settle(s)
+    assert s.state.cards[bear.id].damage == 1 and s.state.cards[other.id].damage == 0
     roundtrip(s)

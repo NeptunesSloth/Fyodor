@@ -240,9 +240,9 @@ def _that_player_controls(s: Selector, m: re.Match[str]) -> Selector:  # to it a
     return replace(s, controller=THAT_PLAYER)  # (triggers.bind_that_player: "player:<id>"; unbound, nothing matches)
 
 
-@_suffix(r"(?P<b>blocking it|it['’]s blocking)")  # "target creature blocking it" / "… it's blocking": the source's
+@_suffix(r"(?P<b>blocking (?:it|this creature|~)|(?:it['’]s|this creature is|~ is) blocking)")  # "target creature blocking it" / "… it's blocking": the source's
 def _blocking_source(s: Selector, m: re.Match[str]) -> Selector:  # blocks (509.1; scripts._event_refs_ok: "it" is ~)
-    return replace(s, extras=(*s.extras, "blocking_source" if m["b"] == "blocking it" else "blocked_by_source"))
+    return replace(s, extras=(*s.extras, "blocking_source" if m["b"].startswith("blocking") else "blocked_by_source"))
 
 
 @_suffix(r"with \{[xX]\} in (?:its|their) mana costs?")  # -- activated wordings (wave 15D) -- "a spell with {X} in its mana cost" (107.3)

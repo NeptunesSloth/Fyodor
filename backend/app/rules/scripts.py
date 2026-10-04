@@ -2825,9 +2825,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if d is not None and not defending.allowed(d):
         return None
     # -- blocking it (wave 6D) -- "each creature blocking it": "it" must be the source (a trigger about this object)
+    # -- activated sweep (wave 17B) -- or an activated ability of the source: "{R}: This creature deals 1 damage to target creature blocking it."
+    # (its own cost doesn't sacrifice it: the block is read while it's there, _event_refs_ok)
     if d is not None and "blocking_source" in json.dumps(d, default=str) and not (
-            d.get("kind") == "triggered" and (str(d.get("trigger", "")).endswith("_self")
-                                              or (d.get("cond") or {}).get("subject") == "self")):
+            d.get("kind") == "activated" or d.get("kind") == "triggered" and (
+                str(d.get("trigger", "")).endswith("_self") or (d.get("cond") or {}).get("subject") == "self")):
         return None
     # -- combat (wave 5C) -- "attacks each combat if able" needs its duration
     from app.rules import combat_rules
