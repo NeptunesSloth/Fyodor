@@ -102,12 +102,13 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         check_spell = SPELL_SELECTORS[selector]
         return [cid for cid in plan.state.zones.get("stack", []) if cid in plan.state.cards
                 and plan.state.cards[cid].ability is None and check_spell(plan.ch(plan.state.cards[cid]))]
+    check: Check | None
     if selector.startswith("any_not:"):  # -- activated sweep (wave 17B) -- "any target that isn't a commander / a Dragon": any target
         # (115.1) but a permanent that is one (players never are)
         kind = selector[len("any_not:"):]
-        any_players, any_check = SELECTORS["any"]
-        players_ok, check = any_players, (lambda plan, who, card, ch: (any_check is None or any_check(plan, who, card, ch))
-                                          and not (card.commander_key if kind == "commander" else kind in ch.subtypes))
+        players_ok = True
+        check = lambda plan, who, card, ch: bool(ch.types & {"Creature", "Planeswalker", "Battle"}) and not (  # noqa: E731
+            card.commander_key if kind == "commander" else kind in ch.subtypes)
     else:
         players_ok, check = SELECTORS[selector]
     out: list[str] = []

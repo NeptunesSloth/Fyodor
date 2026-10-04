@@ -32,6 +32,14 @@
   taps itself for the ability can't also help pay.
 * "…deals damage equal to that spell's mana value to any target that isn't a commander" (Lozhan, Dragons' Legacy) and "…that isn't a
   Dragon" (Wrathful Red Dragon): any target (115.1), but not a permanent that is one.
+* "Any player may activate this ability but only as a sorcery / during their draw step / during any upkeep step" (Scandalmonger, Well of
+  Knowledge, Armageddon Clock): 602.2 lets another player activate it; the restriction is about the player who does (602.5).
+* "If the discarded card was a creature / land card, …" after a "Discard a card" cost (Moria Scavenger, Land's Edge, Necromancer's
+  Stockpile): the card the cost discarded, as it was (608.2h).
+* "Return target commander you own from the battlefield to your hand." (Sanctum of Eternity): "you own" makes your hand the owner's (400.3);
+  the commander's owner may put it into the command zone instead (903.9b).
+* "Put your commander into your hand from the command zone." (Command Beacon, Netherborn Altar) and "Put all commanders you own from the
+  command zone and from your graveyard into your hand." (Campfire): the commander's owner may put it into the command zone instead (903.9b).
 * "has base power 4 and gains trample" (613.4b: layer 7b, power only).
 
 Real Oracle text; each scenario replays the history and survives a save/load round trip."""
@@ -155,9 +163,32 @@ EXTRA = [
          'Flying\n{R}: This creature gets +1/+0 until end of turn.', ('5', '5'), 'R'),
     real('Wrathful Red Dragon', '{3}{R}{R}', 5, 'Creature — Dragon',
          "Flying\nWhenever a Dragon you control is dealt damage, it deals that much damage to any target that isn't a Dragon.", ('5', '5'), 'R'),
+    real('Scandalmonger', '{3}{B}', 4, 'Creature — Boar Monger',
+         '{2}: Target player discards a card. Any player may activate this ability but only as a sorcery.', ('3', '3'), 'B'),
+    real('Well of Knowledge', '{3}', 3, 'Artifact',
+         '{2}: Draw a card. Any player may activate this ability but only during their draw step.', None, ''),
+    real('Armageddon Clock', '{6}', 6, 'Artifact',
+         'At the beginning of your upkeep, put a doom counter on this artifact.\nAt the beginning of your draw step, this artifact deals damage equal to the number of doom counters on it to each player.\n{4}: Remove a doom counter from this artifact. Any player may activate this ability but only during any upkeep step.', None, ''),
+    real('Infinite Hourglass', '{4}', 4, 'Artifact',
+         'At the beginning of your upkeep, put a time counter on this artifact.\nAll creatures get +1/+0 for each time counter on this artifact.\n{3}: Remove a time counter from this artifact. Any player may activate this ability but only during any upkeep step.', None, ''),
+    real('Task Mage Assembly', '{2}{R}', 3, 'Enchantment',
+         'When there are no creatures on the battlefield, sacrifice this enchantment.\n{2}: This enchantment deals 1 damage to target creature. Any player may activate this ability but only as a sorcery.', None, 'R'),
+    real("Volrath's Dungeon", '{2}{B}{B}', 4, 'Enchantment',
+         'Pay 5 life: Destroy this enchantment. Any player may activate this ability but only during their turn.\nDiscard a card: Target player puts a card from their hand on top of their library. Activate only as a sorcery.', None, 'B'),
+    real('Moria Scavenger', '{1}{B}{R}', 3, 'Creature — Orc Rogue',
+         "Deathtouch, haste\n{T}, Discard a card: Draw a card. If the discarded card was a creature card, amass Orcs 1. (Put a +1/+1 counter on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)", ('1', '4'), 'BR'),
+    real("Land's Edge", '{1}{R}{R}', 3, 'World Enchantment',
+         'Discard a card: If the discarded card was a land card, this enchantment deals 2 damage to target player or planeswalker. Any player may activate this ability.', None, 'R'),
+    real('Sanctum of Eternity', '', 0, 'Land',
+         '{T}: Add {C}.\n{2}, {T}: Return target commander you own from the battlefield to your hand. Activate only during your turn.', None, ''),
+    real('Command Beacon', '', 0, 'Land',
+         '{T}: Add {C}.\n{T}, Sacrifice this land: Put your commander into your hand from the command zone.', None, ''),
+    real('Campfire', '{1}', 1, 'Artifact',
+         '{1}, {T}: You gain 2 life.\n{2}, {T}, Exile this artifact: Put all commanders you own from the command zone and from your graveyard into your hand. Then shuffle your graveyard into your library.', None, ''),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
-FULL = ["Lozhan, Dragons' Legacy", "Wrathful Red Dragon", "Disembowel", "Ruthless Waterbender", "North Pole Patrol", "Katara, Bending Prodigy", "Geyser Leaper", "Giant Koi",
+FULL = ["Command Beacon", "Campfire", "Sanctum of Eternity", "Moria Scavenger", "Land's Edge", "Scandalmonger", "Well of Knowledge", "Armageddon Clock", "Infinite Hourglass", "Task Mage Assembly",
+        "Volrath's Dungeon", "Lozhan, Dragons' Legacy", "Wrathful Red Dragon", "Disembowel", "Ruthless Waterbender", "North Pole Patrol", "Katara, Bending Prodigy", "Geyser Leaper", "Giant Koi",
         "Flexible Waterbender", "Axebane Guardian", "Vivi Ornitier", "Lavinia, Foil to Conspiracy", "Pernicious Deed", "Dauntless Dismantler", "Godo's Irregulars", "Knight of Dusk", "Jabari's Banner", "Reckless Pyrosurfer", "Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
         "Volshe Tideturner", "Phelddagrif", "Leering Gargoyle", "Canopy Dragon", "Turtle-Duck", "Gargoyle Sentinel", "Singing Tree", "Island of Wak-Wak"]
 
@@ -680,4 +711,76 @@ def test_any_target_that_isnt_a_commander(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
     settle(s)
     assert s.state.cards[bears.id].zone == "p2:graveyard" and s.state.cards[atraxa.id].damage == 0
+    roundtrip(s)
+
+
+def test_any_player_may_activate_but_only_as_a_sorcery(cards):
+    s = build(cards, "Scandalmonger", p2=("Grizzly Bears",))
+    monger = on_field(s, "Scandalmonger")
+    mana(s, "p2", C=2)
+    # (Alice's main phase: Bob has no priority, and it isn't his sorcery timing)
+    with pytest.raises(ActionError):
+        act(s, "p2", type="activate_ability", card_id=monger.id, ability=0, targets=["p1"])
+    for _ in range(40):  # → Bob's first main phase
+        if s.state.turn.active_player == "p2" and s.state.turn.phase == "main1" and s.state.rules.priority == "p2":
+            break
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []})) \
+                if d.kind in ("declare_attackers", "declare_blockers") else act(
+                    s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.turn.active_player == "p2" and s.state.turn.phase == "main1"
+    mana(s, "p2", C=2)
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "hand"})  # (a card for Alice to discard)
+    hand = len(zone(s.state, "p1", "hand"))
+    act(s, "p2", type="activate_ability", card_id=monger.id, ability=0, targets=["p1"])  # (Bob activates Alice's creature's ability)
+    settle(s)
+    assert len(zone(s.state, "p1", "hand")) == hand - 1
+    roundtrip(s)
+
+
+@pytest.mark.parametrize(("discard", "amassed"), [("Grizzly Bears", True), ("Forest", False)])
+def test_if_the_discarded_card_was_a_creature_card(cards, discard, amassed):
+    s = build(cards, "Moria Scavenger", "Grizzly Bears", "Forest")
+    scavenger = on_field(s, "Moria Scavenger")
+    s.state.rules.controlled_since[scavenger.id].turn = 0
+    card_ = next(c for c in s.state.cards.values() if c.name == discard and c.owner == "p1" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[card_.id], to={"zone": "hand"})
+    for other in list(zone(s.state, "p1", "hand")):  # (the only card in hand is the one to discard)
+        if other != card_.id:
+            act(s, "p1", type="move", card_ids=[other], to={"zone": "library"})
+    act(s, "p1", type="activate_ability", card_id=scavenger.id, ability=ability(s, scavenger, "{T}"),
+        cost_choices=[{"component": 1, "cards": [card_.id]}])
+    settle(s)
+    armies = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield" and "Army" in c.name]
+    assert s.state.cards[card_.id].zone == "p1:graveyard" and bool(armies) is amassed
+    roundtrip(s)
+
+
+def test_return_target_commander_you_own_to_your_hand(cards):
+    s = build(cards, "Sanctum of Eternity")
+    sanctum = on_field(s, "Sanctum of Eternity")
+    krenko = on_field(s, "Krenko, Mob Boss")  # (Alice's commander, from the command zone)
+    mana(s, "p1", C=2)
+    act(s, "p1", type="activate_ability", card_id=sanctum.id, ability=ability(s, sanctum, "{2}, {T}"), targets=[krenko.id])
+    settle(s)
+    assert s.state.cards[krenko.id].zone in ("p1:hand", "p1:command")  # (903.9b: its owner chose)
+    roundtrip(s)
+
+
+def test_put_your_commander_into_your_hand_from_the_command_zone(cards):
+    s = build(cards, "Command Beacon")
+    beacon = on_field(s, "Command Beacon")
+    s.state.rules.controlled_since[beacon.id].turn = 0
+    krenko = next(c for c in s.state.cards.values() if c.name == "Krenko, Mob Boss" and c.owner == "p1")
+    assert krenko.zone == "p1:command"
+    act(s, "p1", type="activate_ability", card_id=beacon.id, ability=ability(s, beacon, "{T}, Sacrifice"))
+    d = s.state.rules.decision  # 903.9b: its owner may put it into the command zone instead
+    assert d.kind == "confirm" and "command zone" in d.prompt
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["no"])
+    settle(s)
+    assert s.state.cards[krenko.id].zone == "p1:hand" and s.state.cards[beacon.id].zone == "p1:graveyard"
     roundtrip(s)

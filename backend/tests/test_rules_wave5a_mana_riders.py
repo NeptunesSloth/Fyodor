@@ -131,7 +131,8 @@ def test_the_cards_are_full():
 
 
 @pytest.mark.parametrize("text", [
-    "{T}: Add X mana in any combination of colors, where X is the number of creatures you control with defender.",
+    # ("Add X mana in any combination of colors, where X is the number of creatures you control with defender" is read since wave 17B:
+    # test_rules_wave17b_activated.py, Axebane Guardian)
     "{T}: Add {G} for each creature that entered this turn under target player's control.",
     "{T}: Add X mana of any one color, where X is the number of cards in target opponent's hand.",
     "{T}: Add {R}. You gain 1 life for each creature you control.",

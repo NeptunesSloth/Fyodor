@@ -118,9 +118,10 @@ _COMMANDER = re.compile(r"you control (?P<which>your commander|a commander)")
 # "it's a land card", "that creature is a Human", "~ is an enchantment", "it was a creature card"
 _OBJECT_WORDS = {"it": "it", "~": "self", "the sacrificed creature": "cost:sacrificed", "the sacrificed permanent": "cost:sacrificed",
                  "the sacrificed artifact": "cost:sacrificed",  # (wave 16D: what a cost sacrificed, values._object)
+                 "the discarded card": "cost:discarded",  # (wave 17B: the one card a cost discarded, values._object)
                   "that creature": "it", "that permanent": "it", "that card": "it",
                  "that land": "it", "that token": "it", "that artifact": "it"}
-_OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact)|the sacrificed (?:creature|permanent|artifact)) "
+_OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact)|the sacrificed (?:creature|permanent|artifact)|the discarded card) "
                      r"(?P<verb>is not|was not|isn't|wasn't|is|was) (?P<what>.+)")  # (wave 11F: "is not" before "is")
 # -- intervening ifs (wave 11F) -- "~ is enchanted", "it's enchanted or equipped" (303.4, 301.5: an Aura / Equipment
 # attached to it), "~ is monstrous" (701.37b), "it's renowned" (702.112b)

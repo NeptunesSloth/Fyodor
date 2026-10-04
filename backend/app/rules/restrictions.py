@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.state import COMBAT_PHASES, PHASES, STACK
 from app.rules import activation_words
-from app.rules.activation_words import ANY_PLAYER
+from app.rules.activation_words import ANY_PLAYER, ANY_PLAYER_BUT
 
 if TYPE_CHECKING:
     from app.game.rules_state import RulesState
@@ -75,6 +75,7 @@ _STEPS = {
     "the declare attackers step": ("declare_attackers", None),
     "the end of combat step": ("end_combat", None),
     "your end step": ("end", "you"),
+    "their draw step": ("draw", "you"),  # (wave 17B: an any-player ability's "their": the activator's)
     "the end step": ("end", None),
 }
 
@@ -91,7 +92,8 @@ def split(body: str) -> tuple[str, str | None]:
     None). The restriction sentences are the trailing ones that start with "Activate only …"."""
     sentences = _sentences(body)
     found: list[str] = []
-    while sentences and (_RESTRICTION_SENTENCE.match(sentences[-1]) or sentences[-1] == ANY_PLAYER):  # (ANY_PLAYER: wave 7B)
+    while sentences and (_RESTRICTION_SENTENCE.match(sentences[-1]) or sentences[-1] == ANY_PLAYER
+                         or ANY_PLAYER_BUT.match(sentences[-1])):  # (ANY_PLAYER: wave 7B; ANY_PLAYER_BUT: wave 17B)
         found.insert(0, sentences.pop())
     if not found:
         return body, None
@@ -140,7 +142,10 @@ def parse(text: str) -> list[Restriction] | None:
         if sentence == ANY_PLAYER:  # -- activation wordings (wave 7B) -- 602.2
             out.append({"kind": "any_player"})
             continue
-        m = _RESTRICTION_SENTENCE.match(sentence)
+        but = ANY_PLAYER_BUT.match(sentence)
+        if but is not None:  # -- activated sweep (wave 17B) -- "Any player may activate this ability but only as a sorcery."
+            out.append({"kind": "any_player"})
+        m = _RESTRICTION_SENTENCE.match(sentence) if but is None else but
         assert m is not None  # (split only keeps matching sentences)
         rest = m["rest"]
         if sentence.startswith("Activate no more than"):
@@ -163,7 +168,7 @@ def _clause(clause: str) -> Restriction | None:
     m = re.fullmatch(r"(?:no more than )?(?P<times>once|twice|three times|four times) each turn", clause)
     if m:
         return {"kind": "per_turn", "n": _TIMES[m["times"]]}
-    if clause == "during your turn":
+    if clause in ("during your turn", "during their turn"):  # (wave 17B: "their": the activator's, any player may activate it)
         return {"kind": "your_turn"}
     if clause == "during an opponent's turn":
         return {"kind": "opponents_turn"}

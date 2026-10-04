@@ -1368,11 +1368,21 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return found
     if text in ("return ~ to its owner's hand", "return it to its owner's hand"):
         return [{"do": "bounce", "who": "self" if text.startswith("return ~") else "it"}], None
+    # -- activated sweep (wave 17B) -- "Put your commander into your hand from the command zone." (Command Beacon, Netherborn Altar): one
+    # of your commanders there (a partner pair: you choose, 608.2d); "Put all commanders you own from the command zone and from your
+    # graveyard into your hand." (Campfire). Its owner may put it into the command zone instead (903.9b: engine.ask_903_9b_first)
+    if text == "put your commander into your hand from the command zone":
+        key = selectors.Selector(commander=True, owner="you", zones=("command",), card=True).key()
+        return [{"do": "return_choice", "to": "hand", "sel": key, "n": 1, "label": "your commander"}], None
+    if text == "put all commanders you own from the command zone and from your graveyard into your hand":
+        key = selectors.Selector(commander=True, owner="you", zones=("command", "graveyard"), card=True).key()
+        return [{"do": "return_card", "who": key, "to": "hand", "under": "owner"}], None
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|their hand|your hand|"
                      r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?"
                      r"(?: with (?:an?|one) (?P<ck>[+-]\d+/[+-]\d+|[a-z]+) counter on it)?)", text)
     if m:
-        kind, key, group = ref(m["o"])
+        # -- activated sweep (wave 17B) -- "Return target commander you own from the battlefield to your hand." (Sanctum of Eternity)
+        kind, key, group = ref(re.sub(r" from the battlefield$", "", m["o"]) if m["d"] == "your hand" else m["o"])
         if kind in ("players", "self"):
             raise _Fail
         sel = selectors.from_key(key) if key.startswith(selectors.PREFIX) else None
@@ -1392,8 +1402,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
                      **({"counter": m["ck"]} if m["ck"] else {})}], target
         if from_zone and kind not in ("it", "them"):
             return [{"do": "return_card", "who": who, "to": "hand", "under": "you" if m["d"] == "your hand" else "owner"}], target
-        if m["d"] == "your hand" and kind not in ("it", "them"):  # (wave 13E: 400.3 a card goes to its owner's hand, "your" or not)
-            raise _Fail
+        if m["d"] == "your hand" and kind not in ("it", "them") and (sel is None or sel.owner != "you"):
+            raise _Fail  # (wave 13E: 400.3 a card goes to its owner's hand, "your" or not: "you own" makes the two the same)
         return [{"do": "bounce", "who": who}], target
     m = re.fullmatch(rf"distribute (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters among (?P<o>.+)", text)
     if m and rider is None:  # 601.2d: counters divided among the targets as the ability is put on the stack
