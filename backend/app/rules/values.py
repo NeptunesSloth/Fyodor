@@ -141,6 +141,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if p.endswith(" beyond the first"):  # -- keywords (wave 15E) -- rampage 702.23a: "for each creature blocking it beyond the first"
         inner = _parse_count(p[: -len(" beyond the first")], it=it)
         return None if inner is None else {"minus": [inner, 1]}
+    # -- cost self reduction (wave 16F) -- "for each 1 life you gained this turn" (a count of life)
+    p = re.sub(r"^1 (life you (?:gained|lost) this turn)$", r"\1", p)
     m = _COUNT.match(p)
     what = m["what"] if m else p
     if what.lower() == "x":
@@ -308,6 +310,9 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
     if _TURN_SPELL.match(what):
         return {"spells_cast": "you"}
+    m = re.fullmatch(r"creature (?:(?P<any>that attacked)|(?P<mine>you attacked with)) this turn", what)
+    if m:  # -- cost self reduction (wave 16F) -- the creatures declared as attackers (508.1, wave 4D log), whether or not still here
+        return {"turn_history": "attackers", **({"who": "you"} if m["mine"] else {})}
     if _TURN_DREW.match(what):
         return {"turn_history": "drew"}
     m = _TURN_DIED.match(what)

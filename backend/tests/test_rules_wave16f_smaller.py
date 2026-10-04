@@ -40,6 +40,9 @@ EXTRA.append(real("Rona, Sheoldred's Faithful", "{2}{B}", 3, "Legendary Creature
 EXTRA.append(real("Tabernacle at Pendrell Vale", "", 0, "Legendary Land",
                   "All creatures have \"At the beginning of your upkeep, destroy this creature unless you pay {1}.\"", None))
 
+EXTRA.append(real("Search Party Captain", "{4}{B}", 5, "Creature — Human Scout",
+                  "This spell costs {1} less to cast for each creature you attacked with this turn.", ("3", "3"), "B"))
+
 IDOLIZED = ("Enchant creature\nEnchanted creature has \"Whenever this creature attacks alone, it gets +X/+X until end of turn, "
             "where X is the number of nonland permanents you control.\"")
 
@@ -368,4 +371,36 @@ def test_cant_be_the_target_of_black_spells_or_abilities_from_black_sources(card
     act(s, "p1", type="cast_spell", card_id=growth.id, targets=[inf.id])
     answer(s)
     assert _pt(s, inf) == (5, 5)
+    check(s)
+
+
+def test_cost_reduction_counts_the_creatures_you_attacked_with(cards):
+    # 601.2f / 508.1: Search Party Captain after attacking with two creatures (one of which died) costs {1} less for each of the two
+    from tests.test_rules_combat import automate, creature, table
+    from tests.test_rules_conditionals import attack, through_combat
+    from tests.wave9c_kit import card_named
+
+    from app.game.factory import DeckCard, PlayerSetup, new_game
+    from app.game.session import GameSession
+
+    def deck(commander, *spells):
+        cmd = cards.resolve(commander)
+        return [DeckCard("commander", 1, cmd["name"], cmd["id"]),
+                *(DeckCard("main", n, cards.resolve(name)["name"], cards.resolve(name)["id"]) for n, name in spells)]
+
+    s = GameSession(new_game([PlayerSetup("Alice", cards=deck("Krenko, Mob Boss", (1, "Search Party Captain"), (9, "Forest"))),
+                              PlayerSetup("Bob", cards=deck("Atraxa, Praetors' Voice", (10, "Island")))], shuffle=False), cards=cards)
+    a, b = creature(s, "p1", "Ape", "2/2"), creature(s, "p1", "Bat", "1/1")
+    act(s, "p1", type="create_token", player="p2", token={"name": "Wall", "type_line": "Token Creature — Wall", "power": "0",
+                                                          "toughness": "9", "colors": [], "text": ""})
+    automate(s)
+    attack(s, (a, "p2"), (b, "p2"))
+    through_combat(s)
+    act(s, "p1", type="move", card_ids=[b.id], to={"zone": "graveyard"})  # (it left the battlefield: it still attacked)
+    cap = card_named(s, "Search Party Captain")
+    act(s, "p1", type="move", card_ids=[cap.id], to={"zone": "hand"})
+    mana(s, B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=cap.id)
+    answer(s)
+    assert s.state.cards[cap.id].zone == "p1:battlefield"
     check(s)
