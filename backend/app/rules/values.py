@@ -140,6 +140,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     ``it`` is what a bare "it" means for the caller ("counters on it": the static's own source
     is "self"); None refuses it (a pronoun the caller can't bind is never guessed)."""
     p = phrase.strip()
+    if p.endswith(" beyond the first"):  # -- keywords (wave 15E) -- rampage 702.23a: "for each creature blocking it beyond the first"
+        inner = _parse_count(p[: -len(" beyond the first")], it=it)
+        return None if inner is None else {"minus": [inner, 1]}
     m = _COUNT.match(p)
     what = m["what"] if m else p
     if what.lower() == "x":

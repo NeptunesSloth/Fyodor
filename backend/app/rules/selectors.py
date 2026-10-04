@@ -635,6 +635,8 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, attacking=True)
     if low == "blocking":
         return replace(s, blocking=True)
+    if low == "unblocked":  # -- keywords (wave 15E) -- ninjutsu 702.49a: "unblocked attacking creature" (509.1h: not blocked)
+        return replace(s, attacking=True, extras=(*s.extras, "unblocked"))
     if low in ("attacking-or-blocking", "blocking-or-attacking"):  # (joined by parse: one status)
         return replace(s, in_combat=True)
     pt = re.fullmatch(r"(\d+)/(\d+)", word)
@@ -805,8 +807,10 @@ def _parse(phrase: str) -> Selector | None:
                     break
     except ValueError:
         return None
-    if any(isinstance(c[2], str) and c[2].startswith(SOURCE_STAT) for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
-        return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source)
+    if any(isinstance(c[2], str) and c[2].startswith(SOURCE_STAT) for c in s.compare) and (
+            (s.zones != ("graveyard",) or not s.card) and (s.zones != ("battlefield",) or s.card)):
+        return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source; -- keywords
+        # (wave 15E) -- or permanents: mentor's "target attacking creature with power less than this creature's power")
     if any(c[1] == "==" and c[2] == X_VALUE for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
         return None  # -- reanimation (wave 10A) -- ("mana value X" exactly: read only for a card in a graveyard)
     if qualified and re.search(r", or \S+$", text):
@@ -1150,6 +1154,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
+            return False
+        if extra == "unblocked" and card.id in plan.rules.blocked:  # (wave 15E) a blocked attacker stays blocked
             return False
         if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
             return False

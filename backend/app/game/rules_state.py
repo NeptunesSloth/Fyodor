@@ -203,6 +203,7 @@ class CopyExcept(BaseModel):
     # -- token copies & attach on entry (wave 5J) -- "except it's a 4/4 black Zombie": its creature types are these
     # (205.1a: they replace the copied ones; other subtypes stay), changeling isn't copied (707.9d)
     set_creature_types: list[str] | None = None
+    no_mana_cost: bool = False  # -- keywords (wave 15E) -- "it has no mana cost" (embalm 702.128a, eternalize 702.129a): a copiable value
 
 
 class CopyRecipe(BaseModel):
@@ -679,6 +680,8 @@ class PaymentRecord(BaseModel):
     discarded: list[str] = Field(default_factory=list)
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
     returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
+    # -- keywords (wave 15E) -- ninjutsu 702.49c: what each returned attacking creature was attacking (player or permanent id)
+    returned_attacking: dict[str, str] = Field(default_factory=dict)
     tapped_for_cost: list[str] = Field(default_factory=list)  # "Tap an untapped creature you control" (not for mana)
     kicked: int = 0  # 702.33d: times its kicker cost was paid
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
@@ -722,6 +725,10 @@ class Permission(BaseModel):
     # -- as long as (wave 9B) -- "mana of any type can be spent to cast that spell" ("type") / "you may spend mana as though it
     # were mana of any color to cast it" ("color"): applies only to mana spent casting with this permission (118.14, 609.4b)
     spend: Literal["", "type", "color"] = ""
+    # -- keywords (wave 15E) -- warp 702.185a ("after the current turn has ended": not before turn ``after_turn`` is over) and plot
+    # 702.170d ("during your main phase while the stack is empty", ``sorcery``, even for an instant)
+    after_turn: int = 0
+    sorcery: bool = False
 
 
 class CostModifier(BaseModel):
@@ -867,6 +874,7 @@ class RulesState(BaseModel):
     devoured: dict[str, int] = Field(default_factory=dict)  # -- keyword mechanics (wave 9D) -- object -> permanents it devoured (702.82b)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
     dashed: list[str] = Field(default_factory=list)
+    bestowed: list[str] = Field(default_factory=list)  # -- keywords (wave 15E) -- bestowed Aura spells / permanents (702.103b)
     evoked: list[str] = Field(default_factory=list)  # evoked spells: sacrificed as they enter (702.74)
     rebound_cast: list[str] = Field(default_factory=list)  # rebound spells cast from a hand (on the stack)
     rebounding: list[str] = Field(default_factory=list)  # exiled by rebound: cast at the owner's next upkeep  # dashed spells: haste + back to hand at end step

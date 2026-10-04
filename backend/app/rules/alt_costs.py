@@ -166,6 +166,25 @@ def define(t: str) -> dict[str, Any] | None:
     return None
 
 
+# -- keywords (wave 15E) -- alternative-cost keywords that are only a cost with a condition on casting (118.9): spectacle
+# (702.137a: "You may cast this spell by paying [cost] rather than its mana cost if an opponent lost life this turn."), surge
+# (702.117a: "if you or a teammate has cast another spell this turn" — no teammates in Commander), freerunning
+# (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
+KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None}
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+
+
+def keyword_definition(line: str) -> dict[str, Any] | None:
+    m = _KEYWORD_LINE.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
+    if m is None:
+        return None
+    kw = m["kw"].lower()
+    cond = KEYWORD_CONDS[kw]
+    found = define(f"you may pay {m['cost']} rather than pay ~'s mana cost" + (f" if {cond}" if cond else ""))
+    # ("tag": what the cast record says it was cast for; warp: only "from your hand", 702.185a)
+    return {**found, "tag": kw, **({"hand_only": True} if kw == "warp" else {})} if found is not None else None
+
+
 @dataclass(frozen=True)
 class Offer:
     key: str  # "<card id>:<ability index>"
@@ -173,6 +192,7 @@ class Offer:
     alt: AltCost
     once_key: str | None = None
     escape: bool = False  # -- escape (wave 5I) -- 702.138a: a cast from the graveyard (app/rules/escape.py)
+    tag: str | None = None  # -- keywords (wave 15E) -- "blitz": cast for its blitz cost (702.152a)
 
 
 def _ctx(state: GameState, player: str, source: CardInstance) -> dict[str, Any]:
@@ -194,11 +214,13 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
     for index, d in scripts.definitions(ch).items():
         if d.get("static") != "alt_cost" or d.get("table"):
             continue
+        if d.get("hand_only") and card.zone != f"{player}:hand":
+            continue
         if d.get("cond") is not None and not conditions.holds(view, _ctx(state, player, card), d["cond"]):
             continue
         alt = parse_cost(d["cost"])
         if alt is not None:
-            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt))
+            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt, tag=d.get("tag")))
     where = card.zone.rsplit(":", 1)[-1]
     for src, index, d in permissions._table_statics(state, info, {"alt_cost"}):
         if not d.get("table") or src.controller != player:

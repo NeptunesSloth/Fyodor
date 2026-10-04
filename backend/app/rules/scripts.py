@@ -417,7 +417,10 @@ _MOVERS = {"destroy", "destroy_all", "exile", "exile_until", "bounce", "return_c
            "sacrifice_choice", "discard", "mill", "search", "pick_looked", "create_token",
            "edict"}  # (edict: wave 4A)
 _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are tokens, not cards: 111.1)
-_CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n"}
+_RECORDING["create_attacking"] = None  # -- keywords (wave 15E) -- "create … tokens that are tapped and attacking. Sacrifice them …":
+_MOVERS.add("create_attacking")  # the pronoun names the tokens made, not the ability's source (was bound to the source)
+_CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n",
+           "create_attacking": "n"}
 # ("on": "for each +1/+1 counter on it" — the object a pronoun names, as for its power. Not "hand":
 # "that player's hand" names a player, which _bind_stats (objects only) can't bind — values reads
 # only "you" / "target" hands, so the phrase stays manual.)
@@ -1783,8 +1786,7 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
     when the ability targets one player (and names no other), else the player the trigger was about — only when the
     ability also says "that player" for its recipient (``event_player``: _event_refs_ok checks the trigger has one)."""
     text = json.dumps(found[0]) if found is not None else ""
-    zone = "library" if found is not None and '{"library": "that_player"}' in text else "hand"  # (wave 15A: "half their library")
-    marker = '{"' + zone + '": "that_player"}'
+    marker = '{"hand": "that_player"}'
     if found is None or marker not in text:
         return found
     if found[1] in ("player", "opponent") and '"event_player"' not in text:
@@ -1793,7 +1795,7 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
         bound = "event"
     else:
         return None
-    return json.loads(text.replace(marker, '{"' + zone + '": "' + bound + '"}')), found[1], found[2]
+    return json.loads(text.replace(marker, '{"hand": "' + bound + '"}')), found[1], found[2]
 
 
 def _attached_host(found: tuple[list[dict[str, Any]], Any, bool] | None, it: str | None,
@@ -1898,6 +1900,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     )
 
     body = pump_each.rewrite(body)
+    from app.rules import combat_rules as _combat_rules  # -- keywords (wave 15E) -- myriad's two sentences
+
+    body = _combat_rules.merge_myriad(body)
     from app.rules import kinship  # -- kinship (wave 9C) --
 
     if (kin := kinship.split(body)) is not None:
@@ -2093,6 +2098,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             added = _add_groups(groups, *inner_or)
             effects += [{"do": "only_if", "cond": {"any": [{"succeeded": _last_payment(effects)}, cond_or]}, "skip": len(added)}, *added]
             continue
+        if text.startswith("if you can't, ") and not optional and len(effects) - prev_start == 1 \
+                and effects[prev_start]["do"] == "remove_counters":  # -- keywords (wave 15E) -- fading 702.32a: "Remove a fade counter
+            text = "if you don't, " + text[len("if you can't, "):]  # from this permanent. If you can't, sacrifice it." (the removal
+            # of a counter that isn't there is the one that wasn't done, as "If you don't" reads it)
         if (if_do := _IF_YOU_DO.match(text)) is not None:
             bind = _last_payment(effects)
             pick = next((e for e in reversed(effects) if e["do"] == "pick_looked"), None)
@@ -2810,6 +2819,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     text = self_text(ability.text, ch.name)
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",)):  # -- keywords (wave 15E) -- alt_costs
+        from app.rules import alt_costs
+
+        return alt_costs.keyword_definition(ability.text)
+    if ability.kind == "keywords" and ability.keywords == ("unleash",):  # -- keywords (wave 15E) -- 702.98a's second static
+        return parse_anthem("~ can't block as long as it has a +1/+1 counter on it.")
     if text.startswith("Cast this spell only "):  # -- cast timing (wave 7A) -- 601.3 (app/rules/cast_timing.py)
         from app.rules import cast_timing
 
@@ -3381,10 +3396,9 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
             if kw in KEYWORD_TRIGGERS:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
             if kw in _kw_meanings.MEANINGS:  # -- static wordings (wave 6E) -- read as its CR meaning (app/rules/keyword_triggers.py)
-                # (-- review (wave 11B) -- the k-th instance on the line is its own piece: "Annihilator 1, annihilator 2" each
-                # triggers, 702.86b)
-                nth = ab.keywords[:k].count(kw)
-                out += [(1000 + ab.index * 10 + k, d) for d in _kw_meanings.definitions(kw, ab.text)[nth:nth + 1]]
+                out += [(1000 + ab.index * 10 + k + 100000 * j, d) for j, d in enumerate(_kw_meanings.first_piece(kw, ab.text, ab.keywords[:k].count(kw)))]
+            if kw == "backup" and (bd := _kw_meanings.backup_definition(ch, ab, ab.keywords[:k].count(kw))) is not None:
+                out.append((1000 + ab.index * 10 + k, bd))  # -- keywords (wave 15E) -- 702.165a
             if kw == "partner" and (pw := _kw_meanings.partner_with_definition(ab.text)) is not None:  # -- keyword pieces (wave 8A) --
                 out.append((1000 + ab.index * 10 + k, pw))
             if kw == "decayed":  # -- token & pump wordings (wave 6C) -- 702.147a (app/rules/decayed.py)
@@ -3401,11 +3415,12 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                 out.append((1000 + ab.index * 10 + k, {
                     "kind": "triggered", "trigger": "enters_self", "optional": False, "target": None,
                     "effects": [{"do": "fabricate", "n": int(f.group(1))}]}))
-            m = re.fullmatch(r"soulshift (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "soulshift" else None
-            if m:  # 702.46a: "When this creature dies, you may return target Spirit card with mana value N or less …"
+            ns = re.findall(r"soulshift (\d+)", ab.text.lower()) if kw == "soulshift" and re.fullmatch(  # (wave 15E: each instance, 702.46b)
+                r"soulshift \d+(?:, soulshift \d+)*", ab.text.strip().rstrip(".").lower()) else []
+            if ns:  # 702.46a: "When this creature dies, you may return target Spirit card with mana value N or less …"
                 out.append((1000 + ab.index * 10 + k, {
                     "kind": "triggered", "trigger": "dies_self", "optional": True,
-                    "target": {"what": f"graveyard:Spirit:{m.group(1)}"},
+                    "target": {"what": f"graveyard:Spirit:{ns[ab.keywords[:k].count(kw)]}"},
                     "effects": [{"do": "bounce", "who": "target"}]}))
             fb = re.fullmatch(r"firebending (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "firebending" else None
             if fb:  # -- keyword actions & face-down (wave 3F) -- 702.189a: "Whenever this creature attacks, add N {R}. …"
@@ -3504,6 +3519,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     if shuffled is None:
         return None  # ("Exile ~." on an instant or sorcery: the spell itself, which effects don't move)
     effects = shuffled
+    if ch.is_instant_or_sorcery and any(ab.kind == "keywords" and "ascend" in ab.keywords for ab in ch.abilities):
+        effects = [{"do": "ascend"}, *effects]  # -- keywords (wave 15E) -- 702.131a: the spell ability, first
     effects, target = _finish_targets(effects, groups)
     return {"kind": "spell", "effects": effects, **target_fields(target)}
 
@@ -4884,13 +4901,16 @@ def _copy_new_targets(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 @_first
 @effect(r"create (?P<n>a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|\d+) (?P<tapped>tapped )?tokens? "
-        r"that(?:'s| are) (?:a )?cop(?:y|ies) of (?P<src>.+?)(?:, except (?P<exc>.+))?")
+        r"that(?:'s| are) (?:a )?cop(?:y|ies) of (?P<src>.+?)(?P<each> for each time (?:it|this creature) was kicked)?"
+        r"(?:, except (?P<exc>.+))?")
 def _token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import copying
 
     found = copying.parse_token_copy(m["n"], bool(m["tapped"]), m["src"], m["exc"])
     if found is None:
         raise _NoMatch
+    if m["each"]:  # -- keywords (wave 15E) -- squad 702.157a: once for each time its cost was paid (702.33d's count)
+        found[0][0]["n"] = {"kicked": 1}
     return found
 
 

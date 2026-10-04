@@ -273,7 +273,7 @@ def test_traumatize_mills_half_the_library_rounded_down(cards):
     from app.rules import scripts
 
     up = scripts.parse_effects("Target opponent mills half their library, rounded up.")
-    assert up is not None and up[0][0]["n"]["round"] == "up"
+    assert up is not None and up[0][0]["half"] == "up"
     s = build(cards, p1=("Traumatize",))
     spell = to_hand(s, "Traumatize")
     add_mana(s, "p1", U=2, C=3)
