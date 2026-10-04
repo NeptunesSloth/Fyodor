@@ -72,7 +72,8 @@ def cost_text(phrase: str) -> str | None:
     """The cost an Oracle "you may …" / "unless … pays …" phrase names ("pay {2}", "sacrifice
     another creature", "pay 2 life", "pay {1} and discard a card"), as the comma-separated cost
     text the cost parser reads — or None when the engine couldn't pay every part by itself."""
-    phrase = phrase.replace(" of their choice", "")  # -- if you do (wave 15C) -- the payer chooses what pays (Torment of Scarabs)
+    if " another " not in f" {phrase} ":  # -- if you do (wave 15C) -- the payer chooses what pays (Torment of Scarabs); "another" is
+        phrase = phrase.replace(" of their choice", "")  # other than what? (an Aura's: the enchanted creature) — not read
     parts = []
     # -- if you do (wave 6F) -- "sacrifice an artifact, creature, enchantment, land, or planeswalker" (Braids): one
     # permanent of any of those types — the cost parser's "a creature or artifact or land"
@@ -107,7 +108,7 @@ _ALT_VERB = re.compile(r" or (?=(?:sacrifice|discard|pay|exile|return|tap|remove
 def alternatives(phrase: str) -> list[str] | None:
     """"sacrifice an artifact or discard a card" → ["Sacrifice an artifact", "Discard a card"], or None (not two
     costs each read alone)."""
-    pieces = _ALT_VERB.split(phrase.replace(" of their choice", "").strip())
+    pieces = _ALT_VERB.split((phrase if " another " in f" {phrase} " else phrase.replace(" of their choice", "")).strip())
     if len(pieces) != 2:
         return None
     found = [cost_text(p) for p in pieces]

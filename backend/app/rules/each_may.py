@@ -122,6 +122,8 @@ def unless_sentence(text: str) -> list[dict[str, Any]] | None:
     if m is None:
         return None
     act = re.sub(r"\b(pays?|discards?|sacrifices?|returns?|exiles?)\b", lambda v: v[1].rstrip("s") if v[1] != "pays" else "pay", m["act"])
+    if " another " in f" {act} ":
+        return None  # ("another" than what: not read)
     act = act.replace(" of their choice", "")
     entry: dict[str, Any] = {"do": "each_may", "who": _WHO[m["who"]]}
     if (cost := optional_payment.cost_text(act)) is not None:
