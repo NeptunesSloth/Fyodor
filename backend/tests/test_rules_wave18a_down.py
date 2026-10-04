@@ -45,6 +45,11 @@ EXTRA = [
     card('Become Anonymous', set_code='tst', number='Z37', mana_cost='{2}{U}{U}', cmc=4.0, type_line='Instant', oracle_text="Exile target nontoken creature you own and the top two cards of your library in a face-down pile, shuffle that pile, then cloak those cards. They enter tapped. (To cloak a card, put it onto the battlefield face down as a 2/2 creature with ward {2}. Turn it face up any time for its mana cost if it's a creature card.)", power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=['Cloak']),  # noqa: E501
     card('Hauntwoods Shrieker', set_code='tst', number='Z38', mana_cost='{1}{G}{G}', cmc=3.0, type_line='Creature — Beast Mutant', oracle_text="Whenever this creature attacks, manifest dread. (Look at the top two cards of your library. Put one onto the battlefield face down as a 2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)\n{1}{G}: Reveal target face-down permanent. If it's a creature card, you may turn it face up.", power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Manifest', 'Manifest dread']),  # noqa: E501
     card('Spy Network', set_code='tst', number='Z39', mana_cost='{U}', cmc=1.0, type_line='Instant', oracle_text="Look at target player's hand, the top card of that player's library, and any face-down creatures they control. Look at the top four cards of your library, then put them back in any order.", power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
+    card('Illithid Harvester // Plant Tadpoles', set_code='tst', number='Z40', layout='adventure', mana_cost='{4}{U} // {X}{U}{U}', cmc=5.0, type_line='Creature — Horror // Sorcery — Adventure', colors=['U'], color_identity=['U'], keywords=['Ceremorphosis'], card_faces=[  # noqa: E501
+        {"object": "card_face", "name": "Illithid Harvester", "mana_cost": "{4}{U}", "type_line": "Creature — Horror", "oracle_text": "Ceremorphosis — When this creature enters, turn any number of target tapped nontoken creatures face down. They're 2/2 Horror creatures.", "power": "4", "toughness": "4"},  # noqa: E501
+        {"object": "card_face", "name": "Plant Tadpoles", "mana_cost": "{X}{U}{U}", "type_line": "Sorcery — Adventure", "oracle_text": "Tap X target creatures. They don't untap during their controllers' next untap steps. (Then exile this card. You may cast the creature later from exile.)"}]),  # noqa: E501
+    card('Poison the Cup', set_code='tst', number='Z41', mana_cost='{1}{B}{B}', cmc=3.0, type_line='Instant', oracle_text='Destroy target creature. If this spell was foretold, scry 2.\nForetell {1}{B} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)', power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=['Foretell', 'Scry']),  # noqa: E501
+    card('Scroll of Fate', set_code='tst', number='Z42', mana_cost='{3}', cmc=3.0, type_line='Artifact', oracle_text="{T}: Manifest a card from your hand. (Put that card onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)", power=None, toughness=None, colors=[], color_identity=[], keywords=['Manifest']),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -570,4 +575,80 @@ def test_spy_network_looks_at_the_hand_the_top_card_and_the_face_down_creatures(
     assert seen_by_alice == {"Giant Growth", "Lightning Bolt", "Ambush Viper"}  # 701.20e: she looked at all three
     assert s.state.cards[viper.id].face_down
     assert unseen_by(s, growth, SPECTATOR) and unseen_by(s, bolt, "p2", SPECTATOR) and unseen_by(s, viper, SPECTATOR)  # only Alice ever saw them
+    roundtrip(s)
+
+
+def test_illithid_harvester_turns_any_number_of_tapped_nontoken_creatures_face_down_as_horrors(cards):
+    s = build(cards, p1=("Illithid Harvester // Plant Tadpoles",), p2=("Ambush Viper", "Grizzly Bears"))
+    tapped = put(s, "Ambush Viper", "battlefield", pid="p2")
+    untapped = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    act(s, "p2", type="tap", card_ids=[tapped.id], tapped=True)
+    harvester = put(s, "Illithid Harvester // Plant Tadpoles", "hand")
+    mana(s, U=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=harvester.id)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "choose_cards" or d.kind == "choose_targets":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.card_id == tapped.id] or [o.id for o in d.options][:1])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    card_ = s.state.cards[tapped.id]
+    assert card_.face_down and card_.face_down_as == "2/2 Horror creature" and not s.state.cards[untapped.id].face_down
+    ch = chars_of(s, tapped)
+    assert ch.types == {"Creature"} and ch.subtypes == {"Horror"} and (ch.power, ch.toughness) == ("2", "2")
+    assert unseen_by(s, tapped, "p1", SPECTATOR) and not unseen_by(s, tapped, "p2")
+    roundtrip(s)
+
+
+def test_poison_the_cup_scries_only_when_foretold(cards):
+    s = build(cards, p1=("Poison the Cup",), p2=("Ambush Viper", "Grizzly Bears"))
+    cup = put(s, "Poison the Cup", "hand")
+    viper = put(s, "Ambush Viper", "battlefield", pid="p2")
+    mana(s, B=3)
+    act(s, "p1", type="cast_spell", card_id=cup.id, targets=[viper.id])  # not foretold: no scry
+    answer(s)
+    assert s.state.cards[viper.id].zone == "p2:graveyard"
+    t = build(cards, p1=("Poison the Cup",), p2=("Ambush Viper",))
+    cup = put(t, "Poison the Cup", "hand")
+    mana(t, B=2)
+    act(t, "p1", type="activate_ability", card_id=cup.id, ability=1)  # foretell {2}
+    viper = put(t, "Ambush Viper", "battlefield", pid="p2")
+    to_own_turn(t, 3)
+    mana(t, B=2)
+    act(t, "p1", type="cast_spell", card_id=cup.id, targets=[viper.id])
+    d = None
+    for _ in range(20):
+        d = t.state.rules.decision
+        if d is not None:
+            break
+        act(t, t.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1" and "scry" in d.prompt.lower()  # 702.143c: it was foretold
+    for viewer in ("p2", SPECTATOR):
+        assert "options" not in t.view(viewer)["rules"]["decision"]
+    answer(t)
+    assert t.state.cards[viper.id].zone == "p2:graveyard"
+    roundtrip(t)
+
+
+def test_scroll_of_fate_manifests_a_card_from_your_hand_privately(cards):
+    s = build(cards, p1=("Scroll of Fate", "Grizzly Bears", "Giant Growth"))
+    scroll = put(s, "Scroll of Fate", "battlefield")
+    bears = put(s, "Grizzly Bears", "hand")
+    growth = put(s, "Giant Growth", "hand")
+    act(s, "p1", type="activate_ability", card_id=scroll.id, ability=0)
+    d = until_asked(s)
+    assert d.player == "p1" and {o.card_id for o in d.options} >= {bears.id, growth.id}
+    for viewer in ("p2", SPECTATOR):  # nobody else sees which cards Alice may choose from
+        assert "options" not in s.view(viewer)["rules"]["decision"]
+        assert unseen_by(s, bears, viewer) and unseen_by(s, growth, viewer)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[growth.id])
+    answer(s)
+    c = s.state.cards[growth.id]
+    assert c.zone == "p1:battlefield" and c.face_down and c.face_down_kind == "manifest"  # 701.40a
+    assert unseen_by(s, growth, "p2", SPECTATOR) and not unseen_by(s, growth, "p1")
+    assert s.state.cards[bears.id].zone == "p1:hand"
     roundtrip(s)

@@ -2991,6 +2991,8 @@ def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
             return None
         return [{"do": "manifest", "dread": True, "kind": "manifest", "who": {None: "you", "its controller": "it.controller",
                                                                               "that player": "that_player"}[m["p"]], "n": n}], None
+    if (hand := re.fullmatch(r"(?P<v>manifest|cloak) a card from your hand", text)) is not None:  # -- hidden exile (wave 18A) --
+        return [{"do": "manifest", "kind": hand["v"], "who": "you", "n": 1, "from": "hand"}], None  # (Scroll of Fate, Vannifar)
     m = _MANIFEST.fullmatch(text)
     if m is None:
         return None

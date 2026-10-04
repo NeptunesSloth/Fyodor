@@ -58,6 +58,15 @@ def manifest(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     or "cloak"; ``dread``: manifest dread (701.62a); ``n``: how many (dread: how many times).
     Binds the manifested permanents ("that creature", "those creatures": ``as``)."""
     players = effects._players(plan, ctx, e.get("who", "you"))
+    if e.get("from") == "hand":  # -- hidden exile (wave 18A) -- "Manifest a card from your hand": the player picks it (private)
+        pid = ctx["controller"]
+        hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
+        if not hand:
+            return True
+        decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'Manifest'}: choose a card from your hand to put onto "
+               "the battlefield face down", options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
+               min_choices=1, max_choices=1, resume={"step": "manifest_hand", "ctx": ctx, "e": e})
+        return False
     order = [p for p in plan.apnap() if p in players]
     ctx.setdefault("manifested", [])
     todo = [(p, effects._amount(plan, ctx, e.get("n", 1))) for p in order]
@@ -122,6 +131,16 @@ def resume_manifest_dread(plan: Plan, d: Any, chosen: list[str]) -> None:
         plan.do({"type": "move", "card_ids": rest, "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
     if _manifest_next(plan, ctx, e, todo):
         effects.continue_effects(plan, ctx)
+
+
+def resume_manifest_hand(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    ctx.setdefault("manifested", [])
+    pick = next((c for c in chosen if c in plan.state.zones.get(zone_key(d.player, "hand"), [])), None)
+    if pick is not None:
+        _manifested(plan, ctx, d.player, pick, e.get("kind", "manifest"))
+    _bind(plan, ctx, e)
+    effects.continue_effects(plan, ctx)
 
 
 def _turn_up(plan: Plan, card_id: str, actor: str) -> bool:
@@ -383,5 +402,5 @@ def top_to_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES: dict[str, Any] = {"reveal_turn_up": reveal_turn_up, "manifest_pile": manifest_pile, "become_foretold": become_foretold, "put_down": put_down, "exile_hand_down": exile_hand_down, "top_to_hand": top_to_hand, "manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down,
                               "look_face_down": look_face_down, "look_exiled": look_exiled}
-RESUME: dict[str, Any] = {"reveal_turn_up": resume_reveal_turn_up, "put_down": resume_put_down, "exile_hand_down": resume_exile_hand_down, "manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up,
+RESUME: dict[str, Any] = {"manifest_hand": resume_manifest_hand, "reveal_turn_up": resume_reveal_turn_up, "put_down": resume_put_down, "exile_hand_down": resume_exile_hand_down, "manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up,
                           "look_face_down": resume_look_face_down}
