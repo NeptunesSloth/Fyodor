@@ -1226,6 +1226,12 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
         return False
     if spec.get("colors") and not set(spec["colors"]) & set(src.get("colors") or ()):
         return False
+    if spec.get("chosen_color"):  # (-- prevention riders (wave 17A) -- "sources of the chosen color": its permanent's choice, 614.12a)
+        from app.rules import selectors
+
+        color = selectors.COLORS.get((selectors.source_choice(plan, c.source_card, "color") or "").lower())
+        if color is None or color not in (src.get("colors") or ()):
+            return False
     if spec.get("colorless") and src.get("colors"):  # (-- prevention riders (wave 17A) -- "colorless sources", "non-Human sources")
         return False
     if spec.get("not_subtypes") and set(spec["not_subtypes"]) & set(src.get("subtypes") or ()):

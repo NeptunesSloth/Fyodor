@@ -171,6 +171,28 @@ def test_a_fog_with_a_rider_gains_life_for_the_combat_damage_it_prevented(cards)
     replay_matches(s2)
 
 
+def test_inkshield_makes_a_token_for_each_combat_damage_prevented(cards):
+    from tests.test_rules_combat import attack, table, turn_on
+    from tests.test_rules_suspend import until
+
+    s = table(cards)
+    krenko = next(c for c in s.state.cards.values() if c.name == "Krenko, Mob Boss")
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"zone": "battlefield"})
+    ink = permanent(s, "p1", "Ink", "Enchantment", "{1}: Prevent all combat damage that would be dealt this turn. For each 1 damage "
+                    "prevented this way, create a 2/1 white and black Inkling creature token with flying.")
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # → Alice's main 1
+    activate(s, ink)
+    act(s, "p1", type="pass_priority")  # → combat: Alice declares attackers
+    attack(s, (krenko, "p2"))
+    until(s, lambda s: s.state.turn.phase == "main2")
+    inklings = [c for c in s.state.cards.values() if c.name == "Inkling" and c.zone == "p1:battlefield"]
+    assert life(s, "p2") == 40 and len(inklings) == 3  # Krenko is 3/3: 3 damage prevented
+    replay_matches(s)
+    s2 = reload(s, cards)
+    assert len([c for c in s2.state.cards.values() if c.name == "Inkling" and c.zone == "p1:battlefield"]) == 3
+
+
 def test_combat_damage_to_a_hydra_is_prevented_and_it_grows(cards):
     from tests.test_rules_combat import attack, automate, block, table
     from tests.test_rules_suspend import until
@@ -396,3 +418,108 @@ def test_beacon_of_destiny_redirects_the_next_damage_from_the_chosen_source(card
     assert life(s, "p1") == 34 and s.state.cards[beacon.id].damage == 3
     replay_matches(s)
     assert reload(s, cards).state.cards[beacon.id].damage == 3
+
+
+def test_a_second_target_is_the_one_the_shield_protects(cards):
+    """Shieldmage Advocate style: the first target is another thing; "any target" is the second group (renumbered)."""
+    s = build(cards)
+    adv = permanent(s, "p1", "Advocate", "Enchantment", "{1}: Target player gains 1 life. The next time a source of your choice would "
+                    "deal damage to any target this turn, prevent that damage.")
+    pinger = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    bear = token(s, "p1", "Bear", "4/4")
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    act(s, "p1", type="activate_ability", card_id=adv.id, ability=0, targets=["p2", bear.id], target_counts=[1, 1])
+    from tests.test_rules_effects import pass_until_stack_empty
+
+    pass_until_stack_empty(s)
+    _choose(s, "Pinger")
+    activate(s, pinger, targets=["p2"])  # (p2 is the first group's target: not shielded)
+    assert life(s, "p2") == 38  # 40 + 1 - 3
+    activate(s, pinger, targets=[bear.id])
+    assert s.state.cards[bear.id].damage == 0
+    replay_matches(s)
+
+
+# -- recipients "you", draws, colors chosen (615.5, 609.7c, 614.12a) ----------------------------------------------------------------------
+PURITY = ("If noncombat damage would be dealt to you, prevent that damage. You gain life equal to the damage prevented this "
+          "way.")  # Purity
+SWANS = ("If a source would deal damage to this creature, prevent that damage. The source's controller draws cards equal to the "
+         "damage prevented this way.")  # Swans of Bryn Argoll
+STORY_CIRCLE = ("{W}: The next time a source of your choice of the chosen color would deal damage to you this turn, prevent that "
+                "damage.")  # Story Circle
+PRISMATIC_WARD = "Prevent all damage that would be dealt to enchanted creature by sources of the chosen color."  # Prismatic Ward
+STRANDS = "{1}: Prevent all damage that sources of the color of your choice would deal this turn."  # Prismatic Strands (as an ability)
+
+
+@pytest.mark.parametrize("text", [PURITY, SWANS, STORY_CIRCLE, PRISMATIC_WARD, STRANDS,
+                                  "{1}: Prevent all damage that would be dealt to another target creature this turn by sources of "
+                                  "the color of your choice."])  # Avacyn, Guardian Angel
+def test_read_chosen_colors_and_you(text):
+    assert all(supported(text, name="Swans of Bryn Argoll")), text
+
+
+def test_purity_gains_the_noncombat_damage_prevented(cards):
+    s = build(cards)
+    permanent(s, "p1", "Purity", "Creature", PURITY)
+    pinger = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    activate(s, pinger, targets=["p1"])
+    assert life(s, "p1") == 43
+    replay_matches(s)
+    assert life(reload(s, cards), "p1") == 43
+
+
+def test_swans_draw_for_the_prevented_damage(cards):
+    s = build(cards)
+    swans = token(s, "p1", "Swans of Bryn Argoll", "4/3", SWANS)
+    pinger = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    before = len(s.state.zones.get("p1:hand", []))
+    activate(s, pinger, targets=[swans.id])
+    assert s.state.cards[swans.id].damage == 0 and len(s.state.zones.get("p1:hand", [])) == before + 3
+    replay_matches(s)
+
+
+def test_story_circle_uses_the_chosen_color(cards):
+    s = build(cards)
+    circle = permanent(s, "p1", "Story Circle", "Enchantment", STORY_CIRCLE)
+    act(s, "p1", type="set_choice", card_id=circle.id, key="Chosen color", value="Red")
+    red = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    green = token(s, "p1", "Grower", "1/1", "{1}: Grower deals 3 damage to any target.")
+    act(s, "p1", type="add_mana", player="p1", mana={"W": 1})
+    act(s, "p1", type="activate_ability", card_id=circle.id, ability=0)
+    from tests.test_rules_effects import pass_until_stack_empty
+
+    pass_until_stack_empty(s)
+    assert sorted(o.label for o in decision(s).options) == ["Krenko, Mob Boss", "Pinger"]  # only red sources (609.7a)
+    _choose(s, "Pinger")
+    activate(s, red, targets=["p1"])
+    assert life(s, "p1") == 40
+    replay_matches(s)
+    assert green.id in s.state.cards
+
+
+def test_prismatic_ward_and_prismatic_strands(cards):
+    s = build(cards)
+    bear = token(s, "p1", "Bear", "6/6")
+    ward = permanent(s, "p1", "Prismatic Ward", "Enchantment — Aura", PRISMATIC_WARD)
+    act(s, "p1", type="set_choice", card_id=ward.id, key="Chosen color", value="Red")
+    act(s, "p1", type="attach", card_ids=[ward.id], to=bear.id)
+    red = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    act(s, "p1", type="create_token", player="p1", token={"name": "Grower", "type_line": "Token Creature — Test", "power": "1",
+                                                          "toughness": "1", "text": "{1}: Grower deals 3 damage to any target.",
+                                                          "colors": ["G"]})
+    green = next(c for c in s.state.cards.values() if c.name == "Grower")
+    activate(s, red, targets=[bear.id])
+    activate(s, green, targets=[bear.id])
+    assert s.state.cards[bear.id].damage == 3  # the red source's damage was prevented, the green one's wasn't
+    strands = permanent(s, "p1", "Strands", "Enchantment", STRANDS)
+    activate(s, strands)
+    d = decision(s)
+    assert d is not None and d.player == "p1" and [o.id for o in d.options] == ["White", "Blue", "Black", "Red", "Green"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Green"])
+    activate(s, green, targets=["p1"])
+    assert life(s, "p1") == 40
+    activate(s, red, targets=["p1"])
+    assert life(s, "p1") == 37
+    replay_matches(s)
+    s2 = reload(s, cards)
+    assert life(s2, "p1") == 37

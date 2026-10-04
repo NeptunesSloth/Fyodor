@@ -861,7 +861,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "to", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
+_TARGET_REFS = ("who", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -874,6 +874,9 @@ def rename_bindings(value: Any, prefix: str) -> Any:
         return value
     out = {}
     for k, v in value.items():
+        if k == "rider":  # -- prevention riders (wave 17A) -- its bindings ("prevented", "to", "from_ctrl") are its own
+            out[k] = v
+            continue
         if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount", "ref_count",
                  "bind_dealt", "bind_excess", "bind_hit", "paid_x") and isinstance(v, str):  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;

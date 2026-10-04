@@ -366,8 +366,8 @@ def _damage_to(text: str) -> Definition | None:
     if m is None or (m["cond"] and m["cond"] not in _CONDS):
         return None
     to = _recipient(m["to"].replace("this creature", "~").replace("this permanent", "~"))
-    if to is None or not to.get("objects") or to.get("players"):
-        return None
+    if to is None or not (to.get("objects") and not to.get("players") or to == {"players": "you"}):
+        return None  # (a permanent, or you: "If noncombat damage would be dealt to you, prevent that damage. You gain life …")
     match: dict[str, Any] = {"source": {}, "to": to}
     if m["kind"]:
         match["combat"] = m["kind"] == "combat "
@@ -379,7 +379,7 @@ def _damage_to(text: str) -> Definition | None:
     rest = m["rest"].strip()
     if rest in ("prevent that damage.", "prevent that damage"):
         return _static("damage", match, {"do": "prevent_all", "prevention": True})
-    rider = _prevention_rider(rest, "self" if to["objects"].get("self") else "to")
+    rider = _prevention_rider(rest, None if "objects" not in to else "self" if to["objects"].get("self") else "to")
     return _static("damage", match, {"do": "prevent_all", "prevention": True, "rider": rider}) if rider else None
 
 
@@ -394,7 +394,7 @@ def _damage(text: str) -> Definition | None:
     if src is None or to is None:
         return None
     rest = m["rest"]
-    if (rider := _prevention_rider(rest, "self" if (to.get("objects") or {}).get("self") else "to")) is not None:
+    if (rider := _prevention_rider(rest, None if "objects" not in to else "self" if to["objects"].get("self") else "to")) is not None:
         match0: dict[str, Any] = {"source": src, "to": to, **({"combat": m["kind"] == "combat "} if m["kind"] else {})}
         return _static("damage", match0, {"do": "prevent_all", "prevention": True, "rider": rider})
     if m["to"] == "you" and rest.endswith(" to you instead"):  # -- kicked / instead (wave 4G) -- "… deals double that

@@ -19,11 +19,13 @@ to you this turn by a source of your choice." (Consulate Surveillance):
   recipient, however much it is, then is used up; "Prevent all damage … this turn" lasts the turn.
   Both are records of app/rules/replace.py (``add_record``; this turn only: 611.2a), applied in
   the 616.1 loop with every other prevention and replacement effect, chosen by the affected player.
-* Refused (the sentence stays manual): riders on the prevented damage ("If damage is prevented this
-  way, ~ deals that much damage …", 615.5), redirection ("that damage is dealt to … instead", 614.9),
-  "half that damage", a target as the recipient ("to any target", "to target creature"), a shield
-  with no recipient ("would deal damage this turn": UNVERIFIED whether one instance covers damage to
-  several recipients at once), "of the chosen color", "that shares a color with …".
+* Wave 17A: the recipient may be a target ("to any target", "to target creature": the object or player it is when the
+  effect is created, 400.7), the enchanted creature or you; "of the chosen color" (the color its permanent chose as it entered,
+  614.12a) and "the color of your choice" (chosen as the effect resolves) are read; a rider ("If damage is prevented this way,
+  ~ deals that much damage …", 615.5) and a redirection ("that damage is dealt to … instead", 614.9) may follow.
+* Refused (the sentence stays manual): "half that damage", a shield with no recipient ("would deal damage this turn": UNVERIFIED
+  whether one instance covers damage to several recipients at once), "that shares a color with …", reflexive "When damage is
+  prevented this way, …" (603.12), several recipients at once ("you and/or creatures you control").
 
 **Damage that can't be prevented** (615.12). "Damage can't be prevented." (Leyline of Punishment),
 "Combat damage can't be prevented.", "Damage that would be dealt by ~ can't be prevented."
@@ -31,9 +33,9 @@ to you this turn by a source of your choice." (Consulate Surveillance):
 (Questing Beast), "Damage can't be prevented this turn." (Skullcrack: a record for this turn) and a
 spell's own "… deals 4 damage to target creature. The damage can't be prevented." (Pinpoint
 Avalanche): prevention effects still apply to such damage but prevent none of it, and shields
-aren't reduced (615.12). No prevention effect the engine applies has an additional effect yet (the
-riders are refused above), so applying one to unpreventable damage does nothing at all: the engine
-doesn't apply it. Protection's damage prevention (702.16e) is a prevention effect too.
+aren't reduced (615.12). A shield's or record's additional effect counts the damage prevented, so with unpreventable damage it
+does nothing and the engine doesn't apply it; a static's ("Remove a +1/+1 counter …") still takes place. Protection's damage
+prevention (702.16e) is a prevention effect too.
 """
 
 from __future__ import annotations
@@ -74,7 +76,8 @@ def _props(words: str | None) -> dict[str, list[str]] | None:
 
 # -- grammar: effect sentences (first letter lower-cased, no final period) ----------------------------
 _TO = r"(?P<to>you|any target|target creature|enchanted creature)"  # (-- prevention riders (wave 17A) -- the recipient)
-_NEXT_TO_YOU = re.compile(r"the next time (?:a|an) (?:(?P<props>[a-z ]+?) )?source of your choice would deal damage to " + _TO +
+_NEXT_TO_YOU = re.compile(r"the next time (?:a|an) (?:(?P<props>[a-z ]+?) )?source of your choice(?P<chosen> of the chosen color)? "
+                          r"would deal damage to " + _TO +
                           r" this turn, prevent that damage")
 _ALL_BY = re.compile(r"prevent all damage (?:a|an) (?:(?P<props>[a-z ]+?) )?source of your choice would deal "
                      r"(?:to (?P<to>you|any target|target creature|enchanted creature) )?this turn")
@@ -86,11 +89,14 @@ _RECIPIENTS = {"you": ("you", None), "any target": ("target", "any"), "target cr
 
 
 def _shield(m: re.Match[str], *, once: bool) -> tuple[list[dict[str, Any]], str | None]:
-    props = _props(m["props"])
-    if props is None:
+    found = _props(m["props"])
+    if found is None or (m.groupdict().get("chosen") and found):
         from app.rules.scripts import _NoMatch
 
         raise _NoMatch
+    props: dict[str, Any] = found
+    if m.groupdict().get("chosen"):  # -- prevention riders (wave 17A) -- "of the chosen color" (Story Circle): read as it resolves
+        props = {"chosen_color": True}
     to, target = _RECIPIENTS[m["to"]]
     return [{"do": "source_shield", "props": props, "once": once, "to": to}], target
 
@@ -105,6 +111,62 @@ def _all_by(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 
 def _all_to_you(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return _shield(m, once=False)
+
+
+# -- prevention riders (wave 17A) -- "Prevent all damage that sources of the color of your choice would deal this turn."
+# (Prismatic Strands), "… that would be dealt to another target creature this turn by sources of the color of your choice."
+# (Avacyn, Guardian Angel): the color is chosen as the effect resolves (a public choice, 608.2d); the sources are those of
+# that color whenever they deal damage (609.7c)
+_COLOR_CHOICE = re.compile(r"prevent all damage (?:that would be dealt (?:to (?P<to>another target creature|target creature|"
+                           r"target player or planeswalker|you) )?this turn by sources|that sources) of the color of your choice"
+                           r"(?: would deal this turn)?")
+
+
+def _color_choice(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language, scripts
+
+    to = m["to"]
+    if to is None:
+        return [{"do": "prevent_color", "to": None}], None
+    if to == "you":
+        return [{"do": "prevent_color", "to": "you"}], None
+    try:
+        group = language.target_group(to)
+    except language._Fail:
+        raise scripts._NoMatch from None
+    return [{"do": "prevent_color", "to": "target"}], (group if to.startswith("another") else scripts.SELECTORS.get(
+        to, "player_or_planeswalker"))
+
+
+def prevent_color(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules.plan import decide
+    from app.rules.protection_grants import COLORS
+
+    pid = ctx["controller"]
+    to = _recipient(plan, ctx, e)
+    if to is None:
+        plan.note(f"{plan.name(pid)}: nothing is left for the effect to protect", actor=pid)
+        return True
+    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'Prevention'}: prevent damage from sources of which color?",
+           options=[DecisionOption(id=c, label=c) for c in COLORS], source=plan.state.cards.get(ctx.get("source_card") or ""),
+           resume={"step": "prevent_color", "ctx": ctx, "e": e, "to": to})
+    return False
+
+
+def resume_prevent_color(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import replace
+    from app.rules.effects import continue_effects
+    from app.rules.protection_grants import COLORS
+
+    ctx = d.resume["ctx"]
+    if not chosen or chosen[0] not in COLORS:
+        raise ActionError("Choose one of the colors")
+    plan.note(f"{plan.name(d.player)} chooses {chosen[0].lower()}", actor=d.player)
+    replace.add_record(plan, event="damage", match={"source": {"colors": [_COLORS[chosen[0].lower()]]}, "to": d.resume["to"]},
+                       op={"do": "prevent_all", "prevention": True}, controller=ctx["controller"], source=ctx.get("source_object"),
+                       source_card=ctx.get("source_card"), label=ctx.get("name") or "a prevention effect")
+    continue_effects(plan, ctx)
 
 
 def _turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], None]:
@@ -228,6 +290,7 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
     (re.compile("^" + _ALL_TO_YOU.pattern + "$"), _all_to_you),
     (re.compile("^" + _TURN.pattern + "$"), _turn),
     (re.compile("^" + _NEXT_N.pattern + "$"), _next_n),
+    (re.compile("^" + _COLOR_CHOICE.pattern + "$"), _color_choice),
     (re.compile("^" + _REDIR_N.pattern + "$"), _redirect_n),
     (re.compile("^" + _REDIR_ALL.pattern + "$"), _redirect_all),
     (re.compile("^" + _REDIR_SRC.pattern + "$"), _redirect_src),
@@ -485,9 +548,12 @@ def _describe(e: dict[str, Any]) -> str:
     kind = " or ".join(w for w, v in {**_COLORS, **_TYPES}.items()
                        if v in (e["props"].get("colors") or []) + (e["props"].get("types") or []))
     what = f"{'an' if kind[:1] in 'aeiou' and kind else 'a'} {kind + ' ' if kind else ''}source"
-    to = {"you": "you ", "target": "the target ", "host": "the enchanted creature ", None: ""}[e.get("to")]
+    where = e.get("to")
+    to = {"you": "you ", "host": "the enchanted creature ", "self": "this creature ", None: ""}.get(
+        where, "the target " if where else "")
     if e.get("once"):
-        return f"the next time {what} of your choice would deal damage to {to}this turn, prevent that damage"
+        return f"the next time {what} of your choice would deal damage to {to}this turn, " + (
+            "that damage is dealt to something else instead" if e.get("redirect") else "prevent that damage")
     return f"prevent all damage {what} of your choice would deal {'to ' + to if to else ''}this turn"
 
 
@@ -497,6 +563,14 @@ def source_shield(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.plan import decide
 
     pid = ctx["controller"]
+    if (e.get("props") or {}).get("chosen_color"):  # the color this permanent chose as it entered (614.12a)
+        from app.rules import selectors
+
+        color = selectors.COLORS.get((selectors.source_choice(plan, ctx.get("source_card"), "color") or "").lower())
+        if color is None:
+            plan.note(f"{plan.name(pid)}: no color was chosen, so the effect does nothing", actor=pid)
+            return True
+        e = {**e, "props": {"colors": [color]}}
     if _recipient(plan, ctx, e) is None:  # (-- prevention riders (wave 17A) -- the target it protects is gone: 608.2b)
         plan.note(f"{plan.name(pid)}: nothing is left for the effect to protect", actor=pid)
         return True
@@ -525,6 +599,8 @@ def source_scope(phrase: str) -> dict[str, Any] | None:
     p = phrase.strip()
     if p == "instant and sorcery spells":
         return {"spell": True, "types": ["Instant", "Sorcery"]}
+    if p == "sources of the chosen color":  # (Prismatic Ward: the color its permanent chose as it entered, read as damage is dealt)
+        return {"chosen_color": True}
     alts = []
     for part in re.split(r"(?<=sources) and (?=\w)|(?<=creatures) and (?=\w)", p):
         m = _SRC.fullmatch(part)
@@ -562,7 +638,8 @@ def source_scope(phrase: str) -> dict[str, Any] | None:
 # +1/+1 counter on that creature.", "Remove a +1/+1 counter from this creature." (a static's). Refused: "When damage is
 # prevented this way, …" (a reflexive trigger, 603.12), choices and targets in the rider ("deals that much damage to any
 # target"), riders after "of your choice" shields to several recipients.
-RIDER_DOS = frozenset({"gain_life", "damage", "add_counters", "remove_counters", "create_token", "mill", "exile_top", "lose_life"})
+RIDER_DOS = frozenset({"gain_life", "damage", "add_counters", "remove_counters", "create_token", "mill", "exile_top", "lose_life",
+                       "draw"})
 PREVENTIONS = frozenset({"source_shield", "prevent", "prevent_all"})
 _RIDER_IF = re.compile(r"^if damage(?: from (?P<col>an? (?:white|blue|black|red|green) source))? is prevented this way, (?P<body>.+)$")
 _ANAPHORS = (("that source's controller", "target player", "from_ctrl"), ("the source's controller", "target player", "from_ctrl"),
@@ -746,5 +823,6 @@ def resume_source_shield(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"source_shield": source_shield, "unpreventable_turn": unpreventable_turn, "redirect_damage": redirect_damage}
-RESUME = {"source_shield": resume_source_shield}
+PRIMITIVES = {"source_shield": source_shield, "unpreventable_turn": unpreventable_turn, "redirect_damage": redirect_damage,
+              "prevent_color": prevent_color}
+RESUME = {"source_shield": resume_source_shield, "prevent_color": resume_prevent_color}
