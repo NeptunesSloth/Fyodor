@@ -126,6 +126,25 @@ EXTRA = [
          "combat damage to a player this turn with a creature with any of its creature types.)"),
     card("Test Raptor", set_code="tst", number="C35", mana_cost="{3}{R}{R}", cmc=5.0, type_line="Creature — Dinosaur", power="5",
          toughness="5", colors=["R"], color_identity=["R"], oracle_text=""),
+    card("Mudbutton Cursetosser", set_code="tst", number="C36", mana_cost="{B}", cmc=1.0, type_line="Creature — Goblin Warlock", power="2",
+         toughness="1", colors=["B"], color_identity=["B"],
+         oracle_text="As an additional cost to cast this spell, behold a Goblin or pay {2}. (To behold a Goblin, choose a Goblin you "
+         "control or reveal a Goblin card from your hand.)\nThis creature can't block.\nWhen this creature dies, destroy target "
+         "creature an opponent controls with power 2 or less."),
+    card("Living Destiny", set_code="tst", number="C37", mana_cost="{3}{G}", cmc=4.0, type_line="Instant", colors=["G"], color_identity=["G"],
+         oracle_text="As an additional cost to cast this spell, reveal a creature card from your hand.\nYou gain life equal to the "
+         "revealed card's mana value."),
+    card("Titan's Presence", set_code="tst", number="C38", mana_cost="{3}", cmc=3.0, type_line="Instant",
+         oracle_text="As an additional cost to cast this spell, reveal a colorless creature card from your hand.\nExile target creature "
+         "if its power is less than or equal to the revealed card's power."),
+    card("Calamity of the Titans", set_code="tst", number="C39", mana_cost="{4}{C}{C}", cmc=6.0, type_line="Sorcery",
+         oracle_text="As an additional cost to cast this spell, reveal a colorless creature card from your hand.\nExile each creature "
+         "and planeswalker with mana value less than the revealed card's mana value."),
+    card("Warlord's Elite", set_code="tst", number="C40", mana_cost="{2}{W}", cmc=3.0, type_line="Creature — Human Soldier", power="4",
+         toughness="4", colors=["W"], color_identity=["W"],
+         oracle_text="As an additional cost to cast this spell, tap two untapped artifacts, creatures, and/or lands you control."),
+    card("Test Drone", set_code="tst", number="C41", mana_cost="{2}", cmc=2.0, type_line="Artifact Creature — Eldrazi Drone", power="3",
+         toughness="3", oracle_text=""),
     card("Hexing Squelcher", set_code="tst", number="C05", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Goblin Sorcerer",
          power="2", toughness="2", colors=["R"], color_identity=["R"],
          oracle_text="This spell can't be countered.\nWard—Pay 2 life.\nSpells you control can't be countered.\nOther creatures you control have \"Ward—Pay 2 life.\""),
@@ -515,4 +534,81 @@ def test_velociraptor_grants_prowl_to_dinosaur_spells(cards):
     put(s, "Test Small", "hand")
     _attack_with(s, "Token Creature — Dinosaur")
     assert len(_prowl_offers(s, "Test Raptor")[1]) == 1 and not _prowl_offers(s, "Test Small")[1]
+    roundtrip(s)
+
+
+def test_behold_a_goblin_or_pay_two(cards):
+    s = build(cards, p1=("Mudbutton Cursetosser",))
+    act(s, "p1", type="create_token", player="p1", token={"name": "Imp", "type_line": "Token Creature — Goblin", "power": "1", "toughness": "1"})
+    c = put(s, "Mudbutton Cursetosser", "hand")
+    mana(s, B=1)  # 701.4a: choosing the Goblin you control is the additional cost: no {2}
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert find(s, "Mudbutton Cursetosser").zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_pay_two_when_nothing_can_be_beheld(cards):
+    s = build(cards, p1=("Mudbutton Cursetosser",))
+    c = put(s, "Mudbutton Cursetosser", "hand")
+    mana(s, B=1)
+    with pytest.raises(ActionError):  # (no Goblin to behold: the {2} side is the only one, and it isn't there)
+        act(s, "p1", type="cast_spell", card_id=c.id)
+    mana(s, C=2)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert find(s, "Mudbutton Cursetosser").zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_reveal_a_creature_card_and_gain_its_mana_value(cards):
+    s = build(cards, p1=("Living Destiny", "Test Brute"))
+    c = put(s, "Living Destiny", "hand")
+    brute = put(s, "Test Brute", "hand")
+    mana(s, G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert s.state.players["p1"].life == 45  # 701.20a / 608.2h: the revealed Test Brute's mana value, 5
+    assert s.state.cards[brute.id].zone == "p1:hand"
+    roundtrip(s)
+
+
+def test_titans_presence_compares_with_the_revealed_card(cards):
+    s = build(cards, p1=("Titan's Presence", "Test Drone"), p2=("Test Small", "Test Brute"))
+    small, brute = put(s, "Test Small", "battlefield", "p2"), put(s, "Test Brute", "battlefield", "p2")
+    presence = put(s, "Titan's Presence", "hand")
+    put(s, "Test Drone", "hand")
+    mana(s, C=6)
+    act(s, "p1", type="cast_spell", card_id=presence.id, targets=[brute.id])
+    answer(s)
+    assert s.state.cards[brute.id].zone == "p2:battlefield"  # power 5 is more than the revealed Drone's 3
+    put(s, "Titan's Presence", "hand")
+    act(s, "p1", type="cast_spell", card_id=presence.id, targets=[small.id])
+    answer(s)
+    assert s.state.cards[small.id].zone == "p2:exile"  # power 2 is at most 3
+    roundtrip(s)
+
+
+def test_calamity_of_the_titans_exiles_what_costs_less(cards):
+    s = build(cards, p1=("Calamity of the Titans", "Test Drone"), p2=("Test Small", "Test Brute"))
+    small, brute = put(s, "Test Small", "battlefield", "p2"), put(s, "Test Brute", "battlefield", "p2")
+    c = put(s, "Calamity of the Titans", "hand")
+    put(s, "Test Drone", "hand")
+    mana(s, C=6)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert s.state.cards[small.id].zone == "p2:exile" and s.state.cards[brute.id].zone == "p2:battlefield"  # mana value 1 < 2 < 5
+    roundtrip(s)
+
+
+def test_tap_two_untapped_artifacts_creatures_or_lands(cards):
+    s = build(cards, p1=("Warlord's Elite", "Test Small"))
+    elite = put(s, "Warlord's Elite", "hand")
+    put(s, "Test Small", "battlefield")
+    put(s, "Forest", "battlefield")
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=elite.id)
+    answer(s)
+    assert find(s, "Warlord's Elite").zone == "p1:battlefield"
+    assert sum(1 for c in s.state.cards.values() if c.owner == "p1" and c.zone == "p1:battlefield" and c.tapped) >= 2
     roundtrip(s)

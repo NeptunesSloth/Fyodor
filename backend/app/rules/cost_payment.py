@@ -34,6 +34,7 @@ _VERBS = {C.SACRIFICE: "sacrifice", C.DISCARD: "discard", C.EXILE_FROM_GRAVEYARD
           C.RETURN_PERMANENT: "return to its owner's hand", C.TAP_OTHER: "tap", C.REMOVE_COUNTER: "remove counters from"}
 _VERBS["EXILE_FROM_HAND"] = "exile"
 _VERBS["REVEAL_FROM_HAND"] = "reveal"  # (wave 15C)
+_VERBS[C.BEHOLD] = "behold"  # (wave 17C) 701.4a
 _VERBS[C.EXILE_TO_GY] = "put into its owner's graveyard"  # (wave 15C)
 _VERBS["HAND_TO_BOTTOM"] = "put on the bottom of your library"  # -- if you do (wave 6F) --  # -- cost changers (wave 4I) -- "exile a blue card from your hand" (alt_costs.py)
 
@@ -61,6 +62,14 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
     else:
         zone = zone_key(player, "battlefield")
     out = []
+    if comp.kind == C.BEHOLD:  # -- static_other sweep (wave 17C) -- 701.4a: a card in your hand (the selector) or a permanent you control (alt)
+        for z, s in ((zone_key(player, "hand"), sel), (zone_key(player, "battlefield"), alt)):
+            for cid in plan.state.zones.get(z, []):
+                card = plan.state.cards.get(cid)
+                if card is not None and cid != source.id and (z.endswith(":hand") or (card.controller == player and plan.in_game(card))) \
+                        and s is not None and selectors.matches(plan, s, card, plan.ch(card), player, source.id):
+                    out.append(cid)
+        return out
     if comp.kind == C.EXILE_TO_GY:  # -- if you do (wave 15C) -- a card an opponent owns, face up in exile (406.3), in a stable order
         pool = [c for pid in plan.state.players if pid != player for c in plan.state.zones.get(zone_key(pid, "exile"), [])]
         return [c for c in pool if (x := plan.state.cards.get(c)) is not None and not x.face_down and x.owner != player
@@ -308,6 +317,11 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             sacrifice += ids  # (wave 4H) 701.61a: the Food, sacrificed with the cost's other sacrifices
         elif _pay_new_part(plan, comp, card, ids, record):  # -- activation costs (wave 4H) --
             continue
+        elif comp.kind in ("REVEAL_FROM_HAND", C.BEHOLD):  # -- static_other sweep (wave 17C) -- revealed to everyone (701.20a); a beheld permanent just is
+            shown = [c for c in ids if plan.state.cards[c].zone.endswith(":hand")]
+            if shown:
+                plan.do({"type": "reveal", "card_ids": shown}, actor=player)
+                record.revealed += shown
         elif comp.kind == C.UNTAP:
             plan.do({"type": "tap", "card_ids": [card.id], "tapped": False})
         elif comp.kind == C.PAY_ENERGY and energy_amount(comp, record.x):  # (107.14: remove that many energy counters)

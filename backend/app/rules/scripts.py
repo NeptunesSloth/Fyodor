@@ -2800,6 +2800,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if cost is None or [c.kind for c in cost.components].count(DISCARD) != 1 or not any(
                 c.kind == DISCARD and c.selector is not None and c.amount == 1 for c in cost.components):
             return None
+    if d is not None and ("cost:revealed" in json.dumps(d, default=str) or '"rev:' in json.dumps(d, default=str)):  # -- static_other sweep (wave 17C) --
+        cost = spell_additional_cost(ch.abilities) if d.get("kind") == "spell" else None  # (a spell's additional cost revealed it)
+        if cost is None or [c.kind for c in cost.components].count("REVEAL_FROM_HAND") != 1 or cost.either:
+            return None
     if d is not None and "cost:sacrificed" in json.dumps(d, default=str):
         cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
         if cost is None and d.get("kind") == "spell":  # -- costs (wave 3$) -- a spell's additional cost ("sacrifice a creature")

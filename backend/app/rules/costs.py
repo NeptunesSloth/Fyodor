@@ -474,8 +474,30 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
 _ADDITIONAL = re.compile(r"^as an additional cost to cast (?:this spell|~), (?P<cost>[^.]+)\.?$", re.IGNORECASE)
 # What a spell's additional cost may be made of: parts with chosen objects (or life / energy). Never the
 # source itself (a spell isn't on the battlefield to be sacrificed), tapping it, mana or counters on it.
+# -- static_other sweep (wave 17C) -- also "reveal a Merfolk card from your hand" (REVEAL_FROM_HAND, as optional_payment reads it),
+# "behold an Elf" (701.4a: reveal an Elf card from your hand or choose an Elf you control), "blight 1" (701.68a), "forage" (701.61a)
+# and "exile a creature you control": the parts of an activation cost cost_payment already pays
+BEHOLD = "BEHOLD"
 _ADDITIONAL_KINDS = frozenset({SACRIFICE, DISCARD, PAY_LIFE, PAY_ENERGY, EXILE_FROM_GRAVEYARD, RETURN_PERMANENT, TAP_OTHER,
-                               EXILE_TO_GY})  # (EXILE_TO_GY: wave 15C)
+                               EXILE_TO_GY,  # (EXILE_TO_GY: wave 15C)
+                               "REVEAL_FROM_HAND", BEHOLD, PUT_COUNTER, FORAGE, EXILE})
+_REVEAL_HAND_COST = re.compile(r"^Reveal (?:a|an) (?P<what>.+? card) from your hand$")
+_BEHOLD_COST = re.compile(r"^Behold (?:a|an) (?P<q>[A-Z][a-z]+)$")
+
+
+def _extra_part(part: str) -> CostComponent | None:
+    """-- static_other sweep (wave 17C) -- one of the parts above that a spell's additional cost may also be made of."""
+    if m := _REVEAL_HAND_COST.match(part):
+        key = _selector(m["what"], zone="hand")
+        return CostComponent("REVEAL_FROM_HAND", selector=key, text=part) if key else None
+    if m := _BEHOLD_COST.match(part):
+        hand, field = _selector(f"{m['q']} card", zone="hand"), _selector(f"{m['q']} you control", zone="battlefield")
+        return CostComponent(BEHOLD, selector=hand, alt=field, text=part) if hand and field else None
+    found = _one_4h(part, "")
+    if found is not None and (found.kind == FORAGE or (found.kind == PUT_COUNTER and part.startswith("Blight"))
+                              or (found.kind == EXILE and found.selector is not None and not found.x)):
+        return found
+    return None
 
 
 def additional_cost_text(line: str) -> str | None:
@@ -524,15 +546,17 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
         return either if either.either else None
     if text == "pay X life":  # -- X sized by a count (wave 4K) -- Toxic Deluge: X announced as it's cast (601.2b,
         return AbilityCost(life_x=True)  # 107.3a), paid with the rest (601.2h), at most your life (119.4, 118.3)
+    text = re.sub(r"\b(\w+), (\w+), and/or (\w+)\b", r"\1 or \2 or \3", text)  # (wave 17C: "tap two untapped artifacts, creatures, and/or lands")
     if text.lower().startswith("you may") or re.search(r"\bx\b", text, re.IGNORECASE) or "," in text:
         return None
     parts = [p.strip() for p in re.split(r" and (?=(?:sacrifice|discard|pay|exile|return|tap) )", text)]
     components: list[CostComponent] = []
     for part in parts:
-        found = _component(part[:1].upper() + part[1:], "") or _exile_to_gy(part[:1].upper() + part[1:])
+        found = _component(part[:1].upper() + part[1:], "") or _exile_to_gy(part[:1].upper() + part[1:]) \
+            or _extra_part(part[:1].upper() + part[1:])
         if found is None or found.kind not in _ADDITIONAL_KINDS:
             return None
-        if found.selector is None and found.kind not in (PAY_LIFE, PAY_ENERGY):
+        if found.selector is None and found.kind not in (PAY_LIFE, PAY_ENERGY, FORAGE):
             return None
         components.append(found)
     return AbilityCost(components=tuple(components), life=sum(c.amount for c in components if c.kind == PAY_LIFE))

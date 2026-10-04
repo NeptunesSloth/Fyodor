@@ -113,6 +113,10 @@ _GRAVEYARD_TYPES = re.compile(r"there are (?P<n>\w+) or more card types among ca
 _NONE_ON_BATTLEFIELD = re.compile(r"(?:there are )?no (?P<sel>[\w' -]+?)(?: are)? on the battlefield")
 _OBJECT_STAT = re.compile(r"(?P<who>its|that creature's|that permanent's|that card's|that spell's|~'s|the sacrificed (?:creature|permanent|artifact)'s) (?P<stat>power|toughness|mana value) "
                           r"(?:is|was) (?P<n>\w+) or (?P<cmp>less|greater|more|fewer)")
+_OBJECT_VS_REVEALED = re.compile(r"(?:its|that creature's|that permanent's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|less than|"
+                                 r"greater than or equal to|greater than|equal to) the revealed card's (?P<ref>power|toughness|mana value)")
+_REF_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "==", "greater than or equal to": ">=", "greater than": ">"}
+_REF_STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
 _X_IS = re.compile(r"x is (?P<n>\w+)(?: or (?P<cmp>more|greater|less|fewer))?", re.IGNORECASE)
 _VERSUS = re.compile(r"an opponent (?:(?P<controls>controls)|has) more (?P<what>.+?) than you")
 # -- intervening ifs (wave 11F) -- 603.4: the player the trigger event names ("that player"), the player a creature
@@ -844,6 +848,10 @@ def _object(t: str) -> Condition | None:
     it last existed); physical state (tapped, attacking) only of the source itself."""
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)'s (?:power|toughness|mana value)) (\w+ or )", r"\1 was \2", t)
+    m = _OBJECT_VS_REVEALED.fullmatch(t)
+    if m:  # -- static_other sweep (wave 17C) -- "its power is less than or equal to the revealed card's power" (Titan's Presence)
+        return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]],
+                "n": {_REF_STATS[m["ref"]]: "cost:revealed"}}
     m = _OBJECT_STAT.fullmatch(t)
     if m:  # "its mana value was 3 or less", "its power is 4 or greater"
         n = _num(m["n"])
@@ -1133,7 +1141,10 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
             from app.rules.stack_interaction import mana_value
 
             value = mana_value(card, ch)
-        return value is not None and _OPS[cond["op"]](value, cond["n"])
+        n = cond["n"]
+        if isinstance(n, dict):  # -- static_other sweep (wave 17C) -- the card a spell's cost revealed
+            n = values.evaluate(plan, ctx, n) if values._object(plan, ctx, "cost:revealed") is not None else None
+        return value is not None and n is not None and _OPS[cond["op"]](value, n)
     # "it's a land card" / "that creature is a Human": its characteristics, wherever it is (a card in
     # a library, a graveyard or exile, or a permanent as it last existed): the zone is not the test
     sel = replace(selectors.from_key(cond["is"]), zones=(card.zone.rsplit(":", 1)[-1],))

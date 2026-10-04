@@ -433,6 +433,25 @@ def _compare_event(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], "<=" if m["eq"] else "<", EVENT_STAT + _REF_STAT[m["what"]])))
 
 
+# -- static_other sweep (wave 17C) -- "Exile each creature and planeswalker with mana value less than the revealed card's mana value."
+# (Calamity of the Titans): a comparison with the card the source spell's additional cost revealed (its payment record)
+REVEALED_STAT = "rev:"
+
+
+@_suffix(r"with (?P<what>mana value|power|toughness) (?P<op>less than or equal to|less than|equal to|greater than or equal to|"
+         r"greater than) the revealed card's (?P<ref>mana value|power|toughness)")
+def _compare_revealed(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], _REF_OPS[m["op"]], REVEALED_STAT + _REF_STAT[m["ref"]])))
+
+
+def revealed_stat(plan: Plan, source: str | None, what: str) -> int | None:
+    """The mana value / power / toughness of the card the source spell's cost revealed (one card, from its payment record)."""
+    record = plan.rules.payments.get(plan.rules.object_id(source)) if source else None
+    ids = record.revealed if record is not None else []
+    card = plan.state.cards.get(ids[0]) if len(ids) == 1 else None
+    return _stat(plan.ch(card), what) if card is not None else None
+
+
 def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
     """The source's mana value / power / toughness: on the battlefield as it is, else as it last existed there."""
     card = plan.state.cards.get(source or "")
@@ -892,6 +911,10 @@ def _parse(phrase: str) -> Selector | None:
             pending_join = "or"
             i -= 1
             continue
+        if w == "and" and nouns and nouns[-1][0] == "type" and i > 0 and (left := _core(words[i - 1])) is not None and left[0] == "type":
+            pending_join = "or"  # -- static_other sweep (wave 17C) -- "each creature and planeswalker", "creatures and planeswalkers": either type
+            i -= 1
+            continue
         c = _core(w)
         if c is None:
             break
@@ -1136,7 +1159,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if set(sel.without_keywords) & ch.keywords:
         return False
     for what, op, n in sel.compare:
-        if isinstance(n, str) and n.startswith(SOURCE_STAT):  # -- reanimation (wave 10A) --
+        if isinstance(n, str) and n.startswith(REVEALED_STAT):  # -- static_other sweep (wave 17C) --
+            revealed = revealed_stat(plan, source, n[len(REVEALED_STAT):])
+            if revealed is None:
+                return False
+            n = revealed
+        elif isinstance(n, str) and n.startswith(SOURCE_STAT):  # -- reanimation (wave 10A) --
             ref_value = source_stat(plan, source, n[len(SOURCE_STAT):])
             if ref_value is None:
                 return False
