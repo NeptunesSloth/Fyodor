@@ -382,7 +382,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
         return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "cumulative upkeep":  # triggers.cumulative_cost: a mana cost
-        return re.fullmatch(r"cumulative upkeep (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+        return re.fullmatch(r"cumulative upkeep (?:\{[^}]+\})+|cumulative upkeep—pay \d+ life",
+                            line.strip().rstrip(".").lower()) is not None
     from app.rules import (
         keyword_triggers,  # -- static wordings (wave 6E) -- battle cry, ingest … (their CR meaning)
     )

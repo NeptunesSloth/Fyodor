@@ -1250,13 +1250,16 @@ def echo_cost(ch: Any) -> str | None:
 
 
 CUMULATIVE = re.compile(r"^cumulative upkeep (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+# -- keywords (wave 15E) -- "Cumulative upkeep—Pay 2 life.": N times 2 life for N age counters (702.24a)
+CUMULATIVE_LIFE = re.compile(r"^cumulative upkeep—pay (?P<n>\d+) life$", re.IGNORECASE)
 
 
 def cumulative_cost(ch: Any) -> str | None:
     for ab in ch.abilities:
         if ab.kind == "keywords" and "cumulative upkeep" in ab.keywords:
-            m = CUMULATIVE.fullmatch(ab.text.strip().rstrip("."))
-            return m["cost"] if m else None
+            m = CUMULATIVE.fullmatch(re.sub(r"\s*\(.*?\)", "", ab.text).strip().rstrip("."))
+            life = CUMULATIVE_LIFE.fullmatch(re.sub(r"\s*\(.*?\)", "", ab.text).strip().rstrip("."))
+            return m["cost"] if m else f"life:{life['n']}" if life else None
     return None
 
 
@@ -1273,7 +1276,11 @@ def _cumulative_upkeep(plan: Plan) -> None:
         _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
              index=5100, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
                                      "effects": [{"do": "add_counters", "who": "self", "kind": "age", "n": 1},
-                                                 {"do": "pay_or_sacrifice", "cost": cost, "per": "age"}]})
+                                                 *([{"do": "optional_payment", "who": "you", "cost": "", "bind": "pay0",
+                                                     "life_x": {"times": [int(cost[5:]), {"counters": "age", "on": "self"}]}},
+                                                    {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
+                                                    {"do": "sacrifice", "who": "self"}] if cost.startswith("life:") else
+                                                   [{"do": "pay_or_sacrifice", "cost": cost, "per": "age"}])]})
 
 
 def _rebound(plan: Plan) -> None:

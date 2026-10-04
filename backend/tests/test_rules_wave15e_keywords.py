@@ -37,6 +37,7 @@ EXTRA = [
     card('Rakdos Cackler', set_code='tst', number='X18', mana_cost='{B/R}', cmc=1.0, type_line='Creature — Devil', oracle_text="Unleash (You may have this creature enter with a +1/+1 counter on it. It can't block as long as it has a +1/+1 counter on it.)", power='1', toughness='1', colors=['B', 'R'], color_identity=['B', 'R'], keywords=['Unleash']),  # noqa: E501
     card('Clamor Shaman', set_code='tst', number='X19', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Goblin Shaman', oracle_text="Riot (This creature enters with your choice of a +1/+1 counter or haste.)\nWhenever this creature attacks, target creature an opponent controls can't block this turn.", power='1', toughness='1', colors=['R'], color_identity=['R'], keywords=['Riot']),  # noqa: E501
     card('Gorilla Berserkers', set_code='tst', number='X20', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Ape Berserker', oracle_text="Trample; rampage 2 (Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)\nThis creature can't be blocked except by three or more creatures.", power='2', toughness='3', colors=['G'], color_identity=['G'], keywords=['Trample', 'Rampage']),  # noqa: E501
+    card('Gallowbraid', set_code='tst', number='X21', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Legendary Creature — Phyrexian Horror', oracle_text='Trample\nCumulative upkeep—Pay 1 life. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)', power='5', toughness='5', colors=['B'], color_identity=['B'], keywords=['Trample', 'Cumulative upkeep']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -442,4 +443,20 @@ def test_rampage_counts_the_blockers_beyond_the_first(cards):
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": w.id, "attacker_id": gorilla.id} for w in walls])
     until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "divide")
     assert pt(s, gorilla) == (6, 7)  # 702.23a: three blockers, two beyond the first: +2/+2 each
+    check(s)
+
+
+@pytest.mark.parametrize(("answer", "life", "alive"), [("pay", 39, True), ("decline", 40, False)])
+def test_cumulative_upkeep_pay_life(cards, answer, life, alive):
+    s = build(cards, "Gallowbraid")
+    beast = put(s, "Gallowbraid")
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.rules.decision is not None and s.state.rules.decision.player == "p1"
+          and "pay" in {o.id for o in s.state.rules.decision.options})
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[answer])
+    settle(s)
+    assert s.state.players["p1"].life == life  # 702.24a: one age counter, 1 life each
+    assert (s.state.cards[beast.id].zone == "p1:battlefield") is alive
+    if alive:
+        assert s.state.cards[beast.id].counters.get("age") == 1
     check(s)
