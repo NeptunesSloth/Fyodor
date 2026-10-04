@@ -28,6 +28,7 @@ EXTRA = [
     card('Entangling Vines', set_code='tst', number='X09', mana_cost='{3}{G}', cmc=4.0, type_line='Enchantment — Aura', oracle_text="Enchant tapped creature\nEnchanted creature doesn't untap during its controller's untap step.", power=None, toughness=None, colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
     card('Blastoderm', set_code='tst', number='X10', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Creature — Beast', oracle_text="Shroud (This creature can't be the target of spells or abilities.)\nFading 3 (This creature enters with three fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Shroud', 'Fading']),  # noqa: E501
     card('Calciderm', set_code='tst', number='X11', mana_cost='{2}{W}{W}', cmc=4.0, type_line='Creature — Beast', oracle_text="Shroud (This creature can't be the target of spells or abilities.)\nVanishing 4 (This creature enters with four time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)", power='5', toughness='5', colors=['W'], color_identity=['W'], keywords=['Shroud', 'Vanishing']),  # noqa: E501
+    card('Hyena Umbra', set_code='tst', number='X12', mana_cost='{W}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature gets +1/+1 and has first strike.\nUmbra armor (If enchanted creature would be destroyed, instead remove all damage from it and destroy this Aura.)', power=None, toughness=None, colors=['W'], color_identity=['W'], keywords=['Enchant', 'Umbra armor']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -264,4 +265,21 @@ def test_vanishing_sacrifices_when_the_last_counter_goes(cards):
     assert s.state.cards[beast.id].zone == "p1:battlefield"
     to_own_turn(s, 3)  # the upkeep removes the last time counter: sacrificed
     assert s.state.cards[beast.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_umbra_armor_saves_the_creature_and_destroys_the_aura(cards):
+    s = build(cards, "Hyena Umbra", "Lightning Bolt")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    umbra = to_hand(s, "Hyena Umbra")
+    mana(s, W=1)
+    act(s, "p1", type="cast_spell", card_id=umbra.id, targets=[bear.id])
+    settle(s)
+    assert s.state.cards[umbra.id].attached_to == bear.id
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[bear.id])  # 3 damage to a 3/3: lethal damage (704.5g)
+    settle(s)
+    assert s.state.cards[bear.id].zone == "p1:battlefield" and s.state.cards[bear.id].damage == 0  # 702.89a
+    assert s.state.cards[umbra.id].zone == "p1:graveyard"
     check(s)

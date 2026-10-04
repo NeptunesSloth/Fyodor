@@ -207,6 +207,19 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
     if found.unattach:
         plan.do({"type": "detach", "card_ids": [c.id for c, _ in found.unattach]}, actor=found.unattach[0][0].controller)
         happened = True
+    if found.dying:  # -- keywords (wave 15E) -- 702.89a: lethal damage destroys; umbra armor replaces that
+        from app.rules import regeneration
+
+        kept = []
+        for card, reason in found.dying:
+            armor = regeneration.umbra_armor(plan, card) if reason in ("lethal damage", "damage from a deathtouch source") \
+                and not regeneration.shielded(plan, card) else None
+            if armor is not None:
+                regeneration.use_umbra_armor(plan, card, armor, card.controller)
+                happened = True
+            else:
+                kept.append((card, reason))
+        found.dying = kept
     if found.dying and r.regen_shields:  # 701.19: lethal damage destroys; a shield replaces that
         from app.rules import regeneration
 
