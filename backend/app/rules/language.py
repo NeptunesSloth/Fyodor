@@ -773,7 +773,7 @@ _PICK_DESTS = {**_DESTS, "onto the battlefield tapped and attacking": "battlefie
                "on the bottom of that library": "bottom", "on top of that library": "top"}
 _PICK = re.compile(
     rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |(?P<exile>(?:you may )?exile) |put )"
-    rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among (?:them|the cards milled this way|those cards)|revealed this way|milled this way))"
+    rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among (?:them|the cards milled this way|the milled cards|those cards)|revealed this way|milled this way))"
     r"|(?= (?:into|on|onto) )| them(?= (?:into|on|onto) ))"
     r"|(?P<that>that card|it|the revealed card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
     r"(?: and put (?:it|them|the revealed cards|that card|those cards))?"
@@ -808,7 +808,7 @@ _SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)
 # that type from among the revealed cards into your hand" (205.2a: the card types a Commander deck can hold)
 _KINDS = re.compile(r"(?P<verb>you may reveal|you may put) (?P<list>(?:(?:a|an) [a-zA-Z ]+? card, )*(?:a|an) [a-zA-Z ]+? card,? "
                     r"and/or (?:a|an) [a-zA-Z ]+? card) from among (?:them|the revealed cards)"
-                    r"(?: and put (?:them|the revealed cards|those cards))? into your hand")
+                    r"(?: and put (?:them|the revealed cards|those cards))? (?P<to>into your hand|onto the battlefield)")
 _EACH_TYPE = re.compile(r"for each card type, you may (?P<verb>put|reveal) a card of that type from among (?:them|the revealed cards)"
                         r"(?: and put (?:it|them|the revealed cards|those cards))? into your hand")
 _COMMANDER_CARD_TYPES = ("artifact", "battle", "creature", "enchantment", "instant", "kindred", "land", "planeswalker", "sorcery")
@@ -829,8 +829,8 @@ def _pick_kinds(text: str) -> tuple[Effects, Any] | None:
         if sel is None or sel.player is not None or not sel.card:
             raise _Fail
         sels.append(sel.key())
-    return [{"do": "pick_looked", "n": len(sels), "sel": None, "sels": sels, "to": "hand", "optional": True,
-             "reveal": m["verb"].endswith("reveal")}], None
+    return [{"do": "pick_looked", "n": len(sels), "sel": None, "sels": sels, "to": "battlefield" if m.groupdict().get("to") == "onto the battlefield" else "hand",
+             "optional": True, "reveal": m["verb"].endswith("reveal")}], None  # (-- triggers (wave 19B) -- also onto the battlefield)
 
 
 # -- look top (wave 16F) -- one card that is any of several kinds: "You may reveal a Knight, Aura, Equipment, or legendary artifact card

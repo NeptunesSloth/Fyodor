@@ -1,6 +1,8 @@
 """Wave 19B: the trigger long tail, fourth pass (CR 2026-09-25). Real Oracle text; every scenario checks the replay and a save and a load.
 
 * 608.2d: "its controller may draw a card" - the controller of the creature that dealt the damage decides.
+* 701.17a: "mill four cards, then you may put a creature or land card from among the milled cards on top of your library", and
+  "a creature card and/or a land card from among them into your hand" - the pick is from the cards the mill put into the graveyard.
 * 508.1b: "deals 1 damage to the player or planeswalker it's attacking" - what the attacker the trigger is about attacks now.
 """
 
@@ -11,18 +13,21 @@ import pytest
 from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act, zone
-from tests.test_rules_conditionals import through_combat, token_of
+from tests.test_rules_conditionals import token_of
 from tests.test_rules_wave5c_combat import build as combat_build
 from tests.test_rules_wave5c_combat import declare, to_attack, to_blocks
 from tests.test_rules_wave5c_combat import put as combat_put
-from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import check, life
+from tests.test_rules_wave12a_counters_keywords import answer, real
+from tests.test_rules_effects import mana
+from tests.wave9c_kit import check, life, to_hand
 
 EXTRA = [
     real('Hellrider', '{2}{R}{R}', 4, 'Creature — Devil', "Haste\nWhenever a creature you control attacks, this creature deals 1 damage to the player or planeswalker it's attacking.", ("3", "3"), 'R'),
     real('Scorch Spitter', '{1}{R}', 2, 'Creature — Lizard', "Whenever this creature attacks, it deals 1 damage to the player or planeswalker it's attacking.", ("2", "1"), 'R'),
     real('Edric, Spymaster of Trest', '{1}{G}{U}', 3, 'Legendary Creature — Elf Rogue', "Whenever a creature deals combat damage to one of your opponents, its controller may draw a card.", ("2", "2"), 'GU'),
     real('Synapse Sliver', '{3}{U}', 4, 'Creature — Sliver', "Whenever a Sliver deals combat damage to a player, its controller may draw a card.", ("1", "1"), 'U'),
+    real('Lluwen, Imperfect Naturalist', '{B}{G}', 2, 'Legendary Creature — Elf Druid', "When Lluwen enters, mill four cards, then you may put a creature or land card from among the milled cards on top of your library.\n{2}{B/G}{B/G}, Discard a land card: Create a 1/1 black and green Worm creature token for each land card in your graveyard.", ("1", "3"), 'BG'),
+    real('Sludge Titan', '{4}{B}{G}', 6, 'Creature — Phyrexian Zombie Giant', "Whenever this creature enters or attacks, mill five cards. You may put a creature card and/or a land card from among them into your hand.", ("5", "5"), 'BG'),
 ]
 
 NAMES = [e["name"] for e in EXTRA]
@@ -90,3 +95,29 @@ def test_its_controller_may_draw_on_combat_damage(cards, name, kind):
                 act(s, s.state.rules.priority, type="pass_priority")
         assert len(zone(s.state, "p1", "hand")) == hand + drawn
         check(s)
+
+
+def cast(s, name, pid="p1", **m):
+    spell = to_hand(s, name, pid)
+    mana(s, pid, **m)
+    act(s, pid, type="cast_spell", card_id=spell.id)
+
+
+def test_mill_then_put_one_of_the_milled_cards_on_top_of_the_library(cards):
+    s = combat_build(cards, "Lluwen, Imperfect Naturalist")
+    cast(s, "Lluwen, Imperfect Naturalist", B=1, G=1)
+    answer(s)  # the first milled land goes back on top
+    top = s.state.zones["p1:library"][0]
+    assert s.state.cards[top].name == "Forest"
+    assert len(s.state.zones["p1:graveyard"]) == 3  # four milled, one put back
+    check(s)
+
+
+def test_mill_then_put_a_creature_and_a_land_into_the_hand(cards):
+    s = combat_build(cards, "Sludge Titan")
+    cast(s, "Sludge Titan", B=1, G=1, C=4)
+    hand = len(zone(s.state, "p1", "hand"))
+    answer(s)
+    assert len(zone(s.state, "p1", "hand")) == hand + 1  # five Forests milled: one land (a creature and a land are two kinds)
+    assert len(s.state.zones["p1:graveyard"]) == 4
+    check(s)

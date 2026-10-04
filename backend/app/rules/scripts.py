@@ -2464,7 +2464,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             # -- if you do (wave 10C) -- "Mill three cards. You may put a land card from among them into your hand.": the pick
             # is from the cards that mill put into the graveyard (the controller's own mill, a choice among chosen-by-kind cards)
             if mill_k is None or e["do"] != "pick_looked" or resolved[mill_k].get("who") != "you" or e.get("which") \
-                    or e.get("sels") or e.get("reveal") or e["to"] not in ("hand", "battlefield", "battlefield_tapped"):
+                    or e.get("reveal") or e["to"] not in ("hand", "top", "battlefield", "battlefield_tapped"):
                 return None
             resolved[mill_k]["look"] = True
     # -- cast without paying (wave 3C) -- (wave 3R5: the cast is made during the resolution, 608.2g, and the
