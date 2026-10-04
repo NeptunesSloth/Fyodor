@@ -3461,6 +3461,9 @@ PRIMITIVES.update(_recursion.PRIMITIVES)
 from app.rules import combat_rules as _combat_rules  # noqa: E402
 
 PRIMITIVES.update(_combat_rules.PRIMITIVES)
+from app.rules import ninjutsu as _ninjutsu  # noqa: E402  -- keywords (wave 15E) -- 702.49
+
+PRIMITIVES["ninjutsu_enter"] = _ninjutsu.enter
 RESUME.update(_combat_rules.RESUME)
 
 # -- triggers (wave 5D) -- "then put two cards from your hand on top of your library in any order" (app/rules/put_back.py)

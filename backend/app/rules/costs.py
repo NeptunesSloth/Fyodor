@@ -183,7 +183,7 @@ def _selector(phrase: str, *, zone: str, other: bool = False) -> str | None:
         phrase = "token permanent"
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or sel.extras and any(
-            e in ("enchanted", "equipped") for e in sel.extras) or sel.attacking or sel.blocking:
+            e in ("enchanted", "equipped") for e in sel.extras) or (sel.attacking and "unblocked" not in sel.extras) or sel.blocking:
         return None
     if zone == "battlefield":
         if sel.card or sel.zones != ("battlefield",) or sel.controller == "opponent" or sel.owner is not None:

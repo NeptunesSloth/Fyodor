@@ -38,6 +38,7 @@ EXTRA = [
     card('Clamor Shaman', set_code='tst', number='X19', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Goblin Shaman', oracle_text="Riot (This creature enters with your choice of a +1/+1 counter or haste.)\nWhenever this creature attacks, target creature an opponent controls can't block this turn.", power='1', toughness='1', colors=['R'], color_identity=['R'], keywords=['Riot']),  # noqa: E501
     card('Gorilla Berserkers', set_code='tst', number='X20', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Ape Berserker', oracle_text="Trample; rampage 2 (Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)\nThis creature can't be blocked except by three or more creatures.", power='2', toughness='3', colors=['G'], color_identity=['G'], keywords=['Trample', 'Rampage']),  # noqa: E501
     card('Gallowbraid', set_code='tst', number='X21', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Legendary Creature — Phyrexian Horror', oracle_text='Trample\nCumulative upkeep—Pay 1 life. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)', power='5', toughness='5', colors=['B'], color_identity=['B'], keywords=['Trample', 'Cumulative upkeep']),  # noqa: E501
+    card('Ninja of the Deep Hours', set_code='tst', number='X22', mana_cost='{3}{U}', cmc=4.0, type_line='Creature — Human Ninja', oracle_text='Ninjutsu {1}{U} ({1}{U}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, you may draw a card.', power='2', toughness='2', colors=['U'], color_identity=['U'], keywords=['Ninjutsu']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -459,4 +460,28 @@ def test_cumulative_upkeep_pay_life(cards, answer, life, alive):
     assert (s.state.cards[beast.id].zone == "p1:battlefield") is alive
     if alive:
         assert s.state.cards[beast.id].counters.get("age") == 1
+    check(s)
+
+
+def test_ninjutsu_swaps_an_unblocked_attacker_for_the_ninja(cards):
+    s = build(cards, "Ninja of the Deep Hours")
+    ninja = to_hand(s, "Ninja of the Deep Hours")
+    rat = token_of(s, "p1", "Rat", "Token Creature — Rat", "1/1")
+    token_of(s, "p2", "Wall", "Token Creature — Wall", "0/4")  # (so there is a declare blockers decision)
+    act(s, "p1", type="set_prefs", stops_my_turn=["main1", "declare_blockers", "main2"])
+    next_own_turn(s)
+    attack_with(s, rat)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
+    mana(s, U=1, C=1)
+    with pytest.raises(Exception):  # 702.49a: no attacker is unblocked until blockers are declared
+        act(s, "p1", type="activate_ability", card_id=ninja.id, ability=0)
+    act(s, "p2", type="declare_blockers", blocks=[])
+    act(s, "p1", type="activate_ability", card_id=ninja.id, ability=0)
+    d = s.state.rules.decision
+    if d is not None:
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[rat.id])  # the unblocked attacker returned (a token ceases to exist)
+    settle(s)
+    n = s.state.cards[ninja.id]
+    assert n.zone == "p1:battlefield" and n.attacking is not None and n.attacking.id == "p2"  # 702.49c
+    assert rat.id not in s.state.zones["p1:battlefield"]
     check(s)

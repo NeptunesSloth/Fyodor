@@ -31,6 +31,7 @@ from app.rules import mana as M
 from app.rules import payment as P
 from app.rules.activation_words import any_player  # -- activation wordings (wave 7B) --
 from app.rules.characteristics import CardInfo, Characteristics
+from app.rules import ninjutsu
 from app.rules.costs import AbilityCost, kicker_cost, parse_ability_cost
 from app.rules.oracle import AbilityText
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
@@ -2405,6 +2406,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         found = suspend_info(ch, a.ability)
         if found is not None:
             suspend(plan, card, ch, a, *found)
+        elif (ninja := ninjutsu.cost_of(ch, a.ability)) is not None and not plan.manual(card):
+            on_stack = len(plan.state.zones.get(STACK, []))
+            activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION)
+            if len(plan.state.zones.get(STACK, [])) > on_stack and card.zone == zone_key(plan.actor, "hand"):  # -- keywords
+                # (wave 15E) -- 702.49b: revealed until the ability leaves the stack (ninjutsu.enter hides it again)
+                plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
         else:
             cycle(plan, card, ch, a)
         return
@@ -2596,6 +2603,10 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     elif cost.from_graveyard:  # 113.6m: its cost moves it out of your graveyard, so it works only there
         if card.zone != zone_key(player, "graveyard") or card.owner != player:
             return "That ability can only be activated from your graveyard"
+    elif ninjutsu.is_ninjutsu(ability.text):  # -- keywords (wave 15E) -- 702.49a: from the hand, once blockers are declared
+        why = ninjutsu.problem(state, player, card)
+        if why:
+            return why
     elif not card.zone.endswith(":battlefield") or (card.controller != player and not any_player(ability, cost)):  # (wave 7B)
         return "You can only activate abilities of permanents you control"
     if cost.unsupported:
@@ -2786,6 +2797,15 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                                     check_priority=check_priority,
                                     info=info) is None:
                 out.append({"card_id": cid, "ability": ab.index})
+    for cid in state.zones.get(zone_key(player, "hand"), []):  # -- keywords (wave 15E) -- ninjutsu (702.49a)
+        card = state.cards[cid]
+        ch = chars.of(card, info)
+        for ab in ch.abilities:
+            if (cost_text := ninjutsu.cost_of(ch, ab.index)) is not None:
+                made = ninjutsu.ability(ch, ab.index, cost_text)
+                if ability_problem(state, player, card, ch, made, ability_cost(ch, made, state=state, card=card, info=info),
+                                   check_priority=check_priority, info=info) is None:
+                    out.append({"card_id": cid, "ability": ab.index})
     for cid in state.zones.get(zone_key(player, "graveyard"), []):  # 113.6m: "Exile this card from your graveyard: …"
         card = state.cards[cid]
         ch = chars.of(card, info)
