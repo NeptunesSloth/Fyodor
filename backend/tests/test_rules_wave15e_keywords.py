@@ -13,7 +13,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import attack, settle, through_combat, token_of, until
 from tests.test_rules_effects import replay_matches
-from tests.test_rules_wave6c_tokens_pumps import build, chars, mana, put, reloaded, to_hand, tokens
+from tests.test_rules_wave6c_tokens_pumps import build, chars, mana, pt, put, reloaded, to_hand, tokens
 from tests.test_rules_wave6e_statics import attack_with
 
 EXTRA = [
@@ -36,6 +36,7 @@ EXTRA = [
     card('Scion of Calamity', set_code='tst', number='X17', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Dinosaur', oracle_text="Myriad (Whenever this creature attacks, for each opponent other than defending player, you may create a token that's a copy of this creature that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Myriad']),  # noqa: E501
     card('Rakdos Cackler', set_code='tst', number='X18', mana_cost='{B/R}', cmc=1.0, type_line='Creature — Devil', oracle_text="Unleash (You may have this creature enter with a +1/+1 counter on it. It can't block as long as it has a +1/+1 counter on it.)", power='1', toughness='1', colors=['B', 'R'], color_identity=['B', 'R'], keywords=['Unleash']),  # noqa: E501
     card('Clamor Shaman', set_code='tst', number='X19', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Goblin Shaman', oracle_text="Riot (This creature enters with your choice of a +1/+1 counter or haste.)\nWhenever this creature attacks, target creature an opponent controls can't block this turn.", power='1', toughness='1', colors=['R'], color_identity=['R'], keywords=['Riot']),  # noqa: E501
+    card('Gorilla Berserkers', set_code='tst', number='X20', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Ape Berserker', oracle_text="Trample; rampage 2 (Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)\nThis creature can't be blocked except by three or more creatures.", power='2', toughness='3', colors=['G'], color_identity=['G'], keywords=['Trample', 'Rampage']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -429,3 +430,16 @@ def test_protection_from_creature_types_legendary_and_mana_value():
     assert non_spirit(ch({"Creature"}, {"Elf"})) and not non_spirit(ch({"Creature"}, {"Spirit"})) and not non_spirit(ch({"Instant"}))
     assert legend(ch({"Creature"}, supertypes={"Legendary"})) and not legend(ch({"Creature"}))
     assert mv3(ch({"Creature"}, mv=3)) and not mv3(ch({"Creature"}, mv=2))
+
+
+def test_rampage_counts_the_blockers_beyond_the_first(cards):
+    s = build(cards, "Gorilla Berserkers")
+    gorilla = put(s, "Gorilla Berserkers")
+    walls = [token_of(s, "p2", f"Wall {i}", "Token Creature — Wall", "0/4") for i in range(3)]
+    next_own_turn(s)
+    attack_with(s, gorilla)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": w.id, "attacker_id": gorilla.id} for w in walls])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "divide")
+    assert pt(s, gorilla) == (6, 7)  # 702.23a: three blockers, two beyond the first: +2/+2 each
+    check(s)

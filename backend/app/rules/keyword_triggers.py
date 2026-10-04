@@ -66,10 +66,12 @@ MEANINGS: dict[str, str] = {
     "myriad": "Whenever this creature attacks, for each opponent other than defending player, you may create a token that's a copy "
               "of this creature that's tapped and attacking that player or a planeswalker they control. If one or more tokens are "
               "created this way, exile the tokens at end of combat.",
+    "rampage": "Whenever this creature becomes blocked, it gets +{n}/+{n} until end of turn for each creature blocking it beyond "
+               "the first.",  # 702.23a
     "mentor": "Whenever this creature attacks, put a +1/+1 counter on target attacking creature with power less than this "
               "creature's power.",  # 702.134a
 }
-_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict", "mobilize", "vanishing", "fading", "backup"})
+_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict", "mobilize", "vanishing", "fading", "backup", "rampage"})
 
 
 def pieces(kw: str, line: str) -> list[str]:
