@@ -176,9 +176,9 @@ def define(t: str) -> dict[str, Any] | None:
 # (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
 PROWL_COND = "a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell"  # 702.76a
 KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None,
-                 "prowl": PROWL_COND, "overload": None, "emerge": None, "foretell": None}  # (wave 17C: prowl)
+                 "prowl": PROWL_COND, "overload": None, "emerge": None, "foretell": None, "mutate": None}  # (wave 17C: prowl; wave 18D: mutate, 702.140a)
 # (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell)(?: from (?P<q>[A-Za-z]+))? "
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate)(?: from (?P<q>[A-Za-z]+))? "
                            r"(?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
 # when the prowl condition holds for that spell
@@ -254,9 +254,14 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue  # 702.143a/d: its owner, "after the current turn has ended" (a card put there by hand has no record: any turn)
         if d.get("cond") is not None and not conditions.holds(view, _ctx(state, player, card), d["cond"]):
             continue
+        if d.get("tag") == "mutate":  # -- merged permanents (wave 18D) -- 702.140a: only with a creature to merge with
+            from app.rules import merged
+
+            if not merged.can_mutate(view, player, card, ch):
+                continue
         alt = parse_cost(d["cost"])
         if alt is not None:
-            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt, tag=d.get("tag")))
+            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}" + (" (mutate)" if d.get("tag") == "mutate" else ""), alt, tag=d.get("tag")))
     given = r.foretell_costs.get(card.id)  # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave it
     if given and card.zone == f"{player}:foretell" and card.owner == player and r.foretold.get(card.id, 0) < state.turn.number \
             and (alt := parse_cost(f"pay {given}")) is not None:

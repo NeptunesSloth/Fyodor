@@ -163,6 +163,25 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   transformed", "return it … [tapped and] transformed" and Saga III turn the face over (`keyword_actions.transform`,
   `RulesState.transformed` for 701.27f, `Move.back_ids` for 712.14a). Not read: "transform it / target …", delayed "transform",
   "transforms into" triggers (701.27e), disturb, craft, modal and meld cards, casting a card transformed, copies of a back face (MV 0).
+- **Merged and melded permanents** (wave 18D, 702.140 / 730 mutate, 701.42 / 712.4 / 712.21 meld; `app/game/merging.py`, `app/rules/merged.py`):
+  one permanent is one `CardInstance` (the shell: its id is the object's identity) whose card fields are the topmost component's and
+  whose `merged` lists every card / token (`MergedPart`, topmost first; `melded` for a meld pair, the shell then wearing the combined
+  back face). `characteristics.merged_of` adds every component's abilities (a lower card's own name is read as the permanent's) and sums
+  a melded permanent's front-face mana values; `ops.move_card` breaks the pile up when the permanent leaves the battlefield (a token
+  component ceases to exist; the commander is the card the shell becomes for a move to hand / library / command zone so 903.9b-c work
+  as for any commander, `Move.rest_zone`). "Mutate {cost}" is an alternative cost (tag "mutate", offered only with a non-Human creature
+  you own that is `merged.mergeable`), the spell targets it, resolves into `Merge` after an over / under decision (illegal target:
+  creature spell, 702.140b), emits the "mutated" event ("Whenever this creature mutates"), and "the number of times this creature has
+  mutated" is the pile size minus one. Meld: "exile them, then meld them into X" (condition "you both own and control ~ and a creature
+  named Y", names carried as `meldname:<hex>` through the grammar) is the `meld` primitive: both cards exiled, then one `Meld` step
+  and the normal entry path. Refused (manual): mutating onto a face-down, double-faced, flip, copy, melded or copied-over permanent or
+  with a token / copy spell, a second commander in one pile, copies of a merged or melded permanent or of a mutating spell,
+  "cast from your graveyard using its mutate ability" (Brokkos), Mishra, Claimed by Gix (enters tapped and attacking), The Meld Hound,
+  Pollywog Symbiote, Surgeon General Commander ("augment"). A pile leaving is one permanent leaving (one leave / dies
+  trigger); each other card gets its own zone-change event "from the battlefield" with no old object (`rules_state._diff`), so
+  "put into a graveyard from anywhere" sees every card, and `merged.pieces` / `triggers.pile_refs` make "return it", blink, "exile
+  until" and exiled-with find all of them (730.3c). Put on top / bottom of its owner's library by `to_library`, the owner orders the
+  cards (730.3a); in a graveyard (and among several cards ordered together) the order is the pile's.
 - **Ability-word flavor prefixes**: the deny list of rules-bearing "Name —" prefixes in
   `oracle.word_prefix` is maintained by hand; add new mechanics to it.
 

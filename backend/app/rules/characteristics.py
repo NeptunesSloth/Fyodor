@@ -373,6 +373,36 @@ def as_cast(card: CardInstance, info: CardInfo, face: int | None, fused: bool = 
 
 def of(card: CardInstance, info: CardInfo) -> Characteristics:
     """Current characteristics of a card instance (printed layer; see module docstring)."""
+    ch = _of(card, info)
+    return merged_of(card, info, ch) if card.merged and not ch.face_down else ch
+
+
+def merged_of(card: CardInstance, info: CardInfo, top: Characteristics) -> Characteristics:
+    """-- merged permanents (wave 18D) -- a merged permanent has the characteristics of its topmost component (the instance's own card
+    fields, 730.2a) and all abilities of every component (702.140e); text naming a lower card names the permanent (its card name is
+    written as the top's). A melded permanent has only its combined back face's characteristics (712.8g) and the sum of its two front
+    faces' mana values (202.3c, 712.8g)."""
+    stubs = [CardInstance(id=p.id, card_id=p.card_id, name=p.name, owner=p.owner, controller=card.controller, zone=card.zone,
+                          is_token=p.is_token, token=p.token) for p in card.merged]
+    if card.melded:
+        return replace(top, mana_value=sum(_of(s, info).mana_value for s in stubs))
+    abilities = list(top.abilities)
+    for stub in stubs[1:]:
+        low = _of(stub, info)
+        names = sorted({n for n in (low.name, low.name.split(",")[0].strip()) if len(n) >= 3 and n != top.name}, key=len, reverse=True)
+        for ab in low.abilities:
+            if ab.intrinsic:
+                continue
+            text = ab.text
+            cost = ab.cost
+            for n in names:
+                text = re.sub(rf"(?<![\w']){re.escape(n)}(?![\w'])", top.name, text)
+                cost = re.sub(rf"(?<![\w']){re.escape(n)}(?![\w'])", top.name, cost) if cost else cost
+            abilities.append(replace(ab, index=len(abilities), text=text, cost=cost))
+    return replace(top, abilities=tuple(abilities))
+
+
+def _of(card: CardInstance, info: CardInfo) -> Characteristics:
     if card.ability is not None:
         return Characteristics(name=card.ability.source_name or "Ability", oracle_text=card.ability.text,
                                abilities=tuple(parse_abilities(card.ability.text, spell=True)), is_ability=True)

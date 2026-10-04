@@ -32,6 +32,7 @@ from app.rules import (
     costs,
     graveyard_keywords,
     history,
+    merged,  # -- merged permanents (wave 18D) --
     ninjutsu,
     permissions,
     restrictions,
@@ -2013,16 +2014,17 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         from app.rules import alt_costs as _alt
         from app.rules import bestow
 
-        tag = next((o.tag for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info) if o.key == a.alt_cost), None)
-        if tag == "overload":  # -- casting extras (wave 18E) -- 702.96a: "target" is "each" (no targets, 702.96b)
+        kinds = {o.tag for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info) if o.key == a.alt_cost}
+        if "overload" in kinds:  # -- casting extras (wave 18E) -- 702.96a: "target" is "each" (no targets, 702.96b)
             from app.rules import overload
 
             ch = overload.overlay(ch)
-        bestowed_cast = tag == "bestow"
+        bestowed_cast = "bestow" in kinds
+        mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature
         if bestowed_cast:
             ch = bestow.overlay(ch)
     else:
-        bestowed_cast = False
+        bestowed_cast = mutating_cast = False
     if a.prototype:  # -- casting extras (wave 18E) -- 702.160a / 718.3a: only the alternative cost, power and toughness are used to cast it
         from app.rules import prototype
 
@@ -2127,7 +2129,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
                 additional.append(sc.mana_cost)
             if sc.cost.components:
                 splice_extra.append(sc.cost)
-    aura = None if plan.manual(card) or a.face_down else attachments.enchant_selector(ch)
+    aura = None if plan.manual(card) or a.face_down else (merged.MUTATE_TARGET if mutating_cast else attachments.enchant_selector(ch))
     slots: list[list[TargetRef]] = []
     slot_specs: list[dict[str, Any] | None] = []
     picked: list[int] = []
@@ -2306,6 +2308,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if bestowed_cast:  # -- keywords (wave 15E) -- 702.103b: the spell on the stack is a bestowed Aura spell
         plan.rules.bestowed.append(plan.oid(card))
         tags.append("Bestowed")
+    if mutating_cast:  # -- merged permanents (wave 18D) -- 702.140a: it becomes a mutating creature spell
+        merged.note_cast(plan, card)
+        tags.append("Mutating")
     if a.kicker and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine:  # -- casting extras (wave 18E) --
         tags.append("Entwined")
     elif a.kicker:
@@ -2361,10 +2366,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=a.x_value,
                                       **picked_targets.entry(definition), kicked=kicked or int(a.awaken))
+    r.aura_targets = {k: v for k, v in r.aura_targets.items() if k != card.id and plan.state.cards.get(k) is not None
+                      and plan.state.cards[k].zone == STACK}  # (review (wave 18D): never a target this card had as an earlier spell)
     if aura is not None and chosen:
-        r.aura_targets = {k: v for k, v in r.aura_targets.items() if plan.state.cards.get(k) is not None
-                          and plan.state.cards[k].zone == STACK}
-        r.aura_targets[card.id] = chosen[0]  # 303.4a: the Aura spell's target
+        r.aura_targets[card.id] = chosen[0]  # 303.4a: the Aura spell's (or mutating spell's, 702.140a) target
     if chosen:
         from app.rules.triggers import targeted
 
@@ -2923,10 +2928,10 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=a.x_value,
                                       **picked_targets.entry(definition), kicked=a.kicker)
+    r.aura_targets = {k: v for k, v in r.aura_targets.items() if k != card.id and plan.state.cards.get(k) is not None
+                      and plan.state.cards[k].zone == STACK}  # (review (wave 18D): never a target this card had as an earlier spell)
     if aura is not None and chosen:
-        r.aura_targets = {k: v for k, v in r.aura_targets.items() if plan.state.cards.get(k) is not None
-                          and plan.state.cards[k].zone == STACK}
-        r.aura_targets[card.id] = chosen[0]  # 303.4a: the Aura spell's target
+        r.aura_targets[card.id] = chosen[0]  # 303.4a: the Aura spell's (or mutating spell's, 702.140a) target
     if chosen:
         from app.rules.triggers import targeted
 

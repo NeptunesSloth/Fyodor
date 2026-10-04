@@ -293,7 +293,7 @@ def _it_source(word: str) -> dict[str, str]:
 # that's a new object in another zone, 400.7)
 _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
             "deal_combat_damage_player", "deal_damage", "counters_put", "targeted", "create_token"}
-_STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive"})  # -- becomes monstrous (wave 6D) --
+_STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive", "mutate"})  # -- becomes monstrous (wave 6D) --
 _STAYING.add("to_graveyard")  # -- into a graveyard (wave 6D) -- the card(s) there, as they are there
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 _STAYING.add("turned_face_up")  # -- hidden exile (wave 18A) -- "Whenever a creature you control is turned face up, put a counter on it"
@@ -1391,6 +1391,14 @@ def _explore(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if m["src"] == "target creature you control":  # -- trigger tail (wave 16C) -- 701.44a: the creature explores (you control it)
         return [{"do": "explore", "who": "target"}], "creature_you_control"
     return [{"do": "explore", **_it_source(m["src"])}], None
+
+
+# -- merged permanents (wave 18D) -- 701.42a: "exile them, then meld them into [name]" (app/rules/merged.py; the condition names the partner)
+@effect(r"exile them, then meld them into meldname:(?P<r>[0-9a-f]+)")
+def _meld(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import merged
+
+    return [{"do": "meld", "who": "self", "result": merged.name_of(m["r"])}], None
 
 
 @effect(r"sacrifice (?P<who>~|it)")
@@ -3006,8 +3014,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
-    text = self_text(ability.text, ch.name)
-    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",)):  # -- keywords (wave 15E) -- alt_costs
+    from app.rules import (
+        merged,  # -- merged permanents (wave 18D) -- meld wordings carry card names with commas
+    )
+
+    text = self_text(merged.protect(ability.text), ch.name)
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",)):  # -- keywords (wave 15E) -- alt_costs
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(ability.text)

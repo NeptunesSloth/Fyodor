@@ -138,6 +138,9 @@ export interface VisibleCard extends CardBase {
   copy_of?: { source_id: string; source_name: string; modifications: string };
   ability?: { text: string; source_id: string | null; source_card_id: string | null; source_name: string | null; kind: string };
   commander_key?: string;
+  /** Merged (mutate, 730) or melded (701.42) permanent: the cards or tokens representing it, topmost first (public). */
+  merged?: { id: string; card_id: string | null; name: string; is_token: boolean; token?: TokenDef }[];
+  melded?: boolean;
   choices?: Record<string, string>;
   token_source?: { source_id: string | null; name: string };
   test_object?: boolean;

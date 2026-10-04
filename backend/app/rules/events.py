@@ -395,6 +395,9 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(r"(?P<s>~|this creature|this permanent) transforms into (?P<n>.+)", c)
     if m:
         return {"subject": "self", "event": "transform", **({"into": m["n"]} if m["n"] != "~" else {})}
+    # -- merged permanents (wave 18D) -- 702.140d: "Whenever this creature mutates" (it merged with a mutating creature spell)
+    if c in ("~ mutates", "this creature mutates", "this permanent mutates"):
+        return {"subject": "self", "event": "mutate"}
     m = re.fullmatch(r"(?P<s>.+?) becomes (?P<d>monstrous|renowned)", c)
     if m:
         base = _subject(m["s"])

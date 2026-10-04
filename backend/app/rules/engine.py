@@ -45,6 +45,7 @@ from app.rules import (
     kinship,  # -- kinship (wave 9C) --
     layers,
     looking,
+    merged,  # -- merged permanents (wave 18D) --
     miracle,  # -- casting extras (wave 18E) --
     modal_abilities,
     next_untap,  # -- next untap step (wave 6A) --
@@ -828,6 +829,14 @@ def resolve_top_of_stack(plan: Plan) -> None:
         return
     ch = plan.ch(top)
     controller = top.controller if top.controller in plan.live() else plan.active
+    if plan.oid(top) in plan.rules.mutating and not plan.manual(top):  # -- merged permanents (wave 18D) -- 702.140b-c, 608.3b/d
+        from app.rules import merged
+
+        if merged.resolve(plan, top, controller):
+            if plan.rules.decision is None:
+                _after_resolution(plan)
+            return
+        ch = plan.ch(top)
     if ch.is_permanent_card and not plan.manual(top) and not needs_manual_resolution(ch) \
             and replacements.stack_entry_choice(plan, top, controller):
         return  # "As ~ enters, choose a color": chosen before it enters (614.12a); resolved again with the answer
@@ -1379,6 +1388,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "stack_enter_choice": replacements.resume_stack_enter_choice,
     "land_enter_choice": replacements.resume_land_enter_choice,
     "commander_instead": replacements.resume_commander_instead,
+    "mutate_choice": merged.resume_choice,  # -- merged permanents (wave 18D) --
     "commander_first": replacements.resume_commander_first,  # 903.9b asked before the move
     "shield_order": replacements.resume_shield_order,
     # -- replacement effects stage 2 (wave 2E): which of several replacement / prevention effects

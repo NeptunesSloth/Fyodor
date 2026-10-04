@@ -46,6 +46,8 @@ HANDLERS: dict[str, Handler] = {
     "create_token": cards.create_token,
     "copy_card": cards.copy_card,
     "delete_card": cards.delete_card,
+    "merge": cards.merge,
+    "meld": cards.meld,
     "set_face": cards.set_face,
     "flip": cards.flip,
     "face_down": cards.face_down,

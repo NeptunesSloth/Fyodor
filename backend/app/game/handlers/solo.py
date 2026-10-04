@@ -7,7 +7,7 @@ from app.game import ops
 from app.game.errors import ActionError
 from app.game.handlers.zones import draw_cards, rekey_zone
 from app.game.ops import log, pname, text
-from app.game.state import DEFAULT_RESOURCES, CardInstance, GameState, zone_key
+from app.game.state import DEFAULT_RESOURCES, CardInstance, GameState, MergedPart, zone_key
 
 
 def spawn_card(state: GameState, a: A.SpawnCard) -> None:
@@ -24,16 +24,22 @@ def spawn_card(state: GameState, a: A.SpawnCard) -> None:
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" spawned a test object: "), ops.card_part(state, c)])
 
 
-def generated(c: CardInstance) -> bool:
-    return c.is_token or c.copy_of is not None or c.ability is not None or c.test_object
+def generated(c: CardInstance | MergedPart) -> bool:
+    return c.is_token or c.copy_of is not None or getattr(c, "ability", None) is not None or c.test_object
 
 
 def library_size_after_reset(state: GameState, pid: str) -> int:
-    return sum(1 for c in state.cards.values()
-               if c.owner == pid and not generated(c) and c.origin == "library" and not c.commander_key)
+    # (-- merged permanents (wave 18D) -- every card of a merged or melded permanent comes back on its own)
+    n = 0
+    for c in state.cards.values():
+        pile: list[CardInstance | MergedPart] = [*c.merged] if c.merged else [c]
+        n += sum(1 for p in pile if p.owner == pid and not generated(p) and p.origin == "library" and not p.commander_key)
+    return n
 
 
 def _reset(state: GameState, pid: str, shuffle: A.ShuffleData | None, *, reset_life: bool, draw: int) -> None:
+    for c in [c for c in state.cards.values() if c.merged and c.owner == pid]:  # (wave 18D) the piles break up first
+        ops.move_card(state, c, zone_key(pid, "graveyard"))
     for c in list(state.cards.values()):
         if c.id not in state.cards:
             continue

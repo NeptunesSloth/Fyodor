@@ -88,6 +88,9 @@ class Move(Base):
     controllers: dict[Id, Id] | None = None
     # -- transform (wave 11A) -- 712.14a: the double-faced cards among them that enter the battlefield transformed (back face up)
     back_ids: list[Id] | None = Field(default=None, max_length=250)
+    # -- merged permanents (wave 18D) -- 903.9c: a merged or melded commander put into the command zone instead of its owner's hand or
+    # library: the zone ("hand" / "library") every card of it that isn't a commander goes to
+    rest_zone: Literal["hand", "library"] | None = None
     r: MoveData | None = None
 
 
@@ -324,6 +327,29 @@ class DeleteCard(Base):
     type: Literal["delete_card"] = "delete_card"
     card_ids: IdList
     force: bool = False  # required for protected objects
+
+
+class Merge(Base):
+    """-- merged permanents (wave 18D) -- 702.140c / 730.2: a mutating creature spell on the stack merges with its target (over or under)."""
+
+    type: Literal["merge"] = "merge"
+    card_id: Id  # the permanent (it stays the object)
+    spell_id: Id  # the spell's card (it becomes part of the permanent)
+    over: bool = True
+    r: NewIds | None = None  # the id of the permanent's own card as a component, if it wasn't merged yet
+
+
+class Meld(Base):
+    """-- merged permanents (wave 18D) -- 701.42a / 712.4a: two cards of a meld pair, in exile, are put onto the battlefield combined:
+    ``card_id`` is the first (the permanent), ``other_id`` the second, ``result_id`` the printing of the combined back face."""
+
+    type: Literal["meld"] = "meld"
+    card_id: Id
+    other_id: Id
+    result_id: Id
+    result_name: str = Field(max_length=200)
+    row: Literal["land", "creature", "other"] = "creature"  # where it lands on the battlefield (its combined face's type)
+    r: NewIds | None = None
 
 
 class SetFace(Base):
@@ -1265,6 +1291,8 @@ Action = Annotated[
     | CreateToken
     | CopyCard
     | DeleteCard
+    | Merge
+    | Meld
     | SetFace
     | Flip
     | FaceDown

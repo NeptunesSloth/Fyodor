@@ -88,6 +88,12 @@ def moved_objects(plan: Plan, before: list[ObjectRef]) -> tuple[list[dict[str, A
         was.append(old.model_copy(update={"snapshot": snap}).model_dump(mode="json"))
         if card is not None and zone not in HIDDEN_ZONES and plan.oid(card) != old.object_id:
             out.append(ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone).model_dump(mode="json"))
+            from app.rules import (
+                merged,  # (-- review (wave 18D) -- 730.3c / 712.21c: a merged permanent became all of its cards)
+            )
+
+            out += [ObjectRef(card=p, object_id=plan.oid(plan.state.cards[p]), zone=plan.state.cards[p].zone).model_dump(mode="json")
+                    for p in merged.pieces(plan, [card.id])[1:] if plan.state.cards[p].zone.split(":")[-1] not in HIDDEN_ZONES]
         else:
             out.append(was[-1])
     return out, was
