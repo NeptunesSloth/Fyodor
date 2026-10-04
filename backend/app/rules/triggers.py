@@ -423,8 +423,11 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         if got is None:
             return []
         live = _live(plan, got[0])
+        # (wave 19B: where it went, for "put that card onto the battlefield": the zone change that followed in this batch, 400.7e)
+        went = next((z for z in r.events if z.kind == "zone_change" and z.object_id == e.object_id and z.new_object_id), None)
         return [("sacrifice", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "amount": 1,
-                                                          "snap": None if live else r.lki.get(e.object_id or "")})]
+                                                          "snap": None if live else r.lki.get(e.object_id or ""),
+                                                          **({"new_oid": went.new_object_id, "to": went.to_zone} if went else {})})]
     if e.kind == "counters" and e.amount > 0:  # 122.6: counters put on a permanent
         got = _object_then(plan, e.card, e.object_id)
         if got is None:

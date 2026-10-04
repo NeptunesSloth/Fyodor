@@ -1481,6 +1481,10 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if text == "put all commanders you own from the command zone and from your graveyard into your hand":
         key = selectors.Selector(commander=True, owner="you", zones=("command", "graveyard"), card=True).key()
         return [{"do": "return_card", "who": key, "to": "hand", "under": "owner"}], None
+    m = re.fullmatch(r"put (?P<o>it|them|that card|those cards) onto the battlefield(?P<rest>(?: tapped)?(?: under your control)?)", text)
+    if m:  # -- triggers (wave 19B) -- "put that card onto the battlefield": a card in a graveyard (the trigger's), as "return it" reads it
+        found = _parse(f"return {m['o']} to the battlefield{m['rest']}")
+        return [{**e, "put": True} for e in found[0]], found[1]  # (scripts refuses it unless "it" is the trigger event's card)
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|their hand|your hand|"
                      r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?"
                      r"(?: with (?:an?|one) (?P<ck>[+-]\d+/[+-]\d+|[a-z]+) counter on it)?)", text)

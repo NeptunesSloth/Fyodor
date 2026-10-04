@@ -6,6 +6,8 @@
 * 701.54a: "if you chose a creature other than Gandalf as your Ring-bearer" - the creature this tempting chose.
 * 903.8: "for each time you've cast a commander from the command zone this game" - the casts counted so far.
 * 903.3: "your commander enters / attacks", "you attack with your commander" - a commander you own (not another player's).
+* 603.10a / 400.7: "put that card onto the battlefield" for a sacrificed permanent, "put them onto the battlefield tapped" for the
+  land cards a mill put into the graveyard - the trigger event's cards, found where they went.
 * 508.1b: "deals 1 damage to the player or planeswalker it's attacking" - what the attacker the trigger is about attacks now.
 """
 
@@ -22,7 +24,7 @@ from tests.test_rules_wave5c_combat import declare, to_attack, to_blocks
 from tests.test_rules_wave5c_combat import put as combat_put
 from tests.test_rules_wave12a_counters_keywords import answer, real
 from tests.test_rules_effects import mana
-from tests.wave9c_kit import check, life, to_hand
+from tests.wave9c_kit import build, card_named, check, life, put, to_hand
 
 EXTRA = [
     real('Hellrider', '{2}{R}{R}', 4, 'Creature — Devil', "Haste\nWhenever a creature you control attacks, this creature deals 1 damage to the player or planeswalker it's attacking.", ("3", "3"), 'R'),
@@ -37,6 +39,10 @@ EXTRA = [
     real('Jirina Kudro', '{1}{R}{W}{B}', 4, 'Legendary Creature — Human Soldier', "When Jirina Kudro enters, create a 1/1 white Human Soldier creature token for each time you've cast a commander from the command zone this game.\nOther Humans you control get +2/+0.", ("3", "3"), 'BRW'),
     real('We Ride at Dawn', '{2}{W}', 3, 'Enchantment', 'Legendary creature spells you cast have convoke. (Your creatures can help cast those spells. Each creature you tap while casting a legendary creature spell pays for {1} or one mana of that creature\'s color.)\nWhenever your commander attacks, create a 1/1 red Mercenary creature token with "{T}: Target creature you control gets +1/+0 until end of turn. Activate only as a sorcery."', None, 'W'),
     real('Nakia, Wakandan Operative', '{2}{G}', 3, 'Legendary Creature — Human Warrior Hero', 'Reach\nWhenever your commander enters, you become the monarch.\n{2}, {T}: Put two +1/+1 counters on target creature or Vehicle. Activate only as a sorcery.', ("3", "3"), 'G'),
+    real('It That Betrays', '{12}', 12, 'Creature — Eldrazi', 'Annihilator 2 (Whenever this creature attacks, defending player sacrifices two permanents of their choice.)\nWhenever an opponent sacrifices a nontoken permanent, put that card onto the battlefield under your control.', ("11", "11"), ''),
+    real('Hedge Shredder', '{2}{G}{G}', 4, 'Artifact — Vehicle', 'Whenever this Vehicle attacks, you may mill two cards.\nWhenever one or more land cards are put into your graveyard from your library, put them onto the battlefield tapped.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)', ("5", "5"), 'G'),
+    real('Probe Edict', '{B}', 1, 'Sorcery', 'Target opponent sacrifices a creature.', None, 'B'),
+    real('Probe Mill', '{U}', 1, 'Sorcery', 'Target player mills three cards.', None, 'U'),
 ]
 
 NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
@@ -176,4 +182,27 @@ def test_your_commander_attacks_makes_a_token(cards):
     declare(s, (krenko, "p2"))
     to_blocks(s)
     assert sum(1 for c in s.state.cards.values() if c.name == "Mercenary" and c.zone == "p1:battlefield") == 1
+    check(s)
+
+
+def test_sacrificed_nontoken_permanent_comes_back_under_your_control(cards):
+    s = build(cards, ["It That Betrays", "Probe Edict"], ["Probe Soldier"])
+    put(s, "It That Betrays")
+    soldier = put(s, "Probe Soldier", "p2")
+    cast(s, "Probe Edict", B=1)
+    answer(s, "p2")
+    answer(s)
+    assert s.state.cards[soldier.id].zone == "p1:battlefield" and s.state.cards[soldier.id].controller == "p1"
+    check(s)
+
+
+def test_lands_milled_into_the_graveyard_enter_tapped(cards):
+    s = build(cards, ["Hedge Shredder", "Probe Mill"], [])
+    put(s, "Hedge Shredder")
+    cast(s, "Probe Mill", U=1)
+    answer(s, "p1")
+    answer(s)
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:battlefield"]
+    assert len(forests) == 3 and all(c.tapped for c in forests)
+    assert not [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:graveyard"]
     check(s)

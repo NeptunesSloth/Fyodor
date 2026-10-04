@@ -351,6 +351,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     subject = cond.get("subject")
     if subject == "player" and event == "cast":
         return "event_spell"  # -- sized amounts (wave 3D) -- "that spell's mana value": read from the spell, never "it"
+    if subject == "player" and event == "sacrifice" and cond.get("obj") and not cond.get("aggregate"):
+        return "event_gone"  # -- triggers (wave 19B) -- "Whenever an opponent sacrifices a permanent, put that card onto the battlefield": 603.10a
     if subject == "player" and event in ("discard", "tapped_for_mana") and cond.get("obj") and not cond.get("aggregate"):
         return "event"  # -- triggers (wave 17D) -- "Whenever you discard a card, exile that card": the discarded card, now in the graveyard (701.9a)
     if subject in ("sel", "self_or", "host") or (subject == "player" and event == "create_token"):
@@ -2460,6 +2462,14 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         if e["do"] == "mill":
             mill_k = k
+        if e.get("put") and not str(e.get("who")).startswith("event"):
+            return None  # -- triggers (wave 19B) -- "put it onto the battlefield" is read only for the trigger event's card (a graveyard card)
+        if e["do"] == "pick_looked" and not looked and mill_k is None and e.get("which") in ("that", "all") and not e.get("sel") \
+                and not e.get("optional") and e["to"] in ("battlefield", "battlefield_tapped") and str(it).startswith("event"):
+            # -- triggers (wave 19B) -- "Whenever one or more land cards are put into your graveyard from your library, put them onto the
+            # battlefield tapped": nothing was looked at, so it is the trigger event's card(s), as "return them to the battlefield" reads it
+            resolved[k] = {"do": "return_card", "who": "event", "to": "battlefield", "tapped": e["to"] == "battlefield_tapped", "under": "you"}
+            continue
         if e["do"] in ("pick_looked", "rest_looked") and not looked:
             # -- if you do (wave 10C) -- "Mill three cards. You may put a land card from among them into your hand.": the pick
             # is from the cards that mill put into the graveyard (the controller's own mill, a choice among chosen-by-kind cards)
