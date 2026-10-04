@@ -411,3 +411,21 @@ def test_riot_counter_or_haste(cards):
     spell = cast_and_answer(s, "Clamor Shaman", {"R": 1, "C": 2}, "haste")
     assert counters(s, spell) == 0 and "haste" in chars(s, spell).keywords  # 702.136a
     check(s)
+
+
+def test_protection_from_creature_types_legendary_and_mana_value():
+    from app.rules import protection
+    from app.rules.characteristics import Characteristics
+
+    def ch(types, subtypes=(), supertypes=(), mv=0):
+        return Characteristics(name="x", types=frozenset(types), subtypes=frozenset(subtypes), supertypes=frozenset(supertypes),
+                               mana_value=mv)
+
+    (god,) = protection.parse("protection from God creatures") or [None]
+    (non_spirit,) = protection.parse("protection from non-Spirit creatures") or [None]
+    (legend,) = protection.parse("protection from legendary creatures") or [None]
+    (mv3,) = protection.parse("protection from mana value 3 or greater") or [None]
+    assert god(ch({"Creature"}, {"God"})) and not god(ch({"Creature"}, {"Elf"}))  # 702.16a
+    assert non_spirit(ch({"Creature"}, {"Elf"})) and not non_spirit(ch({"Creature"}, {"Spirit"})) and not non_spirit(ch({"Instant"}))
+    assert legend(ch({"Creature"}, supertypes={"Legendary"})) and not legend(ch({"Creature"}))
+    assert mv3(ch({"Creature"}, mv=3)) and not mv3(ch({"Creature"}, mv=2))
