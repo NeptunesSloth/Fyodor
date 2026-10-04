@@ -657,7 +657,8 @@ def test_the_owner_shuffles_it_into_their_library_then_draws(cards):
     mana(s, W=1, C=2)
     act(s, "p1", type="cast_spell", card_id=spell.id, targets=[brute.id])
     answer(s)
-    assert s.state.cards[brute.id].zone == "p2:library" and len(s.state.zones["p2:hand"]) == hand + 2  # Bob (the owner) draws
+    # Bob (the owner) draws two (the shuffled Brute may be one of them: review 18F, a flaky assertion)
+    assert s.state.cards[brute.id].zone in ("p2:library", "p2:hand") and len(s.state.zones["p2:hand"]) == hand + 2
     roundtrip(s)
 
 
