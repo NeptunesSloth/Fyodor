@@ -164,6 +164,19 @@ def _half_trigger(text: str) -> tuple[str, dict[str, Any] | None] | None:
     return (legacy, None) if legacy else ("event", found)
 
 
+_HAVE_VERBS = {"fight": "fights", "deal": "deals", "lose": "loses", "become": "becomes", "connive": "connives", "gain": "gains",
+               "get": "gets"}
+
+
+def _may_have(body: str, ante: str | None) -> str:
+    """"you may have it fight target creature" / "you may have target creature lose flying" is the same optional instruction
+    in the third person; "it" is the source itself only when the trigger is about it (``ante``), else it stays unread."""
+    m = re.match(rf"^you may have (?P<s>~|it|target [a-z ]+?) (?P<v>{'|'.join(_HAVE_VERBS)})\b", body)
+    if m is None or (m["s"] == "it" and ante != "self"):
+        return body
+    return f"you may {'~' if m['s'] == 'it' else m['s']} {_HAVE_VERBS[m['v']]}{body[m.end():]}"
+
+
 def num(word: str) -> int:
     return int(word) if word.isdigit() else NUMBERS[word.lower()]
 
@@ -2874,6 +2887,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if ante == "self_gone":  # -- trigger tail (wave 15B) -- "put her into her owner's library third from the top"
                     # (a gendered pronoun is written ~): the card after it left, found where it went (400.7e), like "it"
                     body = re.sub(r"\bput ~ into ~'s owner's library\b", "put it into its owner's library", body)
+                body = _may_have(body, ante)  # -- trigger tail (wave 15B) --
                 to_gy = cond is not None and cond.get("event") == "to_graveyard" and cond.get("subject") == "self"
                 if to_gy:  # -- trigger tail (wave 15B) -- 603.6c: the card is in its owner's graveyard, whose owner controls the ability
                     body = {"shuffle it into its owner's library.": "shuffle ~ into its owner's library.",

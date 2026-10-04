@@ -64,6 +64,7 @@ EXTRA += [
     real("Intimidation Campaign", "{3}{B}", 4, "Enchantment", "When this enchantment enters, each opponent loses 1 life, you gain 1 life, and you draw a card.\nWhenever you cast a creature spell, you may return this enchantment to its owner's hand.", None, "B"),
     real("Weapons Manufacturing", "{2}{R}", 3, "Enchantment", "Whenever a nontoken artifact you control enters, create a colorless artifact token named Munitions with \"When this token leaves the battlefield, it deals 2 damage to any target.\"", None, "R"),
     real("Esgaroth Garrison", "{2}{W}", 3, "Creature — Human Soldier", "When this creature enters, recruit. (Draw a card, then discard a card. If you discarded a nonland card, create a 1/1 white Human Soldier creature token.)", ("2", "2"), "W"),
+    real("Affectionate Indrik", "{4}{G}", 5, "Creature — Beast", "When this creature enters, you may have it fight target creature you don't control.", ("4", "4"), "G"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -301,6 +302,19 @@ def test_recruit_draws_discards_and_makes_a_soldier_for_a_nonland_discard(cards)
         answer(s)
         assert len(on_battlefield(s, "Human Soldier")) == soldiers
         check(s)
+
+
+def test_you_may_have_it_fight_target_creature(cards):
+    # 701.14: the source fights the target (each deals damage equal to its power to the other); "may": its controller's choice
+    s = build(cards, ["Affectionate Indrik"], ["Grizzly Bears"])
+    put(s, "Grizzly Bears", "p2")
+    indrik = to_hand(s, "Affectionate Indrik")
+    mana(s, "p1", G=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=indrik.id)
+    answer(s)
+    assert card_named(s, "Grizzly Bears", "p2").zone == "p2:graveyard"
+    assert s.state.cards[card_named(s, "Affectionate Indrik").id].damage == 2
+    check(s)
 
 
 def test_cast_trigger_of_the_combined_ability_destroys_and_gives_a_powerstone(cards):
