@@ -356,7 +356,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
     if e.kind == "mana_added" and e.counter == "tap":  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
         got = _object_then(plan, e.card, e.object_id)
         return [("tapped_for_mana", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player})] if got is not None else []
-    if e.kind in ("tapped", "untapped"):
+    if e.kind in ("tapped", "untapped", "turned_face_up"):  # (turned_face_up: wave 18A, 702.37e)
         got = _object_then(plan, e.card, e.object_id)
         return [(e.kind, got[0], got[1], got[0].controller, {"oid": e.object_id})] if got is not None else []
     if e.kind in ("life_gain", "life_loss"):
@@ -597,7 +597,10 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         return True
     if subject == "self":
         return False
-    return selectors.matches(plan, selectors.from_key(cond["sel"]), obj, och, you, watcher.id)
+    sel = selectors.from_key(cond["sel"])
+    if event == "turned_face_up" and "face_down" in sel.extras:  # -- hidden exile (wave 18A) -- "a face-down permanent … is turned face up": it was
+        sel = selectors.replace(sel, extras=tuple(x for x in sel.extras if x != "face_down"))  # face down; it is face up now
+    return selectors.matches(plan, sel, obj, och, you, watcher.id)
 
 
 def _damaged_by(plan: Plan, watcher: CardInstance, victim: str | None) -> bool:

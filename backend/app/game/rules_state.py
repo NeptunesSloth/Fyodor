@@ -786,7 +786,8 @@ class TopReveal(BaseModel):
 
     source: str  # the permanent's card id
     player: str
-    to: Literal["all", "owner"]
+    to: Literal["all", "owner", "none"]  # (-- hidden exile (wave 18A) -- "none": only the face-down looking below)
+    face_down: bool = False  # 708.5 exception: ``player`` may also look at the face-down creatures others control
 
 
 class ReconcileItem(BaseModel):
@@ -920,6 +921,9 @@ class RulesState(BaseModel):
     rebound_cast: list[str] = Field(default_factory=list)  # rebound spells cast from a hand (on the stack)
     rebounding: list[str] = Field(default_factory=list)  # exiled by rebound: cast at the owner's next upkeep  # dashed spells: haste + back to hand at end step
     suspended: list[str] = Field(default_factory=list)  # cards exiled with suspend (702.62)
+    # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave a foretold card ("its mana cost reduced by {2}")
+    foretell_costs: dict[str, str] = Field(default_factory=dict)
+    foretold: dict[str, int] = Field(default_factory=dict)  # -- hidden exile (wave 18A) -- 702.143d: card -> the turn it became foretold
     free_casts: list[str] = Field(default_factory=list)
     alt_costs: dict[str, str] = Field(default_factory=dict)  # card -> the cost to pay instead (madness)  # cards the engine lets be cast without paying (suspend)
     suspend_haste: list[str] = Field(default_factory=list)  # suspended creature spells: haste when they enter

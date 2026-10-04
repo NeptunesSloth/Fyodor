@@ -132,6 +132,8 @@ def inner_for_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | Non
             e["who"] = "event.new" if e.get("do") in _MOVES else "event"
         elif who in ("it.controller", "it.owner"):
             e["who"] = f"ref:event.{who[3:]}"
+        elif who == "it:exiled":  # -- hidden exile (wave 18A) -- "the exiled card": the earlier instruction's, bound by resolve_it (Ugin)
+            pass
         elif who == "that_player" or (isinstance(who, str) and who.startswith(("it:", "them:"))):
             return None
         n = e.get("n")
@@ -229,7 +231,7 @@ def describe_when(when: dict[str, Any]) -> str:
     if when["kind"] == "event":
         if when["event"] == "die_or_exile":  # -- wave 3F -- (earthbend: no "this turn")
             return "when it dies or is put into exile"
-        return "when it " + ("dies" if when["event"] == "die" else "leaves the battlefield") + (" under your control" if when.get("ctl") else "") + " this turn"
+        return "when it " + ("dies" if when["event"] == "die" else "leaves the battlefield") + (" under your control" if when.get("ctl") else "") + ("" if when.get("open") else " this turn")
     if when.get("step") == "end_combat":  # -- other side (wave 6D) --
         return "at end of combat"
     whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's", "owner": "its owner's next"}[when["whose"]]
@@ -484,7 +486,7 @@ def bind_refs(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 # -- wording -----------------------------------------------------------------------------------------
 LEADING = re.compile(rf"^at the beginning of (?P<when>{WHEN_RE}), (?P<clause>.+)$")
 TRAILING = re.compile(rf"^(?P<clause>.+?) at the beginning of (?P<when>{WHEN_RE})$")
-EVENT = re.compile(rf"^when (?P<subject>{'|'.join(re.escape(s) for s in EVENT_SUBJECTS)}) (?P<verb>{EVENT_RE})(?P<ctl> under your control)? this turn, "
+EVENT = re.compile(rf"^when (?P<subject>{'|'.join(re.escape(s) for s in EVENT_SUBJECTS)}) (?P<verb>{EVENT_RE})(?P<ctl> under your control)?(?P<turn> this turn)?, "
                    r"(?P<clause>.+)$")
 UNTIL_LEADING = re.compile(rf"^(?P<duration>{DURATION_RE}), (?P<clause>.+)$")
 UNTIL_TRAILING = re.compile(rf"^(?P<clause>.+?) (?P<duration>{DURATION_RE})$")
@@ -514,7 +516,8 @@ def event_when(m: re.Match[str]) -> tuple[dict[str, Any], str]:
     """("when that creature dies this turn" → its trigger, the subject as a who-placeholder for
     scripts.resolve_it: "it" for a pronoun, "self" for ~, "target" for a target)."""
     subject = m["subject"]
-    when = {"kind": "event", "event": EVENT_VERBS[m["verb"]], **({"ctl": "you"} if m["ctl"] else {})}  # (16D: "dies under your control")
+    when = {"kind": "event", "event": EVENT_VERBS[m["verb"]], **({"ctl": "you"} if m["ctl"] else {}),
+            **({} if m["turn"] else {"open": True})}  # (16D: "dies under your control"; 18A: no "this turn": for as long as it takes)
     if subject in ("~", "this creature"):
         return when, "self"
     if subject.startswith("target "):

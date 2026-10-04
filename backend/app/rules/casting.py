@@ -1519,6 +1519,19 @@ def _granted_flashback(state: GameState, card: CardInstance, ch: Characteristics
 
 
 MORPH = re.compile(r"^(?P<kind>morph|megamorph) (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+# -- hidden exile (wave 18A) -- a morph cost that isn't mana ("Morph—Discard a card.", "Morph—Reveal a blue card in your hand.", "Morph—Pay 5
+# life."): paid as an ability cost (602.2b's procedure, app/rules/cost_payment.py) when the permanent is turned face up (702.37e)
+MORPH_COST = re.compile(r"^(?P<kind>morph|megamorph)—(?P<cost>[^{}]+)$", re.IGNORECASE)
+
+
+def nonmana_cost(text: str) -> AbilityCost | None:
+    """The non-mana cost a morph line names, as parts the engine pays, or None."""
+    from app.rules import optional_payment
+
+    found = optional_payment.parse(re.sub(r" in your hand$", " from your hand", text.strip().rstrip(".")))
+    return found if found is not None and not found.mana and (found.components or found.life) else None
+
+
 FACE_DOWN = chars.face_down_characteristics("morph")  # (708.2a; disguise: chars.face_down_characteristics)
 
 
@@ -1528,6 +1541,9 @@ def morph_cost(ch: Characteristics) -> tuple[str, str] | None:
         if ab.kind == "keywords" and ({"morph", "megamorph"} & set(ab.keywords)):
             m = MORPH.fullmatch(ab.text.strip().rstrip("."))
             if m:
+                return m["kind"].lower(), m["cost"]
+            m = MORPH_COST.fullmatch(ab.text.strip().rstrip("."))
+            if m and nonmana_cost(m["cost"]) is not None:  # (wave 18A)
                 return m["kind"].lower(), m["cost"]
     return None
 
@@ -1564,6 +1580,47 @@ def face_up_ways(card: CardInstance, printed: Characteristics) -> dict[str, tupl
     return {w: v for w, v in ways.items() if "{X}" not in v[0]}
 
 
+def pay_nonmana_cost(plan: Plan, a: A.TurnFaceUp, card: CardInstance, printed: Characteristics, text: str) -> bool:
+    """-- hidden exile (wave 18A) -- 702.37e: pay a morph cost that isn't mana (discard, return, sacrifice, reveal, life), the
+    parts chosen as an activated ability's are (cost_payment.choose: a private decision when there is a choice, 118.3: only if
+    all of it can be paid). False while the player is asked what pays it."""
+    from app.rules import cost_payment
+
+    cost = nonmana_cost(text)
+    if cost is None:
+        raise ActionError("That morph cost can't be paid here: turn it face up with the table tools")
+    if (why := cost_payment.problem(plan, cost, card, plan.actor)) is not None:
+        raise ActionError(why)
+    if cost.life and plan.state.players[plan.actor].life < cost.life:
+        raise ActionError(f"You don't have {cost.life} life to pay")  # 119.4
+    chosen = cost_payment.choose(plan, a, cost, card, f"Turn {printed.name} face up")
+    if chosen is None:
+        return False
+    if cost.life:
+        plan.do({"type": "life", "player": plan.actor, "delta": -cost.life})
+    cost_payment.pay(plan, cost, card, chosen, PaymentRecord(card=card.id, controller=plan.actor, total_cost=text))
+    for i, comp in enumerate(cost.components):  # "Reveal a blue card in your hand": shown to everyone as the cost is paid (701.20a)
+        if comp.kind == "REVEAL_FROM_HAND" and chosen.get(i):
+            plan.do({"type": "reveal", "card_ids": chosen[i]}, actor=plan.actor)
+            plan.do({"type": "hide", "card_ids": chosen[i]}, actor=plan.actor)
+    plan.note(f"{plan.name(plan.actor)} paid “{text}” to turn a permanent face up")  # (702.37e: the cost is shown to all players)
+    return True
+
+
+def turned_up(plan: Plan, card: CardInstance) -> None:
+    """-- hidden exile (wave 18A) -- the permanent was just turned face up (by the special action or by an effect): its "When ~ is
+    turned face up" and the table's "Whenever a permanent you control is turned face up" abilities trigger (702.37e: not
+    "enters" abilities, 708.8)."""
+    emit(plan.state, "turned_face_up", object_id=plan.oid(card), card=card.id, player=card.controller)
+    from app.rules import triggers  # (triggers imports this module)
+
+    face_up = plan.ch(plan.state.cards[card.id])
+    if not plan.manual(card):  # "When ~ is turned face up, …"
+        for i, d in triggers.abilities(plan, face_up, "turned_face_up_self"):
+            triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card),
+                          name=face_up.name, index=i, definition=d)
+
+
 def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
     """702.37e / 702.168d / 701.40b / 701.58b: a special action any time you have priority (it
     doesn't use the stack): show the cost, pay it, turn the permanent face up (708.8: no "enters"
@@ -1580,30 +1637,21 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
     if method is None or method not in ways:
         raise ActionError("It can't be turned face up that way: turn it face up with the table tools")
     cost_text, kind = ways[method]
-    cost = M.parse_cost(cost_text)
-    if payment_mode(plan, plan.actor) == "self":  # (review 18B: a special action, 116.2b: Purpose() — mana only for abilities or spells can't pay it)
-        pay_from_pool(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up",
-                      purpose=Purpose())
+    if not cost_text.startswith("{"):  # -- hidden exile (wave 18A) -- a morph cost that isn't mana (702.37e: "pay that cost")
+        if not pay_nonmana_cost(plan, a, card, printed, cost_text):
+            return  # (waiting for the choice of what pays it)
     else:
-        if not can_pay(plan.state, plan.actor, cost, plan.info, purpose=Purpose()):
-            raise ActionError(f"Not enough mana to pay {cost.text()}")
-        pay(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up", sources=a.sources,
-            purpose=Purpose())
+        cost = M.parse_cost(cost_text)
+        if payment_mode(plan, plan.actor) == "self":
+            pay_from_pool(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up",
+                          purpose=Purpose())
+        else:
+            if not can_pay(plan.state, plan.actor, cost, plan.info, purpose=Purpose()):
+                raise ActionError(f"Not enough mana to pay {cost.text()}")
+            pay(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up", sources=a.sources,
+                purpose=Purpose())
     plan.do({"type": "face_down", "card_ids": [card.id], "face_down": False})
-    emit(plan.state, "turned_face_up", object_id=plan.oid(card), card=card.id, player=plan.actor)
-    from app.rules import triggers  # (triggers imports this module)
-
-    face_up = plan.ch(plan.state.cards[card.id])
-    if not plan.manual(card):  # "When ~ is turned face up, …" (702.37e: not "enters" abilities, 708.8)
-        for i, d in triggers.abilities(plan, face_up, "turned_face_up_self"):
-            triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card),
-                          name=face_up.name, index=i, definition=d)
-    for other in list(plan.state.cards.values()):  # "Whenever a permanent you control is turned face up, …"
-        if other.zone == card.zone and other.controller == card.controller and not other.face_down and not plan.manual(other):
-            och = plan.ch(other)
-            for i, d in triggers.abilities(plan, och, "turned_face_up_you"):
-                triggers._add(plan, controller=other.controller, source_card=other.id, source_object=plan.oid(other),
-                              name=och.name, index=i, definition=d)
+    turned_up(plan, card)
     plan.rules.passed = []
     if kind == "megamorph":  # 702.37b, 708.11: the counter is put on as it's turned face up (the counter choke point)
         from app.rules import replace as replace_effects
@@ -1632,6 +1680,9 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
         how = "prepared"  # -- prepared (wave 13C) -- 722.3c: its controller may cast the copy in exile
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
     flash = any(g.flash for g in found)
+    if how is None and info is not None and card.zone == zone_key(player, "foretell") and not free and card.owner == player \
+            and _foretell_offers(state, player, card, ch, info):
+        how = "foretell"  # -- hidden exile (wave 18A) -- 702.143a: cast from the foretell exile for the foretell cost (only that way)
     if "aftermath" in ch.keywords:  # -- static_other sweep (wave 16B) -- 702.127a: "can't be cast from any zone other than a graveyard"
         return permissions.Grant("flashback", flash=flash) if how == "flashback" else None
     if how is None and info is not None and card.zone == zone_key(player, "graveyard") and not free \
@@ -1649,6 +1700,13 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
         return None
     best = min(ways, key=lambda g: bool(g.extra))  # (a way with no extra cost to pay first: the cheaper of two permissions)
     return replace(best, flash=flash or best.flash)
+
+
+def _foretell_offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Any]:
+    """-- hidden exile (wave 18A) -- the foretell costs this foretold card can be cast for now (alt_costs.offers: tag "foretell")."""
+    from app.rules import alt_costs
+
+    return alt_costs.offers(state, player, card, ch, info)
 
 
 def _escape_offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Any]:
@@ -1831,7 +1889,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
         grant = cast_grant(state, player, card, ch, info)
-        if grant is not None and grant.how == "escape":  # -- escape (wave 5I) -- only for an escape cost (702.138a)
+        if grant is not None and grant.how in ("escape", "foretell"):  # -- escape (wave 5I) -- only for an escape cost (702.138a)
             if alt_castable(state, player, card, info, check_priority=check_priority):
                 return True
             continue
@@ -2020,11 +2078,18 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         escapes = _escape_offers(plan.state, plan.actor, card, ch, plan.info)
         if escapes:
             a.alt_cost = escapes[0].key
+    foretold = grant is not None and grant.how == "foretell"  # -- hidden exile (wave 18A) -- 702.143a: only for its foretell cost
+    if foretold:
+        fore = _foretell_offers(plan.state, plan.actor, card, ch, plan.info)
+        if a.alt_cost is None and fore:
+            a.alt_cost = fore[0].key
+        if not any(o.key == a.alt_cost for o in fore):
+            raise ActionError(f"{ch.name} can be cast from foretell exile only for its foretell cost (702.143a)")
     escaping = a.alt_cost is not None and card.zone == zone_key(plan.actor, "graveyard") and any(
         o.key == a.alt_cost for o in _escape_offers(plan.state, plan.actor, card, ch, plan.info))
     if grant is not None and grant.how == "escape" and not escaping:
         raise ActionError(f"{ch.name} can be cast from your graveyard only for its escape cost (702.138a)")
-    if a.alt_cost is not None:
+    if a.alt_cost is not None:  # (a foretold card: no other alternative cost, 118.9a)
         if free or alternative is not None or a.face_down or (grant is not None and grant.how == "flashback" and not escaping):
             raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
         alt_offer = alt_costs.chosen(plan, a.alt_cost, card, ch)
@@ -2179,6 +2244,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     jumped = grant is not None and grant.exile  # -- casting extras (wave 18E) -- 702.133a: cast with jump-start
     card_was_in_hand = card.zone == zone_key(plan.actor, "hand")
     cast_zone = card.zone.rsplit(":", 1)[-1]  # -- refused modal/conditional (wave 3R1) -- where it was cast from
+    if cast_zone == "foretell":
+        cast_zone = "exile"  # -- hidden exile (wave 18A) -- the foretell zone is the exile zone (702.143a): "cast from exile"
     from_where = {"graveyard": "the graveyard", "exile": "exile", "library": "the library", "hand": "the hand"}.get(
         card.zone.rsplit(":", 1)[-1], card.zone)
     if a.face is not None and a.face != card.face:
@@ -2216,6 +2283,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         "harmonize" if harmonized else "flashback" if flashback else "free" if free \
         else "disturb" if escaping and alt_offer is not None and alt_offer.tag == "disturb" else "escape" if escaping else \
         (alt_offer.tag or "alternative") if alt_offer is not None else None  # ("escape": 702.138b, wave 5I; blitz: 15E)
+    if foretold:
+        plan.rules.foretold.pop(card.id, None)
     if alt_offer is not None:  # -- cost changers (wave 4I) --
         if alt_offer.once_key:
             plan.rules.once_per_turn[alt_offer.once_key] = plan.state.turn.number  # ("once each turn")
@@ -2228,7 +2297,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Harmonize"] if harmonized else ["Jump-start"] if jumped else \
         ["Aftermath" if "aftermath" in ch.keywords else "Flashback"] if flashback else ["Dashed"] if a.dash else \
-        ["Disturbed" if alt_offer is not None and alt_offer.tag == "disturb" else "Escaped"] if escaping else []  # (wave 5I; 18E)
+        ["Disturbed" if alt_offer is not None and alt_offer.tag == "disturb" else "Escaped"] if escaping else ["Foretold"] if foretold else []  # (wave 5I; 18E)
     if grant is not None and grant.how == "permission":
         permissions.consume(plan, grant)  # (a "once during each of your turns" permission is used up)
         tags.append(f"Cast from {from_where}" + (" without paying its mana cost" if free else ""))
@@ -2480,6 +2549,25 @@ def plot(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
         until="permanent", turn=state.turn.number, after_turn=state.turn.number, sorcery=True,
         label=f"{ch.name}: cast it without paying its mana cost (plotted)"))
     plan.note(f"{ch.name} is plotted", [card.id])
+    plan.rules.passed = []
+
+
+FORETELL = re.compile(r"^foretell (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+
+
+def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility) -> None:
+    """-- hidden exile (wave 18A) -- 702.143a/b foretell: a special action (116.2h), any time you have priority during your turn:
+    pay {2} and exile this card from your hand face down. Its owner alone may look at it (the foretell zone); it may be cast
+    after this turn has ended for its foretell cost (alt_costs.offers, casting.cast_grant)."""
+    if plan.state.turn.active_player != plan.actor:
+        raise ActionError("You can foretell a card only during your turn (702.143a)")
+    cost = M.parse_cost("{2}")
+    if payment_step(plan, a, cost, f"foretelling {ch.name}", purpose=Purpose(spell=ch)):
+        return
+    pay(plan, plan.actor, cost, "paid {2} to foretell a card", sources=a.sources, purpose=Purpose(spell=ch))
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "foretell"}})
+    plan.rules.foretold[card.id] = plan.state.turn.number
+    plan.note(f"{plan.name(plan.actor)} foretells a card")
     plan.rules.passed = []
 
 
@@ -2884,6 +2972,8 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
             suspend(plan, card, ch, a, *found)
         elif (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is not None and not plan.manual(card):
             plot(plan, card, ch, a, plot_cost)
+        elif keyword_cost(ch, "foretell", FORETELL, a.ability) is not None and not plan.manual(card):
+            foretell(plan, card, ch, a)
         elif (ninja := ninjutsu.cost_of(ch, a.ability)) is not None and not plan.manual(card):
             on_stack = len(plan.state.zones.get(STACK, []))
             activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION)
@@ -3479,7 +3569,8 @@ def resume_mana_ability(plan: Plan, d: Any, chosen: list[str]) -> None:
 # -- responding -------------------------------------------------------------------------
 def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
     """Could ``player`` do anything at instant speed right now? (For Arena-style auto-passing.)"""
-    for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"), zone_key(player, "exile")):
+    for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"), zone_key(player, "exile"),
+                zone_key(player, "foretell")):
         for cid in state.zones.get(key, []):
             card = state.cards[cid]
             ch = chars.of(card, info)

@@ -130,9 +130,50 @@ HALVES = ("split", "adventure", "aftermath")  # one card, two spells: you cast o
 _WARD_2 = (AbilityText(index=0, text="Ward {2}", kind="keywords", keywords=("ward",)),)
 
 
-def face_down_characteristics(kind: str | None) -> Characteristics:
-    return Characteristics(name="", types=frozenset({"Creature"}), power="2", toughness="2", face_down=True,
-                           abilities=_WARD_2 if kind in ("disguise", "cloak") else ())
+SPEC_TYPES = {"artifact": "Artifact", "creature": "Creature", "land": "Land", "enchantment": "Enchantment"}
+
+
+def parse_spec(text: str) -> str | None:
+    """-- hidden exile (wave 18A) -- 708.2a: what an effect says a permanent it turned face down is — "a 2/2 Cyberman artifact creature",
+    "5/5 artifact creatures", "a Forest land" — as the canonical "[P/T ]<subtypes> <types>" (singular), or None when it isn't exactly
+    that: P/T if and only if it is a creature; capitalised subtype words, lower-case card types (artifact, creature, land, enchantment)."""
+    m = re.fullmatch(r"(?:an? )?(?:(\d+/\d+) )?([A-Za-z]+(?: [A-Za-z]+)*)", text.strip())
+    if m is None:
+        return None
+    types: list[str] = []
+    subs: list[str] = []
+    for w in m[2].split():
+        single = w if w.lower() in SPEC_TYPES else w[:-1] if w.lower().endswith("s") and w[:-1].lower() in SPEC_TYPES else None
+        if single is not None:
+            types.append(single.lower())
+        elif w[0].isupper() and w.isalpha():
+            subs.append(w)
+        else:
+            return None
+    if not types or ("creature" in types) != bool(m[1]):
+        return None
+    return " ".join([*([m[1]] if m[1] else []), *subs, *types])
+
+
+def join_spec(body: str) -> str:
+    """"…face down[ under your control]. It's / They're a 2/2 Cyberman artifact creature." as one clause, "… face down … as a 2/2 Cyberman
+    artifact creature" (708.2a: the characteristics come with the instruction that turns them face down)."""
+    return re.sub(r"(face down(?: under (?:your|its owner's|their owner's) control)?)\. (?:It's|They're) ([^.]+)\.",
+                  lambda m: f"{m[1]} as {m[2]}." if parse_spec(m[2]) else m[0], body)
+
+
+def face_down_characteristics(kind: str | None, spec: str | None = None) -> Characteristics:
+    """708.2a: a 2/2 creature with no name, text, subtypes or mana cost — unless the effect that turned it face down says what it is
+    (-- hidden exile (wave 18A) -- ``spec``, "[P/T ]<subtypes and types>": "2/2 Cyberman artifact creature", "Forest land")."""
+    abilities = _WARD_2 if kind in ("disguise", "cloak") else ()
+    if not spec:
+        return Characteristics(name="", types=frozenset({"Creature"}), power="2", toughness="2", face_down=True, abilities=abilities)
+    pt, _, words = spec.partition(" ") if re.match(r"\d+/\d+ ", spec) else ("", "", spec)
+    types = frozenset(SPEC_TYPES[w.lower()] for w in words.split() if w.lower() in SPEC_TYPES)
+    subtypes = frozenset(w for w in words.split() if w.lower() not in SPEC_TYPES)
+    power, _, toughness = pt.partition("/")
+    return Characteristics(name="", types=types, subtypes=subtypes, power=power or None, toughness=toughness or None, face_down=True,
+                           abilities=with_intrinsic_mana(list(abilities), subtypes))
 
 
 def _from_card_data(data: dict[str, Any], face: int, *, half: bool = False) -> Characteristics:
@@ -336,7 +377,7 @@ def of(card: CardInstance, info: CardInfo) -> Characteristics:
         return Characteristics(name=card.ability.source_name or "Ability", oracle_text=card.ability.text,
                                abilities=tuple(parse_abilities(card.ability.text, spell=True)), is_ability=True)
     if card.face_down and (card.zone.endswith(":battlefield") or card.zone == "stack"):
-        return face_down_characteristics(card.face_down_kind)  # -- keyword actions & face-down (wave 3F) --
+        return face_down_characteristics(card.face_down_kind, card.face_down_as)  # -- keyword actions & face-down (wave 3F) --
     if card.token is not None and not card.card_id:
         t = card.token
         if t.back is not None and card.face == 1:  # -- keyword actions & face-down (wave 3F) -- transformed (701.27, 111.10i)

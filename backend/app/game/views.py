@@ -105,6 +105,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
         view["token_source"] = c.token_source.model_dump()
     if c.face_down and c.face_down_kind:
         view["face_down_kind"] = c.face_down_kind  # public: everyone saw how it got face down
+        if c.face_down_as:
+            view["face_down_as"] = c.face_down_as  # -- review (sys 18A) -- 708.2a: what it is face down ("Forest land") is public
     if c.protected:
         view["protected"] = True
     if zone in PUBLIC_ZONES:
@@ -217,7 +219,10 @@ def build_view(
         if c.commander_key:
             commanders[c.owner].append(
                 {"key": c.commander_key, "name": c.name, "card_id": c.card_id, "instance_id": c.id if can_see(state, c, viewer) else None,
-                 "zone": c.zone, "tax": state.players[c.owner].commander_tax.get(c.commander_key, 0),
+                 # -- review (sys 18A) -- 708.5: a face-down commander the viewer can't look at (manifested from a library, cast
+                 # face down from a hand) isn't located for them: its zone would say which face-down permanent it is
+                 "zone": None if c.face_down and not can_see(state, c, viewer) else c.zone,
+                 "tax": state.players[c.owner].commander_tax.get(c.commander_key, 0),
                  "casts": state.players[c.owner].commander_casts.get(c.commander_key, 0)}
             )
 

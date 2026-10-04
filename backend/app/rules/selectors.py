@@ -483,6 +483,11 @@ def _with_kw(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, with_keywords=(*s.with_keywords, m["kw"]))
 
 
+@_suffix(r"with (?:an? morph ability|morph abilities)")  # -- hidden exile (wave 18A) -- 702.37b: megamorph is a morph ability too
+def _with_morph(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "morph_ability"))
+
+
 @_suffix(r"without (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")
 def _without_kw(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, without_keywords=(*s.without_keywords, m["kw"]))
@@ -1251,6 +1256,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
+            return False
+        if extra == "morph_ability" and not {"morph", "megamorph"} & ch.keywords:
             return False
         if extra == "unblocked" and card.id in plan.rules.blocked:  # (wave 15E) a blocked attacker stays blocked
             return False

@@ -100,6 +100,10 @@ SELF_GY_WHILE = re.compile(r"^you may cast (?:this card|~) from your graveyard (
 FLASH = re.compile(rf"^you may cast (?:{_SEL} )?spells as though they had flash$")
 TOP_REVEAL = "play with the top card of your library revealed"
 TOP_LOOK = "you may look at the top card of your library any time"
+# 708.5 lets you look at your own face-down permanents only; these let you look at the others' (creatures: face-down spells aren't
+# permanents). In Commander every other player is an opponent.
+FACE_DOWN_LOOK = re.compile(r"^you may look at (?P<top>the top card of your library and at )?face-down creatures "
+                            r"(?:you don't control|your opponents control) any time$")
 # Effect sentences: "Exile the top card of your library. You may play that card this turn." — the
 # pronoun ("that card" / "it" / "those cards") is bound by scripts.resolve_it to what an earlier
 # instruction of the same ability moved (400.7j: found where it went); with no such instruction
@@ -493,6 +497,9 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return {"kind": "static", "static": "top_reveal", "to": "all", "effects": []}
     if t == TOP_LOOK:
         return {"kind": "static", "static": "top_reveal", "to": "owner", "effects": []}
+    m = FACE_DOWN_LOOK.fullmatch(t)  # -- hidden exile (wave 18A) -- Found Footage, Keeper of the Lens, Lens of Clarity
+    if m:
+        return {"kind": "static", "static": "top_reveal", "to": "owner" if m["top"] else "none", "face_down": True, "effects": []}
     # -- cast limits (wave 5E) -- "Your opponents can't cast spells during your turn.", "Any player may cast spells as though
     # they had flash.", "You may activate abilities of creatures you control as though those creatures had haste."
     from app.rules import cast_limits
@@ -529,6 +536,50 @@ def _grant_exiled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
              **({"spend": spend} if spend else {})}], None
 
 
+# -- hidden exile (wave 18A) -- cards exiled face down that "you may look at" (406.3a: a face-down exiled card has no characteristics,
+# but the spell or ability that exiled it may let a player look at it and play it): the looker alone sees them (``revealed_to``,
+# which ends when the card leaves exile, 400.7). Printed wordings, read as two plain sentences:
+#   "You may look at and play those cards for as long as they remain exiled."   (look at + play)
+#   "You may play it for as long as it remains exiled. Mana of any type can be spent to cast a spell this way."  (one permission)
+LOOK_EXILED = re.compile(r"^you may look at (?P<what>it|that card|those cards|them) for as long as (?:it|they|that card|those cards) "
+                         r"remains? exiled$")
+_LOOK_AND_PLAY = re.compile(r"You may look at and (?P<v>play|cast) (?P<w>that card|those cards|it|them)(?P<free> without paying "
+                            r"(?:its|their) mana costs?)? for as long as (?P<d>it|they) (?P<r>remains?) exiled")
+_PLAY_RIDER = re.compile(r"(?P<g>You may (?:play|cast) (?P<w>that card|those cards|it|them)[^.]*?)\. (?:(?P<a>Mana of any type can be "
+                         r"spent to cast (?:a spell|spells) this way)|(?P<b>If you cast a spell this way, you may spend mana as though it "
+                         r"were mana of any type to cast it))\.")
+
+
+def join_exile_play(body: str) -> str:
+    """The wordings above as the sentences the permission grammar reads (permissions.GRANT_EXILED, LOOK_EXILED)."""
+    # (Ugin, the Ineffable: "Exile the top card of your library face down and look at it." — 406.3: whoever looked may go on looking;
+    # "put the exiled card into your hand" is the return of that card, 400.3)
+    body = re.sub(r"([Ee]xile the top card of your library face down) and look at it\b", r"\1. You may look at it for as long as it remains exiled",
+                  body)
+    body = re.sub(r"\b([Pp])ut the exiled card into your hand\b", lambda m: ("R" if m[1] == "P" else "r") + "eturn the exiled card to your hand", body)
+    body = re.sub(r"Look at (target player's hand), (the top card of that player's library), and any face-down creatures they control\.",
+                  r"Look at \1. Look at \2. Look at all face-down creatures that player controls.", body)  # (Spy Network: 701.20e each)
+    body = re.sub(r"Reveal (target face-down permanent)\. If it's a creature card, you may turn it face up\.",
+                  r"Reveal \1 and you may turn it face up if it's a creature card.", body)  # (Hauntwoods Shrieker)
+    body = re.sub(r"(cloak those cards)\. They enter tapped\.", r"\1 tapped.", body)  # (Become Anonymous)
+    body = re.sub(r"\b([Ee]xile it) face down\. (It becomes foretold\.)", r"\1. \2", body)  # (The Foretold Soldier: the foretell zone is face down)
+    body = re.sub(r"\bIt becomes foretold\. Its foretell cost is its mana cost reduced by (\{\d+\})\.",
+                  r"It becomes foretold with a foretell cost of its mana cost reduced by \1.", body)  # (Ethereal Valkyrie: 702.143d)
+    body = re.sub(r"(You may (?:look at and )?(?:play|cast) )the exiled (card|cards)\b",
+                  lambda m: m[1] + ("that card" if m[2] == "card" else "those cards"), body)
+    body = _LOOK_AND_PLAY.sub(lambda m: f"You may look at {m['w']} for as long as {m['d']} {m['r']} exiled. You may {m['v']} {m['w']}"
+                              f"{m['free'] or ''} for as long as {m['d']} {m['r']} exiled", body)
+
+    def rider(m: re.Match[str]) -> str:
+        plural = m["w"] in ("those cards", "them")
+        spell = "those spells" if plural else "that spell"
+        tail = f"mana of any type can be spent to cast {spell}" if m["a"] else \
+            f"you may spend mana as though it were mana of any type to cast {spell}"
+        return f"{m['g']}, and {tail}."
+
+    return _PLAY_RIDER.sub(rider, body)
+
+
 def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """An effect sentence of the permission grammar (see ``scripts._one_clause``), or None.
     ("Exile the top card of your library" itself is the library grammar's: app/rules/language.py.)"""
@@ -539,6 +590,9 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             return None
         return [{"do": "cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1), "filter": key,
                  "until": "next_turn" if m["until"] else "end_of_turn"}], None
+    m = LOOK_EXILED.fullmatch(text)  # -- hidden exile (wave 18A) --
+    if m:
+        return [{"do": "look_exiled", "who": "them:card" if m["what"] in ("those cards", "them") else "it:card", "optional": True}], None
     m = FREE_COPY.fullmatch(text)  # -- cast a copy (wave 13C) --
     if m:
         many = m["w"] != "the copy"
@@ -1046,7 +1100,7 @@ def refresh_reveals(state: GameState, info: CardInfo) -> None:
             ch = derive(state, card, ch, info)
         for d in scripts.definitions(ch).values():
             if d.get("kind") == "static" and d.get("static") == "top_reveal":
-                found.append(TopReveal(source=card.id, player=card.controller, to=d["to"]))
+                found.append(TopReveal(source=card.id, player=card.controller, to=d["to"], face_down=bool(d.get("face_down"))))
             elif d.get("kind") == "static" and d.get("static") == "permission" and d.get("look"):  # (wave 5I: Radha)
                 found.append(TopReveal(source=card.id, player=card.controller, to="owner"))
     if found != r.top_reveals:
