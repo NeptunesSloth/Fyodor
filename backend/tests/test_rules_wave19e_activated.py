@@ -90,6 +90,10 @@ EXTRA = [
           "Whenever another creature or artifact you control enters, this creature deals 1 damage to each opponent.\nWarp {R} (You may "
           "cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may "
           "cast it from exile on a later turn.)", ["R"], power="2", toughness="3", keywords=["Warp"]),
+    _card("Icehide Troll", "W29", "{2}{G}", "Snow Creature — Troll Warrior",
+          "{S}{S}: This creature gets +2/+0 and gains indestructible until end of turn. Tap it. (Damage and effects that say \"destroy\" "
+          "don't destroy it. {S} can be paid with one mana from a snow source.)", ["G"], power="2", toughness="3"),
+    _card("Snow-Covered Forest", "W30", "", "Basic Snow Land — Forest", "({T}: Add {G}.)", []),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -408,4 +412,16 @@ def test_void_a_nonland_permanent_left_or_a_spell_was_warped(cards, how):
     act(s, "p1", type="cast_spell", card_id=named(s, "Plasma Bolt").id, targets=["p2"])
     pass_until_stack_empty(s)
     assert before - life(s, "p2") == (2 if how == "nothing" else 3)
+    replay_matches(s)
+
+
+def test_pump_then_tap_it(cards):
+    """Icehide Troll: {S}{S} paid by two snow lands: +2/+0 and indestructible until end of turn, then the Troll taps ("it" is the
+    creature the ability is about)."""
+    s = table(cards, ["Icehide Troll", "Snow-Covered Forest"], [])
+    act(s, "p1", type="create_token", player="p1", token={"name": "Extra Snow", "type_line": "Token Snow Land — Forest"})
+    troll = named(s, "Icehide Troll")
+    act(s, "p1", type="activate_ability", card_id=troll.id, ability=0)
+    pass_until_stack_empty(s)
+    assert ch(s, troll).pt == (4, 3) and "indestructible" in ch(s, troll).keywords and s.state.cards[troll.id].tapped
     replay_matches(s)
