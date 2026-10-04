@@ -196,6 +196,17 @@ def _enchanted_controls(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="enchanted")
 
 
+@_suffix(r"(?:that )?the chosen player controls")
+def _chosen_controls(s: Selector, m: re.Match[str]) -> Selector:
+    # -- chosen type (wave 16F) -- the player the source chose as it entered (app/rules/chosen.py)
+    return replace(s, controller="chosen")
+
+
+@_suffix(r"(?:from|in) the chosen player's graveyard")
+def _chosen_graveyard(s: Selector, m: re.Match[str]) -> Selector:
+    return _in_zone(s, "graveyard", "chosen")
+
+
 @_suffix(r"that['’]s enchanted or equipped")  # -- grammar (wave 11C) -- an Aura or an Equipment on it (303.4, 301.5)
 def _enchanted_or_equipped(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "enchanted_or_equipped"))
@@ -1081,6 +1092,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.controller == "defending" and card.controller not in defending_players(plan, source, attacker):
         return False
+    if sel.controller == "chosen" or sel.zone_owner == "chosen":
+        from app.rules import chosen
+
+        who = chosen.player_of(plan, source) if source is not None else None
+        if who is None or (card.controller != who if sel.controller == "chosen" else card.owner != who):
+            return False
     if sel.controller == "enchanted":
         src = plan.state.cards.get(source or "")
         if src is None or src.attached_player is None or card.controller != src.attached_player:

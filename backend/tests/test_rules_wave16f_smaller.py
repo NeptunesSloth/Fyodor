@@ -43,6 +43,25 @@ EXTRA.append(real("Tabernacle at Pendrell Vale", "", 0, "Legendary Land",
 EXTRA.append(real("Search Party Captain", "{4}{B}", 5, "Creature — Human Scout",
                   "This spell costs {1} less to cast for each creature you attacked with this turn.", ("3", "3"), "B"))
 
+EXTRA.append(real("Avatar of Will", "{6}{U}{U}", 8, "Creature — Avatar",
+                  "If an opponent has no cards in hand, this spell costs {6} less to cast.\nFlying", ("5", "6"), "U"))
+
+EXTRA.append(real("Avatar of Might", "{6}{G}{G}", 8, "Creature — Avatar",
+                  "If an opponent controls at least four more creatures than you, this spell costs {6} less to cast.\nTrample",
+                  ("8", "8"), "G"))
+EXTRA.append(real("Paradox Surveyor", "{1}{G}", 2, "Creature — Elf Scout",
+                  "Reach\nWhen this creature enters, look at the top five cards of your library. You may reveal a land card or a card "
+                  "with {X} in its mana cost from among them and put it into your hand. Put the rest on the bottom of your library "
+                  "in a random order.", ("2", "2"), "G"))
+
+EXTRA.append(real("Entropic Specter", "{1}{B}{B}", 3, "Creature — Specter",
+                  "Flying\nAs this creature enters, choose an opponent.\nEntropic Specter's power and toughness are each equal to the "
+                  "number of cards in the chosen player's hand.\nWhenever this creature deals damage to a player, that player discards a "
+                  "card.", ("*", "*"), "B"))
+EXTRA.append(real("Haunting Apparition", "{1}{B}", 2, "Creature — Spirit",
+                  "Flying\nAs this creature enters, choose an opponent.\nHaunting Apparition's power is equal to 1 plus the number of "
+                  "green creature cards in the chosen player's graveyard.", ("*", "1"), "B"))
+
 IDOLIZED = ("Enchant creature\nEnchanted creature has \"Whenever this creature attacks alone, it gets +X/+X until end of turn, "
             "where X is the number of nonland permanents you control.\"")
 
@@ -403,4 +422,87 @@ def test_cost_reduction_counts_the_creatures_you_attacked_with(cards):
     act(s, "p1", type="cast_spell", card_id=cap.id)
     answer(s)
     assert s.state.cards[cap.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_an_opponent_with_no_cards_in_hand_reduces_the_cost(cards):
+    # 601.2f: Avatar of Will costs {6} less while some opponent has no cards in hand (Bob has none; then he draws one)
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Avatar of Will"], [])
+    avatar = to_hand(s, "Avatar of Will")
+    mana(s, U=2)
+    act(s, "p2", type="draw", count=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=avatar.id)  # (Bob has a card in hand: the full {6}{U}{U})
+    hand = [c.id for c in s.state.cards.values() if c.zone == "p2:hand"]
+    act(s, "p2", type="move", card_ids=hand, to={"zone": "graveyard"})
+    act(s, "p1", type="cast_spell", card_id=avatar.id)
+    answer(s)
+    assert s.state.cards[avatar.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_cost_reduction_by_a_creature_margin(cards):
+    # 601.2f: Avatar of Might needs some opponent to control at least four more creatures than you (3 more: the full cost)
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Avatar of Might"], [])
+    might = to_hand(s, "Avatar of Might")
+    mana(s, G=2)
+    for i in range(3):
+        _token(s, "p2", f"Foe{i}", "Token Creature — Bear")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=might.id)
+    _token(s, "p2", "Foe3", "Token Creature — Bear")
+    act(s, "p1", type="cast_spell", card_id=might.id)
+    answer(s)
+    assert s.state.cards[might.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_reveal_one_of_several_kinds_from_the_top_cards(cards):
+    # 701.20 / 400.1: Paradox Surveyor: a land card or a card with {X} in its mana cost from among the top five; Llanowar Elves
+    # on top isn't either, so it can't be taken; the rest go to the bottom
+    from tests.wave9c_kit import card_named
+
+    s = build(cards, ["Paradox Surveyor", "Llanowar Elves"], [])
+    elves = card_named(s, "Llanowar Elves")
+    act(s, "p1", type="move", card_ids=[elves.id], to={"zone": "library"}, position="top")
+    surveyor = to_hand(s, "Paradox Surveyor")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=surveyor.id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_cards":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert elves.id not in [o.id for o in d.options] and len(d.options) == 4 and all(o.label == "Forest" for o in d.options)
+    hand = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    answer(s)
+    assert len([c for c in s.state.cards.values() if c.zone == "p1:hand"]) == hand + 1
+    assert s.state.cards[elves.id].zone == "p1:library"
+    check(s)
+
+
+def test_power_and_toughness_count_what_the_chosen_player_has(cards):
+    # 604.3 / 611.3a: Entropic Specter and Haunting Apparition choose an opponent as they enter, then count Bob's hand and the green
+    # creature cards in Bob's graveyard whenever their characteristics are read
+    from tests.wave9c_kit import card_named
+
+    s = build(cards, ["Entropic Specter", "Haunting Apparition"], ["Llanowar Elves"])
+    spec, app = to_hand(s, "Entropic Specter"), to_hand(s, "Haunting Apparition")
+    act(s, "p2", type="draw", count=3)  # (a 0/0 Specter would die as it enters)
+    mana(s, B=5, C=1)
+    for c in (spec, app):
+        act(s, "p1", type="cast_spell", card_id=c.id)
+        answer(s, "p2")  # (As it enters: choose Bob)
+    assert _pt(s, spec) == (3, 3) and _pt(s, app)[0] == 1
+    act(s, "p2", type="draw", count=2)
+    assert _pt(s, spec) == (5, 5)
+    hand = [c.id for c in s.state.cards.values() if c.zone == "p2:hand" and c.name == "Llanowar Elves"]
+    act(s, "p2", type="move", card_ids=hand[:1] or [card_named(s, "Llanowar Elves", "p2").id], to={"zone": "graveyard"})
+    assert _pt(s, app)[0] == 2
     check(s)

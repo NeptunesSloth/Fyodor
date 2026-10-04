@@ -108,6 +108,7 @@ _TOTAL_POWER = re.compile(r"creatures you control have total power (?P<n>\w+) or
 _GRAVEYARD = re.compile(r"there(?:'s| is| are) (?:(?P<a>a|an)|(?P<no>no)|(?P<n>\w+) or more) (?P<sel>.+? in your (?:graveyard|library))")
 # (wave 16F: "a Warrior card is in your graveyard", "there are no cards in your library")
 _GRAVEYARD_ARE = re.compile(r"(?:(?P<a>an?)|(?P<n>\w+) or more) (?P<sel>.+?) (?:are|is) in your graveyard")  # "seven or more cards are in your graveyard"
+_ALL_GRAVEYARDS = re.compile(r"there are (?P<n>\w+) or more (?P<sel>.+?) (?:total )?in all graveyards")  # (wave 16F: Avatar of Woe)
 _GRAVEYARD_TYPES = re.compile(r"there are (?P<n>\w+) or more card types among cards in your graveyard")
 _NONE_ON_BATTLEFIELD = re.compile(r"(?:there are )?no (?P<sel>[\w' -]+?)(?: are)? on the battlefield")
 _OBJECT_STAT = re.compile(r"(?P<who>its|that creature's|that permanent's|that card's|~'s) (?P<stat>power|toughness|mana value) "
@@ -206,6 +207,12 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     if m:  # "you control your commander" (Lieutenant): a commander you own (903.3), on the battlefield under your control
         commanders = selectors.Selector(commander=True, controller="you", owner="you" if m["which"] == "your commander" else None)
         return {"value": {"count": commanders.key()}, "op": ">=", "n": 1}
+    m = re.fullmatch(r"an opponent controls at least (?P<n>\w+) more (?P<what>.+) than you", t)
+    if m and _num(m["n"]) is not None:  # -- cost alt (wave 16F) -- Avatar of Might: some opponent's count is at least n above yours
+        key = _count(m["what"], "you control")
+        if key:
+            return {"versus": {"value": {"count": key}, "op": ">=", "margin": _num(m["n"])}}
+        return None
     m = re.fullmatch(r"no opponent controls (?:an? )?(?P<sel>.+)", t)  # -- as long as (wave 16F) -- none of them has one, not one opponent
     if m:
         key = _count(m["sel"], "an opponent controls")
@@ -278,6 +285,14 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         if n is None or key is None:
             return None
         return {"value": {"sum": "power", "of": key}, "op": ">=", "n": n}
+    m = _ALL_GRAVEYARDS.fullmatch(t)
+    if m:  # "there are ten or more creature cards total in all graveyards": every graveyard's (400.1)
+        n = _num(m["n"])
+        everywhere = selectors.parse(m["sel"] + " in graveyards")
+        if n is None or everywhere is None or everywhere.player is not None or everywhere.zones != ("graveyard",) \
+                or everywhere.zone_owner is not None:
+            return None
+        return {"value": {"count": everywhere.key()}, "op": ">=", "n": n}
     m = _GRAVEYARD_TYPES.fullmatch(t)
     if m:  # delirium: "there are four or more card types among cards in your graveyard" (205.2a)
         n = _num(m["n"])
@@ -331,6 +346,11 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     found = _more_ifs(t)  # -- intervening ifs (wave 11F) --
     if found is not None:
         return found
+    m = re.fullmatch(r"an opponent (?:(?P<has>has)|controls) (?P<rest>(?:no|\w+ or (?:more|fewer|less)) .+)", t)  # (wave 16F)
+    if m:  # "an opponent has no cards in hand": the same test read for some one opponent ("you" of it is them)
+        inner = _parse_one(f"you {'have' if m['has'] else 'control'} {m['rest']}", objects)
+        if inner is not None and "value" in inner and not inner.get("per_opponent"):
+            return {"as": "opponent", "cond": inner}
     if objects:
         found = _cast_how(t)  # -- refused modal/conditional (wave 3R1) --
         if found is not None:
@@ -977,7 +997,8 @@ def _versus(plan: Plan, ctx: dict[str, Any], spec: dict[str, Any]) -> bool:
     others = _as_players(plan, ctx, spec["who"]) if spec.get("who") else [p for p in plan.live() if p != ctx["controller"]]
     if spec.get("who") and len(others) != 1:
         return False
-    return each(_OPS[spec["op"]](values.evaluate(plan, {**ctx, "controller": p}, spec["value"]), mine) for p in others)
+    return each(_OPS[spec["op"]](values.evaluate(plan, {**ctx, "controller": p}, spec["value"]), mine + int(spec.get("margin", 0)))
+                for p in others)
 
 
 def _as_players(plan: Plan, ctx: dict[str, Any], who: str) -> list[str]:
@@ -987,6 +1008,8 @@ def _as_players(plan: Plan, ctx: dict[str, Any], who: str) -> list[str]:
 
     if who == "any":
         return list(plan.live())
+    if who == "opponent":  # -- cost alt (wave 16F) -- "an opponent has no cards in hand": some one opponent
+        return [p for p in plan.live() if p != ctx["controller"]]
     if who == "defended":
         d = (ctx.get("event") or {}).get("defended")
         return [d] if d in plan.live() else []
@@ -997,7 +1020,7 @@ def _as_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     """The condition read as that player ("you" of it is them): one player, else none (a player the event doesn't name
     can't be judged); "a player": some player (603.4: also when it resolves)."""
     players = _as_players(plan, ctx, cond["as"])
-    if cond["as"] != "any" and len(players) != 1:
+    if cond["as"] not in ("any", "opponent") and len(players) != 1:
         return False
     return any(holds(plan, {**ctx, "controller": p}, cond["cond"]) for p in players)
 

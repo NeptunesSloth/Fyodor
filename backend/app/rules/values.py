@@ -127,6 +127,8 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     number for each player it could name (the target player's, the recipient's: app/rules/sized_damage.py): never read
     through the selectors' trigger-bound "that player" (selectors.THAT_PLAYER)."""
     v = _parse_count(phrase, it=it)
+    if v is not None and ("chosen" in str(v) and it != "self"):  # (wave 16F: "the chosen player" of the very object that counts)
+        return None
     return None if v is not None and f'"controller":"{selectors.THAT_PLAYER}"' in str(v) else v
 
 
@@ -180,6 +182,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return sized
     if what in ("cards in your hand", "card in your hand"):
         return {"hand": "you"}
+    if what in ("cards in the chosen player's hand", "card in the chosen player's hand"):  # -- chosen type (wave 16F) --
+        return {"hand": "chosen"}
     if what in ("creatures in your party", "creature in your party"):  # -- refused modal/conditional (wave 3R1) --
         return {"party": "you"}  # 700.8
     if what in ("cards in target player's hand", "cards in target opponent's hand"):
@@ -347,6 +351,11 @@ def _selector_key(phrase: str) -> str | None:
     return sel.key() if sel is not None else None
 
 
+class NoChosenPlayer(Exception):
+    """-- chosen type (wave 16F) -- a count about "the chosen player" read before the source has chosen one (a creature with
+    "As ~ enters, choose an opponent" is on the battlefield before the choice is made): the value is not known yet."""
+
+
 def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     """The number a value stands for right now (never negative: 107.1b)."""
     if isinstance(v, int):
@@ -406,6 +415,11 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                    for cid in ids if name and chars.of(plan.state.cards[cid], plan.info).name == name)
     if "count" in v:
         sel = selectors.from_key(v["count"])
+        if ctx.get("unknown_choice_raises") and "chosen" in (sel.controller, sel.zone_owner):
+            from app.rules import chosen
+
+            if chosen.player_of(plan, ctx.get("source_card") or "") is None:
+                raise NoChosenPlayer
         if sel.player is not None:
             return sum(1 for p in plan.live() if selectors.matches_player(plan, sel, p, you))
         return len(selectors.candidates(plan, sel, you, _other_than(ctx)))
@@ -432,6 +446,13 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in context.players(plan, ctx, context.EVENT)
                    if p in plan.live())
+    if "hand" in v and v["hand"] == "chosen":  # the player the source chose as it entered (the count of a hand is public)
+        from app.rules import chosen
+
+        who = chosen.player_of(plan, ctx.get("source_card") or "")
+        if who is None and ctx.get("unknown_choice_raises"):
+            raise NoChosenPlayer
+        return len(plan.state.zones.get(f"{who}:hand", [])) if who in plan.live() else 0
     if "hand" in v:
         players = [you] if v["hand"] == "you" else _target_players(plan, ctx)
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in players)
