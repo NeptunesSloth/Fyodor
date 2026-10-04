@@ -17,7 +17,7 @@
 * 608.2h / 601.1: "put any number of creature cards from your hand onto the battlefield", "an artifact card with mana value less than or
   equal to that damage" - chosen privately, not cast.
 * 701.21a: "sacrifice any number of other permanents, then draw that many cards" - the player picks which (none is allowed).
-* 508.1b: "deals 1 damage to the player or planeswalker it's attacking" - what the attacker the trigger is about attacks now.
+* "deals 1 damage to the player or planeswalker it's attacking" stays manual (Hellrider-style damage after leaving combat is unsettled).
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ EXTRA = [
     real('Renounce', '{1}{W}', 2, 'Instant', 'Sacrifice any number of permanents. You gain 2 life for each permanent sacrificed this way.', None, 'W'),
 ]
 
-NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
+NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe") and e["name"] not in ("Hellrider", "Scorch Spitter")]
 
 
 @pytest.fixture()
@@ -100,27 +100,11 @@ def test_that_many_after_sacrificing_any_number_stays_manual(cards):
     assert coverage.of_card_data(scape).level != "FULL"
 
 
-def test_hellrider_damages_what_each_attacker_attacks(cards):
-    # 508.1b: one trigger per attacking creature; Carol is attacked by one of them, Bob by the other
-    s = combat_build(cards, "Hellrider", players=3)
-    combat_put(s, "Hellrider")
-    a = token_of(s, "p1", "Ape", "Token Creature — Ape", "2/2", "Haste")
-    b = token_of(s, "p1", "Bat", "Token Creature — Bat", "2/2", "Haste")
-    to_attack(s)
-    declare(s, (a, "p2"), (b, "p3"))
-    to_blocks(s)
-    assert (life(s, "p2"), life(s, "p3")) == (39, 39)
-    check(s)
-
-
-def test_scorch_spitter_damages_the_player_it_attacks(cards):
-    s = combat_build(cards, "Scorch Spitter")
-    spitter = combat_put(s, "Scorch Spitter")
-    to_attack(s, 3)
-    declare(s, (spitter, "p2"))
-    to_blocks(s)
-    assert life(s, "p2") == 39
-    check(s)
+def test_damage_to_what_it_is_attacking_stays_manual(cards):
+    # Review 19: "the player or planeswalker it's attacking" after the attacker left combat is an unsettled ruling
+    # (docs/CURRENT_STATE.md: Hellrider-style damage stays manual)
+    for name in ("Hellrider", "Scorch Spitter"):
+        assert coverage.of_card_data(cards.resolve(name)).level != "FULL"
 
 
 @pytest.mark.parametrize("name, kind", [("Edric, Spymaster of Trest", "Rogue"), ("Synapse Sliver", "Sliver")])

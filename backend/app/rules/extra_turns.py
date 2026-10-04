@@ -91,7 +91,8 @@ def take(plan: Plan) -> str | None:
         if rec.get("lose"):  # (created between the turns: "a later turn" is that one, delayed._step_due)
             plan.rules.delayed.append(DelayedTrigger(
                 id=secrets.token_hex(4), controller=pid, name=str(rec.get("label") or ""), when={"kind": "step", "step": "end", "whose": "next_turn"},
-                effects=[{"do": "lose_game", "who": "you"}], refs={}, turn=plan.state.turn.number, step=plan.state.turn.phase, once=True))
+                effects=[{"do": "lose_game", "who": "you"}], refs={}, turn=plan.state.turn.number, step=plan.state.turn.phase, once=True,
+                until_turn=plan.state.turn.number + 1))  # (review 19: only that turn's end step; one skipped or ended early, 724.1, is no loss later)
         return pid
     return None
 

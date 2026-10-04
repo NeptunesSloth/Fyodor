@@ -213,6 +213,21 @@ def test_final_fortune_loses_the_game_at_the_end_step_of_the_extra_turn(cards):
     roundtrip(s)
 
 
+def test_final_fortune_loss_waits_only_for_the_extra_turns_end_step(cards):
+    # Review 19: an extra turn ended before its end step (724.1, Sundial of the Infinite) leaves no loss for a later turn's end step
+    from app.rules import delayed
+
+    s = build(cards, "Final Fortune")
+    cast(s, "Final Fortune", R=2)
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")
+    (t,) = [t for t in s.state.rules.delayed if t.effects == [{"do": "lose_game", "who": "you"}]]
+    assert t.until_turn == 2
+    roundtrip(s)
+    assert delayed._step_due(Plan(s.state, "p1", s.cards, None), t, "end")
+    s.state.turn.number = 3  # (a later turn's end step)
+    assert not delayed._step_due(Plan(s.state, "p1", s.cards, None), t, "end")
+
+
 def test_distant_melody_draws_for_the_permanents_of_the_chosen_type(cards):
     s = build(cards, "Distant Melody", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears")
     for n in ("Elf A", "Elf B"):

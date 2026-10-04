@@ -257,6 +257,8 @@ def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
     if w.get("kind") != "step" or (w.get("step") != phase and not main):
         return False
     turn = plan.state.turn.number
+    if t.until_turn is not None and turn > t.until_turn:
+        return False  # (its turn is over: "that turn's end step" never came)
     later_turn = turn > t.turn
     created_at = PHASES.index(t.step) if t.step in PHASES else -1
     same_turn_before = turn == t.turn and created_at < PHASES.index(phase)
