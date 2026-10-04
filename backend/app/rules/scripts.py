@@ -303,6 +303,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         # "… becomes blocked by a creature, destroy that creature" / "… deals damage to a creature,
         # exile that creature": the creature on the other side, which the event doesn't name
         return None
+    if event == "either" and cond.get("subject") in ("self", "self_or", "sel") and all(c["event"] in _GONE for c in cond["conds"]):
+        return "self_gone" if cond["subject"] == "self" else "event_gone"  # -- trigger tail (wave 15B) -- "dies or is put into exile"
     if event == "multi":
         if cond.get("subject") == "host":  # -- attached events (wave 4L) -- the attacking / blocking creature
             return "event" if all(x in _STAYING for x in cond["events"]) else None
@@ -2850,6 +2852,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if cond is not None and other_side.wanted(cond) and cond.get("subject") == "host" and "that creature" not in body:
                     body = body.replace("the other creature", "that creature")  # (wave 11E: Venom, Mammoth Harness)
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
+                if ante == "self_gone":  # -- trigger tail (wave 15B) -- "put her into her owner's library third from the top"
+                    # (a gendered pronoun is written ~): the card after it left, found where it went (400.7e), like "it"
+                    body = re.sub(r"\bput ~ into ~'s owner's library\b", "put it into its owner's library", body)
                 to_gy = cond is not None and cond.get("event") == "to_graveyard" and cond.get("subject") == "self"
                 if to_gy:  # -- trigger tail (wave 15B) -- 603.6c: the card is in its owner's graveyard, whose owner controls the ability
                     body = {"shuffle it into its owner's library.": "shuffle ~ into its owner's library.",

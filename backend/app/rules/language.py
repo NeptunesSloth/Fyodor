@@ -729,6 +729,7 @@ _SUBJ_UNTIL = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) cards from the 
 _REST_THEY = re.compile(rf"(?:that player|the player) puts {_REST}")
 _OWNERS = r"(?:its owner's|their owner's|their owners'|your)"
 _TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_OWNERS} library")
+_NTH_FROM_TOP = re.compile(rf"put (?P<o>.+?) into {_OWNERS} library (?P<nth>second|third|fourth|fifth|sixth|seventh) from the top")
 _SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
 _OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that permanent's) owner shuffles it into their library")
 _OWNER_CHOICE = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it on their choice of the top or bottom of their library")
@@ -925,6 +926,13 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     found_lib = gy_to_library(text)  # -- refused zones/sized (wave 3R4) --
     if found_lib is not None:
         return found_lib
+    m = _NTH_FROM_TOP.fullmatch(text)  # -- trigger tail (wave 15B) -- "third from the top" (401.4: one card, the Nth from the top)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind not in ("target", "self", "it"):
+            raise _Fail
+        nth = ("second", "third", "fourth", "fifth", "sixth", "seventh").index(m["nth"]) + 2
+        return [{"do": "to_library", "who": _who(kind, key), "place": nth}], _one(group)
     m = _TO_LIBRARY.fullmatch(text) or _SHUFFLE_INTO.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"])

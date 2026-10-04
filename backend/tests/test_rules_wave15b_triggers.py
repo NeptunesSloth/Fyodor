@@ -58,6 +58,7 @@ EXTRA += [
     real("Armed with Proof", "{3}", 3, "Enchantment", "When this enchantment enters, investigate twice.", None),
     real("Teapot Slinger", "{3}{R}", 4, "Creature — Raccoon Warrior", "Menace\nWhenever you expend 4, this creature deals 2 damage to each opponent.", ("3", "3"), "R"),
     real("Raise the Alarm Copy", "{1}{W}", 2, "Instant", "Create two 1/1 white Soldier creature tokens.", None, "W"),
+    real("God-Eternal Oketra", "{3}{W}{B}", 5, "Legendary Creature — Zombie God", "Double strike\nWhenever you cast a Zombie creature spell, create a 4/4 black Zombie Warrior creature token with vigilance.\nWhen God-Eternal Oketra dies or is put into exile from the battlefield, you may put it into its owner's library third from the top.", ("3", "6"), "WB"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -185,6 +186,16 @@ def test_expend_four_triggers_once_when_the_fourth_mana_is_spent_on_spells(cards
         act(s, "p1", type="cast_spell", card_id=spell.id)
         answer(s)
         assert s.state.players["p2"].life == expected  # the second spell reaches the fourth mana: 2 damage, once
+    check(s)
+
+
+def test_dies_puts_it_third_from_the_top_of_its_owners_library(cards):
+    # 400.7e: the card in the graveyard is a new object, found there; 401.4 the library's third card from the top
+    s = build(cards, ["God-Eternal Oketra"], [])
+    put(s, "God-Eternal Oketra")
+    kill(s, "God-Eternal Oketra")
+    answer(s, "yes")
+    assert s.state.zones["p1:library"].index(card_named(s, "God-Eternal Oketra").id) == 2
     check(s)
 
 

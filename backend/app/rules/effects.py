@@ -2216,6 +2216,12 @@ def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
         _moved(plan, ctx, e, before)  # (new objects: a shuffled library is re-keyed, 701.20d)
         return True
+    if isinstance(e["place"], int):  # -- trigger tail (wave 15B) -- "third from the top": one card, its owner's library (401.4)
+        for cid in cards:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
+                     "index": e["place"] - 1}, actor=ctx["controller"])
+        _moved(plan, ctx, e, before)
+        return True
     if e["place"] == "choice" and len(cards) == 1:
         card = plan.state.cards[cards[0]]
         decide(plan, player=card.owner, kind="choose_one", prompt=f"Put {card.name} on the top or the bottom of your library?",

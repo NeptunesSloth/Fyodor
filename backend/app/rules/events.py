@@ -212,6 +212,17 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(rf"~ (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m:
         return {"event": "multi", "events": [_MULTI[m["a"]], _MULTI[m["b"]]]}
+    # -- trigger tail (wave 15B) -- "~ dies or is put into exile from the battlefield" (God-Eternal Oketra), "~ or another
+    # nontoken artifact you control is put into a graveyard from the battlefield or is put into exile from the battlefield":
+    # either event of the same objects (603.2), each its own (a card put into exile from the battlefield: 603.6c, 700.4)
+    m = re.fullmatch(r"(?P<s>.+?) (?:dies|(?:is|are) put into a graveyard from the battlefield) or (?:is|are) put into exile "
+                     r"from the battlefield", c)
+    if m:
+        died, left = _parse(f"{m['s']} dies"), _parse(f"{m['s']} leaves the battlefield")
+        if died is None or left is None or died.get("event") != "die" or left.get("event") != "leave" or died.get("aggregate") \
+                or left.get("aggregate") or {k: v for k, v in died.items() if k != "event"} != {k: v for k, v in left.items() if k != "event"}:
+            return None
+        return {"event": "either", "subject": died["subject"], "conds": [died, {**left, "dest": "exile"}]}
     # -- attached events (wave 4L) -- "Whenever enchanted creature attacks or blocks" (the object it's attached to)
     m = re.fullmatch(rf"(?:enchanted|equipped) creature (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m and {_MULTI[m["a"]], _MULTI[m["b"]]} <= {"attack", "block", "blocked"}:
