@@ -48,6 +48,7 @@ from app.rules import (
     permissions,
     phasing,  # -- phasing (wave 13D) --
     reconcile,
+    recursion,  # -- static_other sweep (wave 17C) --
     replacements,
     sba,
     scripts,
@@ -1263,6 +1264,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "manual_done": _resume_manual_done,
     "combat_damage": _resume_combat_damage,
     "block_split": _resume_block_split,
+    "cipher": recursion.resume_cipher,  # (wave 17C)
     "cleanup_manual": lambda plan, d, chosen: start_next_turn(plan),
     "untap_keep": untap_choice.resume,  # -- untap choice (wave 7F) --
     "untap_limit": untap_choice.resume_limit,  # -- untap restrictions (wave 13E) --

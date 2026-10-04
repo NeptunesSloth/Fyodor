@@ -231,7 +231,7 @@ _CHOSEN_COLOR: dict[str, str | None] = {  # (wave 3R3) "Choose a color. <this>":
     "Add an amount of mana of that color equal to the number of creatures you control of the chosen type": "chosen_type",
 }
 _PUT_SELF = re.compile(r"^Put an? (?P<k>[+-]\d+/[+-]\d+) counter on (?:this \w+|~)$")  # (wave 3R3: Wall of Roots)
-_SAC_SELF = re.compile(r"^Sacrifice (this \w+|it)$")
+_SAC_SELF = re.compile(r"^Sacrifice (this \w+|it|~)$")  # (wave 17C: ~, a quoted grant read through self_text)
 _EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one|two|three|four|five|six|seven|eight) \{E\}$|^Remove (a|an|one|two|three) (?:[a-z]+|[+-]\d+/[+-]\d+) counters? from (this \w+|it)$")
 
 

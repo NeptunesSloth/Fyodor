@@ -113,6 +113,10 @@ _GRAVEYARD_TYPES = re.compile(r"there are (?P<n>\w+) or more card types among ca
 _NONE_ON_BATTLEFIELD = re.compile(r"(?:there are )?no (?P<sel>[\w' -]+?)(?: are)? on the battlefield")
 _OBJECT_STAT = re.compile(r"(?P<who>its|that creature's|that permanent's|that card's|that spell's|~'s|the sacrificed (?:creature|permanent|artifact)'s) (?P<stat>power|toughness|mana value) "
                           r"(?:is|was) (?P<n>\w+) or (?P<cmp>less|greater|more|fewer)")
+_OBJECT_VS_REVEALED = re.compile(r"(?:its|that creature's|that permanent's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|less than|"
+                                 r"greater than or equal to|greater than|equal to) the revealed card's (?P<ref>power|toughness|mana value)")
+_REF_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "==", "greater than or equal to": ">=", "greater than": ">"}
+_REF_STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
 _X_IS = re.compile(r"x is (?P<n>\w+)(?: or (?P<cmp>more|greater|less|fewer))?", re.IGNORECASE)
 _VERSUS = re.compile(r"an opponent (?:(?P<controls>controls)|has) more (?P<what>.+?) than you")
 # -- intervening ifs (wave 11F) -- 603.4: the player the trigger event names ("that player"), the player a creature
@@ -136,6 +140,9 @@ _ATTACHED = {"enchanted": ("Aura",), "equipped": ("Equipment",), "enchanted or e
 _BEATS_SELF = re.compile(r"(?P<who>it|that creature) has greater (?P<a>power|toughness)(?: or (?P<b>power|toughness))? than ~|"
                          r"(?P<who2>its|that creature's) power is greater than ~'s(?: power)?"
                          r"(?: (?:or|and/or) (?:its|that creature's) toughness is greater than ~'s toughness)?")  # (and/or: 702.100a, wave 15E)
+# -- static_other sweep (wave 17C) -- 608.2h: "If you controlled that permanent" (Boomerang Basics): the controller it had, as it is
+# or as it last existed
+_CONTROLLED = re.compile(r"you (?:(?P<neg>didn't|did not) control|controlled) (?:it|that (?:creature|permanent|card|land|token|artifact|enchantment|planeswalker))")
 _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking", "blocking": "blocking",
            "suspected": "suspected", "prepared": "prepared"}  # (prepared: wave 13C, 722.3; suspected: wave 12A, 701.60 — a designation of the source, like its other states)
 # -- counters (wave 5H) -- "if it had counters on it", "if it had a +1/+1 counter on it", "if ~ has counters on it",
@@ -501,6 +508,11 @@ def _history_pattern(pattern: str):  # type: ignore[no-untyped-def]
     return register
 
 
+@_history_pattern(r"a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell")
+def _prowl(m: re.Match[str]) -> Condition:
+    return {"history": "prowl"}  # -- static_other sweep (wave 17C) -- prowl, 702.76a (history._prowl)
+
+
 @_history_pattern(r"you attacked(?: with a creature)? this turn")
 def _attacked(m: re.Match[str]) -> Condition:
     return {"history": "attacked"}  # 508.1: declared attackers; 508.4: a creature put onto the battlefield attacking never "attacked"
@@ -835,6 +847,12 @@ def _object(t: str) -> Condition | None:
     "~ is tapped": a test of the object the ability refers to (``"it"``: bound by scripts.resolve_it
     to its antecedent). Only characteristics are read of any referred object (608.2h: as it is, or as
     it last existed); physical state (tapped, attacking) only of the source itself."""
+    t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
+    t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)'s (?:power|toughness|mana value)) (\w+ or )", r"\1 was \2", t)
+    m = _OBJECT_VS_REVEALED.fullmatch(t)
+    if m:  # -- static_other sweep (wave 17C) -- "its power is less than or equal to the revealed card's power" (Titan's Presence)
+        return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]],
+                "n": {_REF_STATS[m["ref"]]: "cost:revealed"}}
     m = _OBJECT_STAT.fullmatch(t)
     if m:  # "its mana value was 3 or less", "its power is 4 or greater"
         n = _num(m["n"])
@@ -848,6 +866,9 @@ def _object(t: str) -> Condition | None:
     if m:
         out_c: Condition = {"object": _OBJECT_WORDS[m["who"]], "counters": m["k"] or "*"}
         return {"not": out_c} if m["neg"] else out_c
+    m = _CONTROLLED.fullmatch(t)
+    if m:
+        return {"object": "it", "controlled_by": "you", **({"negate": True} if m["neg"] else {})}
     m = _HAS_KEYWORD.fullmatch(t)  # -- refused modal/conditional (wave 3R1) -- "if that creature has toxic"
     if m:
         return {"object": _OBJECT_WORDS[m["who"]], "has": m["kw"]}
@@ -1059,6 +1080,9 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     that object where it was, else as it last existed (608.2h); an object that can't be found
     fails the test (608.2b: a part that needs the information can't be carried out)."""
     who = cond["object"]
+    if "controlled_by" in cond:  # -- static_other sweep (wave 17C) -- the controller it had: as it is, or as it last existed (608.2h)
+        found = values._object(plan, ctx, who)
+        return found is not None and (found[0].controller == ctx["controller"]) != bool(cond.get("negate"))
     if "test" in cond and who == "self":
         return _self_state(plan, ctx, cond["test"]) != bool(cond.get("negate"))  # (wave 16C: "it wasn't blocking", bound to the source)
     got = values._object(plan, ctx, who)
@@ -1118,12 +1142,15 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
             from app.rules.stack_interaction import mana_value
 
             value = mana_value(card, ch)
-        return value is not None and _OPS[cond["op"]](value, cond["n"])
+        bound: Any = cond["n"]
+        if isinstance(bound, dict):  # -- static_other sweep (wave 17C) -- the card a spell's cost revealed
+            bound = values.evaluate(plan, ctx, bound) if values._object(plan, ctx, "cost:revealed") is not None else None
+        return value is not None and bound is not None and bool(_OPS[cond["op"]](value, bound))
     # "it's a land card" / "that creature is a Human": its characteristics, wherever it is (a card in
     # a library, a graveyard or exile, or a permanent as it last existed): the zone is not the test
     sel = replace(selectors.from_key(cond["is"]), zones=(card.zone.rsplit(":", 1)[-1],))
-    found = selectors.matches(plan, sel, card, ch, ctx["controller"], ctx.get("source_card"))
-    return not found if cond.get("negate") else found
+    hit = selectors.matches(plan, sel, card, ch, ctx["controller"], ctx.get("source_card"))
+    return not hit if cond.get("negate") else hit
 
 
 def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
@@ -1180,6 +1207,10 @@ _SPENT_OVER_PT = re.compile(r"the amount of mana you spent is greater than (?:th
 
 def _cast_how(t: str) -> Condition | None:
     """A condition about how the source was cast, or None."""
+    if t in ("this spell was cast using teamwork", "it was cast using teamwork"):  # -- static_other sweep (wave 17C) -- 702.194b
+        return {"object": "self", "cast": {"optional": "teamwork"}}
+    if t in ("this spell's prowl cost was paid", "its prowl cost was paid"):  # -- static_other sweep (wave 17C) -- 702.76a
+        return {"object": "self", "cast": {"alt": "prowl"}}
     if t in ("it escaped", "~ escaped"):  # -- escape (wave 5I) -- 702.138b
         return {"object": _cast_who(t.split()[0]), "cast": {"escaped": True}}
     if _NO_MANA.fullmatch(t):  # -- if you do (wave 5G) -- "if no mana was spent to cast it" (a cast trigger's spell)
@@ -1253,6 +1284,10 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if how.get("kicked") and not record.kicked:  # 702.33d (a modal header's "If it was kicked, choose both instead")
         return False
     if how.get("escaped") and record.alternative != "escape":  # -- escape (wave 5I) -- 702.138b
+        return False
+    if how.get("optional") and f"optional:{ctx.get('source_card')}:{how['optional']}" not in record.additional:
+        return False  # -- static_other sweep (wave 17C) -- teamwork 702.194b: the caster declared paying it
+    if how.get("alt") and record.alternative != how["alt"]:  # -- static_other sweep (wave 17C) -- "if this spell's prowl cost was paid"
         return False
     zone = how.get("from")
     if zone is not None and (record.cast_from == zone[1:] if zone.startswith("!") else record.cast_from != zone):

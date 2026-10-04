@@ -412,6 +412,9 @@ class TurnFact(BaseModel):
     counter: str | None = Field(default=None, max_length=40)
     source_types: list[str] = Field(default_factory=list)
     source_supertypes: list[str] = Field(default_factory=list)
+    # -- static_other sweep (wave 17C) -- prowl (702.76a): the damage source's creature types and its controller as it dealt the damage
+    source_subtypes: list[str] = Field(default_factory=list)
+    source_controller: str | None = Field(default=None, max_length=64)
     # -- damage history (wave 6B) -- "damaged" facts (a permanent was dealt ``amount`` damage; ``object_id`` the
     # permanent): the object that dealt it
     source: str | None = Field(default=None, max_length=80)
@@ -678,6 +681,7 @@ class PaymentRecord(BaseModel):
     sacrificed: list[str] = Field(default_factory=list)
     sacrificed_objects: list[str] = Field(default_factory=list)  # (wave 3D) the object ids they were: last known information
     discarded: list[str] = Field(default_factory=list)
+    revealed: list[str] = Field(default_factory=list)  # -- static_other sweep (wave 17C) -- cards revealed from the hand to pay ("the revealed card's …")
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
     returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
     # -- keywords (wave 15E) -- ninjutsu 702.49c: what each returned attacking creature was attacking (player or permanent id)

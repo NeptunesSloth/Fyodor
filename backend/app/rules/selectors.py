@@ -433,6 +433,25 @@ def _compare_event(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], "<=" if m["eq"] else "<", EVENT_STAT + _REF_STAT[m["what"]])))
 
 
+# -- static_other sweep (wave 17C) -- "Exile each creature and planeswalker with mana value less than the revealed card's mana value."
+# (Calamity of the Titans): a comparison with the card the source spell's additional cost revealed (its payment record)
+REVEALED_STAT = "rev:"
+
+
+@_suffix(r"with (?P<what>mana value|power|toughness) (?P<op>less than or equal to|less than|equal to|greater than or equal to|"
+         r"greater than) the revealed card's (?P<ref>mana value|power|toughness)")
+def _compare_revealed(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], _REF_OPS[m["op"]], REVEALED_STAT + _REF_STAT[m["ref"]])))
+
+
+def revealed_stat(plan: Plan, source: str | None, what: str) -> int | None:
+    """The mana value / power / toughness of the card the source spell's cost revealed (one card, from its payment record)."""
+    record = plan.rules.payments.get(plan.rules.object_id(source)) if source else None
+    ids = record.revealed if record is not None else []
+    card = plan.state.cards.get(ids[0]) if len(ids) == 1 else None
+    return _stat(plan.ch(card), what) if card is not None else None
+
+
 def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
     """The source's mana value / power / toughness: on the battlefield as it is, else as it last existed there."""
     card = plan.state.cards.get(source or "")
@@ -812,6 +831,27 @@ def parse_either(phrase: str) -> Selector | None:
     return Selector(either=(a.key(), b.key()))
 
 
+_SPELL_OR = re.compile(r"^spell or (?P<perm>.+)$")
+
+
+def parse_spell_or(phrase: str) -> Selector | None:
+    """-- static_other sweep (wave 17C) -- "spell or nonland permanent an opponent controls" / "spell or creature" / "spell or permanent
+    that's red or green" (a target phrase: a spell on the stack, or a permanent): the qualifiers (who controls it, a color, a mana
+    value) are both kinds'; "nonland", a card type or a subtype is the permanent's own (a spell is never a land, and "creature" is no
+    limit on spells here)."""
+    m = _SPELL_OR.match(phrase.strip())
+    if m is None:
+        return None
+    perm = _parse(m["perm"])
+    if perm is None or perm.player or perm.card or perm.zones != ("battlefield",) or perm.either or perm.ability or perm.union or perm.extras:
+        return None
+    spell = replace(perm, zones=("stack",), types=(), not_types=(), subtypes=(), not_subtypes=(), supertypes=(), not_supertypes=(),
+                    token=None, tapped=None, attacking=False, blocking=False, in_combat=False)
+    if spell.controller == "you" and perm.controller != "you":
+        return None
+    return Selector(either=(spell.key(), perm.key()), zones=("stack", "battlefield"))
+
+
 @lru_cache(maxsize=8192)
 def _parse(phrase: str) -> Selector | None:
     if "outlaw" in phrase:
@@ -894,6 +934,10 @@ def _parse(phrase: str) -> Selector | None:
             pending_join = "or"
             i -= 1
             continue
+        if w == "and" and nouns and nouns[-1][0] == "type" and i > 0 and (left := _core(words[i - 1])) is not None and left[0] == "type":
+            pending_join = "or"  # -- static_other sweep (wave 17C) -- "each creature and planeswalker", "creatures and planeswalkers": either type
+            i -= 1
+            continue
         c = _core(w)
         if c is None:
             break
@@ -932,8 +976,8 @@ def _parse(phrase: str) -> Selector | None:
             return None  # ("token card": no such thing; a token is only ever a permanent, 111.7)
         s = replace(s, token=True)
     if "commander" in markers:
-        if s.card or "spell" in markers:
-            return None  # (a commander card in the command zone / a commander spell: not yet)
+        if s.card:
+            return None  # (a commander card in the command zone: not yet; -- static_other sweep (wave 17C) -- a commander spell is one)
         s = replace(s, commander=True)
     if "perm" in markers and not types and (s.card or "spell" in markers):
         # "permanent card" (110.4a) / "permanent spell" (110.4b): only the permanent types, any of
@@ -1042,8 +1086,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     zone = card.zone.split(":")[-1] if ":" in card.zone else card.zone
     if sel.player is not None:
         return False
-    if sel.either:  # (wave 15A) any one of the alternatives
-        return zone == "battlefield" and any(matches(plan, from_key(k), card, ch, you, source, attacker) for k in sel.either)
+    if sel.either:  # (wave 15A) any one of the alternatives (each reads its own zone: wave 17C, "spell or nonland permanent")
+        return zone in sel.zones and any(matches(plan, from_key(k), card, ch, you, source, attacker) for k in sel.either)
     if sel.zones and zone not in sel.zones:
         return False
     if not sel.zones and zone in ("battlefield", "stack"):
@@ -1138,7 +1182,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if set(sel.without_keywords) & ch.keywords:
         return False
     for what, op, n in sel.compare:
-        if isinstance(n, str) and n.startswith(SOURCE_STAT):  # -- reanimation (wave 10A) --
+        if isinstance(n, str) and n.startswith(REVEALED_STAT):  # -- static_other sweep (wave 17C) --
+            revealed = revealed_stat(plan, source, n[len(REVEALED_STAT):])
+            if revealed is None:
+                return False
+            n = revealed
+        elif isinstance(n, str) and n.startswith(SOURCE_STAT):  # -- reanimation (wave 10A) --
             ref_value = source_stat(plan, source, n[len(SOURCE_STAT):])
             if ref_value is None:
                 return False
@@ -1190,6 +1239,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # (wave 5H)
         if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
             return False
+        if extra == "shares_color_source" and ((src := plan.state.cards.get(source or "")) is None or not plan.ch(src).colors & ch.colors):
+            return False  # -- static_other sweep (wave 17C) -- conspire 702.78a: a creature that shares a color with the spell
         if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
             return False  # (wave 12C)
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
