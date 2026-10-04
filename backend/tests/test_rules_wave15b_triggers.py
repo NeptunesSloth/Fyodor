@@ -68,6 +68,7 @@ EXTRA += [
     real("Vernal Sovereign", "{3}{G}{W}", 5, "Creature — Elemental", "Whenever this creature enters or attacks, create a green and white Elemental creature token with \"This token's power and toughness are each equal to the number of creatures you control.\"", ("4", "4"), "GW"),
     real("Preeminent Captain", "{2}{W}", 3, "Creature — Kithkin Soldier", "First strike\nWhenever this creature attacks, you may put a Soldier creature card from your hand onto the battlefield tapped and attacking.", ("2", "2"), "W"),
     real("Test Soldier", "{1}{W}", 2, "Creature — Human Soldier", "", ("1", "1"), "W"),
+    real("Netherborn Phalanx", "{3}{B}", 4, "Creature — Horror", "When this creature enters, each opponent loses 1 life for each creature they control.", ("2", "2"), "B"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -406,6 +407,19 @@ def test_defending_player_exiles_the_top_cards_of_their_library(cards):
     attack(s, (giant, "p2"))
     answer(s)
     assert len(s.state.zones["p2:library"]) == library - 2 and len(s.state.zones["p2:exile"]) == 2
+    check(s)
+
+
+def test_each_opponent_loses_life_for_each_creature_they_control(cards):
+    # 608.2h: each opponent's own count, worked out as it resolves (here Bob controls two creatures)
+    s = build(cards, ["Netherborn Phalanx"], ["Grizzly Bears", "Llanowar Elves"])
+    put(s, "Grizzly Bears", "p2")
+    put(s, "Llanowar Elves", "p2")
+    phalanx = to_hand(s, "Netherborn Phalanx")
+    mana(s, "p1", B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=phalanx.id)
+    answer(s)
+    assert s.state.players["p2"].life == 38 and s.state.players["p1"].life == 40
     check(s)
 
 
