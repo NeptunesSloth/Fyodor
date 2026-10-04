@@ -91,5 +91,8 @@ opening hand to use** (`app/rules/opening_hand.py`).
   trigger is created for the revealer; the card is hidden again once the last player has acted.
 * **Privacy**: every player gets the same prompt whether or not their hand holds such a card, so neither the decision nor its timing
   says anything about a hand. The options are visible to the chooser only; the others see "is making a choice".
-* Not read (manual): Chancellor of the Annex (a per-opponent delayed cast trigger), Leyline of Transformation (a choice as it
-  enters), Serum Powder's "any time you could mulligan" action.
+* **Serum Powder** (103.5b, "any time you could mulligan"): while a player is deciding about a mulligan, the overlay offers a button
+  (only to the owner of the card, from their own hand) that exiles the whole hand (public, 406.3) and draws that many; it is not a
+  mulligan (`mulligan_powder`; the server checks the card's Oracle text, never the client).
+* Not read (manual): Chancellor of the Annex (a per-opponent delayed cast trigger), Devourer of Destiny, Providence, Leyline of
+  Transformation (a choice as it enters). Tables without a guided mulligan (the "none" rule) have no opening-hand step.

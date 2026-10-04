@@ -154,6 +154,12 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         for _ in top_ids:
             spots.append(placement.free_spot(state, zone_key(actor, "battlefield"), "creature", spots))
         a.r = A.MoveData(positions=dict(zip(top_ids, spots, strict=True)))
+    if isinstance(a, A.MulliganPowder):  # -- opening hand (wave 18C) -- 103.5b
+        from app.rules.opening_hand import powder_ok
+
+        card = state.cards.get(a.card_id)
+        data = info.get(card.card_id) if card is not None and card.card_id else None
+        a.verified = powder_ok(data)
     if isinstance(a, A.MulliganKeep | A.MulliganBottom | A.MulliganFinish):
         a.opening = _opening_steps(state, a, info, rng)
     return response.wrap(state, a)

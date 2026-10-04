@@ -17,6 +17,7 @@ import json
 
 import pytest
 
+from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.mulligan import COMMANDER_LONDON
 from app.game.rules_state import AUTOMATION_PRESETS, start_rules
@@ -40,17 +41,17 @@ EXTRA = [
          "If this card is in your opening hand, you may begin the game with it on the battlefield.\nYou have hexproof. (You can't be the target of spells or abilities your opponents control.)", colors="W"),
     real("Chancellor of the Dross", "{4}{B}{B}{B}", 7, "Creature — Phyrexian Vampire",
          "You may reveal this card from your opening hand. If you do, at the beginning of the first upkeep, each opponent loses 3 life, then you gain life equal to the life lost this way.\nFlying, lifelink", ("6", "6"), "B"),
-    real("Sphinx of Foresight", "{3}{U}{U}", 5, "Creature — Sphinx",
+    real("Sphinx of Foresight", "{2}{U}{U}", 4, "Creature — Sphinx",
          "You may reveal this card from your opening hand. If you do, scry 3 at the beginning of your first upkeep.\nFlying\nAt the beginning of your upkeep, scry 1.", ("4", "4"), "U"),
     real("Gemstone Caverns", "", 0, "Legendary Land",
          "If this card is in your opening hand and you're not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand.\n{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."),
-    real("Tyrant's Choice", "{3}{B}", 4, "Sorcery",
+    real("Tyrant's Choice", "{1}{B}", 2, "Sorcery",
          "Will of the council — Starting with you, each player votes for death or torture. If death gets more votes, each opponent sacrifices a creature of their choice. If torture gets more votes or the vote is tied, each opponent loses 4 life.", colors="B"),
-    real("Lieutenants of the Guard", "{3}{W}", 4, "Creature — Human Soldier",
+    real("Lieutenants of the Guard", "{4}{W}", 5, "Creature — Human Soldier",
          "Council's dilemma — When this creature enters, starting with you, each player votes for strength or numbers. Put a +1/+1 counter on this creature for each strength vote and create a 1/1 white Soldier creature token for each numbers vote.", ("2", "2"), "W"),
-    real("Ballot Broker", "{2}{U}", 3, "Creature — Human Advisor",
-         "While voting, you may vote an additional time. (The votes can be for different choices or for the same choice.)", ("2", "3"), "U"),
-    real("Capital Punishment", "{3}{B}{B}", 5, "Sorcery",
+    real("Ballot Broker", "{2}{W}", 3, "Creature — Human Advisor",
+         "While voting, you may vote an additional time. (The votes can be for different choices or for the same choice.)", ("2", "3"), "W"),
+    real("Capital Punishment", "{4}{B}{B}", 6, "Sorcery",
          "Council's dilemma — Starting with you, each player votes for death or taxes. Each opponent sacrifices a creature of their choice for each death vote and discards a card for each taxes vote.", colors="B"),
     real("Tempt with Bunnies", "{2}{W}", 3, "Sorcery",
          "Tempting Offer — Draw a card and create a 1/1 white Rabbit creature token. Then each opponent may draw a card and create a 1/1 white Rabbit creature token. For each opponent who does, you draw a card and you create a 1/1 white Rabbit creature token.", colors="W"),
@@ -58,17 +59,20 @@ EXTRA = [
          "Tempting offer — Put a +1/+1 counter on each creature you control. Each opponent may put a +1/+1 counter on each creature they control. For each opponent who does, put a +1/+1 counter on each creature you control.", colors="W"),
     real("Tempt with Discovery", "{3}{G}", 4, "Sorcery",
          "Tempting offer — Search your library for a land card and put it onto the battlefield. Each opponent may search their library for a land card and put it onto the battlefield. For each opponent who searches a library this way, search your library for a land card and put it onto the battlefield. Then each player who searched a library this way shuffles.", colors="G"),
-    real("Tempt with Reflections", "{2}{U}", 3, "Sorcery",
+    real("Tempt with Reflections", "{3}{U}", 4, "Sorcery",
          "Tempting offer — Choose target creature you control. Create a token that's a copy of that creature. Each opponent may create a token that's a copy of that creature. For each opponent who does, create a token that's a copy of that creature.", colors="U"),
-    real("Virtus's Maneuver", "{2}{B}{G}", 4, "Sorcery",
-         "For each player, choose friend or foe. Each friend returns a creature card from their graveyard to their hand. Each foe sacrifices a creature of their choice.", colors="BG"),
+    real("Virtus's Maneuver", "{2}{B}", 3, "Sorcery",
+         "For each player, choose friend or foe. Each friend returns a creature card from their graveyard to their hand. Each foe sacrifices a creature of their choice.", colors="B"),
     real("Pir's Whim", "{3}{G}", 4, "Sorcery",
          "For each player, choose friend or foe. Each friend searches their library for a land card, puts it onto the battlefield tapped, then shuffles. Each foe sacrifices an artifact or enchantment of their choice.", colors="G"),
+    real("Illusion of Choice", "{U}", 1, "Instant", "You choose how each player votes this turn.\nDraw a card.", colors="U"),
     real("Council's Judgment", "{1}{W}{W}", 3, "Sorcery",
          "Will of the council — Starting with you, each player votes for a nonland permanent you don't control. Exile each permanent with the most votes or tied for most votes.", colors="W"),
-    real("Vault 11: Voter's Dilemma", "{2}{W}", 3, "Enchantment — Saga",
-         "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — For each opponent, you create a 1/1 white Human Soldier creature token.\nII, III — Each player secretly votes for up to one creature, then those votes are revealed. If no creature got votes, each player draws a card. Otherwise, destroy each creature with the most votes or tied for most votes.", colors="W"),
-    real("Chancellor of the Tangle", "{4}{G}{G}{G}", 7, "Creature — Phyrexian Treefolk",
+    real("Vault 11: Voter's Dilemma", "{2}{W}{B}", 4, "Enchantment — Saga",
+         "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — For each opponent, you create a 1/1 white Human Soldier creature token.\nII, III — Each player secretly votes for up to one creature, then those votes are revealed. If no creature got votes, each player draws a card. Otherwise, destroy each creature with the most votes or tied for most votes.", colors="WB"),
+    real("Serum Powder", "{3}", 3, "Artifact",
+         "{T}: Add {C}.\nAny time you could mulligan and this card is in your hand, you may exile all the cards from your hand, then draw that many cards. (You can do this in addition to taking mulligans.)"),
+    real("Chancellor of the Tangle", "{4}{G}{G}{G}", 7, "Creature — Phyrexian Beast",
          "You may reveal this card from your opening hand. If you do, at the beginning of your first main phase of the game, add {G}.\nReach, vigilance", ("6", "7"), "G"),
 ]
 NAMES = [c["name"] for c in EXTRA]
@@ -167,6 +171,23 @@ def test_nothing_to_use_still_asks_everyone(cards):
     roundtrip(s)
 
 
+def test_serum_powder_exiles_the_hand_and_redraws_without_taking_a_mulligan(cards):
+    s = table(cards, ["Serum Powder"], [])
+    powder = next(c for c in s.state.zones["p1:hand"] if s.state.cards[c].name == "Serum Powder")
+    assert s.view("p1")["pregame"]["mine"] == {"powder": [powder]}  # only its owner is told (103.5b)
+    assert "mine" not in s.view("p2")["pregame"]
+    forest = next(c for c in s.state.zones["p1:hand"] if s.state.cards[c].name == "Forest")
+    with pytest.raises(ActionError):  # a client can't claim the ability for another card
+        act(s, "p1", type="mulligan_powder", card_id=forest, verified=True)
+    old_hand = list(s.state.zones["p1:hand"])
+    act(s, "p1", type="mulligan_powder", card_id=powder)
+    assert s.state.zones["p1:exile"] == old_hand and len(s.state.zones["p1:hand"]) == 7  # exiled (public), then drew that many
+    assert s.state.pregame.seats["p1"].status == "deciding" and s.state.pregame.seats["p1"].mulligans == 0
+    assert "Serum Powder" in json.dumps(s.view("p2")["log"])
+    keep_all(s)
+    replay_matches(s)
+
+
 def test_gemstone_caverns_not_for_the_starting_player(cards):
     s = table(cards, ["Gemstone Caverns"], [])
     keep_all(s)
@@ -231,7 +252,7 @@ def settle_stack(s):
 
 def test_tyrants_choice_tie_goes_to_torture_and_votes_are_public(cards):
     s = build(cards, "Tyrant's Choice")
-    cast(s, "Tyrant's Choice", B=4)
+    cast(s, "Tyrant's Choice", B=2)
     settle_stack(s)
     d = s.state.rules.decision
     assert d.player == "p1" and d.prompt == "Vote: death or torture"  # 701.38a: starting with the controller
@@ -249,7 +270,7 @@ def test_tyrants_choice_death_wins_a_sacrifice(cards):
     from tests.test_rules_conditionals import creature
 
     bear = creature(s, "p2", "Bear")
-    cast(s, "Tyrant's Choice", B=4)
+    cast(s, "Tyrant's Choice", B=2)
     settle_stack(s)
     ballot(s, "p1", "death")
     ballot(s, "p2", "death")
@@ -263,7 +284,7 @@ def test_lieutenants_counts_votes_and_ballot_broker_votes_twice(cards):
     from tests.test_rules_conditionals import on_field
 
     on_field(s, "Ballot Broker")
-    lt = cast(s, "Lieutenants of the Guard", W=1, G=3)
+    lt = cast(s, "Lieutenants of the Guard", W=1, C=4)
     settle_stack(s)
     for label in ("strength", "numbers"):  # Alice votes, then votes an additional time (701.38d: optional, Ballot Broker)
         ballot(s, "p1", label)
@@ -281,7 +302,7 @@ def test_ballot_broker_extra_vote_may_be_declined(cards):
     from tests.test_rules_conditionals import on_field
 
     on_field(s, "Ballot Broker")
-    cast(s, "Tyrant's Choice", B=4)
+    cast(s, "Tyrant's Choice", B=2)
     settle_stack(s)
     ballot(s, "p1", "death")
     ballot(s, "p1", "Don't vote again")
@@ -311,7 +332,7 @@ def test_secret_council_vote_is_hidden_until_revealed(cards):
     wolf = creature(s, "p1", "Wolf")
     from tests.test_rules_sagas import main_phase
 
-    cast(s, "Vault 11: Voter's Dilemma", W=1, C=2)
+    cast(s, "Vault 11: Voter's Dilemma", W=1, B=1, C=2)
     settle_stack(s)  # chapter I: a Human Soldier for the one opponent
     assert sorted(s.state.cards[c].name for c in s.state.zones["p1:battlefield"]).count("Human Soldier") == 1
     main_phase(s, 3)  # Alice's next precombat main phase: a lore counter, chapter II
@@ -341,7 +362,7 @@ def test_capital_punishment_repeats_each_instruction_once_per_vote(cards):
 
     bear, wolf = creature(s, "p2", "Bear"), creature(s, "p2", "Wolf")
     act(s, "p2", type="draw", count=3)
-    cast(s, "Capital Punishment", B=5)
+    cast(s, "Capital Punishment", B=2, C=4)
     settle_stack(s)
     ballot(s, "p1", "death")
     ballot(s, "p2", "taxes")
@@ -433,7 +454,7 @@ def test_tempt_with_reflections_copies_the_chosen_creature_for_the_opponent_too(
 
     ox = creature(s, "p1", "Ox")
     c = to_hand(s, "Tempt with Reflections")
-    mana(s, U=1, C=2)
+    mana(s, U=1, C=3)
     act(s, "p1", type="cast_spell", card_id=c.id, targets=[ox.id])
     settle_stack(s)
     answer_yes(s, "p2")
@@ -456,7 +477,7 @@ def test_virtus_maneuver_friends_return_and_foes_sacrifice(cards):
     dead = next(c for c in s.state.cards.values() if c.name == "Elvish Visionary")
     act(s, "p1", type="move", card_ids=[dead.id], to={"player": "p1", "zone": "graveyard"})
     bear = creature(s, "p2", "Bear")
-    cast(s, "Virtus's Maneuver", B=1, G=1, C=2)
+    cast(s, "Virtus's Maneuver", B=1, C=2)
     settle_stack(s)
     side(s, "Alice", "friend")  # the controller sorts everyone, herself included, in turn order
     assert "Alice is a friend" in json.dumps(s.view("p2")["log"])  # public
@@ -480,4 +501,19 @@ def test_pirs_whim_with_nobody_in_a_group_does_nothing_for_it(cards):
     act(s, "p2", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
     settle_stack(s)
     assert [c.tapped for c in s.state.cards.values() if c.zone in ("p1:battlefield", "p2:battlefield")] == [True, True]
+    roundtrip(s)
+
+
+def test_illusion_of_choice_makes_its_controller_cast_every_vote_this_turn(cards):
+    s = build(cards, "Illusion of Choice", "Tyrant's Choice")
+    cast(s, "Illusion of Choice", U=1)
+    settle_stack(s)
+    cast(s, "Tyrant's Choice", B=2)
+    settle_stack(s)
+    ballot(s, "p1", "death")
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.prompt == "Vote for Bob: death or torture"  # Alice makes Bob's vote too
+    ballot(s, "p1", "torture")
+    assert s.state.rules.decision is None and s.state.players["p2"].life == 36
+    assert "Bob voted for torture" in json.dumps(s.view("p1")["log"])
     roundtrip(s)

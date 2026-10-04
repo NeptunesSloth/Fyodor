@@ -55,6 +55,11 @@ _LEADERS = re.compile(r"^(?P<pre>Otherwise, )?(?P<verb>[A-Za-z]+) each (?P<noun>
 _COND = re.compile(r"^(?:(?P<w>[\w' ]+?) gets more votes(?P<tie> or the vote is tied)?|no (?P<none>[a-z ]+?) got votes)$")
 
 
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
+    (re.compile(r"^you choose how each player votes this turn$"), lambda m: ([{"do": "vote_control"}], None)),
+]
+
+
 # -- reading the wording -------------------------------------------------------------------------
 def static_definition(text: str) -> dict[str, Any] | None:
     m = _EXTRA.match(text.strip())
@@ -232,6 +237,18 @@ def extra_votes(plan: Plan, pid: str) -> tuple[int, int]:
 
 
 # -- carrying it out -----------------------------------------------------------------------------------
+def vote_control(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"You choose how each player votes this turn.": until end of turn the chooser makes every vote (the latest such effect wins)."""
+    plan.rules.vote_control.append([plan.state.turn.number, ctx["controller"]])
+    return True
+
+
+def _chooser(plan: Plan, voter: str) -> str:
+    turn = plan.state.turn.number
+    plan.rules.vote_control = [c for c in plan.rules.vote_control if c[0] == turn]
+    return str(plan.rules.vote_control[-1][1]) if plan.rules.vote_control and plan.rules.vote_control[-1][1] in plan.live() else voter
+
+
 def vote(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.38a: each player, starting with the ability's controller and proceeding in turn order, votes."""
     me = ctx["controller"]
@@ -269,8 +286,10 @@ def _ask(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         optional = extra or bool(e.get("upto"))
         if optional and "sel" not in e:
             options.append(DecisionOption(id=NONE_LEFT, label="Don't vote again"))
-        decide(plan, player=pid, kind="choose_cards" if optional and "sel" in e else "choose_one",
-               prompt="Vote" + (" (secret)" if v["secret"] else "") + (": " + " or ".join(v["labels"]) if "sel" not in e else ""),
+        chooser = _chooser(plan, pid)
+        decide(plan, player=chooser, kind="choose_cards" if optional and "sel" in e else "choose_one",
+               prompt="Vote" + (f" for {plan.name(pid)}" if chooser != pid else "") + (" (secret)" if v["secret"] else "")
+               + (": " + " or ".join(v["labels"]) if "sel" not in e else ""),
                options=options, min_choices=0 if optional and "sel" in e else 1, max_choices=1,
                resume={"step": "vote", "ctx": ctx, "e": e})
         return False
@@ -287,7 +306,7 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     if chosen and chosen[0] != NONE_LEFT:
         v["ballots"].append([pid, chosen[0]])
         if not v["secret"]:
-            plan.note(f"{plan.name(pid)} voted for {_label(plan, v, chosen[0])}")
+            plan.note(f"{plan.name(pid)} voted for {_label(plan, v, chosen[0])}", [chosen[0]] if "sel" in e else [])
     if _ask(plan, ctx, e):
         continue_effects(plan, ctx)
 
@@ -300,7 +319,8 @@ def _finish(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """Everyone has voted: reveal a secret vote, count, and bind the leading objects of an object vote."""
     v = ctx["vote"]
     if v["secret"] and v["ballots"]:
-        plan.note("The votes are revealed: " + "; ".join(f"{plan.name(p)} voted for {_label(plan, v, c)}" for p, c in v["ballots"]))
+        plan.note("The votes are revealed: " + "; ".join(f"{plan.name(p)} voted for {_label(plan, v, c)}" for p, c in v["ballots"]),
+                  [c for _, c in v["ballots"]] if "sel" in e else [])
     tally = {o: 0 for o in v["opts"]}
     for _, choice in v["ballots"]:
         tally[choice] += 1
@@ -325,5 +345,5 @@ def repeat(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"vote": vote, "vote_repeat": repeat}
+PRIMITIVES = {"vote": vote, "vote_repeat": repeat, "vote_control": vote_control}
 RESUME = {"vote": resume}

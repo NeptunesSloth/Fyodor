@@ -833,6 +833,7 @@ class RulesState(BaseModel):
     # -- exiled with (wave 6D) -- source object -> the objects its abilities exiled (607.2a: "the exiled card",
     # "cards exiled with ~"; app/rules/exiled_with.py)
     exiled_with: dict[str, list[str]] = Field(default_factory=dict)
+    vote_control: list[list[Any]] = Field(default_factory=list)  # -- voting (wave 18C) -- [turn, chooser]: "You choose how each player votes this turn"
     opening_revealed: list[str] = Field(default_factory=list)  # -- opening hand (wave 18C) -- cards revealed until the first turn (103.6b)
     delayed: list[DelayedTrigger] = Field(default_factory=list)  # delayed triggered abilities (603.7; app/rules/delayed.py)
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)

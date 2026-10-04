@@ -2955,7 +2955,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import voting
 
         return voting.static_definition(text)
-    if ability.kind == "static" and "opening hand" in text:  # -- opening hand (wave 18C) -- 103.6 (app/rules/opening_hand.py)
+    if ability.kind == "static" and ("opening hand" in text or text.startswith("Any time you could mulligan")):  # -- opening hand (wave 18C) -- 103.6 (app/rules/opening_hand.py)
         from app.rules import opening_hand
 
         return opening_hand.definition(text, ch)
@@ -5594,9 +5594,11 @@ from app.rules import choice_grants as _choice_grants  # noqa: E402, I001
 
 EFFECTS[:0] = _choice_grants.TEMPLATES
 # -- coin flips (wave 7E) -- "Flip a coin." (app/rules/coin_flips.py; the conditions are in conditions.py)
+from app.rules import voting as _voting_templates  # noqa: E402, I001  -- voting (wave 18C) --
 from app.rules import coin_flips as _coin_flips  # noqa: E402, I001
 
 EFFECTS[:0] = _coin_flips.TEMPLATES
+EFFECTS[:0] = _voting_templates.TEMPLATES
 # -- clash (wave 12A) -- "Clash with an opponent." (701.30: app/rules/clash.py)
 from app.rules import clash as _clash  # noqa: E402, I001
 

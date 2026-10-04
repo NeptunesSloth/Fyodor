@@ -24,6 +24,7 @@ HANDLERS: dict[str, Handler] = {
     "mulligan_take": mulligan.take,
     "mulligan_keep": mulligan.keep,
     "mulligan_bottom": mulligan.bottom,
+    "mulligan_powder": mulligan.powder,
     "mulligan_finish": mulligan.finish,
     "response_open": response.open_window,
     "response_pass": response.pass_,
@@ -123,7 +124,7 @@ NOT_OVERRIDES = A.INTENT_TYPES | A.SERVER_ONLY_TYPES | frozenset({
     "set_position", "hide", "note", "chat", "roll", "coin", "rename_player", "set_appearance", "set_table_playmat",
     "configure", "create_arrow", "remove_arrow", "rotate", "set_lock", "set_protect", "group", "ungroup",
     "add_effect", "remove_effect", "set_choice", "set_stack_info", "set_exile_group", "set_copy_source",
-    "mulligan_take", "mulligan_keep", "mulligan_bottom", "mulligan_finish", "response_open", "response_pass",
+    "mulligan_take", "mulligan_keep", "mulligan_bottom", "mulligan_powder", "mulligan_finish", "response_open", "response_pass",
     "response_respond", "response_auto", "response_close", "restore_state", "end_view",
 })
 

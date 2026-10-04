@@ -1173,6 +1173,9 @@ def _settle_decision(plan: Plan, d: Decision, leaver: str) -> None:
     if step in ("cleanup_discard", "cleanup_manual"):
         finish_cleanup(plan)  # 514.2 still happens; then the next player's turn
         return
+    if step in ("opening_hand", "opening_exile"):  # -- opening hand (wave 18C) -- the rest of the table still acts (103.6)
+        opening_hand.ask(plan, list(resume.get("order") or resume.get("rest") or [])[1 if step == "opening_hand" else 0:])
+        return
     _after_resolution(plan)
 
 

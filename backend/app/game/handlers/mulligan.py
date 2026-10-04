@@ -96,6 +96,23 @@ def take(state: GameState, a: A.MulliganTake) -> None:
     log(state, a.actor, a.ts, [pname(state, pid), text(f" took mulligan #{seat.mulligans} and {what}.")])
 
 
+def powder(state: GameState, a: A.MulliganPowder) -> None:
+    """-- opening hand (wave 18C) -- 103.5b: "any time you could mulligan" (Serum Powder): while deciding, exile every card in hand
+    (the exiled cards are public, 406.3) and draw that many; no mulligan is taken."""
+    pid, seat, _ = _seat(state, a, a.player)
+    hand = list(state.zone(zone_key(pid, "hand")))
+    if seat.status != "deciding" or a.card_id not in hand:
+        raise ActionError("You can only do that with the card in your hand while deciding about a mulligan")
+    if not a.verified:
+        raise ActionError("That card has no such ability")
+    cards = [state.cards[c] for c in hand]
+    for card in cards:
+        ops.move_card(state, card, zone_key(pid, "exile"))
+    drawn = draw_cards(state, pid, len(cards))
+    log(state, a.actor, a.ts, [pname(state, pid), text(" exiled their hand ("), ops.group(state, cards),
+                                text(f") with {state.cards[a.card_id].name} and drew {len(drawn)}.")])
+
+
 def keep(state: GameState, a: A.MulliganKeep) -> None:
     pid, seat, policy = _seat(state, a, a.player)
     if seat.status != "deciding":

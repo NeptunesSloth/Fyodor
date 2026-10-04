@@ -154,6 +154,16 @@ class MulliganBottom(Base):
     opening: list[dict[str, Any]] | None = None  # (wave 18C)
 
 
+class MulliganPowder(Base):
+    """Pregame: "Any time you could mulligan and Serum Powder is in your hand, you may exile all the cards from your hand, then draw that
+    many cards." (103.5b; not a mulligan)."""
+
+    type: Literal["mulligan_powder"] = "mulligan_powder"
+    player: Id | None = None
+    card_id: Id
+    verified: bool = False  # set by the server: the card really has that ability
+
+
 class MulliganFinish(Base):
     """Host override: end the opening-hand phase now (undecided players keep what they hold)."""
 
@@ -1203,6 +1213,7 @@ Action = Annotated[
     | MulliganTake
     | MulliganKeep
     | MulliganBottom
+    | MulliganPowder
     | MulliganFinish
     | Reveal
     | Hide

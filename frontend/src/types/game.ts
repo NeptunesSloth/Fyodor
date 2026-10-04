@@ -280,7 +280,7 @@ export interface GameView {
   /** The viewer's own open private views (search / look at top N). */
   my_views?: { id: string; viewer: string; zone: string; kind: "search" | "look"; card_ids: string[] }[];
   /** Opening hands still being decided (null once everyone has kept). */
-  pregame?: { seats: Record<string, PregameSeat>; finished: boolean } | null;
+  pregame?: { seats: Record<string, PregameSeat>; finished: boolean; mine?: { powder: string[] } } | null;
   /** The open "anything in response?" check, if any (public). */
   response?: ResponseWindow | null;
   /** Players auto-passing response checks this turn. */

@@ -52,10 +52,35 @@ WHEN = {
 PROMPT = "Opening hand: choose the cards to use, or none (103.6)"
 
 
+_POWDER = re.compile(r"Any time you could mulligan and (?:~|[^,.]+?) is in your hand, you may exile all the cards from your hand, then "
+                     r"draw that many cards\.(?: \(You can do this in addition to taking mulligans\.\))?")
+
+
+def powder_ok(data: dict[str, Any] | None) -> bool:
+    """Whether a card (Scryfall data) has "Any time you could mulligan and … is in your hand, you may exile all the cards from your hand,
+    then draw that many cards." (Serum Powder; 103.5b)."""
+    if not data:
+        return False
+    texts = [str(data.get("oracle_text") or ""), *(str(f.get("oracle_text") or "") for f in data.get("faces") or [])]
+    return any(_POWDER.search(t) for t in texts)
+
+
+def powder_cards(state: Any, pid: str, info: Any) -> list[str]:
+    """The cards in ``pid``'s hand that can do that now (their owner's own view of their own hand)."""
+    out = []
+    for cid in state.zones.get(zone_key(pid, "hand"), []):
+        card = state.cards[cid]
+        if card.card_id and powder_ok(info.get(card.card_id)):
+            out.append(cid)
+    return out
+
+
 def definition(text: str, ch: Any) -> dict[str, Any] | None:
     """The opening-hand ability a line of Oracle text is, or None (not read)."""
     from app.rules import scripts
 
+    if _POWDER.fullmatch(text.strip()):  # 103.5b: carried out by the pregame (app/game/handlers/mulligan.py ``powder``)
+        return {"kind": "static", "static": "mulligan_powder", "effects": []}
     if any(re.match(r"As (?:~|this [a-z ]+) enters", scripts.self_text(a.text, ch.name)) for a in ch.abilities) or "Aura" in ch.subtypes:
         return None  # (a choice as it enters would pause the start of the game: 103.6a)
     t = text.strip()
@@ -107,6 +132,7 @@ def start(plan: Plan) -> None:
 def ask(plan: Plan, order: list[str]) -> None:
     from app.rules.plan import decide
 
+    order = [p for p in order if p in plan.live()]  # (someone may have left the game meanwhile)
     if not order:
         finish(plan)
         return
