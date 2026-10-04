@@ -28,7 +28,7 @@ from app.rules.plan import Plan, decide
 Context = dict[str, Any]
 
 
-def put_face_down(plan: Plan, card_id: str, player: str, kind: str, *, actor: str) -> bool:
+def put_face_down(plan: Plan, card_id: str, player: str, kind: str, *, actor: str, spec: str | None = None) -> bool:
     """Put one card onto the battlefield face down under ``player``'s control (701.40a / 701.58a).
     Its "enters" replacements are those that apply to the face-down creature (708.3). True if it
     entered."""
@@ -37,11 +37,11 @@ def put_face_down(plan: Plan, card_id: str, player: str, kind: str, *, actor: st
     card = plan.state.cards.get(card_id)
     if card is None:
         return False
-    probe: CardInstance = card.model_copy(update={"face_down": True, "face_down_kind": kind,
+    probe: CardInstance = card.model_copy(update={"face_down": True, "face_down_kind": kind, "face_down_as": spec,
                                                   "zone": zone_key(player, "battlefield"), "controller": player})
     ep = replacements.entry_plan(plan, probe, player)
     payload: dict[str, Any] = {"type": "move", "card_ids": [card_id], "to": {"player": player, "zone": "battlefield"},
-                               "face_down": True, "face_down_kind": kind}
+                               "face_down": True, "face_down_kind": kind, "face_down_as": spec}
     if ep.get("tapped"):
         payload["tapped"] = True
     plan.do(payload, actor=actor)
@@ -180,7 +180,7 @@ def turn_face_down(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards = [c for c in effects._cards(plan, ctx, e["who"])
              if plan.state.cards[c].zone.endswith(":battlefield") and not plan.state.cards[c].face_down]
     if cards:
-        plan.do({"type": "face_down", "card_ids": cards, "face_down": True, "kind": "generic"}, actor=pid)
+        plan.do({"type": "face_down", "card_ids": cards, "face_down": True, "kind": "generic", "face_down_as": e.get("spec")}, actor=pid)
     effects._remember(plan, ctx, e, cards)
     return True
 
@@ -259,6 +259,36 @@ def resume_exile_hand_down(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+def put_down(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Put the top N cards of [a player's] library / any number of cards from your hand onto the battlefield face down [as …]": under
+    the controller's control, one at a time (each is a face-down 2/2 or what the effect says, 708.2a). The hand cards are chosen
+    privately, and the question is asked even with an empty hand (it tells nothing)."""
+    pid = ctx["controller"]
+    if e["from"] == "hand":
+        hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
+        decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'Put'}: choose any number of cards from your hand to put "
+               "onto the battlefield face down", options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
+               min_choices=0, max_choices=len(hand), resume={"step": "put_down", "ctx": ctx, "e": e})
+        return False
+    cards: list[str] = []
+    for owner in effects._library_owner(plan, ctx, e):
+        cards += effects._library(plan, owner)[: max(0, effects._amount(plan, ctx, e["n"]))]
+    _enter_down(plan, ctx, e, pid, cards)
+    return True
+
+
+def _enter_down(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, cards: list[str]) -> None:
+    for c in cards:
+        put_face_down(plan, c, pid, "generic", actor=pid, spec=e.get("spec"))
+
+
+def resume_put_down(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    hand = plan.state.zones.get(zone_key(d.player, "hand"), [])
+    _enter_down(plan, ctx, e, d.player, [c for c in chosen if c in hand])
+    effects.continue_effects(plan, ctx)
+
+
 def top_to_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Put that many cards from the top of your library into your hand" (Scroll Rack): not a draw (121.1), so no draw replacement or
     trigger; as many as there are when the library has fewer."""
@@ -269,7 +299,7 @@ def top_to_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"exile_hand_down": exile_hand_down, "top_to_hand": top_to_hand, "manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down,
+PRIMITIVES: dict[str, Any] = {"put_down": put_down, "exile_hand_down": exile_hand_down, "top_to_hand": top_to_hand, "manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down,
                               "look_face_down": look_face_down, "look_exiled": look_exiled}
-RESUME: dict[str, Any] = {"exile_hand_down": resume_exile_hand_down, "manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up,
+RESUME: dict[str, Any] = {"put_down": resume_put_down, "exile_hand_down": resume_exile_hand_down, "manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up,
                           "look_face_down": resume_look_face_down}

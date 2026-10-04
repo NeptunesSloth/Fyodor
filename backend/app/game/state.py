@@ -151,6 +151,8 @@ class CardInstance(BaseModel):
     face_down: bool = False
     # How it got face down (public: everyone saw it happen). Its identity stays with the controller.
     face_down_kind: Literal["generic", "morph", "disguise", "manifest", "cloak", "exile"] | None = None
+    # -- hidden exile (wave 18A) -- 708.2a: what the effect that turned it face down made it ("2/2 Cyberman artifact creature"); public
+    face_down_as: str | None = None
     # -- hidden exile (wave 18A) -- exiled face down by an effect that nobody looked at (406.3a): not even its controller may look
     # at it until an effect lets them (``revealed_to``); ends when it changes zones
     unseen: bool = False

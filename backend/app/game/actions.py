@@ -80,6 +80,7 @@ class Move(Base):
     y: Coord | None = None
     face_down: bool | None = None
     face_down_kind: FaceDownKind | None = None  # morph / disguise / manifest / cloak …
+    face_down_as: str | None = Field(default=None, max_length=80)  # -- hidden exile (wave 18A) -- 708.2a: see FaceDown
     tapped: bool = False  # enters the battlefield tapped (a replacement effect, not a tap afterwards)
     # Permanents entering the battlefield at once (one event, 603.6a / 614.12) whose replacements
     # differ: the ones among them that enter tapped, and whose battlefield each enters (default: ``to``)
@@ -329,6 +330,7 @@ class FaceDown(Base):
     card_ids: IdList
     face_down: bool | None = None  # None = toggle
     kind: FaceDownKind | None = None  # when turning face down
+    face_down_as: str | None = Field(default=None, max_length=80)  # -- hidden exile (wave 18A) -- 708.2a: the characteristics the effect gives it
 
 
 class Note(Base):

@@ -32,6 +32,7 @@ from dataclasses import replace
 from functools import lru_cache
 from typing import Any, Literal
 
+from app.rules import characteristics as _chars  # (-- hidden exile (wave 18A) --)
 from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
 from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
@@ -2028,6 +2029,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import permissions as _permissions  # -- hidden exile (wave 18A) --
 
     body = _permissions.join_exile_play(body)
+    body = _chars.join_spec(body)  # -- hidden exile (wave 18A) --
     body = _looking.join_down_piles(body)
     # -- activated wordings (wave 15D) -- "Choose a creature type [other than Wall]. Each creature you control becomes that type until
     # end of turn." is one choice made as it resolves (608.2d): read as "… becomes the creature type [other than Wall] of your choice …"
@@ -4373,7 +4375,7 @@ def _sacrifice_pronoun(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return _from_language(language.parse_sacrifice_pronoun(m["o"]))
 
 
-@effect(r"return (?P<o>.+?) to the battlefield(?P<t> tapped)?(?P<fd> face down)? under (?:their owner's|its owner's|your) control")
+@effect(r"return (?P<o>.+?) to the battlefield(?P<t> tapped)?(?P<fd> face down)? under (?:their owner's|its owner's|your) control(?: as .+)?")
 def _return_owner(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 

@@ -23,6 +23,7 @@ import re
 from dataclasses import replace
 from typing import Any
 
+from app.rules import characteristics as chars
 from app.rules import selectors, sized_damage, this_way, values  # (this_way: wave 4A; sized_damage: wave 4E)
 
 Effects = list[dict[str, Any]]
@@ -735,6 +736,11 @@ _N_CARDS = rf"(?:(?P<n>{AMT}) cards|card)"
 _TOP = re.compile(rf"(?P<verb>look at|reveal) the top {_N_CARDS} of {_LIB}(?P<back>, then put them back in any order)?")
 _SUBJ_TOP = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) the top {_N_CARDS} of their library(?P<fd> face down)?")
 _EXILE_TOP = re.compile(rf"exile the top {_N_CARDS} of {_LIB}(?P<fd> face down)?")
+# -- hidden exile (wave 18A) -- "Put the top two cards of that player's library onto the battlefield face down under your control as
+# 2/2 Cyberman artifact creatures." (Cybership), "Put any number of cards from your hand onto the battlefield face down as 5/5 artifact
+# creatures." (Tezzeret, Cruel Machinist): facedown.put_down (708.2a: the characteristics come with the instruction)
+_PUT_DOWN = re.compile(rf"put (?:the top {_N_CARDS} of {_LIB}|(?P<hand>any number of cards from your hand)) onto the battlefield face down"
+                       r"(?P<under> under your control)?(?: as (?P<spec>.+))?")
 # -- hidden exile (wave 18A) -- looking.join_down_piles: a face-down pile and a face-up pile (700.3), one clause
 _DOWN = re.compile(rf"(?P<s>target opponent|an opponent|you) separates? the top {_N_CARDS} of your library into a face-down pile and a "
                    r"face-up pile, then (?P<tail>you put one pile into your hand and the other into your graveyard|an opponent chooses "
@@ -946,6 +952,15 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
             raise _Fail
         return [{"do": do, "n": count(m), "player": _who(kind, key), **({"reveal": True} if do == "look_top" else {}),
                  **({"face_down": True} if m["fd"] else {})}], _one(group)  # (face down: wave 18A)
+    m = _PUT_DOWN.fullmatch(text)  # -- hidden exile (wave 18A) --
+    if m and has_primitive("put_down"):
+        spec = chars.parse_spec(m["spec"]) if m["spec"] else None
+        if (m["spec"] and spec is None) or (m["lib"] and m["lib"] != "your" and not m["under"]):
+            raise _Fail
+        if m["hand"]:
+            return [{"do": "put_down", "from": "hand", "spec": spec}], None
+        who, group = _lib_owner(m["lib"])
+        return [{"do": "put_down", "from": "library", "n": count(m), "player": who, "spec": spec}], _one(group)
     m = _EXILE_TOP.fullmatch(text)
     if m:
         who, group = _lib_owner(m["lib"])
@@ -2100,7 +2115,8 @@ _PRONOUN_SACRIFICE = {"them": "them", "those tokens": "them", "those creatures":
                       "those permanents": "them", "that creature": "it", "that token": "it", "the token": "it",
                       "that permanent": "it", "that card": "it"}
 _PRONOUN_SACRIFICE.update({"the creature": "it", "that artifact": "it"})  # -- permanent effects (wave 6A) -- Sneak Attack, Arms Race
-_OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)?(?P<fd> face down)? under (?P<u>their owner's|its owner's|your) control$")
+_OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)?(?P<fd> face down)? under (?P<u>their owner's|its owner's|your) control"
+                           r"(?: as (?P<spec>.+))?$")
 
 
 def parse_sacrifice_pronoun(phrase: str) -> tuple[Effects, Any] | None:
@@ -2123,10 +2139,14 @@ def parse_return_owner(text: str) -> tuple[Effects, Any] | None:
         return None
     if kind not in ("it", "them"):
         return parse_sentence(text)  # ("return all creature cards from your graveyard …": the grammar above)
-    if m["u"] == "your" and not m["fd"]:
-        return None  # (-- hidden exile (wave 18A) -- "under your control" is read only for the face-down return)
+    if (m["u"] == "your" or m["spec"]) and not m["fd"]:
+        return None  # (-- hidden exile (wave 18A) -- "under your control" / "as a …" are read only for the face-down return)
+    spec = chars.parse_spec(m["spec"]) if m["spec"] else None
+    if m["spec"] and spec is None:
+        return None
     return [{"do": "return_card", "who": _who(kind, key), "to": "battlefield", "tapped": bool(m["t"]),
-             "under": "you" if m["u"] == "your" else "owner", **({"face_down": True} if m["fd"] else {})}], _one(group)
+             "under": "you" if m["u"] == "your" else "owner", **({"face_down": True} if m["fd"] else {}),
+             **({"spec": spec} if spec else {})}], _one(group)
 
 
 def parse_exile_until(phrase: str) -> tuple[Effects, Any] | None:
@@ -2982,7 +3002,7 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         except _Fail:
             return None
         return ([{"do": "look_face_down", "who": "target"}], _one(group)) if kind == "target" and on_battlefield_only(key) else None
-    m = re.fullmatch(r"turn (?P<o>.+) face (?P<d>up|down)", text)  # -- hidden exile (wave 18A) -- 701.40g / 708.2a / 708.8
+    m = re.fullmatch(r"turn (?P<o>.+?) face (?P<d>up|down)(?: as (?P<spec>.+))?", text)  # -- hidden exile (wave 18A) -- 701.40g / 708.2a / 708.8
     if m and has_primitive("turn_face_up"):
         up = m["d"] == "up"
         choose = re.fullmatch(r"an? (face-down (?:creature|permanent|artifact|enchantment|land)) you control", m["o"]) if up else None
@@ -2995,7 +3015,10 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
             return None
         if kind not in ("target", "self", "it", "them", "host") or (kind == "target" and not on_battlefield_only(key)):
             return None
-        return [{"do": "turn_face_up" if up else "turn_face_down", "who": _who(kind, key)}], _one(group)
+        spec = chars.parse_spec(m["spec"]) if m["spec"] else None
+        if m["spec"] and (up or spec is None):
+            return None
+        return [{"do": "turn_face_up" if up else "turn_face_down", "who": _who(kind, key), **({"spec": spec} if spec else {})}], _one(group)
     m = re.fullmatch(r"(?:you )?incubate (?P<n>\d+|[xX])", text)
     if m and has_primitive("incubate"):  # 701.53a
         return [{"do": "incubate", "n": _amount(m["n"])}], None

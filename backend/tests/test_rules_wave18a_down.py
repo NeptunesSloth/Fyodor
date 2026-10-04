@@ -1,0 +1,345 @@
+"""Wave 18A (2): hidden exile and face-down objects, real Oracle text (CR 2026-09-25).
+
+* 708.4 / 708.2a: a card put onto the battlefield face down (by "return it … face down", "put … onto the battlefield face down") is a 2/2
+  face-down creature — or what the instruction says ("2/2 Cyberman artifact creature", "Forest land") — only its controller may look at
+  it (708.5), and it is revealed as it leaves (708.9).
+* 406.3 / 406.3a: cards exiled face down can't be examined except where an instruction lets a player look (Ugin, Scroll Rack).
+* 614.12 / 708.2a: "As this creature enters, turn all other nontoken creatures face down" (Ixidron).
+Every scenario checks the replay and a save/load round trip, and builds each player's and a spectator's view mid-decision.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from app.game.errors import ActionError
+from app.game.visibility import SPECTATOR
+from app.rules import coverage
+from app.rules.characteristics import face_down_characteristics, parse_spec
+from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act
+from tests.test_rules_conditionals import until
+from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
+
+EXTRA = [
+    card('Ashcloud Phoenix', set_code='tst', number='Z20', mana_cost='{2}{R}{R}', cmc=4.0, type_line='Creature — Phoenix', oracle_text='Flying\nWhen this creature dies, return it to the battlefield face down under your control.\nMorph {4}{R}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, it deals 2 damage to each player.', power='4', toughness='1', colors=['R'], color_identity=['R'], keywords=['Flying', 'Morph']),  # noqa: E501
+    card('Shorecrasher Elemental', set_code='tst', number='Z21', mana_cost='{U}{U}{U}', cmc=3.0, type_line='Creature — Elemental', oracle_text="{U}: Exile this creature, then return it to the battlefield face down under its owner's control.\n{1}: This creature gets +1/-1 or -1/+1 until end of turn.\nMegamorph {4}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its megamorph cost and put a +1/+1 counter on it.)", power='3', toughness='3', colors=['U'], color_identity=['U'], keywords=['Megamorph']),  # noqa: E501
+    card('Ixidron', set_code='tst', number='Z22', mana_cost='{3}{U}{U}', cmc=5.0, type_line='Creature — Illusion', oracle_text="As this creature enters, turn all other nontoken creatures face down. (They're 2/2 creatures.)\nIxidron's power and toughness are each equal to the number of face-down creatures on the battlefield.", power='*', toughness='*', colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
+    card('Scroll Rack', set_code='tst', number='Z23', mana_cost='{2}', cmc=2.0, type_line='Artifact', oracle_text='{1}, {T}: Exile any number of cards from your hand face down. Put that many cards from the top of your library into your hand. Then look at the exiled cards and put them on top of your library in any order.', power=None, toughness=None, colors=[], color_identity=[], keywords=[]),  # noqa: E501
+    card('Ignorant Bliss', set_code='tst', number='Z24', mana_cost='{1}{R}', cmc=2.0, type_line='Instant', oracle_text='Exile all cards from your hand face down. At the beginning of the next end step, return those cards to your hand, then draw a card.', power=None, toughness=None, colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
+    card('Inverter of Truth', set_code='tst', number='Z25', mana_cost='{2}{B}{B}', cmc=4.0, type_line='Creature — Eldrazi', oracle_text='Devoid (This card has no color.)\nFlying\nWhen this creature enters, exile all cards from your library face down, then shuffle all cards from your graveyard into your library.', power='6', toughness='6', colors=[], color_identity=['B'], keywords=['Flying', 'Devoid']),  # noqa: E501
+    card('Doomsday Excruciator', set_code='tst', number='Z26', mana_cost='{B}{B}{B}{B}{B}{B}', cmc=6.0, type_line='Creature — Demon', oracle_text='Flying\nWhen this creature enters, if it was cast, each player exiles all but the bottom six cards of their library face down.\nAt the beginning of your upkeep, draw a card.', power='6', toughness='6', colors=['B'], color_identity=['B'], keywords=['Flying']),  # noqa: E501
+    card('Ugin, the Ineffable', set_code='tst', number='Z27', mana_cost='{6}', cmc=6.0, type_line='Legendary Planeswalker — Ugin', oracle_text="Colorless spells you cast cost {2} less to cast.\n+1: Exile the top card of your library face down and look at it. Create a 2/2 colorless Spirit creature token. When that token leaves the battlefield, put the exiled card into your hand.\n−3: Destroy target permanent that's one or more colors.", power=None, toughness=None, colors=[], color_identity=[], keywords=[]),  # noqa: E501
+    card('Glitch Interpreter', set_code='tst', number='Z28', mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Human Wizard', oracle_text="When this creature enters, if you control no face-down permanents, return this creature to its owner's hand and manifest dread.\nWhenever one or more colorless creatures you control deal combat damage to a player, draw a card.", power='2', toughness='3', colors=['U'], color_identity=['U'], keywords=['Manifest', 'Manifest dread']),  # noqa: E501
+    card('Cyber Conversion', set_code='tst', number='Z29', mana_cost='{U}{U}', cmc=2.0, type_line='Instant', oracle_text="Turn target creature face down. It's a 2/2 Cyberman artifact creature.", power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
+    card('Yedora, Grave Gardener', set_code='tst', number='Z30', mana_cost='{4}{G}', cmc=5.0, type_line='Legendary Creature — Treefolk Druid', oracle_text="Whenever another nontoken creature you control dies, you may return it to the battlefield face down under its owner's control. It's a Forest land. (It has no other types or abilities.)", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
+    card('Tezzeret, Cruel Machinist', set_code='tst', number='Z31', mana_cost='{4}{U}{U}', cmc=6.0, type_line='Legendary Planeswalker — Tezzeret', oracle_text="+1: Draw a card.\n0: Until your next turn, target artifact you control becomes a 5/5 creature in addition to its other types.\n−7: Put any number of cards from your hand onto the battlefield face down. They're 5/5 artifact creatures.", power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
+    card('Cybership', set_code='tst', number='Z32', mana_cost='{6}', cmc=6.0, type_line='Artifact — Vehicle', oracle_text="Flying\nWhenever this Vehicle deals combat damage to a player, put the top two cards of that player's library onto the battlefield face down under your control. They're 2/2 Cyberman artifact creatures.\nCrew 4", power='8', toughness='8', colors=[], color_identity=[], keywords=['Flying', 'Crew']),  # noqa: E501
+]
+FULL = [c["name"] for c in EXTRA]
+
+
+@pytest.fixture()
+def card_db(settings):
+    from app.cards.importer import build_database
+
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
+@pytest.mark.parametrize("name", FULL)
+def test_coverage_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def mana(s, pid="p1", **m):
+    act(s, pid, type="add_mana", player=pid, mana=m)
+
+
+def blob(s, viewer):
+    return json.dumps(s.view(viewer))
+
+
+def card_view(s, viewer, c):
+    return json.dumps(s.view(viewer)["cards"].get(c.id, {}))
+
+
+def unseen_by(s, c, *viewers):
+    return all(c.name not in card_view(s, v, c) and c.card_id not in card_view(s, v, c) for v in viewers)
+
+
+def chars_of(s, c):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])
+
+
+def test_the_spec_of_a_face_down_permanent():
+    assert parse_spec("a 2/2 Cyberman artifact creature") == "2/2 Cyberman artifact creature"
+    assert parse_spec("5/5 artifact creatures") == "5/5 artifact creature"
+    assert parse_spec("a Forest land") == "Forest land"
+    assert parse_spec("2/2 Horror creatures") == "2/2 Horror creature"
+    assert parse_spec("a Forest creature") is None and parse_spec("2/2 Forest land") is None and parse_spec("a face-down card") is None
+    ch = face_down_characteristics("generic", "2/2 Cyberman artifact creature")
+    assert ch.name == "" and ch.types == {"Artifact", "Creature"} and ch.subtypes == {"Cyberman"} and (ch.power, ch.toughness) == ("2", "2")
+    land = face_down_characteristics("generic", "Forest land")
+    assert land.types == {"Land"} and land.subtypes == {"Forest"} and land.power is None and land.abilities  # 305.6: {T}: Add {G}
+
+
+def test_ashcloud_phoenix_returns_face_down_and_turns_up_with_its_morph_cost(cards):
+    s = build(cards, p1=("Ashcloud Phoenix", "Lightning Bolt"))
+    phoenix = put(s, "Ashcloud Phoenix", "battlefield")
+    bolt = put(s, "Lightning Bolt", "hand")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[phoenix.id])
+    answer(s)
+    c = s.state.cards[phoenix.id]
+    assert c.zone == "p1:battlefield" and c.face_down  # 708.4: it returned face down under Alice's control
+    assert unseen_by(s, phoenix, "p2", SPECTATOR) and not unseen_by(s, phoenix, "p1")  # 708.5
+    assert (chars_of(s, phoenix).power, chars_of(s, phoenix).toughness) == ("2", "2")
+    mana(s, R=2, C=4)
+    act(s, "p1", type="turn_face_up", card_id=phoenix.id)  # 702.37e: Morph {4}{R}{R}
+    answer(s)
+    assert not s.state.cards[phoenix.id].face_down
+    assert s.state.players["p1"].life == 38 and s.state.players["p2"].life == 38  # "it deals 2 damage to each player"
+    roundtrip(s)
+
+
+def test_shorecrasher_elemental_flickers_itself_face_down(cards):
+    s = build(cards, p1=("Shorecrasher Elemental",))
+    elemental = put(s, "Shorecrasher Elemental", "battlefield")
+    mana(s, U=1)
+    act(s, "p1", type="activate_ability", card_id=elemental.id, ability=0)
+    answer(s)
+    c = s.state.cards[elemental.id]
+    assert c.zone == "p1:battlefield" and c.face_down and c.face_down_kind == "generic"
+    assert unseen_by(s, elemental, "p2", SPECTATOR)
+    mana(s, U=1, C=4)
+    act(s, "p1", type="turn_face_up", card_id=elemental.id)  # megamorph {4}{U}: and a +1/+1 counter
+    answer(s)
+    assert not s.state.cards[elemental.id].face_down and s.state.cards[elemental.id].counters.get("+1/+1") == 1
+    roundtrip(s)
+
+
+def test_ixidron_turns_the_other_nontoken_creatures_face_down_as_it_enters(cards):
+    s = build(cards, p1=("Ixidron", "Grizzly Bears"), p2=("Ambush Viper",))
+    bears = put(s, "Grizzly Bears", "battlefield")
+    viper = put(s, "Ambush Viper", "battlefield", pid="p2")
+    token = find(s, "Krenko, Mob Boss")
+    act(s, "p1", type="move", card_ids=[token.id], to={"player": "p1", "zone": "battlefield"})
+    ixidron = put(s, "Ixidron", "hand")
+    mana(s, U=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=ixidron.id)
+    answer(s)
+    for c in (bears, viper, token):
+        assert s.state.cards[c.id].face_down  # 708.2a
+    assert not s.state.cards[ixidron.id].face_down
+    assert unseen_by(s, viper, "p1", SPECTATOR) and unseen_by(s, bears, "p2", SPECTATOR)
+    ch = chars_of(s, ixidron)
+    assert (ch.pt or (0, 0)) == (3, 3)  # "equal to the number of face-down creatures on the battlefield"
+    roundtrip(s)
+
+
+def test_scroll_rack_exiles_your_cards_face_down_then_puts_them_back_on_top(cards):
+    s = build(cards, p1=("Scroll Rack", "Grizzly Bears", "Ambush Viper", "Giant Growth", "Lightning Bolt", "Murder"))
+    rack = put(s, "Scroll Rack", "battlefield")
+    bears = put(s, "Grizzly Bears", "hand")
+    viper = put(s, "Ambush Viper", "hand")
+    growth = put(s, "Giant Growth", "hand")
+    top1 = put(s, "Lightning Bolt", "library", position="top")
+    top2 = put(s, "Murder", "library", position="top")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=rack.id, ability=0)
+    d = until_asked(s)
+    assert d.player == "p1" and {o.card_id for o in d.options} >= {bears.id, viper.id, growth.id}
+    for viewer in ("p2", SPECTATOR):  # mid-decision: no card of Alice's hand and no options reach anyone else
+        assert "options" not in s.view(viewer)["rules"]["decision"] and "Ambush Viper" not in json.dumps(s.view(viewer)["rules"])
+        assert all(unseen_by(s, c, viewer) for c in (bears, viper, growth))
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id, viper.id])
+    d = until_asked(s)  # the order they go back on top (401.4: a private choice)
+    assert d.player == "p1"
+    for viewer in ("p2", SPECTATOR):  # the exiled cards are face down: nothing about them reaches anyone but Alice
+        assert "options" not in s.view(viewer)["rules"]["decision"] and "Ambush Viper" not in json.dumps(s.view(viewer)["rules"])
+        assert all(s.state.cards[c.id].face_down and s.state.cards[c.id].zone == "p1:exile" and unseen_by(s, c, viewer) for c in (bears, viper))
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[viper.id, bears.id])
+    answer(s)
+    for viewer in ("p2", SPECTATOR):  # the log never names a card Alice exiled face down or took into her hand
+        text = json.dumps(s.view(viewer)["log"])
+        assert not any(n in text for n in ("Ambush Viper", "Grizzly Bears", "Lightning Bolt", "Murder"))
+    assert {c for c in s.state.zones["p1:hand"]} >= {top1.id, top2.id}  # "put that many cards from the top of your library into your hand"
+    assert len(s.state.zones["p1:hand"]) == hand - 2 + 2
+    assert s.state.zones["p1:library"][:2] == [viper.id, bears.id] or s.state.zones["p1:library"][:2] == [bears.id, viper.id]
+    assert not any(s.state.cards[c].face_down for c in (bears.id, viper.id))
+    roundtrip(s)
+
+
+def until_asked(s, limit=20):
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            return d
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no decision")
+
+
+def test_ignorant_bliss_exiles_your_hand_face_down_and_returns_it_at_the_end_step(cards):
+    s = build(cards, p1=("Ignorant Bliss", "Grizzly Bears", "Giant Growth"))
+    bliss = put(s, "Ignorant Bliss", "hand")
+    bears = put(s, "Grizzly Bears", "hand")
+    growth = put(s, "Giant Growth", "hand")
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=bliss.id)
+    answer(s)
+    for c in (bears, growth):
+        assert s.state.cards[c.id].zone == "p1:exile" and s.state.cards[c.id].face_down
+        assert unseen_by(s, c, "p2", SPECTATOR)
+    until(s, lambda s: s.state.cards[bears.id].zone == "p1:hand")  # "at the beginning of the next end step, return those cards"
+    assert s.state.cards[growth.id].zone == "p1:hand" and not s.state.cards[bears.id].face_down
+    roundtrip(s)
+
+
+def test_inverter_of_truth_exiles_the_whole_library_face_down(cards):
+    s = build(cards, p1=("Inverter of Truth",))
+    inverter = put(s, "Inverter of Truth", "hand")
+    library = list(s.state.zones["p1:library"])
+    mana(s, B=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=inverter.id)
+    answer(s)
+    exiled = [c for c in library if s.state.cards[c].zone == "p1:exile"]
+    assert exiled and all(s.state.cards[c].face_down and s.state.cards[c].unseen for c in exiled)  # 406.3: nobody may look
+    for viewer in ("p1", "p2", SPECTATOR):  # not even the one who exiled them
+        assert all(unseen_by(s, s.state.cards[c], viewer) for c in exiled)
+    roundtrip(s)
+
+
+def test_doomsday_excruciator_only_when_cast(cards):
+    s = build(cards, p1=("Doomsday Excruciator",))
+    doom = put(s, "Doomsday Excruciator", "hand")
+    mana(s, B=6)
+    act(s, "p1", type="cast_spell", card_id=doom.id)
+    answer(s)
+    for pid in ("p1", "p2"):
+        assert len(s.state.zones[f"{pid}:library"]) == 6  # all but the bottom six, exiled face down
+        assert all(c.face_down and c.unseen for c in s.state.cards.values() if c.zone == f"{pid}:exile" and c.owner == pid)
+    roundtrip(s)
+    t = build(cards, p1=("Doomsday Excruciator",))
+    before = len(t.state.zones["p2:library"])
+    put(t, "Doomsday Excruciator", "battlefield")  # not cast: nothing happens
+    answer(t)
+    assert len(t.state.zones["p2:library"]) == before
+
+
+def test_ugin_the_ineffable_exiles_face_down_you_look_and_the_token_leaving_gives_it_to_you(cards):
+    s = build(cards, p1=("Ugin, the Ineffable", "Lightning Bolt", "Giant Growth"))
+    ugin = put(s, "Ugin, the Ineffable", "battlefield")
+    top = put(s, "Giant Growth", "library", position="top")
+    act(s, "p1", type="activate_ability", card_id=ugin.id, ability=1)  # +1
+    answer(s)
+    c = s.state.cards[top.id]
+    assert c.zone == "p1:exile" and c.face_down
+    assert s.view("p1")["cards"][top.id].get("name") == "Giant Growth"  # "and look at it"
+    assert unseen_by(s, top, "p2", SPECTATOR)
+    spirit = next(x for x in s.state.cards.values() if x.zone == "p1:battlefield" and x.name == "Spirit")
+    bolt = put(s, "Lightning Bolt", "hand")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[spirit.id])
+    answer(s)
+    assert s.state.cards[top.id].zone == "p1:hand"  # "When that token leaves the battlefield, put the exiled card into your hand"
+    assert unseen_by(s, top, "p2", SPECTATOR)
+    roundtrip(s)
+
+
+def test_glitch_interpreter_manifests_dread_when_you_control_no_face_down_permanent(cards):
+    s = build(cards, p1=("Glitch Interpreter",))
+    glitch = put(s, "Glitch Interpreter", "hand")
+    mana(s, U=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=glitch.id)
+    d = None
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_cards":
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1"
+    for viewer in ("p2", SPECTATOR):  # mid-decision: the two cards looked at stay secret
+        assert "options" not in s.view(viewer)["rules"]["decision"]
+    answer(s)
+    assert s.state.cards[glitch.id].zone == "p1:hand"
+    assert any(c.face_down and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    roundtrip(s)
+
+
+def test_cyber_conversion_turns_a_creature_face_down_as_a_cyberman_artifact_creature(cards):
+    s = build(cards, p1=("Cyber Conversion",), p2=("Ambush Viper",))
+    viper = put(s, "Ambush Viper", "battlefield", pid="p2")
+    conv = put(s, "Cyber Conversion", "hand")
+    mana(s, U=2)
+    act(s, "p1", type="cast_spell", card_id=conv.id, targets=[viper.id])
+    answer(s)
+    c = s.state.cards[viper.id]
+    assert c.face_down and c.face_down_as == "2/2 Cyberman artifact creature"
+    ch = chars_of(s, viper)
+    assert ch.types == {"Artifact", "Creature"} and ch.subtypes == {"Cyberman"} and (ch.power, ch.toughness) == ("2", "2")
+    assert unseen_by(s, viper, "p1", SPECTATOR) and not unseen_by(s, viper, "p2")
+    roundtrip(s)
+
+
+def test_yedora_returns_a_dying_creature_face_down_as_a_forest_land(cards):
+    s = build(cards, p1=("Yedora, Grave Gardener", "Ambush Viper", "Lightning Bolt"))
+    put(s, "Yedora, Grave Gardener", "battlefield")
+    viper = put(s, "Ambush Viper", "battlefield")
+    bolt = put(s, "Lightning Bolt", "hand")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[viper.id])
+    answer(s)
+    c = s.state.cards[viper.id]
+    assert c.zone == "p1:battlefield" and c.face_down and c.face_down_as == "Forest land"
+    ch = chars_of(s, viper)
+    assert ch.types == {"Land"} and ch.subtypes == {"Forest"} and not ch.is_creature
+    assert unseen_by(s, viper, "p2", SPECTATOR)
+    roundtrip(s)
+
+
+def test_tezzeret_puts_cards_from_your_hand_onto_the_battlefield_face_down_as_5_5_artifact_creatures(cards):
+    s = build(cards, p1=("Tezzeret, Cruel Machinist", "Grizzly Bears", "Giant Growth"))
+    tez = put(s, "Tezzeret, Cruel Machinist", "battlefield")
+    act(s, "p1", type="counter", card_ids=[tez.id], kind="loyalty", delta=7)
+    bears = put(s, "Grizzly Bears", "hand")
+    growth = put(s, "Giant Growth", "hand")
+    act(s, "p1", type="activate_ability", card_id=tez.id, ability=2)  # −7
+    d = until_asked(s)
+    assert d.player == "p1"
+    for viewer in ("p2", SPECTATOR):
+        assert "options" not in s.view(viewer)["rules"]["decision"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id, growth.id])
+    answer(s)
+    for c in (bears, growth):
+        assert s.state.cards[c.id].zone == "p1:battlefield" and s.state.cards[c.id].face_down
+        ch = chars_of(s, c)
+        assert ch.types == {"Artifact", "Creature"} and (ch.power, ch.toughness) == ("5", "5")
+        assert unseen_by(s, c, "p2", SPECTATOR)
+    roundtrip(s)
+
+
+def test_a_card_that_leaves_the_battlefield_face_down_is_revealed(cards):
+    s = build(cards, p1=("Ashcloud Phoenix", "Lightning Bolt", "Murder"))
+    phoenix = put(s, "Ashcloud Phoenix", "battlefield")
+    bolt = put(s, "Lightning Bolt", "hand")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[phoenix.id])
+    answer(s)
+    assert s.state.cards[phoenix.id].face_down
+    murder = put(s, "Murder", "hand")
+    mana(s, B=3, C=1)
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[phoenix.id])
+    answer(s)
+    assert s.state.cards[phoenix.id].zone == "p1:graveyard" and not s.state.cards[phoenix.id].face_down
+    assert "Ashcloud Phoenix" in blob(s, "p2")  # 708.9: revealed to all players as it moves
+    roundtrip(s)

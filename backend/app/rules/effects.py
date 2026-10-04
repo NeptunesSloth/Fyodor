@@ -1949,7 +1949,7 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
 
         for cid in cards:
             facedown.put_face_down(plan, cid, ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
-                                   "generic", actor=ctx["controller"])
+                                   "generic", actor=ctx["controller"], spec=e.get("spec"))
         _moved(plan, ctx, e, before)
         return True
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,

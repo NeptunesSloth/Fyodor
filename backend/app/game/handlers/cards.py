@@ -267,6 +267,7 @@ def face_down(state: GameState, a: A.FaceDown) -> None:
             continue
         c.face_down = new
         c.face_down_kind = (a.kind or ("exile" if zone_of(c) == "exile" else "generic")) if new else None
+        c.face_down_as = a.face_down_as if new else None  # (-- hidden exile (wave 18A) -- 708.2a)
         # A face-down card is anonymous to everyone but its controller from now on.
         c.revealed_to = []
         (turned_down if new else turned_up).append(c)
