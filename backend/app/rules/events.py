@@ -230,7 +230,7 @@ def _parse(c: str) -> Condition | None:
         return {**inner, "nodie": True}
     # -- triggers (wave 17D) -- "Whenever a creature is exiled from the battlefield" (Soulherder): a leave whose destination is exile
     m = re.fullmatch(r"(?P<s>.+?) (?:is|are) (?:exiled|put into exile) from the battlefield", c)
-    if m:
+    if m and " or " not in m["s"] and not m["s"].endswith(" or"):  # ("~ dies or is put into exile from the battlefield": the either-form below)
         inner = _parse(f"{m['s']} leaves the battlefield")
         if inner is None or inner.get("event") != "leave":
             return None
@@ -350,7 +350,10 @@ def _parse(c: str) -> Condition | None:
     # -- triggers (wave 17D) -- "Whenever you cast a black spell or a Swamp you control enters" (Staff of the Death Magus): two whole
     # conditions, each its own event (603.2c); split where both halves read on their own
     for part in re.finditer(r" or ", c):
-        a, b = _parse(c[:part.start()]), _parse(c[part.end():])
+        try:
+            a, b = _parse(c[:part.start()]), _parse(c[part.end():])
+        except _Refuse:
+            continue
         if a is None or b is None or a["event"] in ("either", "multi") or b["event"] in ("either", "multi") \
                 or a.get("aggregate") or b.get("aggregate") or (a["event"] == b["event"] and a["subject"] == b["subject"]):
             continue

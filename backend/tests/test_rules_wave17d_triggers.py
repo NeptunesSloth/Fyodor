@@ -101,12 +101,16 @@ EXTRA = [
     real('Massacre Girl, Known Killer', '{2}{B}{B}', 4, 'Legendary Creature — Human Assassin',
          'Menace\nCreatures you control have wither. (They deal damage to creatures in the form of -1/-1 counters.)\nWhenever a creature an opponent controls dies, if its toughness was less than 1, draw a card.', ("4", "4"), 'B'),
     real("Test Zombie", "{1}{B}", 2, "Creature — Zombie", "", ("2", "2"), "B"),
+    real('Bag of Holding', '{1}', 1, 'Artifact',
+         "Whenever you discard a card, exile that card from your graveyard.\n{2}, {T}: Draw a card, then discard a card.\n{4}, {T}, Sacrifice this artifact: Return all cards exiled with this artifact to their owner's hand.", None, ''),
+    real('Captain Marvel, Shooting Star', '{5}{W}{W}', 7, 'Legendary Creature — Human Kree Hero',
+         "Flying\nWhenever Captain Marvel enters or attacks, exile up to one target creature. That creature's controller gains life equal to its power.\nWhenever a creature other than Captain Marvel is exiled from the battlefield, you gain life equal to its power.", ("6", "6"), 'W'),
     real("Test Bounce", "{U}", 1, "Sorcery", "Return target creature to its owner's hand.", None, "U"),
     real("Test Burst", "{R}", 1, "Instant", "Test Burst deals 1 damage to any target.", None, "R"),
 ]
 
 NAMES = ["Torens, Fist of the Angels", "Dour Port-Mage", "Glowing One", "Screeching Scorchbeast", "Staff of the Death Magus",
-         "Rug of Smothering", "Wilhelt, the Rotcleaver", "Park Heights Maverick", "Millicent, Restless Revenant",
+         "Rug of Smothering", "Bag of Holding", "Captain Marvel, Shooting Star", "Wilhelt, the Rotcleaver", "Park Heights Maverick", "Millicent, Restless Revenant",
          "Massacre Girl, Known Killer", "Wyleth, Soul of Steel", "Soulherder", "Aetherworks Marvel",
          "Vorinclex, Voice of Hunger", "Firespitter Whelp", "Ghostly Pilferer", "Jadelight Ranger", "Ammit Eternal", "Phytotitan", "Within Range", "Hapatra, Vizier of Poisons", "Nest of Scarabs", "Path of Discovery", "Necropotence", "Prosperous Thief", "Forsaken Monument", "Parhelion II",
          "Poetic Ingenuity", "Scytheclaw Raptor", "Price of Glory"]
@@ -428,4 +432,30 @@ def test_another_zombie_dies_unless_it_had_decayed(cards):
     assert not any(c.name == "Zombie" and c.is_token for c in s.state.cards.values())
     kill(s, "Test Zombie")
     assert sum(1 for c in s.state.cards.values() if c.name == "Zombie" and c.is_token and c.zone == "p1:battlefield") == 1
+    check(s)
+
+
+def test_the_discarded_card_exiled_by_the_trigger_is_linked_to_its_source(cards):
+    # Bag of Holding: "exile that card from your graveyard" (the discard event's card), then "return all cards exiled with this artifact"
+    s = build(cards, ["Bag of Holding", "Test Discard", "Test Soldier"], [])
+    bag = put(s, "Bag of Holding")
+    soldier = to_hand(s, "Test Soldier")
+    cast(s, "Test Discard", B=1)
+    answer(s, "p1")
+    answer(s)
+    assert s.state.cards[soldier.id].zone == "p1:exile"
+    mana(s, "p1", C=4)
+    act(s, "p1", type="activate_ability", card_id=bag.id, ability=2)
+    answer(s)
+    assert s.state.cards[soldier.id].zone == "p1:hand"
+    check(s)
+
+
+def test_a_creature_exiled_from_the_battlefield_gains_life_equal_to_its_power(cards):
+    s = build(cards, ["Captain Marvel, Shooting Star", "Test Giant", "Test Exile"], [])
+    put(s, "Captain Marvel, Shooting Star")
+    giant = put(s, "Test Giant")
+    cast(s, "Test Exile", W=1)
+    answer(s, giant.id)
+    assert s.state.cards[giant.id].zone == "p1:exile" and life(s, "p1") == 45  # its power as it last existed (608.2h)
     check(s)
