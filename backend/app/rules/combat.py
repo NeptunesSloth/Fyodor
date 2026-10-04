@@ -725,6 +725,8 @@ class CombatDamage:
 def _assigns(card: CardInstance, ch: Characteristics) -> int | None:
     """510.1a: the combat damage a creature assigns is its power — or its toughness while a static says so ("Each
     creature assigns combat damage equal to its toughness rather than its power", Doran: the rule assign_toughness)."""
+    if "assign_none" in ch.imposed:  # -- no combat damage (wave 19E) -- "assigns no combat damage this turn"
+        return 0
     return toughness(card, ch) if "assign_toughness" in ch.imposed else power(card, ch)
 # -- end damage wordings (wave 6B) --
 

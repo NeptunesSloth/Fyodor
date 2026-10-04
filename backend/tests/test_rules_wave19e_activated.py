@@ -59,6 +59,9 @@ EXTRA = [
           "Spirit, it becomes a Kithkin Spirit Warrior with base power and toughness 4/4.\n{R/W}{R/W}{R/W}{R/W}{R/W}{R/W}: If this "
           "creature is a Warrior, it becomes a Kithkin Spirit Warrior Avatar with base power and toughness 8/8, flying, and first "
           "strike.", ["R", "W"], power="1", toughness="1"),
+    _card("Frostwielder", "W16", "{2}{R}{R}", "Creature — Human Shaman",
+          "If a creature dealt damage by this creature this turn would die, exile it instead.\n{T}: This creature deals 1 damage to any "
+          "target.", ["R"], power="1", toughness="2"),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -230,4 +233,20 @@ def test_level_up_creature_becomes_with_base_pt_and_keywords(cards):
     act(s, "p1", type="activate_ability", card_id=fig.id, ability=2)
     pass_until_stack_empty(s)
     assert ch(s, fig).pt == (8, 8) and {"flying", "first strike"} <= ch(s, fig).keywords and "Avatar" in ch(s, fig).subtypes
+    replay_matches(s)
+
+
+@pytest.mark.parametrize("pinged", [True, False])
+def test_creature_dealt_damage_by_this_creature_is_exiled(cards, pinged):
+    """Frostwielder: a creature it dealt damage to this turn is exiled instead of dying (614.1a); the same creature dealt damage by
+    another source only (Lightning Bolt, no ping) dies and goes to the graveyard."""
+    s = table(cards, ["Frostwielder"], ["Lightning Bolt"], bob_on_battlefield=["Grizzly Bears"])
+    bears = named(s, "Grizzly Bears")
+    if pinged:
+        act(s, "p1", type="activate_ability", card_id=named(s, "Frostwielder").id, ability=1, targets=[bears.id])
+        pass_until_stack_empty(s)
+    pay(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=named(s, "Lightning Bolt").id, targets=[bears.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == ("p2:exile" if pinged else "p2:graveyard")
     replay_matches(s)

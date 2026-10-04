@@ -741,7 +741,8 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 # (the table marker's value is at most 20 characters: app/game/actions.py AddEffect.value)
 RESTRICTION_LABELS = {"cant_block": "Can't block", "cant_attack": "Can't attack", "cant_attack_or_block": "Can't attack/block",
-                      "cant_be_blocked": "Can't be blocked", "must_attack": "Attacks if able"}
+                      "cant_be_blocked": "Can't be blocked", "must_attack": "Attacks if able",
+                      "assign_none": "Assigns no combat damage"}
 
 
 _GROUPS = {"each_creature": selectors.Selector(types=("Creature",)).key(),

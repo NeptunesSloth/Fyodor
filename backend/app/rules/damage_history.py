@@ -23,10 +23,11 @@ from app.rules.plan import Plan
 WAS_DEALT = "was_dealt_damage"  # the object was dealt damage this turn
 DEALT = "dealt_damage"  # the object dealt damage this turn (to anything)
 DEALT_YOU = "dealt_damage_you"  # the object dealt damage to "you" this turn
-EXTRAS = (WAS_DEALT, DEALT, DEALT_YOU)
+BY_SOURCE = "dealt_damage_by_source"  # -- wave 19E -- the object was dealt damage this turn by the selector's source ("dealt damage by ~")
+EXTRAS = (WAS_DEALT, DEALT, DEALT_YOU, BY_SOURCE)
 
 
-def matches(plan: Plan, card: Any, extra: str, you: str | None) -> bool:
+def matches(plan: Plan, card: Any, extra: str, you: str | None, source: str | None = None) -> bool:
     """Whether ``card`` (as the object it is now) meets the history qualifier ``extra`` this turn."""
     from app.rules.history import log_for
 
@@ -48,6 +49,9 @@ def matches(plan: Plan, card: Any, extra: str, you: str | None) -> bool:
             dealt.append((None, e.player, e.source) if e.player is not None else (e.object_id, None, e.source))
     if extra == WAS_DEALT:
         return any(to == oid for to, _, _ in dealt)
+    if extra == BY_SOURCE:
+        src_card = plan.state.cards.get(source or "")
+        return src_card is not None and any(to == oid and src == plan.oid(src_card) for to, _, src in dealt)
     if extra == DEALT_YOU:
         return any(src == oid and player is not None and player == you for _, player, src in dealt)
     return any(src == oid for _, _, src in dealt)
