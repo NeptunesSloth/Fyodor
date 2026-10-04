@@ -3181,6 +3181,7 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     r = state.rules
     if r is None:
         return "Rules automation is off"
+    info = info or (plan.info if plan is not None else None)  # -- static_other sweep (wave 19A) -- the statics of other permanents are read from it
     if cost.from_hand:  # -- ability words (wave 4F) -- 113.6m: "Discard this card" (channel) works only from the hand
         if card.zone != zone_key(player, "hand") or card.owner != player:
             return "That ability can only be activated from your hand"
