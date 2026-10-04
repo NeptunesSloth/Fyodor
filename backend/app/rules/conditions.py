@@ -73,11 +73,16 @@ def _compound(t: str, objects: bool) -> Condition | None:
     """"X and Y" / "X or Y" where each side is a condition by itself ("you control a Desert or there
     is a Desert card in your graveyard"), and "you control an artifact and an enchantment" (one
     subject for both). An "and" inside a noun phrase that doesn't split into conditions stays whole."""
-    m = re.fullmatch(r"you control (?P<a>(?:a|an) .+?) (?P<j>and|or) (?P<b>(?:a|an) .+)", t)
+    m = re.fullmatch(r"you control (?P<a>(?:a|an|another) .+?) (?P<j>and|or) (?P<b>(?:a|an) .+)", t)
     if m:
         parts = [_parse_one(f"you control {m[k]}", objects) for k in ("a", "b")]
         if all(p is not None for p in parts):
             return {"all" if m["j"] == "and" else "any": parts}
+    m = re.fullmatch(r"(?P<a>(?:a|an) .+?) and (?P<b>(?:a|an) .+?) are in your graveyard", t)  # (wave 16F)
+    if m:
+        parts = [_parse_one(f"{m[k]} is in your graveyard", objects) for k in ("a", "b")]
+        if all(p is not None for p in parts):
+            return {"all": parts}
     for joiner in (" and ", " or "):
         for piece in re.finditer(re.escape(joiner), t):
             left, right = t[: piece.start()], t[piece.end():]
@@ -100,8 +105,9 @@ _DIFFERENT_POWERS = re.compile(r"you control (?P<n>\w+) or more creatures with d
 # -- token & pump wordings (wave 6C) -- "if you control seven or more lands with different names" (Field of the Dead)
 _DIFFERENT_NAMES = re.compile(r"you control (?P<n>\w+) or more (?P<what>lands|creatures|artifacts|permanents) with different names")
 _TOTAL_POWER = re.compile(r"creatures you control have total power (?P<n>\w+) or greater")
-_GRAVEYARD = re.compile(r"there(?:'s| is| are) (?:(?P<a>a|an)|(?P<n>\w+) or more) (?P<sel>.+? in your graveyard)")
-_GRAVEYARD_ARE = re.compile(r"(?P<n>\w+) or more (?P<sel>.+?) (?:are|is) in your graveyard")  # "seven or more cards are in your graveyard"
+_GRAVEYARD = re.compile(r"there(?:'s| is| are) (?:(?P<a>a|an)|(?P<no>no)|(?P<n>\w+) or more) (?P<sel>.+? in your (?:graveyard|library))")
+# (wave 16F: "a Warrior card is in your graveyard", "there are no cards in your library")
+_GRAVEYARD_ARE = re.compile(r"(?:(?P<a>an?)|(?P<n>\w+) or more) (?P<sel>.+?) (?:are|is) in your graveyard")  # "seven or more cards are in your graveyard"
 _GRAVEYARD_TYPES = re.compile(r"there are (?P<n>\w+) or more card types among cards in your graveyard")
 _NONE_ON_BATTLEFIELD = re.compile(r"(?:there are )?no (?P<sel>[\w' -]+?)(?: are)? on the battlefield")
 _OBJECT_STAT = re.compile(r"(?P<who>its|that creature's|that permanent's|that card's|~'s) (?P<stat>power|toughness|mana value) "
@@ -200,6 +206,10 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     if m:  # "you control your commander" (Lieutenant): a commander you own (903.3), on the battlefield under your control
         commanders = selectors.Selector(commander=True, controller="you", owner="you" if m["which"] == "your commander" else None)
         return {"value": {"count": commanders.key()}, "op": ">=", "n": 1}
+    m = re.fullmatch(r"no opponent controls (?:an? )?(?P<sel>.+)", t)  # -- as long as (wave 16F) -- none of them has one, not one opponent
+    if m:
+        key = _count(m["sel"], "an opponent controls")
+        return {"value": {"count": key}, "op": "==", "n": 0} if key else None
     m = _CTRL.fullmatch(t)
     if m:
         q = m["q"]
@@ -278,11 +288,13 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     m = _GRAVEYARD.fullmatch(re.sub(r"^you have (?=(?:an?|\w+ or more) .+? in your graveyard$)", "there are ", t)) \
         or _GRAVEYARD_ARE.fullmatch(t)
     if m:  # "there are seven or more cards in your graveyard", "there is a Desert card in your graveyard"
-        n = 1 if m.groupdict().get("a") else _num(m["n"] or "")
-        in_graveyard = selectors.parse(m["sel"] if "in your graveyard" in m["sel"] else m["sel"] + " in your graveyard")
-        if n is None or in_graveyard is None or in_graveyard.player is not None or in_graveyard.zones != ("graveyard",):
+        gd = m.groupdict()
+        n = 1 if gd.get("a") else 0 if gd.get("no") else _num(m["n"] or "")
+        zone = "library" if m["sel"].endswith("in your library") else "graveyard"
+        in_graveyard = selectors.parse(m["sel"] if f"in your {zone}" in m["sel"] else m["sel"] + f" in your {zone}")
+        if n is None or in_graveyard is None or in_graveyard.player is not None or in_graveyard.zones != (zone,):
             return None
-        return {"value": {"count": in_graveyard.key()}, "op": ">=", "n": n}
+        return {"value": {"count": in_graveyard.key()}, "op": "==" if gd.get("no") else ">=", "n": n}
     m = _NONE_ON_BATTLEFIELD.fullmatch(t)
     if m:  # "no creatures are on the battlefield" (Pestilence): none of them, whoever controls them
         on_battlefield = selectors.parse(m["sel"])

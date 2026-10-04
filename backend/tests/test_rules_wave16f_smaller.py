@@ -190,6 +190,48 @@ def test_zendikon_makes_the_land_a_creature_that_is_still_a_land(cards):
     check(s)
 
 
+def _pt(s, c):
+    from app.rules import sba
+    from app.rules.plan import Plan
+
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])
+    return sba.power(s.state.cards[c.id], ch), sba.toughness(s.state.cards[c.id], ch)
+
+
+def _token(s, pid, name, type_line, pt=("2", "2"), colors=(), text=""):
+    act(s, pid, type="create_token", player=pid, token={
+        "name": name, "type_line": type_line, "power": pt[0], "toughness": pt[1], "colors": list(colors), "text": text})
+    return next(c for c in s.state.cards.values() if c.name == name)
+
+
+def test_a_static_condition_about_the_enchanted_creature_and_its_controller(cards):
+    # 611.3a / 613.4c: "as long as it's white" and "as long as its controller controls another creature" read the creature the
+    # Aura is on, now (Aura on a white and a green creature; the second Aura needs a second creature of the same controller)
+    s = build(cards)
+    white, green = _token(s, "p1", "Pale", "Token Creature — Test", colors="W"), _token(s, "p1", "Leaf", "Token Creature — Test", colors="G")
+    for who in (white, green):
+        aura = _token(s, "p1", f"Glow {who.name}", "Token Enchantment — Aura", (None, None),
+                      text="Enchant creature\nEnchanted creature gets +1/+2 as long as it's white.")
+        act(s, "p1", type="attach", card_ids=[aura.id], to=who.id)
+    assert (_pt(s, white), _pt(s, green)) == ((3, 4), (2, 2))
+    ward = _token(s, "p1", "Ward", "Token Enchantment — Aura", (None, None),
+                  text="Enchant creature\nEnchanted creature gets +2/+0 as long as its controller controls another creature.")
+    act(s, "p1", type="attach", card_ids=[ward.id], to=green.id)
+    assert _pt(s, green) == (4, 2)  # (the white creature is another creature)
+    act(s, "p1", type="move", card_ids=[white.id], to={"zone": "graveyard"})
+    assert _pt(s, green) == (2, 2)
+    check(s)
+
+
+def test_a_self_static_with_no_opponent_creature_and_graveyard_conditions(cards):
+    s = build(cards)
+    lone = _token(s, "p1", "Lone", "Token Creature — Test", text="~ gets +3/+3 as long as no opponent controls a creature.")
+    assert _pt(s, lone) == (5, 5)
+    _token(s, "p2", "Foe", "Token Creature — Test")
+    assert _pt(s, lone) == (2, 2)
+    check(s)
+
+
 def test_sentences_inside_a_granted_quote_are_the_quotes_own():
     from app.rules import statics
 

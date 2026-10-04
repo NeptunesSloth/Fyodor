@@ -206,6 +206,12 @@ def parse(text: str) -> Definition | None:
                 m = re.match(r"^(?P<rest>.+?) (?:as long as|(?P<r>unless|if)) (?P<cond>(?!able\b).+)$", masked)
                 if m:
                     cond_text, rest_text = body[m.start("cond"):m.end("cond")], body[m.start("rest"):m.end("rest")]
+                    # -- attached events (wave 16F) -- "Enchanted creature gets +1/+2 as long as it's white": "it" is the creature the
+                    # static modifies (the object attached to), as in "As long as enchanted creature is white, it gets +1/+2"
+                    host = re.match(r"(?P<w>Enchanted|Equipped) (?P<n>creature|permanent|land|artifact) (?:gets?|ha(?:s|ve)) ", rest_text)
+                    it_is = re.fullmatch(r"it(?:'s| is) (?P<d>.+)", cond_text)
+                    if host and it_is:
+                        cond_text = f"{host['w'].lower()} {host['n']} is {it_is['d']}"
                     cond = _condition(cond_text)
                     if cond is None:
                         return None
