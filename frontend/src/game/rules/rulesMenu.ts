@@ -5,7 +5,7 @@ import { isVisible, splitZone, type GameCard, type GameView } from "../../types/
 import { abilityLines, automationOn, isLand, send, setPrefs } from "./intents";
 
 /** 702.33a / 702.33c: a "Kicker {cost}" or "Multikicker {cost}" keyword line (mana costs only, as the server pays them). */
-const KICKER = /^(?:multi)?kicker (?:\{[^}]+\})+$/i;
+const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+$|^entwine—/i; // (702.42a entwine: kicker's count 1 is "choose all modes")
 /** Multikicker: how many times to pay (a submenu; more is rare enough to do by hand). */
 export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
 
@@ -88,6 +88,43 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     } else {
       items.push({ label: `Cast with ${kicker}`, disabled: !castable, onClick: cast(1) });
     }
+  }
+  // 702.160a / 718.3: a prototype card may be cast prototyped (its alternative mana cost, power and toughness).
+  const prototype = abilityLines(oracle).find((l) => /^prototype \{/i.test(l));
+  if (mine && zone === "hand" && prototype) {
+    items.push({ label: `Cast ${prototype.replace(/^prototype /i, "prototyped: ")}`, onClick: () => void send({ type: "cast_spell", card_id: card.id, prototype: true }) });
+  }
+  // 702.47a: cards in your hand with splice onto Arcane / onto instant or sorcery, revealed as this spell is cast.
+  if (mine && zone === "hand" && /\b(?:Arcane|Instant|Sorcery)\b/.test(data?.type_line ?? "")) {
+    const hand = (view.zones?.[`${me}:hand`] as string[] | undefined) ?? [];
+    const splicers = hand.flatMap((id) => {
+      const c = view.cards[id];
+      const d = c && !c.hidden && c.card_id ? useCardCache.getState().cards[c.card_id] : undefined;
+      return id !== card.id && d && /^splice onto /im.test(d.oracle_text ?? "") ? [{ id, name: d.name }] : [];
+    });
+    if (splicers.length > 0) {
+      items.push({ label: "Cast with splice", disabled: !hints.castable?.includes(card.id),
+        submenu: splicers.map((sp) => ({ label: `Splice ${sp.name}`,
+          onClick: () => void send({ type: "cast_spell", card_id: card.id, splice: [sp.id] }) })) });
+    }
+  }
+  // 702.94a: a card with miracle you just drew as the first card this turn may be revealed now (the server lists only your own).
+  if (mine && zone === "hand" && hints.miracle?.includes(card.id)) {
+    items.push({ label: "Reveal for miracle", onClick: () => void send({ type: "miracle_reveal", card_id: card.id }) });
+  }
+  // 702.151a / 702.167a: reconfigure's attach and unattach abilities and craft are activated abilities the server adds after / in place of their
+  // keyword line (rules/oracle.py): the next two abilities after the "Reconfigure {cost}" line, the line itself for "Craft with …".
+  if (mine && zone === "battlefield") {
+    abilityLines(oracle).forEach((line, i) => {
+      if (/^reconfigure (?:\{[^}]+\})+$/i.test(line)) {
+        const ready = (n: number) => !!hints.activatable?.some((a) => a.card_id === card.id && a.ability === n);
+        items.push({ label: `Reconfigure: attach (${line.replace(/^reconfigure /i, "")})`, disabled: !ready(i + 1), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i + 1 }) });
+        items.push({ label: `Reconfigure: unattach (${line.replace(/^reconfigure /i, "")})`, disabled: !ready(i + 2), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i + 2 }) });
+      } else if (/^craft with /i.test(line)) {
+        const ready = !!hints.activatable?.some((a) => a.card_id === card.id && a.ability === i);
+        items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !ready, onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
+      }
+    });
   }
   if (mine && zone === "graveyard") {
     abilityLines(oracle).forEach((line, i) => {

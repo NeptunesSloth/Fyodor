@@ -348,6 +348,7 @@ export interface RulesHints {
   alt_castable?: Record<string, { id: string; label: string }[]>; // alternative costs (118.9): card id → costs it can be cast for now
   optional_costs?: Record<string, { id: string; label: string }[]>; // optional additional costs (Defiler of Vigor): card id → sources
   activatable?: { card_id: string; ability: number }[];
+  miracle?: string[]; // cards of yours you may reveal for miracle now (702.94a)
 }
 
 export interface RulesView {

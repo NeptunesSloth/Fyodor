@@ -265,6 +265,38 @@ describe("rules card menu", () => {
     expect(labels(rulesMenu(v.cards.c2!, v, "p1")).some((l) => /kicker/i.test(l))).toBe(false);  // no kicker line
   });
 
+  it("offers entwine, prototype, splice and miracle (wave 18E)", () => {
+    const base = view({ ...RULES, hints: { castable: ["e1", "p1x", "s1"], miracle: ["w1"] } });
+    const v = { ...base, zones: { "p1:hand": ["e1", "p1x", "s1", "s2", "w1"] },
+      cards: { ...base.cards, e1: card("e1", "p1:hand", "rust"), p1x: card("p1x", "p1:hand", "goliath"),
+        s1: card("s1", "p1:hand", "might"), s2: card("s2", "p1:hand", "ray"), w1: card("w1", "p1:hand", "wrath") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        rust: { id: "rust", name: "Rain of Rust", type_line: "Instant",
+          oracle_text: "Choose one —\n• Destroy target artifact.\n• Destroy target land.\nEntwine {3}{R} (Choose both if you pay the entwine cost.)" } as CardData,
+        goliath: { id: "goliath", name: "Rust Goliath", type_line: "Artifact Creature — Construct",
+          oracle_text: "Prototype {3}{G}{G} — 3/5 (You may cast this spell with different mana cost, color, and size.)\nReach, trample" } as CardData,
+        might: { id: "might", name: "Kodama's Might", type_line: "Instant — Arcane",
+          oracle_text: "Target creature gets +2/+2 until end of turn.\nSplice onto Arcane {G} (As you cast an Arcane spell, you may reveal this card.)" } as CardData,
+        ray: { id: "ray", name: "Glacial Ray", type_line: "Instant — Arcane",
+          oracle_text: "Glacial Ray deals 2 damage to any target.\nSplice onto Arcane {1}{R} (As you cast an Arcane spell, you may reveal this card.)" } as CardData,
+        wrath: { id: "wrath", name: "Thunderous Wrath", type_line: "Instant", oracle_text: "Thunderous Wrath deals 5 damage to any target.\nMiracle {R}" } as CardData,
+      },
+    });
+    item(rulesMenu(v.cards.e1!, v, "p1"), "Cast with Entwine {3}{R}").onClick?.();
+    expect(sent[0]).toEqual({ type: "cast_spell", card_id: "e1", kicker: 1 });
+    item(rulesMenu(v.cards.p1x!, v, "p1"), "Cast prototyped: {3}{G}{G} — 3/5").onClick?.();
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "p1x", prototype: true });
+    const splice = item(rulesMenu(v.cards.s1!, v, "p1"), "Cast with splice");
+    const ray = splice.submenu?.find((i) => i !== "separator" && i.label === "Splice Glacial Ray");
+    if (!ray || ray === "separator") throw new Error("expected a Glacial Ray entry");
+    ray.onClick?.();
+    expect(sent[2]).toEqual({ type: "cast_spell", card_id: "s1", splice: ["s2"] });
+    item(rulesMenu(v.cards.w1!, v, "p1"), "Reveal for miracle").onClick?.();
+    expect(sent[3]).toEqual({ type: "miracle_reveal", card_id: "w1" });
+  });
+
   it("offers graveyard-activated abilities (113.6m) only for graveyard costs or server-listed ones", () => {
     const base = view({ ...RULES, hints: { activatable: [{ card_id: "g1", ability: 1 }] } });
     const v = { ...base, cards: { ...base.cards, g1: card("g1", "p1:graveyard", "scrounger"), g2: card("g2", "p1:graveyard", "looter"),
