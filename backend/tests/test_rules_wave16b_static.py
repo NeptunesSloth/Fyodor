@@ -11,11 +11,13 @@ from __future__ import annotations
 import pytest
 
 from app.game.errors import ActionError
+from app.game.factory import PlayerSetup, new_game
+from app.game.session import GameSession
 from app.rules import characteristics as chars
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
-from tests.test_rules_effects import mana
+from tests.game_helpers import act, deck, enable
+from tests.test_rules_effects import mana, replay_matches
 from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
 
 EXTRA = [
@@ -47,6 +49,10 @@ EXTRA = [
          color_identity=["R"], oracle_text="Each player shuffles the cards from their hand into their library, then draws that many cards."),
     card("Funeral Rites", set_code="tst", number="B10", mana_cost="{3}{B}", cmc=4.0, type_line="Sorcery", colors=["B"],
          color_identity=["B"], oracle_text="You draw two cards, lose 2 life, then mill two cards."),
+    card("Cecily, Haunted Mage", set_code="tst", number="B14", mana_cost="{1}{B}", cmc=2.0, type_line="Legendary Creature — Human Wizard",
+         power="2", toughness="2", colors=["B"], color_identity=["B"], oracle_text="Your maximum hand size is eleven."),
+    card("Trusted Advisor", set_code="tst", number="B15", mana_cost="{U}", cmc=1.0, type_line="Creature — Human Advisor", power="1",
+         toughness="2", colors=["U"], color_identity=["U"], oracle_text="Your maximum hand size is increased by two."),
     card("Contact Other Plane", set_code="tst", number="B12", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"],
          color_identity=["U"], oracle_text="Roll a d20.\n1—9 | Draw two cards.\n10—19 | Scry 2, then draw two cards.\n"
          "20 | Scry 3, then draw three cards."),
@@ -246,3 +252,18 @@ def test_roll_table_row_reads_the_target_chosen_before_the_roll(cards, monkeypat
     made = [x for x in s.state.cards.values() if x.token and x.token.name == "Treasure" and x.zone.endswith(":battlefield")]
     assert len(made) == treasures
     roundtrip(s)
+
+
+@pytest.mark.parametrize("order,kept", [(("Cecily, Haunted Mage",), 11), (("Cecily, Haunted Mage", "Trusted Advisor"), 13),
+                                        (("Trusted Advisor", "Cecily, Haunted Mage"), 11)])
+def test_a_set_maximum_hand_size_applies_in_timestamp_order(cards, order, kept):
+    from tests.test_rules_wave10b_static_forms import hand_after_cleanup
+
+    alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in order), (30, "Forest")])  # (a long library: the hand is topped up to 14)
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    for name in order:  # (each enters in turn: a later permanent's effect applies after an earlier one's, 613.7d)
+        act(s, "p1", type="move", card_ids=[find(s, name).id], to={"player": "p1", "zone": "battlefield"})
+    assert hand_after_cleanup(s, 14) == kept
+    replay_matches(s)
