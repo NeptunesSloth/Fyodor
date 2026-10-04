@@ -975,6 +975,11 @@ def end_combat(plan: Plan) -> None:
     if any(c.attacking is not None or c.blocking for c in plan.state.cards.values()):
         plan.do({"type": "clear_combat"}, actor=plan.active)
     r = plan.rules
+    if any(e.duration == "end_of_combat" for e in r.effects):  # -- review (wave 18E) -- "this combat" (provoke, 702.39a) ends here
+        r.effects = [e for e in r.effects if e.duration != "end_of_combat"]
+        for card in list(plan.state.cards.values()):
+            for marker in [m for m in card.effects if m.text == "this combat"]:
+                plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
     r.blocked = []
     r.block_split = {}
     r.no_attackers = False

@@ -68,9 +68,7 @@ def reveal(plan: Plan, a: A.MiracleReveal) -> None:
     r.miracle = []
     plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
     plan.note(f"{plan.name(plan.actor)} reveals {card.name} (miracle)", [card.id])
-    r.free_casts.append(card.id)
-    r.alt_costs[card.id] = cost
-    r.miracled.append(card.id)
+    r.miracled.append(card.id)  # (the cast itself is offered only as the trigger resolves: ``offer``)
     _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=card.name, index=8001,
          definition={"kind": "triggered", "trigger": "miracle", "optional": False, "target": None,
                      "effects": [{"do": "miracle_offer", "card": card.id, "cost": cost}]})
@@ -83,9 +81,11 @@ def offer(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
     cid = e["card"]
     card = plan.state.cards.get(cid)
-    if card is None or card.zone != zone_key(card.owner, "hand") or cid not in plan.rules.free_casts:
+    if card is None or card.zone != zone_key(card.owner, "hand") or cid not in plan.rules.miracled:
         done(plan, cid)
         return True
+    plan.rules.free_casts.append(cid)  # (-- review (wave 18E) -- not before: the trigger may be countered, 603.11 / 702.94a)
+    plan.rules.alt_costs[cid] = e["cost"]
     decide(plan, player=card.owner, kind="choose_one", prompt=f"Miracle: cast {card.name} for {e['cost']}?",
            options=[DecisionOption(id="yes", label=f"Cast it for {e['cost']}"), DecisionOption(id="no", label="Keep it in your hand")],
            resume={"step": "suspend_cast", "ctx": ctx, "card": cid, "decline": "miracle"}, source=card)

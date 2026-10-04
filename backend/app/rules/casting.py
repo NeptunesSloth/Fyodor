@@ -2066,7 +2066,6 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
                       reduce=emerge_reduction)
     cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # ("reduces only the amount of green mana")
     cost = M.spend_as(cost, grant.spend) if grant is not None and grant.spend else cost  # -- as long as (wave 9B) -- 118.14
-    cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for
     helper, helper_pays = None, 0  # -- casting extras (wave 18E) -- 702.132a assist: another player pays some generic mana (601.2g-h)
     if "assist" in ch.keywords and not plan.manual(card) and not a.face_down:
         from app.rules import assist
@@ -2076,6 +2075,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             return
         helper, helper_pays = found_helper
         cost = cost.plus_generic(-helper_pays)
+    cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for (the caster's share, after assist)
     not_mana = cost_payment.excluded(add_cost, card, add_objects) if add_cost is not None else ()
     origin = card.zone  # (wave 17B: where it is cast from, before it moves to the stack)
     if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,
@@ -2117,6 +2117,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
     if a.splice:  # -- casting extras (wave 18E) -- 702.47a: the spliced cards are revealed (they stay in the hand)
         plan.do({"type": "reveal", "card_ids": list(a.splice)}, actor=plan.actor)
+        plan.do({"type": "hide", "card_ids": list(a.splice)}, actor=plan.actor)  # (701.20a: shown, then hidden again in the hand: review 18E)
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else "awaken" if a.awaken else \
         "harmonize" if harmonized else "flashback" if flashback else "free" if free \
         else "disturb" if escaping and alt_offer is not None and alt_offer.tag == "disturb" else "escape" if escaping else \

@@ -743,7 +743,7 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                           duration=duration)
     if cards:
         _mark(plan, cards, ", ".join(RESTRICTION_LABELS.get(r, r) for r in e["rules"]),
-              text="until end of turn" if duration == "end_of_turn" else "as long as it's on the battlefield")
+              text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"))
     return True
 
 

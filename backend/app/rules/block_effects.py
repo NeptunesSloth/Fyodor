@@ -21,10 +21,12 @@ from typing import Any
 _SELF = r"(?:this creature|~)"
 _CANT = re.compile(rf"^(?P<o>target creature(?: [^,.]+?)?) can't block {_SELF} this turn$")
 _MUST_SELF = re.compile(rf"^(?P<o>target creature(?: [^,.]+?)?) blocks {_SELF} this turn if able$")
+# -- review (wave 18E) -- provoke (702.39a): "… block this creature this combat if able" ends with the combat (a turn may have several, 500.8)
+_MUST_SELF_COMBAT = re.compile(rf"^(?P<o>target creature(?: [^,.]+?)?) blocks {_SELF} this combat if able$")
 _MUST = re.compile(r"^(?P<o>target creature(?: [^,.]+?)?) blocks this turn if able$")
 
 
-def _build(rules: list[str]) -> Any:
+def _build(rules: list[str], duration: str | None = None) -> Any:
     def build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         from app.rules.combat_rules import _restrict
         from app.rules.scripts import _NoMatch
@@ -32,7 +34,7 @@ def _build(rules: list[str]) -> Any:
         found = _restrict(m["o"], rules)
         if found is None:
             raise _NoMatch
-        return found
+        return ([{**e, "duration": duration} for e in found[0]], found[1]) if duration else found
 
     return build
 
@@ -40,5 +42,6 @@ def _build(rules: list[str]) -> Any:
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
     (_CANT, _build(["cant_block_obj:@src"])),
     (_MUST_SELF, _build(["must_block_obj:@src"])),
+    (_MUST_SELF_COMBAT, _build(["must_block_obj:@src"], "end_of_combat")),
     (_MUST, _build(["must_block"])),
 ]

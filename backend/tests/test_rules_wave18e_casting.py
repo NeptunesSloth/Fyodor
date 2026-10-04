@@ -219,6 +219,7 @@ def test_splice_adds_the_text_and_costs_and_reveals(cards):
     assert s.state.cards[ray.id].zone == "p1:hand"  # the spliced card stays in hand …
     for v in ("p2", SPECTATOR):  # … revealed to everyone (702.47a); the card that wasn't spliced stays hidden
         assert "Glacial Ray" in seen(s, v) and "Torrent of Stone" not in seen(s, v)
+    assert not s.state.cards[ray.id].revealed_to  # (review 18E) shown in the log, then hidden in the hand again (701.20a)
     answer(s)
     assert s.state.players["p2"].life == 38  # … and the spell deals the 2 damage (702.47c)
     assert pt(s, bear) == (4, 4)
@@ -481,9 +482,19 @@ def test_provoke_makes_the_creature_untap_and_block_it_if_able(cards):
             break
     assert not s.state.cards[bear.id].tapped  # 702.39a: untapped
     assert s.state.rules.decision.kind == "declare_blockers"
+    assert any(e.duration == "end_of_combat" for e in s.state.rules.effects)  # (review 18E) "this combat"
     with pytest.raises(ActionError):  # 509.1c: it blocks Krosan Vorine if able
         act(s, "p2", type="declare_blockers", blocks=[])
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bear.id, "attacker_id": vorine.id}])
+    roundtrip(s)
+    # (review 18E) "block this creature this combat if able": the requirement ends with the combat (500.8: a turn may have several)
+    for _ in range(10):
+        if s.state.turn.phase == "main2" or s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.turn.phase == "main2"
+    assert not any(e.duration == "end_of_combat" for e in s.state.rules.effects)
+    assert not any(m.text == "this combat" for m in s.state.cards[bear.id].effects)
     roundtrip(s)
 
 

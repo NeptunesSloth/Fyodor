@@ -80,8 +80,8 @@ MEANINGS: dict[str, str] = {
     # -- casting extras (wave 18E) -- 702.121a melee (values.parse_count: the opponents attacked directly, 506.3)
     "melee": "Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked with a creature this combat.",
     # 702.39a provoke: "you may choose to have target creature … block … If you do, untap that creature" — the whole of it is the "may"
-    # (``_OPTIONAL``); "this combat" is read as "this turn" (the requirement only matters while this creature attacks)
-    "provoke": "Whenever this creature attacks, target creature defending player controls blocks this creature this turn if able. "
+    # (``_OPTIONAL``); the requirement ends with this combat (block_effects: a turn may have several combats, 500.8)
+    "provoke": "Whenever this creature attacks, target creature defending player controls blocks this creature this combat if able. "
                "Untap that creature.",
     # 702.59a recover [cost]: a triggered ability that functions in a graveyard (the effects' "~ from your graveyard", scripts.define);
     # "Otherwise" is "If you don't"; a mana cost only ({cost})

@@ -724,7 +724,7 @@ def turn_cleanup(plan: Plan) -> None:
     permissions.expire(plan)  # "you may play that card this turn" and friends
     delayed.cleanup(plan)  # "when … this turn" delayed triggers stop watching (514.2)
     for card in list(plan.state.cards.values()):
-        for marker in [m for m in card.effects if m.text == "until end of turn"]:
+        for marker in [m for m in card.effects if m.text in ("until end of turn", "this combat")]:
             plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
 
 
