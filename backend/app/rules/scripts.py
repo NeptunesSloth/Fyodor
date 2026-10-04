@@ -1815,6 +1815,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     )
 
     body = pump_each.rewrite(body)
+    from app.rules import combat_rules as _combat_rules  # -- keywords (wave 15E) -- myriad's two sentences
+
+    body = _combat_rules.merge_myriad(body)
     from app.rules import kinship  # -- kinship (wave 9C) --
 
     if (kin := kinship.split(body)) is not None:

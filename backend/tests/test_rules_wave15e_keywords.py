@@ -33,6 +33,7 @@ EXTRA = [
     card('Secrets of the Golden City', set_code='tst', number='X14', mana_cost='{1}{U}{U}', cmc=3.0, type_line='Sorcery', oracle_text="Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nDraw two cards. If you have the city's blessing, draw three cards instead.", power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=['Ascend']),  # noqa: E501
     card('Snake Cult Initiation', set_code='tst', number='X15', mana_cost='{3}{B}', cmc=4.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature has poisonous 3. (Whenever it deals combat damage to a player, that player gets three poison counters. A player with ten or more poison counters loses the game.)', power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=['Enchant']),  # noqa: E501
     card('Boon-Bringer Valkyrie', set_code='tst', number='X16', mana_cost='{3}{W}{W}', cmc=5.0, type_line='Creature — Angel Warrior', oracle_text="Backup 1 (When this creature enters, put a +1/+1 counter on target creature. If that's another creature, it gains the following abilities until end of turn.)\nFlying, first strike, lifelink", power='4', toughness='4', colors=['W'], color_identity=['W'], keywords=['Flying', 'Lifelink', 'Backup', 'First strike']),  # noqa: E501
+    card('Scion of Calamity', set_code='tst', number='X17', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Dinosaur', oracle_text="Myriad (Whenever this creature attacks, for each opponent other than defending player, you may create a token that's a copy of this creature that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Myriad']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -343,4 +344,34 @@ def test_backup_gives_another_creature_the_abilities_until_end_of_turn(cards):
     settle(s)
     assert counters(s, bear) == 1 and counters(s, valkyrie) == 0  # 702.165a
     assert {"flying", "first strike", "lifelink"} <= chars(s, bear).keywords
+    check(s)
+
+
+def build3(cards, *names):
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    seats = [PlayerSetup("Alice", cards=deck(cards, "Krenko, Mob Boss", [*((1, n) for n in names), (30, "Forest")])),
+             PlayerSetup("Bob", cards=deck(cards, "Atraxa, Praetors' Voice", [(30, "Island")])),
+             PlayerSetup("Cara", cards=deck(cards, "Atraxa, Praetors' Voice", [(30, "Island")]))]
+    s = GameSession(enable(new_game(seats, shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    return s
+
+
+def test_myriad_makes_attacking_copies_for_the_other_opponents(cards):
+    s = build3(cards, "Scion of Calamity")
+    scion = put(s, "Scion of Calamity")
+    next_own_turn(s)
+    attack_with(s, scion)  # attacks Bob; Cara is "an opponent other than defending player"
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "choose_one"
+          and "token copy" in s.state.rules.decision.prompt)
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.id for o in d.options} >= {"none", "p3"}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p3"])
+    until(s, lambda s: s.state.turn.phase == "main2")  # (the copy attacked Cara alongside the Scion attacking Bob)
+    assert s.state.players["p2"].life == 35 and s.state.players["p3"].life == 35  # 702.116a, 508.4
+    assert not [c for c in s.state.cards.values() if c.is_token and c.name == "Scion of Calamity"
+                and c.zone.endswith(":battlefield")]  # exiled at end of combat
     check(s)

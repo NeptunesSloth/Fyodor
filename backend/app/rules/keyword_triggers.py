@@ -62,6 +62,10 @@ MEANINGS: dict[str, str] = {
     # 702.32a fading N: enters with N fade counters (replacements.entering_counters), and this
     "fading": "At the beginning of your upkeep, remove a fade counter from this permanent. If you can't, sacrifice this "
               "permanent.",
+    # 702.116a (written as combat_rules.clause reads it: "~" for this creature)
+    "myriad": "Whenever this creature attacks, for each opponent other than defending player, you may create a token that's a copy "
+              "of this creature that's tapped and attacking that player or a planeswalker they control. If one or more tokens are "
+              "created this way, exile the tokens at end of combat.",
     "mentor": "Whenever this creature attacks, put a +1/+1 counter on target attacking creature with power less than this "
               "creature's power.",  # 702.134a
 }
