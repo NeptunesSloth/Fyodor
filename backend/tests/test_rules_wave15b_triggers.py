@@ -381,6 +381,20 @@ def test_put_a_soldier_from_your_hand_onto_the_battlefield_tapped_and_attacking(
     check(s)
 
 
+def test_you_and_that_player_each_draw_that_many_cards(cards):
+    # 121.2c: one draw for both; "that player" and "that many" are the combat damage event's (510.2)
+    from tests.test_rules_combat import attack, automate, creature, table
+
+    s = table(cards)
+    benton = creature(s, "p1", "Benton", "2/2", "Whenever ~ deals combat damage to a player, you and that player each draw that many cards.")
+    automate(s)
+    mine, theirs = len(s.state.zones["p1:hand"]), len(s.state.zones["p2:hand"])
+    attack(s, (benton, "p2"))
+    answer(s)
+    assert (len(s.state.zones["p1:hand"]) - mine, len(s.state.zones["p2:hand"]) - theirs) == (2, 2)
+    check(s)
+
+
 @pytest.mark.parametrize("text", [
     # "that many" after a discard the player sizes is the cards discarded: only "then draw that many cards" is read (above)
     "Discard any number of cards. Search your library for up to that many basic land cards, reveal them, put them into your hand, then shuffle.",

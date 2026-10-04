@@ -998,6 +998,20 @@ def _you_and_target_draw(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | 
     return [{"do": "draw", "who": "target", "also": "you", "n": num(m["n"])}], "opponent"
 
 
+# -- trigger tail (wave 15B) -- "Whenever ~ deals combat damage to a player, you and that player each draw that many cards." (Xyris,
+# Sergeant John Benton), "… each gain that much life." (Angel of Destiny): the event's player and amount (a trigger about a player,
+# scripts._event_refs_ok); the draw is one instruction for both (121.2c), a gain or loss is each player's own event
+@effect(r"you and that player each (?P<v>draw|gain|lose) (?P<n>\d+|a|an|one|two|three|four|five|that many|that much) (?P<what>cards?|life)")
+def _you_and_that_player(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    n: Any = {"event_amount": 1} if m["n"].startswith("that ") else num(m["n"])
+    if (m["v"] == "draw") != m["what"].startswith("card"):
+        raise _NoMatch
+    if m["v"] == "draw":
+        return [{"do": "draw", "who": "that_player", "also": "you", "n": n}], None
+    kind = "gain_life" if m["v"] == "gain" else "lose_life"
+    return [{"do": kind, "who": "you", "n": n}, {"do": kind, "who": "that_player", "n": n}], None
+
+
 # "put two cards from your hand on top of your library in any order" (Brainstorm): a private choice, then the owner's
 # order (401.4) — app/rules/put_back.py
 @effect(r"put (?:(?P<one>a card)|(?P<n>two|three|four|five) cards) from your hand on top of your library"
