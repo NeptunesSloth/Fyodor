@@ -2857,7 +2857,7 @@ _GOAD_PLAYER = re.compile(r"goad (?:each|all) creatures? (?P<p>target player|tar
 _MANIFEST = re.compile(r"(?:(?P<p>its controller|that player|target player|target opponent|each player|each opponent) )?"
                        r"(?P<v>manifests?|cloaks?) the top (?:(?P<n>two|three|four|five|x|\d+) cards|card) of "
                        r"(?P<lib>your|their) library")
-_DREAD = re.compile(r"manifest dread(?: (?P<n>twice|x times|\w+ times))?")
+_DREAD = re.compile(r"(?:(?P<p>its controller|that player) )?manifests? dread(?: (?P<n>twice|x times|\w+ times))?")  # (wave 17C: "Its controller manifests dread.")
 
 
 def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
@@ -2866,7 +2866,10 @@ def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
     m = _DREAD.fullmatch(text)
     if m:
         n: Any = 1 if not m["n"] else 2 if m["n"] == "twice" else _amount(m["n"][:-6])
-        return [{"do": "manifest", "dread": True, "kind": "manifest", "who": "you", "n": n}], None
+        if (m["p"] is None) != m.group(0).startswith("manifest dread"):
+            return None
+        return [{"do": "manifest", "dread": True, "kind": "manifest", "who": {None: "you", "its controller": "it.controller",
+                                                                              "that player": "that_player"}[m["p"]], "n": n}], None
     m = _MANIFEST.fullmatch(text)
     if m is None:
         return None

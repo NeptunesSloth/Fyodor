@@ -68,6 +68,19 @@ EXTRA = [
          "are Foods in addition to their other types and have \"{2}, {T}, Sacrifice this artifact: You gain 3 life.\"\n{2}{G}: Level 2\n"
          "Whenever you gain life for the first time each turn, create a 3/3 green Raccoon creature token.\n{3}{G}: Level 3\n"
          "Whenever you gain life for the first time each turn, put a +1/+1 counter on each creature you control."),
+    card("Boomerang Basics", set_code="tst", number="C19", mana_cost="{U}", cmc=1.0, type_line="Sorcery — Lesson", colors=["U"],
+         color_identity=["U"], oracle_text="Return target nonland permanent to its owner's hand. If you controlled that permanent, "
+         "draw a card."),
+    card("Gleeful Demolition", set_code="tst", number="C20", mana_cost="{R}", cmc=1.0, type_line="Sorcery", colors=["R"],
+         color_identity=["R"], oracle_text="Destroy target artifact. If you controlled that artifact, create three 1/1 red Phyrexian "
+         "Goblin creature tokens."),
+    card("Fateful Absence", set_code="tst", number="C21", mana_cost="{1}{W}", cmc=2.0, type_line="Instant", colors=["W"],
+         color_identity=["W"], oracle_text="Destroy target creature or planeswalker. Its controller investigates. (They create a Clue "
+         "token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")"),
+    card("Serum Snare", set_code="tst", number="C22", mana_cost="{1}{U}", cmc=2.0, type_line="Instant", colors=["U"],
+         color_identity=["U"], oracle_text="Return target nonland permanent to its owner's hand. If that permanent had mana value 3 or "
+         "less, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already "
+         "there.)"),
     card("Hexing Squelcher", set_code="tst", number="C05", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Goblin Sorcerer",
          power="2", toughness="2", colors=["R"], color_identity=["R"],
          oracle_text="This spell can't be countered.\nWard—Pay 2 life.\nSpells you control can't be countered.\nOther creatures you control have \"Ward—Pay 2 life.\""),
@@ -263,4 +276,33 @@ def test_goldspan_dragon_treasures_tap_for_two(cards):
     _, ch = _derived(s, "Treasure")
     ab = next(a for a in ch.abilities if a.kind == "mana" and a.index >= 100)
     assert "two mana" in ab.text  # 613.1f: the Dragon's granted ability, next to the Treasure's own
+    roundtrip(s)
+
+
+def test_if_you_controlled_that_permanent(cards):
+    s = build(cards, p1=("Boomerang Basics", "Boomerang Basics", "Test Small"), p2=("Test Small",))
+    mine, theirs = put(s, "Test Small", "battlefield"), put(s, "Test Small", "battlefield", "p2")
+    spells = [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Boomerang Basics"]
+    for c in spells:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "hand"})
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, U=2)
+    act(s, "p1", type="cast_spell", card_id=spells[0].id, targets=[theirs.id])
+    answer(s)
+    assert s.state.cards[theirs.id].zone == "p2:hand" and len(s.state.zones["p1:hand"]) == hand - 1  # 608.2h: not yours, no card
+    act(s, "p1", type="cast_spell", card_id=spells[1].id, targets=[mine.id])
+    answer(s)
+    assert s.state.cards[mine.id].zone == "p1:hand" and len(s.state.zones["p1:hand"]) == hand - 2 + 1 + 1  # yours: you draw
+    roundtrip(s)
+
+
+def test_its_controller_investigates(cards):
+    s = build(cards, p1=("Fateful Absence",), p2=("Test Small",))
+    victim = put(s, "Test Small", "battlefield", "p2")
+    spell = put(s, "Fateful Absence", "hand")
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[victim.id])
+    answer(s)
+    assert s.state.cards[victim.id].zone == "p2:graveyard"
+    assert any(c.name == "Clue" and c.controller == "p2" for c in s.state.cards.values())  # 701.16a: the creature's controller
     roundtrip(s)

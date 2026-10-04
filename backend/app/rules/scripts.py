@@ -1753,6 +1753,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     body = re.sub(r"(?i)(?:^|(?<=, )|(?<=\. ))(?:you )?recruit(?=[.,]|$)",
                   "draw a card, then discard a card, then create a 1/1 white Human Soldier creature token for each nonland card "
                   "discarded this way", body)
+    # -- static_other sweep (wave 17C) -- 701.16a: "Its controller investigates." is "Its controller creates a Clue token." (Fateful Absence)
+    body = re.sub(r"(?i)\b(its controller|that creature's controller|that permanent's controller) investigates\b", r"\1 creates a Clue token", body)
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     from app.rules import per_opponent  # -- per-opponent targets (wave 12C) --
 

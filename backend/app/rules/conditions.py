@@ -135,6 +135,9 @@ _ATTACHED = {"enchanted": ("Aura",), "equipped": ("Equipment",), "enchanted or e
 _BEATS_SELF = re.compile(r"(?P<who>it|that creature) has greater (?P<a>power|toughness)(?: or (?P<b>power|toughness))? than ~|"
                          r"(?P<who2>its|that creature's) power is greater than ~'s(?: power)?"
                          r"(?: (?:or|and/or) (?:its|that creature's) toughness is greater than ~'s toughness)?")  # (and/or: 702.100a, wave 15E)
+# -- static_other sweep (wave 17C) -- 608.2h: "If you controlled that permanent" (Boomerang Basics): the controller it had, as it is
+# or as it last existed
+_CONTROLLED = re.compile(r"you (?:(?P<neg>didn't|did not) control|controlled) (?:it|that (?:creature|permanent|card|land|token|artifact|enchantment|planeswalker))")
 _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking", "blocking": "blocking",
            "suspected": "suspected", "prepared": "prepared"}  # (prepared: wave 13C, 722.3; suspected: wave 12A, 701.60 — a designation of the source, like its other states)
 # -- counters (wave 5H) -- "if it had counters on it", "if it had a +1/+1 counter on it", "if ~ has counters on it",
@@ -834,6 +837,8 @@ def _object(t: str) -> Condition | None:
     "~ is tapped": a test of the object the ability refers to (``"it"``: bound by scripts.resolve_it
     to its antecedent). Only characteristics are read of any referred object (608.2h: as it is, or as
     it last existed); physical state (tapped, attacking) only of the source itself."""
+    t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
+    t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)'s (?:power|toughness|mana value)) (\w+ or )", r"\1 was \2", t)
     m = _OBJECT_STAT.fullmatch(t)
     if m:  # "its mana value was 3 or less", "its power is 4 or greater"
         n = _num(m["n"])
@@ -847,6 +852,9 @@ def _object(t: str) -> Condition | None:
     if m:
         out_c: Condition = {"object": _OBJECT_WORDS[m["who"]], "counters": m["k"] or "*"}
         return {"not": out_c} if m["neg"] else out_c
+    m = _CONTROLLED.fullmatch(t)
+    if m:
+        return {"object": "it", "controlled_by": "you", **({"negate": True} if m["neg"] else {})}
     m = _HAS_KEYWORD.fullmatch(t)  # -- refused modal/conditional (wave 3R1) -- "if that creature has toxic"
     if m:
         return {"object": _OBJECT_WORDS[m["who"]], "has": m["kw"]}
@@ -1058,6 +1066,9 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     that object where it was, else as it last existed (608.2h); an object that can't be found
     fails the test (608.2b: a part that needs the information can't be carried out)."""
     who = cond["object"]
+    if "controlled_by" in cond:  # -- static_other sweep (wave 17C) -- the controller it had: as it is, or as it last existed (608.2h)
+        found = values._object(plan, ctx, who)
+        return found is not None and (found[0].controller == ctx["controller"]) != bool(cond.get("negate"))
     if "test" in cond and who == "self":
         return _self_state(plan, ctx, cond["test"]) != bool(cond.get("negate"))  # (wave 16C: "it wasn't blocking", bound to the source)
     got = values._object(plan, ctx, who)
