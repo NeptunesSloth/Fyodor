@@ -1960,6 +1960,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         # -- if you do (wave 6F) -- "Each opponent may …. Each opponent who doesn't …"
         from app.rules import each_may as _each_may
 
+        if (unless_each := _each_may.unless_sentence(text)) is not None:  # -- if you do (wave 15C) -- "Each opponent … unless they …"
+            effects += unless_each
+            continue
         if (each := _each_may.pair(text, texts[i + 1] if i + 1 < len(texts) else None, effects, _last_payment(effects))) is not None:
             effects += each
             skip_to = i + 2
@@ -2385,9 +2388,13 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         return None
     verb, _, rest = m["act"].partition(" ")
     phrase = rest if verb.startswith("pay") else f"{verb[:-1] if verb.endswith('s') else verb} {rest}"
+    phrase = re.sub(r" or (pays?|discards?|sacrifices?|returns?|exiles?) ", lambda v: f" or {v[1].rstrip('s')} ", phrase)  # (wave 15C)
     if re.search(r"\bit\b", phrase):
         return None
     cost = optional_payment.cost_text(phrase)
+    alts = optional_payment.alternatives(phrase) if cost is None else None  # -- if you do (wave 15C) -- "sacrifice … or discard a card"
+    if alts is not None:
+        cost = alts[0]
     # -- unless pays (wave 4C) -- a cost sized as it resolves ("{X}", "{X}, where X is …", "{1} for each …")
     sized: dict[str, Any] | None = None
     if cost is None and verb.startswith("pay"):
@@ -2436,6 +2443,8 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         return None
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
     pay: dict[str, Any] = {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind}
+    if alts is not None:
+        pay["alts"] = alts
     if sized is not None:  # -- unless pays (wave 4C) --
         pay.update(sized)
     gated = [{"do": "may_rest"}, *found] if may else found  # (wave 4C: the "you may" after the payment, 118.12a)
@@ -4391,13 +4400,15 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 # was) might not be there: "If you do" would then be false, which this reading can't tell.
 _CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token"})
 _CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce"})
-_PROBED = frozenset({"draw", "exile", "bounce"})  # (their "If you do" reads the result: effects._did)
+_PROBED = frozenset({"draw", "exile", "bounce", "add_counters"})  # (their "If you do" reads the result: effects._did)
 
 
 def _probed_move(e: dict[str, Any]) -> bool:
     """-- refused modal/conditional (wave 3R1) -- Academy Rector: "When this creature dies, you may exile it. If you
     do, …": the exile is probed (effects._did: the card it became in the graveyard reached exile), so "If you do" is
     false when the card had already left (400.7: there's nothing to exile) — no certainty is needed."""
+    if e["do"] == "add_counters":  # -- if you do (wave 15C) -- counters on a chosen object: probed (effects._did_counters_up)
+        return isinstance(e.get("who"), str) and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")
     return e["do"] in ("exile", "bounce") and isinstance(e.get("who"), str) and not e.get("optional")
 
 

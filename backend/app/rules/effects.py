@@ -2372,6 +2372,21 @@ for _name in ("draw", "exile", "bounce"):
     PRIMITIVES[_name] = _did(PRIMITIVES[_name], {"draw": "draw", "exile": "exile", "bounce": "hand"}[_name])
 
 
+def _did_counters_up(fn: Any) -> Any:
+    """-- if you do (wave 15C) -- "You may put three +1/+1 counters on target land you control. If you do, …": counters really
+    reached the object (122.6; a replacement or prevention — Solemnity — may stop them, so "if you do" is false then, 608.2c)."""
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        if name and name not in context.refs(ctx):
+            context.refs(ctx)[name] = {"kind": "probe", "counter": e["kind"], "counters_up": {
+                c: [plan.oid(plan.state.cards[c]), plan.state.cards[c].counters.get(e["kind"], 0)] for c in _cards(plan, ctx, e["who"])}}
+        return bool(fn(plan, ctx, e))
+    return run
+
+
+PRIMITIVES["add_counters"] = _did_counters_up(PRIMITIVES["add_counters"])
+
+
 # -- refused modal/conditional (wave 3R1) -- "Sacrifice this enchantment. If you do, …", "Remove a +1/+1 counter
 # from it. If you do, …", "Discard a card. If you do, …": "If you do" after an instruction that isn't optional asks
 # whether it was actually done (608.2c; a permanent that is already gone can't be sacrificed, 701.21a; a counter

@@ -109,6 +109,47 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
     return out
 
 
+_UNLESS_EACH = re.compile(r"^(?:if (?P<cond>[^,]+), )?each (?P<who>opponent|player) (?P<lead>.+?) unless (?:they|that player) (?P<act>.+)$")
+
+
+def unless_sentence(text: str) -> list[dict[str, Any]] | None:
+    """-- if you do (wave 15C) -- "Each opponent loses 3 life unless they discard a card." / "… unless that player sacrifices a nonland
+    permanent of their choice or discards a card." (Court of Ambition, Nicol Bolas, the Deceiver): 118.12a reads it as "Each
+    opponent may [cost]. Each opponent who doesn't [effect]" — the same entry as ``pair`` builds (turn order, 101.4)."""
+    from app.rules import optional_payment, scripts
+
+    m = _UNLESS_EACH.match(text)
+    if m is None:
+        return None
+    act = re.sub(r"\b(pays?|discards?|sacrifices?|returns?|exiles?)\b", lambda v: v[1].rstrip("s") if v[1] != "pays" else "pay", m["act"])
+    act = act.replace(" of their choice", "")
+    entry: dict[str, Any] = {"do": "each_may", "who": _WHO[m["who"]]}
+    if (cost := optional_payment.cost_text(act)) is not None:
+        entry["cost"] = cost
+    elif (alts := optional_payment.alternatives(act)) is not None:
+        entry["alts"] = alts
+    else:
+        return None
+    if not optional_payment.defers(entry.get("cost"), entry.get("alts")):
+        return None  # (a mana payment by each opponent in turn: refused since wave 4C, as before)
+    parsed = scripts.parse_effects(_third_person(m["lead"]) + ".", "self", event_player=True)
+    if parsed is None or parsed[1] is not None or parsed[2] or not parsed[0]:
+        return None
+    dumped = json.dumps(parsed[0])
+    if '"ref:' in dumped or '"target' in dumped or '"it"' in dumped or "event_amount" in dumped or "this_way" in dumped:
+        return None
+    entry["effects"] = parsed[0]
+    out = [entry]
+    if m["cond"]:  # ("At the beginning of your end step, if you attacked this turn, each opponent loses …": 603.4)
+        from app.rules import conditions
+
+        cond = conditions.parse(m["cond"], objects=True)
+        if cond is None:
+            return None
+        out = [{"do": "only_if", "cond": cond, "skip": 1}, *out]
+    return out
+
+
 def _for(value: Any, pid: str) -> Any:
     """The effects with "that player" (event_player) as ``pid``."""
     if value == "event_player":

@@ -67,8 +67,14 @@ EXTRA = [
          oracle_text="Target opponent reveals their hand. You may choose a nonland card from it. If you do, that player discards that card. If you don't, that player discards two cards.", power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=[]),
     card('Oildeep Gearhulk', set_code='tst', number='W18', mana_cost='{U}{U}{B}{B}', cmc=4.0, type_line='Artifact Creature — Construct',
          oracle_text="Lifelink, ward {1}\nWhen this creature enters, look at target player's hand. You may choose a card from it. If you do, that player discards that card, then draws a card.", power='4', toughness='4', colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Lifelink', 'Ward']),
+    card('Wall of Resurgence', set_code='tst', number='W19', mana_cost='{2}{W}', cmc=3.0, type_line='Creature — Wall',
+         oracle_text="Defender\nWhen this creature enters, you may put three +1/+1 counters on target land you control. If you do, that land becomes a 0/0 Elemental creature with haste that's still a land.", power='0', toughness='6', colors=['W'], color_identity=['W'], keywords=['Defender']),
+    card('Nicol Bolas, the Deceiver', set_code='tst', number='W20', mana_cost='{5}{U}{B}{R}', cmc=8.0, type_line='Legendary Planeswalker — Bolas',
+         oracle_text='+3: Each opponent loses 3 life unless that player sacrifices a nonland permanent of their choice or discards a card.\n−3: Destroy target creature. Draw a card.\n−11: Nicol Bolas deals 7 damage to each opponent. You draw seven cards.', power=None, toughness=None, colors=['B', 'R', 'U'], color_identity=['B', 'R', 'U'], keywords=[]),
+    card('Torment of Scarabs', set_code='tst', number='W21', mana_cost='{3}{B}', cmc=4.0, type_line='Enchantment — Aura Curse',
+         oracle_text="Enchant player\nAt the beginning of enchanted player's upkeep, that player loses 3 life unless they sacrifice a nonland permanent of their choice or discard a card.", power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=['Enchant']),
 ]
-FULL = ['Murk Strider', 'Dark Supplicant', 'Gate to the Afterlife', 'Scion of Darkness', 'Void Attendant', 'Ruin Processor', 'Processor Assault', 'Wrexial, the Risen Deep', 'Deluxe Dragster', 'Zombie Cannibal', 'Fire Nation Salvagers', 'Traumatize', 'Genesis Wave', 'Elven Farsight', 'Armored Kincaller', 'Priest of the Wakening Sun', 'Crypt Incursion', 'Nightsnare', 'Oildeep Gearhulk']
+FULL = ['Murk Strider', 'Dark Supplicant', 'Gate to the Afterlife', 'Scion of Darkness', 'Void Attendant', 'Ruin Processor', 'Processor Assault', 'Wrexial, the Risen Deep', 'Deluxe Dragster', 'Zombie Cannibal', 'Fire Nation Salvagers', 'Traumatize', 'Genesis Wave', 'Elven Farsight', 'Armored Kincaller', 'Priest of the Wakening Sun', 'Crypt Incursion', 'Nightsnare', 'Oildeep Gearhulk', 'Wall of Resurgence', 'Nicol Bolas, the Deceiver', 'Torment of Scarabs']
 # --EXTRA-END--
 
 
@@ -376,7 +382,8 @@ def test_nightsnare_may_choose_a_card_and_if_not_the_opponent_discards_two(cards
     s = build(cards, p1=("Nightsnare",), p2=("Murk Strider", "Dark Supplicant"))
     spell = to_hand(s, "Nightsnare")
     mine, spare = to_zone(s, find(s, "Murk Strider", "p2"), "hand"), to_zone(s, find(s, "Dark Supplicant", "p2"), "hand")
-    lands = [to_zone(s, c, "hand") for c in [c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2"][:2]]
+    for c in [c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2"][:2]:
+        to_zone(s, c, "hand")
     add_mana(s, "p1", B=1, C=3)
     act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"])
     d = until_asked(s)
@@ -390,6 +397,48 @@ def test_nightsnare_may_choose_a_card_and_if_not_the_opponent_discards_two(cards
     settle(s)
     gy = zone(s.state, "p2", "graveyard")
     assert (len(gy) == 1 and mine.id in gy) if choose else len(gy) == 2
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("paid", [True, False])
+def test_wall_of_resurgence_land_becomes_a_creature_only_if_the_counters_went_on(cards, paid):
+    """"You may put three +1/+1 counters on target land you control. If you do, that land becomes a 0/0 Elemental creature
+    with haste that's still a land." (608.2c: "if you do" is whether the counters really were put on)"""
+    from app.rules.plan import Plan
+
+    s = build(cards, p1=("Wall of Resurgence",))
+    forest = to_zone(s, find(s, "Forest"), "battlefield")
+    enter(s, "Wall of Resurgence")
+    d = until_asked(s)
+    if d is not None and d.kind == "choose_one" and "pay" not in [o.id for o in d.options]:
+        pick(s, forest.id)  # (the trigger's target, if it is asked)
+        d = until_asked(s)
+    if d is not None:
+        pick(s, "yes" if paid else "no")
+    settle(s)
+    now = s.state.cards[forest.id]
+    types = Plan(s.state, "p1", s.cards, None).ch(now).types
+    assert (now.counters.get("+1/+1", 0) == 3) is paid and ("Creature" in types) is paid and "Land" in types
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("pays", [True, False])
+def test_nicol_bolas_each_opponent_loses_life_unless_they_sacrifice_or_discard(cards, pays):
+    """"Each opponent loses 3 life unless that player sacrifices a nonland permanent of their choice or discards a card."
+    (118.12a: each opponent may pay one of the two costs, in turn order; the others lose the life)"""
+    s = build(cards, p1=("Nicol Bolas, the Deceiver",))
+    bolas = to_zone(s, find(s, "Nicol Bolas, the Deceiver"), "battlefield")
+    to_zone(s, find(s, "Island", "p2"), "hand")
+    act(s, "p1", type="activate_ability", card_id=bolas.id, ability=0)
+    d = until_asked(s)
+    assert d is not None and d.player == "p2" and "decline" in [o.id for o in d.options]
+    assert "options" not in s.view("p1")["rules"]["decision"]  # (their choice is private to them)
+    discard = [o.id for o in d.options if o.id != "decline"]
+    assert len(discard) == 1  # (no nonland permanent to sacrifice: only the discard is offered, 118.3)
+    pick(s, discard[0] if pays else "decline")
+    settle(s)
+    assert s.state.players["p2"].life == (40 if pays else 37)
+    assert len(zone(s.state, "p2", "graveyard")) == (1 if pays else 0)
     roundtrip(s)
 
 
