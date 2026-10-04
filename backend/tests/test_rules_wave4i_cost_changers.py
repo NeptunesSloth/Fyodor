@@ -165,14 +165,13 @@ def test_the_cards_are_full(name):
     "You may discard an Island card and another card rather than pay this spell's mana cost.",
     "If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 5 life.",
     "You may collect evidence 10 rather than pay the mana cost for spells you cast.",
-    "For each {B} in a cost, you may pay 2 life rather than pay that mana.",
+    # ("For each {B} in a cost, you may pay 2 life …" is read now, wave 18B: K'rrik)
     "You may pay {X} rather than pay the mana cost for Samurai spells you cast, where X is that spell's mana value.",
     "You may pay {0} rather than pay the equip cost of the first equip ability you activate during each of your turns.",
     # cost changers that read something this grammar doesn't (targets, the first spell each turn, chosen names)
     "Spells you cast that target enchanted player cost {1} less to cast.",
     "Spells with the chosen name cost {3} more to cast.",
     "This spell costs {1} less to cast if it targets a creature with flying.",
-    "This spell costs {1} more to cast for each target beyond the first.",
     "Activated abilities cost {2} more to activate unless they're mana abilities.",
 ])
 def test_wordings_still_refused(text):

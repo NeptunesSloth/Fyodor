@@ -45,12 +45,17 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
                   r"\1 \2 minus the number of cards in your hand.", body)
     if (cond or {}).get("event") == "cast":  # "…, if at least four mana was spent to cast it": the spell cast
         body = re.sub(r"^(if (?:at least \w+|\w+ or more) mana was spent to cast) it,", r"\1 that spell,", body)
+        # (-- mana provenance (wave 18B) -- "if mana from a Treasure / three or more mana from creatures was spent to cast it")
+        body = re.sub(r"^(if (?:(?:at least )?\w+ (?:or more )?)?mana from [^,]+? (?:was|were) spent to cast) it,", r"\1 that spell,", body)
     if cond is not None and cond.get("subject") == "source":  # -- source damage (wave 11F) -- 609.7: its controller
         body = re.sub(r"\bthat source's controller\b", "that player", body)
     if name.startswith("step:draw:") and name.rsplit(":", 1)[-1] in ("each", "opponent"):
         # 504.1: the active player draws in the draw step; "an additional card" is one more card
         body = re.sub(r"\bthat player draws an additional card\.$", "that player draws a card.", body)
         body = re.sub(r"\bthat player draws (two|three) additional cards\.$", r"that player draws \1 cards.", body)
+    from app.rules import drawn_toll  # -- drawn this turn (wave 18G) --
+
+    body = drawn_toll.rewrite(body)
     # -- counters (wave 7C) -- heroic: "Whenever you cast a spell that targets ~, put a +1/+1 counter on it": the creature
     # that was targeted (the spell is "that spell"), which is ~ itself
     if cond is not None and cond.get("event") == "cast" and cond.get("targets") == "self":

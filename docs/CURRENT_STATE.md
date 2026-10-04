@@ -1,49 +1,65 @@
 # Current state — handoff for the next session
 
-Written 2026-10-03 at the end of the session that built PR #12 (waves 5–8 and part of wave 9 of the rules
-engine). Every fact here was checked against git, CI and local runs at that time. Where something was not
-verified, the text says so.
+Written 2026-10-04 at the end of the session that built PR #13 (merged) and PR #14 (open): rules-engine
+waves 7R–17D, an independent review of 7R–14A, and eight new engine systems (18A–18H), each with an Opus
+head review. Every number here was checked against local runs at that time.
 
 ## Current repository state
 
 | | |
 |---|---|
 | Repository | `NeptunesSloth/Fyodor` |
-| `main` | Has PRs #7–#11 (rules engine waves 1–4). |
-| Open PR | **#12** (`claude/dazzling-heisenberg-h6juen`, draft): waves 5, 6, 7, 8 and 9A, with the wave 5 and wave 6 reviews. **Not ready to merge yet**: the wave 7 and wave 8 reviews are not done (see "Next session start instructions"). |
-| Unfinished agent branches (pushed, **not merged, not verified**) | `claude/wip-wave7r` (wave 7 review, partly done), `claude/wip-wave9b`, `claude/wip-wave9c`, `claude/wip-wave9d`. All stopped at a usage limit; the last commit on each is a snapshot of uncommitted work. |
-| Merged agent branches | `claude/wip-wave5*`, `wave6*`, `wave7a`–`7f`, `wave8a`–`8d`, `wave9a`: all merged into #12; safe to delete once #12 is merged. |
-| Agent worktrees | Local to this session's container and gone with it. |
+| `main` | Has PRs #7–#13 (waves 1–14A). |
+| Open PR | **#14** (`claude/beautiful-ramanujan-l9pev4`, draft): the Fable review of 7R–14A, sweeps 15A–17D, Class cards (16A), prevention (17A), and systems 18A–18H with their Opus reviews. CI was green on every pushed head checked. |
+| Pending | `claude/review-facedown-ids`: an Opus review of a privacy fix (face-down cards get a new id after they were seen). Merge it into #14 once green. |
+| Agent branches | `claude/wip-*`, `claude/wave1[0-7]*`, `claude/sys18*`, `claude/review-*`: all merged into #14 (except the pending one above); safe to delete once #14 is merged. |
 
-## Last known test status (PR #12 head, wave 9A merged)
+## Last known test status (PR #14 head `db05477`, all eight systems merged)
 
 | Check | Status |
 |---|---|
-| Backend pytest (full, `-n 8`) | Passed locally: 4,723 tests. |
-| ruff / mypy (`app tools`, 234 files) | Passed locally. |
-| Frontend tsc / vitest | No wave in PR #12 touched the frontend. |
-| Playwright (20 specs) | Passed locally after waves 7C/7F were merged, and in GitHub CI on `9f0cfd7` (all of wave 8). One failure on `cbd835b` (`offline.spec.ts`: the 3D table not visible after create-game) did not reproduce locally or on any later CI run. |
-| GitHub CI | Green on `9f0cfd7`. Check the newer head (9A and this file) before relying on it. |
+| Backend pytest (full, `-n 4`) | 6,686 passed. |
+| ruff / mypy (`app tools`, 276 files) | Clean. |
+| Frontend tsc / vitest | Clean; 64 tests passed. |
+| GitHub CI | Green on the pushed heads through 17D; check the newest head. |
 
-`test_rules_statics.py::test_full_board_derive_is_fast` (500 ms) can fail under heavy load (several agents
-running full suites at once); rerun it alone.
+The repo's pytest `addopts` includes `-q`; pass no extra `-q` or the "N passed" summary line is suppressed.
+`test_rules_statics.py::test_full_board_derive_is_fast` can fail under heavy load; rerun it alone.
 
 ## Current Commander coverage
 
-Data: Scryfall snapshot 2026-09-30, Comprehensive Rules 2026-09-25.
+Data: Scryfall snapshot 2026-10-03, Comprehensive Rules 2026-09-25. Per-card diff tool: compare dumps of
+`coverage.of_card_data(...).level` for every Commander-legal card (this session kept one in its scratchpad).
 
-| | After PR #11 (`main`) | Now (PR #12 head) |
-|---|---|---|
-| Commander-legal cards | 32,068 | 32,068 |
-| FULL | 16,927 (52.8%) | **19,506 (60.8%)** |
-| PARTIAL | 15,141 | 12,562 |
-| Possible commanders FULL | 1,113 | **1,456** |
+| | `main` before PR #13 | PR #13 (merged) | Now (PR #14 head) |
+|---|---|---|---|
+| FULL | 19,506 (60.8%) | 20,653 | **22,896 (71.4%)** |
 
-Progression in PR #12: wave 5 with its review → 17,850; wave 6 → about 18,960; wave 7 → 19,167; wave 8 →
-19,470; wave 9A → 19,506. Each wave compared every card before and after: no card dropped from FULL except
-the deliberate wave 5 review demotions below. Reproduce with `python -m tools.gap_rank --db
-../data/cards.sqlite` (first line) or `tools.commander_coverage --out <dir>`; `data/reports` were **not**
-regenerated.
+Only two cards lost FULL in the whole session, both on purpose: Hatchery Spider ("where X is" read the cast
+X inside a selector) and Alpine Houndmaster ("a card named A and/or a card named B" was read as one name).
+
+## What PRs #13 and #14 added
+
+- **Waves 7R–14A (PR #13):** reviews of waves 7–9, then reanimation, `static_other`, "if you do", transform,
+  keyword meanings, trigger grammar, hand disruption and name searches, small clusters, event triggers and
+  intervening ifs, counters/clash/detain/suspect/dice, keyword batches, "where X is", per-opponent targets,
+  control/land types, emblems, multi-block, cast-a-copy and prepared, phasing, untap limits, attacker damage
+  division (510.1c).
+- **Independent review of 7R–14A (PR #14):** five areas; fixes include the last player winning past "can't
+  win" (104.2a), a hand-content log leak after private looks, priority returning to the caster after a cast
+  trigger (117.3c), phasing/blocking bugs, Room/prepared copies, back-face mana value.
+- **Sweeps 15A–17D:** the long tail of `static_other`, `trigger_other`, "if you do", activated/counters/X,
+  keywords (training, evolve, mentor, myriad, backup, spectacle, surge, blitz, warp, bestow, riot, ninjutsu,
+  embalm, aftermath, fuse, awaken, dredge as an optional replacement), Class levels (716), prevention riders
+  and redirection, mana for/with restrictions, waterbend, teamwork, cipher, conspire, -1/-1 counter and mill
+  triggers.
+- **Systems 18A–18H** (each Opus-reviewed; the reviews fixed 51 bugs, including four hidden-information leaks):
+  hidden exile and face-down objects (foretell, morph/disguise/manifest/cloak, piles); mana provenance and
+  spending restrictions (Cavern of Souls, Opal Palace, K'rrik); opening-hand actions and voting; mutate and
+  meld (merged permanents, rule 730); casting extras (overload, entwine, splice, prototype, disturb,
+  harmonize, jump-start, encore, craft, emerge, casualty, melee, provoke, reconfigure, recover, enlist,
+  assist, amplify, miracle); copying abilities, borrowed abilities and granter references; Rooms and
+  Sylvan Library's private draw record; controlling another player (723, Mindslaver, Opposition Agent).
 
 ## What PR #12 added
 
@@ -76,37 +92,42 @@ save/load checks.
   per-player life loss (8B); objects a payment used (`pay_objects.py`), mill and exile-from-hand
   payments, a choice of counter (8C); enter counters conditioned on this turn's history, the Rings,
   attached-count pumps, half-life loss (8D).
+- **System 18H (controlling another player, CR 723)**: `app/game/control.py` (who decides, `acting_as` routes an
+  intent's seat; `can_see` shares what the controlled player sees, never a sideboard, only while controlling),
+  `rules/player_control.py` (Mindslaver, Worst Fears, Emrakul "next turn" effects: pending until that player's
+  turn begins, latest wins; Opposition Agent: the search decision's `decider`, found cards exiled + playable,
+  any-color mana). Manual: Word of Command, Cruel Entertainment, Secret of Bloodbending (a combat phase),
+  Dominion Bracelet / Cosmic Cube (other unread wordings), Sorin Markov's -3. Review: control is bound to the turn
+  number it began on (a turn passed by hand ends it) and starts before that turn's untap choices; a departed
+  controller/decider hands choices back (800.4a); a controlled player may only concede (`session.CONTROLLED_MAY`:
+  table tools, card automation and undo wait); Opposition Agent also covers Gifts-style and own-library name searches.
 - **Wave 9A**: discover, "where X is" keyword actions (bolster, amass, connive, endure), "the amount of
   mana spent to cast", "creatures that died under your control this turn".
 
 ## Top remaining rules gaps
 
-`python -m tools.gap_rank --db ../data/cards.sqlite --top 15` on the wave 9A head. "Sole" = non-FULL cards
-whose every unsupported line is in that family (an upper bound). Use `--ngrams <family>` to see the
-phrases shared inside the catch-all families.
+`python -m tools.gap_rank --db ../data/cards.sqlite --top 15` on the PR #14 head (FULL 22,896, PARTIAL
+9,172). "Sole" = non-FULL cards whose every unsupported line is in that family (an upper bound). Most of what
+remains is wordings that appear on one or two cards; the sweeps reached roughly the top 60–75% of each big
+family by EDHREC rank.
 
-| # | Family | Missing | Sole | Sole commanders | Examples |
+| # | Family | Missing lines | Sole | Sole commanders | Examples (by EDHREC rank) |
 |---|---|---|---|---|---|
-| 1 | static_other | 4,572 | 2,105 | 183 | Chaos Warp, Rakdos Charm, Birgi |
-| 2 | trigger_other | 2,091 | 1,351 | 334 | Guardian Project, Forgotten Ancient, Necropotence |
-| 3 | if_you_do | 1,156 | 811 | 167 | Ripples of Undeath, Saw in Half, Bloodchief Ascension |
-| 4 | activated_other | 794 | 559 | 83 | Command Beacon, Emry, Haywire Mite |
-| 5 | counters | 824 | 492 | 132 | Spark Double, Opal Palace, Slip Out the Back |
-| 6 | attached_events | 458 | 343 | 8 | Trailblazer's Boots, Blade of Selves |
-| 7 | this_turn_state | 469 | 340 | 63 | Sylvan Library, Veil of Summer |
-| 8 | x_value | 581 | 331 | 65 | Torment of Hailfire, Crackle with Power |
-| 9 | damage_sized | 423 | 277 | 33 | Descent into Avernus, Myr Battlesphere |
-| 10 | as_long_as_static | 425 | 269 | 36 | Promise of Loyalty, Conqueror's Flail |
-| 11 | instead | 390 | 235 | 44 | Academy Manufactor, Bloodletter of Aclazotz (9C in progress) |
-| 12 | ability_word | 352 | 211 | 31 | Tireless Provisioner, Puresteel Paladin (9C in progress) |
-| 13 | reanimation | 361 | 177 | 26 | Sevinne's Reclamation, Haven of the Spirit Dragon |
-| 14 | activation_cost | 201 | 138 | 35 | Arena of Glory, Walking Ballista |
-| 15 | free_cast | 233 | 121 | 42 | Tibalt's Trickery, Urza, Muldrotha |
-
-Ideas noted but not done: copies with exceptions that enter with counters (Spark Double), mana provenance
-("if this mana is spent to cast a creature spell, it enters with a counter"; also needed for complete snow
-mana), "you put -1/-1 counters" (several putters in one damage step), a lose-the-game primitive (Final
-Fortune), voting, land-type-setting effects (305.7).
+| 1 | static_other | 3007 | 1404 | 150 | Chaos Warp, Rakdos Charm, Birgi, God of Storytelling // Harnfel, Horn of Bounty, Valakut Awakening // Valakut Stoneforge |
+| 2 | trigger_other | 1514 | 1034 | 274 | Guardian Project, Forgotten Ancient, Kutzil, Malamet Exemplar, Selvala, Heart of the Wilds |
+| 3 | if_you_do | 1001 | 744 | 167 | Saw in Half, Bloodchief Ascension, Etali, Primal Conqueror // Etali, Primal Sickness, Tainted Pact |
+| 4 | counters | 669 | 437 | 116 | Spark Double, Tezzeret, Cruel Captain, Laelia, the Blade Reforged, Unstoppable Slasher |
+| 5 | activated_other | 516 | 401 | 64 | Talon Gates of Madara, Emry, Lurker of the Loch, Haywire Mite, Field of Ruin |
+| 6 | this_turn_state | 411 | 320 | 60 | Veil of Summer, Conduit of Worlds, Combat Celebrant, Hunter's Insight |
+| 7 | x_value | 480 | 300 | 57 | Torment of Hailfire, Crackle with Power, Steel Hellkite, Skyclave Apparition |
+| 8 | attached_events | 343 | 277 | 10 | Commander's Plate, Kaya's Ghostform, Blade of Selves, Illusionist's Bracers |
+| 9 | damage_sized | 337 | 242 | 32 | Descent into Avernus, Myr Battlesphere, Combustible Gearhulk, Wheel of Misfortune |
+| 10 | as_long_as_static | 346 | 236 | 34 | Promise of Loyalty, The Reality Chip, Conqueror's Flail, Cloud, Midgar Mercenary |
+| 11 | instead | 342 | 228 | 44 | Academy Manufactor, Incubation Druid, Innkeeper's Talent, Whip of Erebos |
+| 12 | reanimation | 281 | 150 | 22 | Sevinne's Reclamation, Agadeem's Awakening // Agadeem, the Undercrypt, Haven of the Spirit Dragon, Mantle of the Ancients |
+| 13 | ability_word | 261 | 146 | 30 | Tireless Provisioner, Shifting Woodland, Springheart Nantuko, Augur of Autumn |
+| 14 | free_cast | 212 | 125 | 45 | Tibalt's Trickery, Urza, Lord High Artificer, Expressive Iteration, Muldrotha, the Gravetide |
+| 15 | tutor | 150 | 103 | 4 | Sword of Hearth and Home, Scapeshift, Defense of the Heart, Moonsilver Key |
 
 ## Known shipped limitations and open items
 
@@ -118,8 +139,8 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   forms (Tip the Scales).
 - **Chosen selectors**: Roaming Throne, Cloud Key's chosen card type, protection from the chosen color;
   a trigger whose source left the battlefield matches nothing for "the chosen type".
-- **Sylvan Library** (per-card "drawn this turn" is hidden information), Lim-Dûl's Vault, Djinn of
-  Wishes, Protean Hulk.
+- Lim-Dûl's Vault, Djinn of Wishes, Protean Hulk. (Sylvan Library: wave 18G, `drawn_toll.py`; the per-card "drawn this turn"
+  record is `TurnLog.drawn`, private. Jandor's Ring's "discard the last card you drew this turn" cost can use it, not done.)
 - **Copies**: cast-a-copy only as "[exile a card and] copy it / that card [N times]. You may cast the copy without paying its
   mana cost" (wave 13C, 707.12: `copying.copy_cards` + `permissions.FREE_COPY`; the copy is made in the card's own zone;
   a non-free "You may cast the copy", "cast the copy by paying …" and copies of imprinted / "exiled with" cards stay manual),
@@ -135,10 +156,10 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   enchanted.
 - **Replacements**: life-loss replacements (no choke point yet), "shuffle into its library instead"
   (Blightsteel, Progenitus), Academy Manufactor, Vorinclex-style counter replacements, count-level
-  draw replacements (Alms Collector), Kalitas against another "exile instead", Level/Class/Room lines.
+  draw replacements (Alms Collector), Kalitas against another "exile instead".
 - **Costs**: K'rrik and Dream Halls (per-mana payment), Suppression Field (crew and unearth skip the
   cost-modifier path), activation costs that depend on a target, "Remove X counters from among …",
-  comma-listed sacrifice choices, Room cards' cost lines (locked doors aren't modelled).
+  comma-listed sacrifice choices.
 - **Modal**: "choose X/up to X", "choose two at random", modes with "you may", target groups or
   divisions, restriction lines after modes.
 - **"Unless pays"**: "each opponent … unless they pay" (simultaneous edicts), "unless any player
@@ -154,6 +175,25 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   transformed", "return it … [tapped and] transformed" and Saga III turn the face over (`keyword_actions.transform`,
   `RulesState.transformed` for 701.27f, `Move.back_ids` for 712.14a). Not read: "transform it / target …", delayed "transform",
   "transforms into" triggers (701.27e), disturb, craft, modal and meld cards, casting a card transformed, copies of a back face (MV 0).
+- **Merged and melded permanents** (wave 18D, 702.140 / 730 mutate, 701.42 / 712.4 / 712.21 meld; `app/game/merging.py`, `app/rules/merged.py`):
+  one permanent is one `CardInstance` (the shell: its id is the object's identity) whose card fields are the topmost component's and
+  whose `merged` lists every card / token (`MergedPart`, topmost first; `melded` for a meld pair, the shell then wearing the combined
+  back face). `characteristics.merged_of` adds every component's abilities (a lower card's own name is read as the permanent's) and sums
+  a melded permanent's front-face mana values; `ops.move_card` breaks the pile up when the permanent leaves the battlefield (a token
+  component ceases to exist; the commander is the card the shell becomes for a move to hand / library / command zone so 903.9b-c work
+  as for any commander, `Move.rest_zone`). "Mutate {cost}" is an alternative cost (tag "mutate", offered only with a non-Human creature
+  you own that is `merged.mergeable`), the spell targets it, resolves into `Merge` after an over / under decision (illegal target:
+  creature spell, 702.140b), emits the "mutated" event ("Whenever this creature mutates"), and "the number of times this creature has
+  mutated" is the pile size minus one. Meld: "exile them, then meld them into X" (condition "you both own and control ~ and a creature
+  named Y", names carried as `meldname:<hex>` through the grammar) is the `meld` primitive: both cards exiled, then one `Meld` step
+  and the normal entry path. Refused (manual): mutating onto a face-down, double-faced, flip, copy, melded or copied-over permanent or
+  with a token / copy spell, a second commander in one pile, copies of a merged or melded permanent or of a mutating spell,
+  "cast from your graveyard using its mutate ability" (Brokkos), Mishra, Claimed by Gix (enters tapped and attacking), The Meld Hound,
+  Pollywog Symbiote, Surgeon General Commander ("augment"). A pile leaving is one permanent leaving (one leave / dies
+  trigger); each other card gets its own zone-change event "from the battlefield" with no old object (`rules_state._diff`), so
+  "put into a graveyard from anywhere" sees every card, and `merged.pieces` / `triggers.pile_refs` make "return it", blink, "exile
+  until" and exiled-with find all of them (730.3c). Put on top / bottom of its owner's library by `to_library`, the owner orders the
+  cards (730.3a); in a graveyard (and among several cards ordered together) the order is the pile's.
 - **Ability-word flavor prefixes**: the deny list of rules-bearing "Name —" prefixes in
   `oracle.word_prefix` is maintained by hand; add new mechanics to it.
 
@@ -225,32 +265,22 @@ Known approximations (correct in normal play; listed so nobody is surprised):
 
 ## Next session start instructions
 
-1. Start a fresh session on `claude/dazzling-heisenberg-h6juen` (PR #12) and check CI on its head.
+1. Start from PR #14 (`claude/beautiful-ramanujan-l9pev4`; the face-down id fix is merged, 6,698 tests); check CI.
 2. Set up: `cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]' 'mypy==2.3.1'
    pytest-xdist`; the card DB with `scripts/update-cards.sh --images none`; `cd frontend && npm ci`.
-3. Read this file and `.claude/skills/fyodor-game-development/SKILL.md` (policies, setup, wave workflow).
-4. **Finish the unfinished branches.** Each one is a snapshot taken at a usage limit. Verify everything
-   (ruff, mypy, full pytest, a per-card coverage diff) before merging:
-   - `claude/wip-wave7r`, the wave 7 review. It had fixed cast timing in extra combats and without a
-     declare-blockers step, made power-up keep X, and refused Wight; the rest of its checklist is undone.
-     Wave 7 risk points: shield-counter ordering, `Event.group` in saves and replay, the power-up cost
-     reduction (118.7), the untap-step rework and stun counters, snow `{S}`, coin flips, the lenient
-     must-block check, choice grants, about 30 surprise promotions that were not scenario-tested.
-   - `claude/wip-wave9b` (sized damage and as-long-as statics: exile-for-as-long-as permissions, excess
-     damage), `claude/wip-wave9c` (instead / ability words: parley, token and mana replacements, opus,
-     adventure permanents; marked WIP by its agent), `claude/wip-wave9d` (graft, sunburst, devour, level up).
-5. **Review waves 8 and 9 independently.** Risk points: extra-turn edge cases (skipped turns, players who
-   left, a save mid-queue); split second against special actions in the auto-pass; partner-with's reveal;
-   `pay_objects` binding "that creature" to the paid object; mill as a payment with a short library; 8B's
-   scry events and the Dark Confidant `resolve_it` disambiguation; discover's free cast and bottom order;
-   "mana spent to cast" on cards cast by hand; surprise promotions such as Wormfang Manta, Magosi, Twice
-   Upon a Time and Commence the Endgame.
-6. Then wave 10 on the biggest families from a fresh `gap_rank`, then a final **independent review of all of
-   PR #12 and of the engine's core premise** (layers, replacements, triggers, priority and the stack,
-   privacy, save and replay) by the strongest available model, a coverage run, an update of this file,
-   and mark PR #12 ready.
-7. On usage limits: commit each agent worktree's work as WIP, push it to `claude/wip-*`, resume with
-   `SendMessage`. Keep `.claude/worktrees/` in `.git/info/exclude`.
+3. Read this file and `.claude/skills/fyodor-game-development/SKILL.md`.
+4. Open items the reviews named (each small): the opening-hand step should not block game start on an
+   unexpected rules error (wrap `resolve._opening_steps`); squad/replicate/offspring still count as "kicked";
+   madness grants its cast before its trigger resolves (fixed for miracle only); borrowed abilities don't
+   include abilities the lender has only from other effects (613.8); the controller's own stops drive the
+   controlled player's priority; `RulesState.unlocked`/`foretold` keep stale entries. Face-down ids (18R review): an open decision whose
+   `source_id` was the old card shows the new id; turning an exiled face-up card face down in place keeps its id;
+   the older face-down `shuffle` renaming in `handlers/zones.py` rewrites only `copy_of`, not rules state.
+5. Still manual on purpose: unsettled rulings (a copied Room spell's door 709.5d, Hellrider-style damage
+   after leaving combat, "lands enter untapped"), Attractions (per-printing lights aren't in the data),
+   Bolas's Citadel, Garth One-Eye/Magar, Chrome Mox, Word of Command.
+6. Then continue the long-tail sweeps from a fresh `gap_rank` (mostly single-card wordings now), one family
+   per agent, each with a coverage diff, and an Opus head review for any new system.
 
 ## Usage control
 
@@ -259,3 +289,15 @@ Known approximations (correct in normal play; listed so nobody is surprised):
   their context grows, and run fewer in parallel when limits matter.
 - Targeted tests while implementing; full verification at integration checkpoints. The full backend suite
   takes 2–6 minutes with `-n 8`, depending on load.
+
+## Rooms (wave 18G)
+CR 709.5: a Room is a split card with one shared type line. `RulesState.unlocked` (object -> unlocked doors, 1 left / 2 right) is the
+designation; `characteristics._room` is the card with both doors (the right door's abilities carry `section=2`), `copying.with_level`
+narrows it to the doors that count (a locked half has no name, mana cost or text; on the stack only the cast half), and
+`scripts.definitions` drops a locked door's abilities. Casting a half unlocks it as the Room enters (`rooms.entered`; the cast face is
+kept on the stack object); the unlock cost is the `unlock_door` special action (`rooms.unlock_action`); "When you unlock this door" is a
+`designation` event (`counter="unlocked"`) read by `designations.facts`. Not done: "fully unlocks" / "lock" wordings (no Commander
+card), and the Room cards with other blockers: Smoky Lounge // Misty Salon (restricted trigger mana), Central Elevator // Promising
+Stairs, Dollmaker's Shop // Porcelain Gallery, Secret Arcade // Dusty Parlor, Charred Foyer, Cramped Vents, Greenhouse, Walk-In
+Closet, Polluted Cistern, Experimental Lab. Attractions (CR 717) are not built: the lit-up numbers are per printing and not in the
+card data, and the supplementary Attraction deck needs deck-building support.

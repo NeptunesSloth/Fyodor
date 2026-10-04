@@ -81,6 +81,8 @@ interface CardBase {
   face_down: boolean;
   /** How it got face down (public). */
   face_down_kind?: FaceDownKind;
+  /** What the effect made it face down, e.g. "Forest land" (708.2a; public). */
+  face_down_as?: string;
   x?: number;
   y?: number;
   tapped?: boolean;
@@ -136,6 +138,9 @@ export interface VisibleCard extends CardBase {
   copy_of?: { source_id: string; source_name: string; modifications: string };
   ability?: { text: string; source_id: string | null; source_card_id: string | null; source_name: string | null; kind: string };
   commander_key?: string;
+  /** Merged (mutate, 730) or melded (701.42) permanent: the cards or tokens representing it, topmost first (public). */
+  merged?: { id: string; card_id: string | null; name: string; is_token: boolean; token?: TokenDef }[];
+  melded?: boolean;
   choices?: Record<string, string>;
   token_source?: { source_id: string | null; name: string };
   test_object?: boolean;
@@ -153,7 +158,8 @@ export interface CommanderInfo {
   name: string;
   card_id: string | null;
   instance_id: string | null;
-  zone: string;
+  /** null: a face-down commander this viewer can't look at (708.5). */
+  zone: string | null;
   tax: number;
   /** Times cast from the command zone. */
   casts?: number;
@@ -181,8 +187,17 @@ export interface PlayerView {
   playmat?: Playmat | null;
   /** Temporary mana pool, e.g. { U: 2, C: 3 }. */
   mana?: Record<string, number>;
+  /** Restricted or remembered mana (CR 106.6): its type, its source's types, and the restriction in Oracle words. */
+  mana_units?: ManaUnit[];
   hand_count: number;
   library_count: number;
+}
+
+export interface ManaUnit {
+  id: number;
+  sym: string;
+  tags: string[];
+  note: string;
 }
 
 export type LogPartView =
@@ -280,7 +295,7 @@ export interface GameView {
   /** The viewer's own open private views (search / look at top N). */
   my_views?: { id: string; viewer: string; zone: string; kind: "search" | "look"; card_ids: string[] }[];
   /** Opening hands still being decided (null once everyone has kept). */
-  pregame?: { seats: Record<string, PregameSeat>; finished: boolean } | null;
+  pregame?: { seats: Record<string, PregameSeat>; finished: boolean; mine?: { powder: string[] } } | null;
   /** The open "anything in response?" check, if any (public). */
   response?: ResponseWindow | null;
   /** Players auto-passing response checks this turn. */
@@ -348,6 +363,7 @@ export interface RulesHints {
   alt_castable?: Record<string, { id: string; label: string }[]>; // alternative costs (118.9): card id → costs it can be cast for now
   optional_costs?: Record<string, { id: string; label: string }[]>; // optional additional costs (Defiler of Vigor): card id → sources
   activatable?: { card_id: string; ability: number }[];
+  miracle?: string[]; // cards of yours you may reveal for miracle now (702.94a)
 }
 
 export interface RulesView {
@@ -367,6 +383,11 @@ export interface RulesView {
   reconcile: { id: string; card: string | null; player: string | null; question: string }[];
   card_modes: Record<string, "manual" | "assisted">;
   hints: RulesHints;
+  /** Controlling another player (CR 723): the seat this viewer acts as right now (hints and priority are theirs), and who controls whom. */
+  acting_as?: string | null;
+  /** Set for the controlled player: who makes their choices now (they may only concede, 723.6). */
+  controlled_by?: string;
+  control?: { controlled: string; controller: string; status: "pending" | "active" }[];
   /** Current P/T and keyword changes of visible battlefield creatures (anthems, pumps, crew …). */
   stats?: Record<string, CardStats>;
   failure?: { intent: string; at: number };
@@ -498,6 +519,10 @@ export interface CardStats {
   gained?: string[];
   lost?: string[];
   creature?: boolean;
+  /** A Room's unlocked doors (709.5c): 1 = left half, 2 = right half. */
+  doors?: number[];
+  /** A Room's two halves (its own, or the copied card's): each door's name and unlock cost. */
+  halves?: { name: string; mana_cost: string }[];
   /** Abilities granted by other permanents (numbered from 100). */
   abilities?: { index: number; text: string; kind: string }[];
 }

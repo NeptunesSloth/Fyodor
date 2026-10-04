@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.game import ops
+from app.game.control import acting_as, controller_of, decider_of
 from app.game.rules_state import preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
@@ -51,12 +53,22 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
         "stats": stats(state, viewer, info),
         # -- counters & designations (wave 3E): dungeons, venture markers and the Ring (public, 309.2b / 701.54) --
         "designations": designations_view(state),
+        # -- controlling another player (wave 18H) -- 723: who controls whom this turn is a public fact
+        "control": [{"controlled": c.controlled, "controller": c.controller, "status": c.status} for c in r.player_control
+                    if c.status == "pending" or controller_of(state, c.controlled) == c.controller],  # (an ended one: not shown)
     }
     d = r.decision
     if d is not None:
         out["decision"] = decision_view(state, d, viewer)
     if viewer in state.players and viewer in live_players(state) and not r.paused:
-        out["hints"] = hints(state, viewer, info)
+        try:  # -- controlling another player (wave 18H) -- 723.5: the controller's hints are for the player they act as
+            seat = acting_as(state, viewer)
+        except ValueError:  # the controlled player: nothing to do but concede (723.6)
+            out["hints"] = {"has_priority": False}
+            out["controlled_by"] = controller_of(state, viewer) if r.decision is None else decider_of(state, r.decision)
+        else:
+            out["hints"] = hints(state, seat, info)
+            out["acting_as"] = seat if seat != viewer else None
     return out
 
 
@@ -91,20 +103,25 @@ def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
     prompt, options, labels, source card or presentation hints: a decision made while a spell is
     still in its caster's hand (601.2a: its targets, modes, division, costs) or about hidden cards
     (a search, a look, a private cost) must not reveal them (hidden information, 400.2)."""
-    if viewer in (d.player, OMNISCIENT):
+    decider = decider_of(state, d)  # -- controlling another player (wave 18H) -- 723.5
+    if viewer in (decider, OMNISCIENT):
         # -- keyword actions & face-down (wave 3F) -- 708.5: a face-down card the chooser may not look
         # at is never named in the prompt or an option's label
         options = [o.model_dump() for o in d.options]
         for o in options:
             o["label"] = mask_face_down(state, o["label"], viewer, refs=[o.get("card_id")])
-        full: dict[str, Any] = {"id": d.id, "player": d.player, "kind": d.kind, "prompt": mask_face_down(state, d.prompt, viewer, refs=[d.source_id, *(o.card_id for o in d.options)]),
+        full: dict[str, Any] = {"id": d.id, "player": d.player if viewer == OMNISCIENT else decider, "kind": d.kind, "prompt": mask_face_down(state, d.prompt, viewer, refs=[d.source_id, *(o.card_id for o in d.options)]),
                                 "source_id": d.source_id, "options": options,
                                 "min_choices": d.min_choices, "max_choices": d.max_choices,
                                 "rememberable": d.memory_key is not None}
         if d.display is not None:
             full["display"] = d.display
+        if decider != d.player:
+            full["for_player"] = d.player  # the player this choice is made for
         return full
     chooser = state.players[d.player].name if d.player in state.players else "A player"
+    if decider != d.player and decider in state.players:  # (wave 18H) 723.5: who makes it is public, as who controls whom
+        chooser = f"{state.players[decider].name} (for {chooser})"
     doing = _PUBLIC_KINDS.get(d.kind)
     return {"id": d.id, "player": d.player, "kind": d.kind if doing else "waiting",
             "prompt": f"{chooser} {doing or 'is making a choice'}", "source_id": None,
@@ -124,9 +141,18 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
         printed = chars.of(card, info)
         now = derive(state, card, printed, info)
         entry: dict[str, Any] = {}
-        granted = [{"index": a.index, "text": a.text, "kind": a.kind} for a in now.abilities if a.index >= 100]
+        granted = [{"index": a.index, "text": ops.shown(state, a.text), "kind": a.kind} for a in now.abilities if a.index >= 100]
         if granted:
             entry["abilities"] = granted  # granted by other permanents (All Slivers have "…")
+        if now.doors is not None:
+            entry["doors"] = sorted(now.doors)  # -- Rooms (wave 18G) -- 709.5c: public (the designations are on the table)
+            from app.rules.copying import (
+                room_printing,  # (review 18G: a copy of a Room has the copied card's halves, 709.5b)
+            )
+
+            data = info.get(room_printing(state.rules, card, state.rules.object_id(card.id))) if state.rules else None
+            if data is not None and chars.room(data):
+                entry["halves"] = [{"name": h.name, "mana_cost": h.mana_cost} for h in (chars.half_from_data(data, i) for i in (0, 1))]
         if not now.is_creature:
             if entry:
                 out[cid] = entry
@@ -150,13 +176,18 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
 def hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     """What the viewer could do right now, for highlighting. Only about the viewer's own cards."""
     out: dict[str, Any] = {"has_priority": state.rules is not None and state.rules.priority == viewer}
+    if state.rules is not None and state.rules.miracle:  # -- casting extras (wave 18E) -- only the owner's own windows (app/rules/miracle.py)
+        mine = [c for c in state.rules.miracle if c in state.cards and state.cards[c].owner == viewer]
+        if mine:
+            out["miracle"] = mine
     if not out["has_priority"]:
         return out
     # Your hand, your commander, your graveyard and exile (flashback, "you may play that card this
     # turn" …) and the top card of your library — that one only when you can see it (601.3f in
     # spirit: a card you can't look at isn't offered, so the hint reveals nothing about it).
     candidates = [cid for key in (zone_key(viewer, "hand"), zone_key(viewer, "command"), zone_key(viewer, "graveyard"),
-                                  zone_key(viewer, "exile")) for cid in state.zones.get(key, [])]
+                                  zone_key(viewer, "exile"), zone_key(viewer, "foretell")) for cid in state.zones.get(key, [])
+                  if can_see(state, state.cards[cid], viewer)]  # (-- review (sys 18A) -- not a face-down exiled card nobody looked at, 406.3)
     library = state.zones.get(zone_key(viewer, "library"), [])
     if library and can_see(state, state.cards[library[0]], viewer):
         candidates.append(library[0])

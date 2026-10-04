@@ -320,7 +320,7 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     limit = combat_rules.limit_problem(plan, declared, caps)
     if limit:
         raise ActionError(limit)
-    if any(cap_player in targets for cap_player in caps):  # 508.1d weighed over the whole declaration
+    if "*" in caps or any(cap_player in targets for cap_player in caps):  # 508.1d weighed over the whole declaration
         problem = combat_rules.requirements_problem(plan, eligible, _required_places(plan, eligible, targets),
                                                     {x.card_id: x.target for x in a.attackers}, caps)
         if problem:
@@ -369,12 +369,20 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         from app.game.rules_state import note_attack
         from app.rules import triggers  # triggers → plan; imported late
 
+        plan.rules.attacked_players[plan.actor] = sorted({x.target for x in a.attackers if x.target in plan.state.players})  # (melee: 18E)
+
         note_attack(plan.state, plan.actor,  # (wave 4D: the attacking objects)
                     [plan.oid(plan.state.cards[x.card_id]) for x in a.attackers])  # 508.1: "if you attacked this turn" (conditional clauses, wave 1B)
         # -- static wordings (wave 6E) -- 508.1g / 701.43d: "You may exert this creature as it attacks" (app/rules/exert.py)
         from app.rules import exert
 
         if exert.ask(plan, [plan.state.cards[x.card_id] for x in a.attackers]):
+            return
+        from app.rules import (
+            enlist,  # -- casting extras (wave 18E) -- 702.154a: an optional cost to attack (508.1g)
+        )
+
+        if enlist.ask(plan, [plan.state.cards[x.card_id] for x in a.attackers], []):
             return
         triggers.attacked(plan, [plan.state.cards[x.card_id] for x in a.attackers])
     r.priority = plan.active
@@ -404,7 +412,8 @@ def _required_places(plan: Plan, eligible: set[str], targets: set[str]) -> dict[
             continue
         ch = plan.ch(card)
         st = scripts.statics(ch)
-        if not ("must_attack" in st or goaded_by(ch) or combat_rules.other_than(ch)) or attack_problem(plan.state, card, ch):
+        if not ("must_attack" in st or goaded_by(ch) or combat_rules.other_than(ch) or combat_rules.attack_players(ch)) \
+                or attack_problem(plan.state, card, ch):
             continue
         if "cant_attack_alone" in st and len(eligible) == 1:
             continue
@@ -434,7 +443,8 @@ def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declare
         ch = plan.ch(card)
         goaders = goaded_by(ch)
         others_only = combat_rules.other_than(ch) - goaders
-        if not (goaders or others_only) or attack_problem(plan.state, card, ch) is not None:
+        wants = combat_rules.attack_players(ch) & live  # -- casting extras (wave 18E) -- encore: attacks that player if able
+        if not (goaders or others_only or wants) or attack_problem(plan.state, card, ch) is not None:
             continue
         st = scripts.statics(ch)
         if "cant_attack_alone" in st and len(eligible) == 1:
@@ -447,12 +457,15 @@ def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declare
 
         base = 1 if goaders or "must_attack" in st else 0
 
-        def obeyed(place: str | None, others: set[str] = (goaders | others_only) & live, base: int = base) -> int:
+        def obeyed(place: str | None, others: set[str] = (goaders | others_only) & live, base: int = base,
+                   wants: set[str] = wants) -> int:
             if place is None:
                 return 0
-            return base + sum(1 for g in others if place in plan.state.players and place != g)
+            return base + (place in wants) + sum(1 for g in others if place in plan.state.players and place != g)
 
         best = max(obeyed(t) for t in places)
+        if wants and not (goaders or others_only) and obeyed(declared.get(cid)) < best:
+            return f"{card.name} attacks {' or '.join(sorted(plan.name(w) for w in wants))} this turn if able"
         if obeyed(declared.get(cid)) < best:
             who = " or ".join(sorted(plan.name(g) for g in (goaders | others_only) & live)) or "anyone"
             what = "is goaded: it" if goaders else "must"
@@ -563,6 +576,12 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         lone = plan.state.cards[a.blocks[0].blocker_id]
         if "cant_block_alone" in scripts.statics(plan.ch(lone)):
             raise ActionError(f"{lone.name} can't block alone")
+    # -- static_other sweep (wave 16B) -- 509.1b: "No more than one creature can block each combat." (all the blockers, every player's)
+    from app.rules import combat_rules
+
+    cap = combat_rules.limits(plan, combat_rules.BLOCK_LIMIT_ALL).get("*")
+    if cap is not None and len(used) + sum(1 for c in plan.state.cards.values() if c.blocking) > cap:
+        raise ActionError(f"No more than {cap} creature{'s' if cap != 1 else ''} can block each combat")
     problem = block_requirements(plan, a, blockers, attackers, used, per_attacker)
     if problem:
         raise ActionError(problem)
@@ -601,8 +620,14 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
     state = plan.state
     idle = [state.cards[b] for b in blockers if b not in used]
     att = [state.cards[x] for x in attackers]
+    from app.rules import combat_rules
+
+    cap = combat_rules.limits(plan, combat_rules.BLOCK_LIMIT_ALL).get("*")  # -- static_other sweep (wave 16B) -- no more blockers once at it
+    at_cap = cap is not None and len(used) + sum(1 for c in state.cards.values() if c.blocking) >= cap
 
     def could(blocker: CardInstance, attacker: CardInstance, *, joined: int) -> bool:
+        if at_cap and blocker.id not in used:
+            return False
         bch, ach = plan.ch(blocker), plan.ch(attacker)
         if block_problem(state, blocker, bch, attacker, ach, plan.info) is not None:
             return False
@@ -610,8 +635,15 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
             return False
         return min_blockers(ach) <= joined
 
+    def joined(b: CardInstance, x: CardInstance) -> int:
+        """How many creatures could block ``x`` together with ``b``: those blocking it, and (-- review (wave 14R) -- 509.1c: the
+        most requirements that could be obeyed counts any legal declaration) every other one with a block to spare that may."""
+        return 1 + per_attacker.get(x.id, 0) + sum(
+            1 for i in blockers if i != b.id and x.id not in used.get(i, []) and len(used.get(i, [])) < block_limit(plan.ch(state.cards[i]))
+            and block_problem(state, state.cards[i], plan.ch(state.cards[i]), x, plan.ch(x), plan.info) is None)
+
     for b in idle:
-        if "must_block" in scripts.statics(plan.ch(b)) and any(could(b, x, joined=1 + per_attacker.get(x.id, 0)) for x in att):
+        if "must_block" in scripts.statics(plan.ch(b)) and any(could(b, x, joined=joined(b, x)) for x in att):
             return f"{b.name} blocks each combat if able"
     # -- block effects (wave 7E) -- "blocks this creature this turn if able": judged for the creatures that block nothing, and
     # for those blocking another attacker unless that block meets a requirement of its own (509.1c)
@@ -623,10 +655,12 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
                                                 if not arg or _any_selector(state, plan.info, arg, b, plan.ch(b), y))]))
         for x in (y for y in att if plan.oid(y) in wanted):
             blocks = used.get(b.id, [])  # (-- multiple blocks (wave 13B) -- a blocker with a block to spare could add this one)
-            if x.id in blocks or (blocks and len(blocks) >= block_limit(plan.ch(b)) and (
-                    len(wanted) > 1 or any("must_be_blocked" in scripts.statics(plan.ch(state.cards[i])) for i in blocks))):
+            # (at its limit, a block that obeys a requirement of its own isn't traded for this one: -- review (wave 14R) -- one
+            # that obeys none is no excuse)
+            if x.id in blocks or (blocks and len(blocks) >= block_limit(plan.ch(b)) and any(
+                    plan.oid(state.cards[i]) in wanted or "must_be_blocked" in scripts.statics(plan.ch(state.cards[i])) for i in blocks)):
                 continue
-            if could(b, x, joined=1 + per_attacker.get(x.id, 0)):
+            if could(b, x, joined=joined(b, x)):
                 return f"{b.name} blocks {x.name} this turn if able"
     for x in att:
         if x.id in per_attacker or "must_be_blocked" not in scripts.statics(plan.ch(x)):
@@ -776,7 +810,8 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
             trample = "trample" in ach.keywords
             need = [lethal(b, ach, p) for b in blockers]
             shares = r.block_split.get(att.id)
-            if shares is None and pending is not None and (len(blockers) > 1 or trample and p > sum(need)):
+            if shares is None and pending is not None and (len(blockers) > 1 or trample and blockers and p > sum(need)):
+                # (-- review (wave 14R) -- 702.19d: with no blocker left, a trampler's damage all goes where it attacks: no choice)
                 pending.append((att, blockers, need))  # 510.1c / 702.19b: its controller divides it (asked: ``ask_split``)
             if shares is not None:  # as its controller chose; 702.19b: the rest of a trampler's goes to what it attacks
                 for b in blockers:
@@ -940,6 +975,11 @@ def end_combat(plan: Plan) -> None:
     if any(c.attacking is not None or c.blocking for c in plan.state.cards.values()):
         plan.do({"type": "clear_combat"}, actor=plan.active)
     r = plan.rules
+    if any(e.duration == "end_of_combat" for e in r.effects):  # -- review (wave 18E) -- "this combat" (provoke, 702.39a) ends here
+        r.effects = [e for e in r.effects if e.duration != "end_of_combat"]
+        for card in list(plan.state.cards.values()):
+            for marker in [m for m in card.effects if m.text == "this combat"]:
+                plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
     r.blocked = []
     r.block_split = {}
     r.no_attackers = False

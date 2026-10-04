@@ -59,6 +59,10 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
     _resolve_placeholders(state, a, actor)
     if hasattr(a, "r"):
         a.r = None  # never trust client-supplied resolution data
+    if hasattr(a, "opening"):
+        a.opening = None
+    if hasattr(a, "keep_ids") and not trusted:
+        a.keep_ids = False  # -- review (face-down ids) -- only the rules engine defers the renumbering (Plan.renumber_face_down)
     if isinstance(a, A.ResponseOpen):
         raise ActionError("Response checks are opened by the server")
     if a.type in A.SERVER_ONLY_TYPES and not trusted:
@@ -78,7 +82,7 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
 
     if isinstance(a, A.Shuffle):
         pid = a.player or actor
-        a.r = shuffle_data(len(state.zones.get(zone_key(pid, a.zone), [])), rng)
+        a.r = shuffle_data(len(a.card_ids) if a.card_ids is not None else len(state.zones.get(zone_key(pid, a.zone), [])), rng)
     elif isinstance(a, A.Mulligan):
         pid = a.player or actor
         size = len(state.zones.get(zone_key(pid, "library"), [])) + len(state.zones.get(zone_key(pid, "hand"), []))
@@ -137,6 +141,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.r = A.DiceData(results=[_rng_int(rng, 1, a.sides) for _ in range(a.count)])
     elif isinstance(a, A.Coin):
         a.r = A.DiceData(results=[_rng_int(rng, 0, 1) for _ in range(a.count)])
+    elif isinstance(a, A.Merge | A.Meld):
+        a.r = A.NewIds(ids=[new_id()])
     elif isinstance(a, A.SetFace):
         card = state.cards.get(a.card_id)
         data = info.get(card.card_id) if card and card.card_id else None
@@ -152,7 +158,34 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         for _ in top_ids:
             spots.append(placement.free_spot(state, zone_key(actor, "battlefield"), "creature", spots))
         a.r = A.MoveData(positions=dict(zip(top_ids, spots, strict=True)))
+    if isinstance(a, A.MulliganPowder):  # -- opening hand (wave 18C) -- 103.5b
+        from app.rules.opening_hand import powder_ok
+
+        card = state.cards.get(a.card_id)
+        data = info.get(card.card_id) if card is not None and card.card_id else None
+        a.verified = powder_ok(data)
+    if isinstance(a, A.MulliganKeep | A.MulliganBottom | A.MulliganFinish):
+        a.opening = _opening_steps(state, a, info, rng)
     return response.wrap(state, a)
+
+
+def _opening_steps(state: GameState, a: A.MulliganKeep | A.MulliganBottom | A.MulliganFinish, info: CardInfo,
+                   rng: Any) -> list[dict[str, Any]] | None:
+    """-- opening hand (wave 18C) -- 103.6: if this action ends the mulligans, the first opening-hand decision, compiled against
+    the table as the action leaves it (app/rules/opening_hand.py)."""
+    if state.rules is None or state.settings.automation == "off" or state.pregame is None or state.pregame.finished:
+        return None
+    from app.game.engine import apply
+    from app.rules.engine import compile_opening
+
+    sim = state.model_copy(deep=True)
+    try:
+        apply(sim, a)
+    except ActionError:
+        return None  # (the real application raises the same error)
+    if sim.pregame is None or not sim.pregame.finished:
+        return None
+    return compile_opening(sim, a.actor, info, rng)
 
 
 ID_FIELDS = ("card_id", "to", "attacker_id", "source_id")

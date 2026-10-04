@@ -82,6 +82,11 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
             view["ability"] = c.ability.model_dump()
         if c.commander_key:
             view["commander_key"] = c.commander_key
+        if c.merged:  # -- merged permanents (wave 18D) -- the cards representing it, topmost first (visible to whoever sees the permanent)
+            view["merged"] = [{"id": p.id, "card_id": p.card_id, "name": p.name, "is_token": p.is_token,
+                               **({"token": p.token.model_dump()} if p.token else {})} for p in c.merged]
+            if c.melded:
+                view["melded"] = True
         if c.categories and viewer in (c.owner, OMNISCIENT):
             view["categories"] = list(c.categories)
     else:
@@ -105,6 +110,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
         view["token_source"] = c.token_source.model_dump()
     if c.face_down and c.face_down_kind:
         view["face_down_kind"] = c.face_down_kind  # public: everyone saw how it got face down
+        if c.face_down_as:
+            view["face_down_as"] = c.face_down_as  # -- review (sys 18A) -- 708.2a: what it is face down ("Forest land") is public
     if c.protected:
         view["protected"] = True
     if zone in PUBLIC_ZONES:
@@ -217,7 +224,10 @@ def build_view(
         if c.commander_key:
             commanders[c.owner].append(
                 {"key": c.commander_key, "name": c.name, "card_id": c.card_id, "instance_id": c.id if can_see(state, c, viewer) else None,
-                 "zone": c.zone, "tax": state.players[c.owner].commander_tax.get(c.commander_key, 0),
+                 # -- review (sys 18A) -- 708.5: a face-down commander the viewer can't look at (manifested from a library, cast
+                 # face down from a hand) isn't located for them: its zone would say which face-down permanent it is
+                 "zone": None if c.face_down and not can_see(state, c, viewer) else c.zone,
+                 "tax": state.players[c.owner].commander_tax.get(c.commander_key, 0),
                  "casts": state.players[c.owner].commander_casts.get(c.commander_key, 0)}
             )
 
@@ -229,6 +239,13 @@ def build_view(
         if not own and state.settings.deck_privacy == "private":
             exclude.add("deck_name")
         data = p.model_dump(exclude=exclude)
+        if viewer != OMNISCIENT:  # -- review 18B -- whether a source's mana is remembered depends on every card of the game, hidden
+            # ones too (mana_units.tracking): mana with no restriction and no rider shows as plain mana, units renumbered, no counter
+            data.pop("mana_seq", None)
+            plain = [u for u in data["mana_units"] if not u["only"] and not u["riders"]]
+            for u in plain:
+                data["mana"][u["sym"]] = data["mana"].get(u["sym"], 0) + 1
+            data["mana_units"] = [{**u, "id": i} for i, u in enumerate(u for u in data["mana_units"] if u not in plain)]
         data["commanders"] = sorted(commanders[pid], key=lambda x: x["key"])
         data["hand_count"] = len(state.zones.get(f"{pid}:hand", []))
         data["library_count"] = len(state.zones.get(f"{pid}:library", []))

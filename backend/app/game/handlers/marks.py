@@ -174,6 +174,7 @@ def cleanup(state: GameState, a: A.Cleanup) -> None:
         elif what == "mana":
             for p in state.players.values():
                 p.mana = {}
+                p.mana_units = []  # (wave 18B)
             done.append("mana pools")
         elif what == "exile_groups":
             for c in in_scope:

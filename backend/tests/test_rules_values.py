@@ -156,7 +156,7 @@ def test_parse_cda(text, p, t):
     "Equipped creature gets +1/+1 for each Aura attached to another creature.",  # (wave 8D: "attached to it" is read)
     "Equipped creature gets +1/+1 for each +1/+1 counter on it.",  # "it" is the equipped creature, not the source
     "Creatures you control get +1/+1 for each counter on it.",
-    "~ gets +1/+1 for each creature that attacked this turn.",
+    "~ gets +1/+1 for each creature that attacked last turn.",
     "~ gets +X/+X.",  # no X defined
     "~ gets +1/+1, where X is your life total.",  # no X in the sentence
     "~'s power and toughness are each equal to the life paid as it entered.",

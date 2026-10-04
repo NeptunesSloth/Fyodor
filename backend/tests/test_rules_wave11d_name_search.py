@@ -48,7 +48,10 @@ def test_extirpate_exiles_every_copy_from_the_graveyard_hand_and_library_and_shu
     before = list(zone(s.state, "p2", "library"))
     src = token(s, "p1", "Extirpator", "1/1", text=f"{{1}}: {EXTIRPATE}")
     activate(s, src, targets=[in_gy.id])
-    assert s.state.rules.decision is None  # "all cards": nothing to ask, so no decision whose timing could tell anything
+    d = s.state.rules.decision  # "all cards" names a quality: the searcher may still find fewer (701.23b), asked in private
+    assert d.player == "p1" and (d.min_choices, d.max_choices) == (0, 3)
+    assert_observer_sees_only_who(s, "p2", "Alice")
+    choose(s, [o.id for o in d.options])
     assert all(s.state.cards[c.id].zone == "p2:exile" for c in (in_gy, in_hand, in_library))
     assert len(zone(s.state, "p2", "library")) == len(before) - 1
     assert zone(s.state, "p2", "library") != [c for c in before if c != in_library.id]  # shuffled (701.24)
@@ -115,6 +118,9 @@ def test_counterbore_searches_the_countered_spells_controller(cards):
         if s.state.rules.decision is not None or not s.state.zones.get("stack"):
             break
         act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d.player == "p2" and {o.id for o in d.options} == {c.id for c in mine}  # (the countered one, in the graveyard, too)
+    choose(s, [o.id for o in d.options])
     assert all(s.state.cards[c.id].zone == "p1:exile" for c in mine)  # the countered spell and the others, wherever they were
     assert all(s.state.cards[c.id].zone != "p2:exile" for c in bob_vipers)
     replay_matches(s)
@@ -130,5 +136,8 @@ def test_eradicate_remembers_the_name_of_a_token_that_was_exiled(cards):
                                                     "Then that player shuffles.")
     activate(s, src, targets=[tok.id])
     assert tok.id not in s.state.cards
+    d = s.state.rules.decision
+    assert d is not None and len(d.options) == 3
+    choose(s, [o.id for o in d.options])
     assert all(s.state.cards[c.id].zone == "p2:exile" for c in (in_gy, in_hand, in_library))
     replay_matches(s)

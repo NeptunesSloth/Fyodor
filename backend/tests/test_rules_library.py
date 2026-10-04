@@ -316,11 +316,11 @@ def test_exile_the_top_cards_face_up_and_face_down(cards):
     bob = json.dumps(s.view("p2"))
     assert all(s.state.cards[c].name in bob for c in top2)  # face up: public
     hider = token(s, "p1", "Hider", text="{1}: Exile the top card of your library face down.")
-    top = zone(s.state, "p1", "library")[0]
+    top = s.state.cards[zone(s.state, "p1", "library")[0]]  # (the object: it is renumbered as it goes face down)
     activate(s, hider)
-    assert s.state.cards[top].zone == "p1:exile" and s.state.cards[top].face_down
-    assert s.state.cards[top].name not in json.dumps(s.view("p2"))  # face down: hidden from Bob
-    assert s.state.cards[top].name in json.dumps(s.view("p1"))  # (its controller may look)
+    assert top.zone == "p1:exile" and top.face_down
+    assert top.name not in json.dumps(s.view("p2"))  # face down: hidden from Bob
+    assert top.name not in json.dumps(s.view("p1"))  # 406.3: nobody may look at a card exiled face down (wave 18A) unless told to
     replay_matches(s)
 
 

@@ -44,10 +44,11 @@ def leave_game(plan: Plan, player: str) -> None:
                 plan.do({"type": "delete_card", "card_ids": [card.id], "force": True}, actor=player)  # 800.4a
             elif card.owner not in plan.live():
                 continue  # (it left the game with its own owner already)
-            elif zone == "battlefield" and _control_changed(plan, card.id):
-                plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "battlefield"}},
-                        actor=player)  # the control-changing effect ends
-            elif zone == "battlefield" or card.zone == STACK:  # 800.4a: still controlled by them: exiled
+            elif zone in ("battlefield", "phased") and _control_changed(plan, card.id):
+                plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": zone}},
+                        actor=player)  # the control-changing effect ends (-- review (wave 14R) -- phased out: 702.26n, it phases
+                # in later, here with its owner's next untap step)
+            elif zone in ("battlefield", "phased") or card.zone == STACK:  # 800.4a: still controlled by them: exiled
                 plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}},
                         actor=player)
     _end_linked(plan, leaving)

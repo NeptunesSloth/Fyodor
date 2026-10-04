@@ -50,7 +50,7 @@ SELF = re.compile(r"^(?:if (?P<c1>[^,]+), )?you may (?P<cost>.+?) rather than pa
 TABLE = re.compile(r"^(?P<once>once each turn, )?you may pay (?P<pay>(?:\{[^}]+\})+|\w+ \{E\}) rather than pay the mana cost "
                    r"for (?:(?:a|an) )?(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells? you cast"
                    r"(?P<zone> from your hand| from exile)?(?: with mana value X or less, where X is (?P<mv>.+))?$")
-_EXILE_HAND = re.compile(r"^Exile (?P<n>a|an|one|two|three) (?P<what>(?:[\w\-]+ )*cards?) from your hand$")
+_EXILE_HAND = re.compile(r"^Exile (?P<n>a|an|one|two|three) (?P<what>(?:[\w\-]+ )*cards?(?: with mana value \d+ or less)?) from your hand$")
 _PART_SPLIT = re.compile(r" and (?=(?:pay|exile|sacrifice|return|tap|discard) )")
 _WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3}
 
@@ -121,6 +121,10 @@ def _cond(text: str | None) -> Any:
 
 def define(t: str) -> dict[str, Any] | None:
     """The definition of an alternative-cost line (``t``: lowercased first letter, name as ~), or None."""
+    # -- cost alt (wave 16F) -- 118.9: "If an opponent controls a Forest and you control a Swamp, you may cast this spell without paying
+    # its mana cost." (the Legates) is an alternative cost of {0}, used under that condition
+    t = re.sub(r"^(if [^,]+), you may cast (?:this spell|~) without paying its mana cost$", r"\1, you may pay {0} rather than pay "
+               r"this spell's mana cost", t)
     m = SELF.fullmatch(t)
     if m:
         if m["c1"] and m["c2"]:
@@ -166,6 +170,53 @@ def define(t: str) -> dict[str, Any] | None:
     return None
 
 
+# -- keywords (wave 15E) -- alternative-cost keywords that are only a cost with a condition on casting (118.9): spectacle
+# (702.137a: "You may cast this spell by paying [cost] rather than its mana cost if an opponent lost life this turn."), surge
+# (702.117a: "if you or a teammate has cast another spell this turn" — no teammates in Commander), freerunning
+# (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
+PROWL_COND = "a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell"  # 702.76a
+KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None,
+                 "prowl": PROWL_COND, "overload": None, "emerge": None, "foretell": None, "mutate": None}  # (wave 17C: prowl; wave 18D: mutate, 702.140a)
+# (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate)(?: from (?P<q>[A-Za-z]+))? "
+                           r"(?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+# -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
+# when the prowl condition holds for that spell
+GRANT_PROWL = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells you cast have prowl (?P<cost>(?:\{[^}X]+\})+)$")
+
+
+def grant_prowl(t: str) -> dict[str, Any] | None:
+    m = GRANT_PROWL.fullmatch(t)
+    if m is None or parse_cost(f"pay {m['cost']}") is None:
+        return None
+    from app.rules.permissions import spell_filter
+
+    key = spell_filter(m["sel"]) if m["sel"] else None
+    if m["sel"] and key is None:
+        return None
+    return {"kind": "static", "static": "alt_cost", "cost": f"pay {m['cost']}", "table": True, "filter": key, "once": False, "zone": None,
+            "mv": None, "cond": _cond(PROWL_COND), "tag": "prowl", "effects": []}
+
+
+def keyword_definition(line: str) -> dict[str, Any] | None:
+    m = _KEYWORD_LINE.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
+    if m is None:
+        return None
+    kw = m["kw"].lower()
+    cond = KEYWORD_CONDS[kw]
+    if m["q"] and kw != "emerge":
+        return None  # ("from …" is emerge's)
+    pay = f"pay {m['cost']}"
+    if kw == "emerge":  # 702.119a: "pay [cost] and sacrificing a creature" (702.119b: "a [quality] permanent")
+        what = (m["q"] or "creature").lower()
+        if what not in ("creature", "artifact", "enchantment", "land"):
+            return None
+        pay += f" and sacrifice {'an' if what[0] in 'aeiou' else 'a'} {what}"
+    found = define(f"you may {pay} rather than pay ~'s mana cost" + (f" if {cond}" if cond else ""))
+    # ("tag": what the cast record says it was cast for; warp: only "from your hand", 702.185a)
+    return {**found, "tag": kw, **({"hand_only": True} if kw == "warp" else {})} if found is not None else None  # (foretell 702.143a: only from the foretell zone, see offers())
+
+
 @dataclass(frozen=True)
 class Offer:
     key: str  # "<card id>:<ability index>"
@@ -173,6 +224,7 @@ class Offer:
     alt: AltCost
     once_key: str | None = None
     escape: bool = False  # -- escape (wave 5I) -- 702.138a: a cast from the graveyard (app/rules/escape.py)
+    tag: str | None = None  # -- keywords (wave 15E) -- "blitz": cast for its blitz cost (702.152a)
 
 
 def _ctx(state: GameState, player: str, source: CardInstance) -> dict[str, Any]:
@@ -194,14 +246,29 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
     for index, d in scripts.definitions(ch).items():
         if d.get("static") != "alt_cost" or d.get("table"):
             continue
+        if d.get("hand_only") and card.zone != f"{player}:hand":
+            continue
+        if (d.get("tag") == "foretell") != (card.zone == f"{player}:foretell"):
+            continue  # -- hidden exile (wave 18A) -- 702.143a: a foretold card is cast for its foretell cost only (and it only from there)
+        if d.get("tag") == "foretell" and (card.owner != player or r.foretold.get(card.id, 0) >= state.turn.number):
+            continue  # 702.143a/d: its owner, "after the current turn has ended" (a card put there by hand has no record: any turn)
         if d.get("cond") is not None and not conditions.holds(view, _ctx(state, player, card), d["cond"]):
             continue
+        if d.get("tag") == "mutate":  # -- merged permanents (wave 18D) -- 702.140a: only with a creature to merge with
+            from app.rules import merged
+
+            if not merged.can_mutate(view, player, card, ch):
+                continue
         alt = parse_cost(d["cost"])
         if alt is not None:
-            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt))
+            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}" + (" (mutate)" if d.get("tag") == "mutate" else ""), alt, tag=d.get("tag")))
+    given = r.foretell_costs.get(card.id)  # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave it
+    if given and card.zone == f"{player}:foretell" and card.owner == player and r.foretold.get(card.id, 0) < state.turn.number \
+            and (alt := parse_cost(f"pay {given}")) is not None:
+        out.append(Offer(f"{card.id}:foretell", f"{ch.name}: {given}", alt, tag="foretell"))
     where = card.zone.rsplit(":", 1)[-1]
     for src, index, d in permissions._table_statics(state, info, {"alt_cost"}):
-        if not d.get("table") or src.controller != player:
+        if not d.get("table") or src.controller != player or where == "foretell":
             continue
         key = f"{src.id}:alt:{index}"
         if d["once"] and r.once_per_turn.get(key) == state.turn.number:
@@ -215,9 +282,11 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
 
             if int(ch.mana_value) > values.evaluate(view, _ctx(state, player, src), d["mv"]):
                 continue
+        if d.get("cond") is not None and not conditions.holds(view, _ctx(state, player, card), d["cond"]):
+            continue  # (wave 17C: prowl — read about the spell being cast)
         alt = parse_cost(d["cost"])
         if alt is not None:
-            out.append(Offer(f"{src.id}:{index}", f"{src.name}: {d['cost']}", alt, once_key=key if d["once"] else None))
+            out.append(Offer(f"{src.id}:{index}", f"{src.name}: {d['cost']}", alt, once_key=key if d["once"] else None, tag=d.get("tag")))
     # -- escape (wave 5I) -- printed and granted escape costs (702.138a), for a card in its owner's graveyard
     from app.rules import escape
 

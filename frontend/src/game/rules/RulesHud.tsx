@@ -146,7 +146,7 @@ export function PriorityBar() {
   if (!ctx || !ctx.rules || !ctx.seated) return null;
   const { view, rules, me } = ctx;
   if (rules.paused || rules.conceded.includes(me) || me in rules.lost) return null;
-  const mine = rules.priority === me && !rules.decision;
+  const mine = !rules.controlled_by && (rules.priority === me || (!!rules.acting_as && rules.priority === rules.acting_as)) && !rules.decision;
   const prefs = rules.prefs;
   const stack = view.stack.length > 0;
   const holder = rules.priority ? playerName(view, rules.priority) : null;
@@ -155,7 +155,7 @@ export function PriorityBar() {
     <div className={`prio-bar ${mine ? "mine" : ""}`} data-testid="priority-bar">
       <span className="prio-where">{phase}</span>
       <span className="prio-who" data-testid="priority-holder">
-        {rules.decision ? `${playerName(view, rules.decision.player)} is deciding` : mine ? "Your priority" : holder ? `${holder}'s priority` : ""}
+        {rules.controlled_by ? `${playerName(view, rules.controlled_by)} is making your choices` : rules.decision ? `${playerName(view, rules.decision.player)} is deciding` : mine ? (rules.acting_as ? `Your priority (controlling ${playerName(view, rules.acting_as)})` : "Your priority") : holder ? `${holder}'s priority` : ""}
       </span>
       {mine && (
         <>
@@ -195,7 +195,7 @@ export function RulesStack() {
   if (!ctx || !ctx.rules || !ctx.view.stack.length) return null;
   const { view, rules, me } = ctx;
   const ids = [...view.stack].reverse();
-  const mine = rules.priority === me && !rules.decision;
+  const mine = !rules.controlled_by && (rules.priority === me || (!!rules.acting_as && rules.priority === rules.acting_as)) && !rules.decision;
   const top = ids[0] ?? "";
   return (
     <div className="rules-stack frame" data-testid="rules-stack">

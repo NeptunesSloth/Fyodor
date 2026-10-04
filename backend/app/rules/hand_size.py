@@ -8,9 +8,10 @@ Water). Researched against CR 2026-09-25.
 * -- static statics (wave 10B) -- "Your maximum hand size is reduced by four." (Thought Devourer), "… is increased by two."
   (Trusted Advisor), "Each opponent's maximum hand size is reduced by seven." (Jin-Gitaxias, Core Augur) and "Players have
   no maximum hand size." (Price of Knowledge): reductions and increases add up (they commute), never below zero; no
-  maximum beats them all (402.2: the cleanup discard is down to the maximum). A SET maximum ("Your maximum hand size is
-  eleven", "The chosen player's maximum hand size is four": its order against the others is by timestamp) and "for the
-  rest of the game" from a resolving spell stay manual.
+  maximum beats them all (402.2: the cleanup discard is down to the maximum). -- static_other sweep (wave 16B) -- A SET
+  maximum of a permanent ("Your maximum hand size is eleven.": Cecily, The Ten Rings) is applied with the others in the
+  order of the permanents' timestamps (613.7d: the later effect wins). "The chosen player's maximum hand size is four" and
+  "for the rest of the game" from a resolving spell stay manual.
 
 Read by the cleanup step (app/rules/engine.cleanup_step).
 """
@@ -28,7 +29,9 @@ MAX_HAND_SIZE = 7  # 402.2
 
 
 MODIFIES = "max_hand_size"
-_NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+_NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+            "eleven": 11, "twelve": 12}
+_SET = re.compile(r"^Your maximum hand size is (?P<n>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\.$")
 _CHANGE = re.compile(r"^(?P<who>Your|Each opponent's) maximum hand size is (?P<dir>reduced|increased) by "
                      r"(?P<n>one|two|three|four|five|six|seven|eight|nine|ten|\d+)\.$")
 
@@ -39,6 +42,9 @@ def static_definition(text: str) -> dict[str, Any] | None:
         return {"kind": "static", "static": NO_MAXIMUM, "effects": []}
     if t == "Players have no maximum hand size.":  # -- static statics (wave 10B) --
         return {"kind": "static", "static": NO_MAXIMUM, "who": "each", "effects": []}
+    if (s := _SET.match(t)) is not None:
+        return {"kind": "static", "static": MODIFIES, "who": "you", "set": _NUMBERS[s["n"]] if s["n"] in _NUMBERS else int(s["n"]),
+                "effects": []}
     m = _CHANGE.match(t)
     if m is None:
         return None
@@ -56,10 +62,11 @@ def maximum(plan: Plan, player: str) -> int | None:
     """-- static statics (wave 10B) -- ``player``'s maximum hand size (402.2): None when they have none, else seven
     changed by the reductions and increases of the permanents on the battlefield (611.3a), never below zero."""
     from app.rules import scripts
+    from app.rules.layers import timestamp
     from app.rules.replace import conditional_lines
 
     size = MAX_HAND_SIZE
-    for c in plan.state.cards.values():
+    for c in sorted(plan.state.cards.values(), key=lambda c: timestamp(plan.state, c.id)):  # (613.7: oldest first, the latest set wins)
         if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         ch = plan.ch(c)
@@ -70,7 +77,7 @@ def maximum(plan: Plan, player: str) -> int | None:
             if d.get("static") == NO_MAXIMUM:
                 return None
             if d.get("static") == MODIFIES:
-                size += int(d["delta"])
+                size = int(d["set"]) if "set" in d else size + int(d["delta"])
     return max(0, size)
 
 

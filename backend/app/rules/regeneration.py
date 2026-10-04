@@ -43,12 +43,42 @@ def regenerate(plan: Plan, card: CardInstance) -> None:
         plan.rules.blocked = [c for c in plan.rules.blocked if c != card.id]
 
 
+def umbra_armor(plan: Plan, card: CardInstance) -> CardInstance | None:
+    """-- keywords (wave 15E) -- 702.89a: an Aura with umbra armor attached to the permanent (the oldest, when it has several:
+    which replacement applies is its controller's choice, not asked here)."""
+    for aura in plan.state.cards.values():
+        if aura.attached_to == card.id and aura.zone.endswith(":battlefield") and not plan.manual(aura) and any(
+                ab.kind == "keywords" and "umbra armor" in ab.keywords for ab in plan.ch(aura).abilities):
+            return aura
+    return None
+
+
+def use_umbra_armor(plan: Plan, card: CardInstance, aura: CardInstance, actor: str | None) -> None:
+    """702.89a: instead of being destroyed, remove all damage marked on the permanent and destroy the Aura."""
+    plan.note(f"{card.name}: {aura.name}'s umbra armor is used instead", [card.id, aura.id], actor=actor)
+    if card.damage:
+        plan.do({"type": "set_damage", "card_ids": [card.id], "value": 0}, actor=actor)
+    plan.rules.deathtouched = [c for c in plan.rules.deathtouched if c != card.id]
+    if "indestructible" not in plan.ch(aura).keywords and not (shielded(plan, aura)):  # (the Aura is destroyed, 701.8)
+        plan.do({"type": "move", "card_ids": [aura.id], "to": {"zone": "graveyard"}}, actor=actor)
+    elif shielded(plan, aura):
+        regenerate(plan, aura)
+
+
 def survivors(plan: Plan, card_ids: list[str], *, can_regenerate: bool = True, actor: str | None = None) -> list[str]:
     """The cards that are really destroyed: shielded ones regenerate instead (unless they can't)."""
     # -- counters (wave 7C) -- 122.1c: a shield counter is removed instead
     from app.rules import shield_counters
 
     card_ids = shield_counters.destroy_survivors(plan, card_ids, actor)
+    kept = []
+    for cid in card_ids:  # -- keywords (wave 15E) -- umbra armor: not regeneration, so "can't be regenerated" doesn't stop it
+        armor = umbra_armor(plan, plan.state.cards[cid])
+        if armor is not None and not (can_regenerate and shielded(plan, plan.state.cards[cid])):
+            use_umbra_armor(plan, plan.state.cards[cid], armor, actor)
+        else:
+            kept.append(cid)
+    card_ids = kept
     if not can_regenerate or not plan.rules.regen_shields:
         return card_ids
     out = []

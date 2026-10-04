@@ -77,6 +77,11 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
         return False
     if "hexproof" in ch.keywords and card.controller != chooser:
         return False
+    for rule in ch.imposed:  # -- cant (wave 16F) -- "can't be the target of black spells or abilities from black sources"
+        if rule.startswith("untargetable:") and source is not None:
+            _, opp, non, colors = rule.split(":")
+            if (opp == "0" or card.controller != chooser) and bool(set(colors) & source.colors) != (non == "1"):
+                return False
     return not protection.protected_from(ch, source)
 
 
@@ -102,7 +107,15 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         check_spell = SPELL_SELECTORS[selector]
         return [cid for cid in plan.state.zones.get("stack", []) if cid in plan.state.cards
                 and plan.state.cards[cid].ability is None and check_spell(plan.ch(plan.state.cards[cid]))]
-    players_ok, check = SELECTORS[selector]
+    check: Check | None
+    if selector.startswith("any_not:"):  # -- activated sweep (wave 17B) -- "any target that isn't a commander / a Dragon": any target
+        # (115.1) but a permanent that is one (players never are)
+        kind = selector[len("any_not:"):]
+        players_ok = True
+        check = lambda plan, who, card, ch: bool(ch.types & {"Creature", "Planeswalker", "Battle"}) and not (  # noqa: E731
+            card.commander_key if kind == "commander" else kind in ch.subtypes)
+    else:
+        players_ok, check = SELECTORS[selector]
     out: list[str] = []
     if players_ok:
         from app.rules import player_shields  # -- player shields (wave 5E) -- 702.11c, 702.16b, 702.18a

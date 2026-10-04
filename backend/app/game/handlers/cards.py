@@ -63,12 +63,12 @@ def phase_shift(state: GameState, a: A.PhaseShift) -> None:
         ops.remove_from_zone(state, c)
         ops.insert(state, c, zone_key(c.controller, there))
         c.phased_indirect = a.out and c.id in indirect
-        if a.out:  # 506.4
+        if a.out:  # 506.4 (-- review (wave 14R) -- every block of a blocker of several, 509.1a)
             c.attacking = None
-            c.blocking = None
+            c.unblock()
             for other in state.cards.values():
-                if other.blocking == c.id:
-                    other.blocking = None
+                if other.blocks(c.id):
+                    other.unblock(c.id)
                 if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
                     other.attacking = None
     for c in moving.values():
@@ -191,7 +191,7 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
             raise ActionError("id collision")
         c = CardInstance(
             id=new_id,
-            card_id=src.card_id,
+            card_id=a.printing or src.card_id,
             name=src.name,
             owner=pid,
             controller=pid,
@@ -220,6 +220,9 @@ def delete_card(state: GameState, a: A.DeleteCard) -> None:
             raise ActionError(f"{c.name} is protected — confirm to delete it")
     names = group(state, targets)
     for c in targets:
+        if c.merged:  # -- merged permanents (wave 18D) -- 730.3: removing the token on top doesn't remove the cards under it
+            ops.move_card(state, c, zone_key(c.owner, "graveyard"))
+            continue
         ops.delete(state, c)
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" removed "), names])
 
@@ -230,6 +233,37 @@ def _token_back(spec: A.TokenSpec | None) -> TokenDef | None:
         return None
     return TokenDef(name=spec.name, card_id=spec.card_id, power=spec.power, toughness=spec.toughness, colors=list(spec.colors),
                     type_line=spec.type_line, text=spec.text)
+
+
+def merge(state: GameState, a: A.Merge) -> None:
+    """-- merged permanents (wave 18D) -- 702.140c, 730.2: the mutating creature spell on the stack becomes part of the permanent."""
+    from app.game import merging
+
+    host, spell = ops.card(state, a.card_id), ops.card(state, a.spell_id)
+    if a.r is None or not a.r.ids or not _on_battlefield(host) or spell.zone != STACK or host.melded or spell.merged or spell.id == host.id:
+        raise ActionError("Only a spell on the stack can merge with a permanent on the battlefield")
+    keys = {p.commander_key for p in host.merged if p.commander_key} | {k for k in (host.commander_key, spell.commander_key) if k}
+    if len(keys) > 1:
+        raise ActionError("Two commanders can't be merged")
+    merging.merge(state, host, spell, a.over, a.r.ids[0])
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" merged {spell.name} {'over' if a.over else 'under'} "), ops.card_part(state, host)])
+
+
+def meld(state: GameState, a: A.Meld) -> None:
+    """-- merged permanents (wave 18D) -- 701.42a: the two exiled cards of a meld pair enter the battlefield as one permanent."""
+    from app.game import merging, placement
+
+    first, second = ops.card(state, a.card_id), ops.card(state, a.other_id)
+    if a.r is None or not a.r.ids or ops.zone_name(first.zone) != "exile" or ops.zone_name(second.zone) != "exile" \
+            or first.is_token or second.is_token or first.owner != second.owner:
+        raise ActionError("Only two cards of a meld pair in exile can be melded")
+    if first.commander_key and second.commander_key:
+        raise ActionError("Two commanders can't be melded")
+    owner = first.owner
+    x, y = placement.free_spot(state, zone_key(owner, "battlefield"), a.row)
+    ops.move_card(state, first, zone_key(owner, "battlefield"), x=x, y=y)
+    merging.meld(state, first, second, a.result_id, a.result_name, a.r.ids[0])
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" melded into {a.result_name}")])
 
 
 def set_face(state: GameState, a: A.SetFace) -> None:
@@ -258,6 +292,8 @@ def face_down(state: GameState, a: A.FaceDown) -> None:
         zone = ops.zone_name(c.zone)
         if zone not in ("battlefield", "exile", "foretell", STACK):
             raise ActionError("Only cards on the battlefield, in exile or on the stack can be face down")
+        if c.melded and a.face_down is not False:
+            raise ActionError("A melded permanent can't be turned face down (712.16)")  # -- merged permanents (wave 18D) --
     before = {c.id: seers(state, c) for c in targets}
     turned_up: list[CardInstance] = []
     turned_down: list[CardInstance] = []
@@ -267,6 +303,7 @@ def face_down(state: GameState, a: A.FaceDown) -> None:
             continue
         c.face_down = new
         c.face_down_kind = (a.kind or ("exile" if zone_of(c) == "exile" else "generic")) if new else None
+        c.face_down_as = a.face_down_as if new else None  # (-- hidden exile (wave 18A) -- 708.2a)
         # A face-down card is anonymous to everyone but its controller from now on.
         c.revealed_to = []
         (turned_down if new else turned_up).append(c)

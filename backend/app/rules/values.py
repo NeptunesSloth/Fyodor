@@ -50,7 +50,7 @@ if TYPE_CHECKING:
 Value = int | dict[str, Any]
 NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
            "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "twenty": 20}
-AMOUNT = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x|X|that much|that many)"
+AMOUNT = r"(?:twice [xX]|(?:two|three|four) times [xX]|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x|X|that much|that many)"
 
 # Counters that carry rules the engine doesn't model yet (122.1b keyword counters, 122.1c shield,
 # 122.1d stun, 122.1h finality, 122.1i rad, 122.1j hone, 714 lore): an effect putting one of these
@@ -76,6 +76,8 @@ def parse_amount(word: str) -> Value | None:
         return NUMBERS[w]
     if w == "x":
         return {"x": 1}
+    if (m := re.fullmatch(r"(?:twice|(two|three|four) times) x", w)) is not None:  # (wave 16D) "twice X", "three times X"
+        return {"times": [NUMBERS[m[1]] if m[1] else 2, {"x": 1}]}
     if w in ("that much", "that many"):
         return {"event_amount": 1}  # the trigger event's amount (TriggerEvent.amount)
     return None
@@ -92,7 +94,8 @@ _DISTINCT = {"card types": "types", "different card types": "types", "card type"
              "colors": "colors", "different colors": "colors", "color": "colors",
              "basic land types": "basic_land_types", "basic land type": "basic_land_types",
              "creature types": "creature_types", "different creature types": "creature_types",
-             "creature type": "creature_types"}
+             "creature type": "creature_types",
+             "different power": "powers", "different powers": "powers"}  # (wave 17B: Selvala, Eager Trailblazer)
 _AMONG = re.compile(r"^(?P<kind>" + "|".join(sorted(map(re.escape, _DISTINCT), key=len, reverse=True)) + r") among (?P<sel>.+)$")
 _DEVOTION = re.compile(r"^your devotion to (?P<c1>white|blue|black|red|green)(?: and (?P<c2>white|blue|black|red|green))?$")
 _AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power|toughness|mana value) "
@@ -119,6 +122,11 @@ _COLORS_SPENT = re.compile(r"colors? of mana spent to cast (?:this spell|it|~|th
 # -- X actions (wave 9A) -- 700.14-style "mana spent": the total amount of mana paid for the spell (601.2h), from its payment
 # record; "that spell" is the cast event's spell, "her" / "this spell" / "~" the source (the permanent remembers its spell's
 # record). A bare "it" is not read: it could be either.
+# -- mana provenance (wave 18B) -- 107.4h/106.3: "the amount of {S} spent to cast this spell", "{S} spent to cast it", "mana from a Treasure
+# spent to cast it / this spell" (PaymentRecord.mana_tags; the source's own record, like converge)
+_FROM_TAGS = {"treasure": "Treasure", "artifact": "Artifact", "desert": "Desert", "cave": "Cave", "creature": "Creature"}
+_MANA_FROM = re.compile(r"(?:the amount of )?(?:\{S\}|mana from (?:an? )?(?P<what>[Tt]reasure|[Aa]rtifact|[Dd]esert|[Cc]ave|[Cc]reature)(?: source)?)(?: that was)? spent to cast "
+                        r"(?:this spell|it|~|this creature|this permanent)")
 _MANA_SPENT = re.compile(r"(?:the )?amount of mana spent to cast (?P<o>that spell|this spell|her|him|~|this creature)")
 
 
@@ -127,6 +135,8 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     number for each player it could name (the target player's, the recipient's: app/rules/sized_damage.py): never read
     through the selectors' trigger-bound "that player" (selectors.THAT_PLAYER)."""
     v = _parse_count(phrase, it=it)
+    if v is not None and it != "self" and any(k in str(v) for k in ('"controller":"chosen"', '"zone_owner":"chosen"', "'hand': 'chosen'")):
+        return None  # (wave 16F: "the chosen player" of the very object that counts)
     return None if v is not None and f'"controller":"{selectors.THAT_PLAYER}"' in str(v) else v
 
 
@@ -138,6 +148,11 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     ``it`` is what a bare "it" means for the caller ("counters on it": the static's own source
     is "self"); None refuses it (a pronoun the caller can't bind is never guessed)."""
     p = phrase.strip()
+    if p.endswith(" beyond the first"):  # -- keywords (wave 15E) -- rampage 702.23a: "for each creature blocking it beyond the first"
+        inner = _parse_count(p[: -len(" beyond the first")], it=it)
+        return None if inner is None else {"minus": [inner, 1]}
+    # -- cost self reduction (wave 16F) -- "for each 1 life you gained this turn" (a count of life)
+    p = re.sub(r"^1 (life you (?:gained|lost) this turn)$", r"\1", p)
     m = _COUNT.match(p)
     what = m["what"] if m else p
     if what.lower() == "x":
@@ -173,20 +188,31 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     sized = _sized(what, it)  # -- sized amounts (wave 3D) --
     if sized is not None:
         return sized
+    if what == "1 damage prevented this way":  # -- prevention riders (wave 17A) -- "for each 1 damage prevented this way"
+        return {"ref_amount": "prevented"}
     if what in ("cards in your hand", "card in your hand"):
         return {"hand": "you"}
+    if what in ("cards in the chosen player's hand", "card in the chosen player's hand"):  # -- chosen type (wave 16F) --
+        return {"hand": "chosen"}
     if what in ("creatures in your party", "creature in your party"):  # -- refused modal/conditional (wave 3R1) --
         return {"party": "you"}  # 700.8
     if what in ("cards in target player's hand", "cards in target opponent's hand"):
         return {"hand": "target"}
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
         return {"opponents": 1}
+    if what == "opponent you attacked with a creature this combat":  # -- casting extras (wave 18E) -- melee 702.121a
+        return {"attacked_opponents": 1}
     if what in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
         return {"kicked": 1}
+    if what in ("times this creature has mutated", "times ~ has mutated", "times this permanent has mutated", "time this creature has mutated"):  # -- merged permanents (wave 18D)
+        return {"mutated": 1}  # (702.140: how many spells merged with it)
     if what in ("creature it devoured", "creature ~ devoured"):  # -- keyword mechanics (wave 9D) -- 702.82b
         return {"devoured": 1}
     if _COLORS_SPENT.fullmatch(what):  # -- ability words (wave 4F) -- converge
         return {"colors_spent": 1}
+    m = _MANA_FROM.fullmatch(what)  # -- mana provenance (wave 18B) -- "the amount of {S} spent to cast this spell"
+    if m:
+        return {"mana_from": "Snow" if m["what"] is None else _FROM_TAGS[m["what"].lower()]}
     m = _MANA_SPENT.fullmatch(what)  # -- X actions (wave 9A) -- "the amount of mana spent to cast that spell / her"
     if m:
         return {"mana_spent": "event" if m["o"] == "that spell" else "self"}
@@ -204,6 +230,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"player_counters": m["kind"]}
     if _EXCESS_DEALT.fullmatch(what):  # -- as long as (wave 9B) -- 120.10: scripts bind it to the damage just before (this_way.excess_dealt)
         return {"ref_amount": "excess_dealt"}
+    if what in ("the damage prevented this way", "damage prevented this way"):  # -- prevention riders (wave 17A) -- 615.5
+        return {"ref_amount": "prevented"}  # (source_shields.rider: bound by the prevention effect when it prevented damage)
     if what == "the damage dealt this way":  # -- if you do (wave 5G) -- what the damage just before dealt (this_way)
         return {"ref_amount": "damage_dealt"}
     if what == "the life lost this way":  # -- refused zones/sized (wave 3R4) -- what the lose_life just before lost
@@ -246,6 +274,14 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"distinct": "names", "among": key} if key else None
     if what.startswith(("the ", "a ", "an ")):
         return None
+    # -- static grants (wave 15A) -- "for each land you control and each land card in your graveyard" (Multani): the sum of the
+    # two counts (an object that is both counts once for each, as "for each" reads)
+    m = re.fullmatch(r"(?P<a>.+?) and each (?P<b>.+)", what)
+    if m:
+        a, b = parse_count(m["a"], it=it), parse_count(m["b"], it=it)
+        if isinstance(a, dict) and isinstance(b, dict) and set(a) == set(b) == {"count"}:
+            return {"plus": [a, b]}
+        return None
     sel = selectors.parse(_normalise(what))
     if sel is None:
         return None
@@ -259,7 +295,7 @@ _ATTACHED_TO = re.compile(r"(?P<kinds>Aura|Equipment|Aura (?:and|or|and/or) Equi
 
 # -- sized amounts (wave 3D) -- ------------------------------------------------------------------
 _N_PLUS = re.compile(r"^(?P<n>\d+|one|two|three|four|five) plus (?P<v>.+)$")
-_SPELLS_CAST = re.compile(r"^(?:the number of )?spells you(?:'ve| have) cast this turn$")
+_SPELLS_CAST = re.compile(r"^(?:the number of )?spells (?P<who>you|they)(?:'ve| have) cast this turn$")
 
 
 def _sized(what: str, it: str | None) -> Value | None:
@@ -274,8 +310,8 @@ def _sized(what: str, it: str | None) -> Value | None:
     if m:  # "the number of creatures you control plus the number of Foods you control" (a sum of two counts)
         a, b = parse_count(m["a"], it=it), parse_count(m["b"], it=it)
         return {"plus": [a, b]} if a is not None and b is not None else None
-    if _SPELLS_CAST.match(what):
-        return {"spells_cast": "you"}
+    if (m := _SPELLS_CAST.match(what)):  # (wave 17D: "they" the trigger's player, Rug of Smothering)
+        return {"spells_cast": "you" if m["who"] == "you" else "event_player"}
     return _turn_amount(what)
 
 
@@ -283,9 +319,9 @@ def _sized(what: str, it: str | None) -> Value | None:
 # is carried out (608.2h): "the amount of life you gained this turn", "spell you've cast this turn" ("for each …"),
 # "cards you've drawn this turn", "creatures that died this turn", "opponent who drew two or more cards this turn".
 _TURN_LIFE = re.compile(r"^(?:the )?(?:amount of )?life you(?:'ve| have)? (?P<k>gained|lost) this turn$")
-_TURN_SPELL = re.compile(r"^spell you(?:'ve| have) cast this turn$")
+_TURN_SPELL = re.compile(r"^spell (?P<who>you|they)(?:'ve| have) cast this turn$")
 _TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
-_TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?) that died(?P<mine> under your control)? this turn$")
+_TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?|[A-Z][a-z-]+) that died(?P<mine> under your control)? this turn$")
 _OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? who (?:(?P<drew>drew (?P<n>\w+) or more cards)|"
                             r"(?P<lost>lost life)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
                             r"this turn$")
@@ -295,13 +331,17 @@ def _turn_amount(what: str) -> Value | None:
     m = _TURN_LIFE.match(what)
     if m:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
-    if _TURN_SPELL.match(what):
-        return {"spells_cast": "you"}
+    if (m := _TURN_SPELL.match(what)):
+        return {"spells_cast": "you" if m["who"] == "you" else "event_player"}
+    m = re.fullmatch(r"creature (?:(?P<any>that attacked)|(?P<mine>you attacked with)) this turn", what)
+    if m:  # -- cost self reduction (wave 16F) -- the creatures declared as attackers (508.1, wave 4D log), whether or not still here
+        return {"turn_history": "attackers", **({"who": "you"} if m["mine"] else {})}
     if _TURN_DREW.match(what):
         return {"turn_history": "drew"}
     m = _TURN_DIED.match(what)
     if m:  # 700.4; as they last existed on the battlefield (608.2i)
-        sel = selectors.parse(m["sel"])
+        # -- trigger tail (wave 15B) -- "for each Zubera that died this turn": a creature type counts creatures (700.4)
+        sel = selectors.parse(m["sel"] + (" creature" if m["sel"][0].isupper() else ""))
         if sel is None:
             return None
         # -- X actions (wave 9A) -- "that died under your control this turn": the ones you controlled as they died (700.4)
@@ -321,13 +361,18 @@ def _normalise(what: str) -> str:
     """Noun phrases the selector grammar spells differently: "cards in all graveyards" (400.1:
     every player's), "instant and sorcery cards" (cards of either type: a list, not "artifact
     creature"'s both-types reading)."""
-    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", re.sub(r" on the battlefield$", "", what))  # (sized amounts, wave 3D)
+    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", re.sub(r" on the battlefield(?=$| named ~)", "", what))  # (sized amounts, wave 3D)
     return re.sub(rf"\b(?P<a>{_TYPE_WORDS}) and (?P<b>{_TYPE_WORDS}) (?P<n>cards?|spells?)\b", r"\g<a> or \g<b> \g<n>", out)
 
 
 def _selector_key(phrase: str) -> str | None:
     sel = selectors.parse(_normalise(phrase))
     return sel.key() if sel is not None else None
+
+
+class NoChosenPlayer(Exception):
+    """-- chosen type (wave 16F) -- a count about "the chosen player" read before the source has chosen one (a creature with
+    "As ~ enters, choose an opponent" is on the battlefield before the choice is made): the value is not known yet."""
 
 
 def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
@@ -365,6 +410,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return 0  # a negative result of an effect is zero (107.1b); the sign is evaluate_signed's
     if "kicked" in v:
         return kicked_count(plan, ctx)
+    if "mutated" in v:  # -- merged permanents (wave 18D) --
+        from app.rules import merged
+
+        return merged.times_mutated_in(plan, ctx)
     if "devoured" in v:  # -- keyword mechanics (wave 9D) -- 702.82b: sacrificed as a result of its devour as it entered
         return plan.rules.devoured.get(ctx.get("source_object") or "", 0)
     if "colors_spent" in v:  # -- ability words (wave 4F) -- converge (a spell cast by hand: no mana known, 0)
@@ -377,6 +426,13 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                       "adjust by hand", [record.card] if record.card in plan.state.cards else ())
             return 0
         return sum(1 for c in "WUBRG" if record.mana_spent.get(c, 0) > 0)
+    if "mana_from" in v:  # -- mana provenance (wave 18B) -- {S} (107.4h) or mana from a Treasure ... spent to cast the source
+        record = plan.rules.payments.get(ctx.get("source_object") or "")
+        if record is None or not record.mana_known:
+            plan.note("What paid for the spell isn't known (read as 0) — adjust by hand",
+                      [record.card] if record is not None and record.card in plan.state.cards else ())
+            return 0
+        return sum(1 for t in record.mana_tags if v["mana_from"] in t)
     if "mana_spent" in v:  # -- X actions (wave 9A) -- a spell cast by hand: no mana known, 0 (and said so)
         return _mana_spent(plan, ctx, v["mana_spent"])
     if "named_self_in_graveyards" in v:  # -- mana riders (wave 5A) -- cards with the source's name in every graveyard
@@ -389,11 +445,19 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                    for cid in ids if name and chars.of(plan.state.cards[cid], plan.info).name == name)
     if "count" in v:
         sel = selectors.from_key(v["count"])
+        if ctx.get("unknown_choice_raises") and "chosen" in (sel.controller, sel.zone_owner):
+            from app.rules import chosen
+
+            if chosen.player_of(plan, ctx.get("source_card") or "") is None:
+                raise NoChosenPlayer
         if sel.player is not None:
             return sum(1 for p in plan.live() if selectors.matches_player(plan, sel, p, you))
         return len(selectors.candidates(plan, sel, you, _other_than(ctx)))
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
-        return plan.rules.spells_this_turn(you, plan.state.turn.number)
+        from app.rules import context
+
+        return sum(plan.rules.spells_this_turn(p, plan.state.turn.number) for p in (
+            [you] if v["spells_cast"] == "you" else context.players(plan, ctx, context.EVENT)))
     if "turn_history" in v:  # -- this-turn history (wave 4D) --
         from app.rules import history
 
@@ -415,11 +479,26 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in context.players(plan, ctx, context.EVENT)
                    if p in plan.live())
+    if "hand" in v and v["hand"] == "chosen":  # the player the source chose as it entered (the count of a hand is public)
+        from app.rules import chosen
+
+        who = chosen.player_of(plan, ctx.get("source_card") or "")
+        if who is None and ctx.get("unknown_choice_raises"):
+            raise NoChosenPlayer
+        return len(plan.state.zones.get(f"{who}:hand", [])) if who in plan.live() else 0
     if "hand" in v:
         players = [you] if v["hand"] == "you" else _target_players(plan, ctx)
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in players)
+    if "library" in v:  # -- static grants (wave 15A) -- "half their library": the cards in the library of the player it names
+        from app.rules import context
+
+        players = [you] if v["library"] == "you" else context.players(plan, ctx, context.EVENT) if v["library"] == "event" \
+            else _target_players(plan, ctx)
+        return sum(len(plan.state.zones.get(f"{p}:library", [])) for p in players if p in plan.live())
     if "opponents" in v:
         return sum(1 for p in plan.live() if p != you)
+    if "attacked_opponents" in v:  # -- casting extras (wave 18E) -- the players its controller attacked in the latest declaration
+        return sum(1 for p in plan.rules.attacked_players.get(you, []) if p in plan.live() and p != you)
     if "life" in v:
         if v["life"] == "you":
             return max(0, plan.state.players[you].life)
@@ -543,6 +622,8 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
         return sum(1 for c in plan.state.cards.values() if c.attached_to == card.id and c.zone.endswith(":battlefield")
                    and plan.in_game(c) and kinds & plan.ch(c).subtypes)
     mine = plan.ch(card)
+    if v["relative"] == "colors":
+        return len(mine.colors)
     if v["relative"] == "creature_type":
         want = mine.subtypes & CREATURE_TYPES
         if not want:
@@ -607,6 +688,12 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         sid = ctx.get("stack_id")
         record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
         ids = record.discarded if record is not None else []
+        card = plan.state.cards.get(ids[0]) if len(ids) == 1 else None
+        return (card, plan.ch(card)) if card is not None else None
+    if who == "cost:revealed":  # -- static_other sweep (wave 17C) -- "the revealed card's mana value": the one card a spell's cost revealed
+        sid = ctx.get("stack_id") or ctx.get("source_card")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        ids = record.revealed if record is not None else []
         card = plan.state.cards.get(ids[0]) if len(ids) == 1 else None
         return (card, plan.ch(card)) if card is not None else None
     if who == "cost:sacrificed":  # -- sized amounts (wave 3D) -- "the sacrificed creature's power": what a cost sacrificed, as it last existed

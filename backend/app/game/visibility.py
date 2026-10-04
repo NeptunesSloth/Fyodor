@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
+from app.game.control import controlled_by
 from app.game.state import (
     ALL,
     OWNER_VISIBLE_ZONES,
@@ -32,20 +33,38 @@ SPECTATOR = "__spectator__"
 
 
 def can_see(state: GameState, card: CardInstance, viewer: str) -> bool:
-    """True when ``viewer`` may learn this card's identity right now."""
+    """True when ``viewer`` may learn this card's identity right now. -- controlling another player (wave 18H) -- 723.4:
+    also what a player they control may see (cards outside the game, a sideboard, are only that player's)."""
+    return _sees(state, card, viewer) or (
+        split_zone(card.zone)[1] != "sideboard" and any(_sees(state, card, p) for p in controlled_by(state, viewer)))
+
+
+def _sees(state: GameState, card: CardInstance, viewer: str) -> bool:
     if viewer == OMNISCIENT or card.ability is not None:
         return True
     if ALL in card.revealed_to or viewer in card.revealed_to:
         return True
     _, zone = split_zone(card.zone)
+    if shown_at_end(state, card, zone):
+        return True
     if zone in PUBLIC_ZONES:
-        return not card.face_down or viewer == card.controller
+        return not card.face_down or (viewer == card.controller and not card.unseen) or looks_at_face_down(state, card, viewer)
     if zone in OWNER_VISIBLE_ZONES and viewer == card.owner:
         return True
     for view in state.views:
         if view.viewer == viewer and view.zone == card.zone and (view.kind == "search" or card.id in view.card_ids):
             return True
     return zone == "library" and top_revealed(state, card, viewer)
+
+
+def shown_at_end(state: GameState, card: CardInstance, zone: str) -> bool:
+    """-- review (sys 18A) -- 708.9 / 702.143f: when a player leaves the game, the face-down permanents and spells and the foretold
+    cards they own are revealed to all players, and at the end of the game everyone's are (with automation on: the engine knows
+    who left and who won)."""
+    r = state.rules
+    if r is None or not (card.face_down and zone in ("battlefield", "stack") or zone == "foretell"):
+        return False
+    return r.winner is not None or card.owner in r.lost or card.owner in r.conceded
 
 
 def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
@@ -68,9 +87,25 @@ def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
                 or rules.card_mode(source.id) == "manual":
             continue
         controller = source.controller
-        if card.zone != f"{controller}:library" or (reveal.to == "owner" and viewer != controller):
+        if reveal.to == "none" or card.zone != f"{controller}:library" or (reveal.to == "owner" and viewer != controller):
             continue
         return True
+    return False
+
+
+def looks_at_face_down(state: GameState, card: CardInstance, viewer: str) -> bool:
+    """-- hidden exile (wave 18A) -- "You may look at face-down creatures you don't control any time." (Found Footage, Keeper of
+    the Lens): the source's controller sees the face-down creatures on the battlefield that others control (a static ability
+    that works while its source is on the battlefield face up and automated, as ``top_revealed``)."""
+    rules = state.rules
+    if rules is None or not card.zone.endswith(":battlefield") or card.controller == viewer \
+            or (card.face_down_as is not None and "creature" not in card.face_down_as):  # (review sys 18A: a face-down Forest land isn't a creature)
+        return False
+    for reveal in rules.top_reveals:
+        source = state.cards.get(reveal.source)
+        if reveal.face_down and reveal.player == viewer and source is not None and not source.face_down \
+                and source.zone.endswith(":battlefield") and source.controller == viewer and rules.card_mode(source.id) != "manual":
+            return True
     return False
 
 

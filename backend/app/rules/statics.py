@@ -92,7 +92,12 @@ GRANTABLE_KEYWORDS: frozenset[str] = frozenset({
 # -- static wordings (wave 6E) -- triggered keywords a static may grant (613.1f): granted as the keyword line itself, an
 # ability of the object like a printed one (scripts.keyword_triggers: prowess 702.108a, persist 702.79a, undying
 # 702.93a; triggers._exalted: exalted 702.83a, each instance triggering separately, 702.83b / 702.108b)
-TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "undying"})
+TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "undying",
+                                              "mentor", "training", "dethrone", "evolve", "flanking", "battle cry"})  # (wave 15E)
+# -- static grants (wave 15A) -- keywords whose whole meaning is one triggered ability (keyword_triggers.MEANINGS): granted as the
+# line itself (613.1f). Not modular / graft / living weapon / for mirrodin! / ravenous: those have a half that works as the
+# permanent enters (a granted one would miss it).
+MEANING_GRANTS = r"extort|ingest|(?:poisonous|frenzy|afterlife|annihilator|afflict) \d+"
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
                      "enchanted permanent": "permanent", "enchanted artifact": "artifact",
@@ -116,11 +121,23 @@ def _num(word: str) -> int | None:
 def parse(text: str) -> Definition | None:
     """One static ability sentence (the card's own name already written as ~) → definition, or None."""
     t = text.strip().replace("’", "'").replace("“", '"').replace("”", '"')
+    # -- attached events (wave 16F) -- "Enchanted permanent can't attack, block, or crew Vehicles. Its activated abilities can't be
+    # activated unless they're mana abilities." (Intercessor's Arrest): the two sentences are one static's two rules
+    # -- attached events (wave 16F) -- Zendikon: "Enchanted land is a 3/3 black Ooze creature with reach. It's still a land." is
+    # 205.1b's "is a black Ooze creature with base power and toughness 3/3 in addition to its other types and has reach"
+    # (the land keeps its types and its subtypes: 305.7 only takes the rules text away when a land TYPE is set)
+    t = re.sub(r"^(Enchanted land) is an? (\d+)/(\d+) ([^.]+?)(?: with ([^.]+))?\. It's still a land\.$",
+               lambda m: f"{m[1]} is a {m[4]} with base power and toughness {m[2]}/{m[3]} in addition to its other types"
+                         + (f" and has {m[5]}." if m[5] else "."), t)
+    t = t.replace(" be activated unless they're mana abilities", " be activated-nonmana")  # ("unless" is not a condition here)
+    t = re.sub(r"(?<=Vehicles)\. Its (activated abilities can't be activated-nonmana\.)$", r", and its \1", t)
     if not t.endswith(".") and not t.endswith('."'):
         return None
-    if t.count(". ") or "\n" in t:
+    if re.sub(r'"[^"]*"', "", t).count(". ") or "\n" in t:  # (wave 16F: sentences inside a quoted granted ability are its own)
         return None  # two sentences: one of them says something we'd silently drop
     body = t[:-1] if t.endswith(".") else t
+    if re.fullmatch(r"A deck can have (?:any number of|up to \w+) cards named ~", body):
+        return {"kind": "static", "static": "deck_rule", "effects": []}  # -- static grants (wave 15A) -- 100.2a / 903.5b: deck building only
     cda = parse_cda(body)
     if cda is not None:
         return cda
@@ -134,7 +151,7 @@ def parse(text: str) -> Definition | None:
     # -- dynamic values (agent F): "~ gets +X/+X, where X is …" (the X of a static is defined by its text)
     x_phrase: str | None = None
     m = re.match(r"^(?P<rest>.+), where X is (?P<x>.+)$", body)
-    if m:
+    if m and m["rest"].count('"') % 2 == 0:  # (not inside a quoted granted ability)
         x_phrase, body = m["x"], m["rest"]
     # -- static statics (wave 10B) -- "Creatures your opponents control lose flying and can't have or gain flying."
     # (the Archetypes): lose it now (613.1f, in timestamp order) and never have or gain it (the deny is applied last)
@@ -155,12 +172,15 @@ def parse(text: str) -> Definition | None:
                   lambda m: f"{'~' if m['o'] in ('~', 'this creature') else m['o'].capitalize()} must be blocked by all {m['w']} able",
                   body)
     body = re.sub(r"(?P<sep>, and| and|,) all creatures able to block it do so$", r"\g<sep> must be blocked by all creatures able", body)
+    # -- borrowed abilities (wave 18F) -- "As long as ~ is on the battlefield, …": a static of a permanent works there only (611.3b)
+    body = re.sub(r"^As long as (?:~|it) is on the battlefield, ", "", body)
     conds: list[dict[str, Any]] = []
     names_source = False  # -- conditional statics (wave 4B) -- the condition names the source as "~", not "it"
     defender_sel: str | None = None  # "… as long as defending player controls an artifact"
     rule_cond = False  # "unless …" / "if …": conditions only restrictions are worded with
     # "During your turn, …" / "As long as <condition>, …" / "… as long as <condition>"
     m = re.match(r"^(?:During your turn|As long as it's your turn), (?P<rest>.+)$", body)
+    m = m or re.match(r"^(?P<rest>.+? (?:has|have|gets?) .+) during your turn$", body)  # (wave 15A: "~ has first strike during your turn")
     if m:
         conds.append({"static": "your_turn"})
         body = m["rest"]
@@ -183,19 +203,29 @@ def parse(text: str) -> Definition | None:
                     return None
                 body = m["rest"]
             else:
-                m = re.match(r"^(?P<rest>.+?) (?:as long as|(?P<r>unless|if)) (?P<cond>(?!able\b).+)$", body)
+                # (-- trigger tail (wave 15B) -- a condition inside a quoted granted ability is that ability's own: masked here)
+                masked = re.sub(r'"[^"]*"', lambda q: "\0" * len(q[0]), body)
+                m = re.match(r"^(?P<rest>.+?) (?:as long as|(?P<r>unless|if)) (?P<cond>(?!able\b).+)$", masked)
                 if m:
-                    cond = _condition(m["cond"])
+                    cond_text, rest_text = body[m.start("cond"):m.end("cond")], body[m.start("rest"):m.end("rest")]
+                    # -- attached events (wave 16F) -- "Enchanted creature gets +1/+2 as long as it's white": "it" is the creature the
+                    # static modifies (the object attached to), as in "As long as enchanted creature is white, it gets +1/+2"
+                    host = re.match(r"(?P<w>Enchanted|Equipped) (?P<n>creature|permanent|land|artifact) (?:gets?|ha(?:s|ve)) ", rest_text)
+                    it_is = re.fullmatch(r"it(?:'s| is) (?P<d>.+)", cond_text)
+                    if host and it_is:
+                        cond_text = f"{host['w'].lower()} {host['n']} is {it_is['d']}"
+                    cond = _condition(cond_text)
                     if cond is None:
                         return None
-                    names_source = _names_source(m["cond"])  # -- conditional statics (wave 4B) --
+                    names_source = _names_source(cond_text)  # -- conditional statics (wave 4B) --
                     if m["r"]:
                         rule_cond = True
                         if m["r"] == "unless":
                             cond = {"static": "not", "cond": cond}
                     conds.append(cond)
-                    body = m["rest"]
-    if " as long as " in body or " unless " in body or body.startswith(("As long as", "During ", "If ", "if ")):
+                    body = rest_text
+    outside = re.sub(r'"[^"]*"', "", body)  # (wave 16F: a condition inside a quoted granted ability is that ability's own)
+    if " as long as " in outside or " unless " in outside or body.startswith(("As long as", "During ", "If ", "if ")):
         return None
     # -- conditional statics (wave 4B) -- "Creatures you control also get +1/+0 and have trample as long as …"
     # (Jetmir: "also" only says the effect adds to the line before it)
@@ -233,6 +263,8 @@ def parse(text: str) -> Definition | None:
     who, kind = _subject(subject, plural=re.match(r"(?:get|have) ", predicate) is not None)
     if who is None:
         return None
+    if who != "attached" and any(_mentions(c, ("attached_stat", "attached_ctrl")) for c in conds):
+        return None  # -- attached events (wave 16F) -- "its power / its controller" names the object an Aura or Equipment is on
     if who.startswith(UNION) and (conds or x_phrase is not None or defender_sel or rule_cond):
         return None  # -- static wordings (wave 6E) -- (a union subject: only plain grants)
     if layer4 is not None and who != "self":
@@ -267,7 +299,7 @@ def parse(text: str) -> Definition | None:
         return None
     if x_value is not None and parts["each"] is None:
         return None  # ("where X is …" with no X in the sentence)
-    if who == "self" and not conds and not parts["rules"] and parts["each"] is None:
+    if who == "self" and not conds and not parts["rules"] and parts["each"] is None and parts["abilities_of"] is None:
         return None  # "~ has flying." unconditionally is a keyword line, not a static: not a template
     if rule_cond and not parts["rules"]:
         return None  # "~ gets +1/+1 if …" isn't how a static grant is worded
@@ -320,6 +352,8 @@ def _layer4_safe(cond: dict[str, Any]) -> bool:
     (700.5a: mana costs after copy effects only), life totals, whose turn it is."""
     if cond.get("static") in ("self_counter", "your_turn", "life_vs_start", "opp_life"):
         return True
+    if cond == {"static": "self", "test": "attached_to_a_creature"}:  # -- casting extras (wave 18E) -- reconfigure 702.151b
+        return True
     value = cond.get("value")
     return cond.get("static") is None and isinstance(value, dict) and set(value) == {"devotion"}
 
@@ -350,12 +384,15 @@ def zone_static(d: Definition) -> bool:
 
 def _definition(who: str, kind: str | None, conds: list[dict[str, Any]], *, p: int = 0, t: int = 0,
                 base: list[int] | None = None, keywords: list[str] | None = None, grants: list[str] | None = None,
-                rules: list[str] | None = None, each: dict[str, Any] | None = None) -> Definition:
+                rules: list[str] | None = None, each: dict[str, Any] | None = None,
+                abilities_of: dict[str, Any] | None = None) -> Definition:
     out: Definition = {"kind": "static", "static": "grant", "effects": [], "who": who, "attached_kind": kind,
            "conditions": conds, "p": p, "t": t, "base": base, "keywords": keywords or [], "grants": grants or [],
            "rules": rules or []}
     if each is not None:
         out["each"] = each
+    if abilities_of is not None:  # -- borrowed abilities (wave 18F) --
+        out["abilities_of"] = abilities_of
     return out
 
 
@@ -410,6 +447,8 @@ def _attached_relative(each: str) -> dict[str, Any] | None:
 
 
 def _relative_count(each: str) -> dict[str, Any] | None:
+    if each == "of its colors":  # -- attached events (wave 16F) -- 105.1: the colors of the object modified (Civic Saber)
+        return {"relative": "colors"}
     m = _SHARING.match(each) or _SAME_NAME.match(each)
     if m is None:
         return None
@@ -449,7 +488,7 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
     if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
         return goaded["s"], goaded["p"]
-    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?(?= combat damage))\b", body)  # (assigns: wave 6E)
+    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?(?= combat damage)|crews(?= Vehicles))\b", body)  # (assigns: wave 6E; crews: 17C)
     if m is None or m.start() == 0:
         return None, None
     return body[: m.start()].strip(), body[m.start():].strip()
@@ -486,9 +525,14 @@ _UNION_TWO = re.compile(r"^(?P<a>.+? you control) and (?P<b>(?:other )?[A-Za-z][
 _UNION_SHARED = re.compile(r"^(?P<pre>[Oo]ther )?(?P<a>[A-Z][a-z'\-]+) and (?P<b>[A-Z][a-z'\-]+) you control$")
 
 
+_EACH_TWO = re.compile(r"^(?P<d>Each|All) (?P<a>[A-Za-z][\w'-]*(?: [a-z][\w'-]*)?) and (?P<b>[A-Za-z][\w'-]*(?: [a-z][\w'-]*)?) you control$")
+
+
 def _union_subject(subject: str) -> str | None:
     m = _UNION_TWO.match(subject)
     parts = [m["a"], m["b"]] if m else None
+    if parts is None and (e := _EACH_TWO.match(subject)) is not None and e["d"] == "Each":  # -- static_other sweep (wave 17C) --
+        parts = [f"Each {e['a']} you control", f"Each {e['b']} you control"]  # "Each land and Ally you control has …"
     if parts is None and (m := _UNION_SHARED.match(subject)) is not None and _type_list(subject) == subject:
         parts = [f"{m['pre'] or ''}{m['a']} you control", f"{m['pre'] or ''}{m['b']} you control"]
     if parts is None:
@@ -547,7 +591,9 @@ def _pieces(predicate: str) -> list[str]:
     quoted = False
     i = 0
     predicate = predicate.replace("power and toughness", "power_and_toughness")
+    predicate = predicate.replace("can't attack, block, or crew Vehicles", "can't attack,_block,_or_crew_Vehicles")  # (wave 16F)
     predicate = predicate.replace("Aura and Equipment", "Aura_and_Equipment")  # (wave 6C: one count, values._ATTACHED_TO)
+    predicate = re.sub(r"(for each [^,\"]*?) and each ", r"\1 and_each ", predicate)  # (wave 15A: one sum, values._parse_count)
     while i < len(predicate):
         c = predicate[i]
         if c == '"':
@@ -567,6 +613,7 @@ def _pieces(predicate: str) -> list[str]:
         i += 1
     out.append(buf.strip())
     return [p.replace("power_and_toughness", "power and toughness").replace("Aura_and_Equipment", "Aura and Equipment")
+            .replace(" and_each ", " and each ").replace("attack,_block,_or_crew_Vehicles", "attack, block, or crew Vehicles")
             for p in out if p]
 
 
@@ -581,6 +628,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
     grants: list[str] = []
     rules: list[str] = []
     each: dict[str, Any] | None = None
+    lent: dict[str, Any] | None = None  # -- borrowed abilities (wave 18F) --
     verb: str | None = None
     # -- attached events (wave 4L) -- "protection from black and from green" is one keyword (702.16g): not split
     if "protection from " in predicate and '"' not in predicate:
@@ -632,27 +680,37 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
                 return None
             base = [int(b["p"]), int(b["t"])]
             continue
+        if rest.startswith("all activated abilities of "):  # -- borrowed abilities (wave 18F) -- app/rules/abilities_of.py
+            from app.rules import abilities_of
+
+            found_lent = abilities_of.parse(rest)
+            if found_lent is None or lent is not None or verb != "have":
+                return None
+            lent = found_lent
+            continue
         q = _QUOTED.match(rest)
         if q:
-            if granted_ability(q["q"]) is None:
+            text = q["q"] if q["q"][-1] in ".)" else q["q"] + "."  # (wave 16F: a quote ending a clause has no period of its own)
+            if granted_ability(text) is None:
                 return None
-            grants.append(q["q"])
+            grants.append(text)
             continue
         if rest in GRANTABLE_KEYWORDS:
             keywords.append(rest)
             continue
-        if rest in TRIGGERED_GRANTS:  # -- static wordings (wave 6E) --
-            grants.append(rest.capitalize())
+        if rest in TRIGGERED_GRANTS or rest == "riot" or re.fullmatch(MEANING_GRANTS, rest):  # -- static wordings (wave 6E) --
+            # (wave 17C: riot is read from the entering permanent's characteristics as it enters, 614.12: app/rules/riot.py)
+            grants.append(rest.capitalize())  # (wave 15A: "have extort", "have afflict 2": their CR meaning, keyword_triggers)
             continue
         line = keyword_line(rest.replace(_FROM_JOIN, " and from "))  # -- attached events (wave 4L) --
         if line is not None:
             grants.append(line)
             continue
         return None
-    if not (p or t or base or keywords or grants or rules or each or extra):
+    if not (p or t or base or keywords or grants or rules or each or extra or lent):
         return None
     return {"p": p, "t": t, "base": base, "keywords": keywords, "grants": grants, "rules": rules, "each": each,
-            "extra": extra}
+            "extra": extra, "abilities_of": lent}
 
 
 # -- attached events (wave 4L) ---------------------------------------------------------------------------------
@@ -662,7 +720,8 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
 # targeting, blocking, damage, attachments), ward (702.21a: each instance triggers, triggers.ward_costs), toxic
 # (702.164: combat.py). Only qualities and costs the engine enforces (coverage._keyword_supported).
 _FROM_JOIN = "\u0001from "
-_PARAM_KEYWORDS = ("protection", "ward", "toxic")
+_PARAM_KEYWORDS = ("protection", "ward", "toxic", "annihilator", "afflict", "poisonous", "bushido", "mobilize", "frenzy",
+                   "soulshift", "afterlife", "crew", "equip")  # (wave 15E: keywords whose line is carried out wherever it is: keyword_triggers; 17C: crew, equip)
 
 
 def keyword_line(rest: str) -> str | None:
@@ -670,8 +729,9 @@ def keyword_line(rest: str) -> str | None:
     creatures"), or None."""
     from app.rules.coverage import _keyword_supported  # (coverage imports this module through scripts)
 
-    word = rest.split(" ", 1)[0]
-    if word not in _PARAM_KEYWORDS or not re.fullmatch(r"[a-z]+ [\w{}, ]+", rest):
+    word = "ward" if rest.startswith("ward—") else rest.split(" ", 1)[0]
+    # -- static_other sweep (wave 17C) -- "Ward—Pay 2 life." / "Ward—{2}, Pay 2 life.": a ward cost that isn't just mana (triggers.ward_piece_cost)
+    if not (word in _PARAM_KEYWORDS and re.fullmatch(r"[a-z]+ [\w{}, ]+", rest)) and not re.fullmatch(r"ward—[\w{}, ]+", rest):
         return None
     line = rest[0].upper() + rest[1:]
     return line if _keyword_supported(word, line) else None
@@ -705,6 +765,9 @@ RULES: dict[str, tuple[str, ...]] = {
     "don't untap during their controller's untap step": ("doesnt_untap",),
     "its activated abilities can't be activated": ("cant_activate",),
     "their activated abilities can't be activated": ("cant_activate",),
+    # -- attached events (wave 16F) -- 602.2: not the mana abilities (605.1a); 702.122: a creature that can't crew a Vehicle
+    "its activated abilities can't be activated-nonmana": ("cant_activate_nonmana",),
+    "can't attack, block, or crew Vehicles": ("cant_attack_or_block", "cant_crew"),
 }
 # -- keyword actions & face-down (wave 3F) -- "Enchanted creature gets +2/+2 and is goaded.", "Creatures your
 # opponents control with power less than ~'s power are goaded." (701.15b: goaded by the controller of the
@@ -739,6 +802,13 @@ def _rule(piece: str) -> list[str] | None:
     if m:
         n = 1 if m["one"] else 999 if m["any"] else _num(m["a"] or m["b"])
         return [f"block_extra:{n}:@src"] if n else None
+    # -- static_other sweep (wave 17C) -- 702.122: "This creature crews Vehicles as though its power were 2 greater." / "… using its toughness
+    # rather than its power." — the number it counts toward crew (casting.crew_value)
+    m = re.fullmatch(r"crews Vehicles as though its power were (?P<n>\w+) greater", piece)
+    if m and _num(m["n"]):
+        return [f"crew_plus:{_num(m['n'])}"]
+    if piece == "crews Vehicles using its toughness rather than its power":
+        return ["crew_toughness"]
     m = re.fullmatch(r"can't be blocked except by (?P<n>\w+) or more creatures", piece)
     if m:
         n = _num(m["n"])
@@ -747,6 +817,14 @@ def _rule(piece: str) -> list[str] | None:
         return ["cant_be_blocked_by_power:greater"]
     if piece == "can't block creatures with power greater than ~'s power":
         return ["cant_block_power:greater"]
+    # -- cant (wave 16F) -- 115.2: "can't be the target of black spells or abilities from black sources" (Mercenary Informer) /
+    # "… of nongreen spells or abilities from nongreen sources" (Gaea's Revenge), "… your opponents control" (Thrun): an object
+    # whose source (a spell, or the source of an ability) has that color (or lacks it) can't target it. Colorless is nongreen.
+    m = re.fullmatch(r"can't be the targets? of (?P<n>non)?(?P<c>white|blue|black|red|green) spells(?: (?P<o1>your opponents control))? or "
+                     r"abilities from (?P=n)?(?P=c) sources(?: (?P<o2>your opponents control))?", piece)
+    if m:
+        colors = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[m["c"]]
+        return [f"untargetable:{1 if m['o1'] or m['o2'] else 0}:{1 if m['n'] else 0}:{colors}"]
     m = re.fullmatch(r"can't be blocked (?P<except>except )?by (?P<sel>.+)", piece)
     if m:
         sels = _sels(m["sel"])
@@ -812,7 +890,7 @@ def _condition(text: str) -> dict[str, Any] | None:
     c = text.strip()
     if c in ("it's your turn",):
         return {"static": "your_turn"}
-    m = re.fullmatch(r"(?:it|~)(?:'s| is) (?P<test>attacking alone|attacking|blocking|tapped|untapped|enchanted|equipped)", c)
+    m = re.fullmatch(r"(?:it|~)(?:'s| is) (?P<test>attacking alone|attacking|blocking|tapped|untapped|enchanted|equipped|attached to a creature)", c)
     if m:
         return {"static": "self", "test": m["test"].replace(" ", "_")}
     if c in ("it entered this turn", "~ entered this turn"):  # -- refused modal/conditional (wave 3R1) -- (Crew Captain)
@@ -842,6 +920,15 @@ def _condition(text: str) -> dict[str, Any] | None:
     return found if found is not None else static_conditions.compound(c)
 
 
+def _mentions(cond: Any, kinds: tuple[str, ...]) -> bool:
+    """Does the condition (or one nested in it) have one of these static kinds?"""
+    if isinstance(cond, dict):
+        return cond.get("static") in kinds or any(_mentions(v, kinds) for v in cond.values())
+    if isinstance(cond, list):
+        return any(_mentions(v, kinds) for v in cond)
+    return False
+
+
 def condition(text: str) -> dict[str, Any] | None:
     """-- conditional statics (wave 4B) -- one static condition from its wording."""
     return _condition(text)
@@ -869,6 +956,9 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
             from app.rules import static_conditions
 
             return static_conditions.modified(plan, source)
+        if test == "attached_to_a_creature":  # -- casting extras (wave 18E) -- reconfigure 702.151b (judged without the host's types)
+            host = plan.state.cards.get(source.attached_to or "")
+            return host is not None and host.zone.endswith(":battlefield")
         sub = "Aura" if test == "enchanted" else "Equipment"
         return any(c.attached_to == source.id and c.zone.endswith(":battlefield") and sub in plan.ch(c).subtypes
                    for c in plan.state.cards.values())

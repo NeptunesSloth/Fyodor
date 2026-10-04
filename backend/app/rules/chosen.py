@@ -13,6 +13,7 @@ and the effect subject "the chosen player" (``who: "chosen_player"``, effects._p
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -71,6 +72,13 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     """Whether every "of the chosen type / color" in this definition names a choice the engine knows (see above)."""
     if d.get("chosen_type") and _enters_choices(ch).count("creature type") != 1:
         return False  # (wave 11E: "~ is the chosen type in addition to its other types" needs that one choice)
+
+    dumped = json.dumps(d)
+    if ('"hand": "chosen"' in dumped or '\\"controller\\":\\"chosen\\"' in dumped or '\\"zone_owner\\":\\"chosen\\"' in dumped) \
+            and not chooses_player(ch):
+        return False  # (wave 16F: "the chosen player" needs the one "As ~ enters, choose an opponent / a player.")
+    if '"chosen_color": true' in dumped:  # -- prevention riders (wave 17A) -- "sources of the chosen color": this permanent's own choice
+        return d.get("kind") != "spell" and _enters_choices(ch).count("color") == 1
     uses = _uses(d)
     if not uses:
         return True

@@ -210,9 +210,12 @@ def note_events(plan: Plan, events: list[Any]) -> None:
             elif kind == "deal_damage" and info.get("recipient") and log.facts and log.facts[-1].kind == "damage":
                 # its source, as it was as it dealt that damage (608.2i)
                 log.facts[-1].source_types, log.facts[-1].source_supertypes = what["types"], what["supertypes"]
+                log.facts[-1].source_subtypes = what["subtypes"]  # (wave 17C: prowl, 702.76a)
+                log.facts[-1].source_controller = obj.controller if obj is not None else None
             elif kind == "counters_put" and player is not None:
                 log.facts.append(TurnFact(kind="counters", player=player, object_id=info.get("oid"),
-                                          amount=int(info.get("amount") or 0), counter=info.get("counter"), **what))
+                                          amount=int(info.get("amount") or 0), counter=info.get("counter"),
+                                          actor=info.get("actor"), **what))
 
 
 def note_discards(plan: Plan, card_ids: list[str]) -> None:
@@ -404,6 +407,10 @@ def _facts_holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: Tur
             continue
         if sel is not None and not note_matches(sel, f.types, f.subtypes, f.supertypes, (), 0, f.token):
             continue
+        if cond.get("self") and f.object_id != _source_object(plan, ctx):  # (wave 16D) "a counter was put on ~ this turn"
+            continue
+        if cond.get("by") == "you" and f.actor != ctx["controller"]:  # (wave 16D) "you put a counter on a creature this turn"
+            continue
         per[f.player] = per.get(f.player, 0) + 1
     return _per_player(plan, ctx, cond, per)
 
@@ -421,6 +428,19 @@ def _damage(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog)
             continue
         per[f.player] = per.get(f.player, 0) + f.amount
     return any(per.get(p, 0) >= int(cond.get("n", 1)) for p in _players(plan, ctx["controller"], cond.get("who")))
+
+
+def _prowl(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
+    """-- static_other sweep (wave 17C) -- 702.76a: a player was dealt combat damage this turn by a source that, at the time it dealt that
+    damage, was under your control and had any of this spell's creature types (the spell being the condition's source)."""
+    from app.rules.creature_types import CREATURE_TYPES
+
+    spell = plan.state.cards.get(ctx.get("source_card") or "")
+    if spell is None:
+        return False
+    types = set(plan.ch(spell).subtypes) & CREATURE_TYPES
+    return any(f.kind == "damage" and f.combat and f.amount > 0 and f.source_controller == ctx["controller"]
+               and types & set(f.source_subtypes) for f in log.facts)
 
 
 def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
@@ -453,6 +473,7 @@ _WAVE_4D: dict[str, Any] = {
     "cast": _cast,
     "facts": _facts_holds,
     "damage": _damage,
+    "prowl": _prowl,
     "departed": _departed,
     "lands": lambda plan, ctx, cond, log: plan.rules.lands_this_turn(ctx["controller"], plan.state.turn.number) >= int(cond.get("n", 1)),
     "resolution": lambda plan, ctx, cond, log: resolution_holds(ctx, cond),
@@ -478,6 +499,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return sum(1 for d in log.left if d.to == "graveyard" and (snap := plan.rules.lki.get(d.object_id)) is not None
                    and (v.get("who") != "you" or d.controller == me)  # (-- X actions (wave 9A) -- "under your control")
                    and _departed_matches(plan, selectors.from_key(v["sel"]), d, snap))
+    if kind == "attackers":  # -- cost self reduction (wave 16F) -- each creature declared as an attacker this turn, once (508.1)
+        return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
     if kind == "opponents_who":
         n = int(v.get("n", 1))
         opponents = [p for p in plan.state.players if p != me]  # (800.4a: a player who left still did it — but isn't counted)

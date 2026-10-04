@@ -61,9 +61,9 @@ def test_face_down_kinds_are_public_identity_stays_private(cards):
     mine = s.view("p1")["cards"][delver.id]
     assert mine["name"].startswith("Delver") and mine["face_down_kind"] == "morph"
     # manifest the top card, exile face down, turn face up
-    top = s.state.zones["p1:library"][0]
-    act(s, "p1", type="move", card_ids=[top], to={"zone": "battlefield"}, face_down=True, face_down_kind="manifest", x=50, y=10)
-    assert s.state.cards[top].face_down_kind == "manifest"
+    top = s.state.cards[s.state.zones["p1:library"][0]]  # (the object: a card that goes face down in view is renumbered, 406.3)
+    act(s, "p1", type="move", card_ids=[top.id], to={"zone": "battlefield"}, face_down=True, face_down_kind="manifest", x=50, y=10)
+    assert top.face_down_kind == "manifest"
     mountain = find(s.state, "Mountain", "p1")
     act(s, "p1", type="move", card_ids=[mountain.id], to={"zone": "exile"}, face_down=True)
     assert s.state.cards[mountain.id].face_down_kind == "exile"
@@ -79,9 +79,10 @@ def test_face_down_kinds_are_public_identity_stays_private(cards):
 
 def test_manifest_and_cloak_the_top_of_a_library(cards):
     s = partner_session(cards)
-    top2 = s.state.zones["p1:library"][:2]
+    top2 = [s.state.cards[c] for c in s.state.zones["p1:library"][:2]]  # (the objects: they are renumbered as they go face down)
+    old_ids = {c.id for c in top2}
     act(s, "p1", type="put_top_face_down", count=2, kind="cloak")
-    assert all(s.state.cards[c].zone == "p1:battlefield" and s.state.cards[c].face_down_kind == "cloak" for c in top2)
+    assert all(c.zone == "p1:battlefield" and c.face_down_kind == "cloak" for c in top2) and not old_ids & {c.id for c in top2}
     bob = s.view("p2")
-    assert all(bob["cards"][c]["hidden"] and bob["cards"][c]["face_down_kind"] == "cloak" for c in top2)
+    assert all(bob["cards"][c.id]["hidden"] and bob["cards"][c.id]["face_down_kind"] == "cloak" for c in top2)
     assert "cloaked the top 2 cards" in json.dumps(bob["log"])

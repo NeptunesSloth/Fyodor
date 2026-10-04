@@ -60,9 +60,10 @@ class Found:
         self.dying: list[tuple[CardInstance, str]] = []
         self.unattach: list[tuple[CardInstance, str]] = []
         self.protect: list[tuple[CardInstance, list[str]]] = []  # 310.11: battles needing a new protector
+        self.unbestow: list[CardInstance] = []  # -- keywords (wave 15E) -- 702.103f
 
     def visible(self) -> bool:
-        return bool(self.losers or self.annihilate or self.dying or self.unattach)
+        return bool(self.losers or self.annihilate or self.dying or self.unattach or self.unbestow)
 
     def fingerprint(self) -> str:
         return "|".join([*(f"L{p}" for p, _ in self.losers), *(f"D{c.id}:{why}" for c, why in self.dying),
@@ -158,6 +159,15 @@ def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found)
     kind = attachments.attach_kind(ch)
     host = card.attached_to or card.attached_player
     if kind == "aura":
+        from app.rules import (
+            bestow,  # -- keywords (wave 15E) -- 702.103f: a bestowed Aura that is unattached or illegally attached
+        )
+
+        if bestow.is_bestowed(plan.state, card):  # stops being bestowed (a creature again) instead of going to the graveyard
+            problem = "its host is gone" if host is None else attachments.host_problem(plan, card, host)
+            if problem is not None and problem != "unknown":
+                out.unbestow.append(card)
+            return
         if host is None:
             out.dying.append((card, "an Aura attached to nothing"))
             return
@@ -196,6 +206,9 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
                resume={"step": "sba_confirm", "fingerprint": fingerprint})
         return True
     happened = bool(found.vanishing)
+    from app.rules import designations  # -- keywords (wave 15E) -- 702.131b: ascend, any time
+
+    happened = designations.ascend_permanents(plan) or happened
     for pid, reason in found.losers:
         r.lost[pid] = reason
         plan.note(f"{state.players[pid].name} loses the game ({reason})")
@@ -207,6 +220,27 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
     if found.unattach:
         plan.do({"type": "detach", "card_ids": [c.id for c, _ in found.unattach]}, actor=found.unattach[0][0].controller)
         happened = True
+    if found.unbestow:  # -- keywords (wave 15E) -- 702.103f: unattached, and a creature again
+        from app.rules import bestow
+
+        for c in found.unbestow:
+            if c.attached_to or c.attached_player:
+                plan.do({"type": "detach", "card_ids": [c.id]}, actor=c.controller)
+            bestow.cease(plan, c, "it was unattached")
+        happened = True
+    if found.dying:  # -- keywords (wave 15E) -- 702.89a: lethal damage destroys; umbra armor replaces that
+        from app.rules import regeneration
+
+        kept = []
+        for card, reason in found.dying:
+            armor = regeneration.umbra_armor(plan, card) if reason in ("lethal damage", "damage from a deathtouch source") \
+                and not regeneration.shielded(plan, card) else None
+            if armor is not None:
+                regeneration.use_umbra_armor(plan, card, armor, card.controller)
+                happened = True
+            else:
+                kept.append((card, reason))
+        found.dying = kept
     if found.dying and r.regen_shields:  # 701.19: lethal damage destroys; a shield replaces that
         from app.rules import regeneration
 
@@ -236,19 +270,10 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         for pid, _ in found.losers:
             leave_game(plan, pid)
         left = live_players(state)
-        from app.rules import game_result
-
-        if len(left) == 1 and r.winner is None and not game_result.cannot_win(plan, left[0]):  # 104.2a, 10B
+        # 104.2a: the last player left wins at once, overriding "can't win the game" (review of wave 10B)
+        if len(left) == 1 and r.winner is None:
             r.winner = left[0]
             plan.note(f"{state.players[left[0]].name} wins the game")
-    elif r.winner is None and (r.lost or r.conceded):  # -- game result statics (wave 10B) --
-        from app.rules import game_result  # a last player who couldn't win (104.2) wins once nothing stops it
-
-        left = live_players(state)
-        if len(left) == 1 and not game_result.cannot_win(plan, left[0]):
-            r.winner = left[0]
-            plan.note(f"{state.players[left[0]].name} wins the game")
-            happened = True
     # -- counters & designations (wave 3E): 309.6 dungeons, 701.54a Ring-bearers --
     from app.rules import designations
 

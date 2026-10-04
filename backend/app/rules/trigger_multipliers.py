@@ -44,6 +44,13 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 STATIC = "trigger_multiplier"
+# -- static_other sweep (wave 16B) -- "Creatures entering [or dying] don't cause abilities to trigger." (Torpor Orb, Hushbringer, Hushwing Gryff,
+# Tocatli Honor Guard): the opposite of a multiplier (603.2d: rather than determining that an ability triggered, nothing triggers). It
+# stops the abilities (of any permanent, whoever controls it) that trigger from a creature — as it entered, or as it last existed on the
+# battlefield — entering (or dying: 700.4); not a spell's, a delayed or a reflexive one, which no such event causes. The effects counted
+# are those existing immediately after the event (603.10), for dying immediately before it (603.10a: Hushbringer dying with the creatures).
+SUPPRESS = "trigger_suppress"
+_SUPPRESS_TEXT = re.compile(r"^Creatures entering(?P<die> or dying)? don't cause abilities to trigger\.$")
 _TAIL = r", (?:that ability|it) triggers an additional time\.$"
 _CAUSE = re.compile(r"^If (?P<cause>.+?) causes a triggered ability of a permanent you control to trigger" + _TAIL)
 _SOURCE = re.compile(r"^If a triggered ability of (?P<src>.+?) triggers" + _TAIL)
@@ -72,6 +79,8 @@ def static_definition(text: str) -> dict[str, Any] | None:
     """The static line, or None (unread: the card stays manual)."""
     from app.rules import selectors
 
+    if (s := _SUPPRESS_TEXT.match(text.strip())) is not None:
+        return {"kind": "static", "static": SUPPRESS, "causes": ["enter", "die"] if s["die"] else ["enter"], "effects": []}
     m = _CAUSE.match(text.strip())
     if m is not None:
         for rx, cause in _CAUSES:
@@ -114,16 +123,16 @@ def _source(plan: Plan, t: PendingTrigger) -> tuple[CardInstance, Characteristic
     return None
 
 
-def _definitions(plan: Plan, ch: Characteristics) -> list[dict[str, Any]]:
+def _definitions(plan: Plan, ch: Characteristics, kind: str = STATIC) -> list[dict[str, Any]]:
     from app.rules import scripts
 
-    if "an additional time" not in (ch.oracle_text or ""):
+    if ("an additional time" if kind == STATIC else "cause abilities to trigger") not in (ch.oracle_text or ""):
         return []
-    return [d for d in scripts.definitions(ch).values() if d.get("kind") == "static" and d.get("static") == STATIC]
+    return [d for d in scripts.definitions(ch).values() if d.get("kind") == "static" and d.get("static") == kind]
 
 
 def _multipliers(plan: Plan, controller: str, batch: int | None,
-                 look_back: bool) -> list[tuple[CardInstance, dict[str, Any]]]:
+                 look_back: bool, kind: str = STATIC) -> list[tuple[CardInstance, dict[str, Any]]]:
     """The multipliers ``controller`` controlled when the event of ``batch`` happened (603.10): right after it, or
     right before it for an ability that looks back in time (603.10a). No batch: as they are now."""
     from app.rules.triggers import _snapshot_card, _zone
@@ -143,7 +152,7 @@ def _multipliers(plan: Plan, controller: str, batch: int | None,
         came = entered.get(plan.oid(card))
         if batch is not None and came is not None and (came > batch or (look_back and came == batch)):
             continue  # it wasn't there yet
-        out += [(card, d) for d in _definitions(plan, plan.ch(card))]
+        out += [(card, d) for d in _definitions(plan, plan.ch(card), kind)]
     if batch is None:
         return out
     for e in r.events:  # those that have left since (or with) the event
@@ -158,7 +167,7 @@ def _multipliers(plan: Plan, controller: str, batch: int | None,
         if came is not None and (came > batch or (look_back and came == batch)):
             continue
         card, ch = _snapshot_card(plan, snap)
-        out += [(card, d) for d in _definitions(plan, ch)]
+        out += [(card, d) for d in _definitions(plan, ch, kind)]
     return out
 
 
@@ -231,6 +240,20 @@ def count(plan: Plan, t: PendingTrigger, index: int, cause: TriggerEvent | None)
                  for k in d["source"]):
             n += 1
     return n
+
+
+def suppressed(plan: Plan, event: TriggerEvent | None) -> bool:
+    """Is the trigger this event would cause stopped by a "Creatures entering [or dying] don't cause abilities to trigger" effect?"""
+    if event is None or event.kind not in ("enter", "die", "leave") or not event.objects:
+        return False
+    cause = "enter" if event.kind == "enter" else "die"
+    for ref in event.objects:
+        got = _object(plan, ref)
+        if got is None or "Creature" not in got[1].types or (event.kind == "leave" and not _died(plan, ref)):
+            return False
+    look_back = event.kind in LOOK_BACK
+    batch = event.batch if event.batch > 0 else None
+    return any(cause in d["causes"] for pid in plan.state.players for _, d in _multipliers(plan, pid, batch, look_back, SUPPRESS))
 
 
 def _extras(plan: Plan) -> dict[str, tuple[list[PendingTrigger], int]]:

@@ -29,7 +29,7 @@ WHO = "exiled_with"
 _THE = r"(?:the exiled cards?|all cards exiled with (?:it|~))"
 _BATTLEFIELD = re.compile(rf"^return {_THE} to the battlefield(?P<tapped> tapped)? under (?:its|their) owner(?:'s|s') control$")
 _HAND = re.compile(rf"^return {_THE} to (?:its|their) owner(?:'s|s') hands?$")
-_REFERS = re.compile(r"\bthe exiled cards?\b|\bcards? exiled with (?:it|~)\b")
+_REFERS = re.compile(r"\bthe exiled cards?\b|\bcards? exiled with (?:it\b|~)")  # (wave 17D: "~" has no word boundary after it)
 
 
 # -- review (wave 6R) -- "Exile target creature. Return the exiled card to the battlefield under its owner's control at the
@@ -63,13 +63,34 @@ def _hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "return_card", "who": WHO, "to": "hand"}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand)]
+# -- copied abilities (wave 18F) -- imprint (607.2a): "you may exile an instant card with mana value 2 or less from your hand" (the cost of
+# an optional payment, public once in exile: 406.3), and "you may copy the exiled card" (707.12: the copy is made in exile, may be cast
+# while this resolves; one not cast ceases to exist, 707.10a - so a copy not taken and a copy not cast are the same)
+_IMPRINT = re.compile(r"^you may exile (?P<what>(?:an?|one) (?:[\w\-]+ )*card(?: with mana value \d+ or less)?) from your hand$")
+_COPY = re.compile(rf"^(?:you may )?copy {_THE}$")
+
+
+def imprint(text: str) -> list[dict[str, Any]] | None:
+    """The optional payment "you may exile an instant card … from your hand" as a whole sentence (its "you may" is the payer's choice
+    here, not an optional trigger's), or None."""
+    from app.rules import optional_payment
+
+    m = _IMPRINT.match(text)
+    cost = optional_payment.cost_text(f"exile {m['what']} from your hand") if m else None
+    return [{"do": "optional_payment", "who": "you", "cost": cost, "bind": "pay0"}] if cost else None
+
+
+def _copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "copy_cards", "who": WHO}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_COPY, _copy)]
 
 
 def _exiles(d: dict[str, Any] | None) -> bool:
     # (-- champion (wave 12B) -- also a payment: "sacrifice it unless you exile another Merfolk you control", recorded by
     # optional_payment._pay)
-    return d is not None and any(e.get("do") == "exile" or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile "))
+    return d is not None and any(e.get("do") == "exile" or e.get("exile") or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile "))
                                  for e in d.get("effects") or [])
 
 
@@ -98,7 +119,7 @@ def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | No
     referring = [ab for ab in ch.abilities if ab.index != ability.index and _REFERS.search(scripts.self_text(ab.text, ch.name))]
     if not referring:
         return d
-    return {**d, "effects": [{**e, "link": True} if e.get("do") == "exile" else e for e in d["effects"]]}
+    return {**d, "effects": [{**e, "link": True} if e.get("do") == "exile" or e.get("exile") else e for e in d["effects"]]}
 
 
 def record(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> None:

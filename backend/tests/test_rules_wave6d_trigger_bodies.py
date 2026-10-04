@@ -492,6 +492,7 @@ def test_a_state_trigger_doesnt_trigger_again_while_it_waits(cards):
     s = build(cards, "Covetous Dragon", "Grizzly Bears", "Murder")
     for pid in ("p1", "p2"):
         act(s, pid, type="set_stops", own=["main1"], others=["main1"], smart_pass=False)
+    act(s, "p1", type="set_prefs", hold_priority=True)  # (117.3c: Alice keeps priority after casting, to cast again)
     dragon = put(s, "Covetous Dragon")  # (a hand-made move: no automation runs for it)
     victim = old(s, "p2", "Victim")
     cast_from_hand(s, "Grizzly Bears", G=2)  # the table changes: no artifacts, so it triggers

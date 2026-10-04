@@ -219,6 +219,39 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             return [(f"become_{e.counter}", card, plan.ch(card), card.controller, {"oid": e.object_id})]
         return []
+    if e.counter == "transformed" and e.card in plan.state.cards:  # -- transform (wave 16F) -- 701.28: it turned over (same object)
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            ch = plan.ch(card)
+            return [("transform", card, ch, card.controller, {"oid": e.object_id, "face_name": ch.name})]
+        return []
+    if e.counter == "mutated" and e.card in plan.state.cards:  # -- merged permanents (wave 18D) -- 702.140d: a spell merged with it
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("mutate", card, plan.ch(card), card.controller, {"oid": e.object_id})]
+        return []
+    if e.counter == "level" and e.card in plan.state.cards:  # -- Class (wave 16A) -- 716.2a: the Class became level N
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("become_level", card, plan.ch(card), card.controller, {"oid": e.object_id, "level": e.amount})]
+        return []
+    if e.counter == "unlocked" and e.card in plan.state.cards:  # -- Rooms (wave 18G) -- 709.5h: the door that got its designation
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("unlock_door", card, plan.ch(card), card.controller, {"oid": e.object_id, "door": e.amount})]
+        return []
+    if e.counter == "proliferate" and e.player:  # -- trigger tail (wave 15B) -- 701.34a
+        return [("proliferate", None, None, e.player, {})]
+    if e.counter == "connive" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.50a: the conniving permanent
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("connive", card, plan.ch(card), card.controller, {"oid": e.object_id})]
+        return []
+    if e.counter == "explore" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.44a: the creature that explored
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("explore", card, plan.ch(card), card.controller, {"oid": e.object_id, "revealed": e.amount})]
+        return []
     if e.counter in ("day", "night") and e.from_zone:  # 731.1a: "day becomes night" / "night becomes day"
         return [("day_night", None, None, plan.active, {})]
     return []
@@ -930,3 +963,30 @@ PRIMITIVES: dict[str, Any] = {"emblem": emblem, "rad": rad, "initiative": take_i
                               "reveal_drawn": reveal_drawn, "sacrifice_types": sacrifice_types, "pay_energy_any": pay_energy_any}
 RESUME: dict[str, Any] = {"venture": resume_venture, "room_by_hand": resume_room_by_hand, "ring_tempts": resume_ring_tempts,
                           "sacrifice_types": resume_sacrifice_types, "pay_energy_any": resume_pay_energy_any}
+
+
+# -- keywords (wave 15E) -- ascend (702.131): the city's blessing
+def city_blessing_due(plan: Plan, pid: str) -> bool:
+    """702.131a/b: a player who controls ten or more permanents and has no city's blessing gets it, from an Ascend spell
+    resolving or (702.131b: "any time") from a permanent with ascend they control."""
+    if plan.state.players[pid].city_blessing:
+        return False
+    return sum(1 for c in plan.state.cards.values() if c.controller == pid and c.zone.endswith(":battlefield")) >= 10
+
+
+def get_city_blessing(plan: Plan, pid: str) -> None:
+    plan.do({"type": "city_blessing", "player": pid, "value": True}, actor=pid)
+
+
+def ascend_permanents(plan: Plan) -> bool:
+    """Any time (checked with the state-based actions): the players with an ascend permanent and ten permanents get the blessing."""
+    happened = False
+    for pid in plan.live():
+        if not city_blessing_due(plan, pid):
+            continue
+        if any(c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c) and any(
+                ab.kind == "keywords" and "ascend" in ab.keywords for ab in plan.ch(c).abilities)
+               for c in plan.state.cards.values()):
+            get_city_blessing(plan, pid)
+            happened = True
+    return happened

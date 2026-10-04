@@ -10,13 +10,16 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from itertools import combinations_with_replacement
 from typing import Any
 
+from app.rules import costs as _costs
 from app.rules import mana_riders as _mana_riders  # -- mana riders (wave 5A) --
+from app.rules import mana_units as _mana_units  # -- mana provenance (wave 18B) --
 from app.rules import removed_mana as _removed_mana  # -- if you do (wave 6F) --
 
 COLORS = ("W", "U", "B", "R", "G")
@@ -133,6 +136,10 @@ class ManaAbility:
     # -- mana riders (wave 5A) -- "Exile this card from your hand: Add {R}." (Simian Spirit Guide): activated only
     # from its owner's hand (113.6m, 605.3a), by hand only (app/rules/mana_riders.activate_from_hand)
     from_hand: bool = False
+    # -- mana provenance (wave 18B) -- "When that mana is spent to cast …, …" / "If that mana is spent on …, that spell can't be
+    # countered": the riders (JSON dicts, mana_units.RIDERS) the mana it adds carries (106.6)
+    on_spend: tuple[str, ...] = ()
+    spend_text: str = ""  # the restriction sentence, for the pool display
 
     @property
     def penalty(self) -> int:
@@ -202,7 +209,10 @@ _CONTROL_COUNT = re.compile(rf"^Activate only if you control {_N} or more (?P<wh
 _COUNTERS_FOR_EACH = re.compile(r"^Add \{(?P<sym>[WUBRGC])\} for each (?P<kind>[a-z]+) counter on (?:this \w+|~)$")
 _FOR_EACH = re.compile(r"^Add \{(?P<sym>[WUBRGC])\} for each (?P<what>creature|artifact|enchantment|land|[A-Z][a-z]+) you control$")
 _COUNT_TYPES = {"creature": "Creature", "artifact": "Artifact", "enchantment": "Enchantment", "land": "Land"}
-_POWER_OF = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?:this creature|[A-Z][^.]{0,60}?)'s power$")
+_POWER_OF = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?:this creature|[A-Z][^.]{0,60}?)'s (?P<stat>power|toughness)$")  # (toughness: wave 17B, Vhal)
+# -- activated sweep (wave 17B) -- "{T}, Sacrifice an artifact: Add an amount of {B} equal to the sacrificed artifact's mana value."
+# (Priest of Yawgmoth): the mana value of what the cost sacrificed, as it was (608.2h; casting._activate_choosing)
+_SAC_MV = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to the sacrificed (?:creature|artifact|permanent|land|enchantment)'s mana value$")
 _X_POWER = re.compile(r"^Add X mana of any one color, where X is (?:this creature|[A-Z][^.]{0,60}?)'s power$")
 # -- X sized by a count (wave 4K) -- "Add X mana of any one color, where X is the number of enchantments you control."
 # (Sanctum Weaver): counted as the ability resolves (605.3a: at once), like "Add {G} for each …"
@@ -214,6 +224,10 @@ _URZA = re.compile(r"^If you control an? (?P<what>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*
 # played, not put onto the battlefield): ``instead_if`` holds this marker instead of permanents to control
 _PLAYED_LAND = re.compile(r"^If you played a land this turn, add (?P<add>(?:\{[WUBRGC]\})+) instead$")
 PLAYED_LAND = ("@played_land",)
+# -- opening hand (wave 18C) -- "If Gemstone Caverns has a luck counter on it, instead add one mana of any color." (122.1: the
+# source's own counters, checked as the ability resolves, 605.3a): ``instead_if`` holds ("@counter", <kind>)
+_OWN_COUNTER_INSTEAD = re.compile(r"^If (?:~|this [a-z]+|[A-Z][\w',-]*(?: (?:of |the |[A-Z])[\w',-]*)*) has an? (?P<k>[a-z]+) counter on "
+                                  r"it, instead (?P<add>add .+)$")
 # -- kicked / instead (wave 4G) -- "If you control four or more creatures, add {G}{G} instead." (Leafkin Druid); "If you
 # control a creature with power 4 or greater, add two mana of any one color instead." (Ilysian Caryatid). 605.3a: a mana
 # ability resolves as it's activated, so the condition is checked then (608.2c: the "instead" replaces the first "Add").
@@ -227,8 +241,8 @@ _CHOSEN_COLOR: dict[str, str | None] = {  # (wave 3R3) "Choose a color. <this>":
     "Add an amount of mana of that color equal to the number of creatures you control of the chosen type": "chosen_type",
 }
 _PUT_SELF = re.compile(r"^Put an? (?P<k>[+-]\d+/[+-]\d+) counter on (?:this \w+|~)$")  # (wave 3R3: Wall of Roots)
-_SAC_SELF = re.compile(r"^Sacrifice (this \w+|it)$")
-_EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one|two|three|four|five|six|seven|eight) \{E\}$|^Remove (a|an|one|two|three) [a-z]+ counters? from (this \w+|it)$")
+_SAC_SELF = re.compile(r"^Sacrifice (this \w+|it|~)$")  # (wave 17C: ~, a quoted grant read through self_text)
+_EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one|two|three|four|five|six|seven|eight) \{E\}$|^Remove (a|an|one|two|three) (?:[a-z]+|[+-]\d+/[+-]\d+) counters? from (this \w+|it)$")
 
 
 # -- ability words (wave 4F) ---------------------------------------------------------------------------
@@ -238,6 +252,7 @@ _EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one
 # "Activate only if [condition]" the condition grammar reads (app/rules/conditions.py) is kept as
 # ``"cond:<json>"`` and checked as the ability would be activated (602.5: a mana ability too, 605.3a).
 _ACTIVATE_IF = re.compile(r"^Activate only if (?P<cond>.+)$")
+_ACTIVATE_TURN = re.compile(r"^Activate only during (?P<w>your turn|an opponent's turn)(?P<once> and only once each turn)?$")
 
 
 def _without_ability_word(text: str) -> str:
@@ -269,8 +284,11 @@ def _choice_part(part: str) -> bool:
     from app.rules import costs as C
 
     found = C.parse_ability_cost(part, card_name="~")
-    return not found.unsupported and not found.activation_only and bool(found.components) and all(  # (activation_only: wave 4H)
-        c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random
+    # -- activated sweep (wave 17B) -- also exerting / untapping the source ({Q}, 107.6) and foraging (701.61a): paid by hand
+    return not found.unsupported and bool(found.components) and all(
+        c.kind in (C.EXERT, C.UNTAP, C.FORAGE) or (
+            (not c.activation_only or (c.x and c.kind == C.TAP_OTHER)) and c.selector is not None  # (X: Hazel, "Tap X untapped tokens")
+            and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random)
         for c in found.components)
 
 
@@ -326,6 +344,20 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         if found_removed is None:
             return None
         count, options = found_removed
+    elif any(c.x for p in extra for c in _costs.parse_ability_cost(p, card_name="~").components):
+        # -- activated sweep (wave 17B) -- "Tap X untapped tokens you control: Add X mana in any combination of colors." (Hazel of
+        # the Rootbloom): X is announced as the cost is paid (107.3a), the mana is X of them (casting._activate_choosing)
+        mix = None if chosen_color else _removed_mana.x_mix(first)
+        if mix is None:
+            return None
+        count, options = f"xcost:{mix[0]}:{mix[1]}", tuple((c,) for c in mix[1])
+    elif chosen_color and (cc := re.fullmatch(r"Add one mana of that color for each (?P<what>.+)", first)):
+        # -- activated sweep (wave 17B) -- "Choose a color. Add one mana of that color for each different power among creatures you
+        # control." (Selvala, Eager Trailblazer): counted as it's activated (605.3b)
+        count = _mana_riders._value(cc["what"])
+        if count is None:
+            return None
+        options = tuple((col,) for col in COLORS)
     elif chosen_color:
         if first not in _CHOSEN_COLOR:
             return None
@@ -337,7 +369,11 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     elif c := _COUNTERS_FOR_EACH.fullmatch(first):
         count, options = f"counters:{c.group('kind')}", ((c.group("sym"),),)
     elif c := _POWER_OF.fullmatch(first):
-        count, options = "power", ((c.group("sym"),),)
+        count, options = c.group("stat"), ((c.group("sym"),),)
+    elif c := _SAC_MV.fullmatch(first):
+        if not any(k.kind == _costs.SACRIFICE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
+            return None
+        count, options = "sacrificed_mv", ((c.group("sym"),),)
     elif _X_POWER.fullmatch(first):
         count, options = "power", tuple((col,) for col in COLORS)
     elif c := _X_COUNT.fullmatch(first):  # (wave 4K)
@@ -349,6 +385,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     if options is None:
         return None
     riders: list[tuple[str, int]] = []
+    on_spend: list[str] = []  # -- mana provenance (wave 18B) -- 106.6 riders (mana_units.rider)
+    spend_text = ""
     spend_only: str | None = None
     instead_if: tuple[tuple[str, ...], ...] = ()
     instead: tuple[tuple[str, ...], ...] = ()
@@ -364,6 +402,11 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             riders.append(rd)
         elif s == "Activate only once each turn":
             once = True
+        elif (t := _ACTIVATE_TURN.fullmatch(s)) and condition is None:  # -- activated sweep (wave 17B) -- 602.5d: whose turn it is
+            condition = _general_condition("it's your turn" if t["w"] == "your turn" else "it's an opponent's turn")
+            once = once or bool(t["once"])
+            if condition is None:
+                return None
         elif c := _CONTROL.fullmatch(s):
             condition = f"control:{c.group('what')}" + (f"|{c.group('or')}" if c.group("or") else "")
         elif c := _CONTROL_COUNT.fullmatch(s):
@@ -386,25 +429,32 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             marker = ("@power", ci.group("p")) if ci.group("p") else \
                 ("@count", _COUNT_TYPES[ci.group("what").rstrip("s")], str(_NUM[ci.group(1)]))
             instead_if, instead = (marker,), more
+        elif (oc := _OWN_COUNTER_INSTEAD.fullmatch(s)) and not instead and len(options) == 1:  # -- opening hand (wave 18C) --
+            more = _effect_options("A" + oc.group("add")[1:], identity)
+            if more is None or not all(more):
+                return None
+            instead_if, instead = (("@counter", oc.group("k")),), more
         elif (pl := _PLAYED_LAND.fullmatch(s)) and not instead and len(options) == 1:  # -- this-turn history (wave 4D) --
             more = _effect_options("Add " + pl.group("add"), identity)
             if more is None or len(more) != 1:
                 return None
             instead_if, instead = (PLAYED_LAND,), more
+        elif (rider_json := _mana_units.rider(s)) is not None:  # -- mana provenance (wave 18B) --
+            on_spend.append(rider_json)
         else:
-            for pattern, kind in _SPEND:
-                if sm := pattern.fullmatch(s):
-                    spend_only = f"type:{sm.group('t')}" if kind == "type" else kind
-                    break
-            else:
-                q = parse_spend(s)  # -- refused copy/mana (wave 3R3): the general restriction grammar --
-                if q is None or spend_only is not None:
-                    return None  # a rider the engine doesn't know: leave the ability manual
-                spend_only = q
+            if m_unc := re.fullmatch(r"(Spend this mana only to cast .+?), and that spell can't be countered", s):
+                s = m_unc.group(1)  # (Cavern of Souls, Delighted Halfling: the restriction and a rider on any spell it pays for)
+                on_spend.append(json.dumps({"kind": "uncounterable", "spell": "sel:{\"zones\":[\"stack\"]}"}, sort_keys=True))
+            q = spend_kind(s)  # (-- refused copy/mana (wave 3R3) -- the general restriction grammar)
+            if q is None or spend_only is not None:
+                return None  # a rider the engine doesn't know: leave the ability manual
+            spend_only, spend_text = q, s + "."
+    if spend_only is not None and from_hand:
+        return None  # (-- wave 18B -- activated from the hand by mana_riders.activate_from_hand, which adds plain mana: manual)
     return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
                        riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition,
                        count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter,
-                       from_hand=from_hand)
+                       from_hand=from_hand, on_spend=tuple(on_spend), spend_text=spend_text)
 
 
 @dataclass(frozen=True)
@@ -432,6 +482,11 @@ class Payment:
     spent: dict[str, int] = field(default_factory=dict)  # mana taken from the pool (after producing)
     life: int = 0  # life paid for Phyrexian symbols
     used: list[tuple[str, int]] = field(default_factory=list)  # (source card, ability index) per tapped source
+    # -- mana provenance (wave 18B) -- each tapped source with the option it produced, in order ("unit:<id>" = a pool unit spent)
+    slots: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
+    # -- mana provenance (wave 18B) -- set by ``mana_units.settle``: the source tags of each mana spent, and its riders (source, rider)
+    tags: list[list[str]] = field(default_factory=list)
+    riders: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
 
     def delta(self) -> dict[str, int]:
         out = dict(self.produced)
@@ -454,7 +509,7 @@ def _solve(reqs: list[tuple[str, ...]], generic: int, pool: dict[str, int], sour
     def generic_from(units: dict[str, int], remaining: list[Source], n: int, chosen: Chosen) -> Found | None:
         units = dict(units)
         # tap the sources that give the most mana first (Sol Ring before a Forest)
-        for src in sorted(remaining, key=lambda s: (not s.preferred, -max(len(o) for o in s.options), s.flexibility, s.rank)):
+        for src in sorted(remaining, key=lambda s: (s.rank >= 0, not s.preferred, -max(len(o) for o in s.options), s.flexibility, s.rank)):
             if sum(units.values()) >= n:
                 break
             opt = max(src.options, key=len)
@@ -516,11 +571,16 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
     """Find a payment for ``cost`` (X already fixed). Raises ManaError if there is none."""
     if cost.unsupported:
         raise ManaError(f"Can't pay {' '.join('{' + s + '}' for s in cost.unsupported)} automatically")
-    ordered = sorted(sources, key=lambda s: (not s.preferred, s.flexibility, s.rank, -max(len(o) for o in s.options)))
+    # (review 18B: mana already in the pool — mana_units' pseudo-sources, rank -1 — before anything is tapped, as the plain pool)
+    ordered = sorted(sources, key=lambda s: (s.rank >= 0, not s.preferred, s.flexibility, s.rank, -max(len(o) for o in s.options)))
     base = [(c,) for c in cost.colored] + sorted(cost.hybrid, key=len)
-    attempts = [(base + [(c,) for c in cost.phyrexian], 0)]  # Phyrexian with mana first …
-    if cost.phyrexian:
-        attempts.append((base, 2 * len(cost.phyrexian)))  # … else with 2 life each
+    # Phyrexian symbols with mana first, then one more with 2 life each time (107.4f: each symbol on its own; wave 18B: K'rrik too;
+    # review 18B: any k of them, so {W/P}{U/P} with only {W} pays 2 life, not 4)
+    from itertools import combinations
+
+    phy = cost.phyrexian
+    by_life = {tuple(sorted(phy[i] for i in ix)): ix for k in range(len(phy) + 1) for ix in combinations(range(len(phy)), k)}
+    attempts = [(base + [(c,) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
     for reqs, life_cost in attempts:
         if life_cost and life_cost >= life:
             continue
@@ -530,6 +590,7 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
         left, chosen = found
         payment = Payment(life=life_cost)
         for src, opt in chosen:
+            payment.slots.append((src.card_id, opt))
             payment.tapped.append(src.card_id)
             if src.sacrifice:
                 payment.sacrificed.append(src.card_id)
@@ -611,6 +672,8 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
             out["color"] = w
         elif w in ("noncreature", "nonartifact"):
             out["non"] = [_CARD_TYPES[w[3:]]]
+        elif w == "kicked":  # -- activated sweep (wave 17B) -- "kicked spells" (702.33): casting.Purpose.kicked
+            out["kicked"] = True
         elif w[:1].isupper() and (_known_subtype(w) or _known_subtype(bare)):
             subs.append(w if _known_subtype(w) else bare)
         elif w[:1].isupper() and i + 1 < len(tokens) and tokens[i + 1] == "planeswalker":
@@ -620,7 +683,7 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
         else:
             return None
         i += 1
-    if not (types or subs or supers or "color" in out or "non" in out):
+    if not (types or subs or supers or "color" in out or "non" in out or out.get("kicked")):
         return None
     if out.get("chosen") and types != ["Creature"]:
         return None
@@ -633,20 +696,37 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
     return out
 
 
+# -- mana provenance (wave 18B) -- what a spell is besides its types: "spells with mana value 5 or greater", "spells with {X} in their
+# mana costs", "a spell with devoid" / "that has freerunning", "creature spells with no abilities", "spells you don't own" (601.2h: the
+# spell's characteristics and who owns it are known as it is paid)
+_SPELL_WITH: list[tuple[re.Pattern[str], Any]] = [
+    (re.compile(r"^(?P<pre>.*?) ?spells? with mana value (?P<n>\d+)_ge$"), lambda m: {"mv_min": int(m["n"])}),
+    (re.compile(r"^(?P<pre>.*?) ?spells? with \{X\} in (?:their|its) mana costs?$"), lambda m: {"has_x": True}),
+    (re.compile(r"^(?P<pre>.*?) ?spells? (?:with|that has) (?P<kw>devoid|freerunning|flash|haste)$"), lambda m: {"kw": m["kw"]}),
+    (re.compile(r"^(?P<pre>.*?) ?spells? with no abilities$"), lambda m: {"no_abilities": True}),
+    (re.compile(r"^(?P<pre>.*?) ?spells? you don't own$"), lambda m: {"not_own": True}),
+]
+
+
 def _alts(phrase: str, *, source: bool) -> list[dict[str, object]] | None:
     p = re.sub(r"^(?:an?|one or more) ", "", phrase.strip())
+    p = re.sub(r"(\d+) or greater", r"\1_ge", p)  # (its "or" isn't an alternative)
     parts = [x for x in re.split(r",? and/or |,? or |, and |, | and ", p) if x]
     out = []
     for part in parts:
         part = re.sub(r"^(?:an?) ", "", part)
+        extra: dict[str, object] = {}
+        if not source:
+            for rx, make in _SPELL_WITH:
+                if (w := rx.fullmatch(part)) is not None:
+                    extra, part = make(w), w["pre"]
+                    break
         if not source:  # ("instant and sorcery spells": the noun may come once, at the end)
             part = re.sub(r" spells?(?= of the chosen type$)| spells?$", "", part)
-        alt = _alt(part, source=source)
+        alt = _alt(part, source=source) if part or not extra else {}
         if alt is None:
             return None
-        out.append(alt)
-    if any(a.get("chosen") for a in out) and len(out) > 1:
-        return None
+        out.append({**alt, **extra})
     return out or None
 
 
@@ -655,13 +735,37 @@ _GENERIC_SPEND = re.compile(
     r"(?: of (?P<src>.+))?))?|(?P<act2>activate (?:an ability|abilities)(?: of (?P<src2>.+?))?)(?: or (?:to )?cast (?P<spells2>.+))?)$")
 
 
+# -- activated sweep (wave 17B) -- where the spell is cast from: "Spend this mana only to cast spells from exile / a spell from your
+# graveyard / spells with flashback from a graveyard"; "This mana can't be spent to cast spells from your hand" (the zone is the
+# one the spell is cast from, 601.2a; casting.Purpose.zone)
+_ORIGIN = re.compile(r"^Spend this mana only to cast (?:a spell|spells)(?: with (?P<kw>flashback))? from (?P<z>exile|your graveyard|a graveyard)$")
+
+
+def spend_kind(s: str) -> str | None:
+    """A "Spend this mana only to …" / "This mana can't be spent to …" sentence (no final period) as the restriction
+    ``casting.spend_allowed`` reads (None: not one the payer checks)."""
+    for pattern, kind in _SPEND:
+        if sm := pattern.fullmatch(s):
+            return f"type:{sm.group('t')}" if kind == "type" else kind
+    return parse_spend(s)
+
+
 def parse_spend(sentence: str) -> str | None:
     """A general "Spend this mana only to …" restriction as "q:<json>" (None: not one the payer checks)."""
     import json
 
     s = sentence.strip().rstrip(".")
+    if s == "Spend this mana only on costs that contain {X}":  # -- mana provenance (wave 18B) -- casting.Purpose.cost_x
+        return "q:" + json.dumps({"cast": None, "ability": None, "cost_x": True}, sort_keys=True)
     if s == "This mana can't be spent to cast spells":
         return "q:" + json.dumps({"cast": None, "ability": "any"}, sort_keys=True)
+    if s == "This mana can't be spent to cast spells from your hand":
+        return "q:" + json.dumps({"cast": [{"not_zone": "hand"}], "ability": "any"}, sort_keys=True)
+    if m := _ORIGIN.fullmatch(s):
+        alt: dict[str, object] = {"zone": "exile" if m["z"] == "exile" else "graveyard", "own": m["z"] == "your graveyard"}
+        if m["kw"]:
+            alt["kw"] = m["kw"]
+        return "q:" + json.dumps({"cast": [alt], "ability": None}, sort_keys=True)
     m = _GENERIC_SPEND.fullmatch(s)
     if m is None:
         return None
@@ -699,6 +803,14 @@ def spend_alt_matches(alt: dict[str, Any], ch: Any) -> bool:
     if any(t not in ch.supertypes for t in alt.get("supertypes") or []):
         return False
     if any(t in types for t in alt.get("non") or []):
+        return False
+    if alt.get("kw") and alt["kw"] not in ch.keywords:
+        return False
+    if alt.get("mv_min") is not None and ch.mana_value < alt["mv_min"]:  # -- mana provenance (wave 18B) --
+        return False
+    if alt.get("has_x") and "{X}" not in ch.mana_cost:
+        return False
+    if alt.get("no_abilities") and ch.abilities:
         return False
     color = alt.get("color")
     if color == "colorless" and colors:

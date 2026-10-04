@@ -46,6 +46,17 @@ def _one(word: str) -> Quality | None:
         return lambda ch: t in ch.types
     if word == "colorless":
         return lambda ch: not ch.colors
+    # -- keywords (wave 15E) -- "God creatures", "non-Spirit creatures", "legendary creatures", "mana value 3 or greater" (702.16a)
+    m = re.fullmatch(r"(non-)?([a-z]+) creatures", word)
+    if m and m[2] == "legendary" and not m[1]:
+        return lambda ch: "Legendary" in ch.supertypes and "Creature" in ch.types
+    if m and m[2] not in CARD_TYPES and (m[2].capitalize() in CREATURE_TYPES):
+        sub, neg = m[2].capitalize(), bool(m[1])
+        return lambda ch: "Creature" in ch.types and ((sub in ch.subtypes) != neg)
+    m = re.fullmatch(r"mana value (\d+) or (greater|less)", word)
+    if m:
+        n, more = int(m[1]), m[2] == "greater"
+        return lambda ch: (ch.mana_value >= n) if more else (ch.mana_value <= n)
     if word == "snow":
         return lambda ch: "Snow" in ch.supertypes
     if word == "arcane":

@@ -51,9 +51,14 @@ NAMES = [c["name"] for c in REAL]
 PROWLER, COMPASS, HAND, JILL, SAGA, CATHAR, GALLEON, DAGGER = NAMES
 
 
+COUNTERPART = card("Cackling Counterpart", set_code="tst", number="T9", mana_cost="{1}{U}{U}", cmc=3.0, type_line="Instant", colors=["U"],
+                   color_identity=["U"], oracle_text="Create a token that's a copy of target creature you control.\nFlashback {5}{U}{U} "
+                   "(You may cast this card from your graveyard for its flashback cost. Then exile it.)", keywords=["Flashback"])
+
+
 @pytest.fixture()
 def cards(settings, card_db):
-    build_database(fixture_cards() + REAL, settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database(fixture_cards() + REAL + [COUNTERPART], settings.cards_db_path, meta={"bulk_type": "test"})
     repo = CardRepository(card_db, ImageStore(settings.images_dir))
     yield repo
     repo.close()
@@ -304,4 +309,22 @@ def test_vehicle_exiles_at_end_of_combat_and_returns_transformed(cards):
     now = s.state.cards[galleon.id]
     assert now.zone == "p1:battlefield" and now.face == 1 and rules(s).object_id(galleon.id) != old
     assert ch(s, galleon, cards).name == "Conqueror's Foothold"
+    check(s)
+
+
+# -- review (casting) -- 202.3b / 712.8e: the card's back face has its front face's mana value; a copy of that back face has 0
+def test_a_token_copy_of_a_back_face_has_mana_value_zero(cards):
+    s = table(cards, mine=(PROWLER,), hand=("Cackling Counterpart",))
+    k = find(s, PROWLER)
+    mana(s, G=1, C=4)
+    act(s, "p1", type="activate_ability", card_id=k.id, ability=ability(s, k, cards, "Transform"))
+    settle(s)
+    assert ch(s, k, cards).name == "Sinuous Predator" and ch(s, k, cards).mana_value == 1  # 712.8e
+    counterpart = put(s, "Cackling Counterpart", "hand")
+    mana(s, U=3)
+    act(s, "p1", type="cast_spell", card_id=counterpart.id, targets=[k.id])
+    settle(s)
+    tok = next(c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield")
+    assert tok.face == 1 and ch(s, tok, cards).name == "Sinuous Predator"  # 707.8a: a double-faced token with its back face up
+    assert ch(s, tok, cards).mana_value == 0 and ch(s, k, cards).mana_value == 1  # 202.3b
     check(s)

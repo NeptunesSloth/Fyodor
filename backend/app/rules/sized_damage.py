@@ -38,6 +38,7 @@ _RELATIVE: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\b(?:that player's|their) hand\b"), "your hand"),
     (re.compile(r"\b(?:that player's|their) life total\b"), "your life total"),
     (re.compile(r"\b(?:that player's|their) graveyard\b"), "your graveyard"),
+    (re.compile(r"\battacking (?:them|that player)$"), "attacking you"),  # (wave 17D: the creatures attacking that player, not their planeswalkers)
 )
 
 

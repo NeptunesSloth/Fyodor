@@ -88,6 +88,12 @@ def moved_objects(plan: Plan, before: list[ObjectRef]) -> tuple[list[dict[str, A
         was.append(old.model_copy(update={"snapshot": snap}).model_dump(mode="json"))
         if card is not None and zone not in HIDDEN_ZONES and plan.oid(card) != old.object_id:
             out.append(ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone).model_dump(mode="json"))
+            from app.rules import (
+                merged,  # (-- review (wave 18D) -- 730.3c / 712.21c: a merged permanent became all of its cards)
+            )
+
+            out += [ObjectRef(card=p, object_id=plan.oid(plan.state.cards[p]), zone=plan.state.cards[p].zone).model_dump(mode="json")
+                    for p in merged.pieces(plan, [card.id])[1:] if plan.state.cards[p].zone.split(":")[-1] not in HIDDEN_ZONES]
         else:
             out.append(was[-1])
     return out, was
@@ -240,6 +246,9 @@ def probe_ok(plan: Any, ctx: Context, name: str) -> bool:
     if "counters" in b:
         return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid
                    and card.counters.get(b["counter"], 0) < n for cid, (oid, n) in b["counters"].items())
+    if "counters_up" in b:  # -- if you do (wave 15C) -- counters were put on it
+        return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid
+                   and card.counters.get(b["counter"], 0) > n for cid, (oid, n) in b["counters_up"].items())
     if "hands_down" in b:
         return any(len(plan.state.zones.get(f"{p}:hand", [])) < n for p, n in b["hands_down"].items())
     for cid, oid in b["cards"].items():

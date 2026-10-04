@@ -217,6 +217,26 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "turn_face_up", card_id: "mb" }]);
   });
 
+  it("offers a Room's halves to cast, and its locked doors to unlock (709.5)", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true }, stats: { rb: { doors: [1], halves: [{ name: "Grand Entryway", mana_cost: "{1}{W}" }, { name: "Elegant Rotunda", mana_cost: "{2}{W}" }] } } });
+    const v = { ...base, cards: { ...base.cards, rh: card("rh", "p1:hand", "room"), rb: card("rb", "p1:battlefield", "room") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        room: { id: "room", name: "Grand Entryway // Elegant Rotunda", layout: "split", type_line: "Enchantment — Room // Enchantment — Room", oracle_text: "",
+          faces: [{ name: "Grand Entryway", mana_cost: "{1}{W}", type_line: "Enchantment — Room" }, { name: "Elegant Rotunda", mana_cost: "{2}{W}", type_line: "Enchantment — Room" }] } as unknown as CardData,
+      },
+    });
+    const cast = rulesMenu(v.cards.rh!, v, "p1").filter((i) => i !== "separator" && i.label.startsWith("Cast "));
+    expect(cast.map((i) => (i === "separator" ? "" : i.label))).toEqual(["Cast Grand Entryway {1}{W}", "Cast Elegant Rotunda {2}{W}"]);
+    const unlock = rulesMenu(v.cards.rb!, v, "p1").filter((i) => i !== "separator" && i.label.startsWith("Unlock "));
+    expect(unlock.map((i) => (i === "separator" ? "" : i.label))).toEqual(["Unlock Elegant Rotunda {2}{W}"]); // door 1 is open
+    const [door] = unlock;
+    if (!door || door === "separator") throw new Error("expected Unlock");
+    door.onClick?.();
+    expect(sent).toEqual([{ type: "unlock_door", card_id: "rb", door: 2 }]);
+  });
+
   it("offers Equip for an Equipment on the battlefield", () => {
     const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true } });
     const v = { ...base, cards: { ...base.cards, eq: card("eq", "p1:battlefield", "splitter") } } as unknown as GameView;
@@ -263,6 +283,54 @@ describe("rules card menu", () => {
     three.onClick?.();
     expect(sent[1]).toEqual({ type: "cast_spell", card_id: "m1", kicker: 3 });
     expect(labels(rulesMenu(v.cards.c2!, v, "p1")).some((l) => /kicker/i.test(l))).toBe(false);  // no kicker line
+  });
+
+  it("offers entwine, prototype, splice and miracle (wave 18E)", () => {
+    const base = view({ ...RULES, hints: { castable: ["e1", "p1x", "s1"], miracle: ["w1"] } });
+    const v = { ...base, zones: { "p1:hand": ["e1", "p1x", "s1", "s2", "w1"] },
+      cards: { ...base.cards, e1: card("e1", "p1:hand", "rust"), p1x: card("p1x", "p1:hand", "goliath"),
+        s1: card("s1", "p1:hand", "might"), s2: card("s2", "p1:hand", "ray"), w1: card("w1", "p1:hand", "wrath") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        rust: { id: "rust", name: "Rain of Rust", type_line: "Instant",
+          oracle_text: "Choose one —\n• Destroy target artifact.\n• Destroy target land.\nEntwine {3}{R} (Choose both if you pay the entwine cost.)" } as CardData,
+        goliath: { id: "goliath", name: "Rust Goliath", type_line: "Artifact Creature — Construct",
+          oracle_text: "Prototype {3}{G}{G} — 3/5 (You may cast this spell with different mana cost, color, and size.)\nReach, trample" } as CardData,
+        might: { id: "might", name: "Kodama's Might", type_line: "Instant — Arcane",
+          oracle_text: "Target creature gets +2/+2 until end of turn.\nSplice onto Arcane {G} (As you cast an Arcane spell, you may reveal this card.)" } as CardData,
+        ray: { id: "ray", name: "Glacial Ray", type_line: "Instant — Arcane",
+          oracle_text: "Glacial Ray deals 2 damage to any target.\nSplice onto Arcane {1}{R} (As you cast an Arcane spell, you may reveal this card.)" } as CardData,
+        wrath: { id: "wrath", name: "Thunderous Wrath", type_line: "Instant", oracle_text: "Thunderous Wrath deals 5 damage to any target.\nMiracle {R}" } as CardData,
+      },
+    });
+    item(rulesMenu(v.cards.e1!, v, "p1"), "Cast with Entwine {3}{R}").onClick?.();
+    expect(sent[0]).toEqual({ type: "cast_spell", card_id: "e1", kicker: 1 });
+    item(rulesMenu(v.cards.p1x!, v, "p1"), "Cast prototyped: {3}{G}{G} — 3/5").onClick?.();
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "p1x", prototype: true });
+    const splice = item(rulesMenu(v.cards.s1!, v, "p1"), "Cast with splice");
+    const ray = splice.submenu?.find((i) => i !== "separator" && i.label === "Splice Glacial Ray");
+    if (!ray || ray === "separator") throw new Error("expected a Glacial Ray entry");
+    ray.onClick?.();
+    expect(sent[2]).toEqual({ type: "cast_spell", card_id: "s1", splice: ["s2"] });
+    item(rulesMenu(v.cards.w1!, v, "p1"), "Reveal for miracle").onClick?.();
+    expect(sent[3]).toEqual({ type: "miracle_reveal", card_id: "w1" });
+  });
+
+  it("numbers reconfigure's abilities after every printed line (702.151a)", () => {
+    const base = view({ ...RULES, hints: { activatable: [{ card_id: "r1", ability: 2 }] } });
+    const v = { ...base, cards: { ...base.cards, r1: card("r1", "p1:battlefield", "gear") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        gear: { id: "gear", name: "Test Gear", type_line: "Artifact Creature — Equipment", oracle_text: "Reconfigure {2} (Attach or unattach.)\n{1}: Scry 1." } as CardData,
+      },
+    });
+    const attach = item(rulesMenu(v.cards.r1!, v, "p1"), "Reconfigure: attach ({2})");
+    expect(attach.disabled).toBe(false);
+    attach.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "r1", ability: 2 }]);
+    expect(item(rulesMenu(v.cards.r1!, v, "p1"), "Reconfigure: unattach ({2})").disabled).toBe(true);
   });
 
   it("offers graveyard-activated abilities (113.6m) only for graveyard costs or server-listed ones", () => {

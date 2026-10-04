@@ -41,7 +41,7 @@ def test_v1_save_migrates_and_keeps_history(cards):
         "history": {**history, "base": as_v1(history["base"])},
     }
     migrated = decode(encode(payload))
-    assert migrated["version"] == SAVE_VERSION == 6
+    assert migrated["version"] == SAVE_VERSION == 7
     state, restored_history = load_payload(migrated)
     assert state.players["p1"].life == 37
     assert state.searching("p1") == "p1:library"
@@ -123,7 +123,7 @@ def test_v4_save_becomes_a_sandbox_game_in_v5(cards):
     history["base"].pop("rules", None)
     payload = {"format": "fyodor-save", "version": 4, "saved_at": 0, "state": state, "history": history}
     migrated = decode(encode(payload))
-    assert migrated["version"] == SAVE_VERSION == 6 and migrated["migrated_from"] == 4
+    assert migrated["version"] == SAVE_VERSION == 7 and migrated["migrated_from"] == 4
     assert migrated["state"]["rules"] is None and migrated["state"]["settings"]["automation"] == "off"
     loaded, restored = load_payload(migrated)
     assert loaded.rules is None and loaded.settings.automation == "off"
@@ -157,7 +157,7 @@ def test_v5_rules_game_becomes_full_and_stops_become_preferences(cards):
     payload = {"format": "fyodor-save", "version": 5, "saved_at": 0,
                "state": _as_v5(s.state.model_dump(mode="json")), "history": {**history, "base": _as_v5(history["base"])}}
     migrated = decode(encode(payload))
-    assert migrated["version"] == SAVE_VERSION == 6
+    assert migrated["version"] == SAVE_VERSION == 7
     loaded, restored = load_payload(migrated)
     assert loaded.settings.automation == "full" and loaded.settings.automation_options.auto_sba
     bob = loaded.rules.prefs["p2"]

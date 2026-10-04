@@ -153,6 +153,19 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
     from app.rules import devour
 
     devour.plan_entry(plan, card, controller, answers, out, set(reserved or ()))
+    if any(d["replacement"] == "enters_turn_down" for d in defs):  # -- hidden exile (wave 18A) -- Ixidron: the nontoken creatures there now
+        out["turn_down"] = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and not c.is_token
+                            and not c.face_down and c.id != card.id and plan.ch(c).is_creature]
+    from app.rules import (
+        amplify,  # -- casting extras (wave 18E) -- amplify N (702.38a): which cards to reveal as it enters
+    )
+
+    amplify.plan_entry(plan, card, controller, answers, out)
+    from app.rules import (
+        riot,  # -- keywords (wave 15E) -- riot / unleash: the +1/+1 counter or haste (app/rules/riot.py)
+    )
+
+    riot.plan_entry(plan, card, controller, answers, out)
     if out.get("choice", {}).get("what") == enter_cost.WHAT and reserved:
         out["choice"]["reserved"] = sorted(reserved)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with (122.6) --
@@ -229,10 +242,23 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
 
                     for piece in keyword_triggers.pieces(kw, ab.text):
                         counters["+1/+1"] = counters.get("+1/+1", 0) + int(piece.split()[1])
+        for ab in ch.abilities:  # -- keywords (wave 15E) -- 702.63a vanishing N / 702.32a fading N: "enters with N time / fade counters"
+            for kw, kind in (("vanishing", "time"), ("fading", "fade")):
+                if ab.kind == "keywords" and kw in ab.keywords:
+                    from app.rules import keyword_triggers
+
+                    for piece in keyword_triggers.pieces(kw, ab.text):
+                        counters[kind] = counters.get(kind, 0) + int(piece.split()[1])
         from app.rules import (
+            amplify,  # -- casting extras (wave 18E) -- 702.38a: N for each card revealed as it entered
             devour,  # -- keyword mechanics (wave 9D) -- 702.82a: N for each permanent sacrificed as it entered
+            riot,  # -- keywords (wave 15E) -- 702.136a / 702.98a: the additional +1/+1 counter chosen
         )
 
+        if amplify.counters(ch, choices):
+            counters["+1/+1"] = counters.get("+1/+1", 0) + amplify.counters(ch, choices)
+        if riot.counters(ch, choices):
+            counters["+1/+1"] = counters.get("+1/+1", 0) + riot.counters(ch, choices)
         if devour.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + devour.counters(ch, choices)
         for ab in ch.abilities:  # -- keyword mechanics (wave 9D) -- 702.44a sunburst: a +1/+1 counter (a creature, ignoring
@@ -264,6 +290,12 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
         lore = sagas.entering_lore(ch, choices)
         if lore:
             counters[sagas.LORE] = counters.get(sagas.LORE, 0) + lore
+    from app.rules import (
+        mana_units,  # -- mana provenance (wave 18B) -- 106.6: the mana's rider, whatever the permanent is
+    )
+
+    if n := mana_units.entering_counters(plan, card):  # (the spell's payment record follows the permanent: as in ``entered``)
+        counters["+1/+1"] = counters.get("+1/+1", 0) + n
     return counters
 
 
@@ -331,6 +363,14 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
 
     if devour.is_choice(what):
         return devour.prompt(plan, card, controller, choice)
+    from app.rules import amplify  # -- casting extras (wave 18E) -- private: the cards in their hand
+
+    if amplify.is_choice(what):
+        return amplify.prompt(plan, card, controller, choice)
+    from app.rules import riot  # -- keywords (wave 15E) --
+
+    if riot.is_choice(what):
+        return riot.prompt(plan, card, controller)
 
     if what == battles.PROTECTOR:  # 310.9a / 310.12a
         return f"{card.name}: as it enters, choose its protector", battles.choice_options(plan, controller, card)
@@ -347,6 +387,10 @@ def _answer(entry_or_answers: dict[str, Any], choice: dict[str, Any], chosen: st
 
     if devour.is_choice(choice["what"]):
         chosen = devour.merge((entry_or_answers.get("choices") or {}).get(choice["what"]), chosen)
+    from app.rules import amplify  # -- casting extras (wave 18E) -- amplify's picks pile up too
+
+    if amplify.is_choice(choice["what"]):
+        chosen = amplify.merge((entry_or_answers.get("choices") or {}).get(choice["what"]), chosen)
     return {**entry_or_answers, "choices": {**(entry_or_answers.get("choices") or {}), choice["what"]: chosen}}
 
 
@@ -421,8 +465,13 @@ def stack_entry_choice(plan: Plan, card: CardInstance, controller: str) -> bool:
 
 
 def _picked(plan: Plan, d: Any, chosen: str) -> str:
-    from app.rules import devour  # -- keyword mechanics (wave 9D) --
+    from app.rules import (
+        amplify,  # -- casting extras (wave 18E) --
+        devour,  # -- keyword mechanics (wave 9D) --
+    )
 
+    if amplify.is_choice(d.resume["what"]):
+        return amplify.merge(plan.rules.entry_choices.get(d.resume["card"], {}).get(amplify.WHAT), chosen)
     if not devour.is_choice(d.resume["what"]):
         return chosen
     return devour.merge(plan.rules.entry_choices.get(d.resume["card"], {}).get(devour.WHAT), chosen)
@@ -447,6 +496,13 @@ def resume_land_enter_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
 def move_onto_battlefield(plan: Plan, entry: Entry) -> None:
     """Put one card onto the battlefield (:func:`move_together` with one entry)."""
     move_together(plan, [entry])
+
+
+def turn_down(plan: Plan, ep: dict[str, Any], actor: str) -> None:
+    """-- hidden exile (wave 18A) -- 708.2a: the creatures an "as it enters, turn … face down" names become 2/2 face-down creatures."""
+    ids = [c for c in ep.get("turn_down") or [] if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+    if ids:
+        plan.do({"type": "face_down", "card_ids": ids, "face_down": True, "kind": "generic"}, actor=actor)
 
 
 def move_together(plan: Plan, entries: list[Entry]) -> None:
@@ -485,6 +541,10 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         from app.rules import devour
 
         devour.sacrifice(plan, ep, entry["player"])
+        from app.rules import amplify  # -- casting extras (wave 18E) -- 702.38a: revealed as it enters
+
+        amplify.reveal(plan, ep, entry["player"])
+        turn_down(plan, ep, entry["actor"])
     # -- end entering for a cost (wave 5G) --
     if not planned:
         return
@@ -594,6 +654,14 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
 
     if choices and devour.picked(choices.get(devour.WHAT)):
         plan.rules.devoured[plan.oid(card)] = len(devour.picked(choices.get(devour.WHAT)))
+    from app.rules import layers, riot  # -- keywords (wave 15E) -- 702.136a: "If you don't, it gains haste."
+
+    if riot.gains_haste(plan.ch(card), choices):
+        layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
+                          add_keywords=("haste",), duration="permanent", label="Haste (riot)")
+    from app.rules import mana_units
+
+    mana_units.entered(plan, card, controller)  # -- mana provenance (wave 18B) -- 106.6: "it gains haste"
     counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices)
     puts = [(card_id, kind, n) for kind, n in counters.items() if n > 0]
     from app.rules import replace
@@ -786,7 +854,10 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
                                      if _from_zone(plan.state.cards[cid]) == "hand"])
     for cid, zone, _why in replaced:
         owner = plan.state.cards[cid].owner
-        plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": zone}}, actor=actor)
+        # (-- merged permanents (wave 18D) -- 903.9c: the cards of a merged / melded commander that aren't commanders go where it was headed)
+        also = {"rest_zone": dest, **{k: payload[k] for k in ("position", "index") if payload.get(k) is not None}} \
+            if zone == "command" and plan.state.cards[cid].merged and dest in ("hand", "library") else {}  # (review 18D: top / bottom too)
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": zone}, **also}, actor=actor)
     for cid, cost in madness:
         _discard_into_exile(plan, cid, cost, actor)
     taken = {cid for cid, _, _ in replaced} | {cid for cid, _ in madness}
@@ -998,6 +1069,12 @@ def _target_in_scope(plan: Plan, sc: dict[str, Any], you: str, source_card: str 
 def _source_in_scope(plan: Plan, sc: dict[str, Any], you: str, source_card: str | None, ev: DamageEvent) -> bool:
     if sc.get("by_oids"):
         return ev.get("source_oid") in sc["by_oids"]
+    if sc.get("by_source"):  # -- prevention riders (wave 17A) -- "red sources", "sources you don't control" (609.7c)
+        from app.rules import replace
+
+        who = replace.Candidate(id="", event="damage", match={}, op={}, controller=you, source_card=source_card, source_oid=None,
+                                seq=(0,), label="")
+        return replace._source_matches(plan, sc["by_source"], who, ev)
     if sc.get("by_objects"):
         src = _source_card(plan, ev)
         return src is not None and _object_matches(plan, sc["by_objects"], src, you, source_card)
@@ -1081,5 +1158,6 @@ def prevent_all(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             scope[locked] = [source]
     plan.rules.replacements.append({"id": secrets.token_hex(4), "kind": "prevent", "turn": plan.state.turn.number,
                                     "controller": ctx["controller"], "source": source,
-                                    "source_card": ctx.get("source_card"), "scope": scope})
+                                    "source_card": ctx.get("source_card"), "scope": scope,
+                                    **({"rider": e["rider"]} if e.get("rider") else {})})  # (wave 17A) 615.5
     return True

@@ -56,9 +56,12 @@ Effects = list[dict[str, Any]]
 TAX = "attack_tax"
 TAX_PW = "attack_tax_pw"  # (also attacking a planeswalker the player controls)
 OTHER_THAN = "attack_other_than"
+ATTACK_PLAYER = "attack_player"  # -- casting extras (wave 18E) -- "attacks that opponent this turn if able" (encore, 702.141a): ``attack_player:<player>``
 CANT_BLOCK_CTRL = "cant_block_ctrl"
 CANT_BLOCK_CTRL_POWER = "cant_block_ctrl_power"
 LIMIT = "attack_limit"
+LIMIT_ALL = "attack_limit_all"  # -- static_other sweep (wave 16B) -- "No more than one creature can attack each combat." (Silent Arbiter)
+BLOCK_LIMIT_ALL = "block_limit_all"  # … "can block each combat": the creatures that block, all players together
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 
 
@@ -70,6 +73,7 @@ _TAX_PW_RE = re.compile(r"(?P<sub>.+?) can't attack you or planeswalkers you con
 _CTRL_RE = re.compile(r"(?P<sub>.+?) can't block creatures you control\.")
 _POWER_SUB = re.compile(r"Creatures with power less than (?:~|this creature)'s power")
 _LIMIT_RE = re.compile(r"No more than (?P<n>one|two|three|four|five) creatures? can attack you each combat\.")
+_LIMIT_ALL_RE = re.compile(r"No more than (?P<n>one|two|three|four|five) creatures? can (?P<v>attack|block) each combat\.")
 
 
 def static_definition(text: str) -> Definition | None:
@@ -80,6 +84,9 @@ def static_definition(text: str) -> Definition | None:
     m = _LIMIT_RE.fullmatch(t)
     if m:
         return {"kind": "static", "static": LIMIT, "n": _NUMBERS[m["n"]], "effects": []}
+    m = _LIMIT_ALL_RE.fullmatch(t)
+    if m:
+        return {"kind": "static", "static": LIMIT_ALL if m["v"] == "attack" else BLOCK_LIMIT_ALL, "n": _NUMBERS[m["n"]], "effects": []}
     m = _TAX_RE.fullmatch(t) or _TAX_PW_RE.fullmatch(t)
     if m:
         from app.rules import mana as M
@@ -190,8 +197,9 @@ def taxed(plan: Plan, ch: Characteristics, target: str) -> bool:
 
 
 # -- attack limits (508.1c) ------------------------------------------------------------------------------------------
-def limits(plan: Plan) -> dict[str, int]:
-    """Players and the most creatures that can attack them each combat (the smallest of their limits)."""
+def limits(plan: Plan, kind: str = LIMIT) -> dict[str, int]:
+    """Players and the most creatures that can attack them each combat (the smallest of their limits); ``"*"``: the most
+    that can attack at all (``LIMIT_ALL``), or that can block at all (``kind`` BLOCK_LIMIT_ALL, key ``"*"`` only)."""
     from app.rules import scripts
 
     out: dict[str, int] = {}
@@ -199,16 +207,20 @@ def limits(plan: Plan) -> dict[str, int]:
         if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         for d in scripts.definitions(plan.ch(c)).values():
-            if d.get("kind") == "static" and d.get("static") == LIMIT:
+            if d.get("kind") != "static":
+                continue
+            if d.get("static") == kind == LIMIT:
                 out[c.controller] = min(out.get(c.controller, 99), int(d["n"]))
+            elif d.get("static") == (BLOCK_LIMIT_ALL if kind == BLOCK_LIMIT_ALL else LIMIT_ALL):
+                out["*"] = min(out.get("*", 99), int(d["n"]))
     return out
 
 
 def limit_problem(plan: Plan, declared: list[tuple[str, str]], caps: dict[str, int]) -> str | None:
     for player, n in caps.items():
-        k = sum(1 for _, t in declared if t == player)
+        k = len(declared) if player == "*" else sum(1 for _, t in declared if t == player)
         if k > n:
-            return f"No more than {n} creature{'s' if n != 1 else ''} can attack {plan.name(player)} each combat"
+            return f"No more than {n} creature{'s' if n != 1 else ''} can attack {'' if player == '*' else plan.name(player) + ' '}each combat"
     return None
 
 
@@ -216,6 +228,11 @@ def limit_problem(plan: Plan, declared: list[tuple[str, str]], caps: dict[str, i
 def other_than(ch: Characteristics) -> set[str]:
     """Players this creature attacks someone other than if able (Kardur's effect: ``attack_other_than:<player>``)."""
     return {r.split(":", 1)[1] for r in ch.imposed if r.startswith(OTHER_THAN + ":")}
+
+
+def attack_players(ch: Characteristics) -> set[str]:
+    """-- casting extras (wave 18E) -- Players this creature attacks this turn if able (encore's tokens, 702.141a)."""
+    return {r.split(":", 1)[1] for r in ch.imposed if r.startswith(ATTACK_PLAYER + ":")}
 
 
 def requirements_problem(plan: Plan, eligible: set[str], places: dict[str, list[str]],
@@ -233,11 +250,12 @@ def requirements_problem(plan: Plan, eligible: set[str], places: dict[str, list[
         ch = plan.ch(plan.state.cards[cid])
         attack = len(goaded_by(ch) & live) + (1 if "must_attack" in scripts.statics(ch) else 0)
         others = (goaded_by(ch) | other_than(ch)) & live
+        wants = attack_players(ch) & live
 
-        def score(place: str | None, attack: int = attack, others: set[str] = others) -> int:
+        def score(place: str | None, attack: int = attack, others: set[str] = others, wants: set[str] = wants) -> int:
             if place is None:
                 return 0
-            return attack + sum(1 for g in others if place in plan.state.players and place != g)
+            return attack + (place in wants) + sum(1 for g in others if place in plan.state.players and place != g)
 
         weights.append({None: 0, **{t: score(t) for t in places[cid]}})
         obeyed += score(declared.get(cid))
@@ -251,13 +269,10 @@ def requirements_problem(plan: Plan, eligible: set[str], places: dict[str, list[
         for place, w in weights[i].items():
             if place is None:
                 continue
-            if place in caps:
-                j = order.index(place)
-                if left[j] <= 0:
-                    continue
-                top = max(top, w + best(i + 1, left[:j] + (left[j] - 1,) + left[j + 1:]))
-            else:
-                top = max(top, w + best(i + 1, left))
+            pools = [j for j, p in enumerate(order) if p in (place, "*")]  # (the place's own limit, and the one for all attackers)
+            if any(left[j] <= 0 for j in pools):
+                continue
+            top = max(top, w + best(i + 1, tuple(n - (j in pools) for j, n in enumerate(left))))
         return top
 
     if obeyed < best(0, tuple(caps[p] for p in order)):
@@ -339,10 +354,22 @@ _EACH_OPP = re.compile(r"for each opponent, (?P<create>create .+? token(?:s)? th
                        r"(?P<pw> or a planeswalker they control)?")
 _AND_EXTRA = re.compile(r"(?P<a>.+?),? and (?P<b>after this (?:main |combat )?phase, there is an additional combat phase.*)")
 _REMOVE = re.compile(r"remove (?P<o>.+?) from combat")
-_MAZE = re.compile(r"prevent all combat damage that would be dealt to and dealt by (?P<o>that creature|it|target creature|~)"
+_MAZE = re.compile(r"prevent all combat damage that would be dealt to and dealt by (?P<o>that creature|it|target creature(?: you control)?|~)"
                    r" this turn")
 _DOUBLE = re.compile(r"double (?:the (?P<w1>power and toughness|power) of (?P<o1>.+?)|(?P<o2>.+?)'s "
                      r"(?P<w2>power and toughness|power)|(?P<o3>its) (?P<w3>power and toughness|power)) until end of turn")
+# -- keywords (wave 15E) -- myriad (702.116a): "for each opponent other than defending player, you may create a token that's a
+# copy of ~ that's tapped and attacking that player or a planeswalker they control. If one or more tokens are created this way,
+# exile the tokens at end of combat."
+_MYRIAD = re.compile(r"for each opponent other than defending player, you may create a token that's a copy of (?:~|this creature) "
+                     r"that's tapped and attacking that player or a planeswalker they control \[exile at end of combat\]")
+_MYRIAD_EXILE = re.compile(r"(planeswalker they control)\. If one or more tokens are created this way, exile the tokens at end of "
+                           r"combat\.")
+
+
+def merge_myriad(body: str) -> str:
+    """myriad's two sentences (702.116a) as the one instruction they are (scripts._parse_effects)."""
+    return _MYRIAD_EXILE.sub(r"\1 [exile at end of combat].", body) if "other than defending player" in body else body
 _THAT_PLAYER = re.compile(r"(?P<create>create .+? tokens? that(?:'s| are) tapped and attacking) that player")
 
 
@@ -386,6 +413,11 @@ def clause(text: str) -> tuple[Effects, Any] | None:
     m = _MUST.fullmatch(text)
     if m:
         return _restrict(m["o"], ["must_attack"])
+    if _MYRIAD.fullmatch(text):  # (both sentences: the exile is part of the keyword, 702.116a)
+        from app.rules import delayed
+
+        return [{"do": "myriad_choose"}, {"do": "myriad_create", "who": "self", "as": "myriad_tokens"},
+                *delayed.wrap_when([{"do": "exile", "who": "ref:myriad_tokens"}], delayed.END_OF_COMBAT)], None
     m = _EACH_OPP.fullmatch(text)
     if m:
         made = _token(m["create"])
@@ -406,6 +438,9 @@ def unwrapped(d: Definition) -> bool:
     """An "attacks each combat if able" effect must have a duration ("until your next turn, …"): one without it
     isn't read. "Tapped and attacking that player" is read only in "Whenever you attack a player, …" (the player
     attacked, 508.3e)."""
+    if any(e.get("do") in ("myriad_choose", "myriad_create") for e in d.get("effects") or []) and not (
+            d.get("kind") == "triggered" and d.get("trigger") == "attacks_self"):
+        return True  # (-- keywords (wave 15E) -- myriad is about the attacking creature itself)
     effects = d.get("effects") or []
     cond = d.get("cond") or {}
     if any(e.get("who") == "defended" for e in effects) and not (
@@ -424,7 +459,7 @@ def _token(create: str) -> dict[str, Any] | None:
     from app.rules import token_grammar
 
     found = token_grammar.parse(create)
-    if not found or len(found) != 1 or found[0].get("do") != "create_attacking" or isinstance(found[0].get("n"), dict):
+    if not found or len(found) != 1 or found[0].get("do") != "create_attacking" or not found[0].get("tapped") or isinstance(found[0].get("n"), dict):
         return None
     return found[0]
 
@@ -571,6 +606,80 @@ def double_pt(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"extra_phases": extra_phases, "create_attacking_each": create_attacking_each,
-              "remove_from_combat": remove_from_combat, "double_pt": double_pt}
-RESUME = {"attack_each_opponent": resume_attack_each}
+# -- keywords (wave 15E) -- myriad (702.116a): the choices first (one decision per opponent other than the defending player,
+# private to the attacker), then the copies are made at once and each attacks the player or planeswalker chosen for it
+def myriad_choose(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import defending
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    me = ctx["controller"]
+    defended = defending.defended(plan, src) if src is not None and src.zone.endswith(":battlefield") else None
+    ctx["myriad"] = []
+    if defended is None or me != plan.active or plan.state.turn.phase not in _ATTACKING_PHASES:
+        return True  # (no longer an attacking creature: nobody to create a token for)
+    return _myriad_next(plan, ctx, [p for p in plan.apnap() if p != me and p != defended and p in plan.live()], [])
+
+
+def _myriad_next(plan: Plan, ctx: dict[str, Any], remaining: list[str], picked: list[str]) -> bool:
+    me = ctx["controller"]
+    while remaining:
+        pid = remaining[0]
+        if pid not in plan.live():
+            remaining = remaining[1:]
+            continue
+        walkers = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == pid
+                   and plan.in_game(c) and "Planeswalker" in plan.ch(c).types]
+        options = [DecisionOption(id="none", label=f"No token for {plan.name(pid)}"),
+                   DecisionOption(id=pid, label=f"A token attacking {plan.name(pid)}"),
+                   *(DecisionOption(id=c, label=f"A token attacking {plan.state.cards[c].name or 'a planeswalker'}", card_id=c)
+                     for c in walkers)]
+        decide(plan, player=me, kind="choose_one",
+               prompt=f"{ctx.get('name') or 'Myriad'}: create a token copy attacking {plan.name(pid)} or a planeswalker they control?",
+               options=options, resume={"step": "myriad_pick", "ctx": ctx, "remaining": remaining[1:], "picked": picked})
+        return False
+    ctx["myriad"] = picked
+    return True
+
+
+def resume_myriad(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    picked = list(r["picked"]) + ([chosen[0]] if chosen and chosen[0] != "none" else [])
+    if _myriad_next(plan, r["ctx"], list(r["remaining"]), picked):
+        effects.continue_effects(plan, r["ctx"])
+
+
+def myriad_create(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, copying
+
+    picked = [t for t in ctx.get("myriad") or [] if t in plan.state.players and t in plan.live()
+              or (t in plan.state.cards and plan.state.cards[t].zone.endswith(":battlefield"))]
+    if not picked:
+        return True
+    if not copying.token_copy(plan, ctx, {"do": "token_copy", "who": "self", "n": len(picked), "tapped": True,
+                                          "as": e.get("as")}):
+        return False
+    for token, target in zip(context.objects(plan, ctx, str(e.get("as"))), picked, strict=False):
+        _attack(plan, [token], target, ctx["controller"])  # 508.4: attacking, never declared as an attacker
+    return True
+
+
+def encore_attack(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """-- casting extras (wave 18E) -- 702.141a: "For each opponent, create a token that's a copy of this card that attacks that
+    opponent this turn if able": one token was made for each opponent (one creation event); each is paired with one of them (the
+    tokens are identical, so which is which is no choice) and must attack that player this turn if able (508.1d)."""
+    from app.rules import effects, layers
+
+    tokens = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    for cid, pid in zip(tokens, [p for p in plan.apnap() if p != ctx["controller"] and p in plan.live()], strict=False):
+        layers.add_effect(plan, affected=[plan.oid(plan.state.cards[cid])], layer="6", source=ctx.get("source_object"),
+                          controller=ctx["controller"], imposes=(f"{ATTACK_PLAYER}:{pid}",), label="Attacks that player if able",
+                          source_card=ctx.get("source_card"))
+    return True
+
+
+PRIMITIVES = {"encore_attack": encore_attack, "extra_phases": extra_phases, "create_attacking_each": create_attacking_each,
+              "remove_from_combat": remove_from_combat, "double_pt": double_pt,
+              "myriad_choose": myriad_choose, "myriad_create": myriad_create}
+RESUME = {"attack_each_opponent": resume_attack_each, "myriad_pick": resume_myriad}

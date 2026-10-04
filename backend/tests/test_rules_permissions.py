@@ -477,7 +477,6 @@ def test_cost_modifier_wordings(text, expected):
     # (wave 4I: "The first creature spell you cast each turn costs {1} less" is read now: cost_changes.ORDINAL)
     "Spells your opponents cast that target this creature cost {1} more to cast.",
     "This spell costs {1} less to cast if it targets a tapped creature.",
-    "Equip abilities you activate cost {1} less to activate.",
     "You may cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.",
 ])
 def test_wordings_the_grammar_refuses(text):
@@ -495,7 +494,7 @@ def test_effect_wordings():
     assert P.parse_clause("you may play that card this turn")[0][0] == {
         "do": "grant_play", "who": "it:card", "play": True, "cast": True, "until": "end_of_turn", "optional": True}
     assert P.parse_clause("until end of turn, you may play that card this turn") is None
-    assert P.parse_clause("you may play that card until your next end step") is None
+    assert P.parse_clause("you may play that card until your next end step")[0][0]["until"] == "next_end_step"  # (wave 15B)
     # a bare "you may cast that card": cast it as this resolves, ignoring timing — not a permission
     # that lasts the turn (Chandra, Torch of Defiance's wording): refused, never a turn-long grant
     assert P.parse_clause("you may cast that card") is None

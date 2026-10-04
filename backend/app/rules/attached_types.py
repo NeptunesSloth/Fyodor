@@ -126,6 +126,15 @@ def _desc(m: re.Match[str], extra: dict[str, Any]) -> bool | list[int]:
     layer4 = _layer4(extra)
     if legendary:
         layer4.setdefault("add_supertypes", []).append("Legendary")
+    if m["add"] and creature and m["p"] and subs and not (artifact or legendary):
+        # -- Zendikon (wave 16F) -- "Enchanted land is a 3/3 black Ooze creature. It's still a land.": the land becomes a creature of
+        # that type with that base P/T (and that color) and stays a land (205.1b, 613.1d); only a land (see ``consistent``)
+        layer4.setdefault("add_types", []).append("Creature")
+        layer4.setdefault("add_subtypes", []).extend(subs)
+        if colors is not None:
+            extra["set_colors"] = colors
+        extra["_animate"] = True
+        return [int(m["p"]), int(m["t"])]
     if m["add"]:
         # "is an Angel in addition to its other types"; "is an artifact in addition to its other types" (205.1b);
         # "is a black Zombie in addition to its other colors and types" (105.3: a color added)
@@ -153,6 +162,8 @@ def _desc(m: re.Match[str], extra: dict[str, Any]) -> bool | list[int]:
 def consistent(extra: dict[str, Any], kind: str | None) -> bool:
     """The parts make one effect the engine applies (and the private notes are resolved)."""
     lose_types = extra.pop("_lose_types", False)
+    if extra.pop("_animate", False):
+        return kind == "land" and set(extra) <= {"layer4", "set_colors"} and not lose_types
     layer4 = extra.get("layer4") or {}
     if "set_land_types" in layer4:  # -- land types set (wave 12D) -- only an Aura's "Enchanted land is a Swamp." on its own
         return kind == "land" and set(extra) == {"layer4"} and set(layer4) == {"set_land_types"} and not lose_types

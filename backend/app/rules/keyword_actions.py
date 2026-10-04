@@ -138,6 +138,10 @@ def _connive_next(plan: Plan, ctx: Context, queue: list[Conniver], n: int) -> bo
         cid, oid, pid = queue.pop(0)
         if pid not in plan.live():
             continue
+        if cid is not None:  # -- trigger tail (wave 15B) -- "Whenever a creature you control connives" (701.50a)
+            from app.game.rules_state import emit
+
+            emit(plan.state, "designation", counter="connive", card=cid, object_id=oid, player=pid)
         # -- replacement effects stage 2 (wave 2E): the draw through the draw choke point; after a
         # 616.1 choice the conniving goes on from the discard ("connive_after_draw") --
         rest = {"do": "connive_after_draw", "ctx": ctx, "card": cid, "object": oid, "player": pid, "n": n,
@@ -229,6 +233,20 @@ def monstrosity(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         from app.game.rules_state import emit
 
         emit(plan.state, "designation", counter="monstrous", card=cid, object_id=oid, player=plan.state.cards[cid].controller)
+    return True
+
+
+# -- Class (wave 16A) -- 716.2a ---------------------------------------------------------------
+def class_level(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"This Class's level becomes N": the level designation (716.2b) of the permanent; "becomes level N" triggers."""
+    from app.game.rules_state import emit
+
+    for cid in effects._cards(plan, ctx, "self"):
+        card = plan.state.cards[cid]
+        if card.zone.endswith(":battlefield"):
+            oid = plan.oid(cid)
+            plan.rules.levels[oid] = e["n"]
+            emit(plan.state, "designation", counter="level", card=cid, object_id=oid, amount=e["n"], player=card.controller)
     return True
 
 
@@ -354,13 +372,17 @@ def become_prepared(plan: Plan, card: CardInstance) -> None:
     of it in exile with only the prepare spell's characteristics (the card's second face, 722.2), which stays there while
     it remains prepared on the battlefield (an exception to 704.5e: sba.py) and may be cast (casting.cast_grant)."""
     oid = plan.oid(card)
-    if oid in plan.rules.prepared or not card.zone.endswith(":battlefield"):
-        return
-    data = plan.info.get(card.card_id) if card.card_id else None
-    if (data or {}).get("layout") != "prepare" or card.is_token or card.face_down or copy_recipe_of(plan.rules, oid) is not None:
-        return  # (no prepare spell, 722.3a — or a copy of a permanent, whose copiable values aren't tracked here: not made)
-    created = plan.do({"type": "copy_card", "card_id": card.id, "player": card.controller, "count": 1, "zone": "exile", "face": 1},
-                      actor=card.controller)
+    if not card.zone.endswith(":battlefield") or (oid in plan.rules.prepared and plan.rules.prepared[oid] in plan.state.cards):
+        return  # (722.3a: it can't gain the designation again; a prepared permanent that phased out and in gets its copy anew, 722.3c)
+    # 722.2b: a copy of a preparation card (a Clone, a token copy) has that card's prepare spell among its copiable values;
+    # 722.3c: the exiled copy has only that prepare spell's characteristics, ignoring the copy's other exceptions
+    recipe = copy_recipe_of(plan.rules, oid)
+    printing = recipe.printing if recipe is not None else card.card_id
+    data = plan.info.get(printing) if printing else None
+    if (data or {}).get("layout") != "prepare" or card.face_down:
+        return  # (no prepare spell, 722.3a)
+    created = plan.do({"type": "copy_card", "card_id": card.id, "player": card.controller, "count": 1, "zone": "exile", "face": 1,
+                       **({"printing": printing} if printing != card.card_id else {})}, actor=card.controller)
     made = getattr(getattr(created, "r", None), "ids", [])
     if made:
         plan.rules.prepared[oid] = made[0]
@@ -502,6 +524,10 @@ def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             continue  # (an ability not on the stack has no number: never ignored)
         plan.do({"type": "set_face", "card_id": cid, "face": 1 - min(card.face, 1)}, actor=ctx["controller"])
         now = plan.state.cards[cid]
+        # -- transform (wave 16F) -- 701.28: "When this creature transforms into …" (the same object, 712.18; designations.facts)
+        from app.game.rules_state import emit
+
+        emit(plan.state, "designation", counter="transformed", card=cid, object_id=plan.oid(cid), player=now.controller)
         if (now.attached_to or now.attached_player) and attachments.attach_kind(plan.ch(now)) is None:
             plan.do({"type": "detach", "card_ids": [cid]}, actor=ctx["controller"])  # 704.5n: no longer an Equipment (or Aura …)
     return True
@@ -529,7 +555,7 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
     return [c for c in card_ids if c not in stuck]
 
 
-PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
+PRIMITIVES = {"class_level": class_level, "amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
               "goad": goad, "detain": detain, "suspect": suspect, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform,
               **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}

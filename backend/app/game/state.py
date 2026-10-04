@@ -123,6 +123,23 @@ class CopyInfo(BaseModel):
     modifications: str = ""
 
 
+class MergedPart(BaseModel):
+    """-- merged permanents (wave 18D) -- one card or token that represents a merged (702.140, 730) or melded (701.42, 712.4)
+    permanent. ``id`` is the instance id the card had before it joined (it comes back with it when the permanent leaves)."""
+
+    id: str
+    card_id: str | None = None
+    name: str = ""
+    owner: str
+    is_token: bool = False
+    token: TokenDef | None = None
+    copy_of: CopyInfo | None = None
+    commander_key: str | None = None
+    categories: list[str] = Field(default_factory=list)
+    origin: Literal["library", "command", "sideboard", "companion"] = "library"
+    test_object: bool = False
+
+
 class AbilityDef(BaseModel):
     """A temporary stack object representing an activated/triggered ability."""
 
@@ -151,6 +168,11 @@ class CardInstance(BaseModel):
     face_down: bool = False
     # How it got face down (public: everyone saw it happen). Its identity stays with the controller.
     face_down_kind: Literal["generic", "morph", "disguise", "manifest", "cloak", "exile"] | None = None
+    # -- hidden exile (wave 18A) -- 708.2a: what the effect that turned it face down made it ("2/2 Cyberman artifact creature"); public
+    face_down_as: str | None = None
+    # -- hidden exile (wave 18A) -- exiled face down by an effect that nobody looked at (406.3a): not even its controller may look
+    # at it until an effect lets them (``revealed_to``); ends when it changes zones
+    unseen: bool = False
     face: int = 0  # displayed face for DFC / adventure / split cards
     flipped: bool = False  # rotated 180° (Kamigawa flip cards)
     counters: dict[str, int] = Field(default_factory=dict)
@@ -158,6 +180,11 @@ class CardInstance(BaseModel):
     is_token: bool = False
     token: TokenDef | None = None
     copy_of: CopyInfo | None = None
+    # -- merged permanents (wave 18D) -- every card / token representing a mutated (730) or melded (712.4) permanent, topmost first;
+    # empty for an ordinary object. The fields above (card_id, name, token …) are always the topmost component's (730.2a); a melded
+    # permanent shows its combined back face (``card_id``), its two cards are the parts (``melded``).
+    merged: list[MergedPart] = Field(default_factory=list)
+    melded: bool = False
     ability: AbilityDef | None = None
     commander_key: str | None = None
     categories: list[str] = Field(default_factory=list)  # deck-builder categories; only ever shown to the owner
@@ -205,6 +232,20 @@ class LifeChange(BaseModel):
     seq: int = 0  # action number that last touched this entry
 
 
+class ManaUnit(BaseModel):
+    """-- mana provenance (wave 18B) -- one mana in a pool that remembers where it came from and what binds it (CR 106.6, 106.12, 107.4h):
+    the plain pool (``PlayerState.mana``) is only unrestricted mana of no interest; a unit exists for mana with a spending restriction
+    or a "when that mana is spent" rider, or from a source a rule asks about later (a snow source, a Treasure, an artifact, a creature)."""
+
+    id: int
+    sym: str = Field(max_length=1)  # W U B R G C
+    src: str = Field(default="", max_length=80)  # object id of the source (106.3: its permanent, spell or ability's source)
+    tags: list[str] = Field(default_factory=list, max_length=40)  # the source's types, subtypes and supertypes when it produced it
+    only: str | None = Field(default=None, max_length=2000)  # a spending restriction (casting.spend_allowed)
+    note: str = Field(default="", max_length=300)  # the restriction as Oracle words, for the pool display
+    riders: list[dict[str, Any]] = Field(default_factory=list, max_length=8)  # effects when it is spent (mana_units.RIDERS)
+
+
 class PlayerState(BaseModel):
     id: str
     name: str
@@ -221,6 +262,8 @@ class PlayerState(BaseModel):
     deck_name: str | None = None
     token_shortcuts: list[str] = Field(default_factory=list)  # card ids from the deck's Tokens section
     mana: dict[str, int] = Field(default_factory=dict)  # temporary mana pool: W U B R G C (and S for snow)
+    mana_units: list[ManaUnit] = Field(default_factory=list)  # -- mana provenance (wave 18B) -- restricted / remembered mana
+    mana_seq: int = 0  # -- mana provenance (wave 18B) -- the next unit id
     left: bool = False  # removed from the table by the host (kept for names in the log)
     # Appearance (visual only; card identity stays server-controlled). Ids of managed assets.
     sleeve: str | None = Field(default=None, max_length=32, pattern=r"^[0-9a-f]{8,32}$")
@@ -393,6 +436,12 @@ class GameState(BaseModel):
 
     def departures(self) -> dict[str, str]:
         return self._departed
+
+    # -- review (face-down ids) -- old card id -> new id, for the step being applied (rules tracking follows a renumbered card)
+    _renamed: dict[str, str] = PrivateAttr(default_factory=dict)
+
+    def renames(self) -> dict[str, str]:
+        return self._renamed
 
     # -- helpers ---------------------------------------------------------------------
     def zone(self, key: str) -> list[str]:

@@ -40,6 +40,9 @@ _COLORS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 _ADJECTIVES = frozenset({"legendary", "white", "blue", "black", "red", "green", "colorless", "multicolored", "snow",
                          "attacking", "blocking", "tapped", "untapped"})  # (wave 9B: "enchanted creature is attacking")
 _ATTACHED = re.compile(r"(?P<who>equipped|enchanted) (?P<noun>creature|permanent|land|artifact) is (?P<desc>.+)")
+_ATTACHED_CTRL = re.compile(r"(?:its|(?:equipped|enchanted) (?:creature|permanent|land)'s) controller (?P<rest>(?:controls|has) .+)")
+_ATTACHED_STAT = re.compile(r"(?:its|(?:equipped|enchanted) (?:creature|permanent)'s) (?P<stat>power|toughness) is (?P<n>\w+) or "
+                            r"(?P<cmp>less|greater|more|fewer)")
 _DESIGNATION = re.compile(r"(?:~ is|it's|it is) (?P<is>monstrous|renowned)")
 _MODIFIED = re.compile(r"(?:~ is|it's|it is) modified")
 _IN_GRAVEYARD = re.compile(r"this card is in your graveyard(?: and (?P<rest>.+))?")
@@ -90,6 +93,18 @@ def parse(text: str) -> Condition | None:
     if m:
         key = attached_selector(m["desc"])
         return {"static": "attached_is", "sel": key, "noun": m["noun"], "who": m["who"]} if key else None
+    m = _ATTACHED_CTRL.fullmatch(t)
+    if m:
+        from app.rules import conditions
+
+        inner = conditions.parse("you " + m["rest"])
+        return {"static": "attached_ctrl", "cond": inner} if inner is not None else None
+    m = _ATTACHED_STAT.fullmatch(t)
+    if m:
+        n = _num(m["n"])
+        if n is None:
+            return None
+        return {"static": "attached_stat", "stat": m["stat"], "n": n, "op": "<=" if m["cmp"] in ("less", "fewer") else ">="}
     m = _DESIGNATION.fullmatch(t)
     if m:
         return {"static": "designation", "is": m["is"]}
@@ -166,7 +181,7 @@ def compound(text: str) -> Condition | None:
     return None
 
 
-KINDS = frozenset({"attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all"})
+KINDS = frozenset({"attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all"})
 
 
 def attached_object(plan: Plan, source: CardInstance) -> CardInstance | None:
@@ -197,6 +212,20 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
         if cond["noun"] == "artifact" and "Artifact" not in ch.types:
             return False
         return selectors.matches(plan, selectors.from_key(cond["sel"]), target, ch, controller, source.id)
+    if kind == "attached_ctrl":  # -- as long as (wave 16F) -- "its controller controls another creature": the attached object's controller
+        host = attached_object(plan, source)
+        from app.rules import conditions
+
+        return host is not None and conditions.holds(plan, {"controller": host.controller, "source_card": host.id}, cond["cond"])
+    if kind == "attached_stat":  # "its power is 3 or less": the attached object's power / toughness now (613.4)
+        host = attached_object(plan, source)
+        if host is None:
+            return False
+        from app.rules import sba
+
+        ch = plan.ch(host)
+        got = sba.power(host, ch) if cond["stat"] == "power" else sba.toughness(host, ch)
+        return got is not None and (got <= cond["n"] if cond["op"] == "<=" else got >= cond["n"])
     if kind == "designation":  # 701.37b / 702.112b: a designation of this object (a new object has none, 400.7)
         r = plan.rules
         if r is None or not source.zone.endswith(":battlefield"):

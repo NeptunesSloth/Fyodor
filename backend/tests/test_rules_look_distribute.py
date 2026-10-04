@@ -453,12 +453,13 @@ def test_look_at_an_opponents_top_three_exile_one_face_down_rest_to_their_gravey
     src = _token(s, "Thief", "{1}: Look at the top three cards of target player's library, exile one of them face down, then put "
                              "the rest into their graveyard.")
     a, b, c = zone(s.state, "p2", "library")[:3]
+    b_card = s.state.cards[b]  # (the object: it is renumbered as it goes face down)
     _activate(s, src, targets=["p2"])
     d = decision(s, "choose_cards")
     assert d.player == "p1" and {o.id for o in d.options} == {a, b, c} and (d.min_choices, d.max_choices) == (1, 1)
     assert not any(x in json.dumps(s.view("p2")) for x in (a, b, c))
     choose(s, [b])
-    assert s.state.cards[b].zone == "p2:exile"  # (an owner's exile)
+    assert b_card.zone == "p2:exile" and b_card.id != b  # (an owner's exile)
     assert s.state.cards[a].zone == "p2:graveyard" and s.state.cards[c].zone == "p2:graveyard"
     assert_sound(s)
 

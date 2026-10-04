@@ -52,7 +52,7 @@ def refs_ok(cond: dict[str, Any], effects: list[dict[str, Any]]) -> bool:
     wants_amount = any(scripts._wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv"))
     if wants_player and not scripts._has_player(cond):
         return False
-    if wants_amount and cond["event"] not in scripts._AMOUNT_EVENTS:
+    if wants_amount and (cond["event"] not in scripts._AMOUNT_EVENTS or cond["event"] == "attack"):
         return False
     # (the object the event happened to: only an event about objects has one)
     return not (re.search(r'"(?:ref:)?event(?:\.\w+)?"', text) and cond["subject"] != "sel")

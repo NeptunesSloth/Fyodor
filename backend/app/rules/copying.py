@@ -114,8 +114,13 @@ def base_recipe(card: CardInstance) -> CopyRecipe:
 def recipe_of(plan: Plan, card: CardInstance) -> CopyRecipe:
     """707.2 / 707.3: this object's copiable values as a recipe to copy from — the recipe of the
     copy effect that applies to it (with that effect's exceptions), else its printed values."""
+    from app.rules import (
+        prototype,  # -- casting extras (wave 18E) -- 718.3c-d: a prototyped object's copy is prototyped too
+    )
+
     found = copy_recipe_of(plan.rules, plan.oid(card))
-    return found.model_copy(deep=True) if found is not None else base_recipe(card)
+    recipe = found.model_copy(deep=True) if found is not None else base_recipe(card)
+    return recipe.model_copy(update={"prototyped": True}) if prototype.is_prototyped(plan.state, card) else recipe
 
 
 def with_excepts(recipe: CopyRecipe, excepts: list[CopyExcept]) -> CopyRecipe:
@@ -143,7 +148,14 @@ def _base(recipe: CopyRecipe, info: CardInfo) -> Characteristics:
     if recipe.printing:
         data = info.get(recipe.printing)
         if data is not None:
-            return chars.printed_from_data(data, recipe.face)
+            ch = chars.printed_from_data(data, recipe.face)
+            if recipe.prototyped:  # -- casting extras (wave 18E) -- 718.2a
+                from app.rules import prototype
+
+                ch = prototype.overlay(ch)
+            # -- review (casting) -- 202.3b / 712.8e: a copy of the back face of a transforming double-faced object has mana
+            # value 0 (the printed back face reads its front face's cost only for the card itself, 712.8e)
+            return replace(ch, mana_value=0.0) if recipe.face and data.get("layout") == "transform" else ch
     if recipe.token is not None:
         t = recipe.token
         probe = CardInstance(id="copy-probe", owner="", controller="", zone="", is_token=True,
@@ -190,7 +202,8 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
         abilities = chars.with_intrinsic_mana(kept, subtypes)
     else:
         abilities = ch.abilities
-    return replace(ch, name=ex.name if ex.name is not None else ch.name, supertypes=supertypes, types=types,
+    cost: dict[str, Any] = {"mana_cost": "", "mana_value": 0} if ex.no_mana_cost else {}  # (wave 15E: 707.9b)
+    return replace(ch, **cost, name=ex.name if ex.name is not None else ch.name, supertypes=supertypes, types=types,
                    subtypes=chars.changeling(subtypes, abilities, ex.name if ex.name is not None else ch.name),
                    power=ex.power if ex.power is not None else ch.power,
                    toughness=ex.toughness if ex.toughness is not None else ch.toughness,
@@ -220,6 +233,41 @@ def layer1(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     """613.2a: the copy effect that applies to the object gives its copiable values (the latest
     by timestamp, 613.7); 613.2b: a face-down object keeps its face-down characteristics (708.2),
     which ``characteristics.of`` already gave. ``ch`` is the object's printed (or defined) values."""
+    return with_level(state, card, _layer1(state, card, ch, info), info)
+
+
+def with_level(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None,
+               oid: str | None = None, printing: str | None = None) -> Characteristics:
+    """-- Class (wave 16A) -- 716.2b: the object's own class level (never a copied one; 716.2d: none is level 1), so that
+    ``scripts.definitions`` leaves out the abilities under a level bar it hasn't reached.
+    -- Rooms (wave 18G) -- 709.5c: likewise the doors the object itself has unlocked (designations aren't copiable); on the
+    stack only the half that was cast counts (709.3a); off the table both halves are there. ``oid`` / ``printing``: an object
+    as it last existed (603.10a, 608.2h: its own designations then, and the card it was a copy of)."""
+    r = state.rules
+    if r is None:
+        return ch
+    oid = oid or r.object_id(card.id)
+    if ch.doors is not None and info is not None:
+        data = info.get(printing or room_printing(r, card, oid))
+        if data is None or not chars.room(data):
+            return ch
+        if card.zone.endswith(":battlefield"):
+            doors = frozenset(r.unlocked.get(oid, ()))
+        else:
+            doors = frozenset({card.face + 1}) if card.zone == "stack" else ch.doors
+        return chars.with_doors(ch, data, doors)
+    if ch.doors is None and any(a.section > 1 for a in ch.abilities):
+        ch = replace(ch, level=r.levels.get(oid, 1))
+    return ch
+
+
+def room_printing(r: RulesState, card: CardInstance, oid: str) -> str:
+    """-- Rooms (review 18G) -- the card whose halves the object has: the one it copies (707.2, 709.5b), else its own."""
+    recipe = copy_recipe_of(r, oid)
+    return recipe.printing if recipe is not None and recipe.printing else card.card_id or ""
+
+
+def _layer1(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> Characteristics:
     r = state.rules
     if r is None or not r.effects or info is None or card.face_down:
         return ch
@@ -269,12 +317,12 @@ def supported_source(plan: Plan, card: CardInstance, *, token: bool = False) -> 
     a permanent spell, double-faced ones (707.8a, 707.10g: the copy would be double-faced too)."""
     if card.face_down:
         return "a face-down object (707.2)"
+    if card.merged:  # -- merged permanents (wave 18D) -- 730.2a: the merge is a copiable effect; what a copy takes of it isn't modelled
+        return "a merged or melded permanent (730.2a, 712.8g)"
     data = plan.info.get(card.card_id) if card.card_id else None
     layout = (data or {}).get("layout")
     if layout == "meld" and card.face:
         return "a melded permanent (707.8)"
-    if card.zone.endswith(":battlefield") and "Room" in plan.ch(card).subtypes:  # -- enter as copy (wave 5F) --
-        return "a Room (709.5: its doors aren't modelled)"
     if token and layout in DOUBLE_FACED and layout not in TWO_FACED_TOKENS:
         return "a double-faced object (707.8a)"
     return None
@@ -387,6 +435,10 @@ def uncopyable(plan: Plan, card: CardInstance) -> str | None:
         return ""
     if "Aura" in ch.subtypes:
         return f"Copying an Aura spell ({ch.name}) isn't automated: make the copy by hand, then press Done"
+    if ch.doors is not None:  # -- Rooms (review 18G) -- 709.5d unlocks the half that was *cast*; a copy isn't cast (707.10): unsettled
+        return f"Copying a Room spell ({ch.name}) isn't automated (709.5d): make the copy by hand, then press Done"
+    if plan.oid(card) in plan.rules.mutating:  # -- merged permanents (wave 18D) -- the copy is a mutating spell too (707.10, 702.140)
+        return f"Copying {ch.name}, a mutating creature spell, isn't automated: make the copy by hand, then press Done"
     if ch.is_permanent_card and supported_source(plan, card, token=True) is not None:  # (707.10g: meld / reversible only)
         return f"Copying {ch.name}, a double-faced permanent spell, isn't automated (707.10g): make the copy by hand, then press Done"
     return None
@@ -470,7 +522,7 @@ def _payment_alias(plan: Plan, orig_oid: str, oid: str, copy_id: str, controller
     record = plan.rules.payments.get(orig_oid)
     if record is not None:
         plan.rules.payments[oid] = record.model_copy(
-            deep=True, update={"card": copy_id, "controller": controller, "mana_spent": {}, "life": 0, "tapped": [],
+            deep=True, update={"card": copy_id, "controller": controller, "mana_spent": {}, "mana_tags": [], "mana_riders": [], "life": 0, "tapped": [],
                                "total_cost": "", "cast_from": None, "cast_main": False})  # (wave 3R1: a copy wasn't cast)
 
 
@@ -626,6 +678,11 @@ def _stack_objects(plan: Plan, ctx: Context, who: str) -> list[str]:
 
         return [c for c in context.objects(plan, ctx, context.EVENT) if plan.state.cards[c].zone == "stack"]
 
+    if who == "event_ability":  # -- copied abilities (wave 18F) -- the ability an activation trigger is about (603.2), while it's still on the stack
+        src = (ctx.get("event") or {}).get("source") or {}
+        return [src["card"]] if src.get("card") in plan.state.cards and plan.state.cards[src["card"]].zone == "stack" \
+            and plan.oid(src["card"]) == src.get("object_id") else []
+
     return [t["id"] for t in target_refs(ctx, who) if t and t["id"] in plan.state.cards
             and plan.state.cards[t["id"]].zone == "stack" and plan.oid(t["id"]) == t.get("object_id")]
 
@@ -678,6 +735,66 @@ def copy_cards(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                     resume={"step": "copy_manual", "job": job})
         return False
     return True
+
+
+# -- copied for each (wave 18F) -- 707.10d: a copy for each object the spell could target, each copy's targets all that object (not
+# legal for every instance of "target": no copy), put on the stack in the order its controller chooses
+def copy_each(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects, targets
+
+    spell = next(iter(_stack_objects(plan, ctx, "event_spell")), None)
+    entry = plan.rules.stack.get(spell or "")
+    if spell is None or entry is None:
+        return True  # (the spell is gone: nothing to copy)
+    pid = ctx["controller"] if e["by"] == "you" else next(iter(effects._players(plan, ctx, "event_player")), ctx["controller"])
+    card = plan.state.cards[spell]
+    pos = positions(entry)
+    if not pos or uncopyable(plan, card) is not None:
+        return True if not pos else _manual_each(plan, ctx, pid, card)
+    source = targets.source_of(plan, entry.source_card)
+    legal = [set(targets.legal_targets(plan, _spec(entry, p).get("what", "any"), pid, source, entry.source_card, None)) for p in pos]
+    victims = [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if c != ctx.get("source_card") and plan.state.cards[c].controller == pid
+               and plan.ch(plan.state.cards[c]).is_creature and all(c in ok for ok in legal)]
+    job = {"ctx": ctx, "spell": spell, "oid": plan.oid(card), "controller": pid, "victims": victims}
+    return _each_run(plan, job)
+
+
+def _manual_each(plan: Plan, ctx: Context, pid: str, card: CardInstance) -> bool:
+    _manual(plan, new_job(ctx, controller=pid, objects=[], retarget=False, label=ctx.get("name") or "Copy"),
+            f"Copying {plan.ch(card).name or 'that spell'} isn't automated: make the copies by hand, then press Done")
+    return False
+
+
+def _each_run(plan: Plan, job: dict[str, Any]) -> bool:
+    from app.rules import targets
+
+    pid = job["controller"]
+    while job["victims"]:
+        if len(job["victims"]) > 1 and not job.get("next"):  # 707.10d: the controller orders them (the first goes on first, resolves last)
+            plan_decide(plan, player=pid, kind="choose_one", prompt="Put the next copy on the stack: choose the creature it targets (707.10d)",
+                        options=[DecisionOption(id=v, label=targets.label(plan, v), card_id=v) for v in job["victims"]],
+                        resume={"step": "copy_each", "job": job})
+            return False
+        victim = job.pop("next", None) or job["victims"][0]
+        job["victims"].remove(victim)
+        card = plan.state.cards.get(job["spell"])
+        entry = plan.rules.stack.get(job["spell"])
+        if card is None or entry is None or card.zone != "stack" or plan.oid(card) != job["oid"]:
+            break
+        copy_id = make_copy(plan, card, pid, [])
+        if copy_id is None:
+            continue
+        pos = positions(entry)
+        plan.rules.stack[copy_id] = _retargeted(plan.rules.stack[copy_id], pos, [targets.ref(plan, victim)] * len(pos))
+        finalize(plan, copy_id, pid)
+    return True
+
+
+def resume_each(plan: Plan, d: Any, chosen: list[str]) -> None:
+    job = d.resume["job"]
+    job["next"] = chosen[0]
+    if _each_run(plan, job):
+        go_on(plan, job)
 
 
 def new_targets_marker(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -860,8 +977,8 @@ def _own(plan: Plan, card: CardInstance) -> Characteristics:
                 and (best is None or e.timestamp > best.timestamp):
             best = e
     if best is not None and best.copy_recipe is not None:
-        return characteristics(best.copy_recipe, plan.info)
-    return chars.of(card, plan.info)
+        return with_level(plan.state, card, characteristics(best.copy_recipe, plan.info), plan.info)
+    return with_level(plan.state, card, chars.of(card, plan.info), plan.info)
 
 
 def enter_definition(plan: Plan, card: CardInstance) -> dict[str, Any] | None:
@@ -1075,6 +1192,9 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     if re.fullmatch(_SUBJECT + r"(?:has|have) this ability", c):  # -- enter as copy (wave 5F) -- 707.9a: the ability's own
         ex.add_text = [*ex.add_text, THIS_ABILITY]  # text, written in by ``scripts.define`` (``with_this_ability``)
         return True
+    if re.fullmatch(_SUBJECT + r"(?:has|have) no mana cost", c):  # -- keywords (wave 15E) -- 707.9b
+        ex.no_mana_cost = True
+        return True
     m = re.fullmatch(_SUBJECT + r"(?:has|have) (?P<abil>.+)", c)
     if m:
         found = token_grammar._with(m["abil"])
@@ -1198,7 +1318,8 @@ def parse_copy_target(what: str, exc: str | None) -> tuple[list[dict[str, Any]],
 _SOURCES = {"~": "self", "it": "it", "that creature": "it", "that permanent": "it", "that artifact": "it",
             "that token": "it", "that card": "it", "equipped creature": "host", "enchanted creature": "host",
             "enchanted permanent": "host", "enchanted artifact": "host",
-            "the exiled card": "pay_exiled"}  # -- if you do (wave 8C) -- bound to a payment's exiled card (pay_objects.bind)
+            "the exiled card": "pay_exiled",
+            "the card exiled to activate this ability": "cost_exiled"}  # (wave 15E: embalm, 702.128a)  # -- if you do (wave 8C) -- bound to a payment's exiled card (pay_objects.bind)
 
 
 def parse_token_copy(n: str, tapped: bool, src: str, exc: str | None) -> tuple[list[dict[str, Any]], Any] | None:
@@ -1277,8 +1398,8 @@ def define_static(text: str) -> dict[str, Any] | None:
     if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.other:
         return None
     # -- enter as copy (wave 5F) -- any permanent ("nonland permanent", "artifact or enchantment", "Equipment"): an Aura
-    # would have to attach as it enters (303.4f) and a Room's doors (709.5d) aren't modelled — neither is offered as
-    # something to copy (``entry_candidates`` / ``supported_source``)
+    # would have to attach as it enters (303.4f) — not offered as something to copy (``entry_candidates`` / ``supported_source``);
+    # a Room is (review 18G: the copy has its halves, 709.5b, and neither door unlocked, 709.5c/d)
     ex = parse_excepts(exc or None)
     if ex is None:
         return None
@@ -1292,5 +1413,6 @@ def define_static(text: str) -> dict[str, Any] | None:
 
 
 PRIMITIVES = {"copy_spell": copy_stack_object, "copy_ability": copy_stack_object, "copy_new_targets": new_targets_marker,
+              "copy_each": copy_each, "copy_each_marker": new_targets_marker,
               "token_copy": token_copy, "become_copy": become_copy, "copy_cards": copy_cards}
-RESUME = {"copy_mode": resume_mode, "copy_target": resume_target, "copy_manual": resume_manual}
+RESUME = {"copy_each": resume_each, "copy_mode": resume_mode, "copy_target": resume_target, "copy_manual": resume_manual}

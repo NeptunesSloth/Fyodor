@@ -80,6 +80,7 @@ class Move(Base):
     y: Coord | None = None
     face_down: bool | None = None
     face_down_kind: FaceDownKind | None = None  # morph / disguise / manifest / cloak …
+    face_down_as: str | None = Field(default=None, max_length=80)  # -- hidden exile (wave 18A) -- 708.2a: see FaceDown
     tapped: bool = False  # enters the battlefield tapped (a replacement effect, not a tap afterwards)
     # Permanents entering the battlefield at once (one event, 603.6a / 614.12) whose replacements
     # differ: the ones among them that enter tapped, and whose battlefield each enters (default: ``to``)
@@ -87,7 +88,11 @@ class Move(Base):
     controllers: dict[Id, Id] | None = None
     # -- transform (wave 11A) -- 712.14a: the double-faced cards among them that enter the battlefield transformed (back face up)
     back_ids: list[Id] | None = Field(default=None, max_length=250)
+    # -- merged permanents (wave 18D) -- 903.9c: a merged or melded commander put into the command zone instead of its owner's hand or
+    # library: the zone ("hand" / "library") every card of it that isn't a commander goes to
+    rest_zone: Literal["hand", "library"] | None = None
     r: MoveData | None = None
+    keep_ids: bool = False  # server-built: the rules engine renumbers the face-down cards when its intent is complete (Renumber)
 
 
 class SetPosition(Base):
@@ -100,6 +105,8 @@ class Shuffle(Base):
     type: Literal["shuffle"] = "shuffle"
     player: Id | None = None
     zone: Literal["library", "hand", "graveyard", "exile"] = "library"
+    # -- review (sys 18A) -- only these cards of the zone (a face-down pile, 406.3): they swap places among themselves, re-keyed
+    card_ids: list[Id] | None = Field(default=None, max_length=250)
     r: ShuffleData | None = None
 
 
@@ -109,6 +116,8 @@ class Mill(Base):
     count: int = Field(default=1, ge=1, le=500)
     to: Literal["graveyard", "exile"] = "graveyard"
     face_down: bool = False
+    blind: bool = False  # -- hidden exile (wave 18A) -- an effect exiled it face down: nobody has looked at it (state.CardInstance.unseen)
+    keep_ids: bool = False  # (see Move)
 
 
 class Mulligan(Base):
@@ -126,6 +135,7 @@ class PutTopFaceDown(Base):
     count: int = Field(default=1, ge=1, le=20)
     kind: Literal["manifest", "cloak", "generic"] = "manifest"
     r: MoveData | None = None
+    keep_ids: bool = False  # (see Move)
 
 
 class MulliganTake(Base):
@@ -141,6 +151,7 @@ class MulliganKeep(Base):
     type: Literal["mulligan_keep"] = "mulligan_keep"
     player: Id | None = None
     r: ShuffleData | None = None  # final shuffle of set-aside cards (if the policy asks for one)
+    opening: list[dict[str, Any]] | None = None  # -- opening hand (wave 18C) -- 103.6: the compiled first opening-hand decision
 
 
 class MulliganBottom(Base):
@@ -150,12 +161,24 @@ class MulliganBottom(Base):
     player: Id | None = None
     card_ids: Annotated[list[Id], Field(min_length=1, max_length=20)]
     r: ShuffleData | None = None
+    opening: list[dict[str, Any]] | None = None  # (wave 18C)
+
+
+class MulliganPowder(Base):
+    """Pregame: "Any time you could mulligan and Serum Powder is in your hand, you may exile all the cards from your hand, then draw that
+    many cards." (103.5b; not a mulligan)."""
+
+    type: Literal["mulligan_powder"] = "mulligan_powder"
+    player: Id | None = None
+    card_id: Id
+    verified: bool = False  # set by the server: the card really has that ability
 
 
 class MulliganFinish(Base):
     """Host override: end the opening-hand phase now (undecided players keep what they hold)."""
 
     type: Literal["mulligan_finish"] = "mulligan_finish"
+    opening: list[dict[str, Any]] | None = None  # (wave 18C)
 
 
 class Reveal(Base):
@@ -295,6 +318,7 @@ class CopyCard(Base):
     # permanent's copy is made in exile with the face of its prepare spell
     zone: Literal["exile", "graveyard"] | None = None
     face: int | None = None
+    printing: str | None = Field(default=None, max_length=64)  # the copied card's printing when the source is itself a copy (722.2b)
     x: Coord | None = None
     y: Coord | None = None
     r: NewIds | None = None
@@ -306,6 +330,29 @@ class DeleteCard(Base):
     type: Literal["delete_card"] = "delete_card"
     card_ids: IdList
     force: bool = False  # required for protected objects
+
+
+class Merge(Base):
+    """-- merged permanents (wave 18D) -- 702.140c / 730.2: a mutating creature spell on the stack merges with its target (over or under)."""
+
+    type: Literal["merge"] = "merge"
+    card_id: Id  # the permanent (it stays the object)
+    spell_id: Id  # the spell's card (it becomes part of the permanent)
+    over: bool = True
+    r: NewIds | None = None  # the id of the permanent's own card as a component, if it wasn't merged yet
+
+
+class Meld(Base):
+    """-- merged permanents (wave 18D) -- 701.42a / 712.4a: two cards of a meld pair, in exile, are put onto the battlefield combined:
+    ``card_id`` is the first (the permanent), ``other_id`` the second, ``result_id`` the printing of the combined back face."""
+
+    type: Literal["meld"] = "meld"
+    card_id: Id
+    other_id: Id
+    result_id: Id
+    result_name: str = Field(max_length=200)
+    row: Literal["land", "creature", "other"] = "creature"  # where it lands on the battlefield (its combined face's type)
+    r: NewIds | None = None
 
 
 class SetFace(Base):
@@ -327,6 +374,7 @@ class FaceDown(Base):
     card_ids: IdList
     face_down: bool | None = None  # None = toggle
     kind: FaceDownKind | None = None  # when turning face down
+    face_down_as: str | None = Field(default=None, max_length=80)  # -- hidden exile (wave 18A) -- 708.2a: the characteristics the effect gives it
 
 
 class Note(Base):
@@ -921,6 +969,12 @@ class CastSpell(_Intent):
     buyback: bool = False  # 702.27: pay the buyback cost too; it returns to your hand as it resolves
     evoke: bool = False  # 702.74: cast for its evoke cost (sacrificed when it enters)
     dash: bool = False  # 702.109: cast for its dash cost (haste; returns to hand at the next end step)
+    awaken: bool = False  # 702.113: cast for its awaken cost (and put its counters on a land)
+    splice: list[Id] = Field(default_factory=list, max_length=10)  # 702.47a: cards revealed from your hand to splice onto this spell, in order
+    assist: str | None = None  # 702.132a: the player chosen to help pay generic mana ("" = no one; None = not asked yet)
+    assist_amount: int | None = Field(default=None, ge=0, le=200)  # how much of it that player pays
+    prototype: bool = False  # 702.160a: cast it prototyped (its alternative mana cost, power and toughness, 718.3)
+    fuse: bool = False  # 702.102a: cast both halves of a split card with fuse from your hand (one fused split spell)
     # Cost contributions that aren't mana (convoke / improvise / delve): validated and applied
     # only when the rest of the total cost is paid (601.2h: no partial payments).
     contributions: list[Contribution] = Field(default_factory=list, max_length=60)
@@ -937,6 +991,13 @@ class CastSpell(_Intent):
     optional_costs: list[Id] = Field(default_factory=list, max_length=10)
 
 
+class MiracleReveal(_Intent):
+    """702.94a: reveal a card with miracle as you draw it (only while its owner's window is open: app/rules/miracle.py)."""
+
+    type: Literal["miracle_reveal"] = "miracle_reveal"
+    card_id: Id
+
+
 class TurnFaceUp(_Intent):
     """Morph's special action (702.37e): pay the morph cost and turn your face-down permanent up."""
 
@@ -946,6 +1007,16 @@ class TurnFaceUp(_Intent):
     # -- keyword actions & face-down (wave 3F) -- which way, when there are several: its morph cost
     # (702.37e), its disguise cost (702.168d), or a manifested / cloaked creature card's mana cost (701.40b)
     method: Literal["morph", "disguise", "mana_cost"] | None = None
+    cost_choices: list[CostChoice] = Field(default_factory=list)  # -- hidden exile (wave 18A) -- what pays a non-mana morph cost (602.2b)
+
+
+class UnlockDoor(_Intent):
+    """-- Rooms (wave 18G) -- the unlock special action (116.2m, 709.5e): pay a locked half's mana cost (1 left, 2 right)."""
+
+    type: Literal["unlock_door"] = "unlock_door"
+    card_id: Id
+    door: Literal[1, 2]
+    sources: list[Id] | None = Field(default=None, max_length=60)
 
 
 class ActivateAbility(_Intent):
@@ -953,7 +1024,7 @@ class ActivateAbility(_Intent):
     card_id: Id
     # index into the card's abilities (app/rules/oracle.py): printed 0…99, granted by a static ability 100…, granted
     # by a resolved effect 10 000 + 16 × its timestamp + k (app/rules/granted.py ``index_of``, ``MAX_INDEX``)
-    ability: int = Field(ge=0, le=2_000_000)
+    ability: int = Field(ge=0, le=10_000_000)  # (borrowed abilities, app/rules/abilities_of.py: 2 000 000 + 32 × the lender's object number + k)
     targets: list[Id] = Field(default_factory=list, max_length=20)
     target_counts: TargetCounts = Field(default_factory=list)  # (see CastSpell)
     division: Division = Field(default_factory=list)
@@ -1135,6 +1206,12 @@ class RulesMana(Base):
     delta: dict[Literal["W", "U", "B", "R", "G", "C"], Annotated[int, Field(ge=-1000, le=1000)]] = Field(default_factory=dict)
     life: int = Field(default=0, ge=0, le=1000)
     empty_all: bool = False
+    # -- mana provenance (wave 18B) -- pool units spent (ids), units added (ManaUnit fields without the id), units of the pool that
+    # stay (``keep_units``: with ``empty_units``, every other unit empties)
+    spend_units: list[int] = Field(default_factory=list, max_length=100)
+    add_units: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
+    empty_units: bool = False
+    keep_units: list[int] = Field(default_factory=list, max_length=100)
     label: str = Field(default="", max_length=200)  # "paid {1}{G} for Llanowar Elves"
 
 
@@ -1143,6 +1220,14 @@ class CommanderHit(BaseModel):
     player: Id
     commander: Id  # commander_key
     amount: int = Field(ge=0, le=100000)
+
+
+class Renumber(Base):
+    """Server-built only: the cards that became face down in a zone others can see get new instance ids (406.3, 708.5: nobody may
+    link the face-down object to the card they saw). The new ids are derived from the game's secret salt, so replay reproduces them."""
+
+    type: Literal["renumber"] = "renumber"
+    card_ids: IdList
 
 
 class RulesDamage(Base):
@@ -1155,6 +1240,8 @@ class RulesDamage(Base):
     planeswalkers: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # loyalty removed
     lifelink: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # life gained
     wither: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # card -> -1/-1 counters
+    # -- triggers (wave 17D) -- 120.3d: card -> the player who puts those counters (its source's controller) -> how many
+    wither_by: dict[str, dict[str, Annotated[int, Field(ge=0, le=100000)]]] = Field(default_factory=dict)
     poison: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # player -> poison counters
     first_strike: bool = False
     combat: bool = True  # False: damage from a spell or ability
@@ -1181,9 +1268,10 @@ class RulesLog(Base):
 
 INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
-     "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up"}
+     "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
+     "miracle_reveal"}
 )
-SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage"})
+SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage", "renumber"})
 
 
 Action = Annotated[
@@ -1197,6 +1285,7 @@ Action = Annotated[
     | MulliganTake
     | MulliganKeep
     | MulliganBottom
+    | MulliganPowder
     | MulliganFinish
     | Reveal
     | Hide
@@ -1213,6 +1302,8 @@ Action = Annotated[
     | CreateToken
     | CopyCard
     | DeleteCard
+    | Merge
+    | Meld
     | SetFace
     | Flip
     | FaceDown
@@ -1281,6 +1372,8 @@ Action = Annotated[
     | PlayLand
     | CastSpell
     | TurnFaceUp
+    | UnlockDoor
+    | MiracleReveal
     | ActivateAbility
     | DeclareAttackers
     | DeclareBlockers
@@ -1294,6 +1387,7 @@ Action = Annotated[
     | RulesSync
     | RulesMana
     | RulesDamage
+    | Renumber
     | RulesLog,
     Field(discriminator="type"),
 ]

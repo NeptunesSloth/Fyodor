@@ -81,6 +81,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 }
 .mark.token { color: #c9d3e0; }
 .mark.copy { color: #9ad3f5; }
+.mark.merge { color: #e0b7ff; pointer-events: auto; cursor: help; }  /* a merged / melded pile (wave 18D) */
 .mark.cmdr { color: var(--accent-2); font-size: 12px; }
 .mark.note { color: #f2e6b3; pointer-events: auto; cursor: help; }
 .mark.atk { background: #a8322c; }
@@ -430,6 +431,7 @@ body.picking .table-card, body.picking .player-panel, body.picking .stack-item {
   display: inline-flex; align-items: baseline; gap: 2px; padding: 0 4px; min-width: 26px; font-size: 10.5px; cursor: pointer;
   background: rgba(0, 0, 0, 0.3); border: 1px solid var(--room-edge); border-radius: 2px; color: var(--room-bone-dim);
 }
+.mana-unit { font-size: 11px; padding: 0 5px; border: 1px dashed var(--room-bone-dim); border-radius: 8px; color: var(--room-bone); cursor: help; }
 .mana-pip b { font-size: 12px; color: var(--room-bone-dim); }
 .mana-pip.on b { color: var(--room-bone); }
 .mana-pip.w.on { border-color: var(--mana-w); } .mana-pip.u.on { border-color: var(--mana-u); } .mana-pip.b.on { border-color: var(--mana-b); }

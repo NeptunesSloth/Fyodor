@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.rules import cards as scripts
-from app.rules import protection
+from app.rules import keyword_triggers, protection
 from app.rules import scripts as templates
 from app.rules.characteristics import HALVES, Characteristics, half_from_data, printed_from_data
 from app.rules.mana import parse_mana_ability
@@ -48,6 +48,7 @@ SUPPORTED_REPLACEMENTS: set[str] = {
     "pay_life_or_tapped",  # shock lands (614.1c, 614.12a): a private decision on every path
     "enters_choice",  # "As ~ enters, choose a color / creature type / …" (614.12a): chosen before it enters, recorded on it
     "enters_with_counters",  # "~ enters [tapped] with N … counters on it [for each …]" (614.1c, 122.6)
+    "enters_turn_down",  # "As ~ enters, turn all other nontoken creatures face down." (708.2a; wave 18A: replacements.turn_down)
     "exile_instead",  # "If ~ would die / be put into a graveyard from anywhere, exile it instead" (own and statics)
     "prevent",  # "Prevent all [combat] damage that would be dealt [to …] [by …] [this turn]" (615)
 }
@@ -224,7 +225,10 @@ SUPPORTED_KEYWORDS: set[str] = {
 # precombat main phase, chapter abilities (a chapter line is automated when its effect parses: it is a
 # template), the 714.4 sacrifice; read ahead (702.155): the number chosen as it enters, skipped chapters.
 SUPPORTED_KEYWORDS.add("read ahead")
+SUPPORTED_KEYWORDS.add("ascend")  # -- keywords (wave 15E) -- 702.131 (designations.ascend_permanents; effects.ascend)
+SUPPORTED_KEYWORDS.add("umbra armor")  # -- keywords (wave 15E) -- 702.89a (regeneration.umbra_armor)
 SUPPORTED_KEYWORDS.add("phasing")  # -- phasing (wave 13D) -- 702.26 (app/rules/phasing.py)
+SUPPORTED_KEYWORDS.update(("aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate"))  # -- static_other sweep (wave 16B) -- 702.127 (casting.cast_grant)
 SUPPORTED_KEYWORDS.add("split second")  # -- split second (wave 8A) -- 702.61 (app/rules/split_second.py, cast_limits)
 # -- end sagas & attached-object triggers (wave 3S) --
 
@@ -254,8 +258,7 @@ SUPPORTED_KEYWORD_ACTIONS.add("populate")  # -- token copies & attach on entry (
 # report can rank it (never a guess at what the card does). ``refusal(text)`` gives the reason.
 REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     # (fight (701.14) and "choose … target" are read now: effects.fight, effects.choose_targets)
-    (re.compile(r"\bfor each target beyond the first\b", re.I),
-     "a cost per extra target (601.2b/601.2c): the cost grammar doesn't read it"),
+    # (-- static_other sweep (wave 16B) -- "costs {N} more to cast for each target beyond the first" is read now: permissions._PER_TARGET)
     # (-- graveyard exile (wave 4J) -- "exile target player's graveyard" itself is read: app/rules/graveyard_exile.py)
     (re.compile(r"(?<!exile )\btarget (?:player|opponent)'s (?:graveyard|hand|library)\b", re.I),
      "a target player's zone as the object set (\"exile all creature cards from target player's graveyard\"): the "
@@ -276,8 +279,10 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     # each type spent) is now on its payment record (conditions._cast_how); what stays refused:
     (re.compile(r"\b(?:entered|was put onto the battlefield) from (?:your|a) (?:library|graveyard)\b", re.I),
      "the zone a permanent entered from isn't recorded with the object: not modelled"),
-    (re.compile(r"\b(?:\{S\}|mana from [^.,]+) (?:of [^.,]+ )?was spent to (?:cast|activate)\b|\bwas spent to activate\b", re.I),
-     "snow mana, the source of the mana spent, and mana spent on an ability aren't recorded (601.2h): not modelled"),
+    # (-- mana provenance (wave 18B) -- {S} and "mana from a Treasure" spent to cast a spell are read now: app/rules/mana_units.py;
+    # what stays refused: mana spent on an ability, {S} "of that spell's colors", mana spent to cast other creatures as they enter)
+    (re.compile(r"\bspent to activate\b|\{S\} of [^.,]+ was spent to cast\b|\bspent to cast them\b", re.I),
+     "mana spent on an ability, snow mana by color, and the mana spent to cast other creatures as they enter aren't recorded: not modelled"),
     # (wave 3E: "you've completed a dungeon" and "it's day / night" are read now: app/rules/designations.py)
     # (-- this-turn history (wave 4D) -- "this is the second time this ability has resolved this turn" is read now:
     # app/rules/history.py counts each object's ability resolutions per turn)
@@ -360,20 +365,91 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return affinity_filter(Characteristics(name="", abilities=(AbilityText(index=0, text=line, kind="keywords",
                                                                               keywords=("affinity",)),))) is not None
+    if kw == "amplify":  # -- casting extras (wave 18E) -- app/rules/amplify.py (one instance)
+        from app.rules import amplify
+
+        return amplify.supported(line)
+    if kw == "assist":  # -- casting extras (wave 18E) -- app/rules/assist.py
+        from app.rules import assist
+
+        return assist.supported(line)
+    if kw == "enlist":  # -- casting extras (wave 18E) -- app/rules/enlist.py: a plain keyword line (each instance asks on its own)
+        from app.rules import enlist
+
+        return enlist.supported(line)
+    if kw == "casualty":  # -- casting extras (wave 18E) -- cost_changes.optional_offers / casting._conspire_trigger (one instance)
+        return re.fullmatch(r"casualty \d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "conspire":  # -- static_other sweep (wave 17C) -- cost_changes.optional_offers / casting._conspire_trigger
+        return line.strip().rstrip(".").lower() == "conspire"
+    if kw == "teamwork":  # (702.194a: its optional cost, and "cast using teamwork" in the text)
+        return re.fullmatch(r"teamwork \d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "cipher":  # -- static_other sweep (wave 17C) -- recursion.cipher: an instant or sorcery's own line (spell_definition appends it)
+        return line.strip().rstrip(".").lower() == "cipher"
+    if kw == "ripple":  # -- static_other sweep (wave 17C) -- casting._ripple_triggers: "Ripple N", each instance its own line
+        return re.fullmatch(r"ripple \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "echo":  # triggers.echo_cost: a mana echo cost
         return re.fullmatch(r"echo (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
-        return re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None  # (no X: wave 3F)
+        if re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None:  # (no X: wave 3F)
+            return True
+        from app.rules.casting import (  # -- hidden exile (wave 18A) -- "Morph—Discard a card."
+            MORPH_COST,
+            nonmana_cost,
+        )
+
+        found = MORPH_COST.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
+        return found is not None and nonmana_cost(found["cost"]) is not None
     if kw == "disguise":  # -- keyword actions & face-down (wave 3F) -- casting.disguise_cost: a mana disguise cost
         return re.fullmatch(r"disguise (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "toxic":  # -- counters & designations (wave 3E) -- combat.py reads "toxic N" anywhere in a keyword line ("Menace, toxic 1")
         return re.search(r"(?:^|, )toxic \d+(?:,|$)", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()) is not None
-    if kw in ("bushido", "renown", "bloodthirst", "soulshift", "toxic", "fabricate", "firebending"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
+    if kw == "escalate":  # -- static_other sweep (wave 16B) -- casting.escalate_parts
+        from app.rules.casting import escalate_parts
+
+        return escalate_parts(line) is not None
+    if kw == "awaken":  # -- static_other sweep (wave 16B) -- casting.AWAKEN: "Awaken N—{cost}"
+        return re.fullmatch(r"awaken \d+—(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+    if kw == "miracle":  # -- casting extras (wave 18E) -- app/rules/miracle.py: a mana miracle cost without X
+        return re.fullmatch(r"miracle (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
+    if kw == "prototype":  # -- casting extras (wave 18E) -- app/rules/prototype.py: "Prototype {cost} — P/T"
+        return re.fullmatch(r"prototype (?:\{[^}x]+\})+ [—-] \d+/\d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "reconfigure":  # -- casting extras (wave 18E) -- oracle.parse_abilities: the attach / unattach abilities and the static it adds
+        return re.fullmatch(r"reconfigure (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+    if kw == "harmonize":  # -- casting extras (wave 18E) -- app/rules/harmonize.py: a mana harmonize cost without X
+        from app.rules import harmonize
+
+        return harmonize.parse(line) is not None
+    if kw == "disturb":  # -- casting extras (wave 18E) -- app/rules/disturb.py: a mana disturb cost (the back face is the spell)
+        from app.rules import disturb
+
+        return disturb.parse(line) is not None
+    if kw in ("embalm", "eternalize", "encore"):  # -- keywords (wave 15E; encore: 18E) -- app/rules/graveyard_keywords.py
+        from app.rules import graveyard_keywords
+
+        return graveyard_keywords.supported(kw, line)
+    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "emerge", "foretell", "mutate"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
+        from app.rules import alt_costs
+
+        return alt_costs.keyword_definition(line) is not None
+    if kw == "ninjutsu":  # -- keywords (wave 15E) -- app/rules/ninjutsu.py: a mana ninjutsu cost on a line of its own
+        from app.rules import ninjutsu
+
+        return ninjutsu.supported(line)
+    if kw in ("riot", "unleash"):  # -- keywords (wave 15E) -- app/rules/riot.py
+        from app.rules import riot
+
+        return riot.supported(kw, line)
+    if kw == "soulshift":  # (wave 15E: each instance of the line, scripts.keyword_triggers)
+        return re.fullmatch(r"soulshift \d+(?:, soulshift \d+)*", line.strip().rstrip(".").lower()) is not None
+    if kw in ("bushido", "renown", "bloodthirst", "toxic", "fabricate", "firebending", "dredge"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "plot":  # -- keywords (wave 15E) -- casting.plot: a mana plot cost
+        return re.fullmatch(r"plot (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
         return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "cumulative upkeep":  # triggers.cumulative_cost: a mana cost
-        return re.fullmatch(r"cumulative upkeep (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+        return re.fullmatch(r"cumulative upkeep (?:\{[^}]+\})+|cumulative upkeep—pay \d+ life",
+                            line.strip().rstrip(".").lower()) is not None
     from app.rules import (
         keyword_triggers,  # -- static wordings (wave 6E) -- battle cry, ingest … (their CR meaning)
     )
@@ -388,13 +464,19 @@ def _keyword_supported(kw: str, line: str) -> bool:
     if kw in keyword_triggers.MEANINGS:
         return keyword_triggers.supported(kw, line)
     if kw == "ward":  # -- static wordings (wave 6E) -- every ward piece of the line has a mana cost (triggers.ward_costs)
-        from app.rules.triggers import WARD, ward_pieces
+        from app.rules.triggers import ward_piece_cost, ward_pieces
 
         pieces = ward_pieces(line)
-        return bool(pieces) and all(WARD.fullmatch(p) for p in pieces)
+        return bool(pieces) and all(ward_piece_cost(p) is not None for p in pieces)
     if kw in ("unearth", "dash", "buyback", "madness", "ward", "evoke"):  # casting.keyword_cost: a mana cost
         return re.fullmatch(rf"{kw} (?:\{{[^}}]+\}})+", line.strip().rstrip(".").lower()) is not None
-    if kw in ("kicker", "multikicker"):  # casting.cost_with_kicker: one mana kicker cost
+    if kw in ("squad", "offspring", "replicate"):  # -- keywords (wave 15E) -- the cost is paid as kicker's; squad / offspring's
+        from app.rules.costs import (
+            kicker_line,  # enters trigger is its meaning (keyword_triggers), replicate's the cast trigger
+        )
+
+        return kicker_line(line) and (kw == "replicate" or keyword_triggers.supported(kw, line))
+    if kw in ("kicker", "multikicker", "entwine"):  # casting.cost_with_kicker: one mana kicker cost (entwine, wave 18E: modal spells' all-modes cost)
         from app.rules.costs import kicker_line
 
         return kicker_line(line)
@@ -404,8 +486,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return TRANSMUTE.fullmatch(line.strip().rstrip(".")) is not None
     if kw == "crew":  # casting.crew: "Crew N"
         return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None
-    if kw == "flashback":  # casting.flashback_cost: a mana flashback cost
-        return _MANA_FLASHBACK.fullmatch(line.strip().rstrip(".").lower()) is not None
+    if kw == "flashback":  # casting.flashback_parts: a mana flashback cost, with other parts alt_costs reads (wave 16B)
+        from app.rules.casting import flashback_parts  # (casting imports coverage, via the engine)
+
+        return flashback_parts(line) is not None
     if kw.endswith("cycling"):
         return _MANA_CYCLING.fullmatch(line.strip().rstrip(".").lower()) is not None
     return kw in SUPPORTED_KEYWORDS
@@ -471,7 +555,20 @@ def features_of(ch: Characteristics) -> list[Feature]:
             add(f"script:{ab.index}", ab.text, True)
         elif ab.kind == "keywords":
             for kw in ab.keywords:
-                add(f"keyword:{kw}", kw.capitalize(), _keyword_supported(kw, ab.text))
+                if kw == "splice":  # -- casting extras (wave 18E) -- app/rules/splice.py
+                    from app.rules import splice
+
+                    add("keyword:splice", "Splice", splice.spliceable(ch))
+                    continue
+                if kw == "overload":  # -- casting extras (wave 18E) -- the spell read with "each" for "target" (702.96a)
+                    from app.rules import overload
+
+                    add("keyword:overload", "Overload", _keyword_supported(kw, ab.text) and overload.supported(ch))
+                    continue
+                add(f"keyword:{kw}", kw.capitalize(), _keyword_supported(kw, ab.text) if kw != "backup" else all(
+                    keyword_triggers.backup_definition(ch, ab, n) is not None
+                    for n in range(len(keyword_triggers.pieces("backup", ab.text)))) and bool(
+                        keyword_triggers.pieces("backup", ab.text)))  # (wave 15E: the abilities below it, 702.165a)
         elif ab.kind == "mana":
             add("mana:ability", ab.text, "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None)
         else:

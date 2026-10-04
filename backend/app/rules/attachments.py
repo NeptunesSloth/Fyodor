@@ -54,7 +54,11 @@ ENCHANT_SELECTORS = {
 PLAYER_SELECTORS = {"player", "opponent"}
 
 _ENCHANT = re.compile(r"^enchant (?P<what>.+?)\.?$", re.IGNORECASE)
-EQUIP = re.compile(r"^equip (?P<cost>(?:\{[^}]+\})+)\.?$", re.IGNORECASE)
+# -- equip (wave 15E) -- 702.6a "Equip [cost]", "Equip [quality] [cost]" (702.6b: only a creature with that quality) and
+# "Equip—[non-mana cost]": the cost, the target selector and the ability's own trailing sentences ("Activate only once each
+# turn.", "This ability costs {3} less to activate if …")
+EQUIP = re.compile(r"^equip(?: (?P<q>[A-Za-z][A-Za-z' -]*?))? (?P<cost>(?:\{[^}]+\})+)(?P<tail>(?:\. .+|\.)?)$|"
+                   r"^equip—(?P<cost2>[^.]+)(?P<tail2>\..*)?$", re.IGNORECASE)
 
 
 def attach_kind(ch: Characteristics) -> AttachKind | None:
@@ -72,8 +76,20 @@ def enchant_lines(ch: Characteristics) -> list[str]:
 
 
 def enchant_selector_of(line: str) -> str | None:
-    m = _ENCHANT.match(line.strip())
-    return ENCHANT_SELECTORS.get(m["what"].strip().lower().replace("’", "'")) if m else None
+    m = _ENCHANT.match(re.sub(r"\s*\(.*?\)", "", line).strip())
+    if m is None:
+        return None
+    what = m["what"].strip().replace("’", "'")
+    if what.lower() in ENCHANT_SELECTORS:
+        return ENCHANT_SELECTORS[what.lower()]
+    # -- keywords (wave 15E) -- 702.5a: any object description the selector grammar reads ("Enchant tapped creature",
+    # "Enchant red or green creature", "Enchant Forest or Plains", "Enchant artifact an opponent controls")
+    from app.rules import selectors
+
+    sel = selectors.parse(what)
+    if sel is None or sel.card or sel.zones != ("battlefield",) or sel.player is not None:
+        return None
+    return sel.key()
 
 
 def enchant_selector(ch: Characteristics) -> str | None:
@@ -86,12 +102,54 @@ def enchant_selector(ch: Characteristics) -> str | None:
     return found.pop() if len(found) == 1 and None not in found else None
 
 
-def equip_cost(ch: Characteristics, index: int) -> str | None:
-    """The mana cost of the equip ability on ability line ``index`` (702.6a), or None."""
+def _equip_target(q: str | None) -> str | None:
+    """The selector key of "target creature you control" narrowed by an equip quality ("legendary creature", "Knight",
+    "creature token", "commander"), or None when the quality isn't read."""
+    from app.rules import selectors
+
+    if q is None:
+        return "creature_you_control"
+    for phrase in (f"{q} you control", f"{q} creature you control", f"creature you control that's a {q}"):
+        sel = selectors.parse(phrase)
+        if sel is not None and sel.player is None and not sel.card and ("Creature" in sel.types or sel.subtypes) \
+                and sel.zones == ("battlefield",):
+            return sel.key()
+    return None
+
+
+def equip_info(line: str, name: str = "") -> tuple[str, str, str] | None:
+    """(cost, target selector, trailing sentences) of an equip line the engine carries out, or None."""
+    from app.rules import cost_changes, restrictions
+    from app.rules.costs import parse_ability_cost
+
+    m = EQUIP.match(re.sub(r"\s*\(.*?\)", "", line).strip())
+    if m is None:
+        return None
+    cost, tail = (m["cost"], m["tail"]) if m["cost"] else (m["cost2"].strip(), m["tail2"] or "")
+    tail = tail.strip().lstrip(".").strip()
+    target = _equip_target(m["q"] if m["cost"] else None)
+    if target is None or (not m["cost"] and parse_ability_cost(cost, card_name=name).unsupported):
+        return None
+    if tail:
+        text = f"{cost}: Attach ~ to target creature you control. Activate only as a sorcery. {tail}"
+        if restrictions.parse(text) is None or cost_changes.ability_change(text) is None:
+            return None
+        if cost_changes.split_ability(text.split(":", 1)[1])[1] is not None and "{" not in cost:
+            return None  # (a reduction of a cost with no mana in it)
+    return cost, target, tail
+
+
+def is_equip_text(text: str) -> bool:
+    """Is this the text casting.equip_ability gives an equip ability (702.6a: "[Cost]: Attach … to target creature you control.
+    Activate only as a sorcery.")?"""
+    return re.search(r": Attach .+? to target creature you control\. Activate only as a sorcery\.", text) is not None
+
+
+def equip_cost(ch: Characteristics, index: int) -> tuple[str, str, str] | None:
+    """The equip ability on ability line ``index`` (702.6a): (cost, target selector, trailing sentences), or None."""
     for ab in ch.abilities:
         if ab.index == index and ab.kind == "keywords" and "equip" in ab.keywords:
-            m = EQUIP.match(ab.text.strip())
-            return m["cost"] if m else None
+            return equip_info(ab.text, ch.name)
     return None
 
 
@@ -99,7 +157,7 @@ def supported_keyword(kw: str, line: str) -> bool:
     if kw == "enchant":
         return enchant_selector_of(line) is not None
     if kw == "equip":
-        return EQUIP.match(line.strip()) is not None
+        return equip_info(line) is not None
     return False
 
 
@@ -127,7 +185,7 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
         if host not in plan.live():
             return "that player left the game"  # 303.4c
         if selector not in PLAYER_SELECTORS:
-            return "it can't enchant a player"
+            return "it can't enchant a player"  # (a described host, wave 15E, is a permanent)
         if selector == "opponent" and host == you:
             return "it can only enchant an opponent"
         # -- player shields (wave 5E) -- 702.16c, 702.16j
@@ -148,13 +206,19 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
         selector = enchant_selector(sch)
         if selector is None:
             return "unknown"
+        if selector.startswith("sel:"):  # (wave 15E) a described host, judged for the Aura's controller
+            from app.rules import selectors
+
+            if not selectors.matches(plan, selectors.from_key(selector), card, hch, you, source.id):
+                return f"it can't enchant {hch.name or 'that'}"
+            return None
         players, check = SELECTORS[selector]
         if check is None or not check(plan, you, card, hch):
             return f"it can't enchant {hch.name or 'that'}"
         return None
     if kind == "equipment":
-        if sch.is_creature:
-            return "an Equipment that's also a creature can't equip"  # 301.5c
+        if sch.is_creature and "reconfigure" not in sch.keywords:  # (301.5c; 702.151: reconfigure, wave 18E)
+            return "an Equipment that's also a creature can't equip"
         return None if hch.is_creature else "Equipment can only equip a creature"
     if sch.is_creature:
         return "a Fortification that's also a creature can't fortify"  # 301.6

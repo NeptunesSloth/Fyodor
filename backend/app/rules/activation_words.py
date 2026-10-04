@@ -24,6 +24,9 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 ANY_PLAYER = "Any player may activate this ability."
+# -- activated sweep (wave 17B) -- "Any player may activate this ability but only as a sorcery / during their draw step." (Scandalmonger,
+# Well of Knowledge): the restriction is about the player who activates it (602.5)
+ANY_PLAYER_BUT = re.compile(r"^Any player may activate this ability but only (?P<rest>.+)\.$")
 
 _COMBAT_STATES = ("attacking", "blocked", "blocking")
 _SELF_COMBAT = re.compile(r"~ is (?P<a>attacking|blocked|blocking)(?: or (?P<b>attacking|blocked|blocking))?")
@@ -34,8 +37,9 @@ _NO_DEFENDER = re.compile(r"~ doesn't have (?P<kw>defender)")
 
 def any_player(ability: Any, cost: Any) -> bool:
     """Does this activated ability say any player may activate it (and cost nothing only its controller can pay)?"""
-    return ability.kind == "activated" and ability.text.rstrip().endswith(ANY_PLAYER) and not cost.tap \
-        and not cost.sacrifice_self and not cost.untap
+    text = ability.text.rstrip()
+    return ability.kind == "activated" and (text.endswith(ANY_PLAYER) or ANY_PLAYER_BUT.search(text.split(". ")[-1]) is not None) \
+        and not cost.tap and not cost.sacrifice_self and not cost.untap
 
 
 def condition(text: str) -> dict[str, Any] | None:
@@ -93,8 +97,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         names: dict[str, int] = {}
         for c in found:
             card = plan.state.cards[c]
-            if not card.face_down:  # (a face-down permanent has no name, 708.2a)
-                names[plan.ch(card).name] = names.get(plan.ch(card).name, 0) + 1
+            name = "" if card.face_down else plan.ch(card).name  # (a face-down permanent has no name, 708.2a; nor a locked Room, 709.5)
+            if name:
+                names[name] = names.get(name, 0) + 1
         return max(names.values(), default=0) >= cond["n"]
     if kind == "self_combat":
         src = plan.state.cards.get(ctx.get("source_card") or "")

@@ -123,7 +123,9 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                            if c.token is not None and c.zone.endswith(":command") and c.token.type_line == "Emblem"))
     key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)),
                       # -- attached events (wave 4L) -- "loses all abilities" effects: their objects' statics are gone
-                      tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else ())
+                      tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else (),
+                      tuple(sorted(r.levels.items())) if r else (),  # -- Class (wave 16A) -- 716.2a: the levels reached
+                      tuple(sorted((o, tuple(d)) for o, d in r.unlocked.items())) if r else ())  # -- Rooms (wave 18G) -- the doors unlocked
     hit = _STATIC_CACHE.get(key_all)
     if hit is not None:
         if memo is not None and memo[0] is state and memo[1] is info:
@@ -548,6 +550,18 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     from app.rules.copying import layer1
 
     ch = layer1(state, card, ch, info)
+    if state.rules is not None and state.rules.bestowed:  # -- keywords (wave 15E) -- 702.103b: a bestowed Aura (spell or permanent)
+        from app.rules import bestow
+
+        if bestow.is_bestowed(state, card):
+            ch = bestow.overlay(ch)
+    if state.rules is not None and state.rules.payments:  # -- casting extras (wave 18E) -- 718.3b: a prototyped spell / permanent
+        from app.game.rules_state import copy_recipe_of
+        from app.rules import prototype
+
+        # (review 18E: a copy effect on it gives it the copied object's values instead, 718.3b values being copiable: 707.2)
+        if prototype.is_prototyped(state, card) and copy_recipe_of(state.rules, state.rules.object_id(card.id)) is None:
+            ch = prototype.overlay(ch)
     effects = affecting(state, card)
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
@@ -565,6 +579,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …
     imposed |= _group_imposed(state, card, ch, info)
     hits: list[Static] = []
+    borrowed: list[tuple[int, Any]] = []  # -- borrowed abilities (wave 18F) -- (the lending static's timestamp, the ability)
     kwc = keyword_counters(state, card)  # -- counters (wave 5H) --
     on_field = card.zone.endswith(":battlefield") and state.rules is not None
     if state.rules is not None and on_field and state.rules.object_id(card.id) in state.rules.suspected:  # -- suspect (wave 12A) -- 701.60c
@@ -595,6 +610,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
             # "… gets +1/+1 for each Elf you control": the count, read now (611.3a), while other
             # objects' characteristics are read without statics (as a condition's are)
             each_amounts = {id(st): _each_amount(view, st, tkey, card) for st in hits if st.definition.get("each")}
+            if any(st.definition.get("abilities_of") for st in hits):  # "has all activated abilities of …" (app/rules/abilities_of.py)
+                from app.rules import abilities_of
+
+                borrowed = [(st.seq, ab) for st in hits if st.definition.get("abilities_of") for ab in abilities_of.collect(view, st, card)]
         finally:
             _depth -= 1
     elif effects or kwc:
@@ -606,16 +625,21 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     static_wipes = [wipe_key(st) for st in hits if st.definition.get("lose_all")]
     if static_wipes:
         wipe = max([*static_wipes, *([wipe] if wipe is not None else [])])
-    grants = [text for st in hits if wipe is None or (st.seq, 0, 0) > wipe for text in st.definition["grants"]]
+    grants = [(st, text) for st in hits if wipe is None or (st.seq, 0, 0) > wipe for text in st.definition["grants"]]
     if grants:  # layer 6: granted abilities, numbered after the printed ones (100, 101, …)
         from app.rules.scripts import granted_ability
 
         extra = []
-        for k, text in enumerate(grants):
+        for k, (st, text) in enumerate(grants):
+            if "‹granter›" in text and state.rules is not None:  # -- granted from object (wave 18F) -- 607.1a: the granting object
+                text = text.replace("‹granter›", f"‹granter#{state.rules.object_id(st.source)}›")
             ab = granted_ability(text)
             if ab is not None:
                 extra.append(replace(ab, index=100 + k))
         ch = replace(ch, abilities=ch.abilities + tuple(extra))
+    lent = tuple({ab.index: ab for seq, ab in borrowed if wipe is None or (seq, 0, 0) > wipe}.values())
+    if lent:
+        ch = replace(ch, abilities=ch.abilities + lent)
     ch = _granted_by_effects(ch, effects, wipe)
     # layer 7
     setters: list[tuple[tuple[int, int, int], int | None, int | None]] = []
@@ -726,7 +750,7 @@ def _own_layer5(state: GameState, card: CardInstance, info: CardInfo | None) -> 
 def _grants(d: dict[str, Any]) -> bool:
     """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
     opponents control can't block.") is applied by ``_with_rules`` instead."""
-    return bool(d["p"] or d["t"] or d.get("base") or d["keywords"] or d["grants"] or d.get("each")
+    return bool(d["p"] or d["t"] or d.get("base") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of")
                 or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords"))  # -- attached events (wave 4L) --
 
 
@@ -799,11 +823,13 @@ def _cda(state: GameState, card: CardInstance, ch: Characteristics, info: CardIn
     if hit is not None:
         return hit
     view = _view(state, info)
-    ctx = {"controller": controller, "source_card": card.id, "source_object": r.object_id(card.id)}
+    ctx = {"controller": controller, "source_card": card.id, "source_object": r.object_id(card.id), "unknown_choice_raises": True}
     _CDA_VISITING.add(card.id)
     try:
         p = values.evaluate(view, ctx, d["p"]) if d["p"] is not None else None
         t = values.evaluate(view, ctx, d["t"]) if d["t"] is not None else None
+    except values.NoChosenPlayer:  # -- chosen type (wave 16F) -- before "As ~ enters, choose …" is answered: not known yet (not 0)
+        return None, None
     finally:
         _CDA_VISITING.discard(card.id)
     if len(_CDA_CACHE) > 4096:
@@ -890,7 +916,7 @@ def _group_imposed(state: GameState, card: CardInstance, ch: Characteristics, in
 
 
 Layer = Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
-Duration = Literal["end_of_turn", "permanent"]
+Duration = Literal["end_of_turn", "permanent", "end_of_combat"]
 
 
 def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | None, controller: str,
@@ -918,7 +944,7 @@ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | N
 def end_of_turn(plan: Plan) -> None:
     """514.2: "until end of turn" effects end in the cleanup step."""
     r = plan.rules
-    r.effects = [e for e in r.effects if e.duration != "end_of_turn"]
+    r.effects = [e for e in r.effects if e.duration not in ("end_of_turn", "end_of_combat")]  # (a combat a turn ended in, 18E review)
     control_sync(plan)  # -- control (wave 3K) -- a Threaten effect ends: the creature goes back (613.1b)
 
 
@@ -966,6 +992,8 @@ def _control_pass(plan: Plan) -> bool:
     for cid in sorted(set(entries) | set(r.control_changed)):
         card = battle.get(cid)
         if card is None:
+            if cid in state.cards and state.cards[cid].zone.endswith(":phased"):
+                continue  # -- review (wave 14R) -- 702.26b/f: judged again once it phases in (its effect may have ended meanwhile)
             r.control_changed = [x for x in r.control_changed if x != cid]
             continue
         valid = [p for _, p in sorted(entries.get(cid, ())) if p in live]  # (800.4a: a departed player's effects ended)

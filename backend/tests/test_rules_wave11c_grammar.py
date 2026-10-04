@@ -21,7 +21,7 @@ from app.config import Settings
 from app.rules import coverage, events, scripts
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_conditionals import token_of
+from tests.test_rules_conditionals import token_of, until
 from tests.test_rules_wave9a_x_value import (
     cast,
     check,
@@ -52,6 +52,8 @@ EXTRA = [
     card('Upriser Renegade', set_code='tst', number='W12', mana_cost='{1}{R}', cmc=2.0, type_line='Creature — Human Samurai', oracle_text='This creature gets +2/+0 for each other modified creature you control. (Equipment, Auras you control, and counters are modifications.)', power='1', toughness='3', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
     card('Juniper Order Ranger', set_code='tst', number='W13', mana_cost='{3}{G}{W}', cmc=5.0, type_line='Creature — Human Knight Ranger', oracle_text='Whenever another creature you control enters, put a +1/+1 counter on that creature and a +1/+1 counter on this creature.', power='2', toughness='4', colors=['G', 'W'], color_identity=['G', 'W'], keywords=[]),  # noqa: E501
     card('Joraga Bard', set_code='tst', number='W14', mana_cost='{3}{G}', cmc=4.0, type_line='Creature — Elf Rogue Bard Ally', oracle_text='Whenever this creature or another Ally you control enters, you may have Ally creatures you control gain vigilance until end of turn.', power='1', toughness='4', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
+    card('Platinum Angel', set_code='tst', number='W16', mana_cost='{7}', cmc=7.0, type_line='Artifact Creature — Angel', oracle_text="Flying\nYou can't lose the game and your opponents can't win the game.", power='4', toughness='4', colors=[], color_identity=[], keywords=['Flying']),  # noqa: E501
+    card('Demonic Pact', set_code='tst', number='W17', mana_cost='{2}{B}{B}', cmc=4.0, type_line='Enchantment', oracle_text="At the beginning of your upkeep, choose one that hasn't been chosen —\n• This enchantment deals 4 damage to any target and you gain 4 life.\n• Target opponent discards two cards.\n• Draw two cards.\n• You lose the game.", colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
     card('Paired Tactician', set_code='tst', number='W15', mana_cost='{2}{W}', cmc=3.0, type_line='Creature — Human Warrior', oracle_text='Whenever this creature and at least one other Warrior attack, put a +1/+1 counter on this creature.', power='3', toughness='2', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA if c["name"] not in ("Revitalize", "Whitesun's Passage", "Divination")]
@@ -270,6 +272,35 @@ def test_door_to_nothingness_makes_the_target_player_lose_the_game(cards):
     run(s, target="p2")
     assert "p2" in s.state.rules.lost and s.state.rules.winner == "p1"
     assert not [c for c in s.state.cards.values() if c.owner == "p2" and c.zone.endswith(":battlefield")]
+    check(s)
+
+
+def test_a_player_who_cant_lose_stays_when_an_effect_says_they_lose(cards):
+    """-- review (wave 11C) -- 104.3 as read by app/rules/game_result.py (wave 10B): Bob's Platinum Angel keeps him in the
+    game when Door to Nothingness says he loses it; the same check as for a state-based loss."""
+    s = build(cards, "Door to Nothingness", bob=("Platinum Angel",))
+    door = put(s, "Door to Nothingness")
+    put(s, "Platinum Angel", "p2")
+    mana(s, W=2, U=2, B=2, R=2, G=2)
+    act(s, "p1", type="activate_ability", card_id=door.id, ability=1, targets=["p2"])
+    run(s, target="p2")
+    assert s.state.rules.lost == {} and s.state.rules.winner is None
+    check(s)
+
+
+def test_you_lose_the_game_in_a_three_player_game_goes_on_without_you(cards):
+    """104.3e, 800.4a: Alice picks Demonic Pact's last mode in her upkeep; she leaves, Bob and Cy play on (no winner yet)."""
+    from tests.test_rules_wave9a_x_value import build as build3
+
+    s = build3(cards, "Demonic Pact", players=3)
+    put(s, "Demonic Pact")
+    until(s, lambda s: s.state.turn.number == 4 and s.state.rules.decision is not None
+          and s.state.rules.decision.kind != "declare_attackers")
+    d = s.state.rules.decision
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if "lose the game" in o.label])
+    until(s, lambda s: not s.state.zones.get("stack") and s.state.rules.decision is None, limit=50)
+    assert "p1" in s.state.rules.lost and s.state.rules.winner is None and s.state.rules.priority == "p2"
+    until(s, lambda s: s.state.turn.number == 6, limit=400)  # (Bob's and Cy's turns go round)
     check(s)
 
 

@@ -48,8 +48,8 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-def test_rites_of_flourishing_stays_manual(cards):
-    assert coverage.of_card_data(cards.resolve("Rites of Flourishing")).level != "FULL"
+def test_rites_of_flourishing_is_automated_since_wave_15a(cards):  # (tests/test_rules_wave15a_static.py plays it)
+    assert coverage.of_card_data(cards.resolve("Rites of Flourishing")).level == "FULL"
 
 
 def test_the_wordings():

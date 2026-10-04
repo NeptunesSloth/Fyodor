@@ -7,6 +7,7 @@ they are choosing cards to bottom, and "kept 7 and put 2 cards on the bottom" â€
 from __future__ import annotations
 
 import time
+from typing import Any
 
 from app.game import actions as A
 from app.game import ops
@@ -95,6 +96,23 @@ def take(state: GameState, a: A.MulliganTake) -> None:
     log(state, a.actor, a.ts, [pname(state, pid), text(f" took mulligan #{seat.mulligans} and {what}.")])
 
 
+def powder(state: GameState, a: A.MulliganPowder) -> None:
+    """-- opening hand (wave 18C) -- 103.5b: "any time you could mulligan" (Serum Powder): while deciding, exile every card in hand
+    (the exiled cards are public, 406.3) and draw that many; no mulligan is taken."""
+    pid, seat, _ = _seat(state, a, a.player)
+    hand = list(state.zone(zone_key(pid, "hand")))
+    if seat.status != "deciding" or a.card_id not in hand:
+        raise ActionError("You can only do that with the card in your hand while deciding about a mulligan")
+    if not a.verified:
+        raise ActionError("That card has no such ability")
+    cards = [state.cards[c] for c in hand]
+    for card in cards:
+        ops.move_card(state, card, zone_key(pid, "exile"))
+    drawn = draw_cards(state, pid, len(cards))
+    log(state, a.actor, a.ts, [pname(state, pid), text(" exiled their hand ("), ops.group(state, cards),
+                                text(f") with {state.cards[a.card_id].name} and drew {len(drawn)}.")])
+
+
 def keep(state: GameState, a: A.MulliganKeep) -> None:
     pid, seat, policy = _seat(state, a, a.player)
     if seat.status != "deciding":
@@ -141,15 +159,19 @@ def _finish_seat(state: GameState, a: A.MulliganKeep | A.MulliganBottom, pid: st
     if policy.final_shuffle and aside:
         msg += f" {len(aside)} set-aside card{'s were' if len(aside) != 1 else ' was'} shuffled into their library."
     log(state, a.actor, a.ts, [pname(state, pid), text(msg)])
-    _maybe_finish(state, a.actor, a.ts)
+    _maybe_finish(state, a.actor, a.ts, a.opening)
 
 
-def _maybe_finish(state: GameState, actor: str | None, ts: float) -> None:
+def _maybe_finish(state: GameState, actor: str | None, ts: float, opening: list[dict[str, Any]] | None = None) -> None:
     pregame = state.pregame
     if pregame is not None and all(s.status == "kept" for s in pregame.seats.values()):
         pregame.finished = True
         first = state.players[state.turn.active_player].name
         log(state, actor, ts, [text(f"Everyone has kept. {first} goes first â€” good luck!")])
+        if opening:  # -- opening hand (wave 18C) -- 103.6: the opening-hand decisions come before the first turn
+            from app.game.handlers.rules import replay_steps
+
+            replay_steps(state, opening)
 
 
 def finish(state: GameState, a: A.MulliganFinish) -> None:
@@ -165,3 +187,7 @@ def finish(state: GameState, a: A.MulliganFinish) -> None:
     pregame.finished = True
     note = f" ({', '.join(waiting)} kept what they held)" if waiting else ""
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" started the game{note}.")])
+    if a.opening:  # -- opening hand (wave 18C) -- 103.6
+        from app.game.handlers.rules import replay_steps
+
+        replay_steps(state, a.opening)

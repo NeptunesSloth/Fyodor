@@ -38,10 +38,8 @@ def cards(settings) -> Iterator[CardRepository]:
     ("Relentless Dead", "{B}{B}", "Creature — Zombie",
      "Menace\nWhen this creature dies, you may pay {B}. If you do, return it to its owner's hand.\nWhen this creature dies, you "
      "may pay {X}. If you do, return another target Zombie creature card with mana value X from your graveyard to the battlefield."),
-    # "mana value X" exactly is read for graveyard cards only
-    ("Disembowel", "{X}{B}", "Instant", "Destroy target creature with mana value X."),
+    # ("mana value X" exactly is read for permanents too since wave 17B: test_rules_wave17b_activated.py, Disembowel)
     # a comparison with the source is read for graveyard cards only
-    ("Probe Slayer", "{1}{B}", "Creature — Zombie", "When this creature dies, destroy target creature with power less than this creature's."),
 ])
 def test_wordings_that_are_not_read_stay_manual(name, cost, kind, text):
     data = card(name, set_code="tst", number="N1", mana_cost=cost, type_line=kind, oracle_text=text,

@@ -13,9 +13,11 @@ never more than the pool holds (:func:`clamp`, run whenever a pool shrinks): spe
 other mana of that type first, the choice a player would make (106.4 lets the player choose which
 mana to spend; this is the auto-payer's choice, and kept mana is never worse to keep).
 
-Refused (the card stays manual): kept mana with a spending restriction (Klauth, Karn, Legacy
-Reforged: the pool doesn't carry restrictions), "Players don't lose unspent mana" statics
-(Upwelling), and amounts the grammar doesn't read.
+Wave 18B: kept mana with a spending restriction (Klauth, Karn, Legacy Reforged) is a pool unit
+(app/rules/mana_units.py): the record names its unit ids (``units``) and keeps exactly those.
+
+Refused (the card stays manual): "Players don't lose unspent mana" statics (Upwelling), and amounts
+the grammar doesn't read.
 """
 
 from __future__ import annotations
@@ -56,6 +58,15 @@ def kept(state: GameState, player: str) -> dict[str, int]:
     return {s: min(n, pool.get(s, 0)) for s, n in out.items() if min(n, pool.get(s, 0)) > 0}
 
 
+def kept_units(state: GameState, player: str) -> list[int]:
+    """-- mana provenance (wave 18B) -- the pool units ``player`` keeps as the current step ends."""
+    r = state.rules
+    if r is None or player not in state.players:
+        return []
+    ids = {i for rec in r.kept_mana if rec.get("player") == player and _active(state, rec) for i in rec.get("units") or []}
+    return [u.id for u in state.players[player].mana_units if u.id in ids]
+
+
 def clamp(state: GameState) -> None:
     """Keep each record within its player's pool (mana was spent or removed: the other mana went
     first). Records that ended or hold nothing are dropped."""
@@ -70,14 +81,15 @@ def clamp(state: GameState) -> None:
             continue
         pool = state.players[player].mana
         mana = {}
+        units = [i for i in rec.get("units") or [] if i in {u.id for u in state.players[player].mana_units}]
         for sym, n in (rec.get("mana") or {}).items():
             room = left.setdefault((player, sym), pool.get(sym, 0))
             take = min(int(n), room)
             if take > 0:
                 mana[sym] = take
                 left[(player, sym)] = room - take
-        if mana:
-            out.append({**rec, "mana": mana})
+        if mana or units:
+            out.append({**rec, "mana": mana, "units": units})
     r.kept_mana = out
 
 
@@ -90,14 +102,15 @@ def empty(plan: Plan) -> bool:
     if not r.kept_mana:
         return False
     keep = {p: kept(state, p) for p in state.players}
-    if not any(keep.values()):
+    keep_u = {p: kept_units(state, p) for p in state.players}
+    if not any(keep.values()) and not any(keep_u.values()):
         r.kept_mana = []
         return False
     for pid, player in state.players.items():
         delta = {s: keep[pid].get(s, 0) - n for s, n in player.mana.items() if n > keep[pid].get(s, 0)}
-        if delta:
+        if delta or len(keep_u[pid]) < len(player.mana_units):  # (units: wave 18B, the rest of them empty)
             plan.do({"type": "rules_mana", "player": pid, "tap": [], "sacrifice": [], "delta": delta, "life": 0,
-                     "label": ""}, actor=plan.active)
+                     "empty_units": True, "keep_units": keep_u[pid], "label": ""}, actor=plan.active)
     r.kept_mana = [rec for rec in r.kept_mana if _active(state, rec)]
     clamp(state)
     return True
@@ -107,10 +120,11 @@ def keep(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Until end of turn, you don't lose this mana as steps and phases end": the mana the
     previous instruction of this resolution added (``ctx[ADDED]``) is kept."""
     mana = {s: int(n) for s, n in (ctx.get(ADDED) or {}).items() if int(n) > 0}
-    if not mana:
+    units = list(ctx.get("_mana_unit_ids") or ())  # (wave 18B: mana_units.restrict made the mana added into units)
+    if not mana and not units:
         return True
     pid = ctx["controller"]
-    plan.rules.kept_mana.append({"player": pid, "mana": mana, "until": e.get("until", "end_of_turn"),
+    plan.rules.kept_mana.append({"player": pid, "mana": mana, "units": units, "until": e.get("until", "end_of_turn"),
                                  "turn": plan.state.turn.number})
     clamp(plan.state)
     return True

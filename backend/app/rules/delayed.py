@@ -59,6 +59,10 @@ WHEN = {
     "the next turn's upkeep": {"kind": "step", "step": "upkeep", "whose": "next_turn"},
     "the next upkeep": {"kind": "step", "step": "upkeep", "whose": "next_turn"},
     "your next upkeep": {"kind": "step", "step": "upkeep", "whose": "you"},
+    # -- triggers (wave 17D) -- "return it to the battlefield under its owner's control at the beginning of their next upkeep"
+    # (Phytotitan): the next upkeep of the player who owns the card the clause moves (fixed as the delayed trigger is created)
+    "its owner's next upkeep": {"kind": "step", "step": "upkeep", "whose": "owner"},
+    "their next upkeep": {"kind": "step", "step": "upkeep", "whose": "owner"},
     # -- stack interaction (wave 5B) -- Mana Drain: the next main phase (precombat or postcombat, 505.1) of a turn of
     # yours to begin; a later one this turn if you're in your precombat main phase or combat now (engine: main1 / main2)
     "your next main phase": {"kind": "step", "step": "main", "whose": "you"},
@@ -128,6 +132,8 @@ def inner_for_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | Non
             e["who"] = "event.new" if e.get("do") in _MOVES else "event"
         elif who in ("it.controller", "it.owner"):
             e["who"] = f"ref:event.{who[3:]}"
+        elif who == "it:exiled":  # -- hidden exile (wave 18A) -- "the exiled card": the earlier instruction's, bound by resolve_it (Ugin)
+            pass
         elif who == "that_player" or (isinstance(who, str) and who.startswith(("it:", "them:"))):
             return None
         n = e.get("n")
@@ -186,6 +192,14 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         from app.rules import watches
 
         deferred = watches.bind_x(deferred, int(ctx.get("x") or 0))  # (the X the creating spell was cast with)
+    if when.get("whose") == "owner":  # the owner of the one card the deferred move acts on (parse: scripts._deferred)
+        from app.rules.effects import _cards
+
+        moved = _cards(plan, ctx, deferred[0].get("who", "")) if len(deferred) == 1 else []
+        if len(moved) != 1:
+            plan.note(f"{ctx.get('name') or 'The ability'}: nothing to return (it is gone)")
+            return True
+        when["player"] = plan.state.cards[moved[0]].owner
     turn = plan.state.turn.number
     trigger = DelayedTrigger(
         id=secrets.token_hex(4), controller=ctx["controller"], source_card=ctx.get("source_card"),
@@ -197,13 +211,15 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, name: str) -> None:
+def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, name: str, *, sacrifice: bool = False,
+                warp: bool = False) -> None:
     """Unearth (702.84a) / dash (702.109a): "at the beginning of the next end step, exile it /
     return it to its owner's hand" — the object as it is now (603.7c)."""
     plan.rules.delayed.append(DelayedTrigger(
         id=secrets.token_hex(4), controller=controller, source_card=card_id, source_object=oid, name=name,
         when={"kind": "step", "step": "end", "whose": "next"},
-        effects=[{"do": "delayed_move", "card": card_id, "object": oid, "to": to}],
+        effects=[{"do": "delayed_move", "card": card_id, "object": oid, "to": to, **({"sacrifice": True} if sacrifice else {}),
+                  **({"warp": True} if warp else {})}],
         turn=plan.state.turn.number, step=plan.state.turn.phase))
 
 
@@ -215,10 +231,10 @@ def describe_when(when: dict[str, Any]) -> str:
     if when["kind"] == "event":
         if when["event"] == "die_or_exile":  # -- wave 3F -- (earthbend: no "this turn")
             return "when it dies or is put into exile"
-        return "when it " + ("dies" if when["event"] == "die" else "leaves the battlefield") + " this turn"
+        return "when it " + ("dies" if when["event"] == "die" else "leaves the battlefield") + (" under your control" if when.get("ctl") else "") + ("" if when.get("open") else " this turn")
     if when.get("step") == "end_combat":  # -- other side (wave 6D) --
         return "at end of combat"
-    whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's"}[when["whose"]]
+    whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's", "owner": "its owner's next"}[when["whose"]]
     step = {"end": "end step", "main": "main phase"}.get(when["step"], "upkeep")  # (main: wave 5B)
     return f"at the beginning of {whose} {step}"
 
@@ -249,6 +265,8 @@ def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
         return later_turn or same_turn_before
     if whose == "you":
         return plan.active == t.controller and (later_turn or same_turn_before)
+    if whose == "owner":
+        return plan.active == w.get("player") and (later_turn or same_turn_before)
     return later_turn  # "the next turn's upkeep"
 
 
@@ -268,7 +286,7 @@ def at_step(plan: Plan, phase: str) -> None:
 def on_events(plan: Plan, events: list[Event]) -> None:
     """The watched object died / left the battlefield (603.6c; 603.10a: the object as it last
     existed, and what it became where it went, 400.7e)."""
-    from app.rules.triggers import _new_ref, _zone
+    from app.rules.triggers import _new_ref, _zone, pile_refs
 
     r = plan.rules
     watching = [t for t in r.delayed if t.when.get("kind") == "event"]
@@ -288,12 +306,14 @@ def on_events(plan: Plan, events: list[Event]) -> None:
             oids = {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []}
             if e.object_id not in oids or (t.when["event"] == "die" and not died):
                 continue
+            if t.when.get("ctl") and snap.controller != t.controller:
+                continue  # -- long tail (wave 16D) -- "dies under your control": who controlled it as it died (603.10a)
             if t.when["event"] == "die_or_exile" and not (died or _zone(e.to_zone) == "exile"):
                 continue  # -- keyword actions & face-down (wave 3F) -- earthbend's "dies or is put into exile" (701.66a)
             kind = "die" if t.when["event"] in ("die", "die_or_exile") and died else "leave"
             event = TriggerEvent(kind=kind, batch=e.batch, count=1,
                                  objects=[ObjectRef(card=snap.card, object_id=snap.object_id, zone=snap.zone, snapshot=snap)],
-                                 new_objects=_new_ref(snap.card, e.new_object_id, e.to_zone))
+                                 new_objects=_new_ref(snap.card, e.new_object_id, e.to_zone) + pile_refs(plan, e))  # (review 18D: 730.3c)
             fired.append(t)
             _fire(plan, t, event)
     if fired:
@@ -466,7 +486,7 @@ def bind_refs(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 # -- wording -----------------------------------------------------------------------------------------
 LEADING = re.compile(rf"^at the beginning of (?P<when>{WHEN_RE}), (?P<clause>.+)$")
 TRAILING = re.compile(rf"^(?P<clause>.+?) at the beginning of (?P<when>{WHEN_RE})$")
-EVENT = re.compile(rf"^when (?P<subject>{'|'.join(re.escape(s) for s in EVENT_SUBJECTS)}) (?P<verb>{EVENT_RE}) this turn, "
+EVENT = re.compile(rf"^when (?P<subject>{'|'.join(re.escape(s) for s in EVENT_SUBJECTS)}) (?P<verb>{EVENT_RE})(?P<ctl> under your control)?(?P<turn> this turn)?, "
                    r"(?P<clause>.+)$")
 UNTIL_LEADING = re.compile(rf"^(?P<duration>{DURATION_RE}), (?P<clause>.+)$")
 UNTIL_TRAILING = re.compile(rf"^(?P<clause>.+?) (?P<duration>{DURATION_RE})$")
@@ -496,7 +516,8 @@ def event_when(m: re.Match[str]) -> tuple[dict[str, Any], str]:
     """("when that creature dies this turn" → its trigger, the subject as a who-placeholder for
     scripts.resolve_it: "it" for a pronoun, "self" for ~, "target" for a target)."""
     subject = m["subject"]
-    when = {"kind": "event", "event": EVENT_VERBS[m["verb"]]}
+    when = {"kind": "event", "event": EVENT_VERBS[m["verb"]], **({"ctl": "you"} if m["ctl"] else {}),
+            **({} if m["turn"] else {"open": True})}  # (16D: "dies under your control"; 18A: no "this turn": for as long as it takes)
     if subject in ("~", "this creature"):
         return when, "self"
     if subject.startswith("target "):
