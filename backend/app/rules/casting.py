@@ -1489,12 +1489,6 @@ def turned_up(plan: Plan, card: CardInstance) -> None:
         for i, d in triggers.abilities(plan, face_up, "turned_face_up_self"):
             triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card),
                           name=face_up.name, index=i, definition=d)
-    for other in list(plan.state.cards.values()):  # "Whenever a permanent you control is turned face up, …"
-        if other.zone == card.zone and other.controller == card.controller and not other.face_down and not plan.manual(other):
-            och = plan.ch(other)
-            for i, d in triggers.abilities(plan, och, "turned_face_up_you"):
-                triggers._add(plan, controller=other.controller, source_card=other.id, source_object=plan.oid(other),
-                              name=och.name, index=i, definition=d)
 
 
 def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:

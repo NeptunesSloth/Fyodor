@@ -91,7 +91,6 @@ TRIGGERS = [
     (re.compile(r"^When ~ becomes the target of a spell or ability, (?P<body>.+)$"), "targeted_self"),
     # -- keyword actions & face-down (wave 3F) -- 702.37e / 702.168d / 701.40b: fired by casting.turn_face_up
     (re.compile(r"^When ~ is turned face up, (?P<body>.+)$"), "turned_face_up_self"),
-    (re.compile(r"^Whenever a permanent you control is turned face up, (?P<body>.+)$"), "turned_face_up_you"),
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
@@ -291,6 +290,7 @@ _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untap
 _STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive"})  # -- becomes monstrous (wave 6D) --
 _STAYING.add("to_graveyard")  # -- into a graveyard (wave 6D) -- the card(s) there, as they are there
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
+_STAYING.add("turned_face_up")  # -- hidden exile (wave 18A) -- "Whenever a creature you control is turned face up, put a counter on it"
 # Zone-change events after which "it" is the new object the card became where it went — found
 # only there (400.7e, 603.6, 603.6c): "When ~ dies, return it to its owner's hand"
 _GONE = {"die", "leave"}
@@ -3098,7 +3098,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                             "its owner shuffles their graveyard into their library.":
                                 "shuffle your graveyard into your library."}.get(body, body)
                 if ante is None and (cond is None or cond.get("subject") == "player") and re.match(r"^if ~ ", body) \
-                        and name not in ("cast_you", "cast_self", "turned_face_up_you") and (cond or {}).get("event") != "cast":
+                        and name not in ("cast_you", "cast_self") and (cond or {}).get("event") != "cast":
                     # -- intervening ifs (wave 11F) -- "At the beginning of your upkeep, if ~ has no charge counters on it, return
                     # it …": a step or a player's event names no object, so the "if" names the only one: ~
                     ante = "self"

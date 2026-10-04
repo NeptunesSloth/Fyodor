@@ -32,6 +32,8 @@ EXTRA = [
     card('Backslide', set_code='tst', number='Y05', mana_cost='{U}', cmc=1.0, type_line='Instant', oracle_text='Turn target creature with a morph ability face down.\nCycling {U}', power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=['Cycling']),  # noqa: E501
     card('Smoke Teller', set_code='tst', number='Y06', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Human Shaman', oracle_text='{1}{U}: Look at target face-down creature.', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
     card('Lens of Clarity', set_code='tst', number='Y07', mana_cost='{1}', cmc=1.0, type_line='Artifact', oracle_text="You may look at the top card of your library and at face-down creatures you don't control any time.", power=None, toughness=None, colors=[], color_identity=[], keywords=[]),  # noqa: E501
+    card('Sumala Sentry', set_code='tst', number='Y08', mana_cost='{G}{W}', cmc=2.0, type_line='Creature — Elf Archer', oracle_text="Reach\nWhenever a face-down permanent you control is turned face up, put a +1/+1 counter on it and a +1/+1 counter on this creature.", power='1', toughness='3', colors=['G', 'W'], color_identity=['G', 'W'], keywords=['Reach']),  # noqa: E501
+    card('Pine Walker', set_code='tst', number='Y09', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Elemental', oracle_text="Morph {4}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhenever this creature or another creature you control is turned face up, untap that creature.", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Morph']),  # noqa: E501
     card('Doomskar', set_code='tst', number='Y01', mana_cost='{3}{W}{W}', cmc=5.0, type_line='Sorcery', oracle_text='Destroy all creatures.\nForetell {1}{W}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)', power=None, toughness=None, colors=['W'], color_identity=['W'], keywords=['Foretell']),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
@@ -182,6 +184,23 @@ def face_down_hermit(s):
     hermit = named(s, "Thelonite Hermit", "p2")
     act(s, "p2", type="move", card_ids=[hermit.id], to={"player": "p2", "zone": "battlefield"}, face_down=True, face_down_kind="morph")
     return hermit
+
+
+def test_turned_face_up_triggers_of_other_permanents(cards):
+    s = build3(cards, "Sumala Sentry", "Thelonite Hermit", "Pine Walker", players=2)
+    sentry = to_hand3(s, "Sumala Sentry", "p1")
+    act(s, "p1", type="move", card_ids=[sentry.id], to={"player": "p1", "zone": "battlefield"})
+    hermit = named(s, "Thelonite Hermit", "p1")
+    act(s, "p1", type="move", card_ids=[hermit.id], to={"player": "p1", "zone": "battlefield"}, face_down=True, face_down_kind="morph")
+    walker = named(s, "Pine Walker", "p1")
+    act(s, "p1", type="move", card_ids=[walker.id], to={"player": "p1", "zone": "battlefield"}, face_down=True, face_down_kind="morph")
+    mana3(s, "p1", G=2, C=3)
+    act(s, "p1", type="turn_face_up", card_id=hermit.id)  # 702.37e: {3}{G}{G}
+    settle(s)
+    assert not s.state.cards[hermit.id].face_down
+    assert s.state.cards[hermit.id].counters.get("+1/+1") == 1 and s.state.cards[sentry.id].counters.get("+1/+1") == 1
+    assert sum(1 for c in s.state.cards.values() if c.name == "Saproling" and c.zone == "p1:battlefield") == 4
+    check(s)
 
 
 def test_look_at_target_face_down_creature_is_private_to_the_looker(cards):

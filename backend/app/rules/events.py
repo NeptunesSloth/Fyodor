@@ -68,6 +68,7 @@ _EVENT_VERBS = [
     (r"attacks?", "attack"),
     (r"blocks?", "block"),
     (r"becomes? blocked", "blocked"),
+    (r"(?:is|are) turned face up", "turned_face_up"),  # -- hidden exile (wave 18A) -- 702.37e, 701.40b: a face-down permanent turned face up
     (r"becomes? tapped", "tapped"),
     (r"becomes? untapped", "untapped"),
     (r"(?:is|are) dealt damage", "dealt_damage"),
