@@ -123,7 +123,7 @@ def parse(text: str) -> Definition | None:
     t = text.strip().replace("’", "'").replace("“", '"').replace("”", '"')
     if not t.endswith(".") and not t.endswith('."'):
         return None
-    if t.count(". ") or "\n" in t:
+    if re.sub(r'"[^"]*"', "", t).count(". ") or "\n" in t:  # (wave 16F: sentences inside a quoted granted ability are its own)
         return None  # two sentences: one of them says something we'd silently drop
     body = t[:-1] if t.endswith(".") else t
     if re.fullmatch(r"A deck can have (?:any number of|up to \w+) cards named ~", body):
@@ -646,9 +646,10 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
             continue
         q = _QUOTED.match(rest)
         if q:
-            if granted_ability(q["q"]) is None:
+            text = q["q"] if q["q"][-1] in ".)" else q["q"] + "."  # (wave 16F: a quote ending a clause has no period of its own)
+            if granted_ability(text) is None:
                 return None
-            grants.append(q["q"])
+            grants.append(text)
             continue
         if rest in GRANTABLE_KEYWORDS:
             keywords.append(rest)

@@ -102,3 +102,33 @@ def test_a_curse_triggers_on_the_enchanted_players_draws(cards):
     answer(s)
     assert (life(s, "p1"), life(s, "p2")) == (42, 38)
     check(s)
+
+
+QUIVER = ("Equipped creature has \"{T}: This creature deals 1 damage to any target\" and \"{T}: This creature deals 3 damage to "
+          "target Werewolf creature.\"\nEquip {1}")
+
+
+def test_a_quoted_ability_that_ends_its_clause_without_a_period_is_granted(cards):
+    # 604.1 / 113.3: Wolfhunter's Quiver's two quoted abilities are the creature's own; the first has no period inside its quote
+    from tests.test_rules_combat import automate, creature, table
+
+    s = table(cards)
+    bear = creature(s, "p1", "Bear", "2/2")
+    act(s, "p1", type="create_token", player="p1", token={
+        "name": "Quiver", "type_line": "Token Artifact — Equipment", "power": None, "toughness": None, "colors": [], "text": QUIVER})
+    quiver = next(c for c in s.state.cards.values() if c.name == "Quiver")
+    act(s, "p1", type="attach", card_ids=[quiver.id], to=bear.id)
+    automate(s)
+    act(s, "p1", type="declare_attackers", attackers=[])
+    act(s, "p1", type="activate_ability", card_id=bear.id, ability=100, targets=["p2"])
+    answer(s)
+    assert s.state.players["p2"].life == 39 and s.state.cards[bear.id].tapped
+    check(s)
+
+
+def test_sentences_inside_a_granted_quote_are_the_quotes_own():
+    from app.rules import statics
+
+    assert statics.parse('Enchanted creature has "{T}: This creature deals 1 damage to target player or planeswalker. '
+                         'You draw a card."') is not None
+    assert statics.parse('Enchanted creature has "{T}: Add {G}." It is blue.') is None  # (a second sentence outside the quote)
