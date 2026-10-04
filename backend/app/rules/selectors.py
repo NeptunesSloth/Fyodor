@@ -866,7 +866,9 @@ def _outlaws(phrase: str) -> Selector | None:
     return replace(base, extras=(*base.extras, "subtype_any:" + OUTLAW_TYPES)) if base is not None else None
 
 
-_EITHER = re.compile(r"^(?P<head>[a-z]+(?:, [a-z]+)*),? or (?P<last>[a-z]+ (?:with|without) .+)$")
+_EITHER = re.compile(r"^(?P<head>[a-z]+(?:, [a-z]+)*),? or (?P<last>[a-z]+ (?:with|without) .+)$"
+                     # -- target forms (wave 19E) -- "noncreature artifact or noncreature enchantment": each kind has its own qualifier
+                     r"|^(?P<head2>non[a-z]+ [a-z]+) or (?P<last2>non[a-z]+ [a-z]+)$")
 
 
 def parse_either(phrase: str) -> Selector | None:
@@ -875,7 +877,7 @@ def parse_either(phrase: str) -> Selector | None:
     m = _EITHER.match(phrase.strip())
     if m is None:
         return None
-    a, b = _parse(m["head"]), _parse(m["last"])
+    a, b = _parse(m["head"] or m["head2"]), _parse(m["last"] or m["last2"])
     if a is None or b is None or a.player or b.player or a.zones != ("battlefield",) or b.zones != ("battlefield",):
         return None
     return Selector(either=(a.key(), b.key()))

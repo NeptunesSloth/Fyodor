@@ -74,6 +74,8 @@ EXTRA = [
     _card("Rust", "W21", "{G}", "Instant", "Counter target activated ability from an artifact source. (Mana abilities can't be targeted.)",
           ["G"]),
     _card("Aeolipile", "W22", "{2}", "Artifact", "{1}, {T}, Sacrifice this artifact: It deals 2 damage to any target.", []),
+    _card("Haywire Mite", "W23", "{2}", "Artifact Creature — Insect",
+          "{G}, Sacrifice this creature: Exile target noncreature artifact or noncreature enchantment.", [], power="1", toughness="1"),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -318,4 +320,20 @@ def test_counter_target_activated_ability_from_an_artifact_source(cards):
     act(s, "p1", type="cast_spell", card_id=named(s, "Rust").id, targets=[bolt])
     pass_until_stack_empty(s)
     assert life(s, "p2") == 40
+    replay_matches(s)
+
+
+def test_target_noncreature_artifact_or_noncreature_enchantment(cards):
+    """Haywire Mite: a noncreature artifact (Short Sword) is a legal target, a creature is not (also not an artifact creature)."""
+    s = table(cards, ["Haywire Mite", "Short Sword", "Grizzly Bears"], [])
+    mite = named(s, "Haywire Mite")
+    pay(s, G=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=mite.id, ability=0, targets=[named(s, "Grizzly Bears").id])
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=mite.id, ability=0, targets=[mite.id])
+    sword = named(s, "Short Sword")
+    act(s, "p1", type="activate_ability", card_id=mite.id, ability=0, targets=[sword.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[sword.id].zone == "p1:exile"
     replay_matches(s)
