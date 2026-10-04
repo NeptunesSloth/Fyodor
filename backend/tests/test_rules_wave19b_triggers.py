@@ -14,6 +14,8 @@
 * 508.5: "each creature defending player controls" (not targeted): the player the attacker was declared against, one player of three.
 * 603.2e / 603.2: "becomes the target of a spell or ability an opponent controls, … that player" - the player whose spell or ability it was;
   "deals damage to an opponent, that opponent discards a card" - the opponent dealt damage.
+* 608.2h / 601.1: "put any number of creature cards from your hand onto the battlefield", "an artifact card with mana value less than or
+  equal to that damage" - chosen privately, not cast.
 * 508.1b: "deals 1 damage to the player or planeswalker it's attacking" - what the attacker the trigger is about attacks now.
 """
 
@@ -60,6 +62,10 @@ EXTRA = [
     real('Thunderbreak Regent', '{2}{R}{R}', 4, 'Creature — Dragon', 'Flying\nWhenever a Dragon you control becomes the target of a spell or ability an opponent controls, this creature deals 3 damage to that player.', ("4", "4"), 'R'),
     real('Zhang Liao, Hero of Hefei', '{4}{B}{B}', 6, 'Legendary Creature — Human Soldier', 'Whenever Zhang Liao deals damage to an opponent, that opponent discards a card.', ("3", "3"), 'B'),
     real('Probe Burst', '{R}', 1, 'Instant', 'Probe Burst deals 1 damage to any target.', None, 'R'),
+    real('Ghalta, Stampede Tyrant', '{5}{G}{G}{G}', 8, 'Legendary Creature — Elder Dinosaur', 'Trample\nWhen Ghalta enters, put any number of creature cards from your hand onto the battlefield.', ("12", "12"), 'G'),
+    real('Covert Technician', '{2}{U}', 3, 'Artifact Creature — Human Ninja', 'Ninjutsu {1}{U} ({1}{U}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, you may put an artifact card with mana value less than or equal to that damage from your hand onto the battlefield.', ("2", "4"), 'U'),
+    real('Probe Rock', '{3}', 3, 'Artifact', '', None),
+    real('Probe Giant', '{5}', 5, 'Creature — Giant', '', ("5", "5")),
 ]
 
 NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
@@ -316,4 +322,38 @@ def test_the_player_who_targeted_the_dragon_is_dealt_3(cards):
     act(s, "p2", type="cast_spell", card_id=theirs.id, targets=[regent.id])  # Bob responds, targeting the Dragon
     answer(s)
     assert life(s, "p2") == 40 - 1 - 3 and life(s, "p1") == 40
+    check(s)
+
+
+def test_any_number_of_creature_cards_from_the_hand_enter(cards):
+    s = build(cards, ["Ghalta, Stampede Tyrant", "Probe Soldier", "Probe Giant", "Probe Rock"], [])
+    soldier, giant, rock = (to_hand(s, n) for n in ("Probe Soldier", "Probe Giant", "Probe Rock"))
+    cast(s, "Ghalta, Stampede Tyrant", G=3, C=5)
+    d = s.state.rules.decision
+    assert d is not None and rock.id not in [o.id for o in d.options]  # (only creature cards are offered)
+    answer(s, [soldier.id, giant.id])
+    assert {s.state.cards[c.id].zone for c in (soldier, giant)} == {"p1:battlefield"} and s.state.cards[rock.id].zone == "p1:hand"
+    check(s)
+
+
+def test_artifact_with_mana_value_up_to_the_damage_dealt(cards):
+    s = combat_build(cards, "Covert Technician", "Probe Blade", "Probe Rock")
+    tech = combat_put(s, "Covert Technician")
+    blade, rock = (to_hand(s, n) for n in ("Probe Blade", "Probe Rock"))
+    to_attack(s, 3)
+    declare(s, (tech, "p2"))
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None and d.kind == "confirm":  # (603.5: the "you may" is asked as the ability resolves)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"])
+        elif d is not None:
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.kind == "choose_cards" and [o.id for o in d.options] == [blade.id]  # 2 damage: the 3-mana Rock is no option
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[blade.id])
+    answer(s)
+    assert s.state.cards[blade.id].zone == "p1:battlefield" and s.state.cards[rock.id].zone == "p1:hand"
     check(s)

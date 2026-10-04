@@ -5347,7 +5347,7 @@ def _for_each_of_them_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]
 
 
 @_first
-@effect(r"(?P<may>you may )?put (?:a|an) [^.]+? card from your hand onto the battlefield(?: tapped(?: and attacking)?)?")
+@effect(r"(?P<may>you may )?put (?:a|an|any number of) [^.]+? from your hand onto the battlefield(?: tapped(?: and attacking)?)?")
 def _put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     """"You may put an Equipment card from your hand onto the battlefield." (Stoneforge Mystic): app/rules/put_from_hand.py.
     "You may" after another instruction ("Draw a card. You may put a land card …"): choosing no card."""

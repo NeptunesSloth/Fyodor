@@ -27,7 +27,10 @@ if TYPE_CHECKING:
 Context = dict[str, Any]
 
 _PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Planeswalker", "Battle"})
-PATTERN = r"put (?:a|an) (?P<what>[^.]+?) card from your hand onto the battlefield(?P<tapped> tapped(?P<atk> and attacking)?)?"
+# (-- triggers (wave 19B) -- "any number of creature cards", "a permanent card with mana value less than or equal to the number of lands you
+# control / that damage": the count is read as the card is chosen, 608.2h)
+PATTERN = (r"put (?P<q>an?|any number of) (?P<what>[^.]+?) cards?(?: with mana value (?P<op>less than or equal to|less than) "
+           r"(?P<v>that damage|the number of [^.]+?))? from your hand onto the battlefield(?P<tapped> tapped(?P<atk> and attacking)?)?")
 
 
 def parse(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
@@ -42,6 +45,15 @@ def parse(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     if sel.types and not set(sel.types) <= _PERMANENT_TYPES:
         return None
     effect: dict[str, Any] = {"do": "put_from_hand", "sel": sel.key(), "label": m["what"]}
+    if m["op"]:
+        from app.rules import values
+
+        value = {"event_amount": 1} if m["v"] == "that damage" else values.parse_count(m["v"])
+        if value is None:
+            return None
+        effect["mv"] = ["<=" if m["op"].endswith("equal to") else "<", value]
+    if m["q"] == "any number of":
+        effect["many"] = True
     if m["tapped"]:
         effect["tapped"] = True
     if m["atk"]:  # -- trigger tail (wave 15B) -- 508.4: its controller chooses whom it attacks (looking.attack_with_entered)
@@ -56,17 +68,30 @@ def put_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     options = [c for c in selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card"))
-               if plan.state.cards[c].zone == f"{pid}:hand" and _permanent_card(plan, c)]
+               if plan.state.cards[c].zone == f"{pid}:hand" and _permanent_card(plan, c) and _mv_ok(plan, ctx, e, c)]
     if not options:
         effects._remember(plan, ctx, e, [])
         return True  # (nothing is announced: the hand is hidden)
-    may = bool(e.get("optional"))  # ("you may": none is a choice; a trigger's "you may" was asked already, 603.5)
+    may = bool(e.get("optional")) or bool(e.get("many"))  # ("you may": none is a choice; a trigger's "you may" was asked already, 603.5)
     decide(plan, player=pid, kind="choose_cards",
            prompt=f"{ctx.get('name') or 'It'}: {'you may ' if may else ''}put a {e.get('label') or 'permanent'} card from "
                   "your hand onto the battlefield",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
-           min_choices=0 if may else 1, max_choices=1, resume={"step": "put_from_hand", "ctx": ctx, "e": e})
+           min_choices=0 if may else 1, max_choices=len(options) if e.get("many") else 1,
+           resume={"step": "put_from_hand", "ctx": ctx, "e": e})
     return False
+
+
+def _mv_ok(plan: Plan, ctx: Context, e: dict[str, Any], cid: str) -> bool:
+    """-- triggers (wave 19B) -- the mana value limit of "with mana value less than or equal to …" (read now, 608.2h)."""
+    if not e.get("mv"):
+        return True
+    from app.rules import characteristics as chars
+    from app.rules import effects
+
+    op, value = e["mv"]
+    mv, limit = chars.of(plan.state.cards[cid], plan.info).mana_value, effects._amount(plan, ctx, value)
+    return mv <= limit if op == "<=" else mv < limit
 
 
 def _permanent_card(plan: Plan, cid: str) -> bool:
@@ -85,9 +110,9 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     pid = ctx["controller"]
     sel = selectors.from_key(e["sel"])
     cards = []
-    for cid in chosen[:1]:
+    for cid in chosen[: 999 if e.get("many") else 1]:
         card = plan.state.cards.get(cid)
-        if card is None or card.zone != f"{pid}:hand" or not _permanent_card(plan, cid) \
+        if card is None or card.zone != f"{pid}:hand" or not _permanent_card(plan, cid) or not _mv_ok(plan, ctx, e, cid) \
                 or not selectors.matches(plan, sel, card, chars.of(card, plan.info), pid, ctx.get("source_card")):
             raise ActionError("Choose a matching card from your hand")
         cards.append(cid)
@@ -118,7 +143,7 @@ _EACH_WHO = {"each opponent": "each_opponent", "each other player": "each_oppone
 
 
 def parse_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
-    inner = re.fullmatch(PATTERN, f"put a {m['what']} card from your hand onto the battlefield")
+    inner = re.fullmatch(PATTERN, f"put a {m['what']} card from your hand onto the battlefield")  # (wave 19B: PATTERN's "a")
     one = parse(inner) if inner is not None else None
     if one is None:
         return None
