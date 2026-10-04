@@ -682,6 +682,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event == "leave" and cond.get("dest") and _zone(info.get("to")) != cond["dest"]:  # -- trigger tail (wave 15B) -- "put into exile"
         return False
+    if event == "explore" and cond.get("kind") and info.get("revealed") != (1 if cond["kind"] == "land" else 2):
+        return False  # (-- trigger tail (wave 15B) -- "explores a land card": the card it revealed)
     if event == "expend" and not info["before"] < cond["n"] <= info["after"]:
         return False
     if event == "to_graveyard" and cond.get("from") and info.get("from") != cond["from"]:  # -- into a graveyard (wave 6D)

@@ -219,6 +219,11 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             return [(f"become_{e.counter}", card, plan.ch(card), card.controller, {"oid": e.object_id})]
         return []
+    if e.counter == "explore" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.44a: the creature that explored
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("explore", card, plan.ch(card), card.controller, {"oid": e.object_id, "revealed": e.amount})]
+        return []
     if e.counter in ("day", "night") and e.from_zone:  # 731.1a: "day becomes night" / "night becomes day"
         return [("day_night", None, None, plan.active, {})]
     return []

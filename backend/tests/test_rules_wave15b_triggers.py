@@ -70,6 +70,8 @@ EXTRA += [
     real("Test Soldier", "{1}{W}", 2, "Creature — Human Soldier", "", ("1", "1"), "W"),
     real("Netherborn Phalanx", "{3}{B}", 4, "Creature — Horror", "When this creature enters, each opponent loses 1 life for each creature they control.", ("2", "2"), "B"),
     real("Public Thoroughfare", "", 0, "Land", "This land enters tapped.\nWhen this land enters, sacrifice it unless you tap an untapped artifact or land you control.\n{T}: Add {C}.", None),
+    real("Wildgrowth Walker", "{1}{G}", 2, "Creature — Elemental", "Whenever a creature you control explores, put a +1/+1 counter on this creature and you gain 3 life.", ("1", "1"), "G"),
+    real("Merfolk Branchwalker", "{1}{G}", 2, "Creature — Merfolk Scout", "When this creature enters, it explores. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on this creature, then put the card back or put it into your graveyard.)", ("2", "1"), "G"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -451,6 +453,18 @@ def test_blocks_a_creature_destroy_both_creatures(cards):
     block(s, "p2", (zealot, bear))
     answer(s)
     assert bear.id not in s.state.cards and zealot.id not in s.state.cards and s.state.players["p2"].life == 40
+    check(s)
+
+
+def test_a_creature_you_control_explores_triggers_wildgrowth_walker(cards):
+    # 701.44a: the creature explored whatever the revealed card was (a land card here: it goes to the hand)
+    s = build(cards, ["Wildgrowth Walker", "Merfolk Branchwalker"], [])
+    walker = put(s, "Wildgrowth Walker")
+    branch = to_hand(s, "Merfolk Branchwalker")
+    mana(s, "p1", G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=branch.id)
+    answer(s)
+    assert s.state.cards[walker.id].counters == {"+1/+1": 1} and s.state.players["p1"].life == 43
     check(s)
 
 

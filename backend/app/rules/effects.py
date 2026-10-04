@@ -1229,15 +1229,23 @@ def explore(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     +1/+1 counter on this creature, then you may put the revealed card into your graveyard."""
     from app.rules import characteristics as chars
 
+    from app.game.rules_state import emit
+
     pid = ctx["controller"]
     library = plan.state.zones.get(zone_key(pid, "library"), [])
     me = _cards(plan, ctx, "self")
+
+    def explored(kind: int) -> None:  # -- trigger tail (wave 15B) -- "Whenever a creature you control explores" (701.44a): 1 a land
+        if me:  # card was revealed, 2 a nonland card, 0 none
+            emit(plan.state, "designation", counter="explore", card=me[0], object_id=plan.oid(me[0]), player=pid, amount=kind)
     # -- replacement effects stage 2 (wave 2E): the +1/+1 counter through the counter choke point --
     if not library:  # (False: an order to choose first; then the resolution continues)
+        explored(0)
         return not me or replace.put_counters(plan, [(c, "+1/+1", 1) for c in me], by=pid, then={"do": "continue", "ctx": ctx})
     top = library[0]
     plan.do({"type": "reveal_top", "player": pid, "count": 1}, actor=pid)
     card = plan.state.cards[top]
+    explored(1 if chars.of(card, plan.info).is_land else 2)
     if chars.of(card, plan.info).is_land:
         plan.do({"type": "move", "card_ids": [top], "to": {"player": pid, "zone": "hand"}}, actor=pid)
         return True

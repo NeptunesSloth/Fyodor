@@ -329,6 +329,12 @@ def _parse(c: str) -> Condition | None:
         return found
     # -- becomes monstrous (wave 6D) -- "When ~ becomes monstrous" (701.37b), "Whenever a creature you control becomes
     # renowned" (702.112b): the permanent got the designation
+    m = re.fullmatch(r"(?P<s>.+?) explores(?P<k> a land card| a nonland card)?", c)  # -- trigger tail (wave 15B) -- 701.44a
+    if m:
+        base = _subject(m["s"])
+        if base is None or base.get("aggregate"):
+            return None
+        return {**base, "event": "explore", **({"kind": "land" if "nonland" not in m["k"] else "nonland"} if m["k"] else {})}
     m = re.fullmatch(r"(?P<s>.+?) becomes (?P<d>monstrous|renowned)", c)
     if m:
         base = _subject(m["s"])
