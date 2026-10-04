@@ -401,6 +401,11 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         if card is None:
             return []
         return [("cycle", card, plan.ch(card), e.player, {"oid": plan.oid(card), "actor": e.player, "amount": 1})]
+    if e.kind == "milled":  # -- triggers (wave 17D) -- 701.17a: the card, as it is in its owner's graveyard now
+        card = plan.state.cards.get(e.card or "")
+        if card is None or not card.zone.endswith(":graveyard"):
+            return []
+        return [("mill", card, plan.ch(card), e.player, {"oid": plan.oid(card), "actor": e.player, "amount": 1})]
     if e.kind == "sacrificed":  # 701.21a; 603.10a: looks back in time
         got = _object_then(plan, e.card, e.object_id)
         if got is None:
@@ -706,6 +711,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event == "leave" and cond.get("dest") and _zone(info.get("to")) != cond["dest"]:  # -- trigger tail (wave 15B) -- "put into exile"
         return False
+    if event == "leave" and cond.get("nodie") and (_zone(info.get("to")) == "graveyard" or (info.get("to") is None and getattr(info.get("snap"), "is_token", False))):
+        return False  # -- triggers (wave 17D) -- "without dying": 700.4's own test, as _zone_facts makes the "die" fact
     if event == "explore" and cond.get("kind") and info.get("revealed") != (1 if cond["kind"] == "land" else 2):
         return False  # (-- trigger tail (wave 15B) -- "explores a land card": the card it revealed)
     if event == "expend" and not info["before"] < cond["n"] <= info["after"]:
@@ -886,6 +893,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 info.get("recipient") or info.get("actor") or (info.get("defended") if cond.get("defender") else "") or ""
             if cond.get("to") in ("players", "opponents", "creatures"):  # -- source damage (wave 11F) -- 603.2c: one per batch
                 per = ""
+            if cond["event"] == "mill" and cond.get("aggregate") and cond.get("player") == "any":
+                per = ""  # -- triggers (wave 17D) -- "one or more cards are milled": every player's cards of the batch are one event (603.2c)
             if cond.get("subject") == "source":  # "that source's controller" is the event's player
                 event.players = [fact[3]] if fact[3] else []
             if anykind:  # (its steps are in batches of their own: keyed by the instruction, not the batch)
@@ -993,7 +1002,7 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
     turn = plan.state.turn.number
     facts: list[Fact] = []
     for c in cards:
-        info: dict[str, Any] = {"oid": plan.oid(c), "attackers": len(cards), "attacking": attacking}
+        info: dict[str, Any] = {"oid": plan.oid(c), "attackers": len(cards), "attacking": attacking, "amount": 1}  # (amount: wave 17D, "that many")
         if event in ("attack", "unblocked"):  # whom it attacks (508.3a, 509.3g)
             info["defended"], info["direct"] = _defended(plan, c)
         if event == "attack":  # "attacks for the first time each turn" (kept per object per turn)

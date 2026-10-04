@@ -75,7 +75,7 @@ _SENTENCE = re.compile(
     r"(?: with (?P<with>.+?))?"
     rf"(?: named (?P<name2>{_NAME}))?"  # (wave 6C: "… with flying named Wasp")
     rf"(?: that's (?P<thats>all colors|{_COLORS}))?"  # (wave 6C: "an 8/8 Beast creature token that's red, green, and white")
-    r"(?P<attacking> that(?:'s| are) tapped and attacking)?$")
+    r"(?P<attacking> that(?:'s| are) (?P<atapped>tapped and )?attacking)?$")  # (wave 17D: untapped, "that's attacking": Brimaz)
 # (wave 6C) "For each creature your opponents control, create a 4/4 green Phyrexian Beast creature token.": the same
 # instruction as "Create a 4/4 … token for each creature your opponents control." (the count is read as it resolves)
 _EACH_FIRST = re.compile(r"^for each (?P<each>[^,\"]+), create (?P<rest>[^\"]+?(?:\"[^\"]+\")?)$")
@@ -140,7 +140,10 @@ def _with(part: str | None) -> tuple[list[str], str | None] | None:
             return None
     kws = [k.strip() for k in re.split(r", and |, | and ", part) if k.strip()]
     # (wave 3E: "toxic N", read by combat.py from the token's keyword line, 702.164)
-    if any(k not in SUPPORTED_KEYWORDS and not re.fullmatch(r"toxic \d+", k) for k in kws):
+    # (wave 17D: a keyword whose meaning is a triggered ability the engine reads — training, mentor, dethrone … — 702.149a)
+    from app.rules import keyword_triggers
+
+    if any(k not in SUPPORTED_KEYWORDS and not re.fullmatch(r"toxic \d+", k) and not keyword_triggers.supported(k, k) for k in kws):
         return None
     if quoted is not None:
         quoted = _quoted_text(quoted)
@@ -244,7 +247,7 @@ def parse(sentence: str) -> list[Effect] | None:
             return None
         n, token = language._bind_x(n, v), language._bind_x(token, v)
     effect: Effect = {"do": "create_attacking" if m["attacking"] else "create_token", "who": "you", "n": n, "token": token}
-    if m["tapped"] or m["attacking"]:
+    if m["tapped"] or m["atapped"]:
         effect["tapped"] = True
     return [effect]
 
@@ -298,7 +301,7 @@ def create_attacking(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool
 
     pid = ctx["controller"]
     before = set(plan.state.cards)
-    effects.create_token(plan, ctx, {**e, "who": "you", "tapped": True})
+    effects.create_token(plan, ctx, {**e, "who": "you", "tapped": bool(e.get("tapped"))})
     new = [cid for cid, c in plan.state.cards.items() if cid not in before and c.controller == pid
            and c.zone.endswith(":battlefield")]
     if not new or plan.state.turn.phase not in _ATTACKING_PHASES or pid != plan.active:

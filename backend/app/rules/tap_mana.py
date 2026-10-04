@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 COLORS = ("W", "U", "B", "R", "G")
-_LINE = re.compile(r"^Whenever (?P<who>you tap|a player taps) (?P<what>an? [^,]+?) for mana(?P<mon> while you're the monarch)?, "
+_LINE = re.compile(r"^Whenever (?P<who>you tap|a player taps) (?P<what>an? [^,]+?) for (?:mana|(?P<only>\{C\}))(?P<mon> while you're the monarch)?, "
                    r"(?P<adds>add|that player adds) (?P<m>.+?)\.(?: \(The types of mana are white, blue, black, red, green, and "
                    r"colorless\.\))?$")
 _SPELL = re.compile(r"^Until end of turn, (?P<rest>whenever .+)$")
@@ -77,7 +77,8 @@ def definition(text: str) -> dict[str, Any] | None:
     else:
         return None
     return {"kind": "triggered", "trigger": "tap_for_mana", "who": "you" if m["who"] == "you tap" else "any",
-            "sel": sel.key(), "extra": extra, "monarch": bool(m["mon"]), "optional": False, "target": None, "effects": []}
+            "sel": sel.key(), "extra": extra, "monarch": bool(m["mon"]), "optional": False, "target": None, "effects": [],
+            **({"only": "C"} if m["only"] else {})}
 
 
 def spell_effect(text: str) -> dict[str, Any] | None:
@@ -116,7 +117,7 @@ def _triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any
             if c.face_down or (r is not None and r.card_mode(c.id) == "manual"):
                 continue
             # (a cheap first look: the printed text, or a copy effect giving other copiable values, 613.2c)
-            if "for mana" not in chars.of(c, info).oracle_text and c.copy_of is None \
+            if not re.search(r"for (?:mana|\{C\})", chars.of(c, info).oracle_text) and c.copy_of is None \
                     and (r is None or r.object_id(c.id) not in copies):
                 continue
             ch = derive(state, c, copiable(state, c, info), info)
@@ -141,6 +142,8 @@ def _applies(state: GameState, info: CardInfo, card: CardInstance, owner: str, d
 
 
 def _extra(d: dict[str, Any], option: tuple[str, ...]) -> list[tuple[str, ...]]:
+    if d.get("only") and d["only"] not in option:
+        return [()]  # -- triggers (wave 17D) -- "Whenever you tap a permanent for {C}" (Forsaken Monument): only when {C} was produced
     if d["extra"] == "produced":
         return [(m,) for m in dict.fromkeys(option)]
     return [tuple(x) for x in d["extra"]]
@@ -189,7 +192,7 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(re.compile(r"^until end of turn
 # (603), put on the stack the next time a player would receive priority (603.3) — after the spell being paid for is cast.
 # The event is a mana ability with {T} in its cost resolving and producing mana (106.12a): app/rules/casting.py emits
 # "mana_added" with counter "tap"; app/rules/triggers.py reads it as the fact "tapped_for_mana" (its player: who tapped).
-_CONDITION = re.compile(r"(?P<p>you|a player) taps? (?P<o>~|an? [^,]+?) for mana")
+_CONDITION = re.compile(r"(?P<p>you|a player|an opponent) taps? (?P<o>~|an? [^,]+?) for mana")  # (wave 17D: an opponent)
 
 
 def condition(c: str) -> dict[str, Any] | None:
@@ -203,7 +206,7 @@ def condition(c: str) -> dict[str, Any] | None:
     sel = selectors.parse(re.sub(r"^an? ", "", m["o"]))
     if sel is None or sel.player is not None or sel.zones not in ((), ("battlefield",)):
         return None
-    return {"event": "tapped_for_mana", "subject": "player", "player": "you" if m["p"] == "you" else "any", "obj": sel.key()}
+    return {"event": "tapped_for_mana", "subject": "player", "player": {"you": "you", "an opponent": "opponent"}.get(m["p"], "any"), "obj": sel.key()}
 
 
 def adds_mana(d: dict[str, Any]) -> bool:

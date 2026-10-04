@@ -288,6 +288,7 @@ EventKind = Literal[
     "untapped",
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
     "cycled",  # a player cycled a card (702.29: "when you cycle …")
+    "milled",  # -- triggers (wave 17D) -- 701.17a: ``player`` milled ``card`` (read where it lies, in their graveyard)
     "land_played",  # -- entry forms (wave 5F) -- a player played a land (305.1: "when you play another land")
     "mana_added",  # a mana ability produced mana (106.3, 106.12a); convoke/improvise/delve never do
     "drew",  # a player drew a card (121.2: one event per card)
@@ -1133,8 +1134,14 @@ def note_attack(state: GameState, player: str, attackers: list[str] | None = Non
         seen += [a for a in attackers if a not in seen]
 
 
+def wither_put_by(action: Any) -> dict[tuple[str, str], dict[str, int]] | None:
+    """-- triggers (wave 17D) -- 120.3d: who puts the -1/-1 counters a damage step gives each creature (its source's controller)."""
+    by = getattr(action, "wither_by", None)
+    return {(cid, "-1/-1"): who for cid, who in by.items()} if by else None
+
+
 def track(state: GameState, before: Capture | None = None, *, manual: bool = False, actor: str | None = None,
-          group: int = 0) -> None:
+          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None) -> None:
     """Deterministic bookkeeping after every applied step (sandbox or rules): whose turn started
     when, when each permanent came under its controller's control, which physical card is which
     rules object, last known information, and the step's events as one simultaneous batch.
@@ -1157,7 +1164,7 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
     for card_id in [c for c in rules.controlled_since if c not in on_battlefield]:
         del rules.controlled_since[card_id]
     if before is not None:
-        _diff(state, rules, before, manual, actor, group)  # (actor: wave 5H, group: wave 7C)
+        _diff(state, rules, before, manual, actor, group, put_by)  # (actor: wave 5H, group: wave 7C)
     pending = [e for e in rules.events if e.batch > rules.batch]
     if pending:
         rules.batch += 1
@@ -1201,7 +1208,7 @@ KEYWORD_COUNTERS = frozenset({"flying", "first strike", "double strike", "deatht
 
 
 def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, actor: str | None = None,
-          group: int = 0) -> None:
+          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None) -> None:
     departures = state.departures()
     for card_id, old_zone in _entry_order(state, before):
         card = state.cards.get(card_id)
@@ -1278,7 +1285,11 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         oid = rules.object_id(card_id)
         for kind in sorted(set(snap.counters) | set(card.counters)):  # (sorted: wave 5H, 613.7c stamps)
             delta = card.counters.get(kind, 0) - snap.counters.get(kind, 0)
-            if delta:
+            by = (put_by or {}).get((card_id, kind))
+            if by and delta > 0 and sum(by.values()) == delta:  # -- triggers (wave 17D) -- 120.3d: each source's controller puts its own
+                for pid, n in by.items():
+                    emit(state, "counters", object_id=oid, card=card_id, counter=kind, amount=n, actor=pid)
+            elif delta:
                 emit(state, "counters", object_id=oid, card=card_id, counter=kind, amount=delta,
                      **({"actor": actor} if actor and delta > 0 else {}), **({"group": group} if group else {}))  # (5H, 7C)
             if kind in KEYWORD_COUNTERS:  # -- counters (wave 5H) -- 613.7c

@@ -14,7 +14,7 @@ from app.game import ops
 from app.game.errors import ActionError
 from app.game.handlers.players import change_life
 from app.game.ops import log, text
-from app.game.rules_state import RulesState, capture, emit, track
+from app.game.rules_state import RulesState, capture, emit, track, wither_put_by
 from app.game.state import GameState, LogPart
 
 _NOT_A_STEP = A.INTENT_TYPES | {"run_macro", "restore_state", "response_open"}
@@ -37,7 +37,7 @@ def replay_steps(state: GameState, steps: list[dict[str, Any]]) -> None:
             raise ActionError("Invalid rules step")
         before = capture(state)
         HANDLERS[step.type](state, step)
-        track(state, before, actor=step.actor or None, group=getattr(step, "group", 0))  # (actor: 5H, group: 7C)
+        track(state, before, actor=step.actor or None, group=getattr(step, "group", 0), put_by=wither_put_by(step))  # (5H, 7C, 17D)
 
 
 def rules_sync(state: GameState, a: A.RulesSync) -> None:

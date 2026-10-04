@@ -218,6 +218,8 @@ def mill(state: GameState, a: A.Mill) -> None:
         ops.move_card(state, c, dest, face_down=a.face_down if a.to == "exile" else None)
         if c.face_down:
             c.face_down_kind = "exile"
+        if a.to == "graveyard" and c.zone == dest:  # -- triggers (wave 17D) -- 701.17a (not a card a replacement sent elsewhere)
+            emit(state, "milled", card=c.id, player=pid)
     verb = "milled" if a.to == "graveyard" else ("exiled face down" if a.face_down else "exiled")
     log(state, a.actor, a.ts, [pname(state, pid), text(f" {verb} "), group(state, milled)])
 

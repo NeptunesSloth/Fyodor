@@ -1135,6 +1135,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["stat"]:  # "… gains life equal to its toughness"
             if rider is not None:
                 raise _Fail
+            pp = sized_damage.per_player(m["stat"]) if verb == "lose_life" and who in ("each_opponent", "each_player") else None
+            if pp is not None:  # -- triggers (wave 17D) -- "each opponent loses life equal to the number of creatures attacking them"
+                return [{"do": verb, "who": who, "n": pp}], target
             n = _stat(m["stat"])
             return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
@@ -1232,6 +1235,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # -- damage ---------------------------------------------------------------------------------
     # -- sized amounts (wave 3D) -- "that creature deals damage equal to its power": the pronoun's creature (as "it")
     text = re.sub(r"^that creature deals ", "it deals ", text)
+    text = re.sub(r"^exile that card from (?:your|their) graveyard$", "exile it", text)  # (wave 17D: the discarded card, Necropotence)
     # -- damage sized by a count (wave 4E) -- "Whenever Smaug attacks, he deals …": a named character's pronoun is the
     # card itself (its power: "his power"); "this enchantment deals … equal to the number of verse counters on it"
     text = re.sub(r"^(?:he|she) deals ", "~ deals ", text)
@@ -1533,13 +1537,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             _one(group)
-    m = re.fullmatch(rf"remove (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
+    m = re.fullmatch(rf"remove (?P<n>{AMT}|all) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
         kind, key, group = ref(m["o"])
-        if kind == "players":
+        if kind == "players" or (m["n"] == "all" and rider is not None):
             raise _Fail
-        return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
-            _one(group)
+        # (wave 17D: "remove all -1/-1 counters from it" - as many as there are, 122.8)
+        n = 10**6 if m["n"] == "all" else _apply(_amount(m["n"]), rider)
+        return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": n}], _one(group)
     # -- counters (wave 5H) -- "double the number of +1/+1 counters on each creature you control" (Kalonian Hydra),
     # "double the number of each kind of counter on target permanent" (Vorel): 701.10e, as many more as it has
     m = re.fullmatch(r"double the number of (?:(?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters|(?P<each>each kind of counter)) on (?P<o>.+)",

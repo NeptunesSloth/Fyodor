@@ -273,7 +273,7 @@ def _toughness_over_power(s: Selector, m: re.Match[str]) -> Selector:
 # -- end damage history (wave 6B) --
 
 
-@_suffix(r"that['’]s attacking you")
+@_suffix(r"(?:that(?:['’]s| are) )?attacking you")  # (wave 17D: also plural / bare)
 def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
 
@@ -899,7 +899,7 @@ def _parse(phrase: str) -> Selector | None:
         if base is None or base.types or base.subtypes or base.card:
             return None
         return replace(s, zones=base.zones, token=base.token, extras=(*s.extras, "historic"))
-    alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker)(?: cards?| spells?)?)",
+    alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker)s?(?: cards?| spells?)?)",
                             text.strip())  # (wave 15B: also "Beast or Bird creature", "Beast or Bird creature spell")
     if alt_subs is not None:
         subs = [_core(w) for w in re.split(r",? or ", alt_subs["subs"])]
@@ -1086,8 +1086,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     zone = card.zone.split(":")[-1] if ":" in card.zone else card.zone
     if sel.player is not None:
         return False
-    if sel.either:  # (wave 15A) any one of the alternatives (each reads its own zone: wave 17C, "spell or nonland permanent")
-        return zone in sel.zones and any(matches(plan, from_key(k), card, ch, you, source, attacker) for k in sel.either)
+    if sel.either:  # (wave 15A) any one of the alternatives (each reads its own zone: wave 17C; a spell on the stack: wave 17D)
+        return (zone in sel.zones or zone == "stack") and any(matches(plan, from_key(k), card, ch, you, source, attacker) for k in sel.either)
     if sel.zones and zone not in sel.zones:
         return False
     if not sel.zones and zone in ("battlefield", "stack"):

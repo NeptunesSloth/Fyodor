@@ -345,6 +345,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     subject = cond.get("subject")
     if subject == "player" and event == "cast":
         return "event_spell"  # -- sized amounts (wave 3D) -- "that spell's mana value": read from the spell, never "it"
+    if subject == "player" and event in ("discard", "tapped_for_mana") and cond.get("obj") and not cond.get("aggregate"):
+        return "event"  # -- triggers (wave 17D) -- "Whenever you discard a card, exile that card": the discarded card, now in the graveyard (701.9a)
     if subject in ("sel", "self_or", "host") or (subject == "player" and event == "create_token"):
         if event in _STAYING:
             return "event_all" if cond.get("aggregate") else "event"
@@ -770,6 +772,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e["src"] = "event"
                 elif antecedent in ("self", "self_gone"):
                     del e["src"]
+                elif antecedent == "event" and e.get("do") == "explore":  # -- triggers (wave 17D) -- "Whenever a creature … enters, it explores"
+                    del e["src"]
+                    e["who"] = "event"
                 elif antecedent == "event" and e.get("do") == "attach_to":  # -- token copies & attach on entry (wave 5J) --
                     e["src"] = "event"  # ("Whenever an Equipment you control enters, you may attach it to …")
                 else:
@@ -1367,6 +1372,11 @@ def _scry_x(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": m["verb"], "who": "you", "n": _x_amount(m["xdef"])}], None  # (wave 4K: 701.22, 701.25)
 
 
+@effect(r"(?P<src>~|it) explores, then (?:it|~) explores again")
+def _explore_twice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "explore", **_it_source(m["src"])}, {"do": "explore", **_it_source(m["src"])}], None  # -- triggers (wave 17D) -- 701.44a twice
+
+
 @effect(r"(?P<src>~|it|target creature you control) explores")
 def _explore(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if m["src"] == "target creature you control":  # -- trigger tail (wave 16C) -- 701.44a: the creature explores (you control it)
@@ -1486,7 +1496,7 @@ def _first(fn):  # type: ignore[no-untyped-def]
         r"(?:(?:(?:\d+|X)/(?:\d+|X) )?(?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) "
         r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)* (?:enchantment )?(?:artifact )?(?:land )?creature tokens?|[A-Z][a-z]+ tokens?)"
         r"(?: named [A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*)?(?: with (?:(?!, then )[^\"])*(?:\"[^\"]+\")?)?"
-        r"(?: that(?:'s| are) tapped and attacking)?(?: for each [^\"]+|, where [xX] is [^\"]+|, rounded (?:up|down))?")
+        r"(?: that(?:'s| are) (?:tapped and )?attacking)?(?: for each [^\"]+|, where [xX] is [^\"]+|, rounded (?:up|down))?")
 def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """"Create [N] [tapped] [P/T colors Subtypes [artifact] creature | Predefined] token(s) [named …]
     [with …] [that's tapped and attacking] [for each … | , where X is …]" (701.7, 111.10, 508.4).
@@ -1963,6 +1973,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
         return None
+    if it == "self":  # -- triggers (wave 17D) -- "draw a card for each Aura and Equipment attached to it": "it" is the source (Wyleth)
+        body = re.sub(r"\b(Auras?|Equipment) attached to it\b", r"\1 attached to ~", body)
     # -- review (wave 7R) -- "Create a tapped 2/2 black Zombie creature token and exile that card." (Wight): "that card" is
     # the card the trigger is about, never the token just created (a token is no card), and the pronoun reader would bind it
     # to the token. The two instructions don't depend on each other: read as "Exile that card. Create …" (the trigger's
@@ -3254,7 +3266,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # tokens created … the number of them (603.2c)
 _AMOUNT_EVENTS = {"gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
-                  "player_counters"}  # (player_counters: wave 3E, "you get that many {E}")
+                  "player_counters", "mill", "attack"}  # (player_counters: wave 3E, "you get that many {E}")
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
@@ -3318,6 +3330,12 @@ def _event_refs_ok(d: Definition) -> bool:
     # and as it resolves): only a trigger whose event names that player — the one the event is about, or the one attacked
     raw = json.dumps(d)
     ev = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
+    if '"spells_cast": "event_player"' in raw and not (  # -- triggers (wave 17D) -- "they … for each spell they've cast this turn": "they" is
+            ev is not None and ev["event"] == "cast" and ev.get("subject") == "player"  # the casting player, who is also the recipient
+            and all(e.get("who") == "event_player" for e in effects if '"spells_cast"' in json.dumps(e))):
+        return False
+    if '"turn": "event_player"' in raw and not (ev is not None and ev["event"] != "multi" and _has_player(ev)):
+        return False  # -- triggers (wave 17D) -- "if it's not that player's turn": only a trigger whose event names a player
     if '"as": "event"' in raw and not (d.get("kind") == "triggered" and (step_names_player(d) or (
             ev is not None and ev["event"] != "multi" and _has_player(ev)))):
         return False
@@ -3360,7 +3378,7 @@ def _event_refs_ok(d: Definition) -> bool:
         return False
     if wants_player and not _has_player(cond):
         return False
-    return not wants_amount or cond["event"] in _AMOUNT_EVENTS
+    return not wants_amount or (cond["event"] in _AMOUNT_EVENTS and (cond["event"] != "attack" or bool(cond.get("aggregate"))))  # (17D: attack counts only as "one or more")
 
 
 @lru_cache(maxsize=20000)
@@ -4202,21 +4220,25 @@ _MOVES.update({_delayed.DEFERRED + x for x in _MOVES})
 _MOVES.add("to_library")
 
 
-def _deferred(clause: str, when: dict[str, Any]) -> tuple[list[dict[str, Any]], Any]:
+def _deferred(clause: str, when: dict[str, Any], key: str = "") -> tuple[list[dict[str, Any]], Any]:
     inner = _clause(clause)
     if inner is None or any(e.get("do") in _delayed.UNDEFERRABLE for e in inner[0]):
+        raise _NoMatch
+    if when.get("whose") == "owner" and not (  # -- triggers (wave 17D) -- one move of "it", with "its owner" in the clause for "their"
+            len(inner[0]) == 1 and inner[0][0].get("do") in ("return_card", "bounce") and inner[0][0].get("who") == "it"
+            and (key != "their next upkeep" or "its owner's" in clause)):
         raise _NoMatch
     return _delayed.wrap_when(inner[0], when), inner[1]
 
 
 @effect(rf"at the beginning of (?P<when>{_delayed.WHEN_RE}), (?P<clause>.+)")
 def _delayed_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    return _deferred(m["clause"], _delayed.WHEN[m["when"]])
+    return _deferred(m["clause"], _delayed.WHEN[m["when"]], m["when"])
 
 
 @effect(rf"(?P<clause>.+?) at the beginning of (?P<when>{_delayed.WHEN_RE})")
 def _delayed_trailing(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    return _deferred(m["clause"], _delayed.WHEN[m["when"]])
+    return _deferred(m["clause"], _delayed.WHEN[m["when"]], m["when"])
 
 
 # -- other side (wave 6D) -- "Destroy that creature at end of combat." / "At end of combat, sacrifice it.": a delayed

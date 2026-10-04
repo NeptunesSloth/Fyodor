@@ -283,7 +283,7 @@ _ATTACHED_TO = re.compile(r"(?P<kinds>Aura|Equipment|Aura (?:and|or|and/or) Equi
 
 # -- sized amounts (wave 3D) -- ------------------------------------------------------------------
 _N_PLUS = re.compile(r"^(?P<n>\d+|one|two|three|four|five) plus (?P<v>.+)$")
-_SPELLS_CAST = re.compile(r"^(?:the number of )?spells you(?:'ve| have) cast this turn$")
+_SPELLS_CAST = re.compile(r"^(?:the number of )?spells (?P<who>you|they)(?:'ve| have) cast this turn$")
 
 
 def _sized(what: str, it: str | None) -> Value | None:
@@ -298,8 +298,8 @@ def _sized(what: str, it: str | None) -> Value | None:
     if m:  # "the number of creatures you control plus the number of Foods you control" (a sum of two counts)
         a, b = parse_count(m["a"], it=it), parse_count(m["b"], it=it)
         return {"plus": [a, b]} if a is not None and b is not None else None
-    if _SPELLS_CAST.match(what):
-        return {"spells_cast": "you"}
+    if (m := _SPELLS_CAST.match(what)):  # (wave 17D: "they" the trigger's player, Rug of Smothering)
+        return {"spells_cast": "you" if m["who"] == "you" else "event_player"}
     return _turn_amount(what)
 
 
@@ -307,7 +307,7 @@ def _sized(what: str, it: str | None) -> Value | None:
 # is carried out (608.2h): "the amount of life you gained this turn", "spell you've cast this turn" ("for each …"),
 # "cards you've drawn this turn", "creatures that died this turn", "opponent who drew two or more cards this turn".
 _TURN_LIFE = re.compile(r"^(?:the )?(?:amount of )?life you(?:'ve| have)? (?P<k>gained|lost) this turn$")
-_TURN_SPELL = re.compile(r"^spell you(?:'ve| have) cast this turn$")
+_TURN_SPELL = re.compile(r"^spell (?P<who>you|they)(?:'ve| have) cast this turn$")
 _TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
 _TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?|[A-Z][a-z-]+) that died(?P<mine> under your control)? this turn$")
 _OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? who (?:(?P<drew>drew (?P<n>\w+) or more cards)|"
@@ -319,8 +319,8 @@ def _turn_amount(what: str) -> Value | None:
     m = _TURN_LIFE.match(what)
     if m:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
-    if _TURN_SPELL.match(what):
-        return {"spells_cast": "you"}
+    if (m := _TURN_SPELL.match(what)):
+        return {"spells_cast": "you" if m["who"] == "you" else "event_player"}
     m = re.fullmatch(r"creature (?:(?P<any>that attacked)|(?P<mine>you attacked with)) this turn", what)
     if m:  # -- cost self reduction (wave 16F) -- the creatures declared as attackers (508.1, wave 4D log), whether or not still here
         return {"turn_history": "attackers", **({"who": "you"} if m["mine"] else {})}
@@ -431,7 +431,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             return sum(1 for p in plan.live() if selectors.matches_player(plan, sel, p, you))
         return len(selectors.candidates(plan, sel, you, _other_than(ctx)))
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
-        return plan.rules.spells_this_turn(you, plan.state.turn.number)
+        from app.rules import context
+
+        return sum(plan.rules.spells_this_turn(p, plan.state.turn.number) for p in (
+            [you] if v["spells_cast"] == "you" else context.players(plan, ctx, context.EVENT)))
     if "turn_history" in v:  # -- this-turn history (wave 4D) --
         from app.rules import history
 
