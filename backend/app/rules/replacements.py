@@ -248,12 +248,6 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
 
         if riot.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + riot.counters(ch, choices)
-        from app.rules import (
-            mana_units,  # -- mana provenance (wave 18B) -- 106.6: "that creature enters with an additional counter"
-        )
-
-        if card.zone == "stack" and mana_units.entering_counters(plan, card):
-            counters["+1/+1"] = counters.get("+1/+1", 0) + mana_units.entering_counters(plan, card)
         if devour.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + devour.counters(ch, choices)
         for ab in ch.abilities:  # -- keyword mechanics (wave 9D) -- 702.44a sunburst: a +1/+1 counter (a creature, ignoring
@@ -285,6 +279,12 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
         lore = sagas.entering_lore(ch, choices)
         if lore:
             counters[sagas.LORE] = counters.get(sagas.LORE, 0) + lore
+    from app.rules import (
+        mana_units,  # -- mana provenance (wave 18B) -- 106.6: the mana's rider, whatever the permanent is
+    )
+
+    if n := mana_units.entering_counters(plan, card):  # (the spell's payment record follows the permanent: as in ``entered``)
+        counters["+1/+1"] = counters.get("+1/+1", 0) + n
     return counters
 
 

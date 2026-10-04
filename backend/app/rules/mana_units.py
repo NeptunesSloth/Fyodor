@@ -174,16 +174,20 @@ def added(plan: Plan, card: Any, ability: Any, mana: dict[str, int]) -> dict[str
 # it is carried out: "uncounterable" and "haste" / "counter" as the permanent enters (``replacements``), a "trigger" as a delayed trigger
 # (603.7) that goes on the stack above the spell (106.6; ``triggers._cast_triggers``). 106.6a: each mana carries its own, so two mana
 # of one source spent on one spell apply it twice.
-_IF_SPENT = re.compile(r"^If (?:that|any of that|this) mana is spent (?:on|to cast) (?P<f>.+?), (?P<e>.+)$")
+_IF_SPENT = re.compile(r"^If (?:(?:that|any of that|this) mana is spent (?:on|to cast)|you spend this mana to cast) (?P<f>.+?), (?P<e>.+)$")
 _WHEN_SPENT = re.compile(r"^When (?:that mana is spent|you spend this mana) to cast (?P<f>.+?), (?P<e>.+)$")
 _HASTE = re.compile(r"^(?:it|that creature) gains haste(?P<u> until end of turn)?$")
 _COUNTER = re.compile(r"^(?:that creature|it) enters with an additional \+1/\+1 counter on it$")
+# (Opal Palace: "If you spend this mana to cast your commander, it enters with a number of additional +1/+1 counters on it equal to the number
+# of times it's been cast from the command zone this game": the count includes the cast being paid for, 903.8 / its ruling)
+_COUNTERS_CASTS = re.compile(r"^it enters with a number of additional \+1/\+1 counters on it equal to the number of times it's been cast "
+                             r"from the command zone this game$")
 
 
 def _spell_key(phrase: str) -> str | None:
     from app.rules import events
 
-    cond = events.parse_condition("you cast " + phrase)
+    cond = events.parse_condition("you cast " + ("a commander spell you own" if phrase == "your commander" else phrase))
     return cond["spell"] if cond is not None and cond.get("event") == "cast" and "spell" in cond else None
 
 
@@ -202,6 +206,8 @@ def rider(sentence: str) -> str | None:
             return json.dumps({"kind": "haste", "spell": spell, "until": "end_of_turn" if h["u"] else "permanent"}, sort_keys=True)
         if _COUNTER.fullmatch(e):
             return json.dumps({"kind": "counter", "spell": spell}, sort_keys=True)
+        if _COUNTERS_CASTS.fullmatch(e):
+            return json.dumps({"kind": "counter", "spell": spell, "per": "commander_casts"}, sort_keys=True)
         return None
     if m := _WHEN_SPENT.fullmatch(s):
         from app.rules import scripts
@@ -235,7 +241,10 @@ def uncounterable(plan: Plan, card: Any) -> bool:
 def entering_counters(plan: Plan, card: Any) -> int:
     """The additional +1/+1 counters mana spent on this permanent spell gives it as it enters (one per rider, 106.6a)."""
     rec = record_of(plan, card)
-    return sum(1 for r in rec.mana_riders if r["kind"] == "counter") if rec is not None else 0
+    if rec is None:
+        return 0
+    casts = plan.state.players[card.owner].commander_casts.get(card.commander_key or "", 0)
+    return sum(casts if r.get("per") == "commander_casts" else 1 for r in rec.mana_riders if r["kind"] == "counter")
 
 
 def entered(plan: Plan, card: Any, controller: str) -> None:

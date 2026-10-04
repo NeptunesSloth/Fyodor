@@ -63,6 +63,9 @@ EXTRA = [
          "{T}: Add {G}. When you spend this mana to cast a Dragon creature spell, you gain 2 life.", ("1", "2"), "G"),
     real("Pyromancer's Goggles", "{5}", 5, "Legendary Artifact",
          "{T}: Add {R}. When that mana is spent to cast a red instant or sorcery spell, copy that spell and you may choose new targets for the copy."),
+    real("Opal Palace", "", 0, "Land",
+         "{T}: Add {C}.\n{1}, {T}: Add one mana of any color in your commander's color identity. If you spend this mana to cast your commander, "
+         "it enters with a number of additional +1/+1 counters on it equal to the number of times it's been cast from the command zone this game."),
     real("Rosheen Meanderer", "{3}{G}", 4, "Legendary Creature — Giant Shaman",
          "{T}: Add {C}{C}{C}{C}. Spend this mana only on costs that contain {X}.", ("4", "4"), "G"),
     real("Blaze", "{X}{R}", 1, "Sorcery", "Blaze deals X damage to any target.", None, "R"),
@@ -78,7 +81,7 @@ EXTRA = [
          "At the beginning of your upkeep, add {C} for each artifact you control. This mana can't be spent to cast nonartifact spells. "
          "Until end of turn, you don't lose this mana as steps and phases end.", ("*", "*"), ""),
 ]
-FULL = ["K'rrik, Son of Yawgmoth", "Rosheen Meanderer", "Delighted Halfling", "Hall of the Bandit Lord", "Scaled Nurturer", "Pyromancer's Goggles", "Spoils of the Hunt", "Geosurge", "Grand Architect", "Master of Dark Rites", "Smaug, Wicked Worm", "Tundra Fumarole", "Coin of Mastery",
+FULL = ["Opal Palace", "K'rrik, Son of Yawgmoth", "Rosheen Meanderer", "Delighted Halfling", "Hall of the Bandit Lord", "Scaled Nurturer", "Pyromancer's Goggles", "Spoils of the Hunt", "Geosurge", "Grand Architect", "Master of Dark Rites", "Smaug, Wicked Worm", "Tundra Fumarole", "Coin of Mastery",
         "Jaded Sell-Sword", "Berg Strider", "Karn, Legacy Reforged"]
 
 
@@ -569,3 +572,20 @@ def test_without_krrik_the_black_mana_is_needed(cards):
     mana(s, "p1", C=1, B=1)
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=murder.id, targets=[victim.id])
+
+
+def test_opal_palace_mana_puts_counters_on_the_commander_for_each_cast_from_the_command_zone(cards):
+    s = build(cards, "Opal Palace")
+    on_field(s, "Opal Palace")
+    krenko = next(c for c in s.state.cards.values() if c.owner == "p1" and c.commander_key)
+    mana(s, "p1", R=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=krenko.id)  # the first cast: plain mana, no counters
+    settle(s)
+    assert s.state.cards[krenko.id].counters == {}
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"player": "p1", "zone": "command"})
+    mana(s, "p1", C=6, R=1)
+    act(s, "p1", type="cast_spell", card_id=krenko.id)  # the second ({2}{R}{R} + {2} tax): the Palace's {R} (paid with {1}) is the second red
+    settle(s)
+    assert s.state.cards[krenko.id].zone.endswith("battlefield") and s.state.players["p1"].commander_casts[krenko.commander_key] == 2
+    assert s.state.cards[krenko.id].counters.get("+1/+1", 0) == 2  # (the count includes the cast being paid for)
+    roundtrip(s)
