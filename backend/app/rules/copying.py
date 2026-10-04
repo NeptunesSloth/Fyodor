@@ -224,16 +224,38 @@ def layer1(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     """613.2a: the copy effect that applies to the object gives its copiable values (the latest
     by timestamp, 613.7); 613.2b: a face-down object keeps its face-down characteristics (708.2),
     which ``characteristics.of`` already gave. ``ch`` is the object's printed (or defined) values."""
-    return with_level(state, card, _layer1(state, card, ch, info))
+    return with_level(state, card, _layer1(state, card, ch, info), info)
 
 
-def with_level(state: GameState, card: CardInstance, ch: Characteristics) -> Characteristics:
+def with_level(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None,
+               oid: str | None = None, printing: str | None = None) -> Characteristics:
     """-- Class (wave 16A) -- 716.2b: the object's own class level (never a copied one; 716.2d: none is level 1), so that
-    ``scripts.definitions`` leaves out the abilities under a level bar it hasn't reached."""
+    ``scripts.definitions`` leaves out the abilities under a level bar it hasn't reached.
+    -- Rooms (wave 18G) -- 709.5c: likewise the doors the object itself has unlocked (designations aren't copiable); on the
+    stack only the half that was cast counts (709.3a); off the table both halves are there. ``oid`` / ``printing``: an object
+    as it last existed (603.10a, 608.2h: its own designations then, and the card it was a copy of)."""
     r = state.rules
-    if r is not None and any(a.section > 1 for a in ch.abilities):
-        ch = replace(ch, level=r.levels.get(r.object_id(card.id), 1))
+    if r is None:
+        return ch
+    oid = oid or r.object_id(card.id)
+    if ch.doors is not None and info is not None:
+        data = info.get(printing or room_printing(r, card, oid))
+        if data is None or not chars.room(data):
+            return ch
+        if card.zone.endswith(":battlefield"):
+            doors = frozenset(r.unlocked.get(oid, ()))
+        else:
+            doors = frozenset({card.face + 1}) if card.zone == "stack" else ch.doors
+        return chars.with_doors(ch, data, doors)
+    if ch.doors is None and any(a.section > 1 for a in ch.abilities):
+        ch = replace(ch, level=r.levels.get(oid, 1))
     return ch
+
+
+def room_printing(r: RulesState, card: CardInstance, oid: str) -> str:
+    """-- Rooms (review 18G) -- the card whose halves the object has: the one it copies (707.2, 709.5b), else its own."""
+    recipe = copy_recipe_of(r, oid)
+    return recipe.printing if recipe is not None and recipe.printing else card.card_id or ""
 
 
 def _layer1(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> Characteristics:
@@ -290,8 +312,6 @@ def supported_source(plan: Plan, card: CardInstance, *, token: bool = False) -> 
     layout = (data or {}).get("layout")
     if layout == "meld" and card.face:
         return "a melded permanent (707.8)"
-    if card.zone.endswith(":battlefield") and "Room" in plan.ch(card).subtypes:  # -- enter as copy (wave 5F) --
-        return "a Room (709.5: its doors aren't modelled)"
     if token and layout in DOUBLE_FACED and layout not in TWO_FACED_TOKENS:
         return "a double-faced object (707.8a)"
     return None
@@ -404,6 +424,8 @@ def uncopyable(plan: Plan, card: CardInstance) -> str | None:
         return ""
     if "Aura" in ch.subtypes:
         return f"Copying an Aura spell ({ch.name}) isn't automated: make the copy by hand, then press Done"
+    if ch.doors is not None:  # -- Rooms (review 18G) -- 709.5d unlocks the half that was *cast*; a copy isn't cast (707.10): unsettled
+        return f"Copying a Room spell ({ch.name}) isn't automated (709.5d): make the copy by hand, then press Done"
     if ch.is_permanent_card and supported_source(plan, card, token=True) is not None:  # (707.10g: meld / reversible only)
         return f"Copying {ch.name}, a double-faced permanent spell, isn't automated (707.10g): make the copy by hand, then press Done"
     return None
@@ -877,8 +899,8 @@ def _own(plan: Plan, card: CardInstance) -> Characteristics:
                 and (best is None or e.timestamp > best.timestamp):
             best = e
     if best is not None and best.copy_recipe is not None:
-        return with_level(plan.state, card, characteristics(best.copy_recipe, plan.info))
-    return with_level(plan.state, card, chars.of(card, plan.info))
+        return with_level(plan.state, card, characteristics(best.copy_recipe, plan.info), plan.info)
+    return with_level(plan.state, card, chars.of(card, plan.info), plan.info)
 
 
 def enter_definition(plan: Plan, card: CardInstance) -> dict[str, Any] | None:
@@ -1298,8 +1320,8 @@ def define_static(text: str) -> dict[str, Any] | None:
     if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.other:
         return None
     # -- enter as copy (wave 5F) -- any permanent ("nonland permanent", "artifact or enchantment", "Equipment"): an Aura
-    # would have to attach as it enters (303.4f) and a Room's doors (709.5d) aren't modelled — neither is offered as
-    # something to copy (``entry_candidates`` / ``supported_source``)
+    # would have to attach as it enters (303.4f) — not offered as something to copy (``entry_candidates`` / ``supported_source``);
+    # a Room is (review 18G: the copy has its halves, 709.5b, and neither door unlocked, 709.5c/d)
     ex = parse_excepts(exc or None)
     if ex is None:
         return None

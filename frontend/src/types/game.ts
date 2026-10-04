@@ -507,6 +507,10 @@ export interface CardStats {
   gained?: string[];
   lost?: string[];
   creature?: boolean;
+  /** A Room's unlocked doors (709.5c): 1 = left half, 2 = right half. */
+  doors?: number[];
+  /** A Room's two halves (its own, or the copied card's): each door's name and unlock cost. */
+  halves?: { name: string; mana_cost: string }[];
   /** Abilities granted by other permanents (numbered from 100). */
   abilities?: { index: number; text: string; kind: string }[];
 }

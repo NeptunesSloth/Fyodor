@@ -268,7 +268,7 @@ def self_text(text: str, name: str) -> str:
     # object that gets it ("this creature" is): it stays as written, so no ~ there means the granter
     parts = out.split('"')
     out = '"'.join(own(p) if i % 2 == 0 else p for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
-    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem)\b", "~", out)
+    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
 
 
 EFFECTS: list[tuple[re.Pattern[str], Any]] = []
@@ -3122,8 +3122,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 body = trigger_words.rewrite_body(body, name, cond, has_player)
                 if name == "step:draw:you":  # -- draw step (wave 6D) -- "At the beginning of your draw step, draw an
                     # additional card.": a triggered ability that draws, after the draw of 504.1 (504.2)
-                    body = re.sub(r"^draw (an|two|three) additional (cards?)\.$",
-                                  lambda m: f"draw {'a' if m[1] == 'an' else m[1]} {m[2]}.", body)
+                    body = re.sub(r"^(you may )?draw (an|two|three) additional (cards?)(?=\.)",  # (wave 18G: "you may draw two additional
+                                  lambda m: f"{m[1] or ''}draw {'a' if m[2] == 'an' else m[2]} {m[3]}", body)  # cards. If you do, …")
                 # -- other side (wave 6D) -- "… blocks a creature, destroy that creature. You gain life equal to that
                 # creature's toughness" / "… deals damage to a creature, …": the event's object (app/rules/other_side.py)
                 from app.rules import other_side
@@ -3412,6 +3412,8 @@ def _cached(ch: Characteristics) -> dict[int, Definition]:
     for ab in ch.abilities:
         if ch.level is not None and ab.section > ch.level:
             continue  # -- Class (wave 16A) -- 716.2a: an ability under a level bar the permanent hasn't reached
+        if ch.doors is not None and ab.section not in ch.doors:
+            continue  # -- Rooms (wave 18G) -- 709.5: the rules text of a locked door isn't there
         if out.get(ab.index, {}).get("kind") == "mode":
             continue  # (a mode line of the modal ability above it)
         d = define(ab, ch)
@@ -3425,6 +3427,8 @@ def _cached(ch: Characteristics) -> dict[int, Definition]:
                 out.update(found)
             continue
         if d is not None and _event_refs_ok(d):
+            if ch.doors is not None and (d.get("cond") or {}).get("event") == "unlock_door":  # -- Rooms (wave 18G) -- 709.5h: its own door
+                d = {**d, "cond": {**d["cond"], "door": ab.section}}
             out[ab.index] = d
     _merge_instead_lines(ch, out)  # -- refused copy/mana (wave 3R3) --
     return out
@@ -4406,6 +4410,9 @@ for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OT
 from app.rules import name_search as _name_search  # noqa: E402  (a leaf module)
 
 _choice_template(_name_search.PATTERN, _name_search.build)  # (wave 11D)
+from app.rules import drawn_toll as _drawn_toll  # noqa: E402  (a leaf module)
+
+_choice_template(_drawn_toll.PATTERN, _drawn_toll.build)  # (wave 18G)
 _RECORDING.update({"edict": "sacrificed", "player_chooses": None, "choose_from_hand": None, "discard_named": "discarded",
                    "reveal_hand": None, "choose_value": None})
 _MOVERS.update({"edict", "player_chooses", "choose_from_hand", "discard_named"})

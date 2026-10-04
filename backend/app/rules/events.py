@@ -400,6 +400,8 @@ def _parse(c: str) -> Condition | None:
         if base is None or base.get("aggregate"):
             return None
         return {**base, "event": f"become_{m['d']}"}
+    if c == "you unlock this door":  # -- Rooms (wave 18G) -- 709.5h: when its own door gets the unlocked designation (any way)
+        return {"subject": "self", "event": "unlock_door"}
     # -- Class (wave 16A) -- "When this Class becomes level 2" (716.2a): the class level it became (designations.facts)
     m = re.fullmatch(r"(?P<s>.+?) becomes level (?P<n>\d+)", c)
     if m:

@@ -230,6 +230,11 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             return [("become_level", card, plan.ch(card), card.controller, {"oid": e.object_id, "level": e.amount})]
         return []
+    if e.counter == "unlocked" and e.card in plan.state.cards:  # -- Rooms (wave 18G) -- 709.5h: the door that got its designation
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("unlock_door", card, plan.ch(card), card.controller, {"oid": e.object_id, "door": e.amount})]
+        return []
     if e.counter == "proliferate" and e.player:  # -- trigger tail (wave 15B) -- 701.34a
         return [("proliferate", None, None, e.player, {})]
     if e.counter == "connive" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.50a: the conniving permanent

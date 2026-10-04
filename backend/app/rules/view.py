@@ -127,6 +127,15 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
         granted = [{"index": a.index, "text": a.text, "kind": a.kind} for a in now.abilities if a.index >= 100]
         if granted:
             entry["abilities"] = granted  # granted by other permanents (All Slivers have "…")
+        if now.doors is not None:
+            entry["doors"] = sorted(now.doors)  # -- Rooms (wave 18G) -- 709.5c: public (the designations are on the table)
+            from app.rules.copying import (
+                room_printing,  # (review 18G: a copy of a Room has the copied card's halves, 709.5b)
+            )
+
+            data = info.get(room_printing(state.rules, card, state.rules.object_id(card.id))) if state.rules else None
+            if data is not None and chars.room(data):
+                entry["halves"] = [{"name": h.name, "mana_cost": h.mana_cost} for h in (chars.half_from_data(data, i) for i in (0, 1))]
         if not now.is_creature:
             if entry:
                 out[cid] = entry

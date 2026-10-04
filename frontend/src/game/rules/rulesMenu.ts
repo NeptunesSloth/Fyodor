@@ -9,6 +9,10 @@ const KICKER = /^(?:multi)?kicker (?:\{[^}]+\})+$/i;
 /** Multikicker: how many times to pay (a submenu; more is rare enough to do by hand). */
 export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
 
+/** -- Rooms (wave 18G) -- 709.5: a split card whose halves share one Room type line. */
+const isRoom = (data?: { layout: string; faces: { type_line?: string | null }[] }): data is { layout: string; faces: { name: string; mana_cost?: string | null; type_line?: string | null }[] } =>
+  data?.layout === "split" && data.faces.length === 2 && data.faces.every((f) => /\bRoom\b/.test(f.type_line ?? ""));
+
 export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[] {
   const rules = view.rules;
   if (!rules || !automationOn(view) || !isVisible(card)) return [];
@@ -26,6 +30,10 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     items.push({ label: "Play land", disabled: !hints.playable_lands?.includes(card.id), onClick: () => void send({ type: "play_land", card_id: card.id }) });
   } else if (mine && elsewhere && isLand(card.id, view) && hints.playable_lands?.includes(card.id)) {
     items.push({ label: `Play land from ${zone}`, onClick: () => void send({ type: "play_land", card_id: card.id }) });
+  } else if (mine && zone === "hand" && isRoom(data)) {
+    // 709.5: a Room is cast as one half (its door is unlocked as it enters)
+    data.faces.forEach((f, i) => items.push({ label: `Cast ${f.name} ${f.mana_cost ?? ""}`.trim(),
+      onClick: () => void send({ type: "cast_spell", card_id: card.id, face: i }) }));
   } else if (mine && (zone === "hand" || zone === "command")) {
     items.push({ label: "Cast", disabled: !hints.castable?.includes(card.id), onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
   } else if (mine && elsewhere && hints.castable?.includes(card.id)) {
@@ -106,6 +114,16 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   }
   if (mine && zone === "hand" && morph) {
     items.push({ label: "Cast face down (morph, {3})", onClick: () => void send({ type: "cast_spell", card_id: card.id, face_down: true }) });
+  }
+  const room = rules.stats?.[card.id];
+  if (mine && zone === "battlefield" && room?.doors && room.halves) {
+    // 116.2m, 709.5e: the unlock special action — pay a locked half's mana cost (the server checks the phase and the stack);
+    // the halves come from the server (a copy of a Room has the copied card's, 709.5b)
+    const open = room.doors;
+    room.halves.forEach((f, i) => {
+      if (!open.includes(i + 1)) items.push({ label: `Unlock ${f.name} ${f.mana_cost ?? ""}`.trim(), disabled: !hints.has_priority,
+        onClick: () => void send({ type: "unlock_door", card_id: card.id, door: i + 1 }) });
+    });
   }
   if (mine && zone === "battlefield" && card.face_down && morph) {
     items.push({ label: `Turn face up (${morph})`, onClick: () => void send({ type: "turn_face_up", card_id: card.id }) });

@@ -3124,6 +3124,12 @@ from app.rules import name_search as _name_search  # noqa: E402, I001
 
 PRIMITIVES["name_search"] = _name_search.search
 RESUME["name_search"] = _name_search.resume
+# -- drawn this turn (wave 18G) -- Sylvan Library (app/rules/drawn_toll.py)
+from app.rules import drawn_toll as _drawn_toll  # noqa: E402, I001
+
+PRIMITIVES["drawn_toll"] = _drawn_toll.toll
+RESUME["drawn_toll"] = _drawn_toll.resume_pick
+RESUME["drawn_toll_each"] = _drawn_toll.resume_each
 # -- end if you do (wave 8C) --
 
 

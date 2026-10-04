@@ -217,6 +217,26 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "turn_face_up", card_id: "mb" }]);
   });
 
+  it("offers a Room's halves to cast, and its locked doors to unlock (709.5)", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true }, stats: { rb: { doors: [1], halves: [{ name: "Grand Entryway", mana_cost: "{1}{W}" }, { name: "Elegant Rotunda", mana_cost: "{2}{W}" }] } } });
+    const v = { ...base, cards: { ...base.cards, rh: card("rh", "p1:hand", "room"), rb: card("rb", "p1:battlefield", "room") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        room: { id: "room", name: "Grand Entryway // Elegant Rotunda", layout: "split", type_line: "Enchantment — Room // Enchantment — Room", oracle_text: "",
+          faces: [{ name: "Grand Entryway", mana_cost: "{1}{W}", type_line: "Enchantment — Room" }, { name: "Elegant Rotunda", mana_cost: "{2}{W}", type_line: "Enchantment — Room" }] } as unknown as CardData,
+      },
+    });
+    const cast = rulesMenu(v.cards.rh!, v, "p1").filter((i) => i !== "separator" && i.label.startsWith("Cast "));
+    expect(cast.map((i) => (i === "separator" ? "" : i.label))).toEqual(["Cast Grand Entryway {1}{W}", "Cast Elegant Rotunda {2}{W}"]);
+    const unlock = rulesMenu(v.cards.rb!, v, "p1").filter((i) => i !== "separator" && i.label.startsWith("Unlock "));
+    expect(unlock.map((i) => (i === "separator" ? "" : i.label))).toEqual(["Unlock Elegant Rotunda {2}{W}"]); // door 1 is open
+    const [door] = unlock;
+    if (!door || door === "separator") throw new Error("expected Unlock");
+    door.onClick?.();
+    expect(sent).toEqual([{ type: "unlock_door", card_id: "rb", door: 2 }]);
+  });
+
   it("offers Equip for an Equipment on the battlefield", () => {
     const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true } });
     const v = { ...base, cards: { ...base.cards, eq: card("eq", "p1:battlefield", "splitter") } } as unknown as GameView;

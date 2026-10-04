@@ -103,6 +103,10 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
     from app.rules import copying
 
     ch = copying.lki(plan, snap, ch)
+    # -- Rooms (review 18G) -- 709.5, 716.2b: the doors it had unlocked (and its class level) as it last existed, not every half
+    recipe = getattr(snap, "copy_recipe", None)
+    ch = copying.with_level(plan.state, card, ch, plan.info, snap.object_id,
+                            recipe.printing if recipe is not None and recipe.printing and not snap.face_down else None)
     if snap.power is not None and snap.toughness is not None:
         ch = replace(ch, pt=(snap.power, snap.toughness))  # as it last existed (608.2h)
     # -- quoted grants (wave 2D) -- the abilities and keywords it had (603.10a): granted ones too
@@ -655,6 +659,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             cond.get("own") and (obj is None or obj.controller != player))):  # -- activation (wave 11F) --
         return False
     if event == "become_level" and cond.get("level") != info.get("level"):  # -- Class (wave 16A) --
+        return False
+    if event == "unlock_door" and cond.get("door") != info.get("door"):  # -- Rooms (wave 18G) -- only the door that was unlocked
         return False
     if event in ("scry", "surveil") and cond.get("nth") and info.get("nth") != cond["nth"]:  # -- looks (wave 8B) --
         return False

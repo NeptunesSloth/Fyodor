@@ -59,6 +59,7 @@ class Characteristics:
     # the ones other objects impose.
     imposed: frozenset[str] = frozenset()
     level: int | None = None  # -- Class (wave 16A) -- 716.2b: the permanent's class level (None: not read for a permanent, all sections)
+    doors: frozenset[int] | None = None  # -- Rooms (wave 18G) -- 709.5: the halves (1 left, 2 right) that count; a Room's abilities are sectioned by door
 
     @property
     def is_land(self) -> bool:
@@ -137,6 +138,8 @@ def face_down_characteristics(kind: str | None) -> Characteristics:
 def _from_card_data(data: dict[str, Any], face: int, *, half: bool = False) -> Characteristics:
     faces = data.get("faces") or []
     layout = data.get("layout")
+    if not half and room(data):
+        return _room(data)
     if half and faces and layout in HALVES:
         face = min(face, len(faces) - 1)
         src = faces[face]
@@ -162,6 +165,30 @@ def _from_card_data(data: dict[str, Any], face: int, *, half: bool = False) -> C
         src = data
         text = str(data.get("oracle_text") or "")
     return _build(data, src, text)
+
+
+def room(data: dict[str, Any]) -> bool:
+    """-- Rooms (wave 18G) -- 709.5: a split card with one shared type line (every half is a Room)."""
+    faces = data.get("faces") or []
+    return data.get("layout") == "split" and len(faces) == 2 and all("Room" in str(f.get("type_line") or "") for f in faces)
+
+
+def _room(data: dict[str, Any]) -> Characteristics:
+    """The Room card with both doors (hand, graveyard …; 202.3d: the halves' costs combined). The right door's abilities
+    follow the left's, each tagged with its door (``AbilityText.section``); ``with_doors`` narrows it to the doors that count."""
+    a, b = (_from_card_data(data, i, half=True) for i in (0, 1))
+    abilities = (*a.abilities, *(replace(x, index=len(a.abilities) + x.index, section=2) for x in b.abilities))
+    return replace(a, name=f"{a.name} // {b.name}", mana_cost=a.mana_cost + b.mana_cost, mana_value=a.mana_value + b.mana_value,
+                   colors=a.colors | b.colors, oracle_text=f"{a.oracle_text}\n{b.oracle_text}", abilities=abilities,
+                   doors=frozenset({1, 2}))
+
+
+def with_doors(ch: Characteristics, data: dict[str, Any], doors: frozenset[int]) -> Characteristics:
+    """-- Rooms (wave 18G) -- 709.5: a locked half has no name, mana cost or rules text; only ``doors`` count."""
+    halves = [half_from_data(data, d - 1) for d in sorted(doors)]
+    return replace(ch, doors=doors, name=" // ".join(h.name for h in halves), mana_cost="".join(h.mana_cost for h in halves),
+                   mana_value=sum(h.mana_value for h in halves),
+                   colors=frozenset().union(*(h.colors for h in halves)) if halves else frozenset())
 
 
 def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characteristics:

@@ -964,6 +964,15 @@ class TurnFaceUp(_Intent):
     method: Literal["morph", "disguise", "mana_cost"] | None = None
 
 
+class UnlockDoor(_Intent):
+    """-- Rooms (wave 18G) -- the unlock special action (116.2m, 709.5e): pay a locked half's mana cost (1 left, 2 right)."""
+
+    type: Literal["unlock_door"] = "unlock_door"
+    card_id: Id
+    door: Literal[1, 2]
+    sources: list[Id] | None = Field(default=None, max_length=60)
+
+
 class ActivateAbility(_Intent):
     type: Literal["activate_ability"] = "activate_ability"
     card_id: Id
@@ -1205,7 +1214,7 @@ class RulesLog(Base):
 
 INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
-     "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up"}
+     "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door"}
 )
 SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage"})
 
@@ -1306,6 +1315,7 @@ Action = Annotated[
     | PlayLand
     | CastSpell
     | TurnFaceUp
+    | UnlockDoor
     | ActivateAbility
     | DeclareAttackers
     | DeclareBlockers
