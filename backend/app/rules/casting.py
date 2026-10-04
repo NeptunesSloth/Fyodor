@@ -878,19 +878,30 @@ def _solve_with_filters(cost: M.ManaCost, pool: dict[str, int], plain: list[M.So
 def find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
                  sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> M.Payment:
     """How to pay ``cost``: with exactly ``sources`` when given (MANUAL PAY), else automatically,
-    PREFER sources first and SAVE sources only when there is no other way."""
+    PREFER sources first and SAVE sources only when there is no other way. Pool units that may pay for ``purpose`` (restricted or
+    remembered mana, app/rules/mana_units.py) are spent like pool mana: ``Payment.slots`` names them ("unit:<id>"), ``tapped`` doesn't."""
+    payment = _find_payment(state, player, cost, info, sources=sources, exclude=exclude, purpose=purpose)
+    payment.tapped = [c for c in payment.tapped if not c.startswith("unit:")]
+    return payment
+
+
+def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
+                  sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> M.Payment:
+    from app.rules import mana_units
+
     everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
     available = [s for s in everything if s.activation is None]
     filters = [s for s in everything if s.activation is not None]
     pool = dict(state.players[player].mana)
     life = state.players[player].life
+    units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
     if sources is not None:
         chosen = [s for s in available if s.card_id in set(sources)]
         chosen_filters = [s for s in filters if s.card_id in set(sources) and s.card_id not in {c.card_id for c in chosen}]
         if len({s.card_id for s in chosen + chosen_filters}) != len(set(sources)):
             raise ActionError("Pick untapped mana sources you control")
         try:
-            payment = _solve_with_filters(cost, pool, chosen, chosen_filters, life)
+            payment = _solve_with_filters(cost, pool, chosen + units, chosen_filters, life)
         except M.ManaError as exc:
             raise ActionError(f"Those sources can't pay {cost.text()}") from exc
         unused = set(sources) - set(payment.tapped)
@@ -903,11 +914,11 @@ def find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo
     normal = [s for s in marked if protection.get(s.card_id) != "save"]
     normal_filters = [s for s in filters if protection.get(s.card_id) != "save"]
     try:
-        return _solve_with_filters(cost, pool, normal, normal_filters, life)
+        return _solve_with_filters(cost, pool, normal + units, normal_filters, life)
     except M.ManaError:
         pass
     try:
-        return _solve_with_filters(cost, pool, marked, filters, life)  # SAVE sources only when nothing else works
+        return _solve_with_filters(cost, pool, marked + units, filters, life)  # SAVE sources only when nothing else works
     except M.ManaError as exc:
         raise ActionError(f"{exc}. Tap mana yourself first, or use the table tools.") from exc
 
@@ -975,8 +986,11 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[
         if ability.extra_cost:
             life += parse_ability_cost(ability.extra_cost, card_name=plan.ch(card).name).life
     oids = {card.id: plan.oid(card) for card, _, _ in extras}  # (wave 5A: the objects as they were tapped)
-    plan.do({"type": "rules_mana", "player": player, "tap": payment.tapped, "sacrifice": payment.sacrificed,
-             "delta": payment.delta(), "life": life, "label": label}, actor=player)
+    from app.rules import mana_units
+
+    pool = mana_units.settle(plan, player, payment)  # -- mana provenance (wave 18B) -- units spent / left over, what the mana was
+    plan.do({"type": "rules_mana", "player": player, "tap": payment.tapped, "sacrifice": payment.sacrificed, "life": life,
+             "label": label, **pool}, actor=player)
     for card, index, ability in extras:
         # -- mana riders (wave 5A) -- counter "tap": tapped for mana (106.12a: an ability with {T} in its cost)
         emit(plan.state, "mana_added", object_id=oids[card.id], card=card.id, player=player,
@@ -1049,6 +1063,8 @@ def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristic
     payment = pay(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose)
     return PaymentRecord(card=card.id, controller=player, total_cost=cost.text(),
                          mana_spent=dict(payment.spent) if payment else {}, contributions=contributions,
+                         mana_tags=payment.tags if payment else [],
+                         mana_riders=[{"src": s, **r} for s, r in payment.riders] if payment else [],
                          life=payment.life if payment else 0, tapped=list(payment.tapped) if payment else [],
                          sacrificed=list(payment.sacrificed) if payment else [], x=a.x_value)
 
@@ -1085,7 +1101,7 @@ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCos
     if mode == "self":  # the player taps their own mana: pay from the pool, or ask them to tap
         probe: dict[str, Any] = {"intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}
         helpers = _prompt_helpers(plan, plan.actor, probe) if getattr(a, "contributions", None) else []
-        if _covered(plan, plan.actor, cost, helpers) is not None:
+        if _covered(plan, plan.actor, cost, helpers, probe) is not None:
             a.sources = []
             return False
         ask_to_tap(plan, cost, what, {"step": "pay_mana", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
@@ -1116,10 +1132,14 @@ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCos
     return True
 
 
-def pool_covers(state: GameState, player: str, cost: M.ManaCost) -> bool:
-    """Can ``cost`` be paid from the player's mana pool alone (plus life for Phyrexian mana)?"""
+def pool_covers(state: GameState, player: str, cost: M.ManaCost, purpose: Purpose | None = None) -> bool:
+    """Can ``cost`` be paid from the player's mana pool alone (plus life for Phyrexian mana)? (-- mana provenance (wave 18B) --
+    the units that may pay for ``purpose`` are in the pool.)"""
+    from app.rules import mana_units
+
     try:
-        M.solve(cost, dict(state.players[player].mana), [], life=state.players[player].life)
+        M.solve(cost, dict(state.players[player].mana), mana_units.unit_sources(state, player, purpose),
+                life=state.players[player].life)
     except M.ManaError:
         return False
     return True
@@ -1128,7 +1148,7 @@ def pool_covers(state: GameState, player: str, cost: M.ManaCost) -> bool:
 def pay_from_pool(plan: Plan, player: str, cost: M.ManaCost, label: str, *, purpose: Purpose | None = None) -> None:
     """Pay from the mana pool only (players tap their own lands), or explain what's missing."""
     if not cost.is_free and payment_mode(plan, player) == "self":
-        if not pool_covers(plan.state, player, cost):
+        if not pool_covers(plan.state, player, cost, purpose):
             raise ActionError(f"Tap your mana first: {cost.text()} isn't in your mana pool")
         pay(plan, player, cost, label, sources=[], purpose=purpose)
     else:
@@ -1153,10 +1173,24 @@ def _prompt_helpers(plan: Plan, player: str, resume: dict[str, Any]) -> list[P.H
     return helpers_for(plan.state, player, plan.info, spell, spell_card, contributions)
 
 
-def _covered(plan: Plan, player: str, cost: M.ManaCost, helpers: list[P.Helper]) -> list[str] | None:
+def _prompt_purpose(plan: Plan, resume: dict[str, Any]) -> Purpose | None:
+    """-- mana provenance (wave 18B) -- what a "tap your mana" prompt pays for, so the pool's restricted mana counts only where it may."""
+    intent = resume.get("intent") or {}
+    spell, spell_card = _prompt_spell(plan, resume)
+    if spell is not None and spell_card is not None:
+        return Purpose(spell=spell, zone=plan.state.cards[spell_card].zone, player=plan.actor, kicked=bool(intent.get("kicker")))
+    card = plan.state.cards.get(intent.get("card_id") or "") if intent.get("type") == "activate_ability" else None
+    return Purpose(ability_of=plan.ch(card)) if card is not None else None
+
+
+def _covered(plan: Plan, player: str, cost: M.ManaCost, helpers: list[P.Helper],
+             resume: dict[str, Any] | None = None) -> list[str] | None:
     """How the committed helpers pay part of ``cost`` so that the mana pool pays the rest, or None."""
+    from app.rules import mana_units
+
     p = plan.state.players[player]
-    return P.assign(cost, helpers, P.pool_pays(dict(p.mana), p.life))
+    units = mana_units.unit_sources(plan.state, player, _prompt_purpose(plan, resume) if resume else None)
+    return P.assign(cost, helpers, P.pool_pays(dict(p.mana), p.life, units))
 
 
 def _tap_display(plan: Plan, player: str, cost: M.ManaCost, what: str, resume: dict[str, Any]) -> dict[str, Any]:
@@ -1175,7 +1209,7 @@ def _tap_display(plan: Plan, player: str, cost: M.ManaCost, what: str, resume: d
     for h in helpers:  # committed ones stay clickable (click again to take it back)
         if h.card not in by_kind[h.kind]:
             by_kind[h.kind].append(h.card)
-    assignment = _covered(plan, player, cost, helpers) or P.assign(cost, helpers) or []
+    assignment = _covered(plan, player, cost, helpers, resume) or P.assign(cost, helpers) or []
     paid = [{"card": h.card, "name": plan.state.cards[h.card].name or "a card", "kind": h.kind, "pays": sym}
             for h, sym in zip(helpers, assignment, strict=False)]
     rest = P.remaining(cost, assignment) if len(assignment) == len(helpers) else cost
@@ -1213,7 +1247,7 @@ def resume_pay_mana(plan: Plan, d: Any, chosen: list[str]) -> None:
         plan.rules.priority = d.player
         plan.hold = d.player
         return
-    if _covered(plan, d.player, M.parse_cost(d.resume["cost"]), _prompt_helpers(plan, d.player, d.resume)) is None:
+    if _covered(plan, d.player, M.parse_cost(d.resume["cost"]), _prompt_helpers(plan, d.player, d.resume), d.resume) is None:
         raise ActionError(f"Tap your mana first: {d.resume['cost']} isn't paid yet")
     _rerun(plan, d, A.parse_action(d.resume["intent"]), [])
 
@@ -1234,7 +1268,7 @@ def after_tapping(plan: Plan) -> None:
             d.display = {**d.display, "pool": dict(plan.state.players[d.player].mana)}
         return
     cost = M.parse_cost(resume["cost"])
-    if _covered(plan, d.player, cost, _prompt_helpers(plan, d.player, resume)) is not None:
+    if _covered(plan, d.player, cost, _prompt_helpers(plan, d.player, resume), resume) is not None:
         plan.rules.decision = None
         _rerun(plan, d, A.parse_action(resume["intent"]), [])
     else:
@@ -1336,8 +1370,11 @@ def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, 
             and helper_kinds(purpose.spell, state, player, purpose.card, info):  # (a hint: never paid here)
         assert purpose.spell is not None
         everything = _helper_sources(state, player, info, purpose.spell, purpose.card, everything)
+    from app.rules import mana_units
+
     try:
-        _solve_with_filters(cost, dict(state.players[player].mana), [s for s in everything if s.activation is None],
+        _solve_with_filters(cost, dict(state.players[player].mana),
+                            [s for s in everything if s.activation is None] + mana_units.unit_sources(state, player, purpose),
                             [s for s in everything if s.activation is not None], state.players[player].life)
     except M.ManaError:
         return False
@@ -2694,8 +2731,6 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         if M.parse_mana_ability(ability.text, commander_identity(plan.state, card.controller, plan.info)) is not None:
             raise ActionError(f"{ch.name} can't use “{ability.text}” right now")
         raise ActionError(f"Fyodor can't carry out “{ability.text}” yet. Use the table tools.")
-    if parsed.spend_only is not None:
-        raise ActionError(f"{ch.name}’s mana can only pay for certain things: Fyodor taps it when you cast or activate them")
     if ability_taxes(plan.state, plan.info) and mana_ability_taxed(plan.state, card, ch, parsed, plan.info):  # (review 4R)
         raise ActionError(f"Another effect changes the cost of {ch.name}’s mana ability: activate it by hand with the table tools")
     if parsed.tap and not can_use_tap_abilities(plan.state, card, ch, plan.info):
@@ -2778,7 +2813,7 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     ch = plan.ch(card)
     ability = _find_ability(ch, a.ability)
     parsed = dict(mana_abilities(plan.state, card, plan.info)).get(a.ability) if ability.kind == "mana" else None
-    if parsed is None or parsed.spend_only is not None:
+    if parsed is None:
         raise ActionError("While paying you can only tap for mana")
     if ability_taxes(plan.state, plan.info) and mana_ability_taxed(plan.state, card, ch, parsed, plan.info):  # (review 4R)
         raise ActionError(f"Another effect changes the cost of {ch.name}’s mana ability: activate it by hand with the table tools")
@@ -3124,8 +3159,10 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
             plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n}, actor=card.controller)
     mana = _count(option)
     oid = plan.oid(card)  # (wave 5A: the object as it was tapped)
+    from app.rules import mana_units
+
     plan.do({"type": "rules_mana", "player": card.controller, "tap": [card.id] if ability.tap else [],
-             "sacrifice": [card.id] if ability.sacrifice_self else [], "delta": mana,
+             "sacrifice": [card.id] if ability.sacrifice_self else [], **mana_units.added(plan, card, ability, mana),
              "life": extra.life if extra else 0, "label": f"added {M.symbols(mana)}"}, actor=card.controller)
     emit(plan.state, "mana_added", object_id=oid, card=card.id, player=card.controller, amount=sum(mana.values()),
          counter="tap" if ability.tap else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
@@ -3189,9 +3226,11 @@ def _activate_choosing(plan: Plan, card: CardInstance, ch: Characteristics, pars
 def _add_paid_mana(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tuple[str, ...], index: int,
                    oid: str | None) -> None:
     """The mana of an ability whose costs are paid (605.3a), then its riders (as ``produce``)."""
+    from app.rules import mana_units
+
     mana = _count(option)
-    plan.do({"type": "rules_mana", "player": card.controller, "tap": [], "sacrifice": [], "delta": mana, "life": 0,
-             "label": f"added {M.symbols(mana)}"}, actor=plan.actor)
+    plan.do({"type": "rules_mana", "player": card.controller, "tap": [], "sacrifice": [], **mana_units.added(plan, card, ability, mana),
+             "life": 0, "label": f"added {M.symbols(mana)}"}, actor=plan.actor)
     emit(plan.state, "mana_added", object_id=oid, card=card.id, player=card.controller, amount=sum(mana.values()),
          counter="tap" if ability.tap else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
     after_mana_ability(plan, card, index, ability)

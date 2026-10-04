@@ -45,6 +45,8 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
                   r"\1 \2 minus the number of cards in your hand.", body)
     if (cond or {}).get("event") == "cast":  # "…, if at least four mana was spent to cast it": the spell cast
         body = re.sub(r"^(if (?:at least \w+|\w+ or more) mana was spent to cast) it,", r"\1 that spell,", body)
+        # (-- mana provenance (wave 18B) -- "if mana from a Treasure / three or more mana from creatures was spent to cast it")
+        body = re.sub(r"^(if (?:(?:at least )?\w+ (?:or more )?)?mana from [^,]+? (?:was|were) spent to cast) it,", r"\1 that spell,", body)
     if cond is not None and cond.get("subject") == "source":  # -- source damage (wave 11F) -- 609.7: its controller
         body = re.sub(r"\bthat source's controller\b", "that player", body)
     if name.startswith("step:draw:") and name.rsplit(":", 1)[-1] in ("each", "opponent"):

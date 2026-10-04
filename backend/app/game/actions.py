@@ -1138,6 +1138,12 @@ class RulesMana(Base):
     delta: dict[Literal["W", "U", "B", "R", "G", "C"], Annotated[int, Field(ge=-1000, le=1000)]] = Field(default_factory=dict)
     life: int = Field(default=0, ge=0, le=1000)
     empty_all: bool = False
+    # -- mana provenance (wave 18B) -- pool units spent (ids), units added (ManaUnit fields without the id), units of the pool that
+    # stay (``keep_units``: with ``empty_units``, every other unit empties)
+    spend_units: list[int] = Field(default_factory=list, max_length=100)
+    add_units: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
+    empty_units: bool = False
+    keep_units: list[int] = Field(default_factory=list, max_length=100)
     label: str = Field(default="", max_length=200)  # "paid {1}{G} for Llanowar Elves"
 
 

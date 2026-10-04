@@ -237,12 +237,14 @@ def add_mana(state: GameState, a: A.AddMana) -> None:
 def clear_mana(state: GameState, a: A.ClearMana) -> None:
     pid = ops.player(state, a.player, a.actor)
     state.players[pid].mana = {}
+    state.players[pid].mana_units = []  # (wave 18B)
     log(state, a.actor, a.ts, [pname(state, pid), text("'s mana pool emptied")], kind="minor")
 
 
 def empty_mana_pools(state: GameState) -> None:
     for p in state.players.values():
         p.mana = {}
+        p.mana_units = []  # (wave 18B)
 
 
 # ---------------------------------------------------------------------------- settings

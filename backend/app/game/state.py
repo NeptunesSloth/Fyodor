@@ -205,6 +205,19 @@ class LifeChange(BaseModel):
     seq: int = 0  # action number that last touched this entry
 
 
+class ManaUnit(BaseModel):
+    """-- mana provenance (wave 18B) -- one mana in a pool that remembers where it came from and what binds it (CR 106.6, 106.12, 107.4h):
+    the plain pool (``PlayerState.mana``) is only unrestricted mana of no interest; a unit exists for mana with a spending restriction
+    or a "when that mana is spent" rider, or from a source a rule asks about later (a snow source, a Treasure, an artifact, a creature)."""
+
+    id: int
+    sym: str = Field(max_length=1)  # W U B R G C
+    src: str = Field(default="", max_length=80)  # object id of the source (106.3: its permanent, spell or ability's source)
+    tags: list[str] = Field(default_factory=list, max_length=40)  # the source's types, subtypes and supertypes when it produced it
+    only: str | None = Field(default=None, max_length=2000)  # a spending restriction (casting.spend_allowed)
+    riders: list[dict[str, Any]] = Field(default_factory=list, max_length=8)  # effects when it is spent (mana_units.RIDERS)
+
+
 class PlayerState(BaseModel):
     id: str
     name: str
@@ -221,6 +234,8 @@ class PlayerState(BaseModel):
     deck_name: str | None = None
     token_shortcuts: list[str] = Field(default_factory=list)  # card ids from the deck's Tokens section
     mana: dict[str, int] = Field(default_factory=dict)  # temporary mana pool: W U B R G C (and S for snow)
+    mana_units: list[ManaUnit] = Field(default_factory=list)  # -- mana provenance (wave 18B) -- restricted / remembered mana
+    mana_seq: int = 0  # -- mana provenance (wave 18B) -- the next unit id
     left: bool = False  # removed from the table by the host (kept for names in the log)
     # Appearance (visual only; card identity stays server-controlled). Ids of managed assets.
     sleeve: str | None = Field(default=None, max_length=32, pattern=r"^[0-9a-f]{8,32}$")

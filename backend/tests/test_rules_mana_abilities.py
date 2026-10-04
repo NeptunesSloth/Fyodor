@@ -70,9 +70,12 @@ def test_spending_restrictions(cards):
     assert not castable(s.state, "p1", named(s, "Lightning Bolt"), cards)  # creature spells only
     cast(s, "Grizzly Bears")
     assert named(s, "Ancient Ziggurat").tapped
-    with pytest.raises(ActionError, match="only pay for certain things"):
-        act(s, "p1", type="tap", card_ids=[named(s, "Ancient Ziggurat").id], tapped=False)
-        act(s, "p1", type="activate_ability", card_id=named(s, "Ancient Ziggurat").id, ability=0)
+    # -- mana provenance (wave 18B) -- tapped by hand, its mana waits in the pool as a restricted unit (106.6), not as plain mana
+    act(s, "p1", type="tap", card_ids=[named(s, "Ancient Ziggurat").id], tapped=False)
+    act(s, "p1", type="activate_ability", card_id=named(s, "Ancient Ziggurat").id, ability=0, mana_choice="R")
+    p1 = s.state.players["p1"]
+    assert p1.mana == {} and [(u.sym, u.only) for u in p1.mana_units] == [("R", "creature")]
+    assert not castable(s.state, "p1", named(s, "Lightning Bolt"), cards)  # (the unit can't pay for an instant)
 
 
 def test_charge_counters_as_a_cost(cards):

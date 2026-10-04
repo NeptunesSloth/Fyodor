@@ -134,6 +134,9 @@ class ManaAbility:
     # -- mana riders (wave 5A) -- "Exile this card from your hand: Add {R}." (Simian Spirit Guide): activated only
     # from its owner's hand (113.6m, 605.3a), by hand only (app/rules/mana_riders.activate_from_hand)
     from_hand: bool = False
+    # -- mana provenance (wave 18B) -- "When that mana is spent to cast …, …" / "If that mana is spent on …, that spell can't be
+    # countered": the riders (JSON dicts, mana_units.RIDERS) the mana it adds carries (106.6)
+    on_spend: tuple[str, ...] = ()
 
     @property
     def penalty(self) -> int:
@@ -423,17 +426,12 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
                 return None
             instead_if, instead = (PLAYED_LAND,), more
         else:
-            for pattern, kind in _SPEND:
-                if sm := pattern.fullmatch(s):
-                    spend_only = f"type:{sm.group('t')}" if kind == "type" else kind
-                    break
-            else:
-                q = parse_spend(s)  # -- refused copy/mana (wave 3R3): the general restriction grammar --
-                if q is None or spend_only is not None:
-                    return None  # a rider the engine doesn't know: leave the ability manual
-                spend_only = q
-    if spend_only is not None and (chooses or removed_kind is not None or self_counter is not None or from_hand):
-        return None  # -- activated sweep (wave 17B) -- activated by hand only, and the pool carries no spending restriction: manual
+            q = spend_kind(s)  # (-- refused copy/mana (wave 3R3) -- the general restriction grammar)
+            if q is None or spend_only is not None:
+                return None  # a rider the engine doesn't know: leave the ability manual
+            spend_only = q
+    if spend_only is not None and from_hand:
+        return None  # (-- wave 18B -- activated from the hand by mana_riders.activate_from_hand, which adds plain mana: manual)
     return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
                        riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition,
                        count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter,
@@ -465,6 +463,11 @@ class Payment:
     spent: dict[str, int] = field(default_factory=dict)  # mana taken from the pool (after producing)
     life: int = 0  # life paid for Phyrexian symbols
     used: list[tuple[str, int]] = field(default_factory=list)  # (source card, ability index) per tapped source
+    # -- mana provenance (wave 18B) -- each tapped source with the option it produced, in order ("unit:<id>" = a pool unit spent)
+    slots: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
+    # -- mana provenance (wave 18B) -- set by ``mana_units.settle``: the source tags of each mana spent, and its riders (source, rider)
+    tags: list[list[str]] = field(default_factory=list)
+    riders: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
 
     def delta(self) -> dict[str, int]:
         out = dict(self.produced)
@@ -563,6 +566,7 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
         left, chosen = found
         payment = Payment(life=life_cost)
         for src, opt in chosen:
+            payment.slots.append((src.card_id, opt))
             payment.tapped.append(src.card_id)
             if src.sacrifice:
                 payment.sacrificed.append(src.card_id)
@@ -694,6 +698,15 @@ _GENERIC_SPEND = re.compile(
 # graveyard / spells with flashback from a graveyard"; "This mana can't be spent to cast spells from your hand" (the zone is the
 # one the spell is cast from, 601.2a; casting.Purpose.zone)
 _ORIGIN = re.compile(r"^Spend this mana only to cast (?:a spell|spells)(?: with (?P<kw>flashback))? from (?P<z>exile|your graveyard|a graveyard)$")
+
+
+def spend_kind(s: str) -> str | None:
+    """A "Spend this mana only to …" / "This mana can't be spent to …" sentence (no final period) as the restriction
+    ``casting.spend_allowed`` reads (None: not one the payer checks)."""
+    for pattern, kind in _SPEND:
+        if sm := pattern.fullmatch(s):
+            return f"type:{sm.group('t')}" if kind == "type" else kind
+    return parse_spend(s)
 
 
 def parse_spend(sentence: str) -> str | None:

@@ -3623,6 +3623,9 @@ PRIMITIVES["untap_choice"] = _untap_riders.untap_choice  # "Untap up to three la
 from app.rules import kept_mana as _kept_mana  # noqa: E402, I001
 
 PRIMITIVES["keep_mana"] = _kept_mana.keep
+from app.rules import mana_units as _mana_units  # noqa: E402, I001  -- mana provenance (wave 18B) --
+
+PRIMITIVES["restrict_mana"] = _mana_units.restrict
 # -- end refused copy/mana (wave 3R3) --
 
 # -- unless pays (wave 4C) -- "you may [effect] unless that player pays …" (118.12a): app/rules/unless_pays.py
