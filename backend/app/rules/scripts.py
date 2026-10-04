@@ -2935,7 +2935,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
-    from app.rules import merged  # -- merged permanents (wave 18D) -- meld wordings carry card names with commas
+    from app.rules import (
+        merged,  # -- merged permanents (wave 18D) -- meld wordings carry card names with commas
+    )
 
     text = self_text(merged.protect(ability.text), ch.name)
     if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("mutate",)):  # -- keywords (wave 15E) -- alt_costs

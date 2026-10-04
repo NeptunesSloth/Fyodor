@@ -26,7 +26,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from app.game.state import STACK, CardInstance
+from app.game.state import CardInstance
 from app.rules import selectors
 from app.rules import targets as T
 
@@ -62,6 +62,14 @@ def can_mutate(plan: Plan, player: str, card: CardInstance, ch: Characteristics)
     """702.140a: is there a creature this card could be cast mutating onto, as ``player`` casts it now?"""
     return card.owner == player and card.copy_of is None and not card.is_token and _plain(plan, card) \
         and bool(T.legal_targets(plan, MUTATE_TARGET, player, ch, card.id))
+
+
+def note_cast(plan: Plan, card: CardInstance) -> None:
+    """The spell on the stack is a mutating creature spell (702.140a); the ones that left the stack are forgotten."""
+    r = plan.rules
+    r.mutating = [o for o in r.mutating if (c := plan.state.cards.get(o.rsplit(".", 1)[0])) is not None and c.zone == STACK
+                  and plan.oid(c) == o]
+    r.mutating.append(plan.oid(card))
 
 
 def times_mutated(card: CardInstance) -> int:

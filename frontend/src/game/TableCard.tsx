@@ -75,6 +75,11 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
         {visible && card.test_object && <span className="mark test" title="Test object — not part of any deck">TEST</span>}
         {visible && card.copy_of && <span className="mark copy" title={`Copy of ${card.copy_of.source_name}${card.copy_of.modifications ? ` — ${card.copy_of.modifications}` : ""}`}>COPY</span>}
         {visible && card.commander_key && <span className="mark cmdr" title="Commander">♛</span>}
+        {visible && card.merged && card.merged.length > 1 && (
+          <span className="mark merge" data-testid="merge-mark" title={`${card.melded ? "Melded" : "Merged"} permanent, top to bottom:\n${card.merged.map((p) => p.name).join("\n")}`}>
+            {card.melded ? "MELD" : `MUTATED ×${card.merged.length - 1}`}
+          </span>
+        )}
         {visible && card.note && <span className="mark note" title={card.note}>✎</span>}
         {card.face_down && card.face_down_kind && card.face_down_kind !== "generic" && (
           <span className="mark fd" title={`${FACE_DOWN_LABEL[card.face_down_kind]} (face down)`}>{FACE_DOWN_LABEL[card.face_down_kind].toUpperCase()}</span>

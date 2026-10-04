@@ -81,6 +81,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 }
 .mark.token { color: #c9d3e0; }
 .mark.copy { color: #9ad3f5; }
+.mark.merge { color: #e0b7ff; pointer-events: auto; cursor: help; }  /* a merged / melded pile (wave 18D) */
 .mark.cmdr { color: var(--accent-2); font-size: 12px; }
 .mark.note { color: #f2e6b3; pointer-events: auto; cursor: help; }
 .mark.atk { background: #a8322c; }

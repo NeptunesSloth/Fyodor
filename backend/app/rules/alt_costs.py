@@ -247,7 +247,7 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 continue
         alt = parse_cost(d["cost"])
         if alt is not None:
-            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt, tag=d.get("tag")))
+            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}" + (" (mutate)" if d.get("tag") == "mutate" else ""), alt, tag=d.get("tag")))
     where = card.zone.rsplit(":", 1)[-1]
     for src, index, d in permissions._table_statics(state, info, {"alt_cost"}):
         if not d.get("table") or src.controller != player:

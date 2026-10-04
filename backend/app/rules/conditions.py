@@ -170,7 +170,9 @@ _SELF_COUNTS = re.compile(r"(?:(?:~|this [a-z]+) has|there (?:are|is)) (?:(?P<n>
 
 
 def _parse_one(t: str, objects: bool) -> Condition | None:
-    from app.rules import merged  # -- merged permanents (wave 18D) -- "you both own and control ~ and a creature named X" (701.42a)
+    from app.rules import (
+        merged,  # -- merged permanents (wave 18D) -- "you both own and control ~ and a creature named X" (701.42a)
+    )
 
     if (pair := merged.condition(t)) is not None:
         return pair

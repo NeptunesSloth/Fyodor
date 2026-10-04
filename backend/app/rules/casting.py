@@ -2073,7 +2073,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.rules.bestowed.append(plan.oid(card))
         tags.append("Bestowed")
     if mutating_cast:  # -- merged permanents (wave 18D) -- 702.140a: it becomes a mutating creature spell
-        plan.rules.mutating.append(plan.oid(card))
+        merged.note_cast(plan, card)
         tags.append("Mutating")
     if a.kicker:
         tags.append("Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}")

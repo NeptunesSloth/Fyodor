@@ -7,12 +7,11 @@ from __future__ import annotations
 
 import pytest
 
-from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
-from tests.test_rules_wave6c_tokens_pumps import chars, mana, pt, put, reloaded, to_hand
+from tests.test_rules_wave6c_tokens_pumps import chars, mana, pt, put, to_hand
 from tests.wave9c_kit import build, check, life
 
 
@@ -35,6 +34,7 @@ EXTRA = [
     real("Probe Bear", "{1}{G}", 2, "Creature — Bear", "Vigilance", ("2", "2"), "G"),
     real("Probe Human", "{1}{W}", 2, "Creature — Human Soldier", "", ("2", "2"), "W"),
     real("Probe Altar", "{2}", 2, "Artifact", "", None),
+    real("Probe Mourner", "{1}{G}", 2, "Creature — Elf", "When this creature dies, draw a card.", ("1", "1"), "G"),
     real("Probe Bolt", "{R}", 1, "Instant", "Probe Bolt deals 3 damage to any target.", None, "R"),
     real("Probe Counterspell", "{U}{U}", 2, "Instant", "Counter target spell.", None, "U"),
     real("Probe Bounce", "{U}", 1, "Instant", "Return target creature to its owner's hand.", None, "U"),
@@ -164,7 +164,7 @@ def meld_set(a, b, result):
         name, cost, cmc, types, text, p, colors = c
         out.append(card(name, set_code="tst", number=f"18D-{name[:9]}", layout="meld", mana_cost=cost, cmc=float(cmc), type_line=types,
                         oracle_text=text, colors=list(colors), color_identity=list(colors), keywords=[],
-                        power=p[0], toughness=p[1], all_parts=parts(name)))
+                        power=p[0], toughness=p[1], all_parts=parts(name), **({"loyalty": "7"} if "Planeswalker" in types else {})))
     return out
 
 
@@ -241,4 +241,124 @@ def test_a_merged_commander_goes_to_the_command_zone_and_the_rest_to_the_hand(ca
     assert s.state.cards[krenko.id].zone == "p1:command" and s.state.cards[krenko.id].name == "Krenko, Mob Boss"
     gem = next(c for c in s.state.cards.values() if c.name == "Gemrazer")
     assert gem.zone == "p1:hand" and not s.state.cards[krenko.id].merged
+    check(s)
+
+
+def test_privacy_every_view_mid_decision_and_a_face_down_pile(cards):
+    """Nothing hidden appears in any viewer's table while the over / under question is open: Bob's hand stays Bob's, a spectator and
+    Alice's opponent see the same public pile, and a pile turned face down is shown to nobody but its controller."""
+    import json
+
+    from app.game.visibility import SPECTATOR
+
+    s = build(cards, ["Gemrazer", "Probe Bear"], ["Probe Bolt"])
+    bear = put(s, "Probe Bear")
+    to_hand(s, "Probe Bolt", "p2")
+    spell = to_hand(s, "Gemrazer")
+    mana(s, G=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bear.id], alt_cost=mutate_key(s, spell))
+    for _ in range(5):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.resume["step"] == "mutate_choice" and d.player == "p1"
+    for viewer in ("p1", "p2", SPECTATOR):
+        blob = json.dumps(s.view(viewer))
+        assert ("Probe Bolt" in blob) == (viewer == "p2")  # Bob's hand card: Bob's alone (nothing leaks in the decision or the log)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["over"])
+    settle(s)
+    for viewer in ("p1", "p2", SPECTATOR):
+        view = json.dumps(s.view(viewer))
+        assert '"merged"' in view and view.count("Probe Bear") >= 1  # the public pile, for every viewer
+        assert ("Probe Bolt" in view) == (viewer == "p2")
+    act(s, "p1", type="face_down", card_ids=[bear.id], face_down=True)  # (730.2f) the merged permanent turned face down
+    host = s.state.cards[bear.id]
+    assert host.face_down and len(host.merged) == 2
+    for viewer in ("p2", SPECTATOR):
+        face = s.view(viewer)["cards"][bear.id]
+        assert face.get("hidden") and "merged" not in face and "Gemrazer" not in json.dumps(face)  # nothing of the pile
+    assert "merged" in s.view("p1")["cards"][bear.id]  # its controller may look at it (708.5)
+    check(s)
+
+
+def test_a_lower_cards_dies_trigger_works_from_the_pile_as_it_last_existed(cards):
+    """702.140e + 603.10a: the pile has every ability (Gemrazer's trigger fires although it is underneath); when it dies its
+    leaves-the-battlefield abilities look back at all of them; one permanent died, two cards are in the graveyard (730.3)."""
+    s = build(cards, ["Gemrazer", "Probe Mourner"], ["Probe Bolt", "Probe Altar"])
+    act(s, "p2", type="set_prefs", response="on")
+    altar = put(s, "Probe Altar", "p2")
+    mourner = put(s, "Probe Mourner")
+    mutate(s, "Gemrazer", mourner, over="under", G=3)
+    assert altar.id not in s.state.zones["p2:battlefield"]  # Gemrazer's "whenever this creature mutates", from underneath
+    assert chars(s, s.state.cards[mourner.id]).name == "Probe Mourner" and pt(s, s.state.cards[mourner.id]) == (1, 1)
+    before = len(s.state.zones["p1:hand"])
+    bolt = to_hand(s, "Probe Bolt", "p2")
+    mana(s, "p2", R=1)
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[mourner.id])
+    settle(s)
+    assert sorted(s.state.cards[c].name for c in s.state.zones["p1:graveyard"]) == ["Gemrazer", "Probe Mourner"]
+    assert len(s.state.zones["p1:hand"]) == before + 1  # "When this creature dies, draw a card" (a lower card's ability, 603.10a)
+    check(s)
+
+
+BATTLEMENTS = ("Hanweir Battlements", "", 0, "Land",
+               "{T}: Add {C}.\n{R}, {T}: Target creature gains haste until end of turn.\n{3}{R}{R}, {T}: If you both own and control this land and a creature named Hanweir Garrison, exile them, then meld them into Hanweir, the Writhing Township.\n(Melds with Hanweir Garrison.)",
+               (None, None), "")
+GARRISON = ("Hanweir Garrison", "{2}{R}", 3, "Creature — Human Soldier",
+            "Whenever this creature attacks, create two 1/1 red Human creature tokens that are tapped and attacking.\n(Melds with Hanweir Battlements.)", ("2", "3"), "R")
+HANWEIR = ("Hanweir, the Writhing Township", "", 0, "Legendary Creature — Eldrazi Ghoul",
+           "Trample, haste\nWhenever Hanweir attacks, create two 3/2 colorless Eldrazi Horror creature tokens that are tapped and attacking.", ("7", "4"), "R")
+URZA_LP = ("Urza, Lord Protector", "{1}{W}{U}", 3, "Legendary Creature — Human Artificer",
+           "Artifact, instant, and sorcery spells you cast cost {1} less to cast.\n{7}: If you both own and control Urza, Lord Protector and an artifact named The Mightstone and Weakstone, exile them, then meld them into Urza, Planeswalker. Activate only as a sorcery.",
+           ("2", "4"), "WU")
+MIGHTSTONE = ("The Mightstone and Weakstone", "{5}", 5, "Legendary Artifact — Powerstone",
+              "When The Mightstone and Weakstone enters, choose one —\n• Draw two cards.\n• Target creature gets -5/-5 until end of turn.\n{T}: Add {C}{C}. This mana can't be spent to cast nonartifact spells.\n(Melds with Urza, Lord Protector.)",
+              (None, None), "")
+URZA_PW = ("Urza, Planeswalker", "", 0, "Legendary Planeswalker — Urza",
+           "You may activate the loyalty abilities of Urza twice each turn rather than only once.\n+2: Artifact, instant, and sorcery spells you cast this turn cost {2} less to cast. You gain 2 life.\n+1: Draw two cards, then discard a card.\n0: Create two 1/1 colorless Soldier artifact creature tokens.\n−3: Exile target nonland permanent.",
+           (None, None), "WU")
+MELD_CARDS2 = [*meld_set(GARRISON, BATTLEMENTS, HANWEIR), *meld_set(URZA_LP, MIGHTSTONE, URZA_PW)]
+EXTRA.extend(MELD_CARDS2)
+
+
+def activate(s, c, needle, pid="p1", **kw):
+    idx = next(a.index for a in chars(s, c).abilities if needle in a.text)
+    act(s, pid, type="activate_ability", card_id=c.id, ability=idx, **kw)
+    settle(s)
+
+
+def test_meld_by_an_activated_ability_of_a_land(cards):
+    """701.42a: Hanweir Battlements' ability exiles it and Hanweir Garrison and melds them: one permanent, a creature."""
+    s = build(cards, ["Hanweir Battlements", "Hanweir Garrison"])
+    battlements, garrison = put(s, "Hanweir Battlements"), put(s, "Hanweir Garrison")
+    mana(s, R=5)
+    activate(s, battlements, "meld them")
+    host = s.state.cards[battlements.id]
+    assert garrison.id not in s.state.cards and host.melded and host.zone == "p1:battlefield"
+    assert host.name == "Hanweir, the Writhing Township" and pt(s, host) == (7, 4) and chars(s, host).is_creature and not chars(s, host).is_land
+    assert chars(s, host).mana_value == 3  # 202.3c: the sum of the front faces' mana values ({2}{R} and a land)
+    check(s)
+
+
+def test_meld_without_the_partner_never_happens_and_the_cost_isnt_wasted_silently(cards):
+    s = build(cards, ["Hanweir Battlements", "Hanweir Garrison"])
+    battlements = put(s, "Hanweir Battlements")
+    mana(s, R=5)
+    activate(s, battlements, "meld them")  # 608.2c: the condition isn't true: nothing happens (the cost was paid)
+    assert not s.state.cards[battlements.id].melded
+    check(s)
+
+
+def test_meld_into_a_planeswalker_enters_with_its_loyalty_at_sorcery_speed(cards):
+    s = build(cards, ["Urza, Lord Protector", "The Mightstone and Weakstone"])
+    urza, stone = put(s, "Urza, Lord Protector"), put(s, "The Mightstone and Weakstone")
+    mana(s, W=7)
+    activate(s, urza, "meld them")
+    host = s.state.cards[urza.id]
+    assert stone.id not in s.state.cards and host.melded and host.name == "Urza, Planeswalker"
+    assert "Planeswalker" in chars(s, host).types and host.counters.get("loyalty") == 7  # 306.5b: it enters with its loyalty
+    assert chars(s, host).mana_value == 8
     check(s)

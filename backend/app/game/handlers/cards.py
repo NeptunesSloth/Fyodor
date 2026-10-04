@@ -289,6 +289,8 @@ def face_down(state: GameState, a: A.FaceDown) -> None:
         zone = ops.zone_name(c.zone)
         if zone not in ("battlefield", "exile", "foretell", STACK):
             raise ActionError("Only cards on the battlefield, in exile or on the stack can be face down")
+        if c.melded and a.face_down is not False:
+            raise ActionError("A melded permanent can't be turned face down (712.16)")  # -- merged permanents (wave 18D) --
     before = {c.id: seers(state, c) for c in targets}
     turned_up: list[CardInstance] = []
     turned_down: list[CardInstance] = []
