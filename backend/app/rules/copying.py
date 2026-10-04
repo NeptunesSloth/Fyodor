@@ -286,6 +286,8 @@ def supported_source(plan: Plan, card: CardInstance, *, token: bool = False) -> 
     a permanent spell, double-faced ones (707.8a, 707.10g: the copy would be double-faced too)."""
     if card.face_down:
         return "a face-down object (707.2)"
+    if card.merged:  # -- merged permanents (wave 18D) -- 730.2a: the merge is a copiable effect; what a copy takes of it isn't modelled
+        return "a merged or melded permanent (730.2a, 712.8g)"
     data = plan.info.get(card.card_id) if card.card_id else None
     layout = (data or {}).get("layout")
     if layout == "meld" and card.face:
@@ -404,6 +406,8 @@ def uncopyable(plan: Plan, card: CardInstance) -> str | None:
         return ""
     if "Aura" in ch.subtypes:
         return f"Copying an Aura spell ({ch.name}) isn't automated: make the copy by hand, then press Done"
+    if plan.oid(card) in plan.rules.mutating:  # -- merged permanents (wave 18D) -- the copy is a mutating spell too (707.10, 702.140)
+        return f"Copying {ch.name}, a mutating creature spell, isn't automated: make the copy by hand, then press Done"
     if ch.is_permanent_card and supported_source(plan, card, token=True) is not None:  # (707.10g: meld / reversible only)
         return f"Copying {ch.name}, a double-faced permanent spell, isn't automated (707.10g): make the copy by hand, then press Done"
     return None

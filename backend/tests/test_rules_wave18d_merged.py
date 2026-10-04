@@ -37,6 +37,7 @@ EXTRA = [
     real("Probe Altar", "{2}", 2, "Artifact", "", None),
     real("Probe Bolt", "{R}", 1, "Instant", "Probe Bolt deals 3 damage to any target.", None, "R"),
     real("Probe Counterspell", "{U}{U}", 2, "Instant", "Counter target spell.", None, "U"),
+    real("Probe Bounce", "{U}", 1, "Instant", "Return target creature to its owner's hand.", None, "U"),
 ]
 NAMES = ["Gemrazer", "Glowstone Recluse", "Huntmaster Liger", "Insatiable Hemophage"]
 
@@ -91,4 +92,153 @@ def test_mutate_over_merges_and_triggers(cards):
     ch = chars(s, host)
     assert pt(s, host) == (4, 4) and {"reach", "trample", "vigilance"} <= ch.keywords  # 702.140e: every ability, the top's characteristics
     assert altar.id not in s.state.zones["p2:battlefield"]  # 702.140d: the trigger destroyed it
+    check(s)
+
+
+def test_mutate_under_keeps_the_target_on_top_with_every_ability(cards):
+    s = build(cards, ["Gemrazer", "Probe Bear"])
+    bear = put(s, "Probe Bear")
+    mutate(s, "Gemrazer", bear, over="under", G=3)
+    host = s.state.cards[bear.id]
+    assert host.name == "Probe Bear" and [p.name for p in host.merged] == ["Probe Bear", "Gemrazer"]
+    assert pt(s, host) == (2, 2) and {"reach", "trample", "vigilance"} <= chars(s, host).keywords  # 730.2a: the top's characteristics
+    check(s)
+
+
+def test_mutate_counts_each_merge_and_the_pile_breaks_up_when_it_dies(cards):
+    s = build(cards, ["Insatiable Hemophage", "Glowstone Recluse", "Probe Bear"], ["Probe Bolt"])
+    bear = put(s, "Probe Bear")
+    mutate(s, "Glowstone Recluse", bear, G=4)
+    assert s.state.cards[bear.id].counters == {"+1/+1": 2} and pt(s, s.state.cards[bear.id]) == (4, 4)  # 702.140d, 730.2c
+    mutate(s, "Insatiable Hemophage", bear, B=3)
+    assert life(s, "p2") == 38 and life(s) == 42  # X = the number of times it has mutated (twice)
+    host = s.state.cards[bear.id]
+    assert [p.name for p in host.merged] == ["Insatiable Hemophage", "Glowstone Recluse", "Probe Bear"]
+    assert pt(s, host) == (7, 7) and host.counters == {"+1/+1": 4}  # 3/3; the Recluse's trigger, an ability of the pile, fired again (702.140e)
+    act(s, "p1", type="move", card_ids=[bear.id], to={"zone": "graveyard"})  # destroyed by hand: one permanent leaves, 730.3
+    gy = sorted(s.state.cards[c].name for c in s.state.zones["p1:graveyard"])
+    assert gy == ["Glowstone Recluse", "Insatiable Hemophage", "Probe Bear"] and not s.state.cards[bear.id].merged
+    check(s)
+
+
+def test_mutate_is_not_offered_without_a_non_human_creature_you_own(cards):
+    s = build(cards, ["Gemrazer", "Probe Human"])
+    g = to_hand(s, "Gemrazer")
+    assert mutate_key(s, g) is None  # nothing to merge with
+    put(s, "Probe Human")
+    assert mutate_key(s, g) is None  # 702.140a: a Human isn't a legal target
+
+
+def test_mutating_spell_with_an_illegal_target_enters_as_a_creature(cards):
+    s = build(cards, ["Gemrazer", "Probe Bear"], ["Probe Bolt"])
+    act(s, "p2", type="set_prefs", response="on")
+    bear = put(s, "Probe Bear")
+    g = to_hand(s, "Gemrazer")
+    mana(s, G=3)
+    act(s, "p1", type="cast_spell", card_id=g.id, targets=[bear.id], alt_cost=mutate_key(s, g))
+    bolt = to_hand(s, "Probe Bolt", "p2")
+    mana(s, "p2", R=1)
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[bear.id])  # in response: the target dies
+    settle(s)
+    gem = s.state.cards[g.id]
+    assert gem.zone == "p1:battlefield" and not gem.merged and gem.name == "Gemrazer"  # 702.140b: a creature spell, it enters
+    assert s.state.cards[bear.id].zone == "p1:graveyard"
+    check(s)
+
+
+# -- meld ---------------------------------------------------------------------------------------------------------------------
+def meld_set(a, b, result):
+    """Three cards of a meld pair as the card database lists them: each front half names the other half and the result."""
+    from tests.fixtures.cards import cid
+
+    ids = {c[0]: cid(f"{c[0]}|tst|18D-{c[0][:9]}") for c in (a, b, result)}
+
+    def parts(own):
+        return [{"id": ids[n], "component": "meld_result" if n == result[0] else "meld_part", "name": n, "type_line": "Creature"}
+                for n in (a[0], b[0], result[0]) if n != own]
+
+    out = []
+    for c in (a, b, result):
+        name, cost, cmc, types, text, p, colors = c
+        out.append(card(name, set_code="tst", number=f"18D-{name[:9]}", layout="meld", mana_cost=cost, cmc=float(cmc), type_line=types,
+                        oracle_text=text, colors=list(colors), color_identity=list(colors), keywords=[],
+                        power=p[0], toughness=p[1], all_parts=parts(name)))
+    return out
+
+
+GISELA = ("Gisela, the Broken Blade", "{2}{W}{W}", 4, "Legendary Creature — Angel Horror",
+          "Flying, first strike, lifelink\nAt the beginning of your end step, if you both own and control Gisela and a creature named Bruna, the Fading Light, exile them, then meld them into Brisela, Voice of Nightmares.",
+          ("4", "3"), "W")
+BRUNA = ("Bruna, the Fading Light", "{5}{W}{W}", 7, "Legendary Creature — Angel Horror",
+         "When you cast this spell, you may return target Angel or Human creature card from your graveyard to the battlefield.\nFlying, vigilance\n(Melds with Gisela, the Broken Blade.)",
+         ("5", "7"), "W")
+BRISELA = ("Brisela, Voice of Nightmares", "", 0, "Legendary Creature — Eldrazi Angel",
+           "Flying, first strike, vigilance, lifelink\nYour opponents can't cast spells with mana value 3 or less.", ("9", "10"), "W")
+GRAF = ("Graf Rats", "{1}{B}", 2, "Creature — Rat", "At the beginning of combat on your turn, if you both own and control this creature and a creature named Midnight Scavengers, exile them, then meld them into Chittering Host.", ("2", "1"), "B")
+SCAV = ("Midnight Scavengers", "{4}{B}", 5, "Creature — Human Rogue", "When this creature enters, you may return target creature card with mana value 3 or less from your graveyard to your hand.\n(Melds with Graf Rats.)", ("3", "3"), "B")
+HOST = ("Chittering Host", "", 0, "Creature — Eldrazi Horror", "Menace\nWhen this creature enters, other creatures you control get +1/+0 and gain menace until end of turn.", ("5", "6"), "B")
+MELD_CARDS = [*meld_set(GISELA, BRUNA, BRISELA), *meld_set(GRAF, SCAV, HOST)]
+EXTRA.extend(MELD_CARDS)
+
+
+def test_meld_cards_are_full(cards):
+    for name in ("Gisela, the Broken Blade", "Graf Rats"):
+        assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_meld_exiles_both_and_one_melded_permanent_enters(cards):
+    from tests.test_rules_conditionals import the_end_step
+
+    s = build(cards, ["Gisela, the Broken Blade", "Bruna, the Fading Light"])
+    gisela, bruna = put(s, "Gisela, the Broken Blade"), put(s, "Bruna, the Fading Light")
+    the_end_step(s)
+    host = s.state.cards[gisela.id]
+    assert bruna.id not in s.state.cards and host.zone == "p1:battlefield" and host.melded
+    assert host.name == "Brisela, Voice of Nightmares" and [p.name for p in host.merged] == ["Gisela, the Broken Blade", "Bruna, the Fading Light"]
+    ch = chars(s, host)
+    assert pt(s, host) == (9, 10) and ch.mana_value == 11 and {"flying", "first strike", "vigilance", "lifelink"} <= ch.keywords  # 712.8g
+    check(s)
+    act(s, "p1", type="move", card_ids=[gisela.id], to={"zone": "graveyard"})  # 712.21: one permanent leaves, two cards arrive
+    assert sorted(s.state.cards[c].name for c in s.state.zones["p1:graveyard"]) == ["Bruna, the Fading Light", "Gisela, the Broken Blade"]
+    assert chars(s, s.state.cards[gisela.id]).name == "Gisela, the Broken Blade" and not s.state.cards[gisela.id].melded
+    check(s)
+
+
+def test_meld_does_nothing_without_the_partner(cards):
+    from tests.test_rules_conditionals import the_end_step
+
+    s = build(cards, ["Gisela, the Broken Blade", "Bruna, the Fading Light"])
+    gisela = put(s, "Gisela, the Broken Blade")
+    the_end_step(s)
+    assert s.state.cards[gisela.id].zone == "p1:battlefield" and not s.state.cards[gisela.id].melded  # the intervening if (603.4)
+    check(s)
+
+
+def test_a_merged_commander_goes_to_the_command_zone_and_the_rest_to_the_hand(cards):
+    """903.3c: the pile with a commander is that player's commander; 903.9c: put into the command zone instead of the hand, only the
+    commander goes there, every other card of it goes to the hand."""
+    s = build(cards, ["Gemrazer"], ["Probe Bounce"])
+    act(s, "p2", type="set_prefs", response="on")
+    krenko = put(s, "Krenko, Mob Boss")
+    assert s.state.cards[krenko.id].commander_key
+    mutate(s, "Gemrazer", krenko, over="over", G=3)
+    host = s.state.cards[krenko.id]
+    assert host.name == "Gemrazer" and host.commander_key and [p.name for p in host.merged] == ["Gemrazer", "Krenko, Mob Boss"]
+    bounce = to_hand(s, "Probe Bounce", "p2")
+    mana(s, "p2", U=1)
+    act(s, "p1", type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=bounce.id, targets=[krenko.id])
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"] if d.kind == "confirm" else [d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[krenko.id].zone == "p1:command" and s.state.cards[krenko.id].name == "Krenko, Mob Boss"
+    gem = next(c for c in s.state.cards.values() if c.name == "Gemrazer")
+    assert gem.zone == "p1:hand" and not s.state.cards[krenko.id].merged
     check(s)

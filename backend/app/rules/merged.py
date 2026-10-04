@@ -23,6 +23,7 @@ A permanent that copies a merged permanent is refused too (copying.py).
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any
 
 from app.game.state import STACK, CardInstance
@@ -115,3 +116,86 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
 
     plan.rules.entry_choices.setdefault(d.resume["card"], {})["mutate"] = chosen[0]
     resolve_top_of_stack(plan)
+
+
+# -- meld (wave 18D) -- 701.42, 712.4, 712.21 ----------------------------------------------------------------------------------
+# "If you both own and control ~ and a creature named Bruna, the Fading Light, exile them, then meld them into Brisela, Voice of
+# Nightmares." The names hold commas and the other card's name is a card name (the card's own name is read as ~): they are carried as
+# one hex word through the grammar (scripts.define) and read back here.
+_MELD_NAMES = re.compile(r"(?<=\bnamed )(?P<n>[^.]+?)(?=, exile them, then meld|, you may pay)|(?<=meld them into )(?P<r>[^.]+?)(?=\.|$)")
+_PAIR = re.compile(r"you both own and control (?:~|this (?:creature|land|artifact|permanent)) and (?:a|an) (?P<k>creature|land|artifact|permanent) "
+                   r"named meldname:(?P<n>[0-9a-f]+)")
+MELD_EFFECT = re.compile(r"exile them, then meld them into meldname:(?P<r>[0-9a-f]+)")
+
+
+def protect(text: str) -> str:
+    """The ability text with the partner's name and the meld result's name each as one word ``meldname:<hex>``."""
+    if "meld them into" not in text:
+        return text
+    return _MELD_NAMES.sub(lambda m: "meldname:" + (m["n"] or m["r"]).encode().hex(), text)
+
+
+def name_of(word: str) -> str:
+    return bytes.fromhex(word).decode()
+
+
+def condition(t: str) -> dict[str, Any] | None:
+    m = _PAIR.fullmatch(t)
+    return {"pair": {"name": name_of(m["n"]), "kind": m["k"]}} if m else None
+
+
+def _pair_of(plan: Plan, card: CardInstance) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """(the meld result's, the other half's) card data for a card that is half of a meld pair."""
+    data = plan.info.get(card.card_id) if card.card_id and not card.is_token else None
+    if data is None or data.get("layout") != "meld":
+        return None
+    related = data.get("related_cards") or []
+    result = next((plan.info.get(r["id"]) for r in related if r.get("component") == "meld_result"), None)
+    other = next((plan.info.get(r["id"]) for r in related if r.get("component") == "meld_part" and r.get("name") != card.name), None)
+    return (result, other) if result is not None and other is not None else None
+
+
+def partner_of(plan: Plan, ctx: dict[str, Any], kind: str | None = None, name: str | None = None) -> CardInstance | None:
+    """The permanent its controller both owns and controls that this ability's source melds with, if it is on the battlefield."""
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object") or src.merged \
+            or src.owner != ctx["controller"] or src.controller != ctx["controller"]:
+        return None
+    pair = _pair_of(plan, src)
+    if pair is None or (name is not None and pair[1]["name"] != name):
+        return None
+    return next((c for c in plan.state.cards.values() if c.id != src.id and c.zone == f"{ctx['controller']}:battlefield" and not c.merged
+                 and not c.is_token and c.owner == ctx["controller"] and c.name == pair[1]["name"]
+                 and (kind in (None, "permanent") or kind.capitalize() in plan.ch(c).types)), None)
+
+
+def pair_holds(plan: Plan, ctx: dict[str, Any], spec: dict[str, Any]) -> bool:
+    """"You both own and control ~ and a creature named X": ~ and a permanent named X (a card, the other half of its meld pair) both
+    belong to and are controlled by the ability's controller (701.42a)."""
+    return partner_of(plan, ctx, spec["kind"], spec["name"]) is not None
+
+
+def meld(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """701.42a: "Exile them, then meld them into [name]": both cards are exiled, then put onto the battlefield with their back faces up
+    and combined, one permanent (712.4a, 712.14c). If they can't be melded (not the pair, not both exiled: 701.42c) nothing more
+    happens. Returns False while the entering permanent waits for a choice (attachments.enter)."""
+    from app.rules import attachments
+    from app.rules import characteristics as chars
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    partner = partner_of(plan, ctx) if src is not None else None
+    pair = _pair_of(plan, src) if src is not None and partner is not None else None
+    if src is None or partner is None or pair is None or pair[0]["name"] != e["result"]:
+        return True
+    owner = src.owner
+    plan.do({"type": "move", "card_ids": [src.id, partner.id], "to": {"player": owner, "zone": "exile"}}, actor=ctx["controller"])
+    cards = [plan.state.cards.get(src.id), plan.state.cards.get(partner.id)]
+    if any(c is None or c.zone != f"{owner}:exile" for c in cards):
+        return True  # (701.42c: replaced, or gone)
+    ch = chars.printed_from_data(pair[0])
+    plan.do({"type": "meld", "card_id": src.id, "other_id": partner.id, "result_id": pair[0]["id"], "result_name": pair[0]["name"],
+             "row": "land" if ch.is_land and not ch.is_creature else "creature" if ch.is_creature else "other"}, actor=ctx["controller"])
+    return attachments.enter(plan, [{"card": src.id, "player": owner, "actor": ctx["controller"]}], ctx)
+
+
+PRIMITIVES = {"meld": meld}

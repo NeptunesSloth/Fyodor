@@ -62,7 +62,7 @@ from app.game.rules_state import (
     emit,
     track,
 )
-from app.game.state import COMBAT_PHASES, CardInstance, StackInfo, TokenDef
+from app.game.state import COMBAT_PHASES, CardInstance, MergedPart, StackInfo, TokenDef
 from app.rules import characteristics as chars
 from app.rules import delayed, designations, layers, scripts, selectors
 from app.rules.characteristics import Characteristics

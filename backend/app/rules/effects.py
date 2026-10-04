@@ -2087,6 +2087,9 @@ from app.rules import phasing  # noqa: E402
 
 PRIMITIVES.update(phasing.PRIMITIVES)  # -- phasing (wave 13D) -- 702.26
 PRIMITIVES.update(entry_forms.PRIMITIVES)  # -- entry forms (wave 5F) -- "It's an enchantment." (611.2e)
+from app.rules import merged as _merged  # noqa: E402
+
+PRIMITIVES.update(_merged.PRIMITIVES)  # -- merged permanents (wave 18D) -- meld, 701.42
 
 
 def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:

@@ -82,6 +82,11 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
             view["ability"] = c.ability.model_dump()
         if c.commander_key:
             view["commander_key"] = c.commander_key
+        if c.merged:  # -- merged permanents (wave 18D) -- the cards representing it, topmost first (visible to whoever sees the permanent)
+            view["merged"] = [{"id": p.id, "card_id": p.card_id, "name": p.name, "is_token": p.is_token,
+                               **({"token": p.token.model_dump()} if p.token else {})} for p in c.merged]
+            if c.melded:
+                view["melded"] = True
         if c.categories and viewer in (c.owner, OMNISCIENT):
             view["categories"] = list(c.categories)
     else:

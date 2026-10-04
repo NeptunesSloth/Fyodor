@@ -170,6 +170,10 @@ _SELF_COUNTS = re.compile(r"(?:(?:~|this [a-z]+) has|there (?:are|is)) (?:(?P<n>
 
 
 def _parse_one(t: str, objects: bool) -> Condition | None:
+    from app.rules import merged  # -- merged permanents (wave 18D) -- "you both own and control ~ and a creature named X" (701.42a)
+
+    if (pair := merged.condition(t)) is not None:
+        return pair
     found_extreme = extremes.parse(t)  # -- extremes (wave 8B) -- "you control the creature with the greatest power or tied …"
     if found_extreme is not None:
         return found_extreme
@@ -978,6 +982,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import activation_words
 
         return activation_words.holds(plan, ctx, cond)
+    if "pair" in cond:  # -- merged permanents (wave 18D) --
+        from app.rules import merged
+
+        return merged.pair_holds(plan, ctx, cond["pair"])
     if "extreme" in cond:  # -- extremes (wave 8B) -- app/rules/extremes.py
         return extremes.holds(plan, ctx, cond)
     if "as" in cond:  # -- intervening ifs (wave 11F) -- a condition about another player
