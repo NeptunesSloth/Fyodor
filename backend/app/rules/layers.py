@@ -805,11 +805,13 @@ def _cda(state: GameState, card: CardInstance, ch: Characteristics, info: CardIn
     if hit is not None:
         return hit
     view = _view(state, info)
-    ctx = {"controller": controller, "source_card": card.id, "source_object": r.object_id(card.id)}
+    ctx = {"controller": controller, "source_card": card.id, "source_object": r.object_id(card.id), "unknown_choice_raises": True}
     _CDA_VISITING.add(card.id)
     try:
         p = values.evaluate(view, ctx, d["p"]) if d["p"] is not None else None
         t = values.evaluate(view, ctx, d["t"]) if d["t"] is not None else None
+    except values.NoChosenPlayer:  # -- chosen type (wave 16F) -- before "As ~ enters, choose …" is answered: not known yet (not 0)
+        return None, None
     finally:
         _CDA_VISITING.discard(card.id)
     if len(_CDA_CACHE) > 4096:

@@ -314,7 +314,7 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
     ch = _lki_characteristics(plan, snap)
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, is_token=snap.is_token,
-                        attached_to=snap.attached_to,
+                        attached_to=snap.attached_to, attached_player=snap.attached_player,
                         counters=dict(snap.counters))  # (wave 3S: "each page counter on this Aura", 608.2h)
     if snap.x is not None:  # -- stack interaction (wave 5B) -- a spell's X as it last existed on the stack (202.3e)
         card.stack_info = StackInfo(x=snap.x)
@@ -560,7 +560,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     subject = cond["subject"]
     if subject == "player":
         pw = cond["player"]
-        if player is None or (pw == "you" and player != you) or (pw == "opponent" and player == you):
+        if player is None or (pw == "you" and player != you) or (pw == "opponent" and player == you) \
+                or (pw == "enchanted" and player != watcher.attached_player):
             return False
         if event == "dealt_damage" and obj is not None:
             return False  # ("you're dealt damage": a player, not a permanent that player controls)
@@ -621,6 +622,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     event, obj, _, player, info = fact
     you = watcher.controller
     if not _other_ok(plan, cond, watcher, info):
+        return False
+    if cond.get("into") and (info.get("face_name") or "").lower() != cond["into"].lower():  # -- transform (wave 16F) --
         return False
     if cond.get("alone") and info.get("attackers") != 1:  # 506.5
         return False
@@ -1658,6 +1661,30 @@ def bind_that_player(t: PendingTrigger) -> None:
         marker = f'\\"{key}\\":\\"that_player\\"'
         raw = raw.replace(marker, f'\\"{key}\\":\\"player:{players[0]}\\"')
     t.ability = json.loads(raw)
+
+
+def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
+    """-- reanimation (wave 16F) -- "return target creature card with lesser mana value": the selectors' ``evt:<stat>`` becomes the
+    number the one object the trigger is about had (as it last existed, 608.2h), as the ability is put on the stack."""
+    from app.rules.selectors import EVENT_STAT, _stat
+
+    raw = json.dumps(t.ability)
+    if f'\\"{EVENT_STAT}' not in raw or t.event is None or len(t.event.objects) != 1:
+        return
+    ref = t.event.objects[0]
+    snap = ref.snapshot or plan.rules.lki.get(ref.object_id)
+    card = plan.state.cards.get(ref.card)
+    if snap is not None and (card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != ref.object_id):
+        ch = _lki_characteristics(plan, snap)
+    elif card is not None:
+        ch = plan.ch(card)
+    else:
+        return
+    for what in ("mv", "power", "toughness"):
+        n = _stat(ch, what)
+        if n is not None:
+            raw = raw.replace(f'\\"{EVENT_STAT}{what}\\"', str(n))
+    t.ability = json.loads(raw)
 # -- end damage wordings (wave 6B) --
 
 
@@ -1665,6 +1692,7 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
     """Put one trigger on the stack. False if it waits for its controller's target choice.
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
     bind_that_player(t)  # -- damage wordings (wave 6B) --
+    bind_event_stat(plan, t)  # -- reanimation (wave 16F) --
     from app.rules import (
         per_opponent,  # -- per-opponent targets (wave 12C) -- a group for each opponent, as it is put
     )

@@ -77,6 +77,11 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
         return False
     if "hexproof" in ch.keywords and card.controller != chooser:
         return False
+    for rule in ch.imposed:  # -- cant (wave 16F) -- "can't be the target of black spells or abilities from black sources"
+        if rule.startswith("untargetable:") and source is not None:
+            _, opp, non, colors = rule.split(":")
+            if (opp == "0" or card.controller != chooser) and bool(set(colors) & source.colors) != (non == "1"):
+                return False
     return not protection.protected_from(ch, source)
 
 

@@ -130,6 +130,8 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     number for each player it could name (the target player's, the recipient's: app/rules/sized_damage.py): never read
     through the selectors' trigger-bound "that player" (selectors.THAT_PLAYER)."""
     v = _parse_count(phrase, it=it)
+    if v is not None and it != "self" and any(k in str(v) for k in ('"controller":"chosen"', '"zone_owner":"chosen"', "'hand': 'chosen'")):
+        return None  # (wave 16F: "the chosen player" of the very object that counts)
     return None if v is not None and f'"controller":"{selectors.THAT_PLAYER}"' in str(v) else v
 
 
@@ -144,6 +146,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if p.endswith(" beyond the first"):  # -- keywords (wave 15E) -- rampage 702.23a: "for each creature blocking it beyond the first"
         inner = _parse_count(p[: -len(" beyond the first")], it=it)
         return None if inner is None else {"minus": [inner, 1]}
+    # -- cost self reduction (wave 16F) -- "for each 1 life you gained this turn" (a count of life)
+    p = re.sub(r"^1 (life you (?:gained|lost) this turn)$", r"\1", p)
     m = _COUNT.match(p)
     what = m["what"] if m else p
     if what.lower() == "x":
@@ -179,8 +183,12 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     sized = _sized(what, it)  # -- sized amounts (wave 3D) --
     if sized is not None:
         return sized
+    if what == "1 damage prevented this way":  # -- prevention riders (wave 17A) -- "for each 1 damage prevented this way"
+        return {"ref_amount": "prevented"}
     if what in ("cards in your hand", "card in your hand"):
         return {"hand": "you"}
+    if what in ("cards in the chosen player's hand", "card in the chosen player's hand"):  # -- chosen type (wave 16F) --
+        return {"hand": "chosen"}
     if what in ("creatures in your party", "creature in your party"):  # -- refused modal/conditional (wave 3R1) --
         return {"party": "you"}  # 700.8
     if what in ("cards in target player's hand", "cards in target opponent's hand"):
@@ -210,6 +218,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"player_counters": m["kind"]}
     if _EXCESS_DEALT.fullmatch(what):  # -- as long as (wave 9B) -- 120.10: scripts bind it to the damage just before (this_way.excess_dealt)
         return {"ref_amount": "excess_dealt"}
+    if what in ("the damage prevented this way", "damage prevented this way"):  # -- prevention riders (wave 17A) -- 615.5
+        return {"ref_amount": "prevented"}  # (source_shields.rider: bound by the prevention effect when it prevented damage)
     if what == "the damage dealt this way":  # -- if you do (wave 5G) -- what the damage just before dealt (this_way)
         return {"ref_amount": "damage_dealt"}
     if what == "the life lost this way":  # -- refused zones/sized (wave 3R4) -- what the lose_life just before lost
@@ -311,6 +321,9 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
     if _TURN_SPELL.match(what):
         return {"spells_cast": "you"}
+    m = re.fullmatch(r"creature (?:(?P<any>that attacked)|(?P<mine>you attacked with)) this turn", what)
+    if m:  # -- cost self reduction (wave 16F) -- the creatures declared as attackers (508.1, wave 4D log), whether or not still here
+        return {"turn_history": "attackers", **({"who": "you"} if m["mine"] else {})}
     if _TURN_DREW.match(what):
         return {"turn_history": "drew"}
     m = _TURN_DIED.match(what)
@@ -343,6 +356,11 @@ def _normalise(what: str) -> str:
 def _selector_key(phrase: str) -> str | None:
     sel = selectors.parse(_normalise(phrase))
     return sel.key() if sel is not None else None
+
+
+class NoChosenPlayer(Exception):
+    """-- chosen type (wave 16F) -- a count about "the chosen player" read before the source has chosen one (a creature with
+    "As ~ enters, choose an opponent" is on the battlefield before the choice is made): the value is not known yet."""
 
 
 def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
@@ -404,6 +422,11 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                    for cid in ids if name and chars.of(plan.state.cards[cid], plan.info).name == name)
     if "count" in v:
         sel = selectors.from_key(v["count"])
+        if ctx.get("unknown_choice_raises") and "chosen" in (sel.controller, sel.zone_owner):
+            from app.rules import chosen
+
+            if chosen.player_of(plan, ctx.get("source_card") or "") is None:
+                raise NoChosenPlayer
         if sel.player is not None:
             return sum(1 for p in plan.live() if selectors.matches_player(plan, sel, p, you))
         return len(selectors.candidates(plan, sel, you, _other_than(ctx)))
@@ -430,6 +453,13 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in context.players(plan, ctx, context.EVENT)
                    if p in plan.live())
+    if "hand" in v and v["hand"] == "chosen":  # the player the source chose as it entered (the count of a hand is public)
+        from app.rules import chosen
+
+        who = chosen.player_of(plan, ctx.get("source_card") or "")
+        if who is None and ctx.get("unknown_choice_raises"):
+            raise NoChosenPlayer
+        return len(plan.state.zones.get(f"{who}:hand", [])) if who in plan.live() else 0
     if "hand" in v:
         players = [you] if v["hand"] == "you" else _target_players(plan, ctx)
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in players)
@@ -564,6 +594,8 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
         return sum(1 for c in plan.state.cards.values() if c.attached_to == card.id and c.zone.endswith(":battlefield")
                    and plan.in_game(c) and kinds & plan.ch(c).subtypes)
     mine = plan.ch(card)
+    if v["relative"] == "colors":
+        return len(mine.colors)
     if v["relative"] == "creature_type":
         want = mine.subtypes & CREATURE_TYPES
         if not want:

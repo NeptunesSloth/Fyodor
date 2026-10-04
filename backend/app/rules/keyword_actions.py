@@ -524,6 +524,10 @@ def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             continue  # (an ability not on the stack has no number: never ignored)
         plan.do({"type": "set_face", "card_id": cid, "face": 1 - min(card.face, 1)}, actor=ctx["controller"])
         now = plan.state.cards[cid]
+        # -- transform (wave 16F) -- 701.28: "When this creature transforms into …" (the same object, 712.18; designations.facts)
+        from app.game.rules_state import emit
+
+        emit(plan.state, "designation", counter="transformed", card=cid, object_id=plan.oid(cid), player=now.controller)
         if (now.attached_to or now.attached_player) and attachments.attach_kind(plan.ch(now)) is None:
             plan.do({"type": "detach", "card_ids": [cid]}, actor=ctx["controller"])  # 704.5n: no longer an Equipment (or Aura …)
     return True

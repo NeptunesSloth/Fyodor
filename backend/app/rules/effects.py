@@ -1375,9 +1375,22 @@ def resume_explore(plan: Plan, d: Any, chosen: list[str]) -> None:
 def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """615.7: "Prevent the next N damage that would be dealt to … this turn" — a shield."""
     r = plan.rules
+    if (shares := divided(ctx, e)) is not None:  # -- prevention riders (wave 17A) -- 601.2d: each target's share, an illegal target's lost
+        legal = {*_cards(plan, ctx, e["who"]), *_players(plan, ctx, e["who"])}
+        for t, share in shares.items():
+            if t in legal and share > 0:
+                key = plan.oid(t) if t in plan.state.cards else t
+                r.prevention[key] = r.prevention.get(key, 0) + share
+        return True
     keys = [plan.oid(c) for c in _cards(plan, ctx, e["who"])] + _players(plan, ctx, e["who"])
     n = _amount(plan, ctx, e["n"])  # (wave 12C: "prevent the next X damage, where X is …": the amount as it resolves, 608.2h)
     for key in keys:
+        if e.get("rider"):  # -- prevention riders (wave 17A) -- its own shield: the additional effect is this one's (615.5)
+            import secrets
+
+            key = f"{key}#{secrets.token_hex(4)}"
+            r.prevention_riders[key] = {"rider": e["rider"], "by": ctx["controller"], "card": ctx.get("source_card"),
+                                        "oid": ctx.get("source_object"), "name": ctx.get("name") or "a prevention effect"}
         r.prevention[key] = r.prevention.get(key, 0) + n
     return True
 
@@ -1948,6 +1961,15 @@ def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # it already left — or 701.21a: another player controls it now (echo, "sacrifice ~ unless
         # you pay" after a control change): it can't be sacrificed, so there's nothing to choose
         return True
+    if e["cost"] == "mana_cost":  # -- cost alt (wave 16F) -- "unless you pay its mana cost": what is printed on it (X is 0 off the stack,
+        # 202.3e); an object with no mana cost has nothing to pay: it is sacrificed
+        printed = (plan.ch(plan.state.cards[src[0]]).mana_cost or "").replace("{X}", "")
+        if not printed:
+            decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name', '')}: it has no mana cost to pay: sacrifice it",
+                   options=[DecisionOption(id="sacrifice", label=f"Sacrifice {plan.state.cards[src[0]].name}")],
+                   resume={"step": "pay_or_sacrifice", "ctx": ctx, "cost": "{0}"}, source=plan.state.cards[src[0]])
+            return False
+        e = {**e, "cost": printed}
     cost = mana.parse_cost(e["cost"])
     if e.get("per"):  # cumulative upkeep: the cost once for each age counter
         n = plan.state.cards[src[0]].counters.get(e["per"], 0)

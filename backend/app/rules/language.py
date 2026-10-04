@@ -808,6 +808,29 @@ def _pick_kinds(text: str) -> tuple[Effects, Any] | None:
              "reveal": m["verb"].endswith("reveal")}], None
 
 
+# -- look top (wave 16F) -- one card that is any of several kinds: "You may reveal a Knight, Aura, Equipment, or legendary artifact card
+# from among them and put it into your hand." (Acclaimed Contender), "a land card or a card with {X} in its mana cost" (Paradox
+# Surveyor): the kinds are alternatives for the one card (the same listed-kinds filter, one pick)
+_ALTS = re.compile(r"you may reveal (?P<list>(?:(?:an?|[a-z]+) )?[^.]+? or (?:an? )?[^.]+?) from among (?:them|those cards) "
+                   r"and put (?:it|that card) into your hand")
+
+
+def _pick_alts(text: str) -> tuple[Effects, Any] | None:
+    m = _ALTS.fullmatch(text)
+    if m is None or selectors.parse(re.sub(r"^(?:an?) ", "", m["list"])) is not None:
+        return None  # (not a list of alternatives, or one selector the plain pick reads)
+    words = [re.sub(r"^(?:an?) ", "", w.strip()) for w in re.split(r",? or |, ", m["list"])]
+    if len(words) < 2 or any(re.search(r"\b(?:less|more|greater|that|who|which)\b|\d", w) for w in words):
+        return None
+    sels = []
+    for w in words:
+        sel = selectors.parse(w if w.endswith(" card") or " card " in w or w.startswith("card ") else f"{w} card")
+        if sel is None or sel.player is not None or not sel.card:
+            raise _Fail
+        sels.append(sel.key())
+    return [{"do": "pick_looked", "n": 1, "sel": None, "sels": sels, "to": "hand", "optional": True, "reveal": True}], None
+
+
 def _rest(where: str) -> dict[str, Any]:
     if where.startswith("into "):
         to = where.split()[-1]
@@ -917,7 +940,7 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         do = "look_top" if m["verb"] == "reveal" else "exile_top"
         return [{"do": do, "n": 0, "player": who, "until": _card_sel(m["sel"]), **({"reveal": True} if do == "look_top" else {})}], \
             _one(group)
-    kinds = _pick_kinds(text)  # -- refused look/cast-free (wave 3R5) --
+    kinds = _pick_kinds(text) or _pick_alts(text)  # -- refused look/cast-free (wave 3R5) -- (_pick_alts: wave 16F)
     if kinds is not None:
         return kinds
     m = _PICK.fullmatch(text)
