@@ -126,6 +126,48 @@ def test_a_quoted_ability_that_ends_its_clause_without_a_period_is_granted(cards
     check(s)
 
 
+def test_an_aura_stops_activated_abilities_but_not_mana_abilities(cards):
+    # 602.2 / 605.1a: Faith's Fetters on a creature with a mana ability and a pump ability; 702.122: Bound in Gold's crew rule
+    from app.game.errors import ActionError
+    from tests.test_rules_combat import automate, creature, table
+
+    s = table(cards)
+    elf = creature(s, "p1", "Elf", "1/1", "{T}: Add {G}.\n{1}: This creature gets +1/+0 until end of turn.")
+    act(s, "p1", type="create_token", player="p1", token={
+        "name": "Fetters", "type_line": "Token Enchantment — Aura", "power": None, "toughness": None, "colors": [],
+        "text": "Enchant permanent\nEnchanted permanent can't attack or block, and its activated abilities can't be activated "
+                "unless they're mana abilities."})
+    aura = next(c for c in s.state.cards.values() if c.name == "Fetters")
+    act(s, "p1", type="attach", card_ids=[aura.id], to=elf.id)
+    automate(s)  # (the Elf can't attack: no attackers are asked for)
+    mana(s, "p1", C=1)
+    with pytest.raises(ActionError, match="unless they're mana abilities"):
+        act(s, "p1", type="activate_ability", card_id=elf.id, ability=1)
+    act(s, "p1", type="activate_ability", card_id=elf.id, ability=0, mana_choice="G")
+    assert s.state.cards[elf.id].tapped
+    check(s)
+
+
+def test_plus_one_for_each_of_its_colors_counts_the_modified_creatures_colors(cards):
+    # 105.1 / 613.4c / 611.3a: Blessing of the Nephilim, read for the creature it enchants whenever its characteristics are
+    from app.rules import sba
+    from app.rules.plan import Plan
+
+    s = build(cards)
+    for name, colors, expect in (("Mono", ["G"], (3, 3)), ("Duo", ["G", "W"], (4, 4)), ("Gray", [], (2, 2))):
+        act(s, "p1", type="create_token", player="p1", token={
+            "name": name, "type_line": "Token Creature — Test", "power": "2", "toughness": "2", "colors": colors, "text": ""})
+        c = next(c for c in s.state.cards.values() if c.name == name)
+        act(s, "p1", type="create_token", player="p1", token={
+            "name": f"Blessing {name}", "type_line": "Token Enchantment — Aura", "power": None, "toughness": None, "colors": [],
+            "text": "Enchant creature\nEnchanted creature gets +1/+1 for each of its colors."})
+        aura = next(c for c in s.state.cards.values() if c.name == f"Blessing {name}")
+        act(s, "p1", type="attach", card_ids=[aura.id], to=c.id)
+        ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])
+        assert (sba.power(s.state.cards[c.id], ch), sba.toughness(s.state.cards[c.id], ch)) == expect
+    check(s)
+
+
 def test_sentences_inside_a_granted_quote_are_the_quotes_own():
     from app.rules import statics
 

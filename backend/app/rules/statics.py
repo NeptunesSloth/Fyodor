@@ -121,6 +121,10 @@ def _num(word: str) -> int | None:
 def parse(text: str) -> Definition | None:
     """One static ability sentence (the card's own name already written as ~) → definition, or None."""
     t = text.strip().replace("’", "'").replace("“", '"').replace("”", '"')
+    # -- attached events (wave 16F) -- "Enchanted permanent can't attack, block, or crew Vehicles. Its activated abilities can't be
+    # activated unless they're mana abilities." (Intercessor's Arrest): the two sentences are one static's two rules
+    t = t.replace(" be activated unless they're mana abilities", " be activated-nonmana")  # ("unless" is not a condition here)
+    t = re.sub(r"(?<=Vehicles)\. Its (activated abilities can't be activated-nonmana\.)$", r", and its \1", t)
     if not t.endswith(".") and not t.endswith('."'):
         return None
     if re.sub(r'"[^"]*"', "", t).count(". ") or "\n" in t:  # (wave 16F: sentences inside a quoted granted ability are its own)
@@ -421,6 +425,8 @@ def _attached_relative(each: str) -> dict[str, Any] | None:
 
 
 def _relative_count(each: str) -> dict[str, Any] | None:
+    if each == "of its colors":  # -- attached events (wave 16F) -- 105.1: the colors of the object modified (Civic Saber)
+        return {"relative": "colors"}
     m = _SHARING.match(each) or _SAME_NAME.match(each)
     if m is None:
         return None
@@ -558,6 +564,7 @@ def _pieces(predicate: str) -> list[str]:
     quoted = False
     i = 0
     predicate = predicate.replace("power and toughness", "power_and_toughness")
+    predicate = predicate.replace("can't attack, block, or crew Vehicles", "can't attack,_block,_or_crew_Vehicles")  # (wave 16F)
     predicate = predicate.replace("Aura and Equipment", "Aura_and_Equipment")  # (wave 6C: one count, values._ATTACHED_TO)
     predicate = re.sub(r"(for each [^,\"]*?) and each ", r"\1 and_each ", predicate)  # (wave 15A: one sum, values._parse_count)
     while i < len(predicate):
@@ -579,7 +586,8 @@ def _pieces(predicate: str) -> list[str]:
         i += 1
     out.append(buf.strip())
     return [p.replace("power_and_toughness", "power and toughness").replace("Aura_and_Equipment", "Aura and Equipment")
-            .replace(" and_each ", " and each ") for p in out if p]
+            .replace(" and_each ", " and each ").replace("attack,_block,_or_crew_Vehicles", "attack, block, or crew Vehicles")
+            for p in out if p]
 
 
 def _predicate(predicate: str, x_value: values.Value | None = None, it: str | None = None) -> dict[str, Any] | None:
@@ -719,6 +727,9 @@ RULES: dict[str, tuple[str, ...]] = {
     "don't untap during their controller's untap step": ("doesnt_untap",),
     "its activated abilities can't be activated": ("cant_activate",),
     "their activated abilities can't be activated": ("cant_activate",),
+    # -- attached events (wave 16F) -- 602.2: not the mana abilities (605.1a); 702.122: a creature that can't crew a Vehicle
+    "its activated abilities can't be activated-nonmana": ("cant_activate_nonmana",),
+    "can't attack, block, or crew Vehicles": ("cant_attack_or_block", "cant_crew"),
 }
 # -- keyword actions & face-down (wave 3F) -- "Enchanted creature gets +2/+2 and is goaded.", "Creatures your
 # opponents control with power less than ~'s power are goaded." (701.15b: goaded by the controller of the

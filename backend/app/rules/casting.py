@@ -2222,7 +2222,8 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
         return max(0, power(c, plan.ch(c)) or 0)
 
     candidates = [c.id for c in plan.state.cards.values() if c.zone == card.zone and c.controller == plan.actor
-                  and c.id != card.id and not c.tapped and plan.in_game(c) and plan.ch(c).is_creature]
+                  and c.id != card.id and not c.tapped and plan.in_game(c) and plan.ch(c).is_creature
+                  and "cant_crew" not in plan.ch(c).imposed]  # (wave 16F: Bound in Gold, 702.122)
     if sum(crew_power_of(c) for c in candidates) < n:
         raise ActionError(f"{ch.name}: you don't control untapped creatures with total power {n} or greater")
     if a.crew is None:
@@ -2509,6 +2510,8 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if "cant_activate" in ch.imposed:  # an Aura: "its activated abilities can't be activated" (crew, equip too)
         raise ActionError(f"{ch.name}’s activated abilities can't be activated")
     ability = _find_ability(ch, a.ability)
+    if "cant_activate_nonmana" in ch.imposed and ability.kind != "mana":  # -- attached events (wave 16F) -- Faith's Fetters (605.1a)
+        raise ActionError(f"{ch.name}’s activated abilities can't be activated unless they're mana abilities")
     _activation_limit(plan, card, ch, mana=ability.kind == "mana", loyalty=ability.kind == "loyalty")  # -- cast limits (wave 5E) --
     n = crew_power(ch, a.ability) if not plan.manual(card) else None
     if n is not None:
@@ -2682,7 +2685,7 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         return "You can only activate abilities of permanents you control"
     if cost.unsupported:
         return f"Pay “{', '.join(cost.unsupported)}” by hand with the table tools"
-    if "cant_activate" in ch.imposed:
+    if "cant_activate" in ch.imposed or ("cant_activate_nonmana" in ch.imposed and ability.kind != "mana"):
         return f"{ch.name}’s activated abilities can't be activated"
     # -- cast limits (wave 5E) -- (602.5)
     from app.rules import cast_limits
@@ -2911,7 +2914,7 @@ def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteris
     for c in state.cards.values():
         if c.zone == card.zone and c.controller == player and c.id != card.id and not c.tapped:
             cch = derive(state, c, chars.of(c, info), info)
-            if cch.is_creature:
+            if cch.is_creature and "cant_crew" not in cch.imposed:
                 total += max(0, power(c, cch) or 0)
     return total >= n
 

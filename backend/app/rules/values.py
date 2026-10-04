@@ -561,6 +561,8 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
         return sum(1 for c in plan.state.cards.values() if c.attached_to == card.id and c.zone.endswith(":battlefield")
                    and plan.in_game(c) and kinds & plan.ch(c).subtypes)
     mine = plan.ch(card)
+    if v["relative"] == "colors":
+        return len(mine.colors)
     if v["relative"] == "creature_type":
         want = mine.subtypes & CREATURE_TYPES
         if not want:
