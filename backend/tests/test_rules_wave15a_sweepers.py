@@ -34,6 +34,10 @@ EXTRA = [
     card("Test Relic", set_code="tst", number="A08", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
     card("Test Legend", set_code="tst", number="A09", mana_cost="{1}{G}", cmc=2.0, type_line="Legendary Creature — Elf", power="1",
          toughness="1", colors=["G"], color_identity=["G"], oracle_text=""),
+    card("Broken Wings", set_code="tst", number="A11", mana_cost="{2}{G}", cmc=3.0, type_line="Instant", colors=["G"],
+         color_identity=["G"], oracle_text="Destroy target artifact, enchantment, or creature with flying."),
+    card("Test Flyer", set_code="tst", number="A12", mana_cost="{1}{U}", cmc=2.0, type_line="Creature — Bird", power="2",
+         toughness="2", colors=["U"], color_identity=["U"], oracle_text="Flying"),
     card("Test Pest", set_code="tst", number="A10", mana_cost="{1}{G}", cmc=2.0, type_line="Creature — Elf", power="3", toughness="3",
          colors=["G"], color_identity=["G"], oracle_text=""),
 ]
@@ -114,4 +118,24 @@ def test_winds_of_rath_spares_enchanted_creatures(cards):
     act(s, "p1", type="attach", card_ids=[aura.id], to=big.id)
     cast(s, "Winds of Rath", C=3, W=2)
     assert zone(s, "Test Big") == "p1:battlefield" and zone(s, "Test Small") == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_broken_wings_the_qualifier_binds_to_creatures_only(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, p1=("Broken Wings",), p2=("Test Relic", "Test Flyer", "Test Small"))
+    for n in ("Test Relic", "Test Flyer", "Test Small"):
+        put(s, n, "battlefield", "p2")
+    wings = hand(s, "Broken Wings")
+    mana(s, G=1, C=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=wings.id, targets=[next(c.id for c in s.state.cards.values() if c.name == "Test Small")])
+    for name in ("Test Relic", "Test Flyer"):
+        act(s, "p1", type="cast_spell", card_id=wings.id, targets=[next(c.id for c in s.state.cards.values() if c.name == name)])
+        answer(s)
+        assert zone(s, name, "p2") == "p2:graveyard"
+        wings = put(s, "Broken Wings", "hand")
+        mana(s, G=1, C=2)
+    assert zone(s, "Test Small", "p2") == "p2:battlefield"
     roundtrip(s)

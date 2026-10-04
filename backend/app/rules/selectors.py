@@ -106,6 +106,9 @@ class Selector:
     # an activated or triggered ability on the stack (115.1c-d, 115.2b: "target activated or
     # triggered ability"): "any" | "activated" | "triggered". Mana abilities never use the stack.
     ability: str | None = None
+    # -- static grants (wave 15A) -- "artifact, enchantment, or creature with flying": any of these selectors (keys), the qualifier
+    # belonging to the last kind only. Only target phrases are read this way (parse_either); other consumers never see it.
+    either: tuple[str, ...] = ()
 
     def key(self) -> str:
         """Canonical and compact: only fields that differ from the defaults."""
@@ -755,6 +758,21 @@ def _outlaws(phrase: str) -> Selector | None:
     return replace(base, extras=(*base.extras, "subtype_any:" + OUTLAW_TYPES)) if base is not None else None
 
 
+_EITHER = re.compile(r"^(?P<head>[a-z]+(?:, [a-z]+)*),? or (?P<last>[a-z]+ (?:with|without) .+)$")
+
+
+def parse_either(phrase: str) -> Selector | None:
+    """"artifact, enchantment, or creature with flying" (a target phrase: 115.1): an artifact, an enchantment, or a creature with
+    flying — the qualifier is the last kind's only."""
+    m = _EITHER.match(phrase.strip())
+    if m is None:
+        return None
+    a, b = _parse(m["head"]), _parse(m["last"])
+    if a is None or b is None or a.player or b.player or a.zones != ("battlefield",) or b.zones != ("battlefield",):
+        return None
+    return Selector(either=(a.key(), b.key()))
+
+
 @lru_cache(maxsize=8192)
 def _parse(phrase: str) -> Selector | None:
     if "outlaw" in phrase:
@@ -978,6 +996,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     zone = card.zone.split(":")[-1] if ":" in card.zone else card.zone
     if sel.player is not None:
         return False
+    if sel.either:  # (wave 15A) any one of the alternatives
+        return zone == "battlefield" and any(matches(plan, from_key(k), card, ch, you, source, attacker) for k in sel.either)
     if sel.zones and zone not in sel.zones:
         return False
     if not sel.zones and zone in ("battlefield", "stack"):

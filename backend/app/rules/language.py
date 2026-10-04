@@ -193,7 +193,7 @@ def _target_key(phrase: str) -> str:
     m = re.match(r"^(another )?target (.+)$", phrase)
     if not m:
         raise _Fail
-    sel = selectors.parse(("another " if m[1] else "") + m[2])
+    sel = selectors.parse(("another " if m[1] else "") + m[2]) or (None if m[1] else selectors.parse_either(m[2]))  # (wave 15A)
     if sel is None:
         raise _Fail
     return sel.key()

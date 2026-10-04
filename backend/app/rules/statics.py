@@ -93,6 +93,10 @@ GRANTABLE_KEYWORDS: frozenset[str] = frozenset({
 # ability of the object like a printed one (scripts.keyword_triggers: prowess 702.108a, persist 702.79a, undying
 # 702.93a; triggers._exalted: exalted 702.83a, each instance triggering separately, 702.83b / 702.108b)
 TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "undying"})
+# -- static grants (wave 15A) -- keywords whose whole meaning is one triggered ability (keyword_triggers.MEANINGS): granted as the
+# line itself (613.1f). Not modular / graft / living weapon / for mirrodin! / ravenous: those have a half that works as the
+# permanent enters (a granted one would miss it).
+MEANING_GRANTS = r"extort|battle cry|ingest|(?:poisonous|frenzy|afterlife|annihilator|afflict) \d+"
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
                      "enchanted permanent": "permanent", "enchanted artifact": "artifact",
@@ -645,8 +649,8 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         if rest in GRANTABLE_KEYWORDS:
             keywords.append(rest)
             continue
-        if rest in TRIGGERED_GRANTS:  # -- static wordings (wave 6E) --
-            grants.append(rest.capitalize())
+        if rest in TRIGGERED_GRANTS or re.fullmatch(MEANING_GRANTS, rest):  # -- static wordings (wave 6E) --
+            grants.append(rest.capitalize())  # (wave 15A: "have extort", "have afflict 2": their CR meaning, keyword_triggers)
             continue
         line = keyword_line(rest.replace(_FROM_JOIN, " and from "))  # -- attached events (wave 4L) --
         if line is not None:

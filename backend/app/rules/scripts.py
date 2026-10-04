@@ -2540,6 +2540,8 @@ def granted_ability(text: str) -> AbilityText | None:
         from app.rules import statics
 
         line = ab.text.rstrip(".")  # -- protection grants (wave 5E) -- (a resolved grant's text ends with a period)
+        if re.fullmatch(statics.MEANING_GRANTS, line.lower()):  # -- static grants (wave 15A) -- "Extort", "Afflict 2": their CR meaning
+            return ab
         return ab if statics.keyword_line(line[0].lower() + line[1:]) == line else None
     probe = Characteristics(name="\u0000", abilities=(ab,))
     return ab if define(ab, probe) is not None else None
