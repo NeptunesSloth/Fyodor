@@ -55,6 +55,9 @@ EXTRA = [
          toughness="2", colors=["U"], color_identity=["U"], oracle_text="Your maximum hand size is increased by two."),
     card("Silent Arbiter", set_code="tst", number="B16", mana_cost="{4}", cmc=4.0, type_line="Artifact Creature — Construct", power="1",
          toughness="5", oracle_text="No more than one creature can attack each combat.\nNo more than one creature can block each combat."),
+    card("Deep Analysis", set_code="tst", number="B19", mana_cost="{3}{U}", cmc=4.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
+         oracle_text="Target player draws two cards.\nFlashback—{1}{U}, Pay 3 life. (You may cast this card from your graveyard for "
+         "its flashback cost. Then exile it.)"),
     card("Darkblast", set_code="tst", number="B17", mana_cost="{B}", cmc=1.0, type_line="Instant", colors=["B"], color_identity=["B"],
          oracle_text="Target creature gets -1/-1 until end of turn.\nDredge 3 (If you would draw a card, you may instead mill three "
          "cards and return this card from your graveyard to your hand.)"),
@@ -343,3 +346,24 @@ def test_dredge_needs_at_least_n_cards_in_the_library(cards):
     s = divination(cards, library_size=2)  # (two cards left: Dredge 3 can't be used)
     answer(s)
     assert s.state.rules.decision is None and find(s, "Darkblast").zone == "p1:graveyard"
+
+
+def test_flashback_cost_with_life_is_paid_with_the_mana_and_the_card_is_exiled(cards):
+    s = build(cards, p1=("Deep Analysis",))
+    c = put(s, "Deep Analysis", "graveyard")
+    life, hand = s.state.players["p1"].life, hand_size(s, "p1")
+    mana(s, C=1, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p1"])  # (702.34a: its flashback cost; the mana cost {3}{U} isn't paid)
+    answer(s)
+    assert s.state.players["p1"].life == life - 3 and hand_size(s, "p1") == hand + 2
+    assert find(s, "Deep Analysis").zone == "p1:exile"  # 702.34a
+    roundtrip(s)
+
+
+def test_flashback_with_life_cannot_be_paid_without_the_life(cards):
+    s = build(cards, p1=("Deep Analysis",))
+    c = put(s, "Deep Analysis", "graveyard")
+    s.state.players["p1"].life = 2
+    mana(s, C=1, U=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=c.id, targets=["p1"])

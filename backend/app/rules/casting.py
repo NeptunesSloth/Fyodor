@@ -1285,14 +1285,42 @@ def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, 
 FLASHBACK = re.compile(r"^flashback (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
+# -- static_other sweep (wave 16B) -- 702.34a: a flashback cost with other parts: "Flashback—{1}{U}, Pay 3 life.", "Flashback—Sacrifice a
+# creature.", "Flashback—Tap three untapped white creatures you control." — the parts alt_costs reads (never X, "behold", loyalty counters)
+FLASHBACK_MORE = re.compile(r"^flashback—(?P<mana>(?:\{[^}]+\})+)?(?:, )?(?P<rest>[^{}]+)$", re.IGNORECASE)
+
+
+def flashback_parts(text: str) -> tuple[str, AbilityCost | None] | None:
+    """The flashback line's (mana cost, other cost parts) — "{0}" when it has no mana — or None when a part isn't read."""
+    from app.rules import alt_costs
+
+    t = text.strip().rstrip(".")
+    if (m := FLASHBACK.fullmatch(t)) is not None:
+        return m["cost"], None
+    m = FLASHBACK_MORE.fullmatch(t)
+    if m is None:
+        return None
+    parts = [alt_costs._part(p.strip()) for p in m["rest"].split(", ")]
+    if any(p is None or isinstance(p, str) or getattr(p, "x", False) for p in parts):
+        return None
+    comps = tuple(p for p in parts if not isinstance(p, str) and p is not None)
+    return m["mana"] or "{0}", AbilityCost(components=comps, life=sum(c.amount for c in comps if c.kind == costs.PAY_LIFE))
+
+
 def flashback_cost(ch: Characteristics) -> str | None:
-    """702.34: the mana flashback cost printed on the card ("Flashback {2}{R}"), or None.
-    Flashback with other costs ("Flashback—Sacrifice …") stays manual."""
+    """702.34: the mana part of the flashback cost printed on the card ("Flashback {2}{R}"), or None (``flashback_extra``: the
+    other parts of "Flashback—{1}{U}, Pay 3 life")."""
     for ab in ch.abilities:
-        if ab.kind == "keywords" and "flashback" in ab.keywords:
-            m = FLASHBACK.fullmatch(ab.text.strip().rstrip("."))
-            if m:
-                return m["cost"]
+        if ab.kind == "keywords" and "flashback" in ab.keywords and (found := flashback_parts(ab.text)) is not None:
+            return found[0]
+    return None
+
+
+def flashback_extra(ch: Characteristics) -> AbilityCost | None:
+    """-- static_other sweep (wave 16B) -- the non-mana parts of the flashback cost, paid with the mana (118.9a, 601.2h)."""
+    for ab in ch.abilities:
+        if ab.kind == "keywords" and "flashback" in ab.keywords and (found := flashback_parts(ab.text)) is not None:
+            return found[1]
     return None
 
 
@@ -1829,6 +1857,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         add_cost = either if either.components else None
     if alt_offer is not None:  # -- cost changers (wave 4I) -- its other parts are paid with the rest (601.2h)
         add_cost = alt_costs.merged(add_cost, alt_offer.alt.cost)
+    if grant is not None and grant.how == "flashback" and not escaping and (fb_more := flashback_extra(ch)) is not None \
+            and card.zone == zone_key(plan.actor, "graveyard"):  # -- static_other sweep (wave 16B) -- the flashback cost's other parts
+        add_cost = alt_costs.merged(add_cost, fb_more)
     if optional:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(components=tuple(
             costs.CostComponent(costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life") for o in optional)))

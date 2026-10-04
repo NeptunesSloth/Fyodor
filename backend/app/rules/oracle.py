@@ -103,6 +103,8 @@ def keyword_name(piece: str) -> str | None:
 def _keywords_line(line: str) -> tuple[str, ...] | None:
     if re.fullmatch(r"partner with [^;.]+", line.strip(), re.IGNORECASE):  # -- keyword pieces (wave 8A) -- 702.124j: the name has a comma
         return ("partner",)
+    if re.fullmatch(r"flashback—.+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 16B) -- 702.34a: "Flashback—{1}{U}, Pay 3 life."
+        return ("flashback",)  # (one keyword: the comma is inside its cost)
     pieces = [p for p in re.split(r"[,;]\s*", line) if p.strip()]
     names = [keyword_name(p) for p in pieces]
     if names and all(names):
