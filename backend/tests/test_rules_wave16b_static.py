@@ -88,6 +88,9 @@ EXTRA = [
     card("Hungry Graffalon", set_code="tst", number="B29", mana_cost="{3}{G}", cmc=4.0, type_line="Creature — Giraffe", power="3",
          toughness="4", colors=["G"], color_identity=["G"], oracle_text="Reach\nIncrement (Whenever you cast a spell, if the amount "
          "of mana you spent is greater than this creature's power or toughness, put a +1/+1 counter on this creature.)"),
+    card("Pop Quiz", set_code="tst", number="B30", mana_cost="{1}{U}", cmc=2.0, type_line="Sorcery — Lesson", colors=["U"],
+         color_identity=["U"], oracle_text="Draw a card.\nLearn. (You may reveal a Lesson card you own from outside the game and put it "
+         "into your hand, or discard a card to draw a card.)"),
     card("Deep Analysis", set_code="tst", number="B19", mana_cost="{3}{U}", cmc=4.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
          oracle_text="Target player draws two cards.\nFlashback—{1}{U}, Pay 3 life. (You may cast this card from your graveyard for "
          "its flashback cost. Then exile it.)"),
@@ -550,4 +553,17 @@ def test_increment_counts_the_mana_spent_against_the_smaller_of_power_and_toughn
     act(s, "p1", type="cast_spell", card_id=f.id)
     answer(s)
     assert s.state.cards[g.id].counters.get("+1/+1") == 1  # 702.190a
+    roundtrip(s)
+
+
+def test_learn_is_the_rummage_without_cards_outside_the_game(cards):
+    s = build(cards, p1=("Pop Quiz",))
+    c = put(s, "Pop Quiz", "hand")
+    fill(s, "p1", 2)
+    hand = hand_size(s, "p1")
+    mana(s, C=1, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)  # draws a card, discards one to draw one (701.48a: the Lesson reveal needs a card outside the game)
+    assert hand_size(s, "p1") == hand - 1 + 1  # the spell leaves, one card drawn, one discarded and one drawn
+    assert sum(1 for x in s.state.cards.values() if x.zone == "p1:graveyard") == 2  # the spell and the discarded card
     roundtrip(s)
