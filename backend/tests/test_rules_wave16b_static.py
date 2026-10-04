@@ -55,6 +55,16 @@ EXTRA = [
          toughness="2", colors=["U"], color_identity=["U"], oracle_text="Your maximum hand size is increased by two."),
     card("Silent Arbiter", set_code="tst", number="B16", mana_cost="{4}", cmc=4.0, type_line="Artifact Creature — Construct", power="1",
          toughness="5", oracle_text="No more than one creature can attack each combat.\nNo more than one creature can block each combat."),
+    card("Wear // Tear", set_code="tst", number="B20", layout="split", mana_cost="{1}{R} // {W}", cmc=3.0, type_line="Instant // Instant",
+         colors=["R", "W"], color_identity=["R", "W"], image_uris=None,
+         card_faces=[
+             {"object": "card_face", "name": "Wear", "mana_cost": "{1}{R}", "type_line": "Instant", "colors": ["R"],
+              "oracle_text": "Destroy target artifact.\nFuse (You may cast one or both halves of this card from your hand.)"},
+             {"object": "card_face", "name": "Tear", "mana_cost": "{W}", "type_line": "Instant", "colors": ["W"],
+              "oracle_text": "Destroy target enchantment.\nFuse (You may cast one or both halves of this card from your hand.)"}]),
+    card("Test Relic", set_code="tst", number="B21", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
+    card("Test Aura Wall", set_code="tst", number="B22", mana_cost="{1}{W}", cmc=2.0, type_line="Enchantment", colors=["W"],
+         color_identity=["W"], oracle_text=""),
     card("Deep Analysis", set_code="tst", number="B19", mana_cost="{3}{U}", cmc=4.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
          oracle_text="Target player draws two cards.\nFlashback—{1}{U}, Pay 3 life. (You may cast this card from your graveyard for "
          "its flashback cost. Then exile it.)"),
@@ -367,3 +377,37 @@ def test_flashback_with_life_cannot_be_paid_without_the_life(cards):
     mana(s, C=1, U=1)
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=c.id, targets=["p1"])
+
+
+def test_fuse_casts_both_halves_for_both_costs_and_follows_left_then_right(cards):
+    s = build(cards, p1=("Wear // Tear", "Test Relic"), p2=("Test Aura Wall",))
+    relic = put(s, "Test Relic", "battlefield")
+    wall = put(s, "Test Aura Wall", "battlefield", "p2")
+    c = put(s, "Wear // Tear", "hand")
+    mana(s, C=1, R=1, W=1)  # {1}{R} for Wear and {W} for Tear (702.102c)
+    act(s, "p1", type="cast_spell", card_id=c.id, fuse=True, targets=[relic.id, wall.id], target_counts=[1, 1])
+    answer(s)
+    assert find(s, "Test Relic").zone == "p1:graveyard" and find(s, "Test Aura Wall", "p2").zone == "p2:graveyard"
+    roundtrip(s)
+
+
+def test_fuse_only_from_the_hand_and_only_with_fuse(cards):
+    s = build(cards, p1=("Wear // Tear", "Consign // Oblivion"))
+    mana(s, C=2, R=1, W=1, U=1, B=3)
+    g = put(s, "Wear // Tear", "graveyard")
+    with pytest.raises(ActionError):  # 702.102a: the card with fuse is in a player's hand
+        act(s, "p1", type="cast_spell", card_id=g.id, fuse=True, targets=[])
+    h = put(s, "Consign // Oblivion", "hand")
+    with pytest.raises(ActionError):  # no fuse on it
+        act(s, "p1", type="cast_spell", card_id=h.id, fuse=True, targets=[])
+
+
+def test_a_fuse_card_still_casts_one_half(cards):
+    s = build(cards, p1=("Wear // Tear",), p2=("Test Aura Wall",))
+    wall = put(s, "Test Aura Wall", "battlefield", "p2")
+    c = put(s, "Wear // Tear", "hand")
+    mana(s, W=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, face=1, targets=[wall.id])  # Tear alone, for {W}
+    answer(s)
+    assert find(s, "Test Aura Wall", "p2").zone == "p2:graveyard" and find(s, "Wear // Tear").zone == "p1:graveyard"
+    roundtrip(s)

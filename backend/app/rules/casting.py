@@ -1741,7 +1741,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     card = plan.state.cards.get(a.card_id)
     if card is None:
         raise ActionError("That card isn't here any more")
-    ch = chars.as_cast(card, plan.info, a.face)  # split cards / adventures: the half being cast
+    ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
+    if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
+        raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")
     if a.alt_cost is not None and (a.free or a.evoke or a.dash or a.face_down):  # -- cost changers (wave 4I) --
         raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
     if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted

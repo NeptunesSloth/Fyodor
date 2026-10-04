@@ -57,6 +57,11 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   if (mine && zone === "hand" && dash) {
     items.push({ label: `Cast with ${dash}`, onClick: () => void send({ type: "cast_spell", card_id: card.id, dash: true }) });
   }
+  // 702.102a: a split card with fuse may be cast as both halves from the hand (one fused split spell).
+  if (mine && zone === "hand" && abilityLines(oracle).some((l) => /^fuse\b/i.test(l))) {
+    items.push({ label: "Cast both halves (fuse)", disabled: !hints.castable?.includes(card.id),
+      onClick: () => void send({ type: "cast_spell", card_id: card.id, fuse: true }) });
+  }
   const buyback = abilityLines(oracle).find((l) => /^buyback \{/i.test(l));
   if (mine && zone === "hand" && buyback) {
     items.push({ label: `Cast with ${buyback}`, disabled: !hints.castable?.includes(card.id),
