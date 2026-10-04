@@ -342,6 +342,11 @@ def test_read_redirections(text):
     assert all(supported(text)), text
 
 
+def test_the_chosen_color_needs_the_permanents_own_choice():
+    assert not all(supported(STORY_CIRCLE)), "no 'choose a color' as it enters: the choice isn't known"
+    assert not all(supported(PRISMATIC_WARD))
+
+
 @pytest.mark.parametrize("text", [
     # two targets, a source's controller, an opponent's choice of the target, an optional redirection
     "{1}: The next 1 damage that would be dealt to target creature this turn is dealt to another target creature instead.",
@@ -451,7 +456,8 @@ PRISMATIC_WARD = "Prevent all damage that would be dealt to enchanted creature b
 STRANDS = "{1}: Prevent all damage that sources of the color of your choice would deal this turn."  # Prismatic Strands (as an ability)
 
 
-@pytest.mark.parametrize("text", [PURITY, SWANS, STORY_CIRCLE, PRISMATIC_WARD, STRANDS,
+@pytest.mark.parametrize("text", [PURITY, SWANS, "As this enchantment enters, choose a color.\n" + STORY_CIRCLE,
+                                  "As this Aura enters, choose a color.\n" + PRISMATIC_WARD, STRANDS,
                                   "{1}: Prevent all damage that would be dealt to another target creature this turn by sources of "
                                   "the color of your choice."])  # Avacyn, Guardian Angel
 def test_read_chosen_colors_and_you(text):
@@ -480,12 +486,12 @@ def test_swans_draw_for_the_prevented_damage(cards):
 
 def test_story_circle_uses_the_chosen_color(cards):
     s = build(cards)
-    circle = permanent(s, "p1", "Story Circle", "Enchantment", STORY_CIRCLE)
+    circle = permanent(s, "p1", "Story Circle", "Enchantment", "As this enchantment enters, choose a color.\n" + STORY_CIRCLE)
     act(s, "p1", type="set_choice", card_id=circle.id, key="Chosen color", value="Red")
     red = red_creature(s, "p1", "Pinger", "1/1", PINGER)
     green = token(s, "p1", "Grower", "1/1", "{1}: Grower deals 3 damage to any target.")
     act(s, "p1", type="add_mana", player="p1", mana={"W": 1})
-    act(s, "p1", type="activate_ability", card_id=circle.id, ability=0)
+    act(s, "p1", type="activate_ability", card_id=circle.id, ability=1)
     from tests.test_rules_effects import pass_until_stack_empty
 
     pass_until_stack_empty(s)
@@ -500,7 +506,7 @@ def test_story_circle_uses_the_chosen_color(cards):
 def test_prismatic_ward_and_prismatic_strands(cards):
     s = build(cards)
     bear = token(s, "p1", "Bear", "6/6")
-    ward = permanent(s, "p1", "Prismatic Ward", "Enchantment — Aura", PRISMATIC_WARD)
+    ward = permanent(s, "p1", "Prismatic Ward", "Enchantment — Aura", "As this Aura enters, choose a color.\n" + PRISMATIC_WARD)
     act(s, "p1", type="set_choice", card_id=ward.id, key="Chosen color", value="Red")
     act(s, "p1", type="attach", card_ids=[ward.id], to=bear.id)
     red = red_creature(s, "p1", "Pinger", "1/1", PINGER)
