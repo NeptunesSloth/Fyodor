@@ -1151,6 +1151,9 @@ def _cast_triggers(plan: Plan, spell_id: str, caster: str, batch: int = 0) -> No
         for i, d in abilities(plan, sch, "cast_self"):
             _add(plan, controller=caster, source_card=spell.id, source_object=plan.oid(spell), name=sch.name, index=i,
                  definition=d, event=cast.model_copy(deep=True))
+    from app.rules import mana_units
+
+    mana_units.cast_triggers(plan, spell, caster, cast)  # -- mana provenance (wave 18B) -- 106.6: "When that mana is spent to cast …"
     for watcher, ch, i, d in _watchers(plan, "cast_you"):
         if watcher.controller == caster and CAST_FILTERS[d.get("filter", "a spell")](sch):
             _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher), name=ch.name,

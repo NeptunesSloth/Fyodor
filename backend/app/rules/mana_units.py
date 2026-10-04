@@ -99,7 +99,7 @@ def settle(plan: Plan, player: str, payment: M.Payment) -> dict[str, Any]:
         card = state.cards[cid]
         ab = dict(mana_abilities(state, card, plan.info)).get(used.get(cid, -1))
         only = ab.spend_only if ab else None
-        riders = rider_specs(ab)
+        riders = rider_specs(ab, plan.ch(card).name)
         tags = tags_of(plan.ch(card))
         slots += [Slot(m, tags, only, riders, plan.oid(card)) for m in opt]
     delta: dict[str, int] = {}
@@ -124,11 +124,11 @@ def settle(plan: Plan, player: str, payment: M.Payment) -> dict[str, Any]:
     return {"delta": {k: v for k, v in delta.items() if v}, "spend_units": spend, "add_units": add}
 
 
-def rider_specs(ability: Any) -> list[dict[str, Any]]:
-    """The riders of a mana ability ("when that mana is spent …"), as the dicts units keep."""
+def rider_specs(ability: Any, name: str = "") -> list[dict[str, Any]]:
+    """The riders of a mana ability ("when that mana is spent …"), as the dicts units keep (``name``: its source, for the log)."""
     import json
 
-    return [json.loads(r) for r in getattr(ability, "on_spend", ())]
+    return [{**json.loads(r), "name": name} for r in getattr(ability, "on_spend", ())]
 
 
 def restrict(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -155,10 +155,106 @@ def added(plan: Plan, card: Any, ability: Any, mana: dict[str, int]) -> dict[str
     """The ``rules_mana`` fields that add the mana a source's mana ability produced (106.3): a plain count, or units when it is
     restricted, carries riders or comes from a source later rules ask about (see the module docstring)."""
     tags = tags_of(plan.ch(card))
-    riders = rider_specs(ability)
+    riders = rider_specs(ability, plan.ch(card).name)
     only = getattr(ability, "spend_only", None)
     if not needs_unit(plan, only, riders, tags):
         return {"delta": mana}
     src = plan.oid(card)
     return {"add_units": [{"sym": m, "src": src, "tags": tags, "only": only, "riders": riders}
                           for m, n in mana.items() for _ in range(n)]}
+
+
+# -- riders (106.6) -----------------------------------------------------------------------------------------------------------
+# "If that mana is spent on a creature spell, it gains haste." / "If that mana is spent on an instant or sorcery spell, that spell can't be
+# countered." / "… that creature enters with an additional +1/+1 counter on it." / "When that mana is spent to cast a red instant or sorcery
+# spell, copy that spell …": the mana carries the rider (a JSON dict: ``spell`` = the selector key of the spells it applies to, ``kind``);
+# when the mana pays for a spell that matches, ``pay_spell`` keeps the rider on the spell's payment record (``PaymentRecord.mana_riders``) and
+# it is carried out: "uncounterable" and "haste" / "counter" as the permanent enters (``replacements``), a "trigger" as a delayed trigger
+# (603.7) that goes on the stack above the spell (106.6; ``triggers._cast_triggers``). 106.6a: each mana carries its own, so two mana
+# of one source spent on one spell apply it twice.
+_IF_SPENT = re.compile(r"^If (?:that|any of that|this) mana is spent (?:on|to cast) (?P<f>.+?), (?P<e>.+)$")
+_WHEN_SPENT = re.compile(r"^When (?:that mana is spent|you spend this mana) to cast (?P<f>.+?), (?P<e>.+)$")
+_HASTE = re.compile(r"^(?:it|that creature) gains haste(?P<u> until end of turn)?$")
+_COUNTER = re.compile(r"^(?:that creature|it) enters with an additional \+1/\+1 counter on it$")
+
+
+def _spell_key(phrase: str) -> str | None:
+    from app.rules import events
+
+    cond = events.parse_condition("you cast " + phrase)
+    return cond["spell"] if cond is not None and cond.get("event") == "cast" and "spell" in cond else None
+
+
+def rider(sentence: str) -> str | None:
+    """A rider sentence of a mana ability as the JSON ``ManaAbility.on_spend`` keeps (None: not one the engine carries out)."""
+    import json
+
+    s = sentence.strip().rstrip(".")
+    if m := _IF_SPENT.fullmatch(s):
+        spell, e = _spell_key(m["f"]), m["e"]
+        if spell is None:
+            return None
+        if e == "that spell can't be countered":
+            return json.dumps({"kind": "uncounterable", "spell": spell}, sort_keys=True)
+        if h := _HASTE.fullmatch(e):
+            return json.dumps({"kind": "haste", "spell": spell, "until": "end_of_turn" if h["u"] else "permanent"}, sort_keys=True)
+        if _COUNTER.fullmatch(e):
+            return json.dumps({"kind": "counter", "spell": spell}, sort_keys=True)
+        return None
+    if m := _WHEN_SPENT.fullmatch(s):
+        from app.rules import scripts
+
+        spell = _spell_key(m["f"])
+        found = scripts.parse_effects(m["e"][:1].upper() + m["e"][1:] + ".", it="event_spell", event_player=False) if spell else None
+        if found is None or found[1] is not None or found[2]:
+            return None  # (a target or a "you may" of its own: not carried out)
+        return json.dumps({"kind": "trigger", "spell": spell, "effects": found[0]}, sort_keys=True)
+    return None
+
+
+def matching(plan: Plan, riders: list[tuple[str, dict[str, Any]]], card: Any, ch: Any, player: str) -> list[dict[str, Any]]:
+    """The riders of the mana spent that apply to this spell (their selector matches it), each with the object that produced the mana."""
+    from app.rules import selectors
+
+    return [{"src": src, **r} for src, r in riders
+            if selectors.matches(plan, selectors.from_key(r["spell"]), card, ch, player, None)]
+
+
+def record_of(plan: Plan, card: Any) -> Any:
+    return plan.rules.payments.get(plan.oid(card))
+
+
+def uncounterable(plan: Plan, card: Any) -> bool:
+    """106.6: mana spent on it carried "that spell can't be countered"."""
+    rec = record_of(plan, card)
+    return rec is not None and any(r["kind"] == "uncounterable" for r in rec.mana_riders)
+
+
+def entering_counters(plan: Plan, card: Any) -> int:
+    """The additional +1/+1 counters mana spent on this permanent spell gives it as it enters (one per rider, 106.6a)."""
+    rec = record_of(plan, card)
+    return sum(1 for r in rec.mana_riders if r["kind"] == "counter") if rec is not None else 0
+
+
+def entered(plan: Plan, card: Any, controller: str) -> None:
+    """The permanent spell entered: "it gains haste" riders (permanent, or until end of turn)."""
+    from app.rules import layers
+
+    rec = record_of(plan, card)
+    for r in (rec.mana_riders if rec is not None else ()):
+        if r["kind"] == "haste":
+            layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller, add_keywords=("haste",),
+                              duration="permanent" if r.get("until") == "permanent" else "end_of_turn",
+                              label=f"Haste ({r.get('name') or 'mana'})")
+
+
+def cast_triggers(plan: Plan, spell: Any, caster: str, cast: Any) -> None:
+    """"When that mana is spent to cast …, …": a delayed trigger per rider (603.7), on the stack above the spell."""
+    from app.rules.triggers import _add
+
+    rec = record_of(plan, spell)
+    for k, r in enumerate(rec.mana_riders if rec is not None else ()):
+        if r["kind"] == "trigger":
+            _add(plan, controller=caster, source_card=spell.id, source_object=r["src"], name=r.get("name") or spell.name, index=7200 + k,
+                 definition={"kind": "triggered", "trigger": "mana_spent", "optional": False, "target": None, "effects": r["effects"]},
+                 event=cast.model_copy(deep=True))

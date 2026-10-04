@@ -1061,10 +1061,12 @@ def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristic
         plan.do({"type": "move", "card_ids": delved, "to": {"player": player, "zone": "exile"}}, actor=player)
     rest = P.remaining(cost, assignment)
     payment = pay(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose)
+    from app.rules import mana_units
+
     return PaymentRecord(card=card.id, controller=player, total_cost=cost.text(),
                          mana_spent=dict(payment.spent) if payment else {}, contributions=contributions,
                          mana_tags=payment.tags if payment else [],
-                         mana_riders=[{"src": s, **r} for s, r in payment.riders] if payment else [],
+                         mana_riders=mana_units.matching(plan, payment.riders, card, ch, player) if payment else [],
                          life=payment.life if payment else 0, tapped=list(payment.tapped) if payment else [],
                          sacrificed=list(payment.sacrificed) if payment else [], x=a.x_value)
 

@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -18,6 +19,7 @@ from typing import Any
 
 from app.rules import costs as _costs
 from app.rules import mana_riders as _mana_riders  # -- mana riders (wave 5A) --
+from app.rules import mana_units as _mana_units  # -- mana provenance (wave 18B) --
 from app.rules import removed_mana as _removed_mana  # -- if you do (wave 6F) --
 
 COLORS = ("W", "U", "B", "R", "G")
@@ -378,6 +380,7 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     if options is None:
         return None
     riders: list[tuple[str, int]] = []
+    on_spend: list[str] = []  # -- mana provenance (wave 18B) -- 106.6 riders (mana_units.rider)
     spend_only: str | None = None
     instead_if: tuple[tuple[str, ...], ...] = ()
     instead: tuple[tuple[str, ...], ...] = ()
@@ -425,7 +428,12 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             if more is None or len(more) != 1:
                 return None
             instead_if, instead = (PLAYED_LAND,), more
+        elif (rider_json := _mana_units.rider(s)) is not None:  # -- mana provenance (wave 18B) --
+            on_spend.append(rider_json)
         else:
+            if m_unc := re.fullmatch(r"(Spend this mana only to cast .+?), and that spell can't be countered", s):
+                s = m_unc.group(1)  # (Cavern of Souls, Delighted Halfling: the restriction and a rider on any spell it pays for)
+                on_spend.append(json.dumps({"kind": "uncounterable", "spell": "sel:{\"zones\":[\"stack\"]}"}, sort_keys=True))
             q = spend_kind(s)  # (-- refused copy/mana (wave 3R3) -- the general restriction grammar)
             if q is None or spend_only is not None:
                 return None  # a rider the engine doesn't know: leave the ability manual
@@ -435,7 +443,7 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
                        riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition,
                        count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter,
-                       from_hand=from_hand)
+                       from_hand=from_hand, on_spend=tuple(on_spend))
 
 
 @dataclass(frozen=True)

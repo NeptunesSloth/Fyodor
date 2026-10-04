@@ -52,6 +52,16 @@ EXTRA = [
     real("Spoils of the Hunt", "{2}{G}", 3, "Instant",
          "Target creature you control gets +1/+0 until end of turn for each mana from a Treasure that was spent to cast this spell. Then that "
          "creature deals damage equal to its power to target creature an opponent controls.", None, "G"),
+    real("Delighted Halfling", "{G}", 1, "Creature — Halfling Citizen",
+         "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can't be countered.",
+         ("1", "2"), "G"),
+    real("Isamaru, Hound of Konda", "{W}", 1, "Legendary Creature — Dog", "", ("2", "2"), "W"),
+    real("Hall of the Bandit Lord", "", 0, "Legendary Land",
+         "Hall of the Bandit Lord enters tapped.\n{T}, Pay 3 life: Add {C}. If that mana is spent on a creature spell, it gains haste."),
+    real("Scaled Nurturer", "{1}{G}", 2, "Creature — Dragon Druid",
+         "{T}: Add {G}. When you spend this mana to cast a Dragon creature spell, you gain 2 life.", ("1", "2"), "G"),
+    real("Pyromancer's Goggles", "{5}", 5, "Legendary Artifact",
+         "{T}: Add {R}. When that mana is spent to cast a red instant or sorcery spell, copy that spell and you may choose new targets for the copy."),
     real("Berg Strider", "{4}{U}", 5, "Snow Creature — Giant Wizard",
          "When this creature enters, tap target artifact or creature an opponent controls. If {S} was spent to cast this spell, that permanent "
          "doesn't untap during its controller's next untap step. ({S} is mana from a snow source.)", ("4", "4"), "U"),
@@ -60,7 +70,7 @@ EXTRA = [
          "At the beginning of your upkeep, add {C} for each artifact you control. This mana can't be spent to cast nonartifact spells. "
          "Until end of turn, you don't lose this mana as steps and phases end.", ("*", "*"), ""),
 ]
-FULL = ["Spoils of the Hunt", "Geosurge", "Grand Architect", "Master of Dark Rites", "Smaug, Wicked Worm", "Tundra Fumarole", "Coin of Mastery",
+FULL = ["Delighted Halfling", "Hall of the Bandit Lord", "Scaled Nurturer", "Pyromancer's Goggles", "Spoils of the Hunt", "Geosurge", "Grand Architect", "Master of Dark Rites", "Smaug, Wicked Worm", "Tundra Fumarole", "Coin of Mastery",
         "Jaded Sell-Sword", "Berg Strider", "Karn, Legacy Reforged"]
 
 
@@ -317,4 +327,102 @@ def test_spoils_of_the_hunt_counts_each_mana_from_a_treasure(cards):
     act(s, "p1", type="cast_spell", card_id=spell.id, targets=[mine.id, theirs.id], target_counts=[1, 1])
     settle(s)
     assert s.state.cards[theirs.id].damage == 4  # (2 + 2: it deals damage equal to its power)
+    roundtrip(s)
+
+
+def to_turn(s, number, player):
+    for _ in range(80):
+        if s.state.turn.number == number and s.state.turn.active_player == player:
+            return
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never got there")
+
+
+def test_karns_restricted_mana_is_kept_through_the_steps_and_pays_for_an_artifact(cards):
+    s = build(cards, "Karn, Legacy Reforged", "Sol Ring", "Grizzly Bears")
+    on_field(s, "Karn, Legacy Reforged")
+    on_field(s, "Sol Ring")
+    to_hand(s, "Grizzly Bears"), to_hand(s, "Sol Ring") if False else None
+    to_turn(s, 3, "p1")
+    settle(s)  # (the upkeep trigger: {C} for each of the two artifacts)
+    assert len(units(s)) == 2 and s.state.players["p1"].mana == {}
+    while s.state.turn.phase not in ("main1",):  # the upkeep and draw steps end: the mana stays (106.4)
+        d = s.state.rules.decision
+        assert d is None
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert len(units(s)) == 2
+    bears = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "hand"})
+    assert not casting.castable(s.state, "p1", bears, s.cards)  # ("This mana can't be spent to cast nonartifact spells")
+    roundtrip(s)
+
+
+def test_the_mana_of_delighted_halfling_makes_the_legendary_spell_uncounterable(cards):
+    s = build(cards, "Delighted Halfling", "Isamaru, Hound of Konda", p2=("Counterspell",))
+    halfling = on_field(s, "Delighted Halfling")
+    s.state.rules.controlled_since[halfling.id].turn = 0
+    dog = to_hand(s, "Isamaru, Hound of Konda")
+    counterspell = to_hand(s, "Counterspell", "p2")
+    mana(s, "p2", U=2)
+    act(s, "p1", type="cast_spell", card_id=dog.id)  # {W}: the Halfling's restricted mana is the only source
+    assert s.state.cards[halfling.id].tapped and s.state.cards[dog.id].zone == "stack"
+    act(s, "p2", type="cast_spell", card_id=counterspell.id, targets=[dog.id])
+    settle(s)
+    assert s.state.cards[dog.id].zone == "p1:battlefield"  # (Counterspell resolved and did nothing: 106.6)
+    roundtrip(s)
+
+
+def test_other_mana_leaves_the_legendary_spell_counterable(cards):
+    s = build(cards, "Delighted Halfling", "Isamaru, Hound of Konda", p2=("Counterspell",))
+    on_field(s, "Delighted Halfling")
+    dog = to_hand(s, "Isamaru, Hound of Konda")
+    counterspell = to_hand(s, "Counterspell", "p2")
+    mana(s, "p2", U=2)
+    mana(s, "p1", W=1)
+    act(s, "p1", type="cast_spell", card_id=dog.id)  # (the pool's {W} pays; the Halfling stays untapped)
+    act(s, "p2", type="cast_spell", card_id=counterspell.id, targets=[dog.id])
+    settle(s)
+    assert s.state.cards[dog.id].zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_hall_of_the_bandit_lord_gives_a_creature_spell_haste(cards):
+    s = build(cards, "Hall of the Bandit Lord", "Grizzly Bears")
+    hall = on_field(s, "Hall of the Bandit Lord")
+    to_hand(s, "Grizzly Bears")
+    mana(s, "p1", G=1)
+    bears = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears")
+    act(s, "p1", type="cast_spell", card_id=bears.id)  # {1}{G}: the pool's {G} and the Hall's {C} (pay 3 life)
+    settle(s)
+    assert s.state.cards[hall.id].tapped and s.state.players["p1"].life == 37
+    assert "haste" in chars(s, bears).keywords
+    roundtrip(s)
+
+
+def test_scaled_nurturer_mana_gains_two_life_for_a_dragon_spell(cards):
+    s = build(cards, "Scaled Nurturer", "Jaded Sell-Sword")
+    nurturer = on_field(s, "Scaled Nurturer")
+    s.state.rules.controlled_since[nurturer.id].turn = 0
+    sword = to_hand(s, "Jaded Sell-Sword")
+    mana(s, "p1", C=2, R=1)
+    act(s, "p1", type="cast_spell", card_id=sword.id)  # {3}{R}: the Nurturer's {G} pays {1}: "When you spend this mana to cast a Dragon creature spell"
+    settle(s)
+    assert s.state.players["p1"].life == 42
+    roundtrip(s)
+
+
+def test_pyromancers_goggles_copy_the_red_spell(cards):
+    s = build(cards, "Pyromancer's Goggles", "Lightning Bolt")
+    goggles = on_field(s, "Pyromancer's Goggles")
+    b = bolt(s)
+    act(s, "p1", type="cast_spell", card_id=b.id, targets=["p2"])  # {R}: the Goggles' mana
+    assert s.state.cards[goggles.id].tapped
+    settle(s)
+    assert s.state.players["p2"].life == 34  # 3 + the copy's 3
     roundtrip(s)
