@@ -17,7 +17,7 @@ from tests.test_rules_effects import mana
 from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
 
 EXTRA = [
-    card("Test Small", set_code="tst", number="C01", mana_cost="{G}", cmc=1.0, type_line="Creature — Elf", power="2", toughness="2",
+    card("Test Small", set_code="tst", number="18F0", mana_cost="{G}", cmc=1.0, type_line="Creature — Elf", power="2", toughness="2",
          colors=["G"], color_identity=["G"], keywords=["Haste"], oracle_text="Haste"),
     card("Blazing Torch", set_code="tst", number="18F1", mana_cost="{1}", cmc=1.0, type_line="Artifact — Equipment",
          oracle_text='Equipped creature can\'t be blocked by Vampires or Zombies.\nEquipped creature has "{T}, Sacrifice Blazing Torch: '
