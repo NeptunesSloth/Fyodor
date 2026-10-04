@@ -96,7 +96,7 @@ def _permanent_card(plan: Plan, cid: str) -> bool:
 
 def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.game.errors import ActionError
-    from app.rules import attachments, effects, selectors
+    from app.rules import attachments, effects
     from app.rules import characteristics as chars
 
     ctx, e = d.resume["ctx"], d.resume["e"]

@@ -1294,8 +1294,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if not any(v <= n if op == "<=" else v >= n for v in vals):
                 return False
         if extra.startswith("pts:"):  # -- put from hand (wave 19E) -- the power and toughness added (a * is no number: no match)
-            vals = (_stat(ch, "power"), _stat(ch, "toughness"))
-            if None in vals or not (sum(vals) <= int(extra[6:]) if extra[4:6] == "<=" else sum(vals) >= int(extra[6:])):  # type: ignore[arg-type]
+            pw, tg = _stat(ch, "power"), _stat(ch, "toughness")
+            if pw is None or tg is None or not (pw + tg <= int(extra[6:]) if extra[4:6] == "<=" else pw + tg >= int(extra[6:])):
                 return False
         if extra.startswith("counter:") and not _has_counter(card, extra[8:]):  # (wave 5H: any kind, "*")
             return False

@@ -784,8 +784,8 @@ def parse_spend(sentence: str) -> str | None:
     s, special = _special_split(s)
     if special:
         rest = None if s == "Spend this mana only to" else parse_spend(s)
-        spec = json.loads(rest[2:]) if rest is not None else {"cast": None, "ability": None} if s == "Spend this mana only to" else None
-        return None if spec is None else "q:" + json.dumps({**spec, "special": sorted(special)}, sort_keys=True)
+        base = json.loads(rest[2:]) if rest is not None else {"cast": None, "ability": None} if s == "Spend this mana only to" else None
+        return None if base is None else "q:" + json.dumps({**base, "special": sorted(special)}, sort_keys=True)
     if s == "Spend this mana only on costs that contain {X}":  # -- mana provenance (wave 18B) -- casting.Purpose.cost_x
         return "q:" + json.dumps({"cast": None, "ability": None, "cost_x": True}, sort_keys=True)
     if s == "This mana can't be spent to cast spells":
