@@ -362,3 +362,32 @@ def test_meld_into_a_planeswalker_enters_with_its_loyalty_at_sorcery_speed(cards
     assert "Planeswalker" in chars(s, host).types and host.counters.get("loyalty") == 7  # 306.5b: it enters with its loyalty
     assert chars(s, host).mana_value == 8
     check(s)
+
+
+@pytest.mark.parametrize("over", ["over", "under"])
+def test_a_token_in_the_pile_ceases_to_exist_but_the_card_arrives(cards, over):
+    """730.2d / 730.3e: it is a token only if the topmost component is; when it leaves, a token component ceases to exist and the
+    card is put into the graveyard."""
+    from tests.test_rules_conditionals import token_of
+
+    s = build(cards, ["Gemrazer"])
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    mutate(s, "Gemrazer", bear, over=over, G=3)
+    host = s.state.cards[bear.id]
+    assert host.is_token == (over == "under") and [p.is_token for p in host.merged] == ([False, True] if over == "over" else [True, False])
+    act(s, "p1", type="move", card_ids=[bear.id], to={"zone": "graveyard"})
+    gy = [s.state.cards[c].name for c in s.state.zones["p1:graveyard"]]
+    assert gy == ["Gemrazer"] and not any(c.is_token for c in s.state.cards.values())
+    check(s)
+
+
+def test_reset_deck_breaks_a_pile_up_and_every_card_comes_back(cards):
+    s = build(cards, ["Gemrazer", "Probe Bear"])
+    total = sum(1 for c in s.state.cards.values() if c.owner == "p1" and not c.commander_key)
+    bear = put(s, "Probe Bear")
+    mutate(s, "Gemrazer", bear, over="over", G=3)
+    assert s.state.cards[bear.id].merged
+    act(s, "p1", type="reset_deck", player="p1")
+    mine = [c for c in s.state.cards.values() if c.owner == "p1" and not c.commander_key]
+    assert len(mine) == total and all(c.zone == "p1:library" and not c.merged for c in mine)
+    check(s)

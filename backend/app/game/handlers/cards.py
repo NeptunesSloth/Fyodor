@@ -220,6 +220,9 @@ def delete_card(state: GameState, a: A.DeleteCard) -> None:
             raise ActionError(f"{c.name} is protected — confirm to delete it")
     names = group(state, targets)
     for c in targets:
+        if c.merged:  # -- merged permanents (wave 18D) -- 730.3: removing the token on top doesn't remove the cards under it
+            ops.move_card(state, c, zone_key(c.owner, "graveyard"))
+            continue
         ops.delete(state, c)
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" removed "), names])
 

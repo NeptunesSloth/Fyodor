@@ -1,5 +1,5 @@
 """-- merged permanents (wave 18D) -- mutate (CR 702.140, 730) and meld (CR 701.42, 712.4, 712.21), researched against the stored
-Comprehensive Rules (2026-09-25). (The numbers 721 / 730 of older rules texts: "merging with permanents" is 730 here.)
+Comprehensive Rules (2026-09-25). (In this text 721 is Station cards: "merging with permanents" is rule 730.)
 
 Representation (app/game/merging.py): one permanent is one ``CardInstance`` whose card fields are its topmost component's (730.2a)
 and whose ``merged`` lists every card or token that represents it; the object (its rules id, counters, attachments, status) is the
@@ -26,7 +26,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from app.game.state import CardInstance
+from app.game.state import STACK, CardInstance
 from app.rules import selectors
 from app.rules import targets as T
 
