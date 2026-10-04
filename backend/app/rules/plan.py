@@ -6,6 +6,7 @@ import secrets
 from typing import Any
 
 from app.game import actions as A
+from app.game.control import controller_of
 from app.game.errors import ActionError
 from app.game.rules_state import (
     AutomationOptions,
@@ -225,11 +226,13 @@ def require_priority(plan: Plan) -> None:
 
 def decide(plan: Plan, *, player: str, kind: str, prompt: str, options: list[DecisionOption], resume: dict[str, Any],
            min_choices: int = 1, max_choices: int = 1, source: CardInstance | None = None,
-           memory_key: str | None = None, memory_context: str = "", display: dict[str, Any] | None = None) -> None:
+           memory_key: str | None = None, memory_context: str = "", display: dict[str, Any] | None = None, decider: str | None = None) -> None:
     source_id = source.id if source is not None and publicly_visible(plan.state, source) else None
     plan.rules.decision = Decision(
         id=secrets.token_hex(6), player=player, kind=kind, prompt=prompt[:300], options=options,  # type: ignore[arg-type]
         min_choices=min_choices, max_choices=max_choices, source_id=source_id, resume=resume,
         memory_key=memory_key, memory_context=memory_context, display=display,
+        # -- controlling another player (wave 18H) -- 723.5: who makes this choice for ``player`` (None: they do)
+        decider=(by if (by := decider or controller_of(plan.state, player)) != player else None),
     )
     plan.rules.priority = None

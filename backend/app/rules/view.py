@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.game.control import acting_as, controller_of
 from app.game.rules_state import preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
@@ -51,12 +52,19 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
         "stats": stats(state, viewer, info),
         # -- counters & designations (wave 3E): dungeons, venture markers and the Ring (public, 309.2b / 701.54) --
         "designations": designations_view(state),
+        # -- controlling another player (wave 18H) -- 723: who controls whom this turn is a public fact
+        "control": [{"controlled": c.controlled, "controller": c.controller, "status": c.status} for c in r.player_control],
     }
     d = r.decision
     if d is not None:
         out["decision"] = decision_view(state, d, viewer)
     if viewer in state.players and viewer in live_players(state) and not r.paused:
-        out["hints"] = hints(state, viewer, info)
+        try:  # -- controlling another player (wave 18H) -- 723.5: the controller's hints are for the player they act as
+            seat = acting_as(state, viewer)
+        except ValueError:
+            seat = viewer
+        out["hints"] = hints(state, seat, info)
+        out["acting_as"] = seat if seat != viewer else None
     return out
 
 
@@ -91,18 +99,21 @@ def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
     prompt, options, labels, source card or presentation hints: a decision made while a spell is
     still in its caster's hand (601.2a: its targets, modes, division, costs) or about hidden cards
     (a search, a look, a private cost) must not reveal them (hidden information, 400.2)."""
-    if viewer in (d.player, OMNISCIENT):
+    decider = d.decider or controller_of(state, d.player)  # -- controlling another player (wave 18H) -- 723.5
+    if viewer in (decider, OMNISCIENT):
         # -- keyword actions & face-down (wave 3F) -- 708.5: a face-down card the chooser may not look
         # at is never named in the prompt or an option's label
         options = [o.model_dump() for o in d.options]
         for o in options:
             o["label"] = mask_face_down(state, o["label"], viewer, refs=[o.get("card_id")])
-        full: dict[str, Any] = {"id": d.id, "player": d.player, "kind": d.kind, "prompt": mask_face_down(state, d.prompt, viewer, refs=[d.source_id, *(o.card_id for o in d.options)]),
+        full: dict[str, Any] = {"id": d.id, "player": d.player if viewer == OMNISCIENT else decider, "kind": d.kind, "prompt": mask_face_down(state, d.prompt, viewer, refs=[d.source_id, *(o.card_id for o in d.options)]),
                                 "source_id": d.source_id, "options": options,
                                 "min_choices": d.min_choices, "max_choices": d.max_choices,
                                 "rememberable": d.memory_key is not None}
         if d.display is not None:
             full["display"] = d.display
+        if decider != d.player:
+            full["for_player"] = d.player  # the player this choice is made for
         return full
     chooser = state.players[d.player].name if d.player in state.players else "A player"
     doing = _PUBLIC_KINDS.get(d.kind)

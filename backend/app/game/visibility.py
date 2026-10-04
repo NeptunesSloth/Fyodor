@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
+from app.game.control import controlled_by
 from app.game.state import (
     ALL,
     OWNER_VISIBLE_ZONES,
@@ -32,7 +33,13 @@ SPECTATOR = "__spectator__"
 
 
 def can_see(state: GameState, card: CardInstance, viewer: str) -> bool:
-    """True when ``viewer`` may learn this card's identity right now."""
+    """True when ``viewer`` may learn this card's identity right now. -- controlling another player (wave 18H) -- 723.4:
+    also what a player they control may see (cards outside the game, a sideboard, are only that player's)."""
+    return _sees(state, card, viewer) or (
+        split_zone(card.zone)[1] != "sideboard" and any(_sees(state, card, p) for p in controlled_by(state, viewer)))
+
+
+def _sees(state: GameState, card: CardInstance, viewer: str) -> bool:
     if viewer == OMNISCIENT or card.ability is not None:
         return True
     if ALL in card.revealed_to or viewer in card.revealed_to:

@@ -22,6 +22,7 @@ from collections.abc import Callable
 from typing import Any
 
 from app.game import actions as A
+from app.game.control import acting_as, controller_of
 from app.game.errors import ActionError
 from app.game.rules_state import Decision, DecisionOption, PaymentRecord, PlayerPrefs, TurnCount, Yield
 from app.game.state import STACK, CardInstance, GameState, zone_key
@@ -39,6 +40,7 @@ from app.rules import (
     effects,
     exert,  # -- static wordings (wave 6E) --
     extra_turns,  # -- extra turns (wave 8A) --
+    player_control,  # -- controlling another player (wave 18H) --
     kinship,  # -- kinship (wave 9C) --
     layers,
     looking,
@@ -98,6 +100,11 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         concede(plan, intent)
         plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
         return plan.steps
+    if intent.type != "concede":  # -- controlling another player (wave 18H) -- 723.5: the controller acts for the player (723.6: a
+        try:  # player always concedes for themselves)
+            actor = acting_as(state, actor)
+        except ValueError as exc:
+            raise ActionError(str(exc)) from None
     plan = Plan(state, actor, info, rng)
     begin(plan)
     sync_step(plan)
@@ -336,7 +343,7 @@ def is_stop(plan: Plan, player: str) -> bool:
     passed: auto-passes look exactly like passes.
     """
     r = plan.rules
-    stored = r.prefs.get(player)
+    stored = r.prefs.get(controller_of(plan.state, player))  # (-- controlling another player (wave 18H) -- 723.5: their controller's stops)
     prefs = stored or PlayerPrefs()
     if plan.hold == player:
         return True  # they just kept priority (HOLD PRIORITY)
@@ -560,6 +567,7 @@ def finish_turn_start(plan: Plan, stunned: list[str], previous: tuple[str, int],
     stay: list[str] | None = None if plain else []
     effects.keyword_actions.lose_stun(plan, [c for c in stunned if c in plan.state.cards and plan.state.cards[c].controller == plan.active],
                                       plan.active)
+    player_control.turn_began(plan)  # -- controlling another player (wave 18H) -- 723.1
     delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
     if stay is None:  # -- activation costs (wave 4H) -- 701.43a: that untap step happened; 614.10a: a skipped one doesn't count
         plan.rules.exerted = {k: p for k, p in plan.rules.exerted.items()
@@ -1063,7 +1071,7 @@ def choose(plan: Plan, a: A.Choose) -> None:
     if a.remember is not None:
         if d.memory_key is None:
             raise ActionError("This answer can't be remembered")
-        prefs = plan.prefs(plan.actor)
+        prefs = plan.prefs(d.decider or plan.actor)  # (-- controlling another player (wave 18H) -- the decider's own preference)
         prefs.yields = [y for y in prefs.yields if y.key != d.memory_key][-49:]
         prefs.yields.append(Yield(kind=a.remember, key=d.memory_key, context=d.memory_context,
                                   turn=plan.state.turn.number))
@@ -1233,7 +1241,7 @@ def set_card_automation(plan: Plan, a: A.SetCardAutomation) -> None:
 def remembered(plan: Plan, player: str, key: str, context: str) -> str | None:
     """A remembered answer for this prompt: "yes", "no" or "yield" (None: ask). Answers given in a
     different context don't apply."""
-    for y in plan.rules.prefs_for(player).yields:
+    for y in plan.rules.prefs_for(controller_of(plan.state, player)).yields:  # (-- wave 18H -- 723.5)
         if y.key != key or (y.context and y.context != context):
             continue
         if y.kind == "always_yield":
