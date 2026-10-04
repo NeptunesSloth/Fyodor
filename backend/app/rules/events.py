@@ -119,6 +119,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"the ring tempts (?P<p>you)", re.IGNORECASE), "ring_tempts"),
     (re.compile(r"(?P<p>you) choose a creature as your ring-bearer", re.IGNORECASE), "ring_bearer"),
     (re.compile(r"(?P<p>you) complete a dungeon"), "complete_dungeon"),
+    (re.compile(r"(?P<p>you) proliferate"), "proliferate"),  # -- trigger tail (wave 15B) -- 701.34a
     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
 ]
@@ -329,12 +330,13 @@ def _parse(c: str) -> Condition | None:
         return found
     # -- becomes monstrous (wave 6D) -- "When ~ becomes monstrous" (701.37b), "Whenever a creature you control becomes
     # renowned" (702.112b): the permanent got the designation
-    m = re.fullmatch(r"(?P<s>.+?) explores(?P<k> a land card| a nonland card)?", c)  # -- trigger tail (wave 15B) -- 701.44a
-    if m:
+    m = re.fullmatch(r"(?P<s>.+?) (?P<v>explores|connives)(?P<k> a land card| a nonland card)?", c)  # -- trigger tail (wave 15B) --
+    if m and (m["k"] is None or m["v"] == "explores"):  # 701.44a explore (the revealed card), 701.50a connive
         base = _subject(m["s"])
         if base is None or base.get("aggregate"):
             return None
-        return {**base, "event": "explore", **({"kind": "land" if "nonland" not in m["k"] else "nonland"} if m["k"] else {})}
+        return {**base, "event": m["v"][:-1] if m["v"] == "explores" else "connive",
+                **({"kind": "land" if "nonland" not in m["k"] else "nonland"} if m["k"] else {})}
     m = re.fullmatch(r"(?P<s>.+?) becomes (?P<d>monstrous|renowned)", c)
     if m:
         base = _subject(m["s"])

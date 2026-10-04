@@ -219,6 +219,13 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             return [(f"become_{e.counter}", card, plan.ch(card), card.controller, {"oid": e.object_id})]
         return []
+    if e.counter == "proliferate" and e.player:  # -- trigger tail (wave 15B) -- 701.34a
+        return [("proliferate", None, None, e.player, {})]
+    if e.counter == "connive" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.50a: the conniving permanent
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("connive", card, plan.ch(card), card.controller, {"oid": e.object_id})]
+        return []
     if e.counter == "explore" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.44a: the creature that explored
         card = plan.state.cards[e.card]
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:

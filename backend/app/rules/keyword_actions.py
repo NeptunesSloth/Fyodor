@@ -138,6 +138,10 @@ def _connive_next(plan: Plan, ctx: Context, queue: list[Conniver], n: int) -> bo
         cid, oid, pid = queue.pop(0)
         if pid not in plan.live():
             continue
+        if cid is not None:  # -- trigger tail (wave 15B) -- "Whenever a creature you control connives" (701.50a)
+            from app.game.rules_state import emit
+
+            emit(plan.state, "designation", counter="connive", card=cid, object_id=oid, player=pid)
         # -- replacement effects stage 2 (wave 2E): the draw through the draw choke point; after a
         # 616.1 choice the conniving goes on from the discard ("connive_after_draw") --
         rest = {"do": "connive_after_draw", "ctx": ctx, "card": cid, "object": oid, "player": pid, "n": n,

@@ -72,6 +72,8 @@ EXTRA += [
     real("Public Thoroughfare", "", 0, "Land", "This land enters tapped.\nWhen this land enters, sacrifice it unless you tap an untapped artifact or land you control.\n{T}: Add {C}.", None),
     real("Wildgrowth Walker", "{1}{G}", 2, "Creature — Elemental", "Whenever a creature you control explores, put a +1/+1 counter on this creature and you gain 3 life.", ("1", "1"), "G"),
     real("Merfolk Branchwalker", "{1}{G}", 2, "Creature — Merfolk Scout", "When this creature enters, it explores. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on this creature, then put the card back or put it into your graveyard.)", ("2", "1"), "G"),
+    real("Scheming Aspirant", "{1}{B}", 2, "Creature — Human Warlock", "Whenever you proliferate, each opponent loses 2 life and you gain 2 life.", ("1", "2"), "B"),
+    real("Evolution Sage", "{2}{G}", 3, "Creature — Elf Druid", "Landfall — Whenever a land you control enters, proliferate.", ("3", "2"), "G"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -465,6 +467,18 @@ def test_a_creature_you_control_explores_triggers_wildgrowth_walker(cards):
     act(s, "p1", type="cast_spell", card_id=branch.id)
     answer(s)
     assert s.state.cards[walker.id].counters == {"+1/+1": 1} and s.state.players["p1"].life == 43
+    check(s)
+
+
+def test_whenever_you_proliferate_triggers_even_when_nothing_is_chosen(cards):
+    # 701.34a: you proliferated whether or not anything had a counter; Scheming Aspirant drains each opponent
+    s = build(cards, ["Scheming Aspirant", "Evolution Sage"], [])
+    put(s, "Scheming Aspirant")
+    put(s, "Evolution Sage")
+    forest = to_hand(s, "Forest")
+    act(s, "p1", type="play_land", card_id=forest.id)
+    answer(s)
+    assert (s.state.players["p1"].life, s.state.players["p2"].life) == (42, 38)
     check(s)
 
 

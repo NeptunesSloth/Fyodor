@@ -164,8 +164,7 @@ def _half_trigger(text: str) -> tuple[str, dict[str, Any] | None] | None:
     return (legacy, None) if legacy else ("event", found)
 
 
-_HAVE_VERBS = {"fight": "fights", "deal": "deals", "lose": "loses", "become": "becomes", "connive": "connives", "gain": "gains",
-               "get": "gets"}
+_HAVE_VERBS = {"fight": "fights", "deal": "deals", "lose": "loses", "become": "becomes", "connive": "connives"}
 
 
 def _may_have(body: str, ante: str | None) -> str:
@@ -283,7 +282,7 @@ def _it_source(word: str) -> dict[str, str]:
 # that's a new object in another zone, 400.7)
 _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
             "deal_combat_damage_player", "deal_damage", "counters_put", "targeted", "create_token"}
-_STAYING.update({"become_monstrous", "become_renowned", "explore"})  # -- becomes monstrous (wave 6D) --
+_STAYING.update({"become_monstrous", "become_renowned", "explore", "connive"})  # -- becomes monstrous (wave 6D) --
 _STAYING.add("to_graveyard")  # -- into a graveyard (wave 6D) -- the card(s) there, as they are there
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 # Zone-change events after which "it" is the new object the card became where it went — found

@@ -896,7 +896,10 @@ def proliferate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                if c.zone.endswith(":battlefield") and plan.in_game(c) and any(v > 0 for v in c.counters.values())]
     options += [DecisionOption(id=pid, label=f"{plan.name(pid)} ({', '.join(f'{v} {k}' for k, v in p.resources.items() if v > 0)})")
                 for pid, p in plan.state.players.items() if pid in plan.live() and any(v > 0 for v in p.resources.values())]
+    from app.game.rules_state import emit
+
     if not options:
+        emit(plan.state, "designation", counter="proliferate", player=ctx["controller"])  # -- trigger tail (wave 15B) --
         return True
     decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Proliferate: choose permanents and players",
            options=options, min_choices=0, max_choices=len(options), resume={"step": "proliferate", "ctx": ctx})
@@ -913,6 +916,9 @@ def resume_proliferate(plan: Plan, d: Any, chosen: list[str]) -> None:
             puts += [(x, kind, 1) for kind, v in plan.state.cards[x].counters.items() if v > 0]
         elif x in plan.state.players:
             puts += [(x, kind, 1) for kind, v in plan.state.players[x].resources.items() if v > 0]
+    from app.game.rules_state import emit
+
+    emit(plan.state, "designation", counter="proliferate", player=d.player)  # -- trigger tail (wave 15B) -- 701.34a: "you proliferate"
     if puts and not replace.put_counters(plan, puts, by=d.player, then={"do": "continue", "ctx": ctx}):
         return  # an order to choose first (616.1)
     continue_effects(plan, ctx)
