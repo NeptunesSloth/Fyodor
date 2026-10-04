@@ -805,8 +805,8 @@ def _object(t: str) -> Condition | None:
     negate = m["verb"] in ("isn't", "wasn't", "is not", "was not")
     what = m["what"].strip()
     if lv := re.fullmatch(r"level (\d+)( or greater)?", what):  # -- Class (wave 16A) -- 716.2a, 716.2b
-        test = {"object": who, "level": int(lv[1]), "min": bool(lv[2])}
-        return {"not": test} if negate else test
+        at_level: Condition = {"object": who, "level": int(lv[1]), "min": bool(lv[2])}
+        return {"not": at_level} if negate else at_level
     if what in _ATTACHED or what in ("renowned", "monstrous"):  # (wave 11F)
         test: Condition = {"object": who, **({"attached": list(_ATTACHED[what])} if what in _ATTACHED else {"designation": what})}
         return {"not": test} if negate else test

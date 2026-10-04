@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage, scripts
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
@@ -30,6 +31,11 @@ EXTRA = [
          "(Gain the next level as a sorcery to add its ability.)\nWhenever one or more tokens you control enter, draw a card. This "
          "ability triggers only once each turn.\n{W}: Level 2\nWhen this Class becomes level 2, create a token that's a copy of "
          "target token you control.\n{3}{W}: Level 3\nCreature tokens you control get +2/+2.", "W"),
+    real("Artist's Talent", "{1}{R}", 2,
+         "(Gain the next level as a sorcery to add its ability.)\nWhenever you cast a noncreature spell, you may discard a card. If "
+         "you do, draw a card.\n{2}{R}: Level 2\nNoncreature spells you cast cost {1} less to cast.\n{2}{R}: Level 3\nIf a source "
+         "you control would deal noncombat damage to an opponent or a permanent an opponent controls, it deals that much damage "
+         "plus 2 instead.", "R"),
 ]
 
 
@@ -58,7 +64,7 @@ def visible(s, c):
     return sorted(scripts.definitions(Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])))
 
 
-@pytest.mark.parametrize("name", ["Wizard Class", "Caretaker's Talent"])
+@pytest.mark.parametrize("name", ["Wizard Class", "Caretaker's Talent", "Artist's Talent"])
 def test_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -74,7 +80,7 @@ def test_levels_unlock_abilities_in_order_and_trigger_on_becoming_a_level(cards)
     assert level(s, wiz) == 2
     assert len([c for c in s.state.cards.values() if c.zone == "p1:hand"]) == hand + 2  # "When this Class becomes level 2"
     assert visible(s, wiz) == [0, 1, 2, 3]
-    with pytest.raises(Exception):  # level 2 is reached: bar 2 can't be used again
+    with pytest.raises(ActionError):  # level 2 is reached: bar 2 can't be used again
         act(s, "p1", type="activate_ability", card_id=wiz.id, ability=bar(s, wiz, 2))
     roundtrip(s)
 
@@ -83,7 +89,7 @@ def test_bar_needs_the_previous_level_and_level_resets_off_the_battlefield(cards
     s = build(cards, "Wizard Class")
     wiz = on_field(s, "Wizard Class")
     mana(s, "p1", U=2, C=6)
-    with pytest.raises(Exception):  # level 1 -> level 3 isn't allowed
+    with pytest.raises(ActionError):  # level 1 -> level 3 isn't allowed
         act(s, "p1", type="activate_ability", card_id=wiz.id, ability=bar(s, wiz, 3))
     act(s, "p1", type="activate_ability", card_id=wiz.id, ability=bar(s, wiz, 2))
     settle(s)
@@ -130,3 +136,19 @@ def test_a_copy_of_a_class_has_its_own_level_not_the_copied_one(cards):
     plan = Plan.view(s.state, "p1", s.cards)
     copying.add_copy_effect(plan, [plan.oid(goblin.id)], copying.recipe_of(plan, s.state.cards[wiz.id]), "p1")
     assert visible(s, goblin) == [0, 1] and level(s, goblin) == 1 and visible(s, wiz) == [0, 1, 2, 3, 4]
+
+
+def test_a_cost_reduction_under_level_2_applies_only_from_level_2(cards):
+    s = build(cards, "Artist's Talent", "Sol Ring")
+    talent = on_field(s, "Artist's Talent")
+    ring = next(c for c in s.state.cards.values() if c.name == "Sol Ring")
+    act(s, "p1", type="move", card_ids=[ring.id], to={"zone": "hand"})
+    with pytest.raises(ActionError):  # {1} with no mana: level 1 has no cost reduction
+        act(s, "p1", type="cast_spell", card_id=ring.id)
+    mana(s, "p1", R=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=talent.id, ability=bar(s, talent, 2))
+    settle(s)
+    act(s, "p1", type="cast_spell", card_id=ring.id)  # {1} less: free
+    settle(s)
+    assert s.state.cards[ring.id].zone == "p1:battlefield"
+    roundtrip(s)

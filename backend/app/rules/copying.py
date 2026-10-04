@@ -223,10 +223,15 @@ def layer1(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     """613.2a: the copy effect that applies to the object gives its copiable values (the latest
     by timestamp, 613.7); 613.2b: a face-down object keeps its face-down characteristics (708.2),
     which ``characteristics.of`` already gave. ``ch`` is the object's printed (or defined) values."""
+    return with_level(state, card, _layer1(state, card, ch, info))
+
+
+def with_level(state: GameState, card: CardInstance, ch: Characteristics) -> Characteristics:
+    """-- Class (wave 16A) -- 716.2b: the object's own class level (never a copied one; 716.2d: none is level 1), so that
+    ``scripts.definitions`` leaves out the abilities under a level bar it hasn't reached."""
     r = state.rules
-    ch = _layer1(state, card, ch, info)
-    if r is not None and any(a.section > 1 for a in ch.abilities):  # -- Class (wave 16A) -- 716.2b: the level isn't copied
-        ch = replace(ch, level=r.levels.get(r.object_id(card.id), 1))  # (its own; 716.2d: none is level 1)
+    if r is not None and any(a.section > 1 for a in ch.abilities):
+        ch = replace(ch, level=r.levels.get(r.object_id(card.id), 1))
     return ch
 
 
@@ -871,8 +876,8 @@ def _own(plan: Plan, card: CardInstance) -> Characteristics:
                 and (best is None or e.timestamp > best.timestamp):
             best = e
     if best is not None and best.copy_recipe is not None:
-        return characteristics(best.copy_recipe, plan.info)
-    return chars.of(card, plan.info)
+        return with_level(plan.state, card, characteristics(best.copy_recipe, plan.info))
+    return with_level(plan.state, card, chars.of(card, plan.info))
 
 
 def enter_definition(plan: Plan, card: CardInstance) -> dict[str, Any] | None:
