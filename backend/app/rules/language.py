@@ -1573,6 +1573,27 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": _who(kind, key), "kind": kinds[0][0], "n": kinds[0][1],
                  "also": [{"kind": k, "n": n} for k, n in kinds[1:]]}], _one(group)
+    # -- counters sweep (wave 19D) -- "Put a +1/+1 counter on target creature, two +1/+1 counters on another target creature, and three
+    # +1/+1 counters on a third target creature." (Incremental Growth), "… on target creature you control and three … on target
+    # creature an opponent controls" (Evolutionary Escalation): each part is its own instruction on its own target (115.3), all in one
+    # resolution
+    if rider is None and text.startswith("put ") and " counter" in text:
+        parts = re.split(rf",? and (?=(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+) counters? on )|, (?=(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+) counters? on )",
+                         text[len("put "):])
+        specs = [re.fullmatch(rf"(?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o>(?:a third |another |a second )?target .+)", p)
+                 for p in parts]
+        if len(parts) > 1 and all(specs) and not any(s["k"] in values.UNMODELED_COUNTERS for s in specs if s):
+            effects_out: list[dict[str, Any]] = []
+            groups_out: list[dict[str, Any]] = []
+            for s in specs:
+                assert s is not None
+                _kind, _key, group = ref(re.sub(r"^(?:a third|a second) ", "another ", s["o"]))
+                if group is None:
+                    raise _Fail
+                effects_out.append({"do": "add_counters", "who": "target" if not groups_out else f"target:{len(groups_out)}",
+                                    "kind": s["k"], "n": _amount(s["n"])})
+                groups_out.append(group)
+            return effects_out, _out(groups_out)
     # -- end counters (wave 5H) --
     m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o>.+)", text)
     if m:

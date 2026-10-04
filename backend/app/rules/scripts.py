@@ -106,7 +106,9 @@ TRIGGERS = [
     (re.compile(r"^When you cast this spell, (?P<body>.+)$"), "cast_self"),
     # -- state triggers (wave 6D) -- "When you control no Islands, …" (603.8: app/rules/state_triggers.py)
     (re.compile(r"^When (?P<state>you control (?:no|a|an|\w+ or more) [^,]+|there are no [^,]+ on the battlefield|"
-                r"you have \w+ or (?:more|less) life), (?P<body>.+)$"), "state"),
+                r"you have \w+ or (?:more|less) life|"
+                r"~ has (?:\w+ or more|no) [^,]+? counters on it|there are (?:\w+ or more|no) [^,]+? counters on ~), "  # (wave 19D: its own counters)
+                r"(?P<body>.+)$"), "state"),
     # Anything else "When/Whenever [subject] [event], …": the generic condition grammar (app/rules/events.py)
     (re.compile(r"^(?:When|Whenever) (?P<cond>[^,]+), (?P<body>.+)$"), "event"),
 ]
@@ -3145,6 +3147,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 body, limit = restrictions.split_trigger_limit(m["body"])
                 if limit in restrictions.TRIGGER_LIMIT_REFUSED:
                     return None
+                if trigger == "state" and "counters on" in m["state"]:  # (wave 19D: a state about ~'s own counters: "it" is ~)
+                    body = re.sub(r"^(exile|sacrifice) it\b", r"\1 ~", body)
                 kicked = re.match(r"^if (?:it|~) was kicked, (?P<rest>.+)$", body) if name == "enters_self" else None
                 if kicked is not None:  # 603.4 intervening "if": checked as it triggers (triggers._add)
                     body = kicked["rest"]

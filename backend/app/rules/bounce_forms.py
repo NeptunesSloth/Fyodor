@@ -114,7 +114,33 @@ def _deferring(build: Any) -> Any:
     return template
 
 
+# -- counters sweep (wave 19D) -- "Put a +1/+1 counter on a creature you control." / "Put two +1/+1 counters on a creature you
+# control." / "… on up to one creature you control.": no target (115.1), the player chooses as the effect resolves (608.2d), among what
+# they control then — the same choice (effects.player_chooses), then the counters on what was chosen (122.1; "up to one": none
+# is a choice too)
+_COUNTERS_ON_YOURS = re.compile(r"^put (?P<n>a|an|one|two|three|four|five) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on "
+                                r"(?:(?P<up>up to one)|(?P<a>a|another)) (?P<sel>.+?) you control$", re.I)
+
+
+def _counters_on_yours(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language, values
+
+    if m["k"] in values.UNMODELED_COUNTERS:
+        raise _fail()
+    try:
+        phrase = f"another {m['sel']}" if m["a"] == "another" else m["sel"]
+        sel = language._permanent_sel(phrase)
+        n = language._amount(m["n"])
+    except language._Fail:
+        raise _fail() from None
+    choose = _choose("you", 1, sel, phrase)[0]
+    if m["up"]:
+        choose["upto"] = True
+    return [choose, {"do": "add_counters", "who": "it", "kind": m["k"], "n": n}], None
+
+
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_YOURS, _deferring(_yours)), (_THEIRS, _deferring(_theirs)),
+                                                (_COUNTERS_ON_YOURS, _deferring(_counters_on_yours)),
                                                 (_TWO_TARGETS, _deferring(_two_targets)), (_ALL_AND, _deferring(_all_and)),
                                                 (_SELF_AND, _deferring(_self_and))]
 
