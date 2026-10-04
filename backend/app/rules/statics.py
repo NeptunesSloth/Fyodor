@@ -141,7 +141,7 @@ def parse(text: str) -> Definition | None:
     # -- dynamic values (agent F): "~ gets +X/+X, where X is …" (the X of a static is defined by its text)
     x_phrase: str | None = None
     m = re.match(r"^(?P<rest>.+), where X is (?P<x>.+)$", body)
-    if m:
+    if m and m["rest"].count('"') % 2 == 0:  # (not inside a quoted granted ability)
         x_phrase, body = m["x"], m["rest"]
     # -- static statics (wave 10B) -- "Creatures your opponents control lose flying and can't have or gain flying."
     # (the Archetypes): lose it now (613.1f, in timestamp order) and never have or gain it (the deny is applied last)
