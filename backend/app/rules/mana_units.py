@@ -106,7 +106,7 @@ def settle(plan: Plan, player: str, payment: M.Payment) -> dict[str, Any]:
     delta: dict[str, int] = {}
     spend: list[int] = []
     add: list[dict[str, Any]] = []
-    for sym in {*payment.spent, *(s.sym for s in slots)}:
+    for sym in sorted({*payment.spent, *(s.sym for s in slots)}):  # (review 18B: sorted — a set's order changes between processes)
         n = payment.spent.get(sym, 0)
         mine = sorted((s for s in slots if s.sym == sym), key=lambda s: s.unit is None)  # (units first)
         taken, left = mine[:n], mine[n:]
