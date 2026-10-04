@@ -51,8 +51,10 @@ EXTRA = [
          oracle_text="Whenever this creature deals combat damage to a player, you may exile target card from that player's graveyard.", power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=[]),
     card('Fire Nation Salvagers', set_code='tst', number='W10', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Creature — Human Soldier',
          oracle_text="Menace\nWhen this creature enters, put a +1/+1 counter on target creature or Vehicle you control.\nWhenever one or more creatures you control with counters on them deal combat damage to a player, put target creature or Vehicle card from that player's graveyard onto the battlefield under your control.", power='3', toughness='3', colors=['B'], color_identity=['B'], keywords=['Menace']),
+    card('Traumatize', set_code='tst', number='W11', mana_cost='{3}{U}{U}', cmc=5.0, type_line='Sorcery',
+         oracle_text='Target player mills half their library, rounded down.', power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=['Mill']),
 ]
-FULL = ['Murk Strider', 'Dark Supplicant', 'Gate to the Afterlife', 'Scion of Darkness', 'Void Attendant', 'Ruin Processor', 'Processor Assault', 'Wrexial, the Risen Deep', 'Deluxe Dragster', 'Zombie Cannibal', 'Fire Nation Salvagers']
+FULL = ['Murk Strider', 'Dark Supplicant', 'Gate to the Afterlife', 'Scion of Darkness', 'Void Attendant', 'Ruin Processor', 'Processor Assault', 'Wrexial, the Risen Deep', 'Deluxe Dragster', 'Zombie Cannibal', 'Fire Nation Salvagers', 'Traumatize']
 # --EXTRA-END--
 
 
@@ -243,6 +245,23 @@ def test_scion_of_darkness_takes_a_creature_only_from_the_damaged_players_gravey
     assert theirs.id in zone(s.state, "p1", "battlefield") or any(
         c.name == "Scion of Darkness" and c.zone == "p1:battlefield" and c.id != scion.id for c in s.state.cards.values())
     assert mine.id in zone(s.state, "p1", "graveyard")
+    roundtrip(s)
+
+
+def test_traumatize_mills_half_the_library_rounded_down(cards):
+    """"Target player mills half their library, rounded down." (107.1a: half of what is there when it resolves)"""
+    from app.rules import scripts
+
+    up = scripts.parse_effects("Target opponent mills half their library, rounded up.")
+    assert up is not None and up[0][0]["half"] == "up"
+    s = build(cards, p1=("Traumatize",))
+    spell = to_hand(s, "Traumatize")
+    add_mana(s, "p1", U=2, C=3)
+    before = len(zone(s.state, "p2", "library"))
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"])
+    settle(s)
+    assert len(zone(s.state, "p2", "library")) == before - before // 2
+    assert len(zone(s.state, "p2", "graveyard")) == before // 2
     roundtrip(s)
 
 

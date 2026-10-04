@@ -962,9 +962,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.zone_owner == "opponent" and card.owner == you:
         return False
-    if sel.zone_owner == "that_player" or (sel.zone_owner or "").startswith("player:"):  # (wave 15C) unbound: nothing matches
-        if card.owner != (sel.zone_owner or "")[7:]:
-            return False
+    if (sel.zone_owner == "that_player" or (sel.zone_owner or "").startswith("player:")) \
+            and card.owner != (sel.zone_owner or "")[7:]:
+        return False  # (wave 15C) unbound "that_player": nothing matches
     any_stack = sel.ability == SPELL_OR_ABILITY  # -- stack interaction (wave 5B) --
     if zone == "stack" and not any_stack and (card.ability is not None) != (sel.ability is not None):
         return False  # a spell isn't an ability, and an ability isn't a spell (115.2b)
