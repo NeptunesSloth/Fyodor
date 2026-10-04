@@ -30,6 +30,8 @@
 * "Waterbend {2}: …" as an activation cost (701.67a): {2}, and for each generic mana in it the payer may tap an untapped artifact or
   creature they control instead of paying that mana (not a {T} cost: summoning sickness doesn't matter, 302.6); the permanent that
   taps itself for the ability can't also help pay.
+* "…deals damage equal to that spell's mana value to any target that isn't a commander" (Lozhan, Dragons' Legacy) and "…that isn't a
+  Dragon" (Wrathful Red Dragon): any target (115.1), but not a permanent that is one.
 * "has base power 4 and gains trample" (613.4b: layer 7b, power only).
 
 Real Oracle text; each scenario replays the history and survives a save/load round trip."""
@@ -147,9 +149,15 @@ EXTRA = [
          'Vigilance\nWaterbend {3}: This creature has base power and toughness 5/2 until end of turn. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)', ('2', '5'), 'U'),
     real('Disembowel', '{X}{B}', 1, 'Instant',
          'Destroy target creature with mana value X.', None, 'B'),
+    real("Lozhan, Dragons' Legacy", '{3}{U}{R}', 5, 'Legendary Creature — Dragon Shaman',
+         "Flying\nWhenever you cast an Adventure or Dragon spell, Lozhan deals damage equal to that spell's mana value to any target that isn't a commander.", ('4', '2'), 'RU'),
+    real('Shivan Dragon', '{4}{R}{R}', 6, 'Creature — Dragon',
+         'Flying\n{R}: This creature gets +1/+0 until end of turn.', ('5', '5'), 'R'),
+    real('Wrathful Red Dragon', '{3}{R}{R}', 5, 'Creature — Dragon',
+         "Flying\nWhenever a Dragon you control is dealt damage, it deals that much damage to any target that isn't a Dragon.", ('5', '5'), 'R'),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
-FULL = ["Disembowel", "Ruthless Waterbender", "North Pole Patrol", "Katara, Bending Prodigy", "Geyser Leaper", "Giant Koi",
+FULL = ["Lozhan, Dragons' Legacy", "Wrathful Red Dragon", "Disembowel", "Ruthless Waterbender", "North Pole Patrol", "Katara, Bending Prodigy", "Geyser Leaper", "Giant Koi",
         "Flexible Waterbender", "Axebane Guardian", "Vivi Ornitier", "Lavinia, Foil to Conspiracy", "Pernicious Deed", "Dauntless Dismantler", "Godo's Irregulars", "Knight of Dusk", "Jabari's Banner", "Reckless Pyrosurfer", "Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
         "Volshe Tideturner", "Phelddagrif", "Leering Gargoyle", "Canopy Dragon", "Turtle-Duck", "Gargoyle Sentinel", "Singing Tree", "Island of Wak-Wak"]
 
@@ -654,4 +662,22 @@ def test_target_creature_with_mana_value_exactly_x(cards):
     act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id], x_value=2)
     settle(s)
     assert s.state.cards[bears.id].zone == "p2:graveyard"
+    roundtrip(s)
+
+
+def test_any_target_that_isnt_a_commander(cards):
+    s = build(cards, "Lozhan, Dragons' Legacy", "Shivan Dragon", p2=("Grizzly Bears",))
+    on_field(s, "Lozhan, Dragons' Legacy")
+    bears = on_field(s, "Grizzly Bears", "p2")
+    atraxa = on_field(s, "Atraxa, Praetors' Voice", "p2")  # (Bob's commander on the battlefield)
+    spell = next(c for c in s.state.cards.values() if c.name == "Shivan Dragon")
+    act(s, "p1", type="move", card_ids=[spell.id], to={"zone": "hand"})
+    mana(s, "p1", R=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    d = s.state.rules.decision  # Lozhan's trigger: damage equal to the spell's mana value (6)
+    ids = {o.id for o in d.options}
+    assert bears.id in ids and "p2" in ids and atraxa.id not in ids
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:graveyard" and s.state.cards[atraxa.id].damage == 0
     roundtrip(s)

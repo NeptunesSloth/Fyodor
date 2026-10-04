@@ -92,6 +92,8 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     p = phrase.strip()
     if p in _LEGACY_TARGETS:
         return {"what": _LEGACY_TARGETS[p], "min": 1, "max": 1}
+    if m := re.fullmatch(r"any target that isn't an? (commander|[A-Z][a-z]+)", p):  # -- activated sweep (wave 17B) -- "any target that
+        return {"what": f"any_not:{m[1]}", "min": 1, "max": 1}  # isn't a commander / a Dragon" (targets.legal_targets)
     if p in ("another target", "any other target"):  # 115.4 (Arc Trail): any target other than the earlier one
         return {"what": "", "min": 1, "max": 1, "another": "any"}
     if p.startswith(("target ", "another target ")):
