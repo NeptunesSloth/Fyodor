@@ -92,7 +92,7 @@ export function PlayerPanel({ player, me, compact }: { player: string; me: strin
       {p.commanders.length > 0 && (
         <div className="pp-cmds" data-testid={`commanders-${p.id}`}>
           {p.commanders.map((c) => (
-            <span key={c.key} className={`pp-cmd ${c.zone.endsWith(":command") ? "home" : ""}`} title={`${c.name} — commander tax ${c.tax}, cast ${c.casts ?? 0}× from the command zone`}>
+            <span key={c.key} className={`pp-cmd ${c.zone?.endsWith(":command") ? "home" : ""}`} title={`${c.name} — commander tax ${c.tax}, cast ${c.casts ?? 0}× from the command zone`}>
               ♛ {c.name.split(",")[0]} <b>+{c.tax}</b>
             </span>
           ))}

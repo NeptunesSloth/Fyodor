@@ -38,6 +38,8 @@ def can_see(state: GameState, card: CardInstance, viewer: str) -> bool:
     if ALL in card.revealed_to or viewer in card.revealed_to:
         return True
     _, zone = split_zone(card.zone)
+    if shown_at_end(state, card, zone):
+        return True
     if zone in PUBLIC_ZONES:
         return not card.face_down or (viewer == card.controller and not card.unseen) or looks_at_face_down(state, card, viewer)
     if zone in OWNER_VISIBLE_ZONES and viewer == card.owner:
@@ -46,6 +48,16 @@ def can_see(state: GameState, card: CardInstance, viewer: str) -> bool:
         if view.viewer == viewer and view.zone == card.zone and (view.kind == "search" or card.id in view.card_ids):
             return True
     return zone == "library" and top_revealed(state, card, viewer)
+
+
+def shown_at_end(state: GameState, card: CardInstance, zone: str) -> bool:
+    """-- review (sys 18A) -- 708.9 / 702.143f: when a player leaves the game, the face-down permanents and spells and the foretold
+    cards they own are revealed to all players, and at the end of the game everyone's are (with automation on: the engine knows
+    who left and who won)."""
+    r = state.rules
+    if r is None or not (card.face_down and zone in ("battlefield", "stack") or zone == "foretell"):
+        return False
+    return r.winner is not None or card.owner in r.lost or card.owner in r.conceded
 
 
 def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
