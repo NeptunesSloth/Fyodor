@@ -12,6 +12,8 @@
   control to up to one target creature you control".
 * 701.16a: "investigate that many times" - one Clue for each point of damage / each counter the event counted.
 * 508.5: "each creature defending player controls" (not targeted): the player the attacker was declared against, one player of three.
+* 603.2e / 603.2: "becomes the target of a spell or ability an opponent controls, … that player" - the player whose spell or ability it was;
+  "deals damage to an opponent, that opponent discards a card" - the opponent dealt damage.
 * 508.1b: "deals 1 damage to the player or planeswalker it's attacking" - what the attacker the trigger is about attacks now.
 """
 
@@ -55,6 +57,9 @@ EXTRA = [
     real('Lonis, Genetics Expert', '{1}{G/U}{G/U}', 3, 'Legendary Creature — Snake Elf Detective', 'Evolve (Whenever a creature you control enters, if that creature has greater power or toughness than this creature, put a +1/+1 counter on this creature.)\nWhenever one or more +1/+1 counters are put on Lonis, investigate that many times.\nWhenever you sacrifice a Clue, put a +1/+1 counter on another target creature you control.', ("1", "2"), 'GU'),
     real('Swathcutter Giant', '{4}{R}{W}', 6, 'Creature — Giant Soldier', 'Vigilance\nWhenever this creature attacks, it deals 1 damage to each creature defending player controls.', ("5", "5"), 'RW'),
     real('Jangling Automaton', '{3}', 3, 'Artifact Creature — Construct', 'Whenever this creature attacks, untap all creatures defending player controls.', ("3", "2"), ''),
+    real('Thunderbreak Regent', '{2}{R}{R}', 4, 'Creature — Dragon', 'Flying\nWhenever a Dragon you control becomes the target of a spell or ability an opponent controls, this creature deals 3 damage to that player.', ("4", "4"), 'R'),
+    real('Zhang Liao, Hero of Hefei', '{4}{B}{B}', 6, 'Legendary Creature — Human Soldier', 'Whenever Zhang Liao deals damage to an opponent, that opponent discards a card.', ("3", "3"), 'B'),
+    real('Probe Burst', '{R}', 1, 'Instant', 'Probe Burst deals 1 damage to any target.', None, 'R'),
 ]
 
 NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
@@ -298,4 +303,17 @@ def test_creatures_of_the_defending_player_untap(cards):
     declare(s, (automaton, "p2"))
     to_blocks(s)
     assert (s.state.cards[walls["p2"].id].tapped, s.state.cards[walls["p3"].id].tapped) == (False, True)
+    check(s)
+
+
+def test_the_player_who_targeted_the_dragon_is_dealt_3(cards):
+    s = build(cards, ["Thunderbreak Regent", "Probe Burst"], ["Probe Burst"])
+    regent = put(s, "Thunderbreak Regent")
+    mine, theirs = to_hand(s, "Probe Burst"), to_hand(s, "Probe Burst", "p2")
+    mana(s, "p1", R=1)
+    mana(s, "p2", R=1)
+    act(s, "p1", type="cast_spell", card_id=mine.id, targets=["p2"])  # Alice's own spell on Bob: not an opponent's targeting of her Dragon
+    act(s, "p2", type="cast_spell", card_id=theirs.id, targets=[regent.id])  # Bob responds, targeting the Dragon
+    answer(s)
+    assert life(s, "p2") == 40 - 1 - 3 and life(s, "p1") == 40
     check(s)

@@ -44,6 +44,7 @@ PLAYER_GROUPS = {"you": "you", "each player": "each_player", "each opponent": "e
                   "each of your opponents": "each_opponent", "that player": "that_player",
                   "its controller": "it.controller", "its owner": "it.owner",
                   "that creature's controller": "it.controller", "that permanent's controller": "it.controller",
+                  "that opponent": "that_player",  # (wave 19B: the opponent the trigger event names)
                   "that card's owner": "it.owner", "that creature's owner": "it.owner",
                   "the chosen player": "chosen_player",  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
                   "defending player": "defending_player"}  # (-- defending player (wave 6D) --: app/rules/defending.py)

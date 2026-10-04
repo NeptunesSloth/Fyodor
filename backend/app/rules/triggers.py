@@ -1546,7 +1546,8 @@ def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[
         first = plan.rules.once_per_turn.get(key) != turn
         plan.rules.once_per_turn[key] = turn
         facts.append(("targeted", card, plan.ch(card), card.controller,
-                      {"oid": oid, "by": controller, "spell": is_spell, "first": first, "source_ref": source}))
+                      {"oid": oid, "by": controller, "spell": is_spell, "first": first, "source_ref": source,
+                       "actor": controller}))  # (wave 19B: "that player" is the one whose spell or ability targeted it)
     if facts:
         _fire_generic(plan, facts, -1, {})
 
