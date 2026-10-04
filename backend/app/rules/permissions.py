@@ -577,6 +577,7 @@ class Grant:
     permission: str | None = None  # the stored Permission's id
     spend: str = ""  # -- as long as (wave 9B) -- "" | "type" | "color": how mana may be spent casting with it (118.14, 609.4b)
     once_key: str | None = None  # a static "once during each of your turns" ability's key
+    sorcery: bool = False  # -- keywords (wave 15E) -- plot 702.170d: only in your main phase with an empty stack, whatever it is
 
 
 def _view(state: GameState, player: str, info: CardInfo) -> Plan:
@@ -655,7 +656,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
     oid = r.object_id(card.id)
     out: list[Grant] = []
     for p in r.permissions:
-        if p.player != player or not _wants(p, verb) or (p.once and p.used_turn == turn):
+        if p.player != player or not _wants(p, verb) or (p.once and p.used_turn == turn) or (p.after_turn and turn <= p.after_turn):
             continue
         if p.object_id is not None:
             if p.object_id != oid:
@@ -665,7 +666,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if p.filter and verb == "cast" and not spell_matches(state, player, card, ch, p.filter, info):
             continue
         zone_ok = p.object_id is not None or p.zone != "any"  # (a flash-only permission grants no zone)
-        out.append(Grant("permission", p.label, zone_ok=zone_ok, free=p.free, flash=p.flash, permission=p.id, spend=p.spend))
+        out.append(Grant("permission", p.label, zone_ok=zone_ok, free=p.free, flash=p.flash, permission=p.id, spend=p.spend,
+                         sorcery=p.sorcery))
     if verb == "cast" and where == "graveyard" and card.owner == player:
         for index, d in _definitions(ch).items():  # the card's own ability, functioning in the graveyard (113.6)
             if d.get("static") == "permission" and d.get("self") and d["zone"] == "graveyard":

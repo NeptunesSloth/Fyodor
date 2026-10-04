@@ -197,13 +197,15 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, name: str, *, sacrifice: bool = False) -> None:
+def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, name: str, *, sacrifice: bool = False,
+                warp: bool = False) -> None:
     """Unearth (702.84a) / dash (702.109a): "at the beginning of the next end step, exile it /
     return it to its owner's hand" — the object as it is now (603.7c)."""
     plan.rules.delayed.append(DelayedTrigger(
         id=secrets.token_hex(4), controller=controller, source_card=card_id, source_object=oid, name=name,
         when={"kind": "step", "step": "end", "whose": "next"},
-        effects=[{"do": "delayed_move", "card": card_id, "object": oid, "to": to, **({"sacrifice": True} if sacrifice else {})}],
+        effects=[{"do": "delayed_move", "card": card_id, "object": oid, "to": to, **({"sacrifice": True} if sacrifice else {}),
+                  **({"warp": True} if warp else {})}],
         turn=plan.state.turn.number, step=plan.state.turn.phase))
 
 

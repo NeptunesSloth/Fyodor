@@ -854,6 +854,10 @@ def resolve_top_of_stack(plan: Plan) -> None:
                               add_keywords=("haste",), duration="permanent", label="Haste (dash)")
             delayed.create_move(plan, controller, top_id, oid, "hand", entered_now.name)  # (a delayed trigger, 603.7)
     rec = plan.rules.payments.get(plan.oid(top_id))
+    if rec is not None and rec.alternative == "warp" and entering and not manual:  # -- keywords (wave 15E) -- 702.185a
+        entered_now = plan.state.cards.get(top_id)
+        if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            delayed.create_move(plan, controller, top_id, plan.oid(top_id), "exile", entered_now.name, warp=True)
     if rec is not None and rec.alternative == "blitz" and entering and not manual:  # -- keywords (wave 15E) -- 702.152a
         entered_now = plan.state.cards.get(top_id)
         if entered_now is not None and entered_now.zone.endswith(":battlefield"):

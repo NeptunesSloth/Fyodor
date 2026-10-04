@@ -1114,6 +1114,18 @@ def delayed_move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             _sacrifice_cards(plan, [card.id], ctx["controller"])
         return True
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": e["to"]}}, actor=ctx["controller"])
+    if e.get("warp"):  # -- keywords (wave 15E) -- 702.185a: its owner may cast it from exile after the current turn has ended
+        import secrets
+
+        from app.game.rules_state import Permission
+
+        moved = plan.state.cards.get(card.id)
+        if moved is not None and moved.zone.endswith(":exile"):
+            plan.rules.permissions.append(Permission(
+                id=secrets.token_hex(4), player=moved.owner, cast=True, zone="any", object_id=plan.oid(moved), card=moved.id,
+                until="permanent", turn=plan.state.turn.number, after_turn=plan.state.turn.number,
+                label=f"{moved.name}: cast it from exile (warped)"))
+            plan.note(f"{moved.name} is exiled: {plan.name(moved.owner)} may cast it on a later turn", [moved.id])
     return True
 
 

@@ -43,6 +43,8 @@ EXTRA = [
     card('Adorned Pouncer', set_code='tst', number='X24', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Cat', oracle_text="Double strike\nEternalize {3}{W}{W} ({3}{W}{W}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a 4/4 black Zombie Cat with no mana cost. Eternalize only as a sorcery.)", power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=['Double strike', 'Eternalize']),  # noqa: E501
     card('Skewer the Critics', set_code='tst', number='X25', mana_cost='{2}{R}', cmc=3.0, type_line='Sorcery', oracle_text='Spectacle {R} (You may cast this spell for its spectacle cost rather than its mana cost if an opponent lost life this turn.)\nSkewer the Critics deals 3 damage to any target.', power=None, toughness=None, colors=['R'], color_identity=['R'], keywords=['Spectacle']),  # noqa: E501
     card('Night Clubber', set_code='tst', number='X26', mana_cost='{1}{B}{B}', cmc=3.0, type_line='Creature — Human Warrior', oracle_text='When this creature enters, creatures your opponents control get -1/-1 until end of turn.\nBlitz {2}{B} (If you cast this spell for its blitz cost, it gains haste and "When this creature dies, draw a card." Sacrifice it at the beginning of the next end step.)', power='2', toughness='2', colors=['B'], color_identity=['B'], keywords=['Blitz']),  # noqa: E501
+    card('Weftstalker Ardent', set_code='tst', number='X27', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Drix Artificer', oracle_text='Whenever another creature or artifact you control enters, this creature deals 1 damage to each opponent.\nWarp {R} (You may cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)', power='2', toughness='3', colors=['R'], color_identity=['R'], keywords=['Warp']),  # noqa: E501
+    card('Highway Robbery', set_code='tst', number='X28', mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text='You may discard a card or sacrifice a land. If you do, draw two cards.\nPlot {1}{R} (You may pay {1}{R} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)', power=None, toughness=None, colors=['R'], color_identity=['R'], keywords=['Plot']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -547,4 +549,37 @@ def test_blitz_haste_draw_and_sacrifice_at_the_end_step(cards):
     until(s, lambda s: s.state.cards[clubber.id].zone == "p1:graveyard")  # sacrificed at the beginning of the next end step
     settle(s)
     assert len(s.state.zones["p1:hand"]) == hand - 1 + 1  # cast (-1), and the blitz draw (+1)
+    check(s)
+
+
+def test_warp_exiles_at_the_end_step_then_casts_from_exile_on_a_later_turn(cards):
+    s = build(cards, "Weftstalker Ardent")
+    ardent = to_hand(s, "Weftstalker Ardent")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=ardent.id, alt_cost=f"{ardent.id}:1")
+    settle(s)
+    assert s.state.cards[ardent.id].zone == "p1:battlefield"
+    until(s, lambda s: s.state.cards[ardent.id].zone == "p1:exile")  # 702.185a: exiled at the beginning of the next end step
+    settle(s)
+    to_own_turn(s, 3)
+    mana(s, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=ardent.id)  # the normal cost, from exile, on a later turn
+    settle(s)
+    assert s.state.cards[ardent.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_plot_then_cast_free_on_a_later_turn(cards):
+    s = build(cards, "Highway Robbery")
+    robbery = to_hand(s, "Highway Robbery")
+    mana(s, R=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=robbery.id, ability=1)  # the plot special action (702.170b)
+    assert s.state.cards[robbery.id].zone == "p1:exile"
+    with pytest.raises(Exception):
+        act(s, "p1", type="cast_spell", card_id=robbery.id, free=True)  # 702.170d: not the turn it was plotted
+    to_own_turn(s, 3)
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="cast_spell", card_id=robbery.id, free=True)
+    settle(s)
+    assert s.state.cards[robbery.id].zone == "p1:graveyard"
     check(s)

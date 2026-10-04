@@ -375,7 +375,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import graveyard_keywords
 
         return graveyard_keywords.supported(kw, line)
-    if kw in ("spectacle", "surge", "blitz"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
+    if kw in ("spectacle", "surge", "blitz", "warp"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(line) is not None
@@ -391,6 +391,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"soulshift \d+(?:, soulshift \d+)*", line.strip().rstrip(".").lower()) is not None
     if kw in ("bushido", "renown", "bloodthirst", "toxic", "fabricate", "firebending"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "plot":  # -- keywords (wave 15E) -- casting.plot: a mana plot cost
+        return re.fullmatch(r"plot (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
         return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "cumulative upkeep":  # triggers.cumulative_cost: a mana cost

@@ -9,6 +9,7 @@ tap lands yourself first (``activate_ability`` on their mana ability) to pay a p
 from __future__ import annotations
 
 import re
+import secrets
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -18,6 +19,7 @@ from app.game.rules_state import (
     CostContribution,
     DecisionOption,
     PaymentRecord,
+    Permission,
     StackEntry,
     TargetRef,
     TurnCount,
@@ -1480,6 +1482,10 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
 
     if (timed := cast_timing.problem(state, player, card, ch, info)) is not None:
         return timed
+    if grant.sorcery:  # -- keywords (wave 15E) -- plot 702.170d: during your main phase while the stack is empty
+        if state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
+            return f"{ch.name} can only be cast in your main phase while the stack is empty (plot)"
+        return None
     if "Instant" in ch.types or ch.has_flash or grant.flash:  # (601.3b: as though it had flash)
         return None
     if state.turn.active_player != player:
@@ -2096,6 +2102,29 @@ def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAb
     plan.rules.passed = []
 
 
+PLOT = re.compile(r"^plot (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def plot(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, cost_text: str) -> None:
+    """-- keywords (wave 15E) -- 702.170a/b plot: a special action, any time you have priority during your main phase while the
+    stack is empty: exile this card from your hand and pay the plot cost. It becomes a plotted card (702.170d): its owner may cast
+    it from exile without paying its mana cost during their main phase while the stack is empty, on a later turn."""
+    state = plan.state
+    if state.turn.active_player != plan.actor or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
+        raise ActionError("You can plot a card only in your main phase while the stack is empty")
+    cost = M.parse_cost(cost_text)
+    if payment_step(plan, a, cost, f"plotting {ch.name}", purpose=Purpose(spell=ch)):
+        return
+    pay(plan, plan.actor, cost, f"paid {cost.text()} to plot {ch.name}", sources=a.sources, purpose=Purpose(spell=ch))
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}})
+    plan.rules.permissions.append(Permission(
+        id=secrets.token_hex(4), player=card.owner, cast=True, zone="any", object_id=plan.oid(card), card=card.id, free=True,
+        until="permanent", turn=state.turn.number, after_turn=state.turn.number, sorcery=True,
+        label=f"{ch.name}: cast it without paying its mana cost (plotted)"))
+    plan.note(f"{ch.name} is plotted", [card.id])
+    plan.rules.passed = []
+
+
 UNEARTH = re.compile(r"^unearth (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 MADNESS = re.compile(r"^madness (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 BUYBACK = re.compile(r"^buyback (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
@@ -2406,6 +2435,8 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         found = suspend_info(ch, a.ability)
         if found is not None:
             suspend(plan, card, ch, a, *found)
+        elif (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is not None and not plan.manual(card):
+            plot(plan, card, ch, a, plot_cost)
         elif (ninja := ninjutsu.cost_of(ch, a.ability)) is not None and not plan.manual(card):
             on_stack = len(plan.state.zones.get(STACK, []))
             activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION)

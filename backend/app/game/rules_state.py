@@ -724,6 +724,10 @@ class Permission(BaseModel):
     # -- as long as (wave 9B) -- "mana of any type can be spent to cast that spell" ("type") / "you may spend mana as though it
     # were mana of any color to cast it" ("color"): applies only to mana spent casting with this permission (118.14, 609.4b)
     spend: Literal["", "type", "color"] = ""
+    # -- keywords (wave 15E) -- warp 702.185a ("after the current turn has ended": not before turn ``after_turn`` is over) and plot
+    # 702.170d ("during your main phase while the stack is empty", ``sorcery``, even for an instant)
+    after_turn: int = 0
+    sorcery: bool = False
 
 
 class CostModifier(BaseModel):

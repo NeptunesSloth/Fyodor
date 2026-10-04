@@ -170,8 +170,8 @@ def define(t: str) -> dict[str, Any] | None:
 # (702.137a: "You may cast this spell by paying [cost] rather than its mana cost if an opponent lost life this turn."), surge
 # (702.117a: "if you or a teammate has cast another spell this turn" — no teammates in Commander), freerunning
 # (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
-KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None}
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None}
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
 
 
 def keyword_definition(line: str) -> dict[str, Any] | None:
@@ -181,7 +181,8 @@ def keyword_definition(line: str) -> dict[str, Any] | None:
     kw = m["kw"].lower()
     cond = KEYWORD_CONDS[kw]
     found = define(f"you may pay {m['cost']} rather than pay ~'s mana cost" + (f" if {cond}" if cond else ""))
-    return {**found, "tag": kw} if found is not None else None  # ("tag": what the cast record says it was cast for)
+    # ("tag": what the cast record says it was cast for; warp: only "from your hand", 702.185a)
+    return {**found, "tag": kw, **({"hand_only": True} if kw == "warp" else {})} if found is not None else None
 
 
 @dataclass(frozen=True)
@@ -212,6 +213,8 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
     out: list[Offer] = []
     for index, d in scripts.definitions(ch).items():
         if d.get("static") != "alt_cost" or d.get("table"):
+            continue
+        if d.get("hand_only") and card.zone != f"{player}:hand":
             continue
         if d.get("cond") is not None and not conditions.holds(view, _ctx(state, player, card), d["cond"]):
             continue
