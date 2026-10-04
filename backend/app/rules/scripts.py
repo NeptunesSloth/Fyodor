@@ -152,8 +152,11 @@ def _half_trigger(text: str) -> tuple[str, dict[str, Any] | None] | None:
     """-- trigger tail (wave 15B) -- one half of "A and when B": a trigger the engine fires by name, or a generic condition."""
     if text == "you cast this spell":
         return "cast_self", None
+    if text in ("at the beginning of your upkeep", "at the beginning of your end step"):
+        return ("upkeep_you" if text.endswith("upkeep") else "end_step_you"), None
     from app.rules import events as event_grammar
 
+    text = re.sub(r"^it ", "~ ", re.sub(r" it$", " ~", text))  # ("~ enters and when you sacrifice it": the first half's object)
     found = event_grammar.parse_condition(text)
     if found is None or found["event"] == "multi":
         return None
@@ -2794,10 +2797,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
                     # -- triggers (wave 5D) -- "When ~ enters and whenever an opponent draws a card …" (Orcish
                     # Bowmasters): one ability, two trigger conditions — it triggers on each (603.2)
-                    both = re.fullmatch(r"(?P<a>.+?) and (?:when|whenever) (?P<b>.+)", m["cond"])
+                    both = re.fullmatch(r"(?P<a>.+?) and (?:(?:when|whenever) |(?=at the beginning of your (?:upkeep|end step)))(?P<b>.+)", m["cond"])
+                    halves = [_half_trigger(both["a"]), _half_trigger(both["b"])] if both else []
                     if both:  # -- trigger tail (wave 15B) -- two conditions, at most one of them generic: "When you cycle this
                         # card and when ~ dies", "When you cast this spell and whenever ~ attacks" (603.2: it triggers on each)
-                        halves = [_half_trigger(both["a"]), _half_trigger(both["b"])]
                         if None in halves:
                             return None
                         names = [h[0] for h in halves if h]

@@ -60,6 +60,7 @@ EXTRA += [
     real("Raise the Alarm Copy", "{1}{W}", 2, "Instant", "Create two 1/1 white Soldier creature tokens.", None, "W"),
     real("God-Eternal Oketra", "{3}{W}{B}", 5, "Legendary Creature — Zombie God", "Double strike\nWhenever you cast a Zombie creature spell, create a 4/4 black Zombie Warrior creature token with vigilance.\nWhen God-Eternal Oketra dies or is put into exile from the battlefield, you may put it into its owner's library third from the top.", ("3", "6"), "WB"),
     real("The Endstone", "{3}", 3, "Artifact", "Whenever you play a land or cast a spell, draw a card.", None),
+    real("Unshakable Tail", "{1}{W}", 2, "Creature — Cat Rogue", "Menace\nWhen this creature enters and at the beginning of your upkeep, surveil 1.", ("1", "1"), "W"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -214,6 +215,27 @@ def test_play_a_land_or_cast_a_spell_triggers_on_each(cards):
     act(s, "p1", type="cast_spell", card_id=opt.id)
     answer(s)
     assert len(s.state.zones["p1:hand"]) == before - 1 + 2  # Opt cast, +1 from The Endstone, +1 from Opt
+    check(s)
+
+
+def test_enters_and_at_the_beginning_of_your_upkeep_is_one_ability_with_two_conditions(cards):
+    s = build(cards, ["Unshakable Tail"], [])
+    tail = to_hand(s, "Unshakable Tail")
+    mana(s, "p1", W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=tail.id)
+    seen = []
+    for _ in range(80):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None:
+            seen.append((s.state.turn.number, d.kind))
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.turn.number >= 3:
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert [t for t, _ in seen if t == 1] and [t for t, _ in seen if t == 3]  # entered (turn 1), then its controller's upkeep (turn 3)
     check(s)
 
 
