@@ -2850,6 +2850,10 @@ def _granter_bound(d: Definition, oid: str) -> Definition | None:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import abilities_of
+
+    if abilities_of.manual(ability):  # (review 18F: a borrowed linked or modal ability, 607.5)
+        return None
     view = _granter_view(ability) if "‹granter" in ability.text else None
     d = _define(view[0] if view else ability, ch)
     if view and d is not None:

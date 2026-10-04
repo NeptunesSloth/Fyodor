@@ -11,8 +11,9 @@ object left is gone, a card that enters the graveyard brings its own).
   the borrower like any granted ability.
 * **Numbering.** Each is numbered from its lender's object number (``BORROWED``), so it stays the same ability while the lender stays the
   object it is (400.7), and a lender that changes zones is a new object with new ones.
-* **Linked abilities (607.5).** A lender's ability that refers to a choice or to cards exiled with it (its linked half may be elsewhere)
-  isn't lent: it would link to the wrong thing. Characteristics are read as the lender has them without other statics (a lender's own
+* **Linked abilities (607.5).** A lender's ability that refers to a choice or to cards exiled with it (its linked half may be elsewhere),
+  or to a card by name (201.5b vs "a card named …"), is lent but never automated (``manual``): it would link to the wrong thing. A modal
+  ability is lent with its modes (shown) and is manual too. Characteristics are read as the lender has them without other statics (a lender's own
   borrowed abilities, an Aura's grants: ``layers._depth``), so a lender's abilities from other statics aren't lent either.
 * **Refused** (never guessed): sources the selector grammar doesn't read, "the top card of your library" (Skill Borrower: it isn't an
   object that stays), cards in exile with counters ("Mairsil": each once a turn), planeswalkers' loyalty abilities.
@@ -20,6 +21,7 @@ object left is gone, a card that enters the graveyard brings its own).
 
 from __future__ import annotations
 
+import itertools
 import re
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
@@ -38,8 +40,8 @@ STRIDE = 32  # abilities of one lender
 _SOURCE = re.compile(r"^all activated abilities of (?P<src>.+?)(?P<nomana> except mana abilities)?$")
 _LINKED = re.compile(r"^(?:all |the )?(?P<what>(?:[\w\-]+ )*cards?) exiled with (?:it|this \w+|~)$")
 _EXILED_CARD = re.compile(r"^the exiled card$")
-# a lender's ability that refers to what another of its abilities did (607.2, 607.5): not lent
-_LINKED_TEXT = re.compile(r"\bexiled with\b|\bthe exiled cards?\b|\bchosen\b|\bnoted\b|\bchoose\b|\bnamed\b|\bthe last\b", re.IGNORECASE)
+# a lender's ability that refers to what another of its abilities did (607.2, 607.5), or names a card: lent, but manual (``manual``)
+_LINKED_TEXT = re.compile(r"\bexiled with\b|\bthe exiled cards?\b|\bchosen\b|\bnoted\b|\bnamed\b", re.IGNORECASE)
 # activated abilities that are keyword lines (113.1, 702): the ones that work from the battlefield
 _ACTIVATED_KEYWORDS = frozenset({"equip", "crew", "outlast", "fortify", "reconfigure"})
 
@@ -79,22 +81,32 @@ def parse(rest: str) -> dict[str, Any] | None:
     return out
 
 
+def manual(ability: AbilityText) -> bool:
+    """A borrowed ability that is lent but not automated (scripts.define): a linked one (607.5) or a modal one (its modes are shown)."""
+    return ability.index >= BORROWED and (bool(_LINKED_TEXT.search(ability.text)) or "\n• " in ability.text)
+
+
 def _lent(plan: Plan, lender: CardInstance, no_mana: bool) -> list[AbilityText]:
     from app.rules import scripts
 
     ch = plan.ch(lender)
+
+    def own(text: str) -> str:
+        text = scripts.self_text(text, ch.name)
+        return re.sub(r"(^|: |\. )~", r"\1This permanent", text).replace("~", "this permanent")
+
     out: list[AbilityText] = []
-    for ab in ch.abilities:
-        if ab.index >= BORROWED or _LINKED_TEXT.search(ab.text):
+    for i, ab in enumerate(ch.abilities):
+        if ab.index >= BORROWED:
             continue
         keyword = ab.kind == "keywords" and len(ab.keywords) == 1 and ab.keywords[0] in _ACTIVATED_KEYWORDS
         if not (ab.kind == "activated" or (ab.kind == "mana" and not no_mana) or keyword):
             continue
-        text = ab.text if keyword else scripts.self_text(ab.text, ch.name)
-        text = re.sub(r"(^|: |\. )~", r"\1This permanent", text).replace("~", "this permanent")
-        found = parse_abilities(text)
-        if len(found) == 1 and found[0].kind == ab.kind:
-            out.append(found[0])
+        found = parse_abilities(ab.text if keyword else own(ab.text))
+        if len(found) != 1 or found[0].kind != ab.kind:
+            continue
+        modes = [own(x.text) for x in itertools.takewhile(lambda x: x.text.startswith("• "), ch.abilities[i + 1:])]
+        out.append(replace(found[0], text="\n".join([found[0].text, *modes])) if modes else found[0])  # (a modal one: manual)
     return out
 
 

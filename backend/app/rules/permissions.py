@@ -1095,6 +1095,8 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             continue
         if limit is not None and ch.mana_value > limit:
             continue
+        if e.get("paid") and not ch.mana_cost:
+            continue  # (review 18F) 118.6: no mana cost is an unpayable cost (Living End's copy can't be cast by paying it)
         if below is not None and ch.mana_value >= below:
             continue
         if e.get("parity") and ch.mana_value % 2 != (1 if e["parity"] == "odd" else 0):
@@ -1111,7 +1113,7 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     # players whether one was eligible, so the looker is asked whenever there were cards to look at)
     hidden = e["zone"] in ("hand", "looked") and bool(pool)
     if not options and not hidden:
-        plan.note(f"{plan.name(pid)} has nothing to cast without paying its mana cost")
+        plan.note(f"{plan.name(pid)} has nothing to cast" + ("" if e.get("paid") else " without paying its mana cost"))
         return _free_cast_over(ctx, e)
     many = int(e.get("n", 1)) > 1
     decide(plan, player=pid, kind="choose_cards",
