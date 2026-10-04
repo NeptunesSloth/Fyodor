@@ -1253,19 +1253,23 @@ def _parse(text: str) -> tuple[Effects, Any]:
             n = _stat(m["stat"])
             return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
-    m = re.fullmatch(_SUBJ + rf"sacrifices? (?P<n>{AMT}) (?P<sel>.+)", text)
+    m = re.fullmatch(_SUBJ + rf"sacrifices? (?P<n>{AMT}|another) (?P<sel>.+)", text)
     if m and rider is None:
         who, target = _subject(m)
+        word, noun = m["n"], m["sel"]
+        if word == "another":  # -- X sized by a count (wave 19F) -- "sacrifice another creature": one you control, not the source (701.21a)
+            if who != "you":
+                raise _Fail
+            word, noun = "one", "another " + noun
         # -- damage wordings (wave 6B) -- "Each opponent sacrifices a creature with the greatest power among creatures
         # that player controls" (Crackling Doom): among the sacrificing player's own creatures (ties: their choice)
-        greatest = re.fullmatch(r"(?P<s>creature) with the greatest power among creatures (?:that player|they) controls?",
-                                m["sel"])
-        sel = selectors.parse(greatest["s"] if greatest else m["sel"])
+        greatest = re.fullmatch(r"(?P<s>creature) with the greatest power among creatures (?:that player|they) controls?", noun)
+        sel = selectors.parse(greatest["s"] if greatest else noun)
         if sel is None or sel.player is not None:
             raise _Fail
         if greatest:
             sel = replace(sel, extras=(*sel.extras, "greatest_power_own"))
-        return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
+        return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(word)}], target
     # -- trigger tail (wave 16C) -- "Exile a land you control." (Wormfang Newt, Turtle): you choose it as this resolves (608.2d),
     # then it's exiled (no sacrifice, 701.21a: sacrificing is putting into a graveyard); linked for "the exiled card" (607.2a)
     m = re.fullmatch(r"exile (?P<n>a|an|one|two|three) (?P<sel>[a-z -]+? you control)", text)

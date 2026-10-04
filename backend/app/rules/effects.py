@@ -2838,6 +2838,17 @@ def continue_effects(plan: Plan, ctx: Context) -> None:
     finish(plan, ctx)
 
 
+def repeat(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- X sized by a count (wave 19F) -- the next ``span`` instructions, as many times as ``n`` says ("Proliferate X times": each time
+    is a whole proliferate, 701.34a; none when it is 0), one after the other."""
+    effects, i = ctx["effects"], ctx["next"]
+    ctx["effects"] = [*effects[:i], *effects[i: i + e["span"]] * _amount(plan, ctx, e["n"]), *effects[i + e["span"]:]]
+    return True
+
+
+PRIMITIVES["repeat"] = repeat
+
+
 def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
     from app.rules.engine import _after_resolution  # engine imports this module
 

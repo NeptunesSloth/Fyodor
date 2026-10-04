@@ -932,6 +932,7 @@ class RulesState(BaseModel):
     suspend_haste: list[str] = Field(default_factory=list)  # suspended creature spells: haste when they enter
     renowned: list[str] = Field(default_factory=list)  # rules objects that became renowned (702.112)
     monstrous: list[str] = Field(default_factory=list)  # rules objects that became monstrous (701.37b)
+    monstrous_x: dict[str, int] = Field(default_factory=dict)  # -- X sized by a count (wave 19F) -- 701.37c: its X "as that permanent became monstrous"
     levels: dict[str, int] = Field(default_factory=dict)  # -- Class (wave 16A) -- 716.2b: rules object -> class level (none: level 1, 716.2d)
     unlocked: dict[str, list[int]] = Field(default_factory=dict)  # -- Rooms (wave 18G) -- 709.5c: rules object -> its unlocked doors (1 left, 2 right)
     suspected: list[str] = Field(default_factory=list)  # rules objects that are suspected (701.60: -- suspect (wave 12A) --)

@@ -376,8 +376,8 @@ def _exile(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM.replace("|x)", "|[xX])") + r" or (?P<dir>less|greater|more)")
 def _compare(s: Selector, m: re.Match[str]) -> Selector:
     n = _n(m.group(2))
-    if n is None and m["what"] == "mana value" and m.group(2).lower() == "x" and m["dir"] == "less":
-        n = X_VALUE  # -- control (wave 3K) -- "target creature with mana value X or less" (Dominate): the X of the spell
+    if n is None and m.group(2).lower() == "x" and m["dir"] == "less":
+        n = X_VALUE  # -- control (wave 3K) -- "target creature with mana value X or less" (Dominate): the X of the spell (wave 19F: or power X)
     if n is None:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
@@ -401,8 +401,8 @@ def _compare_strict(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM.replace("|x)", "|[xX])"))
 def _equal(s: Selector, m: re.Match[str]) -> Selector:
     n = _n(m.group(2))
-    if n is None and m["what"] == "mana value" and m.group(2).lower() == "x":
-        n = X_VALUE  # -- reanimation (wave 10A) -- "target creature card with mana value X" (Postmortem Lunge): the spell's X
+    if n is None and m.group(2).lower() == "x":
+        n = X_VALUE  # -- reanimation (wave 10A) -- "target creature card with mana value X" (Postmortem Lunge): the spell's X (wave 19F: or power)
     if n is None:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
@@ -895,9 +895,10 @@ def _parse(phrase: str) -> Selector | None:
         return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source; -- keywords
         # (wave 15E) -- or permanents: mentor's "target attacking creature with power less than this creature's power")
     if any(c[1] == "==" and c[2] == X_VALUE for c in s.compare) and not ((s.zones == ("graveyard",) and s.card) or (s.zones == ("battlefield",) and not s.card
-                                                                                  and not re.search(r"\bspells?\b", text))):
+                                                                                  and not re.search(r"\bspells?\b", text)) or re.search(r"\bspells?\b", text)):
         return None  # -- reanimation (wave 10A) -- ("mana value X" exactly: read for a card in a graveyard, or -- wave 17B -- a permanent;
-        # not a spell: the X in its cost counts on the stack (202.3e), which the selector's mana value doesn't read)
+        # not a spell: the X in its cost counts on the stack (202.3e), which the selector's mana value doesn't read — wave 19F: it does,
+        # "counter target spell with mana value X" compares the value with X on the stack)
     # (wave 16C: "artifact, creature, or enchantment an opponent controls with mana value 3 or greater": a qualifier after the
     # controller clause is the whole phrase's)
     if qualified and re.search(r", or \S+$", text) and not re.search(

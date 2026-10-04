@@ -169,8 +169,8 @@ def test_definitions_of_the_full_cards():
 
 
 def test_unclear_wordings_stay_manual():
-    """A discover that something follows (its cast ends the resolution), a bare X, a bare "it" (the spell or another), an
-    "explores X times" are not read."""
+    """A discover that something follows (its cast ends the resolution), a bare X and a bare "it" (the spell or another)
+    are not read."""
     from tests.test_rules_scripts import ch as characteristics
 
     assert coverage.of_characteristics(characteristics(
@@ -178,8 +178,6 @@ def test_unclear_wordings_stay_manual():
     for kind, text in (("Creature — Bear", "When this creature enters, discover 3. Draw a card."),
                        ("Creature — Bear", "When this creature enters, discover X."),
                        ("Sorcery", "Bolster X."),
-                       ("Creature — Bear", "When this creature enters, investigate X times, where X is the number of opponents you have."),
-                       ("Creature — Bear", "When this creature enters, it explores X times, where X is the number of creatures you control."),
                        ("Creature — Bear", "When you cast this spell, create X 0/1 Kobold creature tokens, where X is the amount of "
                                            "mana spent to cast it.")):
         assert coverage.of_characteristics(characteristics("Test", kind, text)).level != "FULL", text

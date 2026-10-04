@@ -227,6 +227,8 @@ def monstrosity(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                                               then=replace.rerun_then(ctx, e), ctx=ctx):
             return False
         plan.rules.monstrous.append(oid)
+        if isinstance(e["n"], dict):  # (wave 19F: other abilities of the permanent that refer to X read this one, 701.37c)
+            plan.rules.monstrous_x[oid] = n
         plan.do({"type": "add_effect", "card_ids": [cid], "name": "Monstrous", "value": "Monstrous",
                  "text": "until it leaves the battlefield"})
         # -- becomes monstrous (wave 6D) -- "When ~ becomes monstrous, …" (701.37b: a trigger event)
