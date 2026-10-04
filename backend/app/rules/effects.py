@@ -230,8 +230,16 @@ def _moved(plan: Plan, ctx: Context, e: dict[str, Any], before: list[ObjectRef])
 def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- replacement effects stage 2 (wave 2E): the draw choke point (app/rules/replace.py: 121.2,
     # 121.2c APNAP, 121.6a / 614.11 with an empty library, 704.5b) --
-    want = _amount(plan, ctx, e["n"])
     players = _players(plan, ctx, e["who"])
+    if isinstance(e["n"], dict) and e["n"].get("each_owner"):  # -- static_other sweep (wave 16B) -- "each player discards …, then draws that
+        # many cards [plus / minus one]": each draws as many as they discarded (this_way.by_controller: a card's owner, 108.4a)
+        from app.rules import this_way
+
+        counts = this_way.by_controller(plan, ctx, e["n"])
+        want = {p: max(0, counts.get(p, 0) + int(e["n"].get("delta", 0))) for p in players}
+        players = [p for p in players if want[p] > 0]
+        return not players or replace.draw_cards(plan, players, want, then=_then(ctx, e), ctx=ctx)
+    want = _amount(plan, ctx, e["n"])
     if e.get("also"):  # -- triggers (wave 5D) -- "You and target opponent each draw a card": one instruction (121.2c)
         players = list(dict.fromkeys([*_players(plan, ctx, e["also"]), *players]))
     if want <= 0 or not players:
@@ -1675,6 +1683,8 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         picked = [c for pid in order for c in rng.sample(sorted(plan.state.zones.get(zone_key(pid, "hand"), [])),
                                                            min(want, len(plan.state.zones.get(zone_key(pid, "hand"), []))))]
         return _discard_next(plan, ctx, want, [], picked, e.get("as"))
+    if e.get("any"):  # -- static_other sweep (wave 16B) -- "discards any number of cards": each player chooses how many (701.9a)
+        return _discard_next(plan, ctx, -1, order, [], e.get("as"))
     if e.get("all"):  # -- "this way" outcomes (wave 4A) -- "discard your hand": every card, no choice (701.9a)
         picked = [c for pid in order for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
         return _discard_next(plan, ctx, 0, [], picked, e.get("as"))
@@ -1685,17 +1695,18 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
                   binding: str | None = None, dest: str = "graveyard", src: str = "hand") -> bool:
     for i, pid in enumerate(players):
         hand = plan.state.zones.get(zone_key(pid, src), [])  # (wave 15D: "exiles a card from their graveyard", public, 404.1)
-        n = min(want, len(hand))
+        n = min(want, len(hand)) if want >= 0 else len(hand)  # (want -1: any number, wave 16B)
         if n == 0:
             continue
-        if n == len(hand):
+        if n == len(hand) and want >= 0:
             picked = [*picked, *hand]
             continue
         decide(plan, player=pid, kind="choose_cards",
-               prompt=f"{'Exile' if dest == 'exile' else 'Discard'} {n} card{'s' if n != 1 else ''}"  # (wave 11D: "exiles two cards from their hand")
+               prompt=("Discard any number of cards" if want < 0 else
+                       f"{'Exile' if dest == 'exile' else 'Discard'} {n} card{'s' if n != 1 else ''}")  # (wave 11D: "exiles two cards from their hand")
                + (f" from your {src}" if dest == "exile" else ""),
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
-               min_choices=n, max_choices=n,
+               min_choices=0 if want < 0 else n, max_choices=n,
                resume={"step": "discard", "ctx": ctx, "want": want, "rest": players[i + 1:], "picked": picked,
                        "as": binding, "to": dest, "zone": src})
         return False

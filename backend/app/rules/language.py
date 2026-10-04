@@ -1069,6 +1069,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m and rider is None and (m["your"] is not None) == (m["s"] in (None, "you")):
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": 0, "all": True}], target
+    # -- static_other sweep (wave 16B) -- "discards any number of cards" (701.9a: the player chooses how many, from none up to all)
+    m = re.fullmatch(_SUBJ + r"discards? any number of cards", text)
+    if m and rider is None:
+        who, target = _subject(m)
+        return [{"do": "discard", "who": who, "n": 0, "any": True}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)

@@ -1547,6 +1547,33 @@ _YOU_IMPERATIVE = re.compile(r"you (?=(?:create|untap|tap|put|return|exile|destr
                              r"investigate|sacrifice|discard|mill|shuffle)\b)")
 
 
+# -- static_other sweep (wave 16B) -- "Each player discards all the cards in their hand, then draws that many cards [minus one]." /
+# "Discard any number of cards, then draw that many cards plus one." / "… then creates that many 2/2 black Zombie creature tokens.":
+# "that many" is the cards the discard before it put into the graveyard (701.9a), for each player their own (108.4a: a card's owner)
+_THAT_MANY = re.compile(r"^(?P<s>(?:target player|each player|each opponent|that player|defending player) )?(?P<v>draws?|creates?) "
+                        r"that many (?P<what>cards|[^,.]+? tokens)(?: (?P<d>plus|minus) one)?$")
+
+
+def _that_many(left: tuple[list[dict[str, Any]], Any], text: str) -> tuple[list[dict[str, Any]], Any] | None:
+    m = _THAT_MANY.match(text)
+    if m is None or len(left[0]) != 1 or left[0][0].get("do") != "discard" or not (left[0][0].get("all") or left[0][0].get("any")):
+        return None
+    s, plural = m["s"] or "", bool(m["s"]) and m["s"].startswith("each")
+    verb = m["v"] if s else m["v"].rstrip("s")
+    if verb.startswith("draw"):
+        right = _clause(f"{s}{verb} a card for each card discarded this way")
+        if right is None or len(right[0]) != 1 or right[0][0].get("do") != "draw":
+            return None
+        n = {**right[0][0]["n"], **({"delta": 1 if m["d"] == "plus" else -1} if m["d"] else {}), **({"each_owner": True} if plural else {})}
+        return [{**right[0][0], "n": n}], right[1]
+    if m["d"] or m["what"] == "cards":
+        return None
+    right = _clause(f"{s}{verb} a {m['what'][:-1]}")
+    if right is None or len(right[0]) != 1 or right[0][0].get("do") != "create_token" or right[0][0].get("n") != 1:
+        return None
+    return [{**right[0][0], "per_controller": {"this_way": "discarded", "of": None}}], right[1]
+
+
 def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """An instruction, or two joined by ", then" / "and" ("Scry 1, then draw a card.", "You draw
     two cards and you lose 2 life."): each half must be understood. Each "target" word is its
@@ -1584,7 +1611,9 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                              r"returns|creates|searches|scry|surveil|gets)\b", parts[1]):
             parts[1] = f"{subj[1]} {parts[1]}"
             same_target = subj[1].startswith("target")  # (one word "target": the same target)
-        left, right = _clause(parts[0]), _clause(parts[1])
+        left = _clause(parts[0])
+        right = _that_many(left, parts[1]) if left is not None else None  # -- static_other sweep (wave 16B) --
+        right = right or _clause(parts[1])
         if left is None or right is None:
             continue
         lgroups, rgroups = _as_groups(left[1]), _as_groups(right[1])

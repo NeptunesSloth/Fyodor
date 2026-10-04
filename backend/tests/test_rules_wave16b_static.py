@@ -1,5 +1,6 @@
 """Wave 16B (the static_other long tail, continued). Real Oracle text, replay and save/load for each.
 
+* 701.9a / 121.2: "each player discards …, then draws that many cards" (each player's own count; plus / minus one; any number).
 * 702.77a: Reinforce (a hand ability: "{cost}, Discard this card: Put N +1/+1 counters on target creature").
 * 702.69a: Gravestorm (a copy for each permanent put into a graveyard from the battlefield this turn).
 * 702.127a: Aftermath (the half is cast only from a graveyard; exiled instead of going anywhere else as it leaves the stack).
@@ -35,6 +36,13 @@ EXTRA = [
          "+1/+1 counters on target creature.)"),
     card("Test Flyer", set_code="tst", number="B05", mana_cost="{1}{U}", cmc=2.0, type_line="Creature — Bird", power="2",
          toughness="2", colors=["U"], color_identity=["U"], oracle_text="Flying"),
+    card("Dark Deal", set_code="tst", number="B06", mana_cost="{2}{B}", cmc=3.0, type_line="Sorcery", colors=["B"], color_identity=["B"],
+         oracle_text="Each player discards all the cards in their hand, then draws that many cards minus one."),
+    card("Flux", set_code="tst", number="B07", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
+         oracle_text="Each player discards any number of cards, then draws that many cards.\nDraw a card."),
+    card("Awaken the Erstwhile", set_code="tst", number="B08", mana_cost="{3}{B}{B}", cmc=5.0, type_line="Sorcery", colors=["B"],
+         color_identity=["B"], oracle_text="Each player discards all the cards in their hand, then creates that many 2/2 black Zombie "
+         "creature tokens."),
 ]
 
 
@@ -100,4 +108,56 @@ def test_reinforce_discards_the_card_for_counters_and_the_spell_is_still_cast(ca
     act(s, "p1", type="cast_spell", card_id=fs.id, targets=[find(s, "Test Flyer", "p2").id])
     answer(s)
     assert find(s, "Test Flyer", "p2").zone == "p2:graveyard"
+    roundtrip(s)
+
+
+def fill(s, pid, n):
+    ids = s.state.zones[f"{pid}:library"][:n]
+    act(s, pid, type="move", card_ids=ids, to={"player": pid, "zone": "hand"})
+
+
+def hand_size(s, pid):
+    return len(s.state.zones[f"{pid}:hand"])
+
+
+def test_each_player_discards_hand_then_draws_that_many_minus_one(cards):
+    s = build(cards, p1=("Dark Deal",))
+    c = put(s, "Dark Deal", "hand")
+    fill(s, "p1", 3), fill(s, "p2", 2)
+    mana(s, C=2, B=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert (hand_size(s, "p1"), hand_size(s, "p2")) == (2, 1)  # 3 - 1 and 2 - 1 (each player's own count)
+    roundtrip(s)
+
+
+def test_each_player_discards_any_number_then_draws_that_many(cards):
+    s = build(cards, p1=("Flux",))
+    c = put(s, "Flux", "hand")
+    fill(s, "p1", 3), fill(s, "p2", 2)
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        assert d.min_choices == 0  # any number, from none (701.9a)
+        ids = [o.id for o in d.options][: 2 if d.player == "p1" else 0]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+    assert (hand_size(s, "p1"), hand_size(s, "p2")) == (3 - 2 + 2 + 1, 2)  # Alice swaps two and draws one more; Bob keeps his hand
+    roundtrip(s)
+
+
+def test_each_player_discards_hand_then_creates_that_many_tokens(cards):
+    s = build(cards, p1=("Awaken the Erstwhile",))
+    c = put(s, "Awaken the Erstwhile", "hand")
+    fill(s, "p1", 3), fill(s, "p2", 2)
+    mana(s, C=3, B=2)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    zombies = [x for x in s.state.cards.values() if x.token and x.zone.endswith(":battlefield") and x.token.name == "Zombie"]
+    assert sorted(x.controller for x in zombies) == ["p1"] * 3 + ["p2"] * 2
     roundtrip(s)

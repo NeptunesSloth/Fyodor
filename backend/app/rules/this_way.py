@@ -235,6 +235,8 @@ def count(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     match the qualifier): see the module docstring. ``max_by: "owner"``: the most any one player had (a
     discarded or milled card is its owner's: 701.9a, 701.17a)."""
     found = _matched(plan, ctx, v)
+    if v.get("delta"):  # -- static_other sweep (wave 16B) -- "draws that many cards plus / minus one"
+        return max(0, len(found) + int(v["delta"]))
     if v.get("max_by") == "owner":
         owners: dict[str, int] = {}
         for new, _ in found:

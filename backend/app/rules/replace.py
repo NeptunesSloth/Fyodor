@@ -926,7 +926,7 @@ def _draw_perform(plan: Plan, ev: Event, sim: Sim) -> None:
         sim["step"][pid] = sim["step"].get(pid, 0) + 1
 
 
-def draw_cards(plan: Plan, players: list[str], n: int, *, then: dict[str, Any] | None = None,
+def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then: dict[str, Any] | None = None,
                answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None) -> bool:
     """THE draw choke point (see the module docstring). 121.2: one card at a time; 121.2c: the
     active player draws all their cards first, then the others in turn order; 121.6a / 614.11:
@@ -940,7 +940,7 @@ def draw_cards(plan: Plan, players: list[str], n: int, *, then: dict[str, Any] |
     actions: list[tuple[Event, list[Event]]] = []
     try:
         for pid in who:
-            for _ in range(max(0, int(n))):
+            for _ in range(max(0, int(n[pid] if isinstance(n, dict) else n))):  # (a dict: each player's own count, wave 16B)
                 ev: Event = {"kind": "draw", "player": pid, "applied": []}
                 out: list[Event] = []
                 planner.settle(ev, sim, out.append)
@@ -1015,7 +1015,8 @@ def _win(plan: Plan, pid: str) -> None:
 
 
 def _run_draw(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
-    if draw_cards(plan, list(request["players"]), int(request["n"]), then=then, answers=answers):
+    n = request["n"]
+    if draw_cards(plan, list(request["players"]), n if isinstance(n, dict) else int(n), then=then, answers=answers):
         run_then(plan, then)
 
 
