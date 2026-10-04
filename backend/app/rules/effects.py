@@ -1017,6 +1017,13 @@ def regenerate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def no_regen_turn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- can't regenerate (wave 19E) -- "Target creature can't be regenerated this turn." (701.19c: shields aren't applied to it)."""
+    for cid in _cards(plan, ctx, e["who"]):
+        plan.rules.no_regen.append(plan.oid(cid))
+    return True
+
+
 def animate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """Layer 4: "~ becomes an artifact creature until end of turn" (a crewed Vehicle, 702.122)."""
     cards = _cards(plan, ctx, e["who"])
@@ -2113,7 +2120,7 @@ PRIMITIVES = {
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
-    "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
+    "discard": discard, "regenerate": regenerate, "no_regen": no_regen, "no_regen_turn": no_regen_turn,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
     "sacrifice": sacrifice, "ascend": ascend, "explore": explore, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,

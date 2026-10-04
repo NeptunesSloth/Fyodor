@@ -32,6 +32,11 @@ EXTRA = [
           "Whenever a creature you control enters, you gain life equal to its toughness.", ["W"]),
     _card("Ichor Wellspring", "W5", "{2}", "Artifact",
           "When this artifact enters or is put into a graveyard from the battlefield, draw a card.", []),
+    _card("Furnace Brood", "W6", "{3}{R}", "Creature — Elemental", "{R}: Target creature can't be regenerated this turn.", ["R"],
+          power="3", toughness="3"),
+    _card("Drudge Skeletons", "W7", "{1}{B}", "Creature — Skeleton",
+          "{B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from "
+          "combat, and heal all damage on it.)", ["B"], power="1", toughness="1"),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -107,4 +112,24 @@ def test_copy_ability_from_a_colorless_source(cards):
     hand = len(zone(s.state, "p1", "hand"))
     pass_until_stack_empty(s)
     assert len(zone(s.state, "p1", "hand")) == hand + 2  # the trigger and its copy
+    replay_matches(s)
+
+
+@pytest.mark.parametrize("brood", [False, True])
+def test_cant_be_regenerated_this_turn(cards, brood):
+    """701.19c: with Furnace Brood's ability resolved, Drudge Skeletons' regeneration shield isn't applied to the lethal damage
+    (state-based action, 704.5g); without it the shield saves the Skeletons. The restriction ends at cleanup (514.2)."""
+    s = table(cards, ["Furnace Brood", "Drudge Skeletons"], ["Lightning Bolt"])
+    skeletons = named(s, "Drudge Skeletons")
+    pay(s, B=1)
+    act(s, "p1", type="activate_ability", card_id=skeletons.id, ability=0)
+    resolve_top(s)
+    if brood:
+        pay(s, R=1)
+        act(s, "p1", type="activate_ability", card_id=named(s, "Furnace Brood").id, ability=0, targets=[skeletons.id])
+        resolve_top(s)
+    pay(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=named(s, "Lightning Bolt").id, targets=[skeletons.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[skeletons.id].zone == ("p1:graveyard" if brood else "p1:battlefield")
     replay_matches(s)

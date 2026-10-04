@@ -739,6 +739,7 @@ def turn_cleanup(plan: Plan) -> None:
     if plan.rules.effects:
         layers.end_of_turn(plan)
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
+    plan.rules.no_regen = []  # (wave 19E) and so does "can't be regenerated this turn"
     plan.rules.prevention = {}  # and so do prevention shields
     plan.rules.prevention_riders = {}
     permissions.expire(plan)  # "you may play that card this turn" and friends

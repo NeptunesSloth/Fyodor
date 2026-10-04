@@ -1421,6 +1421,11 @@ def _no_regeneration(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
     return [{"do": "no_regen"}], None  # the destruction of this spell/ability ignores regeneration shields
 
 
+@effect(r"(?P<sel>{SEL}) can't be regenerated this turn")  # -- can't regenerate (wave 19E) -- 701.19c
+def _no_regeneration_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "no_regen_turn", "who": "target"}], SELECTORS[m["sel"]]
+
+
 @effect(r"regenerate (?P<who>~|it|target creature|target creature you control|enchanted creature|equipped creature)")
 def _regenerate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if m["who"] in ("enchanted creature", "equipped creature"):  # -- attached events (wave 4L) -- (701.19a)

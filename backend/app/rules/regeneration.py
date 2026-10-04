@@ -15,7 +15,8 @@ def add_shield(plan: Plan, card_id: str) -> None:
 
 
 def shielded(plan: Plan, card: CardInstance) -> bool:
-    return plan.rules.regen_shields.get(plan.oid(card), 0) > 0
+    oid = plan.oid(card)  # (-- can't regenerate (wave 19E) -- 701.19c: a shield isn't applied to an object that can't be regenerated)
+    return plan.rules.regen_shields.get(oid, 0) > 0 and oid not in plan.rules.no_regen
 
 
 def regenerate(plan: Plan, card: CardInstance) -> None:
