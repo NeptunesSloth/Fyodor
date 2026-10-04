@@ -291,8 +291,13 @@ def _stat(phrase: str, its: str = "it") -> Any:
     if (m := re.fullmatch(r"(?P<n>\d+|one|two|three) plus (?P<v>the (?:discarded card's|sacrificed (?:creature|artifact|permanent|land|enchantment)'s) "
                           r"(?:power|toughness|mana value))", phrase)) is not None:  # "2 plus the sacrificed permanent's mana value"
         return {"plus": [_stat(m["v"], its), values.parse_amount(m["n"])]}
-    if (m := re.fullmatch(r"the exiled card's (?P<stat>power|toughness|mana value)", phrase)) is not None:
-        return {_STATS[m["stat"]]: "cost:exiled"}  # -- if you do (wave 8C) -- bound to the payment (pay_objects.bind)
+    if (m := re.fullmatch(r"the (?:exiled (?:creature )?card's|exiled creature's) (?P<stat>power|toughness|mana value)|the (?P<stat2>mana value) of the exiled card",
+                          phrase)) is not None:  # (wave 19F: also after an exile instruction of this ability, scripts._bind_stats)
+        return {_STATS[m["stat"] or m["stat2"]]: "cost:exiled"}  # -- if you do (wave 8C) -- bound to the payment (pay_objects.bind)
+    if (m := re.fullmatch(r"the milled card's (?P<stat>power|toughness|mana value)|the (?P<stat2>mana value) of the milled card", phrase)) is not None:
+        return {_STATS[m["stat"] or m["stat2"]]: "it:milled"}  # -- X sized by a count (wave 19F) -- the card a mill instruction milled (701.17)
+    if (m := re.fullmatch(r"the (?P<stat>mana value) of (?:that|the) spell|the spell's (?P<stat2>mana value)", phrase)) is not None:
+        return {"mana_value": "that_spell"}  # (wave 19F: a cast trigger's spell, or the one a counter instruction just countered)
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
     m = re.fullmatch(r"(?:(?P<its>its)|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
                      r"(?P<spell>that spell's)|(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
@@ -434,7 +439,9 @@ def _rider_value(phrase: str) -> Any:
                     r"(?:power|toughness|mana value)", phrase):  # -- amounts (wave 12C) --
         return _stat(phrase)
     if re.fullmatch(r"(?:its|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|that spell's|~'s|this creature's|"
-                    r"the sacrificed (?:creature|artifact|permanent|land)'s|the discarded card's) (?:power|toughness|mana value)", phrase):
+                    r"the sacrificed (?:creature|artifact|permanent|land)'s|the discarded card's|the milled card's|the spell's|"
+                    r"the exiled (?:creature )?card's|the exiled creature's) (?:power|toughness|mana value)", phrase) or re.fullmatch(
+                        r"the mana value of (?:that spell|the spell|the exiled card|the milled card)", phrase):  # (wave 19F)
         return _stat(phrase)
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
         return tw

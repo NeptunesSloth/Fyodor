@@ -496,8 +496,8 @@ def _bind_stats(v: Any, bind: Any, spell: Any = None) -> Any:
         return v
     out = {}
     for k, x in v.items():
-        if k in _STAT_KEYS and (x in ("it", "that_spell") or (isinstance(x, str) and x.startswith("it:"))):
-            x = (spell or bind)() if x == "that_spell" else bind(x[3:]) if x.startswith("it:") else bind()
+        if k in _STAT_KEYS and (x in ("it", "that_spell", "cost:exiled") or (isinstance(x, str) and x.startswith("it:"))):
+            x = (spell or bind)() if x == "that_spell" else bind(x[3:]) if x.startswith("it:") else bind("exiled") if x == "cost:exiled" else bind()
             if x is None:
                 raise _NoMatch
         else:
@@ -742,7 +742,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 e["life_x"] = _bind_stats(e["life_x"], lambda verb=None, at=index: stat_ref(at, verb),
                                           (lambda: "event") if antecedent == "event_spell" else None)
             for pk in ("p", "t"):  # -- as long as (wave 9B) -- "gets +X/+X …, where X is the discarded card's mana value" (a pump / become)
-                if e.get("do") in ("pump", "become") and "it:discarded" in json.dumps(e.get(pk), default=str):
+                if e.get("do") in ("pump", "become") and re.search(r'"(?:it:[a-z]+|cost:exiled)"', json.dumps(e.get(pk), default=str)):
                     e[pk] = _bind_stats(e[pk], lambda verb=None, at=index: stat_ref(at, verb), None)
             # -- X sized by a count (wave 4K) -- an "X/X" token's P/T: the same placeholders as an amount
             if isinstance(e.get("token"), dict) and any(isinstance(e["token"].get(k), dict) for k in ("power", "toughness")):
@@ -1856,15 +1856,27 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     value = language.x_definition(m["def"])
     start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
     head, rest = body[start: m.start()], body[:start] + "\0" + body[m.end():]
-    # (a pronoun placeholder in the value — "its power", "that spell's mana value" — is bound by resolve_it, which has already
-    # run on the stand-in sentence: such a value is left to the sentence grammars that bind it)
-    # (likewise what the wrappers around the sentence grammar bind afterwards: "this way" counts, the target player's hand)
-    if value is None or re.search(r'"(?:it|that_spell|that_player|ref_amount|ref_count)"|"this_way"|"it:|"cost:exiled"', json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):
+    # (what the wrappers around the sentence grammar bind afterwards — "this way" counts, the target player's hand — is not read)
+    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"|"cost:exiled"', json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):
         return None
-    got = _parse_effects_checked(rest.replace("\0", re.sub(r"\bX\b", str(_X_SENTINEL), head)), it, event_player)
-    if got is None or str(_X_SENTINEL) in json.dumps(got[1]):
+    _X_NOW[:] = [value, False]  # (-- X sized by a count (wave 19F) -- swapped in by _parse_effects before it binds the pronouns)
+    try:
+        got = _parse_effects_checked(rest.replace("\0", re.sub(r"\bX\b", str(_X_SENTINEL), head)), it, event_player)
+        hit = _X_NOW[1]
+    finally:
+        _X_NOW.clear()
+    if got is None or str(_X_SENTINEL) in json.dumps(got[1]) or not hit:
         return None
-    hit = [False]
+    return got
+
+
+_X_NOW: list[Any] = []  # [value, swapped?] while _where_x parses its stand-in sentence
+
+
+def _swap_x(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """-- X sized by a count (wave 19F) -- the stand-in of _where_x → the value, in amount fields only (a pronoun in the value is
+    bound by the resolve_it that follows: "where X is that creature's power", "… the milled card's mana value")."""
+    value = _X_NOW[0]
 
     def swap(v: Any, key: str | None) -> Any:
         if isinstance(v, list):
@@ -1875,14 +1887,10 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
             return v
         if key not in _X_KEYS or (v < 0 and key == "n"):
             raise _NoMatch
-        hit[0] = True
+        _X_NOW[1] = True
         return value if v > 0 else {"neg": value}
 
-    try:
-        effects = swap(got[0], None)
-    except _NoMatch:
-        return None
-    return (effects, got[1], got[2]) if hit[0] else None
+    return swap(effects, None)  # type: ignore[no-any-return]
 
 
 _EXCESS = re.compile(r"(?P<trample>if the creature you control has trample, )?excess damage is dealt to that "
@@ -2414,6 +2422,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 return None
             found, sel = parsed_clause
             effects += _add_groups(groups, found, sel)
+    if _X_NOW:
+        effects = _swap_x(effects)
     resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
     if resolved is not None:  # -- refused modal/conditional (wave 3R1) -- an "instead" pronoun naming the target
         resolved = _gated_other_rewrite(_branch_refs_retarget(resolved))
@@ -2423,6 +2433,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     if pay_objects.leftover(resolved):  # -- if you do (wave 8C) -- "the exiled card" with no payment before it
         return None
+    if re.search(r'"(?:power|toughness|mana_value)": "it:(?!discarded)', json.dumps(resolved, default=str)):
+        return None  # (-- X sized by a count (wave 19F) -- "the milled card's …" in a field that binds no such reference)
     if not _cast_conditions_ok(resolved) or not _did_refs_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
         return None
     if not _dice.refs_ok(resolved):  # -- rolling dice (wave 12A) -- "equal to the result" only after a roll
