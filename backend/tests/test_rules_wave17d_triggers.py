@@ -56,15 +56,15 @@ EXTRA = [
          "Whenever a player casts a spell, if it's not their turn, this creature deals 4 damage to them.", ("4", "3"), 'R'),
     real('Price of Glory', '{2}{R}', 3, 'Enchantment',
          "Whenever a player taps a land for mana, if it's not that player's turn, destroy that land.", None, 'R'),
-    real("Test Soldier", "{1}{W}", 2, "Creature — Human Soldier", "", ("1", "1"), "W"),
-    real("Test Giant", "{5}", 5, "Creature — Giant", "", ("5", "5")),
-    real("Test Dinosaur", "{R}", 1, "Creature — Dinosaur", "Haste", ("2", "2"), "R"),
-    real("Test Rogue", "{B}", 1, "Creature — Human Rogue", "Haste", ("2", "2"), "B"),
-    real("Test Swamp", "", 0, "Basic Land — Swamp", "({T}: Add {B}.)", None),
-    real("Test Black Spell", "{B}", 1, "Instant", "You gain 1 life.", None, "B"),
-    real("Test Mill", "{U}", 1, "Sorcery", "Target player mills three cards.", None, "U"),
-    real("Test Discard", "{B}", 1, "Sorcery", "Target player discards a card.", None, "B"),
-    real("Test Solring", "{1}", 1, "Artifact", "{T}: Add {C}{C}.", None),
+    real("Probe Soldier", "{1}{W}", 2, "Creature — Human Soldier", "", ("1", "1"), "W"),
+    real("Probe Giant", "{5}", 5, "Creature — Giant", "", ("5", "5")),
+    real("Probe Dinosaur", "{R}", 1, "Creature — Dinosaur", "Haste", ("2", "2"), "R"),
+    real("Probe Rogue", "{B}", 1, "Creature — Human Rogue", "Haste", ("2", "2"), "B"),
+    real("Probe Swamp", "", 0, "Basic Land — Swamp", "({T}: Add {B}.)", None),
+    real("Probe Black Spell", "{B}", 1, "Instant", "You gain 1 life.", None, "B"),
+    real("Probe Mill", "{U}", 1, "Sorcery", "Target player mills three cards.", None, "U"),
+    real("Probe Discard", "{B}", 1, "Sorcery", "Target player discards a card.", None, "B"),
+    real("Probe Solring", "{1}", 1, "Artifact", "{T}: Add {C}{C}.", None),
     real('Brimaz, King of Oreskos', '{1}{W}{W}', 3, 'Legendary Creature — Cat Soldier',
          "Vigilance\nWhenever Brimaz attacks, create a 1/1 white Cat Soldier creature token with vigilance that's attacking.\nWhenever Brimaz blocks a creature, create a 1/1 white Cat Soldier creature token with vigilance that's blocking that creature.", ("3", "4"), 'W'),
     real('Hapatra, Vizier of Poisons', '{B}{G}', 2, 'Legendary Creature — Human Cleric',
@@ -91,7 +91,7 @@ EXTRA = [
          "When this creature enters, it explores, then it explores again. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on this creature, then put the card back or put it into your graveyard. Then repeat this process.)", ("2", "1"), 'G'),
     real('Ammit Eternal', '{2}{B}', 3, 'Creature — Zombie Crocodile Demon',
          'Afflict 3 (Whenever this creature becomes blocked, defending player loses 3 life.)\nWhenever an opponent casts a spell, put a -1/-1 counter on this creature.\nWhenever this creature deals combat damage to a player, remove all -1/-1 counters from it.', ("5", "5"), 'B'),
-    real("Test Exile", "{W}", 1, "Sorcery", "Exile target creature.", None, "W"),
+    real("Probe Exile", "{W}", 1, "Sorcery", "Exile target creature.", None, "W"),
     real('Wilhelt, the Rotcleaver', '{2}{U}{B}', 4, 'Legendary Creature — Zombie Warrior',
          "Whenever another Zombie you control dies, if it didn't have decayed, create a 2/2 black Zombie creature token with decayed. (It can't block. When it attacks, sacrifice it at end of combat.)\nAt the beginning of your end step, you may sacrifice a Zombie. If you do, draw a card.", ("3", "3"), 'BU'),
     real('Park Heights Maverick', '{2}{G}', 3, 'Creature — Human Soldier',
@@ -100,13 +100,13 @@ EXTRA = [
          'Affinity for Spirits (This spell costs {1} less to cast for each Spirit you control.)\nFlying\nWhenever Millicent or another nontoken Spirit you control dies or deals combat damage to a player, create a 1/1 white Spirit creature token with flying.', ("4", "4"), 'UW'),
     real('Massacre Girl, Known Killer', '{2}{B}{B}', 4, 'Legendary Creature — Human Assassin',
          'Menace\nCreatures you control have wither. (They deal damage to creatures in the form of -1/-1 counters.)\nWhenever a creature an opponent controls dies, if its toughness was less than 1, draw a card.', ("4", "4"), 'B'),
-    real("Test Zombie", "{1}{B}", 2, "Creature — Zombie", "", ("2", "2"), "B"),
+    real("Probe Zombie", "{1}{B}", 2, "Creature — Zombie", "", ("2", "2"), "B"),
     real('Bag of Holding', '{1}', 1, 'Artifact',
          "Whenever you discard a card, exile that card from your graveyard.\n{2}, {T}: Draw a card, then discard a card.\n{4}, {T}, Sacrifice this artifact: Return all cards exiled with this artifact to their owner's hand.", None, ''),
     real('Captain Marvel, Shooting Star', '{5}{W}{W}', 7, 'Legendary Creature — Human Kree Hero',
          "Flying\nWhenever Captain Marvel enters or attacks, exile up to one target creature. That creature's controller gains life equal to its power.\nWhenever a creature other than Captain Marvel is exiled from the battlefield, you gain life equal to its power.", ("6", "6"), 'W'),
-    real("Test Bounce", "{U}", 1, "Sorcery", "Return target creature to its owner's hand.", None, "U"),
-    real("Test Burst", "{R}", 1, "Instant", "Test Burst deals 1 damage to any target.", None, "R"),
+    real("Probe Bounce", "{U}", 1, "Sorcery", "Return target creature to its owner's hand.", None, "U"),
+    real("Probe Burst", "{R}", 1, "Instant", "Probe Burst deals 1 damage to any target.", None, "R"),
 ]
 
 NAMES = ["Torens, Fist of the Angels", "Dour Port-Mage", "Glowing One", "Screeching Scorchbeast", "Staff of the Death Magus",
@@ -142,9 +142,9 @@ def ch(s, card):
 
 def test_torens_token_has_training(cards):
     # 702.149a: the token is created with the keyword, so it has the triggered ability
-    s = build(cards, ["Torens, Fist of the Angels", "Test Giant"], [])
+    s = build(cards, ["Torens, Fist of the Angels", "Probe Giant"], [])
     put(s, "Torens, Fist of the Angels")
-    cast(s, "Test Giant", C=5)
+    cast(s, "Probe Giant", C=5)
     answer(s)
     token = next(c for c in s.state.cards.values() if c.is_token and c.name == "Human Soldier")
     assert "training" in [k for ab in ch(s, token).abilities for k in ab.keywords]
@@ -152,32 +152,32 @@ def test_torens_token_has_training(cards):
 
 
 def test_leaving_without_dying_draws_but_dying_does_not(cards):
-    s = build(cards, ["Dour Port-Mage", "Test Soldier", "Test Bounce"], [])
+    s = build(cards, ["Dour Port-Mage", "Probe Soldier", "Probe Bounce"], [])
     put(s, "Dour Port-Mage")
-    soldier = put(s, "Test Soldier")
+    soldier = put(s, "Probe Soldier")
     hand = len(zone(s.state, "p1", "hand"))
-    cast(s, "Test Bounce", U=1)  # bounced: leaves without dying
+    cast(s, "Probe Bounce", U=1)  # bounced: leaves without dying
     answer(s, soldier.id)
     assert len(zone(s.state, "p1", "hand")) == hand + 2  # the soldier and the drawn card
     check(s)
-    s = build(cards, ["Dour Port-Mage", "Test Soldier"], [])
+    s = build(cards, ["Dour Port-Mage", "Probe Soldier"], [])
     put(s, "Dour Port-Mage")
-    put(s, "Test Soldier")
+    put(s, "Probe Soldier")
     hand = len(zone(s.state, "p1", "hand"))
-    kill(s, "Test Soldier")  # 700.4: it died
+    kill(s, "Probe Soldier")  # 700.4: it died
     assert len(zone(s.state, "p1", "hand")) == hand
     check(s)
 
 
 def test_milled_nonland_cards_trigger_once_per_batch(cards):
     # 701.17a: Bob mills three; Glowing One gains 1 life for each nonland card, Scorchbeast makes that many Zombies (once a turn)
-    s = build(cards, ["Glowing One", "Screeching Scorchbeast", "Test Mill"], ["Test Giant", "Test Soldier", "Test Swamp"])
+    s = build(cards, ["Glowing One", "Screeching Scorchbeast", "Probe Mill"], ["Probe Giant", "Probe Soldier", "Probe Swamp"])
     put(s, "Glowing One")
     put(s, "Screeching Scorchbeast")
     top = s.state.zones["p2:library"][:3]
-    nonland = sum(1 for c in top if s.state.cards[c].name not in ("Island", "Test Swamp"))
+    nonland = sum(1 for c in top if s.state.cards[c].name not in ("Island", "Probe Swamp"))
     assert nonland >= 1
-    cast(s, "Test Mill", U=1)
+    cast(s, "Probe Mill", U=1)
     answer(s, "p2")
     answer(s)
     assert life(s, "p1") == 40 + nonland
@@ -187,12 +187,12 @@ def test_milled_nonland_cards_trigger_once_per_batch(cards):
 
 
 def test_cast_black_spell_or_swamp_enters_gains_life(cards):
-    s = build(cards, ["Staff of the Death Magus", "Test Black Spell", "Test Swamp"], [])
+    s = build(cards, ["Staff of the Death Magus", "Probe Black Spell", "Probe Swamp"], [])
     put(s, "Staff of the Death Magus")
-    cast(s, "Test Black Spell", B=1)
+    cast(s, "Probe Black Spell", B=1)
     answer(s)
     assert life(s, "p1") == 42  # the spell's own 1 and the Staff's 1
-    act(s, "p1", type="play_land", card_id=to_hand(s, "Test Swamp").id)
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Probe Swamp").id)
     answer(s)
     assert life(s, "p1") == 43
     check(s)
@@ -200,10 +200,10 @@ def test_cast_black_spell_or_swamp_enters_gains_life(cards):
 
 def test_they_lose_1_life_for_each_spell_they_have_cast_this_turn(cards):
     # Rug of Smothering: the casting player (event player) and the count of that player's spells this turn
-    s = build(cards, ["Rug of Smothering", "Test Burst", "Test Burst"], [])
+    s = build(cards, ["Rug of Smothering", "Probe Burst", "Probe Burst"], [])
     put(s, "Rug of Smothering")
     for _ in (1, 2):
-        cast(s, "Test Burst", R=1)
+        cast(s, "Probe Burst", R=1)
         answer(s, "p2")
         answer(s)
     assert life(s, "p1") == 40 - 1 - 2
@@ -213,16 +213,16 @@ def test_they_lose_1_life_for_each_spell_they_have_cast_this_turn(cards):
 @pytest.mark.parametrize("land_on_top", [True, False])
 def test_path_of_discovery_explores(cards, land_on_top):
     # 701.44a: a land goes to the hand; otherwise the creature gets a +1/+1 counter (the nonland card stays or goes to the graveyard)
-    s = build(cards, ["Path of Discovery", "Test Soldier", "Test Giant"], [])
+    s = build(cards, ["Path of Discovery", "Probe Soldier", "Probe Giant"], [])
     put(s, "Path of Discovery")
     pick = next(c for c in s.state.cards.values() if c.owner == "p1" and c.zone == "p1:library"
-                and c.name == ("Forest" if land_on_top else "Test Giant"))
+                and c.name == ("Forest" if land_on_top else "Probe Giant"))
     act(s, "p1", type="move", card_ids=[pick.id], to={"player": "p1", "zone": "library"}, position="top")
     top = s.state.cards[pick.id]
-    cast(s, "Test Soldier", W=1, C=1)
+    cast(s, "Probe Soldier", W=1, C=1)
     answer(s)
     answer(s, "keep")
-    soldier = card_named(s, "Test Soldier")
+    soldier = card_named(s, "Probe Soldier")
     if land_on_top:
         assert s.state.cards[top.id].zone == "p1:hand" and not soldier.counters.get("+1/+1")
     else:
@@ -231,13 +231,13 @@ def test_path_of_discovery_explores(cards, land_on_top):
 
 
 def test_necropotence_exiles_the_discarded_card(cards):
-    s = build(cards, ["Necropotence", "Test Discard", "Test Soldier"], [])
+    s = build(cards, ["Necropotence", "Probe Discard", "Probe Soldier"], [])
     put(s, "Necropotence")
-    soldier = to_hand(s, "Test Soldier")
-    cast(s, "Test Discard", B=1)
+    soldier = to_hand(s, "Probe Soldier")
+    cast(s, "Probe Discard", B=1)
     answer(s, "p1")
     answer(s)
-    assert not any(c.name == "Test Soldier" and c.zone == "p1:graveyard" for c in s.state.cards.values())
+    assert not any(c.name == "Probe Soldier" and c.zone == "p1:graveyard" for c in s.state.cards.values())
     assert s.state.cards[soldier.id].zone == "p1:exile"
     check(s)
 
@@ -283,9 +283,9 @@ def test_ninja_or_rogue_creatures_dealing_combat_damage_make_one_treasure(cards)
 def test_tapping_for_colorless_adds_one_more_colorless(cards):
     from app.rules.casting import mana_abilities
 
-    s = build(cards, ["Forsaken Monument", "Test Solring"], [])
+    s = build(cards, ["Forsaken Monument", "Probe Solring"], [])
     put(s, "Forsaken Monument")
-    sol, forest = put(s, "Test Solring"), next(c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library")
+    sol, forest = put(s, "Probe Solring"), next(c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library")
     act(s, "p1", type="move", card_ids=[forest.id], to={"player": "p1", "zone": "battlefield"})
     sol_opts = dict(mana_abilities(s.state, s.state.cards[sol.id], s.cards))
     forest_opts = dict(mana_abilities(s.state, s.state.cards[forest.id], s.cards))
@@ -296,15 +296,15 @@ def test_tapping_for_colorless_adds_one_more_colorless(cards):
 
 def test_spell_cast_out_of_turn_deals_4_damage_to_that_player(cards):
     # Scytheclaw Raptor: "if it's not their turn" is the casting player's, checked as it triggers and resolves (603.4)
-    s = build(cards, ["Scytheclaw Raptor", "Test Burst"], ["Test Black Spell"])
+    s = build(cards, ["Scytheclaw Raptor", "Probe Burst"], ["Probe Black Spell"])
     put(s, "Scytheclaw Raptor")
-    to_hand(s, "Test Black Spell", "p2")
-    burst = to_hand(s, "Test Burst")
+    to_hand(s, "Probe Black Spell", "p2")
+    burst = to_hand(s, "Probe Burst")
     mana(s, "p2", B=1)  # (so that Bob can respond)
     mana(s, "p1", R=1)
     act(s, "p1", type="cast_spell", card_id=burst.id, targets=["p2"])  # Alice's own spell on her own turn: nothing triggers
     assert life(s, "p1") == 40 and s.state.rules.priority == "p2"
-    act(s, "p2", type="cast_spell", card_id=card_named(s, "Test Black Spell", "p2").id)  # Bob responds during Alice's turn
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Probe Black Spell", "p2").id)  # Bob responds during Alice's turn
     answer(s)
     assert (life(s, "p1"), life(s, "p2")) == (40, 40 - 4 + 1 - 1)
     check(s)
@@ -312,7 +312,7 @@ def test_spell_cast_out_of_turn_deals_4_damage_to_that_player(cards):
 
 def test_land_tapped_out_of_turn_is_destroyed(cards):
     # Price of Glory: "that land" is the land tapped for mana; the other player's own turn spares it
-    s = build(cards, ["Price of Glory", "Test Burst"], ["Test Black Spell"])
+    s = build(cards, ["Price of Glory", "Probe Burst"], ["Probe Black Spell"])
     put(s, "Price of Glory")
     mine = next(c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library")
     theirs = next(c for c in s.state.cards.values() if c.name == "Island" and c.zone == "p2:library")
@@ -321,8 +321,8 @@ def test_land_tapped_out_of_turn_is_destroyed(cards):
     act(s, "p1", type="activate_ability", card_id=mine.id, ability=0)
     answer(s)
     assert s.state.cards[mine.id].zone == "p1:battlefield"
-    burst = to_hand(s, "Test Burst")
-    to_hand(s, "Test Black Spell", "p2")
+    burst = to_hand(s, "Probe Burst")
+    to_hand(s, "Probe Black Spell", "p2")
     mana(s, "p2", B=1)
     mana(s, "p1", R=1)
     act(s, "p1", type="cast_spell", card_id=burst.id, targets=["p2"])  # (Bob gets priority during Alice's turn)
@@ -393,20 +393,20 @@ def test_returns_at_the_beginning_of_their_next_upkeep(cards):
 
 def test_a_creature_exiled_from_the_battlefield_adds_a_counter(cards):
     # Soulherder: "is exiled from the battlefield" is a leave whose destination is exile (not a death)
-    s = build(cards, ["Soulherder", "Test Soldier", "Test Exile"], [])
+    s = build(cards, ["Soulherder", "Probe Soldier", "Probe Exile"], [])
     herder = put(s, "Soulherder")
-    soldier = put(s, "Test Soldier")
-    cast(s, "Test Exile", W=1)
+    soldier = put(s, "Probe Soldier")
+    cast(s, "Probe Exile", W=1)
     answer(s, soldier.id)
     assert s.state.cards[soldier.id].zone == "p1:exile" and s.state.cards[herder.id].counters.get("+1/+1") == 1
     check(s)
 
 
 def test_a_permanent_put_into_a_graveyard_gives_energy(cards):
-    s = build(cards, ["Aetherworks Marvel", "Test Soldier"], [])
+    s = build(cards, ["Aetherworks Marvel", "Probe Soldier"], [])
     put(s, "Aetherworks Marvel")
-    put(s, "Test Soldier")
-    kill(s, "Test Soldier")
+    put(s, "Probe Soldier")
+    kill(s, "Probe Soldier")
     assert s.state.players["p1"].resources.get("energy") == 1
     check(s)
 
@@ -424,23 +424,23 @@ def test_explores_twice(cards):
 
 def test_another_zombie_dies_unless_it_had_decayed(cards):
     # Wilhelt: "if it didn't have decayed" is read from the creature as it last existed (608.2h)
-    s = build(cards, ["Wilhelt, the Rotcleaver", "Test Zombie"], [])
+    s = build(cards, ["Wilhelt, the Rotcleaver", "Probe Zombie"], [])
     put(s, "Wilhelt, the Rotcleaver")
-    put(s, "Test Zombie")
+    put(s, "Probe Zombie")
     token_of(s, "p1", "Rotted", "Token Creature — Zombie", "2/2", "Decayed")
     kill(s, "Rotted")
     assert not any(c.name == "Zombie" and c.is_token for c in s.state.cards.values())
-    kill(s, "Test Zombie")
+    kill(s, "Probe Zombie")
     assert sum(1 for c in s.state.cards.values() if c.name == "Zombie" and c.is_token and c.zone == "p1:battlefield") == 1
     check(s)
 
 
 def test_the_discarded_card_exiled_by_the_trigger_is_linked_to_its_source(cards):
     # Bag of Holding: "exile that card from your graveyard" (the discard event's card), then "return all cards exiled with this artifact"
-    s = build(cards, ["Bag of Holding", "Test Discard", "Test Soldier"], [])
+    s = build(cards, ["Bag of Holding", "Probe Discard", "Probe Soldier"], [])
     bag = put(s, "Bag of Holding")
-    soldier = to_hand(s, "Test Soldier")
-    cast(s, "Test Discard", B=1)
+    soldier = to_hand(s, "Probe Soldier")
+    cast(s, "Probe Discard", B=1)
     answer(s, "p1")
     answer(s)
     assert s.state.cards[soldier.id].zone == "p1:exile"
@@ -452,10 +452,10 @@ def test_the_discarded_card_exiled_by_the_trigger_is_linked_to_its_source(cards)
 
 
 def test_a_creature_exiled_from_the_battlefield_gains_life_equal_to_its_power(cards):
-    s = build(cards, ["Captain Marvel, Shooting Star", "Test Giant", "Test Exile"], [])
+    s = build(cards, ["Captain Marvel, Shooting Star", "Probe Giant", "Probe Exile"], [])
     put(s, "Captain Marvel, Shooting Star")
-    giant = put(s, "Test Giant")
-    cast(s, "Test Exile", W=1)
+    giant = put(s, "Probe Giant")
+    cast(s, "Probe Exile", W=1)
     answer(s, giant.id)
     assert s.state.cards[giant.id].zone == "p1:exile" and life(s, "p1") == 45  # its power as it last existed (608.2h)
     check(s)
