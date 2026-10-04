@@ -1684,7 +1684,7 @@ def affinity_discount(state: GameState, player: str, ch: Characteristics, info: 
 def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int = 0,
                info: CardInfo | None = None, *, player: str | None = None, alternative: M.ManaCost | None = None,
                free: bool = False, kicker: int = 0, additional: tuple[M.ManaCost, ...] = (),
-               face_down: bool = False, targets: tuple[str, ...] = ()) -> M.ManaCost:
+               face_down: bool = False, targets: tuple[str, ...] = (), reduce: int = 0) -> M.ManaCost:
     """The total cost to cast (601.2f), in the rules' order: the mana cost (with X) or the
     alternative cost — flashback from the graveyard, evoke, dash, a face-down {3}, or {0} for
     "without paying its mana cost" (118.9) — plus additional costs (kicker 702.33a, buyback: 118.8)
@@ -1705,7 +1705,7 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
         extras.append(kicker_extra(ch, kicker, face_down=face_down))
     tax = state.players[card.owner].commander_tax.get(card.commander_key, 0) \
         if from_command_zone(card, card.owner) and card.commander_key else 0
-    affinity = affinity_discount(state, player, ch, info, card) if info is not None else 0
+    affinity = (affinity_discount(state, player, ch, info, card) if info is not None else 0) + reduce  # (reduce: emerge, 18E)
     return permissions.total_cost(state, player, card, ch, info, base=base, additional=tuple(extras), tax=tax, affinity=affinity,
                                   targets=targets)
 
@@ -2008,23 +2008,16 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if picked_targets is None:
         return  # waiting for the target choice (601.2c comes before paying costs)
     chosen = picked_targets.flat
-    # 601.2f (after the targets, 601.2c): the total cost in the rules' order — kicker is an additional cost (118.8)
-    # added before increases and reductions apply, so a reduction sees the kicked total; "spells that target …" cost
-    # changers read the targets chosen (wave 4I)
-    cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=alternative,
-                      free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen))
     optional = cost_changes.chosen_optional(plan.state, plan.actor, card, ch, plan.info, a.optional_costs) \
         if a.optional_costs and not plan.manual(card) else []  # -- cost changers (wave 4I) -- (601.2b)
     if a.optional_costs and plan.manual(card):
         raise ActionError("That card is played by hand: pay its costs with the table tools")
-    cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # ("reduces only the amount of green mana")
-    cost = M.spend_as(cost, grant.spend) if grant is not None and grant.spend else cost  # -- as long as (wave 9B) -- 118.14
-    cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for
     # -- costs (wave 3$) -- 601.2b: an additional cost ("sacrifice a creature", "discard a card", "pay 2 life") is
     # announced with the rest; 601.2h pays it all at once, so nothing moves until every part is chosen and payable
     add_cost = None if plan.manual(card) or a.face_down else costs.spell_additional_cost(ch.abilities)
     if either is not None:  # -- static wordings (wave 6E) -- the announced side's non-mana parts
         add_cost = either if either.components else None
+    alt_at = len(add_cost.components) if add_cost is not None else 0
     if alt_offer is not None:  # -- cost changers (wave 4I) -- its other parts are paid with the rest (601.2h)
         add_cost = alt_costs.merged(add_cost, alt_offer.alt.cost)
     if escalate_more is not None:  # -- static_other sweep (wave 16B) -- escalate's non-mana parts, once for each mode beyond the first
@@ -2052,6 +2045,22 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if found_objects is None:
             return  # waiting for the payer's choice; nothing has been paid
         add_objects = found_objects
+    emerge_reduction = 0  # -- casting extras (wave 18E) -- 702.119a: reduced by the sacrificed permanent's mana value
+    if alt_offer is not None and alt_offer.tag == "emerge":
+        n_alt = len(alt_offer.alt.cost.components)
+        emerge_reduction = sum(int(plan.ch(plan.state.cards[c]).mana_value) for i, ids in add_objects.items()
+                               if alt_at <= i < alt_at + n_alt for c in ids)
+    # (-- casting extras (wave 18E) -- the additional costs are chosen before the total cost is worked out: emerge's reduction reads
+    # the creature sacrificed for it, 702.119a)
+    # 601.2f (after the targets, 601.2c): the total cost in the rules' order — kicker is an additional cost (118.8)
+    # added before increases and reductions apply, so a reduction sees the kicked total; "spells that target …" cost
+    # changers read the targets chosen (wave 4I)
+    cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=alternative,
+                      free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen),
+                      reduce=emerge_reduction)
+    cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # ("reduces only the amount of green mana")
+    cost = M.spend_as(cost, grant.spend) if grant is not None and grant.spend else cost  # -- as long as (wave 9B) -- 118.14
+    cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for
     not_mana = cost_payment.excluded(add_cost, card, add_objects) if add_cost is not None else ()
     origin = card.zone  # (wave 17B: where it is cast from, before it moves to the stack)
     if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,

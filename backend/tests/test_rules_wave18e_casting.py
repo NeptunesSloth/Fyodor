@@ -67,6 +67,9 @@ EXTRA = [
     card("Thunderous Wrath", set_code="tst", number="D13", mana_cost="{4}{R}{R}", cmc=6.0, type_line="Instant", colors=["R"],
          color_identity=["R"], oracle_text="Thunderous Wrath deals 5 damage to any target.\nMiracle {R} (You may cast this card for its "
          "miracle cost when you draw it if it's the first card you drew this turn.)", keywords=["Miracle"]),
+    card("Wretched Gryff", set_code="tst", number="D14", mana_cost="{7}", cmc=7.0, type_line="Creature — Eldrazi Hippogriff", power="3",
+         toughness="4", oracle_text="Emerge {5}{U} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by "
+         "that creature's mana value.)\nWhen you cast this spell, draw a card.\nFlying", keywords=["Emerge", "Flying"]),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -220,6 +223,20 @@ def test_disturb_casts_the_back_face_from_the_graveyard(cards):
     from tests.test_rules_attachments import ch
 
     assert ch(s, now).name == "Luminous Phantom" and "flying" in ch(s, now).keywords
+    roundtrip(s)
+
+
+def test_emerge_sacrifices_a_creature_and_reduces_the_cost_by_its_mana_value(cards):
+    s = build(cards, p1=("Wretched Gryff", "Test Bear"))
+    gryff = put(s, "Wretched Gryff", "hand")
+    bear = put(s, "Test Bear", "battlefield")  # mana value 3
+    mana(s, U=1, C=1)  # {5}{U} less 3 generic = {2}{U}: one short
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=gryff.id, alt_cost=f"{gryff.id}:0", cost_choices=[{"component": 0, "cards": [bear.id]}])
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=gryff.id, alt_cost=f"{gryff.id}:0", cost_choices=[{"component": 0, "cards": [bear.id]}])
+    answer(s)
+    assert s.state.cards[bear.id].zone == "p1:graveyard" and s.state.cards[gryff.id].zone == "p1:battlefield"  # 702.119c
     roundtrip(s)
 
 
