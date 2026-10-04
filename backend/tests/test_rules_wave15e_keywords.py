@@ -41,6 +41,7 @@ EXTRA = [
     card('Ninja of the Deep Hours', set_code='tst', number='X22', mana_cost='{3}{U}', cmc=4.0, type_line='Creature — Human Ninja', oracle_text='Ninjutsu {1}{U} ({1}{U}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, you may draw a card.', power='2', toughness='2', colors=['U'], color_identity=['U'], keywords=['Ninjutsu']),  # noqa: E501
     card('Sacred Cat', set_code='tst', number='X23', mana_cost='{W}', cmc=1.0, type_line='Creature — Cat', oracle_text="Lifelink\nEmbalm {W} ({W}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a white Zombie Cat with no mana cost. Embalm only as a sorcery.)", power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=['Lifelink', 'Embalm']),  # noqa: E501
     card('Adorned Pouncer', set_code='tst', number='X24', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Cat', oracle_text="Double strike\nEternalize {3}{W}{W} ({3}{W}{W}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a 4/4 black Zombie Cat with no mana cost. Eternalize only as a sorcery.)", power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=['Double strike', 'Eternalize']),  # noqa: E501
+    card('Skewer the Critics', set_code='tst', number='X25', mana_cost='{2}{R}', cmc=3.0, type_line='Sorcery', oracle_text='Spectacle {R} (You may cast this spell for its spectacle cost rather than its mana cost if an opponent lost life this turn.)\nSkewer the Critics deals 3 damage to any target.', power=None, toughness=None, colors=['R'], color_identity=['R'], keywords=['Spectacle']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -518,4 +519,17 @@ def test_eternalize_makes_a_black_4_4(cards):
     (token,) = [c for c in tokens(s) if c.name == "Adorned Pouncer"]
     ch = chars(s, token)
     assert ch.colors == {"B"} and pt(s, token) == (4, 4) and "Zombie" in ch.subtypes  # 702.129a
+    check(s)
+
+
+def test_spectacle_alternative_cost_needs_an_opponent_to_have_lost_life(cards):
+    s = build(cards, "Skewer the Critics")
+    skewer = to_hand(s, "Skewer the Critics")
+    mana(s, R=1)
+    with pytest.raises(Exception, match="alternative cost"):
+        act(s, "p1", type="cast_spell", card_id=skewer.id, targets=["p2"], alt_cost=f"{skewer.id}:0")  # 702.137a: no life lost yet
+    act(s, "p1", type="life", player="p2", delta=-1)
+    act(s, "p1", type="cast_spell", card_id=skewer.id, targets=["p2"], alt_cost=f"{skewer.id}:0")
+    settle(s)
+    assert s.state.players["p2"].life == 36 and s.state.cards[skewer.id].zone == "p1:graveyard"
     check(s)

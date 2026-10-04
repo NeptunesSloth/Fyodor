@@ -166,6 +166,21 @@ def define(t: str) -> dict[str, Any] | None:
     return None
 
 
+# -- keywords (wave 15E) -- alternative-cost keywords that are only a cost with a condition on casting (118.9): spectacle
+# (702.137a: "You may cast this spell by paying [cost] rather than its mana cost if an opponent lost life this turn."), surge
+# (702.117a: "if you or a teammate has cast another spell this turn" — no teammates in Commander), freerunning
+# (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
+KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn"}
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+
+
+def keyword_definition(line: str) -> dict[str, Any] | None:
+    m = _KEYWORD_LINE.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
+    if m is None:
+        return None
+    return define(f"you may pay {m['cost']} rather than pay ~'s mana cost if {KEYWORD_CONDS[m['kw'].lower()]}")
+
+
 @dataclass(frozen=True)
 class Offer:
     key: str  # "<card id>:<ability index>"

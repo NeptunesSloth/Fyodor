@@ -375,6 +375,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import graveyard_keywords
 
         return graveyard_keywords.supported(kw, line)
+    if kw in ("spectacle", "surge"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
+        from app.rules import alt_costs
+
+        return alt_costs.keyword_definition(line) is not None
     if kw == "ninjutsu":  # -- keywords (wave 15E) -- app/rules/ninjutsu.py: a mana ninjutsu cost on a line of its own
         from app.rules import ninjutsu
 
