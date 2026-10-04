@@ -53,10 +53,13 @@ MEANINGS: dict[str, str] = {
                 "this creature.",  # 702.105a
     "evolve": "Whenever a creature you control enters, if that creature's power is greater than this creature's power and/or "
               "that creature's toughness is greater than this creature's toughness, put a +1/+1 counter on this creature.",  # 702.100a
+    # 702.181a ("those tokens enter tapped and attacking" written as the grammar reads it; "a" for one, {w} the number word)
+    "mobilize": "Whenever this creature attacks, create {w} 1/1 red Warrior creature token{s} that{be} tapped and attacking. "
+                "Sacrifice {them} at the beginning of the next end step.",
     "mentor": "Whenever this creature attacks, put a +1/+1 counter on target attacking creature with power less than this "
               "creature's power.",  # 702.134a
 }
-_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict"})
+_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict", "mobilize"})
 
 
 def pieces(kw: str, line: str) -> list[str]:
@@ -78,7 +81,9 @@ def _definition(piece: str) -> str | None:
     meaning = MEANINGS.get(kw)
     if meaning is None or (kw in _NUMBERED) != bool(n):
         return None
-    ab = AbilityText(index=0, text=meaning.format(n=n), kind="triggered")
+    one = n == "1"
+    word = "a" if one else {"2": "two", "3": "three", "4": "four", "5": "five"}.get(n, n)
+    ab = AbilityText(index=0, text=meaning.format(n=n, w=word, s="" if one else "s", be="'s" if one else " are", them="it" if one else "them"), kind="triggered")
     d = scripts.define(ab, Characteristics(name="\u0000", abilities=(ab,), types=frozenset({"Creature"})))
     return json.dumps(d) if d is not None and d.get("kind") == "triggered" and scripts._event_refs_ok(d) else None
 

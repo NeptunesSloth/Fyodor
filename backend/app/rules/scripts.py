@@ -375,7 +375,10 @@ _MOVERS = {"destroy", "destroy_all", "exile", "exile_until", "bounce", "return_c
            "sacrifice_choice", "discard", "mill", "search", "pick_looked", "create_token",
            "edict"}  # (edict: wave 4A)
 _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are tokens, not cards: 111.1)
-_CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n"}
+_RECORDING["create_attacking"] = None  # -- keywords (wave 15E) -- "create … tokens that are tapped and attacking. Sacrifice them …":
+_MOVERS.add("create_attacking")  # the pronoun names the tokens made, not the ability's source (was bound to the source)
+_CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n",
+           "create_attacking": "n"}
 # ("on": "for each +1/+1 counter on it" — the object a pronoun names, as for its power. Not "hand":
 # "that player's hand" names a player, which _bind_stats (objects only) can't bind — values reads
 # only "you" / "target" hands, so the phrase stays manual.)
