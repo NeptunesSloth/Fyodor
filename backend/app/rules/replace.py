@@ -801,6 +801,8 @@ def _entering_times(plan: Plan, c: Candidate, ev: Event) -> int:
     if times is None:
         return 1
     ctx = {"controller": c.controller, "source_card": c.source_card, "source_object": c.source_oid}
+    if "mana_from" in times:  # -- mana provenance (wave 18B) -- "for each mana from an artifact source spent to cast it": the entering one
+        ctx["source_object"] = next((k for k, rec in reversed(plan.rules.payments.items()) if rec.card == ev["card"]), "")  # (its latest payment record)
     if "already" in times:
         fresh = {ev["card"], *(ev.get("newcomers") or ())}
         return sum(1 for cid in selectors.candidates(plan, selectors.from_key(times["already"]), c.controller, c.source_card)

@@ -49,6 +49,9 @@ EXTRA = [
          "{T}: Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")"),
     real("Jaded Sell-Sword", "{3}{R}", 4, "Creature — Dragon Warrior",
          "When this creature enters, if mana from a Treasure was spent to cast it, it gains first strike and haste until end of turn.", ("4", "3"), "R"),
+    real("Spoils of the Hunt", "{2}{G}", 3, "Instant",
+         "Target creature you control gets +1/+0 until end of turn for each mana from a Treasure that was spent to cast this spell. Then that "
+         "creature deals damage equal to its power to target creature an opponent controls.", None, "G"),
     real("Berg Strider", "{4}{U}", 5, "Snow Creature — Giant Wizard",
          "When this creature enters, tap target artifact or creature an opponent controls. If {S} was spent to cast this spell, that permanent "
          "doesn't untap during its controller's next untap step. ({S} is mana from a snow source.)", ("4", "4"), "U"),
@@ -57,7 +60,7 @@ EXTRA = [
          "At the beginning of your upkeep, add {C} for each artifact you control. This mana can't be spent to cast nonartifact spells. "
          "Until end of turn, you don't lose this mana as steps and phases end.", ("*", "*"), ""),
 ]
-FULL = ["Geosurge", "Grand Architect", "Master of Dark Rites", "Smaug, Wicked Worm", "Tundra Fumarole", "Coin of Mastery",
+FULL = ["Spoils of the Hunt", "Geosurge", "Grand Architect", "Master of Dark Rites", "Smaug, Wicked Worm", "Tundra Fumarole", "Coin of Mastery",
         "Jaded Sell-Sword", "Berg Strider", "Karn, Legacy Reforged"]
 
 
@@ -99,6 +102,12 @@ def units(s, pid="p1"):
 
 def ability(s, c, start):
     return next(i for i, a in enumerate(s.cards.resolve(c.name).get("oracle_text", "").split("\n")) if a.startswith(start))
+
+
+def chars(s, c):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])
 
 
 def hand_size(s, pid="p1"):
@@ -251,4 +260,61 @@ def test_snow_mana_tapped_by_hand_is_remembered(cards):
     act(s, "p1", type="cast_spell", card_id=next(c.id for c in s.state.cards.values() if c.name == "Tundra Fumarole"), targets=[target.id])
     settle(s)
     assert s.state.players["p1"].mana == {"C": 1} and s.state.players["p1"].mana_units == []  # (one {S}: the snow Mountain's {R})
+    roundtrip(s)
+
+
+def test_coin_of_mastery_counts_the_mana_from_artifact_sources(cards):
+    s = build(cards, "Coin of Mastery", "Sol Ring", "Grizzly Bears")
+    on_field(s, "Coin of Mastery")
+    ring = on_field(s, "Sol Ring")
+    s.state.rules.controlled_since[ring.id].turn = 0
+    to_hand(s, "Grizzly Bears")
+    mana(s, "p1", G=1)
+    bears = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears")
+    act(s, "p1", type="cast_spell", card_id=bears.id)  # {1}{G}: the pool's {G} and one of Sol Ring's {C}
+    settle(s)
+    assert s.state.cards[bears.id].counters.get("+1/+1", 0) == 1
+    # Sol Ring's other {C} wasn't needed: it stays in the pool, still remembered as mana from an artifact
+    assert s.state.players["p1"].mana == {} and [(u.sym, "Artifact" in u.tags) for u in s.state.players["p1"].mana_units] == [("C", True)]
+    roundtrip(s)
+
+
+def test_jaded_sell_sword_with_treasure_mana(cards):
+    s = build(cards, "Jaded Sell-Sword")
+    to_hand(s, "Jaded Sell-Sword")
+    treasure(s)
+    mana(s, "p1", C=3)
+    sword = next(c for c in s.state.cards.values() if c.name == "Jaded Sell-Sword")
+    act(s, "p1", type="cast_spell", card_id=sword.id)  # {3}{R}: the Treasure's {R}
+    settle(s)
+    ch = chars(s, sword)
+    assert "first strike" in ch.keywords and "haste" in ch.keywords
+    roundtrip(s)
+
+
+def test_jaded_sell_sword_without_treasure_mana(cards):
+    s = build(cards, "Jaded Sell-Sword")
+    to_hand(s, "Jaded Sell-Sword")
+    treasure(s)
+    mana(s, "p1", C=3, R=1)
+    sword = next(c for c in s.state.cards.values() if c.name == "Jaded Sell-Sword")
+    act(s, "p1", type="cast_spell", card_id=sword.id)
+    settle(s)
+    ch = chars(s, sword)
+    assert "first strike" not in ch.keywords and "haste" not in ch.keywords
+    roundtrip(s)
+
+
+def test_spoils_of_the_hunt_counts_each_mana_from_a_treasure(cards):
+    s = build(cards, "Spoils of the Hunt")
+    to_hand(s, "Spoils of the Hunt")
+    mine = creature(s, "p1", "My Bear", "2/2")
+    theirs = creature(s, "p2", "Their Bear", "5/5")
+    treasure(s), treasure(s)
+    mana(s, "p1", C=1)
+    spell = next(c for c in s.state.cards.values() if c.name == "Spoils of the Hunt")
+    # {2}{G}: two Treasures (any color) and one plain {C}: two mana from Treasures
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[mine.id, theirs.id], target_counts=[1, 1])
+    settle(s)
+    assert s.state.cards[theirs.id].damage == 4  # (2 + 2: it deals damage equal to its power)
     roundtrip(s)
