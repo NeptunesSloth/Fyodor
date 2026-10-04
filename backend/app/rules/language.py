@@ -715,7 +715,8 @@ _REST = (r"(?:the rest|the rest of (?:those|the) cards|the rest of them|the othe
          r"all other cards revealed this way|"
          # -- refused look/cast-free (wave 3R5) -- after a free cast (608.2g): the cards it didn't cast
          r"all revealed cards not cast this way|the exiled cards not cast this way|the exiled cards that weren't cast this way|"
-         r"all cards exiled this way that weren't cast) "
+         r"all cards exiled this way that weren't cast|"
+         r"all cards revealed this way that weren't put onto the battlefield) "  # (-- if you do (wave 15C) -- Genesis Wave)
          rf"(?P<rest>into (?:your|their) graveyard|into your hand|on the bottom(?: of {_LIBREF})? in (?:any|a random) order|"
          rf"on the bottom of {_LIBREF}|(?:back )?on top of {_LIBREF} in any order)")
 _PICK_TO = ("into your hand|onto the battlefield tapped and attacking|onto the battlefield tapped|onto the battlefield|into your graveyard|"
@@ -855,6 +856,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     def count(m: re.Match[str]) -> Any:
         return _apply(_amount(m["n"]) if m["n"] else 1, rider)
 
+    if text == "you may reveal the top card of your library":  # -- if you do (wave 15C) -- the revealing is the choice (701.20a)
+        return [{"do": "look_top", "n": 1, "player": "you", "reveal": True, "optional": True}], None
     m = _TOP.fullmatch(text)
     if m:
         who, group = _lib_owner(m["lib"])

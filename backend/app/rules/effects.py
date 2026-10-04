@@ -2016,6 +2016,11 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards down to and including the first match are revealed; that match is "that card"
     (ctx["found"]), the others "the rest". With ``player``: another player's library."""
     owners = _library_owner(plan, ctx, e)
+    if e.get("optional") and not ctx.pop("reveal_asked", None):  # -- if you do (wave 15C) -- "you may reveal the top card": asked first
+        decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: reveal the top card of your library?",
+               options=[DecisionOption(id="yes", label="Reveal it"), DecisionOption(id="no", label="Don't reveal")],
+               resume={"step": "look_may", "ctx": ctx, "e": e})
+        return False
     ctx["looked"], ctx["found"] = [], None
     ctx.pop("looked_zone", None)  # (wave 10C: a look is at a library; a mill's cards are in a graveyard)
     ctx["looked_owner"] = owners[0] if len(owners) == 1 else None
@@ -2039,6 +2044,18 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # (the objects looked at, for "that card's mana value" and the like: still in the library)
     _remember(plan, ctx, e, [ctx["found"]] if ctx.get("found") else cards)
     return True
+
+
+def resume_look_may(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen[0] == "yes":
+        ctx["reveal_asked"] = True
+        look_top(plan, ctx, e)
+    else:
+        plan.note(f"{plan.name(d.player)} chose not to reveal", actor=d.player)
+        ctx["looked"], ctx["found"] = [], None
+        _remember(plan, ctx, e, [])
+    continue_effects(plan, ctx)
 
 
 def _looked(plan: Plan, ctx: Context) -> tuple[str, list[str]]:
@@ -3354,6 +3371,7 @@ RESUME["gain_control"] = resume_gain_control
 # -- end control (wave 3K) --
 
 RESUME["search_may"] = resume_search_may
+RESUME["look_may"] = resume_look_may  # (wave 15C)
 RESUME["search_zones"] = resume_search_zones  # -- refused zones/sized (wave 3R4) --
 # -- counters & designations (wave 3E) --------------------------------------------------------------
 # Rad counters (728), the monarch (725), the initiative (726), venture into the dungeon (701.49, 309),

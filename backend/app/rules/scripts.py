@@ -2058,6 +2058,13 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             gate: dict[str, Any] = {"succeeded": bind, **({"negate": True} if if_do["neg"] else {})}
             effects += [{"do": "only_if", "cond": gate, "skip": len(added)}, *added]
             continue
+        # -- if you do (wave 15C) -- "Scry 3, then you may reveal the top card of your library. If a creature card is revealed
+        # this way, …": the one card the reveal before showed (701.20a), the same question as "If it's a creature card"
+        last_look = next((e for e in reversed(effects) if e["do"] == "look_top"), None)
+        revealed = re.match(r"^if (?:a|an) (?P<w>[^,]+? card) is revealed this way, (?P<r>.+)$", text)
+        if revealed is not None and last_look is not None and last_look.get("reveal") and last_look.get("n") == 1 \
+                and not last_look.get("until") and last_look.get("player") == "you":
+            text = f"if it's a {revealed['w']}, {revealed['r']}"
         cond_m = re.match(r"^if (?P<c>[^,]+), (?P<rest>.+)$", text)
         if cond_m:  # "If you control a Forest, draw a card." (608.2c): a condition on this sentence
             from app.rules import conditions

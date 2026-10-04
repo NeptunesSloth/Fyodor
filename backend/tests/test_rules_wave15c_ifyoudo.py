@@ -53,8 +53,12 @@ EXTRA = [
          oracle_text="Menace\nWhen this creature enters, put a +1/+1 counter on target creature or Vehicle you control.\nWhenever one or more creatures you control with counters on them deal combat damage to a player, put target creature or Vehicle card from that player's graveyard onto the battlefield under your control.", power='3', toughness='3', colors=['B'], color_identity=['B'], keywords=['Menace']),
     card('Traumatize', set_code='tst', number='W11', mana_cost='{3}{U}{U}', cmc=5.0, type_line='Sorcery',
          oracle_text='Target player mills half their library, rounded down.', power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=['Mill']),
+    card('Genesis Wave', set_code='tst', number='W12', mana_cost='{X}{G}{G}{G}', cmc=3.0, type_line='Sorcery',
+         oracle_text="Reveal the top X cards of your library. You may put any number of permanent cards with mana value X or less from among them onto the battlefield. Then put all cards revealed this way that weren't put onto the battlefield into your graveyard.", power=None, toughness=None, colors=['G'], color_identity=['G'], keywords=[]),
+    card('Elven Farsight', set_code='tst', number='W13', mana_cost='{G}', cmc=1.0, type_line='Sorcery',
+         oracle_text='Scry 3, then you may reveal the top card of your library. If a creature card is revealed this way, draw a card.', power=None, toughness=None, colors=['G'], color_identity=['G'], keywords=['Scry']),
 ]
-FULL = ['Murk Strider', 'Dark Supplicant', 'Gate to the Afterlife', 'Scion of Darkness', 'Void Attendant', 'Ruin Processor', 'Processor Assault', 'Wrexial, the Risen Deep', 'Deluxe Dragster', 'Zombie Cannibal', 'Fire Nation Salvagers', 'Traumatize']
+FULL = ['Murk Strider', 'Dark Supplicant', 'Gate to the Afterlife', 'Scion of Darkness', 'Void Attendant', 'Ruin Processor', 'Processor Assault', 'Wrexial, the Risen Deep', 'Deluxe Dragster', 'Zombie Cannibal', 'Fire Nation Salvagers', 'Traumatize', 'Genesis Wave', 'Elven Farsight']
 # --EXTRA-END--
 
 
@@ -262,6 +266,47 @@ def test_traumatize_mills_half_the_library_rounded_down(cards):
     settle(s)
     assert len(zone(s.state, "p2", "library")) == before - before // 2
     assert len(zone(s.state, "p2", "graveyard")) == before // 2
+    roundtrip(s)
+
+
+def test_genesis_wave_sends_the_unchosen_revealed_cards_to_the_graveyard(cards):
+    """Genesis Wave: the revealed cards that weren't put onto the battlefield go to the graveyard."""
+    s = build(cards, p1=("Genesis Wave",))
+    spell = to_hand(s, "Genesis Wave")
+    top = list(zone(s.state, "p1", "library")[:3])
+    add_mana(s, "p1", G=3, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=3)
+    d = until_asked(s)
+    assert d is not None and d.kind == "choose_cards" and {o.id for o in d.options} == set(top)
+    pick(s, top[0])
+    settle(s)
+    assert top[0] in zone(s.state, "p1", "battlefield")
+    assert top[1] in zone(s.state, "p1", "graveyard") and top[2] in zone(s.state, "p1", "graveyard")
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("reveal", [True, False])
+def test_elven_farsight_reveal_is_optional_and_a_revealed_creature_draws(cards, reveal):
+    s = build(cards, p1=("Elven Farsight", "Murk Strider"))
+    spell = to_hand(s, "Elven Farsight")
+    strider = find(s, "Murk Strider")
+    act(s, "p1", type="move", card_ids=[strider.id], to={"player": "p1", "zone": "library"}, index=0)
+    add_mana(s, "p1", G=1)
+    hand_before = len(zone(s.state, "p1", "hand")) - 1  # (the spell leaves it)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    seen = []
+    for _ in range(12):
+        d = until_asked(s)
+        if d is None:
+            break
+        seen.append(d.kind)
+        if d.kind == "confirm":
+            assert [o.id for o in d.options] == ["yes", "no"] and "options" not in s.view("p2")["rules"]["decision"]
+            pick(s, "yes" if reveal else "no")
+        else:  # the scry: leave the cards where they are
+            pick(s, *[o.id for o in d.options][: d.min_choices])
+    assert "confirm" in seen
+    assert len(zone(s.state, "p1", "hand")) == hand_before + (1 if reveal else 0)  # 701.20a, 608.2c
     roundtrip(s)
 
 
