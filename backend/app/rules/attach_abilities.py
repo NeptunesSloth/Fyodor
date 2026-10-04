@@ -17,9 +17,10 @@ from typing import Any
 _SELF = r"(?:~|this (?:Equipment|equipment|permanent|Aura|aura))"
 _ONE = re.compile(rf"^attach {_SELF} to (?P<tgt>(?:up to one )?(?:another )?target [^,.]+)$")  # (wave 16D: "up to one"; 18E: "another")
 _UNATTACH = re.compile(rf"^unattach {_SELF}$")  # -- casting extras (wave 18E) -- 702.151a (reconfigure)
-_PAIR = re.compile(r"^attach (?P<src>target [^,.]+?) to (?P<dst>target [^,.]+)$")
+_PAIR = re.compile(r"^attach (?P<src>target [^,.]+?) to (?P<dst>(?:up to one )?target [^,.]+)$")  # (wave 19B: "up to one")
 _TO_SELF = re.compile(rf"^attach (?P<src>target [^,.]+?) to {_SELF}$")
 _TO_THIS_CREATURE = re.compile(r"^attach (?P<src>target [^,.]+?) to this creature$")
+_TO_IT = re.compile(r"^attach (?P<src>(?:up to one )?target [^,.]+?) to (?:it|that creature)$")  # (wave 19B: the trigger's creature, or ~)
 
 
 def _group(phrase: str, *, kinds: tuple[str, ...], upto: bool = False) -> dict[str, Any] | None:
@@ -60,7 +61,8 @@ def _unattach(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 def _pair(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules.scripts import _NoMatch
 
-    src, dst = _group(m["src"], kinds=("Equipment", "Aura")), _group(m["dst"], kinds=("Creature",))
+    src = _group(m["src"], kinds=("Equipment", "Aura"))
+    dst = _group(m["dst"], kinds=("Creature",), upto=m["dst"].startswith("up to"))
     if src is None or dst is None:
         raise _NoMatch
     return [{"do": "attach_to", "src": "target", "who": "target:1"}], [src, dst]
@@ -75,5 +77,14 @@ def _to_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "attach_to", "src": "target", "who": "self"}], src
 
 
+def _to_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules.scripts import _NoMatch
+
+    src = _group(m["src"], kinds=("Equipment", "Aura"), upto=m["src"].startswith("up to"))
+    if src is None:
+        raise _NoMatch
+    return [{"do": "attach_to", "src": "target", "who": "it"}], src  # (-- triggers (wave 19B) -- resolve_it binds "it")
+
+
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_ONE, _one), (_PAIR, _pair), (_TO_SELF, _to_self),
-                                                (_TO_THIS_CREATURE, _to_self), (_UNATTACH, _unattach)]
+                                                (_TO_THIS_CREATURE, _to_self), (_TO_IT, _to_it), (_UNATTACH, _unattach)]

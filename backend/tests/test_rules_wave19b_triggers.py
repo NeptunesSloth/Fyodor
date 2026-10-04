@@ -8,6 +8,8 @@
 * 903.3: "your commander enters / attacks", "you attack with your commander" - a commander you own (not another player's).
 * 603.10a / 400.7: "put that card onto the battlefield" for a sacrificed permanent, "put them onto the battlefield tapped" for the
   land cards a mill put into the graveyard - the trigger event's cards, found where they went.
+* 701.3a: "attach up to one target Equipment you control to that creature" (the creature that entered), "attach target Equipment you
+  control to up to one target creature you control".
 * 508.1b: "deals 1 damage to the player or planeswalker it's attacking" - what the attacker the trigger is about attacks now.
 """
 
@@ -44,6 +46,9 @@ EXTRA = [
     real('Probe Edict', '{B}', 1, 'Sorcery', 'Target opponent sacrifices a creature.', None, 'B'),
     real('Probe Mill', '{U}', 1, 'Sorcery', 'Target player mills three cards.', None, 'U'),
     real('Fecundity', '{2}{G}', 3, 'Enchantment', "Whenever a creature dies, that creature's controller may draw a card.", None, 'G'),
+    real('Kemba, Kha Enduring', '{1}{W}', 2, 'Legendary Creature — Cat Cleric', 'Whenever Kemba or another Cat you control enters, attach up to one target Equipment you control to that creature.\nEquipped creatures you control get +1/+1.\n{3}{W}{W}: Create a 2/2 white Cat creature token.', ("2", "2"), 'W'),
+    real('Iron Hills Stalwart', '{4}{R}', 5, 'Creature — Dwarf Warrior', 'Reach, trample\nWhen this creature enters, attach target Equipment you control to up to one target creature you control.', ("4", "5"), 'R'),
+    real('Probe Blade', '{1}', 1, 'Artifact — Equipment', 'Equipped creature gets +1/+1.\nEquip {1}', None),
 ]
 
 NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
@@ -228,4 +233,24 @@ def test_the_dead_creatures_controller_is_the_one_asked_to_draw(cards, take, dra
         act(s, d.player, type="choose", decision_id=d.id, option_ids=["p2"] if d.kind != "confirm" else [take])
     assert ("p2", "confirm") in seen
     assert len(zone(s.state, "p2", "hand")) == hand + drawn
+    check(s)
+
+
+def test_equipment_attaches_to_the_cat_that_entered(cards):
+    s = build(cards, ["Kemba, Kha Enduring", "Probe Blade"], [])
+    blade = put(s, "Probe Blade")
+    cast(s, "Kemba, Kha Enduring", W=1, C=1)
+    answer(s, blade.id)
+    kemba = card_named(s, "Kemba, Kha Enduring")
+    assert s.state.cards[blade.id].attached_to == kemba.id
+    check(s)
+
+
+def test_equipment_attaches_to_up_to_one_target_creature(cards):
+    s = build(cards, ["Iron Hills Stalwart", "Probe Blade", "Probe Soldier"], [])
+    blade = put(s, "Probe Blade")
+    soldier = put(s, "Probe Soldier")
+    cast(s, "Iron Hills Stalwart", R=1, C=4)
+    answer(s, blade.id, soldier.id)
+    assert s.state.cards[blade.id].attached_to == soldier.id
     check(s)
