@@ -114,7 +114,8 @@ _TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|thos
 GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>play lands and cast spells|play lands|cast spells)"
                         r" from your graveyard(?P<this_turn> this turn)?$")
 # -- cast a copy (wave 13C) -- "You may cast the copy without paying its mana cost." (707.12; each copy is its own choice, 707.12a)
-FREE_COPY = re.compile(r"^you may cast (?P<w>the copy|the copies|any number of the copies) without paying (?:its|their) mana costs?$")
+# (wave 18F: without "without paying …" the copy's mana cost is paid: 707.12 "You may cast the copy. (You still pay its costs.)")
+FREE_COPY = re.compile(r"^(?:if you do, )?you may cast (?P<w>the copy|the copies|any number of the copies)(?P<free> without paying (?:its|their) mana costs?)?$")
 # -- cast without paying (wave 3C) --
 # "You may cast a spell with mana value 5 or less from your hand without paying its mana cost." (cast now,
 # as this resolves: 608.2g) / "You may cast an instant or sorcery spell from your hand with mana value X
@@ -538,7 +539,7 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if m:
         many = m["w"] != "the copy"
         return [{"do": "free_cast", "zone": "that", "who": "them:copy" if many else "it:copy", "filter": None, "optional": True,
-                 "mv": None, "n": 99 if many else 1}], None
+                 "mv": None, "n": 99 if many else 1, **({} if m["free"] else {"paid": True})}], None
     among = _free_among(text)  # -- refused look/cast-free (wave 3R5) --
     if among is not None:
         return among, None
@@ -1072,6 +1073,16 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
         return _free_cast_over(ctx, e)
     pool = _free_pool(plan, ctx, e)
+    if e.get("paid") and any(M.parse_cost(chars.of(plan.state.cards[c], plan.info).mana_cost).x for c in pool):
+        from app.rules import (
+            copying,  # -- cast a copy (wave 18F) -- X is announced as a spell is cast (601.2b): not automated for a paid cast of a copy
+        )
+
+        job = copying.new_job(ctx, controller=pid, objects=[], retarget=False, label=ctx.get("name") or "Copy")
+        copying.plan_decide(plan, player=pid, kind="manual_resolution", options=[DecisionOption(id="done", label="Done")],
+                            prompt="Casting a copy of an X spell isn't automated (601.2b): cast it by hand if you want to, then press Done",
+                            resume={"step": "copy_manual", "job": job})
+        return False
     limit = None
     if e.get("mv") is not None:
         limit = values.evaluate(plan, ctx, {"x": 1} if e["mv"] == "x" else e["mv"])
@@ -1104,7 +1115,8 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         return _free_cast_over(ctx, e)
     many = int(e.get("n", 1)) > 1
     decide(plan, player=pid, kind="choose_cards",
-           prompt="Choose a spell to cast without paying its mana cost" + (" (one at a time)" if many else "") + " (or none)",
+           prompt="Choose a spell to cast" + ("" if e.get("paid") else " without paying its mana cost") + (" (one at a time)" if many else "")
+                  + " (or none)",
            options=options, min_choices=0, max_choices=1, resume={"step": "free_cast_pick", "ctx": ctx, "e": e})
     return False
 

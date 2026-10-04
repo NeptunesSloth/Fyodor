@@ -640,6 +640,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 # -- cast a copy (wave 13C) -- "Exile target … card. Copy it.": the card an earlier instruction moved
                 e.update(do="copy_cards", who="ref:" + bound(moved))
                 e.pop("first")
+                intros.append(_Introducer(index, e, groups))  # (wave 18F: the copies, for "You may cast the copy" next)
                 continue
             if e.get("player") == "that_player":  # -- static wordings (wave 6E) -- "that player exiles the top card of
                 intro = find(lambda i: i.player, index)  # their library": whose library, bound like "who" below
@@ -2137,6 +2138,15 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if _FREE_EXILE_GY.fullmatch(text) and effects and effects[-1]["do"] == "free_cast":
             effects[-1] = {**effects[-1], "exile_gy": True}  # -- refused look/cast-free (wave 3R5) -- 614.1a, on the spell cast
             continue
+        if text.startswith("if you do, you may cast the cop") and effects and effects[-1]["do"] == "copy_cards":
+            text = text[len("if you do, "):]  # -- copied abilities (wave 18F) -- "You may copy the exiled card. If you do, …": the first sentence's "may"
+            # is the whole choice (a copy that isn't cast ceases to exist, 707.10a)
+        if text.startswith("you may copy ") and not effects and _exiled_with._COPY.match(text):
+            effects += [{"do": "copy_cards", "who": _exiled_with.WHO}]  # (the "may" is the cast's: a copy not cast ceases to exist, 707.10a)
+            continue
+        if text.startswith("you may exile ") and not effects and (imprint := _exiled_with.imprint(text)) is not None:
+            effects += imprint  # -- copied abilities (wave 18F) -- "Imprint — … you may exile an instant card from your hand."
+            continue
         # -- unless pays (wave 4C) -- the riders of "Counter target spell unless its controller pays …" (608.2c, 118.12)
         if (rider := _unless_rider(text, effects, prev_start)) is not None:
             if rider is False:
@@ -2186,7 +2196,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects.append(reflex)
             break  # (the rest of the ability is the reflexive trigger's)
         if (dont := _FREE_DONT.match(text)) is not None and effects and effects[-1]["do"] == "free_cast":
-            gated = _free_dont(dont["rest"], effects)  # -- refused look/cast-free (wave 3R5) -- "If you don't cast it, …"
+            gated = _free_dont(dont["rest"], effects, dont["neg"] == "don't")  # -- refused look/cast-free (wave 3R5) -- "If you don't cast it, …"
             if gated is None:
                 return None
             effects += gated
@@ -2520,13 +2530,16 @@ def _piles(texts: list[str], i: int, effects: list[dict[str, Any]]) -> tuple[lis
 
 
 _WIN_IF_X = re.compile(r"^if [xX] is greater than or equal to the number of cards in your library, you win the game$")
-_FREE_DONT = re.compile(r"^if you don't(?: cast (?:it|that card|the exiled card|the revealed card)(?: this way)?)?, (?P<rest>.+)$")
+# (wave 18F: "You may cast the copy. If you do, you lose 2 life." too: the same record of what the cast did)
+_FREE_DONT = re.compile(r"^if you (?P<neg>don't|do)(?: cast (?:it|that card|the exiled card|the revealed card)(?: this way)?)?, (?P<rest>.+)$")
 
 
-def _free_dont(rest: str, effects: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+def _free_dont(rest: str, effects: list[dict[str, Any]], negate: bool = True) -> list[dict[str, Any]] | None:
     """-- refused look/cast-free (wave 3R5) -- "If you don't cast it, put it into your hand / draw a card"
     after a free cast (608.2c: it reads what the cast did; the cast records it as ``did``)."""
     if rest in ("put it into your hand", "put that card into your hand"):
+        if not negate:
+            return None
         inner: list[dict[str, Any]] = [{"do": "found_to", "to": "hand"}]  # (checked against the cast's source below)
     else:
         parsed = _clause(rest)
@@ -2537,7 +2550,7 @@ def _free_dont(rest: str, effects: list[dict[str, Any]]) -> list[dict[str, Any]]
             return None
     name = effects[-1].get("did") or f"fdid{len(effects)}"
     effects[-1] = {**effects[-1], "did": name}
-    return [{"do": "only_if", "cond": {"succeeded": name, "negate": True}, "skip": len(inner)}, *inner]
+    return [{"do": "only_if", "cond": {"succeeded": name, **({"negate": True} if negate else {})}, "skip": len(inner)}, *inner]
 
 
 # -- optional payments (118.12 / 118.12a): app/rules/optional_payment.py ------------------------------

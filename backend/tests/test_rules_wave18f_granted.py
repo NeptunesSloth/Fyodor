@@ -151,6 +151,67 @@ def test_fishing_pole_taps_itself_and_gets_the_counter(cards):
     roundtrip(s)
 
 
+# -- imprint and copy the exiled card (607.2a, 707.12): Isochron Scepter ----------------------------------------------------
+EXTRA += [
+    card("Isochron Scepter", set_code="tst", number="18FA", mana_cost="{2}", cmc=2.0, type_line="Artifact",
+         oracle_text="Imprint — When this artifact enters, you may exile an instant card with mana value 2 or less from your hand.\n"
+         "{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost."),
+]
+
+
+def test_isochron_scepter_imprints_and_casts_a_copy(cards):
+    s = build(cards, p1=("Isochron Scepter", "Lightning Bolt"))
+    bolt = put(s, "Lightning Bolt", "hand")
+    scepter = put(s, "Isochron Scepter", "hand")
+    mana(s, C=2)
+    act(s, "p1", type="cast_spell", card_id=scepter.id)
+    _settle(s)  # the imprint trigger: you may exile an instant card with mana value 2 or less from your hand (the payer's choice)
+    assert s.state.cards[bolt.id].zone.endswith(":exile")  # 406.3: face up, and linked to the Scepter (607.2a)
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=scepter.id, ability=1)
+    d = s.state.rules.decision
+    assert d.kind == "choose_cards" and [o.label for o in d.options] == ["Lightning Bolt"]  # the copy, cast as this resolves (608.2g)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])  # (its target)
+    _settle(s)  # copy the exiled card (707.12), cast the copy without paying (the Bolt itself stays exiled)
+    assert s.state.cards[bolt.id].zone.endswith(":exile") and s.state.players["p2"].life == 37
+    roundtrip(s)
+
+
+# -- "You may cast the copy." pays its costs (707.12): Demilich's attack trigger ----------------------------------------------
+EXTRA += [
+    card("Test Lich", set_code="tst", number="18FB", mana_cost="{U}", cmc=1.0, colors=["U"], color_identity=["U"], keywords=["Haste"],
+         type_line="Creature — Skeleton Wizard", power="4", toughness="4",
+         oracle_text="Haste\nWhenever this creature attacks, exile up to one target instant or sorcery card from your graveyard. Copy it. "
+         "You may cast the copy."),
+]
+
+
+def test_cast_the_copy_pays_its_mana_cost(cards):
+    from tests.test_rules_wave5c_combat import declare, to_attack
+
+    s = build(cards, p1=("Test Lich", "Lightning Bolt"))
+    lich = put(s, "Test Lich", "battlefield")
+    bolt = put(s, "Lightning Bolt", "graveyard")
+    to_attack(s)
+    declare(s, (lich, "p2"))
+    for _ in range(10):  # the attack trigger: target the Bolt, exile it, copy it (707.12), choose to cast the copy
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority") if s.state.zones.get("stack") else None
+            if not s.state.zones.get("stack"):
+                break
+        elif d.kind == "choose_one" and "target for Lightning Bolt" in d.prompt:
+            mana(s, R=1)  # (its cost, {R}: paid by the caster, not waived)
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert s.state.cards[bolt.id].zone.endswith(":exile")
+    assert s.state.players["p2"].life == 40 - 3 - 4 and not s.state.players["p1"].mana.get("R")  # the Bolt copy, and {R} was spent on it
+    roundtrip(s)
+
+
 # -- copied abilities: Kurkesh (707.10) -----------------------------------------------------------------------------------
 EXTRA += [
     card("Kurkesh, Onakke Ancient", set_code="tst", number="18F6", mana_cost="{2}{R}{R}", cmc=4.0, colors=["R"], color_identity=["R"],

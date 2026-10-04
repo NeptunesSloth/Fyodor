@@ -50,7 +50,7 @@ SELF = re.compile(r"^(?:if (?P<c1>[^,]+), )?you may (?P<cost>.+?) rather than pa
 TABLE = re.compile(r"^(?P<once>once each turn, )?you may pay (?P<pay>(?:\{[^}]+\})+|\w+ \{E\}) rather than pay the mana cost "
                    r"for (?:(?:a|an) )?(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells? you cast"
                    r"(?P<zone> from your hand| from exile)?(?: with mana value X or less, where X is (?P<mv>.+))?$")
-_EXILE_HAND = re.compile(r"^Exile (?P<n>a|an|one|two|three) (?P<what>(?:[\w\-]+ )*cards?) from your hand$")
+_EXILE_HAND = re.compile(r"^Exile (?P<n>a|an|one|two|three) (?P<what>(?:[\w\-]+ )*cards?(?: with mana value \d+ or less)?) from your hand$")
 _PART_SPLIT = re.compile(r" and (?=(?:pay|exile|sacrifice|return|tap|discard) )")
 _WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3}
 

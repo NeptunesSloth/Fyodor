@@ -2564,6 +2564,10 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         picked_targets = found_targets
     chosen = picked_targets.flat
     alt = r.alt_costs.get(card.id)
+    pending = r.free_cast_then  # -- cast a copy (wave 18F) -- 707.12: "You may cast the copy." pays its mana cost (never a flashback cost)
+    paid = pending is not None and pending["card"] == card.id and bool(pending["e"].get("paid"))
+    if paid:
+        alt = ch.mana_cost
     # 118.9d / 601.2b: a spell's own additional cost ("As an additional cost to cast this spell,
     # sacrifice a creature": Fling cast by cascade) is still paid — chosen now, paid with the rest
     add_cost = None if plan.manual(card) else costs.spell_additional_cost(ch.abilities)
@@ -2590,9 +2594,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,
                         purpose=Purpose(spell=ch, zone=card.zone, player=plan.actor, kicked=bool(a.kicker))):
             return
-        record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (" (madness)" if alt else ""),
+        record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (" (madness)" if alt and not paid else ""),
                            not_mana=not_mana)
-        record.alternative = "madness" if alt is not None else "free"
+        record.alternative = "" if paid else "madness" if alt is not None else "free"
         record.additional = ["kicker"] if a.kicker else []
         record.kicked = a.kicker
         r.alt_costs.pop(card.id, None)
@@ -2617,7 +2621,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
             record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile …
     plan.do({"type": "set_stack_info", "card_id": card.id,
-             "tags": ["Cast for its madness cost" if alt is not None else "Cast without paying its mana cost"]
+             "tags": ([] if paid else ["Cast for its madness cost" if alt is not None else "Cast without paying its mana cost"])
              + (["Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}"] if a.kicker else [])})
     record.x = a.x_value
     record_payment(plan, card.id, record)

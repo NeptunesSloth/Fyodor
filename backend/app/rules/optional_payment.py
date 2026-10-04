@@ -128,7 +128,7 @@ def _hand_to_bottom() -> AbilityCost | None:
     return AbilityCost(components=(C.CostComponent(HAND_TO_BOTTOM, selector=key, text=_HAND_TO_BOTTOM_TEXT),)) if key else None
 
 
-_EXILE_FROM_HAND = re.compile(r"^Exile (?:a|an|one) (?:[\w\-]+ )*card from your hand$")
+_EXILE_FROM_HAND = re.compile(r"^Exile (?:a|an|one) (?:[\w\-]+ )*card(?: with mana value \d+ or less)? from your hand$")  # (wave 18F: Isochron Scepter)
 # -- if you do (wave 15C) -- "You may reveal a Dinosaur card from your hand. If you do, …" (Priest of the Wakening Sun): revealing is
 # the cost (701.20a: shown to everyone, it stays in the hand); payable only with such a card in hand (118.3)
 REVEAL_FROM_HAND = "REVEAL_FROM_HAND"
@@ -488,7 +488,7 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
                         actor=payer)
     if any(c.kind == C.DISCARD_HAND for c in cost.components):  # -- if you do (wave 6F) -- "draw that many cards"
         ctx.setdefault("paid_x", {})[name] = len(record.discarded)
-    if any(c.kind == C.EXILE and c.selector is not None for c in cost.components):  # -- champion (wave 12B) -- 607.2a
+    if any(c.kind in (C.EXILE, "EXILE_FROM_HAND") and c.selector is not None for c in cost.components):  # -- champion (wave 12B) -- 607.2a (wave 18F: imprint)
         from app.rules import exiled_with
 
         exiled_with.record(plan, ctx, [c for c in paid if c != source.id])
