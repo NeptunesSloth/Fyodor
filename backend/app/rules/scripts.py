@@ -107,7 +107,7 @@ TRIGGERS = [
     # -- state triggers (wave 6D) -- "When you control no Islands, …" (603.8: app/rules/state_triggers.py)
     (re.compile(r"^When (?P<state>you control (?:no|a|an|\w+ or more) [^,]+|there are no [^,]+ on the battlefield|"
                 r"you have \w+ or (?:more|less) life|"
-                r"(?:~|this [a-z]+) has (?:no|\w+ or more) [^,]+ counters on it|there are \w+ or more [^,]+ counters on (?:~|this [a-z]+)), "  # -- state triggers (wave 19C) -- its own counters
+                r"(?:~|this [a-z]+) has (?:no|\w+ or more) [^,]+? counters on it|there are (?:\w+ or more|no) [^,]+? counters on (?:~|this [a-z]+)), "  # -- state triggers (waves 19C, 19D) -- its own counters
                 r"(?P<body>.+)$"), "state"),
     # Anything else "When/Whenever [subject] [event], …": the generic condition grammar (app/rules/events.py)
     (re.compile(r"^(?:When|Whenever) (?P<cond>[^,]+), (?P<body>.+)$"), "event"),
@@ -218,7 +218,8 @@ def _short_name(name: str, text: str = "") -> str | None:
         # -- grammar (wave 11C) -- 201.5c: "Elanor Gardner" is "Elanor" in its own text; taken only where that word acts as
         # the subject ("Elanor enters", "Elanor's power"), so a color or type word of a plain name is never read as it
         m = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]{2,}) [A-ZÀ-ÖØ-Þ]", name)
-        if m is None or not re.search(rf"\b{re.escape(m[1])}(?: {_SELF_VERBS}|'s )", text):
+        # (wave 19D: also "put a +1/+1 counter on Legolas", the name after "counter(s) on")
+        if m is None or not re.search(rf"\b{re.escape(m[1])}(?: {_SELF_VERBS}|'s )|counters? on {re.escape(m[1])}\b", text):
             return None
     if m[1] in CREATURE_TYPES or m[1].rstrip("s") in CREATURE_TYPES:
         return None
@@ -277,7 +278,18 @@ def self_text(text: str, name: str) -> str:
     out = '"'.join(own(p) if i % 2 == 0 else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
     out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
     out = re.sub(r"(\bto the battlefield) and (attach this (?:Equipment|Aura) to it\b)", lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", out)  # (wave 19C: Nim Deathmantle: two instructions in order)
-    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
+    out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
+    return _counter_threshold(out)
+
+
+# -- counters sweep (wave 19D) -- "Put a ribbon counter on ~. Then if it has three or more ribbon counters on it, remove those counters
+# and untap it." (Prize Pig, Waterbender Ascension, Cursed Recording): after a sentence that put counters on ~, "it" in the next
+# sentence's count is ~ itself (122.1: the counters of that one object), and "those counters" are the ones of that kind ~ has (122.8)
+def _counter_threshold(text: str) -> str:
+    text = re.sub(r"(counters? on ~) and ~ (gains|gets) ", r"\1. ~ \2 ", text)  # "put a counter on ~ and he gains flying …": two instructions
+    text = re.sub(r"(counters? on ~\. Then if )it has( [^,.]+? counters? on )it,", r"\1~ has\2~,", text)
+    text = re.sub(r"(counters? on ~\. Then if there (?:are|is) [^,.]+? counters? on )it,", r"\1~,", text)
+    return re.sub(r"(Then if (?:~ has|there are) [^,.]+? (\S+) counters? on ~, )remove (?:those counters|them all|all of them|them)\b", r"\1remove all \2 counters from ~", text)
 
 
 EFFECTS: list[tuple[re.Pattern[str], Any]] = []
@@ -1495,6 +1507,18 @@ def _tap_their_all(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if sel is None:
         raise _NoMatch
     return [{"do": m["v"], "who": f"controlled:target|{sel.key()}"}], SELECTORS[f"target {m['pl']}"]
+
+
+# -- counters sweep (wave 19D) -- "Put a -1/-1 counter on each creature target player controls." (Contagion Engine, Meadowboon): the
+# creatures that player controls as it resolves (608.2c), the same group form as the tap above
+@effect(r"put {N} (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on each (?P<what>creature|artifact|land|permanent) target (?P<pl>player|opponent) controls")
+def _counters_their_all(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors
+
+    sel = selectors.parse(m["what"])
+    if sel is None or m["k"] in UNMODELED_COUNTERS:
+        raise _NoMatch
+    return [{"do": "add_counters", "who": f"controlled:target|{sel.key()}", "kind": m["k"], "n": num(m["n"])}], SELECTORS[f"target {m['pl']}"]
 
 
 # -- static wordings (wave 6E) -- "Regenerate each creature you control." (Golgari Charm, Wrap in Vigor): a shield on each
@@ -3203,6 +3227,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return granted
     if ability.kind == "triggered":
         text = re.sub(r"^((?:When|Whenever) [^,]+?) while this card is in your graveyard, ", r"\1, if this card is in your graveyard, ", text)  # (wave 19C)
+        # -- counters sweep (wave 19D) -- "At the beginning of your upkeep and whenever you cast a white spell, …" (the Shrines): the same
+        # two conditions as "Whenever you cast a white spell and at the beginning of your upkeep, …" (603.2: it triggers on each)
+        text = re.sub(r"^At the beginning of your (upkeep|end step) and (?:when|whenever) ([^,]+), (.+)$",
+                      r"Whenever \2 and at the beginning of your \1, \3", text)
         for pattern, trigger in TRIGGERS:
             m = pattern.match(text)
             if m and trigger == "event":  # -- triggers (wave 5D) -- a condition with commas in it ("an Aura, Equipment,
@@ -3221,6 +3249,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 body, limit = restrictions.split_trigger_limit(m["body"])
                 if limit in restrictions.TRIGGER_LIMIT_REFUSED:
                     return None
+                if trigger == "state" and "counters on" in m["state"]:  # (wave 19D: a state about ~'s own counters: "it" is ~)
+                    body = re.sub(r"^(exile|sacrifice) it\b", r"\1 ~", body)
                 kicked = re.match(r"^if (?:it|~) was kicked, (?P<rest>.+)$", body) if name == "enters_self" else None
                 if kicked is not None:  # 603.4 intervening "if": checked as it triggers (triggers._add)
                     body = kicked["rest"]
@@ -3975,6 +4005,8 @@ def _for_each(phrase: str) -> Any:
 
     if phrase in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
         return {"kicked": 1}
+    if phrase in ("mana spent to cast it", "mana spent to cast ~"):  # -- counters sweep (wave 19D) -- 601.2h: the amount of mana its spell cost
+        return {"mana_spent": "self"}
     if phrase in ("color of mana spent to cast it", "color of mana spent to cast ~"):  # -- ability words (wave 4F) --
         return {"colors_spent": 1}  # converge (its spell's payment record, read as it enters: replacements._counter_amount)
     sel = selectors.parse(phrase)
@@ -4187,7 +4219,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if eq is not None:
         from app.rules import values
 
-        ev = values.parse_count(eq["v"])
+        ev = values.parse_count(eq["v"].replace("mana spent to cast it", "mana spent to cast ~"))  # (wave 19D: "it" is ~ here)
         if ev is None or eq["kind"] in UNMODELED_COUNTERS or '"it"' in json.dumps(ev):
             return None
         # (a count of permanents that could include itself is read before it enters, 614.12; it's counted after the

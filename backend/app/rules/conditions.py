@@ -150,7 +150,8 @@ _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking",
 # -- counters (wave 5H) -- "if it had counters on it", "if it had a +1/+1 counter on it", "if ~ has counters on it",
 # "if it doesn't have an indestructible counter on it": the object's counters as it is, or as it last existed
 # (603.10a, 122.2: they cease to exist as it leaves)
-_HAD_COUNTERS = re.compile(r"(?P<who>it|~|that creature|that permanent) (?:had|has|(?P<neg>doesn't have|didn't have)) "
+# (-- counters sweep (wave 19D) -- "if it had no counters on it" / "had no time counters on it": the same test, negated)
+_HAD_COUNTERS = re.compile(r"(?P<who>it|~|that creature|that permanent) (?:had|has|(?P<neg>doesn't have|didn't have|had no|has no)) "
                            r"(?:(?:a|an|one or more) )?(?:(?!no |any )(?P<k>\+1/\+1|-1/-1|[a-z]+) )?"
                            r"counters? on (?:it|them|~|him|her)")
 # -- refused modal/conditional (wave 3R1) -- an ability the object has (a characteristic, 109.3: as it is, or as it
