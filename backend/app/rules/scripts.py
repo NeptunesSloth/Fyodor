@@ -4199,21 +4199,25 @@ _MOVES.update({_delayed.DEFERRED + x for x in _MOVES})
 _MOVES.add("to_library")
 
 
-def _deferred(clause: str, when: dict[str, Any]) -> tuple[list[dict[str, Any]], Any]:
+def _deferred(clause: str, when: dict[str, Any], key: str = "") -> tuple[list[dict[str, Any]], Any]:
     inner = _clause(clause)
     if inner is None or any(e.get("do") in _delayed.UNDEFERRABLE for e in inner[0]):
+        raise _NoMatch
+    if when.get("whose") == "owner" and not (  # -- triggers (wave 17D) -- one move of "it", with "its owner" in the clause for "their"
+            len(inner[0]) == 1 and inner[0][0].get("do") in ("return_card", "bounce") and inner[0][0].get("who") == "it"
+            and (key != "their next upkeep" or "its owner's" in clause)):
         raise _NoMatch
     return _delayed.wrap_when(inner[0], when), inner[1]
 
 
 @effect(rf"at the beginning of (?P<when>{_delayed.WHEN_RE}), (?P<clause>.+)")
 def _delayed_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    return _deferred(m["clause"], _delayed.WHEN[m["when"]])
+    return _deferred(m["clause"], _delayed.WHEN[m["when"]], m["when"])
 
 
 @effect(rf"(?P<clause>.+?) at the beginning of (?P<when>{_delayed.WHEN_RE})")
 def _delayed_trailing(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    return _deferred(m["clause"], _delayed.WHEN[m["when"]])
+    return _deferred(m["clause"], _delayed.WHEN[m["when"]], m["when"])
 
 
 # -- other side (wave 6D) -- "Destroy that creature at end of combat." / "At end of combat, sacrifice it.": a delayed

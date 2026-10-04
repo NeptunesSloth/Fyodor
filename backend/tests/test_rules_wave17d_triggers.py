@@ -18,7 +18,7 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act, zone
-from tests.test_rules_conditionals import through_combat, token_of
+from tests.test_rules_conditionals import through_combat, token_of, until
 from tests.test_rules_effects import mana
 from tests.test_rules_wave5c_combat import attacking, declare, to_attack, to_blocks
 from tests.test_rules_wave5c_combat import build as combat_build
@@ -73,12 +73,14 @@ EXTRA = [
          'Whenever you put one or more -1/-1 counters on a creature, create that many 1/1 black Insect creature tokens.', None, 'B'),
     real('Within Range', '{3}{B}', 4, 'Enchantment',
          'When this enchantment enters, create two 1/1 red Warrior creature tokens.\nWhenever you attack, each opponent loses life equal to the number of creatures attacking them.', None, 'B'),
+    real('Phytotitan', '{4}{G}{G}', 6, 'Creature — Plant Elemental',
+         "When this creature dies, return it to the battlefield tapped under its owner's control at the beginning of their next upkeep.", ("7", "2"), 'G'),
     real("Test Bounce", "{U}", 1, "Sorcery", "Return target creature to its owner's hand.", None, "U"),
     real("Test Burst", "{R}", 1, "Instant", "Test Burst deals 1 damage to any target.", None, "R"),
 ]
 
 NAMES = ["Torens, Fist of the Angels", "Dour Port-Mage", "Glowing One", "Screeching Scorchbeast", "Staff of the Death Magus",
-         "Rug of Smothering", "Within Range", "Hapatra, Vizier of Poisons", "Nest of Scarabs", "Path of Discovery", "Necropotence", "Prosperous Thief", "Forsaken Monument", "Parhelion II",
+         "Rug of Smothering", "Phytotitan", "Within Range", "Hapatra, Vizier of Poisons", "Nest of Scarabs", "Path of Discovery", "Necropotence", "Prosperous Thief", "Forsaken Monument", "Parhelion II",
          "Poetic Ingenuity", "Scytheclaw Raptor", "Price of Glory"]
 
 
@@ -340,4 +342,18 @@ def test_each_opponent_loses_life_for_the_creatures_attacking_them(cards):
     declare(s, (a, "p2"), (b, "p2"), (c, "p3"))
     to_blocks(s)
     assert (s.state.players["p2"].life, s.state.players["p3"].life) == (38, 39)
+    check(s)
+
+
+def test_returns_at_the_beginning_of_their_next_upkeep(cards):
+    # Phytotitan: "their" is its owner's - Bob's upkeep comes first and doesn't return it; Alice's own next upkeep does, tapped
+    s = build(cards, ["Phytotitan"], [])
+    put(s, "Phytotitan")
+    kill(s, "Phytotitan")
+    titan = card_named(s, "Phytotitan")
+    assert titan.zone == "p1:graveyard"
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")  # Bob's upkeep has passed
+    assert s.state.cards[titan.id].zone == "p1:graveyard"
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")  # Alice's upkeep has passed
+    assert s.state.cards[titan.id].zone == "p1:battlefield" and s.state.cards[titan.id].tapped
     check(s)
