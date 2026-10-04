@@ -389,6 +389,11 @@ def _power_or_toughness(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"pot:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))
 
 
+@_suffix(r"with total power and toughness (?P<n>\d+) or (?P<dir>less|greater)")  # -- put from hand (wave 19E) -- Meek Attack
+def _total_pt(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"pts:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))
+
+
 @_suffix(r"with (?P<what>mana value|power|toughness) (?P<dir>greater|less) than " + _NUM)  # (wave 15A: strictly, 107.1)
 def _compare_strict(s: Selector, m: re.Match[str]) -> Selector:
     n = _n(m.group(3))
@@ -1280,6 +1285,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             op, n = ("<=", int(extra[6:])) if extra[4:6] == "<=" else (">=", int(extra[6:]))
             vals = [v for v in (_stat(ch, "power"), _stat(ch, "toughness")) if v is not None]
             if not any(v <= n if op == "<=" else v >= n for v in vals):
+                return False
+        if extra.startswith("pts:"):  # -- put from hand (wave 19E) -- the power and toughness added (a * is no number: no match)
+            vals = (_stat(ch, "power"), _stat(ch, "toughness"))
+            if None in vals or not (sum(vals) <= int(extra[6:]) if extra[4:6] == "<=" else sum(vals) >= int(extra[6:])):  # type: ignore[arg-type]
                 return False
         if extra.startswith("counter:") and not _has_counter(card, extra[8:]):  # (wave 5H: any kind, "*")
             return False

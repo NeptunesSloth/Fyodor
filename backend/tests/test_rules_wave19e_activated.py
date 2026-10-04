@@ -37,6 +37,14 @@ EXTRA = [
     _card("Drudge Skeletons", "W7", "{1}{B}", "Creature — Skeleton",
           "{B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from "
           "combat, and heal all damage on it.)", ["B"], power="1", toughness="1"),
+    _card("Meek Attack", "W8", "{2}{R}", "Enchantment",
+          "{1}{R}: You may put a creature card with total power and toughness 5 or less from your hand onto the battlefield. That "
+          "creature gains haste. At the beginning of the next end step, sacrifice that creature.", ["R"]),
+    _card("Purphoros, Bronze-Blooded", "W9", "{4}{R}", "Legendary Enchantment Creature — God",
+          "Indestructible\nAs long as your devotion to red is less than five, Purphoros isn't a creature.\nOther creatures you control "
+          "have haste.\n{2}{R}: You may put a red creature card or an artifact creature card from your hand onto the battlefield. "
+          "Sacrifice it at the beginning of the next end step.", ["R"], power="7", toughness="6"),
+    _card("Hill Giant", "W10", "{3}{R}", "Creature — Giant", "", ["R"], power="3", toughness="3"),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -132,4 +140,21 @@ def test_cant_be_regenerated_this_turn(cards, brood):
     act(s, "p1", type="cast_spell", card_id=named(s, "Lightning Bolt").id, targets=[skeletons.id])
     pass_until_stack_empty(s)
     assert s.state.cards[skeletons.id].zone == ("p1:graveyard" if brood else "p1:battlefield")
+    replay_matches(s)
+
+
+@pytest.mark.parametrize(("name", "cost", "offered"), [("Meek Attack", {"R": 2}, "Grizzly Bears"),
+                                                       ("Purphoros, Bronze-Blooded", {"R": 3}, "Hill Giant")])
+def test_put_from_hand_narrowed_by_the_wording(cards, name, cost, offered):
+    """"… card with total power and toughness 5 or less" (Meek Attack: Bears 2+2, not the Giant's 3+3) and "a red creature card or an
+    artifact creature card" (Purphoros: the Giant, not the green Bears): only those are offered; it's sacrificed at the next end step."""
+    s = table(cards, [name], ["Grizzly Bears", "Hill Giant"])
+    pay(s, **cost)
+    act(s, "p1", type="activate_ability", card_id=named(s, name).id, ability=3 if name.startswith("Purph") else 0)
+    resolve_top(s)
+    d = s.state.rules.decision
+    assert d is not None and [o.label for o in d.options] == [offered]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[named(s, offered).id].zone == "p1:battlefield"
     replay_matches(s)
