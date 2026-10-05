@@ -395,6 +395,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import alt_costs
 
         return alt_costs.grant_prowl(t)
+    if " has web-slinging " in t and kind == "static":  # -- Marvel keywords (wave 25A) -- granted web-slinging (702.188a)
+        from app.rules import alt_costs
+
+        return alt_costs.grant_web_slinging(t)
     if " rather than pay " in t or (" without paying its mana cost" in t and t.startswith("if ") and "commander" not in t):  # alternative costs (118.9): app/rules/alt_costs.py
         from app.rules import alt_costs
 

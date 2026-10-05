@@ -25,6 +25,11 @@ EXTRA = [
     card("Sandman's Quicksand", set_code='tst', number='M03', mana_cost='{1}{B}{B}', cmc=3.0, type_line='Sorcery', oracle_text="Mayhem {3}{B} (You may cast this card from your graveyard for {3}{B} if you discarded it this turn. Timing rules still apply.)\nAll creatures get -2/-2 until end of turn. If this spell's mayhem cost was paid, creatures your opponents control get -2/-2 until end of turn instead.", colors=['B'], color_identity=['B'], keywords=['Mayhem'], layout='normal'),  # noqa: E501
     card('Faithless Looting', set_code='tst', number='M04', mana_cost='{R}', cmc=1.0, type_line='Sorcery', oracle_text='Draw two cards, then discard two cards.\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)', colors=['R'], color_identity=['R'], keywords=['Flashback'], layout='normal'),  # noqa: E501
     card('Prison Break', set_code='tst', number='M05', mana_cost='{4}{B}', cmc=5.0, type_line='Sorcery', oracle_text='Return target creature card from your graveyard to the battlefield with an additional +1/+1 counter on it.\nMayhem {3}{B} (You may cast this card from your graveyard for {3}{B} if you discarded it this turn. Timing rules still apply.)', colors=['B'], color_identity=['B'], keywords=['Mayhem'], layout='normal'),  # noqa: E501,
+    card('Spiders-Man, Heroic Horde', set_code='tst', number='M06', mana_cost='{1}{G}', cmc=2.0, type_line='Legendary Creature — Spider Hero', oracle_text="Web-slinging {4}{G}{G} (You may cast this spell for {4}{G}{G} if you also return a tapped creature you control to its owner's hand.)\nWhen Spiders-Man enters, if they were cast using web-slinging, you gain 3 life and create two 2/1 green Spider creature tokens with reach.", power='2', toughness='3', colors=['G'], color_identity=['G'], keywords=['Web-slinging'], layout='normal'),  # noqa: E501
+    card('Spider-UK', set_code='tst', number='M07', mana_cost='{3}{W}', cmc=4.0, type_line='Legendary Creature — Spider Human Hero', oracle_text="Web-slinging {2}{W} (You may cast this spell for {2}{W} if you also return a tapped creature you control to its owner's hand.)\nAt the beginning of your end step, if two or more creatures entered the battlefield under your control this turn, you draw a card and gain 2 life.", power='3', toughness='4', colors=['W'], color_identity=['W'], keywords=['Web-slinging'], layout='normal'),  # noqa: E501
+    card('Norman Osborn // Green Goblin', set_code='tst', number='M08', mana_cost='{1}{U} // {1}{U}{B}{R}', cmc=2.0, type_line='Legendary Creature — Human Scientist Villain // Legendary Creature — Goblin Human Villain', oracle_text="Norman Osborn can't be blocked.\nWhenever Norman Osborn deals combat damage to a player, he connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.)\n{1}{U}{B}{R}: Transform Norman Osborn. Activate only as a sorcery.\n//\nFlying, menace\nSpells you cast from your graveyard cost {2} less to cast.\nGoblin Formula — Each nonland card in your graveyard has mayhem. The mayhem cost is equal to its mana cost. (You may cast a card from your graveyard for its mayhem cost if you discarded it this turn. Timing rules still apply.)", power='1', toughness='1', colors=['B', 'R', 'U'], color_identity=['B', 'R', 'U'], keywords=['Flying', 'Goblin Formula', 'Transform', 'Menace', 'Connive'], layout='modal_dfc', card_faces=[{'name': 'Norman Osborn', 'mana_cost': '{1}{U}', 'type_line': 'Legendary Creature — Human Scientist Villain', 'oracle_text': "Norman Osborn can't be blocked.\nWhenever Norman Osborn deals combat damage to a player, he connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.)\n{1}{U}{B}{R}: Transform Norman Osborn. Activate only as a sorcery.", 'power': '1', 'toughness': '1', 'colors': ['U']}, {'name': 'Green Goblin', 'mana_cost': '{1}{U}{B}{R}', 'type_line': 'Legendary Creature — Goblin Human Villain', 'oracle_text': 'Flying, menace\nSpells you cast from your graveyard cost {2} less to cast.\nGoblin Formula — Each nonland card in your graveyard has mayhem. The mayhem cost is equal to its mana cost. (You may cast a card from your graveyard for its mayhem cost if you discarded it this turn. Timing rules still apply.)', 'power': '3', 'toughness': '3', 'colors': ['B', 'R', 'U']}], image_uris=None),  # noqa: E501
+    card('Peter Parker // Amazing Spider-Man', set_code='tst', number='M09', mana_cost='{1}{W} // {1}{G}{W}{U}', cmc=2.0, type_line='Legendary Creature — Human Scientist Hero // Legendary Creature — Spider Human Hero', oracle_text="When Peter Parker enters, create a 2/1 green Spider creature token with reach.\n{1}{G}{W}{U}: Transform Peter Parker. Activate only as a sorcery.\n//\nVigilance, reach\nEach legendary spell you cast that's one or more colors has web-slinging {G}{W}{U}. (You may cast a spell for its web-slinging cost if you also return a tapped creature you control to its owner's hand.)", power='0', toughness='1', colors=['G', 'U', 'W'], color_identity=['G', 'U', 'W'], keywords=['Reach', 'Vigilance', 'Transform'], layout='modal_dfc', card_faces=[{'name': 'Peter Parker', 'mana_cost': '{1}{W}', 'type_line': 'Legendary Creature — Human Scientist Hero', 'oracle_text': 'When Peter Parker enters, create a 2/1 green Spider creature token with reach.\n{1}{G}{W}{U}: Transform Peter Parker. Activate only as a sorcery.', 'power': '0', 'toughness': '1', 'colors': ['W']}, {'name': 'Amazing Spider-Man', 'mana_cost': '{1}{G}{W}{U}', 'type_line': 'Legendary Creature — Spider Human Hero', 'oracle_text': "Vigilance, reach\nEach legendary spell you cast that's one or more colors has web-slinging {G}{W}{U}. (You may cast a spell for its web-slinging cost if you also return a tapped creature you control to its owner's hand.)", 'power': '4', 'toughness': '4', 'colors': ['G', 'U', 'W']}], image_uris=None),  # noqa: E501
+    card('Test Bear', set_code='tst', number='M20', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
 ]
 
 
@@ -35,7 +40,8 @@ def card_db(settings: Settings) -> Path:
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", ["Raging Goblinoids", "Oscorp Industries", "Sandman's Quicksand", "Prison Break"])
+@pytest.mark.parametrize("name", ["Raging Goblinoids", "Oscorp Industries", "Sandman's Quicksand", "Prison Break", "Spiders-Man, Heroic Horde", "Spider-UK",
+                                  "Norman Osborn // Green Goblin", "Peter Parker // Amazing Spider-Man"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -122,4 +128,61 @@ def test_a_bare_mayhem_lets_you_play_the_land_from_the_graveyard(cards):
     assert land.zone == "p1:graveyard"
     act(s, "p1", type="play_land", card_id=land.id)
     assert find(s, "Oscorp Industries").zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_web_slinging_returns_a_tapped_creature_and_the_spell_knows_how_it_was_cast(cards):
+    s = build(cards, p1=("Spiders-Man, Heroic Horde", "Test Bear"))
+    man = put(s, "Spiders-Man, Heroic Horde", "hand")
+    bear = put(s, "Test Bear", "battlefield")
+    mana(s, G=2, C=4)  # web-slinging {4}{G}{G}
+    with pytest.raises(ActionError):  # 702.188a: the returned creature must be tapped
+        act(s, "p1", type="cast_spell", card_id=man.id, alt_cost=f"{man.id}:0", cost_choices=[{"component": 0, "cards": [bear.id]}])
+    act(s, "p1", type="tap", card_ids=[bear.id], tapped=True)
+    act(s, "p1", type="cast_spell", card_id=man.id, alt_cost=f"{man.id}:0", cost_choices=[{"component": 0, "cards": [bear.id]}])
+    answer(s)
+    assert find(s, "Test Bear").zone == "p1:hand"
+    assert find(s, "Spiders-Man, Heroic Horde").zone == "p1:battlefield"
+    assert s.state.players["p1"].life == 43  # "if they were cast using web-slinging": 3 life and two 2/1 Spiders
+    assert sum(1 for c in s.state.cards.values() if c.is_token and c.name == "Spider" and c.zone == "p1:battlefield") == 2
+    roundtrip(s)
+
+
+def test_the_same_creature_cast_normally_gets_nothing(cards):
+    s = build(cards, p1=("Spiders-Man, Heroic Horde",))
+    man = put(s, "Spiders-Man, Heroic Horde", "hand")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=man.id)
+    answer(s)
+    assert s.state.players["p1"].life == 40
+    assert not any(c.is_token and c.name == "Spider" for c in s.state.cards.values())
+    roundtrip(s)
+
+
+def test_a_granted_mayhem_uses_the_mana_cost(cards):
+    s = build(cards, p1=("Norman Osborn // Green Goblin", "Faithless Looting", "Test Bear"))
+    norman = put(s, "Norman Osborn // Green Goblin", "battlefield")
+    act(s, "p1", type="set_face", card_id=norman.id, face=1)  # Goblin Formula: each nonland card in your graveyard has mayhem
+    discard(s, "Test Bear")
+    mana(s, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=find(s, "Test Bear").id)
+    answer(s)
+    assert find(s, "Test Bear").zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_a_granted_web_slinging_casts_a_legendary_colored_spell_for_its_cost(cards):
+    s = build(cards, p1=("Peter Parker // Amazing Spider-Man", "Spider-UK", "Test Bear"))
+    peter = put(s, "Peter Parker // Amazing Spider-Man", "battlefield")
+    act(s, "p1", type="set_face", card_id=peter.id, face=1)
+    uk = put(s, "Spider-UK", "hand")
+    bear = put(s, "Test Bear", "battlefield")
+    act(s, "p1", type="tap", card_ids=[bear.id], tapped=True)
+    mana(s, G=1, W=1, U=1)  # web-slinging {G}{W}{U}, not {3}{W}
+    from app.rules import casting
+
+    key = next(o["id"] for o in casting.alt_castable(s.state, "p1", uk, s.cards) if "return a tapped creature" in o["label"])
+    act(s, "p1", type="cast_spell", card_id=uk.id, alt_cost=key, cost_choices=[{"component": 0, "cards": [bear.id]}])
+    answer(s)
+    assert find(s, "Spider-UK").zone == "p1:battlefield" and find(s, "Test Bear").zone == "p1:hand"
     roundtrip(s)
