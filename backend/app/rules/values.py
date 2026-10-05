@@ -318,8 +318,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
             return None
         return {"attached": sorted(set(re.findall(r"Aura|Equipment", m["kinds"]))), "on": on}
     m = _COUNTERS_AMONG.match(what)  # -- value grammar (wave 23C) -- "the number of counters on permanents you control", "time counters among permanents you control"
-    if m and m["sel"].lower() not in _ON:
-        key = _selector_key(m["sel"])
+    if m and m["sel"].lower() not in _ON and "‹granter" not in m["sel"]:  # (review 23C: one granting object is no group — a token an effect
+        key = _selector_key(m["sel"])  # created never has its ‹granter› bound (Gutter Grime's Ooze would read 0)
         if key is None or selectors.from_key(key).player is not None or selectors.from_key(key).card or selectors.from_key(key).zones != ("battlefield",):
             return None
         if m["kinds"]:  # 122.1: how many different kinds of counters there are among them

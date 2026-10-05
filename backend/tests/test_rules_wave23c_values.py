@@ -283,3 +283,34 @@ def test_foul_renewal_shrinks_by_the_toughness_of_the_card_it_returned(cards):
     drive(s)
     assert s.state.cards[gone.id].zone == "p1:hand" and s.state.cards[theirs.id].zone == "p2:graveyard"  # -4/-4 (the returned card's toughness) kills it
     roundtrip(s)
+
+
+# -- review (wave 23C) ---------------------------------------------------------------------------------------------------------
+def test_change_of_fortune_counts_the_discards_it_just_made(cards):
+    s = game(cards, ["Change of Fortune", "Probe Four", "Probe Gold"])
+    put(s, "Probe Four", "hand")
+    put(s, "Probe Gold", "hand")
+    cast(s, "Change of Fortune", R=1, C=3)
+    drive(s)
+    # 608.2h: the two cards discarded earlier in this resolution count (the turn's log notes events only when triggers are checked)
+    assert len(s.state.zones["p1:hand"]) == 2 and find(s, "Probe Four").zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_counters_on_an_unbound_granter_stay_manual():
+    # Gutter Grime's Ooze: "… equal to the number of slime counters on Gutter Grime." A token an effect created never has its
+    # ‹granter› bound to an object, so the count would read 0 (and the Ooze die): the token's text stays manual.
+    assert values.parse_count("the number of slime counters on ‹granter›", it="self") is None
+    assert values.parse_count("the number of counters on permanents you control", it="self") is not None
+
+
+@pytest.mark.parametrize("text", [
+    "Exile two creature cards from your graveyard: You gain life equal to the exiled card's mana value.",  # (which one?)
+    "{T}, Exile this creature: You gain life equal to the exiled card's mana value.",  # (not a card from a graveyard / hand)
+    "When this creature enters, you gain life equal to the exiled card's mana value.",  # (no cost exiled anything)
+])
+def test_the_exiled_card_needs_exactly_one_card_a_cost_exiled_from_a_graveyard_or_hand(text):
+    from tests.test_rules_wave5j_token_copies import ok
+
+    assert not ok(text)
+    assert ok("Exile a creature card from your graveyard: You gain life equal to the exiled card's mana value.")
