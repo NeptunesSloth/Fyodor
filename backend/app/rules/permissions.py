@@ -90,6 +90,18 @@ PERMISSION = re.compile(
     r" from (?P<zone>your graveyard|the top of your library)"
     # -- cast from graveyard (wave 19C) -- 614.1a: "If a spell cast this way would be put into your graveyard, exile it instead."
     r"(?:\. If (?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead)?$", re.IGNORECASE)
+# -- resolution memory (wave 22D) -- "You may play lands and cast spells from among cards exiled with this creature." (Nightveil Specter),
+# "During your turn, if an opponent lost life this turn, you may play lands and cast spells from among cards exiled with this enchantment."
+# (Theater of Horrors): a static permission (611.3a) over the cards the object's linked exiling ability exiled (607.2a)
+LINKED_PLAY = re.compile(r"^(?:(?P<during>during your turn), )?(?:(?:if|as long as) (?P<cond>[^,]+), )?you may "
+                         r"(?:play lands and cast spells from among|play) cards exiled with ~$")
+
+
+def exiled_with_exiles(line: str) -> bool:
+    """Is this ability line one that exiles (the linked ability of "cards exiled with ~")? (read as text: the cards exile only through it)"""
+    return re.search(r"\bexiles?\b", line, re.IGNORECASE) is not None and "exiled with" not in line
+
+
 SELF_GY_BY = re.compile(r"^you may cast (?:this card|~) from your graveyard by (?P<cost>.+) in addition to paying its other costs"
                         r"(?P<exile>\. Then exile this card)?$")  # (-- casting extras (wave 18E) -- jump-start 702.133a: exiled as it leaves the stack)
 # -- keyword grants (wave 17C) -- 702.81a: "Instant and sorcery cards in your graveyard have retrace." / "During your turn, nonland
@@ -488,6 +500,19 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     if t.lower().startswith(("escape—", "each ", "you may cast ~ from your graveyard by", "you may cast this c")) and (found_escape := escape.define_static(t)) is not None:
         return found_escape  # (702.138a: a printed escape cost, or "Each nonland card in your graveyard has escape. …")
     # -- end top of library (wave 5I) --
+    if (m := LINKED_PLAY.fullmatch(t)) is not None:  # -- resolution memory (wave 22D) -- 607.2a: "cards exiled with ~" (app/rules/exiled_with.py)
+        cond = None
+        if m["cond"]:
+            from app.rules import conditions
+
+            cond = conditions.parse(m["cond"])
+            if cond is None or "succeeded" in cond or "flag" in cond:
+                return None
+        if not any(x.strip().rstrip(".") and exiled_with_exiles(x) for x in lines):
+            return None  # (the linked ability must be one that exiles: otherwise the permission has nothing to read)
+        return {"kind": "static", "static": "permission", "zone": "exile", "linked": True, "once": False, "flash": False, "self": False,
+                "play": True, "cast": True, "filter": None, "effects": [],
+                **({"during": "your_turn"} if m["during"] else {}), **({"if": cond} if cond is not None else {})}
     m = PERMISSION.fullmatch(t)
     if m:
         what = _permission_what(m["what"], m["sel"], m["qual"])
@@ -813,6 +838,13 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 continue
         if d.get("own") and card.owner != player:  # ("Creature cards you own …")
             continue
+        if d.get("linked"):  # -- resolution memory (wave 22D) -- only a card still the object this permanent's ability exiled (400.7, 607.2a)
+            if not card.zone.endswith(":exile") or oid not in r.exiled_with.get(r.object_id(src.id), []):
+                continue
+            if d.get("if") is not None and not _linked_if(state, info, player, src, d["if"]):
+                continue
+            out.append(Grant("permission", src.name, zone_ok=True))
+            continue
         if d["zone"] != "any" and d["zone"] != where:
             continue
         if d["filter"] and verb == "cast" and not spell_matches(state, player, card, ch, d["filter"], info):
@@ -831,6 +863,15 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
     # last, so a cast another permission also allows doesn't use it up
     out.sort(key=lambda g: g.once_key is not None)
     return out
+
+
+def _linked_if(state: GameState, info: CardInfo, player: str, src: CardInstance, cond: dict[str, Any]) -> bool:
+    """-- resolution memory (wave 22D) -- "if an opponent lost life this turn" / "as long as you've sacrificed …": read now, for the source's controller (611.3a)."""
+    from app.rules import conditions
+    from app.rules.plan import Plan
+
+    ctx = {"controller": player, "source_card": src.id, "source_object": state.rules.object_id(src.id) if state.rules else None}
+    return conditions.holds(Plan.view(state, player, info), ctx, cond)
 
 
 def _while_holds(state: GameState, info: CardInfo, player: str, card: CardInstance, cond: dict[str, Any]) -> bool:
