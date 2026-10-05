@@ -1435,9 +1435,7 @@ def at_step_generic(plan: Plan) -> None:
     for card in list(plan.state.cards.values()):
         gy = card.zone.endswith(":graveyard")  # -- refused zones/sized (wave 3R4) -- (113.6m)
         cz = card.zone.endswith(":command") and not designations.emblem_card(card)  # (-- trigger other (wave 25B) -- eminence, 113.6b)
-        if gy and card.owner in plan.live() and not plan.manual(card) and "graveyard" in (plan.ch(card).oracle_text or ""):
-            pass
-        elif cz and plan.in_game(card) and not plan.manual(card) and card.controller in plan.live():
+        if gy and card.owner in plan.live() and not plan.manual(card) and "graveyard" in (plan.ch(card).oracle_text or "") or cz and plan.in_game(card) and not plan.manual(card) and card.controller in plan.live():
             pass
         elif not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or plan.manual(card) or card.controller not in plan.live():
             continue
