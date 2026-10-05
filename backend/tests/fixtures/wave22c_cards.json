@@ -1,0 +1,168 @@
+[
+ {
+  "name": "Blightsteel Colossus",
+  "mana_cost": "{12}",
+  "cmc": 12.0,
+  "type_line": "Artifact Creature \u2014 Phyrexian Golem",
+  "oracle_text": "Trample, infect, indestructible\nIf Blightsteel Colossus would be put into a graveyard from anywhere, reveal Blightsteel Colossus and shuffle it into its owner's library instead.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Indestructible",
+   "Trample",
+   "Infect"
+  ],
+  "power": "11",
+  "toughness": "11",
+  "layout": "normal"
+ },
+ {
+  "name": "Nexus of Fate",
+  "mana_cost": "{5}{U}{U}",
+  "cmc": 7.0,
+  "type_line": "Instant",
+  "oracle_text": "Take an extra turn after this one.\nIf Nexus of Fate would be put into a graveyard from anywhere, reveal Nexus of Fate and shuffle it into its owner's library instead.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Rest in Peace",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Vorinclex, Monstrous Raider",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+  "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Haste",
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "6",
+  "layout": "normal"
+ },
+ {
+  "name": "Lae'zel, Vlaakith's Champion",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature \u2014 Gith Warrior",
+  "oracle_text": "If you would put one or more counters on a creature or planeswalker you control or on yourself, put that many plus one of each of those kinds of counters on that permanent or player instead.\nChoose a Background (You can have a Background as a second commander.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Choose a background"
+  ],
+  "power": "3",
+  "toughness": "3",
+  "layout": "normal"
+ },
+ {
+  "name": "Pir, Imaginative Rascal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature \u2014 Human",
+  "oracle_text": "Partner with Toothy, Imaginary Friend (When this creature enters, target player may put Toothy into their hand from their library, then shuffle.)\nIf one or more counters would be put on a permanent your team controls, that many plus one of each of those kinds of counters are put on that permanent instead.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Partner with",
+   "Partner"
+  ],
+  "power": "1",
+  "toughness": "1",
+  "layout": "normal"
+ },
+ {
+  "name": "Progenitus",
+  "mana_cost": "{W}{W}{U}{U}{B}{B}{R}{R}{G}{G}",
+  "cmc": 10.0,
+  "type_line": "Legendary Creature \u2014 Hydra Avatar",
+  "oracle_text": "Protection from everything\nIf Progenitus would be put into a graveyard from anywhere, reveal Progenitus and shuffle it into its owner's library instead.",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Protection"
+  ],
+  "power": "10",
+  "toughness": "10",
+  "layout": "normal"
+ },
+ {
+  "name": "Darksteel Colossus",
+  "mana_cost": "{11}",
+  "cmc": 11.0,
+  "type_line": "Artifact Creature \u2014 Golem",
+  "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nIndestructible (Damage and effects that say \"destroy\" don't destroy this creature.)\nIf Darksteel Colossus would be put into a graveyard from anywhere, reveal Darksteel Colossus and shuffle it into its owner's library instead.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Indestructible",
+   "Trample"
+  ],
+  "power": "11",
+  "toughness": "11",
+  "layout": "normal"
+ },
+ {
+  "name": "Legacy Weapon",
+  "mana_cost": "{7}",
+  "cmc": 7.0,
+  "type_line": "Legendary Artifact",
+  "oracle_text": "{W}{U}{B}{R}{G}: Exile target permanent.\nIf Legacy Weapon would be put into a graveyard from anywhere, reveal Legacy Weapon and shuffle it into its owner's library instead.",
+  "colors": [],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ }
+]

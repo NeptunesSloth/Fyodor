@@ -796,9 +796,7 @@ def test_wordings_that_stay_manual():
     from tests.test_rules_scripts import ch
 
     for text in [
-        # "you would put": who puts the counters (Vorinclex, Monstrous Raider)
-        "If you would put one or more counters on a permanent or player, put twice that many of each of those kinds of "
-        "counters on that permanent or player instead.",
+        # ("you would put" is automated since wave 22C: tests/test_rules_wave22c_replacements.py)
         # "may instead" (Jinnie Fay) — (wave 3R2: a different token added, Chatterfang, and redirection, Pariah, are
         # automated: tests/test_rules_refused_grants.py)
         "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste "
