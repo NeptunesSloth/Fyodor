@@ -68,6 +68,8 @@ def status(plan: Plan, you: str, kind: str) -> bool:
         return table.day_night == kind
     if kind == "neither_day_nor_night":
         return table.day_night is None
+    if kind in ("ring_bearer", "no_ring_bearer"):  # -- trigger other (wave 25B) -- 701.54e: a creature on the battlefield under their control
+        return (_bearer_card(plan, you) is not None) == (kind == "ring_bearer")
     return False
 
 

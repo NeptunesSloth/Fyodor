@@ -209,6 +209,9 @@ def _count(word: str) -> int:
 
 
 def _parse(c: str) -> Condition | None:
+    # -- trigger other (wave 25B) -- 701.18b: to play a card is to play it as a land or cast it as a spell, whichever is appropriate
+    if c in ("you play a card", "a player plays a card", "an opponent plays a card"):
+        return _parse(c.replace(" a card", " a land or cast a spell" if c.startswith("you") else " a land or casts a spell"))
     # -- triggers (wave 19B) -- "your commander attacks / enters / deals combat damage to a player" is "a commander you control …"
     # (903.3: a commander its owner's deck names; the selector reads it on the battlefield), "you attack with your commander" /
     # "~ attacks an opponent" (the one of your opponents the attack is declared against, 508.3a)

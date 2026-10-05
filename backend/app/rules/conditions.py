@@ -118,6 +118,9 @@ _OBJECT_STAT = re.compile(r"(?P<who>its|that creature's|that permanent's|that ca
                           r"(?:is|was) (?:(?P<n>\w+) or (?P<cmp>less|greater|more|fewer)|(?P<cmp2>less|greater|more|fewer) than (?P<n2>\w+))")  # (17D: "than")
 _OBJECT_VS_REVEALED = re.compile(r"(?:its|that creature's|that permanent's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|less than|"
                                  r"greater than or equal to|greater than|equal to) the revealed card's (?P<ref>power|toughness|mana value)")
+# -- trigger other (wave 25B) -- converge: "if its mana value is less than or equal to the number of colors of mana spent to cast this spell"
+_OBJECT_VS_COLORS = re.compile(r"(?:its|that creature's|that permanent's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|"
+                               r"equal to) the number of colors of mana spent to cast (?:this spell|~)")
 _REF_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "==", "greater than or equal to": ">=", "greater than": ">"}
 _REF_STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
 _X_IS = re.compile(r"x is (?P<n>\w+)(?: or (?P<cmp>more|greater|less|fewer))?", re.IGNORECASE)
@@ -181,6 +184,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
 
     if (pair := merged.condition(t)) is not None:
         return pair
+    if t.lower() in ("you control a ring-bearer", "you don't control a ring-bearer"):  # (wave 25B: before the "you control a …" selector reading)
+        return {"status": _DESIGNATIONS[t.lower()]}
     found_extreme = extremes.parse(t)  # -- extremes (wave 8B) -- "you control the creature with the greatest power or tied …"
     if found_extreme is not None:
         return found_extreme
@@ -501,7 +506,8 @@ _DESIGNATIONS = {"there is no monarch": "no_monarch", "an opponent is the monarc
                  "you're not the monarch": "not_monarch", "you aren't the monarch": "not_monarch",
                  "you don't have the initiative": "not_initiative", "you've completed a dungeon": "completed_dungeon",
                  "you have completed a dungeon": "completed_dungeon",
-                 "it's day": "day", "it's night": "night", "it's neither day nor night": "neither_day_nor_night"}
+                 "it's day": "day", "it's night": "night", "it's neither day nor night": "neither_day_nor_night",
+                 "you control a ring-bearer": "ring_bearer", "you don't control a ring-bearer": "no_ring_bearer"}  # (wave 25B: 701.54e)
 
 
 # -- speed (wave 24B) -- 702.179e: "you have max speed" is speed 4 (or more: Gomif's speed can pass 4 and stays at max speed)
@@ -933,6 +939,9 @@ def _object(t: str) -> Condition | None:
     it last existed); physical state (tapped, attacking) only of the source itself."""
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)'s (?:power|toughness|mana value)) (\w+ or )", r"\1 was \2", t)
+    m = _OBJECT_VS_COLORS.fullmatch(t)
+    if m:  # (wave 25B) the spell's own payment record, read as it resolves
+        return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]], "n": {"colors_spent": 1}}
     m = _OBJECT_VS_REVEALED.fullmatch(t)
     if m:  # -- static_other sweep (wave 17C) -- "its power is less than or equal to the revealed card's power" (Titan's Presence)
         return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]],
@@ -1268,7 +1277,9 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
 
             value = mana_value(card, ch)
         bound: Any = cond["n"]
-        if isinstance(bound, dict):  # -- static_other sweep (wave 17C) -- the card a spell's cost revealed
+        if isinstance(bound, dict) and "colors_spent" in bound:  # (wave 25B) converge, 202.3 / 601.2h: the colors of mana spent to cast the spell
+            bound = values.evaluate(plan, ctx, bound)
+        elif isinstance(bound, dict):  # -- static_other sweep (wave 17C) -- the card a spell's cost revealed
             bound = values.evaluate(plan, ctx, bound) if values._object(plan, ctx, "cost:revealed") is not None else None
         return value is not None and bound is not None and bool(_OPS[cond["op"]](value, bound))
     # "it's a land card" / "that creature is a Human": its characteristics, wherever it is (a card in

@@ -49,6 +49,9 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         body = re.sub(r"^(if (?:(?:at least )?\w+ (?:or more )?)?mana from [^,]+? (?:was|were) spent to cast) it,", r"\1 that spell,", body)
     if name == "cast_self":  # -- history (wave 22E) -- "When you cast this spell, … where X is the amount of mana spent to cast it" (Prossh)
         body = re.sub(r"\bthe amount of mana spent to cast it\b", "the amount of mana spent to cast this spell", body)
+    if name == "dies_self" or (cond is not None and cond.get("event") == "die" and cond.get("subject") == "self"):
+        # -- trigger other (wave 25B) -- "When this creature dies, … return this card to …": the card it is now, in its owner's graveyard (400.7: "it")
+        body = re.sub(r"\b(return|put|exile|shuffle) this card\b", r"\1 it", body)
     if cond is not None and cond.get("subject") == "sel" and cond.get("sel"):  # -- trigger other (wave 25B) -- "Whenever another Wizard you
         from app.rules import (
             selectors,  # control enters, … a copy of that Wizard": the object the event is about, "that creature"
@@ -74,6 +77,8 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
     body = drawn_toll.rewrite(body)
     # -- counters (wave 7C) -- heroic: "Whenever you cast a spell that targets ~, put a +1/+1 counter on it": the creature
     # that was targeted (the spell is "that spell"), which is ~ itself
+    if (cond or {}).get("event") == "cast":  # -- trigger other (wave 25B) -- "If that spell has mana value 5 or greater, …": the spell's mana value
+        body = re.sub(r"\b([Ii]f) that spell has mana value (\d+|X) or (greater|less)\b", r"\1 that spell's mana value is \2 or \3", body)
     if (cond or {}).get("event") == "cast":  # -- triggers (wave 21B) -- "Whenever you cast a spell, you lose life equal to its mana value"
         body = re.sub(r"^((?:you )?(?:lose|gain)s? life equal to) its mana value\.$", r"\1 that spell's mana value.", body)
         body = re.sub(r"^(if the amount of mana spent to cast it was less than its mana value, .+? equal to) the difference\.$",

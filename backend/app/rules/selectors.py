@@ -588,6 +588,15 @@ def _mv_source_counters(s: Selector, m: re.Match[str]) -> Selector:
                                             SOURCE_COUNTERS + m["k"])))
 
 
+COLORS_SPENT = "colors_spent"  # -- trigger other (wave 25B) -- converge: the colors of mana spent to cast the source (its payment record)
+
+
+@_suffix(r"with (?P<what>mana value|power) (?P<op>equal to|less than or equal to) the number of colors of mana spent to cast "
+         r"(?:~|this (?:spell|creature|permanent|artifact|enchantment))")
+def _mv_colors_spent(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, compare=(*s.compare, ("mv" if m["what"] == "mana value" else "power", "==" if m["op"] == "equal to" else "<=", COLORS_SPENT)))
+
+
 def _source_counters(plan: Plan, source: str | None, kind: str) -> int | None:
     src = plan.state.cards.get(source or "")
     if src is None:
@@ -1401,6 +1410,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if have is None:
                 return False
             n = have
+        elif n == COLORS_SPENT:  # (wave 25B) the source's payment record, as values reads it for "the number of colors of mana spent"
+            from app.rules import values
+
+            src = plan.state.cards.get(source or "")
+            if src is None:
+                return False
+            n = values.evaluate(plan, {"controller": you, "source_card": src.id, "source_object": plan.oid(src)}, {"colors_spent": 1})
         elif n == X_VALUE:  # (107.3f: X is the one chosen for the spell; none known: nothing matches)
             src = plan.state.cards.get(source or "")
             x = src.stack_info.x if src is not None and src.stack_info is not None and src.stack_info.x is not None \
