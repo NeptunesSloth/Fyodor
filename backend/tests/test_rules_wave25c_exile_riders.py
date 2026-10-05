@@ -40,6 +40,20 @@ REAL = [
          color_identity=["B"], oracle_text="Until end of turn, you may cast target instant or sorcery card from your graveyard without "
          "paying its mana cost. If that spell would be put into your graveyard, exile it instead. Exile Sins of the Past."),
 ]
+REAL += [
+    card("Temple of the Dragon Queen", set_code="tst", number="C25-5", mana_cost="", cmc=0.0, type_line="Land",
+         oracle_text="As this land enters, you may reveal a Dragon card from your hand. This land enters tapped unless you revealed a "
+         "Dragon card this way or you control a Dragon.\n{T}: Add one mana of any color."),
+    card("Shivan Dragon", set_code="tst", number="C25-6", mana_cost="{4}{R}{R}", cmc=6.0, type_line="Creature — Dragon", colors=["R"],
+         color_identity=["R"], power="5", toughness="5", keywords=["Flying"], oracle_text="Flying\n{R}: This creature gets +1/+0 until "
+         "end of turn."),
+]
+REAL += [
+    card("Boonweaver Giant", set_code="tst", number="C25-7", mana_cost="{6}{W}", cmc=7.0, type_line="Creature — Giant Monk", colors=["W"],
+         color_identity=["W"], power="4", toughness="4", oracle_text="When this creature enters, you may search your graveyard, hand, "
+         "and/or library for an Aura card and put it onto the battlefield attached to this creature. If you search your library this "
+         "way, shuffle."),
+]
 OURS = [c["name"] for c in REAL]
 
 
@@ -53,7 +67,7 @@ def cards(settings) -> Iterator[CardRepository]:
 
 
 def build(cards):
-    alice = deck(cards, "Krenko, Mob Boss", [(1, n) for n in OURS] + [(2, "Lightning Bolt"), (1, "Counterspell"), (20, "Forest")])
+    alice = deck(cards, "Krenko, Mob Boss", [(1, n) for n in OURS] + [(2, "Lightning Bolt"), (1, "Counterspell"), (1, "Pacifism"), (20, "Forest")])
     bob = deck(cards, "Atraxa, Praetors' Voice", [(2, "Lightning Bolt"), (1, "Counterspell"), (20, "Island")])
     s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
     act(s, "p1", type="pass_priority")  # → Alice's first main phase
@@ -172,4 +186,62 @@ def test_sins_of_the_past_grants_the_cast_and_exiles_the_spell(cards):
     assert s.state.players["p2"].life == 37
     assert s.state.cards[bolt.id].zone == "p1:exile"
     assert s.state.cards[sins.id].zone == "p1:exile"
+    replay_matches(s)
+
+
+# -- 614.12a: "enters tapped unless you revealed a Dragon card this way or you control a Dragon" -------------------
+def _temple(s):
+    land = find(s, "Temple of the Dragon Queen")
+    act(s, "p1", type="move", card_ids=[land.id], to={"zone": "hand", "player": "p1"})
+    return land
+
+
+def test_temple_enters_untapped_when_you_control_a_dragon_without_asking(cards):
+    s = build(cards)
+    land = _temple(s)
+    put(s, "Shivan Dragon", "battlefield")
+    put(s, "Forest", "hand")
+    act(s, "p1", type="play_land", card_id=land.id)
+    assert s.state.rules.decision is None  # public information: nothing to ask, nothing leaked
+    assert s.state.cards[land.id].zone == "p1:battlefield" and not s.state.cards[land.id].tapped
+    replay_matches(s)
+
+
+def test_temple_asks_to_reveal_a_dragon_otherwise(cards):
+    s = build(cards)
+    land = _temple(s)
+    dragon = put(s, "Shivan Dragon", "hand")
+    act(s, "p1", type="play_land", card_id=land.id)
+    d = s.state.rules.decision
+    assert d is not None and dragon.id in {o.id for o in d.options}
+    choose(s, [dragon.id])
+    assert not s.state.cards[land.id].tapped and s.state.cards[dragon.id].zone == "p1:hand"
+    replay_matches(s)
+    s = build(cards)
+    land = _temple(s)
+    put(s, "Shivan Dragon", "hand")
+    act(s, "p1", type="play_land", card_id=land.id)
+    choose(s, ["none"])
+    assert s.state.cards[land.id].tapped  # declined, no Dragon on the table
+    replay_matches(s)
+
+
+# -- 701.23 / 303.4f: "search … for an Aura card and put it onto the battlefield attached to this creature" ----------
+def test_boonweaver_giant_fetches_an_aura_onto_itself_and_shuffles_the_library(cards):
+    s = build(cards)
+    pacifism = find(s, "Pacifism")
+    giant = put(s, "Boonweaver Giant", "hand")
+    mana(s, W=7)
+    before = list(s.state.zones["p1:library"])
+    act(s, "p1", type="cast_spell", card_id=giant.id)
+    pass_until_stack_empty(s)
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        ids = {o.id for o in d.options}
+        choose(s, ["yes"] if "yes" in ids else ["library"] if "library" in ids else [pacifism.id], resolve=True)
+    assert s.state.cards[pacifism.id].zone == "p1:battlefield"
+    assert s.state.cards[pacifism.id].attached_to == giant.id
+    assert list(s.state.zones["p1:library"]) != before  # the library was searched, so shuffled (701.24)
     replay_matches(s)

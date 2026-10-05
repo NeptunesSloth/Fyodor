@@ -589,7 +589,7 @@ _SEARCH = re.compile(
     rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) (?:may |(?=searches ))?)?"  # (wave 19E: "searches")
     rf"searche?s? (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"
     rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, ))?"
-    rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE}))(?P<shuf>, then shuffles?)?"
+    rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE})(?: attached to (?P<host>~|this creature|this equipment))?)(?P<shuf>, then shuffles?)?"
     rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
     rf"|then shuffle and put {_PRON} (?:on top(?: in any order)?|(?P<third>third from the top)))")  # ("in any order": wave 3R4; third: wave 20D)
 _DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
@@ -791,6 +791,10 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
             extra["depth"] = 3
         if n != 1:
             extra["top_order"] = True  # -- refused zones/sized (wave 3R4) -- several on top: the searcher orders them (401.4)
+    if m["host"]:  # -- if you do (wave 25C) -- "put it onto the battlefield attached to this creature" (303.4f / 301.5e: effects._attached_entries)
+        if not to.startswith("battlefield") or n != 1 or m["one"]:
+            raise _Fail
+        extra["host"] = "self"
     if to != "top" and not (m["shuf"] or m["shuf2"]):
         extra["shuffle"] = False  # (only when the text says so: 701.23e)
     return [{"do": "search", "who": _SEARCHERS[m["who"]] if m["who"] else "you", "label": m["sel"], "max": n,
@@ -809,7 +813,7 @@ _GY_ZONES = (r"(?P<zones>library and/or graveyard|graveyard and/or library|(?:gr
              r"|hand and/or library|library and/or hand)")
 _SEARCH_GY = re.compile(rf"search your {_GY_ZONES} for (?P<q>(?:up to )?(?:{AMT})) (?P<sel>.+?)(?:,? and |, )"
                         rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, )(?:then )?)?put (?P<pron>{_PRON}) "
-                        rf"(?P<dest>into your hand|onto the battlefield)(?P<then>, then shuffle)?")
+                        rf"(?P<dest>into your hand|onto the battlefield)(?P<host> attached to (?:~|this creature|this equipment))?(?P<then>, then shuffle)?")
 
 
 _GAMBLE = re.compile(r"search your library for a card, put (?:that card|it) into your hand, (?P<first>shuffle, then )?"
@@ -829,7 +833,7 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
     if m is None:
         return None
     reveal = f"{m['reveal']}, " if m["reveal"] else ""
-    found = _search(f"search your library for {m['q']} {m['sel']}, {reveal}put {m['pron']} {m['dest']}")
+    found = _search(f"search your library for {m['q']} {m['sel']}, {reveal}put {m['pron']} {m['dest']}{m['host'] or ''}")
     if found is None:
         raise _Fail
     e = found[0][0]

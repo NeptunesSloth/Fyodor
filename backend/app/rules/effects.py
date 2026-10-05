@@ -1922,6 +1922,8 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
         elif to in ("battlefield", "battlefield_tapped"):
             entering.append({"card": cid, "player": pid, "actor": pid, "tapped": to == "battlefield_tapped"})
     _player_control.permit_exiled(plan, agents, exiled)
+    if entering and e.get("host"):  # -- if you do (wave 25C) -- "…, put it onto the battlefield attached to this creature"
+        entering = _attached_entries(plan, ctx, e["host"], entering)
     if e.get("link"):  # -- resolution memory (wave 22D) -- 607.2a: "search your library for an artifact card, exile it" (Hoarding Dragon)
         from app.rules import exiled_with
 
