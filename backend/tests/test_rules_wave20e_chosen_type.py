@@ -13,12 +13,15 @@ from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import answer, real
-from tests.wave9c_kit import build, check, mana, put, to_hand
+from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 
 EXTRA = [
     real("Akroma's Blessing", '{2}{W}', 3, 'Instant', 'Choose a color. Creatures you control gain protection from the chosen color until end of turn.', None, 'W'),
     real('Brave the Elements', '{W}', 1, 'Instant', 'Choose a color. White creatures you control gain protection from the chosen color until end of turn.', None, 'W'),
+    real('Bathe in Light', '{W}', 1, 'Instant', 'Radiance — Choose a color. Target creature and each other creature that shares a color with it gain protection from the chosen color until end of turn.', None, 'W'),
     real('Probe Soldier', '{1}{W}', 2, 'Creature — Human Soldier', '', ("1", "1"), 'W'),
+    real('Probe Knight', '{1}{W}', 2, 'Creature — Human Knight', '', ("2", "2"), 'W'),
+    real('Probe Elf', '{G}', 1, 'Creature — Elf', '', ("1", "1"), 'G'),
     real('Probe Burst', '{R}', 1, 'Instant', 'Probe Burst deals 1 damage to any target.', None, 'R'),
 ]
 
@@ -48,4 +51,19 @@ def test_protection_from_the_color_that_was_chosen(cards):
     with pytest.raises(ActionError):  # (protection from red: a red spell can't target it)
         act(s, "p1", type="cast_spell", card_id=burst.id, targets=[soldier.id])
     act(s, "p1", type="cast_spell", card_id=burst.id, targets=["p2"])  # (the player isn't protected)
+    check(s)
+
+
+def test_radiance_gives_every_creature_of_a_shared_color_the_chosen_protection(cards):
+    """Radiance (207.2c) is no rules text: the target and each other creature that shares a color with it gain it; a green one doesn't."""
+    s = build(cards, ["Bathe in Light", "Probe Soldier", "Probe Knight", "Probe Elf", "Probe Burst", "Probe Burst"], [])
+    soldier, knight, elf = put(s, "Probe Soldier"), put(s, "Probe Knight"), put(s, "Probe Elf")
+    light = to_hand(s, "Bathe in Light")
+    mana(s, "p1", W=1, R=3)
+    act(s, "p1", type="cast_spell", card_id=light.id, targets=[soldier.id])
+    answer(s, "Red")
+    for protected in (soldier, knight):
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=to_hand(s, "Probe Burst").id, targets=[protected.id])
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Probe Burst").id, targets=[elf.id])  # (green: shares no color with the target)
     check(s)
