@@ -16,7 +16,7 @@ from app.game.state import GameState
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable, zone
-from tests.test_rules_conditionals import creature, life, on_field, settle, to_hand, until
+from tests.test_rules_conditionals import creature, life, on_field, settle, to_hand
 from tests.test_rules_effects import mana, replay_matches
 
 

@@ -77,7 +77,6 @@ def test_snort_each_player_chooses_then_the_opponents_who_did_take_damage(cards)
     roundtrip(s)  # (a save with Alice's private choice pending)
     pick(s, "pay")
     assert s.state.rules.decision.player == "p2"
-    assert hand(s, "p1") != [] or True  # (nothing has been discarded yet: every choice first, 101.4)
     pick(s, "pay")
     assert s.state.rules.decision.player == "p3"
     pick(s, "decline")
