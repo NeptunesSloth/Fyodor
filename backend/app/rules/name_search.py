@@ -73,8 +73,16 @@ def _subject(plan: Plan, ctx: Context, e: dict[str, Any]) -> tuple[str, str] | N
     return (name, pid) if name and pid in plan.state.players else None
 
 
-def _matches(plan: Plan, name: str, pid: str) -> list[str]:
-    return [c for z in ZONES for c in plan.state.zones.get(zone_key(pid, z), []) if plan.ch(plan.state.cards[c]).name == name]
+def _matches(plan: Plan, name: str, pid: str, library: bool = True) -> list[str]:
+    return [c for z in ZONES if library or z != "library" for c in plan.state.zones.get(zone_key(pid, z), [])
+            if plan.ch(plan.state.cards[c]).name == name]
+
+
+def _library_banned(plan: Plan, searcher: str, ctx: Context) -> bool:
+    """-- prohibitions (wave 22B) -- 614.17 / 701.23: "Players can't search libraries": the library is left out (the graveyard and hand aren't)."""
+    from app.rules import prohibitions
+
+    return prohibitions.cant_search(plan, searcher, ctx["controller"]) is not None
 
 
 def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -84,7 +92,7 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True  # (the object is not known any more: nothing is searched for)
     name, pid = subject
     me = ctx["controller"]
-    found = _matches(plan, name, pid)
+    found = _matches(plan, name, pid, not _library_banned(plan, me, ctx))
     decide(plan, player=me, kind="choose_cards", prompt=f"{ctx.get('name') or 'Search'}: search {plan.name(pid)}'s graveyard, hand, "
            f"and library for cards named {name}", options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c)
                                                          for c in found],
@@ -97,7 +105,7 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules.effects import continue_effects
 
     pid = d.resume["pid"]
-    allowed = set(_matches(plan, d.resume["name"], pid))
+    allowed = set(_matches(plan, d.resume["name"], pid, not _library_banned(plan, d.player, d.resume["ctx"])))
     if finish(plan, d.resume["ctx"], pid, [c for c in chosen if c in allowed]):
         continue_effects(plan, d.resume["ctx"])
 

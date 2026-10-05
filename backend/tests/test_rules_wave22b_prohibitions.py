@@ -38,12 +38,16 @@ EXTRA = [
     real("Sigarda, Host of Herons", "{2}{G}{W}{W}", 5, "Legendary Creature — Angel", "Flying, hexproof\nSpells and abilities your opponents control can't cause you to sacrifice permanents.", ("5", "5"), "GW"),
     real("Tajuru Preserver", "{1}{G}", 2, "Creature — Elf Shaman", "Spells and abilities your opponents control can't cause you to sacrifice permanents.", ("2", "1"), "G"),
     real("Diabolic Edict", "{1}{B}", 2, "Instant", "Target player sacrifices a creature of their choice.", None, "B"),
+    real("Mindlock Orb", "{3}{U}", 4, "Artifact", "Players can't search libraries.", None, "U"),
+    real("Rampant Growth", "{1}{G}", 2, "Sorcery", "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.", None, "G"),
+    real("Shadow of Doubt", "{U/B}{U/B}", 2, "Instant", "({U/B} can be paid with either {U} or {B}.)\nPlayers can't search libraries this turn.\nDraw a card.", None, "UB"),
+    real("Ashiok, Dream Render", "{1}{U/B}{U/B}", 3, "Legendary Planeswalker — Ashiok", "Spells and abilities your opponents control can't cause their controller to search their library.\n−1: Target player mills four cards. Then exile each opponent's graveyard.", None, "UB"),
     real("Probe Bear", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
     real("Probe Golem", "{3}", 3, "Artifact Creature — Golem", "", ("3", "3")),
     real("Probe Relic", "{3}", 3, "Artifact", "", None),
     real("Probe Big Spell", "{4}{R}", 5, "Sorcery", "Probe Big Spell deals 1 damage to any target.", None, "R"),
 ]
-FULL = ["Sigarda, Host of Herons", "Tajuru Preserver", "Angel of Jubilation", "Yasharn, Implacable Earth", "Karn's Sylex", "Grafdigger's Cage", "Weathered Runestone", "Soulless Jailer", "Kunoros, Hound of Athreos", "Solemnity", "Tatterkite", "Melira's Keepers",
+FULL = ["Mindlock Orb", "Shadow of Doubt", "Ashiok, Dream Render", "Sigarda, Host of Herons", "Tajuru Preserver", "Angel of Jubilation", "Yasharn, Implacable Earth", "Karn's Sylex", "Grafdigger's Cage", "Weathered Runestone", "Soulless Jailer", "Kunoros, Hound of Athreos", "Solemnity", "Tatterkite", "Melira's Keepers",
         "Gaddock Teeg", "Aether Storm"]
 
 
@@ -285,4 +289,55 @@ def test_a_players_own_edict_on_themselves_is_no_opponents_spell(cards):
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Diabolic Edict").id, targets=["p1"])
     answer(s)
     assert zone_of(s, "Tajuru Preserver") == "p1:graveyard"  # their own spell: it still works
+    check(s)
+
+
+def lands_on_battlefield(s, pid="p1"):
+    return [c for c in s.state.cards.values() if c.zone == f"{pid}:battlefield" and c.name == "Forest"]
+
+
+def test_mindlock_orb_stops_a_tutor_but_the_shuffle_still_happens(cards):
+    s = build(cards, ["Mindlock Orb", "Rampant Growth"], [])
+    put(s, "Mindlock Orb")
+    before = len(lands_on_battlefield(s))
+    mana(s, G=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Rampant Growth").id)
+    answer(s)
+    assert len(lands_on_battlefield(s)) == before  # 614.17: nothing was found
+    assert said(s, "Mindlock Orb: Alice can't search their library")
+    check(s)
+
+
+def test_a_tutor_works_without_the_orb(cards):
+    s = build(cards, ["Rampant Growth"], [])
+    before = len(lands_on_battlefield(s))
+    mana(s, G=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Rampant Growth").id)
+    answer(s)
+    assert len(lands_on_battlefield(s)) == before + 1
+    check(s)
+
+
+def test_shadow_of_doubt_stops_searches_until_the_turn_ends(cards):
+    s = build(cards, ["Shadow of Doubt", "Rampant Growth"], [])
+    before = len(lands_on_battlefield(s))
+    mana(s, U=2, G=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Shadow of Doubt").id)
+    answer(s)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Rampant Growth").id)
+    answer(s)
+    assert len(lands_on_battlefield(s)) == before  # 611.2a: this turn, nobody searches
+    check(s)
+
+
+def test_ashiok_stops_an_opponents_own_searches_only(cards):
+    s = build(cards, ["Ashiok, Dream Render"], [])
+    put(s, "Ashiok, Dream Render")
+    from app.rules import prohibitions
+    from app.rules.plan import Plan
+
+    plan = Plan.view(s.state, "p1", s.cards)
+    assert prohibitions.cant_search(plan, "p2", "p2")  # Bob's spell or ability makes Bob search: no
+    assert not prohibitions.cant_search(plan, "p1", "p1")  # Alice's own
+    assert not prohibitions.cant_search(plan, "p2", "p1")  # Alice's spell has Bob search ("their controller" is Alice)
     check(s)

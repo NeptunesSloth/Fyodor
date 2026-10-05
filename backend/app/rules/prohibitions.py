@@ -28,13 +28,15 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 Definition = dict[str, Any]
-KINDS = ("cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice")
+KINDS = ("cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search")
 
 _ENTER = re.compile(r"^(?P<what>(?:nonland )?(?:permanent|creature) cards) in (?P<zones>graveyards|libraries|graveyards and libraries) "
                     r"can't enter the battlefield$")
 _ZONES = {"graveyards": ("graveyard",), "libraries": ("library",), "graveyards and libraries": ("graveyard", "library")}
 _COUNTERS = re.compile(r"^counters can't be put on (?P<sel>[a-z, ]+)$")
 _SELF_COUNTERS = "~ can't have counters put on it"
+_SEARCH_STATICS = {"players can't search libraries": "each", "your opponents can't search libraries": "opponents",
+                   "spells and abilities your opponents control can't cause their controller to search their library": "caused"}
 # "Players can't pay life or sacrifice creatures to cast spells or activate abilities." (Angel of Jubilation, Yasharn), "Players can't pay life to
 # cast spells or to activate abilities that aren't mana abilities." (Karn's Sylex)
 _PAY = re.compile(r"^players can't pay life(?: or sacrifice (?P<sac>[a-z ]+))? to cast spells(?P<act> or activate abilities"
@@ -63,6 +65,8 @@ def static_definition(text: str) -> Definition | None:
             return None
         return {"kind": "static", "static": "cant_pay", "sac": sel.key() if sel else None,
                 "mana": m["act"] == " or activate abilities", "effects": []}
+    if t in _SEARCH_STATICS:  # (Mindlock Orb, Stranglehold, Ashiok, Dream Render)
+        return {"kind": "static", "static": "cant_search", "who": _SEARCH_STATICS[t], "effects": []}
     if t == "spells and abilities your opponents control can't cause you to sacrifice permanents":  # (Sigarda, Tajuru Preserver)
         return {"kind": "static", "static": "cant_cause_sacrifice", "effects": []}
     if t == _SELF_COUNTERS:
@@ -128,6 +132,44 @@ def cant_counters(plan: Plan, card_id: str, entering_for: str | None) -> str | N
 # -- cost payment (601.2h, 602.2b, 119.4) -- a cost that includes paying life or sacrificing something the line forbids can't be paid, so the
 # spell or ability can't be begun (nothing is paid: 601.2h). Read from the table as it is (cast_limits._statics): ``mana_ability`` costs are
 # only stopped by the lines that say "activate abilities" (Sylex: "that aren't mana abilities").
+def cant_search(plan: Plan, searcher: str, by: str) -> str | None:
+    """614.17 / 701.23: the permanent or effect keeping ``searcher`` from searching a library now, or None. ``by``: the controller of the spell or
+    ability that has them search ("Spells and abilities your opponents control can't cause their controller to search their library":
+    only a searcher who controls that spell or ability, and who is its static's controller's opponent)."""
+    for src, d in _statics(plan, "cant_search"):
+        mine = src.controller == searcher
+        if d["who"] == "each" or (d["who"] == "opponents" and not mine) or (d["who"] == "caused" and not mine and searcher == by):
+            return _label(src)
+    turn = plan.state.turn.number
+    return "an effect" if any(x["what"] == "search" and x["player"] == searcher and x["turn"] == turn for x in plan.rules.results) else None
+
+
+_SEARCH_EFFECT = re.compile(r"^players can't search libraries this turn$")
+
+
+def _build_search(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "cant_search_turn", "who": "each_player"}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_SEARCH_EFFECT, _build_search)]
+
+
+def cant_search_turn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """611.2a: "Players can't search libraries this turn." — the players in the game as it resolves, until the turn ends."""
+    from app.rules.effects import _players
+
+    r = plan.rules
+    turn = plan.state.turn.number
+    r.results = [x for x in r.results if x["turn"] == turn]
+    for pid in _players(plan, ctx, e["who"]):
+        r.results.append({"player": pid, "what": "search", "turn": turn})
+    plan.note("Players can't search libraries this turn", actor=ctx["controller"])
+    return True
+
+
+PRIMITIVES = {"cant_search_turn": cant_search_turn}
+
+
 def cant_cause_sacrifice(plan: Plan, victim: str, by: str) -> str | None:
     """614.17: the permanent saying a spell or ability controlled by ``by`` can't make ``victim`` sacrifice permanents ("Spells and abilities
     your opponents control can't cause you to sacrifice permanents": an edict of theirs does nothing to you; a cost you pay is no such effect)."""

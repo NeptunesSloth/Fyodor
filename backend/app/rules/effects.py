@@ -1756,6 +1756,17 @@ def resume_search_zones(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int, picked: list[str]) -> bool:
     zones = e.get("zones") or ["library"]  # (-- refused zones/sized (wave 3R4) -- "and/or graveyard": the chosen zones)
+    from app.rules import (
+        prohibitions,  # -- prohibitions (wave 22B) -- 614.17: "Players can't search libraries."
+    )
+
+    if "library" in zones and (why := prohibitions.cant_search(plan, pid, ctx["controller"])) is not None:
+        plan.note(f"{why}: {plan.name(pid)} can't search their library", actor=pid)
+        zones = [z for z in zones if z != "library"]
+        e = {**e, "zones": zones}
+        if not zones:  # nothing is searched; "then shuffle" is its own instruction (701.24) and still happens
+            _finish_search(plan, ctx, e, pid, [], {})
+            return False
     library = [c for c in plan.state.zones.get(zone_key(pid, "library"), []) if c not in picked] if "library" in zones else []
     if e.get("sel"):  # a structured card selector (app/rules/selectors.py)
         parts = e.get("parts")  # "a Forest card and a Plains card": one card of each kind, asked in turn
@@ -3835,6 +3846,9 @@ PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rul
 from app.rules import game_result as _game_result  # noqa: E402, I001  -- prohibitions (wave 22B) --
 
 PRIMITIVES.update(_game_result.PRIMITIVES)  # 104.2b / 104.3 "can't lose the game this turn" (app/rules/game_result.py)
+from app.rules import prohibitions as _prohibitions  # noqa: E402, I001
+
+PRIMITIVES.update(_prohibitions.PRIMITIVES)  # 614.17 "Players can't search libraries this turn." (app/rules/prohibitions.py)
 from app.rules import hand_size as _hand_size  # noqa: E402  -- ability words (wave 20C) --
 
 PRIMITIVES.update(_hand_size.PRIMITIVES)  # "You have no maximum hand size for the rest of the game." (app/rules/hand_size.py)
