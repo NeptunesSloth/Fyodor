@@ -4,6 +4,9 @@
 * 702.11b: "Enchanted creature can't be the target of spells or abilities your opponents control." is hexproof.
 * 613.4c: "+X/+X, where X is its mana value" (the equipped creature's); "+1/+0 for each instant and sorcery card in your graveyard".
 * 205.4a: "Enchanted land is snow."  702.116a: "Equipped creature has myriad."
+* 603.10a: "When enchanted permanent dies or is put into exile, return that card to the battlefield under your control." (Kaya's Ghostform)
+* 305.7 / 613.1d: "Enchanted land is a Mountain, Forest, and Plains." and "… is a 5/6 green Treefolk creature that's still a land."
+* 702.24a: "Enchanted creature has "Cumulative upkeep {1}."";  "Whenever this creature or equipped creature attacks, it gets +2/+0 until end of turn."
 * 608.2c / 122.1: "put a +1/+1 counter on it. Then if it has three or more +1/+1 counters on it, sacrifice this Aura." (the Ordeals)
 """
 
@@ -15,7 +18,7 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle, token_of, until
-from tests.test_rules_wave6c_tokens_pumps import build, chars, pt, put
+from tests.test_rules_wave6c_tokens_pumps import build, card_named, chars, mana, pt, put, to_hand
 from tests.test_rules_wave6e_statics import attack_with
 from tests.test_rules_wave15e_keywords import build3, check, next_own_turn
 
@@ -28,12 +31,20 @@ EXTRA = [
     card('Blade of Selves', set_code='tst', number='20A06', mana_cost='{2}', cmc=2.0, type_line='Artifact — Equipment', oracle_text="Equipped creature has myriad. (Whenever it attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)\nEquip {4}", keywords=['Equip']),  # noqa: E501
     card('Glittering Frost', set_code='tst', number='20A07', mana_cost='{2}{G}', cmc=3.0, type_line='Snow Enchantment — Aura', oracle_text='Enchant land\nEnchanted land is snow.\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color.', colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
     card('Ordeal of Thassa', set_code='tst', number='20A08', mana_cost='{1}{U}', cmc=2.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nWhenever enchanted creature attacks, put a +1/+1 counter on it. Then if it has three or more +1/+1 counters on it, sacrifice this Aura.\nWhen you sacrifice this Aura, draw two cards.', colors=['U'], color_identity=['U'], keywords=['Enchant']),  # noqa: E501
+    card('Chainflail Centipede', set_code='tst', number='20A12', mana_cost='{2}{B}', cmc=3.0, type_line='Artifact Creature — Equipment Insect', oracle_text="Whenever this creature or equipped creature attacks, it gets +2/+0 until end of turn.\nReconfigure {2} ({2}: Attach to target creature you control; or unattach from a creature. Reconfigure only as a sorcery. While attached, this isn't a creature.)", power='2', toughness='2', colors=['B'], color_identity=['B'], keywords=['Reconfigure']),  # noqa: E501
+    card("Kaya's Ghostform", set_code='tst', number='20A13', mana_cost='{B}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant creature or planeswalker you control\nWhen enchanted permanent dies or is put into exile, return that card to the battlefield under your control.', colors=['B'], color_identity=['B'], keywords=['Enchant']),  # noqa: E501
+    card('Lush Growth', set_code='tst', number='20A14', mana_cost='{G}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant land\nEnchanted land is a Mountain, Forest, and Plains.', colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
+    card('Living Terrain', set_code='tst', number='20A15', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Enchantment — Aura', oracle_text="Enchant land\nEnchanted land is a 5/6 green Treefolk creature that's still a land.", colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
+    card('Mana Chains', set_code='tst', number='20A16', mana_cost='{U}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature has "Cumulative upkeep {1}." (At the beginning of its controller\'s upkeep, that player puts an age counter on it, then sacrifices it unless they pay its upkeep cost for each age counter on it.)', colors=['U'], color_identity=['U'], keywords=['Enchant']),  # noqa: E501
     card('Stub Giant', set_code='tst', number='20A09', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Giant', oracle_text='', power='2', toughness='2', colors=['G'], color_identity=['G']),  # noqa: E501
     card('Stub Shock', set_code='tst', number='20A10', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Stub Shock deals 2 damage to any target.', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('Stub Exile', set_code='tst', number='20A17', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text='Exile target creature.', colors=['W'], color_identity=['W']),  # noqa: E501
+    card('Stub Murder', set_code='tst', number='20A18', mana_cost='{B}', cmc=1.0, type_line='Instant', oracle_text='Destroy target creature.', colors=['B'], color_identity=['B']),  # noqa: E501
     card('Stub Rites', set_code='tst', number='20A11', mana_cost='{1}{U}', cmc=2.0, type_line='Sorcery', oracle_text='Draw a card.', colors=['U'], color_identity=['U']),  # noqa: E501
 ]
 AURAS = ["Spider-Man No More", "Retro-Mutation", "Canopy Cover", "Glamdring", "Hedron Matrix", "Blade of Selves", "Glittering Frost",
-         "Ordeal of Thassa"]
+         "Ordeal of Thassa",
+         "Chainflail Centipede", "Kaya's Ghostform", "Lush Growth", "Living Terrain", "Mana Chains"]
 
 
 @pytest.fixture()
@@ -149,4 +160,61 @@ def test_ordeal_counter_then_sacrifice_at_three(cards, start, sacrificed):
     assert s.state.cards[bear.id].counters.get("+1/+1", 0) == start + 1
     assert (s.state.cards[aura.id].zone == "p1:graveyard") is sacrificed  # 701.21a; "When you sacrifice this Aura, draw two cards."
     assert len(s.state.zones.get("p1:hand", [])) == hand + (2 if sacrificed else 0)
+    check(s)
+
+
+def test_this_creature_or_equipped_creature_attacks_it_gets_pumped(cards):
+    s = build(cards, "Chainflail Centipede")
+    bug = put(s, "Chainflail Centipede")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    act(s, "p1", type="attach", card_ids=[bug.id], to=bear.id)  # reconfigured: equipped creature
+    next_own_turn(s)
+    attack_with(s, bear)
+    settle(s)
+    assert pt(s, bear) == (4, 2)  # 603.2: "it" is the attacking creature (the equipped one), until end of turn
+    check(s)
+
+
+@pytest.mark.parametrize("spell,mana_cost", [("Stub Exile", {"W": 1}), ("Stub Murder", {"B": 1})])
+def test_enchanted_creature_dies_or_is_put_into_exile_returns_under_your_control(cards, spell, mana_cost):
+    s = build(cards, "Kaya's Ghostform", "Stub Giant", spell)
+    giant = put(s, "Stub Giant")
+    attach(s, "Kaya's Ghostform", giant)
+    to_hand(s, spell)
+    mana(s, **mana_cost)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, spell).id, targets=[giant.id])
+    settle(s)
+    new = s.state.cards[giant.id]
+    assert new.zone == "p1:battlefield" and new.controller == "p1"  # 603.10a: dies (a graveyard) or exile: either event
+    check(s)
+
+
+def test_land_with_three_basic_land_types(cards):
+    s = build(cards, "Lush Growth")
+    land = token_of(s, "p1", "Wood", "Token Land — Forest", "0/0", "{T}: Add {G}.")
+    attach(s, "Lush Growth", land)
+    assert chars(s, land).subtypes == {"Mountain", "Forest", "Plains"}  # 305.7
+    check(s)
+
+
+def test_enchanted_land_is_a_5_6_treefolk_creature_and_still_a_land(cards):
+    s = build(cards, "Living Terrain")
+    land = token_of(s, "p1", "Wood", "Token Land — Forest", "0/0", "{T}: Add {G}.")
+    attach(s, "Living Terrain", land)
+    ch = chars(s, land)
+    assert {"Land", "Creature"} <= ch.types and "Treefolk" in ch.subtypes and "Forest" in ch.subtypes and ch.colors == {"G"}
+    assert pt(s, land) == (5, 6)
+    check(s)
+
+
+def test_granted_cumulative_upkeep_sacrifices_it_when_unpaid(cards):
+    s = build(cards, "Mana Chains", "Stub Giant")
+    giant = put(s, "Stub Giant")
+    attach(s, "Mana Chains", giant)
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.rules.decision is not None and s.state.rules.decision.player == "p1"
+          and "pay" in {o.id for o in s.state.rules.decision.options})
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["sacrifice"])
+    settle(s)
+    assert s.state.cards[giant.id].zone == "p1:graveyard"  # 702.24a: the creature has the ability, so it's sacrificed
     check(s)

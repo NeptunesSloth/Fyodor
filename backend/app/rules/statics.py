@@ -136,6 +136,8 @@ def parse(text: str) -> Definition | None:
                r"(loses all (?:other )?abilities)\.$", r"\1, \2, and \3.", t)
     # (Canopy Cover, Shielding Plax) 702.11b: hexproof is exactly "can't be the target of spells or abilities your opponents control"
     t = re.sub(r"^((?:Enchanted|Equipped) creature) can't be the target of spells or abilities your opponents control\.$", r"\1 has hexproof.", t)
+    t = re.sub(r"^(Enchanted land) is an? (\d+)/(\d+) ([^.]+? creature) that's still a land\.$",  # (wave 20A: Living Terrain, the same as Zendikon)
+               r"\1 is a \4 with base power and toughness \2/\3 in addition to its other types.", t)
     t = t.replace(" be activated unless they're mana abilities", " be activated-nonmana")  # ("unless" is not a condition here)
     t = re.sub(r"(?<=Vehicles)\. Its (activated abilities can't be activated-nonmana\.)$", r", and its \1", t)
     if not t.endswith(".") and not t.endswith('."'):

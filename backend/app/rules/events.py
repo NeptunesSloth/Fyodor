@@ -257,8 +257,10 @@ def _parse(c: str) -> Condition | None:
     # -- trigger tail (wave 15B) -- "~ dies or is put into exile from the battlefield" (God-Eternal Oketra), "~ or another
     # nontoken artifact you control is put into a graveyard from the battlefield or is put into exile from the battlefield":
     # either event of the same objects (603.2), each its own (a card put into exile from the battlefield: 603.6c, 700.4)
-    m = re.fullmatch(r"(?P<s>.+?) (?:dies|(?:is|are) put into a graveyard from the battlefield) or (?:is|are) put into exile "
-                     r"from the battlefield", c)
+    m = re.fullmatch(r"(?P<s>.+?) (?:dies|(?:is|are) put into a graveyard from the battlefield) or (?:is|are) put into exile"
+                     r"(?: from the battlefield)?", c)  # (wave 20A: "When enchanted permanent dies or is put into exile", Kaya's Ghostform)
+    if m and not c.endswith("battlefield") and not m["s"].startswith(("enchanted ", "equipped ")):
+        return None  # (a bare "put into exile" is from the battlefield only for what an Aura / Equipment is attached to: it's there)
     if m:
         died, left = _parse(f"{m['s']} dies"), _parse(f"{m['s']} leaves the battlefield")
         if died is None or left is None or died.get("event") != "die" or left.get("event") != "leave" or died.get("aggregate") \

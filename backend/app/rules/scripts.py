@@ -353,7 +353,7 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         # "… becomes blocked by a creature, destroy that creature" / "… deals damage to a creature,
         # exile that creature": the creature on the other side, which the event doesn't name
         return None
-    if event == "either" and cond.get("subject") in ("self", "self_or", "sel") and all(c["event"] in _GONE for c in cond["conds"]):
+    if event == "either" and cond.get("subject") in ("self", "self_or", "sel", "host") and all(c["event"] in _GONE for c in cond["conds"]):
         return "self_gone" if cond["subject"] == "self" else "event_gone"  # -- trigger tail (wave 15B) -- "dies or is put into exile"
     if event == "multi":
         if cond.get("subject") == "host":  # -- attached events (wave 4L) -- the attacking / blocking creature
@@ -374,7 +374,7 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         return "event_gone"  # -- triggers (wave 19B) -- "Whenever an opponent sacrifices a permanent, put that card onto the battlefield": 603.10a
     if subject == "player" and event in ("discard", "tapped_for_mana") and cond.get("obj") and not cond.get("aggregate"):
         return "event"  # -- triggers (wave 17D) -- "Whenever you discard a card, exile that card": the discarded card, now in the graveyard (701.9a)
-    if subject in ("sel", "self_or", "host") or (subject == "player" and event == "create_token"):
+    if subject in ("sel", "self_or", "host", "self_or_host") or (subject == "player" and event == "create_token"):  # (wave 20A: "~ or equipped creature … it")
         if event in _STAYING:
             return "event_all" if cond.get("aggregate") else "event"
         if event in _GONE and not cond.get("aggregate"):
@@ -2953,6 +2953,10 @@ def granted_ability(text: str) -> AbilityText | None:
         line = ab.text.rstrip(".")  # -- protection grants (wave 5E) -- (a resolved grant's text ends with a period)
         if re.fullmatch(statics.MEANING_GRANTS, line.lower()) or line.lower() == "riot":  # -- static grants (wave 15A) --
             return ab  # "Extort", "Afflict 2": their CR meaning; (wave 17C) riot: read as it enters (app/rules/riot.py)
+        if ab.keywords == ("cumulative upkeep",):  # -- attached events (wave 20A) -- 702.24a: a triggered ability of whatever has it (triggers._cumulative_upkeep)
+            from app.rules.coverage import _keyword_supported
+
+            return ab if _keyword_supported("cumulative upkeep", line) else None
         return ab if statics.keyword_line(line[0].lower() + line[1:]) == line else None
     probe = Characteristics(name="\u0000", abilities=(ab,))
     return ab if define(ab, probe) is not None else None
