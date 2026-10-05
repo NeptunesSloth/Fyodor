@@ -118,9 +118,9 @@ def test_the_wording_is_exact():
 def test_spend_as_rewrites_only_how_the_cost_is_paid():
     c = M.parse_cost("{2}{B}{B}")
     assert M.spend_as(c, "type").text() == "{4}"
-    assert M.spend_as(c, "color").text() == "{2}{W/U/B/R/G}{W/U/B/R/G}"
+    assert M.spend_as(c, "color").text() == "{4}"  # (wave 22F: colorless mana is treated as the color, 609.4)
     assert M.spend_as(M.parse_cost("{1}{C}{S}"), "type").text() == "{2}{S}"
-    assert M.spend_as(M.parse_cost("{1}{C}"), "color").text() == "{1}{C}"  # (colorless is no color: {C} needs colorless mana)
+    assert M.spend_as(M.parse_cost("{1}{C}"), "color").text() == "{1}{C}"  # ({C} still needs colorless mana)
     assert M.spend_as(M.parse_cost("{W/U}{U/B}"), "type").text() == "{2}"
     assert M.spend_as(M.parse_cost("{2/B}"), "type").text() == "{1}"
     assert M.spend_as(M.parse_cost("{B/P}"), "type").text() == "{B/P}"

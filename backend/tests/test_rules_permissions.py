@@ -477,7 +477,6 @@ def test_cost_modifier_wordings(text, expected):
     "During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard.",
     # (wave 4I: "The first creature spell you cast each turn costs {1} less" is read now: cost_changes.ORDINAL)
     "Spells your opponents cast that target this creature cost {1} more to cast.",
-    "This spell costs {1} less to cast if it targets a tapped creature.",
     "You may cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.",
 ])
 def test_wordings_the_grammar_refuses(text):

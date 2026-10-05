@@ -1762,6 +1762,11 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
         if state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
             return f"{ch.name} can only be cast in your main phase while the stack is empty (plot)"
         return None
+    timing = timing_problem(state, player, ch, grant)
+    return None if timing and flash_if(ch) is not None else timing  # (wave 22F: 601.3b-c, decided once its targets / cost / X are chosen)
+
+
+def timing_problem(state: GameState, player: str, ch: Characteristics, grant: Any) -> str | None:
     if "Instant" in ch.types or ch.has_flash or grant.flash:  # (601.3b: as though it had flash)
         return None
     if state.turn.active_player != player:
@@ -1771,6 +1776,12 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     if state.zones.get(STACK):
         return f"{ch.name} can only be cast while the stack is empty"
     return None
+
+
+def flash_if(ch: Characteristics) -> dict[str, Any] | None:
+    """-- casting costs (wave 22F) -- 601.3b-c: the card's own "You may cast this spell as though it had flash if it targets …
+    / you pay {2} more / X is 3 or less", which counts only when the spell couldn't be cast now without flash."""
+    return next((d["flash_if"] for d in scripts.definitions(ch).values() if d.get("static") == "permission" and d.get("flash_if")), None)
 
 
 def _controls_legendary(state: GameState, player: str, info: CardInfo | None) -> bool:
@@ -2126,6 +2137,15 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     for target in a.targets:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
+    flashing = None  # -- casting costs (wave 22F) -- 601.3c: the timing is legal only if the flash condition is met by what is chosen below
+    if grant is not None and (flashing := flash_if(ch)) is not None and not plan.manual(card) \
+            and timing_problem(plan.state, plan.actor, ch, grant) is not None:
+        if "pay" in flashing:
+            additional.append(M.parse_cost(flashing["pay"]))  # ("if you pay {2} more": an additional cost, only at the timing that needs it)
+        elif "x_max" in flashing and (a.x_value or 0) > flashing["x_max"]:
+            raise ActionError(f"{ch.name} can be cast now only if X is {flashing['x_max']} or less")
+    else:
+        flashing = None
     definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
     entwined = bool(a.kicker) and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine  # (an entwined spell isn't kicked: review 18E)
     kicked = 0 if entwined else a.kicker
@@ -2183,6 +2203,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if picked_targets is None:
         return  # waiting for the target choice (601.2c comes before paying costs)
     chosen = picked_targets.flat
+    if flashing is not None and "targets" in flashing and not cost_changes.targets_fit(
+            plan, card, plan.actor, flashing["targets"], tuple(t.id for t in chosen)):
+        raise ActionError(f"{ch.name} can be cast now only if its targets meet its flash condition")
     optional = cost_changes.chosen_optional(plan.state, plan.actor, card, ch, plan.info, a.optional_costs) \
         if a.optional_costs and not plan.manual(card) else []  # -- cost changers (wave 4I) -- (601.2b)
     if a.optional_costs and plan.manual(card):
@@ -2209,6 +2232,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         add_cost = alt_costs.merged(add_cost, sx)
     if a.kicker and (ek := kicker_cost(ch.abilities)) is not None and ek.entwine and ek.extra:  # (702.42a: "Entwine—Sacrifice two lands")
         add_cost = alt_costs.merged(add_cost, alt_costs.parse_cost(ek.extra).cost)  # type: ignore[union-attr]
+    if grant is not None and grant.life_mv and (mv := int(ch.mana_value)):  # -- casting costs (wave 22F) -- "pay life equal to its mana value"
+        add_cost = alt_costs.merged(add_cost, costs.AbilityCost(  # (X is 0: 107.3b; the free alternative cost left no mana cost to read)
+            components=(costs.CostComponent(costs.PAY_LIFE, amount=mv, text=f"Pay {mv} life"),), life=mv))
+    if (target_life := cost_changes.targeting_life(plan.state, plan.actor, card, ch, plan.info, tuple(t.id for t in chosen))):
+        add_cost = alt_costs.merged(add_cost, costs.AbilityCost(  # -- casting costs (wave 22F) -- Terror of the Peaks: life for its targets (601.2f)
+            components=(costs.CostComponent(costs.PAY_LIFE, amount=target_life, text=f"Pay {target_life} life"),), life=target_life))
     if optional:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(components=tuple(
             cost_changes.keyword_component(o) if o.kind else costs.CostComponent(costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life")
@@ -3172,6 +3201,12 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
         reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own, ability.text)
         if reduced != cost.mana:
             cost = replace(cost, mana=reduced)
+        from app.rules import (
+            cast_limits,  # -- casting costs (wave 22F) -- 609.4b: "spend mana as though it were mana of any color" on abilities
+        )
+
+        if cost.mana and (mode := cast_limits.ability_spend_mode(state, card.controller, card, ch, info)):
+            cost = replace(cost, mana=M.spend_as(M.parse_cost(cost.mana), mode).text())
     # -- reanimation (wave 3R) -- 113.6m: "{1}{B}: Return this card from your graveyard to the battlefield" moves the
     # card out of the graveyard, so the ability works only there
     if ability.kind == "activated" and ":" in ability.text and (_GRAVEYARD_SELF.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~"))
@@ -3617,7 +3652,7 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
         for cid in state.zones.get(key, []):
             card = state.cards[cid]
             ch = chars.of(card, info)
-            if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info)) \
+            if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info) or flash_if(ch) is not None) \
                     and castable(state, player, card, info, check_priority=False):
                 return True
             # -- cost changers (wave 4I) -- an instant castable only for an alternative cost (Force of Will with no mana

@@ -1286,6 +1286,10 @@ _SPENT_OVER_PT = re.compile(r"the amount of mana you spent is greater than (?:th
 
 def _cast_how(t: str) -> Condition | None:
     """A condition about how the source was cast, or None."""
+    if t == "evidence was collected":  # -- casting costs (wave 22F) -- 701.59a: the spell's optional additional cost, announced as it was cast
+        return {"object": "self", "cast": {"optional": "evidence"}}
+    if re.fullmatch(r"an? [a-z]+ was beheld", t):  # 701.4a: "If a Dragon was beheld" (the only behold cost on the spell)
+        return {"object": "self", "cast": {"optional": "behold"}}
     if t in ("this spell was cast using teamwork", "it was cast using teamwork"):  # -- static_other sweep (wave 17C) -- 702.194b
         return {"object": "self", "cast": {"optional": "teamwork"}}
     if t in ("this spell's prowl cost was paid", "its prowl cost was paid"):  # -- static_other sweep (wave 17C) -- 702.76a
