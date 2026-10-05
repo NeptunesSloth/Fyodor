@@ -770,7 +770,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 e["life_x"] = _bind_stats(e["life_x"], lambda verb=None, at=index: stat_ref(at, verb),
                                           (lambda: "event") if antecedent == "event_spell" else None)
             for pk in ("p", "t"):  # -- as long as (wave 9B) -- "gets +X/+X …, where X is the discarded card's mana value" (a pump / become)
-                if e.get("do") in ("pump", "become") and re.search(r'"(?:it(?::[a-z]+)?|cost:exiled)"', json.dumps(e.get(pk), default=str)):  # (wave 20A: a plain "it": "that card's mana value")
+                # (wave 20A: a pump's plain "it" is "that card's mana value", language._Ante; a "become" reads its own "it")
+                placeholder = r'"(?:it:[a-z]+|cost:exiled)"|"(?:power|toughness|mana_value)": "it"' if e.get("do") == "pump" else r'"(?:it:[a-z]+|cost:exiled)"'
+                if e.get("do") in ("pump", "become") and re.search(placeholder, json.dumps(e.get(pk), default=str)):
                     e[pk] = _bind_stats(e[pk], lambda verb=None, at=index: stat_ref(at, verb), None)
             # -- X sized by a count (wave 4K) -- an "X/X" token's P/T: the same placeholders as an amount
             if isinstance(e.get("token"), dict) and any(isinstance(e["token"].get(k), dict) for k in ("power", "toughness")):

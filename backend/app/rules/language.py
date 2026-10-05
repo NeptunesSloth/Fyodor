@@ -302,7 +302,7 @@ def _stat(phrase: str, its: str = "it") -> Any:
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
     m = re.fullmatch(r"(?:(?P<its>its)|that (?P<noun>creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
                      r"(?P<spell>that spell's)|(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
-    if m and m["noun"] in ("card", "artifact", "enchantment", "land", "planeswalker"):
+    if m and m["noun"] == "card":
         # -- damage sized by a count (wave 20A) -- "gets +X/+0, where X is that card's mana value" (Goblin Machinist): the card an earlier instruction
         # revealed, never the creature that is pumped (``_bind_its`` leaves the placeholder for scripts.resolve_it)
         return _Ante({_STATS[m["stat"]]: "it"})
