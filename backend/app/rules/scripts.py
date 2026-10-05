@@ -1775,7 +1775,7 @@ def _that_many(left: tuple[list[dict[str, Any]], Any], text: str) -> tuple[list[
     return [{**right[0][0], "per_controller": {"this_way": kind, "of": None}}], right[1]
 
 
-def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
+def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any] | None:
     """An instruction, or two joined by ", then" / "and" ("Scry 1, then draw a card.", "You draw
     two cards and you lose 2 life."): each half must be understood. Each "target" word is its
     own target group (115.3); the halves' groups are numbered in order."""
@@ -1821,13 +1821,13 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                              r"returns|creates|searches|scry|surveil|gets)\b", parts[1]):
             parts[1] = f"{subj[1]} {parts[1]}"
             same_target = subj[1].startswith("target")  # (one word "target": the same target)
-        left = _clause(parts[0])
+        left = _clause(parts[0], may_ok)
         right = _that_many(left, parts[1]) if left is not None else None  # -- static_other sweep (wave 16B) --
-        right = right or _clause(parts[1])
+        right = right or _clause(parts[1], may_ok)
         # -- reanimation (wave 20C) -- "You gain 3 life and you may return up to one target creature card …" (608.2c): only the second
         # instruction is optional, asked as the resolution reaches it (unless_pays.may_rest: the rest of the ability, so it must end the
         # sentence and, in parse_effects, the ability)
-        if right is None and parts[1].startswith("you may ") and (inner := _one_clause(parts[1][len("you may "):])) is not None:
+        if right is None and may_ok and parts[1].startswith("you may ") and (inner := _one_clause(parts[1][len("you may "):])) is not None:
             right = ([{"do": "may_rest"}, *inner[0]], inner[1])
         if left is None or right is None or any(e.get("do") == "may_rest" for e in left[0]):
             continue
@@ -2494,7 +2494,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 continue
             if effects:
                 # "…. You may reveal … from among them …": a clause that models its own choice
-                own = _clause(text)
+                own = _clause(text, True)
                 if own is None and i == len(texts) - 1 and (inner := _one_clause(text[len("you may "):])) is not None:
                     own = ([{"do": "may_rest"}, *inner[0]], inner[1])  # -- reanimation (wave 20C) -- the last sentence: may_rest asks for all of it
                 if own is None or not any(x.get("optional") or x.get("do") == "may_rest" for x in own[0]):
@@ -2521,7 +2521,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 effects += _add_groups(groups, found, sel)  # each word "target": its own group (115.3)
                 break
         else:
-            parsed_clause = _unless_sentence(text, effects, it=it) or _trailing_conditional(text) or _clause(text)
+            parsed_clause = _unless_sentence(text, effects, it=it) or _trailing_conditional(text) or _clause(text, True)
             if parsed_clause is None:
                 return None
             found, sel = parsed_clause
