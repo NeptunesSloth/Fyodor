@@ -39,7 +39,12 @@ Condition = dict[str, Any]
 _COLORS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 _ADJECTIVES = frozenset({"legendary", "white", "blue", "black", "red", "green", "colorless", "multicolored", "snow",
                          "attacking", "blocking", "tapped", "untapped"})  # (wave 9B: "enchanted creature is attacking")
-_ATTACHED = re.compile(r"(?P<who>equipped|enchanted) (?P<noun>creature|permanent|land|artifact) is (?P<desc>.+)")
+_ATTACHED = re.compile(r"(?P<who>equipped|enchanted) (?P<noun>creature|permanent|land|artifact) (?P<neg>is not|isn't|is) (?P<desc>.+)")
+# -- as long as (wave 25A) -- "As long as you control enchanted creature" / "As long as another player controls enchanted creature" (Mishra's
+# Domination, Dog Umbra): the controller of the object the source is attached to, against the source's controller (301.5, 303.4)
+_ATTACHED_CONTROLLER = re.compile(r"(?P<who>you|another player) controls? (?P<what>enchanted|equipped) (?P<noun>creature|permanent|land|artifact)")
+# "~ is a creature" / "it's a Wall" / "this permanent isn't a creature": the source's own types now (305.7, 613.1d)
+_SELF_IS = re.compile(r"(?:~|it|this creature|this permanent|this artifact)(?P<neg> is not| isn't| is|'s) (?P<desc>(?:a|an) .+)")
 _ATTACHED_CTRL = re.compile(r"(?:its|(?:equipped|enchanted) (?:creature|permanent|land)'s) controller (?P<rest>(?:controls|has) .+)")
 _ATTACHED_STAT = re.compile(r"(?:its|(?:equipped|enchanted) (?:creature|permanent)'s) (?P<stat>power|toughness) is (?P<n>\w+) or "
                             r"(?P<cmp>less|greater|more|fewer)")
@@ -94,7 +99,15 @@ def parse(text: str) -> Condition | None:
     m = _ATTACHED.fullmatch(t)
     if m:
         key = attached_selector(m["desc"])
-        return {"static": "attached_is", "sel": key, "noun": m["noun"], "who": m["who"]} if key else None
+        found: Condition = {"static": "attached_is", "sel": key, "noun": m["noun"], "who": m["who"]}
+        return None if not key else {"static": "not", "cond": found} if m["neg"] in ("is not", "isn't") else found
+    m = _ATTACHED_CONTROLLER.fullmatch(t)
+    if m:
+        return {"static": "attached_ctrl_is", "you": m["who"] == "you", "who": m["what"], "noun": m["noun"]}
+    m = _SELF_IS.fullmatch(t)
+    if m and (key := attached_selector(m["desc"])) is not None:
+        own: Condition = {"static": "self_is", "sel": key}
+        return {"static": "not", "cond": own} if m["neg"] in (" is not", " isn't") else own
     m = _ATTACHED_CTRL.fullmatch(t)
     if m:
         from app.rules import conditions
@@ -189,7 +202,7 @@ def compound(text: str) -> Condition | None:
     return None
 
 
-KINDS = frozenset({"attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all",
+KINDS = frozenset({"attached_ctrl_is", "self_is", "attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all",
                     "most_common_color", "hand_most", "paired"})  # (wave 20B)
 
 
@@ -225,6 +238,11 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
         if cond["noun"] == "artifact" and "Artifact" not in ch.types:
             return False
         return selectors.matches(plan, selectors.from_key(cond["sel"]), target, ch, controller, source.id)
+    if kind == "attached_ctrl_is":  # -- as long as (wave 25A) -- the host's controller is (or isn't) the source's controller
+        host = attached_object(plan, source)
+        return host is not None and (host.controller == controller) == cond["you"]
+    if kind == "self_is":  # -- as long as (wave 25A) -- the source's own types as they are now
+        return source.zone.endswith(":battlefield") and selectors.matches(plan, selectors.from_key(cond["sel"]), source, plan.ch(source), controller, source.id)
     if kind == "attached_ctrl":  # -- as long as (wave 16F) -- "its controller controls another creature": the attached object's controller
         host = attached_object(plan, source)
         from app.rules import conditions

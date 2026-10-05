@@ -283,8 +283,8 @@ def parse(text: str) -> Definition | None:
         body, type_parts = layer4
         if not body:
             return {**_definition("self", None, conds), **type_parts}
-    attached_cond = next((c for c in conds if c.get("static") == "attached_is"), None)
-    if attached_cond is not None and re.match(r"it (?:gets?|has|can't|attacks|blocks|must|doesn't)\b", body):
+    attached_cond = next((a for c in conds if (a := _attached_of(c)) is not None), None)
+    if attached_cond is not None and re.match(r"it (?:gets?|has|can't|attacks|blocks|must|doesn't|assigns)\b", body):
         # "As long as equipped creature is legendary, it has hexproof.": "it" is the object the condition names
         body = f"{attached_cond['who'].capitalize()} {attached_cond['noun']}{body[2:]}"
     subject, predicate = _split_subject(body)
@@ -312,7 +312,7 @@ def parse(text: str) -> Definition | None:
         return None
     if attached_cond is not None and (who != "attached" or (kind or attached_cond["noun"]) != attached_cond["noun"]):
         return None  # (the condition and the subject name the same attached object)
-    if who != "self" and not names_source and any(c.get("static") in ("self", "self_counter", "designation") for c in conds):
+    if who != "self" and not names_source and any(_mentions(c, ("self", "self_counter", "designation", "self_is")) for c in conds):
         return None  # "it's attacking" means the source; a group subject would need "each … that's attacking"
     # "counters on it": "it" is the source only when the source is the subject ("~ gets …"); for
     # "Equipped creature gets +1/+1 for each counter on it" it's the equipped creature (not read)
@@ -367,6 +367,14 @@ _NOT_CREATURE = re.compile(r"^(?:~|it) isn't a creature$")
 _IS_TYPES = re.compile(r"^(?:~|it)(?:'s| is) an? (?:(?P<pt>\d+)/(?P<tt>\d+) )?(?P<types>(?:(?:artifact|creature|land|enchantment) )*"
                        r"(?:artifact|creature|land|enchantment))(?P<add> in addition to its other types)?(?: and (?P<rest>(?:it|~) .+))?$")
 _IN_ADDITION = re.compile(r"^(?:(?P<pre>.+?),? and |(?:~|it) )is (?:a|an) (?P<sub>[A-Z][a-z]+) in addition to its other types$")
+
+
+def _attached_of(cond: dict[str, Any]) -> dict[str, Any] | None:
+    """The condition about the attached object a condition is (or negates): "enchanted creature is legendary" / "isn't legendary" /
+    "you control enchanted creature" (-- as long as (wave 25A) --): what "it" names in the rest of the sentence."""
+    if cond.get("static") == "not":
+        return _attached_of(cond["cond"])
+    return cond if cond.get("static") in ("attached_is", "attached_ctrl_is") else None
 
 
 def _names_source(cond: str) -> bool:
@@ -960,9 +968,13 @@ def _condition(text: str) -> dict[str, Any] | None:
     c = text.strip()
     if c in ("it's your turn",):
         return {"static": "your_turn"}
-    m = re.fullmatch(r"(?:it|~)(?:'s| is) (?P<test>attacking alone|attacking|blocking|tapped|untapped|enchanted|equipped|attached to a creature)", c)
+    m = re.fullmatch(r"(?:it|~)(?:'s| is) (?P<test>attacking alone|attacking|blocking|tapped|untapped|enchanted or equipped|enchanted|equipped|attached to a creature)", c)
     if m:
         return {"static": "self", "test": m["test"].replace(" ", "_")}
+    # -- as long as (wave 25A) -- "it isn't attacking or blocking" / "it's not attacking" (Intrepid Ace): the opposite of what it is now (611.3a)
+    m = re.fullmatch(r"(?:it|~)(?: isn't|'s not| is not) (?P<test>attacking or blocking|attacking|blocking|tapped)", c)
+    if m:
+        return {"static": "not", "cond": {"static": "self", "test": m["test"].replace(" ", "_")}}
     if c in ("it entered this turn", "~ entered this turn"):  # -- refused modal/conditional (wave 3R1) -- (Crew Captain)
         return {"history": "entered_self"}
     m = re.fullmatch(r"(?:it|this creature|~) has (?P<n>\d+) or more level counters on it but no more than (?P<m>\d+) level counters on it", c)
@@ -1028,6 +1040,11 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
                 1 for c in plan.state.cards.values() if c.attacking is not None and c.zone.endswith(":battlefield")) == 1
         if test == "blocking":
             return bool(source.blocking)
+        if test == "attacking_or_blocking":  # -- as long as (wave 25A) --
+            return source.attacking is not None or bool(source.blocking)
+        if test == "enchanted_or_equipped":  # -- as long as (wave 25A) -- "As long as this creature is enchanted or equipped" (Novice Knight)
+            return holds(plan, {"static": "self", "test": "enchanted"}, source=source, controller=controller) or holds(
+                plan, {"static": "self", "test": "equipped"}, source=source, controller=controller)
         if test in ("tapped", "untapped"):
             return source.tapped == (test == "tapped")
         if test == "modified":  # -- conditional statics (wave 4B) -- 700.9

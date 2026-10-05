@@ -24,7 +24,7 @@ Definition = dict[str, Any]
 
 _SENTENCES = re.compile(r"(?<=\.) (?=[A-Z~])")
 _SUBJECT = re.compile(r"^(?:As long as [^,]+, )?(?P<s>Enchanted creature|Equipped creature|~)(?= (?:gets|has|can't)\b)")
-_OTHERWISE = re.compile(r"^Otherwise, it (?P<pred>(?:gets|has) .+)\.$")
+_OTHERWISE = re.compile(r"^Otherwise, it (?P<pred>(?:gets|has|can't) .+)\.$")  # (wave 25A: "it can't attack or block", Bonds of Faith)
 _INSTEAD = re.compile(r"^(?:It|~) (?P<pred>(?:gets|has) .+?) instead as long as (?P<cond>.+)\.$")
 
 
@@ -35,6 +35,9 @@ def _not(conds: list[dict[str, Any]]) -> dict[str, Any]:
 def definition(text: str) -> Definition | None:
     from app.rules import statics
 
+    # -- as long as (wave 25A) -- "As long as you control enchanted creature, it gets +2/+2.": "it" is the creature the condition names
+    text = re.sub(r"^(As long as [^,]*\b(enchanted|equipped) creature\b[^,]*), it (?=(?:gets|has|can't)\b)",
+                  lambda m: f"{m[1]}, {m[2].capitalize()} creature ", text.strip())
     parts = _SENTENCES.split(text.strip())
     if not 2 <= len(parts) <= 3:
         return None
