@@ -51,6 +51,9 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         body = re.sub(r"\bthat source's controller\b", "that player", body)
     if cond is not None and cond.get("event") == "targeted":  # -- triggers (wave 21B) -- 115.1: "that spell's controller" is the player whose spell or ability targeted it
         body = re.sub(r"\bthat spell(?: or ability)?'s controller\b", "that player", body)
+    if cond is not None and cond.get("event") == "attack" and cond.get("defender") == "player":  # -- review (wave 21) -- "attacks a player,
+        body = re.sub(r"^if no opponent has more life than that player,", "if no opponent has more life than defending player,", body)  # if no
+        # opponent has more life than that player" (the alliance Backgrounds): the player attacked, its defending player (508.5)
     if name.startswith("step:draw:") and name.rsplit(":", 1)[-1] in ("each", "opponent"):
         # 504.1: the active player draws in the draw step; "an additional card" is one more card
         body = re.sub(r"\bthat player draws an additional card\.$", "that player draws a card.", body)

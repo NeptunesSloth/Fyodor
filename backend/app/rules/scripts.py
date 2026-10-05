@@ -2469,7 +2469,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             inner = _clause(rest_text) if not rest_text.startswith("you may ") else None
             if inner is not None and pay_e.get("cost") == "Exile ~" and rest_text.startswith("return it to the battlefield"):
                 # -- if you do (wave 21C) -- "you may exile Hikari. If you do, return it …": "it" is the exiled source, never a cast spell
-                inner = ([{**x, "who": "self"} if x.get("who") == "it" else x for x in inner[0]], inner[1])
+                # (review (wave 21): the card the payment moved, a new object in exile, 400.7 — never "self", the permanent that left)
+                inner = ([{**x, "who": f"ref:{pay_e['bind']}"} if x.get("who") == "it" else x for x in inner[0]], inner[1])
             if inner is not None:
                 inner = pay_objects.bind(inner, pay_e)  # -- if you do (wave 8C) -- the sacrificed / exiled object, from the payment
             if inner is None:
