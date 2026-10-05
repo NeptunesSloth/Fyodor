@@ -2728,9 +2728,17 @@ def crew_value(c: CardInstance, ch: Characteristics) -> int:
     return max(0, base + sum(int(r.split(":")[1]) for r in ch.imposed if r.startswith("crew_plus:")))
 
 
-def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int) -> None:
+def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int, kind: str = "crew") -> None:
     """Crew N: tap any number of untapped creatures you control with total power N or greater:
-    this Vehicle becomes an artifact creature until end of turn. (Summoning-sick creatures may crew.)"""
+    this Vehicle becomes an artifact creature until end of turn. (Summoning-sick creatures may crew.)
+    -- crew & saddle (wave 23D) -- ``kind`` "saddle" (702.171a): the same cost, "this permanent becomes saddled until end of turn.
+    Activate only as a sorcery." (app/rules/crew_saddle.py)"""
+    from app.rules import crew_saddle
+
+    saddle = kind == "saddle"
+    if saddle and (plan.state.turn.active_player != plan.actor or plan.state.turn.phase not in MAIN_PHASES or plan.state.zones.get(STACK)):
+        raise ActionError("Saddle only as a sorcery: in your main phase with an empty stack")
+
     def crew_power_of(cid: str) -> int:
         c = plan.state.cards[cid]
         return crew_value(c, plan.ch(c))
@@ -2741,7 +2749,7 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
     if sum(crew_power_of(c) for c in candidates) < n:
         raise ActionError(f"{ch.name}: you don't control untapped creatures with total power {n} or greater")
     if a.crew is None:
-        decide(plan, player=plan.actor, kind="choose_cards", prompt=f"Crew {n}: tap creatures with total power {n} or greater",
+        decide(plan, player=plan.actor, kind="choose_cards", prompt=f"{kind.capitalize()} {n}: tap creatures with total power {n} or greater",
                options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name} ({crew_power_of(c)})", card_id=c)
                         for c in candidates],
                min_choices=1, max_choices=len(candidates),
@@ -2749,14 +2757,15 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
         return
     chosen = list(dict.fromkeys(a.crew))
     if not chosen or any(c not in candidates for c in chosen):
-        raise ActionError("Crew with untapped creatures you control")
+        raise ActionError(f"{kind.capitalize()} with untapped creatures you control")
     if sum(crew_power_of(c) for c in chosen) < n:
         raise ActionError(f"Those creatures have less than {n} total power")
     oid = plan.oid(card)
-    ability_id = _new_ability(plan, card, f"{ch.name} becomes an artifact creature until end of turn.")
+    ability_id = _new_ability(plan, card, f"{ch.name} becomes {'saddled' if saddle else 'an artifact creature'} until end of turn.")
     plan.do({"type": "tap", "card_ids": chosen, "tapped": True})
-    emit(plan.state, "crewed", object_id=oid, card=card.id, player=plan.actor)
-    _stacked(plan, card, oid, ch, ability_id, [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}])
+    crew_saddle.tapped_to_pay(plan, kind, chosen, card)  # (702.122b, 702.171c)
+    _stacked(plan, card, oid, ch, ability_id, [{"do": "saddled"}] if saddle else
+             [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}])
 
 
 # -- static statics (wave 10B) -- cascade a permanent gives the spell as it's cast (cast_limits.granted_cascade)
@@ -3100,6 +3109,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     n = crew_power(ch, a.ability) if not plan.manual(card) else None
     if n is not None:
         crew(plan, card, ch, a, n)
+        return
+    from app.rules import crew_saddle  # -- crew & saddle (wave 23D) --
+
+    n = crew_saddle.saddle_power(ch, a.ability) if not plan.manual(card) else None
+    if n is not None:
+        crew(plan, card, ch, a, n, "saddle")
         return
     equip = attachments.equip_cost(ch, a.ability) if not plan.manual(card) else None
     if equip is not None:
@@ -3509,8 +3524,13 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
 
 def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteristics, index: int, info: CardInfo,
               check_priority: bool) -> bool:
+    from app.rules import crew_saddle  # -- crew & saddle (wave 23D) -- 702.171a: a saddle ability is the same cost, at sorcery speed
+
     n = crew_power(ch, index)
     r = state.rules
+    if n is None and (n := crew_saddle.saddle_power(ch, index)) is not None and (
+            state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK)):
+        return False
     if n is None or r is None or (check_priority and (r.priority != player or r.decision is not None)):
         return False
     # -- cast limits (wave 5E) -- crew is an activated ability (702.122a)

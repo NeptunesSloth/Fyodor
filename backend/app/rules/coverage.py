@@ -489,8 +489,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules.casting import TRANSMUTE
 
         return TRANSMUTE.fullmatch(line.strip().rstrip(".")) is not None
-    if kw == "crew":  # casting.crew: "Crew N"
-        return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None
+    if kw in ("crew", "saddle"):  # casting.crew: "Crew N" (-- crew & saddle (wave 23D) -- 702.171a: "Saddle N", the same cost)
+        return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "flashback":  # casting.flashback_parts: a mana flashback cost, with other parts alt_costs reads (wave 16B)
         from app.rules.casting import flashback_parts  # (casting imports coverage, via the engine)
 

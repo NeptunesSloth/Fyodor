@@ -639,12 +639,13 @@ def _combat(c: str) -> Condition | None:
             raise _Refuse
         return {**base, "event": "attack", "alone": True, **_defender(m["d"])}
     # "~ attacks while you control a creature with power 4 or greater" (read as it triggers)
-    m = re.fullmatch(r"(?P<s>.+?) attacks while (?P<w>you control .+)", c)
+    m = re.fullmatch(r"(?P<s>.+?) attacks while (?P<w>you control .+|saddled)", c)  # (wave 23D: 702.171b "while saddled", ~ itself)
     if m:
         from app.rules import conditions  # (selectors and values only)
 
         base = _subject(m["s"], host=True)
-        holds = conditions.parse(m["w"])
+        holds = {"object": "self", "designation": "saddled"} if m["w"] == "saddled" and m["s"] == "~" else \
+            None if m["w"] == "saddled" else conditions.parse(m["w"])
         if base is None or holds is None:
             raise _Refuse
         return {**base, "event": "attack", "while": holds}

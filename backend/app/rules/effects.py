@@ -1068,6 +1068,11 @@ def animate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                           controller=ctx["controller"], add_types=tuple(e["types"]),
                           label=f"{' '.join(e['types'])} until end of turn ({ctx.get('name', '')})")
         _mark(plan, cards, "Crewed" if e.get("crewed") else " ".join(e["types"]))
+        if e.get("crewed"):  # -- crew & saddle (wave 23D) -- 702.122e: "becomes crewed" is its crew ability resolving
+            from app.game.rules_state import emit
+
+            for c in cards:
+                emit(plan.state, "crewed", object_id=plan.oid(c), card=c, player=plan.state.cards[c].controller)
     return True
 
 
@@ -2263,9 +2268,10 @@ PRIMITIVES = {
 from app.rules import copying  # noqa: E402
 
 PRIMITIVES.update(copying.PRIMITIVES)
-from app.rules import phasing  # noqa: E402
+from app.rules import crew_saddle, phasing  # noqa: E402
 
 PRIMITIVES.update(phasing.PRIMITIVES)  # -- phasing (wave 13D) -- 702.26
+PRIMITIVES.update(crew_saddle.PRIMITIVES)  # -- crew & saddle (wave 23D) -- 702.171
 PRIMITIVES.update(entry_forms.PRIMITIVES)  # -- entry forms (wave 5F) -- "It's an enchantment." (611.2e)
 from app.rules import merged as _merged  # noqa: E402
 
