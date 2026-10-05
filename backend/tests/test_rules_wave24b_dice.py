@@ -42,7 +42,7 @@ EXTRA = [
          "Roll a d20 and add the number of cards in your hand.\n1—14 | Draw X cards.\n15+ | Scry X, then draw X cards.", None, "U"),
     real("Boing!", "{1}{U}", 2, "Instant", "Return target creature to its owner's hand, then roll a six-sided die. If the result is 3 or less, "
          "scry a number of cards equal to the result.", None, "U"),
-    real("Probe Bear", "{1}{G}", 2, "Creature — Bear", "", ("6", "6"), "G"),
+    real("Dice Bear", "{1}{G}", 2, "Creature — Bear", "", ("6", "6"), "G"),
     real("Wyll, Blade of Frontiers", "{1}{R}", 2, "Legendary Creature — Human Warlock",
          "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.\nWhenever you roll one or more "
          "dice, put a +1/+1 counter on Wyll.\nChoose a Background (You can have a Background as a second commander.)", ("1", "1"), "R"),
@@ -58,7 +58,7 @@ def card_db(settings):
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in EXTRA if c["name"] != "Probe Bear"])
+@pytest.mark.parametrize("name", [c["name"] for c in EXTRA if c["name"] != "Dice Bear"])
 def test_the_dice_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -141,13 +141,13 @@ def test_roll_x_dice_odd_and_even_results(cards, monkeypatch):
 
 def test_attempted_murder_even_results_shrink_and_odd_results_make_birds(cards, monkeypatch):
     rolls(monkeypatch, 2, 3, 6)
-    s = build(cards, ["Attempted Murder", "Probe Bear"], [])
-    bear = put(s, "Probe Bear")
+    s = build(cards, ["Attempted Murder", "Dice Bear"], [])
+    bear = put(s, "Dice Bear")
     spell = to_hand(s, "Attempted Murder")
     mana(s, B=2, G=3)
     act(s, "p1", type="cast_spell", card_id=spell.id, x_value=3, targets=[bear.id])
     answer(s)
-    assert counters(s, "Probe Bear", "-1/-1") == 4  # two even results: two counters each
+    assert counters(s, "Dice Bear", "-1/-1") == 4  # two even results: two counters each
     assert len([c for c in s.state.cards.values() if c.is_token and c.name == "Storm Crow"]) == 1
     check(s)
 
@@ -205,8 +205,8 @@ def test_roll_and_add_the_number_of_cards_in_your_hand(cards, monkeypatch, die, 
 @pytest.mark.parametrize("die,scried", [(2, True), (5, False)])
 def test_scry_a_number_of_cards_equal_to_the_result(cards, monkeypatch, die, scried):
     rolls(monkeypatch, die)
-    s = build(cards, ["Boing!", "Probe Bear"], [])
-    bear = put(s, "Probe Bear")
+    s = build(cards, ["Boing!", "Dice Bear"], [])
+    bear = put(s, "Dice Bear")
     spell = to_hand(s, "Boing!")
     mana(s, U=1, G=1)
     act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bear.id])
