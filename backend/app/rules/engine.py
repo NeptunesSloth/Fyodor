@@ -29,7 +29,6 @@ from app.game.rules_state import Decision, DecisionOption, PaymentRecord, Player
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import (
     assist,  # -- casting extras (wave 18E) --
-    gift,  # -- gift (wave 23D) --
     attachments,
     battles,
     bestow,
@@ -44,6 +43,7 @@ from app.rules import (
     enlist,  # -- casting extras (wave 18E) --
     exert,  # -- static wordings (wave 6E) --
     extra_turns,  # -- extra turns (wave 8A) --
+    gift,  # -- gift (wave 23D) --
     kinship,  # -- kinship (wave 9C) --
     layers,
     looking,

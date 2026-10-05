@@ -4051,7 +4051,9 @@ def spell_definition(ch: Characteristics) -> Definition | None:
             effects += rename_bindings(_renumber(defs[ab.index]["effects"], index), f"l{ab.index}_")
         except _NoMatch:
             return None
-    from app.rules import gift  # -- gift (wave 23D) -- 702.174j: its effect happens before the spell's other abilities
+    from app.rules import (
+        gift,  # -- gift (wave 23D) -- 702.174j: its effect happens before the spell's other abilities
+    )
 
     if gift.has_line(ch):
         lead = gift.spell_effects(ch)
