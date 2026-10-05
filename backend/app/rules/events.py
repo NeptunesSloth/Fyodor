@@ -150,6 +150,10 @@ def parse_condition(cond: str) -> Condition | None:
     if found is not None and found.get("event") in ("die", "leave", "either", "multi") and re.search(r"modified|enchanted_or_equipped",
                                                                                                    str(found)):
         return None
+    # -- history (wave 22E) -- 701.15b: a goaded creature is read live, as it attacks; an object that has left (a creature that died as it
+    # dealt damage, or dies) is rebuilt from its last known information, which doesn't keep the goad: such triggers stay manual
+    if found is not None and "goaded" in str(found) and not (found.get("event") == "attack" and found.get("subject") == "sel"):
+        return None
     return found
 
 

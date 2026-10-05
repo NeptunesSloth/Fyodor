@@ -775,7 +775,7 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, multicolored=False, colorless=False)
     if low == "commander":
         return replace(s, commander=True)
-    if low in ("enchanted", "equipped", "modified", "historic"):  # (wave 11C: modified 700.9, historic 700.6)
+    if low in ("enchanted", "equipped", "modified", "historic", "goaded"):  # (wave 11C: modified 700.9, historic 700.6; wave 22E: goaded 701.15)
         return replace(s, extras=(*s.extras, low))
     if low in ("face-down", "face-up"):  # -- keyword actions & face-down (wave 3F) -- 708: "face-down creatures you control"
         return replace(s, extras=(*s.extras, low.replace("-", "_")))
@@ -1374,6 +1374,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "shares_commander_type" and not _shares_commander_type_now(plan, ch, you):  # (wave 22E)
             return False
+        if extra == "goaded":  # (wave 22E) 701.15b: goaded by someone (a goad effect lasts until that player's next turn: layers' imposed rules)
+            from app.rules.keyword_actions import goaded_by
+
+            if not goaded_by(ch):
+                return False
         if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
             return False  # (wave 12C)
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):

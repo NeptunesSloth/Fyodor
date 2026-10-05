@@ -313,6 +313,25 @@ def test_first_spell_with_x_each_turn_owlin_spiralmancer(cards):
     check(s)
 
 
+# -- 701.15b: "Whenever a goaded creature attacks, it deals 1 damage to its controller" ----------------------------------
+def test_a_goaded_creature_attacks_vengeful_ancestor(cards):
+    s = build(cards, ["Vengeful Ancestor", "Jeering Homunculus"], ["Probe Soldier"])
+    kit_put(s, "Vengeful Ancestor")
+    soldier = kit_put(s, "Probe Soldier", "p2")
+    s.state.rules.controlled_since[soldier.id].turn = 0
+    homunculus = to_hand(s, "Jeering Homunculus")
+    act(s, "p1", type="add_mana", player="p1", mana={"U": 1, "C": 1})
+    act(s, "p1", type="cast_spell", card_id=homunculus.id)
+    settle_for(s, soldier.id, "yes")  # "you may goad target creature": Bob's soldier
+    assert life(s, "p2") == 40
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers"
+          and s.state.rules.decision.player == "p2", limit=300)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": soldier.id, "target": "p1"}])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers", limit=40)
+    assert life(s, "p2") == 39  # it dealt 1 damage to its controller as it attacked (before blockers)
+    check(s)
+
+
 # -- saves: the new fields have defaults ------------------------------------------------------------------------------
 def test_an_older_save_without_the_new_log_fields_loads(cards):
     from app.game.state import GameState
