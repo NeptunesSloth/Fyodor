@@ -46,6 +46,9 @@ CARDS = [
     ("Probe Soldier", "{1}{W}", "Creature — Human Soldier", "1", "1", ""),
     ("Probe Relic", "{1}", "Artifact", None, None, "{T}: Add {C}."),
     ("Probe Spell", "{2}", "Sorcery", None, None, "Draw a card."),
+    ("Point the Way", "{1}{G}", "Enchantment", None, None,
+     f"{ENGINES}\n{{3}}{{G}}, Sacrifice this enchantment: Search your library for up to X basic land cards, where X is your speed. Put those cards "
+     "onto the battlefield tapped, then shuffle."),
     ("Pride of the Road", "{3}{W}", "Creature — Zombie Cat Warrior", "2", "5",
      f"Vigilance\n{ENGINES}\nMax speed — At the beginning of combat on your turn, target creature or Vehicle you control gains double strike until end of turn."),
     ("Act of Treason", "{2}{R}", "Sorcery", None, None,
@@ -303,4 +306,19 @@ def test_a_max_speed_trigger_with_a_target_only_exists_at_max_speed(cards, n, ge
     from app.rules.plan import Plan
 
     assert ("double strike" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[soldier.id]).keywords) == gets
+    check(s)
+
+
+@pytest.mark.parametrize("n", [1, 3])
+def test_search_for_up_to_x_basic_lands_where_x_is_your_speed(cards, n):
+    s = build(cards, ["Point the Way"], [], forests=12)
+    pw = put(s, "Point the Way")
+    set_speed(s, n)
+    mana(s, G=4)
+    lands = sum(1 for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Forest")
+    pick = [c.id for c in s.state.cards.values() if c.owner == "p1" and c.zone == "p1:library" and c.name == "Forest"][:3]
+    act(s, "p1", type="activate_ability", card_id=pw.id, ability=1)
+    assert s.state.rules.decision.max_choices == n  # "up to X basic land cards, where X is your speed"
+    answer(s, pick[:n], limit=60)
+    assert sum(1 for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Forest") == lands + n
     check(s)
