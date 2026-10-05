@@ -93,6 +93,7 @@ class _Solver:
         # the timestamp an effect is applied at: its own, or just after the effects it waited for (613.8b)
         self.order: dict[int, float] = {}
         self.waited: dict[int, set[int]] = {}
+        self.seen: dict[tuple[Any, ...], Characteristics] = {}
         self.dead: dict[str, tuple[int, int, int]] = {}  # permanents that lost all abilities → the ordering key of the latest effect
 
     # -- per-object state ----------------------------------------------------------------------
@@ -114,9 +115,13 @@ class _Solver:
 
         if cid not in self.base:
             self._prepare(cid)
+        memo = (cid, key, len(self.applied4[cid]), len(self.applied5[cid]))  # (review 22A: the applied lists only grow)
+        if memo in self.seen:
+            return self.seen[memo]
         eff = [e for e in self.effects[cid] if (e.object_seq, 1, e.timestamp) < key]
         ch = L._layer4(self.base[cid], eff, [x for x in self.own4[cid] if (x[0], 0, 0) < key] + self.applied4[cid])
-        return L._layer5(ch, eff, [x for x in self.own5[cid] if (x[0], 0, 0) < key] + self.applied5[cid])
+        out = self.seen[memo] = L._layer5(ch, eff, [x for x in self.own5[cid] if (x[0], 0, 0) < key] + self.applied5[cid])
+        return out
 
     def _matches(self, st: Static, cid: str, ch: Characteristics) -> bool:
         return selectors.matches(self.view, selectors.from_key(st.definition["who"]), self.cards[cid], ch, st.controller, st.source)
@@ -175,10 +180,21 @@ class _Solver:
                 return True
         return False
 
-    def _next(self, pending: list[Static]) -> Static:
+    def _takes(self, x: Static, y: Static) -> bool:
+        """-- review (wave 22A) -- layer 6: would ``y`` take away the ability ``x`` comes from before ``x`` begins to apply (613.8a:
+        its existence; Dress Down on a creature whose static takes abilities: Sludge Monster, Poppet Factory)? An effect that began
+        in an earlier layer keeps applying (613.6)."""
+        if first_layer(x.definition) < 6 or x.source not in self.cards or (first_layer(y.definition) == 6 and y.source in self.dead):
+            return False  # (613.8c: an effect whose ability is already gone takes nothing)
+        if id(y) in self.members:
+            return x.source in self.members[id(y)]
+        return self._matches(y, x.source, self.at(x.source, _END))
+
+    def _next(self, pending: list[Static], depends: Any = None) -> Static:
         if len(pending) == 1:
             return pending[0]
-        deps = {id(x): [y for y in pending if y is not x and self._depends(x, y)] for x in pending}
+        depends = depends or self._depends
+        deps = {id(x): [y for y in pending if y is not x and depends(x, y)] for x in pending}
         for x in pending:
             self.waited.setdefault(id(x), set()).update(id(y) for y in deps[id(x)])
         ready = [x for x in pending if not deps[id(x)]]
@@ -228,9 +244,10 @@ class _Solver:
             if entry and id(st) in self.members:
                 for cid in self.members[id(st)]:
                     self.applied5[cid].append((self.order.get(id(st), st.seq), entry))
-        for st in sorted(self.layered, key=lambda s: s.seq):  # layer 6 (613.1f): a permanent that loses all abilities
-            if not st.definition.get("lose_all"):
-                continue
+        pending = sorted((st for st in self.layered if st.definition.get("lose_all")), key=lambda s: s.seq)
+        while pending:  # layer 6 (613.1f): a permanent that loses all abilities; one waits for an effect that takes its ability (613.8)
+            st = self._next(pending, self._takes)
+            pending.remove(st)
             if first_layer(st.definition) == 6:
                 if not self._begin(st, 6):
                     continue
@@ -261,16 +278,22 @@ def entries(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     objects found as the table was solved (613.6); elsewhere the cards and spells a static that works everywhere names (611.3)."""
     if info is None or state.rules is None:
         return [], []
-    from app.rules.layers import statics
+    from app.rules import statics as grammar
+    from app.rules.layers import _view, probing, statics
 
     layer4: list[tuple[float, dict[str, Any]]] = []
     layer5: list[tuple[float, dict[str, Any]]] = []
     on_field = card.zone.endswith(":battlefield")
+    probe = on_field and probing(state, card)  # (614.12: as it would exist on the battlefield: the subject read from it as printed)
     for st in statics(state, info):
         d = st.definition
         if not d.get("layered") or st.gate is not None:
             continue
-        if on_field:
+        if probe:
+            if not grammar.applies(_view(state, info), d, source=state.cards[st.source], controller=st.controller, card=card, ch=ch,
+                                   conditions=True):
+                continue
+        elif on_field:
             if st.members is None or card.id not in st.members:
                 continue
         elif not _elsewhere(st, card, ch):

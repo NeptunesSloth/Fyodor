@@ -314,6 +314,13 @@ def _gate_open(view: Plan, st: Static, tkey: tuple) -> bool:
                             conditions=True) and _conditions(view, gate, tkey))
 
 
+def probing(state: GameState, card: CardInstance) -> bool:
+    """-- review (wave 22A) -- Is ``card`` the object as it would exist on the battlefield (614.12: entering, or under another
+    controller), not the permanent the statics table was solved with? Then a layered group static's subject is read from it."""
+    real = state.cards.get(card.id)
+    return real is None or real.zone != card.zone or real.controller != card.controller
+
+
 def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristics, tkey: tuple,
           only_keyword_subjects: bool = False) -> tuple[list[Static], set[str]]:
     """The statics that apply to ``card`` as it is (``ch``) and the rules attached ones impose."""
@@ -332,12 +339,13 @@ def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristi
             continue  # (a rules-only static is applied by _with_rules, after layer 7)
         if not _gate_open(view, st, tkey):
             continue
-        if st.members is not None:  # -- layers (wave 22A) -- 613.6: the objects it began applying to
-            if card.id not in st.members:
+        solved = st.members is not None and not probing(view.state, card)
+        if solved:  # -- layers (wave 22A) -- 613.6: the objects it began applying to
+            if card.id not in (st.members or ()):
                 continue
         elif not grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True):
             continue
-        if st.members is not None or _conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
+        if solved or _conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
             hits.append(st)
     return hits, imposed
 
@@ -610,6 +618,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     object it's attached to), and the object's own characteristic-defining P/T (7a, every zone)."""
     global _depth
     ch = prepared(state, card, ch, info)
+    start = ch  # (review 22A: the abilities it has before layers 4-6 take any away)
     effects = affecting(state, card)
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
@@ -706,6 +715,9 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         cda_p, cda_t = _cda(state, card, ch, info)  # 7a: the object's own characteristic-defining ability (613.4a)
         power = cda_p if cda_p is not None else power
         toughness = cda_t if cda_t is not None else toughness
+        if (power is None or toughness is None) and _lost_cda(start, ch):  # -- review (wave 22A) -- its "*" CDA was taken away
+            power = power if power is not None else _star_zero(ch.power)  # (305.7, 613.1f; Dress Down, Blood Moon on Ashaya):
+            toughness = toughness if toughness is not None else _star_zero(ch.toughness)  # 208.5, "*" has no value: 0 ("1+*": 1)
     if (power is None or toughness is None) and not setters:
         return _with_rules(state, card, ch, info, imposed)  # 7a: a characteristic-defining "*" stays unknown
     p, t = power or 0, toughness or 0
@@ -850,6 +862,23 @@ def _each_amount(view: Plan, st: Static, tkey: tuple, card: CardInstance) -> int
         if tkey:
             _EACH_CACHE[key] = hit
     return hit
+
+
+def _lost_cda(start: Characteristics, now: Characteristics) -> bool:
+    """Did layers 4-6 take away the object's characteristic-defining P/T ability (it had one before them, it has none now)?"""
+    from app.rules import scripts
+
+    def has(ch: Characteristics) -> bool:
+        return any(d.get("static") == "cda" and (d.get("p") is not None or d.get("t") is not None) for d in scripts.definitions(ch).values())
+
+    return has(start) and not has(now)
+
+
+def _star_zero(value: str | None) -> int | None:
+    try:
+        return sum(int(x) for x in (value or "*").replace("*", "0").split("+"))
+    except ValueError:
+        return None
 
 
 def _cda(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo) -> tuple[int | None, int | None]:

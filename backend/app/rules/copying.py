@@ -1077,6 +1077,14 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     what = str(d["what"])
     answer = (answers or {}).get(what)
     _drop_entering(plan, card)
+    # -- review (wave 22A) -- 614.12: as it would exist on the battlefield (Vesuva under Blood Moon: its ability is gone before it
+    # applies, Magus of the Moon ruling)
+    from app.game.state import zone_key
+    from app.rules import scripts
+
+    probe = card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})
+    if not any(x.get("replacement") == "enter_as_copy" for x in scripts.definitions(plan.ch(probe)).values()):
+        return False
     if answer is None:
         if not entry_candidates(plan, controller, what, card.id):
             return False

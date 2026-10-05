@@ -94,7 +94,9 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
 
     if copying.entering(plan, card, controller, answers, out):
         return out
-    defs = [d for d in _definitions(plan, card).values() if d["kind"] == "replacement"]
+    # -- review (wave 22A) -- 614.12: the permanent as it would exist on the battlefield (Blood Moon, Humility: it has no such abilities)
+    defs = [d for d in _definitions(plan, card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})).values()
+            if d["kind"] == "replacement"]
     answers = dict(answers or {})
     for d in defs:  # "As ~ enters, choose a color." (614.1c): the answer is recorded on the permanent
         if d["replacement"] != "enters_choice":
