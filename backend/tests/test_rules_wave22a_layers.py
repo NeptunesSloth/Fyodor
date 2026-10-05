@@ -69,9 +69,8 @@ EXTRA = [
          power='*', toughness='*', colors=['G'], color_identity=['G']),
     card('Glorious Anthem', set_code="tst", number="22A17", mana_cost='{1}{W}{W}', cmc=3.0, type_line='Enchantment',
          oracle_text='Creatures you control get +1/+1.', colors=['W'], color_identity=['W']),
-    card('Knight of Glory', set_code="tst", number="22A18", mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Human Knight',
-         oracle_text='Other creatures you control get +1/+1 and have flying.', power='2', toughness='2', colors=['W'],
-         color_identity=['W']),
+    card('Lord of Atlantis', set_code="tst", number="22A18", mana_cost='{U}{U}', cmc=2.0, type_line='Creature — Merfolk',
+         oracle_text='Other Merfolk get +1/+1 and have islandwalk.', power='2', toughness='2', colors=['U'], color_identity=['U']),
     card('Mind Stone', set_code="tst", number="22A19", mana_cost='{2}', cmc=2.0, type_line='Artifact',
          oracle_text='{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.'),
     card('Darksteel Citadel', set_code="tst", number="22A20", type_line='Artifact Land',
@@ -182,3 +181,111 @@ def test_the_later_land_type_setter_wins(cards):
     put(s, "Blood Moon", "battlefield")  # a new object: the newest timestamp
     assert ch(s, tower).subtypes == {"Mountain"}
     roundtrip(s)
+
+
+# -- Humility, Dress Down: a group loses all abilities (613.1f) ---------------------------------------------------------
+def test_humility_takes_all_abilities_and_sets_the_base_power_and_toughness(cards):
+    s = build(cards, [(1, "Humility"), (1, "Glorious Anthem"), (1, "Lord of Atlantis"), (1, "Harbinger of the Seas"),
+                      (1, "Grizzly Bears"), (1, "Command Tower")])
+    bears, lord, harb, tower = (put(s, n, "battlefield") for n in ("Grizzly Bears", "Lord of Atlantis", "Harbinger of the Seas",
+                                                                  "Command Tower"))
+    put(s, "Glorious Anthem", "battlefield")
+    assert ch(s, harb).pt == (4, 4) and "islandwalk" in ch(s, harb).keywords  # the Anthem and the lord
+    assert ch(s, tower).subtypes == {"Island"}  # (Harbinger's static)
+    put(s, "Humility", "battlefield")
+    for c in (bears, lord, harb):
+        assert ch(s, c).abilities == () and not ch(s, c).keywords
+        assert ch(s, c).pt == (2, 2)  # 7b: base 1/1, then the Anthem's +1/+1 in 7c (an Enchantment's static: it keeps its ability)
+    # 613.6: Harbinger's effect began in layer 4, before Humility took its ability in layer 6: it keeps applying to the same lands
+    assert ch(s, tower).subtypes == {"Island"}
+    roundtrip(s)
+    put(s, "Humility", "graveyard")
+    assert ch(s, harb).pt == (4, 4) and ch(s, tower).subtypes == {"Island"}
+    roundtrip(s)
+
+
+def test_dress_down_takes_abilities_only(cards):
+    s = build(cards, [(1, "Dress Down"), (1, "Lord of Atlantis"), (1, "Harbinger of the Seas")])
+    lord, harb = put(s, "Lord of Atlantis", "battlefield"), put(s, "Harbinger of the Seas", "battlefield")
+    assert ch(s, harb).pt == (3, 3)
+    put(s, "Dress Down", "battlefield")
+    assert ch(s, harb).pt == (2, 2) and ch(s, harb).abilities == () and ch(s, lord).abilities == ()  # base 2/2, nothing else changes
+    roundtrip(s)
+
+
+# -- Opalescence: a group animated, each with its own base power and toughness (613.1d, 613.4b) -----------------------
+def test_opalescence_makes_each_other_non_aura_enchantment_a_creature_with_its_mana_value(cards):
+    s = build(cards, [(1, "Opalescence"), (1, "Glorious Anthem"), (1, "Fires of Yavimaya"), (1, "Grizzly Bears")])
+    anthem, fires = put(s, "Glorious Anthem", "battlefield"), put(s, "Fires of Yavimaya", "battlefield")
+    bears = put(s, "Grizzly Bears", "battlefield")
+    opal = put(s, "Opalescence", "battlefield")
+    assert not ch(s, opal).is_creature  # "other"
+    for enchantment, mv in ((anthem, 3), (fires, 3)):
+        assert ch(s, enchantment).is_creature and "Enchantment" in ch(s, enchantment).types
+    assert ch(s, fires).pt == (4, 4) and ch(s, bears).pt == (3, 3)  # 3/3, and the Anthem's +1/+1 for every creature (itself too)
+    assert ch(s, anthem).pt == (4, 4)
+    roundtrip(s)
+    put(s, "Opalescence", "graveyard")
+    assert not ch(s, anthem).is_creature and ch(s, bears).pt == (3, 3)  # (the Anthem: +1/+1 for the creatures you control)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("humility_first", [True, False])
+def test_humility_and_opalescence_in_either_order(cards, humility_first):
+    """The Gatherer ruling of Opalescence / Humility, from 613.7 and 613.6: Opalescence makes the other enchantments creatures in
+    layer 4; Humility's effect begins in layer 6 and applies to every creature, itself included (it keeps applying to the same
+    objects in layer 7b even though it lost its own ability, 613.6); in layer 7b the later timestamp wins: Humility newer: every
+    one of these creatures is 1/1; Opalescence newer: the enchantments are as big as their mana value."""
+    s = build(cards, [(1, "Humility"), (1, "Opalescence"), (1, "Glorious Anthem"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    anthem = put(s, "Glorious Anthem", "battlefield")
+    for name in (["Humility", "Opalescence"] if humility_first else ["Opalescence", "Humility"]):
+        put(s, name, "battlefield")
+    humility = next(c for c in s.state.cards.values() if c.name == "Humility")
+    opal = next(c for c in s.state.cards.values() if c.name == "Opalescence")
+    assert not ch(s, opal).is_creature and ch(s, opal).abilities and ch(s, bears).abilities == ()
+    assert ch(s, humility).is_creature and ch(s, humility).abilities == () and ch(s, anthem).abilities == ()
+    # the Anthem has no abilities (Humility): its bonus is gone
+    if humility_first:
+        assert (ch(s, humility).pt, ch(s, anthem).pt, ch(s, bears).pt) == ((4, 4), (3, 3), (1, 1))
+    else:
+        assert (ch(s, humility).pt, ch(s, anthem).pt, ch(s, bears).pt) == ((1, 1), (1, 1), (1, 1))
+    roundtrip(s)
+    put(s, "Humility", "graveyard")  # Humility gone: the creatures have their abilities again
+    assert ch(s, anthem).abilities and ch(s, anthem).pt == (4, 4) and ch(s, bears).pt == (3, 3)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("dress_down_first", [True, False])
+def test_two_effects_that_take_abilities_away_apply_in_timestamp_order(cards, dress_down_first):
+    """613.8b: Dress Down's and Humility's effects each remove the other's ability (both are creatures under Opalescence), a
+    dependency loop, so they apply in timestamp order (613.7): the older takes the other's ability away before it begins to apply
+    (613.6), so only its effect is there."""
+    s = build(cards, [(1, "Opalescence"), (1, "Dress Down"), (1, "Humility"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    put(s, "Opalescence", "battlefield")
+    for name in (["Dress Down", "Humility"] if dress_down_first else ["Humility", "Dress Down"]):
+        put(s, name, "battlefield")
+    assert ch(s, bears).abilities == ()
+    assert ch(s, bears).pt == ((2, 2) if dress_down_first else (1, 1))  # (only Humility sets a base power and toughness)
+    roundtrip(s)
+
+
+# -- March of the Machines: the group is not what the subject says any more by layer 7b (613.6) ----------------------------
+@pytest.mark.parametrize("humility_first", [True, False])
+def test_march_of_the_machines_and_humility(cards, humility_first):
+    s = build(cards, [(1, "March of the Machines"), (1, "Humility"), (1, "Mind Stone"), (1, "Sol Ring"), (1, "Painter's Servant")])
+    stone, ring, servant = (put(s, n, "battlefield") for n in ("Mind Stone", "Sol Ring", "Painter's Servant"))
+    put(s, "March of the Machines", "battlefield")
+    assert ch(s, stone).is_creature and ch(s, stone).types == {"Artifact", "Creature"}
+    assert ch(s, stone).pt == (2, 2) and ch(s, ring).pt == (1, 1)  # 613.6: still "each noncreature artifact" in layer 7b
+    assert ch(s, servant).pt == (1, 3)  # an artifact creature already: not affected
+    assert mana_texts(s, stone) == ["{T}: Add {C}."]
+    put(s, "Humility", "battlefield")  # (newest: its 1/1 beats the mana value)
+    assert ch(s, stone).abilities == () and ch(s, stone).pt == (1, 1)
+    roundtrip(s)
+    if not humility_first:
+        put(s, "March of the Machines", "graveyard")
+        put(s, "March of the Machines", "battlefield")  # March is newest now: its mana values come after Humility's 1/1
+        assert ch(s, stone).pt == (2, 2) and ch(s, stone).abilities == ()
+        roundtrip(s)
