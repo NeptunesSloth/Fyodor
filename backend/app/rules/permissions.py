@@ -600,7 +600,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
 _RIDER = (r"(?:, and (?:mana of any type can be spent to cast (?P<t>that spell|it|them|those spells)|you may spend mana as though "
           r"it were mana of any (?P<k>color|type) to cast (?P<t2>that spell|it|them|those spells)))")
 GRANT_EXILED = re.compile(
-    r"^(?:for as long as (?P<d1>it|they|that card|those cards) remains? exiled, )?you may (?P<verb>play|cast) "
+    r"^(?:for as long as (?P<d1>it|they|that card|those cards) remains? exiled, )?(?P<who>you|its owner|their owners) may (?P<verb>play|cast) "
     r"(?P<what>that card|those cards|it|them)(?P<free> without paying (?:its|their) mana costs?)?"
     r"(?: for as long as (?P<d2>it|they|that card|those cards) remains? exiled)?" + _RIDER + r"?$")
 
@@ -618,9 +618,12 @@ def _grant_exiled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     spend = "type" if m["t"] else (m["k"] if m["t2"] else "")
     if m["free"] and spend:
         return None  # (a free cast spends no mana: no card words it so)
+    owner = m["who"] != "you"  # -- Marvel keywords (wave 25A) -- "For as long as that card remains exiled, its owner may cast it without paying its mana cost."
+    if owner and (m["verb"] == "play" or spend or bool(m["d2"]) or plural != (m["who"] == "their owners")):
+        return None  # (read for casting only, the duration first, one rider-less permission)
     return [{"do": "grant_play", "who": "them:card" if plural else "it:card", "play": m["verb"] == "play", "cast": True,
-             "until": "permanent", "optional": True, **({"free": True} if m["free"] else {}),
-             **({"spend": spend} if spend else {})}], None
+             "until": "permanent", "optional": not owner, **({"free": True} if m["free"] else {}),
+             **({"spend": spend} if spend else {}), **({"owner": True} if owner else {})}], None
 
 
 # -- hidden exile (wave 18A) -- cards exiled face down that "you may look at" (406.3a: a face-down exiled card has no characteristics,
@@ -651,6 +654,11 @@ def join_exile_play(body: str) -> str:
                   body)
     # -- Marvel keywords (wave 25A) -- 701.65a: "airbend [objects]" is "exile them. For each card exiled this way, for as long as it remains
     # exiled, its owner may cast it by paying {2} rather than paying its mana cost" (only for chosen or referred objects: "all other creatures" stays unread)
+    body = re.sub(r"For each card exiled this way, you may (play|cast) that card for as long as it remains exiled, and mana of any type can be "
+                  r"spent to cast that spell\.", r"You may \1 those cards for as long as they remain exiled, and mana of any type can be spent to "
+                  r"cast those spells.", body)  # (Heartless Conscription)
+    body = re.sub(r"You may cast spells from among those cards for as long as they remain exiled, and mana of any type can be spent to cast them\.",
+                  "You may cast those cards for as long as they remain exiled, and mana of any type can be spent to cast those spells.", body)  # (Shadow of the Enemy)
     body = _AIRBEND.sub(lambda m: f"{'E' if m['a'] == 'A' else 'e'}xile {m['x']}. "
                         + AIRBEND_GRANT.format("each card" if re.search(r"\btargets\b|^up to (?:two|three|four)|^any number", m["x"]) else "the card"), body)
     body = re.sub(r"\b([Pp])ut the exiled card into your hand\b", lambda m: ("R" if m[1] == "P" else "r") + "eturn the exiled card to your hand", body)
@@ -1143,6 +1151,8 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             return True  # (an unbound pronoun never reaches here: resolve_it refuses the ability)
         for cid in context.objects(plan, ctx, e["who"][len(context.PREFIX):]):
             card = plan.state.cards[cid]
+            if e["until"] == "permanent" and not card.zone.endswith(":exile"):
+                continue  # (-- Marvel keywords (wave 25A) -- "for as long as it remains exiled": a spell that wasn't countered, a card replaced elsewhere: no permission)
             holder = card.owner if e.get("owner") else pid  # (airbend 701.65a: "its owner may cast it")
             r.permissions.append(Permission(id=secrets.token_hex(4), player=holder, play=e["play"], cast=e["cast"], zone="any",
                                             object_id=plan.oid(card), card=cid, until=e["until"], turn=turn, free=bool(e.get("free")), spend=e.get("spend", ""),

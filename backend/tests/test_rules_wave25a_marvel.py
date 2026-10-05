@@ -42,6 +42,10 @@ EXTRA = [
     card('Steel Overseer', set_code='tst', number='M22', mana_cost='{2}', cmc=2.0, type_line='Artifact Creature — Construct', oracle_text='{T}: Put a +1/+1 counter on each artifact creature you control.', power='1', toughness='1', colors=[], color_identity=[], keywords=[], layout='normal'),  # noqa: E501
     card('Lightning Bolt', set_code='tst', number='M23', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Lightning Bolt deals 3 damage to any target.', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
     card('Elvish Visionary', set_code='tst', number='M24', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Elf Shaman', oracle_text='When this creature enters, draw a card.', power='1', toughness='1', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
+    card('Spelljack', set_code='tst', number='M40', mana_cost='{3}{U}{U}{U}', cmc=6.0, type_line='Instant', oracle_text="Counter target spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard. You may play it without paying its mana cost for as long as it remains exiled. (If it has X in its mana cost, X is 0.)", colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Release to the Wind', set_code='tst', number='M41', mana_cost='{2}{U}', cmc=3.0, type_line='Instant', oracle_text='Exile target nonland permanent. For as long as that card remains exiled, its owner may cast it without paying its mana cost.', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Shadow of the Enemy', set_code='tst', number='M42', mana_cost='{3}{B}{B}{B}', cmc=6.0, type_line='Sorcery', oracle_text="Exile all creature cards from target player's graveyard. You may cast spells from among those cards for as long as they remain exiled, and mana of any type can be spent to cast them.", colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Covetous Urge', set_code='tst', number='M43', mana_cost='{U/B}{U/B}{U/B}{U/B}', cmc=4.0, type_line='Sorcery', oracle_text="Target opponent reveals their hand. You choose a nonland card from that player's graveyard or hand and exile it. You may cast that card for as long as it remains exiled, and you may spend mana as though it were mana of any color to cast that spell.", colors=['B', 'U'], color_identity=['B', 'U'], keywords=[], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='M99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
 ]
 
@@ -401,4 +405,61 @@ def test_a_granted_miracle_reveals_the_first_card_drawn(cards):
         act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
     answer(s)
     assert s.state.players["p2"].life == 37 and find(s, "Lightning Bolt").zone == "p1:graveyard"  # cast for {2}
+    roundtrip(s)
+
+
+def run_out(s, limit=20):
+    """Answer what is asked with the first option (yes, the first target …) and pass priority until the stack is empty."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_spelljack_exiles_the_spell_it_countered_and_lets_you_play_it_free(cards):
+    s = build(cards, p1=("Lightning Bolt", "Spelljack"))
+    bolt = put(s, "Lightning Bolt", "hand")
+    jack = put(s, "Spelljack", "hand")
+    mana(s, R=1, U=3, C=3)
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    act(s, "p1", type="cast_spell", card_id=jack.id, targets=[bolt.id])  # in response: counter Lightning Bolt
+    run_out(s)
+    assert find(s, "Lightning Bolt").zone == "p1:exile"  # "exile it instead of putting it into its owner's graveyard"
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"], free=True)  # "You may play it without paying its mana cost for as long as it remains exiled"
+    run_out(s)
+    assert s.state.players["p2"].life == 37 and find(s, "Lightning Bolt").zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_release_to_the_wind_lets_the_owner_cast_the_exiled_card_free(cards):
+    s = build(cards, p1=("Release to the Wind", "Test Bear"))
+    bear = put(s, "Test Bear", "battlefield")
+    wind = put(s, "Release to the Wind", "hand")
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=wind.id, targets=[bear.id])
+    run_out(s)
+    assert find(s, "Test Bear").zone == "p1:exile"
+    act(s, "p1", type="cast_spell", card_id=bear.id, free=True)  # "its owner may cast it without paying its mana cost"
+    run_out(s)
+    assert find(s, "Test Bear").zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_shadow_of_the_enemy_lets_you_cast_the_creatures_with_any_mana(cards):
+    s = build(cards, p1=("Shadow of the Enemy",), p2=("Test Bear",))
+    put(s, "Test Bear", "graveyard", pid="p2")
+    shadow = put(s, "Shadow of the Enemy", "hand")
+    mana(s, B=3, C=3)
+    act(s, "p1", type="cast_spell", card_id=shadow.id, targets=["p2"])
+    run_out(s)
+    assert find(s, "Test Bear", "p2").zone == "p2:exile"
+    mana(s, R=3)  # {2}{G}: "mana of any type can be spent to cast them"
+    act(s, "p1", type="cast_spell", card_id=find(s, "Test Bear", "p2").id)
+    run_out(s)
+    assert find(s, "Test Bear", "p2").zone == "p1:battlefield"  # (you cast it: you control it)
     roundtrip(s)
