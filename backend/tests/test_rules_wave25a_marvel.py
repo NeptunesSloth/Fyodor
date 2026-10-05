@@ -34,7 +34,15 @@ EXTRA = [
     card('Rift Bolt', set_code='tst', number='M14', mana_cost='{2}{R}', cmc=3.0, type_line='Sorcery', oracle_text='Rift Bolt deals 3 damage to any target.\nSuspend 1—{R} (Rather than cast this card from your hand, you may pay {R} and exile it with a time counter on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)', colors=['R'], color_identity=['R'], keywords=['Suspend'], layout='normal'),  # noqa: E501
     card('Wibbly-wobbly, Timey-wimey', set_code='tst', number='M15', mana_cost='{1}{U}', cmc=2.0, type_line='Sorcery', oracle_text='Time travel. (For each suspended card you own and each permanent you control with a time counter on it, you may add or remove a time counter.)\nDraw a card.', colors=['U'], color_identity=['U'], keywords=['Time Travel'], layout='normal'),  # noqa: E501
     card('Aven Riftwatcher', set_code='tst', number='M16', mana_cost='{2}{W}', cmc=3.0, type_line='Creature — Bird Rebel Soldier', oracle_text='Flying\nVanishing 3 (This creature enters with three time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)\nWhen this creature enters or leaves the battlefield, you gain 2 life.', power='2', toughness='3', colors=['W'], color_identity=['W'], keywords=['Flying', 'Vanishing'], layout='normal'),  # noqa: E501
-    card('Test Bear', set_code='tst', number='M20', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
+    card('Rhet-Tomb Mystic', set_code='tst', number='M17', mana_cost='{1}{U}', cmc=2.0, type_line='Creature — Zombie Bird Wizard', oracle_text='Flying\nEach creature card in your hand has cycling {1}{U}. ({1}{U}, Discard that card: Draw a card.)', power='2', toughness='1', colors=['U'], color_identity=['U'], keywords=['Flying'], layout='normal'),  # noqa: E501
+    card('Sedris, the Traitor King', set_code='tst', number='M18', mana_cost='{3}{U}{B}{R}', cmc=6.0, type_line='Legendary Creature — Zombie Warrior', oracle_text='Each creature card in your graveyard has unearth {2}{B}. ({2}{B}: Return the card to the battlefield. The creature gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)', power='5', toughness='5', colors=['B', 'R', 'U'], color_identity=['B', 'R', 'U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Lorehold, the Historian', set_code='tst', number='M19', mana_cost='{3}{R}{W}', cmc=5.0, type_line='Legendary Creature — Elder Dragon', oracle_text="Flying, haste\nEach instant and sorcery card in your hand has miracle {2}. (You may cast a card for its miracle cost when you draw it if it's the first card you drew this turn.)\nAt the beginning of each opponent's upkeep, you may discard a card. If you do, draw a card.", power='5', toughness='5', colors=['R', 'W'], color_identity=['R', 'W'], keywords=['Flying', 'Haste'], layout='normal'),  # noqa: E501
+    card('Wire Surgeons', set_code='tst', number='M20', mana_cost='{4}{B}{B}', cmc=6.0, type_line='Creature — Human Artificer', oracle_text="Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nEach artifact creature card in your graveyard has encore. Its encore cost is equal to its mana cost. (Exile it and pay its mana cost: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)", power='6', toughness='5', colors=['B'], color_identity=['B'], keywords=['Fear'], layout='normal'),  # noqa: E501
+    card('Satoru Umezawa', set_code='tst', number='M21', mana_cost='{1}{U}{B}', cmc=3.0, type_line='Legendary Creature — Human Ninja', oracle_text='Whenever you activate a ninjutsu ability, look at the top three cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order. This ability triggers only once each turn.\nEach creature card in your hand has ninjutsu {2}{U}{B}.', power='2', toughness='4', colors=['B', 'U'], color_identity=['B', 'U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Steel Overseer', set_code='tst', number='M22', mana_cost='{2}', cmc=2.0, type_line='Artifact Creature — Construct', oracle_text='{T}: Put a +1/+1 counter on each artifact creature you control.', power='1', toughness='1', colors=[], color_identity=[], keywords=[], layout='normal'),  # noqa: E501
+    card('Lightning Bolt', set_code='tst', number='M23', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Lightning Bolt deals 3 damage to any target.', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
+    card('Elvish Visionary', set_code='tst', number='M24', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Elf Shaman', oracle_text='When this creature enters, draw a card.', power='1', toughness='1', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
+    card('Test Bear', set_code='tst', number='M99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
 ]
 
 
@@ -47,7 +55,8 @@ def card_db(settings: Settings) -> Path:
 
 @pytest.mark.parametrize("name", ["Raging Goblinoids", "Oscorp Industries", "Sandman's Quicksand", "Prison Break", "Spiders-Man, Heroic Horde", "Spider-UK",
                                   "Norman Osborn // Green Goblin", "Peter Parker // Amazing Spider-Man",
-                                  "Airbending Lesson", "Monk Gyatso", "Wibbly-wobbly, Timey-wimey", "Aven Riftwatcher"])
+                                  "Airbending Lesson", "Monk Gyatso", "Wibbly-wobbly, Timey-wimey", "Aven Riftwatcher",
+                                  "Rhet-Tomb Mystic", "Sedris, the Traitor King", "Lorehold, the Historian", "Wire Surgeons"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -316,4 +325,80 @@ def test_time_travel_on_a_permanent_removing_the_last_counter_triggers_vanishing
     travel(s, "Wibbly-wobbly, Timey-wimey", {bird.id}, "remove")
     answer(s)
     assert find(s, "Aven Riftwatcher").zone == "p1:graveyard"  # 702.63a: sacrificed when the last time counter is removed
+    roundtrip(s)
+
+
+def test_a_granted_cycling_works_from_the_hand_while_the_static_does(cards):
+    s = build(cards, p1=("Rhet-Tomb Mystic", "Test Bear"))
+    mystic = put(s, "Rhet-Tomb Mystic", "battlefield")
+    bear = put(s, "Test Bear", "hand")
+    hand = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+    mana(s, U=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=bear.id, ability=100)  # "Each creature card in your hand has cycling {1}{U}."
+    answer(s)
+    assert find(s, "Test Bear").zone == "p1:graveyard"
+    assert len([c for c in s.state.cards.values() if c.zone == "p1:hand"]) == hand  # discarded one, drew one
+    roundtrip(s)
+    put(s, "Rhet-Tomb Mystic", "graveyard")  # the static is gone: 113.6
+    bear2 = put(s, "Test Bear", "hand")
+    mana(s, U=1, C=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=bear2.id, ability=100)
+    assert mystic.id
+
+
+def test_a_granted_unearth_returns_the_creature_with_haste(cards):
+    s = build(cards, p1=("Sedris, the Traitor King", "Test Bear"))
+    put(s, "Sedris, the Traitor King", "battlefield")
+    bear = put(s, "Test Bear", "graveyard")
+    mana(s, B=1, C=2)  # unearth {2}{B}
+    act(s, "p1", type="activate_ability", card_id=bear.id, ability=100)
+    answer(s)
+    assert find(s, "Test Bear").zone == "p1:battlefield"
+    from app.rules.plan import Plan
+
+    assert "haste" in Plan(s.state, "p1", s.cards, None).ch(find(s, "Test Bear")).keywords  # 702.84a
+    roundtrip(s)
+
+
+def test_a_granted_encore_makes_attacking_token_copies(cards):
+    s = build(cards, p1=("Wire Surgeons", "Steel Overseer"))
+    put(s, "Wire Surgeons", "battlefield")
+    ov = put(s, "Steel Overseer", "graveyard")
+    mana(s, C=2)  # its encore cost is its mana cost {2}
+    act(s, "p1", type="activate_ability", card_id=ov.id, ability=100)
+    answer(s)
+    assert find(s, "Steel Overseer").zone == "p1:exile"
+    assert any(c.is_token and c.name == "Steel Overseer" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    roundtrip(s)
+
+
+def test_a_granted_miracle_reveals_the_first_card_drawn(cards):
+    s = build(cards, p1=("Lorehold, the Historian", "Lightning Bolt", "Elvish Visionary"))
+    put(s, "Lorehold, the Historian", "battlefield")
+    put(s, "Lightning Bolt", "library", position="top")
+    viz = put(s, "Elvish Visionary", "hand")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=viz.id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, "p1", type="pass_priority")
+            act(s, "p2", type="pass_priority")
+        else:
+            break
+    bolt = find(s, "Lightning Bolt")
+    assert bolt.zone == "p1:hand" and s.state.rules.miracle == [bolt.id]  # 702.94a: Lorehold gave it miracle {2}
+    mana(s, C=2)
+    act(s, "p1", type="miracle_reveal", card_id=bolt.id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        pick = "p2" if any(o.id == "p2" for o in d.options) else "yes" if any(o.id == "yes" for o in d.options) else d.options[0].id
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+    answer(s)
+    assert s.state.players["p2"].life == 37 and find(s, "Lightning Bolt").zone == "p1:graveyard"  # cast for {2}
     roundtrip(s)

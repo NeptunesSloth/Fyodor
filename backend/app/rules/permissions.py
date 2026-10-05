@@ -531,12 +531,14 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 "play": False, "cast": True, "filter": None, "while": cond, "effects": []}
     # -- top of library (wave 5I) -- "You may cast Dragon spells / artifact spells and colorless spells / creature spells of
     # the chosen type … from the top of your library", Radha's look-and-play line (app/rules/top_library.py)
-    from app.rules import escape, mayhem, top_library
+    from app.rules import escape, mayhem, top_library, zone_grants
 
     if (top := top_library.permission(t, lines)) is not None:
         return top
     if t.lower().startswith("each ") and (found_mayhem := mayhem.define_grant(t)) is not None:  # -- Marvel keywords (wave 25A) -- 702.187
         return found_mayhem
+    if re.search(r" in your (?:hand|graveyard)(?: that's [^.]*?)? (?:has|have) ", t) and (found_zone := zone_grants.define(t)) is not None:  # -- zone keyword grants (wave 25A)
+        return found_zone
     if t.lower().startswith(("escape—", "each ", "you may cast ~ from your graveyard by", "you may cast this c")) and (found_escape := escape.define_static(t)) is not None:
         return found_escape  # (702.138a: a printed escape cost, or "Each nonland card in your graveyard has escape. …")
     # -- end top of library (wave 5I) --
