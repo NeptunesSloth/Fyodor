@@ -634,5 +634,117 @@
    "Enchant"
   ],
   "layout": "normal"
+ },
+ {
+  "name": "Reach of Branches",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Kindred Instant \u2014 Treefolk",
+  "oracle_text": "Create a 2/5 green Treefolk Shaman creature token.\nWhenever a Forest you control enters, you may return this card from your graveyard to your hand.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Sosuke's Summons",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Create two 1/1 green Snake creature tokens.\nWhenever a nontoken Snake you control enters, you may return this card from your graveyard to your hand.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Rekindled Flame",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Rekindled Flame deals 4 damage to any target.\nAt the beginning of your upkeep, if an opponent has no cards in hand, you may return this card from your graveyard to your hand.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Genju of the Cedars",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant Forest\n{2}: Enchanted Forest becomes a 4/4 green Spirit creature until end of turn. It's still a land.\nWhen enchanted Forest is put into a graveyard, you may return this card from your graveyard to your hand.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Screams from Within",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets -1/-1.\nWhen enchanted creature dies, return this card from your graveyard to the battlefield.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Doom Blade",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target nonblack creature.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "layout": "normal"
  }
 ]

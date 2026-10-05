@@ -395,6 +395,60 @@ def test_mantle_of_the_ancients_returns_auras_to_the_enchanted_creature(cards):
     roundtrip(s)
 
 
+def test_a_spell_returns_itself_from_the_graveyard_when_a_forest_enters(cards):
+    """113.6m: an instant's triggered ability that works from the graveyard is no part of what the spell does as it resolves."""
+    s = build(cards, "Reach of Branches")
+    spell = to_hand(s, "Reach of Branches")
+    pay(s, G=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    settle(s)
+    assert s.state.cards[spell.id].zone == "p1:graveyard"
+    assert any(c.name == "Treefolk Shaman" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "hand"})
+    act(s, "p1", type="play_land", card_id=forest.id)
+    for _ in range(10):
+        d = decision(s)
+        if d is not None:
+            choose(s, next((o.id for o in d.options if o.label == "Yes"), d.options[0].id))
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[spell.id].zone == "p1:hand"
+    roundtrip(s)
+
+
+def test_genju_animates_its_forest_and_comes_back_when_it_dies(cards):
+    """"{2}: Enchanted Forest becomes a 4/4 … It's still a land." and "When enchanted Forest is put into a graveyard, you may return this card from
+    your graveyard to your hand." (the Aura is in the graveyard by the time the trigger resolves: 400.7f)."""
+    s = build(cards, "Genju of the Cedars", "Doom Blade")
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library"][:4]
+    for f in forests:
+        act(s, "p1", type="move", card_ids=[f.id], to={"player": "p1", "zone": "battlefield"})
+    genju = cast_on(s, "Genju of the Cedars", forests[0], G=1)
+    assert s.state.cards[genju.id].attached_to == forests[0].id
+    index = next(a.index for a in ch(s, genju).abilities if a.kind == "activated")
+    pay(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=genju.id, ability=index)
+    settle(s)
+    c = ch(s, forests[0])
+    assert c.is_creature and c.is_land and c.pt == (4, 4)  # "It's still a land"
+    blade = to_hand(s, "Doom Blade")
+    pay(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=blade.id, targets=[forests[0].id])
+    for _ in range(20):
+        d = decision(s)
+        if d is not None:
+            choose(s, next((o.id for o in d.options if o.label == "Yes"), d.options[0].id))
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[forests[0].id].zone == "p1:graveyard" and s.state.cards[genju.id].zone == "p1:hand"
+    roundtrip(s)
+
+
 def test_unifying_theory_the_caster_pays_and_draws(cards):
     s = build(cards, "Unifying Theory", "Probe Spell Book")
     on_battlefield(s, "Unifying Theory")

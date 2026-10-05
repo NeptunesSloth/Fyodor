@@ -418,6 +418,11 @@ def _aura_card_effects(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | 
     for e in effects:
         if e.get("do") == "bounce" and e.get("who") == "self":
             e = {**e, "who": AURA_CARD}
+        # -- attached events (wave 25D) -- "When enchanted creature dies, you may return this card from your graveyard to your hand / the
+        # battlefield" (the Genju, Screams from Within): the trigger is the Aura's own, put on the stack while it is still on the battlefield, and
+        # "this card" is its new object in the graveyard when the ability resolves (400.7f; effects._aura_card)
+        elif e.get("do") == "return_card" and e.get("who") in ("self", "self_gy") and e.get("to") in ("hand", "battlefield") and not e.get("host"):
+            e = {**e, "who": AURA_CARD}
         out.append(e)
     return None if '"self"' in json.dumps(out, default=str) else out
 
@@ -4240,6 +4245,14 @@ def _from_hand_ability(ab: AbilityText) -> bool:
     return ab.kind == "activated" and re.search(r"(?:^|, )(?:Discard|Reveal) (?:this (?:card|creature)|~)(?: from your hand)?(?:,|$)", ab.cost or "") is not None
 
 
+def graveyard_only_ability(d: Definition | None) -> bool:
+    """-- reanimation (wave 25D) -- 113.6m: a triggered ability that works only from the graveyard ("Whenever a Forest you control enters, you may
+    return this card from your graveyard to your hand." on an instant: Reach of Branches) is not part of what the spell does as it resolves."""
+    from app.rules.triggers import graveyard_ability, graveyard_trigger_ok
+
+    return d is not None and d.get("kind") == "triggered" and graveyard_ability(d) and graveyard_trigger_ok(d)
+
+
 def spell_definition(ch: Characteristics) -> Definition | None:
     """A whole instant/sorcery as one definition, if every line is automated (else None)."""
     if not ch.is_instant_or_sorcery:
@@ -4258,7 +4271,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
-    lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab)
+    lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab) and not graveyard_only_ability(defs.get(ab.index))
              and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional")  # (own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")

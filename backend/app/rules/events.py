@@ -137,6 +137,10 @@ _SELF_OR_HOST = ("~ or equipped creature", "~ or enchanted creature")
 
 def parse_condition(cond: str) -> Condition | None:
     """The part between "When/Whenever" and the comma → a condition, or None."""
+    # -- attached events (wave 25D) -- the Genju: "When enchanted Forest is put into a graveyard" — what an Aura is attached to is on the battlefield,
+    # so being put into a graveyard is dying (700.4); "enchanted Forest" is the land it's attached to
+    cond = re.sub(r"\benchanted (?:Plains|Island|Swamp|Mountain|Forest)\b", "enchanted land", cond)
+    cond = re.sub(r"^(enchanted (?:creature|permanent|land|artifact)) is put into a graveyard(?: from the battlefield)?$", r"\1 dies", cond.strip())
     try:
         try:
             found = _parse(cond.strip())

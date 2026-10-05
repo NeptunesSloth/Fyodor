@@ -296,7 +296,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return ("them" if plural else "it"), m["verb"], None  # (resolved to that instruction's objects)
     if re.fullmatch(r"(?:enchanted|equipped) creature and other creatures that share a creature type with it", p):  # -- attached events (wave 25D) --
         return "host_kin", "", None  # the Crowns (effects._host_kin); a kind no other wording reads, so only the effects that name it use it
-    if p in ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact"):
+    if p in ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact") \
+            or re.fullmatch(r"enchanted (?:Plains|Island|Swamp|Mountain|Forest)", p):  # (wave 25D: the Genju: "Enchant Forest")
         return "host", "", None  # what the source Aura / Equipment is attached to
     if p in PLAYER_GROUPS:
         return "players", PLAYER_GROUPS[p], None
