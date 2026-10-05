@@ -1432,11 +1432,11 @@ def _total_mana_spent(plan: Plan, ctx: dict[str, Any], need: int | str) -> bool:
         plan.note(f"{name}: how much mana was spent to cast it isn't known — apply the ability by hand",
                   [record.card] if record is not None and record.card in plan.state.cards else ())
         return False
-    if need == "under_mv":  # -- triggers (wave 21B) -- 202.3b: an X spell's mana value on the stack counts X (not modelled): not judged
+    if need == "under_mv":  # -- triggers (wave 21B) -- 202.3b: an X spell's mana value on the stack counts X (review (wave 21): 202.3e,
+        from app.rules.stack_interaction import mana_value  # as "that spell's mana value" reads it)
+
         spell = plan.state.cards.get(record.card)
-        if spell is None or "{X}" in plan.ch(spell).mana_cost:
-            return False
-        return sum(record.mana_spent.values()) < plan.ch(spell).mana_value
+        return spell is not None and sum(record.mana_spent.values()) < mana_value(spell, plan.ch(spell))
     if need == "over_min_pt":  # increment: strictly more than the smaller of the source's power and toughness (as it is now, 603.4)
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is None or not src.zone.endswith(":battlefield"):

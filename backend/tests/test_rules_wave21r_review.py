@@ -23,6 +23,8 @@ BOLT = card("Probe Bolt", set_code="t21r", number="R900", mana_cost="{R}", cmc=1
             colors=["R"], color_identity=["R"])
 SPIRIT = card("Probe Spirit", set_code="t21r", number="R901", mana_cost="{1}", cmc=1.0, type_line="Creature — Spirit", oracle_text="",
               power="1", toughness="1")
+X_HORROR = card("Probe X Horror", set_code="t21r", number="R902", mana_cost="{X}{B}", cmc=1.0, type_line="Creature — Horror", oracle_text="",
+                power="1", toughness="1", colors=["B"], color_identity=["B"])
 
 
 @pytest.fixture()
@@ -30,7 +32,7 @@ def card_db(settings):
     from app.cards.importer import build_database
 
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA, BOLT, SPIRIT], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, BOLT, SPIRIT, X_HORROR], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
 
 
@@ -201,4 +203,15 @@ def test_crackling_drake_counts_face_up_instants_in_exile_and_the_graveyard_only
     theirs = find(s, "Probe Bolt", "p2")
     act(s, "p2", type="move", card_ids=[theirs.id], to={"player": "p2", "zone": "exile"})
     assert power(s, drake) == 1  # (Bob's card: not one Alice owns)
+    roundtrip(s)
+
+
+def test_cellarspawn_counts_x_in_the_mana_value_of_an_x_spell(cards):
+    s = game(cards, ["Ancient Cellarspawn", "Probe X Horror"])
+    put(s, "Ancient Cellarspawn")
+    horror = put(s, "Probe X Horror", "hand")
+    mana(s, B=1, C=2)  # X = 3: a mana value of 4 on the stack (202.3e), and {1} less to pay: 3 spent
+    act(s, "p1", type="cast_spell", card_id=horror.id, x_value=3)
+    drive(s, picker("Bob"))
+    assert life(s, "p2") == 40 - 1
     roundtrip(s)
