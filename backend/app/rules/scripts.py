@@ -1887,6 +1887,8 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
     """An instruction, or two joined by ", then" / "and" ("Scry 1, then draw a card.", "You draw
     two cards and you lose 2 life."): each half must be understood. Each "target" word is its
     own target group (115.3); the halves' groups are numbered in order."""
+    if re.match(r"choose [^,]*\btargets?\b[^,]*, then \w+ all other\b", text):
+        return None  # (review 25B: "Choose up to one target creature, then airbend all other creatures": other than the chosen one, unread)
     found = _one_clause(text)
     if found is not None:
         return found

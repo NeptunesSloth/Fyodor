@@ -2371,10 +2371,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}, "face_down": True, "face_down_kind": face_down_kind})
     else:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
-    if a.face and (rd := plan.info.get(card.card_id or "")) is not None and (chars.room(rd) or rd.get("layout") in chars.HALVES):
-        # -- Rooms (wave 18G) -- 709.5d: the cast half (the move out of the hand reset the face); -- trigger other (wave 25B) -- 708.4, 715.4:
+    if a.face and not a.face_down and plan.state.cards[card.id].face != a.face:
+        # -- Rooms (wave 18G) -- 709.5d: the cast half (the move out of the hand reset the face); -- trigger other (wave 25B) -- 709.3b, 715.3b:
         # likewise the Adventure / the second half of a split card: on the stack it has only that half's characteristics (so "a creature spell"
-        # isn't an Adventure half, "whenever you cast an Adventure spell" is)
+        # isn't an Adventure half, "whenever you cast an Adventure spell" is); (review 25B) and a modal double-faced card's back face, 712.11
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     if cast_zone == "exile":  # -- static_other sweep (wave 17C) -- "Spells you cast from exile have convoke." (cast_limits.granted_helpers reads it)
         plan.do({"type": "set_stack_info", "card_id": card.id, "tags": ["Cast from exile"]})

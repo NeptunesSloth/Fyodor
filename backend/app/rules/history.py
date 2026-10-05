@@ -519,20 +519,6 @@ def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLo
     return _cmp(n, cond)
 
 
-def _attackers_power(plan: Plan, player: str) -> int:
-    """-- trigger other (wave 25B) -- the total power of the creatures ``player`` declared as attackers in the latest declaration
-    (508.1): as each is now, or — gone from the battlefield — as it last existed (608.2h)."""
-    total = 0
-    live = {plan.oid(c): c for c in plan.state.cards.values() if c.zone.endswith(":battlefield")}
-    for oid in plan.rules.combat_attackers.get(player, []):
-        if oid in live:
-            pt = plan.ch(live[oid]).pt
-            total += pt[0] if pt is not None else 0
-        elif (snap := plan.rules.lki.get(oid)) is not None and snap.power is not None:
-            total += snap.power
-    return total
-
-
 _WAVE_4D: dict[str, Any] = {
     "tokens": lambda plan, ctx, cond, log: _facts_holds(plan, ctx, {**cond, "kind": "token"}, log),
     "attackers": lambda plan, ctx, cond, log: len(log.attackers.get(ctx["controller"], [])) >= int(cond.get("n", 1)),
@@ -545,7 +531,7 @@ _WAVE_4D: dict[str, Any] = {
     "resolution": lambda plan, ctx, cond, log: resolution_holds(ctx, cond),
     "activations": lambda plan, ctx, cond, log: bool(cond.get("key")) and plan.rules.ability_uses.get(
         f"{cond['key']}:t{plan.state.turn.number}", 0) >= int(cond["n"]),
-    "attackers_power": lambda plan, ctx, cond, log: _attackers_power(plan, ctx["controller"]) >= int(cond["n"]),
+    "attackers_power": lambda plan, ctx, cond, log: plan.rules.attack_power.get(ctx["controller"], 0) >= int(cond["n"]),
     "self_attacked": lambda plan, ctx, cond, log: _source_object(plan, ctx) in {a for v in log.attackers.values() for a in v},
     "graveyard_cards": lambda plan, ctx, cond, log: _graveyard_cards(plan, ctx, cond, log),
     "rolled": lambda plan, ctx, cond, log: log.rolled.get(ctx["controller"], 0) >= int(cond["n"]),  # -- dice (wave 24B) --

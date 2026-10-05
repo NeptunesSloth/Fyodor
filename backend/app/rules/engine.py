@@ -19,6 +19,7 @@ automate, decisions, and conceding. Casting, abilities and combat arrive with mi
 from __future__ import annotations
 
 import re
+import secrets
 from collections.abc import Callable
 from typing import Any
 
@@ -29,6 +30,7 @@ from app.game.rules_state import (
     Decision,
     DecisionOption,
     PaymentRecord,
+    Permission,
     PlayerPrefs,
     TurnCount,
     Yield,
@@ -823,7 +825,27 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
     if card_id in plan.state.zones.get(STACK, []) and not card.is_token and card.card_id is not None and plan.ch(card).is_instant_or_sorcery \
             and replacements.leave_stack_instead(plan, card, controller):  # -- zone replacements (wave 22C) -- exile / shuffle / 616.1 choice
         return
+    # -- review 25B -- 720.3d: an Omen spell is shuffled into its owner's library as it resolves; 715.3d: an Adventure is exiled (resolve_top)
+    # and its controller may play it for as long as it remains exiled, not as an Adventure
+    spell_types = plan.ch(card).subtypes & {"Adventure", "Omen"} if not countered and not card.is_token and card.card_id else set()
+    if "Omen" in spell_types and card_id in plan.state.zones.get(STACK, []):
+        plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "library"}}, actor=controller)
+        plan.do({"type": "shuffle", "player": card.owner}, actor=controller)
+        return
     stack = plan.state.zones.get(STACK, [])
+    if "Adventure" in spell_types and card_id in stack:
+        plan.do({"type": "resolve_top", "force": True, "tapped": tapped, **({"card_id": card_id} if stack[-1] != card_id else {})},
+                actor=controller)
+        plan.rules.payments.pop(oid, None)
+        gone = plan.state.cards.get(card_id)
+        if gone is not None and gone.zone.endswith(":exile"):
+            from app.rules import selectors
+
+            plan.rules.permissions.append(Permission(
+                id=secrets.token_hex(4), player=controller, play=True, cast=True, zone="exile", object_id=plan.oid(gone), card=card_id,
+                until="permanent", turn=plan.state.turn.number, filter=selectors.Selector(zones=(STACK,), not_subtypes=("Adventure",)).key(),
+                label=f"{gone.name}: cast it from exile (it went on an adventure)"))
+        return
     if card_id in stack:
         step: dict[str, Any] = {"type": "resolve_top", "force": True, "tapped": tapped}
         if stack[-1] != card_id:  # -- refused look/cast-free (wave 3R5) -- 608.2g: spells cast while it resolved are
@@ -1033,6 +1055,8 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     if card is None:
         raise ActionError("That card isn't here any more")
     probe = card.model_copy(update={"face": a.face}) if a.face is not None else card
+    if probe.face and (plan.info.get(card.card_id or "") or {}).get("layout") != "modal_dfc":
+        raise ActionError("Only a modal double-faced card can be played with its back face up (712.12)")
     problem = land_play_problem(plan.state, plan.actor, card, plan.ch(probe), info=plan.info)
     if problem:
         raise ActionError(problem)
@@ -1076,6 +1100,8 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"}, "tapped": bool(ep["tapped"])}
     if a.x is not None and a.y is not None:
         payload.update(x=a.x, y=a.y)
+    if probe.face:  # (review 25B) 712.12: a modal double-faced land played back face up enters that way (leaving the hand resets the face)
+        payload["back_ids"] = [card.id]
     from_where = card.zone.rsplit(":", 1)[-1]
     plan.do(payload)
     plan.rules.entry_choices.pop(card.id, None)

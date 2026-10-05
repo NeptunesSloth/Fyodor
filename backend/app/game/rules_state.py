@@ -905,8 +905,9 @@ class RulesState(BaseModel):
     # (melee, 702.121a: the opponents each attacking player attacked directly — not through a planeswalker or battle, 506.3 — in the
     # latest declaration of attackers: "for each opponent you attacked with a creature this combat")
     attacked_players: dict[str, list[str]] = Field(default_factory=dict)
-    # -- trigger other (wave 25B) -- player -> the objects declared as attackers in their latest declaration ("this combat": pack tactics)
-    combat_attackers: dict[str, list[str]] = Field(default_factory=dict)
+    # -- trigger other (wave 25B) -- player -> the total power of the creatures declared as attackers in their latest declaration, as they
+    # were declared ("you attacked with creatures with total power 6 or greater this combat": pack tactics; review 25B: a snapshot)
+    attack_power: dict[str, int] = Field(default_factory=dict)
     miracle: list[str] = Field(default_factory=list)
     miracle_turn: dict[str, int] = Field(default_factory=dict)
     miracled: list[str] = Field(default_factory=list)

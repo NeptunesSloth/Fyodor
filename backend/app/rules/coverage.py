@@ -299,6 +299,10 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
 REFUSED += (
     # (-- trigger other (wave 25B) -- airbending a permanent is read now: app/rules/airbend.py; a spell's exile from the stack isn't)
     (re.compile(r"\bairbend[^.]*\bspells?\b", re.I), "airbending a spell: exiling it from the stack with that permission isn't modelled"),
+    # (review 25B: "Choose up to one target creature, then airbend all other creatures": "other" is other than the chosen one, not the source;
+    # scripts._clause refuses it)
+    (re.compile(r"\bchoose [^.]*\btargets?\b[^.]*, then \w+ all other\b", re.I),
+     "'all other' after a chosen target means other than the chosen objects: not modelled"),
     (re.compile(r"\bwaterbend", re.I),
      "waterbend (701.67): a cost whose generic part may be paid by tapping artifacts/creatures isn't modelled"),
     (re.compile(r"\bmanifests? the top card of (?:that player's|target player's|an opponent's)", re.I),
