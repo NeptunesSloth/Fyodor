@@ -317,3 +317,23 @@ card), and the Room cards with other blockers: Smoky Lounge // Misty Salon (rest
 Stairs, Dollmaker's Shop // Porcelain Gallery, Secret Arcade // Dusty Parlor, Charred Foyer, Cramped Vents, Greenhouse, Walk-In
 Closet, Polluted Cistern, Experimental Lab. Attractions (CR 717) are not built: the lit-up numbers are per printing and not in the
 card data, and the supplementary Attraction deck needs deck-building support.
+
+## Counter kinds, suspend granted, flip cards, hone counters (wave 24C)
+- `counter_kinds.py` (122.1, 608.2d): "for each kind of counter on target permanent [or player], give … another counter of that kind", "put another
+  … or remove one", "choose a counter on …, give …", "remove any number of counters" (the controller says how many of each kind, kind by kind;
+  `counter_moves` asks the same for "move any number of counters"). Gives are puts through the counter choke point. `target permanent or player`
+  is a target selector now. Not read: "each other creature" after "choose a kind of counter on a creature" (Contractual Safeguard: other than what),
+  "any number of counters" from a group of sources, "suspended card" targets (Clockspinning, Jhoira's Timebug).
+- `suspend_grants.py` (702.62b): "exile it with N time counters on it. If it doesn't have suspend, it gains suspend" is the exile, the counters and
+  joining `RulesState.suspended` (a card that left exile or lost its last time counter is dropped at the next upkeep, `triggers._suspend`).
+  Not read: counters equal to a mana value chosen from a hand (The Eleventh Doctor), a cost exiling a card from a hand (Jhoira of the Ghitu),
+  Soothsayer / Venture Forth ("the rest on the bottom in a random order").
+- Flip cards (CR 710): `keyword_actions.flip` sets `face` 1 of a layout-flip card (one-way, forgotten off the battlefield: `ops` resets it);
+  `characteristics._from_card_data` keeps the front's mana cost, mana value and colors (710.1c). Copying a flip card stays by hand
+  (`copying.supported_source`). Flip cards with other blockers: Nezumi Graverobber, Nezumi Shortfang, Kitsune Mystic, Homura, Sasaya, Erayo.
+- "enters with" under a negated cast condition ("if you didn't cast it from your hand", "unless you've cast another red spell this turn") reads
+  the same condition grammar; a negated mana test stays refused (a spell cast by hand has no known payment).
+- Hone counters (122.1j): +1/+0 to the creature the Equipment is attached to (`layers._hone`, layer 7c).
+- "[mandatory counters]. When you do, …" is a reflexive trigger (603.12) that waits for the counters really being put (Solemnity stops it).
+- Not built (left for later): forecast (702.57: from-hand activation with a "reveal this card" cost, 11 cards), the Adversary cycle ("pay … any number of
+  times"), cast-trigger riders ("that creature enters with an additional +1/+1 counter": Torgal, Kumano, Fenrir), enters-as-copy with counters (Spark Double).
