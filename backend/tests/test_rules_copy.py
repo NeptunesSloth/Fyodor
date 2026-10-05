@@ -864,8 +864,8 @@ def test_copy_cards_are_fully_automated(name):
     # 707.9e: a shield counter's replacement isn't automated (Undercover Operative)
     "You may have this creature enter as a copy of any creature on the battlefield, except it enters with a shield counter on it "
     "if you control that creature.",
-    # a copy of a card in a graveyard (Body Double, Echoing Deeps): not read
-    "You may have this creature enter as a copy of any creature card in a graveyard.",
+    # a copy of a card in a graveyard that was put there this turn (Activated Sleeper): not read
+    "You may have this creature enter as a copy of any creature card in a graveyard that was put there from the battlefield this turn.",
 ])
 def test_unsupported_enter_as_a_copy_wordings_stay_manual(text):
     ch_ = characteristics("Probe", "Creature — Shapeshifter", text)

@@ -21,8 +21,8 @@ from app.game.state import GameState
 from app.rules import copying, coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_attachments import build, ch, named, to_hand, token
-from tests.test_rules_copy import cast_clone, choose, decision, on_battlefield, pay
+from tests.test_rules_attachments import build, ch, to_hand, token
+from tests.test_rules_copy import choose, decision, on_battlefield, pay
 from tests.test_rules_effects import pass_until_stack_empty, replay_matches
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave24a_copy_cards.json").read_text("utf-8"))

@@ -275,6 +275,7 @@ def _table_key(state: GameState) -> tuple:
                len(log.entered_graveyard), len(log.entered),  # (wave 3R1: entered)
                # -- this-turn history (wave 4D) -- spells cast, facts, attackers, lands played
                len(log.casts), len(log.facts), tuple(sorted((p, len(a)) for p, a in log.attackers.items())),
+               len(r.events), r.trigger_batch,  # (wave 24A: facts of events not yet looked at are read too, history.log_for)
                tuple(sorted((p, (c.turn, c.count)) for p, c in r.lands_played.items()))) if log is not None and r else ()
     designations = (tuple(r.monstrous), tuple(r.renowned), tuple(r.suspected)) if r else ()  # -- conditional statics (wave 4B) --
     return (state.seq, state.turn.number, state.turn.active_player, players, field,

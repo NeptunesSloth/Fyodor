@@ -39,8 +39,19 @@ Refused — the engine asks for the copy to be made by hand, never guesses: face
 (707.2, 708.2), melded or reversible sources of token copies and of permanent-spell copies
 (707.8a, 712.8g), Aura spells, "for each player or object it could target" (707.10d), a copy
 that specifies its new target (707.10e), casting a copy (707.12), Garth One-Eye and Magar of the
-Magic Strings (707.13-707.14), exceptions that are additional effects (707.9e) and copies of
+Magic Strings (707.13-707.14), exceptions that are additional effects of a token or a "becomes"
+copy (707.9e: only an object entering as a copy "enters with" more) and copies of
 linked abilities (707.7) — the grammar doesn't read those wordings, so the cards stay manual.
+
+-- copy exceptions (wave 24A) -- 707.9: ``CopyExcept`` also carries the card types an exception sets ("it's an artifact", "it loses all
+other card types", 707.9b), abilities gained only if the result is a creature / planeswalker (707.9f: Moritte), "it doesn't copy that
+creature's color" (707.9c: the object's own colors, ``keep_colors``) and — read only for an object entering as a copy — "it enters with
+an additional +1/+1 counter on it [if it's a creature]" (707.9e: an additional effect of the replacement, kept on the definition and
+applied by ``entry_counters`` through ``replacements.entering_counters``; never a copiable value, and dropped when the copied text
+enters as a copy itself). A character card's "he's / his name is" is read like "it". "Becomes a copy" accepts "another" / "up to one other"
+targets, the object a trigger or earlier instruction names ("it", "that creature": as it last existed when it left, 608.2h), a card in a
+graveyard (its printed values, 707.2) and a group ("each other creature [you control]", ``parse_become_group``: one effect on the group as
+it is as it begins, 611.2c). "Enter as a copy of a creature card in a graveyard" reads public cards only.
 
 -- refused copy/mana (wave 3R3) -- now automated: a token copy or a permanent spell's copy of a
 transforming or modal double-faced object is a double-faced token (707.8a, 707.10g:

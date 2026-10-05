@@ -18,7 +18,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_attachments import build, ch, to_hand
 from tests.test_rules_copy import choose, decision, on_battlefield, pay
-from tests.test_rules_effects import pass_until_stack_empty, replay_matches
+from tests.test_rules_effects import replay_matches
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave24a_become_cards.json").read_text("utf-8"))
 EXTRA = [card(c["name"], set_code="t24d", number=f"B{i:02d}", **{k: v for k, v in c.items() if k not in ("name", "layout", "card_faces")})

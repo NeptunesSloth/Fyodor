@@ -408,8 +408,10 @@ def test_clone_variant_wordings_are_covered():
     assert ok("You may have this creature enter as a copy of any creature on the battlefield with mana value less than or "
                   "equal to the amount of mana spent to cast this creature, except it's a Bird in addition to its other types "
                   "and it has flying.", "Mockingbird")
-    # still refused: a card in a graveyard (Body Double)
-    assert not ok("You may have this creature enter as a copy of any creature card in a graveyard.", "Body Double")
+    # (wave 24A: a card in a graveyard is read, Body Double; one put there this turn still isn't, Activated Sleeper)
+    assert ok("You may have this creature enter as a copy of any creature card in a graveyard.", "Body Double")
+    assert not ok("You may have this creature enter as a copy of any creature card in a graveyard that was put there from the battlefield "
+                  "this turn.", "Activated Sleeper")
 
 
 def test_vesuva_enters_tapped_as_a_copy_of_a_land(cards):
