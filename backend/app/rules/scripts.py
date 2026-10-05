@@ -3352,7 +3352,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # -- intervening ifs (wave 11F) -- "At the beginning of your upkeep, if ~ has no charge counters on it, return
                     # it …": a step or a player's event names no object, so the "if" names the only one: ~
                     ante = "self"
-                parsed = parse_effects(body, it=ante, event_player=has_player)
+                # -- unless pays (wave 20E) -- "Whenever ~ becomes the target of a spell or ability an opponent controls, counter that
+                # spell or ability unless its controller pays {2}." (ward's own text, 702.21a): the spell or ability the event names
+                tm = re.fullmatch(r"counter that spell or ability unless its controller pays ((?:\{[^}X]+\})+)\.?", body)
+                parsed = parse_effects(body, it=ante, event_player=has_player) if tm is None or (cond or {}).get("event") != "targeted" \
+                    else ([{"do": "counter_unless", "who": "event_source", "cost": tm[1]}], None, False)
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
                 if parsed is None and cond is not None and cond.get("other") and cond.get("subject", "self") in ("self", "host") and (
