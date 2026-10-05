@@ -287,6 +287,11 @@ def _blocking_source(s: Selector, m: re.Match[str]) -> Selector:  # blocks (509.
     return replace(s, extras=(*s.extras, "blocking_source" if m["b"].startswith("blocking") else "blocked_by_source"))
 
 
+@_suffix(r"that has an Adventure")  # -- trigger other (wave 25B) -- 715.1: the card is an adventurer card ("It doesn't need to have gone on the adventure first")
+def _has_adventure(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "has_adventure"))
+
+
 @_suffix(r"with \{[xX]\} in (?:its|their) mana costs?")  # -- activated wordings (wave 15D) -- "a spell with {X} in its mana cost" (107.3)
 def _has_x_cost(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "x_cost"))
@@ -1515,6 +1520,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if src is None or not src.zone.endswith(":battlefield") or not card.zone.endswith(":battlefield"):
                 return False
             if (not card.blocks(src.id)) if extra == "blocking_source" else (not src.blocks(card.id)):
+                return False
+        if extra == "has_adventure":  # (wave 25B) the printing is an adventurer card, whichever half it is as it is cast
+            data = plan.info.get(card.card_id) if card.card_id else None
+            if not (data and data.get("layout") == "adventure"):
                 return False
         if extra == "greatest_power_own":  # -- damage wordings (wave 6B) -- the greatest power among creatures its
             # controller controls (Crackling Doom: what the sacrificing player may choose; ties all qualify)

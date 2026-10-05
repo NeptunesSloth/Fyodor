@@ -28,6 +28,9 @@ ALT_COST = "{2}"  # 701.65a
 def airbend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.effects import _cards, exile_cards
 
+    # (permissions of cards that have since left exile are spent for good, 400.7h: dropped, so the list doesn't grow)
+    plan.rules.permissions = [p for p in plan.rules.permissions if not p.alt_mana or (
+        p.card in plan.state.cards and plan.oid(plan.state.cards[p.card]) == p.object_id)]
     cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
     if not cards:
         return True

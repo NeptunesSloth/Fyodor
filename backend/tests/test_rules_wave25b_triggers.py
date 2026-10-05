@@ -44,6 +44,8 @@ CARDS = [
      "This artifact enters with two +1/+1 counters on it.\n{T}: Move a +1/+1 counter from this artifact onto target creature you control. "
      "Activate only as a sorcery.\nWhenever a modified creature you control leaves the battlefield, put a +1/+1 counter on this artifact. "
      "(Equipment, Auras you control, and counters are modifications.)"),
+    ("Edgewall Innkeeper", "{G}", "Creature — Human Peasant", "1", "1",
+     "Whenever you cast a creature spell that has an Adventure, draw a card. (It doesn't need to have gone on the adventure first.)"),
     ("Probe Dummy", "{1}", "Creature — Bear", "1", "1", ""),
     ("Probe Vampire", "{B}", "Creature — Vampire", "1", "1", ""),
     ("Probe Wizard", "{U}", "Creature — Human Wizard", "1", "1", ""),
@@ -277,4 +279,19 @@ def test_a_modified_creature_leaving_the_battlefield_is_read_as_it_last_existed(
     assert sum(s.state.cards[closet.id].counters.values()) == base  # (it had no counter: not modified)
     bolt(s, modified.id)
     assert sum(s.state.cards[closet.id].counters.values()) == base + 1
+    check(s)
+
+
+@pytest.mark.parametrize("face,draws", [(0, 1), (1, 0)])
+def test_a_creature_spell_that_has_an_adventure_counts_whichever_half_is_a_creature(cards, face, draws):
+    """Edgewall Innkeeper: the creature half of Bonecrusher Giant is "a creature spell that has an Adventure"; its Adventure half (Stomp,
+    an instant) is not a creature spell (715.4)."""
+    s = build(cards, ["Edgewall Innkeeper", "Bonecrusher Giant // Stomp"])
+    put(s, "Edgewall Innkeeper")
+    giant = to_hand(s, "Bonecrusher Giant // Stomp")
+    mana(s, R=3)
+    hand = len(s.state.zones["p1:hand"]) - 1  # (the spell leaves it)
+    act(s, "p1", type="cast_spell", card_id=giant.id, face=face, **({"targets": ["p2"]} if face else {}))
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == hand + draws
     check(s)
