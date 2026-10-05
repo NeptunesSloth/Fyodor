@@ -399,7 +399,9 @@ def _turn_amount(what: str) -> Value | None:
         if n is None:
             return None
         return {"turn_history": "opponents_who", "what": "drew" if m["drew"] else "lost" if m["lost"] else "damaged" if m["hurt"] else "lands", "n": n}
-    from app.rules import player_filter  # -- per-player filters (wave 23A) -- "for each opponent who controls fewer creatures than you"
+    from app.rules import (
+        player_filter,  # -- per-player filters (wave 23A) -- "for each opponent who controls fewer creatures than you"
+    )
 
     return player_filter.count(what)
 # -- end this-turn history (wave 4D) --

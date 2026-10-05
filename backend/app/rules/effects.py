@@ -4088,3 +4088,8 @@ PRIMITIVES.update(_leave_exile.PRIMITIVES)
 from app.rules import player_filter as _player_filter  # noqa: E402, I001
 
 PRIMITIVES.update(_player_filter.PRIMITIVES)
+# -- villainous choice (wave 23A) -- 701.55 (app/rules/villainous.py)
+from app.rules import villainous as _villainous  # noqa: E402, I001
+
+PRIMITIVES.update(_villainous.PRIMITIVES)
+RESUME.update(_villainous.RESUME)

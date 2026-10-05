@@ -1962,8 +1962,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # so the list is any of them and the qualifier is every kind's (Pernicious Deed); "and/or" is the selector grammar's spelling
     body = re.sub(r"(?i)\b(each|all) ((?:(?:artifact|creature|enchantment|land|planeswalker|battle), )+)and "
                   r"((?:artifact|creature|enchantment|land|planeswalker|battle) with mana value\b)", r"\1 \2and/or \3", body)
-    from app.rules import per_opponent  # -- per-opponent targets (wave 12C) --
-    from app.rules import player_filter  # -- per-player filters (wave 23A) -- ", then each opponent who …" is a sentence of its own
+    from app.rules import (
+        per_opponent,  # -- per-opponent targets (wave 12C) --
+        player_filter,  # -- per-player filters (wave 23A) -- ", then each opponent who …" is a sentence of its own
+    )
 
     body = player_filter.rewrite(body)
     if (each_opp := per_opponent.parse(body, lambda b: parse_effects(b, it, event_player=event_player))) is not None:
@@ -2409,7 +2411,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         # -- per-player filters (wave 23A) -- "Each opponent who doesn't control an Elf loses 1 life." / "Each opponent who can't …"
         from app.rules import player_filter as _player_filter
+        from app.rules import villainous as _villainous  # -- villainous choice (wave 23A) -- 701.55
 
+        if (villain := _villainous.sentence(text, effects, lambda t: _plain_clause(t, it, True))) is not None:
+            effects += villain
+            continue
         if (filtered := _player_filter.sentence(text, effects, lambda t: _plain_clause(t, it, event_player))) is not None:
             effects += filtered
             continue
