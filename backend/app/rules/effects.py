@@ -4133,4 +4133,8 @@ PRIMITIVES.update(_player_filter.PRIMITIVES)
 from app.rules import villainous as _villainous  # noqa: E402, I001
 
 PRIMITIVES.update(_villainous.PRIMITIVES)
+# -- speed (wave 24B) -- 702.179c (app/rules/speed.py)
+from app.rules import speed as _speed  # noqa: E402, I001
+
+PRIMITIVES.update(_speed.PRIMITIVES)
 RESUME.update(_villainous.RESUME)

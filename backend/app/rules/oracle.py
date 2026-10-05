@@ -341,6 +341,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         if (um := re.fullmatch(r"(.+?) enters tapped and (doesn't untap during your untap step)\.", line)) and not spell:
             line = f"{um[1]} enters tapped."
             tail.append((f"{um[1]} {um[2]}.", sections[n]))
+        if line.startswith("Max speed — ") and not spell:  # -- speed (wave 24B) -- 702.178a: "As long as you have max speed, ~ has …"
+            from app.rules import speed
+
+            line = speed.rewrite(line)
         kind, kws, cost = classify(line, spell=spell)
         out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n]))
         # -- keyword meanings (wave 18E) -- 702.151a: "Reconfigure [cost]" is two activated abilities, "[Cost]: Attach this permanent to another

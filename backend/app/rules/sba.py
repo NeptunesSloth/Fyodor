@@ -215,6 +215,9 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
     from app.rules import designations  # -- keywords (wave 15E) -- 702.131b: ascend, any time
 
     happened = designations.ascend_permanents(plan) or happened
+    from app.rules import speed  # -- speed (wave 24B) -- 704.5aa
+
+    happened = speed.start_engines(plan) or happened
     for pid, reason in found.losers:
         r.lost[pid] = reason
         plan.note(f"{state.players[pid].name} loses the game ({reason})")

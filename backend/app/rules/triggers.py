@@ -273,6 +273,9 @@ def collect(plan: Plan) -> None:
     from app.rules import designations
 
     designations.on_events(plan, new)
+    from app.rules import speed  # -- speed (wave 24B) -- 702.179d: the inherent speed trigger
+
+    speed.on_events(plan, new)
     for e in new:
         if e.kind == "spell_cast" and not e.manual:
             _cast_triggers(plan, e.card or "", e.player or "", e.batch)
