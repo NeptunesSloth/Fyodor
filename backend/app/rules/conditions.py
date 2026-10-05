@@ -807,7 +807,7 @@ def _crime(m: re.Match[str]) -> Condition:
     return {"history": "facts", "kind": "crime", "who": "you", "n": 1}  # 700.13
 
 
-@_history_pattern(r"(?!this is the \w+ time$)(?:this is|it's) the (?P<nth>first|second|third|fourth|fifth) time(?: this ability has resolved this turn)?")  # (wave 20C: "If it's the second time")
+@_history_pattern(r"this is the (?P<nth>first|second|third|fourth|fifth) time this ability has resolved this turn")
 def _resolution(m: re.Match[str]) -> Condition:
     return {"history": "resolution", "n": ["first", "second", "third", "fourth", "fifth"].index(m["nth"]) + 1}
 

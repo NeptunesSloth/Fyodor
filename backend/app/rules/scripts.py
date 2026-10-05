@@ -2137,6 +2137,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     )
 
     body = pump_each.rewrite(body)
+    # -- ability words (wave 20C) -- "… if this is the first time this ability has resolved this turn. If it's the second time, …" (Omnath,
+    # Vito): a bare "it's the second time" means this same ability's resolutions, once the sentence before has said so
+    if re.search(r"\bthis is the \w+ time this ability has resolved this turn\b", body):
+        body = re.sub(r"\b([Ii]f) it's the (first|second|third|fourth|fifth) time\b", r"\1 this is the \2 time this ability has resolved this turn", body)
     # -- reanimation (wave 20C) -- "Put a +1/+1 counter on each of those creatures." / "Each of those creatures gains haste": the
     # objects the sentence before named, as "each of them" / "those creatures" read them (608.2c)
     body = re.sub(r"(\b[Pp]ut [^.,]+? counters? on) each of those (?:creatures|permanents|cards|artifacts|lands|enchantments)\b", r"\1 each of them", body)

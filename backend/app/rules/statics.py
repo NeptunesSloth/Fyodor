@@ -254,7 +254,10 @@ def parse(text: str) -> Definition | None:
         body = f"{attached_cond['who'].capitalize()} {attached_cond['noun']}{body[2:]}"
     subject, predicate = _split_subject(body)
     # -- attached events (wave 4L) -- "Enchanted creature loses all abilities and is a …" (verbs the split doesn't know)
-    m = re.match(r"(?P<s>(?:Enchanted|Equipped) (?:creature|permanent|land)) (?P<p>(?:loses|is) .+)$", body)
+    # (-- ability words (wave 20C) -- "As long as there are seven or more cards in your graveyard, ~ is white and has "…"" (Repentant
+    # Vampire): the source's own color under a condition that never reads colors — the `own_colors` rule below; nothing else of "is")
+    m = re.match(r"(?P<s>(?:Enchanted|Equipped) (?:creature|permanent|land)|~(?= is (?:white|blue|black|red|green) and has )) "
+                 r"(?P<p>(?:loses|is) .+)$", body)
     if m is not None:
         subject, predicate = m["s"], m["p"]
     if subject is None or predicate is None:

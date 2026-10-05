@@ -61,7 +61,10 @@ EXTRA += [
          oracle_text='Equipped creature gets +1/+1 and has trample and haste.\nFlurry — Whenever you cast your second spell each turn, create a 1/1 white Monk creature token with prowess. You may attach this Equipment to it. (Whenever you cast a noncreature spell, the token gets +1/+1 until end of turn.)\nEquip {1}{R}',
          power=None, toughness=None, colors=['R'], color_identity=['R'], keywords=['Flurry', 'Equip']),
 ]
-FULL = ['Gremlin Tamer', 'Balemurk Leech', 'Erratic Apparition', 'Omnath, Locus of Creation', 'Azusa, Lost but Seeking',
+EXTRA.append(card('Repentant Vampire', set_code='tst', number='YB', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Creature — Vampire',
+                  oracle_text='Flying\nWhenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature.\nThreshold — As long as there are seven or more cards in your graveyard, this creature is white and has "{T}: Destroy target black creature."',
+                  power='3', toughness='3', colors=['B'], color_identity=['B'], keywords=['Flying', 'Threshold']))
+FULL = ['Repentant Vampire', 'Gremlin Tamer', 'Balemurk Leech', 'Erratic Apparition', 'Omnath, Locus of Creation', 'Azusa, Lost but Seeking',
         "Valgavoth's Onslaught", 'Gorbag of Minas Morgul', 'Kefnet the Mindful', 'Vile Manifestation', 'Shed Weakness', 'Cori-Steel Cutter']
 
 
@@ -192,6 +195,20 @@ def test_vile_manifestation_counts_the_cards_with_cycling_in_its_owners_graveyar
     assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[horror.id]).pt == (0, 4)
     act(s, "p1", type="move", card_ids=[copies[1].id], to={"player": "p1", "zone": "graveyard"})  # (it has cycling: +1/+0)
     assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[horror.id]).pt == (1, 4)
+
+
+def test_repentant_vampire_is_white_with_threshold(cards):
+    """"As long as there are seven or more cards in your graveyard, this creature is white and has "{T}: Destroy target black
+    creature."": its own color (layer 5) under a condition about the graveyard only."""
+    s = build(cards, "Repentant Vampire")
+    vamp = on_field(s, "Repentant Vampire")
+    assert ch(s, vamp).colors == frozenset({"B"})
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library"][:7]
+    for i, f in enumerate(forests):
+        act(s, "p1", type="move", card_ids=[f.id], to={"player": "p1", "zone": "graveyard"})
+        assert (ch(s, vamp).colors == frozenset({"W"})) is (i == 6)  # (the seventh card)
+    replay_matches(s)
+    replay_matches(reloaded(s))
 
 
 def test_shed_weakness_only_the_counter_removal_is_optional(cards):
