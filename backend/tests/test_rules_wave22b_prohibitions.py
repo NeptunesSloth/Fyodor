@@ -27,12 +27,18 @@ EXTRA = [
     real("Kitchen Finks", "{1}{G/W}{G/W}", 3, "Creature — Ouphe", "When this creature enters, you gain 2 life.\nPersist (When this creature dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.)", ("3", "2"), "GW"),
     real("Battlegrowth", "{G}", 1, "Instant", "Put a +1/+1 counter on target creature.", None, "G"),
     real("Aether Hub", "", 0, "Land", "When this land enters, you get {E} (an energy counter).\n{T}: Add {C}.\n{T}, Pay {E}: Add one mana of any color."),
+    real("Angel of Jubilation", "{1}{W}{W}{W}", 4, "Creature — Angel", "Flying\nOther nonblack creatures you control get +1/+1.\nPlayers can't pay life or sacrifice creatures to cast spells or activate abilities.", ("3", "3"), "W"),
+    real("Yasharn, Implacable Earth", "{2}{G}{W}", 4, "Legendary Creature — Elemental Boar", "When Yasharn enters, search your library for a basic Forest card and a basic Plains card, reveal those cards, put them into your hand, then shuffle.\nPlayers can't pay life or sacrifice nonland permanents to cast spells or activate abilities.", ("4", "4"), "GW"),
+    real("Karn's Sylex", "{3}", 3, "Legendary Artifact", "Karn's Sylex enters tapped.\nPlayers can't pay life to cast spells or to activate abilities that aren't mana abilities.\n{X}, {T}, Exile Karn's Sylex: Destroy each nonland permanent with mana value X or less. Activate only as a sorcery."),
+    real("Fling", "{1}{R}", 2, "Instant", "As an additional cost to cast this spell, sacrifice a creature.\nFling deals damage equal to the sacrificed creature's power to any target.", None, "R"),
+    real("Gut Shot", "{R/P}", 1, "Instant", "({R/P} can be paid with either {R} or 2 life.)\nGut Shot deals 1 damage to any target.", None, "R"),
+    real("Mana Confluence", "", 0, "Land", "{T}, Pay 1 life: Add one mana of any color."),
     real("Probe Bear", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
     real("Probe Golem", "{3}", 3, "Artifact Creature — Golem", "", ("3", "3")),
     real("Probe Relic", "{3}", 3, "Artifact", "", None),
     real("Probe Big Spell", "{4}{R}", 5, "Sorcery", "Probe Big Spell deals 1 damage to any target.", None, "R"),
 ]
-FULL = ["Grafdigger's Cage", "Weathered Runestone", "Soulless Jailer", "Kunoros, Hound of Athreos", "Solemnity", "Tatterkite", "Melira's Keepers",
+FULL = ["Angel of Jubilation", "Yasharn, Implacable Earth", "Karn's Sylex", "Grafdigger's Cage", "Weathered Runestone", "Soulless Jailer", "Kunoros, Hound of Athreos", "Solemnity", "Tatterkite", "Melira's Keepers",
         "Gaddock Teeg", "Aether Storm"]
 
 
@@ -172,4 +178,53 @@ def test_gaddock_teeg_and_aether_storm_forbid_by_type_and_mana_value(cards):
     answer(s)
     with pytest.raises(ActionError, match="can't cast"):
         act(s, "p1", type="cast_spell", card_id=to_hand(s, "Aether Storm").id)  # mana value 4: Teeg stops it
+    check(s)
+
+
+def test_angel_of_jubilation_stops_life_for_phyrexian_mana_and_creature_sacrifice_costs(cards):
+    s = build(cards, ["Angel of Jubilation", "Gut Shot", "Fling", "Probe Bear", "Probe Relic"], [])
+    put(s, "Angel of Jubilation")
+    bear = put(s, "Probe Bear")
+    shot = to_hand(s, "Gut Shot")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=shot.id, targets=["p2"])  # 2 life would pay the {R/P}: it can't (119.4)
+    assert s.state.players["p1"].life == 40
+    mana(s, R=2)
+    fling = to_hand(s, "Fling")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=fling.id, targets=["p2"])  # no creature may be sacrificed to the additional cost
+    assert zone_of(s, "Probe Bear") == "p1:battlefield" and bear.id
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=shot.id, targets=["p2"])  # mana pays {R/P}: fine
+    check(s)
+
+
+def test_yasharn_also_stops_nonland_permanents_and_mana_abilities_that_pay_life(cards):
+    s = build(cards, ["Yasharn, Implacable Earth", "Fling", "Probe Relic", "Mana Confluence", "Probe Bear"], [])
+    put(s, "Yasharn, Implacable Earth")
+    put(s, "Probe Relic")
+    put(s, "Probe Bear")
+    confluence = put(s, "Mana Confluence")
+    from app.rules import casting
+
+    assert not [i for i, _ in casting.mana_abilities(s.state, confluence, s.cards)]  # 605.1a: "or activate abilities" includes mana abilities
+    assert s.state.players["p1"].life == 40
+    mana(s, R=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Fling").id, targets=["p2"])  # the Bear or the Relic: neither may be sacrificed
+    check(s)
+
+
+def test_karn_s_sylex_stops_life_costs_but_not_mana_abilities(cards):
+    s = build(cards, ["Karn's Sylex", "Gut Shot", "Mana Confluence"], [])
+    put(s, "Karn's Sylex")
+    shot = to_hand(s, "Gut Shot")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=shot.id, targets=["p2"])  # 2 life can't pay the {R/P}
+    confluence = put(s, "Mana Confluence")
+    from app.rules import casting
+
+    assert [i for i, _ in casting.mana_abilities(s.state, confluence, s.cards)]  # a mana ability: Sylex doesn't stop it
+    act(s, "p1", type="cast_spell", card_id=shot.id, targets=["p2"])  # paid with {R} from the Confluence (its life is that ability's cost)
+    assert s.state.players["p1"].life == 39
     check(s)

@@ -23,17 +23,22 @@ from app.game.state import zone_key
 from app.rules import selectors
 
 if TYPE_CHECKING:
-    from app.game.state import CardInstance
+    from app.game.state import CardInstance, GameState
+    from app.rules.characteristics import CardInfo
     from app.rules.plan import Plan
 
 Definition = dict[str, Any]
-KINDS = ("cant_enter", "cant_counters")
+KINDS = ("cant_enter", "cant_counters", "cant_pay")
 
 _ENTER = re.compile(r"^(?P<what>(?:nonland )?(?:permanent|creature) cards) in (?P<zones>graveyards|libraries|graveyards and libraries) "
                     r"can't enter the battlefield$")
 _ZONES = {"graveyards": ("graveyard",), "libraries": ("library",), "graveyards and libraries": ("graveyard", "library")}
 _COUNTERS = re.compile(r"^counters can't be put on (?P<sel>[a-z, ]+)$")
 _SELF_COUNTERS = "~ can't have counters put on it"
+# "Players can't pay life or sacrifice creatures to cast spells or activate abilities." (Angel of Jubilation, Yasharn), "Players can't pay life to
+# cast spells or to activate abilities that aren't mana abilities." (Karn's Sylex)
+_PAY = re.compile(r"^players can't pay life(?: or sacrifice (?P<sac>[a-z ]+))? to cast spells(?P<act> or activate abilities"
+                  r"| or to activate abilities that aren't mana abilities)$")
 
 
 def static_definition(text: str) -> Definition | None:
@@ -51,6 +56,13 @@ def static_definition(text: str) -> Definition | None:
         if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras or sel.other:
             return None
         return {"kind": "static", "static": "cant_counters", "sel": sel.key(), "effects": []}
+    m = _PAY.fullmatch(t)
+    if m is not None:
+        sel = selectors.parse(m["sac"]) if m["sac"] else None
+        if m["sac"] and (sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras):
+            return None
+        return {"kind": "static", "static": "cant_pay", "sac": sel.key() if sel else None,
+                "mana": m["act"] == " or activate abilities", "effects": []}
     if t == _SELF_COUNTERS:
         return {"kind": "static", "static": "cant_counters", "sel": None, "effects": []}
     if t == "players can't get counters":  # (122.1: a player gets counters; poison, energy, experience, rad)
@@ -109,3 +121,25 @@ def cant_counters(plan: Plan, card_id: str, entering_for: str | None) -> str | N
         elif selectors.matches(plan, selectors.from_key(d["sel"]), probe, ch, src.controller, src.id):
             return _label(src)
     return None
+
+
+# -- cost payment (601.2h, 602.2b, 119.4) -- a cost that includes paying life or sacrificing something the line forbids can't be paid, so the
+# spell or ability can't be begun (nothing is paid: 601.2h). Read from the table as it is (cast_limits._statics): ``mana_ability`` costs are
+# only stopped by the lines that say "activate abilities" (Sylex: "that aren't mana abilities").
+def life_banned(state: GameState, info: CardInfo | None, *, mana_ability: bool = False) -> str | None:
+    from app.rules import cast_limits
+
+    return next((_label(src) for src, d in cast_limits._statics(state, info, "cant_pay") if d["mana"] or not mana_ability), None)
+
+
+def sacrifice_banned(state: GameState, info: CardInfo | None, card: CardInstance, *, mana_ability: bool = False) -> str | None:
+    """The permanent saying ``card`` can't be sacrificed to pay a cost (a creature for Angel of Jubilation)."""
+    from app.rules import cast_limits
+    from app.rules.plan import Plan
+
+    found = [(src, d) for src, d in cast_limits._statics(state, info, "cant_pay") if d["sac"] is not None and (d["mana"] or not mana_ability)]
+    if not found or info is None:
+        return None
+    plan = Plan.view(state, card.controller, info)
+    ch = plan.ch(card)
+    return next((_label(src) for src, d in found if selectors.matches(plan, selectors.from_key(d["sac"]), card, ch, card.controller, src.id)), None)
