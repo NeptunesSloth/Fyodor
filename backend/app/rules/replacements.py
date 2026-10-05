@@ -52,8 +52,8 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 
 from app.game.rules_state import DecisionOption
 from app.game.state import CardInstance, TokenDef, zone_key
+from app.rules import card_names, conditions, scripts, selectors, values  # (card_names: wave 22B)
 from app.rules import characteristics as chars
-from app.rules import conditions, scripts, selectors, values
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -107,10 +107,12 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
             what = e.get("what")
             if e.get("do") != "choose_value" or not what:
                 continue
+            if what == card_names.LOOK and what not in answers and (only := card_names.sole_opponent(plan, controller)):
+                answers[what] = only  # -- card names (wave 22B) -- one opponent: no question
             if what in answers:
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
-                out["choice"] = {"what": what}
+                out["choice"] = {"what": what, **({"look": answers.get(card_names.LOOK)} if e.get("look") else {})}
     from app.rules import battles  # 310.9a: a battle's protector is chosen as it enters
 
     battles.entry_choice(plan, plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"),
@@ -355,6 +357,8 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     from app.rules.effects import _choice_options
 
     what = choice["what"]
+    if (named := card_names.prompt(plan, card, controller, choice)) is not None:  # -- card names (wave 22B) -- look at a hand, then name
+        return named
     from app.rules import battles, reveal_lands
 
     if reveal_lands.is_choice(what):  # -- "this way" outcomes (wave 4A) -- private: the cards in their hand
@@ -642,10 +646,10 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules.effects import CHOICE_LABELS
 
         for what, value in choices.items():
-            if not value or what not in CHOICE_LABELS:
+            if not value or (what not in CHOICE_LABELS and not card_names.is_choice(what)):
                 continue
             shown = plan.name(value) if what in ("opponent", "player") and value in plan.state.players else value
-            plan.do({"type": "set_choice", "card_id": card_id, "key": CHOICE_LABELS[what], "value": shown}, actor=controller)
+            plan.do({"type": "set_choice", "card_id": card_id, "key": card_names.LABEL if card_names.is_choice(what) else CHOICE_LABELS[what], "value": shown}, actor=controller)
             if what in ("opponent", "player") and value in plan.state.players:  # -- chosen player (wave 4J) --
                 from app.rules import chosen
 

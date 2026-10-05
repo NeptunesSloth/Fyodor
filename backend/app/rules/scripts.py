@@ -4341,6 +4341,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen
+    from app.rules import card_names  # -- card names (wave 22B) -- "As ~ enters, choose a card name." (201.4)
+
+    if (named := card_names.enters_choice(text)) is not None:
+        return named
     # -- entry forms (wave 5F) -- "~ enters tapped. As it enters, choose a color …"
     from app.rules import entry_forms
 
@@ -4909,6 +4913,7 @@ for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OT
 from app.rules import name_search as _name_search  # noqa: E402  (a leaf module)
 
 _choice_template(_name_search.PATTERN, _name_search.build)  # (wave 11D)
+_choice_template(_name_search.NAMED_PATTERN, _name_search.build_named)  # (wave 22B: card names)
 from app.rules import drawn_toll as _drawn_toll  # noqa: E402  (a leaf module)
 
 _choice_template(_drawn_toll.PATTERN, _drawn_toll.build)  # (wave 18G)
@@ -5971,6 +5976,11 @@ EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLA
 from app.rules import hand_size as _hand_size  # noqa: E402  -- ability words (wave 20C) --
 
 EFFECTS[:0] = _hand_size.TEMPLATES  # "You have no maximum hand size for the rest of the game."
+# -- prohibitions (wave 22B) -- "You can't lose the game this turn and your opponents can't win the game this turn." (app/rules/game_result.py)
+from app.rules import game_result as _game_result  # noqa: E402
+from app.rules import prohibitions as _prohibitions  # noqa: E402
+
+EFFECTS[:0] = [*_game_result.TEMPLATES, *_prohibitions.TEMPLATES]
 # -- next untap step (wave 6A) -- "… doesn't untap during its controller's next untap step" (app/rules/next_untap.py)
 from app.rules import next_untap as _next_untap  # noqa: E402
 

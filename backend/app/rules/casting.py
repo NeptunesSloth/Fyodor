@@ -359,6 +359,13 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         if parsed.once_per_turn and r is not None and \
                 r.once_per_turn.get(f"{r.object_id(card.id)}:{ab.index}") == state.turn.number:
             continue
+        if parsed.sacrifice_self or parsed.extra_cost:  # -- prohibitions (wave 22B) -- "Players can't pay life or sacrifice creatures …" (119.4)
+            from app.rules import prohibitions
+
+            if (parsed.sacrifice_self and prohibitions.sacrifice_banned(state, info, card, mana_ability=True)) or (
+                    parsed.extra_cost and parse_ability_cost(parsed.extra_cost, card_name=ch.name).life
+                    and prohibitions.life_banned(state, info, mana_ability=True)):
+                continue
         if parsed.extra_cost:
             extra = parse_ability_cost(parsed.extra_cost, card_name=ch.name)
             energy = extra.energy  # (wave 3E: "{T}, Pay {E}: Add …", 107.14)
@@ -911,6 +918,13 @@ def find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo
 LIFE_FOR_MANA = "For each {B} in a cost, you may pay 2 life rather than pay that mana."
 
 
+def spendable_life(state: GameState, player: str, info: CardInfo | None) -> int:
+    """-- prohibitions (wave 22B) -- the life that may pay Phyrexian mana: none while "players can't pay life" (119.4, 614.17)."""
+    from app.rules import prohibitions
+
+    return 0 if prohibitions.life_banned(state, info) else state.players[player].life
+
+
 def life_for_mana(state: GameState, player: str, info: CardInfo, cost: M.ManaCost) -> M.ManaCost:
     """-- mana provenance (wave 18B) -- K'rrik, Son of Yawgmoth: "For each {B} in a cost, you may pay 2 life rather than pay that mana."
     Each {B} of the cost becomes a Phyrexian {B/P} while its controller has one (the solver pays mana first and life only where
@@ -940,7 +954,7 @@ def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInf
     available = [s for s in everything if s.activation is None]
     filters = [s for s in everything if s.activation is not None]
     pool = dict(state.players[player].mana)
-    life = state.players[player].life
+    life = spendable_life(state, player, info)  # (wave 22B: 119.4)
     units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
     if sources is not None:
         chosen = [s for s in available if s.card_id in set(sources)]
@@ -1063,7 +1077,7 @@ def _auto_helpers(plan: Plan, cost: M.ManaCost, spell: Characteristics, spell_ca
     plain = [s for s in mana_sources(state, player, plan.info, purpose) if s.activation is None]
     try:
         found = M.solve(cost, dict(state.players[player].mana),
-                        _helper_sources(state, player, plan.info, spell, spell_card, plain), life=state.players[player].life)
+                        _helper_sources(state, player, plan.info, spell, spell_card, plain), life=spendable_life(state, player, plan.info))
     except M.ManaError:
         return []
     kinds = {v: k for k, v in HELPER_ABILITY.items()}
@@ -1199,7 +1213,7 @@ def pool_covers(state: GameState, player: str, cost: M.ManaCost, purpose: Purpos
 
     try:
         M.solve(life_for_mana(state, player, info, cost) if info is not None else cost, dict(state.players[player].mana), mana_units.unit_sources(state, player, purpose),
-                life=state.players[player].life)
+                life=spendable_life(state, player, info))
     except M.ManaError:
         return False
     return True
@@ -1250,7 +1264,7 @@ def _covered(plan: Plan, player: str, cost: M.ManaCost, helpers: list[P.Helper],
 
     p = plan.state.players[player]
     units = mana_units.unit_sources(plan.state, player, _prompt_purpose(plan, resume) if resume else None)
-    covers = P.pool_pays(dict(p.mana), p.life, units)
+    covers = P.pool_pays(dict(p.mana), spendable_life(plan.state, player, plan.info), units)
     return P.assign(cost, helpers, lambda rest: covers(life_for_mana(plan.state, player, plan.info, rest)))  # (review 18B: K'rrik)
 
 
@@ -1437,7 +1451,7 @@ def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, 
     try:
         _solve_with_filters(cost, dict(state.players[player].mana),
                             [s for s in everything if s.activation is None] + mana_units.unit_sources(state, player, purpose),
-                            [s for s in everything if s.activation is not None], state.players[player].life)
+                            [s for s in everything if s.activation is not None], spendable_life(state, player, info))
     except M.ManaError:
         return False
     return True
@@ -1912,6 +1926,10 @@ def life_x_problem(plan: Plan, extra: AbilityCost, a: Any, player: str) -> str |
         return "Choose a value for X (the life to pay)"
     if a.x_value > 0 and plan.state.players[player].life < extra.life + a.x_value:
         return f"You can't pay {a.x_value} life"
+    from app.rules import prohibitions
+
+    if a.x_value > 0 and (why := prohibitions.life_banned(plan.state, plan.info)):  # -- review 22B -- 119.4b: only 0 life can be paid
+        return f"{why}: players can't pay life to cast spells"
     return None
 
 
@@ -1992,7 +2010,7 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
         return out
     grant = cast_grant(state, player, card, ch, info)
     for offer in cost_changes.optional_offers(state, player, card, ch, info):
-        if state.players[player].life < offer.life:
+        if state.players[player].life < offer.life or (offer.life and spendable_life(state, player, info) == 0):  # (wave 22B: 119.4)
             continue
         if offer.kind and cost_payment.problem(permissions._view(state, player, info),
                                                costs.AbilityCost(components=(cost_changes.keyword_component(offer),)), card, player):

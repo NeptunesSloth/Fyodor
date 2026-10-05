@@ -23,6 +23,7 @@ from typing import Any
 from app.game.rules_state import DecisionOption, ObjectRef, StackEntry
 from app.game.state import ALL, zone_key
 from app.rules import (
+    card_names,  # -- card names (wave 22B) -- 201.4
     context,
     delayed,
     entry_forms,
@@ -1774,6 +1775,17 @@ def resume_search_zones(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int, picked: list[str]) -> bool:
     zones = e.get("zones") or ["library"]  # (-- refused zones/sized (wave 3R4) -- "and/or graveyard": the chosen zones)
+    from app.rules import (
+        prohibitions,  # -- prohibitions (wave 22B) -- 614.17: "Players can't search libraries."
+    )
+
+    if "library" in zones and (why := prohibitions.cant_search(plan, pid, ctx["controller"])) is not None:
+        plan.note(f"{why}: {plan.name(pid)} can't search their library", actor=pid)
+        zones = [z for z in zones if z != "library"]
+        e = {**e, "zones": zones}
+        if not zones:  # nothing is searched; "then shuffle" is its own instruction (701.24) and still happens
+            _finish_search(plan, ctx, e, pid, [], {})
+            return False
     library = [c for c in plan.state.zones.get(zone_key(pid, "library"), []) if c not in picked] if "library" in zones else []
     if e.get("sel"):  # a structured card selector (app/rules/selectors.py)
         parts = e.get("parts")  # "a Forest card and a Plains card": one card of each kind, asked in turn
@@ -1930,6 +1942,10 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picked: list[str],
                   binding: str | None = None, dest: str = "graveyard", src: str = "hand", upto: bool = False,
                   sel: str | None = None) -> bool:
+    from app.rules import (
+        prohibitions,  # -- prohibitions (wave 22B) -- 614.17: "… can't cause you to discard cards" (exiling isn't discarding)
+    )
+
     for i, pid in enumerate(players):
         hand = plan.state.zones.get(zone_key(pid, src), [])  # (wave 15D: "exiles a card from their graveyard", public, 404.1)
         if sel:  # -- if you do (wave 21C) -- "discard a creature card": only cards of that kind can be chosen (701.9a)
@@ -1937,6 +1953,9 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
 
             kind = selectors.from_key(sel)
             hand = [c for c in hand if selectors.matches(plan, kind, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+        if hand and dest != "exile" and (why := prohibitions.cant_cause_discard(plan, pid, ctx["controller"])) is not None:
+            plan.note(f"{why}: {plan.name(pid)} can't be made to discard cards")
+            hand = []
         n = min(want, len(hand)) if want or not upto else len(hand)  # (upto, 0: "any number of cards")
         if n == 0:
             continue
@@ -1953,6 +1972,8 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
                        "as": binding, "to": dest, "zone": src, "upto": upto, "sel": sel})
         return False
     cards = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(f":{src}")]
+    if dest != "exile":  # (-- prohibitions (wave 22B) -- "discard your hand" / at random: the cards were picked without asking)
+        cards = [c for c in cards if prohibitions.cant_cause_discard(plan, plan.state.cards[c].owner, ctx["controller"]) is None]
     e = {"as": binding}
     before = _remember(plan, ctx, e, cards)
     if cards:  # each to its owner's graveyard (701.9a); -- hand disruption (wave 11D) -- or exiled, which is no discard (701.9a)
@@ -1988,6 +2009,8 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
     for i, pid in enumerate(players):
         mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
                 if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
+        if mine and _sacrifice_barred(plan, ctx, pid):
+            mine = []  # -- prohibitions (wave 22B) --
         n = min(want, len(mine))
         if n == 0:
             continue
@@ -2009,11 +2032,25 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
     return True
 
 
+def _sacrifice_barred(plan: Plan, ctx: Context, pid: str) -> bool:
+    """-- prohibitions (wave 22B) -- 614.17: this resolution is an opponent's spell or ability and ``pid`` has "can't cause you to sacrifice"."""
+    from app.rules import prohibitions
+
+    why = prohibitions.cant_cause_sacrifice(plan, pid, ctx["controller"])
+    if why is not None:
+        plan.note(f"{why}: {plan.name(pid)} can't be made to sacrifice permanents")
+    return why is not None
+
+
 def _sacrifice_cards(plan: Plan, cards: list[str], actor: str, ctx: Context | None = None, binding: str | None = None) -> None:
     """701.21a: each to its owner's graveyard, all at once (one move, one event batch: a "one or
     more" trigger fires once, 603.2c). ``binding``: recorded for "its power" / "creatures
     sacrificed this way" — as they were (608.2h), and the cards they became (400.7j)."""
     cards = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+    if ctx is not None:  # -- prohibitions (wave 22B) -- 614.17: "Spells and abilities your opponents control can't cause you to sacrifice permanents."
+        from app.rules import prohibitions
+
+        cards = [c for c in cards if not prohibitions.cant_cause_sacrifice(plan, plan.state.cards[c].controller, ctx["controller"])]
     e = {"as": binding}
     before = _remember(plan, ctx, e, cards) if ctx is not None else []
     if cards:
@@ -3026,6 +3063,8 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str]
     verb = "sacrifices" if step == "edict" else "chooses"
     for i, pid in enumerate(players):
         mine = _controlled(plan, e["sel"], pid, ctx.get("source_card"))
+        if step == "edict" and mine and _sacrifice_barred(plan, ctx, pid):
+            mine = []  # -- prohibitions (wave 22B) -- nothing for them to sacrifice
         n = min(want, len(mine))
         if n == 0:
             continue
@@ -3206,7 +3245,12 @@ def discard_named(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), ctx["controller"])]
     else:
         named = _cards(plan, ctx, e["who"])
-    cards = [c for c in named if plan.state.cards[c].zone.endswith(":hand")]
+    from app.rules import (
+        prohibitions,  # -- prohibitions (wave 22B) -- 614.17: "… can't cause you to discard cards"
+    )
+
+    cards = [c for c in named if plan.state.cards[c].zone.endswith(":hand")
+             and prohibitions.cant_cause_discard(plan, plan.state.cards[c].owner, ctx["controller"]) is None]
     before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
@@ -3222,11 +3266,14 @@ CHOICE_OPTIONS: dict[str, list[str]] = {
 CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
                  "opponent": "Chosen opponent", "player": "Chosen player"}
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
+CHOICE_LABELS.update({w: card_names.LABEL for w in card_names.ALL_WHATS})  # -- card names (wave 22B) -- 201.4
 
 
 def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]:
     from app.rules.creature_types import CREATURE_TYPES
 
+    if card_names.is_choice(what):  # -- card names (wave 22B) -- typed, not listed (201.4)
+        return [card_names.option(what)]
     if what.endswith(copying.TO_COPY):  # -- copy system (wave 2F): "enter as a copy of …" (707.5, 614.12a) --
         return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
@@ -3273,13 +3320,14 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
     if e.get("as"):
         context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}
-    if not e.get("remember") and e["what"] in ("creature type", "color"):  # -- chosen type (wave 4J) --
+    if not e.get("remember") and (e["what"] in ("creature type", "color") or card_names.is_choice(e["what"])):  # -- chosen type (wave 4J) --
         from app.rules import chosen as picked
 
-        ctx["effects"] = ctx["effects"][: ctx["next"]] + picked.bind_effects(ctx["effects"][ctx["next"]:], e["what"], value)
+        what = "card name" if card_names.is_choice(e["what"]) else e["what"]  # (wave 22B)
+        ctx["effects"] = ctx["effects"][: ctx["next"]] + picked.bind_effects(ctx["effects"][ctx["next"]:], what, value)
     src = plan.state.cards.get(ctx.get("source_card") or "")
     if e.get("remember") and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
-        plan.do({"type": "set_choice", "card_id": src.id, "key": CHOICE_LABELS[e["what"]], "value": shown}, actor=d.player)
+        plan.do({"type": "set_choice", "card_id": src.id, "key": card_names.LABEL if card_names.is_choice(e["what"]) else CHOICE_LABELS[e["what"]], "value": shown}, actor=d.player)
         if e["what"] in ("opponent", "player"):  # -- chosen player (wave 4J) --
             from app.rules import chosen as picked
 
@@ -3860,6 +3908,12 @@ PRIMITIVES["exchange_life"] = exchange_life
 PRIMITIVES["exchange_life_stat"] = exchange_life_stat
 PRIMITIVES["set_life"] = set_life  # (wave 16C)  # -- activated wordings (wave 15D) --
 PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
+from app.rules import game_result as _game_result  # noqa: E402, I001  -- prohibitions (wave 22B) --
+
+PRIMITIVES.update(_game_result.PRIMITIVES)  # 104.2b / 104.3 "can't lose the game this turn" (app/rules/game_result.py)
+from app.rules import prohibitions as _prohibitions  # noqa: E402, I001
+
+PRIMITIVES.update(_prohibitions.PRIMITIVES)  # 614.17 "Players can't search libraries this turn." (app/rules/prohibitions.py)
 from app.rules import hand_size as _hand_size  # noqa: E402  -- ability words (wave 20C) --
 
 PRIMITIVES.update(_hand_size.PRIMITIVES)  # "You have no maximum hand size for the rest of the game." (app/rules/hand_size.py)

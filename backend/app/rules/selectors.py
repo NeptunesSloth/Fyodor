@@ -636,7 +636,12 @@ def _has_counter(card: CardInstance, kind: str) -> bool:
 # creature type. Destroy all creatures that aren't of the chosen type": bind_chosen substitutes that answer).
 # ``matches`` reads the source's record; without a source or a valid record nothing matches (never a guess).
 CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_chosen_type": "creature type",
-                 "not_chosen_color": "color"}
+                 "not_chosen_color": "color", "chosen_name": "card name"}  # (-- card names (wave 22B) -- app/rules/card_names.py)
+
+
+@_suffix(r"(?:with|that has) (?:the chosen|that) name")  # -- card names (wave 22B) -- 709.4a: one of its names is the chosen name
+def _of_chosen_name(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "chosen_name"))
 
 
 @_suffix(r"(?P<neg>that (?:aren't|isn't|are not|is not) )?of the chosen (?P<what>type|color)")
@@ -654,6 +659,8 @@ def bind_chosen(sel: Selector, value: str) -> Selector | None:
     """The selector with the chosen value put in place (``value``: "Elf", "Blue"); None if the value isn't one."""
     rest = tuple(e for e in sel.extras if e not in CHOSEN_EXTRAS)
     what = chosen_what(sel)
+    if what == "card name":  # -- card names (wave 22B) -- the answer given earlier in the same resolution
+        return replace(sel, extras=(*rest, "name:" + value))
     neg = any(e.startswith("not_") for e in sel.extras if e in CHOSEN_EXTRAS)
     if what == "creature type" and value in CREATURE_TYPES:
         if sel.subtypes or sel.not_subtypes or sel.union:
@@ -677,13 +684,17 @@ def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
     card = plan.state.cards.get(source or "")
     if card is None:
         return None
-    label = {"creature type": "Chosen creature type", "color": "Chosen color"}[what]
+    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name"}[what]
     value = card.choices.get(label)
     return value.strip() if value else None
 
 
 def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | None) -> bool:
     what = chosen_what(sel)
+    if what == "card name":  # -- card names (wave 22B) -- the source permanent's recorded name
+        from app.rules import card_names
+
+        return card_names.matches(plan, source, ch)
     value = source_choice(plan, source, what) if what is not None else None
     bound = bind_chosen(sel, value) if value is not None else None
     if bound is None:
@@ -1402,6 +1413,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             from app.rules.keyword_actions import goaded_by
 
             if not goaded_by(ch):
+                return False
+        if extra.startswith("name:"):  # -- card names (wave 22B) -- 709.4a, a name chosen earlier in this resolution
+            from app.rules import card_names
+
+            if not card_names.has_name(ch, extra[5:]):
                 return False
         if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
             return False  # (wave 12C)
