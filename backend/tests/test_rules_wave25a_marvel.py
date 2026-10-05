@@ -29,6 +29,8 @@ EXTRA = [
     card('Spider-UK', set_code='tst', number='M07', mana_cost='{3}{W}', cmc=4.0, type_line='Legendary Creature — Spider Human Hero', oracle_text="Web-slinging {2}{W} (You may cast this spell for {2}{W} if you also return a tapped creature you control to its owner's hand.)\nAt the beginning of your end step, if two or more creatures entered the battlefield under your control this turn, you draw a card and gain 2 life.", power='3', toughness='4', colors=['W'], color_identity=['W'], keywords=['Web-slinging'], layout='normal'),  # noqa: E501
     card('Norman Osborn // Green Goblin', set_code='tst', number='M08', mana_cost='{1}{U} // {1}{U}{B}{R}', cmc=2.0, type_line='Legendary Creature — Human Scientist Villain // Legendary Creature — Goblin Human Villain', oracle_text="Norman Osborn can't be blocked.\nWhenever Norman Osborn deals combat damage to a player, he connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.)\n{1}{U}{B}{R}: Transform Norman Osborn. Activate only as a sorcery.\n//\nFlying, menace\nSpells you cast from your graveyard cost {2} less to cast.\nGoblin Formula — Each nonland card in your graveyard has mayhem. The mayhem cost is equal to its mana cost. (You may cast a card from your graveyard for its mayhem cost if you discarded it this turn. Timing rules still apply.)", power='1', toughness='1', colors=['B', 'R', 'U'], color_identity=['B', 'R', 'U'], keywords=['Flying', 'Goblin Formula', 'Transform', 'Menace', 'Connive'], layout='modal_dfc', card_faces=[{'name': 'Norman Osborn', 'mana_cost': '{1}{U}', 'type_line': 'Legendary Creature — Human Scientist Villain', 'oracle_text': "Norman Osborn can't be blocked.\nWhenever Norman Osborn deals combat damage to a player, he connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.)\n{1}{U}{B}{R}: Transform Norman Osborn. Activate only as a sorcery.", 'power': '1', 'toughness': '1', 'colors': ['U']}, {'name': 'Green Goblin', 'mana_cost': '{1}{U}{B}{R}', 'type_line': 'Legendary Creature — Goblin Human Villain', 'oracle_text': 'Flying, menace\nSpells you cast from your graveyard cost {2} less to cast.\nGoblin Formula — Each nonland card in your graveyard has mayhem. The mayhem cost is equal to its mana cost. (You may cast a card from your graveyard for its mayhem cost if you discarded it this turn. Timing rules still apply.)', 'power': '3', 'toughness': '3', 'colors': ['B', 'R', 'U']}], image_uris=None),  # noqa: E501
     card('Peter Parker // Amazing Spider-Man', set_code='tst', number='M09', mana_cost='{1}{W} // {1}{G}{W}{U}', cmc=2.0, type_line='Legendary Creature — Human Scientist Hero // Legendary Creature — Spider Human Hero', oracle_text="When Peter Parker enters, create a 2/1 green Spider creature token with reach.\n{1}{G}{W}{U}: Transform Peter Parker. Activate only as a sorcery.\n//\nVigilance, reach\nEach legendary spell you cast that's one or more colors has web-slinging {G}{W}{U}. (You may cast a spell for its web-slinging cost if you also return a tapped creature you control to its owner's hand.)", power='0', toughness='1', colors=['G', 'U', 'W'], color_identity=['G', 'U', 'W'], keywords=['Reach', 'Vigilance', 'Transform'], layout='modal_dfc', card_faces=[{'name': 'Peter Parker', 'mana_cost': '{1}{W}', 'type_line': 'Legendary Creature — Human Scientist Hero', 'oracle_text': 'When Peter Parker enters, create a 2/1 green Spider creature token with reach.\n{1}{G}{W}{U}: Transform Peter Parker. Activate only as a sorcery.', 'power': '0', 'toughness': '1', 'colors': ['W']}, {'name': 'Amazing Spider-Man', 'mana_cost': '{1}{G}{W}{U}', 'type_line': 'Legendary Creature — Spider Human Hero', 'oracle_text': "Vigilance, reach\nEach legendary spell you cast that's one or more colors has web-slinging {G}{W}{U}. (You may cast a spell for its web-slinging cost if you also return a tapped creature you control to its owner's hand.)", 'power': '4', 'toughness': '4', 'colors': ['G', 'U', 'W']}], image_uris=None),  # noqa: E501
+    card('Airbending Lesson', set_code='tst', number='M10', mana_cost='{2}{W}', cmc=3.0, type_line='Instant — Lesson', oracle_text="Airbend target nonland permanent. (Exile it. While it's exiled, its owner may cast it for {2} rather than its mana cost.)\nDraw a card.", colors=['W'], color_identity=['W'], keywords=['Airbend'], layout='normal'),  # noqa: E501
+    card('Monk Gyatso', set_code='tst', number='M11', mana_cost='{3}{W}', cmc=4.0, type_line='Legendary Creature — Human Monk', oracle_text="Whenever another creature you control becomes the target of a spell or ability, you may airbend that creature. (Exile it. While it's exiled, its owner may cast it for {2} rather than its mana cost.)", power='3', toughness='3', colors=['W'], color_identity=['W'], keywords=['Airbend'], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='M20', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
 ]
 
@@ -41,7 +43,8 @@ def card_db(settings: Settings) -> Path:
 
 
 @pytest.mark.parametrize("name", ["Raging Goblinoids", "Oscorp Industries", "Sandman's Quicksand", "Prison Break", "Spiders-Man, Heroic Horde", "Spider-UK",
-                                  "Norman Osborn // Green Goblin", "Peter Parker // Amazing Spider-Man"])
+                                  "Norman Osborn // Green Goblin", "Peter Parker // Amazing Spider-Man",
+                                  "Airbending Lesson", "Monk Gyatso"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -185,4 +188,52 @@ def test_a_granted_web_slinging_casts_a_legendary_colored_spell_for_its_cost(car
     act(s, "p1", type="cast_spell", card_id=uk.id, alt_cost=key, cost_choices=[{"component": 0, "cards": [bear.id]}])
     answer(s)
     assert find(s, "Spider-UK").zone == "p1:battlefield" and find(s, "Test Bear").zone == "p1:hand"
+    roundtrip(s)
+
+
+def test_airbend_exiles_and_lets_the_owner_cast_it_for_two(cards):
+    s = build(cards, p1=("Airbending Lesson", "Test Bear"))
+    bear = put(s, "Test Bear", "battlefield")
+    lesson = put(s, "Airbending Lesson", "hand")
+    mana(s, W=1, C=2)  # {2}{W}
+    act(s, "p1", type="cast_spell", card_id=lesson.id, targets=[bear.id])
+    answer(s)
+    assert find(s, "Test Bear").zone == "p1:exile"  # 701.65a
+    mana(s, C=1)
+    with pytest.raises(ActionError):  # {2} rather than {2}{G}
+        act(s, "p1", type="cast_spell", card_id=bear.id)
+    mana(s, C=1)  # (the pool keeps the first one: {2} in all)
+    act(s, "p1", type="cast_spell", card_id=bear.id)
+    answer(s)
+    assert find(s, "Test Bear").zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_airbend_gives_a_token_nothing_to_cast(cards):
+    s = build(cards, p1=("Airbending Lesson",))
+    tok = token(s, "p1", "Soldier", "1/1")
+    lesson = put(s, "Airbending Lesson", "hand")
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=lesson.id, targets=[tok.id])
+    answer(s)
+    assert tok.id not in s.state.cards or s.state.cards[tok.id].zone.endswith("exile")
+    assert not s.state.rules.permissions
+    roundtrip(s)
+
+
+def test_airbend_by_a_trigger_names_the_creature_that_became_the_target(cards):
+    s = build(cards, p1=("Airbending Lesson", "Monk Gyatso", "Test Bear"))
+    put(s, "Monk Gyatso", "battlefield")
+    bear = put(s, "Test Bear", "battlefield")
+    lesson = put(s, "Airbending Lesson", "hand")
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=lesson.id, targets=[bear.id])
+    for _ in range(8):  # Gyatso's trigger: "you may airbend that creature"
+        d = s.state.rules.decision
+        if d is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    answer(s)
+    assert find(s, "Test Bear").zone == "p1:exile"
+    assert any(p.pay == "{2}" and p.card == bear.id for p in s.state.rules.permissions)
     roundtrip(s)

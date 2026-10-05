@@ -799,6 +799,7 @@ class Permission(BaseModel):
     # 702.170d ("during your main phase while the stack is empty", ``sorcery``, even for an instant)
     after_turn: int = 0
     sorcery: bool = False
+    pay: str = Field(default="", max_length=40)  # -- Marvel keywords (wave 25A) -- airbend 701.65a: cast it by paying this rather than its mana cost (118.9)
 
 
 class CostModifier(BaseModel):

@@ -1974,6 +1974,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
                 return True
             continue
         cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free,
+                          alternative=M.parse_cost(grant.pay) if grant is not None and grant.pay else None,
                           targets=_hint_targets(ch))  # -- review (Codex) --
         if grant is not None and grant.spend:  # -- as long as (wave 9B) -- 118.14
             cost = M.spend_as(cost, grant.spend)
@@ -2122,7 +2123,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
     base = M.parse_cost(ch.mana_cost)
     if base.x and a.x_value is None:
-        if not free and a.alt_cost is None:
+        if not free and a.alt_cost is None and not (grant is not None and grant.pay):
             raise ActionError(f"Choose a value for X to cast {ch.name}")
         a.x_value = 0  # 107.3b: X is 0 when a spell is cast without paying its mana cost (or for an alternative cost, wave 4I)
     alternative: M.ManaCost | None = M.parse_cost("{3}") if a.face_down else None
@@ -2147,6 +2148,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
                 or card.zone != zone_key(plan.actor, "hand"):
             raise ActionError("Only a card with awaken can be cast for its awaken cost from your hand, with no other alternative cost")
         alternative = M.parse_cost(keyword_cost(ch, "awaken", AWAKEN) or "")
+    if grant is not None and grant.pay and not free:  # -- Marvel keywords (wave 25A) -- airbend 701.65a: "by paying {2} rather than its mana cost"
+        if alternative is not None or a.face_down or a.alt_cost is not None:
+            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+        alternative = M.parse_cost(grant.pay)
     if free and (alternative is not None or a.face_down):
         raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
     # -- cost changers (wave 4I) -- an alternative cost written on a card (Force of Will, Jodah: app/rules/alt_costs.py)

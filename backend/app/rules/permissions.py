@@ -635,12 +635,22 @@ _PLAY_RIDER = re.compile(r"(?P<g>You may (?:play|cast) (?P<w>that card|those car
                          r"were mana of any type to cast it))\.")
 
 
+_AIRBEND = re.compile(r"\b(?P<a>[Aa])irbend (?P<x>(?:up to (?:one|two|three|four) |any number of )?(?:another |other |one other )?(?:target|that) [^.]+?)(?=\.|$)")
+AIRBEND_GRANT = "For {} exiled this way, its owner may cast it for as long as it remains exiled by paying {{2}} rather than paying its mana cost."
+_AIRBEND_CLAUSE = re.compile(r"^for (each|the) card exiled this way, its owner may cast it for as long as it remains exiled by paying \{2\} rather than "
+                             r"paying its mana cost$", re.IGNORECASE)
+
+
 def join_exile_play(body: str) -> str:
     """The wordings above as the sentences the permission grammar reads (permissions.GRANT_EXILED, LOOK_EXILED)."""
     # (Ugin, the Ineffable: "Exile the top card of your library face down and look at it." — 406.3: whoever looked may go on looking;
     # "put the exiled card into your hand" is the return of that card, 400.3)
     body = re.sub(r"([Ee]xile the top card of your library face down) and look at it\b", r"\1. You may look at it for as long as it remains exiled",
                   body)
+    # -- Marvel keywords (wave 25A) -- 701.65a: "airbend [objects]" is "exile them. For each card exiled this way, for as long as it remains
+    # exiled, its owner may cast it by paying {2} rather than paying its mana cost" (only for chosen or referred objects: "all other creatures" stays unread)
+    body = _AIRBEND.sub(lambda m: f"{'E' if m['a'] == 'A' else 'e'}xile {m['x']}. "
+                        + AIRBEND_GRANT.format("each card" if re.search(r"\btargets\b|^up to (?:two|three|four)|^any number", m["x"]) else "the card"), body)
     body = re.sub(r"\b([Pp])ut the exiled card into your hand\b", lambda m: ("R" if m[1] == "P" else "r") + "eturn the exiled card to your hand", body)
     body = re.sub(r"Look at (target player's hand), (the top card of that player's library), and any face-down creatures they control\.",
                   r"Look at \1. Look at \2. Look at all face-down creatures that player controls.", body)  # (Spy Network: 701.20e each)
@@ -675,6 +685,9 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             return None
         return [{"do": "cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1), "filter": key,
                  "until": "next_turn" if m["until"] else "end_of_turn"}], None
+    if (m := _AIRBEND_CLAUSE.fullmatch(text)) is not None:  # -- Marvel keywords (wave 25A) -- 701.65a
+        return [{"do": "grant_play", "who": "them:card" if m[1].lower() == "each" else "it:card", "owner": True, "pay": "{2}", "play": False,
+                 "cast": True, "until": "permanent"}], None
     m = LOOK_EXILED.fullmatch(text)  # -- hidden exile (wave 18A) --
     if m:
         return [{"do": "look_exiled", "who": "them:card" if m["what"] in ("those cards", "them") else "it:card", "optional": True}], None
@@ -759,6 +772,7 @@ class Grant:
     sorcery: bool = False  # -- keywords (wave 15E) -- plot 702.170d: only in your main phase with an empty stack, whatever it is
     extra: str = ""  # -- cost alt (wave 16F) -- an additional cost the permission names ("discard a card"), paid with the rest (601.2b)
     exile_gy: str = ""  # -- cast from graveyard (wave 19C) -- 614.1a: "all" | "is" (instants and sorceries only): "If a spell cast this way would be put into your graveyard, exile it instead"
+    pay: str = ""  # -- Marvel keywords (wave 25A) -- airbend 701.65a: the alternative cost of the cast ("{2}")
     exile: bool = False  # -- casting extras (wave 18E) -- jump-start 702.133a: exile the card instead of putting it anywhere else as it leaves the stack
 
 
@@ -849,7 +863,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         zone_ok = p.object_id is not None or p.zone != "any"  # (a flash-only permission grants no zone)
         out.append(Grant("permission", p.label, zone_ok=zone_ok, free=p.free, flash=p.flash, permission=p.id, spend=p.spend,
-                         sorcery=p.sorcery))
+                         sorcery=p.sorcery, pay=p.pay))
     if verb == "cast" and where in ("graveyard", "exile") and card.owner == player and not card.face_down:
         for index, d in _definitions(ch).items():  # the card's own ability, functioning in the graveyard (113.6) / exile (wave 20D)
             if d.get("static") == "permission" and d.get("self") and where in d.get("zones", [d["zone"]]):
@@ -1127,10 +1141,13 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             return True  # (an unbound pronoun never reaches here: resolve_it refuses the ability)
         for cid in context.objects(plan, ctx, e["who"][len(context.PREFIX):]):
             card = plan.state.cards[cid]
-            r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone="any",
+            holder = card.owner if e.get("owner") else pid  # (airbend 701.65a: "its owner may cast it")
+            r.permissions.append(Permission(id=secrets.token_hex(4), player=holder, play=e["play"], cast=e["cast"], zone="any",
                                             object_id=plan.oid(card), card=cid, until=e["until"], turn=turn, free=bool(e.get("free")), spend=e.get("spend", ""),
-                                            source=ctx.get("source_object"), label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" without paying its mana cost" if e.get("free") else "")))
-            plan.note(f"{plan.name(pid)} may {verb} {card.name} {when}", [cid])
+                                            pay=e.get("pay", ""), source=ctx.get("source_object"),
+                                            label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" without paying its mana cost" if e.get("free") else "")
+                                            + (f" by paying {e['pay']}" if e.get("pay") else "")))
+            plan.note(f"{plan.name(holder)} may {verb} {card.name} {when}", [cid])
         return True
     r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone=e["zone"],
                                     until=e["until"], turn=turn, source=ctx.get("source_object"),
