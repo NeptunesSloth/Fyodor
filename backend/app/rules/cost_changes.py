@@ -58,10 +58,14 @@ def parse_change(symbol: str, direction: str, rest: str) -> Change | None:
     """The change a cost-changing sentence makes, from its parts: ``symbol`` ("1", "X", "G"), ``direction``
     ("less" / "more") and the rest of the sentence after "to cast" / "to activate" ("" / " for each …" /
     " if …" / " as long as …" / " during your turn" / ", where X is …"). None when it isn't read."""
+    # -- cost self reduction (wave 21F) -- Valiant Changeling: "This effect can't reduce the amount of mana this spell costs by more than {5}."
+    capped = re.fullmatch(r"(?P<rest>.*?)\. [Tt]his effect can't reduce the amount of mana this spell costs by more than \{(?P<cap>\d+)\}\.?", rest)
+    if capped is not None:
+        rest = capped["rest"]
     m = _REST.fullmatch(rest.rstrip("."))
     if m is None:
         return None
-    out: Change = {"dir": -1 if direction == "less" else 1}
+    out: Change = {"dir": -1 if direction == "less" else 1, **({"cap": int(capped["cap"])} if capped and direction == "less" else {})}
     if symbol == "X":
         if not m["x"]:
             return None
@@ -221,6 +225,7 @@ def own_changes(state: GameState, player: str, card: CardInstance, ch: Character
             continue
         view = view or view_of(on_stack(state, card), player, info)
         n = amount(view, context(state, player, card), change)
+        n = min(n, change["cap"]) if "cap" in change else n
         if n:
             out.add(change["dir"] * n, change.get("mana"))
     return out

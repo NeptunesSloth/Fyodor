@@ -518,8 +518,9 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
                    and _departed_matches(plan, selectors.from_key(v["sel"]), d, snap))
     if kind == "attackers":  # -- cost self reduction (wave 16F) -- each creature declared as an attacker this turn, once (508.1)
         return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
-    if kind in ("tokens", "sacrificed"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)
-        return sum(1 for f in log.facts if f.kind == ("token" if kind == "tokens" else "sacrifice") and f.player == me)
+    if kind in ("tokens", "sacrificed", "discarded"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)
+        return sum(1 for f in log.facts if f.kind == {"tokens": "token", "sacrificed": "sacrifice", "discarded": "discard"}[kind]
+                   and (f.player == me or v.get("who") == "any"))  # (wave 21F: "who": "any" — each permanent sacrificed, whoever did it)
     if kind in ("opp_lost", "opp_damage"):  # (the opponents still in the game: 800.4a)
         opps = {p for p in plan.live() if p != me}
         if kind == "opp_lost":
@@ -533,6 +534,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
             return sum(1 for p in opponents if log.drew.get(p, 0) >= n)
         if v["what"] == "lost":
             return sum(1 for p in opponents if log.lost.get(p, 0) >= n)
+        if v["what"] == "damaged":  # (wave 21F: Gnoll War Band — damage dealt to the player, 120.3)
+            return sum(1 for p in opponents if any(f.kind == "damage" and f.player == p and f.amount > 0 for f in log.facts))
         land = selectors.parse("land")
         assert land is not None
         return sum(1 for p in opponents if entered(plan, {**ctx, "controller": p}, {"sel": land.key()}, log) >= n)

@@ -96,7 +96,8 @@ _DISTINCT = {"card types": "types", "different card types": "types", "card type"
              "creature types": "creature_types", "different creature types": "creature_types",
              "creature type": "creature_types",
              "different power": "powers", "different powers": "powers",  # (wave 17B: Selvala, Eager Trailblazer)
-             "mana values": "mana_values", "different mana values": "mana_values", "mana value": "mana_values"}  # (wave 20B)
+             "mana values": "mana_values", "different mana values": "mana_values", "mana value": "mana_values",
+             "different mana value": "mana_values"}  # (wave 21F: Eris, Roar of the Storm)  # (wave 20B)
 _AMONG = re.compile(r"^(?P<kind>" + "|".join(sorted(map(re.escape, _DISTINCT), key=len, reverse=True)) + r") among (?P<sel>.+)$")
 _DEVOTION = re.compile(r"^your devotion to (?P<c1>white|blue|black|red|green)(?: and (?P<c2>white|blue|black|red|green))?$")
 _AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power|toughness|mana value) "
@@ -324,6 +325,14 @@ def _sized(what: str, it: str | None) -> Value | None:
     if m:  # "the number of creatures you control plus the number of Foods you control" (a sum of two counts)
         a, b = parse_count(m["a"], it=it), parse_count(m["b"], it=it)
         return {"plus": [a, b]} if a is not None and b is not None else None
+    # -- cost self reduction (wave 21F) -- Thrasta: "for each other spell cast this turn" (every player's, 601.2i: this one isn't counted yet)
+    if re.fullmatch(r"other spells? cast this turn", what):
+        return {"spells_cast": "all"}
+    # Huskburster Swarm: "creature card you own in exile and in your graveyard" (the two zones' counts together)
+    m = re.fullmatch(r"(?P<sel>.+?) you own in exile and in your graveyard", what)
+    if m and (a := parse_count(f"{m['sel']} you own in exile", it=it)) is not None \
+            and (b := parse_count(f"{m['sel']} you own in your graveyard", it=it)) is not None:
+        return {"plus": [a, b]}
     if (m := _SPELLS_CAST.match(what)):  # (wave 17D: "they" the trigger's player, Rug of Smothering)
         return {"spells_cast": "you" if m["who"] == "you" else "event_player"}
     return _turn_amount(what)
@@ -337,7 +346,7 @@ _TURN_SPELL = re.compile(r"^spell (?P<who>you|they)(?:'ve| have) cast this turn$
 _TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
 _TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?|[A-Z][a-z-]+) that died(?P<mine> under your control)? this turn$")
 _OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? who (?:(?P<drew>drew (?P<n>\w+) or more cards)|"
-                            r"(?P<lost>lost life)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
+                            r"(?P<lost>lost life)|(?P<hurt>was dealt damage)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
                             r"this turn$")
 
 
@@ -363,8 +372,10 @@ def _turn_amount(what: str) -> Value | None:
     # -- X sized by a count (wave 19F) -- this turn's log: tokens you created, permanents you sacrificed, what your opponents lost
     if re.fullmatch(r"tokens? you(?:'ve)? created this turn", what):
         return {"turn_history": "tokens"}
-    if re.fullmatch(r"permanents? you(?:'ve)? sacrificed this turn", what):
-        return {"turn_history": "sacrificed"}
+    if m := re.fullmatch(r"permanents? (you(?:'ve)? )?sacrificed this turn", what):  # (wave 21F: The Balrog, "each permanent sacrificed": anyone's)
+        return {"turn_history": "sacrificed", **({} if m[1] else {"who": "any"})}
+    if re.fullmatch(r"cards? you(?:'ve)? cycled or discarded this turn", what):  # (wave 21F: Hollow One; a cycled card is discarded, 702.29a)
+        return {"turn_history": "discarded"}
     if re.fullmatch(r"(?:the )?(?:total )?(?:amount of )?life (?:lost by your opponents|your opponents have lost) this turn", what):
         return {"turn_history": "opp_lost"}
     if re.fullmatch(r"(?:the )?(?:total )?damage dealt to your opponents this turn", what):
@@ -375,7 +386,7 @@ def _turn_amount(what: str) -> Value | None:
         n = 1 if word is None else int(word) if word.isdigit() else NUMBERS.get(word)
         if n is None:
             return None
-        return {"turn_history": "opponents_who", "what": "drew" if m["drew"] else "lost" if m["lost"] else "lands", "n": n}
+        return {"turn_history": "opponents_who", "what": "drew" if m["drew"] else "lost" if m["lost"] else "damaged" if m["hurt"] else "lands", "n": n}
     return None
 # -- end this-turn history (wave 4D) --
 
@@ -483,7 +494,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import context
 
         return sum(plan.rules.spells_this_turn(p, plan.state.turn.number) for p in (
-            [you] if v["spells_cast"] == "you" else context.players(plan, ctx, context.EVENT)))
+            [you] if v["spells_cast"] == "you" else plan.state.seat_order if v["spells_cast"] == "all"
+            else context.players(plan, ctx, context.EVENT)))
     if "turn_history" in v:  # -- this-turn history (wave 4D) --
         from app.rules import history
 

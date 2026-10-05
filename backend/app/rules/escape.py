@@ -64,8 +64,8 @@ def define_static(t: str) -> Definition | None:
         from app.rules import alt_costs
 
         rest = re.sub(r"^(exil|sacrific)ing", r"\1e", m["rest"].lower()) if m["rest"] else ""
-        cost = f"pay {m['pay']}" + (f" and {rest}" if rest else "")
-        return {"kind": "static", "static": "gy_cost", "cost": cost, "effects": []} if alt_costs.parse_cost(cost) else None
+        text = f"pay {m['pay']}" + (f" and {rest}" if rest else "")
+        return {"kind": "static", "static": "gy_cost", "cost": text, "effects": []} if alt_costs.parse_cost(text) else None
     m = GRANT.fullmatch(t)
     if m:
         n = _WORDS.get(m["n"].lower())
