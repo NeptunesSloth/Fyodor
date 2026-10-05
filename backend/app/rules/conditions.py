@@ -740,6 +740,20 @@ def _cast_both(m: re.Match[str]) -> Condition | None:
     return {"all": [{"history": "cast", "who": "you", "sel": k, "n": 1, "op": ">="} for k in keys]}
 
 
+# -- history (wave 22E) -- werewolves: "if no spells were cast last turn" / "if a player cast two or more spells last turn" -
+# the turn before this one (500.4), by anyone; the second is ONE player's own count (not the players added up).
+@_history_pattern(rf"no spells were cast {_THIS_TURN}")
+def _no_spells_were_cast(m: re.Match[str]) -> Condition | None:
+    key = _history_sel("spell", "stack")
+    return None if key is None else {"not": {"history": "cast", "who": "any", "sel": key, "n": 1, "op": ">=", **_when(m)}}
+
+
+@_history_pattern(rf"a player cast (?P<n>\w+) or more spells {_THIS_TURN}")
+def _a_player_cast_spells(m: re.Match[str]) -> Condition | None:
+    n, key = _num(m["n"]), _history_sel("spell", "stack")
+    return None if n is None or key is None else {"history": "cast", "who": "player", "sel": key, "n": n, "op": ">=", **_when(m)}
+
+
 @_history_pattern(rf"{_WHO_DID} discarded (?:a card|(?P<n>\w+) or more cards) this turn")
 def _discarded(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"]) if m["n"] else 1

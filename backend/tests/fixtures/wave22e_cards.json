@@ -1,0 +1,95 @@
+[
+ {
+  "name": "Mayor of Avabruck // Howlpack Alpha",
+  "layout": "transform",
+  "mana_cost": "{1}{G} // ",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Human Advisor Werewolf // Creature \u2014 Werewolf",
+  "oracle_text": "Other Human creatures you control get +1/+1.\nAt the beginning of each upkeep, if no spells were cast last turn, transform this creature.\n//\nEach other creature you control that's a Werewolf or a Wolf gets +1/+1.\nAt the beginning of your end step, create a 2/2 green Wolf creature token.\nAt the beginning of each upkeep, if a player cast two or more spells last turn, transform this creature.",
+  "power": "1",
+  "toughness": "1",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Mayor of Avabruck",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Human Advisor Werewolf",
+    "oracle_text": "Other Human creatures you control get +1/+1.\nAt the beginning of each upkeep, if no spells were cast last turn, transform this creature.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+     "G"
+    ]
+   },
+   {
+    "name": "Howlpack Alpha",
+    "mana_cost": "",
+    "type_line": "Creature \u2014 Werewolf",
+    "oracle_text": "Each other creature you control that's a Werewolf or a Wolf gets +1/+1.\nAt the beginning of your end step, create a 2/2 green Wolf creature token.\nAt the beginning of each upkeep, if a player cast two or more spells last turn, transform this creature.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+     "G"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Kira, Great Glass-Spinner",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature \u2014 Spirit",
+  "oracle_text": "Flying\nCreatures you control have \"Whenever this creature becomes the target of a spell or ability for the first time each turn, counter that spell or ability.\"",
+  "power": "2",
+  "toughness": "2",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ]
+ },
+ {
+  "name": "Amulet of Safekeeping",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "Whenever you become the target of a spell or ability an opponent controls, counter that spell or ability unless its controller pays {1}.\nCreature tokens get -1/-0.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Glyph Keeper",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{U}",
+  "cmc": 5.0,
+  "type_line": "Creature \u2014 Sphinx",
+  "oracle_text": "Flying\nWhenever this creature becomes the target of a spell or ability for the first time each turn, counter that spell or ability.\nEmbalm {5}{U}{U} ({5}{U}{U}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a white Zombie Sphinx with no mana cost. Embalm only as a sorcery.)",
+  "power": "5",
+  "toughness": "3",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Embalm"
+  ]
+ }
+]
