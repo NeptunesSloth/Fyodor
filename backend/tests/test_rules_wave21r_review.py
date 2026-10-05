@@ -39,6 +39,12 @@ def unready(s, *cs):
         s.state.rules.controlled_since[c.id].turn = 0
 
 
+def power(s, c):
+    from app.rules import sba
+
+    return sba.power(s.state.cards[c.id], ch(s, c))
+
+
 def life(s, pid):
     return s.state.players[pid].life
 
@@ -155,4 +161,44 @@ def test_mind_maggots_discards_only_creature_cards(cards):
     drive(s, picker([spirit.id]))
     assert s.state.cards[spirit.id].zone == "p1:graveyard" and s.state.cards[bolt.id].zone == "p1:hand"
     assert ch(s, maggots).power is not None
+    roundtrip(s)
+
+
+def test_fable_chapter_two_discards_up_to_two_and_draws_that_many(cards):
+    s = game(cards, ["Fable of the Mirror-Breaker // Reflection of Kiki-Jiki", "Probe Spirit", "Probe Bolt"])
+    fable = put(s, "Fable of the Mirror-Breaker // Reflection of Kiki-Jiki", "hand")
+    mana(s, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=fable.id)
+    drive(s)  # (chapter I: a Goblin Shaman)
+    spirit, bolt = put(s, "Probe Spirit", "hand"), put(s, "Probe Bolt", "hand")
+    until(s, lambda s: s.state.turn.number == 3 and s.state.rules.decision is not None)
+    hand = len(s.state.zones["p1:hand"])
+    drive(s, picker([spirit.id, bolt.id]))
+    assert s.state.cards[spirit.id].zone == s.state.cards[bolt.id].zone == "p1:graveyard"
+    assert len(s.state.zones["p1:hand"]) == hand
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("other", [False, True])
+def test_lord_of_the_pit_sacrifices_another_creature_or_deals_7(cards, other):
+    s = game(cards, ["Lord of the Pit"])
+    lord = put(s, "Lord of the Pit")
+    if other:
+        token(s, "p1", "Thrull", "1/1", "Token Creature — Thrull")
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    assert s.state.cards[lord.id].zone == "p1:battlefield"
+    assert life(s, "p1") == (40 if other else 33)
+    roundtrip(s)
+
+
+def test_crackling_drake_counts_face_up_instants_in_exile_and_the_graveyard_only(cards):
+    s = game(cards, ["Crackling Drake", "Probe Bolt"], ["Probe Bolt"])
+    drake = put(s, "Crackling Drake")
+    bolt = put(s, "Probe Bolt", "hand")
+    act(s, "p1", type="move", card_ids=[bolt.id], to={"player": "p1", "zone": "exile"}, face_down=True)
+    assert power(s, drake) == 0  # (406.3a: a card exiled face down has no characteristics)
+    act(s, "p1", type="move", card_ids=[bolt.id], to={"player": "p1", "zone": "graveyard"})
+    theirs = find(s, "Probe Bolt", "p2")
+    act(s, "p2", type="move", card_ids=[theirs.id], to={"player": "p2", "zone": "exile"})
+    assert power(s, drake) == 1  # (Bob's card: not one Alice owns)
     roundtrip(s)

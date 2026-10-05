@@ -1208,6 +1208,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     zone = card.zone.split(":")[-1] if ":" in card.zone else card.zone
     if sel.player is not None:
         return False
+    if zone == "exile" and card.face_down:  # -- review (wave 21) -- 406.3a: a card exiled face down has no characteristics (Crackling
+        from app.rules.characteristics import Characteristics  # Drake's "instant and sorcery cards you own in exile" never counts it, nor
+        ch = Characteristics(name="")  # tells anyone what it is)
     if sel.either:  # (wave 15A) any one of the alternatives (each reads its own zone: wave 17C; a spell on the stack: wave 17D)
         return (zone in sel.zones or zone == "stack") and any(matches(plan, from_key(k), card, ch, you, source, attacker) for k in sel.either)
     if sel.zones and zone not in sel.zones:
