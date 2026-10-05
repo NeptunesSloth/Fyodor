@@ -1087,6 +1087,8 @@ class Choose(_Intent):
     option_ids: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=250)
     # A "divide" decision (601.2d): the amount for each option, in the options' order.
     amounts: list[Annotated[int, Field(ge=0, le=10000)]] = Field(default_factory=list, max_length=20)
+    # -- card names (wave 22B) -- 201.4: the typed card name that answers a "choose a card name" decision
+    name: Annotated[str, Field(max_length=200)] | None = None
     # Remember this answer (for prompts that allow it): ALWAYS YES / NO THIS TURN, ALWAYS YIELD.
     remember: Literal["yes_this_turn", "no_this_turn", "always_yield"] | None = None
 

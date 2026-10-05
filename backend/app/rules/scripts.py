@@ -4256,6 +4256,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen
+    from app.rules import card_names  # -- card names (wave 22B) -- "As ~ enters, choose a card name." (201.4)
+
+    if (named := card_names.enters_choice(text)) is not None:
+        return named
     # -- entry forms (wave 5F) -- "~ enters tapped. As it enters, choose a color …"
     from app.rules import entry_forms
 
