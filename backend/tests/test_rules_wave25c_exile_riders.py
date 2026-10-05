@@ -60,6 +60,22 @@ REAL += [
          "You may cast it this turn. If that spell would be put into your graveyard, exile it instead. (To surveil 2, look at the top two "
          "cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)"),
 ]
+REAL += [
+    card("Garruk, Caller of Beasts", set_code="tst", number="C25-9", mana_cost="{4}{G}{G}", cmc=6.0, type_line="Legendary Planeswalker — Garruk",
+         colors=["G"], color_identity=["G"], loyalty="4", oracle_text="+1: Reveal the top five cards of your library. Put all creature "
+         "cards revealed this way into your hand and the rest on the bottom of your library in any order.\n−3: You may put a green creature "
+         "card from your hand onto the battlefield.\n−7: You get an emblem with \"Whenever you cast a creature spell, you may search your "
+         "library for a creature card, put it onto the battlefield, then shuffle.\""),
+    card("Mordor on the March", set_code="tst", number="C25-10", mana_cost="{3}{B}{R}", cmc=5.0, type_line="Sorcery", colors=["B", "R"],
+         color_identity=["B", "R"], keywords=["Storm"], oracle_text="Exile a creature card from your graveyard. Create a token that's a copy "
+         "of it. It gains haste until end of turn. Exile it at the beginning of the next end step.\nStorm (When you cast this spell, copy it "
+         "for each spell cast before it this turn.)"),
+]
+REAL += [
+    card("Retreat to Coralhelm", set_code="tst", number="C25-11", mana_cost="{2}{U}", cmc=3.0, type_line="Enchantment", colors=["U"],
+         color_identity=["U"], oracle_text="Landfall — Whenever a land you control enters, choose one —\n• You may tap or untap target creature.\n"
+         "• Scry 1. (Look at the top card of your library. You may put that card on the bottom.)"),
+]
 OURS = [c["name"] for c in REAL]
 
 
@@ -73,7 +89,7 @@ def cards(settings) -> Iterator[CardRepository]:
 
 
 def build(cards):
-    alice = deck(cards, "Krenko, Mob Boss", [(1, n) for n in OURS] + [(2, "Lightning Bolt"), (1, "Counterspell"), (1, "Pacifism"), (20, "Forest")])
+    alice = deck(cards, "Krenko, Mob Boss", [(1, n) for n in OURS] + [(2, "Lightning Bolt"), (1, "Counterspell"), (1, "Pacifism"), (2, "Grizzly Bears"), (20, "Forest")])
     bob = deck(cards, "Atraxa, Praetors' Voice", [(2, "Lightning Bolt"), (1, "Counterspell"), (20, "Island")])
     s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
     act(s, "p1", type="pass_priority")  # → Alice's first main phase
@@ -272,4 +288,55 @@ def test_mission_briefing_chooses_a_graveyard_card_and_grants_its_cast(cards):
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     pass_until_stack_empty(s)
     assert s.state.players["p2"].life == 37 and s.state.cards[bolt.id].zone == "p1:exile"
+    replay_matches(s)
+
+
+# -- "You may put a creature card from your hand onto the battlefield" as a loyalty ability: the "may" is the choice itself --
+@pytest.mark.parametrize("take", [True, False])
+def test_garruk_may_put_a_green_creature_from_hand_onto_the_battlefield(cards, take):
+    s = build(cards)
+    garruk = put(s, "Garruk, Caller of Beasts", "battlefield")
+    act(s, "p1", type="counter", card_ids=[garruk.id], kind="loyalty", delta=4)
+    bear = put(s, "Grizzly Bears", "hand")
+    act(s, "p1", type="activate_ability", card_id=garruk.id, ability=1)
+    pass_until_stack_empty(s)
+    d = decision(s)
+    assert bear.id in {o.id for o in d.options}
+    choose(s, [bear.id] if take else [], resolve=True)
+    assert (s.state.cards[bear.id].zone == "p1:battlefield") is take
+    replay_matches(s)
+
+
+# -- 608.2c / 707.2: the exiled card is bound for "Create a token that's a copy of it" -------------------------------
+def test_mordor_on_the_march_exiles_the_card_and_copies_it(cards):
+    s = build(cards)
+    bear = put(s, "Grizzly Bears", "graveyard")
+    mordor = put(s, "Mordor on the March", "hand")
+    mana(s, B=1, R=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=mordor.id)
+    pass_until_stack_empty(s)
+    assert s.state.cards[bear.id].zone == "p1:exile"
+    tokens = [c for c in s.state.cards.values() if c.is_token and c.name == "Grizzly Bears" and c.zone == "p1:battlefield"]
+    assert len(tokens) == 1
+    replay_matches(s)
+
+
+# -- a mode that is "You may tap or untap target creature": the "may" is choosing neither (modal trigger) -------------
+def test_retreat_to_coralhelm_mode_may_tap_or_untap(cards):
+    s = build(cards)
+    put(s, "Retreat to Coralhelm", "battlefield")
+    bear = put(s, "Grizzly Bears", "battlefield")
+    forest = put(s, "Forest", "hand")
+    act(s, "p1", type="play_land", card_id=forest.id)
+    seen = []
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        seen.append((d.kind, [o.label for o in d.options]))
+        ids = [o.id for o in d.options]
+        pick = [bear.id] if bear.id in ids else ids[:1]
+        choose(s, pick, resolve=True)
+    assert [k for k, _ in seen] == ["choose_cards", "choose_one", "choose_one"] and "Do nothing" in seen[-1][1]  # the "may" is choosing neither
+    assert s.state.cards[bear.id].tapped  # (the first option offered: tap it)
     replay_matches(s)
