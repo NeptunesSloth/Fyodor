@@ -121,7 +121,7 @@ _PLAYER_COUNTERS = re.compile(r"^If you would get one or more counters, you get 
 _PUTTER = re.compile(r"^If (?P<who>you|an opponent) would put one or more counters on (?P<on>.+?), (?:put|they put) "
                      r"(?P<how>twice that many|half that many|that many plus one) of each of those kinds of counters on "
                      r"that permanent or player instead(?P<down>, rounded down)?\.$")
-_PUTTER_OPS = {"twice that many": {"do": "mul", "n": 2}, "that many plus one": {"do": "add", "n": 1}, "half that many": {"do": "half"}}
+_PUTTER_OPS: dict[str, dict[str, Any]] = {"twice that many": {"do": "mul", "n": 2}, "that many plus one": {"do": "add", "n": 1}, "half that many": {"do": "half"}}
 
 
 def _putter(m: re.Match[str]) -> Definition | None:

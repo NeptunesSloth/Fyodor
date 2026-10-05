@@ -10,7 +10,7 @@ from tests.game_helpers import act
 from tests.test_rules_attachments import build, token
 from tests.test_rules_combat import attack, automate, creature, table
 from tests.test_rules_effects import replay_matches
-from tests.test_rules_replacements2 import (HARDENED_SCALES, activate, answer, decision, permanent, reload)
+from tests.test_rules_replacements2 import HARDENED_SCALES, activate, answer, decision, permanent, reload
 from tests.test_rules_suspend import until
 
 VORINCLEX = ("Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of "

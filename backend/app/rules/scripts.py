@@ -1484,13 +1484,17 @@ def _pay_mana_cost_or_sacrifice(m: re.Match[str]) -> tuple[list[dict[str, Any]],
     return [{"do": "pay_or_sacrifice", "cost": "mana_cost"}], None
 
 
-@effect(r"(?:it|they) can't be regenerated")
+# -- regeneration (wave 22C) -- "That creature can't be regenerated." / "Creatures destroyed this way can't be regenerated." (701.19c): the
+# destruction of this spell or ability ignores regeneration shields, whichever words name what it destroyed
+@effect(r"(?:it|they|that creature|the creature|that permanent|that land|those creatures|(?:a )?creatures? destroyed this way) can't be regenerated")
 def _no_regeneration(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "no_regen"}], None  # the destruction of this spell/ability ignores regeneration shields
 
 
-@effect(r"(?P<sel>{SEL}) can't be regenerated this turn")  # -- can't regenerate (wave 19E) -- 701.19c
+@effect(r"(?P<sel>{SEL}|it|that creature) can't be regenerated this turn")  # -- can't regenerate (wave 19E) -- 701.19c (22C: the pronoun)
 def _no_regeneration_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if m["sel"] in ("it", "that creature"):
+        return [{"do": "no_regen_turn", "who": "it"}], None
     return [{"do": "no_regen_turn", "who": "target"}], SELECTORS[m["sel"]]
 
 
@@ -4465,6 +4469,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 # replacements.replace_move with the other "exile instead" effects (700.4: dies = put into a
 # graveyard from the battlefield). Read by the hook in _parse_effects (before its "If …," condition).
 _DIES_THIS_TURN = re.compile(r"^if (?P<det>that|a|an) (?P<what>.+?) would die this turn, exile it instead$")
+_DEALT_NO_REGEN = re.compile(r"^(?:a creature|creatures) dealt damage this way can't be regenerated this turn$")
 _CREATURE_NO_REGEN_EXILE = re.compile(r"^if it's a creature, it can't be regenerated this turn, and if it would die this turn, exile it instead$")
 _DIES_THAT = {"creature": ["Creature"], "permanent": [], "creature or planeswalker": ["Creature", "Planeswalker"],
               "planeswalker": ["Planeswalker"]}
@@ -4503,7 +4508,18 @@ def _turn_record(text: str) -> list[dict[str, Any]] | None:
 
 def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
     """A sentence that sets up a replacement effect for the rest of the turn, or None."""
-    from app.rules import leave_exile  # -- zone replacements (wave 22C) -- "If it would leave the battlefield, exile it instead of …"
+    if _DEALT_NO_REGEN.match(text) is not None:  # -- regeneration (wave 22C) -- "A creature dealt damage this way can't be regenerated this turn."
+        dmg = [(i, e) for i, e in enumerate(effects) if e.get("do") in ("damage", "fight")]
+        if not dmg:
+            return None
+        out = []
+        for i, e in dmg:
+            e["dealt_as"] = e.get("dealt_as") or f"ref:d{i}"
+            out.append({"do": "no_regen_turn", "dealt": e["dealt_as"], "types": ["Creature"]})
+        return out
+    from app.rules import (
+        leave_exile,  # -- zone replacements (wave 22C) -- "If it would leave the battlefield, exile it instead of …"
+    )
 
     if effects and (left := leave_exile.sentence(text)) is not None:
         return left

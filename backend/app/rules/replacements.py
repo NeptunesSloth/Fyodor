@@ -1004,8 +1004,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             if cost is not None:
                 madness.append((cid, cost))
                 continue
-        if cands := zone_candidates(plan, card, dest):  # -- zone replacements (wave 22C) -- 616.1 among the candidates
-            pick = _pick(plan, card, cands, dest)
+        if cands := zone_candidates(plan, card, dest or ""):  # -- zone replacements (wave 22C) -- 616.1 among the candidates
+            pick = _pick(plan, card, cands, dest or "")
             if pick is None:
                 held.append(cid)  # two different results: its controller chooses (asked before priority)
                 continue
