@@ -35,6 +35,7 @@ from app.rules import (
     history,
     merged,  # -- merged permanents (wave 18D) --
     ninjutsu,
+    per_opponent,  # -- per-opponent targets (wave 23A) --
     permissions,
     restrictions,
     scripts,
@@ -2174,6 +2175,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     else:
         flashing = None
     definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
+    definition = per_opponent.for_cast(plan, card.id, definition)  # -- per-opponent targets (wave 23A) --
     entwined = bool(a.kicker) and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine  # (an entwined spell isn't kicked: review 18E)
     kicked = 0 if entwined else a.kicker
     if entwined and not (definition or {}).get("modes"):
@@ -2878,6 +2880,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if either is either_costs.WAITING:
         return
     definition = None if plan.manual(card) else scripts.spell_definition(ch)
+    definition = per_opponent.for_cast(plan, card.id, definition)  # -- per-opponent targets (wave 23A) --
     aura = None if plan.manual(card) else attachments.enchant_selector(ch)
     slots: list[list[TargetRef]] = []
     slot_specs: list[dict[str, Any] | None] = []
@@ -3369,6 +3372,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         definition = None if plan.manual(card) else scripts.definitions(ch).get(ability.index)
     if definition is not None and definition["kind"] != "activated":
         definition = None
+    definition = per_opponent.for_cast(plan, card.id, definition)  # -- per-opponent targets (wave 23A) --
     if exclude_targets and set(a.targets) & set(exclude_targets):
         raise ActionError(f"{ch.name} can't target itself")
     modal: modal_abilities.Announced | None = None

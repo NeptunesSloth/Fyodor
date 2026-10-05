@@ -54,33 +54,43 @@ def flagged(definition: dict[str, Any]) -> bool:
 
 
 def allowed(definition: dict[str, Any]) -> bool:
-    """The flag only on a triggered ability's own target group (see the module docstring)."""
+    """The flag only on a triggered ability's, an activated ability's or a spell's own single target group (see the module
+    docstring; a spell or ability is expanded as it is put on the stack, 601.2c)."""
     raw = json.dumps(definition, default=str)
-    return FLAG not in raw or (definition.get("kind") == "triggered" and flagged(definition)
+    return FLAG not in raw or (definition.get("kind") in ("triggered", "activated", "spell") and flagged(definition)
                                and raw.count(f'"{FLAG}"') == len(definition["targets"]) == 1)
 
 
 def expand(plan: Plan, t: PendingTrigger) -> None:
     """A pending trigger with a flagged group gets one group (and one copy of the effects) per live opponent of its
     controller, in turn order from the controller; a required target no opponent's permanents offer drops that opponent."""
+    t.ability = expanded(plan, t.controller, t.source_card, t.ability)
+
+
+def for_cast(plan: Plan, source_card: str | None, definition: dict[str, Any] | None) -> dict[str, Any] | None:
+    """-- per-opponent targets (wave 23A) -- the same for a spell or activated ability about to be put on the stack by the
+    acting player (601.2c: a group of targets for each opponent, chosen as it is cast)."""
+    return definition if definition is None else expanded(plan, plan.actor, source_card, definition)
+
+
+def expanded(plan: Plan, controller: str, source_card: str | None, ab: dict[str, Any]) -> dict[str, Any]:
     from app.rules.scripts import _renumber
     from app.rules.targets import legal_targets
     from app.rules.triggers import source_of
 
-    ab = t.ability
     if not flagged(ab):
-        return
+        return ab
     group = ab["targets"][0]
     order = plan.state.seat_order
-    start = order.index(t.controller) if t.controller in order else 0
-    opponents = [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in plan.live() and p != t.controller]
+    start = order.index(controller) if controller in order else 0
+    opponents = [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in plan.live() and p != controller]
     sel = selectors.from_key(group["what"])
     groups: list[dict[str, Any]] = []
     effects: list[dict[str, Any]] = []
     for p in opponents:
         key = replace(sel, controller=f"player:{p}").key()
-        if group["min"] and not legal_targets(plan, key, t.controller, source_of(plan, t.source_card), t.source_card):
+        if group["min"] and not legal_targets(plan, key, controller, source_of(plan, source_card), source_card):
             continue
         effects += _renumber(ab["effects"], [len(groups)])
         groups.append({k: v for k, v in group.items() if k != FLAG} | {"what": key})
-    t.ability = {**ab, "effects": effects, "targets": groups}
+    return {**ab, "effects": effects, "targets": groups}

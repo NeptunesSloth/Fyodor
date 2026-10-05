@@ -15,6 +15,7 @@ A *predicate* is data, judged for one player at a time as the instruction is rea
   more creatures than you", "has fewer cards in hand than you", "has more life than you";
 * ``{"extreme": <value>, "most": bool}`` — the most / fewest of every player still in the game (ties all qualify: "the most" is
   met by whoever has no fewer than anyone else);
+* ``{"dealt": bool}`` — the player was dealt damage (``dealt`` True: combat damage) this turn (the turn's log, history.py);
 * ``{"tw": <spec>, "has": bool}`` — whether the player is among those an earlier instruction of this resolution acted on
   ("Each player who can't" / "who didn't discard a nonland card this way": ``has`` False; the instruction recorded them, this_way.py).
 
@@ -45,14 +46,14 @@ _VERB = {"discard": "discarded", "sacrifice": "sacrificed"}
 _CANT = re.compile(r"^(?:can't|couldn't)$")
 _DIDNT = re.compile(r"^(?:didn't|did not|doesn't|does not|don't) (?P<verb>discard|sacrifice)(?: (?P<what>.+?))?(?: this way)?$")
 _DID = re.compile(r"^(?P<verb>discarded|sacrificed)(?: (?P<what>.+?))?(?: this way)?$")
-_REL = re.compile(r"^(?P<verb>controls|has) (?P<cmp>more|fewer|less) (?P<what>.+?) than you(?: do)?$")
-_EXT = re.compile(r"^(?P<verb>controls|has) the (?P<ext>most|fewest|least|highest|lowest) (?P<what>.+)$")
+_REL = re.compile(r"^(?P<verb>controls?|has|have) (?P<cmp>more|fewer|less) (?P<what>.+?) than you(?: do)?$")
+_EXT = re.compile(r"^(?P<verb>controls?|has|have) the (?P<ext>most|fewest|least|highest|lowest) (?P<what>.+)$")
 _BAD = re.compile(r"\b(?:another|~|this|that|it|them|they|their|each other)\b")
 
 
 def _quantity(what: str, verb: str) -> Any:
     """"creatures" / "lands" (controls), "life" / "cards in hand" (has) as a value read for "you"."""
-    if verb == "has":
+    if verb in ("has", "have"):
         return {"life": "you"} if what == "life" else {"hand": "you"} if what == "cards in hand" else None
     key = conditions._count(what, "you control")
     return {"count": key} if key else None
@@ -89,10 +90,12 @@ def parse_pred(text: str, prior: dict[str, Any] | None = None) -> Pred | None:
     if (m := _EXT.match(t)) is not None:
         value = _quantity(m["what"], m["verb"])
         return None if value is None else {"extreme": value, "most": m["ext"] in ("most", "highest")}
+    if (m := re.fullmatch(r"(?:was|were) dealt (?P<c>combat )?damage this turn", t)) is not None:
+        return {"dealt": bool(m["c"])}
     # a condition as that player: "controls an Elf" → "you control an Elf", "has three or more poison counters" → "you have …"
     sub = re.sub(r"^(?:controls|control)\b", "you control", t)
     sub = re.sub(r"^(?:doesn't|does not|don't) control\b", "you don't control", sub)
-    sub = re.sub(r"^has\b", "you have", sub)
+    sub = re.sub(r"^(?:has|have)\b", "you have", sub)
     sub = re.sub(r"^(?:doesn't|does not|don't) have\b", "you don't have", sub)
     if not sub.startswith("you "):
         sub = f"you {t}"
@@ -114,6 +117,11 @@ def holds(plan: Plan, ctx: Context, pred: Pred, pid: str) -> bool:
         got = {p: values.evaluate(plan, {**ctx, "controller": p}, pred["extreme"]) for p in plan.live()}
         best = max(got.values(), default=0) if pred["most"] else min(got.values(), default=0)
         return pid in got and got[pid] == best
+    if "dealt" in pred:  # (this turn's log: damage dealt to the player, 120.3; ``dealt`` True: combat damage only)
+        from app.rules import history
+
+        return any(f.kind == "damage" and f.player == pid and f.amount > 0 and (f.combat or not pred["dealt"])
+                   for f in history.log_for(plan).facts)
     if "tw" in pred:
         from app.rules import this_way
 
