@@ -29,7 +29,7 @@ def card_db(settings):
     from app.cards.importer import build_database
 
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY, *LIFE], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY, *LIFE, *SPHERE], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
 
 
@@ -218,5 +218,57 @@ def test_spells_that_target_terror_cost_3_life(cards):
     act(s, "p2", type="set_life", player="p2", value=life_before)
     act(s, "p2", type="cast_spell", card_id=theirs.id, targets=[terror.id])
     assert s.state.players["p2"].life == life_before - 3
+    answer(s)
+    check(s)
+
+
+# -- Damping Sphere: the caster's own count of spells this turn --
+SPHERE = [
+    real("Damping Sphere", "{2}", 2, "Artifact", "If a land is tapped for mana, it produces {C} instead of any other type and amount.\n"
+         "Each spell a player casts costs {1} more to cast for each other spell that player has cast this turn."),
+]
+
+
+def test_damping_sphere_cost_line_is_read(cards):
+    feats = {f.id: f.supported for f in coverage.of_card_data(cards.resolve("Damping Sphere")).features}
+    assert feats["text:1"]
+
+
+def test_each_spell_costs_one_more_for_each_other_spell_that_player_cast(cards):
+    s = build(cards, ["Damping Sphere", "Lightning Bolt", "Lightning Bolt", "Lightning Bolt"])
+    put(s, "Damping Sphere")
+    bolts = [c for c in s.state.cards.values() if c.name == "Lightning Bolt" and c.owner == "p1"]
+    for b in bolts:
+        act(s, "p1", type="move", card_ids=[b.id], to={"zone": "hand"})
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolts[0].id, targets=["p2"])  # the first spell: no increase
+    answer(s)
+    mana(s, R=1)
+    with pytest.raises(ActionError):  # the second: {R}{1}
+        act(s, "p1", type="cast_spell", card_id=bolts[1].id, targets=["p2"])
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=bolts[1].id, targets=["p2"])
+    answer(s)
+    mana(s, R=1, C=1)
+    with pytest.raises(ActionError):  # the third: {R}{2}
+        act(s, "p1", type="cast_spell", card_id=bolts[2].id, targets=["p2"])
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=bolts[2].id, targets=["p2"])
+    answer(s)
+    check(s)
+
+
+# -- 601.2: an illegal cast returns to the moment before it was proposed --
+def test_an_illegal_target_cancels_the_cast_and_pays_nothing(cards):
+    s = build(cards, ["Seized from Slumber", "Grizzly Bears"])
+    spell, bears = to_hand(s, "Seized from Slumber"), put(s, "Grizzly Bears")
+    land = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")
+    mana(s, W=1, C=4)
+    for target in (land.id, "nobody"):  # a card that isn't a creature on the battlefield, and something that isn't on the table
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=spell.id, targets=[target])
+        assert s.state.cards[spell.id].zone == "p1:hand" and s.state.players["p1"].mana == {"W": 1, "C": 4}
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id])
+    assert s.state.players["p1"].mana == {}
     answer(s)
     check(s)
