@@ -360,5 +360,139 @@
    "Enchant"
   ],
   "layout": "normal"
+ },
+ {
+  "name": "Roxanne, Starfall Savant",
+  "mana_cost": "{3}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature \u2014 Cat Druid",
+  "oracle_text": "Whenever Roxanne enters or attacks, create a tapped colorless artifact token named Meteorite with \"When this token enters, it deals 2 damage to any target\" and \"{T}: Add one mana of any color.\"\nWhenever you tap an artifact token for mana, add one mana of any type that artifact token produced.",
+  "power": "4",
+  "toughness": "3",
+  "loyalty": null,
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Ward Sliver",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature \u2014 Sliver",
+  "oracle_text": "As this creature enters, choose a color.\nAll Slivers have protection from the chosen color.",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Origin of Captain America",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment \u2014 Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 Put a +1/+1 counter on target creature you control. It gains first strike and vigilance until end of turn.\nII \u2014 Create a colorless Equipment artifact token named Sturdy Shield with \"Equipped creature gets +1/+2\" and equip {2}.\nIII \u2014 Tap up to one target creature and put a stun counter on it.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "layout": "saga"
+ },
+ {
+  "name": "Armed with Proof",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, investigate twice. (To investigate, create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nClues you control are Equipment in addition to their other types and have \"Equipped creature gets +2/+0\" and equip {2}.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Investigate"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Gemcutter Buccaneer",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature \u2014 Orc Pirate Artificer",
+  "oracle_text": "Whenever this creature or another Pirate you control enters, create a tapped Treasure token.\nTreasures you control are Equipment in addition to their other types and have \"Equipped creature gets +2/+0,\" equip Pirate {1}, and equip {3}.",
+  "power": "1",
+  "toughness": "3",
+  "loyalty": null,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Treasure"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Arterial Alchemy",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, create a Blood token for each opponent you have. (It's an artifact with \"{1}, {T}, Discard a card, Sacrifice this token: Draw a card.\")\nBlood tokens you control are Equipment in addition to their other types and have \"Equipped creature gets +2/+0\" and equip {2}.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Dan Lewis",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature \u2014 Human",
+  "oracle_text": "Noncreature, non-Equipment artifacts you control are Equipment in addition to their other types and have \"Equipped creature gets +1/+0\" and equip {1}.\nDoctor's companion (You can have two commanders if the other is the Doctor.)",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Doctor's companion"
+  ],
+  "layout": "normal"
  }
 ]

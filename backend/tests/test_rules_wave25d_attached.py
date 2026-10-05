@@ -254,6 +254,81 @@ def test_lingering_death_makes_the_controller_sacrifice_the_creature_at_their_en
     roundtrip(s)
 
 
+def test_roxannes_meteorite_token_deals_its_damage_as_it_enters(cards):
+    """A quoted ability without its own period ("When this token enters, it deals 2 damage to any target") is read as the ability it is."""
+    s = build(cards, "Roxanne, Starfall Savant", "Probe Beast")
+    beast = on_battlefield(s, "Probe Beast")
+    roxanne = to_hand(s, "Roxanne, Starfall Savant")
+    pay(s, R=1, G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=roxanne.id)
+    for _ in range(12):  # the token's trigger asks for its target (115.1)
+        d = decision(s)
+        if d is not None:
+            choose(s, "p2" if "p2" in {o.id for o in d.options} else d.options[0].id)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    meteorite = next(c for c in s.state.cards.values() if c.name == "Meteorite")
+    assert meteorite.tapped and s.state.players["p2"].life == 40 - 2  # "create a tapped … token", and it dealt 2 damage to the chosen player
+    roundtrip(s)
+
+
+def test_ward_sliver_gives_every_sliver_protection_from_the_chosen_color(cards):
+    s = build(cards, "Ward Sliver")
+    sliver = to_hand(s, "Ward Sliver")
+    pay(s, W=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=sliver.id)
+    for _ in range(10):
+        d = decision(s)
+        if d is not None:
+            choose(s, next(o.id for o in d.options if o.label == "Red"))
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    from app.rules import protection
+
+    c = ch(s, s.state.cards[sliver.id])
+    assert protection.qualities(c) and "protection" in c.keywords
+    red = card("Probe Red", set_code="x", number="1", colors=["R"], color_identity=["R"])  # noqa: F841 (a red source, as characteristics)
+    from dataclasses import replace
+
+    assert protection.protected_from(c, replace(c, colors=frozenset({"R"}))) and not protection.protected_from(c, c)  # red yes, white no
+    roundtrip(s)
+
+
+def test_clues_become_equipment_that_can_equip(cards):
+    """613.1d / 205.1b: "Clues you control are Equipment in addition to their other types and have "Equipped creature gets +2/+0" and equip {2}."
+    (the type is added, 613.1f the abilities are granted, and the equip ability works like any Equipment's: 702.6)."""
+    s = build(cards, "Armed with Proof", "Probe Beast")
+    beast = on_battlefield(s, "Probe Beast")
+    cast(s, "Armed with Proof", W=1, C=2)
+    clues = [c for c in s.state.cards.values() if c.name == "Clue" and c.zone == "p1:battlefield"]
+    assert len(clues) == 2  # "investigate twice"
+    c = ch(s, clues[0])
+    assert {"Clue", "Equipment"} <= c.subtypes and "Artifact" in c.types
+    index = next(a.index for a in c.abilities if a.kind == "keywords" and "equip" in a.keywords)
+    pay(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=clues[0].id, ability=index, targets=[beast.id])
+    settle(s)
+    assert s.state.cards[clues[0].id].attached_to == beast.id and ch(s, beast).pt == (5, 3)  # +2/+0
+    roundtrip(s)
+
+
+def test_dan_lewis_only_noncreature_non_equipment_artifacts(cards):
+    s = build(cards, "Dan Lewis", "U.S.Agent, John Walker")
+    cast(s, "U.S.Agent, John Walker", W=1, C=3)
+    shield = next(c for c in s.state.cards.values() if c.name == "Sturdy Shield")  # already an Equipment: not changed again
+    act(s, "p1", type="create_token", player="p1", token={"name": "Trinket", "type_line": "Token Artifact — Treasure", "text": ""})
+    trinket = next(c for c in s.state.cards.values() if c.name == "Trinket")
+    on_battlefield(s, "Dan Lewis")
+    equips = lambda c: sum(1 for a in ch(s, c).abilities if a.kind == "keywords" and "equip" in a.keywords)  # noqa: E731
+    assert "Equipment" in ch(s, trinket).subtypes and equips(trinket) == 1
+    assert equips(shield) == 1  # its own equip {2}, nothing granted on top
+    roundtrip(s)
+
+
 def test_unifying_theory_the_caster_pays_and_draws(cards):
     s = build(cards, "Unifying Theory", "Probe Spell Book")
     on_battlefield(s, "Unifying Theory")
