@@ -61,8 +61,8 @@ def suspend_found(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pause the resolution; 702.62b is read at the next upkeep)."""
     from app.rules import effects, replace
 
-    cid = ctx.get("found")
-    card = plan.state.cards.get(cid or "")
+    cid = str(ctx.get("found") or "")
+    card = plan.state.cards.get(cid)
     if card is None or not card.zone.endswith(":exile"):
         return True
     n = effects._amount(plan, ctx, e["n"])

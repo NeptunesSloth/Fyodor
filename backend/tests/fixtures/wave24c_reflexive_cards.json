@@ -1,0 +1,35 @@
+[
+ {
+  "name": "Auron, Venerated Guardian",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Spirit Samurai",
+  "oracle_text": "Vigilance\nShooting Star — Whenever Auron attacks, put a +1/+1 counter on it. When you do, exile target creature defending player controls with power less than Auron's power until Auron leaves the battlefield.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "power": "2",
+  "toughness": "5",
+  "keywords": [
+   "Vigilance",
+   "Shooting Star"
+  ]
+ },
+ {
+  "name": "Solemnity",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ }
+]

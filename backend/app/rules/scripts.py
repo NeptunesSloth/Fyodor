@@ -115,6 +115,7 @@ TRIGGERS = [
     # -- state triggers (wave 6D) -- "When you control no Islands, …" (603.8: app/rules/state_triggers.py)
     (re.compile(r"^When (?P<state>you control (?:no|a|an|\w+ or more) [^,]+|there are no [^,]+ on the battlefield|"
                 r"you have \w+ or (?:more|less) life|"
+                r"(?:~|this [a-z]+) has [a-z]+(?: strike)?|"  # -- flip (wave 24C) -- "When this creature has flying, flip it." (Student of Elements)
                 r"(?:~|this [a-z]+) has (?:no|\w+ or more) [^,]+? counters on it|there are (?:\w+ or more|no) [^,]+? counters on (?:~|this [a-z]+)), "  # -- state triggers (waves 19C, 19D) -- its own counters
                 r"(?P<body>.+)$"), "state"),
     # Anything else "When/Whenever [subject] [event], …": the generic condition grammar (app/rules/events.py)
@@ -5610,7 +5611,7 @@ def _gated_other_rewrite(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # +1/+1 counter from it. If you do, …", "Discard a card. If you do, draw a card.", "Return it to its owner's hand. If
 # you do, …"): whether that one instruction was actually carried out (608.2c), probed as it runs (effects._did_r1,
 # effects._did). The sentence before must be that one instruction (an intervening "if" of a trigger may gate it).
-_DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "remove_counters", "discard", "exile", "bounce"})
+_DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "remove_counters", "discard", "exile", "bounce", "add_counters"})
 
 
 def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any]],

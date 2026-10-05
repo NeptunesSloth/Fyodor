@@ -28,7 +28,7 @@ def condition(text: str) -> dict[str, Any] | None:
     """The state, or None (manual): only one about the controller, the board, or the permanent itself."""
     from app.rules import conditions
 
-    cond = conditions.parse(text)
+    cond = conditions.parse(re.sub(r"^this [a-z]+ ", "~ ", text), objects=True)  # (wave 24C: "this creature has flying")
     if cond is None or set(conditions.objects_in(cond)) - {"self"}:
         return None
     return cond

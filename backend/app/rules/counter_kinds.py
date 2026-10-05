@@ -69,7 +69,6 @@ def _put(plan: Plan, ctx: Context, e: dict[str, Any], puts: list[tuple[str, str,
 
 
 def kinds(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    from app.rules import effects
 
     objs = _objects(plan, ctx, e["of"])
     found = sorted({k for o in objs for k in _counters(plan, o)})

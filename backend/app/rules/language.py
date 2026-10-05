@@ -3379,6 +3379,9 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "transform", "who": "self"}], None  # (701.27c: anything that isn't double-faced doesn't turn over)
     if text in ("transform it", "transform him", "transform her") and has_primitive("transform"):  # -- transform (wave 20F) --
         return [{"do": "transform", "who": "it"}], None  # (the pronoun's antecedent is bound by scripts.resolve_it: the source in its own trigger)
+    # -- flip (wave 24C) -- 710: "flip ~" / "flip this creature" / "flip it" (the source only: a flip card's own ability)
+    if re.fullmatch(r"flip (?:~|it|this (?:creature|permanent))", text) and has_primitive("flip"):
+        return [{"do": "flip", "who": "self"}], None
     m = re.fullmatch(r"return (?:it|him|her) to the battlefield(?P<t> tapped)?(?: and)? transformed under "
                      r"(?P<u>your|(?:its|his|her) owner's) control", text)
     if m:
