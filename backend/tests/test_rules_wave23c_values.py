@@ -34,6 +34,7 @@ FODDER = [
          colors=["G"], color_identity=["G"]),
     card("Probe Gold", set_code="t23c", number="C91", mana_cost="{R}{G}", cmc=2.0, type_line="Sorcery", oracle_text="You gain 1 life.",
          colors=["R", "G"], color_identity=["R", "G"]),
+    card("Probe Rock", set_code="t23c", number="C93", mana_cost="{3}", cmc=3.0, type_line="Artifact", oracle_text=""),
     card("Probe Changeling", set_code="t23c", number="C92", mana_cost="{1}", cmc=1.0, type_line="Creature — Shapeshifter",
          oracle_text="Changeling (This card is every creature type.)", power="1", toughness="1", keywords=["Changeling"]),
 ]
@@ -232,3 +233,53 @@ def test_find_ugins_insight_scry_amount_is_the_greatest_mana_value():
     d = scripts.definitions(printed_from_data({**c, "faces": []}, 0))
     scry, draw = d[0]["effects"][:2]
     assert scry["do"] == "scry" and scry["n"]["max"] == "mana_value" and draw["do"] == "draw" and draw["n"] == 3
+
+
+# -- "the same name as that spell" ---------------------------------------------------------------------------------------------
+def test_aven_shrine_counts_the_cards_in_all_graveyards_with_the_spells_name(cards):
+    s = game(cards, ["Aven Shrine", "Probe Four", "Probe Four", "Probe Gold"], ["Probe Four"])
+    put(s, "Aven Shrine")
+    mine = [c for c in s.state.cards.values() if c.name == "Probe Four" and c.owner == "p1"]
+    act(s, "p1", type="move", card_ids=[mine[0].id], to={"player": "p1", "zone": "graveyard"})
+    put(s, "Probe Four", "graveyard", pid="p2")  # (any graveyard counts)
+    put(s, "Probe Gold", "graveyard")  # (another name doesn't)
+    life = s.state.players["p1"].life
+    act(s, "p1", type="move", card_ids=[mine[1].id], to={"player": "p1", "zone": "hand"})
+    mana(s, "p1", G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=mine[1].id)
+    drive(s)
+    assert s.state.players["p1"].life == life + 2  # the player who cast it gains X = 2
+    roundtrip(s)
+
+
+def test_greatest_mana_value_among_your_commanders_looks_in_every_zone(cards):
+    s = game(cards)
+    assert evaluate(s, "the greatest mana value among your commanders") == 4  # Krenko, Mob Boss waits in the command zone
+    krenko = find(s, "Krenko, Mob Boss")
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"player": "p1", "zone": "graveyard"})
+    assert evaluate(s, "the greatest mana value among your commanders") == 4  # 903.3: still the commander in a graveyard
+    assert evaluate(s, "the greatest mana value among your commanders", pid="p2") == 4  # Atraxa, Praetors' Voice: mana value 4 as well
+
+
+# -- "the mana value of the permanent exiled this way" / "the toughness of the card returned this way" ------------------------------
+def test_ruinous_intrusion_counts_the_mana_value_of_what_it_exiled(cards):
+    s = game(cards, ["Ruinous Intrusion", "Probe Rock", "Probe Four"])
+    rock, beast = put(s, "Probe Rock"), put(s, "Probe Four")
+    spell = put(s, "Ruinous Intrusion", "hand")
+    mana(s, "p1", G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[rock.id, beast.id], target_counts=[1, 1])
+    drive(s)
+    assert s.state.cards[rock.id].zone == "p1:exile" and counters(s, beast) == {"+1/+1": 3}  # X = 3, the exiled artifact's mana value
+    roundtrip(s)
+
+
+def test_foul_renewal_shrinks_by_the_toughness_of_the_card_it_returned(cards):
+    s = game(cards, ["Foul Renewal", "Probe Four"], ["Probe Four"])
+    gone = put(s, "Probe Four", "graveyard")
+    theirs = put(s, "Probe Four", "battlefield", pid="p2")
+    spell = put(s, "Foul Renewal", "hand")
+    mana(s, "p1", B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[gone.id, theirs.id], target_counts=[1, 1])
+    drive(s)
+    assert s.state.cards[gone.id].zone == "p1:hand" and s.state.cards[theirs.id].zone == "p2:graveyard"  # -4/-4 (the returned card's toughness) kills it
+    roundtrip(s)

@@ -268,6 +268,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"player_counters": m["kind"]}
     if _EXCESS_DEALT.fullmatch(what):  # -- as long as (wave 9B) -- 120.10: scripts bind it to the damage just before (this_way.excess_dealt)
         return {"ref_amount": "excess_dealt"}
+    if re.fullmatch(r"cards in all graveyards with the same name as (?:that|the) spell", what):  # -- value grammar (wave 23C) -- Cabal Shrine: 201.2
+        return {"same_name": "event", "zone": "graveyard"}  # (the spell a cast trigger is about; scripts._event_refs_ok)
     if _DAMAGE_EVENT.fullmatch(what):  # -- value grammar (wave 23C) -- "the amount of damage it dealt to that player": the damage trigger's amount
         return {"event_amount": 1, "of": "damage"}  # (scripts._event_refs_ok: only a damage event's trigger reads it; 603.2c: a batch's total)
     if what in ("the damage prevented this way", "damage prevented this way"):  # -- prevention riders (wave 17A) -- 615.5
@@ -308,6 +310,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if m:
         key = _selector_key(m["sel"])
         return {"distinct": _DISTINCT[m["kind"]], "among": key} if key else None
+    if what == "the greatest mana value among your commanders":  # -- value grammar (wave 23C) -- 903.3: a commander is one wherever it is (Cactus Preserve)
+        return {"max": "mana_value", "of": selectors.Selector(commander=True, owner="you", zones=selectors.ZONES).key()}
     if what == "the greatest mana value of a commander you own on the battlefield or in the command zone":  # -- amounts (wave 12C) --
         return {"max": "mana_value", "of": selectors.Selector(commander=True, owner="you", zones=("battlefield", "command")).key()}  # 903.3
     m = _AGGREGATE.match(what)
@@ -611,6 +615,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import exiled_with
 
         return len(exiled_with.cards(plan, ctx))
+    if "same_name" in v:  # -- value grammar (wave 23C) -- 201.2: objects share a name when they have one in common (a split card has both)
+        got = _object(plan, ctx, v["same_name"])
+        if got is None:
+            return 0
+        names = set((got[1].name or "").split(" // "))
+        return sum(1 for c in plan.state.cards.values() if c.zone.endswith(f":{v['zone']}") and names & set((plan.ch(c).name or "").split(" // ")))
     if "shared_type" in v:  # -- value grammar (wave 23C) -- the most of them that share one creature type (a changeling has every one: 702.73a)
         from collections import Counter
 
