@@ -111,12 +111,12 @@ def test_student_of_elements_flips_once_it_has_flying(cards):
     check(s)
 
 
-def test_a_flip_card_is_not_copied_automatically(cards):
+def test_a_flip_card_is_copied(cards):
     from app.rules import copying
 
     s = build(cards, JUSHI)
     jushi = on_field(s, JUSHI)
-    assert "flip card" in (copying.supported_source(Plan(s.state, "p1", s.cards, None), s.state.cards[jushi.id]) or "")
+    assert copying.supported_source(Plan(s.state, "p1", s.cards, None), s.state.cards[jushi.id]) is None  # (review 24C: 707.3, test_rules_review24c)
 
 
 def test_akki_lavarunner_flips_when_it_deals_damage_to_an_opponent(cards):

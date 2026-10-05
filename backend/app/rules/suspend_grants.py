@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 Context = dict[str, Any]
 _COUNTED = re.compile(r"\b(?P<e>[Ee])xile (?P<what>it|that card|target [^.,]+?) (?:with|and put) (?P<n>an?|one|two|three|four|five|six|seven|eight|nine|ten) "
-                      r"time counters? (?:on it)?(?P<gain> and it gains suspend)?(?=[.,]|$)")
+                      r"time counters? (?:on it)?(?P<gain> and it gains suspend|\. (?:If it doesn't have suspend, it|It) gains suspend)?(?=[.,]|$)")
 
 
 _FOUND = re.compile(r"(exile cards from the top of your library until you exile an? [^.,]+?)\. Put (?P<n>an?|one|two|three|four|five|six|seven|eight|nine|ten) "
@@ -34,12 +34,15 @@ _FOUND = re.compile(r"(exile cards from the top of your library until you exile 
 
 
 def rewrite(body: str) -> str:
-    """"Exile X with N time counters on it [and it gains suspend]" / "Exile X and put N time counters on it" → "Exile X. Put N time
-    counters on it. [It gains suspend.]" (separate sentences: the pronoun binds to what the first moved); "If it doesn't have suspend,
-    it gains suspend." → "It gains suspend." (see the module docstring)."""
+    """"Exile X with N time counters on it and it gains suspend" / "Exile X and put N time counters on it. If it doesn't have suspend, it
+    gains suspend." → "Exile X. Suspend it with N time counters." (separate sentences: the pronoun binds to what the first moved;
+    suspend_found acts only on a card that is in exile); without suspend gained → "Exile X. Put N time counters on it." (see the module
+    docstring)."""
+    # (review 24C) with suspend gained, the counters go on the card only if it is in exile: a commander put into the command zone instead
+    # (903.9a) is not "it" (the exiled card) and gets no time counters there
+    body = _COUNTED.sub(lambda m: f"{m['e']}xile {m['what']}. " + (f"Suspend it with {m['n']} time counters" if m["gain"] else f"Put {m['n']} time counters on it"), body)
     body = body.replace("If it doesn't have suspend, it gains suspend.", "It gains suspend.")
-    body = _FOUND.sub(lambda m: f"{m[1]}. Suspend that card with {m['n']} time counters.", body)
-    return _COUNTED.sub(lambda m: f"{m['e']}xile {m['what']}. Put {m['n']} time counters on it" + (". It gains suspend" if m["gain"] else ""), body)
+    return _FOUND.sub(lambda m: f"{m[1]}. Suspend that card with {m['n']} time counters.", body)
 
 
 def mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -61,17 +64,16 @@ def suspend_found(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pause the resolution; 702.62b is read at the next upkeep)."""
     from app.rules import effects, replace
 
-    cid = str(ctx.get("found") or "")
-    card = plan.state.cards.get(cid)
-    if card is None or not card.zone.endswith(":exile"):
-        return True
+    found = effects._cards(plan, ctx, e["who"]) if e.get("who") else [str(ctx.get("found") or "")]  # (review 24C: "Suspend it …", the exiled card)
+    cards = [c for c in found if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
     n = effects._amount(plan, ctx, e["n"])
-    if n <= 0:
+    if not cards or n <= 0:
         return True
-    if cid not in plan.rules.suspended:
-        plan.rules.suspended.append(cid)
-        plan.note(f"{card.name} is suspended with {n} time counters", [cid])
-    return replace.put_counters(plan, [(cid, "time", n)], by=ctx["controller"], then=effects._then(ctx, e), ctx=ctx)
+    for cid in cards:
+        if cid not in plan.rules.suspended:
+            plan.rules.suspended.append(cid)
+            plan.note(f"{plan.state.cards[cid].name} is suspended with {n} time counters", [cid])
+    return replace.put_counters(plan, [(cid, "time", n) for cid in cards], by=ctx["controller"], then=effects._then(ctx, e), ctx=ctx)
 
 
 PRIMITIVES = {"suspend_mark": mark, "suspend_found": suspend_found}

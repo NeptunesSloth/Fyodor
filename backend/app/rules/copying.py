@@ -287,6 +287,9 @@ def _layer1(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     if recipe is not None and card.is_token and recipe.printing and recipe.printing == card.card_id \
             and card.face != recipe.face and (info.get(card.card_id) or {}).get("layout") in TWO_FACED_TOKENS:
         recipe = recipe.model_copy(update={"face": card.face})  # (wave 3R3: 707.8a, the face that is up)
+    if recipe is not None and recipe.printing and (info.get(recipe.printing) or {}).get("layout") == "flip":
+        # (review 24C) 707.3, 110.5c: a copy of a flip card takes both halves; which one applies is the copy's own flipped status
+        recipe = recipe.model_copy(update={"face": 1 if card.flipped and card.zone.endswith(":battlefield") else 0})
     return ch if recipe is None else characteristics(recipe, info)
 
 
@@ -335,8 +338,6 @@ def supported_source(plan: Plan, card: CardInstance, *, token: bool = False) -> 
     layout = (data or {}).get("layout")
     if layout == "meld" and card.face:
         return "a melded permanent (707.8)"
-    if layout == "flip":  # -- flip (wave 24C) -- 710: the copy has the alternative characteristics too and keeps its own flipped status
-        return "a flip card (710, 110.5: whether the copy is flipped isn't modelled)"
     if token and layout in DOUBLE_FACED and layout not in TWO_FACED_TOKENS:
         return "a double-faced object (707.8a)"
     return None

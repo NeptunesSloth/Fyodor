@@ -1718,8 +1718,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # -- suspend granted (wave 24C) -- "It gains suspend." (app/rules/suspend_grants.py)
     if text in ("it gains suspend", "that card gains suspend") and rider is None:
         return [{"do": "suspend_mark", "who": "it"}], None
-    if rider is None and (m := re.fullmatch(rf"suspend that card with (?P<n>{AMT}) time counters", text)) is not None:
-        return [{"do": "suspend_found", "n": _amount(m["n"])}], None  # (app/rules/suspend_grants.py: the card an exile-until found)
+    if rider is None and (m := re.fullmatch(rf"suspend (?P<w>that card|it) with (?P<n>{AMT}) time counters", text)) is not None:
+        return [{"do": "suspend_found", "n": _amount(m["n"]), **({"who": "it"} if m["w"] == "it" else {})}], None  # (app/rules/suspend_grants.py: the card an exile-until found / the exiled card)
     # -- counter kinds (wave 24C) -- app/rules/counter_kinds.py
     found = _counter_kinds(text, rider)
     if found is not None:

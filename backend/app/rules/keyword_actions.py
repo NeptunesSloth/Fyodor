@@ -540,10 +540,11 @@ def flip(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     text, type line and power and toughness are the alternative ones, 710.2; its color and mana cost stay, 710.1c). One-way (710.4): a flipped
     permanent, a card that isn't a flip card and anything not on the battlefield does nothing."""
     from app.rules import characteristics as chars
+    from app.rules import copying
 
     for cid in effects._cards(plan, ctx, e.get("who", "self")):
         card = plan.state.cards[cid]
-        if card.zone.endswith(":battlefield") and not card.face_down and chars.flippable(card, plan.info):
+        if card.zone.endswith(":battlefield") and not card.face_down and chars.flippable(card, plan.info, copying.room_printing(plan.rules, card, plan.oid(card))):
             plan.do({"type": "flip", "card_id": cid}, actor=ctx["controller"])
     return True
 

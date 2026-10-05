@@ -329,9 +329,11 @@ def transformable(card: CardInstance, info: CardInfo) -> bool:
     return not {"Instant", "Sorcery"} & set(parse_type_line(str(faces[0 if card.face else 1].get("type_line") or ""))[1])
 
 
-def flippable(card: CardInstance, info: CardInfo) -> bool:
-    """-- flip (wave 24C) -- 710.4: a flip card's permanent that isn't flipped yet (flipping is one-way)."""
-    data = info.get(card.card_id) if card.card_id and card.token is None and not card.is_token else None
+def flippable(card: CardInstance, info: CardInfo, printing: str | None = None) -> bool:
+    """-- flip (wave 24C) -- 710.4: a flip card's permanent that isn't flipped yet (flipping is one-way). ``printing``: the card it
+    copies (review 24C, 707.3: a copy of a flip card flips too)."""
+    pid = printing or (card.card_id if card.token is None and not card.is_token else None)
+    data = info.get(pid) if pid else None
     return data is not None and data.get("layout") == "flip" and len(data.get("faces") or []) >= 2 and not card.flipped
 
 
