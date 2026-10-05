@@ -1,0 +1,156 @@
+[
+ {
+  "name": "Powerful Broker",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Villain",
+  "oracle_text": "{T}: For each kind of counter on target permanent or player, give that permanent or player another counter of that kind. Activate only as a sorcery.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "power": "3",
+  "toughness": "3",
+  "keywords": []
+ },
+ {
+  "name": "Skyship Plunderer",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Pirate",
+  "oracle_text": "Flying\nWhenever this creature deals combat damage to a player, for each kind of counter on target permanent or player, give that permanent or player another counter of that kind.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "power": "2",
+  "toughness": "1",
+  "keywords": [
+   "Flying"
+  ]
+ },
+ {
+  "name": "Maulfist Revolutionary",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Warrior",
+  "oracle_text": "Trample\nWhen this creature enters or dies, for each kind of counter on target permanent or player, give that permanent or player another counter of that kind.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "power": "3",
+  "toughness": "3",
+  "keywords": [
+   "Trample"
+  ]
+ },
+ {
+  "name": "Dramatist's Puppet",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact Creature — Construct",
+  "oracle_text": "When this creature enters, for each kind of counter on target permanent, put another counter of that kind on it or remove one from it.",
+  "colors": [],
+  "color_identity": [],
+  "power": "2",
+  "toughness": "4",
+  "keywords": []
+ },
+ {
+  "name": "Quarry Hauler",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Camel",
+  "oracle_text": "When this creature enters, for each kind of counter on target permanent, put another counter of that kind on it or remove one from it.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "power": "4",
+  "toughness": "3",
+  "keywords": []
+ },
+ {
+  "name": "Animation Module",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact",
+  "oracle_text": "Whenever one or more +1/+1 counters are put on a permanent you control, you may pay {1}. If you do, create a 1/1 colorless Servo artifact creature token.\n{3}, {T}: Choose a counter on target permanent or player. Give that permanent or player another counter of that kind.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Aven Courier",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Bird Advisor",
+  "oracle_text": "Flying\nWhenever this creature attacks, choose a counter on a permanent you control. Put a counter of that kind on target permanent you control if it doesn't have a counter of that kind on it.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "power": "1",
+  "toughness": "1",
+  "keywords": [
+   "Flying"
+  ]
+ },
+ {
+  "name": "Rhys, the Evermore",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Elf Warrior",
+  "oracle_text": "Flash\nWhen Rhys enters, another target creature you control gains persist until end of turn. (When it dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.)\n{W}, {T}: Remove any number of counters from target creature you control. Activate only as a sorcery.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "power": "2",
+  "toughness": "2",
+  "keywords": [
+   "Flash"
+  ]
+ },
+ {
+  "name": "Resourceful Defense",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever a permanent you control leaves the battlefield, if it had counters on it, put those counters on target permanent you control.\n{4}{W}: Move any number of counters from target permanent you control onto a second target permanent you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Hardened Scales",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Enchantment",
+  "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ }
+]

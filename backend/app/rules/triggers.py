@@ -1525,6 +1525,9 @@ def _suspend(plan: Plan) -> None:
     from it." (A triggered ability of the exiled card itself.)"""
     for cid in list(plan.rules.suspended):
         card = plan.state.cards.get(cid)
+        if card is not None and (not card.zone.endswith(":exile") or card.counters.get("time", 0) <= 0):
+            plan.rules.suspended.remove(cid)  # -- suspend granted (wave 24C) -- 702.62b: no longer suspended (a card that left exile is a new object)
+            continue
         if card is None or card.zone != f"{plan.active}:exile" or card.owner != plan.active:
             continue
         _add(plan, controller=card.owner, source_card=card.id, source_object=plan.oid(card), name=card.name,

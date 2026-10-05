@@ -448,7 +448,11 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return riot.supported(kw, line)
     if kw == "soulshift":  # (wave 15E: each instance of the line, scripts.keyword_triggers)
         return re.fullmatch(r"soulshift \d+(?:, soulshift \d+)*", line.strip().rstrip(".").lower()) is not None
-    if kw in ("bushido", "renown", "bloodthirst", "toxic", "fabricate", "firebending", "dredge"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
+    if kw in ("bushido", "renown"):  # -- flip (wave 24C) -- "Double strike; bushido 2": each piece of the line (triggers._keyword_n reads them one by one)
+        pieces = [p.strip() for p in re.split(r"[,;]\s*", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower())]
+        mine = [p for p in pieces if p.startswith(kw)]
+        return bool(mine) and all(re.fullmatch(rf"{kw} \d+", p) for p in mine)
+    if kw in ("bloodthirst", "toxic", "fabricate", "firebending", "dredge"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "plot":  # -- keywords (wave 15E) -- casting.plot: a mana plot cost
         return re.fullmatch(r"plot (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None

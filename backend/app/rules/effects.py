@@ -4178,3 +4178,12 @@ from app.rules import loops as _loops  # noqa: E402, I001
 PRIMITIVES.update(_loops.PRIMITIVES)
 RESUME[_loops.STEP] = _loops.resume
 RESUME.update(_villainous.RESUME)
+# -- counter kinds (wave 24C) -- "for each kind of counter on …", "choose a counter on …", "remove any number of counters" (app/rules/counter_kinds.py)
+from app.rules import counter_kinds as _counter_kinds  # noqa: E402, I001
+
+PRIMITIVES.update(_counter_kinds.PRIMITIVES)
+RESUME.update(_counter_kinds.RESUME)
+# -- suspend granted (wave 24C) -- "it gains suspend" (app/rules/suspend_grants.py)
+from app.rules import suspend_grants as _suspend_grants  # noqa: E402, I001
+
+PRIMITIVES.update(_suspend_grants.PRIMITIVES)

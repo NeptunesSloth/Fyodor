@@ -38,6 +38,7 @@ _LEGACY_TARGETS = {
     "any target": "any", "target player": "player", "target opponent": "opponent",
     # -- target forms (agent T) --  a player, or any planeswalker (whoever controls it)
     "target player or planeswalker": "player_or_planeswalker", "target opponent or planeswalker": "opponent_or_planeswalker",
+    "target permanent or player": "permanent_or_player",  # -- counter kinds (wave 24C) -- a permanent, or a player (115.1)
 }
 # -- activated other (wave 21E) -- "Choose target opponent who has more life than you do as you activate this ability.": the
 # condition is read as the ability is put on the stack (601.2c) and not again on resolution (608.2b only asks for an opponent)
@@ -227,6 +228,47 @@ _THIS_WAY = re.compile(r"^(?:the )?(?:cards?|creatures?|permanents?|tokens?|arti
                        r"(?P<verb>exiled|sacrificed|destroyed|discarded|milled|returned) this way$")
 _THE_VERBED = re.compile(r"^the (?P<verb>exiled|sacrificed|destroyed|discarded|milled|returned) "
                          r"(?P<what>card|creature|permanent|token|cards|creatures|permanents|tokens)$")
+
+
+_KINDS_EACH = re.compile(r"for each kind of counter on (?P<of>target permanent(?: or player)?), (?:give (?P<to>that permanent or player|that permanent) "
+                         r"another counter of that kind|(?P<alt>put another counter of that kind on it or remove one from it))")
+_KINDS_ONE = re.compile(r"choose a counter on (?P<of>target permanent(?: or player)?|a permanent you control), then (?:give (?P<to>that permanent or player|that permanent) "
+                        r"another counter of that kind|put a counter of that kind on (?P<to2>target permanent you control) if it doesn't have a counter "
+                        r"of that kind on it)")
+
+
+def _counter_kinds(text: str, rider: Any) -> tuple[Effects, Any] | None:
+    """-- counter kinds (wave 24C) -- "for each kind of counter on target permanent or player, give that permanent or player another
+    counter of that kind", "… put another counter of that kind on it or remove one from it", "choose a counter on …, then give …"
+    (app/rules/counter_kinds.py); "remove any number of counters from target creature you control"."""
+    if rider is not None:
+        return None
+    m = _KINDS_EACH.fullmatch(text)
+    if m is not None:
+        of = ref(m["of"])
+        player = " or player" in m["of"]
+        if of[0] != "target" or (m["alt"] is not None and player) or (m["to"] is not None and (m["to"] == "that permanent") == player):
+            raise _Fail
+        return [{"do": "counter_kinds", "of": "target", "pick": "each", "then": "give_or_remove" if m["alt"] else "give"}], _one(of[2])
+    m = _KINDS_ONE.fullmatch(text)
+    if m is not None:
+        if m["to2"] is not None:  # Aven Courier: the kinds on any permanent you control; put on the target if it has none of that kind
+            sel = selectors.parse("permanents you control")
+            to = ref(m["to2"])
+            if sel is None or to[0] != "target" or m["of"] != "a permanent you control":
+                raise _Fail
+            return [{"do": "counter_kinds", "of": sel.key(), "to": "target", "pick": "one", "then": "give", "unless_has": True}], _one(to[2])
+        of = ref(m["of"])
+        if of[0] != "target" or (m["to"] == "that permanent") == (" or player" in m["of"]):
+            raise _Fail
+        return [{"do": "counter_kinds", "of": "target", "pick": "one", "then": "give"}], _one(of[2])
+    m = re.fullmatch(r"remove any number of counters from (?P<o>target (?:creature|permanent) you control)", text)
+    if m is not None:
+        of = ref(m["o"])
+        if of[0] != "target":
+            raise _Fail
+        return [{"do": "remove_any_counters", "who": "target"}], _one(of[2])
+    return None
 
 
 def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
@@ -1673,13 +1715,24 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": _who(k1, key1), "kind": m["k"], "n": _amount(m["n"]),
                  "also": [{"kind": m["k2"], "n": _amount(m["n2"]), "who": _who(k2, key2)}]}], None
+    # -- suspend granted (wave 24C) -- "It gains suspend." (app/rules/suspend_grants.py)
+    if text in ("it gains suspend", "that card gains suspend") and rider is None:
+        return [{"do": "suspend_mark", "who": "it"}], None
+    if rider is None and (m := re.fullmatch(rf"suspend (?P<w>that card|it) with (?P<n>{AMT}) time counters", text)) is not None:
+        return [{"do": "suspend_found", "n": _amount(m["n"]), **({"who": "it"} if m["w"] == "it" else {})}], None  # (app/rules/suspend_grants.py: the card an exile-until found / the exiled card)
+    # -- counter kinds (wave 24C) -- app/rules/counter_kinds.py
+    found = _counter_kinds(text, rider)
+    if found is not None:
+        return found
     # -- moving counters (wave 12A) -- "move all counters from ~ onto target creature" (The Ozolith), graft's "move a +1/+1
     # counter from ~ onto that creature" (702.58a), "move a counter from target permanent you control onto a second target
     # permanent" (Nesting Grounds), "move any number of +1/+1 counters from ~ onto another target creature" (122.5:
     # app/rules/counter_moves.py); "a second target" is another word "target" (115.3)
     m = re.fullmatch(r"move (?P<n>a|one|all|any number of) (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) )?counters? from (?P<s>.+?) onto (?P<o>.+)", text)
-    if m and rider is None and (m["k"] is None) <= (m["n"] != "any number of") and m["k"] not in values.UNMODELED_COUNTERS:
+    if m and rider is None and m["k"] not in values.UNMODELED_COUNTERS:
         s_kind, s_key, s_group = ref(m["s"])
+        if m["k"] is None and m["n"] == "any number of" and s_kind != "target":  # (wave 24C: of mixed kinds, from one chosen object only)
+            raise _Fail
         d_kind, d_key, d_group = ref(re.sub(r"^an? second target ", "target ", m["o"]))
         if s_kind not in ("self", "target", "each") or d_kind not in ("self", "it", "target") or (s_kind, d_kind) == ("self", "self") \
                 or (s_kind == "each" and m["n"] != "all"):  # (a number from several: which ones? the player's choice, not read)
@@ -3338,6 +3391,9 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "transform", "who": "self"}], None  # (701.27c: anything that isn't double-faced doesn't turn over)
     if text in ("transform it", "transform him", "transform her") and has_primitive("transform"):  # -- transform (wave 20F) --
         return [{"do": "transform", "who": "it"}], None  # (the pronoun's antecedent is bound by scripts.resolve_it: the source in its own trigger)
+    # -- flip (wave 24C) -- 710: "flip ~" / "flip this creature" / "flip it" (the source only: a flip card's own ability)
+    if re.fullmatch(r"flip (?:~|it|this (?:creature|permanent))", text) and has_primitive("flip"):
+        return [{"do": "flip", "who": "self"}], None
     m = re.fullmatch(r"return (?:it|him|her) to the battlefield(?P<t> tapped)?(?: and)? transformed under "
                      r"(?P<u>your|(?:its|his|her) owner's) control", text)
     if m:

@@ -205,6 +205,8 @@ def move_card(
                         other.unblock(c.id)
                     if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
                         other.attacking = None
+        if src_zone not in ("battlefield", "phased"):  # (review 24C) 122.2: counters never follow a card to another zone either
+            c.counters = {}  # (time counters on a commander that went from exile to the command zone, 903.9a; a suspended card returned to the hand)
     if dst_zone in HIDDEN_ZONES or src_zone in HIDDEN_ZONES or (src_zone == "battlefield" and dst_zone != "battlefield"):
         c.face = 0  # (-- transform, wave 11A -- 712.8a: off the battlefield and the stack a double-faced card shows its front face)
     c.revealed_to = []  # a reveal ends when the card changes zones

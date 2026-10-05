@@ -132,6 +132,8 @@ def parse(text: str) -> list[Restriction] | None:
     exhaust: list[Restriction] = [{"kind": "per_game", "n": 1, "exhaust": True}] if text.startswith(EXHAUST) else []
     if text.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193a: "Activate this ability only once."
         exhaust = [{"kind": "per_game", "n": 1, "power_up": True}]
+    if text.startswith("Forecast — "):  # -- forecast (wave 24C) -- 702.57a: "Activate only during your upkeep and only once each turn."
+        exhaust = [{"kind": "step", "phases": ["upkeep"], "whose": "you"}, {"kind": "per_turn", "n": 1}]
     if text.startswith(BOAST):  # -- activation costs (wave 4H) -- 702.142a
         exhaust = [{"kind": "if", "cond": {"history": "self_attacked", "object": "self"}, "text": "this creature attacked this turn"},
                    {"kind": "per_turn", "n": 1, "boast": True}]
