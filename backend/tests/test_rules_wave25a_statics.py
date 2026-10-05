@@ -47,6 +47,9 @@ EXTRA = [
     card('Nightkin Ambusher', set_code='tst', number='M20', mana_cost='{2}{U}{B}', cmc=4.0, type_line='Creature — Mutant Warrior', oracle_text="Ward {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)\nWhen this creature enters, target player gets four rad counters.\nThis creature can't be blocked as long as defending player has a rad counter.", power='4', toughness='4', colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Ward'], layout='normal'),  # noqa: E501
     card('Arctic Foxes', set_code='tst', number='M21', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Fox', oracle_text="This creature can't be blocked by creatures with power 2 or greater as long as defending player controls a snow land.", power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
     card('Snow-Covered Island', set_code='tst', number='M22', cmc=0.0, type_line='Basic Snow Land — Island', oracle_text='({T}: Add {U}.)', colors=[], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Vampire Nocturnus', set_code='tst', number='M24', mana_cost='{1}{B}{B}{B}', cmc=4.0, type_line='Creature — Vampire', oracle_text='Play with the top card of your library revealed.\nAs long as the top card of your library is black, this creature and other Vampire creatures you control get +2/+1 and have flying.', power='3', toughness='3', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Mul Daya Channelers', set_code='tst', number='M25', mana_cost='{1}{G}{G}', cmc=3.0, type_line='Creature — Elf Druid Shaman', oracle_text='Play with the top card of your library revealed.\nAs long as the top card of your library is a creature card, this creature gets +3/+3.\nAs long as the top card of your library is a land card, this creature has "{T}: Add two mana of any one color."', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
+    card('Vampire Interloper', set_code='tst', number='M26', mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Vampire Scout', oracle_text="Flying\nThis creature can't block.", power='2', toughness='1', colors=['B'], color_identity=['B'], keywords=['Flying'], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='M99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
 ]
 
@@ -262,4 +265,27 @@ def test_a_snow_land_stops_creatures_with_power_two_or_more_from_blocking_arctic
     put(s, "Snow-Covered Island", "battlefield", pid="p2")
     assert "can't be blocked by" in block_problem_of(s, foxes, big)
     assert block_problem_of(s, foxes, small) is None  # power 1: it still can block
+    roundtrip(s)
+
+
+def test_the_top_card_of_the_library_decides_a_lord_of_vampires(cards):
+    s = build(cards, p1=("Vampire Nocturnus", "Vampire Interloper", "Test Bear", "Hooded Horror"))
+    nocturnus = put(s, "Vampire Nocturnus", "battlefield")
+    interloper = put(s, "Vampire Interloper", "battlefield")
+    put(s, "Test Bear", "library", position="top")
+    assert ch(s, nocturnus).pt == (3, 3) and "flying" not in ch(s, nocturnus).keywords  # the top card is green
+    put(s, "Hooded Horror", "library", position="top")  # black
+    assert ch(s, nocturnus).pt == (5, 4) and "flying" in ch(s, nocturnus).keywords  # "this creature and other Vampire creatures you control"
+    assert ch(s, interloper).pt == (4, 2)
+    roundtrip(s)
+
+
+def test_the_top_card_a_creature_or_a_land_decides_what_mul_daya_channelers_gets(cards):
+    s = build(cards, p1=("Mul Daya Channelers", "Test Bear"))
+    channelers = put(s, "Mul Daya Channelers", "battlefield")
+    put(s, "Test Bear", "library", position="top")
+    assert ch(s, channelers).pt == (5, 5)  # the top card is a creature card
+    put(s, "Forest", "library", position="top")
+    assert ch(s, channelers).pt == (2, 2)
+    assert any("Add two mana of any one color" in a.text for a in ch(s, channelers).abilities)  # a land card: "{T}: Add two mana of any one color."
     roundtrip(s)

@@ -42,6 +42,17 @@ def definition(text: str) -> Definition | None:
 
     if (inherited := abilities_of.inherit(text, statics._definition)) is not None:
         return inherited
+    # -- as long as (wave 25A) -- "As long as C, this creature and other Vampire creatures you control get +2/+1 and have flying.": two statics of the
+    # same permanent under the same condition — itself, and the others (the single-sentence grammar reads a union subject only when it's plain)
+    union = re.match(r"^(?P<head>As long as [^,]+), (?:~|this creature) and (?P<other>other [A-Z][a-z]+ creatures you control) (?P<pred>(?:get|have) .+)\.$",
+                     text.strip())
+    if union is not None:
+        pred = re.sub(r"\bget\b", "gets", re.sub(r"\bhave\b", "has", union["pred"]))
+        mine = statics.parse(f"{union['head']}, ~ {pred}.")
+        others = statics.parse(f"{union['head']}, {union['other'].capitalize()} {union['pred']}.")
+        if mine is None or others is None or mine.get("also") or others["who"] == "self":
+            return None
+        return {**mine, "also": [others]}
     parts = _SENTENCES.split(text.strip())
     if not 2 <= len(parts) <= 3:
         return None
