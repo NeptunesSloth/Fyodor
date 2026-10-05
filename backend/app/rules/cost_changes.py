@@ -254,7 +254,7 @@ _FROM = {"from your graveyard": ("your_graveyard",), "from graveyards": ("gravey
          "from anywhere other than your hand": ("not_hand",)}
 STATIC = re.compile(
     r"^(?P<during>during your turn, |during turns other than yours, )?(?:each )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? "
-    r"(?:(?P<with>with (?:flying|flash)) )?(?P<who>you cast |your opponents cast )?(?P<chosen>of the chosen type )?"
+    r"(?:(?P<with>with (?:flying|flash)) )?(?P<who>you cast |your opponents cast )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
     r"(?:(?P<from>from (?:your graveyard or from exile|graveyards or from exile|your graveyard|graveyards|exile"
     r"|anywhere other than your hand)) )?"
     rf"costs? {_SYMBOL} (?P<dir>less|more) to cast(?P<rest>.*)$")
@@ -271,7 +271,7 @@ def special(t: str) -> bool:
     if ORDINAL.fullmatch(t) or TARGETING.fullmatch(t):
         return True
     m = STATIC.fullmatch(t)
-    return m is not None and bool(m["during"] or m["with"] or m["chosen"] or m["from"] or m["rest"] or not m["n"].isdigit())
+    return m is not None and bool(m["during"] or m["with"] or m["chosen"] or m["from"] or m["rest"] or m["own"] or not m["n"].isdigit())
 
 
 def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
@@ -309,6 +309,17 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
     out: dict[str, Any] = {"kind": "static", "static": "cost_modifier", "delta": change["dir"] * int(change.get("n", 0)),
                            "caster": caster, "filter": key, "change": change, "effects": []}
+    if m["own"]:  # -- cost changers (wave 20E) -- "Spells you cast but don't own" (Gonti): the spell's owner is another player (108.3)
+        if m["who"] != "you cast ":
+            return None
+        from dataclasses import replace as _replace
+
+        from app.rules import selectors as _sel
+
+        base = _sel.from_key(key) if key is not None else _sel.parse("spell")
+        if base is None:
+            return None
+        out["filter"] = _replace(base, owner="opponent").key()
     if m["chosen"]:
         # "of the chosen type": wave 4J's selector extra, read from the source permanent's own enters choice (614.12a;
         # scripts checks the card has exactly that one choice: chosen.chosen_value_ok). Kept as "spell", not "filter",

@@ -29,6 +29,7 @@ Context = dict[str, Any]
 
 _GAIN = re.compile(r"^(?P<o>.+?) gains? protection from (?P<q>.+?) until end of turn$")
 COLORS = ["White", "Blue", "Black", "Red", "Green"]
+CHOSEN_LINE = "Protection from the chosen color"
 CHOICES: dict[str, list[str]] = {
     "the color of your choice": COLORS,
     "colorless or from the color of your choice": ["Colorless", *COLORS],
@@ -59,6 +60,8 @@ def clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     q = m["q"]
     if q in CHOICES:
         return [{"do": "protection_choice", "who": who, "options": list(CHOICES[q])}], L._one(group)
+    if q == "the chosen color":  # -- chosen type (wave 20E) -- "Choose a color. … gain protection from the chosen color": chosen.bind_effects
+        return [{"do": "grant", "who": who, "keywords": [], "abilities": [CHOSEN_LINE]}], L._one(group)  # writes the answer in (chosen_value_ok: only after that choice)
     line = fixed_line(q)
     if line is None:
         raise L._Fail

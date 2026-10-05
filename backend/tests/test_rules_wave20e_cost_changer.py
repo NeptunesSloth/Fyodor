@@ -19,6 +19,7 @@ EXTRA = [
     card('High Seas', set_code='tst', number='20E0', mana_cost='{1}{U}', cmc=2.0, type_line='Enchantment', oracle_text='Red creature spells and green creature spells cost {1} more to cast.', colors=['U'], color_identity=['U'], keywords=[]),
     card('Irini Sengir', set_code='tst', number='20E1', mana_cost='{2}{B}', cmc=3.0, type_line='Enchantment', oracle_text='Green enchantment spells and white enchantment spells cost {2} more to cast.', colors=['B'], color_identity=['B'], keywords=[]),
     card('Centaur Omenreader', set_code='tst', number='20E2', mana_cost='{3}{G}', cmc=4.0, type_line='Creature — Centaur Shaman', oracle_text='As long as this creature is tapped, creature spells you cast cost {2} less to cast.', colors=['G'], color_identity=['G'], keywords=[], power='3', toughness='3'),
+    card('Probe Gonti', set_code='tst', number='20E5', mana_cost='{2}{B}', cmc=3.0, type_line='Creature — Aetherborn Rogue', oracle_text="Spells you cast but don't own cost {1} less to cast.", colors=['B'], color_identity=['B'], keywords=[], power='2', toughness='2'),
     card('Probe Vine', set_code='tst', number='20E3', mana_cost='{G}', cmc=1.0, type_line='Enchantment', oracle_text='', colors=['G'], color_identity=['G'], keywords=[]),
     card('Probe Halo', set_code='tst', number='20E4', mana_cost='{W}', cmc=1.0, type_line='Enchantment', oracle_text='', colors=['W'], color_identity=['W'], keywords=[]),
 ]
@@ -33,7 +34,7 @@ def card_db(settings):
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", ["High Seas", "Irini Sengir", "Centaur Omenreader"])
+@pytest.mark.parametrize("name", ["High Seas", "Irini Sengir", "Centaur Omenreader", "Probe Gonti"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -68,4 +69,15 @@ def test_as_long_as_this_creature_is_tapped(cards):
     assert cost_of(s, bears, cards) == "{1}{G}"  # (untapped: no change)
     act(s, "p1", type="tap", card_ids=[reader.id], tapped=True)
     assert cost_of(s, bears, cards) == "{G}" and cost_of(s, bolt, cards) == "{R}"  # (118.7a: generic only; a creature spell only)
+    _check(s)
+
+
+def test_spells_you_cast_but_dont_own(cards):
+    s = build(cards, [(1, "Probe Gonti"), (1, "Grizzly Bears")], bob=[(1, "Grizzly Bears"), (9, "Island")])
+    mine, theirs = put(s, "Grizzly Bears", "hand"), put(s, "Grizzly Bears", "hand", "p2")
+    put(s, "Probe Gonti", "battlefield")
+    act(s, "p1", type="move", card_ids=[theirs.id], to={"player": "p1", "zone": "hand"})  # (Bob's card, in Alice's hand: she can cast it)
+    taken = s.state.cards[theirs.id]
+    assert taken.owner == "p2" and taken.zone == "p1:hand"
+    assert cost_of(s, mine, cards) == "{1}{G}" and cost_of(s, taken, cards) == "{G}"
     _check(s)

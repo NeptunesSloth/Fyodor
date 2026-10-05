@@ -220,7 +220,7 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
     p = phrase.strip()
     if p in ("~", "this creature", "this permanent", "this saga"):  # (-- transform, wave 11A -- "Exile this Saga, then …")
         return "self", "", None
-    if p in ("it", "that creature", "that permanent", "that card", "that token"):
+    if p in ("it", "that creature", "that permanent", "that card", "that token", "that artifact"):  # (wave 20E: "Untap that artifact")
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
     if p == OTHER_SIDE:  # -- damage wordings (wave 6B) -- (scripts._define writes it for a block trigger's "that creature")
         return "each", "ref:event_other", None
