@@ -1,7 +1,7 @@
 """Wave 20A: attached events (Auras and Equipment), real Oracle text; every scenario checks the replay and a save/load round trip.
 
 * 613.1d-f / 613.4b: "Enchanted creature is a Citizen with base power and toughness 1/1. It has defender and loses all other abilities."
-* 702.11b: "Enchanted creature can't be the target of spells or abilities your opponents control." is hexproof.
+* "Enchanted creature can't be the target of spells or abilities your opponents control.": the Aura controller's opponents (review 20A).
 * 613.4c: "+X/+X, where X is its mana value" (the equipped creature's); "+1/+0 for each instant and sorcery card in your graveyard".
 * 205.4a: "Enchanted land is snow."  702.116a: "Equipped creature has myriad."
 * 603.10a: "When enchanted permanent dies or is put into exile, return that card to the battlefield under your control." (Kaya's Ghostform)
@@ -89,11 +89,20 @@ def test_turtle_0_1_loses_all_abilities(cards):
     check(s)
 
 
-def test_cant_be_the_target_of_spells_or_abilities_your_opponents_control_is_hexproof(cards):
+@pytest.mark.parametrize("whose", ["p1", "p2"])
+def test_cant_be_the_target_of_spells_or_abilities_your_opponents_control(cards, whose):
+    """(review 20A) "your opponents" are the Aura controller's (Alice's), whoever controls the creature: on Bob's creature Alice may still
+    target it and Bob may not — not hexproof (702.11b), which would be the other way round."""
+    from app.rules import targets
+    from app.rules.plan import Plan
+
     s = build(cards, "Canopy Cover")
-    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    bear = token_of(s, whose, "Bear", "Token Creature — Bear", "2/2")
     attach(s, "Canopy Cover", bear)
-    assert "hexproof" in chars(s, bear).keywords
+    plan = Plan(s.state, "p1", s.cards, None)
+    card = s.state.cards[bear.id]
+    assert "hexproof" not in chars(s, bear).keywords
+    assert targets.can_target(plan, "p1", card, plan.ch(card)) and not targets.can_target(plan, "p2", card, plan.ch(card))
     check(s)
 
 

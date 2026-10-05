@@ -3174,8 +3174,9 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
             cost = replace(cost, mana=reduced)
     # -- reanimation (wave 3R) -- 113.6m: "{1}{B}: Return this card from your graveyard to the battlefield" moves the
     # card out of the graveyard, so the ability works only there
-    if ability.kind == "activated" and ":" in ability.text and _GRAVEYARD_SELF.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~")):
-        cost = replace(cost, graveyard_only=True)
+    if ability.kind == "activated" and ":" in ability.text and (_GRAVEYARD_SELF.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~"))
+                                                                 or "Activate only if this card is in your graveyard" in ability.text):
+        cost = replace(cost, graveyard_only=True)  # (review 20E: Glory's "Activate only if this card is in your graveyard.", 113.6m)
     return cost
 
 
