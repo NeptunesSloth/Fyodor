@@ -4002,13 +4002,15 @@ _UNLESS_COUNT = re.compile(r"^you control (?P<n>\w+) or (?P<cmp>more|fewer) (?P<
 _UNLESS_OPPONENTS = re.compile(r"^you have (?P<n>\w+) or more opponents$")
 # The object's own "instead": "If ~ would die, exile it instead." / "… be put into a graveyard from anywhere …"
 EXILE_INSTEAD_SELF = re.compile(r"^If ~ would (?P<what>die|be put into a graveyard from anywhere), exile it instead\.$")
+_EXILE_RIDER = re.compile(r"^(?P<head>If .+? would (?:die|be put into (?:a|your|an opponent's) graveyard(?: from anywhere)?), )"
+                          r"(?:exile (?:it|that card) instead\. When you do, (?P<when>.+)|instead exile (?:it|that card) and (?P<and_>(?:create|you gain) .+))\.$")
 _LEAVES_EXILE_SELF = re.compile(r"^If ~ would leave the battlefield, exile it instead(?: of putting it anywhere else)?\.$")
 # -- zone replacements (wave 22C) -- "If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead." (Blightsteel Colossus)
 SHUFFLE_INSTEAD_SELF = re.compile(r"^If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead\.$")
 # -- instead (wave 20B) -- "If this creature would die, put it on the bottom of its owner's library instead." (Nissa's Chosen; on top: Gravebane Zombie)
 LIBRARY_INSTEAD_SELF = re.compile(r"^If ~ would die, put it on (?P<pos>top|the bottom) of its owner's library instead\.$")
 # Statics: "If a creature an opponent controls would die, exile it instead." / Rest in Peace / Leyline of the Void
-EXILE_INSTEAD_STATIC = re.compile(r"^If (?P<subject>a card or token|a card|(?:a|an) (?P<sel>[a-z][a-z' ~]+?)) would "
+EXILE_INSTEAD_STATIC = re.compile(r"^If (?P<subject>a card or token|a card|(?:a|an|another) (?P<sel>[A-Za-z][A-Za-z' ~]+?)) would "
                                   r"(?P<what>die|be put into (?P<whose>a|your|an opponent's) graveyard(?P<any> from anywhere)?), "
                                   r"exile (?:it|that card) instead\.$")  # (any: "If a permanent would be put into a graveyard" — wave 20B)
 # Prevention: "Prevent all [combat] damage that would be dealt [this turn] [to …] [by …] [this turn]."
@@ -4404,9 +4406,19 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if m:
         return {"kind": "replacement", "replacement": "library_instead", "from": "battlefield", "effects": [],
                 "position": "top" if m["pos"] == "top" else "bottom"}
+    rider = None
+    if (mr := _EXILE_RIDER.match(text)) is not None:  # -- zone replacements (wave 22C) -- "…, instead exile that card and create a 2/2 … token." (Kalitas)
+        parsed = parse_effects((mr["when"] or mr["and_"])[:1].upper() + (mr["when"] or mr["and_"])[1:] + ".", None)  # / "…, exile it instead. When you do, …" (Nemata)
+        if parsed is None or not parsed[0] or parsed[1] is not None or parsed[2] or any(e["do"] not in ("create_token", "gain_life") for e in parsed[0]):
+            return None
+        rider = {"effects": parsed[0], "reflexive": bool(mr["when"])}
+        text = mr["head"] + "exile it instead."
     m = EXILE_INSTEAD_STATIC.match(text)
+    if m is None and rider is not None:
+        return None
     if m:
         out = {"kind": "static", "static": "exile_instead", "effects": [],
+               **({"rider": rider} if rider is not None else {}),
                "from": "anywhere" if m["any"] else "battlefield",
                "graveyard_of": {"a": "any", "your": "you", "an opponent's": "opponent"}.get(m["whose"] or "a", "any")}
         if m["subject"] in ("a card or token", "a card") and m["what"] != "die" and not m["any"]:
@@ -4423,7 +4435,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
                 return None  # ("a creature card … from anywhere": a card in a hidden zone, not modeled)
             out["who"] = "types:Instant|Sorcery"
         else:
-            key = _selector_key(m["sel"])  # (a permanent: a battlefield object, "put into a graveyard" being "dies" for any permanent)
+            # (a permanent: a battlefield object, "put into a graveyard" being "dies" for any permanent; wave 22C: "another" = other than ~)
+            key = _selector_key(("other " if m["subject"].startswith("another ") else "") + m["sel"])
             if key is None:
                 return None
             out["who"] = key

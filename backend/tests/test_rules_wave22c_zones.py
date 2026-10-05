@@ -161,6 +161,84 @@ def test_a_reanimated_creature_that_would_leave_is_exiled_instead(cards, text, h
     roundtrip(s)
 
 
+# == exile instead, plus a token (Kalitas, 614.1a, 614.6) or a reflexive trigger (Head of the Hunt, 603.12) ==
+KILL = "{1}: Destroy target creature."
+
+
+def zombies(s, name="Zombie"):
+    return [c for c in s.state.cards.values() if c.is_token and c.name == name and c.zone == "p1:battlefield"]
+
+
+def kill(s, victim):
+    t = permanent(s, "p1", "Killer", "Enchantment", KILL)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=t.id, ability=0, targets=[victim.id])
+
+
+def test_kalitas_exiles_an_opponents_nontoken_creature_and_creates_a_zombie(cards):
+    s = game(cards, ["Kalitas, Traitor of Ghet"], bob=["Grizzly Bears"])
+    put(s, "Kalitas, Traitor of Ghet")
+    victim = put(s, "Grizzly Bears", pid="p2")
+    kill(s, victim)
+    drive(s)
+    assert zone_of(s, victim) == "p2:exile" and len(zombies(s)) == 1 and not graveyard(s, "p2")
+    roundtrip(s)
+
+
+def test_kalitas_does_not_apply_to_tokens_or_your_own_creatures(cards):
+    s = game(cards, ["Kalitas, Traitor of Ghet", "Grizzly Bears"])
+    put(s, "Kalitas, Traitor of Ghet")
+    own = put(s, "Grizzly Bears")
+    kill(s, own)
+    drive(s)
+    assert zone_of(s, own) == "p1:graveyard" and not zombies(s)
+
+
+def test_kalitas_with_parallel_lives_makes_two_zombies(cards):
+    s = game(cards, ["Kalitas, Traitor of Ghet", "Parallel Lives"], bob=["Grizzly Bears"])
+    put(s, "Kalitas, Traitor of Ghet")
+    put(s, "Parallel Lives")
+    victim = put(s, "Grizzly Bears", pid="p2")
+    kill(s, victim)
+    drive(s)
+    assert zone_of(s, victim) == "p2:exile" and len(zombies(s)) == 2
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("tokens", [0, 1])
+def test_kalitas_with_rest_in_peace_asks_the_victims_controller_both_orders(cards, tokens):
+    s = game(cards, ["Kalitas, Traitor of Ghet"], bob=["Grizzly Bears", "Rest in Peace"])
+    put(s, "Kalitas, Traitor of Ghet")
+    put(s, "Rest in Peace", pid="p2")
+    victim = put(s, "Grizzly Bears", pid="p2")
+    kill(s, victim)
+    d = s.state.rules.decision
+    for _ in range(5):
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and d.resume["step"] == "zone_replace_order"  # the affected object's controller (616.1)
+    labels = {o.id: o.label for o in d.options}
+    plain = next(k for k, v in labels.items() if v.startswith("Rest in Peace"))
+    rider = next(k for k in labels if k != plain)
+    assert "create" in labels[rider].lower() or "token" in labels[rider].lower(), labels
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[plain if tokens == 0 else rider])
+    drive(s)
+    assert zone_of(s, victim) == "p2:exile" and len(zombies(s)) == tokens
+    replay_matches(s)
+
+
+def test_head_of_the_hunt_is_a_reflexive_trigger_that_makes_the_wolf_afterwards(cards):
+    s = game(cards, ["Head of the Hunt"], bob=["Grizzly Bears"])
+    put(s, "Head of the Hunt")
+    victim = put(s, "Grizzly Bears", pid="p2")
+    kill(s, victim)
+    drive(s)
+    assert zone_of(s, victim) == "p2:exile" and len(zombies(s, "Wolf")) == 1
+    roundtrip(s)
+
+
 def test_the_replacement_belongs_to_that_object_only(cards):
     s = game(cards, ["Grizzly Bears"])
     bear = reanimate(s, WHIP)
