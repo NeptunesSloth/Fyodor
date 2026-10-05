@@ -1956,6 +1956,8 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
     for i, pid in enumerate(players):
         mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
                 if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
+        if mine and _sacrifice_barred(plan, ctx, pid):
+            mine = []  # -- prohibitions (wave 22B) --
         n = min(want, len(mine))
         if n == 0:
             continue
@@ -1975,11 +1977,25 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
     return True
 
 
+def _sacrifice_barred(plan: Plan, ctx: Context, pid: str) -> bool:
+    """-- prohibitions (wave 22B) -- 614.17: this resolution is an opponent's spell or ability and ``pid`` has "can't cause you to sacrifice"."""
+    from app.rules import prohibitions
+
+    why = prohibitions.cant_cause_sacrifice(plan, pid, ctx["controller"])
+    if why is not None:
+        plan.note(f"{why}: {plan.name(pid)} can't be made to sacrifice permanents")
+    return why is not None
+
+
 def _sacrifice_cards(plan: Plan, cards: list[str], actor: str, ctx: Context | None = None, binding: str | None = None) -> None:
     """701.21a: each to its owner's graveyard, all at once (one move, one event batch: a "one or
     more" trigger fires once, 603.2c). ``binding``: recorded for "its power" / "creatures
     sacrificed this way" — as they were (608.2h), and the cards they became (400.7j)."""
     cards = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+    if ctx is not None:  # -- prohibitions (wave 22B) -- 614.17: "Spells and abilities your opponents control can't cause you to sacrifice permanents."
+        from app.rules import prohibitions
+
+        cards = [c for c in cards if not prohibitions.cant_cause_sacrifice(plan, plan.state.cards[c].controller, ctx["controller"])]
     e = {"as": binding}
     before = _remember(plan, ctx, e, cards) if ctx is not None else []
     if cards:
@@ -2976,6 +2992,8 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str]
     verb = "sacrifices" if step == "edict" else "chooses"
     for i, pid in enumerate(players):
         mine = _controlled(plan, e["sel"], pid, ctx.get("source_card"))
+        if step == "edict" and mine and _sacrifice_barred(plan, ctx, pid):
+            mine = []  # -- prohibitions (wave 22B) -- nothing for them to sacrifice
         n = min(want, len(mine))
         if n == 0:
             continue

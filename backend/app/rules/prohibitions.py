@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 Definition = dict[str, Any]
-KINDS = ("cant_enter", "cant_counters", "cant_pay")
+KINDS = ("cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice")
 
 _ENTER = re.compile(r"^(?P<what>(?:nonland )?(?:permanent|creature) cards) in (?P<zones>graveyards|libraries|graveyards and libraries) "
                     r"can't enter the battlefield$")
@@ -63,6 +63,8 @@ def static_definition(text: str) -> Definition | None:
             return None
         return {"kind": "static", "static": "cant_pay", "sac": sel.key() if sel else None,
                 "mana": m["act"] == " or activate abilities", "effects": []}
+    if t == "spells and abilities your opponents control can't cause you to sacrifice permanents":  # (Sigarda, Tajuru Preserver)
+        return {"kind": "static", "static": "cant_cause_sacrifice", "effects": []}
     if t == _SELF_COUNTERS:
         return {"kind": "static", "static": "cant_counters", "sel": None, "effects": []}
     if t == "players can't get counters":  # (122.1: a player gets counters; poison, energy, experience, rad)
@@ -126,6 +128,14 @@ def cant_counters(plan: Plan, card_id: str, entering_for: str | None) -> str | N
 # -- cost payment (601.2h, 602.2b, 119.4) -- a cost that includes paying life or sacrificing something the line forbids can't be paid, so the
 # spell or ability can't be begun (nothing is paid: 601.2h). Read from the table as it is (cast_limits._statics): ``mana_ability`` costs are
 # only stopped by the lines that say "activate abilities" (Sylex: "that aren't mana abilities").
+def cant_cause_sacrifice(plan: Plan, victim: str, by: str) -> str | None:
+    """614.17: the permanent saying a spell or ability controlled by ``by`` can't make ``victim`` sacrifice permanents ("Spells and abilities
+    your opponents control can't cause you to sacrifice permanents": an edict of theirs does nothing to you; a cost you pay is no such effect)."""
+    if victim == by:
+        return None
+    return next((_label(src) for src, _ in _statics(plan, "cant_cause_sacrifice") if src.controller == victim), None)
+
+
 def life_banned(state: GameState, info: CardInfo | None, *, mana_ability: bool = False) -> str | None:
     from app.rules import cast_limits
 

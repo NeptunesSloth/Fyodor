@@ -35,12 +35,15 @@ EXTRA = [
     real("Mana Confluence", "", 0, "Land", "{T}, Pay 1 life: Add one mana of any color."),
     real("Angel's Grace", "{W}", 1, "Instant", "Split second (As long as this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities.)\nYou can't lose the game this turn and your opponents can't win the game this turn. Until end of turn, damage that would reduce your life total to less than 1 reduces it to 1 instead.", None, "W"),
     real("Lich's Mastery", "{3}{B}{B}{B}", 6, "Legendary Enchantment", "Hexproof\nYou can't lose the game.\nWhenever you gain life, draw that many cards.\nWhenever you lose life, for each 1 life you lost, exile a permanent you control or a card from your hand or graveyard.\nWhen Lich's Mastery leaves the battlefield, you lose the game.", None, "B"),
+    real("Sigarda, Host of Herons", "{2}{G}{W}{W}", 5, "Legendary Creature — Angel", "Flying, hexproof\nSpells and abilities your opponents control can't cause you to sacrifice permanents.", ("5", "5"), "GW"),
+    real("Tajuru Preserver", "{1}{G}", 2, "Creature — Elf Shaman", "Spells and abilities your opponents control can't cause you to sacrifice permanents.", ("2", "1"), "G"),
+    real("Diabolic Edict", "{1}{B}", 2, "Instant", "Target player sacrifices a creature of their choice.", None, "B"),
     real("Probe Bear", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
     real("Probe Golem", "{3}", 3, "Artifact Creature — Golem", "", ("3", "3")),
     real("Probe Relic", "{3}", 3, "Artifact", "", None),
     real("Probe Big Spell", "{4}{R}", 5, "Sorcery", "Probe Big Spell deals 1 damage to any target.", None, "R"),
 ]
-FULL = ["Angel of Jubilation", "Yasharn, Implacable Earth", "Karn's Sylex", "Grafdigger's Cage", "Weathered Runestone", "Soulless Jailer", "Kunoros, Hound of Athreos", "Solemnity", "Tatterkite", "Melira's Keepers",
+FULL = ["Sigarda, Host of Herons", "Tajuru Preserver", "Angel of Jubilation", "Yasharn, Implacable Earth", "Karn's Sylex", "Grafdigger's Cage", "Weathered Runestone", "Soulless Jailer", "Kunoros, Hound of Athreos", "Solemnity", "Tatterkite", "Melira's Keepers",
         "Gaddock Teeg", "Aether Storm"]
 
 
@@ -260,4 +263,26 @@ def test_lich_s_mastery_cant_lose_the_game_only_for_its_controller(cards):
 
     plan = Plan.view(s.state, "p1", s.cards)
     assert game_result.cannot_lose(plan, "p1") and not game_result.cannot_lose(plan, "p2")
+    check(s)
+
+
+def test_sigarda_stops_an_opponents_edict_but_not_your_own_sacrifices(cards):
+    s = build(cards, ["Diabolic Edict", "Probe Bear"], ["Sigarda, Host of Herons", "Diabolic Edict"])
+    put(s, "Probe Bear")
+    put(s, "Sigarda, Host of Herons", "p2")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Diabolic Edict").id, targets=["p2"])  # Sigarda is hexproof, but a player isn't
+    answer(s)
+    assert zone_of(s, "Sigarda, Host of Herons", "p2") == "p2:battlefield"  # 614.17: nothing was sacrificed
+    assert said(s, "Sigarda, Host of Herons: Bob can't be made to sacrifice permanents")
+    check(s)
+
+
+def test_a_players_own_edict_on_themselves_is_no_opponents_spell(cards):
+    s = build(cards, ["Tajuru Preserver", "Diabolic Edict"], [])
+    put(s, "Tajuru Preserver")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Diabolic Edict").id, targets=["p1"])
+    answer(s)
+    assert zone_of(s, "Tajuru Preserver") == "p1:graveyard"  # their own spell: it still works
     check(s)
