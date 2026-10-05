@@ -39,6 +39,9 @@ EXTRA = [
          "Choose target creature. Roll X six-sided dice. For each even result, put two -1/-1 counters on that creature. For each odd result, "
          "create a 1/2 blue Bird creature token with flying named Storm Crow.", None, "B"),
     real("Probe Bear", "{1}{G}", 2, "Creature — Bear", "", ("6", "6"), "G"),
+    real("Wyll, Blade of Frontiers", "{1}{R}", 2, "Legendary Creature — Human Warlock",
+         "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.\nWhenever you roll one or more "
+         "dice, put a +1/+1 counter on Wyll.\nChoose a Background (You can have a Background as a second commander.)", ("1", "1"), "R"),
 ]
 
 
@@ -51,7 +54,7 @@ def card_db(settings):
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in EXTRA[:-1]])
+@pytest.mark.parametrize("name", [c["name"] for c in EXTRA if c["name"] != "Probe Bear"])
 def test_the_dice_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -165,4 +168,17 @@ def test_a_dies_highest_natural_result_draws(cards, monkeypatch, die, drawn):
     mana(s, G=3)
     roll_ability(s, "Atomwheel Acrobats")
     assert len(s.state.zones["p1:hand"]) == hand + drawn  # (a d6 showing 6: its highest natural result)
+    check(s)
+
+
+@pytest.mark.parametrize("dice,counters_on_acrobats", [((2, 5), 0), ((5, 2), 0), ((1, 1), 1)])
+def test_roll_one_more_die_and_ignore_the_lowest_roll(cards, monkeypatch, dice, counters_on_acrobats):
+    rolls(monkeypatch, *dice)  # Wyll: one die asked for, two rolled; the lowest roll never happened (706.6): no trigger for it
+    s = build(cards, ["Atomwheel Acrobats", "Wyll, Blade of Frontiers"], [])
+    put(s, "Atomwheel Acrobats")
+    put(s, "Wyll, Blade of Frontiers")
+    mana(s, G=3)
+    roll_ability(s, "Atomwheel Acrobats")
+    assert counters(s, "Atomwheel Acrobats") == counters_on_acrobats  # (the 5 or the 1 is the roll that counts; a 2 that was ignored isn't)
+    assert counters(s, "Wyll, Blade of Frontiers") == 1  # "Whenever you roll one or more dice": once for the roll
     check(s)

@@ -29,6 +29,9 @@ EXTRA = [c for c in CLASH if c["name"] in ("Test Giant", "Test Mite")] + [
          "Draw a card. You may put a land card from your hand onto the battlefield tapped. If you control eight or more lands, repeat this "
          "process once.", ("3", "4"), "BGU"),
     real("Probe Fodder", "{1}", 1, "Creature — Human", "", ("1", "1")),
+    real("Balustrade Spy", "{3}{B}", 4, "Creature — Vampire Rogue",
+         "Flying\nWhen this creature enters, target player reveals cards from the top of their library until they reveal a land card, then "
+         "puts those cards into their graveyard.", ("3", "2"), "B"),
     real("Ad Nauseam", "{3}{B}{B}", 5, "Instant",
          "Reveal the top card of your library and put that card into your hand. You lose life equal to its mana value. You may repeat this "
          "process any number of times.", None, "B"),
@@ -44,7 +47,7 @@ def card_db(settings):
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", ["Hoarder's Greed", "Remorseless Punishment", "Zimone and Dina", "Ad Nauseam"])
+@pytest.mark.parametrize("name", ["Hoarder's Greed", "Remorseless Punishment", "Zimone and Dina", "Ad Nauseam", "Balustrade Spy"])
 def test_the_repeat_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -137,4 +140,19 @@ def test_you_may_repeat_this_process_any_number_of_times(cards, answers, lost, d
     answer(s, *answers)
     assert life(s) == 40 - lost  # (each turn of the process: the card's own mana value)
     assert hand(s) == start - 1 + drawn
+    check(s)
+
+
+def test_reveal_until_a_land_then_the_revealed_cards_go_to_the_graveyard(cards):
+    s = build(cards, ["Balustrade Spy"], ["Test Giant", "Test Mite"])
+    spy = to_hand(s, "Balustrade Spy")
+    on_top(s, "Test Giant", "p2")
+    on_top(s, "Test Mite", "p2")  # Bob's library, top first: the Mite, the Giant, then lands
+    before = len(s.state.zones["p2:graveyard"])
+    mana(s, B=1, G=3)
+    act(s, "p1", type="cast_spell", card_id=spy.id, targets=[], target_counts=[1])
+    answer(s, "p2")
+    names = [s.state.cards[c].name for c in s.state.zones["p2:graveyard"]]
+    assert names.count("Test Mite") == 1 and names.count("Test Giant") == 1 and names.count("Island") == 1  # revealed down to the first land
+    assert len(s.state.zones["p2:graveyard"]) == before + 3
     check(s)

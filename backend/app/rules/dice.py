@@ -17,8 +17,12 @@ is a ``designation`` event (counter "roll_die") with its result after modifiers,
 dice it is, so "Whenever you roll a 6" / "a 4 or higher" / "your third die each turn" / "a die's highest natural result" trigger per die
 (each die is a roll, 706.2; "one or more dice" stays one event per roll) and "If the roll was 4 or higher" reads the die's own result.
 
+"If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll." (Wyll, Pixie Guide, Barbarian Class) is
+the static ``roll_extra`` (614.1a): ``roll_extras`` counts the player's permanents with it; the extra dice are rolled and the lowest rolls
+are ignored (706.6: a roll that never happened: no trigger, not counted as one of the turn's dice).
+
 Refused (manual): rerolls (706.2b), modifiers of a roll ("and add"), rolling for each player, a roll that is part of a cost, a result used by
-a reflexive "When you do" ability, "roll that many dice plus one and ignore the lowest".
+a reflexive "When you do" ability, "the next time target player would roll" (a one-shot replacement).
 """
 
 from __future__ import annotations
@@ -187,6 +191,32 @@ def evaluate(ctx: Context, which: str) -> int:
     return max(0, int(ctx.get("die" if which == "result" else "die_other") or 0))
 
 
+_EXTRA = "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll."
+
+
+def static_definition(text: str) -> dict[str, Any] | None:
+    """-- dice (wave 24B) -- 614.1a / 706.6: "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest
+    roll." (Wyll, Pixie Guide's "Grant an Advantage", Barbarian Class), read at the roll (``roll_extras``)."""
+    return {"kind": "static", "static": "roll_extra", "effects": []} if text.strip() == _EXTRA else None
+
+
+def roll_extras(plan: Plan, pid: str) -> int:
+    """How many "roll that many dice plus one and ignore the lowest roll" effects of ``pid``'s permanents apply to their roll. Each one is
+    applied to the roll as the one before it left it (616.1: they are all the same replacement; a Class level they haven't reached has
+    no ability, 716.2a): with two, two more dice are rolled and the two lowest rolls ignored: as many dice are kept as were asked for."""
+    from app.rules import scripts
+    from app.rules.replace import conditional_lines
+
+    n = 0
+    for c in plan.state.cards.values():
+        if c.controller != pid or not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
+            continue
+        ch = plan.ch(c)
+        skip = conditional_lines(ch)
+        n += sum(1 for i, d in scripts.definitions(ch).items() if i not in skip and d.get("static") == "roll_extra")
+    return n
+
+
 def roll(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     import secrets
 
@@ -197,11 +227,16 @@ def roll(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         plan.rng = secrets.SystemRandom()  # (the result is recorded on the step: the history replays it, not the generator)
     pid = ctx["controller"]
     n = max(0, int(effects._amount(plan, ctx, e["count"])))
+    extra = roll_extras(plan, pid) if n > 0 else 0  # 614.1a: "would roll one or more dice"
     results: list[int] = []
-    while len(results) < n:  # (one roll step holds up to 100 dice)
-        step = min(100, n - len(results))
+    while len(results) < n + extra:  # (one roll step holds up to 100 dice)
+        step = min(100, n + extra - len(results))
         done = plan.do({"type": "roll", "sides": e["sides"], "count": step}, actor=pid)
         results += list(done.r.results)  # type: ignore[union-attr]
+    for lowest in sorted(results)[:extra]:  # 706.6: an ignored roll never happened (tied lowest rolls are the same number: no choice to make)
+        results.remove(lowest)
+    if extra:
+        plan.note(f"{plan.name(pid)} ignores the lowest {'roll' if extra == 1 else f'{extra} rolls'}")
     ctx["dice"] = results
     if not results:
         ctx["die"] = ctx["die_other"] = 0
