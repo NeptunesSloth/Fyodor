@@ -117,6 +117,9 @@ export function tapGesture(ids: string[], tapPlain: (ids: string[]) => void): vo
 export const passPriority = (until?: string) => send({ type: "pass_priority", ...(until ? { until } : {}) });
 export const choose = (decisionId: string, optionIds: string[], remember?: string) =>
   send({ type: "choose", decision_id: decisionId, option_ids: optionIds, ...(remember ? { remember } : {}) });
+/** Answer a "choose a card name" decision (CR 201.4): the typed Oracle name (the server checks it). */
+export const chooseName = (decisionId: string, name: string) =>
+  send({ type: "choose", decision_id: decisionId, option_ids: [], name });
 /** Answer a "divide" decision (601.2d): an amount per option, in the options' order. */
 export const divide = (decisionId: string, amounts: number[]) =>
   send({ type: "choose", decision_id: decisionId, option_ids: [], amounts });
