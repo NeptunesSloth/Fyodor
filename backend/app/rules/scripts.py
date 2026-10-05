@@ -3194,6 +3194,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if d is not None and not per_opponent.allowed(d):
         return None
+    from app.rules import (
+        player_filter,  # -- review (wave 23A) -- a this-turn "who" read only before anything else happens
+    )
+
+    if d is not None and not player_filter.allowed(d):
+        return None
     # -- defending player (wave 6D) -- only an attacking creature's trigger names one (508.5: app/rules/defending.py)
     from app.rules import defending
 

@@ -2187,7 +2187,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if plan.manual(card) or a.face_down:
             raise ActionError("That card is played by hand: splice by hand with the table tools")
         spliced_ch, spliced_costs = splice.prepare(plan, a.splice, card, ch)
-        if (definition := scripts.spell_definition(spliced_ch)) is None:
+        if (definition := per_opponent.for_cast(plan, card.id, scripts.spell_definition(spliced_ch))) is None:  # (review 23A: its groups too)
             raise ActionError("That splice can't be carried out by the engine")
         for sc in spliced_costs:
             if sc.mana:

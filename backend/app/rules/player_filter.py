@@ -65,6 +65,8 @@ def parse_pred(text: str, prior: dict[str, Any] | None = None) -> Pred | None:
     t = text.strip().rstrip(".").strip()
     if not t or _BAD.search(t.replace("this way", "").replace("this turn", "")):
         return None
+    if re.search(r"\byou(?:r|rs|rself)?\b", re.sub(r" than you(?: do)?$", "", t)):
+        return None  # (review 23A: "controls your commander": "you" is the ability's controller, not the player judged)
     if prior is not None and (m := (_CANT.match(t) or _DIDNT.match(t) or _DID.match(t))) is not None:
         kind = _THIS_WAY_KINDS.get(prior.get("do", ""))
         verb = m.groupdict().get("verb")
@@ -150,6 +152,19 @@ def players_where(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"players_where": players_where}
+
+
+def allowed(definition: dict[str, Any]) -> bool:
+    """-- review (wave 23A) -- a "who" read from this turn's log ("each player who discarded a card this turn", "who lost life this
+    turn", "who were dealt combat damage this turn") only as an ability's first instruction: the log takes in an instruction's
+    events after the resolution (history.note_events), so one read after an earlier instruction of the same ability would miss
+    what that instruction did (Azula: "You may discard a card. Then … for each player who discarded a card this turn")."""
+    for effects in [definition.get("effects") or [], *((m.get("effects") or []) for m in definition.get("modes") or [])]:
+        for e in effects[1:]:
+            dumped = json.dumps(e)
+            if "players_where" in dumped and ('"history"' in dumped or '"dealt"' in dumped):
+                return False
+    return True
 
 _SENTENCE = re.compile(r"^each (?P<b>opponent|player) who (?P<rest>.+)$")
 _FOR_EACH = re.compile(r"^for each (?P<b>opponent|player) who (?P<pred>[^,]+), (?P<rest>.+)$")
