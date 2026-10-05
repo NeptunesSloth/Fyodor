@@ -17,8 +17,9 @@ from app.rules.characteristics import Characteristics, parse_type_line
 from app.rules.oracle import parse_abilities
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
-from tests.test_rules_effects import replay_matches
-from tests.test_rules_permissions import build, put
+from tests.game_helpers import act
+from tests.test_rules_effects import mana, pass_until_stack_empty, replay_matches, rules
+from tests.test_rules_permissions import build, hold, put
 
 EXTRA = [
     card('Urborg, Tomb of Yawgmoth', set_code="tst", number="22A01", type_line='Legendary Land',
@@ -289,3 +290,145 @@ def test_march_of_the_machines_and_humility(cards, humility_first):
         put(s, "March of the Machines", "battlefield")  # March is newest now: its mana values come after Humility's 1/1
         assert ch(s, stone).pt == (2, 2) and ch(s, stone).abilities == ()
         roundtrip(s)
+
+
+# -- colors, supertypes and added types of groups, in every zone (613.1d-e, 611.3) ----------------------------------------
+def test_thran_lens_makes_permanents_colorless(cards):
+    s = build(cards, [(1, "Thran Lens"), (1, "Grizzly Bears"), (1, "Lightning Bolt")])
+    bears, bolt = put(s, "Grizzly Bears", "battlefield"), put(s, "Lightning Bolt", "hand")
+    assert ch(s, bears).colors == {"G"}
+    put(s, "Thran Lens", "battlefield")
+    assert ch(s, bears).colors == set() and ch(s, bolt).colors == {"R"}  # (permanents only)
+    roundtrip(s)
+    put(s, "Thran Lens", "graveyard")
+    assert ch(s, bears).colors == {"G"}
+
+
+def test_mycosynth_lattice_colors_every_object_in_every_zone(cards):
+    s = build(cards, [(1, "Mycosynth Lattice"), (1, "Grizzly Bears"), (1, "Lightning Bolt"), (1, "Murder")],
+              [(1, "Forest"), (9, "Island")])
+    bears, bolt, murder = (put(s, n, "hand") for n in ("Grizzly Bears", "Lightning Bolt", "Murder"))
+    gy = put(s, "Murder", "graveyard")
+    theirs = put(s, "Forest", "battlefield", pid="p2")
+    assert ch(s, bolt).colors == {"R"} and ch(s, gy).colors == {"B"}
+    put(s, "Mycosynth Lattice", "battlefield")
+    for c in (bolt, gy, bears, murder):  # hand, graveyard (any owner's, any zone: 205.? "cards that aren't on the battlefield")
+        assert ch(s, c).colors == set()
+    assert "Artifact" in ch(s, theirs).types  # (the first line: all permanents are artifacts)
+    mana(s, G=1, C=1)
+    hold(s)
+    act(s, "p1", type="cast_spell", card_id=bears.id)  # a spell (on the stack): colorless too
+    assert s.state.cards[bears.id].zone == "stack" and ch(s, bears).colors == set()
+    roundtrip(s)
+    put(s, "Mycosynth Lattice", "graveyard")
+    assert ch(s, bolt).colors == {"R"} and ch(s, bears).colors == {"G"}
+
+
+def cast_servant(s, color):
+    spell = put(s, "Painter's Servant", "hand")
+    mana(s, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    pass_until_stack_empty(s)
+    d = rules(s).decision
+    assert [o.id for o in d.options] == ["White", "Blue", "Black", "Red", "Green"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[color])
+    pass_until_stack_empty(s)
+    return s.state.cards[spell.id]
+
+
+def test_painters_servant_adds_the_chosen_color_in_every_zone(cards):
+    s = build(cards, [(1, "Painter's Servant"), (1, "Grizzly Bears"), (1, "Lightning Bolt")])
+    bolt, bears = put(s, "Lightning Bolt", "hand"), put(s, "Grizzly Bears", "battlefield")
+    servant = cast_servant(s, "Blue")
+    assert servant.zone.endswith(":battlefield") and servant.choices == {"Chosen color": "Blue"}
+    assert ch(s, bolt).colors == {"R", "U"} and ch(s, bears).colors == {"G", "U"}  # "in addition to their other colors"
+    assert ch(s, servant).colors == {"U"}  # (colorless, now blue)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("lattice_first", [True, False])
+def test_mycosynth_lattice_and_painters_servant_in_timestamp_order(cards, lattice_first):
+    """613.7: both effects are in layer 5 and neither depends on the other: the later one wins (Lattice: colorless; the Servant:
+    its color in addition to the others)."""
+    s = build(cards, [(1, "Painter's Servant"), (1, "Mycosynth Lattice"), (1, "Lightning Bolt")])
+    bolt = put(s, "Lightning Bolt", "hand")
+    if lattice_first:
+        put(s, "Mycosynth Lattice", "battlefield")
+        servant = cast_servant(s, "Green")
+        assert ch(s, bolt).colors == {"G"} and ch(s, servant).colors == {"G"}
+    else:
+        servant = cast_servant(s, "Green")
+        put(s, "Mycosynth Lattice", "battlefield")
+        assert ch(s, bolt).colors == set() and ch(s, servant).colors == set()
+    roundtrip(s)
+
+
+def test_leyline_of_singularity_makes_nonland_permanents_legendary(cards):
+    s = build(cards, [(1, "Leyline of Singularity"), (1, "Grizzly Bears"), (1, "Forest")])
+    bears, forest = put(s, "Grizzly Bears", "battlefield"), put(s, "Forest", "battlefield")
+    put(s, "Leyline of Singularity", "battlefield")
+    assert "Legendary" in ch(s, bears).supertypes and "Legendary" not in ch(s, forest).supertypes
+    roundtrip(s)
+    put(s, "Leyline of Singularity", "graveyard")
+    assert "Legendary" not in ch(s, bears).supertypes
+
+
+def test_encroaching_mycosynth_adds_artifact_to_your_nonland_permanents_spells_and_cards(cards):
+    s = build(cards, [(1, "Encroaching Mycosynth"), (1, "Grizzly Bears"), (1, "Lightning Bolt"), (1, "Forest"), (1, "Mind Stone")],
+              [(1, "Grizzly Bears"), (9, "Island")])
+    mine, bolt, forest = put(s, "Grizzly Bears", "battlefield"), put(s, "Lightning Bolt", "hand"), put(s, "Forest", "battlefield")
+    stone = put(s, "Mind Stone", "graveyard")
+    theirs = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    put(s, "Encroaching Mycosynth", "battlefield")
+    assert ch(s, mine).types == {"Creature", "Artifact"} and ch(s, theirs).types == {"Creature"}  # "you control"
+    assert ch(s, forest).types == {"Land"} and ch(s, bolt).types == {"Instant"}  # nonland permanent cards only
+    assert ch(s, stone).types == {"Artifact"}
+    in_hand = put(s, "Grizzly Bears", "hand")
+    assert ch(s, in_hand).types == {"Creature", "Artifact"}  # a permanent card you own, not on the battlefield
+    assert ch(s, put(s, "Grizzly Bears", "hand", pid="p2")).types == {"Creature"}
+    roundtrip(s)
+
+
+# -- animated lands: a group that stays what it was (613.1d, 613.6) -------------------------------------------------
+def test_kormus_bell_animates_swamps_and_urborg_makes_every_land_one(cards):
+    s = build(cards, [(1, "Kormus Bell"), (1, "Urborg, Tomb of Yawgmoth"), (1, "Forest")])
+    forest = put(s, "Forest", "battlefield")
+    put(s, "Kormus Bell", "battlefield")
+    assert not ch(s, forest).is_creature
+    put(s, "Urborg, Tomb of Yawgmoth", "battlefield")  # 613.8: the Bell's "Swamps" depends on Urborg: it waits for it
+    urborg = next(c for c in s.state.cards.values() if c.name.startswith("Urborg"))
+    for land in (forest, urborg):
+        assert ch(s, land).types == {"Land", "Creature"} and ch(s, land).pt == (1, 1) and ch(s, land).colors == {"B"}
+    roundtrip(s)
+
+
+def test_ambush_commander_makes_your_forests_green_elves(cards):
+    s = build(cards, [(1, "Ambush Commander"), (1, "Forest"), (1, "Command Tower")], [(1, "Forest"), (9, "Island")])
+    mine, tower, theirs = put(s, "Forest", "battlefield"), put(s, "Command Tower", "battlefield"), put(s, "Forest", "battlefield", pid="p2")
+    put(s, "Ambush Commander", "battlefield")
+    assert ch(s, mine).types == {"Land", "Creature"} and "Elf" in ch(s, mine).subtypes and "Forest" in ch(s, mine).subtypes
+    assert ch(s, mine).pt == (1, 1) and ch(s, mine).colors == {"G"}
+    assert not ch(s, tower).is_creature and not ch(s, theirs).is_creature
+    roundtrip(s)
+
+
+# -- Blood Sun and Toxicrene: all abilities but mana abilities (613.1f) -------------------------------------------------------
+def test_blood_sun_lands_keep_only_mana_abilities(cards):
+    s = build(cards, [(1, "Blood Sun"), (1, "Kher Keep"), (1, "Command Tower")])
+    keep, tower = put(s, "Kher Keep", "battlefield"), put(s, "Command Tower", "battlefield")
+    assert any(a.kind != "mana" for a in ch(s, keep).abilities)
+    put(s, "Blood Sun", "battlefield")
+    assert [a.kind for a in ch(s, keep).abilities] == ["mana"] and mana_texts(s, tower) == mana_texts(s, tower)
+    assert [a.text for a in ch(s, keep).abilities] == ["{T}: Add {C}."]
+    roundtrip(s)
+    put(s, "Blood Sun", "graveyard")
+    assert any(a.kind != "mana" for a in ch(s, keep).abilities)
+
+
+def test_toxicrene_lands_have_one_mana_ability_and_lose_the_rest(cards):
+    s = build(cards, [(1, "Toxicrene"), (1, "Kher Keep"), (1, "Forest")])
+    keep, forest = put(s, "Kher Keep", "battlefield"), put(s, "Forest", "battlefield")
+    put(s, "Toxicrene", "battlefield")
+    assert [a.text for a in ch(s, keep).abilities] == ["{T}: Add one mana of any color."]
+    assert [a.text for a in ch(s, forest).abilities] == ["{T}: Add one mana of any color."]  # (the intrinsic one is lost too)
+    roundtrip(s)

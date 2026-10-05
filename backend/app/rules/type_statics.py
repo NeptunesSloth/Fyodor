@@ -98,6 +98,7 @@ def _everywhere(subject: str, same: str) -> dict[str, Any] | None:
 
 def parse(text: str) -> dict[str, Any] | None:
     """One static line (the card's own name written as ~) → its definition, or None."""
+    text = re.sub(r"^[A-Z][A-Za-z' -]+ — ", "", text)  # (an ability word, 207.2c, has no rules meaning: "Hypertoxic Miasma — …")
     if (m := _EACH_LAND.fullmatch(text)) is not None:
         return _definition("lands", {"add_subtypes": [m["t"]]})
     if (m := _EVERY_BASIC.fullmatch(text)) is not None:
