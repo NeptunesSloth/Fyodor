@@ -2674,6 +2674,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         if effects and text.startswith("then you may ") and _may_then_if_you_do(text[5:], texts[i + 1:], effects, probe=False) is not None:
             text = text[5:]  # (-- if you do (wave 15C) -- "then" only orders, 608.2c)
+        elif effects and text.startswith("then you may ") and not any(p.match(text) for p, _ in EFFECTS) \
+                and (_clause(text[5:], True) or ([],))[0] and any(x.get("optional") for x in (_clause(text[5:], True) or ([],))[0]):
+            text = text[5:]  # -- modal spells (wave 24D) -- "Draw a card. Then you may put a land card from your hand onto the battlefield tapped.":
+            # "then" only orders (608.2c); the clause that models its own choice (an "optional" instruction) is read as "You may …"
         if text.startswith("you may "):
             if effects and (mid := _may_then_if_you_do(text, texts[i + 1:], effects)) is not None:
                 effects += _add_groups(groups, *mid)  # -- if you do (wave 15C) -- "…. You may draw a card. If you do, discard a card."

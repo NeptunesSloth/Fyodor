@@ -104,6 +104,9 @@ def test_cancel_mode_choice_rewinds_cast(cards):
 
 
 EXTRA += [
+    card("Insidious Fungus", set_code="tst", number="24D-IF", mana_cost="{G}", cmc=1.0, type_line="Creature — Fungus", power="1", toughness="2",
+         oracle_text="{2}, Sacrifice this creature: Choose one —\n• Destroy target artifact.\n• Destroy target enchantment.\n• Draw a card. Then you may put a land card from your hand onto the battlefield tapped.",
+         colors=["G"], color_identity=["G"]),
     card("Rakdos Charm", set_code="tst", number="24D-RC", mana_cost="{B}{R}", cmc=2.0, type_line="Instant",
          oracle_text="Choose one —\n• Exile target player's graveyard.\n• Destroy target artifact.\n• Each creature deals 1 damage to its controller.",
          colors=["B", "R"], color_identity=["B", "R"]),
@@ -122,4 +125,27 @@ def test_each_creature_deals_damage_to_its_controller(cards):
     act(s, "p1", type="cast_spell", card_id=spell.id, modes=[2])
     settle(s)
     assert s.state.players["p1"].life == before["p1"] - 1 and s.state.players["p2"].life == before["p2"] - 2
+    replay_matches(s)
+
+
+def test_then_you_may_put_a_land_from_hand(cards):
+    """Insidious Fungus: "Draw a card. Then you may put a land card from your hand onto the battlefield tapped." ("then" only orders)."""
+    from tests.test_rules_conditionals import on_field
+
+    s = build(cards, "Insidious Fungus")
+    fungus = on_field(s, "Insidious Fungus")
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "hand"})
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=fungus.id, ability=0, modes=[2])
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is not None:
+            pick(s, forest.id if any(o.id == forest.id for o in d.options) else d.options[0].id)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    c = s.state.cards[forest.id]
+    assert c.zone == "p1:battlefield" and c.tapped
     replay_matches(s)
