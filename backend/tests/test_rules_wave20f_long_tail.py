@@ -208,6 +208,135 @@ def test_draugr_thought_thief_may_put_the_top_card_into_their_graveyard(cards, y
     roundtrip(s)
 
 
+@pytest.mark.parametrize("keep", [True, False])
+def test_gurmag_nightwatch_puts_one_back_and_the_rest_into_the_graveyard(cards, keep):
+    """"You may put one of those cards back on top of your library. Put the rest into your graveyard." — declining still sends all three."""
+    s = game(cards, ["Gurmag Nightwatch"])
+    cast(s, "Gurmag Nightwatch", C=6)
+    top3 = list(s.state.zones["p1:library"][:3])
+    graveyard = len(s.state.zones["p1:graveyard"])
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            assert d.kind == "choose_cards" and d.min_choices == 0 and [o.card_id for o in d.options] == top3
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[top3[0]] if keep else [])
+    assert len(s.state.zones["p1:graveyard"]) == graveyard + (2 if keep else 3)
+    assert (s.state.zones["p1:library"][0] == top3[0]) is keep
+    roundtrip(s)
+
+
+def test_ratadrabik_copies_a_dying_legendary_as_a_black_zombie(cards):
+    """"except it's not legendary and it's a 2/2 black Zombie in addition to its other colors and types" (707.9b, 707.9d)."""
+    s = game(cards, ["Ratadrabik of Urborg", "Mishra, Eminent One"])
+    put(s, "Ratadrabik of Urborg")
+    mishra = put(s, "Mishra, Eminent One")
+    kill(s, mishra)
+    drive(s)
+    [copy] = tokens(s, "p1")
+    got = ch(s, copy)
+    assert got.name == "Mishra, Eminent One" and got.pt == (2, 2) and "Zombie" in got.subtypes and "Legendary" not in got.supertypes
+    assert got.colors == {"U", "B", "R"} and {"Human", "Artificer"} <= got.subtypes  # (its other colors and types stay: "in addition")
+    roundtrip(s)
+
+
+def test_mishras_warform_is_named_and_built_as_the_text_says_then_sacrificed(cards):
+    s = game(cards, ["Mishra, Eminent One", "Sol Ring"])
+    mishra, ring = put(s, "Mishra, Eminent One"), put(s, "Sol Ring")
+    unready(s, mishra)
+    responsive(s)
+    act(s, "p1", type="pass_priority")  # → the beginning of combat: the trigger asks for its target
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[ring.id])
+        elif tokens(s, "p1"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    [form] = tokens(s, "p1")
+    got = ch(s, form)
+    assert got.name == "Mishra's Warform" and got.pt == (4, 4) and {"Artifact", "Creature"} <= got.types and "Construct" in got.subtypes
+    assert "haste" in got.keywords
+    to_phase(s, "end")
+    drive(s)
+    assert tokens(s, "p1") == []  # "Sacrifice it at the beginning of the next end step"
+    roundtrip(s)
+
+
+def test_chronozoa_makes_two_copies_when_it_dies_with_no_time_counters(cards):
+    """"if it had no time counters on it, create two tokens that are copies of it" — as it last existed (608.2h); each copy has vanishing."""
+    s = game(cards, ["Chronozoa"])
+    zoa = put(s, "Chronozoa")
+    act(s, "p1", type="counter", card_ids=[zoa.id], kind="time", delta=-s.state.cards[zoa.id].counters.get("time", 0)) if s.state.cards[zoa.id].counters.get("time") else None
+    kill(s, zoa)
+    drive(s)
+    copies = tokens(s, "p1")
+    assert len(copies) == 2 and all(ch(s, c).name == "Chronozoa" for c in copies)
+    assert all(c.counters.get("time", 0) == 3 for c in copies)  # (vanishing 3: each token enters with three time counters, 702.63a)
+    roundtrip(s)
+
+
+def test_chronozoa_with_time_counters_leaves_no_copies(cards):
+    s = game(cards, ["Chronozoa"])
+    zoa = put(s, "Chronozoa")
+    act(s, "p1", type="counter", card_ids=[zoa.id], kind="time", delta=1)
+    kill(s, zoa)
+    drive(s)
+    assert tokens(s, "p1") == []  # (the intervening "if", 603.4)
+
+
+def test_donal_copies_a_flying_creature_spell_as_a_one_one_spirit(cards):
+    """"you may copy it, except the copy is a 1/1 Spirit in addition to its other types. Do this only once each turn." (707.10, 707.9b)"""
+    s = game(cards, ["Donal, Herald of Wings", "Sphinx of False Conclusions"])
+    put(s, "Donal, Herald of Wings")
+    cast(s, "Sphinx of False Conclusions", U=2, C=2)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"] if any(o.id == "yes" for o in d.options)
+                else [o.id for o in d.options][: max(1, d.min_choices)])
+    copy = next(c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield")
+    got = ch(s, copy)
+    assert got.name == "Sphinx of False Conclusions" and got.pt == (1, 1) and {"Sphinx", "Illusion", "Spirit"} <= got.subtypes
+    assert "flying" in got.keywords
+    original = find(s, "Sphinx of False Conclusions")
+    assert s.state.cards[original.id].zone == "p1:battlefield" and ch(s, original).pt == (4, 2)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("yes", [True, False])
+def test_dimensional_infiltrator_may_return_itself_only_if_the_exiled_card_is_a_land(cards, yes):
+    """"If it's a land card, you may return this creature to its owner's hand": the gate, then the controller's choice (608.2c, 603.5)."""
+    s = game(cards, ["Dimensional Infiltrator"])
+    bat = put(s, "Dimensional Infiltrator")
+    unready(s, bat)
+    top = s.state.zones["p2:library"][0]  # (an Island: Bob's deck is all Islands)
+    i = next(a.index for a in ch(s, bat).abilities if a.kind == "activated")
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=bat.id, ability=i, targets=["p2"])
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "confirm":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes" if yes else "no"])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    assert s.state.cards[top].zone == "p2:exile"
+    assert (s.state.cards[bat.id].zone == "p1:hand") is yes
+    roundtrip(s)
+
+
 # -- kicked cast triggers ----------------------------------------------------------------------------------------------
 @pytest.mark.parametrize("kicked", [0, 1])
 def test_sowing_mycospawn_exiles_a_land_only_if_kicked(cards, kicked):
@@ -232,3 +361,28 @@ def test_sowing_mycospawn_exiles_a_land_only_if_kicked(cards, kicked):
     roundtrip(s)
 
 
+
+
+# -- statics: spells that can't be countered / can't be cast ---------------------------------------------------------------
+@pytest.mark.parametrize("herald", [True, False])
+def test_gaeas_herald_makes_every_players_creature_spells_uncounterable(cards, herald):
+    """"Creature spells can't be countered." (101.2, 701.6): not only its controller's — Bob's Counterspell fails on Alice's Bears."""
+    s = game(cards, ["Grizzly Bears"], ["Counterspell", "Gaea's Herald"])
+    if herald:
+        put(s, "Gaea's Herald", "battlefield", "p2")
+    counter = put(s, "Counterspell", "hand", "p2")
+    act(s, "p2", type="set_prefs", response="on")
+    bears = put(s, "Grizzly Bears", "hand")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    mana(s, "p2", U=2)
+    act(s, "p2", type="cast_spell", card_id=counter.id, targets=[bears.id])
+    for _ in range(12):
+        if not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert (s.state.cards[bears.id].zone == "p1:battlefield") is herald  # (without it: countered, into the graveyard)
+    assert (s.state.cards[bears.id].zone == "p1:graveyard") is not herald
+    roundtrip(s)

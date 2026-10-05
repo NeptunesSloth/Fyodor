@@ -2460,7 +2460,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 inner = _conditional_inner(cond_m["rest"])
             else:
                 inner = _conditional_inner(cond_m["rest"], cond) if cond is not None else None
-            if inner is None and cond is not None and cond_m["rest"].startswith("you may ") and i == len(texts) - 1:
+            if inner is None and cond is not None and cond_m["rest"].startswith("you may ") and i == len(texts) - 1 and effects:
                 # -- transform (wave 20F) -- "Then if you have seven or more cards in your graveyard, you may transform ~." at the end of
                 # the ability (608.2c): the gate, then the controller's choice for the rest (unless_pays.may_rest, 603.5)
                 inner = _conditional_inner(cond_m["rest"][len("you may "):], cond)
