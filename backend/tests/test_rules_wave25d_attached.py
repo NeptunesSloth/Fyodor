@@ -212,7 +212,7 @@ def test_declining_leaves_the_creature_tapped(cards):
     ogre = make(s, "p2", "Ogre", "Ogre", "3/3")
     cast_on(s, "Paralyze", ogre, B=1)
     act(s, "p1", type="pass_priority", until="next_turn")
-    d = to_decision(s, "p2")
+    to_decision(s, "p2")
     choose(s, "decline")
     settle(s)
     assert s.state.cards[ogre.id].tapped
@@ -257,7 +257,6 @@ def test_lingering_death_makes_the_controller_sacrifice_the_creature_at_their_en
 def test_roxannes_meteorite_token_deals_its_damage_as_it_enters(cards):
     """A quoted ability without its own period ("When this token enters, it deals 2 damage to any target") is read as the ability it is."""
     s = build(cards, "Roxanne, Starfall Savant", "Probe Beast")
-    beast = on_battlefield(s, "Probe Beast")
     roxanne = to_hand(s, "Roxanne, Starfall Savant")
     pay(s, R=1, G=1, C=3)
     act(s, "p1", type="cast_spell", card_id=roxanne.id)

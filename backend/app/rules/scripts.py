@@ -416,12 +416,11 @@ def _aura_card_effects(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | 
     only instruction "this card" may name is returning it to its owner's hand (anything else: manual)."""
     out = []
     for e in effects:
-        if e.get("do") == "bounce" and e.get("who") == "self":
-            e = {**e, "who": AURA_CARD}
         # -- attached events (wave 25D) -- "When enchanted creature dies, you may return this card from your graveyard to your hand / the
         # battlefield" (the Genju, Screams from Within): the trigger is the Aura's own, put on the stack while it is still on the battlefield, and
         # "this card" is its new object in the graveyard when the ability resolves (400.7f; effects._aura_card)
-        elif e.get("do") == "return_card" and e.get("who") in ("self", "self_gy") and e.get("to") in ("hand", "battlefield") and not e.get("host"):
+        returns = e.get("do") == "return_card" and e.get("who") in ("self", "self_gy") and e.get("to") in ("hand", "battlefield") and not e.get("host")
+        if (e.get("do") == "bounce" and e.get("who") == "self") or returns:
             e = {**e, "who": AURA_CARD}
         out.append(e)
     return None if '"self"' in json.dumps(out, default=str) else out
