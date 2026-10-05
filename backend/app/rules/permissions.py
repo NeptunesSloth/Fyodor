@@ -350,6 +350,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return None
     # -- costs (wave 3$) -- "As an additional cost to cast this spell, sacrifice a creature." (601.2b): paid with the
     # rest of the cost as the spell is cast (casting.cast_spell); a wording the cost grammar can't pay stays manual
+    if cost_changes.OWN_OPTIONAL.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"
+        return cost_changes.optional_definition(t)
     extra = costs.additional_cost_text(t)
     if extra is not None:
         ok = costs.parse_additional_cost(extra) is not None

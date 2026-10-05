@@ -29,7 +29,7 @@ def card_db(settings):
     from app.cards.importer import build_database
 
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY, *LIFE, *SPHERE], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY, *LIFE, *SPHERE, *EVIDENCE], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
 
 
@@ -272,3 +272,54 @@ def test_an_illegal_target_cancels_the_cast_and_pays_nothing(cards):
     assert s.state.players["p1"].mana == {}
     answer(s)
     check(s)
+
+
+# -- optional additional costs on the spell itself: collect evidence / behold (601.2b, 701.59a, 701.4a) --
+EVIDENCE = [
+    real("Vitu-Ghazi Inspector", "{1}{G}", 2, "Creature — Elf Detective", "As an additional cost to cast this spell, you may collect evidence 6. "
+         "(Exile cards with total mana value 6 or greater from your graveyard.)\nReach\nWhen this creature enters, if evidence was collected, put a "
+         "+1/+1 counter on target creature and you gain 2 life.", ("1", "3"), "G"),
+    real("Extract a Confession", "{1}{B}", 2, "Sorcery", "As an additional cost to cast this spell, you may collect evidence 6. (Exile cards with total "
+         "mana value 6 or greater from your graveyard.)\nEach opponent sacrifices a creature of their choice. If evidence was collected, instead "
+         "each opponent sacrifices a creature with the greatest power among creatures they control.", None, "B"),
+    real("Crimestopper Sprite", "{2}{U}", 3, "Creature — Faerie Detective", "As an additional cost to cast this spell, you may collect evidence 6. "
+         "(Exile cards with total mana value 6 or greater from your graveyard.)\nFlying\nWhen this creature enters, tap target creature. If "
+         "evidence was collected, put a stun counter on it. (If a permanent with a stun counter would become untapped, remove one from it "
+         "instead.)", ("2", "2"), "U"),
+]
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in EVIDENCE])
+def test_optional_additional_cost_lines_are_read(cards, name):
+    feats = {f.id: f.supported for f in coverage.of_card_data(cards.resolve(name)).features}
+    assert all(feats.values())
+
+
+def test_collect_evidence_as_an_optional_additional_cost(cards):
+    s = build(cards, ["Extract a Confession", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears"], ["Grizzly Bears", "Llanowar Elves"])
+    spell = to_hand(s, "Extract a Confession")
+    mine = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    for c in mine:  # three mana value 2 cards: total 6
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    bear, elf = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, optional_costs=[f"{spell.id}:evidence"])
+    for _ in range(6):  # (the cards to exile are chosen: all three are needed)
+        d = s.state.rules.decision
+        if d is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.max_choices or 1)])
+    answer(s)
+    assert all(s.state.cards[c.id].zone == "p1:exile" for c in mine)  # evidence collected: exiled from the graveyard
+    assert s.state.cards[bear.id].zone == "p2:graveyard" and s.state.cards[elf.id].zone == "p2:battlefield"  # the greatest power one
+    check(s)
+
+
+def test_without_evidence_the_opponent_chooses(cards):
+    s = build(cards, ["Extract a Confession", "Grizzly Bears"], ["Grizzly Bears", "Llanowar Elves"])
+    spell = to_hand(s, "Extract a Confession")
+    put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"  # Bob chooses what to sacrifice

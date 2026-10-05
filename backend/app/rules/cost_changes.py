@@ -546,9 +546,30 @@ DEFILER = re.compile(
     r"this effect reduces only the amount of (?P<color2>white|blue|black|red|green) mana you pay$", re.IGNORECASE)
 
 
+# -- casting costs (wave 22F) -- 601.2b: "As an additional cost to cast this spell, you may collect evidence 6." (701.59a) / "… you may behold a
+# Dragon." (701.4a): the caster announces it with the other optional costs and pays it with the rest (601.2h); the spell's own "if evidence
+# was collected" / "if a Dragon was beheld" read the record of that choice (conditions._cast_how)
+OWN_OPTIONAL = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>collect evidence \d+|behold an? [A-Z][a-z]+)\.?(?: \(.*\))?$")
+
+
+def own_cost(text: str) -> Any:
+    """The one cost part "Collect evidence 6" / "Behold a Dragon" is (None when the grammar can't pay it)."""
+    from app.rules import costs as C
+
+    parsed = C.parse_ability_cost(text) if text.startswith("Collect") else C.parse_additional_cost(text)
+    return parsed.components[0] if parsed is not None and not parsed.unsupported and len(parsed.components) == 1 else None
+
+
 def optional_definition(t: str) -> dict[str, Any] | None:
     from app.rules.permissions import spell_filter
 
+    if (own := OWN_OPTIONAL.fullmatch(t)) is not None:
+        text = own["cost"][0].upper() + own["cost"][1:]
+        parsed = own_cost(text)
+        if parsed is None:
+            return None
+        kind = "evidence" if text.startswith("Collect") else "behold"
+        return {"kind": "static", "static": "own_optional", "optional": kind, "cost": text, "effects": []}
     m = DEFILER.fullmatch(t)
     if m is None or m["color"].lower() != m["color2"].lower() or _COLORS[m["color"].lower()] != m["sym"]:
         return None
@@ -567,6 +588,7 @@ class Optional:
     mana: str
     kind: str = ""  # -- static_other sweep (wave 17C) -- "conspire" / "teamwork": a cost of tapped creatures (``n``: teamwork's power)
     n: int = 0
+    text: str = ""  # -- casting costs (wave 22F) -- "evidence" / "behold": the cost part as the cost grammar reads it ("Collect evidence 6")
 
 
 def keyword_component(o: Optional) -> Any:
@@ -577,6 +599,8 @@ def keyword_component(o: Optional) -> Any:
     from app.rules.selectors import Selector
 
     untapped = Selector(types=("Creature",), controller="you", tapped=False)
+    if o.kind in ("evidence", "behold"):  # -- casting costs (wave 22F) --
+        return own_cost(o.text)  # type: ignore[return-value]
     if o.kind == "casualty":  # -- casting extras (wave 18E) -- 702.153a: "you may sacrifice a creature with power N or greater"
         key = C._selector(f"creature you control with power {o.n} or greater", zone="battlefield")
         return C.CostComponent(C.SACRIFICE, amount=1, selector=key, text=f"Sacrifice a creature with power {o.n} or greater")
@@ -611,6 +635,9 @@ def optional_offers(state: GameState, player: str, card: CardInstance, ch: Chara
         if (m := re.fullmatch(r"Teamwork (\d+)", text)) is not None:
             out.append(Optional(f"{card.id}:teamwork", f"Teamwork {m[1]}: tap creatures with total power {m[1]} or more", 0, "", "teamwork",
                                 int(m[1])))
+    for d in permissions._definitions(ch).values():  # -- casting costs (wave 22F) -- collect evidence / behold on the spell itself
+        if d.get("static") == "own_optional":
+            out.append(Optional(f"{card.id}:{d['optional']}", f"{d['cost']} (additional cost)", 0, "", d["optional"], text=d["cost"]))
     return out
 
 
