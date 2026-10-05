@@ -4786,6 +4786,7 @@ for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OT
 from app.rules import name_search as _name_search  # noqa: E402  (a leaf module)
 
 _choice_template(_name_search.PATTERN, _name_search.build)  # (wave 11D)
+_choice_template(_name_search.NAMED_PATTERN, _name_search.build_named)  # (wave 22B: card names)
 from app.rules import drawn_toll as _drawn_toll  # noqa: E402  (a leaf module)
 
 _choice_template(_drawn_toll.PATTERN, _drawn_toll.build)  # (wave 18G)

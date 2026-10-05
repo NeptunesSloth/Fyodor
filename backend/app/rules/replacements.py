@@ -642,10 +642,10 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules.effects import CHOICE_LABELS
 
         for what, value in choices.items():
-            if not value or what not in CHOICE_LABELS:
+            if not value or (what not in CHOICE_LABELS and not card_names.is_choice(what)):
                 continue
             shown = plan.name(value) if what in ("opponent", "player") and value in plan.state.players else value
-            plan.do({"type": "set_choice", "card_id": card_id, "key": CHOICE_LABELS[what], "value": shown}, actor=controller)
+            plan.do({"type": "set_choice", "card_id": card_id, "key": card_names.LABEL if card_names.is_choice(what) else CHOICE_LABELS[what], "value": shown}, actor=controller)
             if what in ("opponent", "player") and value in plan.state.players:  # -- chosen player (wave 4J) --
                 from app.rules import chosen
 

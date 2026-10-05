@@ -33,11 +33,15 @@ if TYPE_CHECKING:
 
 LABEL = "Chosen card name"
 FREE_TEXT = "__name__"  # the one option of a typed-name decision (its ``group`` is the ``what``)
-_TYPES = ("nonland", "land", "artifact", "creature", "enchantment", "instant", "sorcery", "planeswalker")
-# the phrase after "choose a/an": "card name", "nonland card name", "card name other than a basic land card name"
-WHAT_RX = (r"(?:(?:" + "|".join(_TYPES) + r") card name|card name(?: other than a basic land card name)?)")
+_TYPES = ("land", "artifact", "creature", "enchantment", "instant", "sorcery", "planeswalker")
+_QUAL = rf"(?:non)?(?:{'|'.join(_TYPES)}|basic)"
+# the phrase after "choose a/an": "card name", "nonland card name", "noncreature, nonland card name", "nonbasic land card name",
+# "card name other than a basic land card name"
+WHAT_RX = rf"(?:{_QUAL}(?:(?:, | ){_QUAL})* card name|card name(?: other than a basic land card name)?)"
 _WHAT = re.compile(rf"^{WHAT_RX}$")
-ALL_WHATS = ("card name", "card name other than a basic land card name", *(f"{t} card name" for t in _TYPES))
+ALL_WHATS = ("card name", "card name other than a basic land card name", "nonland card name", "land card name", "artifact card name",
+             "creature card name", "enchantment card name", "instant card name", "sorcery card name", "planeswalker card name",
+             "nonartifact, nonland card name", "noncreature, nonland card name", "nonbasic land card name")
 
 
 def is_choice(what: str | None) -> bool:
@@ -53,14 +57,16 @@ def is_free_text(d: Decision) -> bool:
 
 
 def _allowed(what: str, type_line: str) -> bool:
+    """201.4a: the characteristics the name must have (the card's Oracle type line, the face named: 201.4b-f)."""
     types = set(type_line.replace("—", " ").split())
     if what.endswith("other than a basic land card name"):
         return not {"Basic", "Land"} <= types
-    kind = what.split(" ")[0]
-    if kind == "nonland":
-        return "Land" not in types
-    if kind in _TYPES:
-        return kind.capitalize() in types
+    for word in re.split(r", | ", re.sub(r"\s*card name$", "", what)):
+        if not word:
+            continue
+        neg, kind = (True, word[3:]) if word.startswith("non") else (False, word)
+        if (kind.capitalize() in types) == neg:
+            return False
     return True
 
 
