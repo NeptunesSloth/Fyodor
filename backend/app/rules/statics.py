@@ -326,6 +326,8 @@ def parse(text: str) -> Definition | None:
     # "Equipped creature gets +1/+1 for each counter on it" it's the equipped creature (not read)
     it = "self" if who == "self" else None
     x_value = values.parse_count(x_phrase, it=it) if x_phrase is not None else None
+    if x_value is None and x_phrase is not None and who == "attached":  # -- attached events (wave 25D) -- "where X is the number of … in its controller's graveyard"
+        x_value = _controller_count(x_phrase)
     if x_value is None and who == "attached" and x_phrase == "its mana value":
         x_value = {"relative": "mana_value"}  # -- attached events (wave 20A) -- the host's own (Hedron Matrix), read per object (611.3a)
     if x_phrase is not None and x_value is None:
@@ -508,7 +510,18 @@ def _attached_relative(each: str) -> dict[str, Any] | None:
     return {"relative": "attached", "kinds": sorted(set(re.findall(r"Aura|Equipment", m["kinds"])))} if m else None
 
 
+def _controller_count(phrase: str) -> dict[str, Any] | None:
+    """-- attached events (wave 25D) -- "card in its controller's hand" / "creature cards in its controller's graveyard" (Righteous Authority,
+    Death's Approach): the count for "you", read as the controller of the object the static modifies (611.3a, 613.4c)."""
+    if "its controller's " not in phrase:
+        return None
+    inner = values.parse_count(phrase.replace("its controller's ", "your "))
+    return {"relative": "controller", "of": inner} if inner is not None and isinstance(inner, dict) else None
+
+
 def _relative_count(each: str) -> dict[str, Any] | None:
+    if (ctl := _controller_count(each)) is not None:
+        return ctl
     if each == "of its colors":  # -- attached events (wave 16F) -- 105.1: the colors of the object modified (Civic Saber)
         return {"relative": "colors"}
     m = _SHARING.match(each) or _SAME_NAME.match(each)

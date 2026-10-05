@@ -219,6 +219,41 @@ def test_declining_leaves_the_creature_tapped(cards):
     roundtrip(s)
 
 
+def test_a_static_counts_its_controllers_graveyard_not_the_auras(cards):
+    """613.4c / 611.3a: "-X/-X, where X is the number of creature cards in its controller's graveyard": the enchanted creature's controller's."""
+    from tests.test_rules_copy import game
+
+    s = game(cards, alice=("Death's Approach", "Probe Beast"), bob=("Probe Beast",))
+    mine = next(c for c in s.state.cards.values() if c.name == "Probe Beast" and c.owner == "p1")
+    theirs = next(c for c in s.state.cards.values() if c.name == "Probe Beast" and c.owner == "p2")
+    ogre = make(s, "p2", "Ogre", "Ogre", "3/3")
+    act(s, "p1", type="move", card_ids=[mine.id], to={"zone": "graveyard"})  # Alice's graveyard: one creature card
+    cast_on(s, "Death's Approach", ogre, B=1)
+    assert ch(s, ogre).pt == (3, 3)  # Bob's graveyard is empty: Alice's doesn't count
+    act(s, "p2", type="move", card_ids=[theirs.id], to={"zone": "graveyard"})
+    assert ch(s, ogre).pt == (2, 2)
+    roundtrip(s)
+
+
+def test_lingering_death_makes_the_controller_sacrifice_the_creature_at_their_end_step(cards):
+    s = build(cards, "Lingering Death")
+    ogre = make(s, "p2", "Ogre", "Ogre", "3/3")
+    cast_on(s, "Lingering Death", ogre, B=1, C=1)
+    assert ogre.id in s.state.zones["p2:battlefield"]
+    act(s, "p1", type="pass_priority", until="next_turn")  # Alice's end step passes first: it's Bob's end step that counts
+    for _ in range(80):
+        if ogre.id not in s.state.zones.get("p2:battlefield", []) or s.state.turn.number >= 4:
+            break
+        d = decision(s)
+        if d is not None:
+            choose(s, d.options[0].id) if d.kind not in ("declare_attackers", "declare_blockers") else \
+                act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blockers": []}))
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert ogre.id not in s.state.zones["p2:battlefield"]  # Bob sacrificed it (a token: it ceased to exist)
+    roundtrip(s)
+
+
 def test_unifying_theory_the_caster_pays_and_draws(cards):
     s = build(cards, "Unifying Theory", "Probe Spell Book")
     on_battlefield(s, "Unifying Theory")

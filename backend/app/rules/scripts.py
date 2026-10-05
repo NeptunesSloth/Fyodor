@@ -105,7 +105,7 @@ TRIGGERS = [
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
     (re.compile(r"^At the beginning of (?:(?P<whose>your|each|each player's|each opponent's|the|enchanted player's|the chosen player's) "
                 r"(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
-                r"postcombat main phase)|the (?P<hstep>upkeep|end step) of enchanted (?:creature|permanent|land|artifact|"
+                r"postcombat main phase)|the (?P<hstep>upkeep|draw step|end step) of enchanted (?:creature|permanent|land|artifact|"
                 r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's) turn|(?P<each_combat>each combat)), "
                 r"(?P<body>.+)$"), "step"),
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
@@ -1529,6 +1529,13 @@ def _meld(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     from app.rules import merged
 
     return [{"do": "meld", "who": "self", "result": merged.name_of(m["r"])}], None
+
+
+# -- attached events (wave 25D) -- "At the beginning of the upkeep of enchanted creature's controller, that player sacrifices that creature."
+# (Lingering Death): the trigger event's player sacrifices the creature the event names, if they still control it (701.21a)
+@effect(r"that player sacrifices (?:that creature|it)")
+def _that_player_sacrifices(m: re.Match[str]) -> tuple[list[dict[str, Any]], None]:
+    return [{"do": "sacrifice", "who": "it", "by": "event_player"}], None
 
 
 @effect(r"sacrifice (?P<who>~|it)")
@@ -3985,7 +3992,7 @@ def _event_refs_ok(d: Definition) -> bool:
     effects = [e for i, e in enumerate(effects) if i not in skip]
     wants_player = any(e.get("who") in ("event_player", "each_other_opponent")
                        or str(e.get("who")).startswith("controlled:event_player|") for e in effects) \
-        or any(e.get("player") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E)
+        or any(e.get("player") == "event_player" or e.get("by") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E; 25D: "by")
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv"))  # ("mv": a free cast's limit, wave 3R5)
     if not wants_player and not wants_amount:
         return True

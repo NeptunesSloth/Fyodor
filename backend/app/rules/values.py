@@ -804,6 +804,8 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
         kinds = set(v["kinds"])
         return sum(1 for c in plan.state.cards.values() if c.attached_to == card.id and c.zone.endswith(":battlefield")
                    and plan.in_game(c) and kinds & plan.ch(c).subtypes)
+    if v["relative"] == "controller":  # -- attached events (wave 25D) -- "for each card in its controller's hand": the count as the modified object's controller's ("you")
+        return evaluate(plan, {**ctx, "controller": card.controller}, v["of"])
     mine = plan.ch(card)
     if v["relative"] == "mana_value":  # -- attached events (wave 20A) -- 202.3: the object modified (a creature's X is 0 on the battlefield)
         from app.rules.stack_interaction import mana_value

@@ -276,5 +276,89 @@
    "Enchant"
   ],
   "layout": "normal"
+ },
+ {
+  "name": "Disturbing Conversion",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Flash\nEnchant creature\nWhen this Aura enters, each player mills two cards.\nEnchanted creature gets -X/-0, where X is the number of cards in its controller's graveyard.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant",
+   "Flash",
+   "Mill"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Death's Approach",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets -X/-X, where X is the number of creature cards in its controller's graveyard.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Righteous Authority",
+  "mana_cost": "{3}{W}{U}",
+  "cmc": 5.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +1/+1 for each card in its controller's hand.\nAt the beginning of the draw step of enchanted creature's controller, that player draws an additional card.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Lingering Death",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nAt the beginning of the end step of enchanted creature's controller, that player sacrifices that creature.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
  }
 ]

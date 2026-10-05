@@ -1478,7 +1478,10 @@ def sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     it" (evoke, 702.74a) — whoever controls it as the effect happens."""
     you = ctx["controller"]
     cards = _cards(plan, ctx, e["who"])
-    if e.get("by") != "controller":
+    if e.get("by") == "event_player":  # -- attached events (wave 25D) -- "that player sacrifices that creature": only if that player still controls it
+        mine = _players(plan, ctx, "event_player")
+        cards = [c for c in cards if plan.state.cards[c].controller in mine]
+    elif e.get("by") != "controller":
         cards = [c for c in cards if plan.state.cards[c].controller == you]
     actor = plan.state.cards[cards[0]].controller if cards else you
     _sacrifice_cards(plan, cards, actor, ctx, e.get("as"))
