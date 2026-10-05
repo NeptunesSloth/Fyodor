@@ -823,6 +823,9 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
+            if (paid := [c for c in record.exiled if c != card_id and c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]):
+                # -- resolution memory (wave 22D) -- 607.2q: the cards exiled to pay the permanent spell's cost are "exiled with" the permanent
+                plan.rules.exiled_with[plan.oid(card_id)] = [*plan.rules.exiled_with.get(plan.oid(card_id), []), *(plan.oid(c) for c in paid)]
         if oid in plan.rules.bestowed:  # -- keywords (wave 15E) -- the bestowed Aura permanent is the spell it was (702.103b)
             plan.rules.bestowed = [o for o in plan.rules.bestowed if o != oid]
             if card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
