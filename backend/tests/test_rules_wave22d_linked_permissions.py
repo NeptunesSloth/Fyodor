@@ -23,6 +23,9 @@ EXTRA = [
          None, "BR"),
     real("Probe Rock", "{3}", 3, "Artifact", "", None),
     real("Probe Burst", "{R}", 1, "Instant", "Probe Burst deals 1 damage to any target.", None, "R"),
+    real("Unlicensed Hearse", "{2}", 2, "Artifact — Vehicle",
+         "{T}: Exile up to two target cards from a single graveyard.\nUnlicensed Hearse's power and toughness are each equal to the number of cards exiled with it.\nCrew 2",
+         ("*", "*")),
 ]
 
 
@@ -59,4 +62,18 @@ def test_theater_of_horrors_lets_you_cast_the_exiled_card_only_when_an_opponent_
     act(s, "p1", type="cast_spell", card_id=rock.id)
     pass_until_stack_empty(s)
     assert s.state.cards[rock.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_unlicensed_hearse_is_as_big_as_the_number_of_cards_it_exiled(cards):
+    from tests.wave9c_kit import pt
+
+    s = build(cards, p1=("Unlicensed Hearse",), p2=("Probe Rock", "Ambush Viper"))
+    hearse = put(s, "Unlicensed Hearse", "battlefield")
+    rock, viper = put(s, "Probe Rock", "graveyard", pid="p2"), put(s, "Ambush Viper", "graveyard", pid="p2")
+    assert pt(s, "Unlicensed Hearse") == (0, 0)  # nothing exiled with it yet
+    act(s, "p1", type="activate_ability", card_id=hearse.id, ability=0, targets=[rock.id, viper.id], target_counts=[2])
+    pass_until_stack_empty(s)
+    assert s.state.cards[rock.id].zone == "p2:exile" and s.state.cards[viper.id].zone == "p2:exile"
+    assert pt(s, "Unlicensed Hearse") == (2, 2)
     roundtrip(s)

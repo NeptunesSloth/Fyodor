@@ -212,6 +212,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"hand": "all"}
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
         return {"opponents": 1}
+    if what in ("cards exiled with ~", "cards exiled with it", "card exiled with ~", "card exiled with it"):
+        return {"exiled_with": 1}  # -- resolution memory (wave 22D) -- 607.2a: the cards the linked ability exiled and that are still there
     if what == "opponent you attacked with a creature this combat":  # -- casting extras (wave 18E) -- melee 702.121a
         return {"attacked_opponents": 1}
     if what in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
@@ -571,6 +573,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sum(1 for k in size.values() if (k >= v["n"] if v["opponents_hand"] == "more" else k <= v["n"]))
     if "commander_casts" in v:  # -- triggers (wave 19B) --
         return sum(plan.state.players[you].commander_casts.values())
+    if "exiled_with" in v:  # -- resolution memory (wave 22D) -- Unlicensed Hearse: "the number of cards exiled with it"
+        from app.rules import exiled_with
+
+        return len(exiled_with.cards(plan, ctx))
     if "distinct" in v:
         return _distinct(plan, ctx, v["distinct"], v["among"])
     if "devotion" in v:
