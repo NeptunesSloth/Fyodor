@@ -1,0 +1,203 @@
+[
+ {
+  "name": "Keeper of the Flame",
+  "mana_cost": "{R}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "{R}, {T}: Choose target opponent who has more life than you do as you activate this ability. This creature deals 2 damage to that player.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "2",
+  "layout": "normal"
+ },
+ {
+  "name": "Keeper of the Light",
+  "mana_cost": "{W}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "{W}, {T}: Choose target opponent who has more life than you do as you activate this ability. You gain 3 life.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "2",
+  "layout": "normal"
+ },
+ {
+  "name": "Keeper of the Mind",
+  "mana_cost": "{U}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "{U}, {T}: Choose target opponent who has at least two more cards in hand than you do as you activate this ability. Draw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "2",
+  "layout": "normal"
+ },
+ {
+  "name": "Keeper of the Beasts",
+  "mana_cost": "{G}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "{G}, {T}: Choose target opponent who controls more creatures than you do as you activate this ability. Create a 2/2 green Beast creature token.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "2",
+  "layout": "normal"
+ },
+ {
+  "name": "Scuttlemutt",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact Creature — Scarecrow",
+  "oracle_text": "{T}: Add one mana of any color.\n{T}: Target creature becomes the color or colors of your choice until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2",
+  "layout": "normal"
+ },
+ {
+  "name": "Swirling Spriggan",
+  "mana_cost": "{2}{G}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Goblin Shaman",
+  "oracle_text": "{G/U}{G/U}: Target creature you control becomes the color or colors of your choice until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3",
+  "layout": "normal"
+ },
+ {
+  "name": "Alluring Siren",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Siren",
+  "oracle_text": "{T}: Target creature an opponent controls attacks you this turn if able.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1",
+  "layout": "normal"
+ },
+ {
+  "name": "Dreadlight Monstrosity",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Creature — Crab Horror",
+  "oracle_text": "Ward {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)\n{3}{U}{U}: This creature can't be blocked this turn. Activate only if you own a card in exile.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Ward"
+  ],
+  "power": "5",
+  "toughness": "5",
+  "layout": "normal"
+ },
+ {
+  "name": "Plagon, Lord of the Beach",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Starfish Wizard",
+  "oracle_text": "When Plagon enters, draw a card for each creature you control with toughness greater than its power.\n{W/U}: Target creature you control assigns combat damage equal to its toughness rather than its power this turn.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "3",
+  "layout": "normal"
+ },
+ {
+  "name": "Indigo Faerie",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Faerie Wizard",
+  "oracle_text": "Flying\n{U}: Target permanent becomes blue in addition to its other colors until end of turn.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "1",
+  "toughness": "1",
+  "layout": "normal"
+ },
+ {
+  "name": "Disciple of Kangee",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "{U}, {T}: Target creature gains flying and becomes blue until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2",
+  "layout": "normal"
+ },
+ {
+  "name": "Alchor's Tomb",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact",
+  "oracle_text": "{2}, {T}: Target permanent you control becomes the color of your choice. (This effect lasts indefinitely.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "layout": "normal"
+ }
+]

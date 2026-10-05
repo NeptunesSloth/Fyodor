@@ -85,12 +85,27 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     return not protection.protected_from(ch, source)
 
 
+def _more(plan: Plan, cond: str, pid: str) -> int:
+    """-- activated other (wave 21E) -- what "has more life / controls more creatures / has more cards in hand" compares."""
+    if cond == "life":
+        return plan.state.players[pid].life
+    if cond == "hand2":
+        return len(plan.state.zones.get(f"{pid}:hand", []))
+    return sum(1 for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c)
+               and c.controller == pid and plan.ch(c).is_creature)
+
+
 def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristics | None = None,
                   source_card: str | None = None, attacker: str | None = None) -> list[str]:
     """Player ids and card ids that ``chooser`` may target with ``selector`` right now
     (``source``: the spell or the ability's source, for protection; ``source_card``: that
     object, for "another target …"; ``attacker``: the creature an "attacks" trigger is about,
     whose defending player "defending player" means, 508.5)."""
+    if selector.startswith("opponent_as:"):  # -- activated other (wave 21E) -- "target opponent who has more life than you do as you activate this ability" (601.2c)
+        cond = selector.split(":", 1)[1]
+        margin = 2 if cond == "hand2" else 1
+        return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker)
+                if _more(plan, cond, p) >= _more(plan, cond, chooser) + margin]
     if selector.startswith(selectors.PREFIX):  # a structured selector (app/rules/selectors.py)
         return _selector_targets(plan, selectors.from_key(selector), chooser, source, source_card, attacker)
     if selector.startswith("graveyard:"):  # "target Spirit card with mana value N or less from your graveyard"
@@ -160,6 +175,8 @@ def ref(plan: Plan, target: str) -> TargetRef:
 def still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, source: Characteristics | None = None,
                 source_card: str | None = None, attacker: str | None = None) -> bool:
     """608.2b: is a chosen target still legal? A card that changed zones is a new object: illegal."""
+    if selector.startswith("opponent_as:"):  # (wave 21E: "as you activate this ability" is only judged as it is chosen)
+        selector = "opponent"
     if target.object_id is None:
         return target.id in plan.live() and target.id in legal_targets(plan, selector, chooser, source, source_card, attacker)
     card = plan.state.cards.get(target.id)

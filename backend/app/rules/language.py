@@ -36,6 +36,11 @@ _LEGACY_TARGETS = {
     # -- target forms (agent T) --  a player, or any planeswalker (whoever controls it)
     "target player or planeswalker": "player_or_planeswalker", "target opponent or planeswalker": "opponent_or_planeswalker",
 }
+# -- activated other (wave 21E) -- "Choose target opponent who has more life than you do as you activate this ability.": the
+# condition is read as the ability is put on the stack (601.2c) and not again on resolution (608.2b only asks for an opponent)
+_OPP_AS_CONDS = {"has more life than you do": "life", "controls more creatures than you do": "creatures",
+                 "has at least two more cards in hand than you do": "hand2"}
+_OPP_AS_ACTIVATED = re.compile(rf"target opponent who (?P<c>{'|'.join(map(re.escape, _OPP_AS_CONDS))}) as you activate this ability")
 # Player phrases. The pronouns are placeholders resolved by scripts.resolve_it against what the
 # ability named earlier: "that player" → the target player (or the trigger event's player),
 # "its controller" / "its owner" → the controller / owner of the object the previous instruction
@@ -94,6 +99,8 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     p = phrase.strip()
     if p in _LEGACY_TARGETS:
         return {"what": _LEGACY_TARGETS[p], "min": 1, "max": 1}
+    if m := _OPP_AS_ACTIVATED.fullmatch(p):  # -- activated other (wave 21E) -- (targets.legal_targets: only as it is chosen)
+        return {"what": f"opponent_as:{_OPP_AS_CONDS[m['c']]}", "min": 1, "max": 1}
     if m := re.fullmatch(r"any target that isn't an? (commander|[A-Z][a-z]+)", p):  # -- activated sweep (wave 17B) -- "any target that
         return {"what": f"any_not:{m[1]}", "min": 1, "max": 1}  # isn't a commander / a Dragon" (targets.legal_targets)
     if p in ("another target", "any other target"):  # 115.4 (Arc Trail): any target other than the earlier one
@@ -1526,6 +1533,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": ["attack_despite_defender"]}], _one(group)
+    # -- activated other (wave 21E) -- 510.1a: "assigns combat damage equal to its toughness rather than its power this turn"
+    m = re.fullmatch(r"(?P<o>.+?) assigns combat damage equal to its toughness rather than its power this turn", text)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": ["assign_toughness"]}], _one(group)
     # -- recursion & tutors (wave 4M) -- "Return all artifact and enchantment cards from your graveyard to the battlefield"
     # (Brilliant Restoration): every card that is any of the types named (the "and" lists the kinds, as "or" would)
     text = re.sub(r"^return all ((?:[a-z]+, )*[a-z]+),? and ([a-z]+) cards (?=(?:with [^,]+ )?from your graveyard to )",
@@ -2563,8 +2577,8 @@ _BECOME_LAND = re.compile(
 # -- activated wordings (wave 15D) -- "This creature becomes the creature type of your choice until end of turn." (Mistform
 # Dreamer), "Target creature becomes the color of your choice until end of turn.": a public choice made as it resolves (608.2),
 # then the same layer 4 / 5 effect as "becomes a Frog" / "becomes red" (205.1a: the chosen type replaces its creature types)
-_BECOME_PICK = re.compile(r"^(?:until end of turn, )?(?P<o>.+?) becomes? the (?P<what>creature type|color)(?: other than (?P<ex>[A-Z][a-z]+))? of your choice "
-                          r"until end of turn$")
+_BECOME_PICK = re.compile(r"^(?:until end of turn, )?(?P<o>.+?) becomes? the (?P<what>creature type|color or colors|color)(?: other than (?P<ex>[A-Z][a-z]+))? of your choice"
+                          r"(?P<eot> until end of turn)?$")  # (-- activated other (wave 21E) -- no duration: for the rest of the game, 611.2a; Alchor's Tomb)
 
 
 def _become_land(m: re.Match[str]) -> tuple[Effects, Any]:
@@ -2594,7 +2608,7 @@ def _become(text: str) -> tuple[Effects, Any]:
         kind, key, group = ref(pick["o"])
         if kind == "players":
             raise _Fail
-        return [{"do": "become", "who": _who(kind, key), "types": [], "pick": pick["what"], "duration": "end_of_turn",
+        return [{"do": "become", "who": _who(kind, key), "types": [], "pick": pick["what"], "duration": "end_of_turn" if pick["eot"] else "permanent",
                  **({"not": pick["ex"]} if pick["ex"] else {})}], _one(group)
     m = _BECOME.fullmatch(text)
     if m is None and rider is None and (c := _BECOME_COLOR.fullmatch(text)) is not None:
@@ -2667,7 +2681,10 @@ def _become(text: str) -> tuple[Effects, Any]:
 
 # -- static wordings (wave 6E) -- "Target creature becomes red and gains haste until end of turn." (Crimson Wisps): a
 # color-changing effect (layer 5, 613.1e) whose colors replace the object's (105.3), locked in to the objects (611.2c)
-_BECOME_COLOR = re.compile(r"^(?:(?P<lead>until end of turn, ))?(?P<o>.+?) becomes? (?P<colors>colorless|" + _COLOR_LIST + r")"
+# -- activated other (wave 21E) -- "Target creature gains flying and becomes blue until end of turn." (Disciple of Kangee), "Target
+# permanent becomes blue in addition to its other colors until end of turn." (Indigo Faerie: the color is added, 105.3, 613.1e)
+_BECOME_COLOR = re.compile(r"^(?:(?P<lead>until end of turn, ))?(?P<o>.+?)(?: gains? (?P<pre>[a-z ]+?) and)? becomes? (?P<colors>colorless|"
+                           + _COLOR_LIST + r")(?P<add> in addition to its other colors)?"
                            r"(?: and gains? (?P<gain>[a-z ]+?))?(?P<trail> until end of turn)?$")
 
 
@@ -2677,11 +2694,16 @@ def _become_color(m: re.Match[str]) -> tuple[Effects, Any]:
         raise _Fail  # (no duration: a color for the rest of the game, not read)
     who = _who(kind, key)
     colors = [] if m["colors"] == "colorless" else [_COLOR_LETTERS[c] for c in re.split(r",? and |, ", m["colors"])]
-    out: Effects = [{"do": "become", "who": who, "types": [], "colors": colors, "duration": "end_of_turn"}]
-    if m["gain"]:
+    if m["add"] and not colors:
+        raise _Fail
+    out: Effects = [{"do": "become", "who": who, "types": [], **({"add_colors": colors} if m["add"] else {"colors": colors}),
+                     "duration": "end_of_turn"}]
+    if m["gain"] or m["pre"]:
         from app.rules.statics import GRANTABLE_KEYWORDS  # (the keywords a grant carries out, 613.1f)
 
-        kws = [p.strip() for p in re.split(r",? and |, ", m["gain"]) if p.strip()]
+        if m["gain"] and m["pre"]:
+            raise _Fail
+        kws = [p.strip() for p in re.split(r",? and |, ", m["gain"] or m["pre"]) if p.strip()]
         if not kws or any(k not in GRANTABLE_KEYWORDS for k in kws):
             raise _Fail
         out.append({"do": "grant", "who": who, "keywords": kws})

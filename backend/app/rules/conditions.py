@@ -101,7 +101,8 @@ _HAND = re.compile(r"you have (?:(?P<no>no)|(?P<n>\w+) or (?P<cmp>more|fewer|les
 _YOUR_TURN = re.compile(r"it(?:'s| is) (?P<neg>not |n't )?your turn|it isn't your turn|it(?:'s| is) an opponent's turn")
 _THEIR_TURN = re.compile(r"it(?:'s| is) (?P<neg>not )?(?:that player's|their) turn")  # (wave 17D: the trigger event's player, 500.1)
 _STATUS = {"you're the monarch": "monarch", "you are the monarch": "monarch", "you have the initiative": "initiative",
-           "you have the city's blessing": "city_blessing"}
+           "you have the city's blessing": "city_blessing",
+           "you own a card in exile": "own_exiled"}  # -- activated other (wave 21E) -- (Dreadlight Monstrosity)
 _THIS_TURN = r"(?P<when>this|last) turn"
 _DIFFERENT_POWERS = re.compile(r"you control (?P<n>\w+) or more creatures with different powers")
 # -- token & pump wordings (wave 6C) -- "if you control seven or more lands with different names" (Field of the Dead; wave 20D: "ten or more Gates with different names", Maze's End)
@@ -1086,6 +1087,8 @@ def _status(plan: Plan, you: str, kind: str) -> bool:
         return plan.state.table.monarch == you
     if kind == "initiative":  # 726
         return plan.state.table.initiative == you
+    if kind == "own_exiled":  # -- activated other (wave 21E) -- 108.3: a card's owner, in whichever player's exile zone it is
+        return any(c.owner == you and c.zone.endswith((":exile", ":foretell")) for c in plan.state.cards.values() if c.ability is None)
     if kind != "city_blessing":  # -- counters & designations (wave 3E) --
         from app.rules import designations
 

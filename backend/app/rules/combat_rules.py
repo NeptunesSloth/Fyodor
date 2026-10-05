@@ -346,6 +346,7 @@ _EXTRA = re.compile(r"(?:after this (?:(?P<main>main )|(?P<combat>combat ))?phas
                     r"(?P<and> followed by an additional main phase)?"
                     r"|there is an additional combat phase after this (?:(?P<main2>main )|(?P<combat2>combat ))?phase)")
 _MUST = re.compile(r"(?P<o>.+?) attacks? this turn if able")
+_MUST_YOU = re.compile(r"(?P<o>target creature(?: an opponent controls)?) attacks you this turn if able")  # -- activated other (wave 21E) --
 _EACH_COMBAT = re.compile(r"(?P<o>.+?) (?:attack each combat if able(?P<pl> and attack a player other than you if able)?"
                          r"|attacks each combat if able(?P<sg> and attacks a player other than you if able)?)"
                          r"(?P<eot> until end of turn)?")
@@ -409,6 +410,9 @@ def clause(text: str) -> tuple[Effects, Any] | None:
         if restricted is None:
             return None
         return ([restricted[0][0]] if m["eot"] else [{**restricted[0][0], "each_combat": True}]), restricted[1]
+    m = _MUST_YOU.fullmatch(text)
+    if m:  # 508.1d: it attacks the effect's controller ("you") if able (ATTACK_PLAYER, as encore's tokens)
+        return _restrict(m["o"], [f"{ATTACK_PLAYER}:@you"])
     m = _MUST.fullmatch(text)
     if m:
         return _restrict(m["o"], ["must_attack"])
