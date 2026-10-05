@@ -75,6 +75,11 @@ def may_sentence(text: str) -> list[dict[str, Any]] | None:
     return [{"do": "repeat_process", "span": None, "may": True}] if _MAY.fullmatch(text) else None
 
 
+def plain(body: str) -> str:
+    """"…, put it into your graveyard and repeat this process": two instructions in order (608.2c), as "…, then repeat this process"."""
+    return re.sub(r"(, [^,.]+?) and repeat this process\b", r"\1, then repeat this process", body) if "repeat this process" in body else body
+
+
 def finish(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
     """The spans: a repeat repeats every instruction of the ability before it. None: nothing to repeat."""
     out = []

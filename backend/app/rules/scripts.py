@@ -2341,6 +2341,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = re.sub(r"(chooses [^.]*? they control)\. Destroy the rest\.", r"\1, then the rest are destroyed.", body)  # (wave 11D)
     # -- reveal until (wave 13E) -- 701.20b: the revealed cards stay in the library, so "shuffle the rest into your library" is a
     # shuffle of it ("…, then shuffle"); "you may reveal … until … If you do, put that card …": the reveal is the optional action
+    body = _loops.plain(body)  # -- loops and repeats (wave 24B) -- "draw a card and repeat this process"
     # (-- loops and repeats (wave 24B) -- "Target player reveals cards from the top of their library until they reveal a land card, then puts those
     # cards into their graveyard.": the revealed cards of that one library, all of them, are put into its owner's graveyard)
     body = re.sub(r"(reveals cards from the top of their library until they reveal an? [^.,]+?), then puts those cards into their graveyard",
