@@ -540,7 +540,7 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
     if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
         return goaded["s"], goaded["p"]
-    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?(?= combat damage)|crews(?= Vehicles))\b", body)  # (assigns: wave 6E; crews: 17C)
+    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?(?= combat damage)|(?:crews|saddles)(?= (?:Vehicles|Mounts)))\b", body)  # (assigns: wave 6E; crews: 17C)
     if m is None or m.start() == 0:
         return None, None
     return body[: m.start()].strip(), body[m.start():].strip()
@@ -647,6 +647,7 @@ def _pieces(predicate: str) -> list[str]:
     predicate = predicate.replace("power and toughness", "power_and_toughness")
     predicate = predicate.replace("can't attack, block, or crew Vehicles", "can't attack,_block,_or_crew_Vehicles")  # (wave 16F)
     predicate = predicate.replace("Aura and Equipment", "Aura_and_Equipment")  # (wave 6C: one count, values._ATTACHED_TO)
+    predicate = predicate.replace("saddles Mounts and crews", "saddles_Mounts_and_crews")  # (wave 23D: 702.171 / 702.122, one piece)
     predicate = re.sub(r"(for each [^,\"]*?) and each ", r"\1 and_each ", predicate)  # (wave 15A: one sum, values._parse_count)
     # -- X sized by a count (wave 19F) -- "for each Dwarf, Equipment, and/or Vehicle you control": one count of a list of kinds
     predicate = re.sub(r"for each [\w'-]+(?:, [\w'-]+)*,? (?:and/or|and|or) [\w'-]+ you control", lambda m: m.group(0).replace(" ", "\x00"), predicate)
@@ -670,6 +671,7 @@ def _pieces(predicate: str) -> list[str]:
     out.append(buf.strip())
     return [p.replace("power_and_toughness", "power and toughness").replace("Aura_and_Equipment", "Aura and Equipment")
             .replace(" and_each ", " and each ").replace("attack,_block,_or_crew_Vehicles", "attack, block, or crew Vehicles")
+            .replace("saddles_Mounts_and_crews", "saddles Mounts and crews")
             .replace("\x00", " ") for p in out if p]
 
 
@@ -863,10 +865,10 @@ def _rule(piece: str) -> list[str] | None:
         return [f"block_extra:{n}:@src"] if n else None
     # -- static_other sweep (wave 17C) -- 702.122: "This creature crews Vehicles as though its power were 2 greater." / "… using its toughness
     # rather than its power." — the number it counts toward crew (casting.crew_value)
-    m = re.fullmatch(r"crews Vehicles as though its power were (?P<n>\w+) greater", piece)
+    m = re.fullmatch(r"(?:saddles Mounts and )?crews Vehicles as though its power were (?P<n>\w+) greater", piece)
     if m and _num(m["n"]):
         return [f"crew_plus:{_num(m['n'])}"]
-    if piece == "crews Vehicles using its toughness rather than its power":
+    if piece in ("crews Vehicles using its toughness rather than its power", "saddles Mounts and crews Vehicles using its toughness rather than its power"):
         return ["crew_toughness"]
     m = re.fullmatch(r"can't be blocked except by (?P<n>\w+) or more creatures", piece)
     if m:
