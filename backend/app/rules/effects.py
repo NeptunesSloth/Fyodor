@@ -4139,3 +4139,7 @@ from app.rules import counter_kinds as _counter_kinds  # noqa: E402, I001
 
 PRIMITIVES.update(_counter_kinds.PRIMITIVES)
 RESUME.update(_counter_kinds.RESUME)
+# -- suspend granted (wave 24C) -- "it gains suspend" (app/rules/suspend_grants.py)
+from app.rules import suspend_grants as _suspend_grants  # noqa: E402, I001
+
+PRIMITIVES.update(_suspend_grants.PRIMITIVES)

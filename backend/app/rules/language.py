@@ -1715,6 +1715,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": _who(k1, key1), "kind": m["k"], "n": _amount(m["n"]),
                  "also": [{"kind": m["k2"], "n": _amount(m["n2"]), "who": _who(k2, key2)}]}], None
+    # -- suspend granted (wave 24C) -- "It gains suspend." (app/rules/suspend_grants.py)
+    if text in ("it gains suspend", "that card gains suspend") and rider is None:
+        return [{"do": "suspend_mark", "who": "it"}], None
+    if rider is None and (m := re.fullmatch(rf"suspend that card with (?P<n>{AMT}) time counters", text)) is not None:
+        return [{"do": "suspend_found", "n": _amount(m["n"])}], None  # (app/rules/suspend_grants.py: the card an exile-until found)
     # -- counter kinds (wave 24C) -- app/rules/counter_kinds.py
     found = _counter_kinds(text, rider)
     if found is not None:
