@@ -31,9 +31,13 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 WHO = "exiled_with"
-_THE = r"(?:the exiled cards?|all cards exiled with (?:it|~))"
-_BATTLEFIELD = re.compile(rf"^return {_THE} to the battlefield(?P<tapped> tapped)? under (?:its|their) owner(?:'s|s') control$")
+# (-- resolution memory (wave 22D) -- "each creature card exiled with it", "all permanent cards exiled with ~": a kind of the linked cards)
+_THE = r"(?:the exiled cards?|(?:all|each) (?:(?P<spec>[\w\-]+) )?cards? exiled with (?:it|~))"
+_UNDER = (r"under (?:(?P<you>your) control|(?:its|their) owner(?:'s|s') control"
+          r"|the control of (?:that card's|its|their) owners?(?:'s|s')?)")  # (Trove Warden: "under the control of that card's owner")
+_BATTLEFIELD = re.compile(rf"^(?:return|put) {_THE} (?:to|onto) the battlefield(?P<tapped> tapped)? {_UNDER}$")
 _HAND = re.compile(rf"^(?:return|put) {_THE} (?:to|into) (?:its|their) owner(?:'s|s') hands?$")  # (wave 20D: "Put all cards exiled with ~ into their owners' hands.")
+_GRAVEYARD = re.compile(rf"^put {_THE} into (?:its|their) owner(?:'s|s') graveyards?$")  # (Currency Converter, Valakut Exploration)
 _REFERS = re.compile(r"\bthe exiled cards?\b|\bcards? exiled with (?:it\b|~)")  # (wave 17D: "~" has no word boundary after it)
 
 
@@ -56,16 +60,35 @@ def _off(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     return found
 
 
+def _who(m: re.Match[str]) -> str:
+    """The linked cards, or only those of the named kind ("each creature card exiled with it": a selector, 607.2a)."""
+    from app.rules import selectors
+    from app.rules.scripts import _NoMatch
+
+    if not m["spec"]:
+        return WHO
+    sel = selectors.parse(f"{m['spec']} card")
+    if sel is None or sel.player is not None or sel.zones or sel.controller is not None:
+        raise _NoMatch
+    return f"{WHO}:{sel.key()}"
+
+
 def _battlefield(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if (own := _off(m)) is not None:
         return own
-    return [{"do": "return_card", "who": WHO, "to": "battlefield", "tapped": bool(m["tapped"]), "under": "owner"}], None
+    return [{"do": "return_card", "who": _who(m), "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you" if m["you"] else "owner"}], None
 
 
 def _hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if (own := _off(m)) is not None:
         return own
-    return [{"do": "return_card", "who": WHO, "to": "hand"}], None
+    return [{"do": "return_card", "who": _who(m), "to": "hand"}], None
+
+
+def _graveyard(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    if (own := _off(m)) is not None:
+        return own
+    return [{"do": "return_card", "who": _who(m), "to": "graveyard"}], None
 
 
 # -- copied abilities (wave 18F) -- imprint (607.2a): "you may exile an instant card with mana value 2 or less from your hand" (the cost of
@@ -86,17 +109,23 @@ def imprint(text: str) -> list[dict[str, Any]] | None:
 
 
 def _copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    return [{"do": "copy_cards", "who": WHO}], None
+    return [{"do": "copy_cards", "who": _who(m)}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_COPY, _copy)]
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy)]
 
 
 def _exiles(d: dict[str, Any] | None) -> bool:
     # (-- champion (wave 12B) -- also a payment: "sacrifice it unless you exile another Merfolk you control", recorded by
     # optional_payment._pay)
-    return d is not None and any(e.get("do") in ("exile", "exile_top") or e.get("exile") or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile "))
+    return d is not None and any(e.get("do") in ("exile", "exile_top") or e.get("exile") or _picks_to_exile(e)
+                                 or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile "))
                                  for e in d.get("effects") or [])
+
+
+def _picks_to_exile(e: dict[str, Any]) -> bool:
+    """-- resolution memory (wave 22D) -- "search your library for an artifact card, exile it" / "look at …, exile one of them" (Hoarding Dragon)"""
+    return e.get("do") in ("search", "pick_looked") and e.get("to") == "exile"
 
 
 def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | None:
@@ -124,7 +153,8 @@ def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | No
     referring = [ab for ab in ch.abilities if ab.index != ability.index and _REFERS.search(scripts.self_text(ab.text, ch.name))]
     if not referring:
         return d
-    return {**d, "effects": [{**e, "link": True} if e.get("do") in ("exile", "exile_top") or e.get("exile") else e for e in d["effects"]]}
+    return {**d, "effects": [{**e, "link": True} if e.get("do") in ("exile", "exile_top") or e.get("exile") or _picks_to_exile(e) else e
+                                     for e in d["effects"]]}
 
 
 # -- resolution memory (wave 22D) -- 607.2a: a referring ability that does more than return / put the cards ("the exiled card's owner
@@ -175,7 +205,14 @@ def _in_exile(plan: Plan, oid: str) -> bool:
     return card is not None and card.zone.endswith(":exile") and plan.oid(cid) == oid
 
 
-def cards(plan: Plan, ctx: dict[str, Any]) -> list[str]:
-    """The cards the linked ability exiled, while each is still that object in exile (400.7)."""
-    return [oid.rsplit(".", 1)[0] for oid in plan.rules.exiled_with.get(ctx.get("source_object") or "", [])
-            if _in_exile(plan, oid)]
+def cards(plan: Plan, ctx: dict[str, Any], who: str = WHO) -> list[str]:
+    """The cards the linked ability exiled, while each is still that object in exile (400.7); only those of the kind
+    "exiled_with:<selector>" names ("each creature card exiled with it")."""
+    found = [oid.rsplit(".", 1)[0] for oid in plan.rules.exiled_with.get(ctx.get("source_object") or "", []) if _in_exile(plan, oid)]
+    if ":" not in who:
+        return found
+    from app.rules import selectors
+
+    sel = selectors.from_key(who.split(":", 1)[1])
+    return [c for c in found if selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), ctx["controller"],
+                                                  ctx.get("source_card"))]

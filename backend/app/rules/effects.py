@@ -131,6 +131,11 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
+    if who.startswith(context.PREFIX) and "|" in who:  # -- resolution memory (wave 22D) -- "each creature card put into a graveyard this way"
+        from app.rules import this_way
+
+        base, _, key = who.partition("|")
+        return this_way.filtered(plan, ctx, _cards(plan, ctx, base), key)
     if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
         return _controlled_by(plan, ctx, who)
     if who.startswith("graveyard_of:"):  # -- graveyard exile (wave 4J) -- "target player's graveyard": every card in it
@@ -189,10 +194,10 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
             snap = plan.rules.lki.get(ctx.get("source_object") or "")
             host = plan.state.cards.get(snap.attached_to or "") if snap is not None else None
         return [host.id] if host is not None and host.zone.endswith(":battlefield") else []
-    if who == "exiled_with":  # -- exiled with (wave 6D) -- 607.2a (app/rules/exiled_with.py)
+    if who == "exiled_with" or who.startswith("exiled_with:"):  # -- exiled with (wave 6D) -- 607.2a (app/rules/exiled_with.py)
         from app.rules import exiled_with
 
-        return exiled_with.cards(plan, ctx)
+        return exiled_with.cards(plan, ctx, who)
     if who == "event":  # "it" / "that creature": the object(s) the trigger event happened to — only while
         # each is still that object where it was (400.7: after a zone change it's a new object)
         return context.objects(plan, ctx, context.EVENT)
@@ -1847,6 +1852,10 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
         elif to in ("battlefield", "battlefield_tapped"):
             entering.append({"card": cid, "player": pid, "actor": pid, "tapped": to == "battlefield_tapped"})
     _player_control.permit_exiled(plan, agents, exiled)
+    if e.get("link"):  # -- resolution memory (wave 22D) -- 607.2a: "search your library for an artifact card, exile it" (Hoarding Dragon)
+        from app.rules import exiled_with
+
+        exiled_with.record(plan, ctx, [c for c in chosen if dest[c] == "exile"])
     shuffle = pid if e.get("shuffle", True) else None  # 701.24: a library is shuffled only when the text says so
     if "library" not in (e.get("zones") or ["library"]):
         shuffle = None  # -- refused zones/sized (wave 3R4) -- "If you search your library this way, shuffle"
@@ -2017,6 +2026,11 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
         for cid in cards[:1]:  # your library": one card, to its owner's library (400.3)
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
                      "position": "top"}, actor=ctx["controller"])
+        _moved(plan, ctx, e, before)
+        return True
+    if e["to"] == "graveyard":  # -- resolution memory (wave 22D) -- "put the exiled card into its owner's graveyard"
+        for cid in cards:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "graveyard"}}, actor=ctx["controller"])
         _moved(plan, ctx, e, before)
         return True
     if e["to"] == "hand":
@@ -2423,6 +2437,10 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
             to = pid if e["to"] == "hand" else plan.state.cards[cid].owner
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": to, "zone": e["to"]},
                      **({"face_down": True} if e.get("face_down") else {})}, actor=pid)
+        if e["to"] == "exile" and e.get("link"):  # -- resolution memory (wave 22D) -- 607.2a: "exile one of them" linked to "the exiled card"
+            from app.rules import exiled_with
+
+            exiled_with.record(plan, ctx, chosen)
     else:
         entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] in ("battlefield_tapped", "battlefield_attacking"),
                     **({"counter": e["counter"], "counter_n": e.get("counter_n", 1)} if e.get("counter") else {})}  # (wave 3E)
@@ -3637,8 +3655,8 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     import secrets
 
     pid = ctx["controller"]
-    sel = selectors.from_key(e["sel"])
-    pool = sorted(selectors.candidates(plan, sel, pid, ctx.get("source_card")))
+    pool = sorted(_cards(plan, ctx, e["who"]) if e.get("who") else  # (-- wave 22D -- "a creature card put into a graveyard this way")
+                  selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card")))
     want = _amount(plan, ctx, e["n"])
     if e.get("random"):
         picked = (plan.rng or secrets.SystemRandom()).sample(pool, min(want, len(pool)))
@@ -3656,8 +3674,8 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
-    sel = selectors.from_key(e["sel"])
-    pool = set(selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card")))
+    pool = set(_cards(plan, ctx, e["who"]) if e.get("who") else
+               selectors.candidates(plan, selectors.from_key(e["sel"]), ctx["controller"], ctx.get("source_card")))
     cards = [c for c in chosen if c in pool]  # (still there and still matching)
     if e.get("different"):  # -- refused zones/sized (wave 3R4) -- "… cards with different names / mana values"
         from app.rules.targets import _different

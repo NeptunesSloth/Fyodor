@@ -637,7 +637,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     return False  # -- hidden exile (wave 18A) -- "look at …, exile two of them, … You may play those cards": the exiled ones
                 return i.do not in _TOKEN_MAKERS and (i.number is None or number is None or i.number == number)
             if verb is not None:
-                return i.verb == verb
+                return i.verb == verb or (verb in this_way._OBJECT_ZONE and i.verb in this_way.verbs(verb))  # (22D: "put into a graveyard this way")
             return i.number is None or number is None or i.number == number
         return find(ok, index)
 
@@ -693,6 +693,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             who = e.get("who")
             if isinstance(who, str) and (who in ("it", "them") or who.startswith(("it:", "them:"))):
                 pronoun, _, verb = who.partition(":")
+                verb, _, flt = verb.partition("|")  # -- resolution memory (wave 22D) -- "them:graveyard|<selector>": only the cards of that kind
                 if e.get("do") == "free_cast" and _free_cast_source(e, pronoun, objects(index, None, verb or None), out, bound):
                     continue  # -- refused look/cast-free (wave 3R5) -- the cards looked at, or the card found
                 if verb == "chosen":  # -- "this way" outcomes (wave 4A) -- "the chosen cards": a "Choose target …" sentence's
@@ -711,7 +712,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 if intro is not None:
                     if intro.do in _MOVERS or _group_of(out[intro.index]) is None \
                             or str(out[intro.index].get("who")).startswith("controlled:"):  # (wave 13E: the objects, not the player)
-                        e["who"] = "ref:" + bound(intro)
+                        e["who"] = "ref:" + bound(intro) + (f"|{flt}" if flt else "")
+                    elif flt:
+                        return None
                     else:
                         g = _group_of(out[intro.index])
                         e["who"] = "target" if groups is None else f"target:{g}"

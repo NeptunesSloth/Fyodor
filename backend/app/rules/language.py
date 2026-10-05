@@ -238,6 +238,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return "them", "", None  # the objects just named (scripts.resolve_it)
     if p in ("the chosen cards", "the chosen card"):  # -- "this way" outcomes (wave 4A) -- a "Choose target …" sentence's
         return ("them" if p.endswith("s") else "it"), "chosen", None
+    if (moved := this_way.objects_who(p)) is not None:  # -- resolution memory (wave 22D) -- "each card put into a graveyard this way"
+        return "them", moved[len("them:"):], None
     m = _THIS_WAY.match(p) or _THE_VERBED.match(p)
     if m:
         plural = "what" not in m.groupdict() or m["what"].endswith("s")
@@ -2284,8 +2286,9 @@ def parse_return_owner(text: str) -> tuple[Effects, Any] | None:
         return None
     if kind not in ("it", "them"):
         return parse_sentence(text)  # ("return all creature cards from your graveyard …": the grammar above)
-    if (m["u"] == "your" or m["spec"]) and not m["fd"]:
-        return None  # (-- hidden exile (wave 18A) -- "under your control" / "as a …" are read only for the face-down return)
+    if (m["u"] == "your" or m["spec"]) and not m["fd"] and not (m["u"] == "your" and not m["spec"] and "|" in key):
+        return None  # (-- hidden exile (wave 18A) -- "under your control" / "as a …" are read only for the face-down return;
+        # wave 22D: and for "each card put into a graveyard this way", which names its objects)
     spec = chars.parse_spec(m["spec"]) if m["spec"] else None
     if m["spec"] and spec is None:
         return None
@@ -2897,6 +2900,9 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         if m["host"]:  # -- refused zones/sized (wave 3R4) -- "that creature": a trigger's object only (scripts._attached_host)
             effect["host"] = "that_creature" if m["host"] == "that creature" else "self"
     obj = m["o"]
+    if not may and not hand and (one := this_way.choice_who(obj)) is not None:
+        # -- resolution memory (wave 22D) -- "return a creature card put into a graveyard this way": one of them, chosen (608.2d)
+        return [{**effect, "do": "return_choice", "who": one, "n": 1, "upto": False, "random": False, "label": "card"}], None
     if may and not _RA_CHOICE.fullmatch(obj):
         return None  # (only a choice models its own "may": choosing none)
     if _RA_SELF.fullmatch(obj) or obj == "this card":  # works from the graveyard (113.6m): coverage keeps it to activated abilities
@@ -2932,6 +2938,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         kind, key, group = ref(obj)
     except _Fail:
         return None
+    if kind == "them" and "|" in key and not may:  # -- resolution memory (wave 22D) -- "each creature card put into a graveyard this way"
+        return [{**effect, "who": _who(kind, key)}], None
     if kind not in ("target", "each") or not _graveyard_cards(key):
         return None
     return [{**effect, "who": _who(kind, key)}], _one(group)

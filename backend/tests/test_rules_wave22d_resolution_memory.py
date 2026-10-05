@@ -27,9 +27,14 @@ EXTRA = [
          "When this creature enters, exile up to one target nonland, nontoken permanent you don't control with mana value 4 or less.\nWhen this creature leaves the battlefield, the exiled card's owner creates an X/X blue Illusion creature token, where X is the mana value of the exiled card.",
          ("2", "2"), "W"),
     real("Probe Rock", "{3}", 3, "Artifact", "", None),
+    real("Hoarding Dragon", "{3}{R}{R}", 5, "Creature — Dragon",
+         "Flying\nWhen this creature enters, you may search your library for an artifact card, exile it, then shuffle.\nWhen this creature dies, you may put the exiled card into its owner's hand.",
+         ("4", "4"), "R"),
+    real("Endless Sands", "", 0, "Land — Desert",
+         "{T}: Add {C}.\n{2}, {T}: Exile target creature you control.\n{4}, {T}, Sacrifice this land: Return each creature card exiled with this land to the battlefield under its owner's control."),
     real("Probe Flicker", "{1}{W}", 2, "Instant", "Exile target creature you control, then return it to the battlefield under its owner's control.", None, "W"),
 ]
-NAMES = ["Eldritch Evolution", "Skyclave Apparition"]
+NAMES = ["Eldritch Evolution", "Skyclave Apparition", "Hoarding Dragon", "Endless Sands"]
 
 
 @pytest.fixture()
@@ -104,4 +109,38 @@ def test_skyclave_apparition_blinked_leaves_a_token_and_the_card_stays_exiled(ca
     answer(s)  # the leaves trigger (token), then the new Apparition's enters trigger (another exile)
     assert len(tokens(s, "Illusion", "p2")) == 1
     assert s.state.cards[rock.id].zone == "p2:exile"  # never returns: the old object's link ended with it (400.7)
+    roundtrip(s)
+
+
+def test_hoarding_dragon_puts_the_card_it_searched_up_into_its_owners_hand_when_it_dies(cards):
+    s = build(cards, p1=("Hoarding Dragon", "Probe Rock"))
+    rock = find(s, "Probe Rock")
+    dragon = put(s, "Hoarding Dragon", "hand")
+    mana(s, R=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=dragon.id)
+    answer(s, pick=rock.id)  # "you may search …": yes; the artifact card found
+    assert s.state.cards[rock.id].zone == "p1:exile"
+    roundtrip(s)
+    act(s, "p1", type="set_damage", card_ids=[dragon.id], value=4)
+    act(s, s.state.rules.priority, type="pass_priority")
+    answer(s)
+    assert s.state.cards[rock.id].zone == "p1:hand"  # "the exiled card" - linked to the exile that Dragon made (607.2a)
+    roundtrip(s)
+
+
+def test_endless_sands_returns_each_creature_card_it_exiled(cards):
+    s = build(cards, p1=("Endless Sands", "Ambush Viper", "Probe Two"))
+    sands = put(s, "Endless Sands", "battlefield")
+    viper, two = put(s, "Ambush Viper", "battlefield"), put(s, "Probe Two", "battlefield")
+    for card in (viper, two):  # "{2}, {T}: Exile target creature you control." - twice, the land untapped between
+        mana(s, C=2)
+        act(s, "p1", type="activate_ability", card_id=sands.id, ability=1, targets=[card.id])
+        pass_until_stack_empty(s)
+        act(s, "p1", type="tap", card_ids=[sands.id], tapped=False)
+    assert viper.id and s.state.cards[viper.id].zone == "p1:exile" and s.state.cards[two.id].zone == "p1:exile"
+    mana(s, C=4)
+    act(s, "p1", type="activate_ability", card_id=sands.id, ability=2)
+    pass_until_stack_empty(s)
+    assert s.state.cards[viper.id].zone == "p1:battlefield" and s.state.cards[two.id].zone == "p1:battlefield"  # each creature card
+    assert s.state.cards[sands.id].zone == "p1:graveyard"  # (sacrificed as a cost: the ability still reads what it exiled, 608.2h)
     roundtrip(s)
