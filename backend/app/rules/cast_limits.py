@@ -444,7 +444,8 @@ def _spells_words(key: str | None, frm: list[str] | None) -> str:
 # -- reading the table -----------------------------------------------------------------------------
 _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
 _KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as", "keep_mana", "gy_flashback",
-          "cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search")  # (wave 22B: app/rules/prohibitions.py)
+          "cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search",  # (wave 22B: app/rules/prohibitions.py)
+          "zone_grant")  # (wave 25A: app/rules/zone_grants.py)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:

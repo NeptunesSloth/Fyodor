@@ -116,6 +116,12 @@ SELF_GY_WHILE = re.compile(r"^you may cast (?:this card|~) from your graveyard (
 # "You may cast creature spells as though they had flash." (601.3b)
 FLASH = re.compile(rf"^you may cast (?:{_SEL} )?spells as though they had flash$")
 TOP_REVEAL = "play with the top card of your library revealed"
+REVEALED_ZONES: dict[str, dict[str, str]] = {  # -- revealed zones (wave 25A) --
+    "players play with the top card of their libraries revealed": {"zone": "library", "whose": "players"},
+    "your opponents play with their hands revealed": {"zone": "hand", "whose": "opponents"},
+    "players play with their hands revealed": {"zone": "hand", "whose": "players"},
+    "play with your hand revealed": {"zone": "hand", "whose": "you"},
+}
 TOP_LOOK = "you may look at the top card of your library any time"
 # 708.5 lets you look at your own face-down permanents only; these let you look at the others' (creatures: face-down spells aren't
 # permanents). In Commander every other player is an opponent.
@@ -395,6 +401,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import alt_costs
 
         return alt_costs.grant_prowl(t)
+    if " has web-slinging " in t and kind == "static":  # -- Marvel keywords (wave 25A) -- granted web-slinging (702.188a)
+        from app.rules import alt_costs
+
+        return alt_costs.grant_web_slinging(t)
     if " rather than pay " in t or (" without paying its mana cost" in t and t.startswith("if ") and "commander" not in t):  # alternative costs (118.9): app/rules/alt_costs.py
         from app.rules import alt_costs
 
@@ -527,10 +537,14 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 "play": False, "cast": True, "filter": None, "while": cond, "effects": []}
     # -- top of library (wave 5I) -- "You may cast Dragon spells / artifact spells and colorless spells / creature spells of
     # the chosen type … from the top of your library", Radha's look-and-play line (app/rules/top_library.py)
-    from app.rules import escape, top_library
+    from app.rules import escape, mayhem, top_library, zone_grants
 
     if (top := top_library.permission(t, lines)) is not None:
         return top
+    if t.lower().startswith("each ") and (found_mayhem := mayhem.define_grant(t)) is not None:  # -- Marvel keywords (wave 25A) -- 702.187
+        return found_mayhem
+    if re.search(r" in your (?:hand|graveyard)(?: that's [^.]*?)? (?:has|have) ", t) and (found_zone := zone_grants.define(t)) is not None:  # -- zone keyword grants (wave 25A)
+        return found_zone
     if t.lower().startswith(("escape—", "each ", "you may cast ~ from your graveyard by", "you may cast this c")) and (found_escape := escape.define_static(t)) is not None:
         return found_escape  # (702.138a: a printed escape cost, or "Each nonland card in your graveyard has escape. …")
     # -- end top of library (wave 5I) --
@@ -572,6 +586,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": False,
                 "play": False, "cast": True, "filter": key, "effects": []}
+    if (shown := REVEALED_ZONES.get(t)) is not None:  # -- revealed zones (wave 25A) -- 401.5, 701.20a: every player's top card, or the hands
+        return {"kind": "static", "static": "top_reveal", "to": "all", "effects": [], **shown}
     if t == TOP_REVEAL:
         return {"kind": "static", "static": "top_reveal", "to": "all", "effects": []}
     if t == TOP_LOOK:
@@ -592,7 +608,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
 _RIDER = (r"(?:, and (?:mana of any type can be spent to cast (?P<t>that spell|it|them|those spells)|you may spend mana as though "
           r"it were mana of any (?P<k>color|type) to cast (?P<t2>that spell|it|them|those spells)))")
 GRANT_EXILED = re.compile(
-    r"^(?:for as long as (?P<d1>it|they|that card|those cards) remains? exiled, )?you may (?P<verb>play|cast) "
+    r"^(?:for as long as (?P<d1>it|they|that card|those cards) remains? exiled, )?(?P<who>you|its owner|their owners) may (?P<verb>play|cast) "
     r"(?P<what>that card|those cards|it|them)(?P<free> without paying (?:its|their) mana costs?)?"
     r"(?: for as long as (?P<d2>it|they|that card|those cards) remains? exiled)?" + _RIDER + r"?$")
 
@@ -610,9 +626,12 @@ def _grant_exiled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     spend = "type" if m["t"] else (m["k"] if m["t2"] else "")
     if m["free"] and spend:
         return None  # (a free cast spends no mana: no card words it so)
+    owner = m["who"] != "you"  # -- Marvel keywords (wave 25A) -- "For as long as that card remains exiled, its owner may cast it without paying its mana cost."
+    if owner and (m["verb"] == "play" or spend or bool(m["d2"]) or plural != (m["who"] == "their owners")):
+        return None  # (read for casting only, the duration first, one rider-less permission)
     return [{"do": "grant_play", "who": "them:card" if plural else "it:card", "play": m["verb"] == "play", "cast": True,
-             "until": "permanent", "optional": True, **({"free": True} if m["free"] else {}),
-             **({"spend": spend} if spend else {})}], None
+             "until": "permanent", "optional": not owner, **({"free": True} if m["free"] else {}),
+             **({"spend": spend} if spend else {}), **({"owner": True} if owner else {})}], None
 
 
 # -- hidden exile (wave 18A) -- cards exiled face down that "you may look at" (406.3a: a face-down exiled card has no characteristics,
@@ -635,6 +654,11 @@ def join_exile_play(body: str) -> str:
     # "put the exiled card into your hand" is the return of that card, 400.3)
     body = re.sub(r"([Ee]xile the top card of your library face down) and look at it\b", r"\1. You may look at it for as long as it remains exiled",
                   body)
+    body = re.sub(r"For each card exiled this way, you may (play|cast) that card for as long as it remains exiled, and mana of any type can be "
+                  r"spent to cast that spell\.", r"You may \1 those cards for as long as they remain exiled, and mana of any type can be spent to "
+                  r"cast those spells.", body)  # (Heartless Conscription)
+    body = re.sub(r"You may cast spells from among those cards for as long as they remain exiled, and mana of any type can be spent to cast them\.",
+                  "You may cast those cards for as long as they remain exiled, and mana of any type can be spent to cast those spells.", body)  # (Shadow of the Enemy)
     body = re.sub(r"\b([Pp])ut the exiled card into your hand\b", lambda m: ("R" if m[1] == "P" else "r") + "eturn the exiled card to your hand", body)
     body = re.sub(r"Look at (target player's hand), (the top card of that player's library), and any face-down creatures they control\.",
                   r"Look at \1. Look at \2. Look at all face-down creatures that player controls.", body)  # (Spy Network: 701.20e each)
@@ -861,6 +885,11 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                     continue  # -- conditional statics (wave 4B) -- "as long as you control a Zombie"
                 out.append(Grant("permission", f"{ch.name}: cast it from {'exile' if where == 'exile' else 'your graveyard'}", once_key=key if d["once"] else None,
                                  extra=d.get("extra") or "", exile=bool(d.get("exile"))))
+    if verb == "play" and where == "graveyard" and card.owner == player:  # -- Marvel keywords (wave 25A) -- 702.187c: a bare "Mayhem"
+        from app.rules import mayhem
+
+        if mayhem.plays_land(state, player, card, ch):
+            out.append(Grant("permission", f"{ch.name}: play it from your graveyard (mayhem)"))
     if verb == "cast" and where == "hand":  # -- cast without paying (wave 3C) -- the card's own "cast this spell without paying"
         for d in _definitions(ch).values():
             if d.get("static") == "permission" and d.get("self") and d.get("free") and d["zone"] == "hand" \
@@ -1123,10 +1152,14 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             return True  # (an unbound pronoun never reaches here: resolve_it refuses the ability)
         for cid in context.objects(plan, ctx, e["who"][len(context.PREFIX):]):
             card = plan.state.cards[cid]
-            r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone="any",
+            if e["until"] == "permanent" and not card.zone.endswith(":exile"):
+                continue  # (-- Marvel keywords (wave 25A) -- "for as long as it remains exiled": a spell that wasn't countered, a card replaced elsewhere: no permission)
+            holder = card.owner if e.get("owner") else pid  # ("its owner may cast it")
+            r.permissions.append(Permission(id=secrets.token_hex(4), player=holder, play=e["play"], cast=e["cast"], zone="any",
                                             object_id=plan.oid(card), card=cid, until=e["until"], turn=turn, free=bool(e.get("free")), spend=e.get("spend", ""),
-                                            source=ctx.get("source_object"), label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" without paying its mana cost" if e.get("free") else "")))
-            plan.note(f"{plan.name(pid)} may {verb} {card.name} {when}", [cid])
+                                            source=ctx.get("source_object"),
+                                            label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" without paying its mana cost" if e.get("free") else "")))
+            plan.note(f"{plan.name(holder)} may {verb} {card.name} {when}", [cid])
         return True
     r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone=e["zone"],
                                     until=e["until"], turn=turn, source=ctx.get("source_object"),
@@ -1204,7 +1237,8 @@ def refresh_reveals(state: GameState, info: CardInfo) -> None:
             ch = derive(state, card, ch, info)
         for d in scripts.definitions(ch).values():
             if d.get("kind") == "static" and d.get("static") == "top_reveal":
-                found.append(TopReveal(source=card.id, player=card.controller, to=d["to"], face_down=bool(d.get("face_down"))))
+                found.append(TopReveal(source=card.id, player=card.controller, to=d["to"], face_down=bool(d.get("face_down")),
+                                       zone=d.get("zone", "library"), whose=d.get("whose", "you")))
             elif d.get("kind") == "static" and d.get("static") == "permission" and d.get("look"):  # (wave 5I: Radha)
                 found.append(TopReveal(source=card.id, player=card.controller, to="owner"))
     if found != r.top_reveals:

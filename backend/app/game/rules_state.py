@@ -833,6 +833,10 @@ class TopReveal(BaseModel):
     player: str
     to: Literal["all", "owner", "none"]  # (-- hidden exile (wave 18A) -- "none": only the face-down looking below)
     face_down: bool = False  # 708.5 exception: ``player`` may also look at the face-down creatures others control
+    # -- revealed zones (wave 25A) -- "Players play with the top card of their libraries revealed." (``whose`` "players"), "Your opponents play with
+    # their hands revealed." / "Players play with their hands revealed." / "Play with your hand revealed." (``zone`` "hand": shown to every player, 701.20a)
+    zone: Literal["library", "hand"] = "library"
+    whose: Literal["you", "opponents", "players"] = "you"
 
 
 class ReconcileItem(BaseModel):

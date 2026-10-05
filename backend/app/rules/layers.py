@@ -700,6 +700,12 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     if lent:
         ch = replace(ch, abilities=ch.abilities + lent)
     ch = _granted_by_effects(ch, effects, wipe)
+    if info is not None and not on_field and _depth == 0 and state.rules is not None and card.zone.endswith((":hand", ":graveyard")):
+        from app.rules import (
+            zone_grants,  # -- zone keyword grants (wave 25A) -- "Each creature card in your hand has cycling {1}{U}."
+        )
+
+        ch = zone_grants.apply(state, card, ch, info)
     # layer 7
     setters: list[tuple[tuple[int, int, int], int | None, int | None]] = []
     for st in hits:  # 7b: static "has base power and toughness N/N" (613.4b), by its source's timestamp

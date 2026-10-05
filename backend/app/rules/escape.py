@@ -119,9 +119,11 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
     from app.rules import (  # -- casting extras (wave 18E) -- 702.146a: cast transformed from the graveyard; 702.180a
         disturb,
         harmonize,
+        mayhem,  # -- Marvel keywords (wave 25A) -- 702.187b
     )
 
-    return out + disturb.offers(state, player, card, info) + harmonize.offers(state, player, card, ch, info)
+    return out + disturb.offers(state, player, card, info) + harmonize.offers(state, player, card, ch, info) \
+        + mayhem.offers(state, player, card, ch, info)
 
 
 def escapes_with(text: str) -> str | None:

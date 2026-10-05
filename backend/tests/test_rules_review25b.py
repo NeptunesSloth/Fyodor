@@ -18,7 +18,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave5j_token_copies import drive
 from tests.test_rules_wave12a_counters_keywords import answer
-from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
+from tests.wave9c_kit import build, check, mana, put, to_hand, zone_of
 
 
 def _face(name, mc, tl, text, p=None, t=None):

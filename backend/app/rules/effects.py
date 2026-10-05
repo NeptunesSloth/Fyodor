@@ -3420,6 +3420,11 @@ from app.rules import drawn_toll as _drawn_toll  # noqa: E402, I001
 PRIMITIVES["drawn_toll"] = _drawn_toll.toll
 RESUME["drawn_toll"] = _drawn_toll.resume_pick
 RESUME["drawn_toll_each"] = _drawn_toll.resume_each
+# -- Doctor Who keywords (wave 25A) -- time travel (app/rules/time_travel.py)
+from app.rules import time_travel as _time_travel  # noqa: E402, I001
+
+PRIMITIVES.update(_time_travel.PRIMITIVES)
+RESUME.update(_time_travel.RESUME)
 # -- end if you do (wave 8C) --
 
 
@@ -4098,6 +4103,7 @@ PRIMITIVES.update(_decayed.PRIMITIVES)
 from app.rules import attach_entry as _attach_entry  # noqa: E402, I001
 
 PRIMITIVES.update(_attach_entry.PRIMITIVES)
+RESUME.update(_attach_entry.RESUME)  # (wave 25A: attach_choose)
 from app.rules import populate as _populate  # noqa: E402, I001
 
 PRIMITIVES.update(_populate.PRIMITIVES)

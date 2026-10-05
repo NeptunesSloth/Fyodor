@@ -430,6 +430,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import harmonize
 
         return harmonize.parse(line) is not None
+    if kw == "mayhem":  # -- Marvel keywords (wave 25A) -- app/rules/mayhem.py: a mana mayhem cost without X, or none
+        from app.rules import mayhem
+
+        return mayhem.parse(line) is not None
     if kw == "disturb":  # -- casting extras (wave 18E) -- app/rules/disturb.py: a mana disturb cost (the back face is the spell)
         from app.rules import disturb
 
@@ -438,7 +442,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import graveyard_keywords
 
         return graveyard_keywords.supported(kw, line)
-    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "emerge", "foretell", "mutate"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
+    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "emerge", "foretell", "mutate", "web-slinging"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(line) is not None
