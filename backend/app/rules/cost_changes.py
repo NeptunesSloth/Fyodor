@@ -83,8 +83,8 @@ def parse_change(symbol: str, direction: str, rest: str) -> Change | None:
         out["value"] = v
     cond_text = m["cond"] or m["cond2"]
     if cond_text:
-        cond = conditions.parse(cond_text)
-        if cond is None or "succeeded" in cond:
+        cond = conditions.parse(cond_text, objects=True)  # (wave 20E: "as long as ~ is tapped": the source itself)
+        if cond is None or "succeeded" in cond or set(conditions.objects_in(cond)) - {"self"}:
             return None
         out["cond"] = cond
     if m["turn"]:

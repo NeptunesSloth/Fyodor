@@ -2879,6 +2879,10 @@ _CT_UNTAP = re.compile(rf"untap (?P<o>.+?) and gain control of {_CT_PRONOUN}{_CT
 _CT_GIVE = re.compile(rf"(?P<p>target opponent|target player|an opponent) gains control of (?P<o>.+?){_CT_END}")
 _CT_OWN = re.compile(r"each player gains control of all (?P<o>(?:nontoken )?(?:creatures|permanents)) they own")  # (wave 12D)
 _CT_EXCHANGE = re.compile(r"exchange control of (?P<o>.+)")
+# -- control change (wave 20E) -- "Gain control of all creatures target opponent controls." (Ashiok, Tezzeret): the permanents that player
+# controls as it resolves (608.2c; the group form of "tap all creatures target player controls", scripts._tap_their_all)
+_CT_THEIRS = re.compile(rf"(?:you )?gain control of all (?P<o>[a-z]+(?: and [a-z]+)?|nonland permanents) "
+                        rf"(?P<p>target player|target opponent) controls{_CT_END}")
 
 
 def _control_object(phrase: str) -> tuple[str, str, dict[str, Any] | None] | None:
@@ -2904,6 +2908,9 @@ def control_forms(text: str) -> tuple[Effects, Any] | None:
         kind, key, group = found
         who = _who(kind, key)
         return [{"do": "gain_control", "who": who, "untap": True, **({"duration": "end_of_turn"} if m["d"] else {})}], _one(group)
+    m = _CT_THEIRS.fullmatch(text)
+    if m and (sel := selectors.parse(m["o"])) is not None and (pgroup := target_group(m["p"])) is not None:
+        return [{"do": "gain_control", "who": f"controlled:target|{sel.key()}", **({"duration": "end_of_turn"} if m["d"] else {})}], _one(pgroup)
     m = _CT_GAIN.fullmatch(text)
     if m:
         found = _control_object(m["o"])
