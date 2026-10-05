@@ -34,6 +34,9 @@ class Plan:
     # -- cost changers (wave 4I) -- 601.2f: the total cost locked in before the player was asked to pay it; a cast or
     # activation resumed after that payment prompt pays exactly this (casting._rerun), whatever the table says now
     locked_cost: str | None = None
+    # -- review 22B -- a cost paid as a spell or ability resolves (118.12: "unless …", "you may …"), not one to cast or activate: "Players can't
+    # pay life or sacrifice creatures to cast spells or activate abilities" doesn't reach it (Angel of Jubilation ruling 2012-05-01)
+    resolution_cost: bool = False
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)

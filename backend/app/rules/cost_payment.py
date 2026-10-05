@@ -100,10 +100,15 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
             continue
         if comp.kind == C.REMOVE_COUNTER and counters_on(card, comp.counter) < comp.amount:  # (any kind: wave 4H)
             continue
-        if comp.kind == C.SACRIFICE:  # -- prohibitions (wave 22B) -- "Players can't … sacrifice creatures to cast spells or activate abilities"
-            from app.rules import prohibitions
+        if comp.kind == C.SACRIFICE and not plan.resolution_cost:  # -- prohibitions (wave 22B) -- "Players can't … sacrifice creatures to cast
+            from app.rules import prohibitions  # spells or activate abilities"
 
             if prohibitions.sacrifice_banned(plan.state, plan.info, card):
+                continue
+        if comp.kind == C.PUT_COUNTER:  # -- review 22B -- 614.17b: counters that can't be put can't pay (Solemnity ruling 2017-07-14)
+            from app.rules import prohibitions
+
+            if prohibitions.cant_counters(plan, cid, None):
                 continue
         out.append(cid)
     return out
@@ -194,10 +199,14 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
     )
 
     for comp in cost.components:
-        if comp.kind == C.PAY_LIFE and (comp.amount or comp.life_rule) and (why := prohibitions.life_banned(plan.state, plan.info)):
+        if comp.kind == C.PAY_LIFE and (comp.amount or comp.life_rule) and not plan.resolution_cost \
+                and (why := prohibitions.life_banned(plan.state, plan.info)):
             return f"{why}: players can't pay life to cast spells or activate abilities"
-        if comp.kind == C.SACRIFICE and comp.selector is None and (why := prohibitions.sacrifice_banned(plan.state, plan.info, card)):
+        if comp.kind == C.SACRIFICE and comp.selector is None and not plan.resolution_cost \
+                and (why := prohibitions.sacrifice_banned(plan.state, plan.info, card)):
             return f"{why}: {name} can't be sacrificed to pay a cost"
+        if comp.kind == C.PUT_COUNTER and comp.selector is None and (why := prohibitions.cant_counters(plan, card.id, None)):
+            return f"{why}: counters can't be put on {name}"  # -- review 22B -- 614.17b (Solemnity, Devoted Druid)
         if comp.kind == C.UNTAP:  # 107.6: an untapped permanent can't be untapped to pay; 302.6 / 602.5a
             if not card.tapped:
                 return f"{name} isn't tapped"

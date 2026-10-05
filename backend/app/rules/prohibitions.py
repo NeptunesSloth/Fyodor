@@ -128,12 +128,17 @@ def cant_counters(plan: Plan, card_id: str, entering_for: str | None) -> str | N
     under (it isn't on the battlefield yet: only other permanents' lines are read)."""
     found = _statics(plan, "cant_counters")
     card = plan.state.cards.get(card_id)
-    if not found or card is None:
+    if card is None or not found and entering_for is None:
         return None
     if entering_for is None and not card.zone.endswith(":battlefield"):
         return None  # (a card in exile with time counters is no permanent)
     probe = card.model_copy(update={"zone": zone_key(entering_for, "battlefield"), "controller": entering_for}) if entering_for else card
     ch = plan.ch(probe)
+    if entering_for:  # -- review 22B -- 614.17d: its own "can't have counters put on it" applies as it enters (Tatterkite returned by undying)
+        from app.rules.scripts import self_text
+
+        if any(self_text(ab.text, ch.name).rstrip(".") == _SELF_COUNTERS for ab in ch.abilities):
+            return _label(card)
     for src, d in found:
         if d.get("players"):
             continue

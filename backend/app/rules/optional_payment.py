@@ -200,6 +200,22 @@ def _self_parts(cost: AbilityCost) -> list[C.CostComponent]:
 def problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dict[int, list[str]] | None = None) -> str | None:
     """Why ``payer`` can't pay ``cost`` in full right now, or None. With ``chosen`` (objects
     picked for the parts that need a choice) those picks are validated too."""
+    from app.rules import (
+        prohibitions,  # -- review 22B -- 614.17: Tamiyo / Sigarda: an opponent's "unless you sacrifice / discard" can't be taken
+    )
+    parts = {c.kind for c in cost.components}
+    if parts & {C.SACRIFICE, C.DISCARD, C.DISCARD_HAND} and (why := (
+            prohibitions.cant_cause_sacrifice(plan, payer, ctx["controller"]) if C.SACRIFICE in parts else None)
+            or (prohibitions.cant_cause_discard(plan, payer, ctx["controller"]) if parts & {C.DISCARD, C.DISCARD_HAND} else None)):
+        return f"{why}: {plan.name(payer)} can't be made to sacrifice or discard by it"
+    was, plan.resolution_cost = plan.resolution_cost, True  # (a cost paid as it resolves: Angel of Jubilation doesn't reach it)
+    try:
+        return _problem(plan, ctx, cost, payer, chosen)
+    finally:
+        plan.resolution_cost = was
+
+
+def _problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dict[int, list[str]] | None) -> str | None:
     from app.rules import casting  # casting imports cost_payment → (not this module)
 
     source = _source(plan, ctx)
@@ -432,8 +448,12 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
     for i, comp in cost.choices:
         if i in picked:
             continue
-        usable = [c for c in cost_payment.candidates(plan, comp, payer, source)
-                  if c not in cost_payment._reserved(cost, comp, source) and c not in used]
+        was, plan.resolution_cost = plan.resolution_cost, True  # (review 22B)
+        try:
+            usable = [c for c in cost_payment.candidates(plan, comp, payer, source)
+                      if c not in cost_payment._reserved(cost, comp, source) and c not in used]
+        finally:
+            plan.resolution_cost = was
         hand = comp.kind == "EXILE_FROM_HAND"  # -- copied abilities (wave 18F) -- always asked, even with one card or none (101.4a): none = decline
         if len(usable) < comp.objects and not hand:  # (objects: one permanent for its counters, wave 6F)
             return True  # (validated again in _pay: it can't be paid any more)

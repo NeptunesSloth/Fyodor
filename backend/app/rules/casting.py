@@ -1926,6 +1926,10 @@ def life_x_problem(plan: Plan, extra: AbilityCost, a: Any, player: str) -> str |
         return "Choose a value for X (the life to pay)"
     if a.x_value > 0 and plan.state.players[player].life < extra.life + a.x_value:
         return f"You can't pay {a.x_value} life"
+    from app.rules import prohibitions
+
+    if a.x_value > 0 and (why := prohibitions.life_banned(plan.state, plan.info)):  # -- review 22B -- 119.4b: only 0 life can be paid
+        return f"{why}: players can't pay life to cast spells"
     return None
 
 
