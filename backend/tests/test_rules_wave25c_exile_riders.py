@@ -112,6 +112,10 @@ REAL += [
          color_identity=["U"], power="1", toughness="1", keywords=["Flying"], oracle_text="Flying\nThis creature can block only creatures "
          "with flying."),
 ]
+REAL += [  # (synthetic: chapters II and III of Showdown of the Skalds as a plain sorcery)
+    card("Probe Watch", set_code="tst", number="C25-20", mana_cost="{R}", cmc=1.0, type_line="Sorcery", colors=["R"], color_identity=["R"],
+         oracle_text="Whenever you cast a spell this turn, put a +1/+1 counter on target creature you control."),
+]
 OURS = [c["name"] for c in REAL]
 
 
@@ -516,3 +520,42 @@ def test_thelons_curse_lets_that_player_pay_to_untap_blue_creatures(cards, pay):
     assert s.state.cards[sprites[0].id].tapped is not pay  # untapped only when paid
     assert s.state.cards[sprites[1].id].tapped  # not chosen: still tapped
     replay_matches(s)
+
+
+def test_choosing_more_creatures_than_the_player_can_pay_for_offers_no_payment(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards)
+    put(s, "Thelon's Curse", "battlefield")
+    sprites = [put(s, "Cloud Sprite", "battlefield", pid="p2", nth=i) for i in range(2)]
+    for sprite in sprites:
+        act(s, "p2", type="tap", card_ids=[sprite.id], tapped=True)
+    put(s, "Island", "battlefield", pid="p2", nth=0)  # one {U} only: {U}{U} for two creatures can't be paid (118.3)
+    until(s, lambda s: s.state.rules.decision is not None and (s.state.rules.decision.resume or {}).get("step") == "pay_untap")
+    choose(s, [c.id for c in sprites])
+    d = s.state.rules.decision
+    assert d is None or [o.id for o in d.options] == ["decline"]
+    if d is not None:
+        choose(s, ["decline"])
+    assert all(s.state.cards[c.id].tapped for c in sprites)
+    replay_matches(s)
+
+
+# -- 603.7 / 603.3d: a turn watch's deferred ability with a target of its own, chosen each time it triggers --------------
+def test_a_turn_watch_with_a_target_asks_for_it_every_time_it_triggers(cards):
+    s = build(cards)
+    bear = put(s, "Grizzly Bears", "battlefield")
+    watch = put(s, "Probe Watch", "hand")
+    bolts = [put(s, "Lightning Bolt", "hand", nth=i) for i in range(2)]
+    mana(s, R=3)
+    act(s, "p1", type="cast_spell", card_id=watch.id)
+    pass_until_stack_empty(s)
+    for bolt in bolts:
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])  # each cast triggers the watch (its trigger above the spell)
+        d = s.state.rules.decision
+        assert d is not None and bear.id in {o.id for o in d.options}  # the target, chosen as the trigger goes on the stack
+        choose(s, [bear.id], resolve=True)
+    assert s.state.cards[bear.id].counters.get("+1/+1") == 2
+    assert s.state.players["p2"].life == 34
+    replay_matches(s)
+    assert reload(s).state.model_dump(mode="json") == s.state.model_dump(mode="json")

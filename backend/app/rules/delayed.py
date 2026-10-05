@@ -205,7 +205,8 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         id=secrets.token_hex(4), controller=ctx["controller"], source_card=ctx.get("source_card"),
         source_object=ctx.get("source_object"), name=ctx.get("name") or "", when=when,
         effects=_bind_now(plan, ctx, deferred, refs), refs=refs, event=ctx.get("event"), turn=turn,
-        step=plan.state.turn.phase, until_turn=turn if e.get("this_turn") else None, once=bool(e.get("once", True)))
+        step=plan.state.turn.phase, until_turn=turn if e.get("this_turn") else None, once=bool(e.get("once", True)),
+        target=e.get("target"))
     plan.rules.delayed.append(trigger)
     plan.note(f"{trigger.name or 'A delayed ability'} will trigger {describe_when(when)}")
     return True
@@ -249,13 +250,29 @@ def describe_when(when: dict[str, Any]) -> str:
 
 
 # -- triggering (603.2) and going on the stack with the other triggers (603.3b) --------------------
+WATCH_TARGET = "watch_target"
+
+
+def _swap_who(v: Any, old: str, new: str) -> Any:
+    if isinstance(v, list):
+        return [_swap_who(x, old, new) for x in v]
+    if isinstance(v, dict):
+        return {k: (new if k == "who" and x == old else _swap_who(x, old, new)) for k, x in v.items()}
+    return v
+
+
+def mark_target(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """-- if you do (wave 25C) -- a turn watch's own target, kept apart from the creating ability's target groups while it is parsed."""
+    return _swap_who(effects, "target", WATCH_TARGET)
+
+
 def _fire(plan: Plan, t: DelayedTrigger, event: TriggerEvent | None) -> None:
     from app.rules.triggers import _add
 
     if t.controller not in plan.live():
         return
-    definition = {"kind": "triggered", "trigger": "delayed", "optional": False, "target": None,
-                  "effects": [{"do": "bind_refs", "refs": t.refs}, *t.effects]}
+    definition = {"kind": "triggered", "trigger": "delayed", "optional": False, "target": t.target,  # (target: wave 25C, a turn watch's own)
+                  "effects": [{"do": "bind_refs", "refs": t.refs}, *(_swap_who(t.effects, WATCH_TARGET, "target") if t.target else t.effects)]}
     _add(plan, controller=t.controller, source_card=t.source_card or "", source_object=t.source_object or "",
          name=t.name, index=7000, definition=definition, event=event)
 
