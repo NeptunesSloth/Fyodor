@@ -70,7 +70,8 @@ def test_meddling_mage_stops_that_name_for_everyone(cards):
         act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Probe Charm").id)  # another name: fine
     theirs = to_hand(s, "Probe Bolt", "p2")  # 601.3: Bob can't cast it either (his own priority isn't needed to ask)
-    from app.rules import cast_limits, characteristics as chars
+    from app.rules import cast_limits
+    from app.rules import characteristics as chars
 
     assert "can't cast" in cast_limits.cast_problem(s.state, "p2", theirs, chars.of(theirs, s.cards), s.cards)
     check(s)

@@ -300,9 +300,12 @@ def static_definition(text: str) -> Definition | None:
         if not ok or affinity_pred(m["what"].lower()) is None:
             return None
         return {"kind": "static", "static": "spell_helper", "keyword": "affinity", "what": m["what"].lower(), "filter": key, "effects": []}
-    from app.rules import player_shields  # "You have hexproof." (app/rules/player_shields.py)
+    from app.rules import (  # "You have hexproof." (app/rules/player_shields.py); -- prohibitions (wave 22B) --
+        player_shields,
+        prohibitions,
+    )
 
-    return player_shields.static_definition(text)
+    return prohibitions.static_definition(text) or player_shields.static_definition(text)
 
 
 def _effect_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
@@ -434,7 +437,8 @@ def _spells_words(key: str | None, frm: list[str] | None) -> str:
 
 # -- reading the table -----------------------------------------------------------------------------
 _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
-_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as", "keep_mana", "gy_flashback")
+_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as", "keep_mana", "gy_flashback",
+          "cant_enter", "cant_counters")  # (wave 22B: app/rules/prohibitions.py)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:

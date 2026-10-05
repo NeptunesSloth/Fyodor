@@ -62,7 +62,9 @@ def _uses(node: Any, key: str = "") -> list[tuple[str, str]]:
 
 
 def _enters_choices(ch: Characteristics) -> list[str]:
-    from app.rules import card_names  # -- card names (wave 22B) -- "As ~ enters, choose a card name." counts as a card name choice
+    from app.rules import (
+        card_names,  # -- card names (wave 22B) -- "As ~ enters, choose a card name." counts as a card name choice
+    )
     from app.rules.language import ENTERS_CHOICE
     from app.rules.scripts import self_text
 
@@ -72,7 +74,9 @@ def _enters_choices(ch: Characteristics) -> list[str]:
 
 
 def _kind(what: str | None) -> str | None:
-    from app.rules import card_names  # -- card names (wave 22B) -- every "… card name" choice is the one "card name" value
+    from app.rules import (
+        card_names,  # -- card names (wave 22B) -- every "… card name" choice is the one "card name" value
+    )
 
     return "card name" if card_names.is_choice(what) else what
 
