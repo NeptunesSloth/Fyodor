@@ -496,8 +496,10 @@ def test_effect_wordings():
     assert P.parse_clause("until end of turn, you may play that card this turn") is None
     assert P.parse_clause("you may play that card until your next end step")[0][0]["until"] == "next_end_step"  # (wave 15B)
     # a bare "you may cast that card": cast it as this resolves, ignoring timing — not a permission
-    # that lasts the turn (Chandra, Torch of Defiance's wording): refused, never a turn-long grant
-    assert P.parse_clause("you may cast that card") is None
+    # that lasts the turn (Chandra, Torch of Defiance's wording): never a turn-long grant. (Wave 25C: read as the paid cast of the
+    # card, 608.2g — the free_cast machinery with its mana cost paid, as for "You may cast the copy".)
+    bare = P.parse_clause("you may cast that card")
+    assert bare is not None and bare[0][0]["do"] == "free_cast" and bare[0][0]["paid"] is True and "until" not in bare[0][0]
     assert P.parse_clause("you may play it") is None
 
 
@@ -520,7 +522,9 @@ def test_that_card_binds_to_what_the_ability_moved_or_stays_manual():
     assert scripts.parse_effects("Draw a card. You may play it this turn.", it="self") is None  # (not the source either)
     assert scripts.parse_effects("You may play that card this turn.") is None
     assert scripts.parse_effects("Tap target creature. You may play it this turn.") is None  # (not moved anywhere)
-    assert scripts.parse_effects("Exile the top card of your library. You may cast that card.") is None  # (no duration)
+    assert scripts.parse_effects("Exile the top card of your library. You may play that card.") is None  # (no duration; a land maybe: not read)
+    cast_now = scripts.parse_effects("Exile the top card of your library. You may cast that card.")  # (wave 25C: cast now, mana cost paid)
+    assert cast_now is not None and [e["do"] for e in cast_now[0]] == ["exile_top", "free_cast"] and cast_now[0][1]["paid"] is True
     # Ragavan, Nimble Pilferer: a token the same sentence created is not "that card" (111.1), so
     # the exiled card is the only candidate
     ragavan = scripts.parse_effects("Create a Treasure token and exile the top card of that player's library. "

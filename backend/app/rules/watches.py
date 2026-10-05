@@ -64,16 +64,29 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str) ->
 
     if not cond_ok(cond) or cond is None:
         return None
-    inner = scripts._clause(clause)
-    if inner is None or inner[1] is not None:  # (the deferred ability's own target: chosen as it triggers)
+    from app.rules import (
+        cast_riders,  # -- cast riders (wave 25C) -- "…, that creature enters with an additional +1/+1 counter on it"
+    )
+
+    inner = cast_riders.parse(cond, clause) or scripts._clause(clause)
+    if inner is None:
         return None
+    own_target = None
+    if inner[1] is not None:  # -- if you do (wave 25C) -- the deferred ability's own target: chosen each time it triggers (603.3d)
+        own_target = scripts.target_fields(inner[1]).get("target")
+        if not (isinstance(own_target, dict) and set(own_target) == {"what"}):
+            return None
     effects = delayed.inner_for_event(inner[0])
     if effects is None or any(e.get("do") in delayed.UNDEFERRABLE for e in effects) \
             or not refs_ok(cond, effects):
         return None
+    if own_target is not None:
+        effects = delayed.mark_target(effects)  # ("target" is the deferred ability's own, not one of the creating ability's groups)
     head = {"kind": "watch", "cond": cond, "text": text}
     wrapped = delayed.wrap_when(effects, head, this_turn=True)
     wrapped[0]["once"] = once
+    if own_target is not None:
+        wrapped[0]["target"] = own_target
     return wrapped, None
 
 

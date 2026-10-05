@@ -2471,6 +2471,14 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects[-1] = {**effects[-1], "to": "exile" if dest["exile"] else ("top" if dest["top"] else "bottom")}
             continue
         text = _for_each_this_way(text)  # -- "this way" outcomes (wave 4A) --
+        from app.rules import (
+            pay_untap as _pay_untap,  # -- if you do (wave 25C) -- "that player may choose any number of tapped … and pay {2} for each …"
+        )
+
+        if (untapped := _pay_untap.sentences(texts, i)) is not None:
+            effects += untapped[0]
+            skip_to = i + untapped[1]
+            continue
         if (piles := _piles(texts, i, effects)) is not None:  # -- refused look/cast-free (wave 3R5) -- 700.3
             if not piles[0]:
                 return None
@@ -2529,7 +2537,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         # -- end refused grants/replacements (wave 3R2) --
         if (exile_gy := _FREE_EXILE_GY.fullmatch(text)) and effects and effects[-1]["do"] == "free_cast":
-            effects[-1] = {**effects[-1], "exile_gy": "is" if exile_gy["is"] else True}  # -- refused look/cast-free (wave 3R5) -- 614.1a, on the spell cast
+            effects[-1] = {**effects[-1], "exile_gy": "is" if exile_gy["is"] else True,  # -- refused look/cast-free (wave 3R5) -- 614.1a, on the spell cast
+                           **({"exile_own": True} if exile_gy["g"] == "your" else {})}
+            continue
+        if (exile_gy := _FREE_EXILE_GY.fullmatch(text)) and effects and effects[-1]["do"] == "grant_play" and effects[-1].get("cast"):
+            effects[-1] = {**effects[-1], "exile_gy": "is" if exile_gy["is"] else "all",  # -- if you do (wave 25C) -- 614.1a: on the spell cast with the permission
+                           **({"exile_own": True} if exile_gy["g"] == "your" else {})}
             continue
         if text.startswith("if you do, you may cast the cop") and effects and effects[-1]["do"] == "copy_cards":
             text = text[len("if you do, "):]  # -- copied abilities (wave 18F) -- "You may copy the exiled card. If you do, …": the first sentence's "may"
@@ -2926,8 +2939,8 @@ def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     """-- refused look/cast-free (wave 3R5) -- A spell or activated ability that is all "You may cast …
     without paying its mana cost": the "may" is the cast's own choice (choosing no card), not a
     question about the whole ability (which spells and activated abilities don't have)."""
-    if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0]["do"] == "free_cast" \
-            and parsed[0][0].get("optional"):
+    if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0].get("optional") \
+            and (parsed[0][0]["do"] == "free_cast" or (parsed[0][0]["do"] == "grant_play" and parsed[0][0].get("who") == "target")):  # (wave 25C)
         return parsed[0], parsed[1], False
     # -- token copies & attach on entry (wave 5J) -- "You may put a creature card from your hand onto the battlefield."
     # (Elvish Piper): the "may" is choosing no card
@@ -2956,7 +2969,7 @@ def _may_first_only(texts: list[str], effects: list[dict[str, Any]], sentences: 
 _KICKED = re.compile(r"^if (?:this spell|it|~) was kicked, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$")
 # -- refused look/cast-free (wave 3R5) -- after a free cast: a replacement effect on the spell cast (614.1a)
 _FREE_EXILE_GY = re.compile(r"^if (?:that spell|that card|a spell cast this way|(?P<is>an instant or sorcery) spell cast this way) "  # (wave 19C: "is")
-                            r"would be put into (?:your|their|a) graveyard, exile it instead$")
+                            r"would be put into (?P<g>your|their|a) graveyard, exile it instead$")
 # -- refused look/cast-free (wave 3R5) -- 700.3: piles of the cards just revealed (public: 701.20a)
 _PILES_THEY = re.compile(r"^an opponent separates (?:those|the revealed|these) cards into two piles$")
 _PILES_YOU = re.compile(r"^(?P<reveal>reveal the top .+? of your library) and separate them into two piles$")
@@ -3050,7 +3063,7 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     if cost is None:  # -- sized payments (wave 5G) -- "pay {X}" / "pay X life, where X is …" (app/rules/paid_x.py)
         from app.rules import paid_x
 
-        found = paid_x.payment(phrase) if following[0].startswith("If you do, ") else None
+        found = paid_x.payment(phrase) if following[0].startswith(("If you do, ", "When you do, ")) else None  # (wave 25C: a reflexive one)
         if found is None:
             return None
         cost, sized = found.pop("cost"), found
@@ -3728,8 +3741,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     counter_it = [{"do": "optional_payment", "who": "event_player", "cost": pay_cost, "bind": "pay0"},
                                   {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
                                   {"do": "counter", "who": "event_source"}]
-                parsed = parse_effects(body, it=ante, event_player=has_player) if (tm is None and not plain_counter and um is None) \
-                    or not _targeted(cond) else (counter_it, None, False)
+                parsed = _own_choice(parse_effects(body, it=ante, event_player=has_player)) if (tm is None and not plain_counter and um is None) \
+                    or not _targeted(cond) else (counter_it, None, False)  # (_own_choice for a trigger: wave 25C)
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
                 if parsed is None and cond is not None and cond.get("other") and cond.get("subject", "self") in ("self", "host") and (
@@ -3818,7 +3831,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         cost = parse_ability_cost(ability.cost, card_name=ch.name, loyalty=True)
         if cost.unsupported:
             return None
-        parsed = parse_effects(text.split(":", 1)[1])
+        parsed = _own_choice(parse_effects(text.split(":", 1)[1]))  # (_own_choice for a loyalty ability: wave 25C)
         if parsed is None or parsed[2]:
             return None
         effects, target, _ = parsed
@@ -5792,15 +5805,40 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     # -- end reflexive LKI (wave 4J) --
     # (-- trigger tail (wave 15B) -- "it" is the ability's source when the trigger is about it: "you may pay {2}{R}. When you do, it
     # deals 3 damage to any target"; the reflexive ability has that same source, 603.12)
-    parsed = parse_effects(body[:1].upper() + body[1:], "event" if lki is not None else ("self" if it == "self" else None))
+    sized_x = len(base) == 1 and base[0]["do"] == "optional_payment" and "choose_x" in base[0] and lki is None
+    # (-- if you do (wave 25C) -- a sized payment's reflexive ability carries the trigger's own event along with the X: "that creature" is
+    # still the object the trigger was about, effects.reflexive)
+    parsed = parse_effects(body[:1].upper() + body[1:], "event" if lki is not None or (sized_x and it == "event") else ("self" if it == "self" else None))
     if parsed is None or not parsed[0]:
         return None
     b_effects, b_target, b_optional = parsed
+    x_bind = None
+    if sized_x:
+        # -- if you do (wave 25C) -- "you may pay {X}. When you do, ~ deals X damage to target player.": the X paid (107.3f, paid_x) is the
+        # reflexive ability's amount (its event's); an X in the target's own definition is chosen before X could be known: not read
+        if re.search(r'"x"|\bX\b', json.dumps(b_target, default=str)):
+            return None
+        b_effects = _x_to_event(b_effects)
+        x_bind = base[0]["bind"]
     out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
-                                                        "optional": b_optional, **target_fields(b_target)}}
+                                                        "optional": b_optional, **target_fields(b_target)},
+           **({"x_from": x_bind} if x_bind else {})}
     if lki is not None:
         out["lki"] = cond["succeeded"]  # -- reflexive LKI (wave 4J) --
     return out
+
+
+def _x_to_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The reflexive ability's X, read from its event's amount (effects.reflexive records the X the payment paid there)."""
+    def sub(v: Any) -> Any:
+        if v == {"x": 1}:
+            return {"event_amount": 1}
+        if isinstance(v, list):
+            return [sub(x) for x in v]
+        if isinstance(v, dict):
+            return {k: sub(x) for k, x in v.items()}
+        return v
+    return [sub(e) for e in effects]
 
 
 # -- reflexive LKI (wave 4J) -------------------------------------------------------------------------------------------

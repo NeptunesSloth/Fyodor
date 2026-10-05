@@ -1922,6 +1922,8 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
         elif to in ("battlefield", "battlefield_tapped"):
             entering.append({"card": cid, "player": pid, "actor": pid, "tapped": to == "battlefield_tapped"})
     _player_control.permit_exiled(plan, agents, exiled)
+    if entering and e.get("host"):  # -- if you do (wave 25C) -- "…, put it onto the battlefield attached to this creature"
+        entering = _attached_entries(plan, ctx, e["host"], entering)
     if e.get("link"):  # -- resolution memory (wave 22D) -- 607.2a: "search your library for an artifact card, exile it" (Hoarding Dragon)
         from app.rules import exiled_with
 
@@ -2139,6 +2141,13 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
         for cid in cards[:1]:  # your library": one card, to its owner's library (400.3)
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
                      "position": "top"}, actor=ctx["controller"])
+        _moved(plan, ctx, e, before)
+        return True
+    if e["to"] == "choose":  # -- if you do (wave 25C) -- "Choose an instant or sorcery card in your graveyard.": only the choice, bound for "it" after
+        return True
+    if e["to"] == "exile":  # -- if you do (wave 25C) -- "Exile an instant or sorcery card at random from your graveyard": face up, in its owner's exile (400.3)
+        for cid in cards:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "exile"}}, actor=ctx["controller"])
         _moved(plan, ctx, e, before)
         return True
     if e["to"] == "graveyard":  # -- resolution memory (wave 22D) -- "put the exiled card into its owner's graveyard"
@@ -2888,6 +2897,13 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # this way, … that card's mana value")
         name = e["cond"]["value"]["ref_count"] if e.get("lki") == "cond_ref" else e.get("lki")
         event = _reflexive_event(plan, ctx, name) if name else None  # -- reflexive LKI (wave 4J) --
+        if e.get("x_from"):  # -- if you do (wave 25C) -- "you may pay {X}. When you do, …": the X paid is the reflexive ability's amount
+            from app.game.rules_state import TriggerEvent
+            from app.rules import paid_x
+
+            paid = paid_x.amount(ctx, e["x_from"])
+            outer = TriggerEvent.model_validate(ctx["event"]) if ctx.get("event") else None
+            event = outer.model_copy(update={"amount": paid}) if outer is not None else TriggerEvent(kind="reflexive", amount=paid)
         _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
              name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=event)
     return True
@@ -3443,6 +3459,8 @@ def record_action(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     refs = ctx.get("refs") or {}
     if any(b.get("kind") == "payment" and not b.get("ok") for b in refs.values()):
         return True  # ("you may pay … If you do, …": declined — the action wasn't taken)
+    if any(x.get("do") == "free_cast" for x in ctx.get("effects") or []) and not ctx.get("free_cast_done"):
+        return True  # -- if you do (wave 25C) -- "you may cast …. Do this only once each turn.": no spell was cast, so the action wasn't taken
     restrictions.record_use(plan.rules, e["object"], int(e["index"]), plan.state.turn.number)
     return True
 
@@ -3819,7 +3837,7 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if most == 0 or (least == most == len(pool)):
         return _return_cards(plan, ctx, e, pool[:most])
     decide(plan, player=pid, kind="choose_cards",
-           prompt=f"Choose {'up to ' if e.get('upto') else ''}{most} ({e.get('label', 'card')}) to return",
+           prompt=f"Choose {'up to ' if e.get('upto') else ''}{most} ({e.get('label', 'card')})" + {"exile": " to exile", "choose": ""}.get(e["to"], " to return"),
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
            min_choices=least, max_choices=most, resume={"step": "return_choice", "ctx": ctx, "e": e})
     return False
@@ -4210,3 +4228,12 @@ PRIMITIVES.update(_hand_wheel.PRIMITIVES)
 from app.rules import join_forces as _join_forces  # noqa: E402, I001
 
 PRIMITIVES.update(_join_forces.PRIMITIVES)
+# -- cast riders (wave 25C) -- "When you next cast a creature spell this turn, that creature enters with an additional +1/+1 counter on it."
+from app.rules import cast_riders as _cast_riders  # noqa: E402, I001
+
+PRIMITIVES.update(_cast_riders.PRIMITIVES)
+# -- pay to untap (wave 25C) -- Dream Tides, Mudslide (app/rules/pay_untap.py)
+from app.rules import pay_untap as _pay_untap  # noqa: E402, I001
+
+PRIMITIVES.update(_pay_untap.PRIMITIVES)
+RESUME[_pay_untap.STEP] = _pay_untap.resume

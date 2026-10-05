@@ -430,6 +430,10 @@ def resume_mode(plan: Plan, d: Any, chosen: list[str]) -> None:
 def resume_manual(plan: Plan, d: Any, chosen: list[str]) -> None:
     job = d.resume["job"]
     plan.note(f"{plan.name(d.player)} finished the copy by hand", actor=d.player)
+    if job.get("did"):  # (-- review 25C -- a paid cast made by hand: "If you don't, …" reads the answer, permissions.free_cast)
+        from app.rules import context
+
+        context.refs(job["ctx"])[job["did"]] = {"kind": "payment", "ok": chosen == ["done"]}
     if run(plan, job):
         go_on(plan, job)
 

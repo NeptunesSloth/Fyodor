@@ -591,7 +591,7 @@ _SEARCH = re.compile(
     rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) (?:may |(?=searches ))?)?"  # (wave 19E: "searches")
     rf"searche?s? (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"
     rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, ))?"
-    rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE}))(?P<shuf>, then shuffles?)?"
+    rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE})(?: attached to (?P<host>~|this creature|this equipment))?)(?P<shuf>, then shuffles?)?"
     rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
     rf"|then shuffle and put {_PRON} (?:on top(?: in any order)?|(?P<third>third from the top)))")  # ("in any order": wave 3R4; third: wave 20D)
 _DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
@@ -793,6 +793,10 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
             extra["depth"] = 3
         if n != 1:
             extra["top_order"] = True  # -- refused zones/sized (wave 3R4) -- several on top: the searcher orders them (401.4)
+    if m["host"]:  # -- if you do (wave 25C) -- "put it onto the battlefield attached to this creature" (303.4f / 301.5e: effects._attached_entries)
+        if not to.startswith("battlefield") or n != 1 or m["one"]:
+            raise _Fail
+        extra["host"] = "self"
     if to != "top" and not (m["shuf"] or m["shuf2"]):
         extra["shuffle"] = False  # (only when the text says so: 701.23e)
     return [{"do": "search", "who": _SEARCHERS[m["who"]] if m["who"] else "you", "label": m["sel"], "max": n,
@@ -811,7 +815,7 @@ _GY_ZONES = (r"(?P<zones>library and/or graveyard|graveyard and/or library|(?:gr
              r"|hand and/or library|library and/or hand)")
 _SEARCH_GY = re.compile(rf"search your {_GY_ZONES} for (?P<q>(?:up to )?(?:{AMT})) (?P<sel>.+?)(?:,? and |, )"
                         rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, )(?:then )?)?put (?P<pron>{_PRON}) "
-                        rf"(?P<dest>into your hand|onto the battlefield)(?P<then>, then shuffle)?")
+                        rf"(?P<dest>into your hand|onto the battlefield)(?P<host> attached to (?:~|this creature|this equipment))?(?P<then>, then shuffle)?")
 
 
 _GAMBLE = re.compile(r"search your library for a card, put (?:that card|it) into your hand, (?P<first>shuffle, then )?"
@@ -831,7 +835,7 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
     if m is None:
         return None
     reveal = f"{m['reveal']}, " if m["reveal"] else ""
-    found = _search(f"search your library for {m['q']} {m['sel']}, {reveal}put {m['pron']} {m['dest']}")
+    found = _search(f"search your library for {m['q']} {m['sel']}, {reveal}put {m['pron']} {m['dest']}{m['host'] or ''}")
     if found is None:
         raise _Fail
     e = found[0][0]
@@ -1569,6 +1573,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "phase_out", "who": _who(kind, key)}], _one(group)
+    if (found := exile_choice(text)) is not None:
+        return found
     m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap|airbend) (?P<o>.+)", text)  # (-- trigger other (wave 25B) -- airbend 701.65: app/rules/airbend.py)
     if m and not (m["v"] == "airbend" and re.search(r"\bspells?\b", m["o"])):
         whos, groups = _objects(m["o"])
@@ -3041,6 +3047,26 @@ def _reanimation_compound(obj: str, effect: dict[str, Any]) -> tuple[Effects, An
         out.append({**effect, "do": "return_choice", "sel": sel.key(), "n": 1, "upto": bool(c["upto"]), "random": False,
                     "label": words})
     return out, None
+
+
+def exile_choice(text: str) -> tuple[Effects, Any] | None:
+    """-- if you do (wave 25C) -- "Exile an instant or sorcery card [at random] from your graveyard": one card, chosen on resolution (608.2d)
+    or at random, nothing targeted; recorded for "it" / "that card" after (effects.return_choice, to "exile")."""
+    late = text.endswith(" at random")  # ("… from your graveyard at random")
+    pick = re.fullmatch(r"choose (?:an?|one) (?P<what>[^,]+? card) in your graveyard", text)  # "Choose an instant or sorcery card in your graveyard."
+    if pick is not None:  # (nothing moves: the card is chosen on resolution, 608.2d, and "it" after names it, effects._return_cards "choose")
+        sel = selectors.parse(f"{pick['what']} from your graveyard")
+        if sel is None or not _graveyard_cards(sel.key()) or "card" not in pick["what"].split():
+            return None
+        return [{"do": "return_choice", "to": "choose", "sel": sel.key(), "n": 1, "upto": False, "random": False, "label": pick["what"]}], None
+    c = _RA_CHOICE.fullmatch(text[len("exile "):len(text) - len(" at random") * late]) if text.startswith("exile ") else None
+    if c is None or c["z"] != "your graveyard" or c["upto"] or c["n"] or c["any"]:
+        return None
+    words = re.sub(r"\bcards\b", "card", c["what"])
+    sel = selectors.parse(f"{words} from {c['z']}")
+    if sel is None or not _graveyard_cards(sel.key()) or "card" not in words.split():
+        return None
+    return [{"do": "return_choice", "to": "exile", "sel": sel.key(), "n": 1, "upto": False, "random": bool(c["rand"] or late), "label": words}], None
 
 
 def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
