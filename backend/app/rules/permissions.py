@@ -527,10 +527,12 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 "play": False, "cast": True, "filter": None, "while": cond, "effects": []}
     # -- top of library (wave 5I) -- "You may cast Dragon spells / artifact spells and colorless spells / creature spells of
     # the chosen type … from the top of your library", Radha's look-and-play line (app/rules/top_library.py)
-    from app.rules import escape, top_library
+    from app.rules import escape, mayhem, top_library
 
     if (top := top_library.permission(t, lines)) is not None:
         return top
+    if t.lower().startswith("each ") and (found_mayhem := mayhem.define_grant(t)) is not None:  # -- Marvel keywords (wave 25A) -- 702.187
+        return found_mayhem
     if t.lower().startswith(("escape—", "each ", "you may cast ~ from your graveyard by", "you may cast this c")) and (found_escape := escape.define_static(t)) is not None:
         return found_escape  # (702.138a: a printed escape cost, or "Each nonland card in your graveyard has escape. …")
     # -- end top of library (wave 5I) --
@@ -854,6 +856,11 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                     continue  # -- conditional statics (wave 4B) -- "as long as you control a Zombie"
                 out.append(Grant("permission", f"{ch.name}: cast it from {'exile' if where == 'exile' else 'your graveyard'}", once_key=key if d["once"] else None,
                                  extra=d.get("extra") or "", exile=bool(d.get("exile"))))
+    if verb == "play" and where == "graveyard" and card.owner == player:  # -- Marvel keywords (wave 25A) -- 702.187c: a bare "Mayhem"
+        from app.rules import mayhem
+
+        if mayhem.plays_land(state, player, card, ch):
+            out.append(Grant("permission", f"{ch.name}: play it from your graveyard (mayhem)"))
     if verb == "cast" and where == "hand":  # -- cast without paying (wave 3C) -- the card's own "cast this spell without paying"
         for d in _definitions(ch).values():
             if d.get("static") == "permission" and d.get("self") and d.get("free") and d["zone"] == "hand" \

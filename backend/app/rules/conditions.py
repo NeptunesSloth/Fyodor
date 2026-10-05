@@ -1345,6 +1345,9 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "self", "cast": {"optional": "teamwork"}}
     if t in ("this spell's prowl cost was paid", "its prowl cost was paid"):  # -- static_other sweep (wave 17C) -- 702.76a
         return {"object": "self", "cast": {"alt": "prowl"}}
+    if (m := re.fullmatch(r"(?:(?:this spell's|its) (?P<k>mayhem|web-slinging) cost was paid|(?P<w>it|this spell|~|they) (?:was|were) cast "
+                          r"using (?P<k2>mayhem|web-slinging))", t)) is not None:  # -- Marvel keywords (wave 25A) -- 702.187b, 702.188a
+        return {"object": _cast_who(m["w"] or "self"), "cast": {"alt": m["k"] or m["k2"]}}
     if t in ("this spell was foretold", "it was foretold"):  # -- hidden exile (wave 18A) -- 702.143c: cast for its foretell cost (the only way)
         return {"object": _cast_who(t.split()[0]), "cast": {"alt": "foretell"}}
     if t in ("it was kicked", "this spell was kicked", "~ was kicked"):  # -- kicked instead (wave 20F) -- 702.33d: "When you cast this
