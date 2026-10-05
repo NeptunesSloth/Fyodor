@@ -807,6 +807,13 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         if plan.ch(card).is_instant_or_sorcery:  # (a permanent spell enters instead: not replaced, 614.1a)
             plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
             return
+    # -- instead (wave 20B) -- 614.1a: a resolved instant or sorcery card that "would be put into a graveyard" from the stack is exiled by
+    # a Rest in Peace-style effect ("an instant or sorcery card … from anywhere", "a card …"), like the one cast from a graveyard above
+    card = plan.state.cards[card_id]
+    if card_id in plan.state.zones.get(STACK, []) and not card.is_token and card.card_id is not None and plan.ch(card).is_instant_or_sorcery \
+            and (replacements._self_exile_instead(plan, card) or replacements._static_exile_instead(plan, card) is not None):
+        plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
+        return
     stack = plan.state.zones.get(STACK, [])
     if card_id in stack:
         step: dict[str, Any] = {"type": "resolve_top", "force": True, "tapped": tapped}
