@@ -24,6 +24,7 @@ from app.game.rules_state import (
     StackEntry,
     TargetRef,
     TurnCount,
+    cancelable,
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
@@ -600,6 +601,18 @@ def _helper_sources(state: GameState, player: str, info: CardInfo, spell: Charac
 
 
 # -- targets (601.2c) --------------------------------------------------------------------
+# -- cancelling a cast (wave 24D) -- 601.2 / 602.2: a proposal that can't be completed is rewound to before it was made; the
+# announcement choices (modes, targets) come before anything is paid or moved here, so cancelling one just ends the attempt.
+def cancelled(plan: Plan, d: Any, chosen: list[str]) -> bool:
+    """Did the player cancel this announcement? Then nothing was committed: priority comes back to them."""
+    if chosen != ["cancel"] or not cancelable(d):
+        return False
+    plan.note(f"{plan.name(d.player)} cancelled")
+    plan.rules.priority = d.player
+    plan.hold = d.player
+    return True
+
+
 def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any] | None,
                   what: str, *, exclude: tuple[str, ...] = ()) -> list[TargetRef] | None:
     """The target of an automated spell or ability: validated if given, else asked (privately).
@@ -687,6 +700,8 @@ def ask_targets(plan: Plan, player: str, found: Any, specs: list[dict[str, Any]]
 
 
 def resume_cast_group(plan: Plan, d: Any, chosen: list[str]) -> None:
+    if cancelled(plan, d, chosen):
+        return
     from app.rules.engine import INTENTS  # the engine imports this module
 
     intent = A.parse_action(d.resume["intent"])
@@ -774,6 +789,8 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
 
 
 def resume_cast_modes(plan: Plan, d: Any, chosen: list[str]) -> None:
+    if cancelled(plan, d, chosen):
+        return
     from app.rules.engine import INTENTS  # the engine imports this module
 
     intent = A.parse_action(d.resume["intent"])
@@ -812,6 +829,8 @@ def choose_slot_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, specs: l
 
 
 def resume_cast_slot_target(plan: Plan, d: Any, chosen: list[str]) -> None:
+    if cancelled(plan, d, chosen):
+        return
     from app.rules.engine import INTENTS  # the engine imports this module
 
     intent = A.parse_action(d.resume["intent"])
@@ -822,6 +841,8 @@ def resume_cast_slot_target(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
+    if cancelled(plan, d, chosen):
+        return
     from app.rules.engine import INTENTS  # the engine imports this module
 
     intent = A.parse_action(d.resume["intent"])
@@ -995,9 +1016,11 @@ def mana_ability_extras(plan: Plan, card: CardInstance, index: int) -> tuple[int
     return extra.life, list(extra.remove_counters)
 
 
-def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.ManaAbility) -> None:
+def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.ManaAbility, who: str | None = None) -> None:
     """Riders and bookkeeping once a mana ability was used: "deals 1 damage to you", "Draw a
-    card", once-per-turn marks, counters removed as a cost."""
+    card", once-per-turn marks, counters removed as a cost. ``who``: the player who activated it (-- mana riders (wave 24D) -- 603.7e-style:
+    a source sacrificed as the cost is back under its owner's control by now, so "you" is read before the cost)."""
+    who = who or card.controller
     r = plan.rules
     if ability.once_per_turn:
         r.once_per_turn[f"{r.object_id(card.id)}:{index}"] = plan.state.turn.number
@@ -1007,35 +1030,35 @@ def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.Ma
     if extra is not None and extra.energy:  # (wave 3E: "{T}, Pay {E}: Add one mana of any color", 107.14)
         plan.do({"type": "resource", "player": card.controller, "key": "energy", "delta": -extra.energy}, actor=card.controller)
     for kind, n in ability.riders:
-        if kind == "damage" and _player_protected(plan, card):  # -- player shields (wave 5E) -- 702.16e, 702.16j
-            plan.note(f"Protection prevents the damage {plan.ch(card).name} would deal to {plan.name(card.controller)}")
+        if kind == "damage" and _player_protected(plan, card, who):  # -- player shields (wave 5E) -- 702.16e, 702.16j
+            plan.note(f"Protection prevents the damage {plan.ch(card).name} would deal to {plan.name(who)}")
         elif kind == "damage":
-            plan.do({"type": "rules_damage", "creatures": {}, "players": {card.controller: n}, "planeswalkers": {},
+            plan.do({"type": "rules_damage", "creatures": {}, "players": {who: n}, "planeswalkers": {},
                      "lifelink": {}, "combat": False,
-                     "dealt": [{"source": plan.oid(card.id), "target": card.controller, "amount": n}]}, actor=card.controller)
+                     "dealt": [{"source": plan.oid(card.id), "target": who, "amount": n}]}, actor=who)
         elif kind == "draw":
             from app.rules import (
                 miracle,  # (-- review (wave 18E) -- a draw like any other: "the first card you've drawn this turn")
             )
 
-            top = list(plan.state.zones.get(zone_key(card.controller, "library"), [])[:n])
-            plan.do({"type": "draw", "player": card.controller, "count": n}, actor=card.controller)
-            miracle.on_draw(plan, card.controller, top)
+            top = list(plan.state.zones.get(zone_key(who, "library"), [])[:n])
+            plan.do({"type": "draw", "player": who, "count": n}, actor=who)
+            miracle.on_draw(plan, who, top)
         else:  # -- mana riders (wave 5A) -- "You gain 2 life.", "Each opponent gains 1 life."
             from app.rules import mana_riders
 
-            mana_riders.after(plan, card, kind, n)
+            mana_riders.after(plan, card, kind, n, who)
 
 
-def _player_protected(plan: Plan, card: CardInstance) -> bool:
+def _player_protected(plan: Plan, card: CardInstance, who: str) -> bool:
     """-- player shields (wave 5E) -- does the controller's protection prevent the damage this mana source deals them?"""
     from app.rules import player_shields, source_shields
     from app.rules import replace as replacements
 
-    if player_shields.protected_from(plan, card.controller, plan.ch(card)) is None:
+    if player_shields.protected_from(plan, who, plan.ch(card)) is None:
         return False
-    ev = {"source_card": card.id, "source_oid": plan.oid(card.id), "target": card.controller, "combat": False,
-          "src": replacements.source_info(plan, card.id, plan.oid(card.id), plan.ch(card), card.controller)}
+    ev = {"source_card": card.id, "source_oid": plan.oid(card.id), "target": who, "combat": False,
+          "src": replacements.source_info(plan, card.id, plan.oid(card.id), plan.ch(card), who)}
     return source_shields.protection_applies(plan, ev)
 
 
@@ -1064,7 +1087,7 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[
         # -- mana riders (wave 5A) -- counter "tap": tapped for mana (106.12a: an ability with {T} in its cost)
         emit(plan.state, "mana_added", object_id=oids[card.id], card=card.id, player=player,
              counter="tap" if ability.tap else None)
-        after_mana_ability(plan, card, index, ability)
+        after_mana_ability(plan, card, index, ability, player)
     payment.life = life
     return payment
 
@@ -3601,16 +3624,17 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
         if n:
             plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n}, actor=card.controller)
     mana = _count(option)
+    who = card.controller  # (wave 24D: before a sacrifice cost sends the card away)
     oid = plan.oid(card)  # (wave 5A: the object as it was tapped)
     from app.rules import mana_units
 
-    plan.do({"type": "rules_mana", "player": card.controller, "tap": [card.id] if ability.tap else [],
+    plan.do({"type": "rules_mana", "player": who, "tap": [card.id] if ability.tap else [],
              "sacrifice": [card.id] if ability.sacrifice_self else [], **mana_units.added(plan, card, ability, mana),
-             "life": extra.life if extra else 0, "label": f"added {M.symbols(mana)}"}, actor=card.controller)
-    emit(plan.state, "mana_added", object_id=oid, card=card.id, player=card.controller, amount=sum(mana.values()),
+             "life": extra.life if extra else 0, "label": f"added {M.symbols(mana)}"}, actor=who)
+    emit(plan.state, "mana_added", object_id=oid, card=card.id, player=who, amount=sum(mana.values()),
          counter="tap" if ability.tap else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
     if index is not None:
-        after_mana_ability(plan, card, index, ability)
+        after_mana_ability(plan, card, index, ability, who)
 
 
 # -- refused copy/mana (wave 3R3) -- a mana ability whose cost chooses objects (Ashnod's Altar: "Sacrifice a
@@ -3651,6 +3675,7 @@ def _activate_choosing(plan: Plan, card: CardInstance, ch: Characteristics, pars
             pay(plan, card.controller, mana_cost, f"paid {cost.mana} to activate {ch.name}",
                 exclude=cost_payment.excluded(cost, card, objects))
     record = PaymentRecord(card=card.id, controller=card.controller)
+    who = card.controller  # (wave 24D)
     cost_payment.pay(plan, cost, card, objects, record)
     if parsed.tap or parsed.sacrifice_self or cost.life:
         plan.do({"type": "rules_mana", "player": card.controller, "tap": [card.id] if parsed.tap else [],
@@ -3660,23 +3685,24 @@ def _activate_choosing(plan: Plan, card: CardInstance, ch: Characteristics, pars
         decide(plan, player=plan.actor, kind="choose_one", prompt=f"Which mana should {ch.name} add?",
                options=[DecisionOption(id=str(i), label=M.symbols(_count(o))) for i, o in enumerate(options)],
                resume={"step": "mana_ability", "card": card.id, "ability": a.ability, "paid": True,
-                       "options": [list(o) for o in options], "oid": plan.oid(card)}, source=card)
+                       "options": [list(o) for o in options], "oid": plan.oid(card), "who": who}, source=card)
         return
-    _add_paid_mana(plan, card, parsed, option, a.ability, plan.oid(card))
+    _add_paid_mana(plan, card, parsed, option, a.ability, plan.oid(card), who)
     plan.rules.passed = []
 
 
 def _add_paid_mana(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tuple[str, ...], index: int,
-                   oid: str | None) -> None:
+                   oid: str | None, who: str | None = None) -> None:
     """The mana of an ability whose costs are paid (605.3a), then its riders (as ``produce``)."""
     from app.rules import mana_units
 
     mana = _count(option)
-    plan.do({"type": "rules_mana", "player": card.controller, "tap": [], "sacrifice": [], **mana_units.added(plan, card, ability, mana),
+    who = who or card.controller
+    plan.do({"type": "rules_mana", "player": who, "tap": [], "sacrifice": [], **mana_units.added(plan, card, ability, mana),
              "life": 0, "label": f"added {M.symbols(mana)}"}, actor=plan.actor)
-    emit(plan.state, "mana_added", object_id=oid, card=card.id, player=card.controller, amount=sum(mana.values()),
+    emit(plan.state, "mana_added", object_id=oid, card=card.id, player=who, amount=sum(mana.values()),
          counter="tap" if ability.tap else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
-    after_mana_ability(plan, card, index, ability)
+    after_mana_ability(plan, card, index, ability, who)
 
 
 def _resume_paid_mana(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -3687,7 +3713,7 @@ def _resume_paid_mana(plan: Plan, d: Any, chosen: list[str]) -> None:
         raise ActionError("Choose one of the offered mana")
     found = dict(mana_abilities(plan.state, card, plan.info)).get(int(d.resume["ability"]))
     parsed = found if found is not None else M.ManaAbility(tap=False, sacrifice_self=False, options=tuple(options))
-    _add_paid_mana(plan, card, parsed, options[k], int(d.resume["ability"]), d.resume.get("oid"))
+    _add_paid_mana(plan, card, parsed, options[k], int(d.resume["ability"]), d.resume.get("oid"), d.resume.get("who"))
     plan.rules.priority = plan.actor
     plan.rules.passed = []
 # -- end refused copy/mana (wave 3R3) --

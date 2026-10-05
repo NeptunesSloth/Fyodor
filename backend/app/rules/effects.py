@@ -577,7 +577,8 @@ def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Sou
             if each > 0:
                 # (wave 4E: "Each creature deals damage to itself equal to its power": its own damage, to itself;
                 # "… to each other creature": other than the creature dealing it)
-                keys = [sid] if e["who"] == "itself" else [*_other_than(plan, ctx, e, cards, sid), *players]
+                keys = [plan.state.cards[sid].controller] if e.get("to") == "controller" else \
+                    [sid] if e["who"] == "itself" else [*_other_than(plan, ctx, e, cards, sid), *players]  # (wave 24D: "to its controller")
                 hits += [(_card_source(plan, sid), key, each) for key in keys]
         return hits
     if e.get("src_many"):
@@ -1767,6 +1768,8 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: search for a {e.get('label') or 'card'}",
                options=options, resume={"step": "search_zones", "ctx": ctx, "e": e})
         return False
+    if e.get("may") and barred_search(plan, ctx, e):  # -- prohibitions (wave 24D) -- 608.2d: no choosing to search; so no shuffle
+        return True
     if e.get("may"):
         # "Its controller may search …, then shuffle" (Path to Exile): searching is their choice,
         # asked first — a player who doesn't search doesn't shuffle either (the card's ruling;
@@ -1776,6 +1779,21 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                resume={"step": "search_may", "ctx": ctx, "e": e})
         return False
     return _ask_search(plan, ctx, e, pid, 0, [])
+
+
+def barred_search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- prohibitions (wave 24D) -- 608.2d (the player can't choose an impossible option): "You may search your library …" can't be chosen while the searcher can't search it, so the
+    instruction is skipped whole — no search and (the ruling) no shuffle, unlike a mandatory "search …, then shuffle"
+    (a "may" over several zones, or a search of someone else's library, stays as it was)."""
+    from app.rules import prohibitions
+
+    if e.get("do") != "search" or e.get("graveyard") or e.get("zones") or e.get("who", "you") in ("each_opponent", "each_player"):
+        return False
+    who = _players(plan, ctx, e["who"]) if e.get("who", "you") != "you" else [ctx["controller"]]
+    if not who or (why := prohibitions.cant_search(plan, who[0], ctx["controller"])) is None:
+        return False
+    plan.note(f"{why}: {plan.name(who[0])} can't search their library, so doesn't choose to", actor=who[0])
+    return True
 
 
 def resume_search_may(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -2966,6 +2984,9 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
             plan.note(f"{entry.name or 'It'} does nothing: its condition no longer holds")
             finish(plan, ctx)
             return
+    if entry.optional and entry.effects and barred_search(plan, ctx, entry.effects[0]):
+        finish(plan, ctx)  # (-- prohibitions (wave 24D) -- "you may search …" can't be chosen: nothing is asked, nothing shuffled)
+        return
     if entry.optional:
         from app.rules.engine import remembered  # engine imports this module
 
@@ -3001,7 +3022,12 @@ def resume_may(plan: Plan, d: Any, chosen: list[str]) -> None:
         continue_effects(plan, ctx)
     else:
         plan.note(f"{plan.name(d.player)} chose not to")
-        finish(plan, ctx)
+        prev = ctx["effects"][ctx["next"] - 1] if ctx["next"] else {}  # (-- review (wave 24D) -- a whole-ability "may" asked at next 0)
+        if prev.get("do") == "may_rest" and prev.get("skip"):
+            ctx["next"] += prev["skip"]  # -- optional first sentence (wave 24D) -- only X is skipped, "Then Y" still happens
+            continue_effects(plan, ctx)
+        else:
+            finish(plan, ctx)
 
 
 def continue_effects(plan: Plan, ctx: Context) -> None:
@@ -3092,10 +3118,11 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str]
     with none is skipped. Choices already made are announced, so the next chooser knows them
     (101.4b). False while waiting for a choice."""
     want = _amount(plan, ctx, e["n"])
-    verb = "sacrifices" if step == "edict" else "chooses"
+    exiling = e.get("action") == "exile"  # -- modal spells (wave 24D) -- "Target opponent exiles a creature they control."
+    verb = ("exiles" if exiling else "sacrifices") if step == "edict" else "chooses"
     for i, pid in enumerate(players):
         mine = _controlled(plan, e["sel"], pid, ctx.get("source_card"))
-        if step == "edict" and mine and _sacrifice_barred(plan, ctx, pid):
+        if step == "edict" and not exiling and mine and _sacrifice_barred(plan, ctx, pid):
             mine = []  # -- prohibitions (wave 22B) -- nothing for them to sacrifice
         n = min(want, len(mine))
         if n == 0:
@@ -3104,7 +3131,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str]
             picked = [*picked, *mine]
             plan.note(f"{plan.name(pid)} {verb} {_labels(plan, mine)} (no choice: all of them)", mine, actor=pid)
             continue
-        prompt = f"{ctx.get('name', '') or 'Choose'}: {'sacrifice' if step == 'edict' else 'choose'} {n} ({e.get('label', 'permanent')})"
+        prompt = f"{ctx.get('name', '') or 'Choose'}: {verb[:-1] if step == 'edict' else 'choose'} {n} ({e.get('label', 'permanent')})"
         if picked:
             prompt += f" — already chosen: {_labels(plan, picked)}"  # 101.4b: the earlier choices are known
         decide(plan, player=pid, kind="choose_cards", prompt=prompt,
@@ -3112,7 +3139,9 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str]
                min_choices=0 if e.get("upto") else n, max_choices=n,  # (wave 11D: "chooses up to two creatures they control")
                resume={"step": step, "ctx": ctx, "e": e, "rest": players[i + 1:], "picked": picked})
         return False
-    if step == "edict":  # 101.4: after every choice, all sacrificed at once (one move, one event batch)
+    if step == "edict" and exiling:  # (-- modal spells (wave 24D) --) all exiled at once
+        exile_cards(plan, ctx, e, [c for c in picked if plan.state.cards[c].zone.endswith(":battlefield")])
+    elif step == "edict":  # 101.4: after every choice, all sacrificed at once (one move, one event batch)
         _sacrifice_cards(plan, picked, ctx["controller"], ctx, e.get("as"))
     elif e.get("rest"):  # -- choose the rest (wave 11D) -- "Each player chooses a creature they control, then sacrifices the rest."
         # Everything those players control that fits and wasn't chosen, all at once after every choice was made (101.4).

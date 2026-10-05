@@ -39,6 +39,18 @@ class DecisionOption(BaseModel):
     group: str | None = Field(default=None, max_length=64)  # reconcile: the question this answers
 
 
+# -- cancelling a cast (wave 24D) -- 601.2: the announcement choices (modes, targets) of a spell or ability that can still be taken back:
+# the chooser's view says ``cancelable`` and the answer ["cancel"] is legal (app/rules/casting.py: ``cancelled``).
+CANCELLABLE_STEPS = ("cast_target", "cast_group", "cast_modes", "cast_slot_target")
+
+
+def cancelable(d: Any) -> bool:
+    """Can this decision be answered ["cancel"]? (-- review (wave 24D) -- not a free cast begun as an effect resolves (608.2g): the
+    resolution that offered it is over, so cancelling would strand the card and keep its grant; its own "no" is the way out.)"""
+    resume = getattr(d, "resume", None) or {}
+    return resume.get("step") in CANCELLABLE_STEPS and not (resume.get("intent") or {}).get("free")
+
+
 class Decision(BaseModel):
     """One pending choice, addressed to one player. Everyone else only sees that they're waiting."""
 

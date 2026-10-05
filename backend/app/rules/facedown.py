@@ -37,6 +37,15 @@ def put_face_down(plan: Plan, card_id: str, player: str, kind: str, *, actor: st
     card = plan.state.cards.get(card_id)
     if card is None:
         return False
+    from app.rules import prohibitions
+
+    # -- prohibitions (wave 24D) -- 701.40f / 614.17d: the face-down object (a 2/2 creature card) is what must be allowed to enter:
+    # Grafdigger's Cage stops a manifest from the library; the card then stays where it is, face up (silently in a hidden zone)
+    if (barred := prohibitions.cant_enter(plan, card.model_copy(update={"face_down": True, "face_down_kind": kind, "face_down_as": spec}),
+                                          player)) is not None:
+        if barred[1]:
+            plan.note(f"{barred[0]}: a card can't enter the battlefield", [card_id])
+        return False
     probe: CardInstance = card.model_copy(update={"face_down": True, "face_down_kind": kind, "face_down_as": spec,
                                                   "zone": zone_key(player, "battlefield"), "controller": player})
     ep = replacements.entry_plan(plan, probe, player)

@@ -240,10 +240,11 @@ def penalty(riders: tuple[tuple[str, int], ...]) -> int:
     return sum(n for kind, n in riders if kind in ("opp_gain", "stay_tapped"))  # (stay_tapped: wave 6A)
 
 
-def after(plan: Plan, card: CardInstance, kind: str, n: int) -> None:
+def after(plan: Plan, card: CardInstance, kind: str, n: int, who: str | None = None) -> None:
     """A rider of this module, right after the ability's mana was added (605.3b: the same resolution)."""
     from app.rules import replace
 
+    who = who or card.controller  # (wave 24D: the activating player; 603.7e-style, the card may have left)
     if kind.startswith("counter:"):  # (an effect of the ability: the counter choke point, 122.6 / 614)
         if card.zone.endswith(":battlefield"):
             replace.put_counters(plan, [(card.id, kind.split(":", 1)[1], n)], by=card.controller)
@@ -256,17 +257,17 @@ def after(plan: Plan, card: CardInstance, kind: str, n: int) -> None:
         from app.rules import delayed
 
         # (review 23B: 603.7e — whoever activated it; a card sacrificed as the cost is back under its owner's control by now)
-        delayed.create_plain(plan, plan.actor if plan.actor in plan.state.players else card.controller, card.id, plan.oid(card.id), plan.ch(card).name,
+        delayed.create_plain(plan, who, card.id, plan.oid(card.id), plan.ch(card).name,
                              {"kind": "step", "step": "upkeep", "whose": "next_turn"}, [{"do": "draw", "who": "you", "n": 1}])
     elif kind == "stay_tapped":  # -- next untap step (wave 6A) --
         if card.zone.endswith(":battlefield"):
-            plan.rules.stay_tapped.append({"oid": plan.oid(card.id), "player": card.controller})
+            plan.rules.stay_tapped.append({"oid": plan.oid(card.id), "player": who})
     elif kind == "gain":
-        replace.gain_life(plan, [(card.controller, n)], actor=card.controller)
+        replace.gain_life(plan, [(who, n)], actor=who)
     elif kind == "opp_gain":
-        gains = [(p, n) for p in plan.live() if p != card.controller]
+        gains = [(p, n) for p in plan.live() if p != who]
         if gains:
-            replace.gain_life(plan, gains, actor=card.controller)
+            replace.gain_life(plan, gains, actor=who)
 
 
 # -- "Exile this card from your hand: Add {R}." (Simian / Elvish Spirit Guide) ----------------------------------------------

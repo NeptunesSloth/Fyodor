@@ -2683,6 +2683,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         if effects and text.startswith("then you may ") and _may_then_if_you_do(text[5:], texts[i + 1:], effects, probe=False) is not None:
             text = text[5:]  # (-- if you do (wave 15C) -- "then" only orders, 608.2c)
+        elif effects and text.startswith("then you may ") and not any(p.match(text) for p, _ in EFFECTS) \
+                and (_clause(text[5:], True) or ([],))[0] and any(x.get("optional") for x in (_clause(text[5:], True) or ([],))[0]):
+            text = text[5:]  # -- modal spells (wave 24D) -- "Draw a card. Then you may put a land card from your hand onto the battlefield tapped.":
+            # "then" only orders (608.2c); the clause that models its own choice (an "optional" instruction) is read as "You may …"
         if text.startswith("you may "):
             if effects and (mid := _may_then_if_you_do(text, texts[i + 1:], effects)) is not None:
                 effects += _add_groups(groups, *mid)  # -- if you do (wave 15C) -- "…. You may draw a card. If you do, discard a card."
@@ -2724,7 +2728,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += _add_groups(groups, found, sel)
     if _x_now():
         effects = _swap_x(effects)
-    if any(e.get("do") == "may_rest" for e in effects[:sentences[-1]]) and not (
+    if optional and len(sentences) == len(texts) > 1 and (first := _may_first_only(texts, effects, sentences)):
+        effects, sentences, optional = [{"do": "may_rest", "skip": first}, *effects], [k + 1 for k in sentences], False
+    if any(e.get("do") == "may_rest" and not e.get("skip") for e in effects[:sentences[-1]]) and not (
             effects[sentences[-1]].get("do") == "reflexive" and '"discarded"' in json.dumps(effects[sentences[-1]].get("cond"))):
         # (-- resolution memory (wave 22D) -- but a reflexive "When you discard a card this way" ends with it anyway: no discard, no trigger)
         return None  # -- reanimation (wave 20C) -- may_rest ends the resolution on "no": nothing may follow its sentence
@@ -2846,6 +2852,20 @@ def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0]["do"] == "tap_or_untap":
         return [{**parsed[0][0], "optional": True}], parsed[1], False
     return parsed
+
+
+# -- optional first sentence (wave 24D) -- "You may X. Then Y." / "You may X. Y.": the "may" is X's alone (608.2c; 603.5), Y happens either way
+_DEPENDENT = re.compile(r"\b(?:if you (?:do|did|don't|didn't|can't|can)|when you do|this way|that way|those|them|that \w+|this mana|if you (?:win|lose)|shuffle|the (?:copy|flip|exiled|chosen|revealed|"
+                        r"discarded|sacrificed|returned|searched)|it\b|its\b|instead)", re.IGNORECASE)
+
+
+def _may_first_only(texts: list[str], effects: list[dict[str, Any]], sentences: list[int]) -> int:
+    """The number of instructions in the optional first sentence when no later sentence reads what it did (else 0: the whole
+    ability stays optional)."""
+    first = effects[: sentences[1]]
+    if not first or not texts[0].lower().startswith("you may ") or any(e.get("optional") or e.get("do") == "may_rest" or e.get("may") for e in first):
+        return 0
+    return 0 if any(_DEPENDENT.search(t) for t in texts[1:]) else len(first)
 
 
 _KICKED = re.compile(r"^if (?:this spell|it|~) was kicked, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$")
@@ -5073,6 +5093,7 @@ def _choice_template(pattern: str, build: Any) -> None:
 from app.rules import language as _language  # noqa: E402  (a leaf module)
 
 for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OTHERS, _language.edict),
+                         (_language.EDICT_EXILE, _language.edict),
                          (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.REVEAL_HAND, _language.reveal_hand),
                          (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
                          (_language.CHOOSE_VALUE, _language.choose_value),

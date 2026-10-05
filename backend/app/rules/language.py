@@ -2265,10 +2265,19 @@ def _check_per_player(effects: Effects, groups: list[dict[str, Any]]) -> None:
         raise _Fail
 
 
+_EACH_TO_CONTROLLER = re.compile(rf"(?P<s>each .+?) deals (?P<n>{AMT}) damage to its controller")
+
+
 def _sized_damage_forms(text: str, rider: Any) -> tuple[Effects, Any] | None:
     """"Target creature deals damage to itself equal to its power" / "Each creature deals damage to
     itself equal to its power" (the creature is the source: 120.3; its power as it is or as it last
     existed: 608.2h)."""
+    each_ctrl = _EACH_TO_CONTROLLER.fullmatch(text)  # -- modal spells (wave 24D) -- "Each creature deals 1 damage to its controller."
+    if each_ctrl is not None and rider is None:
+        kind, key, _ = ref(each_ctrl["s"])
+        if kind != "each" or selectors.from_key(key).player is not None:
+            raise _Fail
+        return [{"do": "damage", "who": "itself", "n": _amount(each_ctrl["n"]), "src": "each:" + key, "to": "controller"}], None
     m = sized_damage.SELF_DAMAGE.fullmatch(text)
     if m is None:
         return None
@@ -2406,6 +2415,9 @@ CHOOSER = "|".join(re.escape(c) for c in sorted(_CHOOSERS, key=len, reverse=True
 # (patterns are format()-ed by scripts.effect: no literal braces)
 EDICT = rf"(?P<s>{CHOOSER}) sacrifices (?P<n>{AMT}) (?P<sel>.+?) of their choice(?: for each (?P<each>.+))?"  # (each: wave 19D, Smokestack)
 EDICT_OTHERS = rf"each other player sacrifices (?P<n>{AMT}) (?P<sel>.+?)(?: of their choice)?"
+# -- modal spells (wave 24D) -- "Target opponent exiles a creature they control." (Doomfall, Debt to the Kami): the edict's choice (101.4,
+# 701.21a-style: the player chooses among what they control), exiled instead of sacrificed
+EDICT_EXILE = rf"(?P<s>{CHOOSER}) exiles (?P<n>{AMT}) (?P<sel>.+?) they control"
 PLAYER_CHOOSES = (rf"(?P<s>{CHOOSER}) chooses (?:(?P<upto>up to )?(?P<n>{AMT})) (?P<sel>.+?) they control"
                   r"(?:, then (?:(?P<sac>sacrifices the rest)|(?P<des>the rest are destroyed)))?")  # (wave 11D: "… then sacrifices the rest")
 REVEAL_HAND = rf"(?P<s>{CHOOSER}) reveals their hand"
@@ -2454,7 +2466,7 @@ def edict(m: re.Match[str]) -> tuple[Effects, Any]:
         if v is None:
             raise _Fail
         n = v if n == 1 else {"times": [n, v]}
-    return [{"do": "edict", "who": who, "sel": key, "n": n, "label": m["sel"]}], _one(group)
+    return [{"do": "edict", "who": who, "sel": key, "n": n, "label": m["sel"], **({"action": "exile"} if "exiles" in m.re.pattern else {})}], _one(group)
 
 
 def player_chooses(m: re.Match[str]) -> tuple[Effects, Any]:

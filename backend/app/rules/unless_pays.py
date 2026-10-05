@@ -118,12 +118,16 @@ def may_rest(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.engine import remembered  # engine imports effects → this module
 
     pid = ctx["controller"]
-    rest = ctx["effects"][ctx["next"]:]
+    if ctx["next"] < len(ctx["effects"]) and effects.barred_search(plan, ctx, ctx["effects"][ctx["next"]]):  # -- prohibitions (wave 24D) -- can't choose to search: skip it
+        ctx["next"] += e.get("skip") or len(ctx["effects"])
+        return True
+    skip = e.get("skip")  # -- optional first sentence (wave 24D) -- "You may X. Then Y.": only X's ``skip`` instructions are the "may"
+    rest = ctx["effects"][ctx["next"]:ctx["next"] + skip if skip else None]
     key = may_key(ctx)
     answer = remembered(plan, pid, key, "")
     if answer == "no":
         plan.note(f"{plan.name(pid)} chose not to")
-        ctx["next"] = len(ctx["effects"])
+        ctx["next"] += skip or len(ctx["effects"])
         return True
     if answer == "yes":
         return True
