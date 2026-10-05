@@ -175,6 +175,10 @@ def parse(text: str) -> Definition | None:
     body = re.sub(r"(?P<sep>, and| and|,) all creatures able to block it do so$", r"\g<sep> must be blocked by all creatures able", body)
     # -- borrowed abilities (wave 18F) -- "As long as ~ is on the battlefield, …": a static of a permanent works there only (611.3b)
     body = re.sub(r"^As long as (?:~|it) is on the battlefield, ", "", body)
+    # -- as long as (wave 20B) -- "Each land gets +2/+2 as long as it's a creature." (Earth Surge, Depala's "Each Vehicle you control"): each
+    # land that is a creature at that moment (611.3a), as "Each land creature gets +2/+2"
+    body = re.sub(r"^Each (?P<n>[A-Za-z]+)(?P<c> you control)? (?P<v>gets? [+−-]\d+/[+−-]\d+) as long as it's a creature$",
+                  r"Each \g<n> creature\g<c> \g<v>", body)
     conds: list[dict[str, Any]] = []
     names_source = False  # -- conditional statics (wave 4B) -- the condition names the source as "~", not "it"
     defender_sel: str | None = None  # "… as long as defending player controls an artifact"
@@ -215,6 +219,8 @@ def parse(text: str) -> Definition | None:
                     it_is = re.fullmatch(r"it(?:'s| is) (?P<d>.+)", cond_text)
                     if host and it_is:
                         cond_text = f"{host['w'].lower()} {host['n']} is {it_is['d']}"
+                    if cond_text == "it attacked this turn" and rest_text.startswith("~ "):  # -- as long as (wave 20B) -- "it" is the source
+                        cond_text = "~ attacked this turn"
                     cond = _condition(cond_text)
                     if cond is None:
                         return None
@@ -322,6 +328,8 @@ def parse(text: str) -> Definition | None:
 
 # -- conditional statics (wave 4B) ----------------------------------------------------------------------------
 _NOT_CREATURE = re.compile(r"^(?:~|it) isn't a creature$")
+_IS_TYPES = re.compile(r"^(?:~|it)(?:'s| is) an? (?:(?P<pt>\d+)/(?P<tt>\d+) )?(?P<types>(?:(?:artifact|creature|land|enchantment) )*"
+                       r"(?:artifact|creature|land|enchantment))(?P<add> in addition to its other types)?(?: and (?P<rest>(?:it|~) .+))?$")
 _IN_ADDITION = re.compile(r"^(?:(?P<pre>.+?),? and |(?:~|it) )is (?:a|an) (?P<sub>[A-Z][a-z]+) in addition to its other types$")
 
 
@@ -337,6 +345,15 @@ def _layer4_parts(body: str) -> tuple[str, dict[str, Any]] | None:
     creature type). → (the rest of the predicate, or "" when nothing is left; the definition keys)."""
     if _NOT_CREATURE.fullmatch(body):
         return "", {"remove_types": ["Creature"], "add_subtypes": []}
+    # -- as long as (wave 20B) -- "it's a land" (205.1a: replaces the card types), "it's an artifact creature", "it's a 0/0 creature in addition
+    # to its other types and it has annihilator 2" (205.1b; the 0/0 is layer 7b, 613.4b)
+    m = _IS_TYPES.fullmatch(body)
+    if m:
+        kinds = [w.capitalize() for w in m["types"].split()]
+        parts: dict[str, Any] = {"remove_types": [], "add_subtypes": [], ("add_types" if m["add"] else "set_types"): kinds}
+        if m["pt"]:
+            parts["base"] = [int(m["pt"]), int(m["tt"])]
+        return (m["rest"] or ""), parts
     m = _IN_ADDITION.fullmatch(body)
     if m:
         from app.rules.creature_types import CREATURE_TYPES
@@ -351,7 +368,7 @@ def _layer4_safe(cond: dict[str, Any]) -> bool:
     """A layer-4 static's condition must not read characteristics (it is applied while they are being derived,
     for every reader: 613.8 dependencies on other objects' types aren't modelled): the source's counters, devotion
     (700.5a: mana costs after copy effects only), life totals, whose turn it is."""
-    if cond.get("static") in ("self_counter", "your_turn", "life_vs_start", "opp_life"):
+    if cond.get("static") in ("self_counter", "your_turn", "life_vs_start", "opp_life", "graveyard"):  # (wave 20B: graveyard sizes)
         return True
     if cond == {"static": "self", "test": "attached_to_a_creature"}:  # -- casting extras (wave 18E) -- reconfigure 702.151b
         return True
@@ -915,6 +932,14 @@ def _condition(text: str) -> dict[str, Any] | None:
     if m:
         n = _num(m["n1"] or m["n2"])
         return {"static": "graveyard", "op": ">=", "n": n} if n is not None else None
+    # -- as long as (wave 20B) -- "there are fewer than eight cards in your graveyard" (Warring Triad); "it has two or fewer oil counters on it"
+    m = re.fullmatch(r"there are fewer than (?P<n>\w+) cards in your graveyard", c)
+    if m:
+        n = _num(m["n"])
+        return {"static": "graveyard", "op": "<", "n": n} if n is not None else None
+    m = re.fullmatch(r"(?:it|~) has (?P<n>\w+) or fewer (?P<kind>[a-z]+) counters on (?:it|him|her)", c)
+    if m and _num(m["n"]) is not None:
+        return {"static": "self_counter", "counter": m["kind"], "op": ">=", "n": 0, "max": _num(m["n"])}  # (the "max" of wave 9D)
     from app.rules import static_conditions  # -- conditional statics (wave 4B) --
 
     found = static_conditions.parse(c)
@@ -971,7 +996,8 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
         total = sum(source.counters.get(k, 0) for k in kinds)
         return total >= cond["n"] and (cond.get("max") is None or total <= cond["max"])  # (max: wave 9D, 711.2a)
     if kind == "graveyard":
-        return len(plan.state.zones.get(f"{controller}:graveyard", [])) >= cond["n"]
+        size = len(plan.state.zones.get(f"{controller}:graveyard", []))
+        return size < cond["n"] if cond["op"] == "<" else size >= cond["n"]  # (-- as long as (wave 20B) -- "fewer than")
     from app.rules import static_conditions  # -- conditional statics (wave 4B) --
 
     if kind in static_conditions.KINDS:

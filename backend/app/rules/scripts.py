@@ -2646,7 +2646,7 @@ def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
 _KICKED = re.compile(r"^if (?:this spell|it|~) was kicked, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$")
 # -- refused look/cast-free (wave 3R5) -- after a free cast: a replacement effect on the spell cast (614.1a)
 _FREE_EXILE_GY = re.compile(r"^if (?:that spell|that card|a spell cast this way|(?P<is>an instant or sorcery) spell cast this way) "  # (wave 19C: "is")
-                            r"would be put into (?:your|a) graveyard, exile it instead$")
+                            r"would be put into (?:your|their|a) graveyard, exile it instead$")
 # -- refused look/cast-free (wave 3R5) -- 700.3: piles of the cards just revealed (public: 701.20a)
 _PILES_THEY = re.compile(r"^an opponent separates (?:those|the revealed|these) cards into two piles$")
 _PILES_YOU = re.compile(r"^(?P<reveal>reveal the top .+? of your library) and separate them into two piles$")
@@ -3936,10 +3936,12 @@ _UNLESS_COUNT = re.compile(r"^you control (?P<n>\w+) or (?P<cmp>more|fewer) (?P<
 _UNLESS_OPPONENTS = re.compile(r"^you have (?P<n>\w+) or more opponents$")
 # The object's own "instead": "If ~ would die, exile it instead." / "… be put into a graveyard from anywhere …"
 EXILE_INSTEAD_SELF = re.compile(r"^If ~ would (?P<what>die|be put into a graveyard from anywhere), exile it instead\.$")
+# -- instead (wave 20B) -- "If this creature would die, put it on the bottom of its owner's library instead." (Nissa's Chosen; on top: Gravebane Zombie)
+LIBRARY_INSTEAD_SELF = re.compile(r"^If ~ would die, put it on (?P<pos>top|the bottom) of its owner's library instead\.$")
 # Statics: "If a creature an opponent controls would die, exile it instead." / Rest in Peace / Leyline of the Void
 EXILE_INSTEAD_STATIC = re.compile(r"^If (?P<subject>a card or token|a card|(?:a|an) (?P<sel>[a-z][a-z' ~]+?)) would "
-                                  r"(?P<what>die|be put into (?P<whose>a|your|an opponent's) graveyard from anywhere), "
-                                  r"exile (?:it|that card) instead\.$")
+                                  r"(?P<what>die|be put into (?P<whose>a|your|an opponent's) graveyard(?P<any> from anywhere)?), "
+                                  r"exile (?:it|that card) instead\.$")  # (any: "If a permanent would be put into a graveyard" — wave 20B)
 # Prevention: "Prevent all [combat] damage that would be dealt [this turn] [to …] [by …] [this turn]."
 PREVENT_ALL = re.compile(r"^prevent all (?P<kind>combat |noncombat )?damage that would be dealt(?P<t1> this turn)?"
                          r"(?: to (?P<to>.+?))?(?P<t2> this turn)?(?: by (?P<by>.+?))?(?P<t3> this turn)?$")
@@ -4325,19 +4327,30 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if m:
         return {"kind": "replacement", "replacement": "exile_instead",
                 "from": "battlefield" if m["what"] == "die" else "anywhere", "effects": []}
+    m = LIBRARY_INSTEAD_SELF.match(text)
+    if m:
+        return {"kind": "replacement", "replacement": "library_instead", "from": "battlefield", "effects": [],
+                "position": "top" if m["pos"] == "top" else "bottom"}
     m = EXILE_INSTEAD_STATIC.match(text)
     if m:
         out = {"kind": "static", "static": "exile_instead", "effects": [],
-               "from": "battlefield" if m["what"] == "die" else "anywhere",
+               "from": "anywhere" if m["any"] else "battlefield",
                "graveyard_of": {"a": "any", "your": "you", "an opponent's": "opponent"}.get(m["whose"] or "a", "any")}
+        if m["subject"] in ("a card or token", "a card") and m["what"] != "die" and not m["any"]:
+            return None  # (wave 20B: without "from anywhere" only a permanent's trip from the battlefield is read)
         if m["subject"] == "a card or token":
             out["who"] = "any"
         elif m["subject"] == "a card":
             out["who"] = "card"
-        else:
-            if m["what"] != "die":
+        elif m["any"]:
+            # -- instead (wave 20B) -- "an instant or sorcery card would be put into a graveyard from anywhere" (Dryad Militant): a card
+            # of those types wherever it is (public once it moves: to the graveyard or to exile)
+            kinds = re.fullmatch(r"(?P<a>instant|sorcery)(?: or (?P<b>instant|sorcery))? card", m["sel"])
+            if kinds is None or kinds["b"] is None or kinds["a"] == kinds["b"]:
                 return None  # ("a creature card … from anywhere": a card in a hidden zone, not modeled)
-            key = _selector_key(m["sel"])
+            out["who"] = "types:Instant|Sorcery"
+        else:
+            key = _selector_key(m["sel"])  # (a permanent: a battlefield object, "put into a graveyard" being "dies" for any permanent)
             if key is None:
                 return None
             out["who"] = key

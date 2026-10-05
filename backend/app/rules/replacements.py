@@ -717,6 +717,14 @@ def _self_exile_instead(plan: Plan, card: CardInstance) -> bool:
                and (d.get("from") == "anywhere" or frm == "battlefield") for d in _definitions(plan, card).values())
 
 
+def _self_library_instead(plan: Plan, card: CardInstance) -> str | None:
+    """-- instead (wave 20B) -- "If ~ would die, put it on top of / on the bottom of its owner's library instead." (614.1a): where."""
+    if _from_zone(card) != "battlefield":
+        return None
+    return next((str(d["position"]) for d in _definitions(plan, card).values()
+                 if d["kind"] == "replacement" and d.get("replacement") == "library_instead"), None)
+
+
 def _static_exile_instead(plan: Plan, card: CardInstance) -> CardInstance | None:
     """A permanent on the battlefield whose static ability replaces this card's trip to the
     graveyard ("If a creature an opponent controls would die, exile it instead.", "If a card or
@@ -736,7 +744,10 @@ def _static_exile_instead(plan: Plan, card: CardInstance) -> CardInstance | None
             who = d.get("who", "any")
             if who == "card" and card.is_token:
                 continue  # "If a card would be put into …": tokens aren't cards (108.2a)
-            if who not in ("any", "card"):
+            if who.startswith("types:"):  # -- instead (wave 20B) -- "an instant or sorcery card": a card (not a token) with one of the types
+                if card.is_token or not set(who[6:].split("|")) & plan.ch(card).types:
+                    continue
+            elif who not in ("any", "card"):
                 if frm != "battlefield":
                     continue
                 if not selectors.matches(plan, selectors.from_key(who), card, plan.ch(card), src.controller, src.id):
@@ -831,6 +842,9 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             if _self_exile_instead(plan, card):
                 replaced.append((cid, "exile", card.name or "its own ability"))
                 continue
+            if (where := _self_library_instead(plan, card)) is not None:  # -- instead (wave 20B) --
+                replaced.append((cid, f"library:{where}", card.name or "its own ability"))
+                continue
             src = _static_exile_instead(plan, card)
             if src is not None:
                 replaced.append((cid, "exile", src.name or "a static ability"))
@@ -857,6 +871,9 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
         # (-- merged permanents (wave 18D) -- 903.9c: the cards of a merged / melded commander that aren't commanders go where it was headed)
         also = {"rest_zone": dest, **{k: payload[k] for k in ("position", "index") if payload.get(k) is not None}} \
             if zone == "command" and plan.state.cards[cid].merged and dest in ("hand", "library") else {}  # (review 18D: top / bottom too)
+        if zone.startswith("library:"):  # -- instead (wave 20B) -- on top of / on the bottom of its owner's library
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": zone[8:]}, actor=actor)
+            continue
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": zone}, **also}, actor=actor)
     for cid, cost in madness:
         _discard_into_exile(plan, cid, cost, actor)
@@ -866,6 +883,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
         return {**payload, "card_ids": rest}
     whys = sorted({why for _, _, why in replaced})
     text = ("Exiled instead" + (f" ({', '.join(whys)})" if whys and whys != ["903.9b"] else "")) if replaced else "Discarded into exile (madness)"
+    if replaced and all(zone.startswith("library:") for _, zone, _ in replaced):
+        text = "Put into its owner's library instead"
     if replaced and all(zone == "command" for _, zone, _ in replaced):
         text = "Put into the command zone instead (903.9b)"
     ids = [cid for cid, _, _ in replaced] + [cid for cid, _ in madness]

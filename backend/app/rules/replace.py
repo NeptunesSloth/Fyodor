@@ -1295,6 +1295,8 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
         return False
     if m.get("monarch") and plan.state.table.monarch != c.controller:  # (-- prevention riders (wave 17A) -- "while you're the monarch")
         return False
+    if m.get("at_least") and ev["amount"] < m["at_least"]:
+        return False  # -- instead (wave 20B) -- "If a source would deal 4 or more damage …": judged on the amount as it is now (614.6)
     if c.op["do"] == "redirect":  # -- refused grants/replacements (wave 3R2) -- 614.9: nowhere to redirect to: nothing
         from app.rules import source_shields
 
@@ -1340,6 +1342,8 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         n = max(0, n - int(op["n"]))
     elif kind == "half":
         n //= 2
+    elif kind == "cap":  # -- instead (wave 20B) -- "that source deals 3 damage instead" (the threshold was met: the amount is above the cap)
+        n = int(op["n"])
     elif kind == "prevent":
         n = max(0, n - int(op["n"]))
     elif kind == "prevent_half_up":  # -- damage wordings (wave 6B) -- prevent half, rounded up: half rounded down is left
