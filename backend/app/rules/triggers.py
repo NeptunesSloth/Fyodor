@@ -1507,6 +1507,7 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
         for i, d in abilities(plan, ch, "targeted_self"):
             event = TriggerEvent(kind="targeted", count=1,
                                  objects=[ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone)],
+                                 players=[controller],  # -- triggers (wave 21B) -- "that spell's controller" (115.1)
                                  source=ObjectRef(card=stack_id, object_id=plan.oid(spell), zone=spell.zone)
                                  if spell is not None else None)
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
