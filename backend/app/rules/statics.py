@@ -134,8 +134,6 @@ def parse(text: str) -> Definition | None:
     # other abilities." (Spider-Man No More), "… 0/1. It can't attack and loses all abilities." (Retro-Mutation): one static's three parts
     t = re.sub(r"^(Enchanted creature is an? [^.]+? with base power and toughness \d+/\d+)\. It (has [a-z]+|can't attack) and "
                r"(loses all (?:other )?abilities)\.$", r"\1, \2, and \3.", t)
-    # (Canopy Cover, Shielding Plax) 702.11b: hexproof is exactly "can't be the target of spells or abilities your opponents control"
-    t = re.sub(r"^((?:Enchanted|Equipped) creature) can't be the target of spells or abilities your opponents control\.$", r"\1 has hexproof.", t)
     t = re.sub(r"^(Enchanted land) is an? (\d+)/(\d+) ([^.]+? creature) that's still a land\.$",  # (wave 20A: Living Terrain, the same as Zendikon)
                r"\1 is a \4 with base power and toughness \2/\3 in addition to its other types.", t)
     t = t.replace(" be activated unless they're mana abilities", " be activated-nonmana")  # ("unless" is not a condition here)
@@ -852,6 +850,11 @@ def _rule(piece: str) -> list[str] | None:
         return ["cant_be_blocked_by_power:greater"]
     if piece == "can't block creatures with power greater than ~'s power":
         return ["cant_block_power:greater"]
+    # (-- review 20A -- Canopy Cover, Shielding Plax: "your opponents" are the opponents of the Aura's / Equipment's controller, who may
+    # not control the creature, so it isn't hexproof, 702.11b: whoever controls the source of the targeting may target it unless an
+    # opponent of "@you", app/rules/targets.py)
+    if piece == "can't be the target of spells or abilities your opponents control":
+        return ["untargetable_by_opponents_of:@you"]
     # -- cant (wave 16F) -- 115.2: "can't be the target of black spells or abilities from black sources" (Mercenary Informer) /
     # "… of nongreen spells or abilities from nongreen sources" (Gaea's Revenge), "… your opponents control" (Thrun): an object
     # whose source (a spell, or the source of an ability) has that color (or lacks it) can't target it. Colorless is nongreen.
