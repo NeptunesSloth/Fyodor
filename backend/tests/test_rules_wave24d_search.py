@@ -7,7 +7,7 @@ import pytest
 
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
+from tests.wave9c_kit import build, check, mana, put, to_hand
 
 EXTRA = [
     real("Mindlock Orb", "{3}{U}", 4, "Artifact", "Players can't search libraries.", None, "U"),

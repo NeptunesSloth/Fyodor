@@ -332,6 +332,8 @@ export interface DecisionView {
   min_choices?: number;
   max_choices?: number;
   rememberable?: boolean;
+  /** A spell's or ability's mode / target choice (601.2): answering ["cancel"] takes the cast back, nothing paid. */
+  cancelable?: boolean;
   /** Presentation hints for the chooser (e.g. a payment's suggested sources). */
   display?: { kind: string; [key: string]: unknown };
   /** Other players' view of someone's decision: only who is choosing. */

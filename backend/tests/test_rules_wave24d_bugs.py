@@ -5,11 +5,12 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.rules_state import CANCELLABLE_STEPS
+from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_attachments import ch
 from tests.test_rules_conditionals import build, pick, settle, to_hand, until_asked
 from tests.test_rules_effects import mana, replay_matches, token
-from tests.fixtures.cards import card, fixture_cards
 
 EXTRA = [  # noqa: E501
     card("Finality", set_code="tst", number="24D-FI", mana_cost="{4}{B}{G}", cmc=6.0, type_line="Sorcery",
@@ -35,7 +36,7 @@ def test_cancel_target_choice_rewinds_cast(cards):
     mana(s, R=1)
     act(s, "p1", type="cast_spell", card_id=bolt.id)
     d = s.state.rules.decision
-    assert d is not None and any(o.id == "cancel" for o in d.options)
+    assert d is not None and (d.resume or {}).get("step") in CANCELLABLE_STEPS  # (the chooser's view says "cancelable")
     pick(s, "cancel")
     assert s.state.rules.decision is None and s.state.rules.priority == "p1"
     assert s.state.cards[bolt.id].zone == "p1:hand" and not s.state.zones.get("stack")
@@ -97,7 +98,7 @@ def test_cancel_mode_choice_rewinds_cast(cards):
     mana(s, B=1, C=2)
     act(s, "p1", type="cast_spell", card_id=spell.id)
     d = s.state.rules.decision
-    assert d is not None and d.options[-1].id == "cancel"
+    assert d is not None and (d.resume or {}).get("step") in CANCELLABLE_STEPS
     pick(s, "cancel")
     assert s.state.cards[spell.id].zone == "p1:hand" and s.state.rules.decision is None and not s.state.zones.get("stack")
     assert s.state.players["p1"].mana.get("B") == 1

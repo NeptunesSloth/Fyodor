@@ -1104,6 +1104,8 @@ def choose(plan: Plan, a: A.Choose) -> None:
         raise ActionError(f"It's {plan.name(d.player)}'s decision")
     chosen = list(a.option_ids)
     valid = {o.id for o in d.options}
+    if (d.resume or {}).get("step") in casting.CANCELLABLE:
+        valid.add("cancel")  # (-- cancelling a cast (wave 24D) --)
     from app.rules import card_names  # -- card names (wave 22B) -- 201.4: a typed name answers it
 
     if card_names.is_free_text(d):
