@@ -215,3 +215,91 @@ def test_cellarspawn_counts_x_in_the_mana_value_of_an_x_spell(cards):
     drive(s, picker("Bob"))
     assert life(s, "p2") == 40 - 1
     roundtrip(s)
+
+
+def test_alluring_siren_forces_an_attack_on_its_controller_in_the_declaration(cards):
+    from app.game.errors import ActionError
+
+    s = three(cards, ["Alluring Siren"], ["Scuttlemutt"])
+    siren = put(s, "Alluring Siren")
+    victim = put(s, "Scuttlemutt", pid="p2")
+    unready(s, siren, victim)
+    act(s, "p1", type="set_stops", others=["begin_combat"])
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "begin_combat" and s.state.rules.priority == "p1"
+          and s.state.rules.decision is None)
+    i = next(a.index for a in ch(s, siren).abilities if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=siren.id, ability=i, targets=[victim.id])
+    drive(s)
+    to_attack(s)
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_attackers", attackers=[])
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_attackers", attackers=[{"card_id": victim.id, "target": "p3"}])
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": victim.id, "target": "p1"}])
+    roundtrip(s)
+
+
+def test_hawkeye_the_entering_hero_deals_the_damage(cards):
+    s = game(cards, ["Hawkeye, Trick Shot", "Zarda, the Power Princess"])
+    hawkeye = put(s, "Hawkeye, Trick Shot", "hand")
+    mana(s, R=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=hawkeye.id)
+    drive(s, picker("Bob"))
+    assert life(s, "p2") == 39  # (one Hero)
+    zarda = put(s, "Zarda, the Power Princess", "hand")  # (the entering Hero is the source: "src": "event")
+    mana(s, W=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=zarda.id)
+    drive(s, picker("Bob"))
+    assert life(s, "p2") == 37  # (two Heroes; Zarda, the entering Hero, is the source)
+    roundtrip(s)
+
+
+def test_vincent_valentine_grows_by_the_dead_creatures_last_power(cards):
+    s = game(cards, ["Vincent Valentine // Galian Beast", "Probe Bolt"])
+    vincent = put(s, "Vincent Valentine // Galian Beast")
+    wolf = token(s, "p2", "Wolf", "1/1", "Token Creature — Wolf")
+    act(s, "p2", type="counter", card_ids=[wolf.id], kind="+1/+1", delta=2)
+    act(s, "p2", type="set_damage", card_ids=[wolf.id], value=2)
+    bolt = put(s, "Probe Bolt", "hand")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[wolf.id])
+    drive(s)
+    assert s.state.cards[vincent.id].counters.get("+1/+1") == 3
+    roundtrip(s)
+
+
+def test_spiritual_sanctuary_each_player_with_a_plains_gains_in_their_upkeep(cards):
+    s = game(cards, ["Spiritual Sanctuary"])
+    put(s, "Spiritual Sanctuary")
+    token(s, "p2", "Plains", None, "Token Land — Plains")
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    assert life(s, "p2") == 41 and life(s, "p1") == 40  # (Alice has no Plains)
+    roundtrip(s)
+
+
+def test_raffines_guidance_is_cast_from_the_graveyard_for_its_alternative_cost(cards):
+    s = game(cards, ["Raffine's Guidance", "Grizzly Bears"])
+    bears = put(s, "Grizzly Bears")
+    aura = put(s, "Raffine's Guidance", "graveyard")
+    mana(s, W=1, C=2)
+    i = next(a.index for a in ch(s, aura).abilities if "graveyard" in a.text)
+    act(s, "p1", type="cast_spell", card_id=aura.id, alt_cost=f"{aura.id}:{i}", targets=[bears.id])
+    drive(s)
+    assert s.state.cards[aura.id].attached_to == bears.id and power(s, bears) == 3
+    assert not s.state.players["p1"].mana.get("C")
+    roundtrip(s)
+
+
+def test_estrids_invocation_copy_blinks_itself_in_the_upkeep(cards):
+    s = game(cards, ["Estrid's Invocation", "Spiritual Sanctuary"])
+    put(s, "Spiritual Sanctuary")
+    inv = put(s, "Estrid's Invocation", "hand")
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=inv.id)
+    drive(s, picker("Spiritual"))
+    assert ch(s, inv).name == "Spiritual Sanctuary"
+    until(s, lambda s: s.state.turn.number == 3 and s.state.rules.decision is not None)
+    drive(s, picker("pay", "Spiritual"))
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    assert s.state.cards[inv.id].zone == "p1:battlefield"
+    roundtrip(s)
