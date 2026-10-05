@@ -97,3 +97,49 @@ def test_trample_with_few_oil_counters_otherwise_hexproof(cards):
     set_counters(s, beast, "oil", 3)
     assert "hexproof" in ch(s, cards, beast).keywords and "trample" not in ch(s, cards, beast).keywords
     roundtrip(s)
+
+
+NEWSIE = "As long as there are five or more mana values among cards in your graveyard, this creature gets +1/+1 and has lifelink."
+DJINN = "~ gets -2/-2 as long as blue is the most common color among all permanents or is tied for most common."
+SECRETKEEPER = "As long as you have more cards in hand than each opponent, this creature gets +2/+2 and has flying."
+
+
+def test_five_mana_values_among_cards_in_your_graveyard(cards):
+    s = table(cards)
+    act(s, "p1", type="configure", allow_test_objects=True)
+    newsie = token(s, "p1", "Newsie", "Creature — Human Rogue", NEWSIE, "1/1")
+    automate(s)
+    for name in ("Sol Ring", "Counterspell", "Murder", "Wrath of God"):  # mana values 1, 2, 3, 4
+        act(s, "p1", type="spawn_card", card_id=cards.resolve(name)["id"])
+    spawned = [c.id for c in s.state.cards.values() if c.test_object]
+    act(s, "p1", type="move", card_ids=spawned[:3], to={"zone": "graveyard"})
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "graveyard"})  # mana values 0, 1, 2, 3: four of them
+    assert ch(s, cards, newsie).pt == (1, 1)
+    act(s, "p1", type="move", card_ids=spawned[3:], to={"zone": "graveyard"})  # 0, 1, 2, 3, 4
+    assert ch(s, cards, newsie).pt == (2, 2) and "lifelink" in ch(s, cards, newsie).keywords
+    roundtrip(s)
+
+
+def test_most_common_color_among_all_permanents(cards):
+    s = table(cards)
+    djinn = creature(s, "p1", "Djinn", "4/5", DJINN)
+    automate(s)
+    assert ch(s, cards, djinn).pt == (4, 5)  # (a colorless token: nothing is blue yet)
+    for who, name, color in (("p2", "Fish", "U"), ("p2", "Imp", "B"), ("p2", "Imp 2", "B")):
+        act(s, who, type="create_token", player=who, token={"name": name, "type_line": "Token Creature — Test", "power": "1",
+                                                            "toughness": "1", "colors": [color]})
+        if name == "Fish":
+            assert ch(s, cards, djinn).pt == (2, 3)  # 105.2: one blue permanent, no other color has more
+    assert ch(s, cards, djinn).pt == (4, 5)  # black is now the most common
+    roundtrip(s)
+
+
+def test_more_cards_in_hand_than_each_opponent(cards):
+    s = table(cards)
+    keeper = creature(s, "p1", "Secretkeeper", "1/1", SECRETKEEPER)
+    automate(s)
+    assert len(s.state.zones["p1:hand"]) == len(s.state.zones["p2:hand"]) and ch(s, cards, keeper).pt == (1, 1)
+    act(s, "p1", type="move", card_ids=[s.state.zones["p1:library"][0]], to={"zone": "hand"})
+    assert ch(s, cards, keeper).pt == (3, 3) and "flying" in ch(s, cards, keeper).keywords
+    roundtrip(s)

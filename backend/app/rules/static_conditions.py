@@ -154,6 +154,11 @@ def parse(text: str) -> Condition | None:
                 or sel.owner is not None or sel.other:
             return None
         return {"value": {"count": sel.key()}, "op": ">=", "n": 1}
+    m = _MOST_COMMON.fullmatch(t)  # -- as long as (wave 20B) -- the Djinns (Zanam Djinn): counted over the permanents
+    if m:
+        return {"static": "most_common_color", "color": _COLORS[m["c"]]}
+    if t == "you have more cards in hand than each opponent":  # -- as long as (wave 20B) -- (Secretkeeper, Okina Nightwatch)
+        return {"static": "hand_most"}
     if t == "an opponent has no cards in hand":  # (Guul Draz Specter: some one opponent)
         return {"static": "opp_hand", "op": "==", "n": 0}
     if t == "an opponent is poisoned":  # 122.1f: has one or more poison counters (Viridian Betrayers)
@@ -161,6 +166,7 @@ def parse(text: str) -> Condition | None:
     return None
 
 
+_MOST_COMMON = re.compile(r"(?P<c>white|blue|black|red|green) is the most common color among all permanents or is tied for most common")
 _ANY_PLAYER = re.compile(r"any player controls (?:a|an) (?P<sel>.+)")
 _PLAIN = frozenset({"opp_graveyard", "opp_life", "opp_hand", "life_vs_start"})
 
@@ -181,7 +187,8 @@ def compound(text: str) -> Condition | None:
     return None
 
 
-KINDS = frozenset({"attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all"})
+KINDS = frozenset({"attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all",
+                    "most_common_color", "hand_most"})  # (wave 20B)
 
 
 def attached_object(plan: Plan, source: CardInstance) -> CardInstance | None:
@@ -232,6 +239,17 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
             return False
         return r.object_id(source.id) in (r.monstrous if cond["is"] == "monstrous" else r.renowned)
     opponents = [p for p in plan.live() if p != controller]
+    if kind == "most_common_color":  # a permanent of two colors counts for each (105.2); colors as they are now (layer 5 is done first)
+        tally = {c: 0 for c in "WUBRG"}
+        for c in plan.state.cards.values():
+            if c.zone.endswith(":battlefield") and plan.in_game(c):
+                for col in plan.ch(c).colors:
+                    if col in tally:
+                        tally[col] += 1
+        return tally[cond["color"]] > 0 and tally[cond["color"]] == max(tally.values())
+    if kind == "hand_most":
+        mine = len(plan.state.zones.get(f"{controller}:hand", ()))
+        return bool(opponents) and all(mine > len(plan.state.zones.get(f"{p}:hand", ())) for p in opponents)
     if kind == "opp_graveyard":
         return any(len(plan.state.zones.get(f"{p}:graveyard", ())) >= cond["n"] for p in opponents)
     if kind == "opp_life":

@@ -95,7 +95,8 @@ _DISTINCT = {"card types": "types", "different card types": "types", "card type"
              "basic land types": "basic_land_types", "basic land type": "basic_land_types",
              "creature types": "creature_types", "different creature types": "creature_types",
              "creature type": "creature_types",
-             "different power": "powers", "different powers": "powers"}  # (wave 17B: Selvala, Eager Trailblazer)
+             "different power": "powers", "different powers": "powers",  # (wave 17B: Selvala, Eager Trailblazer)
+             "mana values": "mana_values", "different mana values": "mana_values", "mana value": "mana_values"}  # (wave 20B)
 _AMONG = re.compile(r"^(?P<kind>" + "|".join(sorted(map(re.escape, _DISTINCT), key=len, reverse=True)) + r") among (?P<sel>.+)$")
 _DEVOTION = re.compile(r"^your devotion to (?P<c1>white|blue|black|red|green)(?: and (?P<c2>white|blue|black|red|green))?$")
 _AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power|toughness|mana value) "
@@ -620,6 +621,8 @@ def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:
         elif kind == "names":  # -- token & pump wordings (wave 6C) -- "lands with different names" (201.2, 708.2a)
             if ch.name and not ch.face_down:
                 found.add(ch.name)
+        elif kind == "mana_values":  # -- as long as (wave 20B) -- "five or more mana values among cards in your graveyard" (202.3)
+            found.add(str(int(ch.mana_value)))
         elif kind == "powers":  # "creatures with different powers" (conditions.py): how many distinct values
             power = _stat_of(ch, "power")
             if power is not None:
