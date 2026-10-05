@@ -1935,6 +1935,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # -- static_other sweep (wave 19A) -- "Choose a creature type. Draw a card for each permanent you control of that type." (Distant
     # Melody): "that type" is the type just chosen, as in "of the chosen type" (app/rules/chosen.py)
     body = re.sub(r"(Choose a creature type\. [^.]*?) of that type\b", r"\1 of the chosen type", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
+    # -- delayed triggers (wave 23B) -- 118.12a: "At the beginning of your next upkeep, pay {3}{U}{U}. If you don't, you lose the game."
+    # (the Pacts) is "… you lose the game unless you pay {3}{U}{U}": the payer is the delayed trigger's controller, as it resolves
+    body = re.sub(rf"(?i)(^|\. )(at the beginning of (?:{_delayed.WHEN_RE}), )pay ((?:\{{[^}}]+\}})+)\. If you don't, (you lose the game)\.?",
+                  lambda m: f"{m[1]}{m[2]}{m[4]} unless you pay {m[3]}.", body)
     # -- trigger tail (wave 16C) -- "Create a 4/4 … token with flying at the beginning of the next end step." (Rukh Egg): the same delayed
     # trigger (603.7) as the leading wording, which the token grammar reads whole
     body = re.sub(rf"(?i)^(create [^.]+?) (at the beginning of (?:{_delayed.WHEN_RE}))(\.?)$", r"\2, \1\3", body)
@@ -4752,8 +4756,10 @@ _MOVES.add("to_library")
 
 
 def _deferred(clause: str, when: dict[str, Any], key: str = "") -> tuple[list[dict[str, Any]], Any]:
-    inner = _clause(clause)
-    if inner is None or any(e.get("do") in _delayed.UNDEFERRABLE for e in inner[0]):
+    inner = _clause(clause) or _unless_sentence(clause, [])  # (wave 23B: "you lose the game unless you pay {3}{U}{U}")
+    # (wave 23B: "… unless you pay {3}{U}{U}" — the delayed trigger's controller pays as it resolves, 118.12a)
+    if inner is None or any(e.get("do") in _delayed.UNDEFERRABLE and not (e["do"] == "optional_payment" and e.get("who") == "you")
+                            for e in inner[0]):
         raise _NoMatch
     if when.get("whose") == "owner" and not (  # -- triggers (wave 17D) -- one move of "it", with "its owner" in the clause for "their"
             len(inner[0]) == 1 and inner[0][0].get("do") in ("return_card", "bounce") and inner[0][0].get("who") == "it"
