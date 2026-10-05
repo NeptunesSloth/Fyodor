@@ -263,3 +263,36 @@ def test_the_replacement_belongs_to_that_object_only(cards):
     assert zone_of(s, again) == "p1:battlefield"
     act(s, "p1", type="move", card_ids=[again.id], to={"player": "p1", "zone": "graveyard"})
     assert zone_of(s, again) == "p1:graveyard"
+
+
+def test_a_reanimated_blightsteel_is_exiled_without_a_question(cards):
+    """Review 22C, 616.1e: shuffling it in still has it leave the battlefield, so the Whip's "exile it if it would leave"
+    applies after Blightsteel's replacement anyway; either order ends in exile, and nobody is asked."""
+    s = game(cards, ["Blightsteel Colossus"])
+    blight = put(s, "Blightsteel Colossus", "graveyard")
+    t = permanent(s, "p1", "Reanimator", "Enchantment", WHIP)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=t.id, ability=0, targets=[blight.id])
+    drive(s)
+    assert zone_of(s, blight) == "p1:battlefield"
+    library = len(s.state.zones[zone_key("p1", "library")])
+    sacrifice(s)
+    drive(s, lambda d: pytest.fail(f"asked: {d.prompt}") if d.resume.get("step") == "zone_replace_order" else None)
+    assert zone_of(s, blight) == "p1:exile" and len(s.state.zones[zone_key("p1", "library")]) == library
+    assert not any("shuffled into" in str(e) for e in s.state.log)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("pick, where", [("exile", "p1:exile"), ("library:shuffle", "p1:library")])
+def test_rest_in_peace_destroyed_alongside_progenitus_still_offers_exile(cards, pick, where):
+    """Review 22C: Rest in Peace leaving at the same time still applies to that event (614.1a, 616.1); the answer, given after
+    it is gone, must still carry the card somewhere instead of leaving it on the battlefield."""
+    s = game(cards, ["Progenitus"], bob=["Rest in Peace"])
+    prog = put(s, "Progenitus")
+    rip = put(s, "Rest in Peace", pid="p2")
+    t = permanent(s, "p1", "Wrath", "Enchantment", "{1}: Destroy all nonland permanents.")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=t.id, ability=0)
+    drive(s, order_question(pick))
+    assert zone_of(s, rip) == "p2:exile" and zone_of(s, prog) == where and not graveyard(s)
+    roundtrip(s)

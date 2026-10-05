@@ -817,12 +817,21 @@ def zone_candidates(plan: Plan, card: CardInstance, dest: str = "graveyard") -> 
     out: list[Cand] = []
     if frm == "battlefield" and dest not in ("exile", "battlefield"):
         if plan.oid(card) in plan.rules.exile_if_leaves:  # 702.84a: "If it would leave the battlefield, exile it instead of putting it anywhere else."
-            out.append(Cand("unearth", "exile"))
+            out.append(Cand("unearth / \"exile it if it would leave the battlefield\"", "exile"))
         if any(d["kind"] == "replacement" and d.get("replacement") == "exile_instead" and d.get("from") == "leaves"
                for d in _definitions(plan, card).values()):
             out.append(Cand(card.name or "its own ability", "exile"))
     if dest != "graveyard":
         return out
+    leaves = bool(out)
+    out += _graveyard_candidates(plan, card, frm)
+    if leaves:  # (review 22C) 616.1e: a library result still leaves the battlefield, so "exile it if it would leave" applies after it
+        out = [c for c in out if not c.outcome.startswith("library:")]  # anyway: no choice between them (a rider still is one)
+    return out
+
+
+def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand]:
+    out: list[Cand] = []
     if frm == "stack" and plan.oid(card) in plan.rules.exile_if_graveyard:  # -- refused look/cast-free (wave 3R5) -- a spell cast
         out.append(Cand("its own cast", "exile", True))  # "without paying …": "If that spell would be put into your graveyard, exile it instead"
     if frm == "battlefield" and card.counters.get("finality", 0) > 0:  # 122.1h (-- refused zones/sized (wave 3R4) --)
@@ -849,6 +858,7 @@ def _pick(plan: Plan, card: CardInstance, cands: list[Cand], dest: str) -> Cand 
     if len(outcomes) == 1:
         return cands[0]
     plan.rules.pending_616[card.id] = {"oid": plan.oid(card), "dest": dest, "options": {o: c.label for o, c in outcomes.items()},
+                                       "cands": {o: c._asdict() for o, c in outcomes.items()},  # (review 22C: as they were when the event happened)
                                        "texts": {o: _OUTCOME_TEXT.get(c.outcome, c.outcome) + (" and " + rider_text(c.rider) if c.rider else "")
                                                  for o, c in outcomes.items()}}
     return None
@@ -917,7 +927,7 @@ def offer_616(plan: Plan) -> bool:
         if card is None or plan.oid(card) != p["oid"]:
             r.pending_616.pop(cid, None)  # (it went on elsewhere: the moment has passed)
             continue
-        chooser = card.controller if _from_zone(card) == "battlefield" else card.owner
+        chooser = card.controller if _from_zone(card) in ("battlefield", "stack") else card.owner  # (a spell has a controller too: 110.2, 616.1)
         decide(plan, player=chooser, kind="choose_one",
                prompt=f"{card.name or 'A card'} would be put into a graveyard: which replacement effect applies first? (616.1)",
                options=[DecisionOption(id=o, label=f"{src}: {p['texts'][o]}") for o, src in p["options"].items()],
@@ -932,8 +942,12 @@ def resume_616(plan: Plan, d: Any, chosen: list[str]) -> None:
     card = plan.state.cards.get(cid)
     if p is None or card is None or plan.oid(card) != p["oid"] or chosen[0] not in p["options"]:
         return
-    cand = next((c for c in zone_candidates(plan, card, p["dest"]) if c.sig == chosen[0]), None)
-    if cand is None:
+    # (review 22C) the effects that applied when the event happened (614.1, 616.1): a source that left with it (Rest in Peace
+    # destroyed alongside Progenitus) still applies; recomputing them now could leave the card stranded where it was
+    cand = Cand(**p["cands"][chosen[0]]) if chosen[0] in (p.get("cands") or {}) else \
+        next((c for c in zone_candidates(plan, card, p["dest"]) if c.sig == chosen[0]), None)
+    if cand is None:  # (nothing applies any more: the event goes on as it was, its replacements looked at again)
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": p["dest"]}}, actor=card.controller)
         return
     if cand.used:  # (a spell cast "without paying …": its one-shot "exile it instead" is used up, 614.5)
         plan.rules.exile_if_graveyard = [o for o in plan.rules.exile_if_graveyard if o != p["oid"]]
@@ -1024,6 +1038,10 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             elif answer is None:
                 r.pending_903_9b[cid] = dest  # asked right after the move (sba → offer_903_9b)
     if held:  # -- zone replacements (wave 22C) -- they stay put until chosen (616.1: offer_616, before anyone gets priority)
+        if dest == "graveyard":  # (review 22C: a held discard is discarded all the same, 701.9a, whichever replacement applies)
+            from app.rules import history
+
+            history.note_discards(plan, [cid for cid in held if _from_zone(plan.state.cards[cid]) == "hand"])
         payload = {**payload, "card_ids": [c for c in payload["card_ids"] if c not in held]}
         if not payload["card_ids"] and not replaced and not madness:
             return {"type": "rules_log", "text": "Two replacement effects apply: the choice comes first (616.1)", "card_ids": held[:20]}
