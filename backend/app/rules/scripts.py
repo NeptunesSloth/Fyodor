@@ -4728,6 +4728,24 @@ def _from_language(found: tuple[list[dict[str, Any]], Any] | None) -> tuple[list
     return found
 
 
+# -- activated other (wave 21E) -- "Two target players each draw a card." / "Any number of target players each mill two cards.":
+# one group of player targets (601.2c: the number chosen), the instruction done for each of them (who "target" is every target
+# of the group); the instruction is read as its singular form for "target player" ("each draw" -> "draws")
+_EACH_VERB = {"draw": "draws", "mill": "mills", "discard": "discards", "lose": "loses", "gain": "gains"}
+_EACH_PLAYERS = re.compile(rf"(?P<g>(?:any number of|up to \w+|\w+) target players) each (?P<v>{'|'.join(_EACH_VERB)}) (?P<rest>.+)")
+
+
+@effect(_EACH_PLAYERS.pattern)
+def _each_target_players(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    group = language.target_group(m["g"])
+    inner = _one_clause(f"target player {_EACH_VERB[m['v']]} {m['rest']}")
+    if group is None or inner is None or inner[1] != "player" or group["what"] != "player" or len(inner[0]) != 1:
+        raise _NoMatch
+    return inner[0], group
+
+
 @effect(r"sacrifice (?P<o>them|those tokens|those creatures|the tokens|those permanents|that creature|that token|"
         r"the token|that permanent|that card|the creature|that artifact)")  # (the creature / that artifact: wave 6A)
 def _sacrifice_pronoun(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:

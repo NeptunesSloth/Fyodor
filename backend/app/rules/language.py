@@ -201,6 +201,8 @@ def _divided(phrase: str, what: str, total: Any) -> dict[str, Any]:
 def _target_key(phrase: str) -> str:
     if phrase in _LEGACY_TARGETS:
         return _LEGACY_TARGETS[phrase]
+    if phrase == "target players":  # -- activated other (wave 21E) -- "two target players each draw a card"
+        return "player"
     m = re.match(r"^(another )?target (.+)$", phrase)
     if not m:
         raise _Fail
