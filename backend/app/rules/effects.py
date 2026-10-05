@@ -1767,6 +1767,8 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: search for a {e.get('label') or 'card'}",
                options=options, resume={"step": "search_zones", "ctx": ctx, "e": e})
         return False
+    if e.get("may") and barred_search(plan, ctx, e):  # -- prohibitions (wave 24D) -- 614.17b: no choosing to search; so no shuffle
+        return True
     if e.get("may"):
         # "Its controller may search …, then shuffle" (Path to Exile): searching is their choice,
         # asked first — a player who doesn't search doesn't shuffle either (the card's ruling;
@@ -1776,6 +1778,21 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                resume={"step": "search_may", "ctx": ctx, "e": e})
         return False
     return _ask_search(plan, ctx, e, pid, 0, [])
+
+
+def barred_search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- prohibitions (wave 24D) -- 614.17b: "You may search your library …" can't be chosen while the searcher can't search it, so the
+    instruction is skipped whole — no search and (the ruling) no shuffle, unlike a mandatory "search …, then shuffle"
+    (a "may" over several zones, or a search of someone else's library, stays as it was)."""
+    from app.rules import prohibitions
+
+    if e.get("do") != "search" or e.get("graveyard") or e.get("zones") or e.get("who", "you") in ("each_opponent", "each_player"):
+        return False
+    who = _players(plan, ctx, e["who"]) if e.get("who", "you") != "you" else [ctx["controller"]]
+    if not who or (why := prohibitions.cant_search(plan, who[0], ctx["controller"])) is None:
+        return False
+    plan.note(f"{why}: {plan.name(who[0])} can't search their library, so doesn't choose to", actor=who[0])
+    return True
 
 
 def resume_search_may(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -2966,6 +2983,9 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
             plan.note(f"{entry.name or 'It'} does nothing: its condition no longer holds")
             finish(plan, ctx)
             return
+    if entry.optional and entry.effects and barred_search(plan, ctx, entry.effects[0]):
+        finish(plan, ctx)  # (-- prohibitions (wave 24D) -- "you may search …" can't be chosen: nothing is asked, nothing shuffled)
+        return
     if entry.optional:
         from app.rules.engine import remembered  # engine imports this module
 
