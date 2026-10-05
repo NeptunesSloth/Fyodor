@@ -160,6 +160,8 @@ SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"redirect"}
 SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"prevent_half_up"}
 # … and token creation adding a different token (Peregrin Took, Chatterfang: app/rules/extra_tokens.py)
 SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra"}
+# -- replacements & prevention (wave 22C) -- "put half that many … rounded down" (Vorinclex) on counters
+SUPPORTED_REPLACE_OPS["counters"] = SUPPORTED_REPLACE_OPS["counters"] | {"half"}
 SUPPORTED_REPLACEMENTS |= {
     "enters_tapped_others",  # 614.1d, 614.12: "Creatures your opponents control enter tapped."
     "exile_if_dies",  # "If that creature / a creature dealt damage this way would die this turn, exile it instead." (611.2a)
