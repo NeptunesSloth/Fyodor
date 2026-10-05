@@ -517,6 +517,8 @@ class _Introducer:
                 self.number = 1  # -- damage sized by a count (wave 20A) -- "until you reveal a nonland card. … that card's mana value": the one found
         if self.do == "destroy_all":
             self.number = 2
+        if self.do == "token_copy" and g is not None and groups is not None and g < len(groups) and groups[g]["max"] != 1:
+            self.number = None  # (-- wave 22D -- a copy of each of several targets: "those tokens")
         if self.do == "linked_cards":
             self.number = None  # (one card or several: whichever the referring wording says)
         if self.do == "edict" and g is None and who != "you":  # (wave 4A: one each, from several players)
@@ -1885,6 +1887,11 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
     # opponent, the token grammar's "… for each opponent"
     body = re.sub(r"(^|\. )For each opponent, you (create [^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
+    # -- resolution memory (wave 22D) -- "Choose any number of target creatures you control. For each of them, create a token that's a copy of that
+    # creature, except it has haste." (Twinflame): one token for each object chosen — "create a token that's a copy of each of any number of target …"
+    body = re.sub(r"(^|\. )Choose ((?:any number of|up to \w+) target [^.]+?)\. For each of them, create (?:a|one) token that's a copy of that "
+                  r"(?:creature|permanent)(, except it [^.]+)?\.",
+                  lambda m: f"{m[1]}Create a token that's a copy of each of {m[2]}{m[3] or ''}.", body)
     from app.rules import (
         friend_foe,  # -- friend or foe (wave 18C) -- "For each player, choose friend or foe. Each friend …"
         tempting,  # -- tempting offers (wave 18C) -- "Each opponent may …. For each opponent who does, you …"

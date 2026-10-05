@@ -1358,8 +1358,11 @@ def parse_token_copy(n: str, tapped: bool, src: str, exc: str | None) -> tuple[l
         effect["tapped"] = True
     if src in _SOURCES:
         return [{**effect, "who": _SOURCES[src]}], None
-    group = _target_group(src)
-    if group is None or group["max"] != 1:
+    # -- resolution memory (wave 22D) -- "create a token that's a copy of each of up to two target creatures you control" (Twinflame): one token
+    # for each object chosen (115.1, 608.2b: each still the same object as it resolves)
+    each = re.fullmatch(r"each of ((?:up to \w+|any number of) target .+)", src)
+    group = _target_group(each[1] if each else src)
+    if group is None or (group["max"] != 1 and not each):
         return None
     return [{**effect, "who": "target"}], group
 
