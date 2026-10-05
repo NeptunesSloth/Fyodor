@@ -77,13 +77,13 @@ def untap_choice(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """The controller chooses up to ``n`` of the tapped lands that match and untaps them. False while the choice is open."""
     from app.game.rules_state import DecisionOption
     from app.rules import selectors
+    from app.rules.effects import _players
     from app.rules.plan import decide
 
-    from app.rules.effects import _players
-
-    you = (_players(plan, ctx, e["who"]) or [None])[0] if e.get("who") else ctx["controller"]  # (wave 25B: "that player untaps …")
-    if you is None:
+    chosen_by = _players(plan, ctx, e["who"]) if e.get("who") else [ctx["controller"]]  # (wave 25B: "that player untaps …")
+    if not chosen_by:
         return True
+    you = chosen_by[0]
     found = [c for c in selectors.candidates(plan, selectors.from_key(e["sel"]), you, ctx.get("source_card"))
              if plan.state.cards[c].tapped and plan.state.cards[c].zone.endswith(":battlefield")]
     if not found:

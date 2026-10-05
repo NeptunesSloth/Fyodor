@@ -150,7 +150,7 @@ def parse_condition(cond: str) -> Condition | None:
     # (-- trigger other (wave 25B) -- a plain "a modified creature you control dies / leaves" is read from the object's last known
     # information: the counters and attachments it had as it left, 603.10a: triggers._was_modified)
     if found is not None and found.get("event") in ("die", "leave", "either", "multi") and re.search(
-            r"enchanted_or_equipped" if found.get("event") in ("die", "leave") and found.get("subject") in ("sel", "self_or") else
+            r"enchanted_or_equipped" if found.get("event") in ("die", "leave") and found.get("subject") in ("sel", "self_or") and not found.get("aggregate") else
             r"modified|enchanted_or_equipped", str(found)):
         return None
     # -- history (wave 22E) -- 701.15b: a goaded creature is read live, as it attacks; an object that has left (a creature that died as it
