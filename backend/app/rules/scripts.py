@@ -105,7 +105,7 @@ TRIGGERS = [
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
     (re.compile(r"^At the beginning of (?:(?P<whose>your|each|each player's|each opponent's|the|enchanted player's|the chosen player's) "
                 r"(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
-                r"postcombat main phase)|the (?P<hstep>upkeep|end step) of enchanted (?:creature|permanent|land|artifact|"
+                r"postcombat main phase)|the (?P<hstep>upkeep|draw step|end step) of enchanted (?:creature|permanent|land|artifact|"
                 r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's) turn|(?P<each_combat>each combat)), "
                 r"(?P<body>.+)$"), "step"),
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
@@ -416,7 +416,11 @@ def _aura_card_effects(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | 
     only instruction "this card" may name is returning it to its owner's hand (anything else: manual)."""
     out = []
     for e in effects:
-        if e.get("do") == "bounce" and e.get("who") == "self":
+        # -- attached events (wave 25D) -- "When enchanted creature dies, you may return this card from your graveyard to your hand / the
+        # battlefield" (the Genju, Screams from Within): the trigger is the Aura's own, put on the stack while it is still on the battlefield, and
+        # "this card" is its new object in the graveyard when the ability resolves (400.7f; effects._aura_card)
+        returns = e.get("do") == "return_card" and e.get("who") in ("self", "self_gy") and e.get("to") in ("hand", "battlefield") and not e.get("host")
+        if (e.get("do") == "bounce" and e.get("who") == "self") or returns:
             e = {**e, "who": AURA_CARD}
         out.append(e)
     return None if '"self"' in json.dumps(out, default=str) else out
@@ -870,7 +874,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e["with"] = "event"
                 else:
                     return None
-            if e.get("src") == "it":
+            if e.get("src") == "it" and e.get("do") == "attach_to" and (made := objects(index, 1, None)) is not None and made.do == "create_token":
+                e["src"] = "ref:" + bound(made)  # -- attached events (wave 25D) -- "Create a … Equipment token … Attach it to ~.": the token just made (400.7j)
+            elif e.get("src") == "it":
                 if any(i.index < index and out[i.index].get("who") == "host" for i in intros):
                     return None  # ("tap enchanted creature. It deals …": the host, not the source)
                 if e.get("do") != "damage" and any(
@@ -1577,6 +1583,13 @@ def _meld(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "meld", "who": "self", "result": merged.name_of(m["r"])}], None
 
 
+# -- attached events (wave 25D) -- "At the beginning of the upkeep of enchanted creature's controller, that player sacrifices that creature."
+# (Lingering Death): the trigger event's player sacrifices the creature the event names, if they still control it (701.21a)
+@effect(r"that player sacrifices (?:that creature|it)")
+def _that_player_sacrifices(m: re.Match[str]) -> tuple[list[dict[str, Any]], None]:
+    return [{"do": "sacrifice", "who": "it", "by": "event_player"}], None
+
+
 @effect(r"sacrifice (?P<who>~|it)")
 def _sacrifice_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "sacrifice", "who": _self_or_it(m["who"])}], None
@@ -2272,6 +2285,13 @@ def _attached_host(found: tuple[list[dict[str, Any]], Any, bool] | None, it: str
     if found is None or not any(e.get("host") == "that_creature" for e in found[0]):
         return found
     if it != "event":
+        # -- attached events (wave 25D) -- "Return target creature card from your graveyard to the battlefield, then return up to two target Aura and/or
+        # Equipment cards from your graveyard to the battlefield attached to that creature." (Unfinished Business): the one card the first
+        # instruction put onto the battlefield (400.7j: the new object), nothing else in between
+        first, rest = found[0][:1], found[0][1:]
+        if len(first) == 1 and first[0].get("do") == "return_card" and first[0].get("to") == "battlefield" and first[0].get("who") == "target:0" \
+                and len(rest) == 1 and rest[0].get("do") == "return_card" and rest[0].get("host") == "that_creature":
+            return [{**first[0], "as": "e0"}, {**rest[0], "host": "ref:e0"}], found[1], found[2]
         return None
     out: list[dict[str, Any]] = []
     for e in found[0]:
@@ -2643,6 +2663,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                          and effects[prev_start].get("who") == "you")):  # (wave 21B: "Sacrifice a creature. If you can't, …": 701.21a, one object)  # -- keywords (wave 15E) -- fading 702.32a: "Remove a fade counter
             text = "if you don't, " + text[len("if you can't, "):]  # from this permanent. If you can't, sacrifice it." (the removal
             # of a counter that isn't there is the one that wasn't done, as "If you don't" reads it)
+        if (asked := _that_player_may(text, effects, groups, lambda t: _plain_clause(t, it, event_player))) is not None:  # (wave 25D)
+            effects += asked
+            continue
+        if (they_do := _that_player_does(text, effects)) is not None:  # (wave 25D)
+            text = they_do
         if (if_do := _IF_YOU_DO.match(text)) is not None:
             bind = _last_payment(effects)
             pick = next((e for e in reversed(effects) if e["do"] == "pick_looked"), None)
@@ -3051,9 +3076,16 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     object (the trigger's own source); "When you do" (a reflexive trigger, 603.12) isn't read."""
     from app.rules import optional_payment
 
-    if not text.startswith("you may ") or not following or not re.match(r"^(?:If you (?:do|don't)|If you do or if [^,]+|When you do), ", following[0]):
+    # -- optional payments by another player (wave 25D) -- "That player may discard a card. If the player does, they draw a card." (Curse of
+    # Chaos, Paralyze, Unifying Theory): the trigger event's player decides and pays (118.12); "If the player does" is read as "If you do"
+    # (the loop below), what follows being about that player
+    other = re.match(r"^(?:that|that attacking) player may ", text)
+    if other is not None and following and re.match(r"^If (?:the player|that player|they) (?:do|does), ", following[0]):
+        phrase, payer = text[other.end():], "that_player"
+    elif not text.startswith("you may ") or not following or not re.match(r"^(?:If you (?:do|don't)|If you do or if [^,]+|When you do), ", following[0]):
         return None
-    phrase = text[len("you may "):]
+    else:
+        phrase, payer = text[len("you may "):], "you"
     if re.search(r"\bit\b", phrase) and it != "self":
         return None
     cost = optional_payment.cost_text(phrase)
@@ -3068,7 +3100,46 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
             return None
         cost, sized = found.pop("cost"), found
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
-    return {"do": "optional_payment", "who": "you", "cost": cost, "bind": bind, **sized}
+    return {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind, **sized}
+
+
+_THAT_PLAYER_MAY = re.compile(r"^(?:that|that attacking) player may (?P<v>create|draw|put|discard|sacrifice|exile|return|add|gain|lose|mill) (?P<rest>.+)$")
+
+
+def _that_player_may(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]], parse_clause: Any) -> list[dict[str, Any]] | None:
+    """-- optional payments by another player (wave 25D) -- "That attacking player may create a tapped 2/2 black Zombie creature token." (Curse of
+    Shallow Graves): the trigger event's player decides (608.2d: no cost to pay, only the choice) and, if they do, the instruction happens to them
+    ("that player creates …"). A targeted instruction isn't read: whose target is it?"""
+    m = _THAT_PLAYER_MAY.match(text)
+    if m is None:
+        return None
+    verb = _THEY_VERBS.get(m["v"], m["v"] + "s")
+    found = parse_clause(f"that player {verb} {m['rest']}.")  # (the effects of a clause with no target and no "may" of its own)
+    if not found:
+        return None
+    bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
+    return [{"do": "optional_payment", "who": "that_player", "ask": f"{m['v']} {m['rest']}", "cost": "", "bind": bind},
+            {"do": "only_if", "cond": {"succeeded": bind}, "skip": len(found)}, *found]
+
+
+_THEY_VERBS = {"draw": "draws", "discard": "discards", "lose": "loses", "gain": "gains", "put": "puts", "create": "creates",
+               "add": "adds", "sacrifice": "sacrifices", "return": "returns", "exile": "exiles", "sacrifices": "sacrifices"}
+
+
+def _that_player_does(text: str, effects: list[dict[str, Any]]) -> str | None:
+    """-- optional payments by another player (wave 25D) -- "If the player does, they draw a card." after "That player may discard a card.":
+    the same instruction as "If you do, …", about that player ("they" → "that player"); None when it isn't one or the verb isn't read."""
+    m = re.match(r"^if (?:the player|that player|they) (?:do|does), (?P<rest>.+)$", text)
+    pay = next((e for e in reversed(effects) if e["do"] == "optional_payment"), None)
+    if m is None or pay is None or pay.get("who") != "that_player":
+        return None
+    rest = re.sub(r"\bthe creature\b", "that creature", m["rest"])
+    t = re.match(r"^they (?P<v>[a-z]+) (?P<more>.+)$", rest)
+    if t is not None:
+        if t["v"] not in _THEY_VERBS:
+            return None
+        rest = f"that player {_THEY_VERBS[t['v']]} {t['more']}"
+    return f"if you do, {rest}"
 
 
 def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False,
@@ -3765,6 +3836,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 effects, target, optional = parsed
                 if to_gy or any(e.get("who") == "self_gy" for e in effects):  # (-- casting extras (wave 18E) -- recover: "If you don't, exile ~" too)
                     effects = [{**e, "who": "self_gy"} if e.get("who") == "self" else e for e in effects]
+                if to_gy:  # -- review 25D -- "When ~ is put into your graveyard from your library, you may exile it. If you do, …" (Creeping
+                    # Chill): the card in the graveyard pays (113.6m), not a permanent
+                    effects = [{**e, "cost": "Exile ~ from your graveyard"} if e.get("do") == "optional_payment"
+                               and e.get("cost") in ("Exile it", "Exile ~") else e for e in effects]
                 if aura_card:
                     aura_effects = _aura_card_effects(effects)
                     if aura_effects is None:
@@ -4021,7 +4096,7 @@ def _event_refs_ok(d: Definition) -> bool:
     effects = [e for i, e in enumerate(effects) if i not in skip]
     wants_player = any(e.get("who") in ("event_player", "each_other_opponent")
                        or str(e.get("who")).startswith("controlled:event_player|") for e in effects) \
-        or any(e.get("player") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E)
+        or any(e.get("player") == "event_player" or e.get("by") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E; 25D: "by")
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv"))  # ("mv": a free cast's limit, wave 3R5)
     if not wants_player and not wants_amount:
         return True
@@ -4262,6 +4337,14 @@ def _from_hand_ability(ab: AbilityText) -> bool:
     return ab.kind == "activated" and re.search(r"(?:^|, )(?:Discard|Reveal) (?:this (?:card|creature)|~)(?: from your hand)?(?:,|$)", ab.cost or "") is not None
 
 
+def graveyard_only_ability(d: Definition | None) -> bool:
+    """-- reanimation (wave 25D) -- 113.6m: a triggered ability that works only from the graveyard ("Whenever a Forest you control enters, you may
+    return this card from your graveyard to your hand." on an instant: Reach of Branches) is not part of what the spell does as it resolves."""
+    from app.rules.triggers import graveyard_ability, graveyard_trigger_ok
+
+    return d is not None and d.get("kind") == "triggered" and graveyard_ability(d) and graveyard_trigger_ok(d)
+
+
 def spell_definition(ch: Characteristics) -> Definition | None:
     """A whole instant/sorcery as one definition, if every line is automated (else None)."""
     if not ch.is_instant_or_sorcery:
@@ -4280,7 +4363,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
-    lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab)
+    lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab) and not graveyard_only_ability(defs.get(ab.index))
              and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional")  # (own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
@@ -6090,6 +6173,14 @@ def _attach_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # Blade), "create a 1/1 … token, then attach ~ to it." (Ancestral Blade, Dwarven Hammer): this object attached to the one
 # the pronoun names (701.3a-b, attachments.host_problem: nothing moves if it can't be attached there or either has become
 # a new object, 400.7)
+# -- attached events (wave 25D) -- "create a colorless Equipment artifact token named Sturdy Shield with … and equip {2}. Attach it to ~." (U.S.Agent):
+# the token just created (its recorded object, 400.7j) is attached to this object (701.3a-b)
+@_first
+@effect(r"attach (?:it|that Equipment) to ~")
+def _attach_it_to_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "attach_to", "src": "it", "who": "self"}], None
+
+
 @_first
 @effect(r"attach ~ to (?:it|that creature)")
 def _attach_self_to_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:

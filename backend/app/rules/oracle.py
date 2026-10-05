@@ -76,6 +76,7 @@ class AbilityText:
     cost: str | None = None  # for activated/loyalty abilities: the text before the colon
     intrinsic: bool = False  # granted by a basic land type rather than printed
     section: int = 1  # -- Class (wave 16A) -- 716.2a: the class level whose "as long as this Class is level N or greater" it is under
+    keeps: str | None = None  # -- attached events (wave 25D) -- 702.16n: a granted protection that "doesn't remove" "auras" / "self:<granting Aura's id>"
     special: str | None = None  # -- mana for special abilities (wave 19E) -- "equip": an equip ability (702.6); a "Power-up — " line reads as "power_up"
 
 

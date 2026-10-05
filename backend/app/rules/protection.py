@@ -82,13 +82,14 @@ def _pieces(line: str) -> list[str]:
     return [p.strip() for p in re.split(r"[,;]", line) if p.strip().lower().startswith("protection")]
 
 
-def qualities(ch: Characteristics) -> list[Quality]:
-    """Everything this object has protection from (its printed protection keyword lines)."""
+def qualities(ch: Characteristics, exempt: Callable[[str], bool] | None = None) -> list[Quality]:
+    """Everything this object has protection from (its printed protection keyword lines). ``exempt``: -- attached events (wave 25D) --
+    702.16n, "This effect doesn't remove this Aura": skips the instances whose ``keeps`` it accepts."""
     if "protection" not in ch.keywords:
         return []
     out: list[Quality] = []
     for ab in ch.abilities:
-        if ab.kind == "keywords" and "protection" in ab.keywords:
+        if ab.kind == "keywords" and "protection" in ab.keywords and not (exempt and ab.keeps and exempt(ab.keeps)):
             for piece in _pieces(ab.text):
                 out += parse(piece) or []
     return out
@@ -100,8 +101,8 @@ def supported(line: str) -> bool:
     return bool(pieces) and all(parse(p) is not None for p in pieces)
 
 
-def protected_from(ch: Characteristics, source: Characteristics | None) -> bool:
+def protected_from(ch: Characteristics, source: Characteristics | None, exempt: Callable[[str], bool] | None = None) -> bool:
     """Does ``ch`` have protection from ``source`` (a spell, ability source, creature or attachment)?"""
     if source is None:
         return False
-    return any(q(source) for q in qualities(ch))
+    return any(q(source) for q in qualities(ch, exempt))

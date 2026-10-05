@@ -162,7 +162,7 @@ def supported_keyword(kw: str, line: str) -> bool:
 
 
 # -- the legality predicate ------------------------------------------------------------
-def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | None = None) -> str | None:
+def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | None = None, sba: bool = False) -> str | None:
     """Why ``source`` can't be attached to ``host`` (a card id or a player id) right now, or None
     if it can. For an Aura with an enchant wording the engine doesn't map, "unknown" (never
     remove an Aura on a guess). Targeting rules (hexproof, shroud) don't apply here: being
@@ -198,7 +198,9 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     if card is None or not card.zone.endswith(":battlefield"):
         return "it's not on the battlefield"
     hch = plan.ch(card)
-    if protection.protected_from(hch, sch):
+    # -- attached events (wave 25D) -- 702.16n: a protection that "doesn't remove" this Aura / Auras isn't why an Aura falls off as a
+    # state-based action (``sba``); it still keeps an Aura from becoming attached (702.16c: review 25D)
+    if protection.protected_from(hch, sch, (lambda k: k == f"self:{source.id}" or (k == "auras" and kind == "aura")) if sba else None):
         return f"{hch.name} has protection from it"
     if kind == "aura":
         if sch.is_creature:

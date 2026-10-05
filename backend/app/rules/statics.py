@@ -140,6 +140,14 @@ def parse(text: str) -> Definition | None:
                r"\1 is a \4 with base power and toughness \2/\3 in addition to its other types.", t)
     t = t.replace(" be activated unless they're mana abilities", " be activated-nonmana")  # ("unless" is not a condition here)
     t = re.sub(r"(?<=Vehicles)\. Its (activated abilities can't be activated-nonmana\.)$", r", and its \1", t)
+    # -- attached events (wave 25D) -- 702.16n: "Enchanted creature has protection from black. This effect doesn't remove this Aura." (the Wards),
+    # "… gets +2/+2 and has protection from each color. This effect doesn't remove Auras." (Spectra Ward): the grant, and the Auras the
+    # protection doesn't make fall off (attachments.host_problem); only on an Aura's own grant
+    m = re.fullmatch(r"(?P<grant>Enchanted creature (?:gets [^.\"]+? and )?has protection from [^.\"]+)\. This effect doesn't remove "
+                     r"(?P<k>this Aura|~|Auras)\.", t)
+    if m:
+        inner = parse(m["grant"] + ".")
+        return None if inner is None or inner["who"] != "attached" else {**inner, "keeps": "auras" if m["k"] == "Auras" else "self"}
     if not t.endswith(".") and not t.endswith('."'):
         return None
     if re.sub(r'"[^"]*"', "", t).count(". ") or "\n" in t:  # (wave 16F: sentences inside a quoted granted ability are its own)
@@ -318,6 +326,8 @@ def parse(text: str) -> Definition | None:
     # "Equipped creature gets +1/+1 for each counter on it" it's the equipped creature (not read)
     it = "self" if who == "self" else None
     x_value = values.parse_count(x_phrase, it=it) if x_phrase is not None else None
+    if x_value is None and x_phrase is not None and who == "attached":  # -- attached events (wave 25D) -- "where X is the number of … in its controller's graveyard"
+        x_value = _controller_count(x_phrase)
     if x_value is None and who == "attached" and x_phrase == "its mana value":
         x_value = {"relative": "mana_value"}  # -- attached events (wave 20A) -- the host's own (Hedron Matrix), read per object (611.3a)
     if x_phrase is not None and x_value is None:
@@ -514,7 +524,18 @@ def _attached_relative(each: str) -> dict[str, Any] | None:
     return {"relative": "attached", "kinds": sorted(set(re.findall(r"Aura|Equipment", m["kinds"])))} if m else None
 
 
+def _controller_count(phrase: str) -> dict[str, Any] | None:
+    """-- attached events (wave 25D) -- "card in its controller's hand" / "creature cards in its controller's graveyard" (Righteous Authority,
+    Death's Approach): the count for "you", read as the controller of the object the static modifies (611.3a, 613.4c)."""
+    if "its controller's " not in phrase:
+        return None
+    inner = values.parse_count(phrase.replace("its controller's ", "your "))
+    return {"relative": "controller", "of": inner} if inner is not None and isinstance(inner, dict) else None
+
+
 def _relative_count(each: str) -> dict[str, Any] | None:
+    if (ctl := _controller_count(each)) is not None:
+        return ctl
     if each == "of its colors":  # -- attached events (wave 16F) -- 105.1: the colors of the object modified (Civic Saber)
         return {"relative": "colors"}
     m = _SHARING.match(each) or _SAME_NAME.match(each)
@@ -779,6 +800,9 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         if rest in TRIGGERED_GRANTS or rest == "riot" or re.fullmatch(MEANING_GRANTS, rest):  # -- static wordings (wave 6E) --
             # (wave 17C: riot is read from the entering permanent's characteristics as it enters, 614.12: app/rules/riot.py)
             grants.append(rest.capitalize())  # (wave 15A: "have extort", "have afflict 2": their CR meaning, keyword_triggers)
+            continue
+        if rest == "protection from the chosen color":  # -- attached events (wave 25D) -- the color the Aura's "As ~ enters, choose a color" recorded
+            grants.append("Protection from the chosen color")  # (layers writes the answer in; chosen.chosen_value_ok: the one choice)
             continue
         line = keyword_line(rest.replace(_FROM_JOIN, " and from "))  # -- attached events (wave 4L) --
         if line is not None:

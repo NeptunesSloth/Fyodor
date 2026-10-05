@@ -31,7 +31,8 @@ if TYPE_CHECKING:
 Context = dict[str, Any]
 Definition = dict[str, Any]
 
-_STATIC = {"Players can't gain life.": "each", "Your opponents can't gain life.": "opponents"}
+_STATIC = {"Players can't gain life.": "each", "Your opponents can't gain life.": "opponents",
+           "Enchanted player can't gain life.": "enchanted"}  # (wave 25D: Grievous Wound, an Aura on a player: the player it is attached to)
 _EFFECT = re.compile(r"(?P<who>players|your opponents|target player|target opponent|that player) can't gain life "
                      r"(?P<when>this turn|for the rest of the game)")
 
@@ -83,7 +84,8 @@ def why_not(plan: Plan, player: str) -> str | None:
         for i, d in scripts.definitions(ch).items():
             if i in skip or d.get("kind") != "static" or d.get("static") != "cant_gain_life":
                 continue
-            if d.get("who") == "each" or (d.get("who") == "opponents" and player != c.controller):
+            if d.get("who") == "each" or (d.get("who") == "opponents" and player != c.controller) \
+                    or (d.get("who") == "enchanted" and c.attached_player == player):
                 return ch.name or c.name or "a permanent"
     return None
 

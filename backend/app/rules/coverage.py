@@ -554,7 +554,12 @@ def features_of(ch: Characteristics) -> list[Feature]:
     if ch.is_instant_or_sorcery:
         whole = templates.spell_definition(ch)
         if whole is None or not definition_supported(whole) or not x_selector_ok(ch, whole):
-            templated = set()  # a spell is automated as a whole or resolved by hand
+            # a spell is automated as a whole or resolved by hand. -- reanimation (wave 25D) -- 113.6m: unless it has no spell ability at all and
+            # only abilities that work from the graveyard (Reach of Branches: "Whenever a Forest … enters, you may return this card …")
+            defs = templates.definitions(ch)
+            only_gy = [ab for ab in ch.abilities if ab.kind != "keywords"]
+            templated = {i for i in templated if templates.graveyard_only_ability(defs.get(i))} \
+                if only_gy and all(templates.graveyard_only_ability(defs.get(ab.index)) for ab in only_gy) else set()
         elif whole.get("modes"):
             templated = {ab.index for ab in ch.abilities if ab.kind != "keywords"}  # a modal spell (700.2)
     out: list[Feature] = []

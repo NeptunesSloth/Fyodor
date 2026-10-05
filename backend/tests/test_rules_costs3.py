@@ -117,7 +117,7 @@ def test_additional_costs_the_engine_pays(text):
 
 
 @pytest.mark.parametrize("text", [
-    "you may sacrifice a creature", "discard X cards",  # ("pay X life": wave 4K; "A or B": read since wave 6E)
+    "you may sacrifice a creature", "discard X cards and sacrifice X creatures",  # ("pay X life": wave 4K; "A or B": 6E; "discard X cards": 25D)
     "sacrifice this spell", "tap an untapped creature you control, discard a card",
 ])
 def test_additional_costs_it_refuses(text):

@@ -41,9 +41,10 @@ _ARE_LANDS = re.compile(rf"^(?P<s>(?:Nontoken )?creatures you control) are (?P<t
 # artifact: You gain 3 life."" (Ragost) / "Other creatures are Food artifacts in addition to their other types and have "..."" (Ygra) /
 # "Nontoken artifacts you control are lands in addition to their other types." (Toph): the same layer-4 addition (613.1d, 205.1b) for any
 # group on the battlefield, the types lower case plural ("artifacts") and the subtypes capitalised ("Foods"), then layer 6 grants
-_ARE_ALSO = re.compile(r"^(?P<during>During your turn, )?(?P<s>[A-Za-z' ]+?)(?: have base power and toughness (?P<p>\d+)/(?P<t>\d+) and)? are "
+_ARE_ALSO = re.compile(r"^(?P<during>During your turn, )?(?P<s>[A-Za-z',\- ]+?)(?: have base power and toughness (?P<p>\d+)/(?P<t>\d+) and)? are "
                        r"(?P<what>[A-Za-z ]+?) in addition to their other (?:creature )?types"
-                       r"(?: and have (?P<q>\"[^\"]+\")|\.(?P<same> The same is true for [^.]+\.)?)$")  # (Kudo, Graaz: base P/T, 7b; Roshan: the Maskwood sentence)
+                       r"(?: and have (?P<q>\"[^\"]+\")(?P<eq>(?:,? (?:and )?equip(?: [A-Z][a-z]+)? \{[^}]+\})+)?\.?"  # (wave 25D: + equip costs, and a period after the quote)
+                       r"|\.(?P<same> The same is true for [^.]+\.)?)$")  # (Kudo, Graaz: base P/T, 7b; Roshan: the Maskwood sentence)
 _TYPE_WORDS = {"artifacts": "Artifact", "creatures": "Creature", "enchantments": "Enchantment", "lands": "Land"}
 MASKWOOD = ("Creatures you control are every creature type. The same is true for creature spells you control and "
             "creature cards you own that aren't on the battlefield.")
@@ -244,10 +245,20 @@ def _also(m: re.Match[str]) -> dict[str, Any] | None:
     d = _definition(m["s"], {"add_types": types, "add_subtypes": subtypes}, during=bool(m["during"]), everywhere=everywhere,
                     base=[int(m["p"]), int(m["t"])] if m["p"] else None)
     if d is not None and m["q"]:
-        text = m["q"][1:-1]
+        text = m["q"][1:-1].rstrip(",")
+        text = text if text[-1] in ".)" else text + "."  # (wave 25D: "…gets +2/+0," ends the clause)
         if granted_ability(text) is None:
             return None
         d["grants"] = [text]
+        # -- attached events (wave 25D) -- "… and have "Equipped creature gets +2/+0" and equip {2}." (Armed with Proof, Gemcutter Buccaneer):
+        # each equip ability (702.6) is its own granted keyword line, equip Pirate {1} the Pirate-only one
+        for eq in re.findall(r"equip(?: [A-Z][a-z]+)? \{[^}]+\}", m["eq"] or ""):
+            line = eq[0].upper() + eq[1:]
+            if granted_ability(line) is None:
+                return None
+            d["grants"].append(line)
+    elif d is not None and m["eq"]:
+        return None
     return d
 
 

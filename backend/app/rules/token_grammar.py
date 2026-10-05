@@ -115,6 +115,8 @@ def _quoted_text(quoted: str) -> str | None:
         return None  # -- wave 3F -- only the Incubator is a double-faced token (111.10i); others stay manual
     if scripts.granted_ability(quoted) is not None:  # (a mana ability: "Sacrifice this token: Add {C}.")
         return quoted
+    if quoted[-1] not in ".)" and (dotted := scripts.granted_ability(quoted + ".")) is not None:  # -- attached events (wave 25D) -- "…gets +1/+0" ends the clause
+        return dotted.text
     text = re.sub(r"\bthis token\b", "this creature", quoted)
     text = re.sub(r"\bThis token\b", "This creature", text)
     return text if scripts.granted_ability(text) is not None else None
@@ -257,10 +259,16 @@ def _named_noncreature(m: re.Match[str], *, n_word: str | None, plain: bool) -> 
     the name; 111.10 has no such predefined token): a noncreature token with its quoted abilities, each of which the engine must
     carry out (a keyword, a name or an ability it doesn't know leaves the sentence unread)."""
     kind, said = m["nkind"], m["ncolors"]
-    name = m["name"] or m["name2"]
-    quotes = re.findall(r'"([^"]+)"', m["with"] or "")
-    if not plain or not name or m["thats"] or m["attacking"] or m["lname"] or m["pre"] or (
-            m["with"] and not re.fullmatch(r'"[^"]+"(?: and "[^"]+")*', m["with"])):
+    name = m["name"] or m["name2"] or m["lname"]  # (wave 25D: "create Cragflame, a legendary colorless Equipment artifact token with …")
+    if m["lname"] and (m["name"] or m["name2"]):
+        return None
+    # -- attached events (wave 25D) -- 702.6: an Equipment token's own "equip {2}" ("create a colorless Equipment artifact token named Axe with
+    # "Equipped creature gets +1/+0" and equip {2}.")
+    equip = re.search(r'(?:^| and )(equip \{[^}"]+\}(?: and equip \{[^}"]+\})*)$', m["with"] or "") if m["nsub"] == "Equipment" else None
+    with_ = (m["with"] or "")[:equip.start()] if equip else m["with"] or ""
+    quotes = re.findall(r'"([^"]+)"', with_)
+    if not plain or not name or m["thats"] or m["attacking"] or m["pre"] or (
+            with_ and not re.fullmatch(r'"[^"]+"(?: and "[^"]+")*', with_)):
         return None
     allowed = ARTIFACT_TYPES if kind == "artifact" else ENCHANTMENT_TYPES
     subs = [m["nsub"]] if m["nsub"] else []
@@ -272,8 +280,13 @@ def _named_noncreature(m: re.Match[str], *, n_word: str | None, plain: bool) -> 
         if line is None or ('"' in line):
             return None
         lines.append(line)
+    for cost in re.findall(r"equip (\{[^}]+\})", equip[1]) if equip else ():
+        line = _quoted_text(f"Equip {cost}")
+        if line is None:
+            return None
+        lines.append(line)
     colors = [] if said == "colorless" else [COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", said)]
-    type_line = f"Token {'Snow ' if m['nsnow'] else ''}{kind.capitalize()}" + (f" — {' '.join(subs)}" if subs else "")
+    type_line = f"{'Legendary ' if m['lname'] else ''}Token {'Snow ' if m['nsnow'] else ''}{kind.capitalize()}" + (f" — {' '.join(subs)}" if subs else "")
     effect: Effect = {"do": "create_token", "who": "you", "n": _qty(n_word) if n_word else 1,
                       "token": {"name": name, "power": None, "toughness": None, "colors": colors, "type_line": type_line,
                                 "text": "\n".join(lines)}}

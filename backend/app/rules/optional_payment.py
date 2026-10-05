@@ -265,6 +265,17 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             return bool(started)
     if e.get("alts"):  # -- if you do (wave 6F) -- one cost or the other
         return _offer_alternatives(plan, ctx, e)
+    if e.get("ask"):  # -- optional payments by another player (wave 25D) -- "That player may create a tapped Zombie token.": nothing to pay, the
+        # player the trigger event names chooses (608.2d), and "If they do" / the gated instructions read the answer like a payment's
+        who = payer_of(plan, ctx, e.get("who", "you"))
+        if who is None:
+            context.bind_payment(ctx, str(e.get("bind") or "pay0"), False)
+            return True
+        decide(plan, player=who, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: {e['ask']}?",
+               options=[DecisionOption(id=PAY, label="Yes"), DecisionOption(id=DECLINE, label="No")],
+               resume={"step": STEP, "ctx": ctx, "opt": {"cost": "", "bind": str(e.get("bind") or "pay0"), "payer": who, "chosen": {}},
+                       "cost": "{0}", "ask": True}, source=plan.state.cards.get(ctx.get("source_card") or ""))
+        return False
     text = unless_pays.concrete_cost(plan, ctx, e)
     cost = parse(text)
     # -- end unless pays (wave 4C) --
@@ -345,6 +356,10 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.resume_pay_or_sacrifice(plan, d, chosen)
         return
     ctx, opt = r["ctx"], r["opt"]
+    if r.get("ask"):  # -- optional payments by another player (wave 25D) -- the yes / no of "that player may …"
+        context.bind_payment(ctx, opt["bind"], chosen[0] == PAY)
+        effects.continue_effects(plan, ctx)
+        return
     cost = parse(opt["cost"])
     assert cost is not None
     if "component" in r:

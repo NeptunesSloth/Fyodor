@@ -199,6 +199,8 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
             snap = plan.rules.lki.get(ctx.get("source_object") or "")
             host = plan.state.cards.get(snap.attached_to or "") if snap is not None else None
         return [host.id] if host is not None and host.zone.endswith(":battlefield") else []
+    if who == "host:kin":  # -- attached events (wave 25D) -- "Enchanted creature and other creatures that share a creature type with it" (the Crowns)
+        return _host_kin(plan, ctx)
     if who == "exiled_with" or who.startswith("exiled_with:"):  # -- exiled with (wave 6D) -- 607.2a (app/rules/exiled_with.py)
         from app.rules import exiled_with
 
@@ -421,6 +423,36 @@ def _ability_source(plan: Plan, ctx: Context) -> _Source:
         _, src_ch = _snapshot_card(plan, lki)
         keywords = src_ch.keywords
     return _Source(ctx.get("source_object") or "", keywords, src_ch, ctx["controller"], source.id if source is not None else None)
+
+
+def _host_kin(plan: Plan, ctx: Context) -> list[str]:
+    """The creature the source Aura / Equipment is attached to (as it is, or — if it left since — as it last existed, 608.2h) and every other
+    creature on the battlefield that shares a creature type with it (205.3m; a changeling shares with every creature type). The host leaves
+    nothing to affect itself once gone; the others are still found by what it was."""
+    from app.rules.creature_types import CREATURE_TYPES
+    from app.rules.triggers import _snapshot_card  # (triggers imports this module)
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
+        host_id = src.attached_to
+    else:
+        snap = plan.rules.lki.get(ctx.get("source_object") or "")
+        host_id = snap.attached_to if snap is not None else None
+    host = plan.state.cards.get(host_id or "")
+    if host is None:
+        return []
+    if host.zone.endswith(":battlefield"):
+        kinds = plan.ch(host).subtypes & CREATURE_TYPES
+    else:  # it left: its last known types (the newest snapshot of that card)
+        snaps = [x for x in plan.rules.lki.values() if x.card == host.id and x.zone.endswith(":battlefield")]
+        if not snaps:
+            return []
+        kinds = _snapshot_card(plan, snaps[-1])[1].subtypes & CREATURE_TYPES
+    out = [host.id] if host.zone.endswith(":battlefield") else []
+    for c in plan.state.cards.values():
+        if c.id != host.id and c.zone.endswith(":battlefield") and plan.in_game(c) and (ch := plan.ch(c)).is_creature and kinds & ch.subtypes:
+            out.append(c.id)
+    return out
 
 
 def _named_source(plan: Plan, ctx: Context, who: str) -> _Source | None:
@@ -969,6 +1001,11 @@ def remove_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
     for cid in cards:
+        if e["kind"] == "*":  # -- attached events (wave 25D) -- "remove all counters from it": every kind it has
+            for kind, have in sorted(plan.state.cards[cid].counters.items()):
+                if have > 0 and n:
+                    plan.do({"type": "counter", "card_ids": [cid], "kind": kind, "delta": -min(have, n)}, actor=ctx["controller"])
+            continue
         have = plan.state.cards[cid].counters.get(e["kind"], 0)
         if have and n:
             plan.do({"type": "counter", "card_ids": [cid], "kind": e["kind"], "delta": -min(have, n)}, actor=ctx["controller"])
@@ -1446,7 +1483,10 @@ def sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     it" (evoke, 702.74a) — whoever controls it as the effect happens."""
     you = ctx["controller"]
     cards = _cards(plan, ctx, e["who"])
-    if e.get("by") != "controller":
+    if e.get("by") == "event_player":  # -- attached events (wave 25D) -- "that player sacrifices that creature": only if that player still controls it
+        mine = _players(plan, ctx, "event_player")
+        cards = [c for c in cards if plan.state.cards[c].controller in mine]
+    elif e.get("by") != "controller":
         cards = [c for c in cards if plan.state.cards[c].controller == you]
     actor = plan.state.cards[cards[0]].controller if cards else you
     _sacrifice_cards(plan, cards, actor, ctx, e.get("as"))

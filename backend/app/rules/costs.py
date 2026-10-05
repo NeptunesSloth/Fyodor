@@ -47,6 +47,10 @@ _EXILE_SELF = re.compile(rf"^Exile {_SELF}$")
 _EXILE_GY = re.compile(rf"^Exile {_N} (?P<what>(?:[\w\-]+ )*cards? from your graveyard)$")
 _RETURN_SELF = re.compile(rf"^Return {_SELF} to its owner's hand$")
 _RETURN = re.compile(rf"^Return {_N} (?P<what>.+? you control) to (?:its|their) owner's hands?$")
+# -- X sized by a count (wave 25D) -- a spell's additional cost sized by the X announced as it's cast (107.3a, 601.2b): "discard X cards",
+# "return X Swamps you control to their owner's hand" (the sacrifice / exile ones are ``_SAC_X`` / ``_EXILE_GY_X``)
+_DISCARD_X = re.compile(r"^Discard X (?P<what>(?:[\w\-]+ )*cards?)(?P<random> at random)?$")
+_RETURN_X = re.compile(r"^Return X (?P<what>.+? you control) to (?:its|their) owner's hands?$")
 _TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another )?untapped (?P<what>.+ you control)$")
 _UNTAP_OTHER = re.compile(rf"^Untap {_N} tapped (?P<what>.+ you control)$")  # -- activated sweep (wave 17B) -- Halo Fountain
 _REMOVE_CHOSEN = re.compile(
@@ -414,6 +418,11 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(PUT_COUNTER, amount=int(m["n"]), counter="-1/-1", selector=key, text=part) if key else None
     if m := _SAC_X.match(part):
         return _x_part(SACRIFICE, m["what"], "battlefield", part)
+    if m := _DISCARD_X.match(part):  # -- X sized by a count (wave 25D) -- 701.9a: X cards of your choice (at random: the engine picks)
+        key = _selector(m["what"], zone="hand")
+        return CostComponent(DISCARD, amount=0, selector=key, x=True, random=bool(m["random"]), text=part) if key else None
+    if m := _RETURN_X.match(part):
+        return _x_part(RETURN_PERMANENT, m["what"], "battlefield", part)
     if m := _TAP_X.match(part):
         return _x_part(TAP_OTHER, "untapped " + m["what"], "battlefield", part)
     if m := _EXILE_GY_X.match(part):
@@ -618,13 +627,20 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
     if text == "pay X life":  # -- X sized by a count (wave 4K) -- Toxic Deluge: X announced as it's cast (601.2b,
         return AbilityCost(life_x=True)  # 107.3a), paid with the rest (601.2h), at most your life (119.4, 118.3)
     text = re.sub(r"\b(\w+), (\w+), and/or (\w+)\b", r"\1 or \2 or \3", text)  # (wave 17C: "tap two untapped artifacts, creatures, and/or lands")
-    if text.lower().startswith("you may") or re.search(r"\bx\b", text, re.IGNORECASE) or "," in text:
+    if text.lower().startswith("you may") or "," in text:
+        return None
+    has_x = re.search(r"\bx\b", text, re.IGNORECASE) is not None  # -- X sized by a count (wave 25D) -- one part sized by the announced X (below)
+    if has_x and not re.match(r"^(?:sacrifice|discard|exile|return) X ", text, re.IGNORECASE):
         return None
     parts = [p.strip() for p in re.split(r" and (?=(?:sacrifice|discard|pay|exile|return|tap) )", text)]
     components: list[CostComponent] = []
     for part in parts:
         found = _component(part[:1].upper() + part[1:], "") or _exile_to_gy(part[:1].upper() + part[1:]) \
             or _extra_part(part[:1].upper() + part[1:])
+        if found is None and has_x:  # (the part sized by X, 107.3a: one only — "discard X cards and sacrifice X creatures" isn't read)
+            found = _one_4h(part[:1].upper() + part[1:], "")
+            if found is None or not found.x or len(parts) != 1:
+                return None
         if found is None or found.kind not in _ADDITIONAL_KINDS:
             return None
         if found.selector is None and found.kind not in (PAY_LIFE, PAY_ENERGY, FORAGE):
@@ -654,7 +670,7 @@ def _either(text: str) -> AbilityCost | None:
             out.append(AbilityCost(mana=m["mana"]))
             continue
         found = parse_additional_cost(side)
-        if found is None or found.either or found.life_x or found.unsupported:
+        if found is None or found.either or found.life_x or found.unsupported or found.x_chosen:  # (wave 25D: an X-sized side isn't read)
             return AbilityCost()
         out.append(found)
     return AbilityCost(either=tuple(out))

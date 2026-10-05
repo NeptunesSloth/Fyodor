@@ -165,14 +165,14 @@ def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found)
         )
 
         if bestow.is_bestowed(plan.state, card):  # stops being bestowed (a creature again) instead of going to the graveyard
-            problem = "its host is gone" if host is None else attachments.host_problem(plan, card, host)
+            problem = "its host is gone" if host is None else attachments.host_problem(plan, card, host, sba=True)
             if problem is not None and problem != "unknown":
                 out.unbestow.append(card)
             return
         if host is None:
             out.dying.append((card, "an Aura attached to nothing"))
             return
-        problem = attachments.host_problem(plan, card, host)
+        problem = attachments.host_problem(plan, card, host, sba=True)
         if problem is not None and problem != "unknown":  # (an unmapped enchant wording: never on a guess)
             out.dying.append((card, f"an Aura attached illegally: {problem}"))
         return

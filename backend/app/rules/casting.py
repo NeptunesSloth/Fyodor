@@ -1945,6 +1945,8 @@ def additional_problem(plan: Plan, extra: AbilityCost, card: CardInstance, playe
 def life_x_problem(plan: Plan, extra: AbilityCost, a: Any, player: str) -> str | None:
     """-- X sized by a count (wave 4K) -- "As an additional cost to cast this spell, pay X life.": X is announced as the
     spell is cast (601.2b, 107.3a) and can't be more than the caster's life (119.4; 119.4b: 0 always can be paid)."""
+    if extra.x_chosen and a.x_value is None:  # -- X sized by a count (wave 25D) -- "discard X cards": the announced X sizes the cost (107.3a, 601.2b)
+        return "Choose a value for X (the number of objects to pay)"
     if not extra.life_x:
         return None
     if a.x_value is None:

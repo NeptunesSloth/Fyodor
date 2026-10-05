@@ -245,8 +245,9 @@ def test_the_new_wordings_are_covered(cards):
                  "Kokusho, the Evening Star", "Exsanguinate", "Squee, Goblin Nabob", "Verdant Eidolon", "Darklight Phoenix",
                  "Bladewing's Thrall"):
         assert level(cards, name) == "FULL", name
-    # an enchanted creature's trigger returning the Aura from the graveyard: not a graveyard trigger
-    assert level(cards, "Screams from Within") != "FULL"
+    # an enchanted creature's trigger returning the Aura from the graveyard: the Aura's own trigger (on the battlefield as it triggers), "this
+    # card" its new object in the graveyard (wave 25D: 400.7f), not a graveyard trigger
+    assert level(cards, "Screams from Within") == "FULL"
 
 
 def test_raid_returns_bloodsoaked_champion_from_the_graveyard_only_after_an_attack(cards):
