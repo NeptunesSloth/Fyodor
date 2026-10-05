@@ -39,7 +39,7 @@ from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wa
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules import restrictions, selectors, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
-from app.rules.costs import DISCARD, SACRIFICE, parse_ability_cost, spell_additional_cost
+from app.rules.costs import DISCARD, EXILE, EXILE_FROM_GRAVEYARD, SACRIFICE, parse_ability_cost, spell_additional_cost
 from app.rules.oracle import AbilityText, parse_abilities, split_sentences, word_prefix
 from app.rules.values import UNMODELED_COUNTERS
 
@@ -666,7 +666,18 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         if antecedent in ("self", "self_gone"):
             return "self"
         # the trigger event's object, as it is or as it last existed (603.10a, 608.2h)
-        return "event" if antecedent in ("event", "event_gone", "event_spell") else None
+        if antecedent in ("event", "event_gone", "event_spell"):
+            return "event"
+        # -- value grammar (wave 23C) -- "Put X +1/+1 counters on this creature / target creature, where X is its / that creature's
+        # power": the instruction's own recipient, read as it is before the counters are put on it (608.2h)
+        own = out[index]
+        if verb is None and own.get("do") == "add_counters":
+            g = _group_of(own)
+            if own.get("who") == "self":
+                return "self"
+            if g is not None and (groups is None or (g < len(groups) and not _is_player_group(groups[g]))):
+                return "target" if groups is None else f"target:{g}"
+        return None
 
     def cond_ref(index: int) -> Any:
         """The object "it" names in a condition (conditional / instead clauses, wave 1B): what an earlier
@@ -2017,7 +2028,7 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
     head, rest = body[start: m.start()], body[:start] + "\0" + body[m.end():]
     # (what the wrappers around the sentence grammar bind afterwards — "this way" counts, the target player's hand — is not read)
-    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"' + ('' if _exiled_with.linked() else r'|"cost:exiled"'),
+    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"' + (''),
                                   json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):  # (22D: the linked card)
         return None
     now = _x_now()
@@ -3146,6 +3157,14 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         cost = spell_additional_cost(ch.abilities) if d.get("kind") == "spell" else None  # (a spell's additional cost revealed it)
         if cost is None or [c.kind for c in cost.components].count("REVEAL_FROM_HAND") != 1 or cost.either:
             return None
+    if d is not None and '"cost:exiled"' in json.dumps(d, default=str):  # -- value grammar (wave 23C) -- one card exiled from a graveyard / hand to pay
+        cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
+        if cost is None and d.get("kind") == "spell":
+            cost = spell_additional_cost(ch.abilities)
+        exiling = [c for c in cost.components if c.kind in (EXILE, EXILE_FROM_GRAVEYARD, "EXILE_FROM_HAND", "EXILE_LIBRARY", "CRAFT", "COLLECT_EVIDENCE", "FORAGE")] if cost else []
+        if cost is None or cost.either or len(exiling) != 1 or exiling[0].kind not in (EXILE_FROM_GRAVEYARD, "EXILE_FROM_HAND") \
+                or exiling[0].selector is None or exiling[0].amount != 1:
+            return None
     if d is not None and "cost:sacrificed" in json.dumps(d, default=str):
         cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
         if cost is None and d.get("kind") == "spell":  # -- costs (wave 3$) -- a spell's additional cost ("sacrifice a creature")
@@ -3723,6 +3742,8 @@ def _event_refs_ok(d: Definition) -> bool:
     # and as it resolves): only a trigger whose event names that player — the one the event is about, or the one attacked
     raw = json.dumps(d)
     ev = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
+    if '"of": "damage"' in raw and not (ev is not None and ev["event"] in ("dealt_damage", "deal_damage", "deal_damage_opponent", "deal_combat_damage_player")):
+        return False  # -- value grammar (wave 23C) -- "the amount of damage it dealt": only a damage event's trigger
     if '"spells_cast": "event_player"' in raw and not (  # -- triggers (wave 17D) -- "they … for each spell they've cast this turn": "they" is
             ev is not None and ev["event"] == "cast" and ev.get("subject") == "player"  # the casting player, who is also the recipient
             and all(e.get("who") == "event_player" for e in effects if '"spells_cast"' in json.dumps(e))):

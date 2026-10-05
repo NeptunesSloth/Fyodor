@@ -110,6 +110,9 @@ _PLAYER_COUNTERS_3E = re.compile(r"^(?:the amount of )?(?:(?P<kind>poison|experi
 # -- as long as (wave 9B) -- "the amount of excess damage dealt to that creature this way" (Goblin Negotiation), "the excess damage
 # dealt this way", "that excess damage" (after "If excess damage was dealt this way, …, where X is that excess damage")
 _EXCESS_DEALT = re.compile(r"(?:the amount of |the )?excess damage dealt (?:to (?:that|a) (?:creature|permanent) )?this way|that excess damage")
+_COUNTERS_AMONG = re.compile(r"^(?:(?P<kinds>different kinds of counters)|(?:(?P<kind>\+1/\+1|-1/-1|[a-z]+) )?counters?) (?:on|among) (?P<sel>.+)$")
+_DAMAGE_EVENT = re.compile(r"^the amount of (?:combat )?damage (?:(?:it|he|she|they|~|this creature|that creature|those creatures) dealt"
+                           r"(?: to (?:that player|that opponent|them))?|dealt)$")
 _HALF = re.compile(r"^half (?P<v>.+?), rounded (?P<round>up|down)$")
 _PLUS = re.compile(r"^(?P<v>.+?) plus (?P<n>\d+|one|two|three|four|five)$")
 _TYPE_WORDS = "|".join(selectors.CARD_TYPES)
@@ -247,6 +250,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"player_counters": m["kind"]}
     if _EXCESS_DEALT.fullmatch(what):  # -- as long as (wave 9B) -- 120.10: scripts bind it to the damage just before (this_way.excess_dealt)
         return {"ref_amount": "excess_dealt"}
+    if _DAMAGE_EVENT.fullmatch(what):  # -- value grammar (wave 23C) -- "the amount of damage it dealt to that player": the damage trigger's amount
+        return {"event_amount": 1, "of": "damage"}  # (scripts._event_refs_ok: only a damage event's trigger reads it; 603.2c: a batch's total)
     if what in ("the damage prevented this way", "damage prevented this way"):  # -- prevention riders (wave 17A) -- 615.5
         return {"ref_amount": "prevented"}  # (source_shields.rider: bound by the prevention effect when it prevented damage)
     if what == "the damage dealt this way":  # -- if you do (wave 5G) -- what the damage just before dealt (this_way)
@@ -265,6 +270,14 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         if on != "self":
             return None
         return {"attached": sorted(set(re.findall(r"Aura|Equipment", m["kinds"]))), "on": on}
+    m = _COUNTERS_AMONG.match(what)  # -- value grammar (wave 23C) -- "the number of counters on permanents you control", "time counters among permanents you control"
+    if m and m["sel"].lower() not in _ON:
+        key = _selector_key(m["sel"])
+        if key is None or selectors.from_key(key).player is not None or selectors.from_key(key).card or selectors.from_key(key).zones != ("battlefield",):
+            return None
+        if m["kinds"]:  # 122.1: how many different kinds of counters there are among them
+            return {"counter_kinds": 1, "of": key}
+        return {"counters_among": m["kind"], "of": key}
     m = _COUNTERS_ON.match(what)
     if m:
         on = _ON.get(m["on"].lower())
@@ -609,6 +622,11 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         kinds = set(v["attached"])
         return sum(1 for c in plan.state.cards.values() if c.attached_to == host and c.zone.endswith(":battlefield")
                    and plan.in_game(c) and kinds & plan.ch(c).subtypes)
+    if "counters_among" in v or "counter_kinds" in v:  # -- value grammar (wave 23C) -- counters on a group of permanents (122.1)
+        held = [plan.state.cards[c].counters for c in selectors.candidates(plan, selectors.from_key(v["of"]), you, _other_than(ctx))]
+        if "counter_kinds" in v:
+            return len({k for cs in held for k, n in cs.items() if n > 0})
+        return sum(cs.get(v["counters_among"], 0) if v["counters_among"] else sum(cs.values()) for cs in held)
     if "counters" in v:
         got = _object(plan, ctx, v.get("on", "self"))
         if got is None:
@@ -759,6 +777,12 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         sid = ctx.get("stack_id")
         record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
         ids = record.discarded if record is not None else []
+        card = plan.state.cards.get(ids[0]) if len(ids) == 1 else None
+        return (card, plan.ch(card)) if card is not None else None
+    if who == "cost:exiled":  # -- value grammar (wave 23C) -- "the exiled card's mana value": the one card a cost exiled (in exile now: printed values)
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        ids = record.exiled if record is not None else []
         card = plan.state.cards.get(ids[0]) if len(ids) == 1 else None
         return (card, plan.ch(card)) if card is not None else None
     if who == "cost:revealed":  # -- static_other sweep (wave 17C) -- "the revealed card's mana value": the one card a spell's cost revealed
