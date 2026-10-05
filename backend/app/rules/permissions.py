@@ -446,7 +446,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         key = spell_filter(m["sel"]) if m["sel"] else None
         if m["sel"] and key is None:
             return None
-        return {"kind": "static", "static": "permission", "zone": "hand", "once": True, "flash": False, "self": False, "free": True,
+        return {"kind": "static", "static": "permission", "zone": "hand" if m["hand"] else "any", "once": True, "flash": False, "self": False, "free": True,
                 "life_mv": True, "play": False, "cast": True, "filter": key, "effects": []}
     m = ONCE_FREE.fullmatch(t)  # -- refused look/cast-free (wave 3R5) -- a once-each-turn free cast from the hand
     if m:

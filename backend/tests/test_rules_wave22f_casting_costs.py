@@ -29,7 +29,7 @@ def card_db(settings):
     from app.cards.importer import build_database
 
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY, *LIFE, *SPHERE, *EVIDENCE, *DEMON, *IROH], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY, *LIFE, *SPHERE, *EVIDENCE, *DEMON, *IROH, *REVIEW], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
 
 
@@ -378,4 +378,105 @@ def test_lesson_cards_have_flashback_for_a_fixed_cost(cards):
     act(s, "p1", type="cast_spell", card_id=lesson.id)
     answer(s)
     assert s.state.cards[lesson.id].zone == "p1:exile"  # flashback exiles it (702.34a)
+    check(s)
+
+
+# -- review 22F --
+REVIEW = [
+    real("Not of This World", "{7}", 7, "Kindred Instant — Eldrazi", "Counter target spell or ability that targets a permanent you control.\n"
+         "This spell costs {7} less to cast if it targets a spell or ability that targets a creature you control with power 7 or greater."),
+    real("Ancient Brontodon", "{6}{G}{G}", 8, "Creature — Dinosaur", "", ("9", "9"), "G"),
+    real("Rod of Ruin", "{4}", 4, "Artifact", "{3}, {T}: Rod of Ruin deals 1 damage to any target."),
+    real("Shivan Dragon", "{4}{R}{R}", 6, "Creature — Dragon", "Flying\n{R}: This creature gets +1/+0 until end of turn.", ("5", "5"), "R"),
+    real("Timely Ward", "{2}{W}", 3, "Enchantment — Aura", "You may cast this spell as though it had flash if it targets a commander.\n"
+         "Enchant creature\nEnchanted creature has indestructible.", None, "W"),
+    real("Sythis, Harvest's Hand", "{G}{W}", 2, "Legendary Enchantment Creature — Nymph",
+         "Whenever you cast an enchantment spell, you gain 1 life and draw a card.", ("1", "2"), "GW"),
+]
+
+
+def test_not_of_this_world_is_free_against_an_ability(cards):
+    """The reduction reads an ability on the stack too, and that ability's own target (relative to the caster)."""
+    s = build(cards, ["Not of This World", "Ancient Brontodon", "Lightning Bolt"], ["Rod of Ruin"])
+    notw, dino, bolt = to_hand(s, "Not of This World"), put(s, "Ancient Brontodon"), to_hand(s, "Lightning Bolt")
+    rod = put(s, "Rod of Ruin", "p2")
+    mana(s, R=1)
+    mana(s, "p2", C=3)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    act(s, "p2", type="activate_ability", card_id=rod.id, ability=0, targets=[dino.id])
+    act(s, "p1", type="cast_spell", card_id=notw.id, targets=[s.state.zones["stack"][-1]])  # {0}: no mana is open
+    answer(s)
+    assert s.state.cards[dino.id].damage == 0 and s.state.cards[notw.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_timely_ward_is_offered_at_instant_speed_only_with_a_commander_to_target(cards):
+    """601.3b: the target choice would be a dead end without a commander on the battlefield, so the cast isn't offered."""
+    from app.rules import casting
+
+    s = build(cards, ["Timely Ward", "Grizzly Bears", "Lightning Bolt"], ["Opt"])
+    ward = to_hand(s, "Timely Ward")
+    put(s, "Grizzly Bears")
+    mana(s, W=1, C=2)
+    _stack_busy(s)
+    assert not casting.castable(s.state, "p1", ward, s.cards, check_priority=False)
+    krenko = card_named(s, "Krenko, Mob Boss")
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"player": "p1", "zone": "battlefield"})
+    assert casting.castable(s.state, "p1", ward, s.cards, check_priority=False)
+
+
+def test_demon_pays_life_for_a_commander_cast_from_the_command_zone(cards):
+    """No "from your hand" on Demon of Fate's Design: the alternative cost applies wherever the spell is cast from (118.9)."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    alice = deck(cards, "Sythis, Harvest's Hand", [(1, "Demon of Fate's Design"), (9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(9, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    put(s, "Demon of Fate's Design")
+    sythis = card_named(s, "Sythis, Harvest's Hand")
+    assert sythis.zone == "p1:command"
+    before = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=sythis.id, free=True)
+    answer(s)
+    assert s.state.players["p1"].life == before - 2 and s.state.cards[sythis.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_damping_sphere_counts_only_the_casters_spells(cards):
+    s = build(cards, ["Damping Sphere", "Lightning Bolt", "Lightning Bolt"], ["Opt"])
+    put(s, "Damping Sphere")
+    b1, b2 = [c for c in s.state.cards.values() if c.name == "Lightning Bolt" and c.owner == "p1"]
+    opt = to_hand(s, "Opt", "p2")
+    act(s, "p1", type="move", card_ids=[b1.id, b2.id], to={"zone": "hand"})
+    put(s, "Island", "p2")
+    mana(s, R=1)
+    mana(s, "p2", U=1)
+    act(s, "p1", type="cast_spell", card_id=b1.id, targets=["p2"])
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=opt.id)  # Bob's first spell this turn: {U} (Alice's Bolt isn't his)
+    assert s.state.players["p2"].mana == {}
+    answer(s)
+    mana(s, R=1)  # Alice's second: {1}{R} (Bob's Opt isn't hers)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=b2.id, targets=["p2"])
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=b2.id, targets=["p2"])
+    answer(s)
+    check(s)
+
+
+def test_orrery_colorless_mana_pays_an_activated_ability(cards):
+    s = build(cards, ["Chromatic Orrery", "Shivan Dragon"])
+    put(s, "Chromatic Orrery")
+    dragon = put(s, "Shivan Dragon")
+    mana(s, C=1)  # {R}, paid with colorless (609.4b; Mycosynth Lattice ruling: "even colorless mana")
+    act(s, "p1", type="activate_ability", card_id=dragon.id, ability=1)
+    answer(s)
+    assert s.state.players["p1"].mana == {}
     check(s)

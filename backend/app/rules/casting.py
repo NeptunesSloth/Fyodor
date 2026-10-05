@@ -1763,7 +1763,16 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
             return f"{ch.name} can only be cast in your main phase while the stack is empty (plot)"
         return None
     timing = timing_problem(state, player, ch, grant)
-    return None if timing and flash_if(ch) is not None else timing  # (wave 22F: 601.3b-c, decided once its targets / cost / X are chosen)
+    fl = flash_if(ch) if timing else None  # (wave 22F: 601.3b-c, decided once its targets / cost / X are chosen)
+    if fl is not None and ("targets" not in fl or (info is not None and _flash_target_exists(state, player, card, fl["targets"], info))):
+        return None  # (review 22F: "if it targets a commander" with no such object to target isn't offered: the target choice would be a dead end)
+    return timing
+
+
+def _flash_target_exists(state: GameState, player: str, card: CardInstance, key: str, info: CardInfo) -> bool:
+    from app.rules import cost_changes
+
+    return cost_changes.targets_fit(permissions._view(state, player, info), card, player, key, tuple(state.cards))
 
 
 def timing_problem(state: GameState, player: str, ch: Characteristics, grant: Any) -> str | None:
