@@ -64,8 +64,9 @@ def definition(text: str) -> Definition | None:
             before = defs[-1]
             if not before["conditions"] or before.get("also"):
                 return None  # ("Otherwise" says what happens when the sentence before it doesn't)
-            d = statics.parse(f"{subject} {other['pred']}.")
-            if d is None or d["conditions"]:
+            # (-- as long as (wave 20B) -- "~ has hexproof." alone is a keyword line, not a static: a stand-in condition, replaced below)
+            d = statics.parse(f"{subject} {other['pred']}." if attached else f"As long as it's your turn, ~ {other['pred']}.")
+            if d is None or (attached and d["conditions"]):
                 return None
             d["conditions"] = [_not(before["conditions"])]
         elif instead:

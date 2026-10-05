@@ -451,7 +451,9 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
                     subtypes = subtypes | _ALL
                 subtypes = frozenset(s for s in subtypes if _subtype_fits(s, types))
                 continue
-            types = types - frozenset(e.get("remove_types") or ())
+            if e.get("set_types") is not None:  # -- as long as (wave 20B) -- 205.1a: "it's a land"
+                types = frozenset(e["set_types"]) | (types & frozenset({"Instant", "Sorcery"}))
+            types = (types - frozenset(e.get("remove_types") or ())) | frozenset(e.get("add_types") or ())  # (205.1b: "creature in addition …")
             subtypes = subtypes | frozenset(e.get("add_subtypes") or ())
             subtypes = frozenset(s for s in subtypes if _subtype_fits(s, types))
             continue
