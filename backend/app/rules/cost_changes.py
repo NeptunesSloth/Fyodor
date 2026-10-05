@@ -86,6 +86,14 @@ def parse_change(symbol: str, direction: str, rest: str) -> Change | None:
             return None
         out["value"] = v
     cond_text = m["cond"] or m["cond2"]
+    if cond_text and cond_text.startswith("it targets "):  # -- casting costs (wave 22F) -- 601.2f: read once the targets are chosen
+        from app.rules import selectors
+
+        sel = selectors.parse(re.sub(r"^(?:a|an) ", "", cond_text[len("it targets "):]))
+        if sel is None or sel.player is not None or m["x"] or m["each"] or m["long"]:
+            return None
+        out["targets"] = sel.key()
+        return out
     if cond_text:
         cond = conditions.parse(cond_text, objects=True)  # (wave 20E: "as long as ~ is tapped": the source itself)
         if cond is None or "succeeded" in cond or set(conditions.objects_in(cond)) - {"self"}:
@@ -154,7 +162,8 @@ def ability_change(text: str) -> Change | None:
     m = ABILITY_SENTENCE.fullmatch(sentence.strip())
     if m is None or m["n"] in "WUBRG":
         return None  # (a colored change to an activation cost isn't printed on any card the grammar was checked with)
-    return parse_change(m["n"], m["dir"], m["rest"])
+    found = parse_change(m["n"], m["dir"], m["rest"])
+    return None if found and found.get("targets") else found  # (wave 22F: an ability's cost isn't read against its targets yet)
 
 
 def ability_delta(state: GameState, player: str, card: CardInstance, ch: Characteristics, text: str, info: CardInfo) -> int:
@@ -214,8 +223,18 @@ class Changes:
             self.reduction -= delta
 
 
+def targets_fit(view: Plan, card: CardInstance, player: str, key: str, targets: tuple[str, ...]) -> bool:
+    """-- casting costs (wave 22F) -- "if it targets a tapped creature": does one of the chosen targets fit (read relative to the
+    caster, 601.2f)? Before targets exist (ANY_TARGET, a castability hint) a reduction counts and an increase doesn't."""
+    from app.rules import selectors
+
+    sel = selectors.from_key(key)
+    return any((t := view.state.cards.get(tid)) is not None and selectors.matches(view, sel, t, view.ch(t), player, card.id)
+               for tid in targets)
+
+
 def own_changes(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo,
-                definitions: dict[int, dict[str, Any]]) -> Changes:
+                definitions: dict[int, dict[str, Any]], targets: tuple[str, ...] = ()) -> Changes:
     """The spell's own changes ("This spell costs {1} less to cast for each …"), read as its total cost is determined."""
     out = Changes()
     view = None
@@ -224,6 +243,10 @@ def own_changes(state: GameState, player: str, card: CardInstance, ch: Character
         if not change:
             continue
         view = view or view_of(on_stack(state, card), player, info)
+        if change.get("targets"):  # "… if it targets …": the chosen targets (601.2c comes before 601.2f)
+            if (targets == ANY_TARGET and change["dir"] > 0) or (
+                    targets != ANY_TARGET and not targets_fit(view, card, player, change["targets"], targets)):
+                continue
         n = amount(view, context(state, player, card), change)
         n = min(n, change["cap"]) if "cap" in change else n
         if n:

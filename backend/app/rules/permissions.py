@@ -956,7 +956,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
             else:
                 reduction -= m.delta
         reduction += self_reduction(state, player, card, ch, info)
-        own = cost_changes.own_changes(state, player, card, ch, info, _definitions(ch))
+        own = cost_changes.own_changes(state, player, card, ch, info, _definitions(ch), targets)
         increase += own.increase
         reduction += own.reduction
         changes.colored_more += own.colored_more
