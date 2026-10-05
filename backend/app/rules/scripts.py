@@ -1162,6 +1162,21 @@ def _each_put_back(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 # -- end triggers (wave 5D) --
 
 
+# -- trigger other (wave 25B) -- "Create a Food token or a Treasure token.": one of the two, chosen as it resolves (app/rules/resolution_choice.py)
+_PREDEFINED = r"(?:Food|Treasure|Clue|Blood|Gold|Junk|Map|Powerstone)"
+
+
+@effect(rf"create (?P<a>an? {_PREDEFINED} token) or (?P<b>an? {_PREDEFINED} token)")
+def _create_one_of(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    options = []
+    for key in ("a", "b"):
+        found = _one_clause(f"create {m[key]}")
+        if found is None or found[1] is not None:
+            raise _NoMatch
+        options.append({"label": f"Create {m[key]}", "effects": found[0]})
+    return [{"do": "pick_one", "options": options}], None
+
+
 @effect(r"you gain {N} life")
 def _gain(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "gain_life", "who": "you", "n": num(m["n"])}], None

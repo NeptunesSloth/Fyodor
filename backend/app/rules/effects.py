@@ -4191,3 +4191,8 @@ PRIMITIVES.update(_suspend_grants.PRIMITIVES)
 from app.rules import airbend as _airbend  # noqa: E402, I001
 
 PRIMITIVES.update(_airbend.PRIMITIVES)
+# -- trigger other (wave 25B) -- "create a Food token or a Treasure token" (app/rules/resolution_choice.py)
+from app.rules import resolution_choice as _resolution_choice  # noqa: E402, I001
+
+PRIMITIVES.update(_resolution_choice.PRIMITIVES)
+RESUME[_resolution_choice.STEP] = _resolution_choice.resume
