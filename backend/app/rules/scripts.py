@@ -265,7 +265,8 @@ def self_text(text: str, name: str) -> str:
 
     def _own(part: str) -> str:
         for n in names:
-            part = re.sub(rf"(?<!\w){re.escape(n)}(?!\w)", "~", part)  # (wave 16D: a name ending in "!" has no \b after it)
+            # (wave 20C: the short name before "the/of Capital" starts another name: "create Tuktuk the Returned, a legendary …")
+            part = re.sub(rf"(?<!\w){re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else ""), "~", part)  # (wave 16D: a name ending in "!" has no \b after it)
         return part
 
     # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the
@@ -1823,7 +1824,12 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         left = _clause(parts[0])
         right = _that_many(left, parts[1]) if left is not None else None  # -- static_other sweep (wave 16B) --
         right = right or _clause(parts[1])
-        if left is None or right is None:
+        # -- reanimation (wave 20C) -- "You gain 3 life and you may return up to one target creature card …" (608.2c): only the second
+        # instruction is optional, asked as the resolution reaches it (unless_pays.may_rest: the rest of the ability, so it must end the
+        # sentence and, in parse_effects, the ability)
+        if right is None and parts[1].startswith("you may ") and (inner := _one_clause(parts[1][len("you may "):])) is not None:
+            right = ([{"do": "may_rest"}, *inner[0]], inner[1])
+        if left is None or right is None or any(e.get("do") == "may_rest" for e in left[0]):
             continue
         lgroups, rgroups = _as_groups(left[1]), _as_groups(right[1])
         if same_target:
@@ -2484,7 +2490,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             if effects:
                 # "…. You may reveal … from among them …": a clause that models its own choice
                 own = _clause(text)
-                if own is None or not any(x.get("optional") for x in own[0]):
+                if own is None and i == len(texts) - 1 and (inner := _one_clause(text[len("you may "):])) is not None:
+                    own = ([{"do": "may_rest"}, *inner[0]], inner[1])  # -- reanimation (wave 20C) -- the last sentence: may_rest asks for all of it
+                if own is None or not any(x.get("optional") or x.get("do") == "may_rest" for x in own[0]):
                     return None  # "…. You may …" mid-ability: not a simple optional trigger
                 effects += _add_groups(groups, own[0], own[1])
                 continue
@@ -2515,6 +2523,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += _add_groups(groups, found, sel)
     if _x_now():
         effects = _swap_x(effects)
+    if any(e.get("do") == "may_rest" for e in effects[:sentences[-1]]):
+        return None  # -- reanimation (wave 20C) -- may_rest ends the resolution on "no": nothing may follow its sentence
     resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
     if resolved is not None:  # -- refused modal/conditional (wave 3R1) -- an "instead" pronoun naming the target
         resolved = _gated_other_rewrite(_branch_refs_retarget(resolved))
@@ -3281,10 +3291,19 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                             return None
                         names = [h[0] for h in halves if h]
                         generic = [h[1] for h in halves if h and h[1] is not None]
-                        if len(set(names)) < 2 or len(generic) > 1:
+                        if names == ["event", "event"] and generic[0]["event"] != generic[1]["event"] and not re.search(
+                                r"\b(?:it|its|it's|that|those|them|they)\b", m["body"]) and not any(
+                                g.get("aggregate") or g["event"] in ("either", "multi") for g in generic):
+                            # -- ability words (wave 20C) -- "Whenever an enchantment you control enters and whenever you fully unlock a
+                            # Room" (eerie): two whole conditions, each its own event (603.2c) — the "or" form's either condition
+                            cond = {"event": "either", "conds": generic,
+                                    "subject": generic[0]["subject"] if generic[0]["subject"] == generic[1]["subject"] else "mixed"}
+                            name = "event"
+                        elif len(set(names)) < 2 or len(generic) > 1:
                             return None
-                        cond = generic[0] if generic else None
-                        name = "multi:" + "+".join(names)
+                        else:
+                            cond = generic[0] if generic else None
+                            name = "multi:" + "+".join(names)
                     else:
                         cond = event_grammar.parse_condition(m["cond"])
                         if cond is None:
