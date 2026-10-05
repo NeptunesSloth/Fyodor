@@ -1177,6 +1177,15 @@ def _create_one_of(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "pick_one", "options": options}], None
 
 
+# -- trigger other (wave 25B) -- "Put the cards in your hand on the bottom of your library in any order, then draw that many cards."
+# (app/rules/hand_wheel.py); "that player puts the cards in their hand … then draws that many cards" (Teferi's Puzzle Box)
+@effect(r"(?:(?P<who>you|that player) )?puts? the cards in (?:your|their) hand on the bottom of (?:your|their) library in any order, "
+        r"then (?:(?:you|that player) )?draws? that many cards")
+def _hand_wheel(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    who = "that_player" if m["who"] == "that player" else "you"
+    return [{"do": "hand_to_bottom", "who": who, "bind_amount": "wheel"}, {"do": "draw", "who": who, "n": {"ref_amount": "wheel"}}], None
+
+
 @effect(r"you gain {N} life")
 def _gain(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "gain_life", "who": "you", "n": num(m["n"])}], None
@@ -1895,6 +1904,8 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
             r"((?![^,]*\b(?:search|reveal|look)\b)[^,]+(?:, (?!then\b)[^,]+)+), then ((?:investigate|surveil|scry|draw|gain|mill|explore)\b[^,]*)", text)) is not None:
         # (wave 16D: "Gain 2 life, surveil 2, then investigate"; a search's ", then shuffle" is no list)
         text = serial[1].replace(", ", " and ") + " and " + serial[2]
+        if (again := _one_clause(text)) is not None:  # (wave 25B: one subject doing several things, "target opponent sacrifices …, discards …, and loses …")
+            return again
     # -- static_other sweep (wave 16B) -- "You draw two cards, lose 2 life, then mill two cards." is three instructions in order (608.2c)
     text = re.sub(r"^(?P<a>(?:you )?(?:gain|lose|draw|mill|scry|surveil)\b[^,.]*), (?P<b>(?:draw|lose|gain|mill|scry|surveil|investigate)\b[^,.]*), then ",
                   r"\g<a>, then \g<b>, then ", text)
@@ -5196,6 +5207,8 @@ def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     # definition of X is the whole sentence's (107.3c), so the left half reads it too
     rider = re.search(r", where X is [^\"]+$", m["r"])
     lead = f"{m['l']}{rider[0]}" if rider is not None and re.search(r"\bX\b", m["l"]) else m["l"]
+    # (-- trigger other (wave 25B) -- "Target opponent sacrifices a creature, discards a card, and loses 3 life": a serial list, one subject, in order)
+    lead = " and ".join(re.split(rf", (?=(?:{_language._V3}) )", lead.rstrip(", ")))
     left, right = _clause(f"{m['s']} {lead}"), _clause(f"{m['s']} {m['r']}")
     if left is None or right is None:
         raise _NoMatch

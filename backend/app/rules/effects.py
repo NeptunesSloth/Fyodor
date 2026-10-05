@@ -4196,3 +4196,7 @@ from app.rules import resolution_choice as _resolution_choice  # noqa: E402, I00
 
 PRIMITIVES.update(_resolution_choice.PRIMITIVES)
 RESUME[_resolution_choice.STEP] = _resolution_choice.resume
+# -- trigger other (wave 25B) -- "put the cards in your hand on the bottom of your library in any order, then draw that many cards" (app/rules/hand_wheel.py)
+from app.rules import hand_wheel as _hand_wheel  # noqa: E402, I001
+
+PRIMITIVES.update(_hand_wheel.PRIMITIVES)
