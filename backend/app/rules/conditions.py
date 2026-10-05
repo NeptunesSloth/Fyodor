@@ -1269,10 +1269,10 @@ _FROM_TAGS = {"treasure": "Treasure", "treasures": "Treasure", "creature": "Crea
               "artifacts": "Artifact", "desert": "Desert", "cave": "Cave", "snow": "Snow"}
 _SPENT_FROM = re.compile(rf"(?:(?:at least )?(?P<n>\w+)(?: or more)? )?mana from (?:(?:a|an) )?(?P<what>[a-z]+)(?: source)?"
                          rf" (?:was|were) spent to cast (?P<who>{_CAST_SUBJECT}|that spell)")
-_SPENT_COLOR = re.compile(rf"at least (?P<n>\w+) (?P<color>white|blue|black|red|green) mana was spent to cast (?P<who>{_CAST_SUBJECT})")
+_SPENT_COLOR = re.compile(rf"at least (?P<n>\w+) (?P<color>white|blue|black|red|green|colorless) mana was spent to cast (?P<who>{_CAST_SUBJECT})")
 _SPENT_SAME = re.compile(rf"at least (?P<n>\w+) mana of the same color was spent to cast (?P<who>{_CAST_SUBJECT})")
 _SPENT_TOTAL = re.compile(rf"(?P<n>\w+) or more mana was spent to cast (?P<who>{_CAST_SUBJECT})")
-_COLOR_LETTER = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
+_COLOR_LETTER = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G", "colorless": "C"}  # (wave 22E: colorless, 107.4)
 _FROM = {"your hand": "hand", "a graveyard": "graveyard", "your graveyard": "graveyard", "exile": "exile",
          "your library": "library", "anywhere other than your hand": "!hand"}
 

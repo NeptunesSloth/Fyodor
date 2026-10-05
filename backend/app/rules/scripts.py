@@ -3425,9 +3425,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # spell or ability unless its controller pays {2}." (ward's own text, 702.21a): the spell or ability the event names
                 tm = re.fullmatch(r"counter that spell or ability unless its controller pays ((?:\{[^}X]+\})+)\.?", body)
                 counter_it: list[dict[str, Any]] = [{"do": "counter_unless", "who": "event_source", "cost": tm[1]}] if tm else []
-                if body in ("counter that spell or ability.", "counter that spell."):  # -- history (wave 22E) -- Glyph Keeper, Kira: 701.6a
-                    tm, counter_it = body, [{"do": "counter", "who": "event_source"}]
-                parsed = parse_effects(body, it=ante, event_player=has_player) if tm is None or not _targeted(cond) \
+                plain_counter = body in ("counter that spell or ability.", "counter that spell.")  # -- history (wave 22E) -- Glyph Keeper, Kira: 701.6a
+                if plain_counter:
+                    counter_it = [{"do": "counter", "who": "event_source"}]
+                parsed = parse_effects(body, it=ante, event_player=has_player) if (tm is None and not plain_counter) or not _targeted(cond) \
                     else (counter_it, None, False)
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
@@ -3493,7 +3494,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 )
 
                 if (trigger == "cast_self" or "cast_self" in name) and re.search(r'"(?:self|event)', json.dumps(
-                        [e for e in effects if not (e["do"] == "only_if" and _conds.is_cast_condition(e["cond"]))], default=str)):
+                        [e for e in effects if not (e["do"] == "only_if" and _conds.is_cast_condition(e["cond"]))], default=str).replace(
+                            '{"mana_spent": "self"}', "")):  # (wave 22E: the spell's own payment record is what the amount reads, 601.2h)
                     return None  # -- cast triggers (wave 6D) -- the spell itself is on the stack: not read as "~"
                 if trigger == "state":  # -- state triggers (wave 6D) -- 603.8
                     from app.rules import state_triggers

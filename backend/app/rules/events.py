@@ -848,10 +848,10 @@ def _object_event(c: str) -> Condition | None:
         extra: Condition = {"event": "targeted", "by": {"an opponent controls": "opponent", "you control": "you"}.get(m["by"] or "", "any"),
                             "spell_only": m["what"] != "a spell or ability", "first_each_turn": bool(m["first"])}
         if m["adj"]:
-            sel = selectors.parse(f"{m['adj']} spell")
-            if sel is None or sel.zones != ("stack",) or sel.player is not None:
+            kind = selectors.parse(f"{m['adj']} spell")
+            if kind is None or kind.zones != ("stack",) or kind.player is not None:
                 raise _Refuse
-            extra["spell_sel"] = sel.key()
+            extra["spell_sel"] = kind.key()
         if m["s"] == "you":
             return {**extra, "subject": "player", "player": "you"}
         parts = re.fullmatch(r"you or (?P<r>an? permanent you control|another permanent you control|an? creature you control)", m["s"])

@@ -589,6 +589,21 @@ def _named_self(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "named_self"))
 
 
+# -- history (wave 22E) -- "a creature spell that shares a creature type with your commander" (Path of Ancestry): one of the creature types
+# of one of the matcher's commanders (903.3: the cards its owner's deck names, wherever they are), read as the cards are
+@_suffix(r"that shares a creature type with your commander")
+def _shares_commander_type(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "shares_commander_type"))
+
+
+def _shares_commander_type_now(plan: Plan, ch: Characteristics, you: str) -> bool:
+    from app.rules.creature_types import CREATURE_TYPES
+
+    mine = ch.subtypes & CREATURE_TYPES
+    return any(mine & (plan.ch(c).subtypes & CREATURE_TYPES) for c in plan.state.cards.values()
+               if c.commander_key is not None and c.owner == you)
+
+
 # "each creature that entered this turn", "target non-Human creature that entered this turn", "each creature that
 # entered the battlefield under your control this turn": the permanent is an object that entered this turn (400.7: a
 # new object if it left and came back), read from this turn's log (app/rules/history.py)
@@ -1356,6 +1371,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "shares_color_source" and ((src := plan.state.cards.get(source or "")) is None or not plan.ch(src).colors & ch.colors):
             return False  # -- static_other sweep (wave 17C) -- conspire 702.78a: a creature that shares a color with the spell
         if extra.startswith("oid:") and plan.oid(card) != extra[4:]:  # (wave 18F) the granting object
+            return False
+        if extra == "shares_commander_type" and not _shares_commander_type_now(plan, ch, you):  # (wave 22E)
             return False
         if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
             return False  # (wave 12C)

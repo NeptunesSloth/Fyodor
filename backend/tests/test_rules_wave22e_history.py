@@ -32,6 +32,8 @@ EXTRA += [card("Probe Cantrip", set_code="t22e", number="E90", mana_cost="{U}", 
                color_identity=["R"], oracle_text="Probe Burst deals 1 damage to any target."),
           card("Probe Soldier", set_code="t22e", number="E92", mana_cost="{1}{W}", cmc=2.0, type_line="Creature — Human Soldier",
                colors=["W"], color_identity=["W"], oracle_text="", power="1", toughness="1"),
+          card("Probe Goblin", set_code="t22e", number="E95", mana_cost="{R}", cmc=1.0, type_line="Creature — Goblin", colors=["R"],
+               color_identity=["R"], oracle_text="", power="1", toughness="1"),
           card("Probe Reanimate", set_code="t22e", number="E93", mana_cost="{B}", cmc=1.0, type_line="Sorcery", colors=["B"],
                color_identity=["B"], oracle_text="Return target creature card from your graveyard to the battlefield."),
           card("Probe Cheat", set_code="t22e", number="E94", mana_cost="{G}", cmc=1.0, type_line="Sorcery", colors=["G"],
@@ -262,5 +264,24 @@ def test_if_it_wasnt_cast_preston_the_vanisher(cards):
     assert zone_of(s, "Probe Soldier") == "p1:battlefield"
     assert len([c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]) == 1
     check(s)
+
+
+# -- 106.6: "When that mana is spent to cast a creature spell that shares a creature type with your commander" ---------
+def test_path_of_ancestry_scries_for_a_spell_sharing_a_type_with_the_commander(cards):
+    for spell, scries in (("Probe Goblin", True), ("Probe Soldier", False)):  # (Krenko, Mob Boss is a Goblin Warrior)
+        s = build(cards, ["Path of Ancestry", spell], [])
+        kit_put(s, "Path of Ancestry")
+        s.state.rules.controlled_since[card_named(s, "Path of Ancestry").id].turn = 0
+        c = to_hand(s, spell)
+        act(s, "p1", type="add_mana", player="p1", mana={} if spell == "Probe Goblin" else {"W": 1})
+        act(s, "p1", type="cast_spell", card_id=c.id)  # the Path's {R} pays for it (any color in her commander's identity)
+        assert s.state.cards[card_named(s, "Path of Ancestry").id].tapped
+        d = settle_stack(s)
+        assert (d is not None and d.prompt.startswith("Scry 1")) == scries, (spell, d)
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[])
+        settle_stack(s)
+        assert zone_of(s, spell) == "p1:battlefield"
+        check(s)
 
 
