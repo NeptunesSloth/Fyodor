@@ -115,6 +115,7 @@ TRIGGERS = [
     # -- state triggers (wave 6D) -- "When you control no Islands, …" (603.8: app/rules/state_triggers.py)
     (re.compile(r"^When (?P<state>you control (?:no|a|an|\w+ or more) [^,]+|there are no [^,]+ on the battlefield|"
                 r"you have \w+ or (?:more|less) life|"
+                r"(?:~|this [a-z]+) has [a-z]+(?: strike)?|"  # -- flip (wave 24C) -- "When this creature has flying, flip it." (Student of Elements)
                 r"(?:~|this [a-z]+) has (?:no|\w+ or more) [^,]+? counters on it|there are (?:\w+ or more|no) [^,]+? counters on (?:~|this [a-z]+)), "  # -- state triggers (waves 19C, 19D) -- its own counters
                 r"(?P<body>.+)$"), "state"),
     # Anything else "When/Whenever [subject] [event], …": the generic condition grammar (app/rules/events.py)
@@ -258,6 +259,8 @@ def self_text(text: str, name: str) -> str:
         out = out[len("Boast — "):]
     if out.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193a (restrictions.parse, power_up.py)
         out = out[len("Power-up — "):]
+    if out.startswith("Forecast — "):  # -- forecast (wave 24C) -- 702.57a (the restriction: restrictions.parse)
+        out = out[len("Forecast — "):]
     if out == text and (worded := word_prefix(text)) is not None:  # -- refused zones/sized (wave 3R4) -- 207.2d
         out = worded[1]
     short = _short_name(name, out)
@@ -2180,9 +2183,20 @@ def _value_targets(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tupl
     wanted = {w for w in ("player", "opponent") if f'"for_player": "target_{w}"' in text}
     if found is None or not wanted:
         return found
-    if len(wanted) != 1 or found[1] not in (None, *wanted):
+    if len(wanted) != 1 or (found[1] not in (None, *wanted) and not isinstance(found[1], list)):
         raise _NoMatch
     (who,) = wanted
+    if isinstance(found[1], list):  # -- counters (wave 24C) -- beside another target ("Put a hone counter on ~ for each creature target opponent controls.
+        # Attach ~ to up to one target creature you control." — Sting): the value's own target (115.1) is a group of the ability, announced first when its
+        # sentence comes before every other target's (601.2c: in text order); the other groups follow it
+        groups = found[1]
+        first_other = next((i for i, e in enumerate(found[0]) if any(isinstance(v, str) and v.startswith("target") for v in e.values())), None)
+        first_value = next((i for i, e in enumerate(found[0]) if f'"for_player": "target_{who}"' in json.dumps(e)), None)
+        if (any(isinstance(g, dict) and g.get("what") in ("player", "opponent") for g in groups) or first_value is None
+                or (first_other is not None and first_other < first_value)):
+            raise _NoMatch
+        renumbered = _renumber(json.loads(text.replace(f'"for_player": "target_{who}"', '"for_player": "target:0"')), list(range(1, len(groups) + 1)))
+        return renumbered, [{"what": who, "min": 1, "max": 1}, *groups], found[2]
     return json.loads(text.replace(f'"for_player": "target_{who}"', '"for_player": "target"')), who, found[2]
 
 
@@ -2332,6 +2346,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import recursion as _recursion  # -- recursion & tutors (wave 4M) --
 
     body = _recursion.join_sized_search(body)
+    from app.rules import counter_kinds as _counter_kinds  # -- counter kinds (wave 24C) --
+
+    body = _counter_kinds.join(body)
+    from app.rules import suspend_grants as _suspend_grants  # -- suspend granted (wave 24C) --
+
+    body = _suspend_grants.rewrite(body)
     from app.rules import name_search  # -- name search (wave 11D) --
 
     body = name_search.rewrite(body)
@@ -4158,7 +4178,7 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
 
 
 def _from_hand_ability(ab: AbilityText) -> bool:
-    return ab.kind == "activated" and re.search(r"(?:^|, )Discard (?:this card|~)(?:,|$)", ab.cost or "") is not None
+    return ab.kind == "activated" and re.search(r"(?:^|, )(?:Discard|Reveal) (?:this (?:card|creature)|~)(?: from your hand)?(?:,|$)", ab.cost or "") is not None
 
 
 def spell_definition(ch: Characteristics) -> Definition | None:
@@ -4562,8 +4582,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     # (Myojin: the cast condition as "If you cast it from your hand, ~ enters with …"), "~ enters with a number of +1/+1
     # counters on it equal to the number of creatures that died this turn" (a count read as it enters, 614.1c)
     text = re.sub(r"^(~ enters (?:tapped )?with .+? counters? on) (?:him|her)( |\.)", r"\1 it\2", text)
-    tail = re.fullmatch(r"(?P<body>~ enters with .+? counters? on it) (?P<c>if you cast it(?: from your hand)?)\.", text)
-    if tail is not None:
+    tail = re.fullmatch(r"(?P<body>~ enters with .+? counters? on it) (?P<c>if you (?:didn't )?cast it(?: from your hand)?)\.", text)
+    if tail is not None:  # (-- counters (wave 24C) -- "if you didn't cast it from your hand": Epochrasite)
         text = f"If {tail['c'][3:].replace(' it', ' ~', 1)}, {tail['body']}."
     # -- this-turn conditions (wave 8D) -- "~ enters with a +1/+1 counter on it if you attacked this turn." (Raid, Morbid …)
     # -- counters (wave 21D) -- "~ enters with a +1/+1 counter on it if you control a permanent with mana value 4 or greater." (614.12: the
@@ -4574,6 +4594,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     ttail = re.fullmatch(r"(?P<body>~ enters with .+? counters? on it) if (?P<c>[^,]+ this turn)\.", text)
     if ttail is not None:
         text = f"If {ttail['c']}, {ttail['body']}."
+    # -- counters (wave 24C) -- "~ enters with two -1/-1 counters on it unless you've cast another red spell this turn." (Hotheaded Giant): the
+    # condition read as it enters (614.12), negated
+    unless_cond = re.fullmatch(r"(?P<body>~ enters with .+? counters? on it) unless (?P<c>[^,]+ this turn)\.", text)
+    if unless_cond is not None:
+        text = f"If {unless_cond['c']}, {unless_cond['body']}."
     # -- end this-turn conditions --
     eq = re.fullmatch(r"~ enters with a number of (?P<kind>\+1/\+1|[a-z]+) counters on it equal to (?P<v>.+)\.", text)
     if eq is not None:
@@ -4601,7 +4626,17 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         from app.rules import conditions
 
         cast_if = conditions.parse(lead["c"], objects=True)
-        if cast_if is not None and lead["c"].endswith(" this turn") and (  # -- this-turn conditions (wave 8D) -- 608.2i, 614.12:
+        if cast_if is not None and unless_cond is not None:
+            cast_if = {"not": cast_if}
+        inner = cast_if["not"] if cast_if is not None and "not" in cast_if else None
+        if inner is not None:  # -- counters (wave 24C) -- a negated condition: "didn't cast it from your hand", "unless … this turn"
+            if any(k in json.dumps(inner) for k in ('"spent"', '"total"', '"same_color"', '"from_mana"', '"no_mana"')):
+                return None  # (a mana test: a spell cast by hand has no known payment, "didn't" would hold wrongly)
+            if inner.get("object") in ("self", "it") and "cast" in inner:  # ("it" is ~ here: 614.12)
+                cast_if = {"not": {**inner, "object": "self"}}
+            elif not (lead["c"].endswith(" this turn") and inner.get("history") == "cast" and inner.get("other")):
+                return None  # (only "another … spell this turn": a cast count would include ~'s own cast)
+        elif cast_if is not None and lead["c"].endswith(" this turn") and (  # -- this-turn conditions (wave 8D) -- 608.2i, 614.12:
                 "history" in cast_if or all("history" in x for x in cast_if.get("any", [None]))) or cast_if is not None and lead["c"].startswith("you control another "):  # read as it enters
             pass
         elif cast_if is None or "cast" not in cast_if or cast_if.get("object") != "self":
@@ -5619,7 +5654,7 @@ def _gated_other_rewrite(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # +1/+1 counter from it. If you do, …", "Discard a card. If you do, draw a card.", "Return it to its owner's hand. If
 # you do, …"): whether that one instruction was actually carried out (608.2c), probed as it runs (effects._did_r1,
 # effects._did). The sentence before must be that one instruction (an intervening "if" of a trigger may gate it).
-_DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "remove_counters", "discard", "exile", "bounce"})
+_DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "remove_counters", "discard", "exile", "bounce", "add_counters"})
 
 
 def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any]],

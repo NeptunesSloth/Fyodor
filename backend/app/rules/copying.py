@@ -335,6 +335,8 @@ def supported_source(plan: Plan, card: CardInstance, *, token: bool = False) -> 
     layout = (data or {}).get("layout")
     if layout == "meld" and card.face:
         return "a melded permanent (707.8)"
+    if layout == "flip":  # -- flip (wave 24C) -- 710: the copy has the alternative characteristics too and keeps its own flipped status
+        return "a flip card (710, 110.5: whether the copy is flipped isn't modelled)"
     if token and layout in DOUBLE_FACED and layout not in TWO_FACED_TOKENS:
         return "a double-faced object (707.8a)"
     return None

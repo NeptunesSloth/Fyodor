@@ -193,6 +193,9 @@ def _from_card_data(data: dict[str, Any], face: int, *, half: bool = False) -> C
         text = str(src.get("oracle_text") or "")
         if layout == "transform" and face > 0:  # -- transform (wave 11A) -- 712.8e: its mana value is its front face's
             return replace(_build(data, src, text), mana_value=mana_value(str(faces[0].get("mana_cost") or "")))
+        if layout == "flip" and face > 0:  # -- flip (wave 24C) -- 710.1c: the mana cost and colors of a flipped permanent don't change
+            front = _build(data, faces[0], str(faces[0].get("oracle_text") or ""))
+            return replace(_build(data, src, text), mana_cost=front.mana_cost, mana_value=front.mana_value, colors=front.colors)
     elif faces and layout == "adventure":
         # -- ability words (wave 9C) -- 715.4: outside the stack (and on it not as an Adventure) an adventurer card has only
         # its normal characteristics: its Adventure's text and types are not the permanent's (a static of a permanent
@@ -326,6 +329,12 @@ def transformable(card: CardInstance, info: CardInfo) -> bool:
     return not {"Instant", "Sorcery"} & set(parse_type_line(str(faces[0 if card.face else 1].get("type_line") or ""))[1])
 
 
+def flippable(card: CardInstance, info: CardInfo) -> bool:
+    """-- flip (wave 24C) -- 710.4: a flip card's permanent that isn't flipped yet (flipping is one-way)."""
+    data = info.get(card.card_id) if card.card_id and card.token is None and not card.is_token else None
+    return data is not None and data.get("layout") == "flip" and len(data.get("faces") or []) >= 2 and not card.flipped
+
+
 def half_from_data(data: dict[str, Any], face: int) -> Characteristics:
     """One half of a split card / adventure (its own name, cost, type and text), cached."""
     key = (str(data.get("id")) + "#half", face)
@@ -422,4 +431,5 @@ def _of(card: CardInstance, info: CardInfo) -> Characteristics:
     if data is None:
         # Unknown to the card database (a custom object): typeless, so the engine won't guess.
         return Characteristics(name=card.name or "")
-    return printed_from_data(data, card.face)
+    # -- flip (wave 24C) -- 710.2: a flipped permanent (status, 110.5: ``flipped``, the Kamigawa rotation) has the alternative characteristics
+    return printed_from_data(data, 1 if card.flipped and data.get("layout") == "flip" and card.zone.endswith(":battlefield") else card.face)

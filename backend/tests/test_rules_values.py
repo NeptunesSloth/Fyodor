@@ -65,7 +65,7 @@ def test_parse_count(phrase, value):
     "Auras attached to it",
     "creatures that were exiled this turn",  # ("… that died this turn": read since wave 4D)
     "the amount of mana spent to cast it",
-    "hone counters on ~",  # a counter kind the engine doesn't model
+    "rad counters on ~",  # a counter kind the engine doesn't model (hone: wave 24C, 122.1j)
     "the number of foo you control",
 ])
 def test_unknown_quantities_are_not_guessed(phrase):

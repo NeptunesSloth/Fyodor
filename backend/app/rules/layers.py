@@ -740,6 +740,8 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         if m is not None:  # 122.1a / 613.4c: "+X/+Y" counters modify power and toughness
             p += int(m["p"]) * n
             t += int(m["t"]) * n
+    if on_field and info is not None:  # -- counters (wave 24C) -- 122.1j: a hone counter on an Equipment gives +1/+0 to the creature it's attached to
+        p += _hone(state, card, info)
     for e in effects:  # … and resolved ones
         if e.layer == "7c":
             p += e.power or 0
@@ -748,6 +750,15 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         if e.layer == "7d":
             p, t = t, p
     return _with_rules(state, card, replace(ch, pt=(p, t)), info, imposed)
+
+
+def _hone(state: GameState, card: CardInstance, info: CardInfo) -> int:
+    """-- counters (wave 24C) -- 122.1j: the hone counters on the Equipment attached to this creature (613.4c: counters, layer 7c)."""
+    from app.rules import characteristics as chars
+
+    return sum(c.counters.get("hone", 0) for c in state.cards.values()
+               if c.attached_to == card.id and c.counters.get("hone", 0) > 0 and c.zone.endswith(":battlefield")
+               and "Equipment" in chars.of(c, info).subtypes)
 
 
 # -- conditional statics (wave 4B) ----------------------------------------------------------------------------

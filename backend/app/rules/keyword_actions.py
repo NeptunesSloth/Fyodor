@@ -535,6 +535,19 @@ def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def flip(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- flip (wave 24C) -- 710: "flip ~" turns a flip card's permanent upside down (``CardInstance.flipped``, 110.5: the same object; its name,
+    text, type line and power and toughness are the alternative ones, 710.2; its color and mana cost stay, 710.1c). One-way (710.4): a flipped
+    permanent, a card that isn't a flip card and anything not on the battlefield does nothing."""
+    from app.rules import characteristics as chars
+
+    for cid in effects._cards(plan, ctx, e.get("who", "self")):
+        card = plan.state.cards[cid]
+        if card.zone.endswith(":battlefield") and not card.face_down and chars.flippable(card, plan.info):
+            plan.do({"type": "flip", "card_id": cid}, actor=ctx["controller"])
+    return True
+
+
 # stun counters (122.1d): "If a permanent with a stun counter on it would become untapped, instead remove a
 # stun counter from it." — a replacement effect of the counters themselves, applied wherever the engine untaps
 # a permanent (the untap step, "untap target creature", "untap … and gain control of it").
@@ -558,7 +571,7 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
 
 
 PRIMITIVES = {"class_level": class_level, "amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
-              "goad": goad, "detain": detain, "suspect": suspect, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform,
+              "goad": goad, "detain": detain, "suspect": suspect, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform, "flip": flip,
               **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
 RESUME = {"amass_choose": resume_amass, "bolster_choose": resume_bolster, "connive_discard": resume_connive,
