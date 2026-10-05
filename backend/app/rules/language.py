@@ -213,7 +213,8 @@ def _target_key(phrase: str) -> str:
     if not m:
         raise _Fail
     sel = selectors.parse(("another " if m[1] else "") + m[2]) or (None if m[1] else selectors.parse_either(m[2])
-                                                                   or selectors.parse_spell_or(m[2]))  # (wave 15A; 17C: spell or permanent)
+                                                                   or selectors.parse_spell_or(m[2])
+                                                                   or selectors.parse_stack_union(m[2]))  # (wave 15A; 17C: spell or permanent; 23B: ability or spell)
     if sel is None:
         raise _Fail
     return sel.key()

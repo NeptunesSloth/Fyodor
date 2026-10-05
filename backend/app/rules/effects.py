@@ -1369,10 +1369,26 @@ def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
 def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     sids = _stack_targets(plan, ctx, e)
     before = _remember(plan, ctx, e, sids)  # -- stack interaction (wave 5B) -- "its controller": 608.2h
+    perms = _ability_sources(plan, sids, e) if e.get("perm_as") else {}
     for sid in sids:
         counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")), by=ctx["controller"])  # (exile: 4C; to: 4A)
+    if e.get("perm_as"):  # -- stack interaction (wave 23B) -- "If a permanent's ability is countered this way, … that permanent": the sources
+        context.bind_objects(plan, ctx, e["perm_as"], [c for sid, c in perms.items() if sid not in plan.rules.stack])  # of the abilities that were
     _moved(plan, ctx, e, before)  # (wave 5B)
     return True
+
+
+def _ability_sources(plan: Plan, sids: list[str], e: dict[str, Any]) -> dict[str, str]:
+    """-- stack interaction (wave 23B) -- the permanent each ability on the stack came from, while it is still that object on the battlefield
+    (400.7: one that left is no permanent to name; "that permanent" of Trickbind / Tishana's Tidebinder), of the kinds ``perm_types`` lists."""
+    out: dict[str, str] = {}
+    for sid in sids:
+        entry = plan.rules.stack.get(sid)
+        card = plan.state.cards.get(entry.source_card or "") if entry is not None and plan.state.cards[sid].ability is not None else None
+        if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == entry.source_object \
+                and (not e.get("perm_types") or plan.ch(card).types & set(e["perm_types"])):
+            out[sid] = card.id
+    return out
 
 
 def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -3462,6 +3478,10 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     groups = [[c] for c in cards] if per_object else [cards]
     duration = e.get("duration", "end_of_turn")
     name = ctx.get("name", "")
+    if duration.startswith("source_") and not delayed._source_ok(plan, duration, ctx.get("source_card"), ctx.get("source_object"),
+                                                               ctx["controller"]):
+        plan.note(f"{name or 'The effect'} does nothing: its duration has already ended")  # -- stack interaction (wave 23B) -- 611.2b
+        return True
     for group in groups:
         affected = [plan.oid(c) for c in group]  # locked in now (611.2c)
         p = _animate_value(plan, ctx, e.get("p"), group[0])
@@ -3495,6 +3515,10 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             for effect in plan.rules.effects:
                 if effect.id in made:
                     effect.until_player, effect.turn = ctx["controller"], plan.state.turn.number
+        elif duration.startswith("source_"):  # -- stack interaction (wave 23B) -- 611.2b: "for as long as ~ remains on the battlefield"
+            for effect in plan.rules.effects:
+                if effect.id in made:
+                    effect.source_card, effect.until_player = ctx.get("source_card"), ctx["controller"]
         ctx["animated"] = [*ctx.get("animated", []), *made]  # (for a following "It's still a land.")
         markers: list[str] = []
         for cid in group:  # the table marker (cleared at cleanup for "until end of turn", 514.2; by a zone change, 400.7)

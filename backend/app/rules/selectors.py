@@ -850,19 +850,30 @@ _SUFFIXES.insert(0, (re.compile(r" that targets (?P<w>(?!only\b).+)$"), _targets
 # legendary source that's not a commander" (Weaver of Harmony, Peregrine Dynamo): the ability's source as it last existed
 # (608.2h; ``source_matches``), encoded as the extras "src:<selector key>" and "src_nc".
 _FROM_SOURCE = re.compile(r" from (?P<o>another )?(?:an? )?(?P<w>[a-z]+(?: [a-z]+)*?) source(?P<nc> that's not a commander)?$")
+# -- stack interaction (wave 23B) -- "from an artifact, creature, enchantment, or land" (Interdict): the source is any of those kinds
+_FROM_KINDS = re.compile(r" from an? (?P<w>(?:(?:artifact|creature|enchantment|land|planeswalker), )+or (?:artifact|creature|enchantment|land|planeswalker))$")
+
+
+def _source_selector(w: str, other: str | None) -> Selector | None:
+    """One kind of source, or "an artifact or enchantment" / "an artifact, creature, or land": any of them (the selector's ``either``)."""
+    parts = re.split(r",? or |, ", w)
+    subs = [next((x for q in (p, p + " permanent") if (x := parse(("another " if other else "") + q)) is not None
+                 and x.zones == ("battlefield",) and x.player is None and not x.extras and x.ability is None and not x.card), None)
+            for p in parts]
+    if any(x is None for x in subs):
+        return None
+    return subs[0] if len(subs) == 1 else Selector(either=tuple(x.key() for x in subs if x is not None))
 
 
 def _from_source_suffix(s: Selector, m: re.Match[str]) -> Selector:
-    if " or " in m["w"]:
-        raise ValueError("unread source condition")  # ("an artifact or enchantment source": a union, not read)
-    sub = next((x for w in (m["w"], m["w"] + " permanent") if (x := parse(("another " if m["o"] else "") + w)) is not None
-                and x.zones == ("battlefield",) and x.player is None and not x.extras and x.ability is None and not x.card), None)
+    sub = _source_selector(m["w"], m.groupdict().get("o"))
     if sub is None:
         raise ValueError("unread source condition")
-    return replace(s, extras=(*s.extras, f"src:{sub.key()}", *(("src_nc",) if m["nc"] else ())))
+    return replace(s, extras=(*s.extras, f"src:{sub.key()}", *(("src_nc",) if m.groupdict().get("nc") else ())))
 
 
 _SUFFIXES.insert(0, (_FROM_SOURCE, _from_source_suffix))
+_SUFFIXES.insert(0, (_FROM_KINDS, _from_source_suffix))
 
 
 def source_matches(plan: Plan, card: CardInstance, extra: str, you: str, source: str | None) -> bool:
@@ -961,6 +972,24 @@ def parse_either(phrase: str) -> Selector | None:
     if a is None or b is None or a.player or b.player or a.zones != ("battlefield",) or b.zones != ("battlefield",):
         return None
     return Selector(either=(a.key(), b.key()))
+
+
+# -- stack interaction (wave 23B) -- "activated ability, triggered ability, or legendary spell" (Tale's End), "triggered ability or
+# colorless spell" (Consign to Memory), "activated ability, triggered ability, or noncreature spell" (Louisoix's Sacrifice): one
+# object on the stack that is any of these (115.1: each kind its own selector; a spell is never an ability, 115.2b)
+_ABILITY_OR_SPELL = re.compile(r"^(?P<abil>activated ability, triggered ability|activated or triggered ability|activated ability|triggered ability)"
+                               r",? or (?P<spell>(?:[a-z]+ )+spell)$")
+
+
+def parse_stack_union(phrase: str) -> Selector | None:
+    m = _ABILITY_OR_SPELL.match(phrase.strip())
+    if m is None:
+        return None
+    spell = _parse(m["spell"])
+    if spell is None or spell.zones != ("stack",) or spell.ability is not None or spell.either or spell.player is not None:
+        return None
+    kinds = ("activated", "triggered") if "," in m["abil"] else ("any",) if " or " in m["abil"] else (m["abil"].split()[0],)
+    return Selector(either=(*(replace(_DEFAULT, zones=("stack",), ability=k).key() for k in kinds), spell.key()), zones=("stack",))
 
 
 _SPELL_OR = re.compile(r"^spell or (?P<perm>.+)$")

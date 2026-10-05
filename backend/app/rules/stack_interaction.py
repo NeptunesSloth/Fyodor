@@ -26,6 +26,15 @@ stack, researched against CR 2026-09-25 (and the cards' current rulings).
   set of targets legal (115.7e). The new target becomes a target of that spell (115.10; "becomes
   the target" triggers and ward, 702.21a) — no crime is committed (700.13 is about casting).
 
+* Countering an ability (701.6a: "counter target activated or triggered ability": the ability leaves the stack and simply stops
+  existing; it isn't a card). "If a permanent's ability is countered this way, …" / "If an ability of an artifact, creature, or
+  planeswalker is countered this way, …" (Trickbind, Tishana's Tidebinder, Green Slime, Teferi's Response) and Interdict's
+  "That permanent's activated abilities can't be activated this turn": "that permanent" is the source of the countered ability,
+  while it is still that object on the battlefield (400.7; ``effects.counter``'s ``perm_as`` binding): nothing if the ability
+  wasn't countered or its source has left. "Counter target activated ability from an artifact source and destroy that artifact if
+  it's on the battlefield" (Ouphe Vandals) is the same rider. "Counter target activated ability, triggered ability, or legendary
+  spell" (Tale's End): any one object on the stack that is one of those (selectors.parse_stack_union).
+
 Refused (stays manual): "targets only a single creature / only a player" (Muck Drubb, Rebound),
 "the new target must be a creature" (Silver Wyvern), "that targets you or a creature you control"
 (Siren Stormtamer), "Change any targets" / "choose new targets" by a player other than the copy's
@@ -84,6 +93,47 @@ def _change(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(re.compile("^" + _CHANGE.pattern + "$"), _change)]
+
+
+# -- countering an ability: the permanent it came from (wave 23B) ---------------------------------------------------
+_COUNTERED = r"if (?:a permanent's ability|an ability of (?P<kinds>an artifact, creature, or planeswalker)) is countered this way, "
+_PERM_RIDERS: dict[str, Any] = {
+    "destroy that permanent": lambda who, name: [{"do": "destroy", "who": who}],
+    "activated abilities of that permanent can't be activated this turn":
+        lambda who, name: [{"do": "restrict", "who": who, "rules": ["cant_activate"]}],  # (602.5; mana abilities too, as for detain)
+    "that permanent loses all abilities for as long as ~ remains on the battlefield":
+        lambda who, name: [{"do": "become", "who": who, "types": [], "lose_abilities": True, "duration": "source_on_battlefield"}],  # 611.2b
+}
+_PERM_UNCONDITIONAL = {"that permanent's activated abilities can't be activated this turn": "activated abilities of that permanent can't be activated this turn"}
+_OUPHE = re.compile(r"(?i)\bcounter (target activated ability from an? artifact source) and destroy that artifact if it's on the battlefield")
+
+
+def rewrite(body: str) -> str:
+    """"Counter target activated ability from an artifact source and destroy that artifact if it's on the battlefield" (Ouphe Vandals):
+    the artifact whose ability was countered, destroyed if it is still there — the rider of every such counter."""
+    return _OUPHE.sub(lambda m: f"Counter {m[1]}. If a permanent's ability is countered this way, destroy that permanent", body)
+
+
+def rider(text: str, effects: list[dict[str, Any]], prev_start: int, groups: list[dict[str, Any]]) -> bool | None:
+    """A sentence about the permanent whose ability the counter before it countered: appended to ``effects`` (True), refused (False) or
+    not one (None). Only right after a plain "counter target … ability" (the kinds of source the sentence names narrow it)."""
+    from app.rules import selectors
+
+    m = re.fullmatch(_COUNTERED + r"(?P<rest>.+)", text)
+    rest = _PERM_UNCONDITIONAL.get(text) if m is None else m["rest"]
+    if rest is None or rest not in _PERM_RIDERS:
+        return None
+    prev = effects[prev_start:]
+    sel = selectors.from_key(groups[-1]["what"]) if groups and str(groups[-1].get("what", "")).startswith(selectors.PREFIX) else None
+    if len(prev) != 1 or prev[0].get("do") != "counter" or not str(prev[0].get("who")).startswith("target") or prev[0].get("perm_as") \
+            or sel is None or sel.zones != ("stack",) or not (sel.ability or sel.either):
+        return False  # (a spell has no source permanent; several counters or targets: which "that permanent"?)
+    name = f"p{sum(1 for e in effects if e.get('perm_as'))}"
+    prev[0]["perm_as"] = name
+    if m is not None and m["kinds"]:
+        prev[0]["perm_types"] = ["Artifact", "Creature", "Planeswalker"]
+    effects += _PERM_RIDERS[rest](f"ref:{name}", name)
+    return True
 
 
 # -- carrying it out -----------------------------------------------------------------------------------
