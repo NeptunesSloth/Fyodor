@@ -485,7 +485,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
 
     if (top := top_library.permission(t, lines)) is not None:
         return top
-    if t.lower().startswith(("escape—", "each ")) and (found_escape := escape.define_static(t)) is not None:
+    if t.lower().startswith(("escape—", "each ", "you may cast ~ from your graveyard by", "you may cast this c")) and (found_escape := escape.define_static(t)) is not None:
         return found_escape  # (702.138a: a printed escape cost, or "Each nonland card in your graveyard has escape. …")
     # -- end top of library (wave 5I) --
     m = PERMISSION.fullmatch(t)
