@@ -33,6 +33,8 @@ EXTRA = [
     real("Fling", "{1}{R}", 2, "Instant", "As an additional cost to cast this spell, sacrifice a creature.\nFling deals damage equal to the sacrificed creature's power to any target.", None, "R"),
     real("Gut Shot", "{R/P}", 1, "Instant", "({R/P} can be paid with either {R} or 2 life.)\nGut Shot deals 1 damage to any target.", None, "R"),
     real("Mana Confluence", "", 0, "Land", "{T}, Pay 1 life: Add one mana of any color."),
+    real("Angel's Grace", "{W}", 1, "Instant", "Split second (As long as this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities.)\nYou can't lose the game this turn and your opponents can't win the game this turn. Until end of turn, damage that would reduce your life total to less than 1 reduces it to 1 instead.", None, "W"),
+    real("Lich's Mastery", "{3}{B}{B}{B}", 6, "Legendary Enchantment", "Hexproof\nYou can't lose the game.\nWhenever you gain life, draw that many cards.\nWhenever you lose life, for each 1 life you lost, exile a permanent you control or a card from your hand or graveyard.\nWhen Lich's Mastery leaves the battlefield, you lose the game.", None, "B"),
     real("Probe Bear", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
     real("Probe Golem", "{3}", 3, "Artifact Creature — Golem", "", ("3", "3")),
     real("Probe Relic", "{3}", 3, "Artifact", "", None),
@@ -227,4 +229,35 @@ def test_karn_s_sylex_stops_life_costs_but_not_mana_abilities(cards):
     assert [i for i, _ in casting.mana_abilities(s.state, confluence, s.cards)]  # a mana ability: Sylex doesn't stop it
     act(s, "p1", type="cast_spell", card_id=shot.id, targets=["p2"])  # paid with {R} from the Confluence (its life is that ability's cost)
     assert s.state.players["p1"].life == 39
+    check(s)
+
+
+def test_a_resolved_cant_lose_the_game_this_turn_keeps_a_player_at_0_life_in_the_game_until_the_turn_ends(cards):
+    """Angel's Grace's first sentence (its second, the floor on damage, isn't read: the spell stays by hand), as the effect parses."""
+    from app.rules import game_result, scripts
+    from app.rules.plan import Plan
+
+    parsed = scripts.parse_effects("You can't lose the game this turn and your opponents can't win the game this turn.")
+    assert [e["do"] for e in parsed[0]] == ["cant_result", "cant_result"]
+    s = build(cards, [], [])
+    plan = Plan(s.state, "p1", s.cards, None)
+    ctx = {"controller": "p1"}
+    for e in parsed[0]:
+        assert game_result.cant_result(plan, ctx, e)
+    s.state.rules.results = plan.rules.results
+    act(s, "p1", type="life", player="p1", delta=-40)  # 0 life: 704.5a would end the game for them
+    act(s, "p1", type="pass_priority")
+    assert s.state.players["p1"].life == 0 and not s.state.rules.lost and s.state.rules.winner is None
+    assert game_result.cannot_lose(Plan.view(s.state, "p1", s.cards), "p1")
+    assert game_result.cannot_win(Plan.view(s.state, "p1", s.cards), "p2")
+
+
+def test_lich_s_mastery_cant_lose_the_game_only_for_its_controller(cards):
+    s = build(cards, ["Lich's Mastery"], [])
+    put(s, "Lich's Mastery")
+    from app.rules import game_result
+    from app.rules.plan import Plan
+
+    plan = Plan.view(s.state, "p1", s.cards)
+    assert game_result.cannot_lose(plan, "p1") and not game_result.cannot_lose(plan, "p2")
     check(s)

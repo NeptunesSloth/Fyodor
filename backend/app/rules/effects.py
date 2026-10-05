@@ -3814,6 +3814,9 @@ PRIMITIVES["exchange_life"] = exchange_life
 PRIMITIVES["exchange_life_stat"] = exchange_life_stat
 PRIMITIVES["set_life"] = set_life  # (wave 16C)  # -- activated wordings (wave 15D) --
 PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
+from app.rules import game_result as _game_result  # noqa: E402, I001  -- prohibitions (wave 22B) --
+
+PRIMITIVES.update(_game_result.PRIMITIVES)  # 104.2b / 104.3 "can't lose the game this turn" (app/rules/game_result.py)
 from app.rules import hand_size as _hand_size  # noqa: E402  -- ability words (wave 20C) --
 
 PRIMITIVES.update(_hand_size.PRIMITIVES)  # "You have no maximum hand size for the rest of the game." (app/rules/hand_size.py)

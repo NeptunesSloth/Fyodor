@@ -5830,6 +5830,10 @@ EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLA
 from app.rules import hand_size as _hand_size  # noqa: E402  -- ability words (wave 20C) --
 
 EFFECTS[:0] = _hand_size.TEMPLATES  # "You have no maximum hand size for the rest of the game."
+# -- prohibitions (wave 22B) -- "You can't lose the game this turn and your opponents can't win the game this turn." (app/rules/game_result.py)
+from app.rules import game_result as _game_result  # noqa: E402
+
+EFFECTS[:0] = _game_result.TEMPLATES
 # -- next untap step (wave 6A) -- "… doesn't untap during its controller's next untap step" (app/rules/next_untap.py)
 from app.rules import next_untap as _next_untap  # noqa: E402
 
