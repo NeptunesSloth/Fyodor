@@ -127,6 +127,23 @@ def test_phyrexian_revoker_stops_mana_abilities_too(cards):
     check(s)
 
 
+def test_a_save_and_a_replay_mid_choice_and_the_ban_ends_when_the_source_leaves(cards):
+    s = build(cards, ["Pithing Needle", "Probe Pinger"], [])
+    pinger = put(s, "Probe Pinger")
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Pithing Needle").id)
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    check(s)  # the question is pending: the history replays to the same table, saved and loaded
+    name_it(s, "Probe Pinger")
+    with pytest.raises(ActionError, match="can't be activated"):
+        act(s, "p1", type="activate_ability", card_id=pinger.id, ability=0, targets=["p2"])
+    needle = card_named(s, "Pithing Needle")
+    act(s, "p1", type="move", card_ids=[needle.id], to={"zone": "graveyard"})  # 611.3a: it only applies while it is on the battlefield
+    act(s, "p1", type="activate_ability", card_id=pinger.id, ability=0, targets=["p2"])
+    check(s)
+
+
 def test_the_choice_leaves_with_the_permanent(cards):
     s = build(cards, ["Nevermore", "Probe Bolt"], [])
     cast_naming(s, "Nevermore", "Probe Bolt")

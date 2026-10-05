@@ -68,7 +68,9 @@ def static_definition(text: str) -> Definition | None:
     if t in _SEARCH_STATICS:  # (Mindlock Orb, Stranglehold, Ashiok, Dream Render)
         return {"kind": "static", "static": "cant_search", "who": _SEARCH_STATICS[t], "effects": []}
     if t == "spells and abilities your opponents control can't cause you to sacrifice permanents":  # (Sigarda, Tajuru Preserver)
-        return {"kind": "static", "static": "cant_cause_sacrifice", "effects": []}
+        return {"kind": "static", "static": "cant_cause_sacrifice", "discard": False, "effects": []}
+    if t == "spells and abilities your opponents control can't cause you to discard cards or sacrifice permanents":  # (Tamiyo, Collector of Tales)
+        return {"kind": "static", "static": "cant_cause_sacrifice", "discard": True, "effects": []}
     if t == _SELF_COUNTERS:
         return {"kind": "static", "static": "cant_counters", "sel": None, "effects": []}
     if t == "players can't get counters":  # (122.1: a player gets counters; poison, energy, experience, rad)
@@ -176,6 +178,13 @@ def cant_cause_sacrifice(plan: Plan, victim: str, by: str) -> str | None:
     if victim == by:
         return None
     return next((_label(src) for src, _ in _statics(plan, "cant_cause_sacrifice") if src.controller == victim), None)
+
+
+def cant_cause_discard(plan: Plan, victim: str, by: str) -> str | None:
+    """614.17: the permanent saying a spell or ability controlled by ``by`` can't make ``victim`` discard cards (Tamiyo, Collector of Tales)."""
+    if victim == by:
+        return None
+    return next((_label(src) for src, d in _statics(plan, "cant_cause_sacrifice") if src.controller == victim and d.get("discard")), None)
 
 
 def life_banned(state: GameState, info: CardInfo | None, *, mana_ability: bool = False) -> str | None:

@@ -38,6 +38,8 @@ EXTRA = [
     real("Sigarda, Host of Herons", "{2}{G}{W}{W}", 5, "Legendary Creature — Angel", "Flying, hexproof\nSpells and abilities your opponents control can't cause you to sacrifice permanents.", ("5", "5"), "GW"),
     real("Tajuru Preserver", "{1}{G}", 2, "Creature — Elf Shaman", "Spells and abilities your opponents control can't cause you to sacrifice permanents.", ("2", "1"), "G"),
     real("Diabolic Edict", "{1}{B}", 2, "Instant", "Target player sacrifices a creature of their choice.", None, "B"),
+    real("Tamiyo, Collector of Tales", "{2}{G}{U}", 4, "Legendary Planeswalker — Tamiyo", "Spells and abilities your opponents control can't cause you to discard cards or sacrifice permanents.\n+1: Choose a nonland card name, then reveal the top four cards of your library. Put all cards with the chosen name from among them into your hand and the rest into your graveyard.\n−3: Return target card from your graveyard to your hand.", None, "GU"),
+    real("Mind Rot", "{2}{B}", 3, "Sorcery", "Target player discards two cards.", None, "B"),
     real("Mindlock Orb", "{3}{U}", 4, "Artifact", "Players can't search libraries.", None, "U"),
     real("Rampant Growth", "{1}{G}", 2, "Sorcery", "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.", None, "G"),
     real("Shadow of Doubt", "{U/B}{U/B}", 2, "Instant", "({U/B} can be paid with either {U} or {B}.)\nPlayers can't search libraries this turn.\nDraw a card.", None, "UB"),
@@ -47,7 +49,7 @@ EXTRA = [
     real("Probe Relic", "{3}", 3, "Artifact", "", None),
     real("Probe Big Spell", "{4}{R}", 5, "Sorcery", "Probe Big Spell deals 1 damage to any target.", None, "R"),
 ]
-FULL = ["Mindlock Orb", "Shadow of Doubt", "Ashiok, Dream Render", "Sigarda, Host of Herons", "Tajuru Preserver", "Angel of Jubilation", "Yasharn, Implacable Earth", "Karn's Sylex", "Grafdigger's Cage", "Weathered Runestone", "Soulless Jailer", "Kunoros, Hound of Athreos", "Solemnity", "Tatterkite", "Melira's Keepers",
+FULL = ["Tamiyo, Collector of Tales", "Mindlock Orb", "Shadow of Doubt", "Ashiok, Dream Render", "Sigarda, Host of Herons", "Tajuru Preserver", "Angel of Jubilation", "Yasharn, Implacable Earth", "Karn's Sylex", "Grafdigger's Cage", "Weathered Runestone", "Soulless Jailer", "Kunoros, Hound of Athreos", "Solemnity", "Tatterkite", "Melira's Keepers",
         "Gaddock Teeg", "Aether Storm"]
 
 
@@ -63,6 +65,12 @@ def card_db(settings):
 @pytest.mark.parametrize("name", FULL)
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def walker(s, name, pid="p1"):
+    c = put(s, name, pid)
+    act(s, pid, type="counter", card_ids=[c.id], kind="loyalty", delta=4)
+    return c
 
 
 def said(s, text):
@@ -292,6 +300,33 @@ def test_a_players_own_edict_on_themselves_is_no_opponents_spell(cards):
     check(s)
 
 
+def test_tamiyo_stops_an_opponents_discard_but_not_the_players_own(cards):
+    s = build(cards, ["Mind Rot"], ["Tamiyo, Collector of Tales", "Probe Bear", "Probe Relic"])
+    walker(s, "Tamiyo, Collector of Tales", "p2")
+    to_hand(s, "Probe Bear", "p2")
+    to_hand(s, "Probe Relic", "p2")
+    mana(s, B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Mind Rot").id, targets=["p2"])
+    answer(s)
+    assert said(s, "Tamiyo, Collector of Tales: Bob can't be made to discard cards")
+    assert not [c for c in s.state.cards.values() if c.owner == "p2" and c.zone == "p2:graveyard"]
+    check(s)
+
+
+def test_tamiyo_plus_one_names_a_card_and_takes_every_copy_from_the_top_four(cards):
+    s = build(cards, ["Tamiyo, Collector of Tales", "Probe Bear", "Probe Relic"], [])
+    tamiyo = walker(s, "Tamiyo, Collector of Tales")
+    charm, relic = card_named(s, "Probe Bear"), card_named(s, "Probe Relic")
+    act(s, "p1", type="move", card_ids=[relic.id], to={"zone": "library", "player": "p1"})
+    act(s, "p1", type="move", card_ids=[charm.id], to={"zone": "library", "player": "p1"})
+    act(s, "p1", type="activate_ability", card_id=tamiyo.id, ability=1)
+    from tests.test_rules_wave22b_name_uses import run
+
+    run(s, "Probe Bear")
+    assert zone_of(s, "Probe Bear") == "p1:hand" and zone_of(s, "Probe Relic") == "p1:graveyard"
+    check(s)
+
+
 def lands_on_battlefield(s, pid="p1"):
     return [c for c in s.state.cards.values() if c.zone == f"{pid}:battlefield" and c.name == "Forest"]
 
@@ -332,7 +367,7 @@ def test_shadow_of_doubt_stops_searches_until_the_turn_ends(cards):
 
 def test_ashiok_stops_an_opponents_own_searches_only(cards):
     s = build(cards, ["Ashiok, Dream Render"], [])
-    put(s, "Ashiok, Dream Render")
+    walker(s, "Ashiok, Dream Render")
     from app.rules import prohibitions
     from app.rules.plan import Plan
 

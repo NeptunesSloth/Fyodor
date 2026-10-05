@@ -305,8 +305,9 @@ REFUSED += (
 # (the ones read now: app/rules/permissions.py free_cast, app/rules/looking.py; tests/test_rules_refused_look.py)
 REFUSED += (
     (re.compile(r"\b(?:of the chosen (?:creature |card )?type|with (?:the|that) chosen name|choose a (?:nonland )?card name)\b", re.I),
-     "a value chosen as the ability resolves used as a filter (\"cards of the chosen type\", \"a card with the chosen name\"): "
-     "no selector reads the resolution's choice, and naming a card would need a prompt over the whole card pool"),
+     "a value chosen as the ability resolves used as a filter (\"cards of the chosen type\", \"a card with the chosen name\") in a wording "
+     "no selector reads (wave 22B: card names are typed, app/rules/card_names.py; a name is read from the source permanent or an earlier "
+     "\"Choose a card name\" of the same resolution)"),
     (re.compile(r"\bchoose two cards in your hand drawn this turn\b", re.I),
      "Sylvan Library: which hidden cards in a hand were drawn this turn isn't tracked per card"),
     (re.compile(r"\bas many times as you choose, you may pay 1 life, put those cards on the bottom\b", re.I),

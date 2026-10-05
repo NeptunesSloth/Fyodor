@@ -163,6 +163,39 @@ def test_cabal_therapy_discards_every_card_with_the_chosen_name_from_the_reveale
     check(s)
 
 
+def test_with_several_opponents_the_looker_picks_whose_hand_first_and_sees_only_that_one(cards):
+    import json
+
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from app.game.views import SPECTATOR, build_view
+    from app.rules.view import decision_view
+    from tests.game_helpers import deck, enable
+
+    mk = lambda n, *names: deck(cards, "Krenko, Mob Boss", [*((1, x) for x in names), (9, "Forest")])  # noqa: E731
+    state = new_game([PlayerSetup("Alice", cards=mk("a", "Sorcerous Spyglass")), PlayerSetup("Bob", cards=mk("b", "Probe Bolt")),
+                      PlayerSetup("Carol", cards=mk("c", "Probe Charm"))], shuffle=False)
+    s = GameSession(enable(state), cards=cards)
+    act(s, "p1", type="pass_priority")
+    bolt, charm = to_hand(s, "Probe Bolt", "p2"), to_hand(s, "Probe Charm", "p3")
+    mana(s, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Sorcerous Spyglass").id)
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.id for o in d.options} == {"p2", "p3"}  # which opponent: the first question
+    assert bolt.id not in json.dumps(decision_view(s.state, d, "p1")) and charm.id not in json.dumps(decision_view(s.state, d, "p1"))
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p3"])
+    d = s.state.rules.decision
+    assert d.options[0].id == "__name__" and {o.card_id for o in d.options[1:]} == {charm.id}  # Carol's hand only
+    assert bolt.id not in json.dumps(decision_view(s.state, d, "p1"))  # (not Bob's)
+    assert charm.id not in json.dumps(decision_view(s.state, d, "p2")) and "Probe" not in json.dumps(decision_view(s.state, d, "p3"))
+    assert "Probe" not in json.dumps(build_view(s.state, SPECTATOR))
+    name_it(s, "Probe Bolt")  # any card name: it needn't be one of those looked at
+    assert s.state.cards[card_named(s, "Sorcerous Spyglass").id].choices["Chosen card name"] == "Probe Bolt"
+    check(s)
+
+
 def test_look_at_a_hand_then_name_shows_the_hand_to_the_chooser_alone(cards):
     """Sorcerous Spyglass: "look at an opponent's hand, then choose any card name" (701.20e: only the one looking sees it)."""
     import json

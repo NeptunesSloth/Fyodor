@@ -1918,8 +1918,15 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picked: list[str],
                   binding: str | None = None, dest: str = "graveyard", src: str = "hand", upto: bool = False) -> bool:
+    from app.rules import (
+        prohibitions,  # -- prohibitions (wave 22B) -- 614.17: "… can't cause you to discard cards" (exiling isn't discarding)
+    )
+
     for i, pid in enumerate(players):
         hand = plan.state.zones.get(zone_key(pid, src), [])  # (wave 15D: "exiles a card from their graveyard", public, 404.1)
+        if hand and dest != "exile" and (why := prohibitions.cant_cause_discard(plan, pid, ctx["controller"])) is not None:
+            plan.note(f"{why}: {plan.name(pid)} can't be made to discard cards")
+            hand = []
         n = min(want, len(hand)) if want or not upto else len(hand)  # (upto, 0: "any number of cards")
         if n == 0:
             continue
@@ -1936,6 +1943,8 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
                        "as": binding, "to": dest, "zone": src, "upto": upto})
         return False
     cards = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(f":{src}")]
+    if dest != "exile":  # (-- prohibitions (wave 22B) -- "discard your hand" / at random: the cards were picked without asking)
+        cards = [c for c in cards if prohibitions.cant_cause_discard(plan, plan.state.cards[c].owner, ctx["controller"]) is None]
     e = {"as": binding}
     before = _remember(plan, ctx, e, cards)
     if cards:  # each to its owner's graveyard (701.9a); -- hand disruption (wave 11D) -- or exiled, which is no discard (701.9a)
@@ -3185,7 +3194,12 @@ def discard_named(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), ctx["controller"])]
     else:
         named = _cards(plan, ctx, e["who"])
-    cards = [c for c in named if plan.state.cards[c].zone.endswith(":hand")]
+    from app.rules import (
+        prohibitions,  # -- prohibitions (wave 22B) -- 614.17: "… can't cause you to discard cards"
+    )
+
+    cards = [c for c in named if plan.state.cards[c].zone.endswith(":hand")
+             and prohibitions.cant_cause_discard(plan, plan.state.cards[c].owner, ctx["controller"]) is None]
     before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
