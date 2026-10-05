@@ -29,6 +29,7 @@ from app.game.rules_state import Decision, DecisionOption, PaymentRecord, Player
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import (
     assist,  # -- casting extras (wave 18E) --
+    gift,  # -- gift (wave 23D) --
     attachments,
     battles,
     bestow,
@@ -1412,6 +1413,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
+    "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
     **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)

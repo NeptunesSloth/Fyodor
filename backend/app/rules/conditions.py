@@ -1304,6 +1304,8 @@ _SPENT_OVER_PT = re.compile(r"the amount of mana you spent is greater than (?:th
 
 def _cast_how(t: str) -> Condition | None:
     """A condition about how the source was cast, or None."""
+    if t in ("the gift was promised", "its gift cost was paid", "this spell's gift cost was paid"):  # -- gift (wave 23D) -- 702.174k: read as kicked
+        return {"object": "self", "cast": {"kicked": True}}
     if t == "evidence was collected":  # -- casting costs (wave 22F) -- 701.59a: the spell's optional additional cost, announced as it was cast
         return {"object": "self", "cast": {"optional": "evidence"}}
     if re.fullmatch(r"an? [a-z]+ was beheld", t):  # 701.4a: "If a Dragon was beheld" (the only behold cost on the spell)

@@ -90,6 +90,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return list(plan.live())
     if who == "each_opponent":
         return [p for p in plan.live() if p != me]
+    if who == "gifted":  # -- gift (wave 23D) -- 702.174d-i: the opponent the gift was promised to
+        from app.rules import gift
+
+        return gift.recipient(plan, ctx)
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.players and t["id"] in plan.live()]
     if who == "target_player_or_controller":  # -- damage wordings (wave 6B) -- "that player or that planeswalker's
