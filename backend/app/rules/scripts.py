@@ -5251,7 +5251,9 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
                                                              "optional": parsed_d[2], **target_fields(parsed_d[1])}}
     if len(base) == 1 and base[0]["do"] == "optional_payment" and base[0].get("bind"):
         cond: dict[str, Any] = {"succeeded": base[0]["bind"]}
-    elif not optional and (name := _probe_previous(effects, prev_start)) is not None:
+    elif (name := _probe_previous(effects, prev_start)) is not None and (not optional or prev_start == 0):
+        # (-- death triggers (wave 20C) -- "When this creature dies, you may exile it. When you do, …": the "may" at the head of an
+        # ability is asked as it resolves, then A runs and B follows only if A was done, 603.12)
         cond = {"succeeded": name}
     else:
         return None
