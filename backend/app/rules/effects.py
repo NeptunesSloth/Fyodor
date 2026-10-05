@@ -2141,6 +2141,11 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
                      "position": "top"}, actor=ctx["controller"])
         _moved(plan, ctx, e, before)
         return True
+    if e["to"] == "exile":  # -- if you do (wave 25C) -- "Exile an instant or sorcery card at random from your graveyard": face up, in its owner's exile (400.3)
+        for cid in cards:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "exile"}}, actor=ctx["controller"])
+        _moved(plan, ctx, e, before)
+        return True
     if e["to"] == "graveyard":  # -- resolution memory (wave 22D) -- "put the exiled card into its owner's graveyard"
         for cid in cards:
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "graveyard"}}, actor=ctx["controller"])
@@ -3438,6 +3443,8 @@ def record_action(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     refs = ctx.get("refs") or {}
     if any(b.get("kind") == "payment" and not b.get("ok") for b in refs.values()):
         return True  # ("you may pay … If you do, …": declined — the action wasn't taken)
+    if any(x.get("do") == "free_cast" for x in ctx.get("effects") or []) and not ctx.get("free_cast_done"):
+        return True  # -- if you do (wave 25C) -- "you may cast …. Do this only once each turn.": no spell was cast, so the action wasn't taken
     restrictions.record_use(plan.rules, e["object"], int(e["index"]), plan.state.turn.number)
     return True
 
@@ -3814,7 +3821,7 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if most == 0 or (least == most == len(pool)):
         return _return_cards(plan, ctx, e, pool[:most])
     decide(plan, player=pid, kind="choose_cards",
-           prompt=f"Choose {'up to ' if e.get('upto') else ''}{most} ({e.get('label', 'card')}) to return",
+           prompt=f"Choose {'up to ' if e.get('upto') else ''}{most} ({e.get('label', 'card')}) to {'exile' if e['to'] == 'exile' else 'return'}",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
            min_choices=least, max_choices=most, resume={"step": "return_choice", "ctx": ctx, "e": e})
     return False

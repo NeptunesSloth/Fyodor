@@ -798,6 +798,10 @@ class Permission(BaseModel):
     # -- keywords (wave 15E) -- warp 702.185a ("after the current turn has ended": not before turn ``after_turn`` is over) and plot
     # 702.170d ("during your main phase while the stack is empty", ``sorcery``, even for an instant)
     after_turn: int = 0
+    # -- if you do (wave 25C) -- 614.1a: "If that spell would be put into a graveyard, exile it instead." for the spell cast with this
+    # permission ("is": instants and sorceries only); ``exile_own``: "your graveyard" (a card another player owns goes to theirs)
+    exile_gy: Literal["", "all", "is"] = ""
+    exile_own: bool = False
     sorcery: bool = False
 
 

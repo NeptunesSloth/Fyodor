@@ -1,0 +1,175 @@
+"""Wave 25C: "If that spell would be put into a graveyard, exile it instead." after a cast permission (614.1a): the rider rides on the
+permission an effect grants ("You may cast it this turn", "You may cast target … from your graveyard [this turn]") and on a cast
+made as the effect resolves with its mana cost paid (608.2g); "Exile an instant or sorcery card at random from your graveyard"
+(701.9b-style random choice: the table picks, the move records it) and "mana of any type can be spent to cast that spell" (609.4b).
+Real Commander cards, Oracle text from the card database; every scenario replays from history and survives a save/load."""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+
+import pytest
+
+from app.cards.images import ImageStore
+from app.cards.importer import build_database
+from app.cards.repository import CardRepository
+from app.game.factory import PlayerSetup, new_game
+from app.game.session import GameSession
+from app.rules import scripts
+from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act, deck, enable
+from tests.test_rules_effects import mana, pass_until_stack_empty, replay_matches
+from tests.test_rules_refused_look import choose, decision, find, put
+
+REAL = [
+    card("Dire Fleet Daredevil", set_code="tst", number="C25-1", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Human Pirate",
+         colors=["R"], color_identity=["R"], power="2", toughness="1", keywords=["First strike"],
+         oracle_text="First strike\nWhen this creature enters, exile target instant or sorcery card from an opponent's graveyard. You may "
+         "cast it this turn, and mana of any type can be spent to cast that spell. If that spell would be put into a graveyard, exile it "
+         "instead."),
+    card("Chandra, Acolyte of Flame", set_code="tst", number="C25-2", mana_cost="{1}{R}{R}", cmc=3.0,
+         type_line="Legendary Planeswalker — Chandra", colors=["R"], color_identity=["R"], loyalty="4",
+         oracle_text="0: Put a loyalty counter on each red planeswalker you control.\n0: Create two 1/1 red Elemental creature tokens. "
+         "They gain haste. Sacrifice them at the beginning of the next end step.\n−2: You may cast target instant or sorcery card with "
+         "mana value 3 or less from your graveyard. If that spell would be put into your graveyard, exile it instead."),
+    card("Storm of Memories", set_code="tst", number="C25-3", mana_cost="{2}{R}{R}{R}", cmc=5.0, type_line="Sorcery", colors=["R"],
+         color_identity=["R"], keywords=["Storm"], oracle_text="Storm (When you cast this spell, copy it for each spell cast before it "
+         "this turn.)\nExile an instant or sorcery card with mana value 3 or less from your graveyard at random. You may cast it without "
+         "paying its mana cost. If that spell would be put into a graveyard, exile it instead."),
+    card("Sins of the Past", set_code="tst", number="C25-4", mana_cost="{4}{B}{B}", cmc=6.0, type_line="Sorcery", colors=["B"],
+         color_identity=["B"], oracle_text="Until end of turn, you may cast target instant or sorcery card from your graveyard without "
+         "paying its mana cost. If that spell would be put into your graveyard, exile it instead. Exile Sins of the Past."),
+]
+OURS = [c["name"] for c in REAL]
+
+
+@pytest.fixture()
+def cards(settings) -> Iterator[CardRepository]:
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), *REAL], settings.cards_db_path, meta={"bulk_type": "test"})
+    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
+    yield repo
+    repo.close()
+
+
+def build(cards):
+    alice = deck(cards, "Krenko, Mob Boss", [(1, n) for n in OURS] + [(2, "Lightning Bolt"), (1, "Counterspell"), (20, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(2, "Lightning Bolt"), (1, "Counterspell"), (20, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")  # → Alice's first main phase
+    return s
+
+
+def reload(s):
+    return GameSession(s.history.rebuild(), cards=s.cards)
+
+
+def test_wordings_read():
+    both = scripts.parse_effects("Exile target instant or sorcery card from an opponent's graveyard. You may cast it this turn, and mana "
+                                 "of any type can be spent to cast that spell. If that spell would be put into a graveyard, exile it instead.")
+    assert both is not None
+    grant = both[0][1]
+    assert grant["do"] == "grant_play" and grant["spend"] == "type" and grant["exile_gy"] == "all" and "exile_own" not in grant
+    mine = scripts.parse_effects("You may cast target instant or sorcery card from your graveyard this turn. If that spell would be put "
+                                 "into your graveyard, exile it instead.")
+    assert mine is not None and mine[0][0]["who"] == "target" and mine[0][0]["exile_own"] is True
+    paid = scripts.parse_effects("You may cast target instant or sorcery card with mana value 3 or less from your graveyard. If that spell "
+                                 "would be put into your graveyard, exile it instead.")
+    assert paid is not None and paid[0][0]["do"] == "free_cast" and paid[0][0]["paid"] is True
+    # mana of any type is for a permission, never a free cast or a bare cast-now; a limit read as it resolves stays refused
+    assert scripts.parse_effects("You may cast target instant card from your graveyard without paying its mana cost, and mana of any "
+                                 "type can be spent to cast that spell.") is None
+    assert scripts.parse_effects("You may cast target instant card from your graveyard, and mana of any type can be spent to cast "
+                                 "that spell.") is None
+    assert scripts.parse_effects("You may cast target instant or sorcery card with mana value less than or equal to ~'s power from your "
+                                 "graveyard.") is None
+
+
+def test_daredevil_casts_the_opponents_bolt_with_any_mana_and_it_is_exiled(cards):
+    s = build(cards)
+    bolt = put(s, "Lightning Bolt", "graveyard", pid="p2")
+    daredevil = put(s, "Dire Fleet Daredevil", "hand")
+    mana(s, R=2)
+    act(s, "p1", type="cast_spell", card_id=daredevil.id)
+    pass_until_stack_empty(s)
+    for _ in range(4):  # the target, the "may": whichever the engine asks first
+        d = s.state.rules.decision
+        if d is None:
+            break
+        choose(s, ["yes"] if d.kind == "confirm" else [bolt.id], resolve=True)
+    assert s.state.rules.permissions and s.state.rules.permissions[0].exile_gy == "all"
+    assert s.state.rules.permissions[0].spend == "type"
+    mana(s, G=1)  # not red: any type may be spent (609.4b)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].life == 37
+    assert s.state.cards[bolt.id].zone == "p2:exile"  # exiled, not put into its owner's graveyard
+    assert s.state.rules.exile_if_graveyard == []
+    replay_matches(s)
+    assert reload(s).state.model_dump(mode="json") == s.state.model_dump(mode="json")
+
+
+def test_chandra_casts_your_bolt_paying_its_cost_and_exiles_it(cards):
+    s = build(cards)
+    bolt = put(s, "Lightning Bolt", "graveyard")
+    chandra = put(s, "Chandra, Acolyte of Flame", "battlefield")
+    act(s, "p1", type="counter", card_ids=[chandra.id], kind="loyalty", delta=4)
+    mana(s, R=1)
+    act(s, "p1", type="activate_ability", card_id=chandra.id, ability=2, targets=[bolt.id])
+    pass_until_stack_empty(s)
+    d = decision(s, "free_cast_pick")
+    assert [o.id for o in d.options] == [bolt.id]
+    choose(s, [bolt.id])
+    choose(s, ["p2"], resolve=True)
+    assert s.state.players["p2"].life == 37 and s.state.players["p1"].mana == {}  # its mana cost was paid
+    assert s.state.cards[bolt.id].zone == "p1:exile"
+    replay_matches(s)
+
+
+def test_chandra_may_decline_and_the_bolt_stays(cards):
+    s = build(cards)
+    bolt = put(s, "Lightning Bolt", "graveyard")
+    chandra = put(s, "Chandra, Acolyte of Flame", "battlefield")
+    act(s, "p1", type="counter", card_ids=[chandra.id], kind="loyalty", delta=4)
+    act(s, "p1", type="activate_ability", card_id=chandra.id, ability=2, targets=[bolt.id])
+    pass_until_stack_empty(s)
+    decision(s, "free_cast_pick")
+    choose(s, [])
+    assert s.state.cards[bolt.id].zone == "p1:graveyard"
+    replay_matches(s)
+
+
+def test_storm_of_memories_exiles_one_card_at_random_and_casts_it_free(cards):
+    s = build(cards)
+    put(s, "Lightning Bolt", "graveyard")  # (a lone card: the random pick is that one)
+    storm = put(s, "Storm of Memories", "hand")
+    mana(s, R=3, G=2)
+    act(s, "p1", type="cast_spell", card_id=storm.id)
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    if d is not None and d.kind == "confirm":
+        choose(s, ["yes"])
+    bolt = find(s, "Lightning Bolt")
+    d = decision(s, "free_cast_pick")
+    assert [o.id for o in d.options] == [bolt.id]
+    choose(s, [bolt.id])
+    choose(s, ["p2"], resolve=True)
+    assert s.state.players["p2"].life == 37
+    assert s.state.cards[bolt.id].zone == "p1:exile"
+    replay_matches(s)
+
+
+def test_sins_of_the_past_grants_the_cast_and_exiles_the_spell(cards):
+    s = build(cards)
+    bolt = put(s, "Lightning Bolt", "graveyard")
+    sins = put(s, "Sins of the Past", "hand")
+    mana(s, B=6)
+    act(s, "p1", type="cast_spell", card_id=sins.id, targets=[bolt.id])
+    pass_until_stack_empty(s)
+    assert s.state.rules.permissions and s.state.rules.permissions[0].free and s.state.rules.permissions[0].exile_own
+    act(s, "p1", type="cast_spell", card_id=bolt.id, free=True, targets=["p2"])
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].life == 37
+    assert s.state.cards[bolt.id].zone == "p1:exile"
+    assert s.state.cards[sins.id].zone == "p1:exile"
+    replay_matches(s)

@@ -127,7 +127,8 @@ FACE_DOWN_LOOK = re.compile(r"^you may look at (?P<top>the top card of your libr
 # the ability stays manual. A bare "You may cast that card." (no duration) means "cast it now, as
 # this resolves, ignoring timing" — not a permission that lasts: refused.
 GRANT_THAT = re.compile(r"^(?:(?P<until>until end of turn|until the end of your next turn|until your next end step), )?you may (?P<verb>play|cast) "
-                        r"(?P<what>that card|those cards|it)(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?$")
+                        r"(?P<what>that card|those cards|it)(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?"
+                        r"(?:, and (?P<spend>mana of any type can be spent to cast (?:that spell|those spells)))?$")  # (wave 25C: Dire Fleet Daredevil)
 # -- refused grants/replacements (wave 3R2) -- "You may play that card until the end of your next turn."
 _TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|those cards|it|them)(?: without paying (?:its|their) mana costs?)?) "
                              r"(?P<until>until end of turn|until the end of your next turn|until your next end step)$")
@@ -174,7 +175,11 @@ ONCE_FREE = re.compile(r"^once during each of your turns, you may cast (?:a|an) 
 # rather than paying its mana cost." (Demon of Fate's Design) — an alternative cost of {0} plus life (X is 0, 107.3b), chosen with the free cast
 ONCE_LIFE = re.compile(r"^once during each of your turns, you may cast (?:a|an) (?:(?P<sel>[a-z][a-z' ,-]*?) )?spell(?P<hand> from your hand)? by paying "
                        r"life equal to its mana value rather than paying its mana cost$")
-FREE_TARGET = re.compile(r"^(?:you may )?cast (?P<what>target .+?) without paying its mana cost$")
+# -- if you do (wave 25C) -- also "You may cast target instant or sorcery card from your graveyard this turn." (a permission for that card,
+# 611.2a), "Until end of turn, you may cast target … without paying its mana cost." and the bare "You may cast target instant card from
+# your graveyard." (cast as this resolves, its mana cost paid: 608.2g, the paid free_cast of the copy wording)
+FREE_TARGET = re.compile(r"^(?:(?P<until>until end of turn), )?(?:you may )?cast (?P<what>target .+?)(?P<this_turn> this turn)?"
+                         r"(?P<free> without paying its mana cost)?(?:, and (?P<spend>mana of any type can be spent to cast that spell))?$")
 _FREE_COUNT = {"a": 1, "an": 1, "up to one": 1, "up to two": 2, "up to three": 3, "any number of": 99}
 
 
@@ -286,6 +291,9 @@ def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     m = FREE_TARGET.fullmatch(text)
     if m is None:
         return None
+    timed = bool(m["until"] or m["this_turn"])
+    if (m["until"] and m["this_turn"]) or (m["spend"] and (m["free"] or not timed)):
+        return None  # (mana spent is only for a permission; a free cast spends none)
     phrase = m["what"][len("target "):]
     mv = re.search(rf" {_FREE_MV}(?= from )", phrase)
     if mv and mv["v"] is not None:
@@ -293,7 +301,11 @@ def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or sel.zones != ("graveyard",) or not sel.card:
         return None
-    return [{"do": "free_cast", "zone": "target", "filter": None, "optional": True, "mv": None, "n": 1}], sel.key()
+    if timed:
+        return [{"do": "grant_play", "who": "target", "play": False, "cast": True, "until": "end_of_turn", "optional": True,
+                 **({"free": True} if m["free"] else {}), **({"spend": "type"} if m["spend"] else {})}], sel.key()
+    return [{"do": "free_cast", "zone": "target", "filter": None, "optional": True, "mv": None, "n": 1,
+             **({} if m["free"] else {"paid": True})}], sel.key()
 # -- end refused look/cast-free (wave 3R5) --
 
 
@@ -720,11 +732,14 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         if (m["until"] and m["this_turn"]) or not (m["until"] or m["this_turn"]):
             return None  # (a bare "you may cast that card": cast it as this resolves, not modelled)
         free = bool(m["free"])  # (wave 3C) "... without paying its mana cost" (118.9)
+        if m["spend"] and (free or m["verb"] != "cast" or (m["what"] == "those cards") != ("those spells" in m["spend"])):
+            return None  # (-- if you do (wave 25C) -- 118.14: mana is spent only to cast, never for a free cast)
         until = {"until the end of your next turn": "end_of_next_turn", "until your next end step": "next_end_step"}.get(m["until"], "end_of_turn")
         # "who": a pronoun for scripts.resolve_it — the object(s) the preceding instruction moved
         # ("that card": a card — never a token the same sentence created, 111.1: scripts.resolve_it)
         return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play",
-                 "cast": True, "until": until, "optional": True, **({"free": True} if free else {})}], None
+                 "cast": True, "until": until, "optional": True, **({"free": True} if free else {}),
+                 **({"spend": "type"} if m["spend"] else {})}], None
     m = GRANT_ZONE.fullmatch(text)
     if m:
         if m["until"] and m["this_turn"]:
@@ -843,7 +858,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         zone_ok = p.object_id is not None or p.zone != "any"  # (a flash-only permission grants no zone)
         out.append(Grant("permission", p.label, zone_ok=zone_ok, free=p.free, flash=p.flash, permission=p.id, spend=p.spend,
-                         sorcery=p.sorcery))
+                         sorcery=p.sorcery, exile_gy=p.exile_gy if not p.exile_own or card.owner == player else ""))  # (wave 25C)
     if verb == "cast" and where in ("graveyard", "exile") and card.owner == player and not card.face_down:
         for index, d in _definitions(ch).items():  # the card's own ability, functioning in the graveyard (113.6) / exile (wave 20D)
             if d.get("static") == "permission" and d.get("self") and where in d.get("zones", [d["zone"]]):
@@ -1112,21 +1127,28 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         "for as long as it remains there" if e["until"] == "permanent" else "this turn"  # (permanent: wave 3E, 611.2a)
     verb = "play" if e["play"] else "cast"
     if e.get("who"):
-        if not str(e["who"]).startswith(context.PREFIX):
+        if not str(e["who"]).startswith(context.PREFIX) and e["who"] != "target":
             return True  # (an unbound pronoun never reaches here: resolve_it refuses the ability)
-        for cid in context.objects(plan, ctx, e["who"][len(context.PREFIX):]):
+        for cid in context.objects(plan, ctx, e["who"][len(context.PREFIX):]) if e["who"] != "target" else _target_cards(plan, ctx):
             card = plan.state.cards[cid]
             r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone="any",
                                             object_id=plan.oid(card), card=cid, until=e["until"], turn=turn, free=bool(e.get("free")), spend=e.get("spend", ""),
+                                            exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")),  # (wave 25C)
                                             source=ctx.get("source_object"), label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" without paying its mana cost" if e.get("free") else "")))
             plan.note(f"{plan.name(pid)} may {verb} {card.name} {when}", [cid])
         return True
     r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone=e["zone"],
+                                    exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")),  # (wave 25C)
                                     until=e["until"], turn=turn, source=ctx.get("source_object"),
                                     label=f"{ctx.get('name') or 'An effect'}: {verb} from your {e['zone']} {when}"))
     what = "play lands and cast spells" if e["play"] and e["cast"] else "play lands" if e["play"] else "cast spells"
     plan.note(f"{plan.name(pid)} may {what} from their {e['zone']} {when}")
     return True
+
+
+def _target_cards(plan: Plan, ctx: dict[str, Any]) -> list[str]:
+    """-- if you do (wave 25C) -- the ability's target cards still in a graveyard (608.2b: legal targets only; public zone, 400.2)."""
+    return [t["id"] for t in ctx.get("targets") or [] if t.get("id") in plan.state.cards and plan.state.cards[t["id"]].zone.endswith(":graveyard")]
 
 
 def expire(plan: Plan) -> None:
@@ -1372,7 +1394,8 @@ def free_cast_done(plan: Plan, card_id: str, *, cast: bool) -> None:
         effects.continue_effects(plan, ctx)
         return
     ctx.setdefault("free_cast_done", []).append(card_id)
-    if e.get("exile_gy") and (e["exile_gy"] is True or plan.ch(plan.state.cards[card_id]).is_instant_or_sorcery):
+    if (e.get("exile_gy") and (e["exile_gy"] is True or plan.ch(plan.state.cards[card_id]).is_instant_or_sorcery)
+            and (not e.get("exile_own") or plan.state.cards[card_id].owner == ctx["controller"])):  # (wave 25C: "your graveyard")
         r.exile_if_graveyard.append(plan.oid(card_id))  # "If that spell would be put into your graveyard, exile it instead" (614.1a; wave 19C: "an instant or sorcery spell" only)
     if int(e.get("n", 1)) > 1 and not free_cast(plan, ctx, e):
         return  # the next one is being chosen

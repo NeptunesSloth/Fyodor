@@ -1560,6 +1560,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "phase_out", "who": _who(kind, key)}], _one(group)
+    if (found := exile_choice(text)) is not None:
+        return found
     m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap) (?P<o>.+)", text)
     if m:
         whos, groups = _objects(m["o"])
@@ -3032,6 +3034,20 @@ def _reanimation_compound(obj: str, effect: dict[str, Any]) -> tuple[Effects, An
         out.append({**effect, "do": "return_choice", "sel": sel.key(), "n": 1, "upto": bool(c["upto"]), "random": False,
                     "label": words})
     return out, None
+
+
+def exile_choice(text: str) -> tuple[Effects, Any] | None:
+    """-- if you do (wave 25C) -- "Exile an instant or sorcery card [at random] from your graveyard": one card, chosen on resolution (608.2d)
+    or at random, nothing targeted; recorded for "it" / "that card" after (effects.return_choice, to "exile")."""
+    late = text.endswith(" at random")  # ("… from your graveyard at random")
+    c = _RA_CHOICE.fullmatch(text[len("exile "):len(text) - len(" at random") * late]) if text.startswith("exile ") else None
+    if c is None or c["z"] != "your graveyard" or c["upto"] or c["n"] or c["any"]:
+        return None
+    words = re.sub(r"\bcards\b", "card", c["what"])
+    sel = selectors.parse(f"{words} from {c['z']}")
+    if sel is None or not _graveyard_cards(sel.key()) or "card" not in words.split():
+        return None
+    return [{"do": "return_choice", "to": "exile", "sel": sel.key(), "n": 1, "upto": False, "random": bool(c["rand"] or late), "label": words}], None
 
 
 def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
