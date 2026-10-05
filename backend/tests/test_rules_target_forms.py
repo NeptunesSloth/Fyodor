@@ -112,7 +112,8 @@ def test_target_forms_are_parsed(text, effects_, target):
     "Tap each of up to two other targets.",
     "~ deals 1 damage to any target, 2 damage to another target, and 3 damage to a third target.",  # (three-way: not read)
     "Counter target creature.",  # (a permanent can't be countered, 701.6a)
-    "Counter target activated or triggered ability from an artifact or enchantment source.",
+    # ("Counter target activated or triggered ability from an artifact or enchantment source.": read since wave 23B, a source union —
+    #  tests/test_rules_wave23b_stack.py, Green Slime)
     "Return all creature cards from target player's graveyard to your hand.",  # (a target player's zone as the objects: not modelled)
     "Exile it until ~ leaves the battlefield.",
     "Target player shuffles up to four target cards from their graveyard into their library.",
