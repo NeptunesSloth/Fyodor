@@ -317,6 +317,12 @@ def _stat(phrase: str, its: str = "it") -> Any:
         return {_STATS[m["stat"] or m["stat2"]]: "it:milled"}  # -- X sized by a count (wave 19F) -- the card a mill instruction milled (701.17)
     if (m := re.fullmatch(r"the (?P<stat>mana value) of (?:that|the) spell|the spell's (?P<stat2>mana value)", phrase)) is not None:
         return {"mana_value": "that_spell"}  # (wave 19F: a cast trigger's spell, or the one a counter instruction just countered)
+    if (m := re.fullmatch(r"the (?P<stat>power|toughness|mana value) of the (?:card|creature|permanent|artifact|enchantment|land|creature card) (?P<verb>exiled|returned|milled|destroyed) this way", phrase)) is not None:  # -- value grammar (wave 23C) -- "the mana value of the permanent exiled this way": the one object an earlier instruction moved
+        return {_STATS[m["stat"]]: "it:" + m["verb"]}  # (scripts._bind_stats binds it to that instruction, else the line stays manual; 608.2h)
+    if (m := re.fullmatch(r"the (?P<stat>power|toughness|mana value) of the creature that died", phrase)) is not None:  # -- value grammar (wave 23C) -- 603.10a, 608.2h
+        return {_STATS[m["stat"]]: "event", "died": 1}  # (the dying creature as it last existed; scripts._event_refs_ok: only a "dies" trigger's)
+    if phrase in ("the number of colors that spell is", "the number of colors it is"):  # -- value grammar (wave 23C) -- how many colors an object is (105.1)
+        return {"colors": "that_spell" if "spell" in phrase else its}
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
     m = re.fullmatch(r"(?:(?P<its>its)|that (?P<noun>creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
                      r"(?P<spell>that spell's)|(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
@@ -337,9 +343,9 @@ def _stat(phrase: str, its: str = "it") -> Any:
         if sel is None or sel.player is not None or sel.zones not in ((), ("battlefield",)) or sel.other:
             raise _Fail
         return {_STATS[m["stat"] or m["stat2"]]: "target", "target_sel": sel.key()}
-    m = re.fullmatch(r"twice (?P<v>.+)", phrase)
+    m = re.fullmatch(r"(?:twice|(?P<k>two|three|four) times) (?P<v>.+)", phrase)  # (wave 23C: "three times this creature's power")
     if m:
-        return {"times": [2, _stat(m["v"], its)]}
+        return {"times": [values.NUMBERS[m["k"]] if m["k"] else 2, _stat(m["v"], its)]}
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
         return tw
     # -- damage sized by a count (wave 4E) -- "the number of charge counters on it": "it" is the sentence's subject when it
@@ -470,9 +476,17 @@ def _rider_value(phrase: str) -> Any:
                     r"the exiled (?:creature )?card's|the exiled creature's) (?:power|toughness|mana value)", phrase) or re.fullmatch(
                         r"the mana value of (?:that spell|the spell|the exiled card|the milled card)", phrase):  # (wave 19F)
         return _stat(phrase)
+    if phrase in ("of its colors", "of that spell's colors"):  # -- value grammar (wave 23C) -- "for each of its colors": how many colors the object is (105.1)
+        return {"colors": "that_spell" if "spell" in phrase else "it"}
+    if phrase in ("the number of colors that spell is", "the number of colors it is") or re.fullmatch(
+            r"the (?:power|toughness|mana value) of the creature that died|the (?:power|toughness|mana value) of the (?:card|creature|permanent|artifact|enchantment|land|creature card) (?:exiled|returned|milled|destroyed) this way", phrase) or re.fullmatch(
+            r"(?:two|three|four) times (?:its|~'s|this creature's|that creature's) (?:power|toughness|mana value)", phrase):  # -- value grammar (wave 23C) -- 105.1
+        return _stat(phrase)
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
         return tw
     v = values.parse_count(phrase, it="it")
+    if v is None:
+        v = values.target_relative(phrase)  # -- value grammar (wave 23C) -- "creature target opponent controls": scripts._value_targets
     if v is None:
         v = sized_damage.per_player(phrase)  # -- damage sized by a count (wave 4E) -- (damage only: parse_sentence checks)
     if v is None:
@@ -2064,7 +2078,7 @@ def _bind_its(v: Any, its: str | None) -> Any:
         return v
     out = {}
     for k, x in v.items():
-        if k in ("power", "toughness", "mana_value", "on") and x == "it":
+        if k in ("power", "toughness", "mana_value", "on", "colors") and x == "it":
             if its is None:
                 raise _Fail
             x = its

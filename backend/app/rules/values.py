@@ -85,7 +85,7 @@ def parse_amount(word: str) -> Value | None:
 
 # -- dynamic values (agent F): "the number of …" and friends --------------------------------------
 _COUNT = re.compile(r"^the (?:total )?number of (?P<what>.+?)$")
-_STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
+_STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value", "power and/or toughness": "power_or_toughness"}
 _COUNTERS_ON = re.compile(r"^(?:(?P<kind>\+1/\+1|-1/-1|[a-z]+) )?counters? on (?P<on>.+)$")
 _ON = {"~": "self", "it": "it", "this creature": "self", "this permanent": "self", "this artifact": "self",
        "this enchantment": "self", "this land": "self", "this equipment": "self", "this aura": "self",
@@ -97,10 +97,10 @@ _DISTINCT = {"card types": "types", "different card types": "types", "card type"
              "creature type": "creature_types",
              "different power": "powers", "different powers": "powers",  # (wave 17B: Selvala, Eager Trailblazer)
              "mana values": "mana_values", "different mana values": "mana_values", "mana value": "mana_values",
-             "different mana value": "mana_values"}  # (wave 21F: Eris, Roar of the Storm)  # (wave 20B)
+             "different mana value": "mana_values", "planeswalker types": "planeswalker_types"}  # (wave 21F: Eris, Roar of the Storm)  # (wave 20B)
 _AMONG = re.compile(r"^(?P<kind>" + "|".join(sorted(map(re.escape, _DISTINCT), key=len, reverse=True)) + r") among (?P<sel>.+)$")
 _DEVOTION = re.compile(r"^your devotion to (?P<c1>white|blue|black|red|green)(?: and (?P<c2>white|blue|black|red|green))?$")
-_AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power|toughness|mana value) "
+_AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power and/or toughness|power|toughness|mana value) "
                         r"(?:among|of) (?P<sel>.+)$")
 _PLAYER_COUNTERS = re.compile(r"^(?P<kind>[a-z]+) counters? you have$")
 # -- counters & designations (wave 3E) -- "poison counters your opponents have" (all of them together),
@@ -110,6 +110,9 @@ _PLAYER_COUNTERS_3E = re.compile(r"^(?:the amount of )?(?:(?P<kind>poison|experi
 # -- as long as (wave 9B) -- "the amount of excess damage dealt to that creature this way" (Goblin Negotiation), "the excess damage
 # dealt this way", "that excess damage" (after "If excess damage was dealt this way, …, where X is that excess damage")
 _EXCESS_DEALT = re.compile(r"(?:the amount of |the )?excess damage dealt (?:to (?:that|a) (?:creature|permanent) )?this way|that excess damage")
+_COUNTERS_AMONG = re.compile(r"^(?:(?P<kinds>different kinds of counters)|(?:(?P<kind>\+1/\+1|-1/-1|[a-z]+) )?counters?) (?:on|among) (?P<sel>.+)$")
+_DAMAGE_EVENT = re.compile(r"^the amount of (?:combat )?damage (?:(?:it|he|she|they|~|this creature|that creature|those creatures) dealt"
+                           r"(?: to (?:that player|that opponent|them))?|dealt)$")
 _HALF = re.compile(r"^half (?P<v>.+?), rounded (?P<round>up|down)$")
 _PLUS = re.compile(r"^(?P<v>.+?) plus (?P<n>\d+|one|two|three|four|five)$")
 _TYPE_WORDS = "|".join(selectors.CARD_TYPES)
@@ -130,6 +133,41 @@ _FROM_TAGS = {"treasure": "Treasure", "artifact": "Artifact", "desert": "Desert"
 _MANA_FROM = re.compile(r"(?:the amount of )?(?:\{S\}|mana from (?:an? )?(?P<what>[Tt]reasure|[Aa]rtifact|[Dd]esert|[Cc]ave|[Cc]reature)(?: source)?)(?: that was)? spent to cast "
                         r"(?:this spell|it|~|this creature|this permanent)")
 _MANA_SPENT = re.compile(r"(?:the )?amount of mana spent to cast (?P<o>that spell|this spell|her|him|~|this creature)")
+
+
+_THAT_PLAYER = re.compile(r"\b(?:that player's|their|that player controls|they control|that player owns|they own)\b")
+_THAT_PLAYER_TO_YOU = {"that player's": "your", "their": "your", "that player controls": "you control", "they control": "you control",
+                       "that player owns": "you own", "they own": "you own"}
+
+
+def player_relative(phrase: str) -> Value | None:
+    """-- value grammar (wave 23C) -- "the number of artifacts that player controls" / "cards in their graveyard" / "creatures they control of the
+    chosen type" as a "where X is" definition: the phrase read for ONE player (the target or the trigger's: scripts._where_x binds it), as
+    ``{"for_player": "that_player", "of": <the count for "you">}``. A count of a hand or a library has no such reading here (a quantity per
+    recipient is sized_damage's)."""
+    if not _THAT_PLAYER.search(phrase):
+        return None
+    inner = _parse_count(_THAT_PLAYER.sub(lambda m: _THAT_PLAYER_TO_YOU[m[0]], phrase), it=None)
+    if inner is None or any(k in str(inner) for k in ("hand", "library", '"controller":"chosen"', '"zone_owner":"chosen"', "exiled_with", "'on'")):
+        return None
+    return {"for_player": "that_player", "of": inner}
+
+
+_TARGET_RELATIVE = re.compile(r"^(?P<what>.+?) (?:(?P<ctl>target (?:player|opponent) controls)|in target (?P<own>player|opponent)'s (?P<zone>graveyard|hand))$")
+
+
+def target_relative(phrase: str) -> Value | None:
+    """-- value grammar (wave 23C) -- "tapped creature target opponent controls" / "card in target opponent's hand" / "creature card in target player's
+    graveyard": the count for the one player a target names ("you" of the phrase is that player), as ``{"for_player": "target_opponent" |
+    "target_player", "of": …}``; scripts._value_targets declares the target when the sentence names none (115.1) and binds it."""
+    m = _TARGET_RELATIVE.match(phrase)
+    if m is None:
+        return None
+    who = "opponent" if "opponent" in phrase.rpartition(" target ")[2][:9] or m["own"] == "opponent" else "player"
+    inner = _parse_count(f"{m['what']} you control" if m["ctl"] else f"{m['what']} in your {m['zone']}", it=None)
+    if inner is None or any(k in str(inner) for k in ('"controller":"that_player"', '"zone_owner":"that_player"', "chosen", "'on'")):
+        return None
+    return {"for_player": f"target_{who}", "of": inner}
 
 
 def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
@@ -159,10 +197,16 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     what = m["what"] if m else p
     if what.lower() == "x":
         return {"x": 1}
-    if (ahead := re.fullmatch(r"(?:the )?number of players who control (?:at least (?P<k>two|three|four) )?more (?P<w>lands|creatures|artifacts|enchantments)"
-                              r" than you", p)) is not None:  # -- tutor (wave 20D) -- Oreskos Explorer, Surveyor's Scope (a count of players, 107.1)
-        inner = _parse_count(f"the number of {ahead['w']} you control", it=it)
-        return None if inner is None else {"ahead": inner, "margin": NUMBERS[ahead["k"]] if ahead["k"] else 1}
+    if (ahead := re.fullmatch(r"(?:the )?(?:number of )?(?:players?|opponents?) who (?P<verb>controls?|has|have) (?:at least (?P<k>two|three|four) )?(?P<cmp>more|fewer|less) "
+                              r"(?P<w>lands|creatures|artifacts|enchantments) than you", p)) is not None \
+            and ((ahead["w"] in ("life", "cards in hand", "cards in their hand")) == (ahead["verb"] in ("has", "have"))):
+        # -- tutor (wave 20D) -- Oreskos Explorer, Surveyor's Scope (a count of players, 107.1); -- value grammar (wave 23C) -- "opponent who has less
+        # life than you" / "who controls fewer creatures than you": each other player's own value against yours
+        inner = {"life": "you"} if ahead["w"] == "life" else {"hand": "you"} if ahead["w"].startswith("cards") \
+            else _parse_count(f"the number of {ahead['w']} you control", it=it)
+        if inner is None:
+            return None
+        return {"ahead": inner, "margin": NUMBERS[ahead["k"]] if ahead["k"] else 1, **({} if ahead["cmp"] == "more" else {"below": True})}
     from app.rules import (
         dice,  # -- rolling dice (wave 12A) -- "the result", "that result", "the other result" (706.4)
     )
@@ -204,7 +248,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"hand": "chosen"}
     if what in ("creatures in your party", "creature in your party"):  # -- refused modal/conditional (wave 3R1) --
         return {"party": "you"}  # 700.8
-    if what in ("time you've cast a commander from the command zone this game", "times you've cast a commander from the command zone this game"):
+    if what in ("time you've cast a commander from the command zone this game", "times you've cast a commander from the command zone this game",
+                "time you've cast your commander from the command zone this game", "times you've cast your commander from the command zone this game"):
         return {"commander_casts": 1}  # -- triggers (wave 19B) -- 903.8: every cast of one of your commanders from the command zone
     if what in ("cards in target player's hand", "cards in target opponent's hand"):
         return {"hand": "target"}
@@ -216,8 +261,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"exiled_with": 1}  # -- resolution memory (wave 22D) -- 607.2a: the cards the linked ability exiled and that are still there
     if what == "opponent you attacked with a creature this combat":  # -- casting extras (wave 18E) -- melee 702.121a
         return {"attacked_opponents": 1}
-    if what in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
-        return {"kicked": 1}
+    if re.fullmatch(r"times? (?:it|he|she|~|this (?:spell|creature|permanent|enchantment|artifact|land|planeswalker)) (?:was|were) kicked", what):
+        return {"kicked": 1}  # (wave 23C: plural and "he"/"she"/"this permanent": 702.33d, a permanent remembers how its spell was kicked)
     if what in ("times this creature has mutated", "times ~ has mutated", "times this permanent has mutated", "time this creature has mutated"):  # -- merged permanents (wave 18D)
         return {"mutated": 1}  # (702.140: how many spells merged with it)
     if what in ("creature it devoured", "creature ~ devoured"):  # -- keyword mechanics (wave 9D) -- 702.82b
@@ -239,6 +284,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"life": "target"}
     if what in ("the highest life total among your opponents", "the greatest life total among your opponents"):
         return {"life": "opponent_max"}
+    m = re.fullmatch(r"(?P<c>white|blue|black|red|green) mana symbols? (?:in|among) the mana costs? of permanents you control", what)
+    if m:  # -- value grammar (wave 23C) -- 700.5: that IS devotion (chroma)
+        return {"devotion": [_COLOR_WORDS[m["c"]]]}
     m = _DEVOTION.match(what)
     if m:
         return {"devotion": [_COLOR_WORDS[c] for c in (m["c1"], m["c2"]) if c]}
@@ -247,6 +295,10 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"player_counters": m["kind"]}
     if _EXCESS_DEALT.fullmatch(what):  # -- as long as (wave 9B) -- 120.10: scripts bind it to the damage just before (this_way.excess_dealt)
         return {"ref_amount": "excess_dealt"}
+    if re.fullmatch(r"cards in all graveyards with the same name as (?:that|the) spell", what):  # -- value grammar (wave 23C) -- Cabal Shrine: 201.2
+        return {"same_name": "event", "zone": "graveyard"}  # (the spell a cast trigger is about; scripts._event_refs_ok)
+    if _DAMAGE_EVENT.fullmatch(what):  # -- value grammar (wave 23C) -- "the amount of damage it dealt to that player": the damage trigger's amount
+        return {"event_amount": 1, "of": "damage"}  # (scripts._event_refs_ok: only a damage event's trigger reads it; 603.2c: a batch's total)
     if what in ("the damage prevented this way", "damage prevented this way"):  # -- prevention riders (wave 17A) -- 615.5
         return {"ref_amount": "prevented"}  # (source_shields.rider: bound by the prevention effect when it prevented damage)
     if what == "the damage dealt this way":  # -- if you do (wave 5G) -- what the damage just before dealt (this_way)
@@ -265,6 +317,14 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         if on != "self":
             return None
         return {"attached": sorted(set(re.findall(r"Aura|Equipment", m["kinds"]))), "on": on}
+    m = _COUNTERS_AMONG.match(what)  # -- value grammar (wave 23C) -- "the number of counters on permanents you control", "time counters among permanents you control"
+    if m and m["sel"].lower() not in _ON and "‹granter" not in m["sel"]:  # (review 23C: one granting object is no group — a token an effect
+        key = _selector_key(m["sel"])  # created never has its ‹granter› bound (Gutter Grime's Ooze would read 0)
+        if key is None or selectors.from_key(key).player is not None or selectors.from_key(key).card or selectors.from_key(key).zones != ("battlefield",):
+            return None
+        if m["kinds"]:  # 122.1: how many different kinds of counters there are among them
+            return {"counter_kinds": 1, "of": key}
+        return {"counters_among": m["kind"], "of": key}
     m = _COUNTERS_ON.match(what)
     if m:
         on = _ON.get(m["on"].lower())
@@ -277,6 +337,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if m:
         key = _selector_key(m["sel"])
         return {"distinct": _DISTINCT[m["kind"]], "among": key} if key else None
+    if what == "the greatest mana value among your commanders":  # -- value grammar (wave 23C) -- 903.3: a commander is one wherever it is (Cactus Preserve)
+        return {"max": "mana_value", "of": selectors.Selector(commander=True, owner="you", zones=selectors.ZONES).key()}
     if what == "the greatest mana value of a commander you own on the battlefield or in the command zone":  # -- amounts (wave 12C) --
         return {"max": "mana_value", "of": selectors.Selector(commander=True, owner="you", zones=("battlefield", "command")).key()}  # 903.3
     m = _AGGREGATE.match(what)
@@ -288,6 +350,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         if len(parts) > 2 or None in keys or any(selectors.from_key(k).player is not None for k in keys if k):
             return None
         return {"max" if m["max"] else "sum": _STATS[m["stat"]], "of": keys[0], **({"also": keys[1]} if len(keys) == 2 else {})}
+    m = re.fullmatch(r"the greatest number of (?P<sel>creatures you control) that have a creature type in common", p)  # -- value grammar (wave 23C) -- 205.3m
+    if m and (key := _selector_key(m["sel"])) is not None and not selectors.from_key(key).player:
+        return {"shared_type": 1, "of": key}
     m = re.fullmatch(r"differently named (?P<sel>.+)", what)  # -- amounts (wave 12C) -- 201.2: how many different names
     if m:
         key = _selector_key(m["sel"])
@@ -368,6 +433,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
     if (m := _TURN_SPELL.match(what)):
         return {"spells_cast": "you" if m["who"] == "you" else "event_player"}
+    if re.fullmatch(r"cards? you(?:'ve)? discarded this turn", what):  # -- value grammar (wave 23C) -- a cycled card is discarded too (702.29a)
+        return {"turn_history": "discarded"}
     m = re.fullmatch(r"creature (?:(?P<any>that attacked)|(?P<mine>you attacked with)) this turn", what)
     if m:  # -- cost self reduction (wave 16F) -- the creatures declared as attackers (508.1, wave 4D log), whether or not still here
         return {"turn_history": "attackers", **({"who": "you"} if m["mine"] else {})}
@@ -411,7 +478,7 @@ def _normalise(what: str) -> str:
     """Noun phrases the selector grammar spells differently: "cards in all graveyards" (400.1:
     every player's), "instant and sorcery cards" (cards of either type: a list, not "artifact
     creature"'s both-types reading)."""
-    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", re.sub(r" on the battlefield(?=$| named ~)", "", what))  # (sized amounts, wave 3D)
+    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", re.sub(r" on the battlefield(?=$| named ~| with )", "", what))  # (sized amounts, wave 3D)
     return re.sub(rf"\b(?P<a>{_TYPE_WORDS}) and (?P<b>{_TYPE_WORDS}) (?P<n>cards?|spells?)\b", r"\g<a> or \g<b> \g<n>", out)
 
 
@@ -499,7 +566,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                    for cid in ids if name and chars.of(plan.state.cards[cid], plan.info).name == name)
     if "ahead" in v:  # -- tutor (wave 20D) -- "the number of players who control [at least two] more lands than you": the same count read for each other player
         mine = evaluate(plan, ctx, v["ahead"])
-        return sum(1 for p in plan.live() if p != you and evaluate(plan, {**ctx, "controller": p}, v["ahead"]) >= mine + v["margin"])
+        return sum(1 for p in plan.live() if p != you and (evaluate(plan, {**ctx, "controller": p}, v["ahead"]) + v["margin"] <= mine if v.get("below")
+                                                           else evaluate(plan, {**ctx, "controller": p}, v["ahead"]) >= mine + v["margin"]))
     if "count" in v:
         sel = selectors.from_key(v["count"])
         if ctx.get("unknown_choice_raises") and "chosen" in (sel.controller, sel.zone_owner):
@@ -585,6 +653,20 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import exiled_with
 
         return len(exiled_with.cards(plan, ctx))
+    if "same_name" in v:  # -- value grammar (wave 23C) -- 201.2: objects share a name when they have one in common (a split card has both)
+        got = _object(plan, ctx, v["same_name"])
+        if got is None:
+            return 0
+        names = set((got[1].name or "").split(" // "))
+        return sum(1 for c in plan.state.cards.values() if c.zone.endswith(f":{v['zone']}") and names & set((plan.ch(c).name or "").split(" // ")))
+    if "shared_type" in v:  # -- value grammar (wave 23C) -- the most of them that share one creature type (a changeling has every one: 702.73a)
+        from collections import Counter
+
+        from app.rules.creature_types import CREATURE_TYPES
+
+        tally = Counter(t for c in selectors.candidates(plan, selectors.from_key(v["of"]), you, _other_than(ctx))
+                        for t in plan.ch(plan.state.cards[c]).subtypes & CREATURE_TYPES)
+        return max(tally.values(), default=0)
     if "distinct" in v:
         return _distinct(plan, ctx, v["distinct"], v["among"])
     if "devotion" in v:
@@ -596,12 +678,14 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                  for c in selectors.candidates(plan, selectors.from_key(key), you, _other_than(ctx))]
         nums = [n for n in found if n is not None]
         return max(0, sum(nums) if "sum" in v else max(nums or [0]))
-    for stat in ("power", "toughness", "mana_value"):
+    for stat in ("power", "toughness", "mana_value", "colors"):
         if stat in v:
             got = _object(plan, ctx, v[stat])
             if got is None:
                 return 0
             obj, ch = got
+            if stat == "colors":  # -- value grammar (wave 23C) -- 105.1: how many of the five colors it is
+                return len(ch.colors)
             if stat == "mana_value":  # -- stack interaction (wave 5B) -- X on the stack counts (202.3e)
                 from app.rules.stack_interaction import mana_value
 
@@ -617,6 +701,18 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         kinds = set(v["attached"])
         return sum(1 for c in plan.state.cards.values() if c.attached_to == host and c.zone.endswith(":battlefield")
                    and plan.in_game(c) and kinds & plan.ch(c).subtypes)
+    if "for_player" in v:  # -- value grammar (wave 23C) -- "the number of cards in that player's graveyard": the count as that one player's ("you" of the phrase)
+        from app.rules import context
+
+        if v["for_player"] not in ("target", "event"):
+            raise ValueError(f"unbound player in {v!r}")  # (scripts binds "that_player" / "target_player" / "target_opponent" or refuses the line)
+        players = _target_players(plan, ctx) if v["for_player"] == "target" else context.players(plan, ctx, context.EVENT)
+        return evaluate(plan, {**ctx, "controller": players[0]}, v["of"]) if len(players) == 1 else 0
+    if "counters_among" in v or "counter_kinds" in v:  # -- value grammar (wave 23C) -- counters on a group of permanents (122.1)
+        held = [plan.state.cards[c].counters for c in selectors.candidates(plan, selectors.from_key(v["of"]), you, _other_than(ctx))]
+        if "counter_kinds" in v:
+            return len({k for cs in held for k, n in cs.items() if n > 0})
+        return sum(cs.get(v["counters_among"], 0) if v["counters_among"] else sum(cs.values()) for cs in held)
     if "counters" in v:
         got = _object(plan, ctx, v.get("on", "self"))
         if got is None:
@@ -636,6 +732,9 @@ def evaluate_signed(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 def _stat_of(ch: Any, stat: str) -> int | None:
     if stat == "mana_value":
         return int(ch.mana_value)
+    if stat == "power_or_toughness":  # -- value grammar (wave 23C) -- "the greatest power and/or toughness among …": each object's larger number
+        both = [n for n in (_stat_of(ch, "power"), _stat_of(ch, "toughness")) if n is not None]
+        return max(both) if both else None
     if ch.pt is not None:
         return int(ch.pt[0 if stat == "power" else 1])
     raw = ch.power if stat == "power" else ch.toughness
@@ -670,6 +769,9 @@ def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:
         elif kind == "names":  # -- token & pump wordings (wave 6C) -- "lands with different names" (201.2, 708.2a)
             if ch.name and not ch.face_down:
                 found.add(ch.name)
+        elif kind == "planeswalker_types":  # -- value grammar (wave 23C) -- 205.3j: the planeswalker subtypes of the planeswalkers
+            if "Planeswalker" in ch.types:
+                found |= ch.subtypes & selectors.PLANESWALKER_TYPES
         elif kind == "mana_values":  # -- as long as (wave 20B) -- "five or more mana values among cards in your graveyard" (202.3)
             found.add(str(int(ch.mana_value)))
         elif kind == "powers":  # "creatures with different powers" (conditions.py): how many distinct values
@@ -767,6 +869,12 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         sid = ctx.get("stack_id")
         record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
         ids = record.discarded if record is not None else []
+        card = plan.state.cards.get(ids[0]) if len(ids) == 1 else None
+        return (card, plan.ch(card)) if card is not None else None
+    if who == "cost:exiled":  # -- value grammar (wave 23C) -- "the exiled card's mana value": the one card a cost exiled (in exile now: printed values)
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        ids = record.exiled if record is not None else []
         card = plan.state.cards.get(ids[0]) if len(ids) == 1 else None
         return (card, plan.ch(card)) if card is not None else None
     if who == "cost:revealed":  # -- static_other sweep (wave 17C) -- "the revealed card's mana value": the one card a spell's cost revealed

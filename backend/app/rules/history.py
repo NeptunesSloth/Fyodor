@@ -201,12 +201,13 @@ def _stack_mv(card: Any, ch: Any) -> int:
     return mana_value(card, ch)
 
 
-def note_events(plan: Plan, events: list[Any]) -> None:
-    """The facts of a batch of events (app/rules/triggers.py reads the same events for triggers), kept for the turn."""
+def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> None:
+    """The facts of a batch of events (app/rules/triggers.py reads the same events for triggers), kept for the turn
+    (``into``: a scratch log instead, for events not yet looked at — review 23C)."""
     from app.game.rules_state import TurnFact, turn_log_now
     from app.rules.triggers import _facts
 
-    log = turn_log_now(plan.state)
+    log = into if into is not None else turn_log_now(plan.state)
     if log is None:
         return
     for e in events:
@@ -547,7 +548,12 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     if kind == "attackers":  # -- cost self reduction (wave 16F) -- each creature declared as an attacker this turn, once (508.1)
         return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
     if kind in ("tokens", "sacrificed", "discarded"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)
-        return sum(1 for f in log.facts if f.kind == {"tokens": "token", "sacrificed": "sacrifice", "discarded": "discard"}[kind]
+        facts = log.facts
+        if kind == "discarded":  # -- review (wave 23C) -- 608.2h: "Discard your hand, then draw a card for each card you've discarded this
+            pending = TurnLog(turn=log.turn)  # turn" counts the discards this resolution just made (events not yet looked at for triggers)
+            note_events(plan, [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch], into=pending)
+            facts = [*facts, *pending.facts]
+        return sum(1 for f in facts if f.kind == {"tokens": "token", "sacrificed": "sacrifice", "discarded": "discard"}[kind]
                    and (f.player == me or v.get("who") == "any"))  # (wave 21F: "who": "any" — each permanent sacrificed, whoever did it)
     if kind in ("opp_lost", "opp_damage"):  # (the opponents still in the game: 800.4a)
         opps = {p for p in plan.live() if p != me}

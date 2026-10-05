@@ -39,7 +39,14 @@ from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wa
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules import restrictions, selectors, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
-from app.rules.costs import DISCARD, SACRIFICE, parse_ability_cost, spell_additional_cost
+from app.rules.costs import (
+    DISCARD,
+    EXILE,
+    EXILE_FROM_GRAVEYARD,
+    SACRIFICE,
+    parse_ability_cost,
+    spell_additional_cost,
+)
 from app.rules.oracle import AbilityText, parse_abilities, split_sentences, word_prefix
 from app.rules.values import UNMODELED_COUNTERS
 
@@ -470,7 +477,7 @@ _CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "
 # ("on": "for each +1/+1 counter on it" — the object a pronoun names, as for its power. Not "hand":
 # "that player's hand" names a player, which _bind_stats (objects only) can't bind — values reads
 # only "you" / "target" hands, so the phrase stays manual.)
-_STAT_KEYS = ("power", "toughness", "mana_value", "on")
+_STAT_KEYS = ("power", "toughness", "mana_value", "on", "colors")  # ("colors": wave 23C, how many colors the object is)
 # -- stack interaction (wave 5B) -- "Counter target spell. Its controller …": the counter records the
 # spell it countered (effects.counter), so "its controller" / "its mana value" read it as it last existed
 # on the stack (608.2h). Not a mover: after it, "it" stays the target (the countered card isn't "it").
@@ -670,7 +677,18 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         if antecedent in ("self", "self_gone"):
             return "self"
         # the trigger event's object, as it is or as it last existed (603.10a, 608.2h)
-        return "event" if antecedent in ("event", "event_gone", "event_spell") else None
+        if antecedent in ("event", "event_gone", "event_spell"):
+            return "event"
+        # -- value grammar (wave 23C) -- "Put X +1/+1 counters on this creature / target creature, where X is its / that creature's
+        # power": the instruction's own recipient, read as it is before the counters are put on it (608.2h)
+        own = out[index]
+        if verb is None and own.get("do") == "add_counters":
+            g = _group_of(own)
+            if own.get("who") == "self":
+                return "self"
+            if g is not None and (groups is None or (g < len(groups) and not _is_player_group(groups[g]))):
+                return "target" if groups is None else f"target:{g}"
+        return None
 
     def cond_ref(index: int) -> Any:
         """The object "it" names in a condition (conditional / instead clauses, wave 1B): what an earlier
@@ -804,7 +822,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                                           (lambda: "event") if antecedent == "event_spell" else None)
             for pk in ("p", "t"):  # -- as long as (wave 9B) -- "gets +X/+X …, where X is the discarded card's mana value" (a pump / become)
                 # (wave 20A: a pump's plain "it" is "that card's mana value", language._Ante; a "become" reads its own "it")
-                placeholder = r'"(?:it:[a-z]+|cost:exiled)"|"(?:power|toughness|mana_value)": "it"' if e.get("do") == "pump" else r'"(?:it:[a-z]+|cost:exiled)"'
+                placeholder = r'"(?:it:[a-z]+|cost:exiled)"|"(?:power|toughness|mana_value|colors)": "it"' if e.get("do") == "pump" else r'"(?:it:[a-z]+|cost:exiled)"'
                 if e.get("do") in ("pump", "become") and re.search(placeholder, json.dumps(e.get(pk), default=str)):
                     e[pk] = _bind_stats(e[pk], lambda verb=None, at=index: stat_ref(at, verb), None)
             # -- X sized by a count (wave 4K) -- an "X/X" token's P/T: the same placeholders as an amount
@@ -1967,6 +1985,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # -- static_other sweep (wave 17C) -- 701.16a: "Its controller investigates." is "Its controller creates a Clue token." (Fateful Absence)
     body = re.sub(r"(?i)\b(its controller|that creature's controller|that permanent's controller) investigates\b", r"\1 creates a Clue token", body)
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
+    if re.match(r"(?i)choose a creature type\.", body):  # -- value grammar (wave 23C) -- "Choose a creature type. Draw a card for each creature you control of that type."
+        body = body.replace(" of that type", " of the chosen type")  # (the type this very instruction chose)
     # -- activated sweep (wave 17B) -- "Destroy each artifact, creature, and enchantment with mana value X or less.": "each" is distributive,
     # so the list is any of them and the qualifier is every kind's (Pernicious Deed); "and/or" is the selector grammar's spelling
     body = re.sub(r"(?i)\b(each|all) ((?:(?:artifact|creature|enchantment|land|planeswalker|battle), )+)and "
@@ -1998,9 +2018,9 @@ def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tup
         # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
         from app.rules import top_library
 
-        return _no_regen_scope(top_library.private_gate(_excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(
+        return _no_regen_scope(top_library.private_gate(_excess_redirect(_value_targets(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(
             this_way.dealt_to(this_way.excess_dealt(this_way.damage_dealt(_energy_paid(_parse_effects(body, it, event_player))))))),
-            it)))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
+            it))))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
     except _NoMatch:
         return None
 
@@ -2032,12 +2052,21 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     if len(found) != 1 or "{X}" in body:
         return None
     m = found[0]
-    value = language.x_definition(m["def"])
+    from app.rules import values
+
+    def defined_as(text: str) -> Any:
+        v = language.x_definition(text)
+        return (values.player_relative(text) or v) if v is None or "that_player" in json.dumps(v) else v
+
+    value, tail = defined_as(m["def"]), ""
+    if value is None and ", then " in m["def"]:  # -- value grammar (wave 23C) -- "Scry X, where X is the greatest mana value among permanents you control, then draw three cards."
+        defined, tail = m["def"].split(", then ", 1)  # (the definition ends where the next instruction begins)
+        value, tail = defined_as(defined), ", then " + tail
     start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
-    head, rest = body[start: m.start()], body[:start] + "\0" + body[m.end():]
+    head, rest = body[start: m.start()], body[:start] + "\0" + tail + body[m.end():]
     # (what the wrappers around the sentence grammar bind afterwards — "this way" counts, the target player's hand — is not read)
-    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"' + ('' if _exiled_with.linked() else r'|"cost:exiled"'),
-                                  json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):  # (22D: the linked card)
+    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"' + (''),
+                                  json.dumps(value).replace('"for_player": "that_player"', "")) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):  # (22D: the linked card)
         return None
     now = _x_now()
     outer = list(now)
@@ -2115,18 +2144,49 @@ def _excess_redirect(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tu
 def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """-- refused zones/sized (wave 3R4) -- "the number of cards in that player's / their hand": the target player's
     when the ability targets one player (and names no other), else the player the trigger was about — only when the
-    ability also says "that player" for its recipient (``event_player``: _event_refs_ok checks the trigger has one)."""
+    ability also says "that player" for its recipient (``event_player``: _event_refs_ok checks the trigger has one).
+    -- value grammar (wave 23C) -- the same for a count of what "that player" controls / has in a graveyard
+    (``{"for_player": "that_player", "of": …}``, values.player_relative), and a count already read through the
+    selectors' trigger-bound "that player" beside a target player (rewritten to that player's own count)."""
     text = json.dumps(found[0]) if found is not None else ""
-    marker = '{"hand": "that_player"}'
-    if found is None or marker not in text:
+    marker, relative = '{"hand": "that_player"}', '"for_player": "that_player"'
+    selects = re.search(r'"count": "sel:.*?\\"(?:controller|zone_owner)\\":\\"that_player\\"', text) is not None
+    if found is None or not (marker in text or relative in text or selects):
         return found
     if (found[1] in ("player", "opponent") or str(found[1]).startswith("opponent_as:")) and '"event_player"' not in text:
         bound = "target"
-    elif found[1] is None and any(e.get("who") == "event_player" for e in found[0]):
+    elif found[1] is None and any(e.get("who") == "event_player" for e in found[0]) and (marker in text or relative in text):
         bound = "event"
     else:
-        return None
-    return json.loads(text.replace(marker, '{"hand": "' + bound + '"}')), found[1], found[2]
+        return None if marker in text or relative in text else found
+    effects = json.loads(text.replace(marker, '{"hand": "' + bound + '"}').replace(relative, f'"for_player": "{bound}"'))
+    return (_own_counts(effects) if bound == "target" else effects), found[1], found[2]
+
+
+def _value_targets(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- value grammar (wave 23C) -- "Draw a card for each tapped creature target opponent controls." (values.target_relative): the target
+    player / opponent a value names is the sentence's own target (115.1) when no other target is declared; beside a different one it is
+    ambiguous, so the line stays manual (608.2b: it is that player, as chosen)."""
+    text = json.dumps(found[0]) if found is not None else ""
+    wanted = {w for w in ("player", "opponent") if f'"for_player": "target_{w}"' in text}
+    if found is None or not wanted:
+        return found
+    if len(wanted) != 1 or found[1] not in (None, *wanted):
+        raise _NoMatch
+    (who,) = wanted
+    return json.loads(text.replace(f'"for_player": "target_{who}"', '"for_player": "target"')), who, found[2]
+
+
+def _own_counts(v: Any) -> Any:
+    """-- value grammar (wave 23C) -- ``{"count": <selector read for "that player">}`` → that (target) player's own count."""
+    if isinstance(v, list):
+        return [_own_counts(x) for x in v]
+    if not isinstance(v, dict):
+        return v
+    key = v.get("count")
+    if len(v) == 1 and isinstance(key, str) and re.search(r'"(?:controller|zone_owner)":"that_player"', key):
+        return {"for_player": "target", "of": {"count": re.sub(r'("(?:controller|zone_owner)":)"that_player"', r'\1"you"', key)}}
+    return {k: _own_counts(x) for k, x in v.items()}
 
 
 def _attached_host(found: tuple[list[dict[str, Any]], Any, bool] | None, it: str | None,
@@ -2668,7 +2728,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     if pay_objects.leftover(resolved):  # -- if you do (wave 8C) -- "the exiled card" with no payment before it
         return None
-    if re.search(r'"(?:power|toughness|mana_value)": "it:(?!discarded)', json.dumps(resolved, default=str)):
+    if re.search(r'"(?:power|toughness|mana_value)": "it:(?!discarded)|"colors": "it"', json.dumps(resolved, default=str)):
         return None  # (-- X sized by a count (wave 19F) -- "the milled card's …" in a field that binds no such reference)
     if not _cast_conditions_ok(resolved) or not _did_refs_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
         return None
@@ -3178,6 +3238,14 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if d is not None and ("cost:revealed" in json.dumps(d, default=str) or '"rev:' in json.dumps(d, default=str)):  # -- static_other sweep (wave 17C) --
         cost = spell_additional_cost(ch.abilities) if d.get("kind") == "spell" else None  # (a spell's additional cost revealed it)
         if cost is None or [c.kind for c in cost.components].count("REVEAL_FROM_HAND") != 1 or cost.either:
+            return None
+    if d is not None and '"cost:exiled"' in json.dumps(d, default=str):  # -- value grammar (wave 23C) -- one card exiled from a graveyard / hand to pay
+        cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
+        if cost is None and d.get("kind") == "spell":
+            cost = spell_additional_cost(ch.abilities)
+        exiling = [c for c in cost.components if c.kind in (EXILE, EXILE_FROM_GRAVEYARD, "EXILE_FROM_HAND", "EXILE_LIBRARY", "CRAFT", "COLLECT_EVIDENCE", "FORAGE")] if cost else []
+        if cost is None or cost.either or len(exiling) != 1 or exiling[0].kind not in (EXILE_FROM_GRAVEYARD, "EXILE_FROM_HAND") \
+                or exiling[0].selector is None or exiling[0].amount != 1:
             return None
     if d is not None and "cost:sacrificed" in json.dumps(d, default=str):
         cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
@@ -3778,6 +3846,12 @@ def _event_refs_ok(d: Definition) -> bool:
     # and as it resolves): only a trigger whose event names that player — the one the event is about, or the one attacked
     raw = json.dumps(d)
     ev = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
+    if '"same_name": "event"' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
+        return False  # -- value grammar (wave 23C) -- "that spell": the spell a cast trigger is about
+    if '"died": 1' in raw and not (ev is not None and ev["event"] == "die" and not ev.get("aggregate")):
+        return False  # -- value grammar (wave 23C) -- "the power of the creature that died": the one creature a "dies" trigger is about
+    if '"of": "damage"' in raw and not (ev is not None and ev["event"] in ("dealt_damage", "deal_damage", "deal_damage_opponent", "deal_combat_damage_player")):
+        return False  # -- value grammar (wave 23C) -- "the amount of damage it dealt": only a damage event's trigger
     if '"spells_cast": "event_player"' in raw and not (  # -- triggers (wave 17D) -- "they … for each spell they've cast this turn": "they" is
             ev is not None and ev["event"] == "cast" and ev.get("subject") == "player"  # the casting player, who is also the recipient
             and all(e.get("who") == "event_player" for e in effects if '"spells_cast"' in json.dumps(e))):

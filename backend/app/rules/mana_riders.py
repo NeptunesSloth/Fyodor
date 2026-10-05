@@ -71,7 +71,7 @@ _SAC_IF_NONE = re.compile(r"^If there are no (?P<k>[a-z]+) counters on (?:this (
 
 # value kinds a mana ability may be sized by (read for its controller, with the source as "this"/"other")
 _SAFE_KEYS = {"count", "distinct", "among", "devotion", "sum", "max", "of", "opponents", "spells_cast", "party",
-              "player_counters"}
+              "player_counters", "shared_type", "counters_among", "counter_kinds"}  # (wave 23C: value grammar)
 
 
 def _n(word: str) -> int:
