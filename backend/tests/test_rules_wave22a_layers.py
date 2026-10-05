@@ -491,3 +491,121 @@ def test_dryad_waits_for_ashaya(cards, dryad_first):
     dryad = next(c for c in s.state.cards.values() if c.name.startswith("Dryad"))
     assert {"Plains", "Island", "Swamp", "Mountain", "Forest"} <= ch(s, dryad).subtypes and "Land" in ch(s, dryad).types
     roundtrip(s)
+
+
+# -- the engine reads the characteristics these statics change (702.16: protection) -----------------------------------------
+def test_protection_from_red_sees_the_colorless_bolt(cards):
+    """Mycosynth Lattice makes the spell colorless (611.3, 613.1e), so a creature with protection from red can be its target."""
+    from app.game.errors import ActionError
+    from tests.test_rules_effects import token
+
+    s = build(cards, [(1, "Mycosynth Lattice"), (1, "Lightning Bolt")])
+    pro = token(s, "p2", "Protected", "2/2", "Protection from red")
+    bolt = put(s, "Lightning Bolt", "hand")
+    mana(s, R=1)
+    hold(s)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[pro.id])  # (red: can't target it, 702.16b)
+    put(s, "Mycosynth Lattice", "battlefield")
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[pro.id])
+    assert s.state.cards[bolt.id].zone == "stack"
+    roundtrip(s)
+
+
+# -- Auras that set the card type of what they enchant (205.1a, 305.7, 613.1d-f) -----------------------------------------
+AURAS = [
+    card('Imprisoned in the Moon', set_code="tst", number="22A30", mana_cost='{2}{U}', cmc=3.0, type_line='Enchantment — Aura',
+         oracle_text='Enchant creature, land, or planeswalker\nEnchanted permanent is a colorless land with "{T}: Add {C}" and loses '
+                     'all other card types and abilities.', colors=['U'], color_identity=['U'], keywords=['Enchant']),
+    card('Song of the Dryads', set_code="tst", number="22A31", mana_cost='{2}{G}', cmc=3.0, type_line='Enchantment — Aura',
+         oracle_text='Enchant permanent\nEnchanted permanent is a colorless Forest land.', colors=['G'], color_identity=['G'],
+         keywords=['Enchant']),
+    card('Sugar Coat', set_code="tst", number="22A32", mana_cost='{2}{U}', cmc=3.0, type_line='Enchantment — Aura',
+         oracle_text='Flash\nEnchant creature or Food\nEnchanted permanent is a colorless Food artifact with "{2}, {T}, Sacrifice this '
+                     'artifact: You gain 3 life" and loses all other card types and abilities.', colors=['U'], color_identity=['U'],
+         keywords=['Flash', 'Enchant']),
+    card('In Too Deep', set_code="tst", number="22A33", mana_cost='{U}{U}', cmc=2.0, type_line='Enchantment — Aura',
+         oracle_text='Split second\nEnchant creature, planeswalker, or Clue\nEnchanted permanent is a colorless Clue artifact with '
+                     '"{2}, Sacrifice this artifact: Draw a card" and loses all other abilities.', colors=['U'],
+         color_identity=['U'], keywords=['Split second', 'Enchant']),
+    card('Minimus Containment', set_code="tst", number="22A34", mana_cost='{2}{W}', cmc=3.0, type_line='Enchantment — Aura',
+         oracle_text='Enchant nonland permanent\nEnchanted permanent is a Treasure artifact with "{T}, Sacrifice this artifact: Add '
+                     'one mana of any color," and it loses all other abilities.', colors=['W'], color_identity=['W'],
+         keywords=['Enchant']),
+    card('Stop Cold', set_code="tst", number="22A35", mana_cost='{3}{U}', cmc=4.0, type_line='Enchantment — Aura',
+         oracle_text="Flash\nEnchant artifact or creature\nWhen this Aura enters, tap enchanted permanent.\nEnchanted permanent loses all "
+                     "abilities and doesn't untap during its controller's untap step.", colors=['U'], color_identity=['U'],
+         keywords=['Flash', 'Enchant']),
+]
+EXTRA.extend(AURAS)
+
+
+def enchant(s, aura, host):
+    put(s, aura, "battlefield")
+    a = next(c for c in s.state.cards.values() if c.name == aura)
+    act(s, "p1", type="attach", card_ids=[a.id], to=host.id)
+    return a
+
+
+def test_aura_wordings_that_set_the_type_are_covered():
+    for c in AURAS:
+        sup, types, sub = parse_type_line(c["type_line"])
+        chs = Characteristics(name=c["name"], supertypes=sup, types=types, subtypes=sub, oracle_text=c["oracle_text"],
+                              abilities=tuple(parse_abilities(c["oracle_text"])))
+        assert coverage.of_characteristics(chs).level == "FULL", c["name"]
+
+
+def test_imprisoned_in_the_moon_makes_a_colorless_land_with_one_mana_ability(cards):
+    s = build(cards, [(1, "Imprisoned in the Moon"), (1, "Grizzly Bears"), (1, "Forest")])
+    bears, forest = put(s, "Grizzly Bears", "battlefield"), put(s, "Forest", "battlefield")
+    enchant(s, "Imprisoned in the Moon", bears)
+    assert ch(s, bears).types == {"Land"} and ch(s, bears).colors == set() and ch(s, bears).subtypes == set()
+    assert [a.text for a in ch(s, bears).abilities] == ["{T}: Add {C}."] and not ch(s, bears).is_creature  # (no longer a creature)
+    roundtrip(s)
+    put(s, "Imprisoned in the Moon", "graveyard")
+    assert ch(s, bears).types == {"Creature"} and ch(s, bears).pt == (2, 2)
+    s2 = build(cards, [(1, "Imprisoned in the Moon"), (1, "Forest")])
+    forest2 = put(s2, "Forest", "battlefield")
+    enchant(s2, "Imprisoned in the Moon", forest2)  # its Forest mana ability is an ability: it loses it (613.1f, 305.6)
+    assert [a.text for a in ch(s2, forest2).abilities] == ["{T}: Add {C}."] and ch(s2, forest2).subtypes == {"Forest"}
+
+
+def test_song_of_the_dryads_makes_a_forest_land(cards):
+    s = build(cards, [(1, "Song of the Dryads"), (1, "Grizzly Bears"), (1, "Command Tower")])
+    bears, tower = put(s, "Grizzly Bears", "battlefield"), put(s, "Command Tower", "battlefield")
+    enchant(s, "Song of the Dryads", bears)
+    assert ch(s, bears).types == {"Land"} and ch(s, bears).subtypes == {"Forest"} and ch(s, bears).colors == set()
+    assert mana_texts(s, bears) == ["{T}: Add {G}."]  # 305.6
+    roundtrip(s)
+    put(s, "Song of the Dryads", "graveyard")
+    enchant(s, "Song of the Dryads", tower) if False else None
+    assert ch(s, bears).types == {"Creature"}
+
+
+def test_sugar_coat_in_too_deep_and_minimus_containment_make_artifacts(cards):
+    s = build(cards, [(1, "Sugar Coat"), (1, "In Too Deep"), (1, "Minimus Containment"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    enchant(s, "Sugar Coat", bears)
+    assert ch(s, bears).types == {"Artifact"} and ch(s, bears).subtypes == {"Food"} and ch(s, bears).colors == set()
+    assert [a.text for a in ch(s, bears).abilities] == ["{2}, {T}, Sacrifice ~: You gain 3 life."]
+    roundtrip(s)
+    put(s, "Sugar Coat", "graveyard")
+    s = build(cards, [(1, "In Too Deep"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    enchant(s, "In Too Deep", bears)
+    assert ch(s, bears).types == {"Artifact"} and ch(s, bears).subtypes == {"Clue"} and ch(s, bears).colors == set()
+    assert [a.text for a in ch(s, bears).abilities] == ["{2}, Sacrifice ~: Draw a card."]
+    s = build(cards, [(1, "Minimus Containment"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    enchant(s, "Minimus Containment", bears)
+    assert ch(s, bears).types == {"Artifact"} and ch(s, bears).subtypes == {"Treasure"} and ch(s, bears).colors == {"G"}
+    assert [a.text for a in ch(s, bears).abilities] == ["{T}, Sacrifice ~: Add one mana of any color."]
+    roundtrip(s)
+
+
+def test_stop_cold_takes_all_abilities_of_a_permanent_and_keeps_it_tapped(cards):
+    s = build(cards, [(1, "Stop Cold"), (1, "Mind Stone")])
+    stone = put(s, "Mind Stone", "battlefield")
+    enchant(s, "Stop Cold", stone)
+    assert ch(s, stone).abilities == () and "doesnt_untap" in ch(s, stone).imposed
+    roundtrip(s)

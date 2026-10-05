@@ -481,6 +481,8 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
                     subtypes = frozenset(s for s in subtypes if s in known) | frozenset(l4["set_creature_types"])
                 if l4.get("set_land_types") is not None:  # -- land types set (wave 12D) -- 305.7
                     subtypes = (subtypes - LAND_TYPES) | frozenset(l4["set_land_types"])
+                if l4.get("set_artifact_types") is not None:  # -- layers (wave 22A) -- 205.1a: an artifact type set
+                    subtypes = (subtypes - ARTIFACT_TYPES) | frozenset(l4["set_artifact_types"])
                 subtypes = subtypes | frozenset(l4.get("add_subtypes") or ())
                 if l4.get("all_creature_types"):
                     from app.rules.creature_types import CREATURE_TYPES as _ALL

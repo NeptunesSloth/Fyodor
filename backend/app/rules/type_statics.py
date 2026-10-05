@@ -168,9 +168,9 @@ def _layered(text: str) -> dict[str, Any] | None:
         return _definition(subject, None, everywhere=everywhere, during=bool(m["during"]), **parts) if parts else None
     if (m := _LEGENDARY.fullmatch(text)) is not None:  # 205.4: a supertype added
         return _definition(m["s"], {"add_supertypes": ["Legendary"]})
-    if (m := _ANIMATE_MV.fullmatch(text)) is not None:  # Opalescence (205.1b, 613.4b), March of the Machines (205.1a)
-        types = [w.capitalize() for w in m["ty"].split()]
-        return _definition(m["s"], {"add_types": types} if m["add"].startswith(" in") else {"set_types": types}, base_mv=True)
+    if (m := _ANIMATE_MV.fullmatch(text)) is not None:  # Opalescence, March of the Machines: 205.1b ("an artifact creature" keeps the
+        # object's other types and subtypes too), 613.4b
+        return _definition(m["s"], {"add_types": [w.capitalize() for w in m["ty"].split()]}, base_mv=True)
     if (m := _STILL_LANDS.fullmatch(text)) is not None:  # Nature's Revolt, Kormus Bell, Ambush Commander, Natural Emergence
         subs = m["subs"].split()
         if any(w not in CREATURE_TYPES for w in subs) or (m["kw"] and m["kw"] not in GRANTABLE_KEYWORDS):

@@ -68,10 +68,10 @@ EXTRA = [
 FULL = ["Sword of Feast and Famine", "Spirit Mantle", "Lavaspur Boots", "Kenrith's Transformation", "Darksteel Mutation",
         "Lignify", "Colossus Hammer", "Wild Growth", "Fertile Ground", "Shiny Impetus", "Sword of Body and Mind",
         "Prosthetic Injector", "Curse of Opulence", "Curse of Verbosity", "Vow of Duty", "Carapace", "Sinister Possession",
-        "Amorphous Axe", "Ghoulflesh", "Sinister Strength", "Viridian Longbow", "Paradise Mantle"]
+        "Amorphous Axe", "Ghoulflesh", "Sinister Strength", "Viridian Longbow", "Paradise Mantle",
+        "Song of the Dryads"]  # (wave 22A: a basic land type set, 305.7: tests/test_rules_wave22a_layers.py)
 STILL_MANUAL = {
     "Elvish Guidance": "for each Elf",  # a counted extra
-    "Song of the Dryads": "Forest land",  # a basic land type (305.7: rules-text abilities go)
     "Flickering Ward": "the chosen color",  # the color chosen as it entered
     "Witness Protection": "named",  # a name change, two colors
     "Super-Soldier Serum": "attach any number of target Equipment",
@@ -144,12 +144,9 @@ def test_definitions_of_the_full_cards():
 
 @pytest.mark.parametrize("text", [
     "Enchanted creature has protection from the chosen color.",  # (a choice made as it entered)
-    "Enchanted permanent is a colorless Forest land.",  # 305.7
     "Enchanted creature is an Island.",  # (an Island land type on a non-land: wave 12D reads only "Enchanted land")
     "Enchanted creature loses all abilities and is a green and white Citizen creature with base power and toughness 1/1 "
     "named Legitimate Businessperson.",
-    "Enchanted permanent is a Treasure artifact with \"{T}, Sacrifice this artifact: Add one mana of any color,\" and it "
-    "loses all other abilities.",
     "Creatures you control lose all abilities.",  # (only an Aura's or Equipment's)
     "As long as you control an Elf, enchanted creature loses all abilities.",  # (conditional: not read)
     "Enchanted creature gets +2/+2 and has ripple 4.",
