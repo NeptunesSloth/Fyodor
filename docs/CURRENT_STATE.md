@@ -226,8 +226,18 @@ Known approximations (correct in normal play; listed so nobody is surprised):
   activation; the player is trusted.
 - **Conditions on an attached object** (wave 4B) read its characteristics without other statics'
   layer 4–6 grants.
-- **"Loses all abilities"** (wave 4L) now also removes static abilities (Lignify ruling). Its
-  interaction with Humility-style layer dependencies was not tested further.
+- **"Loses all abilities"** (wave 4L) now also removes static abilities (Lignify ruling).
+- **Group layers** (wave 22A, `group_layers.py`): group statics of layers 4-6 (Blood Moon, Humility, Opalescence,
+  March of the Machines, Lattice-style colors, legendary) are solved against the table: 613.6 members per effect,
+  613.8 dependencies (subject changes, 305.7 ability loss), loops in timestamp order. Not modelled: dependencies
+  between per-object effects (resolved spells, Auras) and these statics beyond timestamps, 613.8a(c) for CDAs;
+  conditions on a group static are read as it is solved (counts of types it leaves alone only). Manual: Titania's
+  Song (leaves-the-battlefield duration), Yixlid Jailer (graveyard), Planar Nexus, Ghostly Flame, named/renamed Auras.
+  Review 22A: layer-6 "lose all abilities" statics also wait for one that takes their source's ability (613.8, Dress Down +
+  Sludge Monster); a lost "*" CDA leaves 0 (208.5); entry replacements, enter-as-copy and group statics are read from the
+  permanent as it would exist on the battlefield (614.12: Blood Moon + shock lands / Vesuva, Humility + Walking Ballista).
+  Still not modelled: 614.12 for the entering permanent's own statics (Opalescence entering doesn't see itself — correct —
+  but e.g. its own layer-4 statics on itself as it enters).
 - **"Whenever you discard"** triggers don't see madness discards (the turn history counts them).
 - **Face-down masking** replaces a face-down card's name in log lines, prompts and option labels. It is
   tied to the cards each text refers to; `rules_view.stats` skips face-down creatures, so even their

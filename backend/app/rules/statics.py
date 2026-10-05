@@ -764,6 +764,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
             grants.append(line)
             continue
         return None
+    grants.extend(extra.pop("_grants", []))  # -- layers (wave 22A) -- "is a colorless Clue artifact with "{2}, Sacrifice …""
     if not (p or t or base or keywords or grants or rules or each or extra or lent):
         return None
     return {"p": p, "t": t, "base": base, "keywords": keywords, "grants": grants, "rules": rules, "each": each,

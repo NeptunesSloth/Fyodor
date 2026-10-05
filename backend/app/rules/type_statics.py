@@ -10,14 +10,17 @@
 * "Creatures you control are every creature type. The same is true for creature spells you control and creature
   cards you own that aren't on the battlefield." (Maskwood Nexus, 205.3m): the static says it works outside the
   battlefield too (611.3: a static of a permanent applies to the objects it names, in any zone it names).
-* Dependencies (613.8): every effect here only adds types, so an effect whose subject a type-adding effect changes
-  (Dryad's "lands you control" once Ashaya made a creature a land) is applied after it — the objects each applies to
-  are found again until nothing changes (``layer4_entries``); all of them are then applied in timestamp order with
-  the object's other layer-4 effects (613.7).
+* -- layers (wave 22A) -- the group statics of layers 4-6: "Nonbasic lands are Mountains." (Blood Moon; 305.7),
+  "All creatures lose all abilities and have base power and toughness 1/1." (Humility), "Each other non-Aura enchantment
+  is a creature in addition to its other types and has base power and base toughness each equal to its mana value."
+  (Opalescence), "All permanents are colorless.", "All nonland permanents are legendary.", "Forests you control are 1/1
+  green Elf creatures that are still lands.": the definition carries ``layered`` and the parts by layer; app/rules/
+  group_layers.py solves them against each other (613.6, 613.8) and ``layers._derive`` applies them.
 
-A static line is the definition :func:`parse` returns (a static "grant" with no layer 6/7 parts, so ``layers._hits``
-ignores it) carrying ``layer4`` (``{"add_types": […], "add_subtypes": […], "all_creature_types": bool}``, the
-attached-object format ``layers._layer4`` already reads) and ``group_layer4`` True. Anything else stays unsupported.
+A static line is the definition :func:`parse` returns (a static "grant", ``layers._hits`` reads the layer 6/7 parts) carrying
+``layered``, ``layer4`` (``{"add_types": […], "add_subtypes": […], "set_land_types": […], "add_supertypes": […], …}``, the
+attached-object format ``layers._layer4`` reads), ``set_colors`` / ``add_colors`` / ``chosen_color``, ``lose_all`` / ``keep_mana``,
+``base`` / ``base_mv`` and ``everywhere`` (the cards and spells outside the battlefield it names). Anything else stays unsupported.
 """
 
 from __future__ import annotations
@@ -26,8 +29,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from app.game.state import CardInstance, GameState
-    from app.rules.characteristics import CardInfo, Characteristics
+    from app.rules.characteristics import Characteristics
 
 BASIC = ("Plains", "Island", "Swamp", "Mountain", "Forest")  # 205.3i
 _BASIC_RE = "|".join(BASIC)
@@ -41,29 +43,62 @@ _ARE_LANDS = re.compile(rf"^(?P<s>(?:Nontoken )?creatures you control) are (?P<t
 # group on the battlefield, the types lower case plural ("artifacts") and the subtypes capitalised ("Foods"), then layer 6 grants
 _ARE_ALSO = re.compile(r"^(?P<during>During your turn, )?(?P<s>[A-Za-z' ]+?)(?: have base power and toughness (?P<p>\d+)/(?P<t>\d+) and)? are "
                        r"(?P<what>[A-Za-z ]+?) in addition to their other (?:creature )?types"
-                       r"(?: and have (?P<q>\"[^\"]+\")|\.(?P<same> The same is true for creature spells you control and creature cards you own "
-                       r"that aren't on the battlefield\.)?)$")  # (Kudo, Graaz: base P/T, 7b; Roshan: the Maskwood sentence)
+                       r"(?: and have (?P<q>\"[^\"]+\")|\.(?P<same> The same is true for [^.]+\.)?)$")  # (Kudo, Graaz: base P/T, 7b; Roshan: the Maskwood sentence)
 _TYPE_WORDS = {"artifacts": "Artifact", "creatures": "Creature", "enchantments": "Enchantment", "lands": "Land"}
 MASKWOOD = ("Creatures you control are every creature type. The same is true for creature spells you control and "
             "creature cards you own that aren't on the battlefield.")
 
 
-def _definition(subject: str, layer4: dict[str, Any], *, everywhere: bool = False, during: bool = False,
-                base: list[int] | None = None) -> dict[str, Any] | None:
-    from app.rules import selectors
+# -- layers (wave 22A) -- the cards and spells the static also names ("The same is true for …", 611.3): who may own them, which types
+# they have to have; the Maskwood Nexus sentence is one, Encroaching Mycosynth's and Celestial Dawn's the others
+_SAME = {
+    "The same is true for creature spells you control and creature cards you own that aren't on the battlefield.":
+        {"own": True, "types": ["Creature"], "not_types": [], "permanent": False},
+    "The same is true for permanent spells you control and nonland permanent cards you own that aren't on the battlefield.":
+        {"own": True, "types": [], "not_types": ["Land"], "permanent": True},
+    "The same is true for spells you control and nonland cards you own that aren't on the battlefield.":
+        {"own": True, "types": [], "not_types": ["Land"], "permanent": False},
+}
+_SAME_CREATURES = list(_SAME.values())[0]
+_EVERYWHERE = {"own": False, "types": [], "not_types": [], "permanent": False}
+_COLOR_CODES = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
+_ALL_COLORS = ["W", "U", "B", "R", "G"]
+_LAND_PLURALS = {"Plains": "Plains", "Islands": "Island", "Swamps": "Swamp", "Mountains": "Mountain", "Forests": "Forest"}
+
+
+def _definition(subject: str, layer4: dict[str, Any] | None, *, everywhere: dict[str, Any] | None = None, during: bool = False,
+                base: list[int] | None = None, grants: list[str] | None = None, keywords: list[str] | None = None,
+                **parts: Any) -> dict[str, Any] | None:
+    """A layered group static (``group_layers``): its subject (a group on the battlefield) and the parts by layer."""
+    from app.rules.statics import UNION, _subject
     from app.rules.statics import _definition as grant
 
-    sel = selectors.parse(re.sub(r"^All ", "", subject)[0].lower() + re.sub(r"^All ", "", subject)[1:])  # (wave 17C: "All permanents")
-    if sel is None or sel.player is not None or sel.zones != ("battlefield",):
+    who, _kind = _subject(re.sub(r"\band all ", "and ", subject), plural=True)
+    if who is None or who in ("self", "attached") or who.startswith(UNION):
         return None
-    out = {**grant(sel.key(), None, [{"static": "your_turn"}] if during else [], base=base), "layer4": layer4, "group_layer4": True}
-    if everywhere:
-        out["everywhere"] = True
+    out = {**grant(who, None, [{"static": "your_turn"}] if during else [], base=base, grants=grants, keywords=keywords),
+           "layered": True, **parts}
+    if layer4:
+        out["layer4"] = layer4
+    if everywhere is not None:
+        out["everywhere"] = everywhere
     return out
+
+
+def _everywhere(subject: str, same: str) -> dict[str, Any] | None:
+    """What a static that says "The same is true for …" also names (None: not worded so)."""
+    from app.rules import selectors
+
+    where = _SAME.get(same)
+    sel = selectors.parse(subject)
+    if where is None or sel is None or sel.controller != "you" or (where["types"] and list(sel.types) != where["types"]):
+        return None
+    return {**where, "not_types": list(sel.not_types) if not where["types"] else []}
 
 
 def parse(text: str) -> dict[str, Any] | None:
     """One static line (the card's own name written as ~) → its definition, or None."""
+    text = re.sub(r"^[A-Z][A-Za-z' -]+ — ", "", text)  # (an ability word, 207.2c, has no rules meaning: "Hypertoxic Miasma — …")
     if (m := _EACH_LAND.fullmatch(text)) is not None:
         return _definition("lands", {"add_subtypes": [m["t"]]})
     if (m := _EVERY_BASIC.fullmatch(text)) is not None:
@@ -72,18 +107,115 @@ def parse(text: str) -> dict[str, Any] | None:
         return _definition(m["s"], {"add_types": ["Land"], "add_subtypes": [m["t"]]})
     if (m := _ARE_ALSO.fullmatch(text)) is not None and (found := _also(m)) is not None:
         return found
-    # -- static_other sweep (wave 19A) -- "All lands are 2/2 creatures that are still lands." (Nature's Revolt), "All Forests are 1/1 creatures that are still lands." (Living Lands): the lands keep their types (205.1b,
-    # "still lands") and are creatures with base power and toughness 2/2 (613.1d, 613.4b)
-    if (m := re.fullmatch(r"(?P<s>All (?:lands|Forests|Swamps|Islands|Mountains|Plains)) are (?P<p>\d+)/(?P<t>\d+) creatures that are still lands\.", text)) is not None:
-        return _definition(m["s"], {"add_types": ["Creature"]}, base=[int(m["p"]), int(m["t"])])
+    if (found := _layered(text)) is not None:
+        return found
     if re.fullmatch(r"~ is also an? [A-Z][A-Za-z]*(?:(?:, | and |, and )[A-Z][A-Za-z]*)*\.", text) \
             or re.fullmatch(r"~ is all colors\.(?: This ability doesn't affect its color identity\.)?", text):
         return {"kind": "static", "static": "cda", "effects": []}  # -- static_other sweep (wave 17C) -- characteristics.changeling / all_colors
     if text == "~ is every creature type.":  # (Mistform Ultimus: a characteristic-defining ability, 604.3 —
         return {"kind": "static", "static": "cda", "effects": []}  # characteristics.changeling applies it in every zone)
     if text == MASKWOOD:
-        return _definition("creatures you control", {"all_creature_types": True}, everywhere=True)
+        return _definition("creatures you control", {"all_creature_types": True}, everywhere=_SAME_CREATURES)
     return None
+
+
+# -- layers (wave 22A) -- the group statics of layers 4-6 that change what the objects are (CR 305.7, 613.1d-f, 613.4b)
+_SUBJ = r"(?P<s>(?:All |Each )?[A-Za-z' -]+?(?: and (?:all )?[A-Za-z' -]+?)?(?: you control)?)"
+_LAND_SET = re.compile(rf"^{_SUBJ} (?:is|are) (?:an? )?(?P<t>Plains|Islands?|Swamps?|Mountains?|Forests?)\.$")
+_LOSE_ALL = re.compile(rf"^{_SUBJ} lose all (?P<other>other )?abilities(?P<mana> except mana abilities)?"
+                       r"(?: and have base power and toughness (?P<p>\d+)/(?P<t>\d+))?\.$")
+_HAVE_LOSE = re.compile(rf"^{_SUBJ} have (?P<q>\"[^\"]+\") and lose all other abilities\.$")
+_COLOR = re.compile(r"^(?P<during>During your turn, )?(?P<s>[A-Za-z' ,-]+?) (?:is|are) "
+                    r"(?P<c>colorless|all colors|white|blue|black|red|green|the chosen color)"
+                    r"(?P<add> in addition to (?:its|their) other colors)?\.(?P<same> The same is true for .+)?$")
+_LEGENDARY = re.compile(rf"^{_SUBJ} (?:is|are) legendary\.$")
+_ANIMATE_MV = re.compile(r"^(?P<s>Each [A-Za-z' -]+?) is an? (?P<ty>(?:(?:artifact|enchantment|land) )*creature)"
+                         r"(?P<add> in addition to its other types and has base power and base toughness| with power and toughness)"
+                         r" each equal to its mana value\.$")
+_STILL_LANDS = re.compile(rf"^{_SUBJ} are (?P<p>\d+)/(?P<t>\d+) (?:(?P<col>white|blue|black|red|green) )?(?P<subs>(?:[A-Z][a-z]+ )*)"
+                          r"creatures(?: with (?P<kw>[a-z ]+))?(?: that are still lands\.|\. They're still lands\.)$")
+_LIFE_AND_LIMB = re.compile(r"^(?P<s>All [A-Z][a-z]+ and all [A-Z][a-z]+) are (?P<p>\d+)/(?P<t>\d+) (?P<col>white|blue|black|red|green) "
+                            r"(?P<sub>[A-Z][a-z]+) creatures and (?P<land>[A-Z][a-z]+) lands in addition to their other types\.$")
+
+
+def _layered(text: str) -> dict[str, Any] | None:
+    from app.rules.creature_types import CREATURE_TYPES
+    from app.rules.scripts import granted_ability
+    from app.rules.statics import GRANTABLE_KEYWORDS
+
+    if (m := re.fullmatch(r"As long as (?P<cond>[^,]+), (?P<rest>[a-zA-Z].+)", text)) is not None:  # 611.3a: read as the table is solved
+        from app.rules import statics as grammar
+
+        cond, found = grammar.condition(m["cond"]), _layered(m["rest"][0].upper() + m["rest"][1:])
+        if cond is None or found is None or found["conditions"] or not _count_of(cond, found):
+            return None
+        return {**found, "conditions": [cond]}
+
+    if (m := _LAND_SET.fullmatch(text)) is not None:  # 305.7: the land types are set (never the card types)
+        found = _definition(m["s"], {"set_land_types": [_LAND_PLURALS.get(m["t"], m["t"].rstrip("s") if m["t"] != "Plains" else m["t"])]})
+        return found if found is not None and _lands(found) else None
+    if (m := _LOSE_ALL.fullmatch(text)) is not None:  # 613.1f
+        return _definition(m["s"], None, base=[int(m["p"]), int(m["t"])] if m["p"] else None, lose_all=True,
+                           **({"keep_mana": True} if m["mana"] else {}))  # type: ignore[arg-type]
+    if (m := _HAVE_LOSE.fullmatch(text)) is not None:  # (Toxicrene) 613.1f: the abilities it grants come after it takes them away
+        q = m["q"][1:-1]
+        q = q if q[-1] in ".)" else q + "."
+        return _definition(m["s"], None, grants=[q], lose_all=True) if granted_ability(q) is not None else None
+    if (m := _COLOR.fullmatch(text)) is not None:  # 613.1e, 105.3
+        everywhere = _EVERYWHERE if m["s"] == "All cards that aren't on the battlefield, spells, and permanents" else None
+        subject = "permanents" if everywhere is not None else m["s"]
+        if m["same"]:
+            everywhere = _everywhere(subject, m["same"].strip())
+            if everywhere is None:
+                return None
+        if m["c"] == "the chosen color":
+            parts: dict[str, Any] = {"chosen_color": True, "add_colors": []} if m["add"] else {}
+        else:
+            codes = [] if m["c"] == "colorless" else _ALL_COLORS if m["c"] == "all colors" else [_COLOR_CODES[m["c"]]]
+            parts = {"add_colors": codes} if m["add"] else {"set_colors": codes}
+        return _definition(subject, None, everywhere=everywhere, during=bool(m["during"]), **parts) if parts else None
+    if (m := _LEGENDARY.fullmatch(text)) is not None:  # 205.4: a supertype added
+        return _definition(m["s"], {"add_supertypes": ["Legendary"]})
+    if (m := _ANIMATE_MV.fullmatch(text)) is not None:  # Opalescence, March of the Machines: 205.1b ("an artifact creature" keeps the
+        # object's other types and subtypes too), 613.4b
+        return _definition(m["s"], {"add_types": [w.capitalize() for w in m["ty"].split()]}, base_mv=True)
+    if (m := _STILL_LANDS.fullmatch(text)) is not None:  # Nature's Revolt, Kormus Bell, Ambush Commander, Natural Emergence
+        subs = m["subs"].split()
+        if any(w not in CREATURE_TYPES for w in subs) or (m["kw"] and m["kw"] not in GRANTABLE_KEYWORDS):
+            return None
+        return _definition(m["s"], {"add_types": ["Creature"], "add_subtypes": subs}, base=[int(m["p"]), int(m["t"])],
+                           keywords=[m["kw"]] if m["kw"] else None, **({"set_colors": [_COLOR_CODES[m["col"]]]} if m["col"] else {}))  # type: ignore[arg-type]
+    if (m := _LIFE_AND_LIMB.fullmatch(text)) is not None:  # 205.1b: creature and land types added, the color set
+        if m["sub"] not in CREATURE_TYPES or m["land"] not in BASIC:
+            return None
+        return _definition(m["s"], {"add_types": ["Creature", "Land"], "add_subtypes": [m["sub"], m["land"]]},
+                           base=[int(m["p"]), int(m["t"])], set_colors=[_COLOR_CODES[m["col"]]])
+    return None
+
+
+def _count_of(cond: dict[str, Any], found: dict[str, Any]) -> bool:
+    """May this condition gate the static? It is read as the table is solved, so it must not depend on what the static itself changes:
+    a count of objects of types the static leaves alone ("five or more enchantments" for a static that makes them creatures), or a
+    condition that reads no characteristics at all (``statics._layer4_safe``)."""
+    from app.rules import selectors
+    from app.rules.statics import _layer4_safe
+
+    value = cond.get("value")
+    if cond.get("static") is not None or not isinstance(value, dict) or set(value) != {"count"}:
+        return _layer4_safe(cond)
+    sel = selectors.from_key(value["count"])
+    l4 = found.get("layer4") or {}
+    changed = {*l4.get("add_types", ()), *l4.get("set_types", ())}
+    return bool(sel.types) and not set(sel.types) & changed and not (sel.subtypes or sel.colors or sel.not_types or sel.not_subtypes) \
+        and not (found.get("lose_all") or "set_colors" in found or "add_colors" in found or l4.get("set_land_types"))
+
+
+def _lands(d: dict[str, Any]) -> bool:
+    """Does the subject name lands (305.7: an effect that sets land types: lands, or a land type)?"""
+    from app.rules import selectors
+
+    sel = selectors.from_key(d["who"])
+    return sel.types == ("Land",) or (not sel.types and bool(sel.subtypes) and set(sel.subtypes) <= set(BASIC))
 
 
 def _also(m: re.Match[str]) -> dict[str, Any] | None:
@@ -104,9 +236,12 @@ def _also(m: re.Match[str]) -> dict[str, Any] | None:
             return None
     if not types and not subtypes:
         return None
-    if m["same"] and (m["s"] not in ("Creatures you control", "Other creatures you control") or m["p"]):
-        return None  # ("The same is true for creature spells …": the creature spells and cards of the same group, as Maskwood Nexus does)
-    d = _definition(m["s"], {"add_types": types, "add_subtypes": subtypes}, during=bool(m["during"]), everywhere=bool(m["same"]),
+    everywhere = None
+    if m["same"]:
+        everywhere = _everywhere(m["s"], m["same"].strip())
+        if everywhere is None or m["p"]:
+            return None  # ("The same is true for …": the spells and cards of the same group, as Maskwood Nexus does)
+    d = _definition(m["s"], {"add_types": types, "add_subtypes": subtypes}, during=bool(m["during"]), everywhere=everywhere,
                     base=[int(m["p"]), int(m["t"])] if m["p"] else None)
     if d is not None and m["q"]:
         text = m["q"][1:-1]
@@ -114,50 +249,6 @@ def _also(m: re.Match[str]) -> dict[str, Any] | None:
             return None
         d["grants"] = [text]
     return d
-
-
-def _group_statics(state: GameState, info: CardInfo) -> list[Any]:
-    from app.rules.layers import statics
-
-    return [st for st in statics(state, info) if st.definition.get("group_layer4") and st.gate is None]
-
-
-def _off_field_applies(st: Any, card: CardInstance, ch: Characteristics) -> bool:
-    """Maskwood Nexus: "creature spells you control" (on the stack) and "creature cards you own that aren't on the
-    battlefield" (every other zone, the command zone too)."""
-    if not st.definition.get("everywhere") or card.ability is not None or "Creature" not in ch.types:
-        return False
-    if card.zone == "stack":
-        return card.controller == st.controller
-    return card.owner == st.controller
-
-
-def layer4_entries(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None,
-                   apply: Any) -> list[tuple[int, dict[str, Any]]]:
-    """The group type-adding statics that apply to ``card`` ((timestamp, definition) for ``layers._layer4``).
-    ``apply(entries)`` is the object's layer 4 with these entries added: a subject is read from the object as the
-    other type-adding effects leave it (613.8), until nothing changes."""
-    if info is None or state.rules is None:
-        return []
-    table = _group_statics(state, info)
-    if not table:
-        return []
-    on_field = card.zone.endswith(":battlefield")
-    if not on_field:
-        return [(st.seq, st.definition) for st in table if _off_field_applies(st, card, ch)]
-    from app.rules import statics as grammar
-    from app.rules.layers import _view
-
-    view = _view(state, info)
-    chosen: list[Any] = []
-    for _ in range(4):
-        now = apply([(st.seq, st.definition) for st in chosen])
-        again = [st for st in table if grammar.applies(view, st.definition, source=state.cards[st.source],
-                                                         controller=st.controller, card=card, ch=now, conditions=None)]  # (wave 17C: None, the static's own conditions are read: "During your turn")
-        if again == chosen:
-            break
-        chosen = again
-    return [(st.seq, st.definition) for st in chosen]
 
 
 def with_gained_mana(before: Characteristics, after: Characteristics, set_land: bool = False) -> Characteristics:

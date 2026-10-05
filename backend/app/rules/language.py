@@ -2543,7 +2543,7 @@ _BECOME = re.compile(
     r"^(?:(?P<lead>until end of turn, )|(?P<nlead>until your next turn, ))?(?:have )?(?P<o>.+?) "
     r"(?P<lose>loses all abilities and )?becomes? "
     r"(?:a|an) (?P<desc>.+?)"
-    r"(?P<addition> in addition to its other (?P<addcolors>colors and )?types)?"
+    r"(?P<addition> in addition to its other (?P<addcolors>colors and )?(?:creature )?types)?"
     r"(?P<still> that(?:'s| are) still (?:an? )?(?:land|artifact|enchantment|planeswalker|creature)s?)?"  # (wave 19A: "that are still lands")
     r"(?: and gains? (?:(?P<gain>[a-z ]+)|(?P<gainq>\"[^\"]*\"(?:,? and \"[^\"]*\")*)))?"
     r"(?:(?P<trail> until end of turn)|(?P<ntrail> until your next turn))?"
@@ -2609,6 +2609,20 @@ def _with_list(text: str, out: dict[str, Any]) -> None:
         out["abilities"] = abilities
 
 
+def parse_loses_all(text: str) -> tuple[Effects, Any] | None:
+    """"All creatures lose all abilities until end of turn" / "Until end of turn, target creature loses all abilities" (613.1f)."""
+    m = re.fullmatch(r"(?:(?P<lead>until end of turn), )?(?P<o>.+?) loses? all abilities(?P<trail> until end of turn)?", text.strip())
+    if m is None or bool(m["lead"]) == bool(m["trail"]):
+        return None  # (no duration: not read; two: not Oracle wording)
+    try:
+        kind, key, group = ref(m["o"])
+    except _Fail:
+        return None
+    if kind in ("players", "it", "them"):
+        return None
+    return [{"do": "become", "who": _who(kind, key), "types": [], "lose_abilities": True, "duration": "end_of_turn"}], _one(group)
+
+
 def parse_become(text: str) -> tuple[Effects, Any] | None:
     """One "… becomes a …" sentence → ([become effect, (grant)], target) or None."""
     try:
@@ -2649,10 +2663,29 @@ def _become_land(m: re.Match[str]) -> tuple[Effects, Any]:
     return [e], _one(group)
 
 
+def _become_forms(text: str) -> str:
+    """-- layers (wave 22A) -- other wordings of the effects below, rewritten to the one this grammar reads (the same layers, 613.1d-f):
+    "Artifacts you control become artifact creatures with base power and toughness 5/5 until end of turn." (Tezzeret the Seeker),
+    "… has base power and toughness 5/5 and becomes a Dinosaur in addition to its other creature types." (Allosaurus Shepherd),
+    "… becomes a creature in addition to its other types and has base power and base toughness each equal to its mana value." (Zur),
+    "… loses all abilities, becomes a Coward in addition to its other types, and has base power and toughness 1/1." (Curious Colossus)"""
+    text = re.sub(r"^(?P<pre>.+? becomes?) (?P<k>(?:artifact |enchantment )?)creatures with (?=base power and toughness \d+/\d+)",
+                  r"\g<pre> a \g<k>creature with ", text)
+    text = re.sub(r"^(?P<lead>until end of turn, )?(?P<o>.+?) has base power and toughness (?P<p>\d+)/(?P<t>\d+) and becomes an? "
+                  r"(?P<s>[A-Z][a-z]+) in addition to its other creature types$", r"\g<lead>\g<o> becomes a \g<p>/\g<t> \g<s> in addition to its "
+                  r"other creature types", text)
+    text = re.sub(r"^(?P<o>.+?) becomes? a creature in addition to its other types and has base power and base toughness each equal to "
+                  r"its mana value$", r"\g<o> becomes a creature with power and toughness each equal to its mana value in addition to its other "
+                  r"types", text)
+    return re.sub(r"^(?P<o>.+?) loses all abilities, becomes an? (?P<s>[A-Z][a-z]+) in addition to its other types, and has base power and "
+                  r"toughness (?P<p>\d+)/(?P<t>\d+)$", r"\g<o> loses all abilities and becomes a \g<p>/\g<t> \g<s> in addition to its other types",
+                  text)
+
+
 def _become(text: str) -> tuple[Effects, Any]:
     from app.rules.creature_types import CREATURE_TYPES
 
-    text, rider = _with_rider(text)
+    text, rider = _with_rider(_become_forms(text))
     # -- static_other sweep (wave 19A) -- "All lands you control become 2/2 Elemental creatures with reach …" (Sylvan Awakening): a group
     # becomes the plural of the singular wording read below
     text = re.sub(r"^(?P<pre>.+? becomes?) (?P<d>(?:\d+/\d+ )(?:[A-Z][\w'-]+ )*)creatures\b", r"\g<pre> a \g<d>creature", text)
