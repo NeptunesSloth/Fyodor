@@ -2901,7 +2901,9 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             from app.game.rules_state import TriggerEvent
             from app.rules import paid_x
 
-            event = TriggerEvent(kind="reflexive", amount=paid_x.amount(ctx, e["x_from"]))
+            paid = paid_x.amount(ctx, e["x_from"])
+            outer = TriggerEvent.model_validate(ctx["event"]) if ctx.get("event") else None
+            event = outer.model_copy(update={"amount": paid}) if outer is not None else TriggerEvent(kind="reflexive", amount=paid)
         _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
              name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=event)
     return True

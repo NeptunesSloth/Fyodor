@@ -92,6 +92,11 @@ REAL += [
          oracle_text="Flying\nYou don't lose unspent red mana as steps and phases end.\nWhenever you cast an instant or sorcery spell, add "
          "{R}.\nWhen Electro leaves the battlefield, you may pay {X}. When you do, he deals X damage to target player."),
 ]
+REAL += [  # (synthetic: Jugan's line is on the back face of a Saga, which this table doesn't build; the wording is its Oracle text)
+    card("Probe of Growth", set_code="tst", number="C25-15", mana_cost="{2}{G}", cmc=3.0, type_line="Creature — Dragon Spirit", colors=["G"],
+         color_identity=["G"], power="3", toughness="3", oracle_text="Whenever another creature you control enters, you may pay {X}. When "
+         "you do, put X +1/+1 counters on that creature."),
+]
 OURS = [c["name"] for c in REAL]
 
 
@@ -425,4 +430,16 @@ def test_electro_deals_x_damage_to_the_target_player_when_it_leaves(cards):
     assert s.state.cards[electro.id].zone == "p1:graveyard"
     _answer_x(s, 3, target="p2")
     assert s.state.players["p2"].life == 37 and s.state.players["p1"].mana == {"R": 1}  # (Electro added {R} when the Bolt was cast; X = 3 was paid)
+    replay_matches(s)
+
+
+def test_a_reflexive_x_ability_still_names_the_creature_that_entered(cards):
+    s = build(cards)
+    put(s, "Probe of Growth", "battlefield")
+    mana(s, G=1, C=3)
+    bear = put(s, "Grizzly Bears", "hand")
+    act(s, "p1", type="cast_spell", card_id=bear.id)
+    pass_until_stack_empty(s)
+    _answer_x(s, 2)
+    assert s.state.cards[bear.id].counters.get("+1/+1") == 2  # "that creature": the Bears, not the source
     replay_matches(s)

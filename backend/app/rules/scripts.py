@@ -5738,12 +5738,15 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     # -- end reflexive LKI (wave 4J) --
     # (-- trigger tail (wave 15B) -- "it" is the ability's source when the trigger is about it: "you may pay {2}{R}. When you do, it
     # deals 3 damage to any target"; the reflexive ability has that same source, 603.12)
-    parsed = parse_effects(body[:1].upper() + body[1:], "event" if lki is not None else ("self" if it == "self" else None))
+    sized_x = len(base) == 1 and base[0]["do"] == "optional_payment" and "choose_x" in base[0] and lki is None
+    # (-- if you do (wave 25C) -- a sized payment's reflexive ability carries the trigger's own event along with the X: "that creature" is
+    # still the object the trigger was about, effects.reflexive)
+    parsed = parse_effects(body[:1].upper() + body[1:], "event" if lki is not None or (sized_x and it == "event") else ("self" if it == "self" else None))
     if parsed is None or not parsed[0]:
         return None
     b_effects, b_target, b_optional = parsed
     x_bind = None
-    if len(base) == 1 and base[0]["do"] == "optional_payment" and "choose_x" in base[0] and lki is None:
+    if sized_x:
         # -- if you do (wave 25C) -- "you may pay {X}. When you do, ~ deals X damage to target player.": the X paid (107.3f, paid_x) is the
         # reflexive ability's amount (its event's); an X in the target's own definition is chosen before X could be known: not read
         if re.search(r'"x"|\bX\b', json.dumps(b_target, default=str)):
