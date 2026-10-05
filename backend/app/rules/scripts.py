@@ -2388,7 +2388,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += [{"do": "only_if", "cond": {"any": [{"succeeded": _last_payment(effects)}, cond_or]}, "skip": len(added)}, *added]
             continue
         if text.startswith("if you can't, ") and not optional and len(effects) - prev_start == 1 \
-                and effects[prev_start]["do"] == "remove_counters":  # -- keywords (wave 15E) -- fading 702.32a: "Remove a fade counter
+                and (effects[prev_start]["do"] == "remove_counters"
+                     or (effects[prev_start]["do"] == "sacrifice_choice" and effects[prev_start].get("n") == 1
+                         and effects[prev_start].get("who") == "you")):  # (wave 21B: "Sacrifice a creature. If you can't, …": 701.21a, one object)  # -- keywords (wave 15E) -- fading 702.32a: "Remove a fade counter
             text = "if you don't, " + text[len("if you can't, "):]  # from this permanent. If you can't, sacrifice it." (the removal
             # of a counter that isn't there is the one that wasn't done, as "If you don't" reads it)
         if (if_do := _IF_YOU_DO.match(text)) is not None:
@@ -3297,7 +3299,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import trigger_words  # or Vehicle spell", "a noncreature, nonland card")
 
                 m = trigger_words.comma_condition(text, m)
-            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b|\bwas spent to cast it\b", m["body"]):  # (3R3: copy it; wave 16B: increment; 18B: mana spent)
+            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b|\bspent to cast it\b|\bits mana value\b", m["body"]):  # (3R3: copy it; wave 16B: increment; 18B: mana spent)
                 continue  # -- sized amounts (wave 3D) -- it reads the spell cast: the generic condition's event carries it
             if m:
                 name = step_trigger(m) if trigger == "step" else trigger
@@ -3617,7 +3619,7 @@ def _has_player(cond: dict[str, Any]) -> bool:
     """Does the event name a player ("that player")? The player who acted, or who was dealt damage."""
     if cond.get("subject") == "player" or cond["event"] in _PLAYER_EVENTS:
         return True
-    if cond["event"] == "targeted" and cond.get("by") in ("opponent", "you"):  # -- triggers (wave 19B) -- the player whose spell or ability it was
+    if cond["event"] == "targeted":  # -- triggers (wave 19B; wave 21B: any controller) -- the player whose spell or ability it was
         return True
     # -- triggers (wave 5D) -- "Whenever a creature an opponent controls dies / enters, that player …": the opponent
     # who controlled it (one object per event: not "one or more", 603.2c; triggers._event)

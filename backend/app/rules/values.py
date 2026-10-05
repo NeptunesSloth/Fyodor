@@ -171,10 +171,10 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return rolled
     # -- refused zones/sized (wave 3R4) -- "the number of cards in their hand minus 4", "3 minus the number of …",
     # "… minus the number of cards in your hand": never below 0 (107.1b)
-    minus = re.match(r"^(?P<a>.+?) minus (?P<b>\d+|one|two|three|four|five|the number of .+)$", what)
+    minus = re.match(r"^(?P<a>.+?) minus (?P<b>\d+|one|two|three|four|five|the number of .+|the amount of mana spent to cast that spell)$", what)
     if minus:
         a_text = minus["a"] if m is None else f"the number of {minus['a']}"
-        a = int(a_text) if a_text.isdigit() else NUMBERS.get(a_text) or parse_count(a_text, it=it)
+        a = {"mana_value": "event"} if a_text == "that spell's mana value" else int(a_text) if a_text.isdigit() else NUMBERS.get(a_text) or parse_count(a_text, it=it)  # (wave 21B)
         b = int(minus["b"]) if minus["b"].isdigit() else NUMBERS.get(minus["b"]) or parse_count(minus["b"], it=it)
         return {"minus": [a, b]} if a is not None and b is not None else None
     if what in ("cards in their hand", "cards in that player's hand", "card in their hand", "card in that player's hand"):
@@ -353,7 +353,14 @@ _OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? who (?:(?P<drew>dre
                             r"this turn$")
 
 
+_OPPONENTS_HAND = re.compile(r"^(?:the number of )?opponents? who (?:has|have) (?P<n>\w+) or (?P<cmp>more|fewer) cards in hand$")  # (-- triggers (wave 21B) --)
+# ("who has more cards in hand than you" stays manual: tests/test_rules_wave8b_triggers.py)
+
+
 def _turn_amount(what: str) -> Value | None:
+    if m := _OPPONENTS_HAND.match(what):  # each opponent whose hand size now says so (the count of a hand is public)
+        n = int(m["n"]) if m["n"].isdigit() else NUMBERS.get(m["n"])
+        return {"opponents_hand": m["cmp"], "n": n} if n is not None else None
     m = _TURN_LIFE.match(what)
     if m:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
@@ -559,6 +566,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return max(0, int(plan.state.players[you].resources.get(v["player_counters"], 0)))
     if "party" in v:  # -- refused modal/conditional (wave 3R1) --
         return party_size(plan, you)
+    if "opponents_hand" in v:  # -- triggers (wave 21B) -- the opponents still in the game (800.4a), by hand size as it resolves
+        size = {p: len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live() if p != you}
+        return sum(1 for k in size.values() if (k >= v["n"] if v["opponents_hand"] == "more" else k <= v["n"]))
     if "commander_casts" in v:  # -- triggers (wave 19B) --
         return sum(plan.state.players[you].commander_casts.values())
     if "distinct" in v:

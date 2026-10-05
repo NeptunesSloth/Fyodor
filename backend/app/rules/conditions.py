@@ -1290,6 +1290,8 @@ def _cast_how(t: str) -> Condition | None:
     t = re.sub(r"^at least (\w+) mana was spent", r"\1 or more mana was spent", t)  # (wave 11F: the same thing)
     if (m := _SPENT_TOTAL_THAT.fullmatch(t)) is not None and (n := _num(m["n"])):  # -- ability words (wave 9C) -- opus
         return {"object": "it", "cast": {"total": n, "event_spell": True}}
+    if t == "the amount of mana spent to cast it was less than its mana value":  # -- triggers (wave 21B) -- the cast spell's total cost vs its mana value
+        return {"object": "it", "cast": {"total": "under_mv", "event_spell": True}}
     if _SPENT_OVER_PT.fullmatch(t):  # -- static_other sweep (wave 16B) -- increment: more than the source's power or toughness (702.190a)
         return {"object": "it", "cast": {"total": "over_min_pt", "event_spell": True}}
     m = _CAST.fullmatch(t)
@@ -1419,6 +1421,11 @@ def _total_mana_spent(plan: Plan, ctx: dict[str, Any], need: int | str) -> bool:
         plan.note(f"{name}: how much mana was spent to cast it isn't known — apply the ability by hand",
                   [record.card] if record is not None and record.card in plan.state.cards else ())
         return False
+    if need == "under_mv":  # -- triggers (wave 21B) -- 202.3b: an X spell's mana value on the stack counts X (not modelled): not judged
+        spell = plan.state.cards.get(record.card)
+        if spell is None or "{X}" in plan.ch(spell).mana_cost:
+            return False
+        return sum(record.mana_spent.values()) < plan.ch(spell).mana_value
     if need == "over_min_pt":  # increment: strictly more than the smaller of the source's power and toughness (as it is now, 603.4)
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is None or not src.zone.endswith(":battlefield"):

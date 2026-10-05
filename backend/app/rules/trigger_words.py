@@ -21,7 +21,7 @@ _VERBS = {"lose": "loses", "draw": "draws", "discard": "discards", "sacrifice": 
           "mill": "mills", "get": "gets", "create": "creates", "deal": "deals", "exile": "exiles", "reveal": "reveals",
           "shuffle": "shuffles", "return": "returns", "put": "puts", "search": "searches", "scry": "scries"}
 _VERB_RE = "|".join(sorted(_VERBS, key=len, reverse=True))
-_THEY = re.compile(rf"^they (?P<v>{_VERB_RE})\b")
+_THEY = re.compile(rf"^(?P<i>if [^,]+, )?they (?P<v>{_VERB_RE})\b")  # (wave 21B: after an intervening "if …, ", 603.4)
 _HAVE = re.compile(rf"^have (?P<s>~|it|target (?:player|opponent)|that player|each opponent) (?P<v>{_VERB_RE})\b")
 
 
@@ -36,7 +36,7 @@ def they_names_event_player(name: str, cond: dict[str, Any] | None, has_player: 
 def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: bool) -> str:
     """The body of a triggered ability with these wordings replaced by the plainer ones (else unchanged)."""
     if they_names_event_player(name, cond, has_player):
-        body = _THEY.sub(lambda m: f"that player {_VERBS[m['v']]}", body)
+        body = _THEY.sub(lambda m: f"{m['i'] or ''}that player {_VERBS[m['v']]}", body)
         # -- damage wordings (wave 6B) -- "At the beginning of each player's upkeep, ~ deals 1 damage to them."
         body = re.sub(r"\b(deals? (?:\d+|X) damage) to them\b", r"\1 to that player", body)
     # -- intervening ifs (wave 11F) -- "if you have fewer than seven cards in hand, draw cards equal to the difference": the
@@ -49,6 +49,8 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         body = re.sub(r"^(if (?:(?:at least )?\w+ (?:or more )?)?mana from [^,]+? (?:was|were) spent to cast) it,", r"\1 that spell,", body)
     if cond is not None and cond.get("subject") == "source":  # -- source damage (wave 11F) -- 609.7: its controller
         body = re.sub(r"\bthat source's controller\b", "that player", body)
+    if cond is not None and cond.get("event") == "targeted":  # -- triggers (wave 21B) -- 115.1: "that spell's controller" is the player whose spell or ability targeted it
+        body = re.sub(r"\bthat spell(?: or ability)?'s controller\b", "that player", body)
     if name.startswith("step:draw:") and name.rsplit(":", 1)[-1] in ("each", "opponent"):
         # 504.1: the active player draws in the draw step; "an additional card" is one more card
         body = re.sub(r"\bthat player draws an additional card\.$", "that player draws a card.", body)
@@ -58,6 +60,10 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
     body = drawn_toll.rewrite(body)
     # -- counters (wave 7C) -- heroic: "Whenever you cast a spell that targets ~, put a +1/+1 counter on it": the creature
     # that was targeted (the spell is "that spell"), which is ~ itself
+    if (cond or {}).get("event") == "cast":  # -- triggers (wave 21B) -- "Whenever you cast a spell, you lose life equal to its mana value"
+        body = re.sub(r"^((?:you )?(?:lose|gain)s? life equal to) its mana value\.$", r"\1 that spell's mana value.", body)
+        body = re.sub(r"^(if the amount of mana spent to cast it was less than its mana value, .+? equal to) the difference\.$",
+                      r"\1 that spell's mana value minus the amount of mana spent to cast that spell.", body)
     if cond is not None and cond.get("event") == "cast" and cond.get("targets") == "self":
         body = re.sub(r"\b(on|to) it\b", r"\1 ~", body)
     return body
