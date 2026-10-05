@@ -2897,6 +2897,11 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # this way, … that card's mana value")
         name = e["cond"]["value"]["ref_count"] if e.get("lki") == "cond_ref" else e.get("lki")
         event = _reflexive_event(plan, ctx, name) if name else None  # -- reflexive LKI (wave 4J) --
+        if e.get("x_from"):  # -- if you do (wave 25C) -- "you may pay {X}. When you do, …": the X paid is the reflexive ability's amount
+            from app.game.rules_state import TriggerEvent
+            from app.rules import paid_x
+
+            event = TriggerEvent(kind="reflexive", amount=paid_x.amount(ctx, e["x_from"]))
         _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
              name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=event)
     return True

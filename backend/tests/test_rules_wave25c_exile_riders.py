@@ -82,6 +82,16 @@ REAL += [
          "cast target instant or sorcery card with mana value less than or equal to this creature's power from your graveyard without "
          "paying its mana cost. If that spell would be put into your graveyard, exile it instead."),
 ]
+REAL += [
+    card("Wildborn Preserver", set_code="tst", number="C25-13", mana_cost="{1}{G}", cmc=2.0, type_line="Creature — Elf Archer", colors=["G"],
+         color_identity=["G"], power="2", toughness="2", keywords=["Reach", "Flash"], oracle_text="Flash (You may cast this spell any time you "
+         "could cast an instant.)\nReach (This creature can block creatures with flying.)\nWhenever another non-Human creature you control "
+         "enters, you may pay {X}. When you do, put X +1/+1 counters on this creature."),
+    card("Electro, Assaulting Battery", set_code="tst", number="C25-14", mana_cost="{1}{R}{R}", cmc=3.0,
+         type_line="Legendary Creature — Human Villain", colors=["R"], color_identity=["R"], power="2", toughness="3", keywords=["Flying"],
+         oracle_text="Flying\nYou don't lose unspent red mana as steps and phases end.\nWhenever you cast an instant or sorcery spell, add "
+         "{R}.\nWhen Electro leaves the battlefield, you may pay {X}. When you do, he deals X damage to target player."),
+]
 OURS = [c["name"] for c in REAL]
 
 
@@ -165,7 +175,7 @@ def test_chandra_casts_your_bolt_paying_its_cost_and_exiles_it(cards):
     assert [o.id for o in d.options] == [bolt.id]
     choose(s, [bolt.id])
     choose(s, ["p2"], resolve=True)
-    assert s.state.players["p2"].life == 37 and s.state.players["p1"].mana == {}  # its mana cost was paid
+    assert s.state.players["p2"].life == 37 and s.state.players["p1"].mana == {"R": 1}  # (Electro added {R} when the Bolt was cast; X = 3 was paid)  # its mana cost was paid
     assert s.state.cards[bolt.id].zone == "p1:exile"
     replay_matches(s)
 
@@ -372,4 +382,47 @@ def test_dreadhorde_arcanist_only_targets_cards_up_to_its_power_and_exiles_the_c
         choose(s, ["p2"], resolve=True)
     assert s.state.players["p2"].life == 36  # the Bolt (3) and the unblocked Arcanist (1)
     assert s.state.cards[bolt.id].zone == "p1:exile" and s.state.cards[counter.id].zone == "p1:graveyard"
+    replay_matches(s)
+
+
+# -- 107.3f / 603.12: "you may pay {X}. When you do, …": the X paid is the reflexive ability's X ----------------------
+def _answer_x(s, n, target=None):
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        ids = {o.id for o in d.options}
+        if f"x:{n}" in ids:
+            choose(s, [f"x:{n}"], resolve=True)
+        elif target is not None and target in ids:
+            choose(s, [target], resolve=True)
+        elif "yes" in ids or "pay" in ids:
+            choose(s, ["yes" if "yes" in ids else "pay"], resolve=True)
+        else:
+            choose(s, sorted(ids)[:1], resolve=True)
+
+
+def test_wildborn_preserver_puts_x_counters_on_itself_for_the_x_paid(cards):
+    s = build(cards)
+    preserver = put(s, "Wildborn Preserver", "battlefield")
+    mana(s, G=1, C=3)  # the Bears cost {1}{G}; {2} is left for X
+    bear = put(s, "Grizzly Bears", "hand")
+    act(s, "p1", type="cast_spell", card_id=bear.id)
+    pass_until_stack_empty(s)
+    _answer_x(s, 2)
+    assert s.state.cards[preserver.id].counters.get("+1/+1") == 2
+    assert s.state.players["p1"].mana == {}  # {2} was paid
+    replay_matches(s)
+
+
+def test_electro_deals_x_damage_to_the_target_player_when_it_leaves(cards):
+    s = build(cards)
+    electro = put(s, "Electro, Assaulting Battery", "battlefield")
+    bolt = put(s, "Lightning Bolt", "hand")
+    mana(s, R=4)  # {R} for the Bolt (Electro keeps unspent red mana), the rest for X
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[electro.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[electro.id].zone == "p1:graveyard"
+    _answer_x(s, 3, target="p2")
+    assert s.state.players["p2"].life == 37 and s.state.players["p1"].mana == {"R": 1}  # (Electro added {R} when the Bolt was cast; X = 3 was paid)
     replay_matches(s)

@@ -3001,7 +3001,7 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     if cost is None:  # -- sized payments (wave 5G) -- "pay {X}" / "pay X life, where X is …" (app/rules/paid_x.py)
         from app.rules import paid_x
 
-        found = paid_x.payment(phrase) if following[0].startswith("If you do, ") else None
+        found = paid_x.payment(phrase) if following[0].startswith(("If you do, ", "When you do, ")) else None  # (wave 25C: a reflexive one)
         if found is None:
             return None
         cost, sized = found.pop("cost"), found
@@ -5742,11 +5742,33 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     if parsed is None or not parsed[0]:
         return None
     b_effects, b_target, b_optional = parsed
+    x_bind = None
+    if len(base) == 1 and base[0]["do"] == "optional_payment" and "choose_x" in base[0] and lki is None:
+        # -- if you do (wave 25C) -- "you may pay {X}. When you do, ~ deals X damage to target player.": the X paid (107.3f, paid_x) is the
+        # reflexive ability's amount (its event's); an X in the target's own definition is chosen before X could be known: not read
+        if re.search(r'"x"|\bX\b', json.dumps(b_target, default=str)):
+            return None
+        b_effects = _x_to_event(b_effects)
+        x_bind = base[0]["bind"]
     out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
-                                                        "optional": b_optional, **target_fields(b_target)}}
+                                                        "optional": b_optional, **target_fields(b_target)},
+           **({"x_from": x_bind} if x_bind else {})}
     if lki is not None:
         out["lki"] = cond["succeeded"]  # -- reflexive LKI (wave 4J) --
     return out
+
+
+def _x_to_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The reflexive ability's X, read from its event's amount (effects.reflexive records the X the payment paid there)."""
+    def sub(v: Any) -> Any:
+        if v == {"x": 1}:
+            return {"event_amount": 1}
+        if isinstance(v, list):
+            return [sub(x) for x in v]
+        if isinstance(v, dict):
+            return {k: sub(x) for k, x in v.items()}
+        return v
+    return [sub(e) for e in effects]
 
 
 # -- reflexive LKI (wave 4J) -------------------------------------------------------------------------------------------
