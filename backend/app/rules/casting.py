@@ -1762,6 +1762,11 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
         if state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
             return f"{ch.name} can only be cast in your main phase while the stack is empty (plot)"
         return None
+    timing = timing_problem(state, player, ch, grant)
+    return None if timing and flash_if(ch) is not None else timing  # (wave 22F: 601.3b-c, decided once its targets / cost / X are chosen)
+
+
+def timing_problem(state: GameState, player: str, ch: Characteristics, grant: Any) -> str | None:
     if "Instant" in ch.types or ch.has_flash or grant.flash:  # (601.3b: as though it had flash)
         return None
     if state.turn.active_player != player:
@@ -1771,6 +1776,12 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     if state.zones.get(STACK):
         return f"{ch.name} can only be cast while the stack is empty"
     return None
+
+
+def flash_if(ch: Characteristics) -> dict[str, Any] | None:
+    """-- casting costs (wave 22F) -- 601.3b-c: the card's own "You may cast this spell as though it had flash if it targets …
+    / you pay {2} more / X is 3 or less", which counts only when the spell couldn't be cast now without flash."""
+    return next((d["flash_if"] for d in scripts.definitions(ch).values() if d.get("static") == "permission" and d.get("flash_if")), None)
 
 
 def _controls_legendary(state: GameState, player: str, info: CardInfo | None) -> bool:
@@ -2126,6 +2137,15 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     for target in a.targets:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
+    flashing = None  # -- casting costs (wave 22F) -- 601.3c: the timing is legal only if the flash condition is met by what is chosen below
+    if grant is not None and (flashing := flash_if(ch)) is not None and not plan.manual(card) \
+            and timing_problem(plan.state, plan.actor, ch, grant) is not None:
+        if "pay" in flashing:
+            additional.append(M.parse_cost(flashing["pay"]))  # ("if you pay {2} more": an additional cost, only at the timing that needs it)
+        elif "x_max" in flashing and (a.x_value or 0) > flashing["x_max"]:
+            raise ActionError(f"{ch.name} can be cast now only if X is {flashing['x_max']} or less")
+    else:
+        flashing = None
     definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
     entwined = bool(a.kicker) and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine  # (an entwined spell isn't kicked: review 18E)
     kicked = 0 if entwined else a.kicker
@@ -2183,6 +2203,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if picked_targets is None:
         return  # waiting for the target choice (601.2c comes before paying costs)
     chosen = picked_targets.flat
+    if flashing is not None and "targets" in flashing and not cost_changes.targets_fit(
+            plan, card, plan.actor, flashing["targets"], tuple(t.id for t in chosen)):
+        raise ActionError(f"{ch.name} can be cast now only if its targets meet its flash condition")
     optional = cost_changes.chosen_optional(plan.state, plan.actor, card, ch, plan.info, a.optional_costs) \
         if a.optional_costs and not plan.manual(card) else []  # -- cost changers (wave 4I) -- (601.2b)
     if a.optional_costs and plan.manual(card):
@@ -3617,7 +3640,7 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
         for cid in state.zones.get(key, []):
             card = state.cards[cid]
             ch = chars.of(card, info)
-            if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info)) \
+            if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info) or flash_if(ch) is not None) \
                     and castable(state, player, card, info, check_priority=False):
                 return True
             # -- cost changers (wave 4I) -- an instant castable only for an alternative cost (Force of Will with no mana

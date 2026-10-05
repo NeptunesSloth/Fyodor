@@ -29,7 +29,7 @@ def card_db(settings):
     from app.cards.importer import build_database
 
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, *FLASH], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
 
 
@@ -85,3 +85,82 @@ def test_costs_more_if_it_targets_a_creature(cards):
     mana(s, W=1, C=2)
     with pytest.raises(ActionError):  # a creature: {5}{W}
         act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id])
+
+
+# -- flash "if …" (601.3b-d) --
+FLASH = [
+    real("Rout", "{3}{W}{W}", 5, "Sorcery", "You may cast this spell as though it had flash if you pay {2} more to cast it. (You may cast it any time "
+         "you could cast an instant.)\nDestroy all creatures. They can't be regenerated.", None, "W"),
+    real("Silver Scrutiny", "{X}{U}{U}", 2, "Sorcery", "You may cast this spell as though it had flash if X is 3 or less.\nDraw X cards.", None, "U"),
+    real("Flash Photography", "{2}{U}{U}", 4, "Sorcery", "You may cast this spell as though it had flash if it targets a permanent you control.\n"
+         "Create a token that's a copy of target permanent.\nFlashback {4}{U}{U}", None, "U"),
+]
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in FLASH if c["name"] != "Rout"])
+def test_flash_condition_coverage_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_rout_flash_line_is_read(cards):  # (its "can't be regenerated" half is track 22C's, so the card isn't FULL yet)
+    feats = {f.id: f.supported for f in coverage.of_card_data(cards.resolve("Rout")).features}
+    assert feats["text:0"]
+
+
+def _stack_busy(s):
+    """Alice's Lightning Bolt and Bob's Opt in response are on the stack: Alice has priority again and a sorcery needs flash."""
+    bolt, opt = to_hand(s, "Lightning Bolt"), to_hand(s, "Opt", "p2")
+    put(s, "Island", "p2")  # (so Bob can respond and the Bolt waits on the stack)
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    mana(s, "p2", U=1)
+    act(s, "p2", type="cast_spell", card_id=opt.id)
+
+
+def test_flash_if_you_pay_more(cards):
+    s = build(cards, ["Rout", "Lightning Bolt"], ["Opt"])
+    rout = to_hand(s, "Rout")
+    mana(s, W=2, C=3)  # {3}{W}{W}: not enough for the flash price {5}{W}{W}
+    _stack_busy(s)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=rout.id)
+    mana(s, C=2)
+    act(s, "p1", type="cast_spell", card_id=rout.id)
+    answer(s)
+    assert s.state.cards[rout.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_no_extra_cost_at_sorcery_timing(cards):
+    s = build(cards, ["Rout"])
+    rout = to_hand(s, "Rout")
+    mana(s, W=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=rout.id)
+    answer(s)
+    assert s.state.cards[rout.id].zone == "p1:graveyard"
+
+
+def test_flash_if_x_is_three_or_less(cards):
+    s = build(cards, ["Silver Scrutiny", "Lightning Bolt"], ["Opt"])
+    scrutiny = to_hand(s, "Silver Scrutiny")
+    mana(s, U=2, C=4)
+    _stack_busy(s)
+    with pytest.raises(ActionError, match="X is 3 or less"):
+        act(s, "p1", type="cast_spell", card_id=scrutiny.id, x_value=4)
+    act(s, "p1", type="cast_spell", card_id=scrutiny.id, x_value=3)
+    answer(s)
+    assert s.state.cards[scrutiny.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_flash_if_it_targets_a_permanent_you_control(cards):
+    s = build(cards, ["Flash Photography", "Lightning Bolt", "Grizzly Bears"], ["Grizzly Bears", "Opt"])
+    photo = to_hand(s, "Flash Photography")
+    mine, theirs = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2")
+    mana(s, U=2, C=2)
+    _stack_busy(s)
+    with pytest.raises(ActionError, match="flash condition"):  # the target is theirs: no flash
+        act(s, "p1", type="cast_spell", card_id=photo.id, targets=[theirs.id])
+    act(s, "p1", type="cast_spell", card_id=photo.id, targets=[mine.id])
+    answer(s)
+    check(s)

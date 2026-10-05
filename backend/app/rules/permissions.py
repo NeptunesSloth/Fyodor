@@ -321,6 +321,24 @@ def _permission_what(what: str, sel: str | None, qual: str | None) -> dict[str, 
     return {"play": False, "cast": True, "filter": key}
 
 
+# -- casting costs (wave 22F) -- 601.3b-c: "You may cast this spell as though it had flash if it targets a commander." (a target chosen
+# while casting), "… if you pay {2} more to cast it." (an additional cost, paid only when the timing needs it), "… if X is 3 or less."
+SELF_FLASH_COND = re.compile(r"^you may cast (?:this spell|~) as though it had flash if (?:it targets (?:an? )?(?P<what>.+)|you pay "
+                             r"(?P<pay>\{\d+\}) more to cast it|x is (?P<x>\d+) or less)(?:\. \(.*\))?$", re.IGNORECASE)
+
+
+def flash_condition(t: str) -> dict[str, Any] | None:
+    m = SELF_FLASH_COND.fullmatch(t)
+    if m is None:
+        return None
+    if m["pay"]:
+        return {"pay": m["pay"]}
+    if m["x"]:
+        return {"x_max": int(m["x"])}
+    sel = selectors.parse(m["what"])
+    return {"targets": sel.key()} if sel is not None and sel.player is None else None
+
+
 def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definition | None:
     """The definition of one ability line (``scripts.define`` calls this for "static" lines, and
     for the "spell" lines of instants and sorceries so a cost-reduction line on a spell is
@@ -336,6 +354,9 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     if extra is not None:
         ok = costs.parse_additional_cost(extra) is not None
         return {"kind": "static", "static": "additional_cost", "cost": extra, "effects": []} if ok else None
+    if (fl := flash_condition(t)) is not None:  # -- casting costs (wave 22F) -- 601.3b-d: flash only if a choice made while casting is …
+        return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": True, "play": False,
+                "cast": True, "filter": None, "flash_if": fl, "effects": []}
     # -- cost changers (wave 4I) -- "This spell costs {X} less to cast, where X is …" / "… for each …" / "… if …" / "{G} less"
     # (app/rules/cost_changes.py: read as the total cost is determined, 601.2f)
     # -- static_other sweep (wave 16B) -- strive (207.2c ability word) / Fireball: "This spell costs {1}{W} more to cast for each target beyond the

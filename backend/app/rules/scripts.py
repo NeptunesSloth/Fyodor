@@ -3937,7 +3937,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab)
              and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction")  # (alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
-                      and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")))]  # (wave 17C: retrace, 702.81a)
+                      and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
+                           or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)
     if (not lines and not any(defs.get(ab.index, {}).get("zone") in ("graveyard", "exile") for ab in ch.abilities)) \
             or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):
         return None  # (wave 17C: a retrace spell with nothing else on it, Throes of Chaos: cascade does it all)
