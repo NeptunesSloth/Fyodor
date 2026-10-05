@@ -2597,6 +2597,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                          and effects[prev_start].get("who") == "you")):  # (wave 21B: "Sacrifice a creature. If you can't, …": 701.21a, one object)  # -- keywords (wave 15E) -- fading 702.32a: "Remove a fade counter
             text = "if you don't, " + text[len("if you can't, "):]  # from this permanent. If you can't, sacrifice it." (the removal
             # of a counter that isn't there is the one that wasn't done, as "If you don't" reads it)
+        if (asked := _that_player_may(text, effects, groups, lambda t: _plain_clause(t, it, event_player))) is not None:  # (wave 25D)
+            effects += asked
+            continue
         if (they_do := _that_player_does(text, effects)) is not None:  # (wave 25D)
             text = they_do
         if (if_do := _IF_YOU_DO.match(text)) is not None:
@@ -3032,6 +3035,25 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
         cost, sized = found.pop("cost"), found
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
     return {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind, **sized}
+
+
+_THAT_PLAYER_MAY = re.compile(r"^(?:that|that attacking) player may (?P<v>create|draw|put|discard|sacrifice|exile|return|add|gain|lose|mill) (?P<rest>.+)$")
+
+
+def _that_player_may(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]], parse_clause: Any) -> list[dict[str, Any]] | None:
+    """-- optional payments by another player (wave 25D) -- "That attacking player may create a tapped 2/2 black Zombie creature token." (Curse of
+    Shallow Graves): the trigger event's player decides (608.2d: no cost to pay, only the choice) and, if they do, the instruction happens to them
+    ("that player creates …"). A targeted instruction isn't read: whose target is it?"""
+    m = _THAT_PLAYER_MAY.match(text)
+    if m is None:
+        return None
+    verb = _THEY_VERBS.get(m["v"], m["v"] + "s")
+    found = parse_clause(f"that player {verb} {m['rest']}.")  # (the effects of a clause with no target and no "may" of its own)
+    if not found:
+        return None
+    bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
+    return [{"do": "optional_payment", "who": "that_player", "ask": f"{m['v']} {m['rest']}", "cost": "", "bind": bind},
+            {"do": "only_if", "cond": {"succeeded": bind}, "skip": len(found)}, *found]
 
 
 _THEY_VERBS = {"draw": "draws", "discard": "discards", "lose": "loses", "gain": "gains", "put": "puts", "create": "creates",

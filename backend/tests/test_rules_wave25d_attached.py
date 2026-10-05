@@ -504,6 +504,41 @@ def test_brand_of_ill_omen_stops_the_enchanted_creatures_controller_casting_crea
     roundtrip(s)
 
 
+def test_a_curse_asks_the_attacking_player_whether_to_make_a_zombie(cards):
+    """118.12-style choice by another player: "that attacking player may create a tapped 2/2 black Zombie creature token." — Bob decides, Bob gets it."""
+    from types import SimpleNamespace
+
+    s = build(cards, "Curse of Shallow Graves")
+    ogre = make(s, "p2", "Ogre", "Ogre", "3/3")
+    cast_on(s, "Curse of Shallow Graves", SimpleNamespace(id="p1"), B=1, C=2)  # (Alice is the enchanted player)
+    act(s, "p1", type="pass_priority", until="next_turn")
+    d = None
+    for _ in range(60):
+        d = decision(s)
+        if d is not None and d.kind == "declare_attackers" and d.player == "p2":
+            break
+        if d is not None:
+            choose(s, d.options[0].id) if d.options else act(s, d.player, type=d.kind, **{"attackers": []})
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.kind == "declare_attackers"
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": ogre.id, "target": "p1"}])
+    for _ in range(20):
+        d = decision(s)
+        if d is not None and {o.id for o in d.options} == {"pay", "decline"}:
+            break
+        if d is not None:
+            act(s, d.player, type="declare_blockers", blocks=[]) if d.kind == "declare_blockers" else choose(s, d.options[0].id)
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p2" and "Zombie" in d.prompt  # the attacking player decides
+    choose(s, "pay")
+    settle(s)
+    zombies = [c for c in s.state.cards.values() if c.name == "Zombie" and c.zone == "p2:battlefield"]
+    assert len(zombies) == 1 and zombies[0].tapped
+    roundtrip(s)
+
+
 def test_unifying_theory_the_caster_pays_and_draws(cards):
     s = build(cards, "Unifying Theory", "Probe Spell Book")
     on_battlefield(s, "Unifying Theory")
