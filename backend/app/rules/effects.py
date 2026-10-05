@@ -1534,7 +1534,11 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not src:
         _remember(plan, ctx, e, [])
         return True
-    cards = _cards(plan, ctx, e["who"])
+    return _exile_until_cards(plan, ctx, e, [c for c in _cards(plan, ctx, e["who"])
+                                             if e.get("hand_origin") or plan.state.cards[c].zone.endswith(":battlefield")])  # (610.3: returns to the battlefield)
+
+
+def _exile_until_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
     before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
@@ -1542,6 +1546,8 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         exiled = [plan.oid(c) for c in _merged.pieces(plan, cards)  # (review (wave 18D): each card of a merged permanent, 730.3c)
                   if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
         plan.rules.linked_exile[key] = [*plan.rules.linked_exile.get(key, []), *exiled]  # the objects in exile (400.7)
+        if e.get("hand_origin"):  # -- resolution memory (wave 22D) -- 610.3: returns to its previous zone, the hand
+            plan.rules.linked_exile_from.update({oid: "hand" for oid in exiled})
     _moved(plan, ctx, e, before)
     return True
 
@@ -1570,8 +1576,9 @@ def linked_entries(plan: Plan, source: str) -> list[dict[str, Any]]:
             if cid not in plan.state.cards or plan.oid(cid) != ref:
                 continue
         card = plan.state.cards[cid]
+        back = plan.rules.linked_exile_from.pop(ref, None)  # -- resolution memory (wave 22D) -- 610.3: back to the hand it came from
         if card.zone.endswith(":exile") and card.owner in live:
-            entries.append({"card": cid, "player": card.owner, "actor": card.owner})
+            entries.append({"card": cid, "player": card.owner, "actor": card.owner, **({"to": "hand"} if back == "hand" else {})})
     return entries
 
 
@@ -1954,12 +1961,15 @@ def sacrifice_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     control that match, in APNAP order; then they're all sacrificed at once (101.4)."""
     who = _players(plan, ctx, e["who"])
     order = [p for p in plan.apnap() if p in who]
-    return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order, [], e.get("as"), bool(e.get("exile")),
+    if e.get("exile") == "until" and not _cards(plan, ctx, "self"):  # -- resolution memory (wave 22D) -- 610.3a-b: the source left: nothing happens
+        _remember(plan, ctx, e, [])
+        return True
+    return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("exile") or False,
                            bool(e.get("link")), bool(e.get("upto")))
 
 
 def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list[str], picked: list[str],
-                    binding: str | None = None, exile: bool = False, link: bool = False, upto: bool = False) -> bool:
+                    binding: str | None = None, exile: bool | str = False, link: bool = False, upto: bool = False) -> bool:
     sel = selectors.from_key(key)
     for i, pid in enumerate(players):
         mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
@@ -1970,7 +1980,7 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
         if n == len(mine) and not upto:
             picked = [*picked, *mine]
             continue
-        decide(plan, player=pid, kind="choose_cards", prompt=f"Sacrifice {'up to ' if upto else ''}{n}",
+        decide(plan, player=pid, kind="choose_cards", prompt=f"{'Exile' if exile else 'Sacrifice'} {'up to ' if upto else ''}{n}",
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
                min_choices=0 if upto else n, max_choices=n,  # (-- triggers (wave 19B) -- "any number of": none is allowed)
                resume={"step": "sacrifice_choice", "ctx": ctx, "sel": key, "want": want, "rest": players[i + 1:],
@@ -1978,6 +1988,8 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
         return False
     if exile:  # -- trigger tail (wave 16C) -- "Exile a land you control": chosen as it resolves, then exiled (not sacrificed)
         picked = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+        if exile == "until":  # -- resolution memory (wave 22D) -- "Exile any number of … you control until ~ leaves the battlefield" (610.3)
+            return _exile_until_cards(plan, ctx, {"as": binding}, picked)
         return exile_cards(plan, ctx, {"as": binding, "link": link}, picked)
     _sacrifice_cards(plan, picked, ctx["controller"], ctx, binding)
     return True

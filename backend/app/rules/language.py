@@ -1347,12 +1347,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": 10**6, "upto": True}], None
     # -- trigger tail (wave 16C) -- "Exile a land you control." (Wormfang Newt, Turtle): you choose it as this resolves (608.2d),
     # then it's exiled (no sacrifice, 701.21a: sacrificing is putting into a graveyard); linked for "the exiled card" (607.2a)
-    m = re.fullmatch(r"exile (?P<n>a|an|one|two|three) (?P<sel>[a-z -]+? you control)", text)
+    m = re.fullmatch(r"exile (?P<n>a|an|one|two|three|another|any number of) (?P<sel>[A-Za-z -]+? you control)(?P<until> until ~ leaves the battlefield)?", text)
     if m and rider is None:
-        sel = selectors.parse(m["sel"])
-        if sel is None or sel.player is not None or sel.controller != "you" or sel.zones != ("battlefield",):
-            raise _Fail
-        return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": _amount(m["n"]), "exile": True}], None
+        return exile_own(m["n"], m["sel"], bool(m["until"]))
     # -- static grants & selectors (wave 15A) -- "Each player sacrifices all permanents they control that are one or more colors"
     # (701.21a: a player sacrifices only what they control; every match goes at once, 101.4: sacrifice_choice with no choice left)
     m = re.fullmatch(_SUBJ + r"sacrifices? all (?P<sel>.+?)(?: (?:they|you) control)?(?P<tail> that .+)?", text)
@@ -2297,16 +2294,39 @@ def parse_return_owner(text: str) -> tuple[Effects, Any] | None:
              **({"spec": spec} if spec else {})}], _one(group)
 
 
+def exile_own(n: str, sel_text: str, until: bool) -> tuple[Effects, Any]:
+    """-- resolution memory (wave 22D) -- "Exile another creature you control until ~ leaves the battlefield." (Yannik), "… any number of
+    non-Angel creatures you control …" (Glorious Protector): chosen as this resolves (608.2d); until: 610.3, returned when ~ leaves."""
+    noun = ("another " if n == "another" else "") + sel_text
+    sel = selectors.parse(noun)
+    if sel is None or sel.player is not None or sel.controller != "you" or sel.zones != ("battlefield",):
+        raise _Fail
+    if n == "any number of" and not until:
+        raise _Fail  # ("exile any number of …" with no duration: not read)
+    many = n == "any number of"
+    return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": 10**6 if many else 1 if n == "another" else _amount(n),
+             "exile": "until" if until else True, **({"upto": True} if many else {})}], None
+
+
+_EXILE_OWN = re.compile(r"(?P<n>another|any number of) (?P<sel>[A-Za-z -]+? you control)")
+
+
 def parse_exile_until(phrase: str) -> tuple[Effects, Any] | None:
     """"Exile <objects> until ~ leaves the battlefield" (610.3) for any target phrase the selector
     grammar reads ("target artifact or creature an opponent controls", "up to one target nonland
     permanent …"). Not a pronoun: "exile that card until …" may name a card in a hand, and 610.3
     returns it to its previous zone, while the engine's linked return puts it onto the
     battlefield (610.3c) — that wording stays manual."""
+    if (own := _EXILE_OWN.fullmatch(phrase.strip())) is not None:
+        return exile_own(own["n"], own["sel"], True)  # (-- wave 22D -- chosen as it resolves, not targeted)
     try:
         kind, key, group = ref(phrase.strip())
     except _Fail:
         return None
+    if kind == "it" and phrase.strip() in ("that card", "it"):
+        # -- resolution memory (wave 22D) -- "You choose a nonland card from it. Exile that card until ~ leaves the battlefield." (Kitesail
+        # Freebooter): the card chosen from a hand returns to that hand (610.3). scripts.resolve_it accepts it only after such a choice
+        return [{"do": "exile_until", "who": "it", "hand_origin": True}], None
     if kind in ("players", "self", "host", "it", "them") or not on_battlefield_only(key):
         return None  # (a card exiled from a graveyard returns there, 610.3: not the linked return)
     return [{"do": "exile_until", "who": _who(kind, key)}], _one(group)

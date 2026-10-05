@@ -490,6 +490,8 @@ class _Introducer:
         self.index = index
         self.do = e.get("do")
         self.verb = _RECORDING.get(self.do or "")
+        if self.do == "sacrifice_choice" and e.get("exile"):
+            self.verb = "exiled"  # (-- resolution memory (wave 22D) -- "Exile a creature you control": what it exiled, not sacrificed)
         self.recording = self.do in _RECORDING  # (can carry a binding: "its controller", "its power")
         self.objects = self.recording
         self.player = False
@@ -709,6 +711,10 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     # a trigger's object, or a card an instruction put in a hidden zone ("draw a
                     # card. You may play it": the hand is hidden, 400.7 — manual)
                     return None
+                if e.get("hand_origin") and (intro is None or intro.do != "choose_from_hand"):
+                    if intro is not None or antecedent != "event":
+                        return None  # (-- resolution memory (wave 22D) -- only the card chosen from a revealed hand is exiled from a hand)
+                    e.pop("hand_origin")  # ("Exile that creature until ~ leaves the battlefield": the trigger's object, on the battlefield then)
                 if intro is not None:
                     if intro.do in _MOVERS or _group_of(out[intro.index]) is None \
                             or str(out[intro.index].get("who")).startswith("controlled:"):  # (wave 13E: the objects, not the player)
