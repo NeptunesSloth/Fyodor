@@ -46,6 +46,8 @@ CARDS = [
     ("Probe Soldier", "{1}{W}", "Creature — Human Soldier", "1", "1", ""),
     ("Probe Relic", "{1}", "Artifact", None, None, "{T}: Add {C}."),
     ("Probe Spell", "{2}", "Sorcery", None, None, "Draw a card."),
+    ("Act of Treason", "{2}{R}", "Sorcery", None, None,
+     "Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn. (It can attack and {T} this turn.)"),
 ]
 EXTRA = [card(n, set_code="t24s", number=f"S{i:02d}", mana_cost=mc, cmc=float(sum(1 for _ in mc.split("}")) - 1), type_line=tl,
               colors=[], color_identity=[], oracle_text=text, **({"power": p, "toughness": t} if p else {}))
@@ -236,4 +238,38 @@ def test_max_speed_ability_that_works_from_the_graveyard(cards, n, works):
     else:
         with pytest.raises(ActionError):
             act(s, "p1", type="activate_ability", card_id=c.id, ability=ab)
+    check(s)
+
+
+def test_a_player_who_gains_control_of_a_start_your_engines_permanent_gets_speed_1_of_their_own(cards):
+    """704.5aa: the controller of the permanent with start your engines! who has no speed gets speed 1 (control, not ownership); Alice's stays."""
+    from tests.test_rules_conditionals import to_turn
+
+    s = build(cards, ["Nesting Bot"], ["Act of Treason"])
+    to_hand(s, "Nesting Bot")
+    mana(s, W=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Nesting Bot").id)
+    answer(s)
+    set_speed(s, 3)
+    to_turn(s, 2)
+    c = to_hand(s, "Act of Treason", "p2")
+    mana(s, "p2", R=1, U=2)
+    act(s, "p2", type="cast_spell", card_id=c.id, targets=[card_named(s, "Nesting Bot").id])
+    answer(s)
+    assert s.state.cards[card_named(s, "Nesting Bot").id].controller == "p2"
+    assert speed(s, "p2") == 1 and speed(s) == 3  # (Bob has no max speed with it: Nesting Bot is 1/1 again for him)
+    assert pt(s, "Nesting Bot") == (1, 1)
+    check(s)
+
+
+def test_the_speed_trigger_belongs_to_the_active_player_only(cards):
+    s = build(cards, ["Nesting Bot", "Lightning Bolt"], ["Nesting Bot"])
+    to_hand(s, "Nesting Bot")
+    mana(s, W=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Nesting Bot").id)
+    answer(s)
+    put(s, "Nesting Bot", "p2")
+    set_speed(s, 1, "p2")  # (Bob has speed 1 too: an opponent losing life on Alice's turn raises Alice's speed, never Bob's)
+    bolt(s, "p2")
+    assert speed(s) == 2 and speed(s, "p2") == 1
     check(s)
