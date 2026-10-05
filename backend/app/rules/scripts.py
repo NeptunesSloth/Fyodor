@@ -3423,7 +3423,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # spell or ability unless its controller pays {2}." (ward's own text, 702.21a): the spell or ability the event names
                 tm = re.fullmatch(r"counter that spell or ability unless its controller pays ((?:\{[^}X]+\})+)\.?", body)
                 counter_it: list[dict[str, Any]] = [{"do": "counter_unless", "who": "event_source", "cost": tm[1]}] if tm else []
-                parsed = parse_effects(body, it=ante, event_player=has_player) if tm is None or (cond or {}).get("event") != "targeted" \
+                if body in ("counter that spell or ability.", "counter that spell."):  # -- history (wave 22E) -- Glyph Keeper, Kira: 701.6a
+                    tm, counter_it = body, [{"do": "counter", "who": "event_source"}]
+                parsed = parse_effects(body, it=ante, event_player=has_player) if tm is None or not _targeted(cond) \
                     else (counter_it, None, False)
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
@@ -3615,11 +3617,17 @@ def _intervening_may(body: str, it: str | None, event_player: bool) -> tuple[lis
 # -- end this-turn history (wave 4D) --
 
 
+def _targeted(cond: dict[str, Any] | None) -> bool:
+    """-- history (wave 22E) -- a "becomes the target of a spell or ability" event (also "you or a permanent you control": either)."""
+    return cond is not None and (cond["event"] == "targeted" or (
+        cond["event"] == "either" and all(c.get("event") == "targeted" for c in cond.get("conds", []))))
+
+
 def _has_player(cond: dict[str, Any]) -> bool:
     """Does the event name a player ("that player")? The player who acted, or who was dealt damage."""
     if cond.get("subject") == "player" or cond["event"] in _PLAYER_EVENTS:
         return True
-    if cond["event"] == "targeted":  # -- triggers (wave 19B; wave 21B: any controller) -- the player whose spell or ability it was
+    if _targeted(cond):  # -- triggers (wave 19B; wave 21B: any controller) -- the player whose spell or ability it was
         return True
     # -- triggers (wave 5D) -- "Whenever a creature an opponent controls dies / enters, that player …": the opponent
     # who controlled it (one object per event: not "one or more", 603.2c; triggers._event)

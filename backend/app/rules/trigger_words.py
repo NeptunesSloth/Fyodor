@@ -49,7 +49,8 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         body = re.sub(r"^(if (?:(?:at least )?\w+ (?:or more )?)?mana from [^,]+? (?:was|were) spent to cast) it,", r"\1 that spell,", body)
     if cond is not None and cond.get("subject") == "source":  # -- source damage (wave 11F) -- 609.7: its controller
         body = re.sub(r"\bthat source's controller\b", "that player", body)
-    if cond is not None and cond.get("event") == "targeted":  # -- triggers (wave 21B) -- 115.1: "that spell's controller" is the player whose spell or ability targeted it
+    if cond is not None and (cond.get("event") == "targeted" or (cond.get("event") == "either" and all(
+            c.get("event") == "targeted" for c in cond.get("conds", [])))):  # -- triggers (wave 21B; wave 22E: also "you or a permanent") -- 115.1: "that spell's controller" is the player whose spell or ability targeted it
         body = re.sub(r"\bthat spell(?: or ability)?'s controller\b", "that player", body)
     if name.startswith("step:draw:") and name.rsplit(":", 1)[-1] in ("each", "opponent"):
         # 504.1: the active player draws in the draw step; "an additional card" is one more card

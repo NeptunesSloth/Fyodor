@@ -583,8 +583,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         if player is None or (pw == "you" and player != you) or (pw == "opponent" and player == you) \
                 or (pw == "enchanted" and player != watcher.attached_player):
             return False
-        if event == "dealt_damage" and obj is not None:
-            return False  # ("you're dealt damage": a player, not a permanent that player controls)
+        if event in ("dealt_damage", "targeted") and obj is not None:
+            return False  # ("you're dealt damage": a player, not a permanent that player controls; wave 22E: "you become the target")
         if event == "cast":
             return obj is not None and och is not None and selectors.matches(
                 plan, selectors.from_key(cond["spell"]), obj, och, you, watcher.id)
@@ -717,8 +717,14 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
         if cond.get("spell_only") and not info.get("spell"):
             return False
-        if cond.get("first_each_turn") and not info.get("first"):
+        if cond.get("first_each_turn") and not (info.get("first") or {}).get({"you": "by", "opponent": "by_opp"}.get(by, "any")):
             return False
+        if cond.get("spell_sel"):  # -- history (wave 22E) -- "an instant or sorcery spell": the spell as it is on the stack
+            ref = info.get("source_ref")
+            spell = plan.state.cards.get(ref.card) if ref is not None else None
+            if spell is None or spell.ability is not None or not selectors.matches(
+                    plan, selectors.from_key(cond["spell_sel"]), spell, plan.ch(spell), you, watcher.id):
+                return False
     if event == "enter" and cond.get("entered_tapped") is not None:  # -- entry forms (wave 5F) --
         from app.rules import entry_forms
 
@@ -1553,15 +1559,25 @@ def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[
     turn = plan.state.turn.number
     facts: list[Fact] = []
     for t in targets:
-        card = plan.state.cards.get(t.id if hasattr(t, "id") else t)
+        tid = t.id if hasattr(t, "id") else t
+        if tid in plan.state.players:  # -- history (wave 22E) -- 115.1: "whenever you become the target of a spell or ability"
+            if tid in plan.live():
+                facts.append(("targeted", None, None, tid, {"by": controller, "spell": is_spell, "source_ref": source,
+                                                            "actor": controller}))
+            continue
+        card = plan.state.cards.get(tid)
         if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):
             continue
         oid = plan.oid(card)
-        # "for the first time each turn": the first time this turn that player's spells and
-        # abilities targeted this object (kept per turn, like other once-each-turn marks)
-        key = f"targeted:{controller}:{oid}"
-        first = plan.rules.once_per_turn.get(key) != turn
-        plan.rules.once_per_turn[key] = turn
+        # "for the first time each turn" (603.2): the first time this turn that something targeted this object ("any"), or the
+        # first time a spell or ability its controller controls did / an opponent's did ("by": the ones the trigger asks about);
+        # kept per turn, like other once-each-turn marks
+        first = {}
+        for group, mine in (("any", True), ("by", controller == card.controller or None), ("by_opp", controller != card.controller or None)):
+            if mine:
+                key = f"targeted:{group}:{oid}"
+                first[group] = plan.rules.once_per_turn.get(key) != turn
+                plan.rules.once_per_turn[key] = turn
         facts.append(("targeted", card, plan.ch(card), card.controller,
                       {"oid": oid, "by": controller, "spell": is_spell, "first": first, "source_ref": source,
                        "actor": controller}))  # (wave 19B: "that player" is the one whose spell or ability targeted it)
