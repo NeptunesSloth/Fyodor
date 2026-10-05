@@ -98,5 +98,65 @@
    "Enchant"
   ],
   "layout": "normal"
+ },
+ {
+  "name": "Iron Hills Blacksmith",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Dwarf Artificer",
+  "oracle_text": "Double strike\nWhen this creature enters, create a colorless Equipment artifact token named Axe with \"Equipped creature gets +1/+0\" and equip {2}.",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Double strike"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Mabel, Heir to Cragflame",
+  "mana_cost": "{1}{R}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature \u2014 Mouse Soldier",
+  "oracle_text": "Other Mice you control get +1/+1.\nWhen Mabel enters, create Cragflame, a legendary colorless Equipment artifact token with \"Equipped creature gets +1/+1 and has vigilance, trample, and haste\" and equip {2}.",
+  "power": "3",
+  "toughness": "3",
+  "loyalty": null,
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "U.S.Agent, John Walker",
+  "mana_cost": "{3}{W/B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature \u2014 Human Soldier Hero",
+  "oracle_text": "When U.S.Agent enters, create a colorless Equipment artifact token named Sturdy Shield with \"Equipped creature gets +1/+2\" and equip {2}. Attach it to U.S.Agent.",
+  "power": "3",
+  "toughness": "2",
+  "loyalty": null,
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [],
+  "layout": "normal"
  }
 ]

@@ -111,3 +111,48 @@ def test_the_chosen_color_is_the_auras_own_choice(cards):
     prot = ch(s, beast)
     assert protection.protected_from(prot, ch(s, c)) and not protection.protected_from(prot, prot)  # white yes, the green Beast no
     roundtrip(s)
+
+
+def settle(s, limit=30):
+    for _ in range(limit):
+        d = decision(s)
+        if d is not None:
+            choose(s, d.options[0].id)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+def cast(s, name, **mana):
+    c = to_hand(s, name)
+    pay(s, **mana)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    return c
+
+
+def test_us_agent_attaches_the_equipment_token_it_made(cards):
+    s = build(cards, "U.S.Agent, John Walker")
+    agent = cast(s, "U.S.Agent, John Walker", W=1, C=3)
+    shield = next(c for c in s.state.cards.values() if c.name == "Sturdy Shield")
+    assert shield.attached_to == agent.id and "Equipment" in ch(s, shield).subtypes  # 701.3a: created, then attached
+    assert ch(s, agent).pt == (4, 4)  # 3/2 +1/+2
+    assert any(a.kind == "keywords" and "equip" in a.keywords for a in ch(s, shield).abilities)
+    roundtrip(s)
+
+
+def test_mabel_makes_a_legendary_equipment_that_can_equip(cards):
+    s = build(cards, "Mabel, Heir to Cragflame")
+    mabel = cast(s, "Mabel, Heir to Cragflame", R=1, W=1, C=1)
+    cragflame = next(c for c in s.state.cards.values() if c.name == "Cragflame")
+    c = ch(s, cragflame)
+    assert "Legendary" in c.supertypes and "Equipment" in c.subtypes and cragflame.attached_to is None  # 301.5b: it enters unattached
+    pay(s, C=2)
+    index = next(a.index for a in c.abilities if a.kind == "keywords" and "equip" in a.keywords)
+    act(s, "p1", type="activate_ability", card_id=cragflame.id, ability=index, targets=[mabel.id])
+    settle(s)
+    assert s.state.cards[cragflame.id].attached_to == mabel.id
+    assert ch(s, mabel).pt == (4, 4) and {"vigilance", "trample", "haste"} <= ch(s, mabel).keywords
+    roundtrip(s)

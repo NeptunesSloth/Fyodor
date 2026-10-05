@@ -853,7 +853,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e["with"] = "event"
                 else:
                     return None
-            if e.get("src") == "it":
+            if e.get("src") == "it" and e.get("do") == "attach_to" and (made := objects(index, 1, None)) is not None and made.do == "create_token":
+                e["src"] = "ref:" + bound(made)  # -- attached events (wave 25D) -- "Create a … Equipment token … Attach it to ~.": the token just made (400.7j)
+            elif e.get("src") == "it":
                 if any(i.index < index and out[i.index].get("who") == "host" for i in intros):
                     return None  # ("tap enchanted creature. It deals …": the host, not the source)
                 if e.get("do") != "damage" and any(
@@ -5993,6 +5995,14 @@ def _attach_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # Blade), "create a 1/1 … token, then attach ~ to it." (Ancestral Blade, Dwarven Hammer): this object attached to the one
 # the pronoun names (701.3a-b, attachments.host_problem: nothing moves if it can't be attached there or either has become
 # a new object, 400.7)
+# -- attached events (wave 25D) -- "create a colorless Equipment artifact token named Sturdy Shield with … and equip {2}. Attach it to ~." (U.S.Agent):
+# the token just created (its recorded object, 400.7j) is attached to this object (701.3a-b)
+@_first
+@effect(r"attach (?:it|that Equipment) to ~")
+def _attach_it_to_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "attach_to", "src": "it", "who": "self"}], None
+
+
 @_first
 @effect(r"attach ~ to (?:it|that creature)")
 def _attach_self_to_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
