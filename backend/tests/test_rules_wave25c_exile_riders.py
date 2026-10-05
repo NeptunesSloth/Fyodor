@@ -76,6 +76,12 @@ REAL += [
          color_identity=["U"], oracle_text="Landfall — Whenever a land you control enters, choose one —\n• You may tap or untap target creature.\n"
          "• Scry 1. (Look at the top card of your library. You may put that card on the bottom.)"),
 ]
+REAL += [
+    card("Dreadhorde Arcanist", set_code="tst", number="C25-12", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Zombie Wizard", colors=["R"],
+         color_identity=["R"], power="1", toughness="3", keywords=["Trample"], oracle_text="Trample\nWhenever this creature attacks, you may "
+         "cast target instant or sorcery card with mana value less than or equal to this creature's power from your graveyard without "
+         "paying its mana cost. If that spell would be put into your graveyard, exile it instead."),
+]
 OURS = [c["name"] for c in REAL]
 
 
@@ -118,6 +124,8 @@ def test_wordings_read():
     assert scripts.parse_effects("You may cast target instant card from your graveyard, and mana of any type can be spent to cast "
                                  "that spell.") is None
     assert scripts.parse_effects("You may cast target instant or sorcery card with mana value less than or equal to ~'s power from your "
+                                 "graveyard.") is not None  # (the source's power: the selector reads it, legal again as it resolves)
+    assert scripts.parse_effects("You may cast target instant or sorcery card with mana value less than or equal to that damage from your "
                                  "graveyard.") is None
 
 
@@ -339,4 +347,29 @@ def test_retreat_to_coralhelm_mode_may_tap_or_untap(cards):
         choose(s, pick, resolve=True)
     assert [k for k, _ in seen] == ["choose_cards", "choose_one", "choose_one"] and "Do nothing" in seen[-1][1]  # the "may" is choosing neither
     assert s.state.cards[bear.id].tapped  # (the first option offered: tap it)
+    replay_matches(s)
+
+
+# -- a target whose mana value limit is the source's power (608.2b: legal again as it resolves) ------------------------
+def test_dreadhorde_arcanist_only_targets_cards_up_to_its_power_and_exiles_the_cast(cards):
+    from app.game.rules_state import ControlMark
+    from tests.test_rules_conditionals import attack, until
+
+    s = build(cards)
+    arcanist = put(s, "Dreadhorde Arcanist", "battlefield")
+    s.state.rules.controlled_since[arcanist.id] = ControlMark(controller="p1", turn=0)
+    bolt = put(s, "Lightning Bolt", "graveyard")  # mana value 1
+    counter = put(s, "Counterspell", "graveyard")  # mana value 2: more than its power
+    act(s, "p1", type="pass_priority")  # → combat
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    attack(s, (arcanist, "p2"))
+    d = decision(s)
+    assert {o.id for o in d.options} == {bolt.id}  # (a lone legal target: the engine may even pick it)
+    choose(s, [bolt.id], resolve=True)
+    d = s.state.rules.decision
+    if d is not None and (d.resume or {}).get("step") == "free_cast_pick":
+        choose(s, [bolt.id])
+        choose(s, ["p2"], resolve=True)
+    assert s.state.players["p2"].life == 36  # the Bolt (3) and the unblocked Arcanist (1)
+    assert s.state.cards[bolt.id].zone == "p1:exile" and s.state.cards[counter.id].zone == "p1:graveyard"
     replay_matches(s)

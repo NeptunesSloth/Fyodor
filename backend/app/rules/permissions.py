@@ -298,11 +298,11 @@ def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         return None  # (mana spent is only for a permission; a free cast spends none)
     phrase = m["what"][len("target "):]
     mv = re.search(rf" {_FREE_MV}(?= from )", phrase)
-    if mv and mv["v"] is not None:
-        return None  # (a limit read as it resolves: the target's legality would change with it; not modelled)
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or sel.zones != ("graveyard",) or not sel.card:
         return None
+    if mv and mv["v"] is not None and not any(isinstance(c[2], str) and c[2].startswith("src:") for c in sel.compare):
+        return None  # (a limit read as it resolves that the selector doesn't read: only "its / ~'s power" is — the target's legality is checked then, 608.2b)
     if timed:
         return [{"do": "grant_play", "who": "target", "play": False, "cast": True, "until": "end_of_turn", "optional": True,
                  **({"free": True} if m["free"] else {}), **({"spend": "type"} if m["spend"] else {})}], sel.key()
