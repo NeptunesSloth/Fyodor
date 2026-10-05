@@ -23,6 +23,9 @@ EXTRA = [
              {"object": "card_face", "name": "Comply", "mana_cost": "{W}", "type_line": "Sorcery", "oracle_text": "Aftermath (Cast this spell only from your graveyard. Then exile it.)\nChoose a card name. Until your next turn, your opponents can't cast spells with the chosen name."}]),
     real("Sorcerous Spyglass", "{2}", 2, "Artifact", "As this artifact enters, look at an opponent's hand, then choose any card name.\nActivated abilities of sources with the chosen name can't be activated unless they're mana abilities."),
     real("Probe Pinger", "{1}", 1, "Artifact", "{T}: Probe Pinger deals 1 damage to any target."),
+    real("Foreshadow", "{1}{U}", 2, "Instant", "Choose a card name, then target opponent mills a card. If a card with the chosen name was milled this way, you draw a card.\nDraw a card at the beginning of the next turn's upkeep.", None, "U"),
+    real("Predict", "{1}{U}", 2, "Instant", "Choose a card name, then target player mills a card. If a card with the chosen name was milled this way, you draw two cards. Otherwise, you draw a card.", None, "U"),
+    real("The Clone Saga", "{3}{U}", 4, "Enchantment — Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Surveil 3.\nII — When you next cast a creature spell this turn, copy it, except the copy isn't legendary.\nIII — Choose a card name. Whenever a creature with the chosen name deals combat damage to a player this turn, draw a card.", None, "U"),
     real("Cabal Therapy", "{B}", 1, "Sorcery", "Choose a nonland card name. Target player reveals their hand and discards all cards with that name.\nFlashback\u2014Sacrifice a creature. (You may cast this card from your graveyard by sacrificing a creature in addition to paying its other costs. Then exile this card.)", None, "B"),
     real("Probe Bolt", "{R}", 1, "Instant", "Probe Bolt deals 1 damage to any target.", None, "R"),
     real("Probe Charm", "{G}", 1, "Instant", "You gain 1 life.", None, "G"),
@@ -60,7 +63,7 @@ def run(s, *names, limit=30):
     raise AssertionError("the stack never emptied")
 
 
-@pytest.mark.parametrize("name", ["Silverquill Silencer", "Declaration of Naught", "Demonic Consultation", "Failure // Comply", "Cabal Therapy", "Sorcerous Spyglass"])
+@pytest.mark.parametrize("name", ["Foreshadow", "The Clone Saga", "Predict", "Silverquill Silencer", "Declaration of Naught", "Demonic Consultation", "Failure // Comply", "Cabal Therapy", "Sorcerous Spyglass"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -160,6 +163,67 @@ def test_cabal_therapy_discards_every_card_with_the_chosen_name_from_the_reveale
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Cabal Therapy").id, targets=["p2"])
     run(s, "Probe Bolt")
     assert s.state.cards[hand[0].id].zone == "p2:graveyard" and s.state.cards[hand[1].id].zone == "p2:hand"
+    check(s)
+
+
+def test_predict_draws_two_when_the_milled_card_has_the_chosen_name_and_one_otherwise(cards):
+    for name, drawn in (("Probe Bolt", 2), ("Probe Charm", 1)):
+        s = build(cards, ["Predict"], ["Probe Bolt"])  # Bob's library: his one Probe Bolt on top of Islands (nothing else)
+        top = card_named(s, "Probe Bolt", "p2")
+        act(s, "p2", type="move", card_ids=[top.id], to={"zone": "library", "player": "p2"})  # on top: the card milled
+        hand_before = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+        mana(s, U=2)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Predict").id, targets=["p2"])
+        run(s, name)
+        hand_after = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+        assert hand_after == hand_before + 1 - 1 + drawn  # Predict left the hand when cast, then the draw(s)
+        assert zone_of(s, "Probe Bolt", "p2") == "p2:graveyard"
+        check(s)
+
+
+def test_foreshadow_draws_only_for_a_milled_card_with_the_chosen_name(cards):
+    for name, drawn in (("Probe Bolt", 1), ("Probe Charm", 0)):
+        s = build(cards, ["Foreshadow"], ["Probe Bolt"])
+        top = card_named(s, "Probe Bolt", "p2")
+        act(s, "p2", type="move", card_ids=[top.id], to={"zone": "library", "player": "p2"})
+        hand_before = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+        mana(s, U=2)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Foreshadow").id, targets=["p2"])
+        run(s, name)
+        assert len([c for c in s.state.cards.values() if c.zone == "p1:hand"]) == hand_before + drawn  # (Foreshadow itself left the hand)
+        assert s.state.rules.delayed  # "Draw a card at the beginning of the next turn's upkeep."
+        check(s)
+
+
+def test_the_clone_saga_chapter_iii_draws_when_a_creature_with_the_chosen_name_connects(cards):
+    s = build(cards, ["The Clone Saga"], [])
+    mana(s, U=1, C=3)
+    saga = to_hand(s, "The Clone Saga")
+    act(s, "p1", type="cast_spell", card_id=saga.id)
+    for _ in range(600):  # chapters I (surveil), II, then III on Alice's third turn: the name is asked
+        d = s.state.rules.decision
+        if d is not None and d.options and d.options[0].id == "__name__":
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    assert s.state.cards[saga.id].counters.get("lore") == 3 and s.state.turn.active_player == "p1"
+    name_it(s, "Grizzly Bears")
+    run(s)
+    act(s, "p1", type="create_token", player="p1", token={"name": "Grizzly Bears", "type_line": "Token Creature — Bear", "power": "2",
+                                                          "toughness": "2", "text": "Haste"})
+    bear = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1")
+    hand_before = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+    while s.state.rules.decision is None or s.state.rules.decision.kind != "declare_attackers":
+        act(s, s.state.rules.priority, type="pass_priority")  # → combat: Alice declares attackers
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
+    run(s)
+    assert len([c for c in s.state.cards.values() if c.zone == "p1:hand"]) == hand_before + 1  # it connected: a card
     check(s)
 
 
