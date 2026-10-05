@@ -87,10 +87,12 @@ def put_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                for c in selectors.candidates(plan, selectors.from_key(k), pid, ctx.get("source_card"))
                if plan.state.cards[c].zone == f"{pid}:hand" and _permanent_card(plan, c) and _mv_ok(plan, ctx, e, c)]
     options = list(dict.fromkeys(options))
-    if not options:
+    may = bool(e.get("optional")) or bool(e.get("many"))  # ("you may": none is a choice; a trigger's "you may" was asked already, 603.5)
+    if not options and not (may and plan.state.zones.get(f"{pid}:hand")):
         effects._remember(plan, ctx, e, [])
         return True  # (nothing is announced: the hand is hidden)
-    may = bool(e.get("optional")) or bool(e.get("many"))  # ("you may": none is a choice; a trigger's "you may" was asked already, 603.5)
+    # (-- review 25C -- a "you may" is asked whenever the hand holds cards, so whether the question appears doesn't tell the other
+    # players that a matching card is there: the triggered abilities' "may" moved here, scripts._own_choice)
     decide(plan, player=pid, kind="choose_cards",
            prompt=f"{ctx.get('name') or 'It'}: {'you may ' if may else ''}put a {e.get('label') or 'permanent'} card from "
                   "your hand onto the battlefield",

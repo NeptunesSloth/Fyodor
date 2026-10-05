@@ -1265,7 +1265,11 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         )
 
         job = copying.new_job(ctx, controller=pid, objects=[], retarget=False, label=ctx.get("name") or "Copy")
-        copying.plan_decide(plan, player=pid, kind="manual_resolution", options=[DecisionOption(id="done", label="Done")],
+        options = [DecisionOption(id="done", label="Done")]
+        if e.get("did"):  # (-- review 25C -- "If you don't [cast it], …" reads the answer: Chandra, Torch of Defiance)
+            job["did"] = e["did"]
+            options = [DecisionOption(id="done", label="I cast it"), DecisionOption(id="none", label="I didn't cast it")]
+        copying.plan_decide(plan, player=pid, kind="manual_resolution", options=options,
                             prompt="Casting a spell with {X} in its mana cost this way isn't automated (601.2b): cast it by hand if you want to, then press Done",
                             resume={"step": "copy_manual", "job": job})
         return False
