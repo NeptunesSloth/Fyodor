@@ -3769,6 +3769,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 effects, target, optional = parsed
                 if to_gy or any(e.get("who") == "self_gy" for e in effects):  # (-- casting extras (wave 18E) -- recover: "If you don't, exile ~" too)
                     effects = [{**e, "who": "self_gy"} if e.get("who") == "self" else e for e in effects]
+                if to_gy:  # -- review 25D -- "When ~ is put into your graveyard from your library, you may exile it. If you do, …" (Creeping
+                    # Chill): the card in the graveyard pays (113.6m), not a permanent
+                    effects = [{**e, "cost": "Exile ~ from your graveyard"} if e.get("do") == "optional_payment"
+                               and e.get("cost") in ("Exile it", "Exile ~") else e for e in effects]
                 if aura_card:
                     aura_effects = _aura_card_effects(effects)
                     if aura_effects is None:

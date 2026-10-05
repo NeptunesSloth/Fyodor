@@ -57,7 +57,7 @@ def cast_on(s, name, target, **mana):
 
 
 def problem(s, source, host):
-    return attachments.host_problem(Plan(s.state, "p1", s.cards, None), s.state.cards[source.id], host.id)
+    return attachments.host_problem(Plan(s.state, "p1", s.cards, None), s.state.cards[source.id], host.id, sba=True)  # (704.5m)
 
 
 @pytest.mark.parametrize("name", [c["name"] for c in DATA])
