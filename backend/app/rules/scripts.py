@@ -841,6 +841,15 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                         or (e["from"] == "self_named" and antecedent != "self_gone"):
                     return None
                 e = out[index] = {**e, "from": "self" if antecedent == "self_gone" else "event"}
+            if e.get("do") == "become_copy" and e.get("with") == "it":  # -- copy exceptions (wave 24A) -- "~ becomes a copy of it / that creature"
+                intro = objects(index, 1, None)  # (what an earlier instruction chose or moved, else the trigger's object, as it was if it left)
+                if intro is not None:
+                    g = _group_of(out[intro.index])
+                    e["with"] = "ref:" + bound(intro) if intro.do in _MOVERS or g is None else "target" if groups is None else f"target:{g}"
+                elif antecedent in ("event", "event_gone"):
+                    e["with"] = "event"
+                else:
+                    return None
             if e.get("src") == "it":
                 if any(i.index < index and out[i.index].get("who") == "host" for i in intros):
                     return None  # ("tap enchanted creature. It deals …": the host, not the source)
@@ -5857,11 +5866,12 @@ def _their_token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 @_first
-@effect(r"~ becomes a copy of target (?P<what>.+?)(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")
+@effect(r"~ becomes a copy of (?:(?P<src>it|that creature|that card)|(?P<pre>another |up to one (?:other )?)?target (?P<what>.+?))"
+        r"(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")
 def _become_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import copying
 
-    found = copying.parse_become(m["what"], bool(m["until"]), m["exc"])
+    found = copying.parse_become(m["what"], bool(m["until"]), m["exc"], m["pre"] or "", m["src"])
     if found is None:
         raise _NoMatch
     return found
