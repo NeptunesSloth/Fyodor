@@ -4301,7 +4301,7 @@ ENTERS_WITH = re.compile(r"^(?:(?P<kicked>If ~ was kicked, it)|~) enters (?P<tap
                          r"(?: and with (?P<kw>haste|trample|flying|first strike|fear))?\.$")  # (kw: wave 7C)
 ENTERS_TAPPED_UNLESS = re.compile(r"^~ enters tapped unless (?P<cond>.+)\.$")
 _A_THING = r"(?:a|an) (?P<{name}>[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*|legendary(?: [a-z]+)? creature|basic land|planeswalker)"
-_UNLESS_ONE_OR_TWO = re.compile(r"^you control " + _A_THING.format(name="a") + r"(?: or " + _A_THING.format(name="b") + r")?$")
+_UNLESS_ONE_OR_TWO = re.compile(r"^you control " + _A_THING.format(name="a") + r"(?: or (?:" + _A_THING.format(name="b") + r"|(?P<b2>[A-Z][A-Za-z]*)))?$")  # (wave 25A: "a Mount or Vehicle")
 _UNLESS_COUNT = re.compile(r"^you control (?P<n>\w+) or (?P<cmp>more|fewer) (?P<what>.+)$")
 _UNLESS_OPPONENTS = re.compile(r"^you have (?P<n>\w+) or more opponents$")
 # The object's own "instead": "If ~ would die, exile it instead." / "… be put into a graveyard from anywhere …"
@@ -4382,7 +4382,7 @@ def _unless_condition(text: str) -> Definition | None:
     m = _UNLESS_ONE_OR_TWO.fullmatch(t)
     if m:
         conds = []
-        for word in (m["a"], m["b"]):
+        for word in (m["a"], m["b"] or m["b2"]):
             if not word:
                 continue
             key = _selector_key(word + " you control")

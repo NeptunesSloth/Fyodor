@@ -50,6 +50,8 @@ EXTRA = [
     card('Vampire Nocturnus', set_code='tst', number='M24', mana_cost='{1}{B}{B}{B}', cmc=4.0, type_line='Creature — Vampire', oracle_text='Play with the top card of your library revealed.\nAs long as the top card of your library is black, this creature and other Vampire creatures you control get +2/+1 and have flying.', power='3', toughness='3', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('Mul Daya Channelers', set_code='tst', number='M25', mana_cost='{1}{G}{G}', cmc=3.0, type_line='Creature — Elf Druid Shaman', oracle_text='Play with the top card of your library revealed.\nAs long as the top card of your library is a creature card, this creature gets +3/+3.\nAs long as the top card of your library is a land card, this creature has "{T}: Add two mana of any one color."', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
     card('Vampire Interloper', set_code='tst', number='M26', mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Vampire Scout', oracle_text="Flying\nThis creature can't block.", power='2', toughness='1', colors=['B'], color_identity=['B'], keywords=['Flying'], layout='normal'),  # noqa: E501
+    card('Country Roads', set_code='tst', number='M27', cmc=0.0, type_line='Land', oracle_text='This land enters tapped unless you control a Mount or Vehicle.\n{T}: Add {W}.\n{1}{W}, {T}, Sacrifice this land: Create a 1/1 colorless Pilot creature token with "This token saddles Mounts and crews Vehicles as though its power were 2 greater." Activate only as a sorcery.', colors=[], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
+    card("Smuggler's Copter", set_code='tst', number='M28', mana_cost='{2}', cmc=2.0, type_line='Artifact — Vehicle', oracle_text='Flying\nWhenever this Vehicle attacks or blocks, you may draw a card. If you do, discard a card.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)', power='3', toughness='3', colors=[], color_identity=[], keywords=['Flying', 'Crew'], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='M99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
 ]
 
@@ -288,4 +290,21 @@ def test_the_top_card_a_creature_or_a_land_decides_what_mul_daya_channelers_gets
     put(s, "Forest", "library", position="top")
     assert ch(s, channelers).pt == (2, 2)
     assert any("Add two mana of any one color" in a.text for a in ch(s, channelers).abilities)  # a land card: "{T}: Add two mana of any one color."
+    roundtrip(s)
+
+
+def test_a_road_enters_tapped_unless_you_control_a_mount_or_vehicle(cards):
+    s = build(cards, p1=("Country Roads", "Smuggler's Copter"))
+    land = put(s, "Country Roads", "hand")
+    act(s, "p1", type="play_land", card_id=land.id)
+    assert find(s, "Country Roads").tapped  # 614.1d: no Mount or Vehicle
+    roundtrip(s)
+
+
+def test_a_road_enters_untapped_with_a_vehicle(cards):
+    s = build(cards, p1=("Country Roads", "Smuggler's Copter"))
+    put(s, "Smuggler's Copter", "battlefield")
+    land = put(s, "Country Roads", "hand")
+    act(s, "p1", type="play_land", card_id=land.id)
+    assert not find(s, "Country Roads").tapped
     roundtrip(s)
