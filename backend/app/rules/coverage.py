@@ -280,6 +280,9 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     # each type spent) is now on its payment record (conditions._cast_how); what stays refused:
     (re.compile(r"\b(?:entered from (?:your|a) library|was put onto the battlefield from (?:your|a) (?:library|graveyard))\b", re.I),  # (wave 22E: "entered from a graveyard" is recorded now)
      "the zone a permanent entered from isn't recorded with the object: not modelled"),
+    # (review 22E: a static whose subject is "goaded creatures" grants in layer 6 alongside the goad itself, which it depends on
+    # (613.8a) - applied by timestamp it misses creatures goaded later (Bothersome Quasit): refused)
+    (re.compile(r"(?:^|[.\n] ?)goaded creatures\b", re.I), "a continuous effect on goaded creatures (613.8 dependency on the goad): not modelled"),
     # (-- mana provenance (wave 18B) -- {S} and "mana from a Treasure" spent to cast a spell are read now: app/rules/mana_units.py;
     # what stays refused: mana spent on an ability, {S} "of that spell's colors", mana spent to cast other creatures as they enter)
     (re.compile(r"\bspent to activate\b|\{S\} of [^.,]+ was spent to cast\b|\bspent to cast them\b", re.I),
