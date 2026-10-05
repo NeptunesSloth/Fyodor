@@ -53,12 +53,12 @@ NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5
 AMOUNT = r"(?:twice [xX]|(?:two|three|four) times [xX]|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x|X|that much|that many)"
 
 # Counters that carry rules the engine doesn't model yet (122.1b keyword counters, 122.1c shield,
-# 122.1d stun, 122.1h finality, 122.1i rad, 122.1j hone, 714 lore): an effect putting one of these
+# 122.1d stun, 122.1h finality, 122.1i rad, 714 lore): an effect putting one of these
 # stays manual rather than placing an inert marker.
 UNMODELED_COUNTERS = frozenset({
     "decayed", "exalted",  # (-- counters (wave 5H) -- the other keyword counters give their keyword in layer 6:
     # app/rules/layers.keyword_counters, 122.1b, 613.1f, 613.7c)
-    "rad", "hone"})  # (shield: 122.1c, wave 7C — shield_counters.py; lore: 714, sagas.py handles any lore counter put)  # (stun: 122.1d, wave 3F — keyword_actions.untap_stunned; finality: 122.1h, wave 3R4 — replacements.replace_move)
+    "rad"})  # (hone: wave 24C, 122.1j — layers._derive)  # (shield: 122.1c, wave 7C — shield_counters.py; lore: 714, sagas.py handles any lore counter put)  # (stun: 122.1d, wave 3F — keyword_actions.untap_stunned; finality: 122.1h, wave 3R4 — replacements.replace_move)
 
 BASIC_LAND_TYPES = ("Plains", "Island", "Swamp", "Mountain", "Forest")  # 205.3i
 # 205.2a: the card types (as the type line writes them; "Tribal" is the old name of kindred)
@@ -704,9 +704,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "for_player" in v:  # -- value grammar (wave 23C) -- "the number of cards in that player's graveyard": the count as that one player's ("you" of the phrase)
         from app.rules import context
 
-        if v["for_player"] not in ("target", "event"):
+        if v["for_player"] not in ("target", "event") and not re.fullmatch(r"target:\d+", v["for_player"]):
             raise ValueError(f"unbound player in {v!r}")  # (scripts binds "that_player" / "target_player" / "target_opponent" or refuses the line)
-        players = _target_players(plan, ctx) if v["for_player"] == "target" else context.players(plan, ctx, context.EVENT)
+        players = _target_players(plan, ctx, v["for_player"]) if v["for_player"] != "event" else context.players(plan, ctx, context.EVENT)
         return evaluate(plan, {**ctx, "controller": players[0]}, v["of"]) if len(players) == 1 else 0
     if "counters_among" in v or "counter_kinds" in v:  # -- value grammar (wave 23C) -- counters on a group of permanents (122.1)
         held = [plan.state.cards[c].counters for c in selectors.candidates(plan, selectors.from_key(v["of"]), you, _other_than(ctx))]
@@ -748,10 +748,10 @@ def _other_than(ctx: dict[str, Any]) -> str | None:
     return ctx.get("other_than") or ctx.get("source_card")
 
 
-def _target_players(plan: Plan, ctx: dict[str, Any]) -> list[str]:
+def _target_players(plan: Plan, ctx: dict[str, Any], which: str = "target") -> list[str]:
     from app.rules.effects import target_refs  # (effects imports this module)
 
-    return [t["id"] for t in target_refs(ctx, "target") if t["id"] in plan.state.players and t["id"] in plan.live()]
+    return [t["id"] for t in target_refs(ctx, which) if t["id"] in plan.state.players and t["id"] in plan.live()]
 
 
 def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:

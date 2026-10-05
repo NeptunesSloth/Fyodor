@@ -2172,9 +2172,20 @@ def _value_targets(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tupl
     wanted = {w for w in ("player", "opponent") if f'"for_player": "target_{w}"' in text}
     if found is None or not wanted:
         return found
-    if len(wanted) != 1 or found[1] not in (None, *wanted):
+    if len(wanted) != 1 or (found[1] not in (None, *wanted) and not isinstance(found[1], list)):
         raise _NoMatch
     (who,) = wanted
+    if isinstance(found[1], list):  # -- counters (wave 24C) -- beside another target ("Put a hone counter on ~ for each creature target opponent controls.
+        # Attach ~ to up to one target creature you control." — Sting): the value's own target (115.1) is a group of the ability, announced first when its
+        # sentence comes before every other target's (601.2c: in text order); the other groups follow it
+        groups = found[1]
+        first_other = next((i for i, e in enumerate(found[0]) if any(isinstance(v, str) and v.startswith("target") for v in e.values())), None)
+        first_value = next((i for i, e in enumerate(found[0]) if f'"for_player": "target_{who}"' in json.dumps(e)), None)
+        if (any(isinstance(g, dict) and g.get("what") in ("player", "opponent") for g in groups) or first_value is None
+                or (first_other is not None and first_other < first_value)):
+            raise _NoMatch
+        renumbered = _renumber(json.loads(text.replace(f'"for_player": "target_{who}"', '"for_player": "target:0"')), list(range(1, len(groups) + 1)))
+        return renumbered, [{"what": who, "min": 1, "max": 1}, *groups], found[2]
     return json.loads(text.replace(f'"for_player": "target_{who}"', '"for_player": "target"')), who, found[2]
 
 
