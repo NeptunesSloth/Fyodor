@@ -1045,6 +1045,9 @@ def regenerate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def no_regen_turn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """-- can't regenerate (wave 19E) -- "Target creature can't be regenerated this turn." (701.19c: shields aren't applied to it)."""
+    if e.get("dealt"):  # -- regeneration (wave 22C) -- "A creature dealt damage this way": the objects damage was actually dealt to
+        plan.rules.no_regen.extend(list((ctx.get(DEALT_KEY) or {}).get(e["dealt"]) or []))
+        return True
     for cid in _cards(plan, ctx, e["who"]):
         if not e.get("types") or set(e["types"]) & plan.ch(plan.state.cards[cid]).types:
             plan.rules.no_regen.append(plan.oid(cid))
@@ -3982,3 +3985,7 @@ from app.rules import counter_moves as _counter_moves  # noqa: E402, I001  -- mo
 PRIMITIVES.update(_counter_moves.PRIMITIVES)
 RESUME[_counter_moves.STEP] = _counter_moves.resume
 RESUME.update(_choice_grants.RESUME)
+# -- zone replacements (wave 22C) -- "If it would leave the battlefield, exile it instead of putting it anywhere else." (app/rules/leave_exile.py)
+from app.rules import leave_exile as _leave_exile  # noqa: E402, I001
+
+PRIMITIVES.update(_leave_exile.PRIMITIVES)

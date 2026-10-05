@@ -1488,13 +1488,17 @@ def _pay_mana_cost_or_sacrifice(m: re.Match[str]) -> tuple[list[dict[str, Any]],
     return [{"do": "pay_or_sacrifice", "cost": "mana_cost"}], None
 
 
-@effect(r"(?:it|they) can't be regenerated")
+# -- regeneration (wave 22C) -- "That creature can't be regenerated." / "Creatures destroyed this way can't be regenerated." (701.19c): the
+# destruction of this spell or ability ignores regeneration shields, whichever words name what it destroyed
+@effect(r"(?:it|they|that creature|the creature|that permanent|that land|those creatures|(?:a )?creatures? destroyed this way) can't be regenerated")
 def _no_regeneration(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "no_regen"}], None  # the destruction of this spell/ability ignores regeneration shields
 
 
-@effect(r"(?P<sel>{SEL}) can't be regenerated this turn")  # -- can't regenerate (wave 19E) -- 701.19c
+@effect(r"(?P<sel>{SEL}|it|that creature) can't be regenerated this turn")  # -- can't regenerate (wave 19E) -- 701.19c (22C: the pronoun)
 def _no_regeneration_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if m["sel"] in ("it", "that creature"):
+        return [{"do": "no_regen_turn", "who": "it"}], None
     return [{"do": "no_regen_turn", "who": "target"}], SELECTORS[m["sel"]]
 
 
@@ -1948,11 +1952,23 @@ def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tup
         # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
         from app.rules import top_library
 
-        return top_library.private_gate(_excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(
+        return _no_regen_scope(top_library.private_gate(_excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(
             this_way.dealt_to(this_way.excess_dealt(this_way.damage_dealt(_energy_paid(_parse_effects(body, it, event_player))))))),
-            it))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
+            it)))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
     except _NoMatch:
         return None
+
+
+def _no_regen_scope(got: Any) -> Any:
+    """-- regeneration (wave 22C) -- "… can't be regenerated" is read by the destruction of the ability it is part of
+    (effects._can_regenerate): after a delayed trigger's captured effects it would not reach the destruction that trigger
+    carries out (War Barge), so that wording stays manual."""
+    if got is not None:
+        effects = got[0]
+        for i, e in enumerate(effects):
+            if e.get("do") == "delayed" and any(x.get("do") == "no_regen" for x in effects[i + 1 + int(e.get("n", 0)):]):
+                raise _NoMatch
+    return got
 
 
 # -- X defined by text (wave 12C) -- "Each opponent loses X life and you scry X, where X is the number of Zombies you control."
@@ -3202,6 +3218,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     )
 
     text = self_text(merged.protect(ability.text), ch.name)
+    if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
+        return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
     if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",)):  # -- keywords (wave 15E) -- alt_costs
         from app.rules import alt_costs
 
@@ -4023,10 +4041,15 @@ _UNLESS_COUNT = re.compile(r"^you control (?P<n>\w+) or (?P<cmp>more|fewer) (?P<
 _UNLESS_OPPONENTS = re.compile(r"^you have (?P<n>\w+) or more opponents$")
 # The object's own "instead": "If ~ would die, exile it instead." / "… be put into a graveyard from anywhere …"
 EXILE_INSTEAD_SELF = re.compile(r"^If ~ would (?P<what>die|be put into a graveyard from anywhere), exile it instead\.$")
+_EXILE_RIDER = re.compile(r"^(?P<head>If .+? would (?:die|be put into (?:a|your|an opponent's) graveyard(?: from anywhere)?), )"
+                          r"(?:exile (?:it|that card) instead\. When you do, (?P<when>.+)|instead exile (?:it|that card) and (?P<and_>(?:create|you gain) .+))\.$")
+_LEAVES_EXILE_SELF = re.compile(r"^If ~ would leave the battlefield, exile it instead(?: of putting it anywhere else)?\.$")
+# -- zone replacements (wave 22C) -- "If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead." (Blightsteel Colossus)
+SHUFFLE_INSTEAD_SELF = re.compile(r"^If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead\.$")
 # -- instead (wave 20B) -- "If this creature would die, put it on the bottom of its owner's library instead." (Nissa's Chosen; on top: Gravebane Zombie)
 LIBRARY_INSTEAD_SELF = re.compile(r"^If ~ would die, put it on (?P<pos>top|the bottom) of its owner's library instead\.$")
 # Statics: "If a creature an opponent controls would die, exile it instead." / Rest in Peace / Leyline of the Void
-EXILE_INSTEAD_STATIC = re.compile(r"^If (?P<subject>a card or token|a card|(?:a|an) (?P<sel>[a-z][a-z' ~]+?)) would "
+EXILE_INSTEAD_STATIC = re.compile(r"^If (?P<subject>a card or token|a card|(?:a|an|another) (?P<sel>[A-Za-z][A-Za-z' ~]+?)) would "
                                   r"(?P<what>die|be put into (?P<whose>a|your|an opponent's) graveyard(?P<any> from anywhere)?), "
                                   r"exile (?:it|that card) instead\.$")  # (any: "If a permanent would be put into a graveyard" — wave 20B)
 # Prevention: "Prevent all [combat] damage that would be dealt [this turn] [to …] [by …] [this turn]."
@@ -4424,17 +4447,31 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
             else:
                 out["n"] = {"times": [n, each]} if n != 1 else each
         return out
+    if _LEAVES_EXILE_SELF.match(text):  # -- zone replacements (wave 22C) -- "If ~ would leave the battlefield, exile it instead of putting it anywhere else."
+        return {"kind": "replacement", "replacement": "exile_instead", "from": "leaves", "effects": []}
     m = EXILE_INSTEAD_SELF.match(text)
     if m:
         return {"kind": "replacement", "replacement": "exile_instead",
                 "from": "battlefield" if m["what"] == "die" else "anywhere", "effects": []}
+    if SHUFFLE_INSTEAD_SELF.match(text):
+        return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
     m = LIBRARY_INSTEAD_SELF.match(text)
     if m:
         return {"kind": "replacement", "replacement": "library_instead", "from": "battlefield", "effects": [],
                 "position": "top" if m["pos"] == "top" else "bottom"}
+    rider = None
+    if (mr := _EXILE_RIDER.match(text)) is not None:  # -- zone replacements (wave 22C) -- "…, instead exile that card and create a 2/2 … token." (Kalitas)
+        parsed = parse_effects((mr["when"] or mr["and_"])[:1].upper() + (mr["when"] or mr["and_"])[1:] + ".", None)  # / "…, exile it instead. When you do, …" (Nemata)
+        if parsed is None or not parsed[0] or parsed[1] is not None or parsed[2] or any(e["do"] not in ("create_token", "gain_life") for e in parsed[0]):
+            return None
+        rider = {"effects": parsed[0], "reflexive": bool(mr["when"])}
+        text = mr["head"] + "exile it instead."
     m = EXILE_INSTEAD_STATIC.match(text)
+    if m is None and rider is not None:
+        return None
     if m:
         out = {"kind": "static", "static": "exile_instead", "effects": [],
+               **({"rider": rider} if rider is not None else {}),
                "from": "anywhere" if m["any"] else "battlefield",
                "graveyard_of": {"a": "any", "your": "you", "an opponent's": "opponent"}.get(m["whose"] or "a", "any")}
         if m["subject"] in ("a card or token", "a card") and m["what"] != "die" and not m["any"]:
@@ -4451,7 +4488,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
                 return None  # ("a creature card … from anywhere": a card in a hidden zone, not modeled)
             out["who"] = "types:Instant|Sorcery"
         else:
-            key = _selector_key(m["sel"])  # (a permanent: a battlefield object, "put into a graveyard" being "dies" for any permanent)
+            # (a permanent: a battlefield object, "put into a graveyard" being "dies" for any permanent; wave 22C: "another" = other than ~)
+            key = _selector_key(("other " if m["subject"].startswith("another ") else "") + m["sel"])
             if key is None:
                 return None
             out["who"] = key
@@ -4480,6 +4518,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 # replacements.replace_move with the other "exile instead" effects (700.4: dies = put into a
 # graveyard from the battlefield). Read by the hook in _parse_effects (before its "If …," condition).
 _DIES_THIS_TURN = re.compile(r"^if (?P<det>that|a|an) (?P<what>.+?) would die this turn, exile it instead$")
+_DEALT_NO_REGEN = re.compile(r"^(?:a creature|creatures) dealt damage this way can't be regenerated this turn$")
 _CREATURE_NO_REGEN_EXILE = re.compile(r"^if it's a creature, it can't be regenerated this turn, and if it would die this turn, exile it instead$")
 _DIES_THAT = {"creature": ["Creature"], "permanent": [], "creature or planeswalker": ["Creature", "Planeswalker"],
               "planeswalker": ["Planeswalker"]}
@@ -4518,6 +4557,21 @@ def _turn_record(text: str) -> list[dict[str, Any]] | None:
 
 def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
     """A sentence that sets up a replacement effect for the rest of the turn, or None."""
+    if _DEALT_NO_REGEN.match(text) is not None:  # -- regeneration (wave 22C) -- "A creature dealt damage this way can't be regenerated this turn."
+        dmg = [(i, e) for i, e in enumerate(effects) if e.get("do") in ("damage", "fight")]
+        if not dmg:
+            return None
+        out = []
+        for i, e in dmg:
+            e["dealt_as"] = e.get("dealt_as") or f"ref:d{i}"
+            out.append({"do": "no_regen_turn", "dealt": e["dealt_as"], "types": ["Creature"]})
+        return out
+    from app.rules import (
+        leave_exile,  # -- zone replacements (wave 22C) -- "If it would leave the battlefield, exile it instead of …"
+    )
+
+    if effects and (left := leave_exile.sentence(text)) is not None:
+        return left
     if _CREATURE_NO_REGEN_EXILE.match(text):  # -- can't regenerate (wave 19E) -- "If it's a creature, it can't be regenerated this turn, …"
         refs = {e["who"] for e in effects if isinstance(e.get("who"), str) and _group_of(e) is not None}
         found = [w for w in refs if (g := _group_of({"who": w})) is not None and g < len(groups)

@@ -796,9 +796,7 @@ def test_wordings_that_stay_manual():
     from tests.test_rules_scripts import ch
 
     for text in [
-        # "you would put": who puts the counters (Vorinclex, Monstrous Raider)
-        "If you would put one or more counters on a permanent or player, put twice that many of each of those kinds of "
-        "counters on that permanent or player instead.",
+        # ("you would put" is automated since wave 22C: tests/test_rules_wave22c_replacements.py)
         # "may instead" (Jinnie Fay) — (wave 3R2: a different token added, Chatterfang, and redirection, Pariah, are
         # automated: tests/test_rules_refused_grants.py)
         "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste "
@@ -809,9 +807,9 @@ def test_wordings_that_stay_manual():
         "If you would draw a card, you may instead choose land or nonland and reveal cards from the top of your library "
         "until you reveal a card of the chosen kind. Put that card into your hand and put all other cards revealed this "
         "way on the bottom of your library in any order.",
-        # Kalitas: exile and a token (a zone replacement with an extra event)
+        # (Kalitas: exile and a token is automated since wave 22C: tests/test_rules_wave22c_zones.py)
         "If a nontoken creature an opponent controls would die, instead exile that card and create a 2/2 black Zombie "
-        "creature token.",
+        "creature token and draw a card.",
         # damage: a union that isn't one of the two properties ("a red or artifact source" is read since wave 9B:
         # tests/test_rules_wave9b_damage_plus.py)
         "If a red or artifact and white source you control would deal damage to an opponent or a permanent an opponent "

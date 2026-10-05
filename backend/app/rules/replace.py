@@ -244,7 +244,9 @@ class Planner:
 
     # -- kind-specific rules ------------------------------------------------------------------------
     def applies(self, c: Candidate, ev: Event, sim: Sim) -> bool:
-        if c.event != ev["kind"] or c.id in (ev.get("applied") or ()):
+        # (-- counter putters (wave 22C) -- "… on a permanent or player": one counters static also applies to player events)
+        if (c.event != ev["kind"] and not (c.event == "counters" and ev["kind"] == "player_counters" and c.match.get("players"))) \
+                or c.id in (ev.get("applied") or ()):
             return False
         fn = _APPLIES.get(ev["kind"])
         return bool(fn and fn(self.plan, c, ev, sim))
@@ -769,6 +771,8 @@ def _counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     m = c.match
     if m.get("counter") and m["counter"] != ev["counter"]:
         return False
+    if not _putter_ok(c, ev):
+        return False
     if m.get("effect_only") and not ev.get("effect"):
         return False  # "If an effect would put …": not a cost (Doubling Season; 614.16)
     card, ch = _counter_object(plan, ev)
@@ -782,12 +786,30 @@ def _counters_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event
     if op.get("entering"):  # -- counters (wave 5H) --
         return [{**ev, "n": max(0, ev["n"] + int(op["n"]) * _entering_times(plan, c, ev))}]
     n = ev["n"] * int(op["n"]) if op["do"] == "mul" else ev["n"] + int(op["n"]) if op["do"] == "add" else ev["n"]
+    if op["do"] == "half":  # -- counter putters (wave 22C) -- "half that many … rounded down" (Vorinclex)
+        n = ev["n"] // 2
     return [{**ev, "n": max(0, n)}]
+
+
+def _putter_ok(c: Candidate, ev: Event) -> bool:
+    """-- counter putters (wave 22C) -- "If you / an opponent would put …": the player putting them (``by``) is the
+    static's controller or not (122.6a, 120.3d). Poison "given" (120.3b/g) is left to the players: ``give`` events
+    don't match (UNVERIFIED whether giving is putting)."""
+    putter = c.match.get("putter")
+    if not putter:
+        return True
+    return not ev.get("give") and bool(ev.get("by")) and (ev["by"] == c.controller) == (putter == "you")
 
 
 def _player_counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if ev["n"] <= 0:
         return False
+    if c.event == "counters":  # -- counter putters (wave 22C) -- "on a permanent or player" / "or on yourself"
+        if c.match["players"] == "you" and ev["player"] != c.controller:
+            return False
+        if c.match.get("counter") and c.match["counter"] != ev["counter"]:
+            return False
+        return _putter_ok(c, ev)
     who = c.match.get("who")
     return not (who == "you" and ev["player"] != c.controller)
 
@@ -846,7 +868,8 @@ class CounterPlan:
 
 def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effect: bool,
                   entering: dict[str, str] | None, answers: dict[str, str], ask: bool,
-                  cands: list[Candidate] | None = None, newcomers: list[str] | None = None) -> CounterPlan | Ask:
+                  cands: list[Candidate] | None = None, newcomers: list[str] | None = None,
+                  give: bool = False) -> CounterPlan | Ask:
     planner = Planner(plan, cands if cands is not None else candidates(plan, ("counters", "player_counters")), answers, ask=ask)
     finals: list[tuple[Event, list[Event]]] = []
     events: list[Event] = []
@@ -857,7 +880,8 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
                          if not any(p[0] == cid and p[1] == kind for p in puts)]
     for target, kind, n in puts:
         if target in plan.state.players:
-            events.append({"kind": "player_counters", "player": target, "counter": kind, "n": int(n), "applied": []})
+            events.append({"kind": "player_counters", "player": target, "counter": kind, "n": int(n), "by": by, "applied": [],
+                           **({"give": True} if give or target != by else {})})  # (counters one player "gives" another: 120.3b, left to the players)
         elif target in plan.state.cards:
             ev: Event = {"kind": "counters", "card": target, "oid": plan.oid(target), "counter": kind, "n": int(n),
                          "by": by, "effect": bool(effect), "applied": []}
@@ -881,6 +905,17 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
     return CounterPlan(finals, planner)
 
 
+def _note_give(plan: Plan, cands: list[Candidate], before: Event) -> None:
+    """-- counter putters (wave 22C) -- poison "given" (120.3b/g): is giving putting? UNVERIFIED: a putter static is left to the players."""
+    if not before.get("give"):
+        return
+    held = [c.label for c in cands if c.match.get("putter") and c.match.get("players")
+            and (c.match["players"] == "any" or before["player"] == c.controller)]
+    if held:
+        plan.note(f"{' and '.join(held)} may apply to the poison counters given to {plan.name(before['player'])} "
+                  "(120.3b: whether giving counters is putting them isn't settled): apply it by hand if it does")
+
+
 def do_counters(plan: Plan, planned: CounterPlan, *, by: str) -> None:
     """The planned counters as table actions: the same kind and number for several objects is one
     step (one event batch), as without replacement effects."""
@@ -888,6 +923,7 @@ def do_counters(plan: Plan, planned: CounterPlan, *, by: str) -> None:
     groups: dict[tuple[str, str, int], list[str]] = {}
     for before, out in planned.finals:
         note_applied(plan, before, out, actor=by)
+        _note_give(plan, planned.planner.cands, before)
         for ev in out:
             if ev["n"] == 0:
                 continue
@@ -1578,9 +1614,9 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
     # the results' own replacement effects, in the same answers (120.4c)
     if counters:
         cands = candidates(plan, ("counters", "player_counters"))
-        for by in dict.fromkeys(b for *_, b in counters):
-            puts = [(t, k, n) for t, k, n, b in counters if b == by]
-            cp = plan_counters(plan, puts, by=by, effect=False, entering=None, answers=answers, ask=ask, cands=cands)
+        for by, give in dict.fromkeys((b, k == "poison") for _, k, _n, b in counters):  # (poison is "given": 120.3b)
+            puts = [(t, k, n) for t, k, n, b in counters if b == by and (k == "poison") == give]
+            cp = plan_counters(plan, puts, by=by, effect=False, entering=None, answers=answers, ask=ask, cands=cands, give=give)
             if isinstance(cp, Ask):
                 return cp
             out.left.append(cp.planner)
@@ -1627,6 +1663,7 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
         plan.note(text, actor=actor)
     for before, finals in [*out.counter_finals, *out.life_finals]:
         note_applied(plan, before, finals, actor=actor)
+        _note_give(plan, candidates(plan, "counters"), before)
     commit_shields(plan, out.shields)
     # -- counters (wave 7C) --
     from app.rules import shield_counters

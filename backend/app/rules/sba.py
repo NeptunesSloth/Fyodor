@@ -147,6 +147,7 @@ def find(plan: Plan) -> Found:
     # -- token & pump wordings (wave 6C) -- 704.5z: of one player's Roles on a permanent, only the newest stays
     from app.rules import roles
 
+    out.dying = [(c, why) for c, why in out.dying if c.id not in plan.rules.pending_616]  # (-- zone replacements (wave 22C) -- held)
     dying = {c.id for c, _ in out.dying}
     out.dying += [(c, "a newer Role of its controller is attached to the same permanent (704.5z)")
                   for c in roles.stale_roles(plan) if c.id not in dying]
@@ -191,6 +192,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
     """One simultaneous check. Returns True if anything happened."""
     state = plan.state
     r = plan.rules
+    if r.pending_616:  # -- zone replacements (wave 22C) -- 616.1: a held card's controller chooses before anything else
+        from app.rules.replacements import offer_616
+
+        if offer_616(plan):
+            return True
     found = find(plan)
     if found.vanishing:
         plan.do({"type": "delete_card", "card_ids": [c.id for c in found.vanishing], "force": True},

@@ -752,7 +752,8 @@ def test_reaper_only_exiles_opponents_creatures(cards):
 @pytest.mark.parametrize("text", [
     "As ~ enters, you may reveal a Plains or Island card from your hand. If you don't, ~ enters tapped.",
     "~ enters tapped unless a player has 13 or less life.",
-    "If a creature an opponent controls would die, exile it instead. When you do, create a 2/2 green Wolf creature token.",
+    # ("… exile it instead. When you do, create a token" is read since wave 22C: tests/test_rules_wave22c_zones.py)
+    "If a creature an opponent controls would die, exile it instead. When you do, you may pay {2}. If you do, create a 2/2 green Wolf creature token.",
     "Prevent all damage that would be dealt to you and permanents you control this turn by sources you don't control.",
     "~ enters tapped unless you control a Plains or an Island or it's your turn.",
 ])

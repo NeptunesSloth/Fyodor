@@ -58,7 +58,7 @@ def _static(event: str, match: dict[str, Any], op: dict[str, Any]) -> Definition
 def _object(phrase: str) -> dict[str, Any] | None:
     """"~" (the permanent itself), "equipped / enchanted creature" (what it's attached to), or "a /
     an / another <group>" as a selector key (battlefield objects only)."""
-    phrase = phrase.strip()
+    phrase = phrase.strip().replace(" your team controls", " you control")  # (102.4: outside a team game "your team" is you: Pir)
     if phrase == "~":
         return {"self": True}
     if phrase in ("equipped creature", "enchanted creature"):
@@ -114,7 +114,37 @@ _PLAYER_COUNTERS = re.compile(r"^If you would get one or more counters, you get 
                               r"kinds of counters instead\.$")
 
 
+# -- counter putters (wave 22C) -- "If you / an opponent would put one or more counters on …" (Vorinclex, Lae'zel): the
+# replacement applies to the counters a given player puts (122.6a: an entering permanent's controller puts its counters;
+# 120.3d: wither / infect damage has its source's controller put -1/-1 counters). 120.3b / 120.3g poison is "given", not
+# "put": UNVERIFIED whether that is "putting", so those events are left to the players (see replace.do_counters).
+_PUTTER = re.compile(r"^If (?P<who>you|an opponent) would put one or more counters on (?P<on>.+?), (?:put|they put) "
+                     r"(?P<how>twice that many|half that many|that many plus one) of each of those kinds of counters on "
+                     r"that permanent or player instead(?P<down>, rounded down)?\.$")
+_PUTTER_OPS: dict[str, dict[str, Any]] = {"twice that many": {"do": "mul", "n": 2}, "that many plus one": {"do": "add", "n": 1}, "half that many": {"do": "half"}}
+
+
+def _putter(m: re.Match[str]) -> Definition | None:
+    if (m["how"] == "half that many") != bool(m["down"]):  # ("half" reads only with "rounded down")
+        return None
+    on, players = m["on"], None
+    if on == "a permanent or player":
+        on, players = "a permanent", "any"
+    elif on.endswith(" or on yourself") and m["who"] == "you":
+        on, players = on[: -len(" or on yourself")], "you"
+    obj = _object(on)
+    if obj is None:
+        return None
+    match: dict[str, Any] = {"on": obj, "putter": "you" if m["who"] == "you" else "opponent"}
+    if players:
+        match["players"] = players
+    return _static("counters", match, _PUTTER_OPS[m["how"]])
+
+
 def _counters(text: str) -> Definition | None:
+    m = _PUTTER.match(text)
+    if m:
+        return _putter(m)
     m = _DOUBLING_SEASON.match(text)
     if m:
         on = _object(m["on"])

@@ -51,6 +51,7 @@ SUPPORTED_REPLACEMENTS: set[str] = {
     "enters_turn_down",  # "As ~ enters, turn all other nontoken creatures face down." (708.2a; wave 18A: replacements.turn_down)
     "exile_instead",  # "If ~ would die / be put into a graveyard from anywhere, exile it instead" (own and statics)
     "library_instead",  # "If ~ would die, put it on top of / on the bottom of its owner's library instead" (wave 20B)
+    "shuffle_instead",  # -- zone replacements (wave 22C) -- "… reveal ~ and shuffle it into its owner's library instead" (Blightsteel)
     "prevent",  # "Prevent all [combat] damage that would be dealt [to …] [by …] [this turn]" (615)
 }
 # -- copy system (wave 2F): "You may have ~ enter as a copy of …[, except …]" (707.5, 614.1c, 614.12a;
@@ -160,6 +161,8 @@ SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"redirect"}
 SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"prevent_half_up"}
 # … and token creation adding a different token (Peregrin Took, Chatterfang: app/rules/extra_tokens.py)
 SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra"}
+# -- replacements & prevention (wave 22C) -- "put half that many … rounded down" (Vorinclex) on counters
+SUPPORTED_REPLACE_OPS["counters"] = SUPPORTED_REPLACE_OPS["counters"] | {"half"}
 SUPPORTED_REPLACEMENTS |= {
     "enters_tapped_others",  # 614.1d, 614.12: "Creatures your opponents control enter tapped."
     "exile_if_dies",  # "If that creature / a creature dealt damage this way would die this turn, exile it instead." (611.2a)

@@ -919,6 +919,10 @@ class RulesState(BaseModel):
     # 903.9b: commanders just put into their owner's hand / library (card id -> "hand" | "library")
     # whose owner hasn't yet said whether it goes to the command zone instead (asked before priority)
     pending_903_9b: dict[str, str] = Field(default_factory=dict)
+    # -- zone replacements (wave 22C) -- 616.1: a card that would go to a graveyard where two replacement effects with
+    # different results apply (Blightsteel's shuffle vs Rest in Peace) stays where it is until its controller (owner if
+    # it has none) picks the one that applies: card id -> {"oid", "dest", "options": {outcome: source label}}
+    pending_616: dict[str, dict[str, Any]] = Field(default_factory=dict)
     # 903.9b asked *before* the move, as a resolving effect is about to put a commander into its
     # owner's hand or library: "<object id>><hand|library>" -> "yes" (command zone) / "no",
     # consumed by that move (app/rules/replacements.ask_903_9b_first)
