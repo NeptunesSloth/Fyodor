@@ -87,7 +87,7 @@ TRIGGERS = [
     (re.compile(r"^When ~ leaves the battlefield, (?P<body>.+)$"), "ltb_self"),
     (re.compile(r"^At the beginning of your upkeep, (?P<body>.+)$"), "upkeep_you"),
     (re.compile(r"^At the beginning of your end step, (?P<body>.+)$"), "end_step_you"),
-    (re.compile(r"^Whenever ~ attacks, (?P<body>.+)$"), "attacks_self"),
+    (re.compile(r"^Whenever ~ attacks, (?!blocks, or )(?P<body>.+)$"), "attacks_self"),
     (re.compile(r"^Whenever ~ enters or attacks, (?P<body>.+)$"), "enters_or_attacks_self"),
     (re.compile(r"^(?:Landfall — )?Whenever a land you control enters, (?P<body>.+)$"), "landfall"),
     (re.compile(r"^When ~ becomes the target of a spell or ability, (?P<body>.+)$"), "targeted_self"),
@@ -362,6 +362,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         return None
     if event == "either" and cond.get("subject") in ("self", "self_or", "sel", "host") and all(c["event"] in _GONE for c in cond["conds"]):
         return "self_gone" if cond["subject"] == "self" else "event_gone"  # -- trigger tail (wave 15B) -- "dies or is put into exile"
+    if event == "either" and cond.get("subject") == "self" and all(c["event"] in _STAYING for c in cond["conds"]):
+        return "self"  # -- history (wave 22E) -- "Whenever ~ attacks, blocks, or becomes the target of a spell, it deals …"
     if event == "multi":
         if cond.get("subject") == "host":  # -- attached events (wave 4L) -- the attacking / blocking creature
             return "event" if all(x in _STAYING for x in cond["events"]) else None

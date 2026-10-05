@@ -31,7 +31,11 @@ EXTRA += [card("Probe Cantrip", set_code="t22e", number="E90", mana_cost="{U}", 
           card("Probe Burst", set_code="t22e", number="E91", mana_cost="{R}", cmc=1.0, type_line="Instant", colors=["R"],
                color_identity=["R"], oracle_text="Probe Burst deals 1 damage to any target."),
           card("Probe Soldier", set_code="t22e", number="E92", mana_cost="{1}{W}", cmc=2.0, type_line="Creature — Human Soldier",
-               colors=["W"], color_identity=["W"], oracle_text="", power="1", toughness="1")]
+               colors=["W"], color_identity=["W"], oracle_text="", power="1", toughness="1"),
+          card("Probe Reanimate", set_code="t22e", number="E93", mana_cost="{B}", cmc=1.0, type_line="Sorcery", colors=["B"],
+               color_identity=["B"], oracle_text="Return target creature card from your graveyard to the battlefield."),
+          card("Probe Cheat", set_code="t22e", number="E94", mana_cost="{G}", cmc=1.0, type_line="Sorcery", colors=["G"],
+               color_identity=["G"], oracle_text="You may put a creature card from your hand onto the battlefield.")]
 
 
 @pytest.fixture()
@@ -189,3 +193,74 @@ def test_you_or_a_permanent_unsettled_mariner(cards):
     settle_stack(s)
     assert s.state.cards[soldier.id].zone == "p1:battlefield" and s.state.cards[soldier.id].damage == 0
     check(s)
+
+
+def test_attacks_blocks_or_becomes_the_target_giggling_skitterspike(cards):
+    s = table(cards, ["Giggling Skitterspike"])
+    spike = card_named(s, "Giggling Skitterspike")
+    burst_at(s, "p2", "p1")
+    burst_at(s, spike.id, "p2")  # Bob's own spell on it: it deals damage equal to its power (1) to each opponent of its controller
+    settle_stack(s)
+    assert life(s, "p2") == 40 - 1 - 1 and zone_of(s, "Giggling Skitterspike") == "p1:battlefield"
+    check(s)
+
+
+# -- 603.2 / 603.4: where it entered from, and whether it was cast ----------------------------------------------------
+def cast_spell(s, name, mana_pool, targets=None, pid="p1"):
+    c = card_named(s, name, pid)
+    if c.zone != f"{pid}:hand":
+        act(s, pid, type="move", card_ids=[c.id], to={"zone": "hand"})
+    act(s, pid, type="add_mana", player=pid, mana=mana_pool)
+    act(s, pid, type="cast_spell", card_id=c.id, **({"targets": targets} if targets else {}))
+    return c
+
+
+def settle_for(s, *ids):
+    """Resolve the stack, picking ``ids`` whenever a decision offers one of them."""
+    drive(s, lambda d: [i for i in ids if any(o.id == i for o in d.options)][:1] or None)
+
+
+def test_enters_from_a_graveyard_treacherous_pit_dweller(cards):
+    s = build(cards, ["Treacherous Pit-Dweller", "Probe Reanimate", "Probe Cheat"], [])
+    dweller = to_hand(s, "Treacherous Pit-Dweller")
+    cast_spell(s, "Probe Cheat", {"G": 1})  # from a hand: nothing happens
+    settle_for(s, dweller.id, "yes")
+    assert s.state.cards[dweller.id].zone == "p1:battlefield" and s.state.cards[dweller.id].controller == "p1"
+    act(s, "p1", type="move", card_ids=[dweller.id], to={"player": "p1", "zone": "graveyard"})
+    cast_spell(s, "Probe Reanimate", {"B": 1}, targets=[dweller.id])  # from a graveyard: Bob takes it
+    settle_for(s)
+    assert s.state.cards[dweller.id].zone == "p2:battlefield" and s.state.cards[dweller.id].controller == "p2"
+    check(s)
+
+
+def test_if_it_entered_from_your_graveyard_or_you_cast_it_archfiends_vessel(cards):
+    s = build(cards, ["Archfiend's Vessel", "Probe Reanimate", "Probe Cheat"], [])
+    vessel = to_hand(s, "Archfiend's Vessel")
+    cast_spell(s, "Probe Cheat", {"G": 1})
+    settle_for(s, vessel.id, "yes")
+    assert zone_of(s, "Archfiend's Vessel") == "p1:battlefield"  # (from a hand, not cast: the intervening "if" fails)
+    act(s, "p1", type="move", card_ids=[vessel.id], to={"player": "p1", "zone": "graveyard"})
+    cast_spell(s, "Probe Reanimate", {"B": 1}, targets=[vessel.id])  # from its owner's graveyard
+    settle_for(s, "yes")
+    assert zone_of(s, "Archfiend's Vessel") == "p1:exile"
+    [demon] = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    assert demon.name == "Demon"
+    check(s)
+
+
+def test_if_it_wasnt_cast_preston_the_vanisher(cards):
+    s = build(cards, ["Preston, the Vanisher", "Probe Soldier", "Probe Soldier", "Probe Cheat"], [])
+    kit_put(s, "Preston, the Vanisher")
+    first, second = [c for c in s.state.cards.values() if c.name == "Probe Soldier" and c.owner == "p1"]
+    act(s, "p1", type="move", card_ids=[first.id], to={"zone": "hand"})
+    cast_spell(s, "Probe Cheat", {"G": 1})  # put onto the battlefield, not cast: a copy
+    settle_for(s, first.id, "yes")
+    copies = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    assert len(copies) == 1 and ch(s, copies[0]).pt == (0, 1) and "Illusion" in ch(s, copies[0]).subtypes
+    cast_spell(s, "Probe Soldier", {"W": 1, "C": 1})  # cast: no copy
+    settle_for(s)
+    assert zone_of(s, "Probe Soldier") == "p1:battlefield"
+    assert len([c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]) == 1
+    check(s)
+
+

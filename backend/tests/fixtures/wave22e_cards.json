@@ -146,5 +146,91 @@
   "keywords": [
    "Flying"
   ]
+ },
+ {
+  "name": "Giggling Skitterspike",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact Creature \u2014 Toy",
+  "oracle_text": "Indestructible\nWhenever this creature attacks, blocks, or becomes the target of a spell, it deals damage equal to its power to each opponent.\n{5}: Monstrosity 5. (If this creature isn't monstrous, put five +1/+1 counters on it and it becomes monstrous.)",
+  "power": "1",
+  "toughness": "1",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Indestructible",
+   "Monstrosity"
+  ]
+ },
+ {
+  "name": "Treacherous Pit-Dweller",
+  "layout": "normal",
+  "mana_cost": "{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Demon",
+  "oracle_text": "When this creature enters from a graveyard, target opponent gains control of it.\nUndying (When this creature dies, if it had no +1/+1 counters on it, return it to the battlefield under its owner's control with a +1/+1 counter on it.)",
+  "power": "4",
+  "toughness": "3",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Undying"
+  ]
+ },
+ {
+  "name": "Archfiend's Vessel",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Creature \u2014 Human Cleric",
+  "oracle_text": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)\nWhen this creature enters, if it entered from your graveyard or you cast it from your graveyard, exile it. If you do, create a 5/5 black Demon creature token with flying.",
+  "power": "1",
+  "toughness": "1",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Lifelink"
+  ]
+ },
+ {
+  "name": "Preston, the Vanisher",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature \u2014 Rabbit Wizard",
+  "oracle_text": "Whenever another nontoken creature you control enters, if it wasn't cast, create a token that's a copy of that creature, except it's a 0/1 white Illusion.\n{1}{W}, Sacrifice five Illusions: Exile target nonland permanent.",
+  "power": "2",
+  "toughness": "5",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Dredging Claw",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact \u2014 Equipment",
+  "oracle_text": "Equipped creature gets +1/+0 and has menace. (It can't be blocked except by two or more creatures.)\nWhenever a creature enters from your graveyard, you may attach this Equipment to it.\nEquip {1}{B} ({1}{B}: Attach to target creature you control. Equip only as a sorcery.)",
+  "colors": [],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Equip"
+  ]
  }
 ]

@@ -463,7 +463,8 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
         got = _object_then(plan, e.card, e.new_object_id)
         if got is not None:
             live = _live(plan, got[0])
-            entered: dict[str, Any] = {"oid": e.new_object_id, "snap": None if live else r.lki.get(e.new_object_id or "")}
+            entered: dict[str, Any] = {"oid": e.new_object_id, "snap": None if live else r.lki.get(e.new_object_id or ""),
+                                       "entered_from": e.from_zone}  # (wave 22E: "enters from your graveyard")
             out.append(("enter", got[0], got[1], got[0].controller, entered))
             if e.from_zone is None and got[0].is_token:  # 111.2: a token was created
                 out.append(("create_token", got[0], got[1], got[0].controller,
@@ -725,6 +726,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             if spell is None or spell.ability is not None or not selectors.matches(
                     plan, selectors.from_key(cond["spell_sel"]), spell, plan.ch(spell), you, watcher.id):
                 return False
+    if event == "enter" and cond.get("entered_from"):  # -- history (wave 22E) -- "Whenever a creature enters from your graveyard"
+        from app.rules import history
+
+        if not history.entered_from(info.get("entered_from"), cond["entered_from"], you):
+            return False
     if event == "enter" and cond.get("entered_tapped") is not None:  # -- entry forms (wave 5F) --
         from app.rules import entry_forms
 

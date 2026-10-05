@@ -215,6 +215,17 @@ def _parse(c: str) -> Condition | None:
         return found
     if c.endswith(" attacks an opponent"):
         return _parse(c[: -len("an opponent")] + "one of your opponents")
+    # -- history (wave 22E) -- "When ~ enters from a graveyard", "Whenever a creature enters from your graveyard": the zone it came from
+    # is part of the event (603.2; the engine records it with the entry: rules_state.Entry.from_zone)
+    m = re.fullmatch(r"(?P<s>.+?) enters?(?: the battlefield)? from (?P<z>your graveyard|a graveyard|exile|your hand)", c)
+    if m:
+        inner = _parse(f"{m['s']} enters")
+        if inner is None or inner.get("event") not in ("enter", "either") or inner.get("aggregate") \
+                or (inner["event"] == "either" and any(x["event"] != "enter" for x in inner["conds"])):
+            return None
+        if inner["event"] == "either":
+            return {**inner, "conds": [{**x, "entered_from": m["z"].replace("a ", "")} for x in inner["conds"]]}
+        return {**inner, "entered_from": m["z"].replace("a ", "")}
     # -- entry forms (wave 11F) -- "Whenever a creature enters [the battlefield] under your control" is "a creature you control
     # enters" (603.6a: an object entering the battlefield, under that player's control); "under an opponent's control":
     # "an opponent controls". (A permanent "an opponent owns" is another thing: not read.)
@@ -366,6 +377,15 @@ def _parse(c: str) -> Condition | None:
         if a is None or b is None or a.get("aggregate") or b.get("aggregate") or a["event"] == b["event"]:
             return None
         return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
+    # -- history (wave 22E) -- "Whenever this creature attacks, blocks, or becomes the target of a spell": a list of verbs for one
+    # subject, each its own event (603.2c); every part must read on its own with that subject
+    m = re.fullmatch(r"(?P<s>~|this creature|this permanent) (?P<rest>[^,]+(?:, [^,]+)+), or (?P<last>.+)", c)
+    if m:
+        parts = [_parse(f"{m['s']} {p}") for p in (*m["rest"].split(", "), m["last"])]
+        if any(p is None or p.get("aggregate") or p["event"] in ("either", "multi") for p in parts) \
+                or len({p["event"] for p in parts if p}) != len(parts):
+            return None
+        return {"event": "either", "subject": "self", "conds": parts}
     # -- triggers (wave 17D) -- "Whenever you cast a black spell or a Swamp you control enters" (Staff of the Death Magus): two whole
     # conditions, each its own event (603.2c); split where both halves read on their own
     for part in re.finditer(r" or ", c):

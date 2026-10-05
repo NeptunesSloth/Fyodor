@@ -1308,6 +1308,9 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "it", "cast": {"total": "under_mv", "event_spell": True}}
     if _SPENT_OVER_PT.fullmatch(t):  # -- static_other sweep (wave 16B) -- increment: more than the source's power or toughness (702.190a)
         return {"object": "it", "cast": {"total": "over_min_pt", "event_spell": True}}
+    m = re.fullmatch(r"(?P<who>it|~|this creature|that creature) entered from (?P<z>your graveyard|a graveyard|exile|your hand)", t)
+    if m:  # -- history (wave 22E) -- Archfiend's Vessel: "if it entered from your graveyard or you cast it from your graveyard"
+        return {"object": "it" if m["who"] in ("it", "that creature") else "self", "cast": {"entered_from": m["z"].replace("a ", "")}}
     m = _CAST.fullmatch(t)
     if m:
         how: dict[str, Any] = {"by_you": bool(m["you"])}
@@ -1346,8 +1349,10 @@ def cast_conditions_on_source(cond: Condition) -> bool:
     """Is every condition about how a spell was cast in ``cond`` about the source itself (the spell, or the
     permanent it became)? (Not another object's: its record isn't kept once it resolved.)"""
     if "cast" in cond:  # (wave 5G: "no mana was spent to cast it" of a cast trigger's spell, still on the stack)
-        return cond.get("object") == "self" or (cond.get("object") == "event" and bool(
-            cond["cast"].get("no_mana") or cond["cast"].get("event_spell")))
+        # (-- history (wave 22E) -- the trigger's own object too: "if it wasn't cast", "if you didn't cast it from your hand" - a
+        # permanent keeps its spell's record under its own object id (engine.leave_stack), for as long as it, or its last known
+        # information, exists)
+        return cond.get("object") in ("self", "event")
     return all(cast_conditions_on_source(c) for k in ("all", "any") for c in cond.get(k, ())) and (
         "not" not in cond or cast_conditions_on_source(cond["not"]))
 
@@ -1363,15 +1368,27 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     the spell is on the stack, once it became a permanent and after that left (608.2h). No record — it wasn't cast
     (put onto the battlefield, a copy) — fails every such test."""
     how = cond["cast"]
+    if "entered_from" in how:  # -- history (wave 22E) -- "if it entered from your graveyard": where this turn's entry came from
+        from app.rules import context, history
+
+        refs = context._object_refs(ctx, context.EVENT) if cond.get("object") == "event" else []
+        oid = refs[0].object_id if refs else ctx.get("source_object") if cond.get("object") == "self" else None
+        return history.entry_came_from(plan, oid, how["entered_from"], ctx["controller"])
     if cond.get("object") == "event" and how.get("no_mana"):  # -- if you do (wave 5G) --
         return _no_mana_spent(plan, ctx)
     if cond.get("object") == "event" and how.get("event_spell"):  # -- ability words (wave 9C) -- opus
         if "from_mana" in how:  # -- mana provenance (wave 18B) -- "if mana from a Treasure was spent to cast it" (a cast trigger)
             return _mana_from_event(plan, ctx, how["from_mana"])
         return _total_mana_spent(plan, ctx, how["total"])
-    if cond.get("object") != "self":
+    if cond.get("object") == "event":  # -- history (wave 22E) -- the object the trigger's event was about, and how it was cast
+        from app.rules import context
+
+        refs = context._object_refs(ctx, context.EVENT)
+        record = plan.rules.payments.get(refs[0].object_id) if refs else None
+    elif cond.get("object") == "self":
+        record = plan.rules.payments.get(ctx.get("source_object") or "")
+    else:
         return False
-    record = plan.rules.payments.get(ctx.get("source_object") or "")
     if record is None or record.cast_from is None:
         return False
     if how.get("by_you") and record.controller != ctx["controller"]:

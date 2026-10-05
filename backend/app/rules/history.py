@@ -110,6 +110,24 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     raise ValueError(f"unknown history condition {cond!r}")
 
 
+# -- history (wave 22E) -- where a permanent entered from (Entry.from_zone, recorded as it entered: 603.2, 603.4)
+def entered_from(zone: str | None, want: str, you: str) -> bool:
+    """Did a permanent enter from this zone ("graveyard" | "your graveyard" | "exile" | "your hand" …)? ``zone`` is the zone key it left
+    ("<owner>:graveyard", "stack"); "your" is the ability controller's zone."""
+    if not zone:
+        return False
+    owner, _, name = zone.rpartition(":")
+    if want.startswith("your "):
+        return name == want[5:] and owner == you
+    return name == want
+
+
+def entry_came_from(plan: Plan, object_id: str | None, want: str, you: str) -> bool:
+    """"if it entered from your graveyard": the entry of the object this turn."""
+    return any(e.object_id == object_id and entered_from(e.from_zone, want, you) for e in reversed(log_for(plan).entered))
+# -- end history (wave 22E) --
+
+
 # -- refused modal/conditional (wave 3R1) --
 def entered(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> int:
     """How many permanents matching ``cond["sel"]`` entered the battlefield under the ability controller's control
