@@ -28,6 +28,9 @@ EXTRA = [
          oracle_text='Nonbasic lands are Mountains.', colors=['R'], color_identity=['R']),
     card('Harbinger of the Seas', set_code="tst", number="22A03", mana_cost='{1}{U}{U}', cmc=3.0, type_line='Creature — Merfolk Wizard',
          oracle_text='Nonbasic lands are Islands.', power='2', toughness='2', colors=['U'], color_identity=['U']),
+    card('Conversion', set_code="tst", number="22A25", mana_cost='{2}{W}{W}', cmc=4.0, type_line='Enchantment',
+         oracle_text='At the beginning of your upkeep, sacrifice this enchantment unless you pay {W}{W}.\nAll Mountains are Plains.',
+         colors=['W'], color_identity=['W']),
     card('Humility', set_code="tst", number="22A04", mana_cost='{2}{W}{W}', cmc=4.0, type_line='Enchantment',
          oracle_text='All creatures lose all abilities and have base power and toughness 1/1.', colors=['W'], color_identity=['W']),
     card('Dress Down', set_code="tst", number="22A05", mana_cost='{1}{U}', cmc=2.0, type_line='Enchantment',
@@ -431,4 +434,60 @@ def test_toxicrene_lands_have_one_mana_ability_and_lose_the_rest(cards):
     put(s, "Toxicrene", "battlefield")
     assert [a.text for a in ch(s, keep).abilities] == ["{T}: Add one mana of any color."]
     assert [a.text for a in ch(s, forest).abilities] == ["{T}: Add one mana of any color."]  # (the intrinsic one is lost too)
+    roundtrip(s)
+
+
+# -- the table stays fast with the group layers solved (test_rules_statics.py::test_full_board_derive_is_fast) --------------
+def test_full_board_with_layered_statics_derives_fast(cards):
+    import time
+
+    from tests.test_rules_combat import creature, table
+    from tests.game_helpers import turn_on
+
+    s = table(cards)
+    creature(s, "p1", "Moon", "0/4", "Nonbasic lands are Mountains.")
+    creature(s, "p1", "Banner", "0/4", "Creatures you control get +1/+1.")
+    creature(s, "p1", "Dress", "0/4", "Creatures you control have flying as long as you control a Mountain.")
+    creature(s, "p2", "Shade", "0/4", "All permanents are colorless.")
+    for i in range(35):
+        creature(s, "p1", f"A{i}", "2/2")
+    for i in range(36):
+        creature(s, "p2", f"B{i}", "2/2")
+    turn_on(s)
+    plan = Plan(s.state, "p1", cards, None)
+    field = [c for c in s.state.cards.values() if c.zone.endswith(":battlefield")]
+    for c in field:
+        plan.ch(c)
+    t0 = time.perf_counter()
+    for c in field:
+        plan.ch(c)
+    elapsed = time.perf_counter() - t0
+    a0 = next(c for c in field if c.name == "A0")
+    assert plan.ch(a0).pt == (3, 3) and plan.ch(a0).colors == set()
+    assert elapsed < 0.5, f"{elapsed * 1000:.0f} ms for a pass over {len(field)} permanents"
+
+
+# -- dependencies on what an effect changes (613.8a) -------------------------------------------------------------------
+@pytest.mark.parametrize("conversion_first", [True, False])
+def test_conversion_waits_for_blood_moon(cards, conversion_first):
+    """"All Mountains are Plains." applies to the objects that are Mountains: the lands Blood Moon makes Mountains are among
+    them whatever the timestamps (613.8a-b): every nonbasic land ends up a Plains, and the basic Mountain too."""
+    s = build(cards, [(1, "Blood Moon"), (1, "Conversion"), (1, "Command Tower"), (1, "Forest")])
+    tower, forest = put(s, "Command Tower", "battlefield"), put(s, "Forest", "battlefield")
+    for name in (["Conversion", "Blood Moon"] if conversion_first else ["Blood Moon", "Conversion"]):
+        put(s, name, "battlefield")
+    assert ch(s, tower).subtypes == {"Plains"} and mana_texts(s, tower) == ["{T}: Add {W}."]
+    assert ch(s, forest).subtypes == {"Forest"}
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("dryad_first", [True, False])
+def test_dryad_waits_for_ashaya(cards, dryad_first):
+    s = build(cards, [(1, "Dryad of the Ilysian Grove"), (1, "Ashaya, Soul of the Wild"), (1, "Forest")])
+    put(s, "Forest", "battlefield")
+    for name in (["Dryad of the Ilysian Grove", "Ashaya, Soul of the Wild"] if dryad_first
+                 else ["Ashaya, Soul of the Wild", "Dryad of the Ilysian Grove"]):
+        put(s, name, "battlefield")
+    dryad = next(c for c in s.state.cards.values() if c.name.startswith("Dryad"))
+    assert {"Plains", "Island", "Swamp", "Mountain", "Forest"} <= ch(s, dryad).subtypes and "Land" in ch(s, dryad).types
     roundtrip(s)

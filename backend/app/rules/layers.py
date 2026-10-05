@@ -77,6 +77,7 @@ class Static:
     # -- layers (wave 22A) -- 613.6: a layered group static ("layered" in its definition: app/rules/group_layers.py) applies to the
     # objects it began applying to, in every layer; the objects (card ids) found when the table was solved. None: not solved.
     members: frozenset[str] | None = None
+    order: float = 0  # the timestamp its layer 4-5 parts are applied at: its own, or just after what it depends on (613.8b)
 
 
 _SOLVING: list[list[Static]] = []  # (wave 22A) the table being solved: group_layers.solve

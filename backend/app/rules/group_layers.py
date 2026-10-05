@@ -90,6 +90,9 @@ class _Solver:
         self.applied5: dict[str, list[tuple[int, dict[str, Any]]]] = {}
         self.members: dict[int, frozenset[str]] = {}
         self.removed: set[int] = set()
+        # the timestamp an effect is applied at: its own, or just after the effects it waited for (613.8b)
+        self.order: dict[int, float] = {}
+        self.waited: dict[int, set[int]] = {}
         self.dead: dict[str, tuple[int, int, int]] = {}  # permanents that lost all abilities → the ordering key of the latest effect
 
     # -- per-object state ----------------------------------------------------------------------
@@ -159,6 +162,8 @@ class _Solver:
         if len(pending) == 1:
             return pending[0]
         deps = {id(x): [y for y in pending if y is not x and self._depends(x, y)] for x in pending}
+        for x in pending:
+            self.waited.setdefault(id(x), set()).update(id(y) for y in deps[id(x)])
         ready = [x for x in pending if not deps[id(x)]]
         if ready:
             return min(ready, key=lambda st: st.seq)
@@ -189,8 +194,9 @@ class _Solver:
             if not self._begin(st, 4):
                 continue
             found = self._find(st)
+            self.order[id(st)] = max([st.seq, *(self.order[w] + 0.5 for w in self.waited.get(id(st), ()) if w in self.order)])
             for cid in found:
-                self.applied4[cid].append((st.seq, st.definition))
+                self.applied4[cid].append((self.order[id(st)], st.definition))
             if st.definition["layer4"].get("set_land_types"):  # 305.7: those lands lose the abilities of their rules text
                 for cid in found:
                     self.dead.setdefault(cid, (-1, 0, 0))
@@ -204,7 +210,7 @@ class _Solver:
             entry = _colors(self.state, st)
             if entry and id(st) in self.members:
                 for cid in self.members[id(st)]:
-                    self.applied5[cid].append((st.seq, entry))
+                    self.applied5[cid].append((self.order.get(id(st), st.seq), entry))
         for st in sorted(self.layered, key=lambda s: s.seq):  # layer 6 (613.1f): a permanent that loses all abilities
             if not st.definition.get("lose_all"):
                 continue
@@ -225,7 +231,7 @@ class _Solver:
             if id(st) in self.removed:
                 continue
             if st.definition.get("layered") and st.gate is None:
-                out.append(replace(st, members=self.members.get(id(st), frozenset())))
+                out.append(replace(st, members=self.members.get(id(st), frozenset()), order=self.order.get(id(st), st.seq)))
             elif st.source not in self.dead:  # 613.1f / 305.7: a permanent without abilities has no static abilities
                 out.append(st)
         return out, self.dead
@@ -253,10 +259,10 @@ def entries(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         elif not _elsewhere(st, card, ch):
             continue
         if d.get("layer4"):
-            layer4.append((st.seq, d))
+            layer4.append((st.order or st.seq, d))
         colors = _colors(state, st) if first_layer(d) <= 5 else None
         if colors is not None and ("set_colors" in colors or "add_colors" in colors):
-            layer5.append((st.seq, colors))
+            layer5.append((st.order or st.seq, colors))
     return layer4, layer5
 
 
