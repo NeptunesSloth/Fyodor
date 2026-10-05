@@ -135,6 +135,24 @@ _MANA_FROM = re.compile(r"(?:the amount of )?(?:\{S\}|mana from (?:an? )?(?P<wha
 _MANA_SPENT = re.compile(r"(?:the )?amount of mana spent to cast (?P<o>that spell|this spell|her|him|~|this creature)")
 
 
+_THAT_PLAYER = re.compile(r"\b(?:that player's|their|that player controls|they control|that player owns|they own)\b")
+_THAT_PLAYER_TO_YOU = {"that player's": "your", "their": "your", "that player controls": "you control", "they control": "you control",
+                       "that player owns": "you own", "they own": "you own"}
+
+
+def player_relative(phrase: str) -> Value | None:
+    """-- value grammar (wave 23C) -- "the number of artifacts that player controls" / "cards in their graveyard" / "creatures they control of the
+    chosen type" as a "where X is" definition: the phrase read for ONE player (the target or the trigger's: scripts._where_x binds it), as
+    ``{"for_player": "that_player", "of": <the count for "you">}``. A count of a hand or a library has no such reading here (a quantity per
+    recipient is sized_damage's)."""
+    if not _THAT_PLAYER.search(phrase):
+        return None
+    inner = _parse_count(_THAT_PLAYER.sub(lambda m: _THAT_PLAYER_TO_YOU[m[0]], phrase), it=None)
+    if inner is None or any(k in str(inner) for k in ("hand", "library", '"controller":"chosen"', '"zone_owner":"chosen"', "exiled_with", "'on'")):
+        return None
+    return {"for_player": "that_player", "of": inner}
+
+
 def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     """See ``_parse_count``. -- damage wordings (wave 6B) -- a count of what "that player" controls is a different
     number for each player it could name (the target player's, the recipient's: app/rules/sized_damage.py): never read
@@ -601,12 +619,14 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                  for c in selectors.candidates(plan, selectors.from_key(key), you, _other_than(ctx))]
         nums = [n for n in found if n is not None]
         return max(0, sum(nums) if "sum" in v else max(nums or [0]))
-    for stat in ("power", "toughness", "mana_value"):
+    for stat in ("power", "toughness", "mana_value", "colors"):
         if stat in v:
             got = _object(plan, ctx, v[stat])
             if got is None:
                 return 0
             obj, ch = got
+            if stat == "colors":  # -- value grammar (wave 23C) -- 105.1: how many of the five colors it is
+                return len(ch.colors)
             if stat == "mana_value":  # -- stack interaction (wave 5B) -- X on the stack counts (202.3e)
                 from app.rules.stack_interaction import mana_value
 
@@ -622,6 +642,11 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         kinds = set(v["attached"])
         return sum(1 for c in plan.state.cards.values() if c.attached_to == host and c.zone.endswith(":battlefield")
                    and plan.in_game(c) and kinds & plan.ch(c).subtypes)
+    if "for_player" in v:  # -- value grammar (wave 23C) -- "the number of cards in that player's graveyard": the count as that one player's ("you" of the phrase)
+        from app.rules import context
+
+        who = _target_players(plan, ctx) if v["for_player"] == "target" else context.players(plan, ctx, context.EVENT)
+        return evaluate(plan, {**ctx, "controller": who[0]}, v["of"]) if len(who) == 1 else 0
     if "counters_among" in v or "counter_kinds" in v:  # -- value grammar (wave 23C) -- counters on a group of permanents (122.1)
         held = [plan.state.cards[c].counters for c in selectors.candidates(plan, selectors.from_key(v["of"]), you, _other_than(ctx))]
         if "counter_kinds" in v:

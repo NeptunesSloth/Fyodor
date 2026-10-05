@@ -316,6 +316,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
         return {_STATS[m["stat"] or m["stat2"]]: "it:milled"}  # -- X sized by a count (wave 19F) -- the card a mill instruction milled (701.17)
     if (m := re.fullmatch(r"the (?P<stat>mana value) of (?:that|the) spell|the spell's (?P<stat2>mana value)", phrase)) is not None:
         return {"mana_value": "that_spell"}  # (wave 19F: a cast trigger's spell, or the one a counter instruction just countered)
+    if phrase in ("the number of colors that spell is", "the number of colors it is"):  # -- value grammar (wave 23C) -- how many colors an object is (105.1)
+        return {"colors": "that_spell" if "spell" in phrase else its}
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
     m = re.fullmatch(r"(?:(?P<its>its)|that (?P<noun>creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
                      r"(?P<spell>that spell's)|(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
@@ -336,9 +338,9 @@ def _stat(phrase: str, its: str = "it") -> Any:
         if sel is None or sel.player is not None or sel.zones not in ((), ("battlefield",)) or sel.other:
             raise _Fail
         return {_STATS[m["stat"] or m["stat2"]]: "target", "target_sel": sel.key()}
-    m = re.fullmatch(r"twice (?P<v>.+)", phrase)
+    m = re.fullmatch(r"(?:twice|(?P<k>two|three|four) times) (?P<v>.+)", phrase)  # (wave 23C: "three times this creature's power")
     if m:
-        return {"times": [2, _stat(m["v"], its)]}
+        return {"times": [values.NUMBERS[m["k"]] if m["k"] else 2, _stat(m["v"], its)]}
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
         return tw
     # -- damage sized by a count (wave 4E) -- "the number of charge counters on it": "it" is the sentence's subject when it
@@ -468,6 +470,9 @@ def _rider_value(phrase: str) -> Any:
                     r"the sacrificed (?:creature|artifact|permanent|land)'s|the discarded card's|the milled card's|the spell's|"
                     r"the exiled (?:creature )?card's|the exiled creature's) (?:power|toughness|mana value)", phrase) or re.fullmatch(
                         r"the mana value of (?:that spell|the spell|the exiled card|the milled card)", phrase):  # (wave 19F)
+        return _stat(phrase)
+    if phrase in ("the number of colors that spell is", "the number of colors it is") or re.fullmatch(
+            r"(?:two|three|four) times (?:its|~'s|this creature's|that creature's) (?:power|toughness|mana value)", phrase):  # -- value grammar (wave 23C) -- 105.1
         return _stat(phrase)
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
         return tw

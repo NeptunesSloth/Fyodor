@@ -466,7 +466,7 @@ _CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "
 # ("on": "for each +1/+1 counter on it" — the object a pronoun names, as for its power. Not "hand":
 # "that player's hand" names a player, which _bind_stats (objects only) can't bind — values reads
 # only "you" / "target" hands, so the phrase stays manual.)
-_STAT_KEYS = ("power", "toughness", "mana_value", "on")
+_STAT_KEYS = ("power", "toughness", "mana_value", "on", "colors")  # ("colors": wave 23C, how many colors the object is)
 # -- stack interaction (wave 5B) -- "Counter target spell. Its controller …": the counter records the
 # spell it countered (effects.counter), so "its controller" / "its mana value" read it as it last existed
 # on the stack (608.2h). Not a mover: after it, "it" stays the target (the countered card isn't "it").
@@ -2024,12 +2024,21 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     if len(found) != 1 or "{X}" in body:
         return None
     m = found[0]
-    value = language.x_definition(m["def"])
+    from app.rules import values
+
+    def defined_as(text: str) -> Any:
+        v = language.x_definition(text)
+        return (values.player_relative(text) or v) if v is None or "that_player" in json.dumps(v) else v
+
+    value, tail = defined_as(m["def"]), ""
+    if value is None and ", then " in m["def"]:  # -- value grammar (wave 23C) -- "Scry X, where X is the greatest mana value among permanents you control, then draw three cards."
+        defined, tail = m["def"].split(", then ", 1)  # (the definition ends where the next instruction begins)
+        value, tail = defined_as(defined), ", then " + tail
     start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
-    head, rest = body[start: m.start()], body[:start] + "\0" + body[m.end():]
+    head, rest = body[start: m.start()], body[:start] + "\0" + tail + body[m.end():]
     # (what the wrappers around the sentence grammar bind afterwards — "this way" counts, the target player's hand — is not read)
     if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"' + (''),
-                                  json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):  # (22D: the linked card)
+                                  json.dumps(value).replace('"for_player": "that_player"', "")) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):  # (22D: the linked card)
         return None
     now = _x_now()
     outer = list(now)
@@ -2107,18 +2116,35 @@ def _excess_redirect(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tu
 def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """-- refused zones/sized (wave 3R4) -- "the number of cards in that player's / their hand": the target player's
     when the ability targets one player (and names no other), else the player the trigger was about — only when the
-    ability also says "that player" for its recipient (``event_player``: _event_refs_ok checks the trigger has one)."""
+    ability also says "that player" for its recipient (``event_player``: _event_refs_ok checks the trigger has one).
+    -- value grammar (wave 23C) -- the same for a count of what "that player" controls / has in a graveyard
+    (``{"for_player": "that_player", "of": …}``, values.player_relative), and a count already read through the
+    selectors' trigger-bound "that player" beside a target player (rewritten to that player's own count)."""
     text = json.dumps(found[0]) if found is not None else ""
-    marker = '{"hand": "that_player"}'
-    if found is None or marker not in text:
+    marker, relative = '{"hand": "that_player"}', '"for_player": "that_player"'
+    selects = re.search(r'"count": "sel:.*?\\"(?:controller|zone_owner)\\":\\"that_player\\"', text) is not None
+    if found is None or not (marker in text or relative in text or selects):
         return found
     if (found[1] in ("player", "opponent") or str(found[1]).startswith("opponent_as:")) and '"event_player"' not in text:
         bound = "target"
-    elif found[1] is None and any(e.get("who") == "event_player" for e in found[0]):
+    elif found[1] is None and any(e.get("who") == "event_player" for e in found[0]) and (marker in text or relative in text):
         bound = "event"
     else:
-        return None
-    return json.loads(text.replace(marker, '{"hand": "' + bound + '"}')), found[1], found[2]
+        return None if marker in text or relative in text else found
+    effects = json.loads(text.replace(marker, '{"hand": "' + bound + '"}').replace(relative, f'"for_player": "{bound}"'))
+    return (_own_counts(effects) if bound == "target" else effects), found[1], found[2]
+
+
+def _own_counts(v: Any) -> Any:
+    """-- value grammar (wave 23C) -- ``{"count": <selector read for "that player">}`` → that (target) player's own count."""
+    if isinstance(v, list):
+        return [_own_counts(x) for x in v]
+    if not isinstance(v, dict):
+        return v
+    key = v.get("count")
+    if len(v) == 1 and isinstance(key, str) and re.search(r'"(?:controller|zone_owner)":"that_player"', key):
+        return {"for_player": "target", "of": {"count": re.sub(r'("(?:controller|zone_owner)":)"that_player"', r'\1"you"', key)}}
+    return {k: _own_counts(x) for k, x in v.items()}
 
 
 def _attached_host(found: tuple[list[dict[str, Any]], Any, bool] | None, it: str | None,
