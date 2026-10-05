@@ -80,8 +80,8 @@ def piece(text: str, extra: dict[str, Any]) -> bool | list[int] | None:
             return False
         _layer4(extra)["set_land_types"] = re.findall(_BASICS, m["t"])
         return True
-    if text == "is legendary":
-        _layer4(extra).setdefault("add_supertypes", []).append("Legendary")
+    if text in ("is legendary", "is snow"):  # (wave 20A: "Enchanted land is snow", 205.4a: a supertype added)
+        _layer4(extra).setdefault("add_supertypes", []).append(text[3:].capitalize())
         return True
     if text in ("is every creature type", "is all creature types"):  # (205.3m: "all creature types")
         _layer4(extra)["all_creature_types"] = True

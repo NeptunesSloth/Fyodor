@@ -3309,6 +3309,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     and re.search(r"\bthis card\b", body) is not None
                 if aura_card:
                     body = re.sub(r"\bthis card\b", "~", body)
+                # -- attached events (wave 20A) -- "Whenever enchanted creature attacks, put a +1/+1 counter on it. Then if it has three or more
+                # +1/+1 counters on it, sacrifice this Aura." (the Ordeals): the "it" that got the counter is the creature (or ~ itself)
+                if cond is not None and cond.get("subject", "self") in ("self", "host"):
+                    body = re.sub(r"(counters? on it\. Then if )it( has \w+ or more [^,.]+? counters on it,)",
+                                  rf"\g<1>{'enchanted creature' if cond.get('subject') == 'host' else '~'}\2", body)
                 if _trigger_antecedent(name, cond) is None:  # -- step triggers (wave 4J) -- "At the beginning of your draw
                     # step, if this artifact is tapped, it deals 1 damage to you." (Mana Vault): the only object named is ~
                     body = re.sub(r"^(if ~ is (?:tapped|untapped)), it deals ", r"\1, ~ deals ", body)

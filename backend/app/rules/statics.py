@@ -97,7 +97,7 @@ TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "
 # -- static grants (wave 15A) -- keywords whose whole meaning is one triggered ability (keyword_triggers.MEANINGS): granted as the
 # line itself (613.1f). Not modular / graft / living weapon / for mirrodin! / ravenous: those have a half that works as the
 # permanent enters (a granted one would miss it).
-MEANING_GRANTS = r"extort|ingest|melee|(?:poisonous|frenzy|afterlife|annihilator|afflict) \d+"
+MEANING_GRANTS = r"extort|ingest|melee|myriad|(?:poisonous|frenzy|afterlife|annihilator|afflict) \d+"
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
                      "enchanted permanent": "permanent", "enchanted artifact": "artifact",
@@ -130,6 +130,12 @@ def parse(text: str) -> Definition | None:
     t = re.sub(r"^(Enchanted land) is an? (\d+)/(\d+) ([^.]+?)(?: with ([^.]+))?\. It's still a land\.$",
                lambda m: f"{m[1]} is a {m[4]} with base power and toughness {m[2]}/{m[3]} in addition to its other types"
                          + (f" and has {m[5]}." if m[5] else "."), t)
+    # -- attached events (wave 20A) -- "Enchanted creature is a Citizen with base power and toughness 1/1. It has defender and loses all
+    # other abilities." (Spider-Man No More), "… 0/1. It can't attack and loses all abilities." (Retro-Mutation): one static's three parts
+    t = re.sub(r"^(Enchanted creature is an? [^.]+? with base power and toughness \d+/\d+)\. It (has [a-z]+|can't attack) and "
+               r"(loses all (?:other )?abilities)\.$", r"\1, \2, and \3.", t)
+    # (Canopy Cover, Shielding Plax) 702.11b: hexproof is exactly "can't be the target of spells or abilities your opponents control"
+    t = re.sub(r"^((?:Enchanted|Equipped) creature) can't be the target of spells or abilities your opponents control\.$", r"\1 has hexproof.", t)
     t = t.replace(" be activated unless they're mana abilities", " be activated-nonmana")  # ("unless" is not a condition here)
     t = re.sub(r"(?<=Vehicles)\. Its (activated abilities can't be activated-nonmana\.)$", r", and its \1", t)
     if not t.endswith(".") and not t.endswith('."'):
@@ -278,6 +284,8 @@ def parse(text: str) -> Definition | None:
     # "Equipped creature gets +1/+1 for each counter on it" it's the equipped creature (not read)
     it = "self" if who == "self" else None
     x_value = values.parse_count(x_phrase, it=it) if x_phrase is not None else None
+    if x_value is None and who == "attached" and x_phrase == "its mana value":
+        x_value = {"relative": "mana_value"}  # -- attached events (wave 20A) -- the host's own (Hedron Matrix), read per object (611.3a)
     if x_phrase is not None and x_value is None:
         return None
     parts = _predicate(predicate, x_value, it)
@@ -641,6 +649,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
 
     extra: dict[str, Any] = {}
     predicate = attached_types.protect(predicate)
+    predicate = predicate.replace("instant and sorcery card", "instant or sorcery card")  # -- attached events (wave 20A) -- one noun phrase, not two pieces
     for piece in _pieces(predicate):
         rule = _rule(piece)
         if rule is not None:
