@@ -1983,6 +1983,17 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
     return False
 
 
+def announces_x(card: CardInstance, info: CardInfo) -> bool:
+    """-- X announced (wave 24D) -- 107.3a, 601.2b: does casting this card (either face) ask for X: {X} in its mana cost, or
+    an additional cost sized by X ("pay X life", "discard X cards"…)? The hint lists only the viewer's own cards."""
+    for face in (0, 1) if chars.is_two_spell_card(card, info) else (None,):
+        ch = chars.as_cast(card, info, face)
+        extra = costs.spell_additional_cost(ch.abilities)
+        if M.parse_cost(ch.mana_cost).x or (extra is not None and (extra.life_x or extra.x_chosen)):
+            return True
+    return False
+
+
 def _hint_targets(ch: Characteristics) -> tuple[str, ...]:
     """-- review (Codex) -- the targets a castability hint assumes: none for a spell without targets, else the best
     case for "spells that target …" cost changes (cost_changes.ANY_TARGET)."""
@@ -3522,7 +3533,10 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                 problem = ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),
                                           check_priority=check_priority, info=info)
                 if problem is None:
-                    out.append({"card_id": cid, "ability": ab.index})
+                    cost = ability_cost(ch, ab, state=state, card=card, info=info)
+                    # (wave 24D) 107.3k: X announced as the ability is activated ("{X}, {T}:", "Sacrifice X …", −X, "Pay X {E}")
+                    needs_x = M.parse_cost(cost.mana).x or cost.loyalty_x or cost.energy_x or cost.x_chosen
+                    out.append({"card_id": cid, "ability": ab.index, **({"x": True} if needs_x else {})})
             elif ab.kind == "keywords" and _can_crew(state, player, card, ch, ab.index, info, check_priority):
                 out.append({"card_id": cid, "ability": ab.index})
     for cid in state.zones.get(zone_key(player, "hand"), []):  # -- ability words (wave 4F) -- channel (113.6m)

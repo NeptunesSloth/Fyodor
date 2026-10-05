@@ -6,13 +6,29 @@
  * everything and answers with prompts; the client never decides legality. Holding Alt (the manual
  * override) keeps the old behaviour: the card just moves, logged as done by hand.
  */
+import { create } from "zustand";
 import { perspective, useGame } from "../../state/gameStore";
 import { useCardCache } from "../../state/cardCache";
 import type { Action, GameView, ResponseMode } from "../../types/game";
 import { splitZone } from "../../types/game";
 import type { DropResult } from "../dnd";
 
-export const send = (action: Action) => useGame.getState().send(action);
+/** -- X announced (wave 24D) -- 107.3a, 601.2b: a cast or activation that needs X (the hints' `x_cast`, `activatable[].x`) waits here
+ * for the player's number (the XPrompt in RulesHud); free and alternative-cost casts make X 0 on the server (107.3b). */
+export const useXPrompt = create<{ action: Action | null }>(() => ({ action: null }));
+
+export function needsX(view: GameView | null, a: Action): boolean {
+  const h = view?.rules?.hints;
+  if (!h || a.x_value !== undefined || a.free || a.alt_cost !== undefined) return false;
+  if (a.type === "cast_spell") return !!h.x_cast?.includes(a.card_id as string);
+  return a.type === "activate_ability" && !!h.activatable?.some((x) => x.card_id === a.card_id && x.ability === a.ability && x.x);
+}
+
+export const send = (action: Action): Promise<boolean> => {
+  if (!needsX(useGame.getState().view, action)) return useGame.getState().send(action);
+  useXPrompt.setState({ action });
+  return Promise.resolve(true);
+};
 
 export function automationOn(view: GameView | null): boolean {
   return !!view?.rules && !view.rules.paused;

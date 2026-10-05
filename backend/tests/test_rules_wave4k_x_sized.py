@@ -559,3 +559,16 @@ def test_artifact_mutation_reads_the_destroyed_artifacts_mana_value(cards):
     assert named(s, "Sol Grail").zone == "p1:graveyard"
     assert len([c for c in s.state.cards.values() if c.name == "Saproling"]) == 3  # as it last existed (608.2h)
     roundtrip(s)
+
+
+# -- X announced from the UI (wave 24D): the hints say which casts / activations ask for X (107.3a, 601.2b) ----------
+def test_hints_list_the_casts_and_activations_that_announce_x(cards):
+    s = build(cards, "Toxic Deluge", "Awaken the Woods", "Grizzly Bears")
+    deluge, woods = to_hand(s, "Toxic Deluge"), to_hand(s, "Awaken the Woods")
+    bears = to_hand(s, "Grizzly Bears")
+    entity = creature(s, "p1", "Entity", "1/1", "{X}: Until end of turn, creatures you control have base power and toughness X/X.")
+    mana(s, B=1, C=2, G=2)
+    h = s.view("p1")["rules"]["hints"]
+    assert set(h["x_cast"]) == {deluge.id, woods.id} and bears.id not in h["x_cast"]  # ({X} in the cost; "pay X life")
+    assert {"card_id": entity.id, "ability": 0, "x": True} in h["activatable"]
+    assert "x_cast" not in s.view("p2")["rules"]["hints"]  # (only your own cards, nothing about the opponent's hand)
