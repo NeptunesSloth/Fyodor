@@ -310,6 +310,7 @@ EventKind = Literal[
     "mana_added",  # a mana ability produced mana (106.3, 106.12a); convoke/improvise/delve never do
     "drew",  # a player drew a card (121.2: one event per card)
     "crewed",
+    "exploited",  # -- keyword triggers (wave 23D) -- 702.110b: ``card`` (object ``object_id``) was sacrificed to exploit ``by_card`` (``source``: its object)
     "turned_face_up",  # 702.37e (morph)  # a Vehicle became crewed (702.122)
     # 701.21a: a permanent was sacrificed (emitted just before it moves, in the same batch; the
     # object is the permanent as it was — "whenever you sacrifice …" looks back in time, 603.10a)
@@ -345,6 +346,7 @@ class Event(BaseModel):
     actor: str | None = None
     looked: int = 0  # -- scry counts (wave 19C) -- a scry / surveil: how many cards it looked at (701.22d: fewer than N with a short library)
     group: int = 0  # -- counters (wave 7C) -- counters one instruction put in several steps share it (122.6); 0: alone
+    by_card: str | None = None  # -- keyword triggers (wave 23D) -- "exploited": the creature with exploit (a card id)
 
 
 MAX_EVENTS = 500  # unconsumed events kept (a trigger collector consumes them; M16)

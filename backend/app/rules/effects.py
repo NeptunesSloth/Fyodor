@@ -1999,6 +1999,8 @@ def sacrifice_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("exile") == "until" and not _cards(plan, ctx, "self"):  # -- resolution memory (wave 22D) -- 610.3a-b: the source left: nothing happens
         _remember(plan, ctx, e, [])
         return True
+    if e.get("exploit"):  # -- keyword triggers (wave 23D) -- 702.110b: the creature sacrificed as the exploit ability resolves is exploited
+        ctx["exploiting"] = True
     return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("exile") or False,
                            bool(e.get("link")), bool(e.get("upto")))
 
@@ -2057,6 +2059,10 @@ def _sacrifice_cards(plan: Plan, cards: list[str], actor: str, ctx: Context | No
         from app.rules.triggers import sacrificing  # (triggers imports this module)
 
         sacrificing(plan, cards)
+        if ctx is not None and ctx.pop("exploiting", False):  # -- keyword triggers (wave 23D) -- 702.110b
+            from app.rules.triggers import exploiting
+
+            exploiting(plan, cards, ctx["source_card"], ctx["controller"])
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=actor)
     if ctx is not None:
         _moved(plan, ctx, e, before)

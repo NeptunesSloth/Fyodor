@@ -219,6 +219,18 @@ def sacrificing(plan: Plan, card_ids: list[str]) -> None:
             emit(plan.state, "sacrificed", object_id=plan.oid(card), card=cid, player=card.controller)
 
 
+def exploiting(plan: Plan, card_ids: list[str], exploiter: str, player: str) -> None:
+    """-- keyword triggers (wave 23D) -- 702.110b: the creature with exploit ``exploiter`` "exploits" each of these creatures, sacrificed
+    as its exploit ability resolves (call just before moving them, as ``sacrificing``; the exploiter may be one of them)."""
+    src = plan.state.cards.get(exploiter)
+    if src is None:
+        return
+    for cid in card_ids:
+        card = plan.state.cards.get(cid)
+        if card is not None and card.zone.endswith(":battlefield"):
+            emit(plan.state, "exploited", object_id=plan.oid(card), card=cid, player=player, source=plan.oid(src), by_card=exploiter)
+
+
 def collect(plan: Plan) -> None:
     """Look at the events since the last look (603.2)."""
     r = plan.rules
@@ -428,6 +440,13 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         return [("sacrifice", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "amount": 1,
                                                           "snap": None if live else r.lki.get(e.object_id or ""),
                                                           **({"new_oid": went.new_object_id, "to": went.to_zone} if went else {})})]
+    if e.kind == "exploited":  # -- keyword triggers (wave 23D) -- 702.110b: the exploiter (it may have been sacrificed itself: its last known
+        by = _object_then(plan, e.by_card, e.source)  # information) and the creature it exploited, as it was
+        was = _object_then(plan, e.card, e.object_id)
+        if by is None or was is None:
+            return []
+        return [("exploit", by[0], by[1], e.player, {"oid": e.source, "actor": e.player, "exploited": was, "amount": 1,
+                                                    "snap": None if _live(plan, by[0]) else r.lki.get(e.source or "")})]
     if e.kind == "counters" and e.amount > 0:  # 122.6: counters put on a permanent
         got = _object_then(plan, e.card, e.object_id)
         if got is None:
@@ -661,6 +680,10 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     event, obj, _, player, info = fact
     you = watcher.controller
     if not _other_ok(plan, cond, watcher, info):
+        return False
+    if cond.get("exploited") and not (  # -- keyword triggers (wave 23D) -- "exploits a nontoken creature": the one sacrificed, as it was (702.110b)
+            info.get("exploited") and selectors.matches(plan, selectors.from_key(cond["exploited"]), info["exploited"][0],
+                                                        info["exploited"][1], you, watcher.id)):
         return False
     if cond.get("into") and (info.get("face_name") or "").lower() != cond["into"].lower():  # -- transform (wave 16F) --
         return False

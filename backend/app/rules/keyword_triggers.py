@@ -87,6 +87,8 @@ MEANINGS: dict[str, str] = {
     # "Otherwise" is "If you don't"; a mana cost only ({cost})
     "recover": "Whenever a creature is put into your graveyard from the battlefield, you may pay {cost}. If you do, return ~ from your "
                "graveyard to your hand. If you don't, exile ~.",
+    # -- keyword triggers (wave 23D) -- 702.110a exploit ("you may sacrifice a creature" is the exploit: effects.sacrifice_choice ``exploit``)
+    "exploit": "When this creature enters, you may sacrifice a creature.",
 }
 _OPTIONAL = frozenset({"provoke"})  # (the controller may choose not to do it, when it resolves)
 _COSTED = frozenset({"squad", "offspring"})  # keywords written with a cost (paid as kicker is: costs.kicker_cost)
@@ -128,6 +130,8 @@ def _definition(piece: str) -> str | None:
         d = scripts.define(ab, Characteristics(name="\u0000", abilities=(ab,), types=frozenset({"Creature"})))
         if d is None or d.get("kind") != "triggered" or not scripts._event_refs_ok(d):
             return None
+        if kw == "exploit":  # (702.110b: the sacrifice is what "exploits a creature")
+            d = {**d, "effects": [{**x, "exploit": True} for x in d["effects"]]}
         out.append({**d, "optional": True} if kw in _OPTIONAL else {**d, "gy_watch": True} if kw == "recover" else d)
     return json.dumps(out)
 
