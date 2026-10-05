@@ -2137,6 +2137,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     )
 
     body = pump_each.rewrite(body)
+    # -- reanimation (wave 20C) -- "Put a +1/+1 counter on each of those creatures." / "Each of those creatures gains haste": the
+    # objects the sentence before named, as "each of them" / "those creatures" read them (608.2c)
+    body = re.sub(r"(\b[Pp]ut [^.,]+? counters? on) each of those (?:creatures|permanents|cards|artifacts|lands|enchantments)\b", r"\1 each of them", body)
+    body = re.sub(r"(^|\. )Each of those (creatures|permanents|cards|artifacts|lands|enchantments) (gains|gets|loses) ",
+                  lambda m: f"{m[1]}Those {m[2]} {m[3][:-1]} ", body)
     from app.rules import combat_rules as _combat_rules  # -- keywords (wave 15E) -- myriad's two sentences
 
     body = _combat_rules.merge_myriad(body)

@@ -15,6 +15,7 @@ from __future__ import annotations
 import pytest
 
 from app.cards.importer import build_database
+from app.game.errors import ActionError
 from app.game.session import GameSession
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
@@ -49,12 +50,18 @@ EXTRA = [
     card('Wrenn and Seven', set_code='tst', number='X8', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Legendary Planeswalker — Wrenn',
          oracle_text='+1: Reveal the top four cards of your library. Put all land cards revealed this way into your hand and the rest into your graveyard.\n0: Put any number of land cards from your hand onto the battlefield tapped.\n−3: Create a green Treefolk creature token with reach and "This token\'s power and toughness are each equal to the number of lands you control."\n−8: Return all permanent cards from your graveyard to your hand. You get an emblem with "You have no maximum hand size."',
          power=None, toughness=None, loyalty='5', colors=['G'], color_identity=['G'], keywords=[]),
+    card('Smile at Death', set_code='tst', number='X9', mana_cost='{3}{W}', cmc=4.0, type_line='Enchantment',
+         oracle_text='At the beginning of your upkeep, return up to two target creature cards with power 2 or less from your graveyard to the battlefield. Put a +1/+1 counter on each of those creatures.',
+         power=None, toughness=None, colors=['W'], color_identity=['W'], keywords=[]),
+    card('Monstrosity of the Lake', set_code='tst', number='XA', mana_cost='{4}{U}', cmc=5.0, type_line='Legendary Creature — Kraken',
+         oracle_text='When Monstrosity of the Lake enters, you may pay {5}. If you do, tap all creatures your opponents control, then put a stun counter on each of those creatures. (If a permanent with a stun counter would become untapped, remove one from it instead.)\nIslandcycling {2} ({2}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)',
+         power='4', toughness='6', colors=['U'], color_identity=['U'], keywords=['Islandcycling', 'Landcycling', 'Typecycling', 'Cycling']),
     card('Cycler Test Elf', set_code='tst', number='X6', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Elf',
          oracle_text='Forestcycling {1} ({1}, Discard this card: Search your library for a Forest card, reveal it, put it into your hand, then shuffle.)',
          power='1', toughness='1', colors=['G'], color_identity=['G'], keywords=['Forestcycling', 'Landcycling', 'Typecycling', 'Cycling']),
 ]
 FULL = ['Sword of Light and Shadow', 'Undead Butler', 'Sandbender Scavengers', 'Sacred Excavation', 'Tuktuk the Explorer', "Skrelv's Hive",
-        'Cycler Test Elf', "Praetor's Counsel", 'Wrenn and Seven']
+        'Cycler Test Elf', "Praetor's Counsel", 'Wrenn and Seven', 'Smile at Death', 'Monstrosity of the Lake']
 
 
 @pytest.fixture()
@@ -179,7 +186,7 @@ def test_a_card_without_cycling_is_no_target_of_sacred_excavation(cards):
     spell = to_hand(s, "Sacred Excavation")
     plain = to_gy(s, "Llanowar Elves")
     mana(s, "p1", W=1, C=1)
-    with pytest.raises(Exception):
+    with pytest.raises(ActionError, match="legal target|target"):
         act(s, "p1", type="cast_spell", card_id=spell.id, targets=[plain.id], target_counts=[1])
 
 
@@ -215,6 +222,74 @@ def test_praetors_counsel_returns_the_graveyard_exiles_itself_and_ends_the_hand_
     replay_matches(s)
     replay_matches(reloaded(s))
     assert reloaded(s).state.rules.no_max_hand == ["p1"]  # (a save keeps it)
+
+
+def test_smile_at_death_puts_a_counter_on_each_of_those_creatures(cards):
+    """"Put a +1/+1 counter on each of those creatures." = each of the (up to two) creatures the sentence before returned."""
+    from tests.test_rules_conditionals import settle, to_turn
+
+    s = build(cards, "Smile at Death", "Llanowar Elves", "Abbot of Keral Keep", "Foundry Inspector")
+    put(s, "Smile at Death")
+    elves, birds, giant = to_gy(s, "Llanowar Elves"), to_gy(s, "Abbot of Keral Keep"), to_gy(s, "Foundry Inspector")
+    to_turn(s, 3, "upkeep")
+    d = s.state.rules.decision
+    assert d is not None and giant.id not in [o.id for o in d.options]  # (power 3: not a legal target)
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[elves.id, birds.id])
+    settle(s)
+    zones ={c.name: s.state.cards[c.id].zone for c in (elves, birds, giant)}
+    assert zones["Foundry Inspector"] == "p1:graveyard"  # (power 3: not a legal target)
+    assert zones["Llanowar Elves"] == "p1:battlefield" and zones["Abbot of Keral Keep"] == "p1:battlefield"
+    assert s.state.cards[elves.id].counters.get("+1/+1") == 1 and s.state.cards[birds.id].counters.get("+1/+1") == 1
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_vulture_counts_only_the_fliers_that_dealt_combat_damage(cards):
+    from tests.test_rules_conditionals import token_of
+
+    s = build(cards, "Llanowar Elves")
+    text = ("Flying\nWhenever one or more creatures you control with flying deal combat damage to a player, put a +1/+1 counter on each of "
+            "those creatures and draw a card.")
+    vulture = token_of(s, "p1", "Vulture", "Token Legendary Creature — Human", "2/2", text)
+    flier = token_of(s, "p1", "Flier", "Token Creature — Bird", "1/1", "Flying")
+    ground = token_of(s, "p1", "Ground", "Token Creature — Bear", "2/2", "")
+    for c in (vulture, flier, ground):
+        s.state.rules.controlled_since[c.id].turn = 0
+    to_attack(s)
+    hand = len(s.state.zones["p1:hand"])
+    attack(s, (vulture, "p2"), (flier, "p2"), (ground, "p2"))
+    play_on(s, "yes")
+    counters = {c.name: s.state.cards[c.id].counters.get("+1/+1", 0) for c in (vulture, flier, ground)}
+    assert counters == {"Vulture": 1, "Flier": 1, "Ground": 0}
+    assert len(s.state.zones["p1:hand"]) == hand + 1  # (one trigger for the damage dealt at once: one card)
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_monstrosity_of_the_lake_stuns_each_creature_it_tapped(cards):
+    """"tap all creatures your opponents control, then put a stun counter on each of those creatures": the creatures tapped, not mine."""
+    from tests.test_rules_conditionals import pick
+
+    s = build(cards, "Monstrosity of the Lake")
+    mine = token(s, "p1", "Mine")
+    theirs = token(s, "p2", "Theirs")
+    theirs2 = token(s, "p2", "Theirs Too")
+    kraken = to_hand(s, "Monstrosity of the Lake")
+    mana(s, "p1", U=1, C=9)
+    act(s, "p1", type="cast_spell", card_id=kraken.id)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            pick(s, "pay") if "pay" in [o.id for o in d.options] else pick(s, d.options[0].id)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[theirs.id].tapped and s.state.cards[theirs2.id].tapped and not s.state.cards[mine.id].tapped
+    stun = {c.name: s.state.cards[c.id].counters.get("stun", 0) for c in (mine, theirs, theirs2)}
+    assert stun == {"Mine": 0, "Theirs": 1, "Theirs Too": 1}
+    replay_matches(s)
+    replay_matches(reloaded(s))
 
 
 def test_wrenn_and_seven_ultimate_returns_permanents_and_the_emblem_removes_the_hand_limit(cards):

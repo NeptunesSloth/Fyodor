@@ -17,6 +17,7 @@ from tests.game_helpers import act
 from tests.test_rules_conditionals import build, on_field, settle, to_hand
 from tests.test_rules_effects import mana, replay_matches
 from tests.test_rules_wave18g_rooms import EXTRA as ROOMS
+
 DAZZLING = "Dazzling Theater // Prop Room"
 
 EXTRA = [
