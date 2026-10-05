@@ -1347,7 +1347,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": 10**6, "upto": True}], None
     # -- trigger tail (wave 16C) -- "Exile a land you control." (Wormfang Newt, Turtle): you choose it as this resolves (608.2d),
     # then it's exiled (no sacrifice, 701.21a: sacrificing is putting into a graveyard); linked for "the exiled card" (607.2a)
-    m = re.fullmatch(r"exile (?P<n>a|an|one|two|three|another|any number of) (?P<sel>[A-Za-z -]+? you control)(?P<until> until ~ leaves the battlefield)?", text)
+    m = re.fullmatch(r"exile (?P<n>a|an|one|two|three|another|any number of) (?P<sel>(?!target )[A-Za-z -]+? you control)(?P<until> until ~ leaves the battlefield)?", text)
     if m and rider is None:
         return exile_own(m["n"], m["sel"], bool(m["until"]))
     # -- static grants & selectors (wave 15A) -- "Each player sacrifices all permanents they control that are one or more colors"
@@ -2308,7 +2308,7 @@ def exile_own(n: str, sel_text: str, until: bool) -> tuple[Effects, Any]:
              "exile": "until" if until else True, **({"upto": True} if many else {})}], None
 
 
-_EXILE_OWN = re.compile(r"(?P<n>another|any number of) (?P<sel>[A-Za-z -]+? you control)")
+_EXILE_OWN = re.compile(r"(?P<n>another|any number of) (?P<sel>(?!target )[A-Za-z -]+? you control)")
 
 
 def parse_exile_until(phrase: str) -> tuple[Effects, Any] | None:
@@ -2318,7 +2318,10 @@ def parse_exile_until(phrase: str) -> tuple[Effects, Any] | None:
     returns it to its previous zone, while the engine's linked return puts it onto the
     battlefield (610.3c) — that wording stays manual."""
     if (own := _EXILE_OWN.fullmatch(phrase.strip())) is not None:
-        return exile_own(own["n"], own["sel"], True)  # (-- wave 22D -- chosen as it resolves, not targeted)
+        try:
+            return exile_own(own["n"], own["sel"], True)  # (-- wave 22D -- chosen as it resolves, not targeted)
+        except _Fail:
+            return None
     try:
         kind, key, group = ref(phrase.strip())
     except _Fail:

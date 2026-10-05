@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
@@ -118,7 +119,7 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_
 def _exiles(d: dict[str, Any] | None) -> bool:
     # (-- champion (wave 12B) -- also a payment: "sacrifice it unless you exile another Merfolk you control", recorded by
     # optional_payment._pay)
-    return d is not None and any(e.get("do") in ("exile", "exile_top") or e.get("exile") or _picks_to_exile(e)
+    return d is not None and any(e.get("do") in ("exile", "exile_top", "exile_until") or e.get("exile") or _picks_to_exile(e)
                                  or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile "))
                                  for e in d.get("effects") or [])
 
@@ -153,7 +154,7 @@ def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | No
     referring = [ab for ab in ch.abilities if ab.index != ability.index and _REFERS.search(scripts.self_text(ab.text, ch.name))]
     if not referring:
         return d
-    return {**d, "effects": [{**e, "link": True} if e.get("do") in ("exile", "exile_top") or e.get("exile") or _picks_to_exile(e) else e
+    return {**d, "effects": [{**e, "link": True} if e.get("do") in ("exile", "exile_top", "exile_until") or e.get("exile") or _picks_to_exile(e) else e
                                      for e in d["effects"]]}
 
 
@@ -161,20 +162,23 @@ def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | No
 # creates an X/X token, where X is the mana value of the exiled card": Skyclave Apparition, Hoarding Dragon, Unidentified Hovership)
 # reads the linked cards through a leading pseudo-instruction ``linked_cards`` that binds them (as the objects they were put into
 # exile as: their owner and mana value are the same wherever they have gone since, 608.2h), so the ordinary pronoun grammar
-# ("the exiled card", "its owner", "that card's mana value") finds them. ``LINKED`` is set while such an ability is read.
-LINKED = False
+# ("the exiled card", "its owner", "that card's mana value") finds them. ``linked()`` is true while such an ability is read.
+_STATE = threading.local()  # (per thread: games may parse cards concurrently)
 _EXILES = re.compile(r"\bexiles?\b|\bexiling\b")
+
+
+def linked() -> bool:
+    return getattr(_STATE, "on", False)
 
 
 @contextmanager
 def reading(ability: Any, text: str) -> Iterator[None]:
     """While the ability (its text, ~ for itself) is read: does it only refer to what another ability exiled?"""
-    global LINKED
-    LINKED = ability.kind in ("triggered", "activated") and _REFERS.search(text) is not None and _EXILES.search(text) is None
+    _STATE.on = ability.kind in ("triggered", "activated") and _REFERS.search(text) is not None and _EXILES.search(text) is None
     try:
         yield
     finally:
-        LINKED = False
+        _STATE.on = False
 
 
 def linked_cards(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

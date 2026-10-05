@@ -26,10 +26,13 @@ EXTRA = [
     real("Abdel Adrian, Gorion's Ward", "{4}{W}", 5, "Legendary Creature — Human Warrior",
          "When Abdel Adrian enters, exile any number of other nonland permanents you control until Abdel Adrian leaves the battlefield. Create a 1/1 white Soldier creature token for each permanent exiled this way.\nChoose a Background (You can have a Background as a second commander.)",
          ("4", "4"), "W"),
+    real("Phantom Steed", "{3}{U}", 4, "Creature — Horse Illusion",
+         "Flash\nWhen this creature enters, exile another target creature you control until this creature leaves the battlefield.\nWhenever this creature attacks, create a tapped and attacking token that's a copy of the exiled card, except it's an Illusion in addition to its other types. Sacrifice that token at end of combat.",
+         ("4", "3"), "U"),
     real("Probe Rock", "{3}", 3, "Artifact", "", None),
     real("Probe Two", "{1}{G}", 2, "Creature — Beast", "", ("2", "2"), "G"),
 ]
-NAMES = ["Kitesail Freebooter", "Glorious Protector", "Abdel Adrian, Gorion's Ward"]
+NAMES = ["Kitesail Freebooter", "Glorious Protector", "Abdel Adrian, Gorion's Ward", "Phantom Steed"]
 
 
 @pytest.fixture()
@@ -104,4 +107,31 @@ def test_abdel_adrian_makes_a_soldier_for_each_permanent_exiled_this_way(cards):
     pass_until_stack_empty(s)
     soldiers = [c for c in s.state.cards.values() if c.name == "Soldier" and c.zone == "p1:battlefield"]
     assert len(soldiers) == 2  # one for each of the two permanents exiled
+    roundtrip(s)
+
+
+def test_phantom_steed_attacks_with_a_copy_of_the_creature_it_exiled(cards):
+    from tests.test_rules_effects import run_until
+
+    s = build(cards, p1=("Phantom Steed", "Probe Two"))
+    two = put(s, "Probe Two", "battlefield")
+    steed = put(s, "Phantom Steed", "hand")
+    mana(s, U=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=steed.id)
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    if d is not None and d.kind != "declare_attackers":
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[two.id])
+        pass_until_stack_empty(s)
+    assert s.state.cards[two.id].zone == "p1:exile"
+    assert s.state.rules.linked_exile and s.state.rules.exiled_with  # linked twice: "until ~ leaves" (610.3) and "the exiled card" (607.2a)
+    roundtrip(s)
+    run_until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    act(s, "p1", type="pass_priority")  # to combat: declare Phantom Steed as the attacker
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "declare_attackers"
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": steed.id, "target": "p2"}])
+    pass_until_stack_empty(s)
+    tokens = [c for c in s.state.cards.values() if c.is_token and c.name == "Probe Two" and c.zone == "p1:battlefield"]
+    assert len(tokens) == 1 and tokens[0].tapped  # a token copy of the exiled card, tapped
     roundtrip(s)

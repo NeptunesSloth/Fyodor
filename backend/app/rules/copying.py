@@ -1345,7 +1345,7 @@ def parse_token_copy(n: str, tapped: bool, src: str, exc: str | None) -> tuple[l
     """"create [N] [tapped] token(s) that's a copy / are copies of <source> [, except …]": the source
     is a target, the source itself (~), what an earlier instruction or the trigger was about ("it",
     "that creature") or the permanent the source is attached to."""
-    from app.rules import token_grammar
+    from app.rules import exiled_with, token_grammar
 
     word = n.lower()
     if word not in token_grammar.NUMBERS and not word.isdigit() and word != "x":
@@ -1356,6 +1356,8 @@ def parse_token_copy(n: str, tapped: bool, src: str, exc: str | None) -> tuple[l
     effect: dict[str, Any] = {"do": "token_copy", "n": token_grammar._qty(word), **_dump(ex)}
     if tapped:
         effect["tapped"] = True
+    if src == "the exiled card" and exiled_with.linked():  # -- resolution memory (wave 22D) -- 607.2a: the card the linked ability exiled (imprint)
+        return [{**effect, "who": "it:exiled"}], None
     if src in _SOURCES:
         return [{**effect, "who": _SOURCES[src]}], None
     # -- resolution memory (wave 22D) -- "create a token that's a copy of each of up to two target creatures you control" (Twinflame): one token

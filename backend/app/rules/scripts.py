@@ -592,7 +592,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
     out: list[dict[str, Any]] = []
     intros: list[_Introducer] = []
     starts = sentences if sentences is not None else list(range(len(effects)))
-    if _exiled_with.LINKED:  # -- resolution memory (wave 22D) -- 607.2a: what the linked ability exiled, as the first instruction
+    if _exiled_with.linked():  # -- resolution memory (wave 22D) -- 607.2a: what the linked ability exiled, as the first instruction
         effects = [{"do": "linked_cards"}, *effects]
         starts = [0, *(s + 1 for s in starts)]
 
@@ -1991,7 +1991,7 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
     head, rest = body[start: m.start()], body[:start] + "\0" + body[m.end():]
     # (what the wrappers around the sentence grammar bind afterwards — "this way" counts, the target player's hand — is not read)
-    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"' + ('' if _exiled_with.LINKED else r'|"cost:exiled"'),
+    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"' + ('' if _exiled_with.linked() else r'|"cost:exiled"'),
                                   json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):  # (22D: the linked card)
         return None
     now = _x_now()

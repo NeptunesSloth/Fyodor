@@ -1548,6 +1548,10 @@ def _exile_until_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[
         plan.rules.linked_exile[key] = [*plan.rules.linked_exile.get(key, []), *exiled]  # the objects in exile (400.7)
         if e.get("hand_origin"):  # -- resolution memory (wave 22D) -- 610.3: returns to its previous zone, the hand
             plan.rules.linked_exile_from.update({oid: "hand" for oid in exiled})
+        if e.get("link"):  # -- resolution memory (wave 22D) -- 607.2a: also "the exiled card" of another ability (Phantom Steed)
+            from app.rules import exiled_with
+
+            exiled_with.record(plan, ctx, _merged.pieces(plan, cards))
     _moved(plan, ctx, e, before)
     return True
 
