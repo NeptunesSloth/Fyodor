@@ -155,8 +155,8 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   player. An enchanted land whose own {T} ability restricts spending is left to the player while
   enchanted.
 - **Replacements** (wave 22C): counter putters ("If you / an opponent would put …": Vorinclex, Lae'zel, Pir; the
-  putter is `by`, 122.6a; poison "given" by infect/toxic, 120.3b, is left to the players with a note: UNVERIFIED
-  whether giving is putting), "reveal ~ and shuffle it into its owner's library instead" (Blightsteel, Nexus of Fate),
+  putter is `by`, 122.6a; review 22C: counters "given" are put — 122.6, 701.34a — so infect/toxic poison is put by the
+  source's controller, 120.3b/g, and "target player gets N" by the effect's controller), "reveal ~ and shuffle it into its owner's library instead" (Blightsteel, Nexus of Fate),
   "exile instead" with a rider (Kalitas token, Head of the Hunt reflexive trigger, life), "If it would leave the
   battlefield, exile it instead" (Whip of Erebos family), and the 616.1 choice between differing graveyard
   replacements (the card stays put and its controller is asked before priority: `pending_616`). Still manual:
