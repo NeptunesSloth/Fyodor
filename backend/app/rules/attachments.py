@@ -257,7 +257,9 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
     from app.rules import characteristics as chars
     from app.rules import copying, replacements
 
-    entries = [dict(e) for e in entries]
+    for back in (e for e in entries if e.get("to") == "hand"):  # -- resolution memory (wave 22D) -- 610.3: exiled from a hand, returns there
+        plan.do({"type": "move", "card_ids": [back["card"]], "to": {"player": back["player"], "zone": "hand"}}, actor=back["actor"])
+    entries = [dict(e) for e in entries if e.get("to") != "hand"]
     for i, entry in enumerate(entries):
         card = plan.state.cards.get(entry["card"])
         if card is not None and entry.get("transformed") and not chars.transformable(card, plan.info):

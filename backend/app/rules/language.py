@@ -60,6 +60,7 @@ PLAYER_GROUPS.update({f"{the} {kind}'s controller": "it.controller" for the in (
 # "~ deals 3 damage to target player or planeswalker. That player or that planeswalker's controller discards two cards."
 # (Blightning): the target player, or the target planeswalker's controller (app/rules/effects._players)
 PLAYER_GROUPS["that player or that planeswalker's controller"] = "target_player_or_controller"
+PLAYER_GROUPS["the exiled card's owner"] = "it.owner"  # -- resolution memory (wave 22D) -- 607.2a (exiled_with.linked_cards binds the card)
 # "Whenever ~ blocks or becomes blocked by a creature, ~ deals 3 damage to that creature and 3 damage to that creature's
 # controller" (Assembled Alphas): the creature on the other side of the block (509.3c-d; the trigger event's ``other``)
 OTHER_SIDE = "the creature on the other side of the block"
@@ -241,6 +242,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return "them", "", None  # the objects just named (scripts.resolve_it)
     if p in ("the chosen cards", "the chosen card"):  # -- "this way" outcomes (wave 4A) -- a "Choose target …" sentence's
         return ("them" if p.endswith("s") else "it"), "chosen", None
+    if (moved := this_way.objects_who(p)) is not None:  # -- resolution memory (wave 22D) -- "each card put into a graveyard this way"
+        return "them", moved[len("them:"):], None
     m = _THIS_WAY.match(p) or _THE_VERBED.match(p)
     if m:
         plural = "what" not in m.groupdict() or m["what"].endswith("s")
@@ -624,6 +627,16 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         if found is None or found[0][0].get("max") != {"x": 1}:
             raise _Fail
         return [{**found[0][0], "max": _rider_value(sized["v"])}], None
+    # -- resolution memory (wave 22D) -- "Search your library for a creature card with mana value X or less, where X is 2 plus the
+    # sacrificed creature's mana value, put it onto the battlefield, then shuffle." (Eldritch Evolution): X is defined by the ability's
+    # text (107.3c) and read as the search is made (608.2h; the sacrificed creature as it last existed)
+    mvx = re.fullmatch(r"(?P<a>search your library for (?!up to ).+? mana value [xX](?: or less)?),? where [xX] is (?P<v>.+?), "
+                       r"(?P<b>(?:put|reveal) .+)", text)
+    if mvx:
+        found = _search(f"{mvx['a']}, {mvx['b']}")
+        if found is None or not _has_x(found[0]):
+            raise _Fail
+        return _bind_x(found[0], _rider_value(mvx["v"])), found[1]
     # -- end recursion & tutors (wave 4M) --
     m = _SEARCH.fullmatch(text)
     if not m:
@@ -1351,12 +1364,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": 10**6, "upto": True}], None
     # -- trigger tail (wave 16C) -- "Exile a land you control." (Wormfang Newt, Turtle): you choose it as this resolves (608.2d),
     # then it's exiled (no sacrifice, 701.21a: sacrificing is putting into a graveyard); linked for "the exiled card" (607.2a)
-    m = re.fullmatch(r"exile (?P<n>a|an|one|two|three) (?P<sel>[a-z -]+? you control)", text)
+    m = re.fullmatch(r"exile (?P<n>a|an|one|two|three|another|any number of) (?P<sel>(?!target )[A-Za-z -]+? you control)(?P<until> until ~ leaves the battlefield)?", text)
     if m and rider is None:
-        sel = selectors.parse(m["sel"])
-        if sel is None or sel.player is not None or sel.controller != "you" or sel.zones != ("battlefield",):
-            raise _Fail
-        return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": _amount(m["n"]), "exile": True}], None
+        return exile_own(m["n"], m["sel"], bool(m["until"]))
     # -- static grants & selectors (wave 15A) -- "Each player sacrifices all permanents they control that are one or more colors"
     # (701.21a: a player sacrifices only what they control; every match goes at once, 101.4: sacrifice_choice with no choice left)
     m = re.fullmatch(_SUBJ + r"sacrifices? all (?P<sel>.+?)(?: (?:they|you) control)?(?P<tail> that .+)?", text)
@@ -2290,8 +2300,9 @@ def parse_return_owner(text: str) -> tuple[Effects, Any] | None:
         return None
     if kind not in ("it", "them"):
         return parse_sentence(text)  # ("return all creature cards from your graveyard …": the grammar above)
-    if (m["u"] == "your" or m["spec"]) and not m["fd"]:
-        return None  # (-- hidden exile (wave 18A) -- "under your control" / "as a …" are read only for the face-down return)
+    if (m["u"] == "your" or m["spec"]) and not m["fd"] and not (m["u"] == "your" and not m["spec"] and "|" in key):
+        return None  # (-- hidden exile (wave 18A) -- "under your control" / "as a …" are read only for the face-down return;
+        # wave 22D: and for "each card put into a graveyard this way", which names its objects)
     spec = chars.parse_spec(m["spec"]) if m["spec"] else None
     if m["spec"] and spec is None:
         return None
@@ -2300,16 +2311,42 @@ def parse_return_owner(text: str) -> tuple[Effects, Any] | None:
              **({"spec": spec} if spec else {})}], _one(group)
 
 
+def exile_own(n: str, sel_text: str, until: bool) -> tuple[Effects, Any]:
+    """-- resolution memory (wave 22D) -- "Exile another creature you control until ~ leaves the battlefield." (Yannik), "… any number of
+    non-Angel creatures you control …" (Glorious Protector): chosen as this resolves (608.2d); until: 610.3, returned when ~ leaves."""
+    noun = ("another " if n == "another" else "") + sel_text
+    sel = selectors.parse(noun)
+    if sel is None or sel.player is not None or sel.controller != "you" or sel.zones != ("battlefield",):
+        raise _Fail
+    if n == "any number of" and not until:
+        raise _Fail  # ("exile any number of …" with no duration: not read)
+    many = n == "any number of"
+    return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": 10**6 if many else 1 if n == "another" else _amount(n),
+             "exile": "until" if until else True, **({"upto": True} if many else {})}], None
+
+
+_EXILE_OWN = re.compile(r"(?P<n>another|any number of) (?P<sel>(?!target )[A-Za-z -]+? you control)")
+
+
 def parse_exile_until(phrase: str) -> tuple[Effects, Any] | None:
     """"Exile <objects> until ~ leaves the battlefield" (610.3) for any target phrase the selector
     grammar reads ("target artifact or creature an opponent controls", "up to one target nonland
     permanent …"). Not a pronoun: "exile that card until …" may name a card in a hand, and 610.3
     returns it to its previous zone, while the engine's linked return puts it onto the
     battlefield (610.3c) — that wording stays manual."""
+    if (own := _EXILE_OWN.fullmatch(phrase.strip())) is not None:
+        try:
+            return exile_own(own["n"], own["sel"], True)  # (-- wave 22D -- chosen as it resolves, not targeted)
+        except _Fail:
+            return None
     try:
         kind, key, group = ref(phrase.strip())
     except _Fail:
         return None
+    if kind == "it" and phrase.strip() in ("that card", "it"):
+        # -- resolution memory (wave 22D) -- "You choose a nonland card from it. Exile that card until ~ leaves the battlefield." (Kitesail
+        # Freebooter): the card chosen from a hand returns to that hand (610.3). scripts.resolve_it accepts it only after such a choice
+        return [{"do": "exile_until", "who": "it", "hand_origin": True}], None
     if kind in ("players", "self", "host", "it", "them") or not on_battlefield_only(key):
         return None  # (a card exiled from a graveyard returns there, 610.3: not the linked return)
     return [{"do": "exile_until", "who": _who(kind, key)}], _one(group)
@@ -2903,6 +2940,9 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         if m["host"]:  # -- refused zones/sized (wave 3R4) -- "that creature": a trigger's object only (scripts._attached_host)
             effect["host"] = "that_creature" if m["host"] == "that creature" else "self"
     obj = m["o"]
+    if not may and not hand and (one := this_way.choice_who(obj)) is not None:
+        # -- resolution memory (wave 22D) -- "return a creature card put into a graveyard this way": one of them, chosen (608.2d)
+        return [{**effect, "do": "return_choice", "who": one, "n": 1, "upto": False, "random": False, "label": "card"}], None
     if may and not _RA_CHOICE.fullmatch(obj):
         return None  # (only a choice models its own "may": choosing none)
     if _RA_SELF.fullmatch(obj) or obj == "this card":  # works from the graveyard (113.6m): coverage keeps it to activated abilities
@@ -2938,6 +2978,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         kind, key, group = ref(obj)
     except _Fail:
         return None
+    if kind == "them" and "|" in key and not may:  # -- resolution memory (wave 22D) -- "each creature card put into a graveyard this way"
+        return [{**effect, "who": _who(kind, key)}], None
     if kind not in ("target", "each") or not _graveyard_cards(key):
         return None
     return [{**effect, "who": _who(kind, key)}], _one(group)

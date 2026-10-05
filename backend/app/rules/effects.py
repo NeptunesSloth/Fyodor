@@ -131,6 +131,11 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
+    if who.startswith(context.PREFIX) and "|" in who:  # -- resolution memory (wave 22D) -- "each creature card put into a graveyard this way"
+        from app.rules import this_way
+
+        base, _, key = who.partition("|")
+        return this_way.filtered(plan, ctx, _cards(plan, ctx, base), key)
     if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
         return _controlled_by(plan, ctx, who)
     if who.startswith("graveyard_of:"):  # -- graveyard exile (wave 4J) -- "target player's graveyard": every card in it
@@ -189,10 +194,10 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
             snap = plan.rules.lki.get(ctx.get("source_object") or "")
             host = plan.state.cards.get(snap.attached_to or "") if snap is not None else None
         return [host.id] if host is not None and host.zone.endswith(":battlefield") else []
-    if who == "exiled_with":  # -- exiled with (wave 6D) -- 607.2a (app/rules/exiled_with.py)
+    if who == "exiled_with" or who.startswith("exiled_with:"):  # -- exiled with (wave 6D) -- 607.2a (app/rules/exiled_with.py)
         from app.rules import exiled_with
 
-        return exiled_with.cards(plan, ctx)
+        return exiled_with.cards(plan, ctx, who)
     if who == "event":  # "it" / "that creature": the object(s) the trigger event happened to — only while
         # each is still that object where it was (400.7: after a zone change it's a new object)
         return context.objects(plan, ctx, context.EVENT)
@@ -1529,7 +1534,11 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not src:
         _remember(plan, ctx, e, [])
         return True
-    cards = _cards(plan, ctx, e["who"])
+    return _exile_until_cards(plan, ctx, e, [c for c in _cards(plan, ctx, e["who"])
+                                             if e.get("hand_origin") or plan.state.cards[c].zone.endswith(":battlefield")])  # (610.3: returns to the battlefield)
+
+
+def _exile_until_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
     before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
@@ -1537,6 +1546,12 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         exiled = [plan.oid(c) for c in _merged.pieces(plan, cards)  # (review (wave 18D): each card of a merged permanent, 730.3c)
                   if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
         plan.rules.linked_exile[key] = [*plan.rules.linked_exile.get(key, []), *exiled]  # the objects in exile (400.7)
+        if e.get("hand_origin"):  # -- resolution memory (wave 22D) -- 610.3: returns to its previous zone, the hand
+            plan.rules.linked_exile_from.update({oid: "hand" for oid in exiled})
+        if e.get("link"):  # -- resolution memory (wave 22D) -- 607.2a: also "the exiled card" of another ability (Phantom Steed)
+            from app.rules import exiled_with
+
+            exiled_with.record(plan, ctx, _merged.pieces(plan, cards))
     _moved(plan, ctx, e, before)
     return True
 
@@ -1565,8 +1580,9 @@ def linked_entries(plan: Plan, source: str) -> list[dict[str, Any]]:
             if cid not in plan.state.cards or plan.oid(cid) != ref:
                 continue
         card = plan.state.cards[cid]
+        back = plan.rules.linked_exile_from.pop(ref, None)  # -- resolution memory (wave 22D) -- 610.3: back to the hand it came from
         if card.zone.endswith(":exile") and card.owner in live:
-            entries.append({"card": cid, "player": card.owner, "actor": card.owner})
+            entries.append({"card": cid, "player": card.owner, "actor": card.owner, **({"to": "hand"} if back == "hand" else {})})
     return entries
 
 
@@ -1847,6 +1863,10 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
         elif to in ("battlefield", "battlefield_tapped"):
             entering.append({"card": cid, "player": pid, "actor": pid, "tapped": to == "battlefield_tapped"})
     _player_control.permit_exiled(plan, agents, exiled)
+    if e.get("link"):  # -- resolution memory (wave 22D) -- 607.2a: "search your library for an artifact card, exile it" (Hoarding Dragon)
+        from app.rules import exiled_with
+
+        exiled_with.record(plan, ctx, [c for c in chosen if dest[c] == "exile"])
     shuffle = pid if e.get("shuffle", True) else None  # 701.24: a library is shuffled only when the text says so
     if "library" not in (e.get("zones") or ["library"]):
         shuffle = None  # -- refused zones/sized (wave 3R4) -- "If you search your library this way, shuffle"
@@ -1952,12 +1972,15 @@ def sacrifice_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     control that match, in APNAP order; then they're all sacrificed at once (101.4)."""
     who = _players(plan, ctx, e["who"])
     order = [p for p in plan.apnap() if p in who]
-    return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order, [], e.get("as"), bool(e.get("exile")),
+    if e.get("exile") == "until" and not _cards(plan, ctx, "self"):  # -- resolution memory (wave 22D) -- 610.3a-b: the source left: nothing happens
+        _remember(plan, ctx, e, [])
+        return True
+    return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("exile") or False,
                            bool(e.get("link")), bool(e.get("upto")))
 
 
 def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list[str], picked: list[str],
-                    binding: str | None = None, exile: bool = False, link: bool = False, upto: bool = False) -> bool:
+                    binding: str | None = None, exile: bool | str = False, link: bool = False, upto: bool = False) -> bool:
     sel = selectors.from_key(key)
     for i, pid in enumerate(players):
         mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
@@ -1968,7 +1991,7 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
         if n == len(mine) and not upto:
             picked = [*picked, *mine]
             continue
-        decide(plan, player=pid, kind="choose_cards", prompt=f"Sacrifice {'up to ' if upto else ''}{n}",
+        decide(plan, player=pid, kind="choose_cards", prompt=f"{'Exile' if exile else 'Sacrifice'} {'up to ' if upto else ''}{n}",
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
                min_choices=0 if upto else n, max_choices=n,  # (-- triggers (wave 19B) -- "any number of": none is allowed)
                resume={"step": "sacrifice_choice", "ctx": ctx, "sel": key, "want": want, "rest": players[i + 1:],
@@ -1976,6 +1999,8 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
         return False
     if exile:  # -- trigger tail (wave 16C) -- "Exile a land you control": chosen as it resolves, then exiled (not sacrificed)
         picked = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+        if exile == "until":  # -- resolution memory (wave 22D) -- "Exile any number of … you control until ~ leaves the battlefield" (610.3)
+            return _exile_until_cards(plan, ctx, {"as": binding}, picked)
         return exile_cards(plan, ctx, {"as": binding, "link": link}, picked)
     _sacrifice_cards(plan, picked, ctx["controller"], ctx, binding)
     return True
@@ -2024,6 +2049,11 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
         for cid in cards[:1]:  # your library": one card, to its owner's library (400.3)
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
                      "position": "top"}, actor=ctx["controller"])
+        _moved(plan, ctx, e, before)
+        return True
+    if e["to"] == "graveyard":  # -- resolution memory (wave 22D) -- "put the exiled card into its owner's graveyard"
+        for cid in cards:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "graveyard"}}, actor=ctx["controller"])
         _moved(plan, ctx, e, before)
         return True
     if e["to"] == "hand":
@@ -2194,6 +2224,10 @@ PRIMITIVES.update(entry_forms.PRIMITIVES)  # -- entry forms (wave 5F) -- "It's a
 from app.rules import merged as _merged  # noqa: E402
 
 PRIMITIVES.update(_merged.PRIMITIVES)  # -- merged permanents (wave 18D) -- meld, 701.42
+# -- resolution memory (wave 22D) --
+from app.rules import exiled_with as _exiled_with  # noqa: E402
+
+PRIMITIVES.update(_exiled_with.PRIMITIVES)
 
 
 def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -2426,6 +2460,10 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
             to = pid if e["to"] == "hand" else plan.state.cards[cid].owner
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": to, "zone": e["to"]},
                      **({"face_down": True} if e.get("face_down") else {})}, actor=pid)
+        if e["to"] == "exile" and e.get("link"):  # -- resolution memory (wave 22D) -- 607.2a: "exile one of them" linked to "the exiled card"
+            from app.rules import exiled_with
+
+            exiled_with.record(plan, ctx, chosen)
     else:
         entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] in ("battlefield_tapped", "battlefield_attacking"),
                     **({"counter": e["counter"], "counter_n": e.get("counter_n", 1)} if e.get("counter") else {})}  # (wave 3E)
@@ -2755,7 +2793,10 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.triggers import _add  # (triggers imports this module)
 
     if conditions.holds(plan, ctx, e["cond"]):
-        event = _reflexive_event(plan, ctx, e["lki"]) if e.get("lki") else None  # -- reflexive LKI (wave 4J) --
+        # (-- resolution memory (wave 22D) -- "cond_ref": the objects the counted "… this way" instruction acted on: "When you discard a card
+        # this way, … that card's mana value")
+        name = e["cond"]["value"]["ref_count"] if e.get("lki") == "cond_ref" else e.get("lki")
+        event = _reflexive_event(plan, ctx, name) if name else None  # -- reflexive LKI (wave 4J) --
         _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
              name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=event)
     return True
@@ -2769,7 +2810,7 @@ def _reflexive_event(plan: Plan, ctx: Context, name: str) -> Any:
     from app.game.rules_state import TriggerEvent
 
     b = context.refs(ctx).get(name) or {}
-    before = [ObjectRef.model_validate(r) for r in b.get("objects") or []] if b.get("kind") == "payment" else []
+    before = [ObjectRef.model_validate(r) for r in b.get("objects") or []] if b.get("kind") in ("payment", "objects") else []
     objects = [r.model_copy(update={"snapshot": context.snapshot(plan, r)}) for r in before]
     return TriggerEvent(kind="reflexive", objects=objects, count=len(objects))
 # -- end reflexive LKI (wave 4J) --
@@ -3640,8 +3681,8 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     import secrets
 
     pid = ctx["controller"]
-    sel = selectors.from_key(e["sel"])
-    pool = sorted(selectors.candidates(plan, sel, pid, ctx.get("source_card")))
+    pool = sorted(_cards(plan, ctx, e["who"]) if e.get("who") else  # (-- wave 22D -- "a creature card put into a graveyard this way")
+                  selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card")))
     want = _amount(plan, ctx, e["n"])
     if e.get("random"):
         picked = (plan.rng or secrets.SystemRandom()).sample(pool, min(want, len(pool)))
@@ -3659,8 +3700,8 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
-    sel = selectors.from_key(e["sel"])
-    pool = set(selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card")))
+    pool = set(_cards(plan, ctx, e["who"]) if e.get("who") else
+               selectors.candidates(plan, selectors.from_key(e["sel"]), ctx["controller"], ctx.get("source_card")))
     cards = [c for c in chosen if c in pool]  # (still there and still matching)
     if e.get("different"):  # -- refused zones/sized (wave 3R4) -- "… cards with different names / mana values"
         from app.rules.targets import _different
