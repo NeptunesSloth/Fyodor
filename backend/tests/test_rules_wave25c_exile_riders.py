@@ -54,6 +54,12 @@ REAL += [
          "and/or library for an Aura card and put it onto the battlefield attached to this creature. If you search your library this "
          "way, shuffle."),
 ]
+REAL += [
+    card("Mission Briefing", set_code="tst", number="C25-8", mana_cost="{U}{U}", cmc=2.0, type_line="Instant", colors=["U"],
+         color_identity=["U"], keywords=["Surveil"], oracle_text="Surveil 2, then choose an instant or sorcery card in your graveyard. "
+         "You may cast it this turn. If that spell would be put into your graveyard, exile it instead. (To surveil 2, look at the top two "
+         "cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)"),
+]
 OURS = [c["name"] for c in REAL]
 
 
@@ -244,4 +250,26 @@ def test_boonweaver_giant_fetches_an_aura_onto_itself_and_shuffles_the_library(c
     assert s.state.cards[pacifism.id].zone == "p1:battlefield"
     assert s.state.cards[pacifism.id].attached_to == giant.id
     assert list(s.state.zones["p1:library"]) != before  # the library was searched, so shuffled (701.24)
+    replay_matches(s)
+
+
+# -- 608.2d: "choose an instant or sorcery card in your graveyard" (nothing moves) then "You may cast it this turn" ---
+def test_mission_briefing_chooses_a_graveyard_card_and_grants_its_cast(cards):
+    s = build(cards)
+    bolt = put(s, "Lightning Bolt", "graveyard")
+    briefing = put(s, "Mission Briefing", "hand")
+    mana(s, U=2)
+    act(s, "p1", type="cast_spell", card_id=briefing.id)
+    pass_until_stack_empty(s)
+    for _ in range(4):  # the surveil: one card goes to the graveyard
+        d = s.state.rules.decision
+        if d is None:
+            break
+        choose(s, [d.options[0].id], resolve=True)
+    assert s.state.cards[bolt.id].zone == "p1:graveyard"  # chosen, not moved
+    assert [p.card for p in s.state.rules.permissions] == [bolt.id]
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].life == 37 and s.state.cards[bolt.id].zone == "p1:exile"
     replay_matches(s)

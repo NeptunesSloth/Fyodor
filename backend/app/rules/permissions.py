@@ -236,7 +236,7 @@ _MV_OF = r"(?:its|that spell's|the spell's) mana value is"
 # "You may cast an instant or sorcery spell from your graveyard with mana value 4 or less without paying its mana
 # cost." (Diviner of Mist) / "… from a graveyard …" (every graveyard: public, 400.2)
 FREE_GY = re.compile(r"^(?:you may )?cast (?:a|an) (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell(?P<g1> from (?P<w1>your|a) graveyard)?"
-                     rf"(?: {_FREE_MV})?(?P<g2> from (?P<w2>your|a) graveyard)? without paying its mana cost$")
+                     rf"(?: {_FREE_MV})?(?P<g2> from (?P<w2>your|a) graveyard)?(?P<free> without paying its mana cost)?$")
 
 
 def _free_if(text: str) -> list[dict[str, Any]] | None:
@@ -280,8 +280,10 @@ def _free_gy(text: str) -> list[dict[str, Any]] | None:
         mv = free_mv(m["n"], m["v"])
     except ValueError:
         return None
+    if not m["free"] and (mv is not None or (m["w1"] or m["w2"]) != "your"):
+        return None  # -- if you do (wave 25C) -- the paid cast of "a spell from your graveyard" (608.2g): own graveyard, no limit read
     return [{"do": "free_cast", "zone": "graveyard", "whose": "you" if (m["w1"] or m["w2"]) == "your" else "any",
-             "filter": key, "optional": True, "mv": mv, "n": 1}]
+             "filter": key, "optional": True, "mv": mv, "n": 1, **({} if m["free"] else {"paid": True})}]
 
 
 def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:

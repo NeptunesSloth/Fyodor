@@ -3044,6 +3044,12 @@ def exile_choice(text: str) -> tuple[Effects, Any] | None:
     """-- if you do (wave 25C) -- "Exile an instant or sorcery card [at random] from your graveyard": one card, chosen on resolution (608.2d)
     or at random, nothing targeted; recorded for "it" / "that card" after (effects.return_choice, to "exile")."""
     late = text.endswith(" at random")  # ("… from your graveyard at random")
+    pick = re.fullmatch(r"choose (?:an?|one) (?P<what>[^,]+? card) in your graveyard", text)  # "Choose an instant or sorcery card in your graveyard."
+    if pick is not None:  # (nothing moves: the card is chosen on resolution, 608.2d, and "it" after names it, effects._return_cards "choose")
+        sel = selectors.parse(f"{pick['what']} from your graveyard")
+        if sel is None or not _graveyard_cards(sel.key()) or "card" not in pick["what"].split():
+            return None
+        return [{"do": "return_choice", "to": "choose", "sel": sel.key(), "n": 1, "upto": False, "random": False, "label": pick["what"]}], None
     c = _RA_CHOICE.fullmatch(text[len("exile "):len(text) - len(" at random") * late]) if text.startswith("exile ") else None
     if c is None or c["z"] != "your graveyard" or c["upto"] or c["n"] or c["any"]:
         return None

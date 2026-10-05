@@ -2143,6 +2143,8 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
                      "position": "top"}, actor=ctx["controller"])
         _moved(plan, ctx, e, before)
         return True
+    if e["to"] == "choose":  # -- if you do (wave 25C) -- "Choose an instant or sorcery card in your graveyard.": only the choice, bound for "it" after
+        return True
     if e["to"] == "exile":  # -- if you do (wave 25C) -- "Exile an instant or sorcery card at random from your graveyard": face up, in its owner's exile (400.3)
         for cid in cards:
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "exile"}}, actor=ctx["controller"])
@@ -3823,7 +3825,7 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if most == 0 or (least == most == len(pool)):
         return _return_cards(plan, ctx, e, pool[:most])
     decide(plan, player=pid, kind="choose_cards",
-           prompt=f"Choose {'up to ' if e.get('upto') else ''}{most} ({e.get('label', 'card')}) to {'exile' if e['to'] == 'exile' else 'return'}",
+           prompt=f"Choose {'up to ' if e.get('upto') else ''}{most} ({e.get('label', 'card')})" + {"exile": " to exile", "choose": ""}.get(e["to"], " to return"),
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
            min_choices=least, max_choices=most, resume={"step": "return_choice", "ctx": ctx, "e": e})
     return False
