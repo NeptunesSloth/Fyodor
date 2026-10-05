@@ -728,6 +728,12 @@ def _attackers(m: re.Match[str]) -> Condition | None:
     return None if n is None else {"history": "attackers", "n": n}  # 508.1: creatures declared as attackers, any combat
 
 
+@_history_pattern(r"you attacked with creatures with total power (?P<n>\w+) or greater this combat")
+def _attackers_power(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])  # -- trigger other (wave 25B) -- pack tactics: the creatures declared as attackers in this combat's declaration (508.1)
+    return None if n is None else {"history": "attackers_power", "n": n}
+
+
 @_history_pattern(r"no creatures attacked this turn")
 def _nobody_attacked(m: re.Match[str]) -> Condition:
     return {"not": {"history": "attacked", "who": "any"}}

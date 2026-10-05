@@ -676,7 +676,26 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     sel = selectors.from_key(cond["sel"])
     if event == "turned_face_up" and "face_down" in sel.extras:  # -- hidden exile (wave 18A) -- "a face-down permanent … is turned face up": it was
         sel = selectors.replace(sel, extras=tuple(x for x in sel.extras if x != "face_down"))  # face down; it is face up now
+    if event in ("die", "leave") and "modified" in sel.extras:  # -- trigger other (wave 25B) -- 603.10a, 700.9: modified as it last existed
+        snap = info.get("snap")
+        if snap is None or not _was_modified(plan, snap):
+            return False
+        sel = selectors.replace(sel, extras=tuple(x for x in sel.extras if x != "modified"))
     return selectors.matches(plan, sel, obj, och, you, watcher.id)
+
+
+def _was_modified(plan: Plan, snap: ObjectSnapshot) -> bool:
+    """-- trigger other (wave 25B) -- 700.9: a permanent is modified if it has a counter, is equipped, or is enchanted by an Aura its
+    controller controls; a permanent that left is read as it last existed (603.10a: the counters and attachments it had)."""
+    if any(n > 0 for n in snap.counters.values()):
+        return True
+    for cid in snap.attached:
+        att = plan.state.cards.get(cid)
+        if att is not None:
+            subs = plan.ch(att).subtypes
+            if "Equipment" in subs or ("Aura" in subs and att.controller == snap.controller):
+                return True
+    return False
 
 
 def _damaged_by(plan: Plan, watcher: CardInstance, victim: str | None) -> bool:

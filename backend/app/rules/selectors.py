@@ -345,9 +345,14 @@ def _you_own(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, owner="you")
 
 
-@_suffix(r"(?:an opponent owns|you don't own)")
+@_suffix(r"(?:an opponent owns|you don't own|(?:is |are )?owned by (?:another player|an opponent))")  # (wave 25B: owned by another player)
 def _opp_own(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, owner="opponent")
+
+
+@_suffix(r"you control but don't own")  # -- trigger other (wave 25B) -- 108.3 / 110.2: you control it, another player owns it (Edea)
+def _control_not_own(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, controller="you", owner="opponent")
 
 
 @_suffix(r"(?:from|in) your (?P<z>graveyard|hand|library)")
