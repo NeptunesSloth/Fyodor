@@ -3524,7 +3524,9 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
 
 def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteristics, index: int, info: CardInfo,
               check_priority: bool) -> bool:
-    from app.rules import crew_saddle  # -- crew & saddle (wave 23D) -- 702.171a: a saddle ability is the same cost, at sorcery speed
+    from app.rules import (
+        crew_saddle,  # -- crew & saddle (wave 23D) -- 702.171a: a saddle ability is the same cost, at sorcery speed
+    )
 
     n = crew_power(ch, index)
     r = state.rules

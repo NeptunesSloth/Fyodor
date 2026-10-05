@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -189,8 +190,6 @@ def test_a_mount_attacking_while_saddled_triggers_only_when_saddled(cards, saddl
 
 
 def test_saddle_is_a_sorcery_speed_ability_and_needs_enough_power(cards):
-    from app.game.session import ActionError  # noqa: F401  (the engine rejects with an ActionError; act raises)
-
     s = build(cards, ["Autarch Mammoth", "Probe Soldier"])
     put(s, "Probe Soldier")
     to_hand(s, "Autarch Mammoth")
@@ -198,7 +197,7 @@ def test_saddle_is_a_sorcery_speed_ability_and_needs_enough_power(cards):
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Autarch Mammoth").id)
     answer(s)
     assert len([c for c in s.state.cards.values() if c.is_token and c.name == "Elephant"]) == 1  # (its enters trigger)
-    with pytest.raises(Exception):  # Saddle 5: a 1-power creature is not enough
+    with pytest.raises(ActionError, match="total power 5"):  # Saddle 5: a 1-power creature is not enough
         act(s, "p1", type="activate_ability", card_id=card_named(s, "Autarch Mammoth").id, ability=saddle_index(s, "Autarch Mammoth"),
             crew=[card_named(s, "Probe Soldier").id])
     check(s)
