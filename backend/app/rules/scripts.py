@@ -670,7 +670,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
 
     def objects(index: int, number: int | None, verb: str | None, skip_gated: bool = False) -> _Introducer | None:
         def ok(i: _Introducer) -> bool:
-            if not i.objects or (skip_gated and closed_gate(i.index, index)):
+            if not i.objects or (skip_gated and closed_gate(i.index, index) and _group_of(out[i.index]) is None):  # (a targeted instruction names its target whichever branch ran)
                 return False
             if verb == "card":  # "that card": a card, so not a token an instruction created (111.1)
                 if i.do == "look_top" and any(o.get("do") == "pick_looked" and o.get("to") == "exile" for o in out[i.index + 1:index]):
