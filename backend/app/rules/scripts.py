@@ -5080,6 +5080,7 @@ def _choice_template(pattern: str, build: Any) -> None:
 from app.rules import language as _language  # noqa: E402  (a leaf module)
 
 for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OTHERS, _language.edict),
+                         (_language.EDICT_EXILE, _language.edict),
                          (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.REVEAL_HAND, _language.reveal_hand),
                          (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
                          (_language.CHOOSE_VALUE, _language.choose_value),

@@ -11,7 +11,7 @@ from tests.test_rules_conditionals import build, pick, settle, to_hand, until_as
 from tests.test_rules_effects import mana, replay_matches, token
 from tests.fixtures.cards import card, fixture_cards
 
-EXTRA = [
+EXTRA = [  # noqa: E501
     card("Finality", set_code="tst", number="24D-FI", mana_cost="{4}{B}{G}", cmc=6.0, type_line="Sorcery",
          oracle_text="You may put two +1/+1 counters on a creature you control. Then all creatures get -4/-4 until end of turn.",
          colors=["B", "G"], color_identity=["B", "G"]),
@@ -64,3 +64,40 @@ def test_may_first_sentence_only(cards, answer, power):
     assert s.state.cards[big.id].zone == "p1:battlefield"
     assert ch(s, big).pt == (power, power)
     replay_matches(s)
+
+
+# -- B-bucket #8: modal spells' recurring mode wordings ----------------------------------------------------------------------
+EXTRA += [
+    card("Doomfall", set_code="tst", number="24D-DF", mana_cost="{2}{B}", cmc=3.0, type_line="Sorcery",
+         oracle_text="Choose one —\n• Target opponent exiles a creature they control.\n• Target opponent reveals their hand. You choose a nonland card from it. Exile that card.",
+         colors=["B"], color_identity=["B"]),
+]
+
+
+def test_edict_exile_mode(cards):
+    """Doomfall: "Target opponent exiles a creature they control." — the opponent chooses (private, 101.4), then it is exiled (not sacrificed)."""
+    s = build(cards, "Doomfall")
+    spell = to_hand(s, "Doomfall")
+    a, b = token(s, "p2", "Alpha", "2/2"), token(s, "p2", "Beta", "3/3")
+    mana(s, B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id, modes=[0], targets=["p2"])
+    d = until_asked(s)
+    assert d is not None and d.player == "p2" and {o.id for o in d.options} == {a.id, b.id}
+    pick(s, b.id)
+    settle(s)
+    assert s.state.cards[a.id].zone == "p2:battlefield"
+    assert b.id not in s.state.cards or s.state.cards[b.id].zone != "p2:battlefield"  # (a token that left ceases to exist)
+    replay_matches(s)
+
+
+def test_cancel_mode_choice_rewinds_cast(cards):
+    """601.2b: the mode choice can be cancelled too; the spell stays in hand, nothing paid."""
+    s = build(cards, "Doomfall")
+    spell = to_hand(s, "Doomfall")
+    mana(s, B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    d = s.state.rules.decision
+    assert d is not None and d.options[-1].id == "cancel"
+    pick(s, "cancel")
+    assert s.state.cards[spell.id].zone == "p1:hand" and s.state.rules.decision is None and not s.state.zones.get("stack")
+    assert s.state.players["p1"].mana.get("B") == 1

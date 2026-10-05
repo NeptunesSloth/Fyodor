@@ -3117,10 +3117,11 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str]
     with none is skipped. Choices already made are announced, so the next chooser knows them
     (101.4b). False while waiting for a choice."""
     want = _amount(plan, ctx, e["n"])
-    verb = "sacrifices" if step == "edict" else "chooses"
+    exiling = e.get("action") == "exile"  # -- modal spells (wave 24D) -- "Target opponent exiles a creature they control."
+    verb = ("exiles" if exiling else "sacrifices") if step == "edict" else "chooses"
     for i, pid in enumerate(players):
         mine = _controlled(plan, e["sel"], pid, ctx.get("source_card"))
-        if step == "edict" and mine and _sacrifice_barred(plan, ctx, pid):
+        if step == "edict" and not exiling and mine and _sacrifice_barred(plan, ctx, pid):
             mine = []  # -- prohibitions (wave 22B) -- nothing for them to sacrifice
         n = min(want, len(mine))
         if n == 0:
@@ -3129,7 +3130,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str]
             picked = [*picked, *mine]
             plan.note(f"{plan.name(pid)} {verb} {_labels(plan, mine)} (no choice: all of them)", mine, actor=pid)
             continue
-        prompt = f"{ctx.get('name', '') or 'Choose'}: {'sacrifice' if step == 'edict' else 'choose'} {n} ({e.get('label', 'permanent')})"
+        prompt = f"{ctx.get('name', '') or 'Choose'}: {verb[:-1] if step == 'edict' else 'choose'} {n} ({e.get('label', 'permanent')})"
         if picked:
             prompt += f" — already chosen: {_labels(plan, picked)}"  # 101.4b: the earlier choices are known
         decide(plan, player=pid, kind="choose_cards", prompt=prompt,
@@ -3137,7 +3138,9 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str]
                min_choices=0 if e.get("upto") else n, max_choices=n,  # (wave 11D: "chooses up to two creatures they control")
                resume={"step": step, "ctx": ctx, "e": e, "rest": players[i + 1:], "picked": picked})
         return False
-    if step == "edict":  # 101.4: after every choice, all sacrificed at once (one move, one event batch)
+    if step == "edict" and exiling:  # (-- modal spells (wave 24D) --) all exiled at once
+        exile_cards(plan, ctx, e, [c for c in picked if plan.state.cards[c].zone.endswith(":battlefield")])
+    elif step == "edict":  # 101.4: after every choice, all sacrificed at once (one move, one event batch)
         _sacrifice_cards(plan, picked, ctx["controller"], ctx, e.get("as"))
     elif e.get("rest"):  # -- choose the rest (wave 11D) -- "Each player chooses a creature they control, then sacrifices the rest."
         # Everything those players control that fits and wasn't chosen, all at once after every choice was made (101.4).
