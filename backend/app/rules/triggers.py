@@ -699,17 +699,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if event == "die" and cond.get("in_combat") and plan.state.turn.phase not in COMBAT_PHASES:  # (wave 16C: "dies during combat")
         return False
     n = cond.get("min_attackers")
-    if n:
-        direct = cond.get("defender") not in (None, "you_or_pw")  # (only the creatures attacking that player)
-        attackers = [plan.state.cards[c] for c in info.get("attacking_direct" if direct and "attacking_direct" in info
-                                                           else "attacking") or [] if c in plan.state.cards]
-        if cond.get("others_only"):  # (wave 11C) "~ and at least one other Warrior attack": not counting ~
-            attackers = [c for c in attackers if c.id != watcher.id]
-        if cond.get("sel"):
-            sel = selectors.from_key(cond["sel"])
-            attackers = [c for c in attackers if selectors.matches(plan, sel, c, plan.ch(c), you, watcher.id)]
-        if len(attackers) < n:
-            return False
+    if n and len(_counted_attackers(plan, cond, watcher, info)) < n:
+        return False
     if event == "cast":
         if cond.get("nth") and info.get("nth") != cond["nth"]:
             return False
@@ -879,6 +870,22 @@ def _source_ref(plan: Plan, oid: str | None) -> ObjectRef | None:
     return ObjectRef(card=snap.card, object_id=oid, zone=snap.zone, snapshot=snap) if snap is not None else None
 
 
+def _counted_attackers(plan: Plan, cond: dict[str, Any], watcher: CardInstance, info: dict[str, Any]) -> list[CardInstance]:
+    """The attackers a "you attack with N or more …" condition counts (508.1, 603.2c): those attacking that player when one is
+    named, not ~ for "other", and of the kind named. (Review 22E: "those creatures" / "that many" are these, not every attacker.)"""
+    from app.rules import selectors
+
+    direct = cond.get("defender") not in (None, "you_or_pw")  # (only the creatures attacking that player)
+    attackers = [plan.state.cards[c] for c in info.get("attacking_direct" if direct and "attacking_direct" in info
+                                                       else "attacking") or [] if c in plan.state.cards]
+    if cond.get("others_only"):  # (wave 11C) "~ and at least one other Warrior attack": not counting ~
+        attackers = [c for c in attackers if c.id != watcher.id]
+    if cond.get("sel"):
+        sel = selectors.from_key(cond["sel"])
+        attackers = [c for c in attackers if selectors.matches(plan, sel, c, plan.ch(c), watcher.controller, watcher.id)]
+    return attackers
+
+
 def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
     kind, obj, _, player, info = fact
     ref = _ref(obj, info, plan)
@@ -898,14 +905,10 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
         players = [player]
     else:
         players = [player] if player and obj is None else []
-    attackers: list[ObjectRef] = []
-    if kind == "you_attack":  # -- history (wave 22E) -- "those creatures" / "that many": the creatures declared as attackers (508.1), 603.2c
-        attackers = [ObjectRef(card=c, object_id=plan.oid(plan.state.cards[c]), zone=plan.state.cards[c].zone)
-                     for c in info.get("attacking") or [] if c in plan.state.cards]
-    return TriggerEvent(kind=kind, batch=batch, objects=[ref] if ref else attackers, new_objects=new, players=players,
+    return TriggerEvent(kind=kind, batch=batch, objects=[ref] if ref else [], new_objects=new, players=players,
                         source=info.get("source_ref") or (
                             _source_ref(plan, info.get("source_oid")) if kind == "dealt_damage" else None),
-                        amount=int(info.get("amount") or 0) or len(attackers), count=1,
+                        amount=int(info.get("amount") or 0), count=1,
                         defended=info.get("defended") if kind == "you_attack" else _attack_defended(plan, kind, obj),
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
@@ -946,6 +949,11 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 continue
             event = _event(plan, fact, batch)
             info = fact[4]
+            if cond["event"] == "you_attack" and cond.get("min_attackers"):  # -- history (wave 22E; review) -- "those creatures", "that many":
+                # the attackers the condition counted (508.1, 603.2c)
+                counted = _counted_attackers(plan, cond, watcher, info)
+                event.objects = [ObjectRef(card=c.id, object_id=plan.oid(c), zone=c.zone) for c in counted]
+                event.amount = len(counted)
             # -- other side (wave 6D) -- "that creature": the one on the other side (app/rules/other_side.py)
             from app.rules import other_side
 
@@ -1609,11 +1617,14 @@ def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[
         # "for the first time each turn" (603.2): the first time this turn that something targeted this object ("any"), or the
         # first time a spell or ability its controller controls did / an opponent's did ("by": the ones the trigger asks about);
         # kept per turn, like other once-each-turn marks
+        # (review 22E: a save from before this wave kept "targeted:<player>:<object>" marks - still read this turn)
+        before = {p for p in plan.state.players if plan.rules.once_per_turn.get(f"targeted:{p}:{oid}") == turn}
         first = {}
-        for group, mine in (("any", True), ("by", controller == card.controller or None), ("by_opp", controller != card.controller or None)):
+        for group, mine, legacy in (("any", True, before), ("by", controller == card.controller, before & {card.controller}),
+                                    ("by_opp", controller != card.controller, before - {card.controller})):
             if mine:
                 key = f"targeted:{group}:{oid}"
-                first[group] = plan.rules.once_per_turn.get(key) != turn
+                first[group] = plan.rules.once_per_turn.get(key) != turn and not legacy
                 plan.rules.once_per_turn[key] = turn
         facts.append(("targeted", card, plan.ch(card), card.controller,
                       {"oid": oid, "by": controller, "spell": is_spell, "first": first, "source_ref": source,
