@@ -69,6 +69,8 @@ CARDS = [
     ("Spiritual Focus", "{1}{W}", "Enchantment", None, None,
      "Whenever a spell or ability an opponent controls causes you to discard a card, you gain 2 life and you may draw a card."),
     ("Mind Rot", "{2}{B}", "Sorcery", None, None, "Target player discards two cards."),
+    ("Obstinate Baloth", "{2}{G}{G}", "Creature — Beast", "4", "4",
+     "When this creature enters, you gain 4 life.\nIf a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it into your graveyard."),
     ("Probe Giant", "{W}", "Creature — Giant", "5", "5", ""),
     ("Probe Soldier", "{W}", "Creature — Human Soldier", "1", "1", ""),
 ]
@@ -398,12 +400,12 @@ def test_becomes_crewed_triggers_when_the_crew_ability_resolves(cards):
     check(s)
 
 
-def discard_scenario(cards, caster, extra=()):
-    """Alice holds Metrognome (and ``extra``); ``caster`` (p1 on her turn, p2 on his) casts Mind Rot on her."""
+def discard_scenario(cards, caster, extra=(), held="Metrognome"):
+    """Alice holds ``held`` (and ``extra``); ``caster`` (p1 on her turn, p2 on his) casts Mind Rot on her."""
     from tests.test_rules_conditionals import until
 
-    s = build(cards, ["Metrognome", "Mind Rot", *extra], ["Mind Rot"])
-    for n in ("Metrognome", *extra):
+    s = build(cards, [held, "Mind Rot", *extra], ["Mind Rot"])
+    for n in (held, *extra):
         if n != "Spiritual Focus":
             to_hand(s, n)
     for n in extra:
@@ -455,4 +457,12 @@ def test_spiritual_focus_triggers_for_each_card_an_opponent_makes_you_discard(ca
         else:
             break
     assert life(s) == 44  # two cards discarded: 2 life each (Mind Rot: two cards)
+    check(s)
+
+
+@pytest.mark.parametrize("caster,where,life_now", [("p2", "p1:battlefield", 44), ("p1", "p1:graveyard", 40)])
+def test_obstinate_baloth_enters_instead_when_an_opponents_spell_makes_you_discard_it(cards, caster, where, life_now):
+    s = discard_scenario(cards, caster, held="Obstinate Baloth")
+    answer(s)
+    assert zone_of(s, "Obstinate Baloth") == where and life(s) == life_now
     check(s)

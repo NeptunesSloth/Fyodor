@@ -4489,6 +4489,9 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
             else:
                 out["n"] = {"times": [n, each]} if n != 1 else each
         return out
+    if text == "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it " \
+               "into your graveyard.":  # -- discard causes (wave 23D) -- 614.1a, 701.9: the discard is replaced (replacements.replace_move)
+        return {"kind": "replacement", "replacement": "discard_battlefield", "effects": []}
     if _LEAVES_EXILE_SELF.match(text):  # -- zone replacements (wave 22C) -- "If ~ would leave the battlefield, exile it instead of putting it anywhere else."
         return {"kind": "replacement", "replacement": "exile_instead", "from": "leaves", "effects": []}
     m = EXILE_INSTEAD_SELF.match(text)

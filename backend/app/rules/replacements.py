@@ -1016,6 +1016,12 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             continue
         frm = _from_zone(card)
         oid = plan.oid(card)
+        if dest == "graveyard" and frm == "hand" and actor not in (None, card.owner) and any(
+                d["kind"] == "replacement" and d.get("replacement") == "discard_battlefield" for d in _definitions(plan, card).values()):
+            # -- discard causes (wave 23D) -- 614.1a, 614.15: "If a spell or ability an opponent controls causes you to discard this card, put
+            # it onto the battlefield instead": its own self-replacement, applied before the others (it is no longer going to the graveyard)
+            replaced.append((cid, "battlefield", "discard replacement"))
+            continue
         if dest == "graveyard" and frm == "hand":
             # 616.1: madness and an "exile instead" static (Rest in Peace) would both replace a
             # discard; the card's owner chooses. Only madness leads anywhere different (the
