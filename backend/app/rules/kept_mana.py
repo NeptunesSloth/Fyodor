@@ -93,16 +93,31 @@ def clamp(state: GameState) -> None:
     r.kept_mana = out
 
 
+def _always(plan: Plan) -> dict[str, set[str]]:
+    """-- static_other sweep (wave 21A) -- 106.4: the colors each player never loses as steps and phases end (statics of their permanents)."""
+    from app.rules.cast_limits import _statics
+
+    out: dict[str, set[str]] = {}
+    for src, d in _statics(plan.state, plan.info, "keep_mana"):
+        out.setdefault(src.controller, set()).add(d["color"])
+    return out
+
+
 def empty(plan: Plan) -> bool:
     """500.4 with 106.4: empty every pool except the mana an effect keeps. True when something was
     kept (the caller doesn't empty the pools itself)."""
     state = plan.state
     r = plan.rules
     clamp(state)
-    if not r.kept_mana:
+    always = _always(plan)
+    if not r.kept_mana and not always:
         return False
     keep = {p: kept(state, p) for p in state.players}
     keep_u = {p: kept_units(state, p) for p in state.players}
+    for pid, colors in always.items():  # -- static_other sweep (wave 21A) -- "You don't lose unspent red mana as steps and phases end."
+        pool = state.players[pid]
+        keep[pid].update({c: pool.mana[c] for c in colors if pool.mana.get(c)})
+        keep_u[pid] = sorted({*keep_u[pid], *(u.id for u in pool.mana_units if u.sym in colors)})
     if not any(keep.values()) and not any(keep_u.values()):
         r.kept_mana = []
         return False

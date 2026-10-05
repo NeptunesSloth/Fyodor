@@ -76,6 +76,8 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
         name, arg = rule_arg(rule)
         if name == "block_only" and not _any_selector(state, info, arg, attacker, ach, blocker):
             return f"{bch.name} can block only {_phrase(arg)}"
+        if name == "cant_block_unless_more" and not _controls_more(state, info, arg.partition(":")[2], blocker.controller, attacker.controller):
+            return f"{bch.name} can't block unless its controller controls more of them than the attacking player"  # (wave 21A)
         if name == "cant_block_sel" and _any_selector(state, info, arg, attacker, ach, blocker):
             return f"{bch.name} can't block {_phrase(arg)}"
         if name == "cant_block_power" and _power(ach) > _power(bch):
@@ -172,7 +174,7 @@ def _defender_controls(state: GameState, info: CardInfo | None, arg: str, defend
     from app.rules.layers import _view
 
     view = _view(state, info)
-    return any(selectors.candidates(view, sel, defender) for sel in rule_selectors(arg))
+    return any(selectors.candidates(view, selectors.replace(sel, controller="you"), defender) for sel in rule_selectors(arg))  # (wave 21A: the defender's own)
 
 
 def _phrase(arg: str) -> str:
@@ -486,11 +488,46 @@ def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declare
     return None
 
 
+def _defender_fact(plan: Plan, arg: str, defender: str) -> bool:
+    """-- static_other sweep (wave 21A) -- one fact about the defending player (a rule's argument): "controls:<selector>", "poisoned",
+    "monarch", "graveyard:<n>" (n or more cards in their graveyard), "outnumbers:<player>:<selector>" (that player controls more of
+    them than the defender)."""
+    kind, _, rest = arg.partition(":")
+    state = plan.state
+    if kind == "controls":
+        return _defender_controls(state, plan.info, rest, defender)
+    if kind == "poisoned":
+        return int(state.players[defender].resources.get("poison", 0)) > 0
+    if kind == "monarch":
+        return state.table.monarch == defender
+    if kind == "graveyard":
+        return len(state.zones.get(zone_key(defender, "graveyard"), ())) >= int(rest)
+    who, _, sel = rest.partition(":")  # outnumbers
+    return _controls_more(state, plan.info, sel, who, defender)
+
+
+def _controls_more(state: GameState, info: CardInfo | None, sel: str, a: str, b: str) -> bool:
+    """-- static_other sweep (wave 21A) -- does player ``a`` control more of what the selector names than player ``b``?"""
+    if info is None:
+        return False
+    from app.rules.layers import _view
+
+    view = _view(state, info)
+    return any(len(selectors.candidates(view, (one := selectors.replace(s, controller="you")), a))
+               > len(selectors.candidates(view, one, b)) for s in rule_selectors(sel))
+
+
 def attack_forbidden(plan: Plan, ch: Characteristics, target: str) -> bool:
     """-- attached events (wave 4L) -- 508.1c: "can't attack you [or planeswalkers you control]" (rules
-    ``cant_attack_player:<player>`` / ``cant_attack_player_pw:<player>``, "you" being the static's controller)."""
+    ``cant_attack_player:<player>`` / ``cant_attack_player_pw:<player>``, "you" being the static's controller); -- static_other sweep
+    (wave 21A) -- "can't attack unless / if defending player …" (``cant_attack_unless_def:<fact>`` / ``cant_attack_if_def:<fact>``)."""
     for rule in ch.imposed:
         name, _, who = rule.partition(":")
+        if name in ("cant_attack_unless_def", "cant_attack_if_def"):
+            defender = target if target in plan.state.players else defender_of(plan.state, A.AttackTarget(kind="card", id=target))
+            if defender in plan.state.players and _defender_fact(plan, who, defender) == (name == "cant_attack_if_def"):
+                return True
+            continue
         if name not in ("cant_attack_player", "cant_attack_player_pw"):
             continue
         if target == who:

@@ -466,7 +466,7 @@ def empty_pools(plan: Plan) -> None:
     from app.rules import kept_mana  # -- refused copy/mana (wave 3R3): 106.4 "you don't lose this mana" --
 
     before = {pid: p.mana.get("R", 0) for pid, p in plan.state.players.items()}
-    if plan.rules.kept_mana and kept_mana.empty(plan):
+    if kept_mana.empty(plan):
         # (both kinds of kept mana: the firebending {R} on top of what the other effects kept, never more than was there)
         for pid, n in kept.items():
             add = min(n, before.get(pid, 0) - plan.state.players[pid].mana.get("R", 0))
