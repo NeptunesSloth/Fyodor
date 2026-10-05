@@ -178,7 +178,7 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
 # exile as: their owner and mana value are the same wherever they have gone since, 608.2h), so the ordinary pronoun grammar
 # ("the exiled card", "its owner", "that card's mana value") finds them. ``linked()`` is true while such an ability is read.
 _STATE = threading.local()  # (per thread: games may parse cards concurrently)
-_EXILES = re.compile(r"\bexiles?\b|\bexiling\b")
+_EXILES = re.compile(r"\bexiles?\b|\bexiling\b", re.IGNORECASE)
 
 
 def linked() -> bool:

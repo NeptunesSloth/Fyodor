@@ -508,8 +508,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             cond = conditions.parse(m["cond"])
             if cond is None or "succeeded" in cond or "flag" in cond:
                 return None
-        if not any(x.strip().rstrip(".") and exiled_with_exiles(x) for x in lines):
-            return None  # (the linked ability must be one that exiles: otherwise the permission has nothing to read)
+        exiling = [x for x in lines if x.strip().rstrip(".") and exiled_with_exiles(x)]
+        if not exiling or any("face down" in x.lower() for x in exiling):
+            return None  # (the linked ability must be one that exiles: otherwise the permission has nothing to read; review 22D: a card
+            # exiled face down is hidden even from its exiler unless the text lets them look, 406.3 — not read)
         return {"kind": "static", "static": "permission", "zone": "exile", "linked": True, "once": False, "flash": False, "self": False,
                 "play": True, "cast": True, "filter": None, "effects": [],
                 **({"during": "your_turn"} if m["during"] else {}), **({"if": cond} if cond is not None else {})}
@@ -839,7 +841,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if d.get("own") and card.owner != player:  # ("Creature cards you own …")
             continue
         if d.get("linked"):  # -- resolution memory (wave 22D) -- only a card still the object this permanent's ability exiled (400.7, 607.2a)
-            if not card.zone.endswith(":exile") or oid not in r.exiled_with.get(r.object_id(src.id), []):
+            if not card.zone.endswith(":exile") or card.face_down or oid not in r.exiled_with.get(r.object_id(src.id), []):
                 continue
             if d.get("if") is not None and not _linked_if(state, info, player, src, d["if"]):
                 continue

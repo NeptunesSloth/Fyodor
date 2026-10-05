@@ -18,6 +18,7 @@ automate, decisions, and conceding. Casting, abilities and combat arrive with mi
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -823,8 +824,11 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
-            if (paid := [c for c in record.exiled if c != card_id and c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]):
+            if (paid := [c for c in record.exiled if c != card_id and c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]) \
+                    and any(ab.index < 100 and ab.kind not in ("triggered", "activated") and re.search(r"\bexile\b", ab.text, re.IGNORECASE)
+                            and re.search(r"\bcost\b|^escape", ab.text, re.IGNORECASE) for ab in plan.ch(plan.state.cards[card_id]).abilities):
                 # -- resolution memory (wave 22D) -- 607.2q: the cards exiled to pay the permanent spell's cost are "exiled with" the permanent
+                # (review 22D: only through a cost an ability printed on it allows — not an escape cost Underworld Breach grants)
                 plan.rules.exiled_with[plan.oid(card_id)] = [*plan.rules.exiled_with.get(plan.oid(card_id), []), *(plan.oid(c) for c in paid)]
         if oid in plan.rules.bestowed:  # -- keywords (wave 15E) -- the bestowed Aura permanent is the spell it was (702.103b)
             plan.rules.bestowed = [o for o in plan.rules.bestowed if o != oid]
