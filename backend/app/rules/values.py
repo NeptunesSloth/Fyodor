@@ -85,7 +85,7 @@ def parse_amount(word: str) -> Value | None:
 
 # -- dynamic values (agent F): "the number of …" and friends --------------------------------------
 _COUNT = re.compile(r"^the (?:total )?number of (?P<what>.+?)$")
-_STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
+_STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value", "power and/or toughness": "power_or_toughness"}
 _COUNTERS_ON = re.compile(r"^(?:(?P<kind>\+1/\+1|-1/-1|[a-z]+) )?counters? on (?P<on>.+)$")
 _ON = {"~": "self", "it": "it", "this creature": "self", "this permanent": "self", "this artifact": "self",
        "this enchantment": "self", "this land": "self", "this equipment": "self", "this aura": "self",
@@ -97,10 +97,10 @@ _DISTINCT = {"card types": "types", "different card types": "types", "card type"
              "creature type": "creature_types",
              "different power": "powers", "different powers": "powers",  # (wave 17B: Selvala, Eager Trailblazer)
              "mana values": "mana_values", "different mana values": "mana_values", "mana value": "mana_values",
-             "different mana value": "mana_values"}  # (wave 21F: Eris, Roar of the Storm)  # (wave 20B)
+             "different mana value": "mana_values", "planeswalker types": "planeswalker_types"}  # (wave 21F: Eris, Roar of the Storm)  # (wave 20B)
 _AMONG = re.compile(r"^(?P<kind>" + "|".join(sorted(map(re.escape, _DISTINCT), key=len, reverse=True)) + r") among (?P<sel>.+)$")
 _DEVOTION = re.compile(r"^your devotion to (?P<c1>white|blue|black|red|green)(?: and (?P<c2>white|blue|black|red|green))?$")
-_AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power|toughness|mana value) "
+_AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power and/or toughness|power|toughness|mana value) "
                         r"(?:among|of) (?P<sel>.+)$")
 _PLAYER_COUNTERS = re.compile(r"^(?P<kind>[a-z]+) counters? you have$")
 # -- counters & designations (wave 3E) -- "poison counters your opponents have" (all of them together),
@@ -319,6 +319,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         if len(parts) > 2 or None in keys or any(selectors.from_key(k).player is not None for k in keys if k):
             return None
         return {"max" if m["max"] else "sum": _STATS[m["stat"]], "of": keys[0], **({"also": keys[1]} if len(keys) == 2 else {})}
+    m = re.fullmatch(r"the greatest number of (?P<sel>creatures you control) that have a creature type in common", p)  # -- value grammar (wave 23C) -- 205.3m
+    if m and (key := _selector_key(m["sel"])) is not None and not selectors.from_key(key).player:
+        return {"shared_type": 1, "of": key}
     m = re.fullmatch(r"differently named (?P<sel>.+)", what)  # -- amounts (wave 12C) -- 201.2: how many different names
     if m:
         key = _selector_key(m["sel"])
@@ -608,6 +611,14 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import exiled_with
 
         return len(exiled_with.cards(plan, ctx))
+    if "shared_type" in v:  # -- value grammar (wave 23C) -- the most of them that share one creature type (a changeling has every one: 702.73a)
+        from collections import Counter
+
+        from app.rules.creature_types import CREATURE_TYPES
+
+        tally = Counter(t for c in selectors.candidates(plan, selectors.from_key(v["of"]), you, _other_than(ctx))
+                        for t in plan.ch(plan.state.cards[c]).subtypes & CREATURE_TYPES)
+        return max(tally.values(), default=0)
     if "distinct" in v:
         return _distinct(plan, ctx, v["distinct"], v["among"])
     if "devotion" in v:
@@ -671,6 +682,9 @@ def evaluate_signed(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 def _stat_of(ch: Any, stat: str) -> int | None:
     if stat == "mana_value":
         return int(ch.mana_value)
+    if stat == "power_or_toughness":  # -- value grammar (wave 23C) -- "the greatest power and/or toughness among …": each object's larger number
+        both = [n for n in (_stat_of(ch, "power"), _stat_of(ch, "toughness")) if n is not None]
+        return max(both) if both else None
     if ch.pt is not None:
         return int(ch.pt[0 if stat == "power" else 1])
     raw = ch.power if stat == "power" else ch.toughness
@@ -705,6 +719,9 @@ def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:
         elif kind == "names":  # -- token & pump wordings (wave 6C) -- "lands with different names" (201.2, 708.2a)
             if ch.name and not ch.face_down:
                 found.add(ch.name)
+        elif kind == "planeswalker_types":  # -- value grammar (wave 23C) -- 205.3j: the planeswalker subtypes of the planeswalkers
+            if "Planeswalker" in ch.types:
+                found |= ch.subtypes & selectors.PLANESWALKER_TYPES
         elif kind == "mana_values":  # -- as long as (wave 20B) -- "five or more mana values among cards in your graveyard" (202.3)
             found.add(str(int(ch.mana_value)))
         elif kind == "powers":  # "creatures with different powers" (conditions.py): how many distinct values

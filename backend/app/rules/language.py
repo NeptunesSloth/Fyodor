@@ -316,6 +316,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
         return {_STATS[m["stat"] or m["stat2"]]: "it:milled"}  # -- X sized by a count (wave 19F) -- the card a mill instruction milled (701.17)
     if (m := re.fullmatch(r"the (?P<stat>mana value) of (?:that|the) spell|the spell's (?P<stat2>mana value)", phrase)) is not None:
         return {"mana_value": "that_spell"}  # (wave 19F: a cast trigger's spell, or the one a counter instruction just countered)
+    if (m := re.fullmatch(r"the (?P<stat>power|toughness|mana value) of the creature that died", phrase)) is not None:  # -- value grammar (wave 23C) -- 603.10a, 608.2h
+        return {_STATS[m["stat"]]: "event", "died": 1}  # (the dying creature as it last existed; scripts._event_refs_ok: only a "dies" trigger's)
     if phrase in ("the number of colors that spell is", "the number of colors it is"):  # -- value grammar (wave 23C) -- how many colors an object is (105.1)
         return {"colors": "that_spell" if "spell" in phrase else its}
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
@@ -472,6 +474,7 @@ def _rider_value(phrase: str) -> Any:
                         r"the mana value of (?:that spell|the spell|the exiled card|the milled card)", phrase):  # (wave 19F)
         return _stat(phrase)
     if phrase in ("the number of colors that spell is", "the number of colors it is") or re.fullmatch(
+            r"the (?:power|toughness|mana value) of the creature that died", phrase) or re.fullmatch(
             r"(?:two|three|four) times (?:its|~'s|this creature's|that creature's) (?:power|toughness|mana value)", phrase):  # -- value grammar (wave 23C) -- 105.1
         return _stat(phrase)
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
