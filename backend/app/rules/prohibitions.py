@@ -12,6 +12,20 @@
   (Tatterkite, Melira's Keepers): checked at the one counter choke point (``replace.plan_counters``) before any replacement is applied,
   for permanents on the battlefield and for one entering with counters (122.6: they are put as it enters; persist and undying returns
   too). A card that isn't a permanent (a suspended card in exile) is not "an artifact, creature, enchantment, or land" on the battlefield.
+* "Players can't pay life or sacrifice creatures to cast spells or activate abilities." (Angel of Jubilation, Yasharn), "Players can't pay life to
+  cast spells or to activate abilities that aren't mana abilities." (Karn's Sylex): 119.4 / 601.2h — a cost that can't be paid can't be begun, so the
+  cost parts, the sacrifice candidates, Phyrexian mana's life and the mana abilities that pay life or sacrifice are all read (``life_banned``,
+  ``sacrifice_banned``).
+* "Spells and abilities your opponents control can't cause you to sacrifice permanents [or discard cards]." (Sigarda, Tajuru Preserver, Tamiyo):
+  an edict or any other effect of an opponent's spell or ability does nothing to you here; a cost you pay yourself is no such effect.
+* "Players can't search libraries." / "Your opponents can't search libraries." / "Players can't search libraries this turn." / "Spells and abilities
+  your opponents control can't cause their controller to search their library." (Mindlock Orb, Stranglehold, Shadow of Doubt, Ashiok): the library
+  is left out of the search (701.23); "then shuffle" is its own instruction and still happens.
+Not read (stay by hand): "Lands can't enter the battlefield" / "Players can't play lands" (Worms of the Earth: whether a land play is then possible
+isn't settled), "can't lose life" (Everybody Lives!, Courageous Resolve, Teferi's Protection: the life-loss events of damage, effects and costs have
+no single choke point), "damage that would reduce your life total to less than 1 reduces it to 1 instead" (Angel's Grace: what it does at 0 life is
+unsettled), cost increases by name (Disruptor Flute, Anointed Peacekeeper: cost_changes), protection from a name (Runed Halo), "any player may pay {2}
+to ignore this" (Leonin Arbiter).
 """
 
 from __future__ import annotations
