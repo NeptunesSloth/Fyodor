@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption
+from app.rules import values
 from app.rules.plan import decide
 
 if TYPE_CHECKING:
@@ -40,7 +41,7 @@ if TYPE_CHECKING:
 Context = dict[str, Any]
 STEP = "roll_choose"
 _SIDES = {"four": 4, "six": 6, "eight": 8, "ten": 10, "twelve": 12, "twenty": 20}
-_ONE = re.compile(r"^roll (?:a d(?P<n>\d+)|a (?P<w>four|six|eight|ten|twelve|twenty)-sided die)$")
+_ONE = re.compile(r"^roll (?:a d(?P<n>\d+)|a (?P<w>four|six|eight|ten|twelve|twenty)-sided die)(?: and (?P<op>add|subtract) (?P<v>.+))?$")
 _TWO = re.compile(r"^roll two d(?P<n>\d+) and choose one result$")
 _COUNTS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 _MANY = re.compile(r"^roll (?P<c>two|three|four|five|six|seven|eight|nine|ten|X) (?:d(?P<n>\d+)|(?P<w>four|six|eight|ten|twelve|twenty)-sided dice)$")
@@ -49,8 +50,16 @@ _RESULT = {"the result": "result", "that result": "result", "the other result": 
 
 
 def _one(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import scripts
+
     sides = int(m["n"]) if m["n"] else _SIDES[m["w"]]
-    return ([{"do": "roll", "sides": sides, "count": 1}] if 2 <= sides <= 1000 else []), None
+    effect: dict[str, Any] = {"do": "roll", "sides": sides, "count": 1}
+    if m["op"]:  # (wave 24B) 706.2: "Roll a d20 and add the number of cards in your hand": a modifier of the natural result
+        v = values.parse_count(m["v"])
+        if v is None or isinstance(v, int):
+            raise scripts._NoMatch
+        effect["mod"] = {"op": "+" if m["op"] == "add" else "-", "v": v}
+    return ([effect] if 2 <= sides <= 1000 else []), None
 
 
 def _two(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -157,6 +166,7 @@ def rewrite(body: str) -> str:
     if roll is None or head.lower().count("roll ") != 1 or not head.endswith("."):
         return body
     sides = int(roll["n"]) if roll["n"] else _SIDES[roll["w"]]
+    top = 10**6 if re.search(r"\band add\b", head, re.IGNORECASE) else sides  # (wave 24B: "Roll a d20 and add …": the last row may go on, "15+")
     from app.rules.oracle import split_sentences
 
     spans: list[tuple[int, int, str]] = []
@@ -164,12 +174,12 @@ def rewrite(body: str) -> str:
     for k, m in enumerate(rows):
         end = rows[k + 1].start() if k + 1 < len(rows) else len(body)
         lo = 1 if m["less"] else int(m["lo"])
-        hi = int(m["lo"]) if m["less"] else int(m["hi"]) if m["hi"] else sides if m["plus"] else int(m["lo"])
+        hi = int(m["lo"]) if m["less"] else int(m["hi"]) if m["hi"] else top if m["plus"] else int(m["lo"])
         spans.append((lo, hi, ""))
         for s in split_sentences(body[m.end():end].strip()):
             out.append(f"If the result is {lo} to {hi}, {s[:1].lower()}{s[1:]}")
     spans.sort()
-    if [s[0] for s in spans][0] != 1 or spans[-1][1] != sides or any(b[0] != a[1] + 1 for a, b in zip(spans, spans[1:], strict=False)):
+    if [s[0] for s in spans][0] != 1 or spans[-1][1] != top or any(b[0] != a[1] + 1 for a, b in zip(spans, spans[1:], strict=False)):
         return body
     return " ".join(out)
 
@@ -182,6 +192,7 @@ def plain(body: str) -> str:
     result, put two -1/-1 counters on that creature." is that instruction with its multiplier after it (as the grammar reads it)."""
     if re.search(r"\broll (?:a |two |three |four |five |six |seven |eight |nine |ten |X )", body, re.IGNORECASE):
         body = _FOR_EACH.sub(lambda m: f"{m['do'][:1].upper()}{m['do'][1:]} for each {m['k']} result.", body)
+        body = re.sub(r"\b([Ss])cry a number of cards equal to (the|that) result\b", r"\1cry X, where X is \2 result", body)
     return re.sub(r"\bthat much (life|damage)", r"\1 equal to the result", body) if _ROLLED.search(body) else body
 
 
@@ -242,8 +253,13 @@ def roll(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         ctx["die"] = ctx["die_other"] = 0
         return True
     log = turn_log_now(plan.state)
+    naturals = list(results)
+    if e.get("mod"):  # 706.2: the result is the natural result after the modifiers (one die: an instruction with a modifier asks for one)
+        delta = int(effects._amount(plan, ctx, e["mod"]["v"]))
+        results = [r + delta if e["mod"]["op"] == "+" else r - delta for r in results]
+        ctx["dice"] = results
     for k, r in enumerate(results):  # 706.2: each die is a roll; -- wave 24B -- one event each (the one-or-more event follows)
-        emit(plan.state, "designation", counter="roll_die", player=pid, amount=r, natural=r, sides=e["sides"],
+        emit(plan.state, "designation", counter="roll_die", player=pid, amount=r, natural=naturals[k], sides=e["sides"],
              nth=(log.rolled.get(pid, 0) if log is not None else 0) + k + 1)
     if log is not None:
         log.rolled[pid] = log.rolled.get(pid, 0) + len(results)

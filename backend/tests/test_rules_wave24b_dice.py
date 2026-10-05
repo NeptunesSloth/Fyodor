@@ -38,6 +38,10 @@ EXTRA = [
     real("Attempted Murder", "{X}{B}{B}", 2, "Sorcery",
          "Choose target creature. Roll X six-sided dice. For each even result, put two -1/-1 counters on that creature. For each odd result, "
          "create a 1/2 blue Bird creature token with flying named Storm Crow.", None, "B"),
+    real("Diviner's Portent", "{X}{U}{U}{U}", 3, "Instant",
+         "Roll a d20 and add the number of cards in your hand.\n1—14 | Draw X cards.\n15+ | Scry X, then draw X cards.", None, "U"),
+    real("Boing!", "{1}{U}", 2, "Instant", "Return target creature to its owner's hand, then roll a six-sided die. If the result is 3 or less, "
+         "scry a number of cards equal to the result.", None, "U"),
     real("Probe Bear", "{1}{G}", 2, "Creature — Bear", "", ("6", "6"), "G"),
     real("Wyll, Blade of Frontiers", "{1}{R}", 2, "Legendary Creature — Human Warlock",
          "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.\nWhenever you roll one or more "
@@ -181,4 +185,32 @@ def test_roll_one_more_die_and_ignore_the_lowest_roll(cards, monkeypatch, dice, 
     roll_ability(s, "Atomwheel Acrobats")
     assert counters(s, "Atomwheel Acrobats") == counters_on_acrobats  # (the 5 or the 1 is the roll that counts; a 2 that was ignored isn't)
     assert counters(s, "Wyll, Blade of Frontiers") == 1  # "Whenever you roll one or more dice": once for the roll
+    check(s)
+
+
+@pytest.mark.parametrize("die,drawn", [(3, 2), (20, 2)])
+def test_roll_and_add_the_number_of_cards_in_your_hand(cards, monkeypatch, die, drawn):
+    """706.2: the natural result plus the modifier is the result the table is read with: 3 + (cards in hand) stays under 15, 20 + … is over."""
+    rolls(monkeypatch, die)
+    s = build(cards, ["Diviner's Portent"], [])
+    spell = to_hand(s, "Diviner's Portent")
+    mana(s, U=3, G=2)
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=2)
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + drawn  # the spell left the hand; X = 2 cards drawn either way (15+ scries first)
+    check(s)
+
+
+@pytest.mark.parametrize("die,scried", [(2, True), (5, False)])
+def test_scry_a_number_of_cards_equal_to_the_result(cards, monkeypatch, die, scried):
+    rolls(monkeypatch, die)
+    s = build(cards, ["Boing!", "Probe Bear"], [])
+    bear = put(s, "Probe Bear")
+    spell = to_hand(s, "Boing!")
+    mana(s, U=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bear.id])
+    answer(s)
+    scries = [e for e in s.state.rules.events if e.kind == "designation" and e.counter == "scry"]
+    assert [e.looked for e in scries] == ([die] if scried else [])  # 701.22: as many cards as the result, only for a result of 3 or less
     check(s)
