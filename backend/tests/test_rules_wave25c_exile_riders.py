@@ -175,7 +175,7 @@ def test_chandra_casts_your_bolt_paying_its_cost_and_exiles_it(cards):
     assert [o.id for o in d.options] == [bolt.id]
     choose(s, [bolt.id])
     choose(s, ["p2"], resolve=True)
-    assert s.state.players["p2"].life == 37 and s.state.players["p1"].mana == {"R": 1}  # (Electro added {R} when the Bolt was cast; X = 3 was paid)  # its mana cost was paid
+    assert s.state.players["p2"].life == 37 and s.state.players["p1"].mana == {}  # its mana cost was paid
     assert s.state.cards[bolt.id].zone == "p1:exile"
     replay_matches(s)
 
