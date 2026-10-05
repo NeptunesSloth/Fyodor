@@ -1896,7 +1896,7 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return gifts
     # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
     # opponent, the token grammar's "… for each opponent"
-    body = re.sub(r"(^|\. )For each opponent, you (create [^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
+    body = re.sub(r"(^|\. )For each opponent, you (create (?![^.,]* with )[^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
     # -- resolution memory (wave 22D) -- "Choose any number of target creatures you control. For each of them, create a token that's a copy of that
     # creature, except it has haste." (Twinflame): one token for each object chosen — "create a token that's a copy of each of any number of target …"
     body = re.sub(r"(^|\. )Choose ((?:any number of|up to \w+) target [^.]+?)\. For each of them, create (?:a|one) token that's a copy of that "

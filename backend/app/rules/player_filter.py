@@ -107,6 +107,8 @@ def parse_pred(text: str, prior: dict[str, Any] | None = None) -> Pred | None:
 
 def holds(plan: Plan, ctx: Context, pred: Pred, pid: str) -> bool:
     """Is the predicate true of this player now (608.2h)?"""
+    if "any" in pred:
+        return True
     if "cond" in pred:
         return conditions.holds(plan, {**ctx, "controller": pid}, pred["cond"])
     if "vs" in pred:
@@ -151,6 +153,7 @@ PRIMITIVES = {"players_where": players_where}
 
 _SENTENCE = re.compile(r"^each (?P<b>opponent|player) who (?P<rest>.+)$")
 _FOR_EACH = re.compile(r"^for each (?P<b>opponent|player) who (?P<pred>[^,]+), (?P<rest>.+)$")
+_EACH_OPP = re.compile(r"^for each opponent, (?P<rest>.+)$")
 _THEN = re.compile(r"(?i)(?<=[a-z]), then (each (?:opponent|player) who )")
 
 
@@ -168,7 +171,9 @@ def sentence(text: str, effects: list[dict[str, Any]], read: Callable[[str], lis
     prior = effects[-1] if effects else None
     name = f"pw{sum(1 for x in effects if x.get('do') == 'players_where')}"
     if (f := _FOR_EACH.match(text.rstrip("."))) is not None:
-        return _for_each(f, prior, name, read)
+        return _for_each(f["b"], parse_pred(f["pred"], prior), f["rest"], name, read)
+    if (o := _EACH_OPP.match(text.rstrip("."))) is not None:
+        return _for_each("opponent", {"any": True}, o["rest"], name, read)
     m = _SENTENCE.match(text.rstrip("."))
     if m is None:
         return None
@@ -189,19 +194,20 @@ def sentence(text: str, effects: list[dict[str, Any]], read: Callable[[str], lis
     return None
 
 
-def _for_each(f: re.Match[str], prior: dict[str, Any] | None, name: str,
+def _for_each(base: str, pred: Pred | None, clause: str, name: str,
               read: Callable[[str], list[dict[str, Any]] | None]) -> list[dict[str, Any]] | None:
-    """"For each opponent who [predicate], [instruction]": the instruction once for each player the predicate holds for."""
-    pred = parse_pred(f["pred"], prior)
-    if pred is None or (rest := re.sub(r"^(\w)", lambda c: c[1].upper(), f["rest"])) is None:
+    """"For each opponent [who predicate], [instruction]": the instruction once for each player the predicate holds for (the
+    instruction names no player of the group: it is the controller's, once for each; "create a token" is one creation)."""
+    rest = clause[:1].upper() + clause[1:]
+    if pred is None or re.search(r"\b(?:that (?:player|opponent)|they|them|their|each (?:opponent|player))\b", rest):
         return None
-    if re.search(r"\b(?:that (?:player|opponent)|they|them|their|each (?:opponent|player))\b", rest):
-        return None  # (the instruction names no player of the group: it is the controller's, once for each)
     inner = read(rest + ".")
     dumped = json.dumps(inner)
     if not inner or '"ref:' in dumped or '"target' in dumped or '"it"' in dumped or "event_amount" in dumped or "this_way" in dumped:
         return None
-    return [{"do": "players_where", "as": name, "base": f["b"], "pred": pred, "repeat": len(inner)}, *inner]
+    if len(inner) == 1 and inner[0].get("do") == "create_token" and inner[0].get("n") == 1:
+        return [{**inner[0], "n": {"players_where": {"base": base, "pred": pred}}}]  # (one creation of that many tokens, 111.2)
+    return [{"do": "players_where", "as": name, "base": base, "pred": pred, "repeat": len(inner)}, *inner]
 
 
 def count(what: str) -> dict[str, Any] | None:
