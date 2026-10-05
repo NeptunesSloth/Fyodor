@@ -3349,6 +3349,11 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                options=[DecisionOption(id=t, label=t) for t in e["land_pick"]],
                resume={"step": "become_land", "ctx": ctx, "e": e})
         return False
+    if e.get("pick") == "color or colors":  # -- activated other (wave 21E) -- "becomes the color or colors of your choice": one or more
+        decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: choose one or more colors",
+               options=[DecisionOption(id=t, label=t) for t in CHOICE_OPTIONS["color"]], min_choices=1,
+               max_choices=len(CHOICE_OPTIONS["color"]), resume={"step": "become_pick", "ctx": ctx, "e": e})
+        return False
     if e.get("pick"):  # -- activated wordings (wave 15D) -- "becomes the creature type / color of your choice": chosen as it resolves
         decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a {e['pick']}",
                options=[o for o in _choice_options(plan, ctx, e["pick"]) if o.id != e.get("not")],
@@ -3445,12 +3450,22 @@ def resume_become_land(plan: Plan, d: Any, chosen: list[str]) -> None:
 RESUME["become_land"] = resume_become_land
 
 
+_COLOR_LETTER = {"White": "W", "Blue": "U", "Black": "B", "Red": "R", "Green": "G"}
+
+
 def resume_become_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
+    if e["pick"] == "color or colors":  # -- activated other (wave 21E) -- every color chosen, once each (105.2)
+        if not chosen or len(set(chosen)) != len(chosen) or not set(chosen) <= set(CHOICE_OPTIONS["color"]):
+            raise ValueError("not an offered choice")
+        plan.note(f"{plan.name(d.player)} chooses {', '.join(chosen)} (colors)", actor=d.player)
+        if become(plan, ctx, {**e, "pick": None, "colors": [_COLOR_LETTER[c] for c in chosen]}):
+            continue_effects(plan, ctx)
+        return
     if chosen[0] not in {o.id for o in _choice_options(plan, ctx, e["pick"])} - {e.get("not")}:
         raise ValueError("not an offered choice")
     plan.note(f"{plan.name(d.player)} chooses {chosen[0]} ({e['pick']})", actor=d.player)
-    more = {"creature_types": [chosen[0]]} if e["pick"] == "creature type" else {"colors": [{"White": "W", "Blue": "U", "Black": "B", "Red": "R", "Green": "G"}[chosen[0]]]}
+    more = {"creature_types": [chosen[0]]} if e["pick"] == "creature type" else {"colors": [_COLOR_LETTER[chosen[0]]]}
     if become(plan, ctx, {**e, "pick": None, **more}):
         continue_effects(plan, ctx)
 

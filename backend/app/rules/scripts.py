@@ -472,7 +472,7 @@ def _is_player_group(group: dict[str, Any]) -> bool:
     from app.rules import selectors  # (a leaf module)
 
     what = group.get("what") or ""
-    if what in ("player", "opponent"):
+    if what in ("player", "opponent") or what.startswith("opponent_as:"):  # (wave 21E)
         return True
     return what.startswith(selectors.PREFIX) and selectors.from_key(what).player is not None
 
@@ -2045,7 +2045,7 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
     marker = '{"hand": "that_player"}'
     if found is None or marker not in text:
         return found
-    if found[1] in ("player", "opponent") and '"event_player"' not in text:
+    if (found[1] in ("player", "opponent") or str(found[1]).startswith("opponent_as:")) and '"event_player"' not in text:
         bound = "target"
     elif found[1] is None and any(e.get("who") == "event_player" for e in found[0]):
         bound = "event"
@@ -2924,7 +2924,7 @@ def _player_target(what: str) -> bool | None:
     """Is a target group's selector a player (True), an object (False), or either ("any target": None)?"""
     from app.rules import selectors
 
-    if what in ("player", "opponent"):
+    if what in ("player", "opponent") or what.startswith("opponent_as:"):  # (wave 21E)
         return True
     if what == "any" or not what:
         return None
@@ -3675,7 +3675,7 @@ def _event_refs_ok(d: Definition) -> bool:
         about_player = step_names_player(d) or (cond is not None and cond["event"] != "multi" and _has_player(cond))
         specs = [d.get("target") or {}, *(d.get("targets") or [])]
         if not about_player or any(str(s.get("what")) in ("player", "opponent", "any", "player_or_planeswalker",
-                                                         "opponent_or_planeswalker") for s in specs):
+                                                         "opponent_or_planeswalker") or str(s.get("what")).startswith("opponent_as:") for s in specs):
             return False
     from app.rules import watches  # -- turn watches (wave 7D) -- their deferred effects name their own event
 
@@ -4818,7 +4818,7 @@ def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # their layers, 613.6); "It's still a land." is ``still_a``, which turns the types it set into
 # types added (205.1b). A quoted ability it grants must be one the engine carries out
 # (``granted_ability``), else the ability stays manual.
-@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:(?:a|an) |(?=\d+/\d+ [A-Za-z ]*creatures)|the basic land type of your choice|the (?:creature type|color)(?: other than [A-Z][a-z]+)? of your choice).+)")
+@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:(?:a|an) |(?=\d+/\d+ [A-Za-z ]*creatures)|the basic land type of your choice|the (?:creature type|color or colors|color)(?: other than [A-Z][a-z]+)? of your choice).*)")
 def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
