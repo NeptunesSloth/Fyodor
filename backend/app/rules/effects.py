@@ -1001,6 +1001,11 @@ def remove_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
     for cid in cards:
+        if e["kind"] == "*":  # -- attached events (wave 25D) -- "remove all counters from it": every kind it has
+            for kind, have in sorted(plan.state.cards[cid].counters.items()):
+                if have > 0 and n:
+                    plan.do({"type": "counter", "card_ids": [cid], "kind": kind, "delta": -min(have, n)}, actor=ctx["controller"])
+            continue
         have = plan.state.cards[cid].counters.get(e["kind"], 0)
         if have and n:
             plan.do({"type": "counter", "card_ids": [cid], "kind": e["kind"], "delta": -min(have, n)}, actor=ctx["controller"])

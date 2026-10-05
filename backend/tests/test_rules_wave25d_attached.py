@@ -329,6 +329,19 @@ def test_dan_lewis_only_noncreature_non_equipment_artifacts(cards):
     roundtrip(s)
 
 
+def test_remove_all_counters_takes_every_kind(cards):
+    """122.8 / 701.? "remove all counters from it": each kind the creature has, as many as there are."""
+    s = build(cards, "Enchanted River's Grasp")
+    ogre = make(s, "p2", "Ogre", "Ogre", "3/3")
+    act(s, "p1", type="counter", card_ids=[ogre.id], kind="+1/+1", delta=2)
+    act(s, "p1", type="counter", card_ids=[ogre.id], kind="shield", delta=1)
+    cast_on(s, "Enchanted River's Grasp", ogre, U=1, C=2)
+    got = s.state.cards[ogre.id]
+    assert got.tapped and not any(v for v in got.counters.values())  # tapped, every counter gone
+    assert ch(s, ogre).pt == (3, 3)
+    roundtrip(s)
+
+
 def test_unifying_theory_the_caster_pays_and_draws(cards):
     s = build(cards, "Unifying Theory", "Probe Spell Book")
     on_battlefield(s, "Unifying Theory")

@@ -494,5 +494,65 @@
    "Doctor's companion"
   ],
   "layout": "normal"
+ },
+ {
+  "name": "Enchanted River's Grasp",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nWhen this Aura enters, tap enchanted creature and remove all counters from it.\nEnchanted creature loses all abilities and doesn't untap during its controller's untap step.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Vampire Hexmage",
+  "mana_cost": "{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Vampire Shaman",
+  "oracle_text": "First strike\nSacrifice this creature: Remove all counters from target permanent.",
+  "power": "2",
+  "toughness": "1",
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "First strike"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Blitz Leech",
+  "mana_cost": "{5}{B}",
+  "cmc": 6.0,
+  "type_line": "Creature \u2014 Leech",
+  "oracle_text": "Flash\nWhen this creature enters, target creature an opponent controls gets -2/-2 until end of turn. Remove all counters from that creature.",
+  "power": "5",
+  "toughness": "2",
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flash"
+  ],
+  "layout": "normal"
  }
 ]

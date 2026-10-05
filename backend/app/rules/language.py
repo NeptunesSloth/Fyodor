@@ -1811,6 +1811,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             _one(group)
+    # -- attached events (wave 25D) -- "remove all counters from it" (122.8: every kind it has, each as many as there are): Honest Work,
+    # Vampire Hexmage, Purging Stormbrood
+    m = re.fullmatch(r"remove all counters from (?P<o>.+)", text)
+    if m and rider is None:
+        kind, key, group = ref(m["o"])
+        if kind not in ("target", "self", "host", "it"):
+            raise _Fail
+        return [{"do": "remove_counters", "who": _who(kind, key), "kind": "*", "n": 10**6}], _one(group)
     m = re.fullmatch(rf"remove (?P<n>{AMT}|all) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
         kind, key, group = ref(m["o"])
