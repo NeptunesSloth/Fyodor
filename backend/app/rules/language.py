@@ -507,7 +507,7 @@ _SEARCH = re.compile(
     rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) (?:may |(?=searches ))?)?"  # (wave 19E: "searches")
     rf"searche?s? (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"
     rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, ))?"
-    rf"(?:puts? (?:(?P<one>one) (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE}))(?P<shuf>, then shuffles?)?"
+    rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE}))(?P<shuf>, then shuffles?)?"
     rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
     rf"|then shuffle and put {_PRON} on top(?: in any order)?)")  # ("in any order": wave 3R4)
 _DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",

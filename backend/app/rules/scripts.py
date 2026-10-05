@@ -1870,6 +1870,13 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # modelled: the decks are the games'), so the reveal never has a Lesson to show and the rest is the rummage
     body = re.sub(r"(^|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)
     body = _extra_turns.one_sentence(body)  # -- static_other sweep (wave 19A) -- Final Fortune
+    # -- tutor (wave 20D) -- the same search spelled as sentences: "Search your library for two cards[ and reveal them]. Put one into your hand
+    # and the other into your graveyard. Then shuffle." (Final Parting, Fork in the Road), "… for a white card, …, and a green card. Reveal
+    # those cards, put them into your hand, then shuffle." (Conflux), "…. Put those cards into your graveyard, then shuffle.": one search
+    # sentence (701.23), read by language._search
+    body = re.sub(r"((?i:search) your library for [^.]+?)(?: and (reveal (?:them|it)))?\. ((?:Reveal (?:those cards|them|that card|it), )?"
+                  r"[Pp]ut (?:one(?: of them)?|those cards|them|that card|it) [^.]+?)(?:, then shuffle|\. Then shuffle)\b",
+                  lambda m: f"{m[1]}, {m[2] + ', ' if m[2] else ''}{m[3][:1].lower()}{m[3][1:]}, then shuffle", body)
     # -- static_other sweep (wave 19A) -- "Choose a creature type. Draw a card for each permanent you control of that type." (Distant
     # Melody): "that type" is the type just chosen, as in "of the chosen type" (app/rules/chosen.py)
     body = re.sub(r"(Choose a creature type\. [^.]*?) of that type\b", r"\1 of the chosen type", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
@@ -3860,8 +3867,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab)
              and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction")  # (alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
-                      and (defs[ab.index].get("free") or defs[ab.index].get("zone") == "graveyard"))]  # (wave 17C: retrace, 702.81a)
-    if (not lines and not any(defs.get(ab.index, {}).get("zone") == "graveyard" for ab in ch.abilities)) \
+                      and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")))]  # (wave 17C: retrace, 702.81a)
+    if (not lines and not any(defs.get(ab.index, {}).get("zone") in ("graveyard", "exile") for ab in ch.abilities)) \
             or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):
         return None  # (wave 17C: a retrace spell with nothing else on it, Throes of Chaos: cascade does it all)
     # Each line's "target" words are the spell's target groups, in printed order (601.2c, 115.3:

@@ -89,7 +89,7 @@ PERMISSION = re.compile(
     r"cast (?:a |an )?(?P<sel>[a-z][a-z' ,-]*?) spells?(?P<qual> with mana value \d+ or less)?|cast (?:this card|~))"
     r" from (?P<zone>your graveyard|the top of your library)"
     # -- cast from graveyard (wave 19C) -- 614.1a: "If a spell cast this way would be put into your graveyard, exile it instead."
-    r"(?:\. If (?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead)?$")
+    r"(?:\. If (?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead)?$", re.IGNORECASE)
 SELF_GY_BY = re.compile(r"^you may cast (?:this card|~) from your graveyard by (?P<cost>.+) in addition to paying its other costs"
                         r"(?P<exile>\. Then exile this card)?$")  # (-- casting extras (wave 18E) -- jump-start 702.133a: exiled as it leaves the stack)
 # -- keyword grants (wave 17C) -- 702.81a: "Instant and sorcery cards in your graveyard have retrace." / "During your turn, nonland
@@ -97,6 +97,9 @@ SELF_GY_BY = re.compile(r"^you may cast (?:this card|~) from your graveyard by (
 # discarding a land card (the granted keyword's meaning, as the card's own retrace line says it)
 RETRACE_GRANT = re.compile(r"^(?P<during>during your turn, )?(?P<sel>[a-z][a-z' ,-]*?) cards in your graveyard have retrace$", re.IGNORECASE)
 _GERUND = {"discarding": "discard", "paying": "pay", "sacrificing": "sacrifice", "exiling": "exile"}
+# -- free_cast (wave 20D) -- "You may cast this card from exile." (Eternal Scourge), "… from your graveyard or from exile." (Squee, the
+# Immortal): the card's own ability, functioning in those zones (113.6b), a permission to cast it from where it is
+SELF_EXILE = re.compile(r"^you may cast (?:this card|~) from (?P<z>exile|your graveyard or from exile)$")
 SELF_GY_WHILE = re.compile(r"^you may cast (?:this card|~) from your graveyard (?:as long as|if) (?P<cond>.+)$")  # (wave 4B; 16D: "if")
 # "You may cast creature spells as though they had flash." (601.3b)
 FLASH = re.compile(rf"^you may cast (?:{_SEL} )?spells as though they had flash$")
@@ -455,6 +458,9 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": False,
                 "play": False, "cast": True, "filter": key, "extra": "discard a land card", "own": True,
                 **({"during": "your_turn"} if m["during"] else {}), "effects": []}
+    if (m := SELF_EXILE.fullmatch(t)) is not None:
+        return {"kind": "static", "static": "permission", "zone": "exile", "zones": ["graveyard", "exile"] if "graveyard" in m["z"] else ["exile"],
+                "once": False, "flash": False, "self": True, "play": False, "cast": True, "filter": None, "effects": []}
     m = SELF_GY_WHILE.fullmatch(t)
     if m:
         from app.rules import conditions
@@ -767,15 +773,15 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         zone_ok = p.object_id is not None or p.zone != "any"  # (a flash-only permission grants no zone)
         out.append(Grant("permission", p.label, zone_ok=zone_ok, free=p.free, flash=p.flash, permission=p.id, spend=p.spend,
                          sorcery=p.sorcery))
-    if verb == "cast" and where == "graveyard" and card.owner == player:
-        for index, d in _definitions(ch).items():  # the card's own ability, functioning in the graveyard (113.6)
-            if d.get("static") == "permission" and d.get("self") and d["zone"] == "graveyard":
+    if verb == "cast" and where in ("graveyard", "exile") and card.owner == player and not card.face_down:
+        for index, d in _definitions(ch).items():  # the card's own ability, functioning in the graveyard (113.6) / exile (wave 20D)
+            if d.get("static") == "permission" and d.get("self") and where in d.get("zones", [d["zone"]]):
                 key = f"{card.id}:permission:{index}"
                 if d["once"] and r.once_per_turn.get(key) == turn:
                     continue
                 if d.get("while") is not None and not _while_holds(state, info, player, card, d["while"]):
                     continue  # -- conditional statics (wave 4B) -- "as long as you control a Zombie"
-                out.append(Grant("permission", f"{ch.name}: cast it from your graveyard", once_key=key if d["once"] else None,
+                out.append(Grant("permission", f"{ch.name}: cast it from {'exile' if where == 'exile' else 'your graveyard'}", once_key=key if d["once"] else None,
                                  extra=d.get("extra") or "", exile=bool(d.get("exile"))))
     if verb == "cast" and where == "hand":  # -- cast without paying (wave 3C) -- the card's own "cast this spell without paying"
         for d in _definitions(ch).values():
