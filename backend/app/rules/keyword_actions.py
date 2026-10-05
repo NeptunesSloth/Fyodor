@@ -536,15 +536,15 @@ def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def flip(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """-- flip (wave 24C) -- 710: "flip ~" turns a flip card's permanent upside down (the same object; its name, text, type line and
-    power and toughness are the alternative ones, 710.2; its color and mana cost stay, 710.1c). One-way (710.4): a flipped permanent,
-    a card that isn't a flip card and anything not on the battlefield does nothing."""
+    """-- flip (wave 24C) -- 710: "flip ~" turns a flip card's permanent upside down (``CardInstance.flipped``, 110.5: the same object; its name,
+    text, type line and power and toughness are the alternative ones, 710.2; its color and mana cost stay, 710.1c). One-way (710.4): a flipped
+    permanent, a card that isn't a flip card and anything not on the battlefield does nothing."""
     from app.rules import characteristics as chars
 
     for cid in effects._cards(plan, ctx, e.get("who", "self")):
         card = plan.state.cards[cid]
         if card.zone.endswith(":battlefield") and not card.face_down and chars.flippable(card, plan.info):
-            plan.do({"type": "set_face", "card_id": cid, "face": 1}, actor=ctx["controller"])
+            plan.do({"type": "flip", "card_id": cid}, actor=ctx["controller"])
     return True
 
 

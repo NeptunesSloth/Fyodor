@@ -332,7 +332,7 @@ def transformable(card: CardInstance, info: CardInfo) -> bool:
 def flippable(card: CardInstance, info: CardInfo) -> bool:
     """-- flip (wave 24C) -- 710.4: a flip card's permanent that isn't flipped yet (flipping is one-way)."""
     data = info.get(card.card_id) if card.card_id and card.token is None and not card.is_token else None
-    return data is not None and data.get("layout") == "flip" and len(data.get("faces") or []) >= 2 and card.face == 0
+    return data is not None and data.get("layout") == "flip" and len(data.get("faces") or []) >= 2 and not card.flipped
 
 
 def half_from_data(data: dict[str, Any], face: int) -> Characteristics:
@@ -431,4 +431,5 @@ def _of(card: CardInstance, info: CardInfo) -> Characteristics:
     if data is None:
         # Unknown to the card database (a custom object): typeless, so the engine won't guess.
         return Characteristics(name=card.name or "")
-    return printed_from_data(data, card.face)
+    # -- flip (wave 24C) -- 710.2: a flipped permanent (status, 110.5: ``flipped``, the Kamigawa rotation) has the alternative characteristics
+    return printed_from_data(data, 1 if card.flipped and data.get("layout") == "flip" and card.zone.endswith(":battlefield") else card.face)

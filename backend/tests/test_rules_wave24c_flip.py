@@ -65,14 +65,14 @@ def test_a_flipped_permanent_has_the_alternative_characteristics_but_keeps_color
     s = build(cards, JUSHI)
     jushi = on_field(s, JUSHI)
     act(s, "p1", type="counter", card_ids=[jushi.id], kind="ki", delta=2)
-    until(s, lambda s: s.state.rules.decision is not None and "flip" in (s.state.rules.decision.prompt or "").lower() or s.state.cards[jushi.id].face == 1,
+    until(s, lambda s: s.state.rules.decision is not None and "flip" in (s.state.rules.decision.prompt or "").lower() or s.state.cards[jushi.id].flipped,
           limit=400)
-    if s.state.cards[jushi.id].face == 0:  # (a "you may": say yes)
+    if not s.state.cards[jushi.id].flipped:  # (a "you may": say yes)
         d = s.state.rules.decision
         act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"] if "yes" in [o.id for o in d.options] else [d.options[0].id])
         settle(s)
     now = ch(s, jushi)
-    assert s.state.cards[jushi.id].face == 1
+    assert s.state.cards[jushi.id].flipped
     assert now.name == "Jaraku the Interloper" and "Legendary" in now.supertypes and now.subtypes == frozenset({"Spirit"})  # 710.2
     assert (now.power, now.toughness) == ("3", "4")
     assert now.colors == frozenset({"U"}) and now.mana_value == 3 and now.mana_cost == "{1}{U}{U}"  # 710.1c
@@ -80,19 +80,19 @@ def test_a_flipped_permanent_has_the_alternative_characteristics_but_keeps_color
     assert not any("Whenever you cast a Spirit or Arcane" in a.text for a in now.abilities)
     check(s)
     act(s, "p1", type="move", card_ids=[jushi.id], to={"player": "p1", "zone": "graveyard"})  # 110.5: no memory of being flipped
-    assert s.state.cards[jushi.id].face == 0 and ch(s, jushi).name.startswith("Callow Jushi")
+    assert not s.state.cards[jushi.id].flipped and ch(s, jushi).name.startswith("Callow Jushi")
     check(s)
 
 
 def test_rune_tail_flips_as_soon_as_its_controller_has_thirty_life(cards):
     s = build(cards, RUNE_TAIL)
     tail = on_field(s, RUNE_TAIL)
-    until(s, lambda s: s.state.cards[tail.id].face == 1 or s.state.turn.number > 1, limit=100)
+    until(s, lambda s: s.state.cards[tail.id].flipped or s.state.turn.number > 1, limit=100)
     settle(s)
     now = ch(s, tail)
-    assert s.state.cards[tail.id].face == 1 and now.name == "Rune-Tail's Essence" and "Enchantment" in now.types and "Creature" not in now.types
+    assert s.state.cards[tail.id].flipped and now.name == "Rune-Tail's Essence" and "Enchantment" in now.types and "Creature" not in now.types
     settle(s)
-    assert s.state.cards[tail.id].face == 1  # one-way (710.4): it doesn't flip again, and nothing turns it back
+    assert s.state.cards[tail.id].flipped  # one-way (710.4): it doesn't flip again, and nothing turns it back
     check(s)
 
 
@@ -102,12 +102,12 @@ def test_student_of_elements_flips_once_it_has_flying(cards):
     s = build(cards, STUDENT, "Jump")
     student = on_field(s, STUDENT)
     settle(s)
-    assert s.state.cards[student.id].face == 0  # no flying yet: the state trigger (603.8) waits
+    assert not s.state.cards[student.id].flipped  # no flying yet: the state trigger (603.8) waits
     jump = to_hand(s, "Jump")
     mana(s, "p1", U=1)
     act(s, "p1", type="cast_spell", card_id=jump.id, targets=[student.id])
     settle(s)
-    assert s.state.cards[student.id].face == 1 and ch(s, student).name == "Tobita, Master of Winds"
+    assert s.state.cards[student.id].flipped and ch(s, student).name == "Tobita, Master of Winds"
     check(s)
 
 
@@ -132,10 +132,10 @@ def test_akki_lavarunner_flips_when_it_deals_damage_to_an_opponent(cards):
             act(s, d.player, type="declare_blockers", blocks=[])
         elif d is not None:
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
-        elif s.state.cards[akki.id].face == 1 and not s.state.zones.get("stack"):
+        elif s.state.cards[akki.id].flipped and not s.state.zones.get("stack"):
             break
         else:
             act(s, s.state.rules.priority, type="pass_priority")
-    assert s.state.cards[akki.id].face == 1 and ch(s, akki).name == "Tok-Tok, Volcano Born"
+    assert s.state.cards[akki.id].flipped and ch(s, akki).name == "Tok-Tok, Volcano Born"
     assert ch(s, akki).colors == frozenset({"R"})  # 710.1c: the color doesn't change
     check(s)

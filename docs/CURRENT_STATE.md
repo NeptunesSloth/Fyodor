@@ -328,8 +328,8 @@ card data, and the supplementary Attraction deck needs deck-building support.
   joining `RulesState.suspended` (a card that left exile or lost its last time counter is dropped at the next upkeep, `triggers._suspend`).
   Not read: counters equal to a mana value chosen from a hand (The Eleventh Doctor), a cost exiling a card from a hand (Jhoira of the Ghitu),
   Soothsayer / Venture Forth ("the rest on the bottom in a random order").
-- Flip cards (CR 710): `keyword_actions.flip` sets `face` 1 of a layout-flip card (one-way, forgotten off the battlefield: `ops` resets it);
-  `characteristics._from_card_data` keeps the front's mana cost, mana value and colors (710.1c). Copying a flip card stays by hand
+- Flip cards (CR 710): `keyword_actions.flip` turns a layout-flip card's permanent upside down (`CardInstance.flipped`, the Kamigawa rotation the manual Flip button toggles; one-way, forgotten off the battlefield: `ops` resets it);
+  `characteristics._of` reads the alternative face while it is flipped, and `_from_card_data` keeps the front's mana cost, mana value and colors (710.1c). Copying a flip card stays by hand
   (`copying.supported_source`). Flip cards with other blockers: Nezumi Graverobber, Nezumi Shortfang, Kitsune Mystic, Homura, Sasaya, Erayo.
 - "enters with" under a negated cast condition ("if you didn't cast it from your hand", "unless you've cast another red spell this turn") reads
   the same condition grammar; a negated mana test stays refused (a spell cast by hand has no known payment).
