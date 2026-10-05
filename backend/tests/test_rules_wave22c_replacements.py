@@ -107,23 +107,29 @@ def test_pir_gives_one_more_counter_on_your_permanents(cards):
     replay_matches(s)
 
 
-def test_vorinclex_leaves_counters_you_give_another_player_to_the_players(cards):
+def test_vorinclex_counts_counters_you_give_another_player_as_put(cards):
+    """Review 22C: "gets" / "gives" counters are put (122.6, 701.34a), by the effect's controller (608.2c)."""
     s = build(cards)
     permanent(s, "p1", "Vorinclex", "Creature", VORINCLEX)
     activate(s, token(s, "p1", "Poisoner", text="{1}: Target opponent gets two poison counters."), targets=["p2"])
-    assert s.state.players["p2"].resources.get("poison") == 2  # (neither doubled nor halved: 120.3b, UNVERIFIED)
-    assert any("whether giving counters is putting them" in str(e) for e in s.state.log)
+    assert s.state.players["p2"].resources.get("poison") == 4
+    assert reload(s, cards).state.players["p2"].resources.get("poison") == 4
     replay_matches(s)
+    s2 = build(cards)
+    permanent(s2, "p2", "Vorinclex", "Creature", VORINCLEX)
+    activate(s2, token(s2, "p1", "Poisoner", text="{1}: Target opponent gets three poison counters."), targets=["p2"])
+    assert s2.state.players["p2"].resources.get("poison") == 1  # p1 is Vorinclex's opponent: half of 3, rounded down
+    replay_matches(s2)
 
 
-def test_vorinclex_leaves_infect_poison_to_the_players_with_a_note(cards):
-    """120.3b: poison is "given" — whether that is "putting" isn't settled, so it is neither doubled nor silently ignored."""
+def test_vorinclex_doubles_infect_poison_its_controller_gives(cards):
+    """120.3b: the infect source's controller gives (puts) the poison counters, so Vorinclex doubles them."""
     s = table(cards)
     permanent(s, "p1", "Vorinclex", "Creature", VORINCLEX)
     elf = creature(s, "p1", "Elf", "2/2", "Infect")
     automate(s)
     attack(s, (elf, "p2"))
     until(s, lambda s: s.state.turn.phase == "main2")
-    assert s.state.players["p2"].resources.get("poison") == 2
-    assert any("poison counters given" in str(e) for e in s.state.log), "no note"
+    assert s.state.players["p2"].resources.get("poison") == 4
     replay_matches(s)
+    assert reload(s, cards).state.players["p2"].resources.get("poison") == 4

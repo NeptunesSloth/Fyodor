@@ -116,8 +116,8 @@ _PLAYER_COUNTERS = re.compile(r"^If you would get one or more counters, you get 
 
 # -- counter putters (wave 22C) -- "If you / an opponent would put one or more counters on …" (Vorinclex, Lae'zel): the
 # replacement applies to the counters a given player puts (122.6a: an entering permanent's controller puts its counters;
-# 120.3d: wither / infect damage has its source's controller put -1/-1 counters). 120.3b / 120.3g poison is "given", not
-# "put": UNVERIFIED whether that is "putting", so those events are left to the players (see replace.do_counters).
+# 120.3d: wither / infect damage has its source's controller put -1/-1 counters; 120.3b / 120.3g poison "given" by the source's
+# controller is put by them too: review 22C, see replace._putter_ok).
 _PUTTER = re.compile(r"^If (?P<who>you|an opponent) would put one or more counters on (?P<on>.+?), (?:put|they put) "
                      r"(?P<how>twice that many|half that many|that many plus one) of each of those kinds of counters on "
                      r"that permanent or player instead(?P<down>, rounded down)?\.$")
