@@ -799,6 +799,9 @@ class Permission(BaseModel):
     # 702.170d ("during your main phase while the stack is empty", ``sorcery``, even for an instant)
     after_turn: int = 0
     sorcery: bool = False
+    # -- trigger other (wave 25B) -- airbend 701.65a: the card may be cast only by paying this rather than its mana cost (an alternative
+    # cost, 118.9), for as long as it remains exiled (the permission follows the object, 400.7h)
+    alt_mana: str = ""
 
 
 class CostModifier(BaseModel):

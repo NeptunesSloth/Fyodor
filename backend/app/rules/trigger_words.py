@@ -49,6 +49,12 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         body = re.sub(r"^(if (?:(?:at least )?\w+ (?:or more )?)?mana from [^,]+? (?:was|were) spent to cast) it,", r"\1 that spell,", body)
     if name == "cast_self":  # -- history (wave 22E) -- "When you cast this spell, … where X is the amount of mana spent to cast it" (Prossh)
         body = re.sub(r"\bthe amount of mana spent to cast it\b", "the amount of mana spent to cast this spell", body)
+    if cond is not None and cond.get("subject") == "sel" and cond.get("sel"):  # -- trigger other (wave 25B) -- "Whenever another Wizard you
+        from app.rules import selectors  # control enters, … a copy of that Wizard": the object the event is about, "that creature"
+        from app.rules.creature_types import CREATURE_TYPES
+
+        for sub in selectors.from_key(cond["sel"]).subtypes:
+            body = re.sub(rf"\bthat {re.escape(sub)}\b", "that creature" if sub in CREATURE_TYPES else "that permanent", body)
     if cond is not None and cond.get("subject") == "source":  # -- source damage (wave 11F) -- 609.7: its controller
         body = re.sub(r"\bthat source's controller\b", "that player", body)
     if cond is not None and (cond.get("event") == "targeted" or (cond.get("event") == "either" and all(

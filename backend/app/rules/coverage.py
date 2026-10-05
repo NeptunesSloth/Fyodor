@@ -297,8 +297,8 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # -- keyword actions & face-down (wave 3F) -- refused on purpose, with the missing piece named
 REFUSED += (
-    (re.compile(r"\bairbend", re.I),
-     "airbend (701.65): needs a cast-from-exile permission whose alternative cost is {2}, for the card's owner"),
+    # (-- trigger other (wave 25B) -- airbending a permanent is read now: app/rules/airbend.py; a spell's exile from the stack isn't)
+    (re.compile(r"\bairbend[^.]*\bspells?\b", re.I), "airbending a spell: exiling it from the stack with that permission isn't modelled"),
     (re.compile(r"\bwaterbend", re.I),
      "waterbend (701.67): a cost whose generic part may be paid by tapping artifacts/creatures isn't modelled"),
     (re.compile(r"\bmanifests? the top card of (?:that player's|target player's|an opponent's)", re.I),

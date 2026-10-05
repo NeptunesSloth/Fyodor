@@ -4187,3 +4187,7 @@ RESUME.update(_counter_kinds.RESUME)
 from app.rules import suspend_grants as _suspend_grants  # noqa: E402, I001
 
 PRIMITIVES.update(_suspend_grants.PRIMITIVES)
+# -- trigger other (wave 25B) -- airbend 701.65 (app/rules/airbend.py)
+from app.rules import airbend as _airbend  # noqa: E402, I001
+
+PRIMITIVES.update(_airbend.PRIMITIVES)

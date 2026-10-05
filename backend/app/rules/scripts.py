@@ -2397,6 +2397,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         text = _lower_first(sentence.rstrip(".").strip())
         if (i > 0 or effects) and text.startswith("then ") and not text.startswith(("then shuffle", "then you may ")):
             text = text[5:]  # -- waves 3D/3L/3C -- "Then that creature deals …" / "Then draw a card.": "then" only orders (608.2c)
+        if effects and effects[-1]["do"] in ("create_token", "token_copy"):  # -- trigger other (wave 25B) -- "The token gains haste.": the one just made
+            text = re.sub(r"^the token (?=(?:gains|gets|has) )", "it ", text)
         if any(x.get("do") == "token_copy" for x in effects):  # -- token copy (wave 20F) -- "Exile the token at end of combat": the one just made
             text = re.sub(r"^(exile|sacrifice) (?:the|that) token (at (?:the beginning of .+|end of combat))$", r"\1 it \2", text)
         # -- X sized by a count (wave 4K) -- "If X is 10 or more, also create X 4/4 … tokens" (Finale of Glory): in addition

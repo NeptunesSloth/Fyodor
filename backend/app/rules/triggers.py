@@ -1233,6 +1233,9 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
         if card.zone.endswith(":graveyard"):  # -- refused zones/sized (wave 3R4) --
             out += graveyard_abilities(plan, card, trigger)
             continue
+        if card.zone.endswith(":command"):  # (wave 25B: eminence)
+            out += command_zone_abilities(plan, card, trigger)
+            continue
         if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or not plan.in_game(card) or plan.manual(card):
             continue  # (-- emblems (wave 13A) -- 114.4: an emblem's triggered abilities work from the command zone)
         ch = plan.ch(card)
@@ -1256,6 +1259,16 @@ def graveyard_ability(d: dict[str, Any]) -> bool:
 
 
 IN_GRAVEYARD = {"object": "self", "test": "in_graveyard"}
+# -- trigger other (wave 25B) -- eminence: "if ~ is in the command zone or on the battlefield" names the zones it functions in (113.6b)
+COMMAND_OR_BATTLEFIELD = {"object": "self", "test": "command_or_battlefield"}
+
+
+def command_zone_abilities(plan: Plan, card: CardInstance, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
+    """The eminence abilities of a card in the command zone (not an emblem: 114.4) for this trigger."""
+    if not card.zone.endswith(":command") or designations.emblem_card(card) or not plan.in_game(card) or plan.manual(card):
+        return []
+    ch = plan.ch(card)
+    return [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if d.get("if") == COMMAND_OR_BATTLEFIELD]
 _GY_OTHERS = ("die", "leave", "sacrifice", "leave_graveyard")
 _SELFISH = ("self", "self_or", "host", "self_or_host")
 
@@ -1399,6 +1412,10 @@ def at_step(plan: Plan, trigger: str) -> None:
                 _add(plan, controller=card.owner, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
                      definition=d)
             continue
+        if card.zone.endswith(":command") and card.controller == plan.active:  # (-- trigger other (wave 25B) -- eminence)
+            for _, ch, i, d in command_zone_abilities(plan, card, trigger):
+                _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=d)
+            continue
         if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or card.controller != plan.active or plan.manual(card):
             continue
         ch = plan.ch(card)
@@ -1417,7 +1434,10 @@ def at_step_generic(plan: Plan) -> None:
     ap = plan.active
     for card in list(plan.state.cards.values()):
         gy = card.zone.endswith(":graveyard")  # -- refused zones/sized (wave 3R4) -- (113.6m)
+        cz = card.zone.endswith(":command") and not designations.emblem_card(card)  # (-- trigger other (wave 25B) -- eminence, 113.6b)
         if gy and card.owner in plan.live() and not plan.manual(card) and "graveyard" in (plan.ch(card).oracle_text or ""):
+            pass
+        elif cz and plan.in_game(card) and not plan.manual(card) and card.controller in plan.live():
             pass
         elif not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or plan.manual(card) or card.controller not in plan.live():
             continue
@@ -1425,7 +1445,7 @@ def at_step_generic(plan: Plan) -> None:
         for i, d in scripts.definitions(ch).items():
             if d["kind"] != "triggered" or not str(d["trigger"]).startswith(prefix):
                 continue
-            if graveyard_ability(d) != gy:
+            if graveyard_ability(d) != gy or (cz and d.get("if") != COMMAND_OR_BATTLEFIELD):
                 continue
             if _whose_step(plan, card, d["trigger"][len(prefix):], ap):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
