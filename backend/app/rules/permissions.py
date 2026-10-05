@@ -158,6 +158,10 @@ FREE_AMONG = re.compile(
 # controller's own turns only, with the cast's normal timing (601.3: a permission, not a cast as something resolves)
 ONCE_FREE = re.compile(r"^once during each of your turns, you may cast (?:a|an) (?:(?P<sel>[a-z][a-z' ,-]*?) )?spell from your hand "
                        r"without paying its mana cost$")
+# -- casting costs (wave 22F) -- 118.9 / 119.4: "Once during each of your turns, you may cast an enchantment spell by paying life equal to its mana value
+# rather than paying its mana cost." (Demon of Fate's Design) — an alternative cost of {0} plus life (X is 0, 107.3b), chosen with the free cast
+ONCE_LIFE = re.compile(r"^once during each of your turns, you may cast (?:a|an) (?:(?P<sel>[a-z][a-z' ,-]*?) )?spell(?P<hand> from your hand)? by paying "
+                       r"life equal to its mana value rather than paying its mana cost$")
 FREE_TARGET = re.compile(r"^(?:you may )?cast (?P<what>target .+?) without paying its mana cost$")
 _FREE_COUNT = {"a": 1, "an": 1, "up to one": 1, "up to two": 2, "up to three": 3, "any number of": 99}
 
@@ -437,6 +441,13 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "permission", "zone": "hand" if m["hand"] else "any", "once": False, "flash": False,
                 "self": False, "free": True, "play": False, "cast": True, "filter": key, "effects": []}
+    m = ONCE_LIFE.fullmatch(t)  # -- casting costs (wave 22F) --
+    if m:
+        key = spell_filter(m["sel"]) if m["sel"] else None
+        if m["sel"] and key is None:
+            return None
+        return {"kind": "static", "static": "permission", "zone": "hand", "once": True, "flash": False, "self": False, "free": True,
+                "life_mv": True, "play": False, "cast": True, "filter": key, "effects": []}
     m = ONCE_FREE.fullmatch(t)  # -- refused look/cast-free (wave 3R5) -- a once-each-turn free cast from the hand
     if m:
         key = spell_filter(m["sel"]) if m["sel"] else None
@@ -707,6 +718,7 @@ class Grant:
     label: str = ""
     zone_ok: bool = True  # it allows the cast from where the card is (a flash-only grant doesn't)
     free: bool = False  # cast without paying its mana cost (118.9)
+    life_mv: bool = False  # -- casting costs (wave 22F) -- ... paying life equal to its mana value instead (an alternative cost, 118.9; 119.4)
     flash: bool = False  # as though it had flash (601.3b)
     permission: str | None = None  # the stored Permission's id
     spend: str = ""  # -- as long as (wave 9B) -- "" | "type" | "color": how mana may be spent casting with it (118.14, 609.4b)
@@ -848,7 +860,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         key = f"{src.id}:permission:{index}"
         if d["once"] and (r.once_per_turn.get(key) == turn or (state.turn.active_player != player and not d.get("once_any"))):
             continue  # "once during each of your turns" ("once each turn": any turn, wave 5I)
-        out.append(Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")),
+        out.append(Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
                          once_key=key if d["once"] else None, extra=d.get("extra") or "", exile_gy=d.get("exile_gy", "")))
     # -- top of library (wave 5I) -- the player picks the permission they use (601.3): a once-each-turn one is offered
     # last, so a cast another permission also allows doesn't use it up

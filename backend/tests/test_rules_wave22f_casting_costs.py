@@ -29,7 +29,7 @@ def card_db(settings):
     from app.cards.importer import build_database
 
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY, *LIFE, *SPHERE, *EVIDENCE], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY, *LIFE, *SPHERE, *EVIDENCE, *DEMON], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
 
 
@@ -323,3 +323,32 @@ def test_without_evidence_the_opponent_chooses(cards):
     act(s, "p1", type="cast_spell", card_id=spell.id)
     d = s.state.rules.decision
     assert d is not None and d.player == "p2"  # Bob chooses what to sacrifice
+
+
+# -- paying life equal to its mana value rather than paying its mana cost (118.9, 119.4) --
+DEMON = [
+    real("Demon of Fate's Design", "{4}{B}{B}", 6, "Enchantment Creature — Demon", "Flying, trample\nOnce during each of your turns, you may cast an "
+         "enchantment spell by paying life equal to its mana value rather than paying its mana cost.\n{2}{B}, Sacrifice another enchantment: "
+         "This creature gets +X/+0 until end of turn, where X is the sacrificed enchantment's mana value.", ("6", "6"), "B"),
+    real("Phyrexian Arena", "{1}{B}{B}", 3, "Enchantment", "At the beginning of your upkeep, you draw a card and you lose 1 life.", None, "B"),
+]
+
+
+def test_demon_of_fates_design_line_is_read(cards):
+    feats = {f.id: f.supported for f in coverage.of_card_data(cards.resolve("Demon of Fate's Design")).features}
+    assert feats["text:1"]
+
+
+def test_cast_an_enchantment_by_paying_life_once_each_turn(cards):
+    s = build(cards, ["Demon of Fate's Design", "Phyrexian Arena", "Phyrexian Arena"])
+    put(s, "Demon of Fate's Design")
+    first, second = [c for c in s.state.cards.values() if c.name == "Phyrexian Arena" and c.owner == "p1"]
+    for c in (first, second):
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+    before = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=first.id, free=True)  # paying life instead of {1}{B}{B}
+    answer(s)
+    assert s.state.cards[first.id].zone == "p1:battlefield" and s.state.players["p1"].life == before - 3
+    with pytest.raises(ActionError):  # once during each of your turns
+        act(s, "p1", type="cast_spell", card_id=second.id, free=True)
+    check(s)
