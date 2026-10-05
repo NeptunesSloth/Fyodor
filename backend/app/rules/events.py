@@ -809,18 +809,44 @@ def _player_action(c: str) -> Condition | None:
 # isn't a mana ability", "Whenever you activate a loyalty ability". Mana abilities never use the stack (605.3b), so only
 # "that isn't a mana ability" (or a loyalty ability, 606.1: never a mana ability, 605.1a) is read: ``nonmana``
 _ACTIVATE = re.compile(rf"{_P} activates? (?:(?P<loyalty>a loyalty ability)|an ability)(?: of (?P<o>an? .+?)(?P<own> they control)?"
-                       r"(?: on the battlefield)?)?(?P<nonmana> that isn't a mana ability)?")
+                       r"(?: on the battlefield)?)?(?P<nonmana> that isn't a mana ability)?"
+                       r"(?: that targets (?P<tg>an? [a-z]+(?: or [a-z]+)?))?")
+# -- stack interaction (wave 23B) -- 602.2, 603.2: "Whenever an ability of equipped creature is activated" (Illusionist's Bracers): an
+# ability of what this permanent is attached to, activated by anyone; only abilities that use the stack are activated here (605.3b),
+# so "if it isn't a mana ability" adds nothing
+_ACTIVATED_HOST = re.compile(r"an ability of (?:equipped creature|enchanted creature|enchanted planeswalker|enchanted permanent) is activated")
+
+
+def _ability_targets(what: str) -> list[str] | None:
+    """"that targets a creature or player": a target of the activated ability that is any of these (selectors.targets_match)."""
+    out: list[str] = []
+    for part in what.split(" or "):
+        part = re.sub(r"^an? ", "", part)
+        if part == "player":
+            out.append("targets:player|")
+            continue
+        sel = selectors.parse(part)
+        if sel is None or sel.zones != ("battlefield",) or sel.player is not None or sel.extras or sel.ability is not None:
+            return None
+        out.append(f"targets:|{sel.key()}")
+    return out
 
 
 def _activate(c: str) -> Condition | None:
+    if _ACTIVATED_HOST.fullmatch(c) is not None:
+        return {"event": "activate", "subject": "host", "nonmana": True, "loyalty": False}
     m = _ACTIVATE.fullmatch(c)
     if m is None:
         return None
     sel = selectors.parse(re.sub(r"^an? ", "", m["o"])) if m["o"] else None
     if m["o"] and (sel is None or sel.player is not None or sel.card or (m["own"] and (sel.controller or sel.owner))):
         raise _Refuse
+    tg = _ability_targets(m["tg"]) if m["tg"] else None
+    if m["tg"] and (tg is None or m["loyalty"]):
+        raise _Refuse
     return {"event": "activate", "subject": "player", "player": _PLAYERS[m["p"]], "nonmana": bool(m["nonmana"]),
-            "loyalty": bool(m["loyalty"]), **({"obj": sel.key()} if sel is not None else {}), **({"own": True} if m["own"] else {})}
+            "loyalty": bool(m["loyalty"]), **({"obj": sel.key()} if sel is not None else {}), **({"own": True} if m["own"] else {}),
+            **({"ability_targets": tg} if tg else {})}
 
 
 _PLAIN_COUNTERS = frozenset({"lore", "loyalty", "charge", "oil", "time", "quest", "stun", "flying", "shield"})

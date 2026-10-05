@@ -688,6 +688,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
             cond.get("own") and (obj is None or obj.controller != player))):  # -- activation (wave 11F) --
         return False
+    if event == "activate" and cond.get("ability_targets"):  # -- stack interaction (wave 23B) -- "an ability that targets a creature or player"
+        ref = info.get("source_ref")
+        ability = plan.state.cards.get(ref.card) if ref is not None else None
+        if ability is None or not any(selectors.targets_match(plan, ability, x, you, watcher.id) for x in cond["ability_targets"]):
+            return False
     if event == "become_level" and cond.get("level") != info.get("level"):  # -- Class (wave 16A) --
         return False
     if event == "unlock_door" and cond.get("door") != info.get("door"):  # -- Rooms (wave 18G) -- only the door that was unlocked

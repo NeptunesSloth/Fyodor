@@ -3427,7 +3427,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     nm = re.match(r"^if it isn't a mana ability, ", body)
                     if nm:
                         body = body[nm.end():]
-                    elif not cond["nonmana"]:
+                    elif not cond["nonmana"] and not cond.get("ability_targets"):  # (wave 23B: an ability with a target is no mana ability, 605.1a)
                         return None
                 # (a trigger about a player, or damage to one, names them: "that player")
                 has_player = cond is not None and _has_player(cond)
@@ -5636,13 +5636,15 @@ def _copy_static(text: str) -> Definition | None:
 
 
 @_first
-@effect(r"copy target (?P<what>.+?)(?:, except (?P<exc>.+))?")
+@effect(r"copy target (?P<what>.+?)(?: (?P<k>twice|three times))?(?:, except (?P<exc>.+))?")
 def _copy_target(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import copying
 
     found = copying.parse_copy_target(m["what"], m["exc"])
     if found is None:
         raise _NoMatch
+    if m["k"]:  # -- stack interaction (wave 23B) -- 707.10: "Copy target triggered ability you control twice." (Mister Fantastic): two copies
+        found = ([{**found[0][0], "n": {"twice": 2, "three times": 3}[m["k"]]}, *found[0][1:]], found[1])
     return found
 
 
@@ -6182,7 +6184,7 @@ def _event_spell_ok(d: Definition) -> bool:
             return False
     if any(e.get("who") == "event_ability" for e in effects):  # -- copied abilities (wave 18F) -- the ability an activation trigger is about
         cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
-        return cond is not None and cond.get("event") == "activate" and cond.get("subject") == "player" and not cond.get("loyalty")
+        return cond is not None and cond.get("event") == "activate" and cond.get("subject") in ("player", "host")  # (wave 23B: a loyalty ability or an attached permanent's too)
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     watched = watches.deferred_event_effects(effects)
