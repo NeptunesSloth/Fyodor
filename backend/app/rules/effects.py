@@ -4125,3 +4125,12 @@ RESUME.update(_choice_grants.RESUME)
 from app.rules import leave_exile as _leave_exile  # noqa: E402, I001
 
 PRIMITIVES.update(_leave_exile.PRIMITIVES)
+# -- per-player filters (wave 23A) -- "Each opponent who can't …": the players a predicate holds for (app/rules/player_filter.py)
+from app.rules import player_filter as _player_filter  # noqa: E402, I001
+
+PRIMITIVES.update(_player_filter.PRIMITIVES)
+# -- villainous choice (wave 23A) -- 701.55 (app/rules/villainous.py)
+from app.rules import villainous as _villainous  # noqa: E402, I001
+
+PRIMITIVES.update(_villainous.PRIMITIVES)
+RESUME.update(_villainous.RESUME)

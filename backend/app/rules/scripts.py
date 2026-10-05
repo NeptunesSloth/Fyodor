@@ -1900,7 +1900,7 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return gifts
     # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
     # opponent, the token grammar's "… for each opponent"
-    body = re.sub(r"(^|\. )For each opponent, you (create [^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
+    body = re.sub(r"(^|\. )For each opponent, you (create (?![^.,]* with )[^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
     # -- resolution memory (wave 22D) -- "Choose any number of target creatures you control. For each of them, create a token that's a copy of that
     # creature, except it has haste." (Twinflame): one token for each object chosen — "create a token that's a copy of each of any number of target …"
     body = re.sub(r"(^|\. )Choose ((?:any number of|up to \w+) target [^.]+?)\. For each of them, create (?:a|one) token that's a copy of that "
@@ -1971,8 +1971,12 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # so the list is any of them and the qualifier is every kind's (Pernicious Deed); "and/or" is the selector grammar's spelling
     body = re.sub(r"(?i)\b(each|all) ((?:(?:artifact|creature|enchantment|land|planeswalker|battle), )+)and "
                   r"((?:artifact|creature|enchantment|land|planeswalker|battle) with mana value\b)", r"\1 \2and/or \3", body)
-    from app.rules import per_opponent  # -- per-opponent targets (wave 12C) --
+    from app.rules import (
+        per_opponent,  # -- per-opponent targets (wave 12C) --
+        player_filter,  # -- per-player filters (wave 23A) -- ", then each opponent who …" is a sentence of its own
+    )
 
+    body = player_filter.rewrite(body)
     if (each_opp := per_opponent.parse(body, lambda b: parse_effects(b, it, event_player=event_player))) is not None:
         return each_opp
     found = _parse_effects_checked(body, it, event_player)
@@ -1981,6 +1985,12 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     if found is not None and '{"x": 1}' not in json.dumps(found[0]):
         return found
     return _where_x(body, it, event_player) or found  # (X left as a cast X by the sentence grammar: read as the text defines it, if it can be)
+
+
+def _plain_clause(text: str, it: str | None, event_player: bool) -> list[dict[str, Any]] | None:
+    """-- per-player filters (wave 23A) -- one clause's effects when it has no target and no "may" of its own (else None)."""
+    found = parse_effects(text, it, event_player=event_player)
+    return found[0] if found is not None and found[1] is None and not found[2] else None
 
 
 def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -2412,6 +2422,16 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
         if _paid_x.cap_sentence(text, effects):
             continue
+        # -- per-player filters (wave 23A) -- "Each opponent who doesn't control an Elf loses 1 life." / "Each opponent who can't …"
+        from app.rules import player_filter as _player_filter
+        from app.rules import villainous as _villainous  # -- villainous choice (wave 23A) -- 701.55
+
+        if (villain := _villainous.sentence(text, effects, lambda t: _plain_clause(t, it, True))) is not None:
+            effects += villain
+            continue
+        if (filtered := _player_filter.sentence(text, effects, lambda t: _plain_clause(t, it, event_player))) is not None:
+            effects += filtered
+            continue
         # -- if you do (wave 6F) -- "Each opponent may …. Each opponent who doesn't …"
         from app.rules import each_may as _each_may
 
@@ -2419,8 +2439,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += unless_each
             continue
         if (each := _each_may.pair(text, texts[i + 1] if i + 1 < len(texts) else None, effects, _last_payment(effects))) is not None:
-            effects += each
-            skip_to = i + 2
+            effects += each[0]
+            skip_to = i + each[1]  # (wave 23A: the one sentence, or it and the one after it)
             continue
         if text.startswith("then you may ") and effects and texts[i + 1:i + 2] and texts[i + 1].startswith("If you do") \
                 and _may_pay_sentence(text[5:], texts[i + 1:i + 2], it, effects) is not None:
@@ -3186,6 +3206,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     )
 
     if d is not None and not per_opponent.allowed(d):
+        return None
+    from app.rules import (
+        player_filter,  # -- review (wave 23A) -- a this-turn "who" read only before anything else happens
+    )
+
+    if d is not None and not player_filter.allowed(d):
         return None
     # -- defending player (wave 6D) -- only an attacking creature's trigger names one (508.5: app/rules/defending.py)
     from app.rules import defending

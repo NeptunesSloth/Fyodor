@@ -91,7 +91,7 @@ def _qty(word: str) -> int:
 def simple(group: dict[str, Any]) -> bool:
     """One "target [something]" with exactly one target: what definitions write as "target"."""
     return (group["min"], group["max"]) == (1, 1) and not ({"divide", "another", "distinct_from", "same_graveyard", "total", "different",
-                                                            "kicked"} & set(group))  # -- kicked / instead (wave 4G) -- ("kicked")
+                                                            "kicked", "opponent_group"} & set(group))  # -- kicked / instead (wave 4G) -- ("kicked"; wave 23A: a group for each opponent, per_opponent.FLAG)
 
 
 def target_group(phrase: str) -> dict[str, Any] | None:

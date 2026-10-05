@@ -399,7 +399,11 @@ def _turn_amount(what: str) -> Value | None:
         if n is None:
             return None
         return {"turn_history": "opponents_who", "what": "drew" if m["drew"] else "lost" if m["lost"] else "damaged" if m["hurt"] else "lands", "n": n}
-    return None
+    from app.rules import (
+        player_filter,  # -- per-player filters (wave 23A) -- "for each opponent who controls fewer creatures than you"
+    )
+
+    return player_filter.count(what)
 # -- end this-turn history (wave 4D) --
 
 
@@ -426,6 +430,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if isinstance(v, int):
         return max(0, v)
     you = ctx["controller"]
+    if "players_where" in v:  # -- per-player filters (wave 23A) -- the players a predicate holds for (app/rules/player_filter.py)
+        from app.rules import player_filter
+
+        return player_filter.amount(plan, ctx, v)
     if "ref_count" in v:  # -- "this way" outcomes (wave 4A) -- what an earlier instruction actually did
         from app.rules import this_way
 
