@@ -4209,3 +4209,8 @@ PRIMITIVES.update(_suspend_grants.PRIMITIVES)
 from app.rules import cast_riders as _cast_riders  # noqa: E402, I001
 
 PRIMITIVES.update(_cast_riders.PRIMITIVES)
+# -- pay to untap (wave 25C) -- Dream Tides, Mudslide (app/rules/pay_untap.py)
+from app.rules import pay_untap as _pay_untap  # noqa: E402, I001
+
+PRIMITIVES.update(_pay_untap.PRIMITIVES)
+RESUME[_pay_untap.STEP] = _pay_untap.resume

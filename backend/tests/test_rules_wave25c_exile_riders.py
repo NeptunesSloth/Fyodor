@@ -103,6 +103,15 @@ REAL += [  # (synthetic: the Saga chapters of Kumano Faces Kakkazan and Summon: 
     card("Probe Haste", set_code="tst", number="C25-17", mana_cost="{R}", cmc=1.0, type_line="Sorcery", colors=["R"], color_identity=["R"],
          oracle_text="When you next cast a creature spell this turn, it gains haste until end of turn."),
 ]
+REAL += [
+    card("Thelon's Curse", set_code="tst", number="C25-18", mana_cost="{3}{U}", cmc=4.0, type_line="Enchantment", colors=["U"], color_identity=["U"],
+         oracle_text="Blue creatures don't untap during their controllers' untap steps.\nAt the beginning of each player's upkeep, that player "
+         "may choose any number of tapped blue creatures they control and pay {U} for each creature chosen this way. If the player does, "
+         "untap those creatures."),
+    card("Cloud Sprite", set_code="tst", number="C25-19", mana_cost="{U}", cmc=1.0, type_line="Creature — Faerie", colors=["U"],
+         color_identity=["U"], power="1", toughness="1", keywords=["Flying"], oracle_text="Flying\nThis creature can block only creatures "
+         "with flying."),
+]
 OURS = [c["name"] for c in REAL]
 
 
@@ -117,7 +126,7 @@ def cards(settings) -> Iterator[CardRepository]:
 
 def build(cards):
     alice = deck(cards, "Krenko, Mob Boss", [(1, n) for n in OURS] + [(2, "Lightning Bolt"), (1, "Counterspell"), (1, "Pacifism"), (2, "Grizzly Bears"), (20, "Forest")])
-    bob = deck(cards, "Atraxa, Praetors' Voice", [(2, "Lightning Bolt"), (1, "Counterspell"), (20, "Island")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(2, "Lightning Bolt"), (1, "Counterspell"), (2, "Cloud Sprite"), (20, "Island")])
     s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
     act(s, "p1", type="pass_priority")  # → Alice's first main phase
     return s
@@ -482,4 +491,28 @@ def test_next_creature_spell_gains_haste_until_end_of_turn(cards):
 
     assert s.state.cards[bear.id].zone == "p1:battlefield"
     assert "haste" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bear.id]).keywords
+    replay_matches(s)
+
+
+# -- 118.12 / 608.2d: the player whose upkeep it is chooses tapped creatures and pays for each; paid in full or nothing -----
+@pytest.mark.parametrize("pay", [True, False])
+def test_thelons_curse_lets_that_player_pay_to_untap_blue_creatures(cards, pay):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards)
+    put(s, "Thelon's Curse", "battlefield")
+    sprites = [put(s, "Cloud Sprite", "battlefield", pid="p2", nth=i) for i in range(2)]
+    for sprite in sprites:
+        act(s, "p2", type="tap", card_ids=[sprite.id], tapped=True)
+    put(s, "Island", "battlefield", pid="p2", nth=0)  # (the mana for {U})
+    until(s, lambda s: s.state.rules.decision is not None and (s.state.rules.decision.resume or {}).get("step") == "pay_untap")
+    d = decision(s)
+    assert d.player == "p2" and {o.id for o in d.options} == {c.id for c in sprites}  # "that player" chooses, not Alice
+    choose(s, [sprites[0].id])
+    d = decision(s)
+    assert d.player == "p2"  # their payment: {U}
+    assert [o.id for o in d.options] == ["pay", "decline"]  # (one {U} for the one creature chosen)
+    choose(s, ["pay" if pay else "decline"])
+    assert s.state.cards[sprites[0].id].tapped is not pay  # untapped only when paid
+    assert s.state.cards[sprites[1].id].tapped  # not chosen: still tapped
     replay_matches(s)

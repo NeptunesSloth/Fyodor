@@ -2417,6 +2417,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects[-1] = {**effects[-1], "to": "exile" if dest["exile"] else ("top" if dest["top"] else "bottom")}
             continue
         text = _for_each_this_way(text)  # -- "this way" outcomes (wave 4A) --
+        from app.rules import pay_untap as _pay_untap  # -- if you do (wave 25C) -- "that player may choose any number of tapped … and pay {2} for each …"
+
+        if (untapped := _pay_untap.sentences(texts, i)) is not None:
+            effects += untapped[0]
+            skip_to = i + untapped[1]
+            continue
         if (piles := _piles(texts, i, effects)) is not None:  # -- refused look/cast-free (wave 3R5) -- 700.3
             if not piles[0]:
                 return None
