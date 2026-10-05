@@ -146,9 +146,8 @@ def test_type_static_wordings_are_covered():
     assert ok("Nontoken creatures you control are Forest lands in addition to their other types.", "Ashaya, Soul of the Wild")
     assert ok("Creatures you control are every creature type. The same is true for creature spells you control and creature "
               "cards you own that aren't on the battlefield.", "Maskwood Nexus", "Artifact")
-    # a land type SET (305.7: the land loses its other land types and rules-text abilities) is not read
-    assert not ok("Nonbasic lands are Mountains.", "Blood Moon", "Enchantment")
-    assert not ok("Each land is a Swamp.", "Card", "Enchantment")
+    # a land type SET (305.7: the land loses its other land types and rules-text abilities): wave 22A, tests/test_rules_wave22a_layers.py
+    assert ok("Nonbasic lands are Mountains.", "Blood Moon", "Enchantment")
     assert not ok("Each land is a Desert in addition to its other land types.", "Card", "Enchantment")
 
 
