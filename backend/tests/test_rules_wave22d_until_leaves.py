@@ -29,6 +29,9 @@ EXTRA = [
     real("Phantom Steed", "{3}{U}", 4, "Creature — Horse Illusion",
          "Flash\nWhen this creature enters, exile another target creature you control until this creature leaves the battlefield.\nWhenever this creature attacks, create a tapped and attacking token that's a copy of the exiled card, except it's an Illusion in addition to its other types. Sacrifice that token at end of combat.",
          ("4", "3"), "U"),
+    real("Fear of Abduction", "{4}{W}{W}", 6, "Enchantment Creature — Nightmare",
+         "As an additional cost to cast this spell, exile a creature you control.\nFlying\nWhen this creature enters, exile target creature an opponent controls.\nWhen this creature leaves the battlefield, put each card exiled with it into its owner's hand.",
+         ("5", "5"), "W"),
     real("Probe Rock", "{3}", 3, "Artifact", "", None),
     real("Probe Two", "{1}{G}", 2, "Creature — Beast", "", ("2", "2"), "G"),
 ]
@@ -134,4 +137,26 @@ def test_phantom_steed_attacks_with_a_copy_of_the_creature_it_exiled(cards):
     pass_until_stack_empty(s)
     tokens = [c for c in s.state.cards.values() if c.is_token and c.name == "Probe Two" and c.zone == "p1:battlefield"]
     assert len(tokens) == 1 and tokens[0].tapped  # a token copy of the exiled card, tapped
+    roundtrip(s)
+
+
+def test_fear_of_abduction_returns_the_card_exiled_as_a_cost_and_the_one_its_trigger_exiled(cards):
+    """607.2q: a card exiled to pay the cost of a permanent spell is "exiled with" the permanent that spell becomes."""
+    s = build(cards, p1=("Fear of Abduction", "Probe Two"), p2=("Ambush Viper",))
+    two = put(s, "Probe Two", "battlefield")
+    viper = put(s, "Ambush Viper", "battlefield", pid="p2")
+    fear = put(s, "Fear of Abduction", "hand")
+    mana(s, W=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=fear.id, cost_choices=[{"component": 0, "cards": [two.id]}])
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    if d is not None:
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[viper.id])
+        pass_until_stack_empty(s)
+    assert s.state.cards[two.id].zone == "p1:exile" and s.state.cards[viper.id].zone == "p2:exile"
+    roundtrip(s)
+    act(s, "p1", type="set_damage", card_ids=[fear.id], value=5)
+    act(s, s.state.rules.priority, type="pass_priority")
+    answer(s)
+    assert s.state.cards[two.id].zone == "p1:hand" and s.state.cards[viper.id].zone == "p2:hand"  # each to its owner's hand
     roundtrip(s)

@@ -517,6 +517,8 @@ class _Introducer:
                 self.number = 1  # -- damage sized by a count (wave 20A) -- "until you reveal a nonland card. … that card's mana value": the one found
         if self.do == "destroy_all":
             self.number = 2
+        if self.do == "return_card" and who.startswith("ref:") and "|" in who:
+            self.number = 2  # (-- wave 22D -- "Put each creature card milled this way onto the battlefield. They gain haste.": those cards)
         if self.do == "token_copy" and g is not None and groups is not None and g < len(groups) and groups[g]["max"] != 1:
             self.number = None  # (-- wave 22D -- a copy of each of several targets: "those tokens")
         if self.do == "linked_cards":

@@ -131,14 +131,28 @@ def _picks_to_exile(e: dict[str, Any]) -> bool:
 
 def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | None:
     """The definition with its link (607.2a) checked and marked; None when a reference has no single linked ability."""
-    from app.rules import scripts
-
     if d is None:
         return None
+    active = _STATE.__dict__.setdefault("active", set())
+    key = (ch.name, ability.index)
+    if key in active and not _OFF:  # (the _OFF re-reading of the same ability is deliberate: _link)
+        return None  # (two abilities that each refer to the other's exile: no single linked ability, 607.2a)
+    active.add(key)
+    try:
+        return _link(d, ability, ch)
+    finally:
+        active.discard(key)
+
+
+def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
+    from app.rules import scripts
+
     refers = WHO in json.dumps(d, default=str) or "linked_cards" in json.dumps(d, default=str)
     others = [ab for ab in ch.abilities if ab.index != ability.index and ab.kind in ("triggered", "activated")]
     if refers and _exiles(d):  # -- review (wave 6R) -- its own exiled card (see _OFF)
         global _OFF
+        if _OFF:
+            return None  # (-- wave 22D -- read again without the templates and it still refers to a linked card: not read)
         _OFF = True
         try:
             return scripts.define(ability, ch)
