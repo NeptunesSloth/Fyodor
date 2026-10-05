@@ -2966,7 +2966,9 @@ _RA_WITH = (r"(?: with (?:(?:an?|one) (?P<add1>additional )?(?P<ck>[+-]\d+/[+-]\
             # enter with them (122.6; "additional": besides any it would enter with, 614.1c)
             r"(?P<cn>two|three|four|five) (?P<add2>additional )?(?P<ck2>\+1/\+1|-1/-1) counters) on it)?")
 # "… attached to this creature / that creature" (303.4f, 303.4i, 301.5e): app/rules/effects._return_cards
-_RA_HOST = r"(?: attached to (?P<host>this creature|~|that creature))?"
+# -- attached events (wave 25D) -- also "attached to enchanted creature" (Mantle of the Ancients) and "attached to target creature [you control]"
+# (Gryff's Boon: a target of the ability, chosen with it, 115.1)
+_RA_HOST = r"(?: attached to (?P<host>this creature|~|that creature|enchanted creature|target creature(?: you control)?(?: with power \d+ or less)?))?"
 _RA_RETURN = re.compile(rf"return (?P<o>.+?) to (?:(?P<h>your hand|its owner's hand|their owner's hand|their owners' hands|their hand)|"
                         rf"the battlefield(?P<t> tapped(?P<atk> and attacking)?)?(?P<fd> face down)?{_RA_UNDER}{_RA_WITH}{_RA_HOST})")  # (face down: wave 18A, 708.4)
 _RA_PUT = re.compile(rf"put (?P<o>.+?) onto the battlefield(?P<t> tapped(?P<atk> and attacking)?)?{_RA_UNDER}{_RA_WITH}{_RA_HOST}")
@@ -3061,6 +3063,7 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         return None
     hand = not put and bool(m["h"])
     effect: dict[str, Any] = {"do": "return_card", "to": "hand" if hand else "battlefield"}
+    host_group: dict[str, Any] | None = None
     if not hand:  # (110.2a: the one instructed controls it unless the text says "its owner's")
         effect.update(tapped=bool(m["t"]), under="owner" if m["u"] and m["u"] != "your" else "you")
         if m.groupdict().get("fd"):  # -- hidden exile (wave 18A) -- "return it to the battlefield face down" (708.4: a 2/2 face-down creature)
@@ -3076,7 +3079,12 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
                 return None  # (under its owner's control: 506.3b, not read)
             effect["attacking"] = True
         if m["host"]:  # -- refused zones/sized (wave 3R4) -- "that creature": a trigger's object only (scripts._attached_host)
-            effect["host"] = "that_creature" if m["host"] == "that creature" else "self"
+            effect["host"] = {"that creature": "that_creature", "enchanted creature": "host"}.get(m["host"], "self")
+            if m["host"].startswith("target "):  # -- attached events (wave 25D) -- a target group of its own, after the card's (fixed below)
+                host_group = target_group(m["host"])
+                if host_group is None or m["u"] not in (None, "your"):
+                    return None
+                effect["host"] = "target"
     obj = m["o"]
     if not may and not hand and (one := this_way.choice_who(obj)) is not None:
         # -- resolution memory (wave 22D) -- "return a creature card put into a graveyard this way": one of them, chosen (608.2d)
@@ -3085,16 +3093,18 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         return None  # (only a choice models its own "may": choosing none)
     if _RA_SELF.fullmatch(obj) or obj == "this card":  # works from the graveyard (113.6m): coverage keeps it to activated abilities
         # (wave 19C: "return this card to your hand" — a card that isn't on the battlefield: the one in the graveyard, nothing if it left)
-        return [{**effect, "who": "self_gy"}], None
+        return [{**effect, "who": "self_gy"}], _one(host_group)  # (wave 25D: a host target, "attached to target creature")
     # -- reanimation (wave 10A) -- one instruction, several cards of different kinds: "Return up to one target instant card
     # and up to one target sorcery card from your graveyard to your hand." (one target group each, 115.1, 601.2c; the zone
     # is stated once) and "return a creature card and a land card from your graveyard to your hand." (nothing targeted: each
     # card is chosen on resolution, 608.2d). Only your own graveyard, and no "may" (a choice models its own).
-    if not may and not _RA_SELF.search(obj) and not obj.startswith("all "):
+    if not may and not _RA_SELF.search(obj) and not obj.startswith("all ") and host_group is None:
         compound = _reanimation_compound(obj, effect)
         if compound is not None:
             return compound
     c = _RA_CHOICE.fullmatch(obj)
+    if c is not None and c["what"].startswith("target "):
+        c = None  # (wave 25D: "up to two target Aura or Equipment cards …": targets, read below with the host's group)
     if c is not None:
         what, different = c["what"], None
         dm = _DIFFERENT.fullmatch(what)  # -- refused zones/sized (wave 3R4) -- "… cards with different names"
@@ -3109,7 +3119,7 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
             return None
         return [{**effect, "do": "return_choice", "sel": sel.key(), "n": n, "upto": bool(c["upto"] or c["any"] or may),
                  "random": bool(c["rand"]), "label": words, **({"optional": True} if may else {}),
-                 **({"different": different} if different else {})}], None
+                 **({"different": different} if different else {})}], _one(host_group)
     if not put and not (not hand and (m["atk"] or m["host"] or m["ck2"] or m["add1"])):  # (ck2/add1: wave 4M)  # (wave 3R4: "… tapped and attacking", "… attached to" read here)
         return None  # ("return target …" / "return all …": the grammar below)
     try:
@@ -3120,6 +3130,10 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         return [{**effect, "who": _who(kind, key)}], None
     if kind not in ("target", "each") or not _graveyard_cards(key):
         return None
+    if host_group is not None:  # -- attached events (wave 25D) -- "Return target Aura card … attached to target creature": two groups, the card then its host
+        if kind != "target":
+            return None
+        return [{**effect, "who": "target:0", "host": "target:1"}], _out([group, host_group])
     return [{**effect, "who": _who(kind, key)}], _one(group)
 
 

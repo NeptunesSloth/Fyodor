@@ -342,6 +342,59 @@ def test_remove_all_counters_takes_every_kind(cards):
     roundtrip(s)
 
 
+def test_an_aura_returns_from_the_graveyard_attached_to_a_target(cards):
+    """303.4i / 701.3: "Return this card from your graveyard to the battlefield attached to target creature." — the Aura enters attached (the host is a
+    target of the ability, 115.1); a host it can't enchant leaves it in the graveyard."""
+    s = build(cards, "Gryff's Boon", "Probe Beast")
+    beast = on_battlefield(s, "Probe Beast")
+    boon = next(c for c in s.state.cards.values() if c.name == "Gryff's Boon")
+    act(s, "p1", type="move", card_ids=[boon.id], to={"zone": "graveyard"})
+    pay(s, W=1, C=3)
+    index = next(a.index for a in ch(s, boon).abilities if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=boon.id, ability=index, targets=[beast.id])
+    settle(s)
+    assert s.state.cards[boon.id].zone == "p1:battlefield" and s.state.cards[boon.id].attached_to == beast.id
+    assert ch(s, beast).pt == (4, 3) and "flying" in ch(s, beast).keywords
+    roundtrip(s)
+
+
+def test_unfinished_business_attaches_the_auras_to_the_creature_it_returned(cards):
+    s = build(cards, "Unfinished Business", "Probe Beast", "Probe Curse")
+    beast = next(c for c in s.state.cards.values() if c.name == "Probe Beast")
+    curse = next(c for c in s.state.cards.values() if c.name == "Probe Curse")
+    for c in (beast, curse):
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    spell = to_hand(s, "Unfinished Business")
+    pay(s, W=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[beast.id, curse.id], target_counts=[1, 1])
+    settle(s)
+    assert s.state.cards[beast.id].zone == "p1:battlefield"
+    assert s.state.cards[curse.id].zone == "p1:battlefield" and s.state.cards[curse.id].attached_to == beast.id  # "attached to that creature"
+    roundtrip(s)
+
+
+def test_mantle_of_the_ancients_returns_auras_to_the_enchanted_creature(cards):
+    s = build(cards, "Mantle of the Ancients", "Probe Beast", "Probe Curse")
+    beast = on_battlefield(s, "Probe Beast")
+    curse = next(c for c in s.state.cards.values() if c.name == "Probe Curse")
+    act(s, "p1", type="move", card_ids=[curse.id], to={"zone": "graveyard"})
+    spell = to_hand(s, "Mantle of the Ancients")
+    pay(s, W=2, C=3)
+    for prefs in s.state.rules.prefs.values():
+        prefs.response = "on"
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[beast.id])
+    for _ in range(20):
+        d = decision(s)
+        if d is not None:
+            choose(s, d.options[0].id)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[curse.id].zone == "p1:battlefield" and s.state.cards[curse.id].attached_to == beast.id
+    roundtrip(s)
+
+
 def test_unifying_theory_the_caster_pays_and_draws(cards):
     s = build(cards, "Unifying Theory", "Probe Spell Book")
     on_battlefield(s, "Unifying Theory")

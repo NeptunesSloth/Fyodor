@@ -2229,6 +2229,13 @@ def _attached_host(found: tuple[list[dict[str, Any]], Any, bool] | None, it: str
     if found is None or not any(e.get("host") == "that_creature" for e in found[0]):
         return found
     if it != "event":
+        # -- attached events (wave 25D) -- "Return target creature card from your graveyard to the battlefield, then return up to two target Aura and/or
+        # Equipment cards from your graveyard to the battlefield attached to that creature." (Unfinished Business): the one card the first
+        # instruction put onto the battlefield (400.7j: the new object), nothing else in between
+        first, rest = found[0][:1], found[0][1:]
+        if len(first) == 1 and first[0].get("do") == "return_card" and first[0].get("to") == "battlefield" and first[0].get("who") == "target:0" \
+                and len(rest) == 1 and rest[0].get("do") == "return_card" and rest[0].get("host") == "that_creature":
+            return [{**first[0], "as": "e0"}, {**rest[0], "host": "ref:e0"}], found[1], found[2]
         return None
     out: list[dict[str, Any]] = []
     for e in found[0]:
