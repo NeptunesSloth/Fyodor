@@ -40,6 +40,8 @@ EXTRA = [
     real("Diabolic Edict", "{1}{B}", 2, "Instant", "Target player sacrifices a creature of their choice.", None, "B"),
     real("Tamiyo, Collector of Tales", "{2}{G}{U}", 4, "Legendary Planeswalker — Tamiyo", "Spells and abilities your opponents control can't cause you to discard cards or sacrifice permanents.\n+1: Choose a nonland card name, then reveal the top four cards of your library. Put all cards with the chosen name from among them into your hand and the rest into your graveyard.\n−3: Return target card from your graveyard to your hand.", None, "GU"),
     real("Mind Rot", "{2}{B}", 3, "Sorcery", "Target player discards two cards.", None, "B"),
+    real("Deadlock Trap", "{3}", 3, "Artifact", "This artifact enters tapped.\nWhen this artifact enters, you get {E}{E} (two energy counters).\n{T}, Pay {E}: Tap target creature or planeswalker. Its activated abilities can't be activated this turn."),
+    real("Probe Zapper", "{2}", 2, "Artifact Creature — Construct", "{T}: Probe Zapper deals 1 damage to any target.", ("1", "1")),
     real("Mindlock Orb", "{3}{U}", 4, "Artifact", "Players can't search libraries.", None, "U"),
     real("Rampant Growth", "{1}{G}", 2, "Sorcery", "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.", None, "G"),
     real("Shadow of Doubt", "{U/B}{U/B}", 2, "Instant", "({U/B} can be paid with either {U} or {B}.)\nPlayers can't search libraries this turn.\nDraw a card.", None, "UB"),
@@ -287,6 +289,34 @@ def test_sigarda_stops_an_opponents_edict_but_not_your_own_sacrifices(cards):
     answer(s)
     assert zone_of(s, "Sigarda, Host of Herons", "p2") == "p2:battlefield"  # 614.17: nothing was sacrificed
     assert said(s, "Sigarda, Host of Herons: Bob can't be made to sacrifice permanents")
+    check(s)
+
+
+def test_deadlock_trap_stops_a_creatures_activated_abilities_this_turn(cards):
+    s = build(cards, ["Deadlock Trap"], ["Probe Zapper"])
+    trap = put(s, "Deadlock Trap")
+    zapper = put(s, "Probe Zapper", "p2")
+    act(s, "p1", type="resource", player="p1", key="energy", delta=2)
+    act(s, "p1", type="activate_ability", card_id=trap.id, ability=2, targets=[zapper.id])
+    answer(s)
+    assert s.state.cards[zapper.id].tapped
+    from app.rules.plan import Plan
+
+    assert "cant_activate" in Plan.view(s.state, "p2", s.cards).ch(s.state.cards[zapper.id]).imposed  # 602.5: until the end of the turn
+    check(s)
+
+
+def test_sigarda_protects_whoever_controls_her(cards):
+    s = build(cards, ["Sigarda, Host of Herons", "Probe Bear"], ["Diabolic Edict"])
+    sigarda = put(s, "Sigarda, Host of Herons")
+    from app.rules import prohibitions
+    from app.rules.plan import Plan
+
+    plan = Plan.view(s.state, "p1", s.cards)
+    assert prohibitions.cant_cause_sacrifice(plan, "p1", "p2") and not prohibitions.cant_cause_sacrifice(plan, "p2", "p1")
+    act(s, "p1", type="set_controller", card_ids=[sigarda.id], player="p2")  # 611.3a: read as it is now; control changed hands
+    plan = Plan.view(s.state, "p1", s.cards)
+    assert prohibitions.cant_cause_sacrifice(plan, "p2", "p1") and not prohibitions.cant_cause_sacrifice(plan, "p1", "p2")
     check(s)
 
 
