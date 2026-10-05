@@ -518,8 +518,9 @@ def duration_clause(m: re.Match[str]) -> tuple[str, str]:
 def wrap_duration(effects: list[dict[str, Any]], duration: str) -> list[dict[str, Any]] | None:
     """The ``until`` effect over the continuous effects of a clause; only pumps, grants and
     restrictions (they never pause, and their effects carry a duration)."""
-    if not effects or any(e.get("do") not in ("pump", "grant", "restrict", "gain_control") for e in effects):
-        return None
+    if not effects or any(e.get("do") not in ("pump", "grant", "restrict", "gain_control", "become") or (
+            e.get("do") == "become" and any(k in e for k in ("land_pick", "pick", "choose", "copy"))) for e in effects):
+        return None  # (-- as long as (wave 25A) -- a "becomes" that asks nothing: "becomes an artifact creature … for as long as ~ remains on the battlefield")
     return [{"do": "until", "duration": duration, "n": len(effects)}, *effects]
 
 

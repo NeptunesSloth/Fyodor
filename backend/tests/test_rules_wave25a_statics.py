@@ -55,6 +55,9 @@ EXTRA = [
     card('Telepathy', set_code='tst', number='M28', mana_cost='{U}', cmc=1.0, type_line='Enchantment', oracle_text='Your opponents play with their hands revealed.', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
     card('Lantern of Insight', set_code='tst', number='M29', mana_cost='{1}', cmc=1.0, type_line='Artifact', oracle_text='Players play with the top card of their libraries revealed.\n{T}, Sacrifice this artifact: Target player shuffles.', colors=[], color_identity=[], keywords=[], layout='normal'),  # noqa: E501
     card('Revelation', set_code='tst', number='M30', mana_cost='{G}', cmc=1.0, type_line='World Enchantment', oracle_text='Players play with their hands revealed.', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
+    card('Skilled Animator', set_code='tst', number='M31', mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Human Artificer', oracle_text='When this creature enters, target artifact you control becomes an artifact creature with base power and toughness 5/5 for as long as this creature remains on the battlefield.', power='1', toughness='3', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Awakener Druid', set_code='tst', number='M32', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Human Druid', oracle_text="When this creature enters, target Forest becomes a 4/5 green Treefolk creature for as long as this creature remains on the battlefield. It's still a land.", power='1', toughness='1', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
+    card('Kill Switch', set_code='tst', number='M33', mana_cost='{3}', cmc=3.0, type_line='Artifact', oracle_text="{2}, {T}: Tap all other artifacts. They don't untap during their controllers' untap steps for as long as this artifact remains tapped.", colors=[], color_identity=[], keywords=[], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='M99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
 ]
 
@@ -353,4 +356,50 @@ def test_revelation_and_lantern_of_insight_open_every_hand_and_every_top_card(ca
     put(s, "Lantern of Insight", "battlefield")  # "Players play with the top card of their libraries revealed."
     assert "Hooded Horror" in seen(s, "p1") and "Hooded Horror" in seen(s, "p2")
     assert "Hooded Horror" in seen(s, SPECTATOR)
+    roundtrip(s)
+
+
+def run_all(s, pick=None, limit=20):
+    """Resolve the stack, answering every question with the first option (or the one ``pick`` names)."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options if o.card_id == pick] or [d.options[0].id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids[:1])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_skilled_animator_animates_an_artifact_for_as_long_as_it_remains_on_the_battlefield(cards):
+    s = build(cards, p1=("Skilled Animator", "Short Sword", "Lightning Bolt"))
+    sword = put(s, "Short Sword", "battlefield")
+    animator = put(s, "Skilled Animator", "hand")
+    mana(s, U=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=animator.id)
+    run_all(s, pick=sword.id)
+    assert ch(s, sword).is_creature and ch(s, sword).pt == (5, 5)  # "becomes an artifact creature with base power and toughness 5/5"
+    put(s, "Lightning Bolt", "hand")  # kill the Animator: it leaves the battlefield, 611.2b
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=find(s, "Lightning Bolt").id, targets=[animator.id])
+    run_all(s)
+    assert find(s, "Skilled Animator").zone == "p1:graveyard"
+    assert not ch(s, find(s, "Short Sword")).is_creature
+    roundtrip(s)
+
+
+def test_kill_switch_holds_the_other_artifacts_down_for_as_long_as_it_remains_tapped(cards):
+    s = build(cards, p1=("Kill Switch", "Short Sword"), p2=("Short Sword",))
+    switch = put(s, "Kill Switch", "battlefield")
+    mine = put(s, "Short Sword", "battlefield")
+    theirs = put(s, "Short Sword", "battlefield", pid="p2")
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=switch.id, ability=0)  # {2}, {T}: Tap all other artifacts. They don't untap …
+    run_all(s)
+    assert s.state.cards[mine.id].tapped and s.state.cards[theirs.id].tapped
+    assert "doesnt_untap" in ch(s, mine).imposed and "doesnt_untap" in ch(s, theirs).imposed  # 611.2b: while Kill Switch remains tapped
+    act(s, "p1", type="tap", card_ids=[switch.id], tapped=False)  # it untaps: the effect ends (looked at next: triggers.collect)
+    act(s, "p1", type="pass_priority")
+    assert "doesnt_untap" not in ch(s, mine).imposed and "doesnt_untap" not in ch(s, theirs).imposed
     roundtrip(s)
