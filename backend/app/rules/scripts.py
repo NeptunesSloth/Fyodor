@@ -3469,6 +3469,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # -- trigger tail (wave 15B) -- "When this creature blocks a creature, destroy both creatures / that creature and
                     # this creature.": the creature on the other side, then this one (509.3b)
                     body = re.sub(r"^destroy (?:both creatures|that creature and ~)\.$", "destroy that creature. Destroy ~.", body)
+                if cond is not None and cond.get("event") in ("crew", "saddle", "either") and other_side.wanted(cond):
+                    body = re.sub(r"\bthat (?:Mount or Vehicle|Vehicle|Mount)\b", "that creature", body)  # -- crew & saddle (wave 23D) -- the event's other object
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
                 if ante == "self_gone":  # -- trigger tail (wave 15B) -- "put her into her owner's library third from the top"
                     # (a gendered pronoun is written ~): the card after it left, found where it went (400.7e), like "it"

@@ -57,6 +57,12 @@ CARDS = [
      "Whenever Golden Argosy attacks, exile each creature that crewed it this turn. Return them to the battlefield tapped under their owner's "
      "control at the beginning of the next end step.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This "
      "Vehicle becomes an artifact creature until end of turn.)"),
+    ("Speedway Fanatic", "{1}{R}", "Creature — Human Pilot", "2", "1", "Haste\nWhenever this creature crews a Vehicle, that Vehicle gains haste until end of turn."),
+    ("Reckless Velocitaur", "{3}{R}", "Creature — Minotaur Pilot", "3", "3",
+     "Whenever this creature saddles a Mount or crews a Vehicle during your main phase, that Mount or Vehicle gets +2/+0 and gains trample until end of turn."),
+    ("Mobilizer Mech", "{1}{U}", "Artifact — Vehicle", "3", "4",
+     "Flying\nWhenever this Vehicle becomes crewed, up to one other target Vehicle you control becomes an artifact creature until end of turn.\n"
+     "Crew 3 (Tap any number of creatures you control with total power 3 or more: This Vehicle becomes an artifact creature until end of turn.)"),
     ("Probe Giant", "{W}", "Creature — Giant", "5", "5", ""),
     ("Probe Soldier", "{W}", "Creature — Human Soldier", "1", "1", ""),
 ]
@@ -330,4 +336,57 @@ def test_golden_argosy_sends_the_creatures_that_crewed_it_away_and_back_tapped(c
     until(s, lambda s: s.state.turn.phase == "end" or s.state.turn.number > 1, limit=200)
     drive(s)
     assert zone_of(s, "Probe Soldier") == "p1:battlefield" and s.state.cards[card_named(s, "Probe Soldier").id].tapped
+    check(s)
+
+
+def crewed(s, vehicle, *creatures, picks=()):
+    from tests.test_rules_wave5j_token_copies import drive
+
+    act(s, "p1", type="activate_ability", card_id=card_named(s, vehicle).id, ability=crew_index(s, vehicle),
+        crew=[card_named(s, n).id for n in creatures])
+    drive(s, choose=lambda d: list(picks) or None)
+
+
+def test_a_creature_that_crews_gives_the_vehicle_haste(cards):
+    """Speedway Fanatic: "Whenever this creature crews a Vehicle, that Vehicle gains haste until end of turn" (702.122b)."""
+    s = build(cards, ["Speedway Fanatic", "Golden Argosy"])
+    put(s, "Speedway Fanatic")
+    put(s, "Golden Argosy")  # (just arrived: summoning sick, 302.6)
+    crewed(s, "Golden Argosy", "Speedway Fanatic")
+    assert "Haste" in {k.title() for k in ch_of(s, "Golden Argosy").keywords}
+    check(s)
+
+
+def ch_of(s, name):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(card_named(s, name))
+
+
+def test_crewing_during_your_main_phase_pumps_the_vehicle(cards):
+    s = build(cards, ["Reckless Velocitaur", "Golden Argosy"])
+    put(s, "Reckless Velocitaur")
+    put(s, "Golden Argosy")
+    crewed(s, "Golden Argosy", "Reckless Velocitaur")
+    assert pt(s, "Golden Argosy") == (5, 6)
+    assert "Trample" in {k.title() for k in ch_of(s, "Golden Argosy").keywords}
+    check(s)
+
+
+def test_during_your_main_phase_is_part_of_the_event():
+    from app.rules import events
+
+    cond = events.parse_condition("~ saddles a Mount or crews a Vehicle during your main phase")
+    assert cond["during"] == "you" and all(c["main_phase"] for c in cond["conds"]) and {c["event"] for c in cond["conds"]} == {"crew", "saddle"}
+
+
+def test_becomes_crewed_triggers_when_the_crew_ability_resolves(cards):
+    """Mobilizer Mech (702.122e): another Vehicle becomes an artifact creature too."""
+    s = build(cards, ["Mobilizer Mech", "Golden Argosy", "Probe Giant"])
+    put(s, "Mobilizer Mech")
+    put(s, "Golden Argosy")
+    put(s, "Probe Giant")
+    assert "Creature" not in ch_of(s, "Golden Argosy").types
+    crewed(s, "Mobilizer Mech", "Probe Giant", picks=[card_named(s, "Golden Argosy").id])
+    assert "Creature" in ch_of(s, "Golden Argosy").types and "Creature" in ch_of(s, "Mobilizer Mech").types
     check(s)

@@ -830,6 +830,19 @@ _PLAIN_COUNTERS = frozenset({"lore", "loyalty", "charge", "oil", "time", "quest"
 def _object_event(c: str) -> Condition | None:
     """Object events beyond the basic verbs: counters put on (122.6), leaving a graveyard (603.10a),
     becoming the target of a spell or ability (115.9, 603.2e), dealing damage (120.1)."""
+    # -- crew & saddle (wave 23D) -- 702.122b / 702.171c: "Whenever ~ crews a Vehicle" / "~ saddles a Mount or crews a Vehicle during your
+    # main phase" (a creature tapped to pay the cost; the Vehicle / Mount is the creature "on the other side"), 702.122e: "~ becomes crewed"
+    m = re.fullmatch(r"~ (?:(?P<s>saddles a Mount) or )?(?P<c>crews a Vehicle)(?P<d> during your main phase)?", c)
+    if m:
+        crew = {"event": "crew", "subject": "self", "other": selectors.Selector(types=("Artifact",), subtypes=("Vehicle",)).key()}
+        saddle = {"event": "saddle", "subject": "self", "other": selectors.Selector(subtypes=("Mount",)).key()}
+        main = {"main_phase": True} if m["d"] else {}
+        if not m["s"]:
+            return {**crew, **main, **({"during": "you"} if m["d"] else {})}
+        return {"event": "either", "subject": "self", "other": crew["other"], "conds": [{**crew, **main}, {**saddle, **main}],
+                **({"during": "you"} if m["d"] else {})}  # (``other``: the Vehicle or Mount, for "that Mount or Vehicle")
+    if c == "~ becomes crewed":
+        return {"event": "crewed", "subject": "self"}
     # -- keyword triggers (wave 23D) -- 702.110b: "When ~ exploits a creature", "Whenever a creature you control exploits a non-Human creature"
     m = re.fullmatch(r"(?P<s>~|an? .+?|another .+?) exploits (?P<o>an? .+)", c)
     if m:

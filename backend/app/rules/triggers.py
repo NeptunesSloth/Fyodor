@@ -440,6 +440,15 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         return [("sacrifice", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "amount": 1,
                                                           "snap": None if live else r.lki.get(e.object_id or ""),
                                                           **({"new_oid": went.new_object_id, "to": went.to_zone} if went else {})})]
+    if e.kind in ("crew_tapped", "saddle_tapped"):  # -- crew & saddle (wave 23D) -- 702.122b / 702.171c: the creature tapped to pay the cost
+        got = _object_then(plan, e.card, e.object_id)  # (``other``: the Vehicle / Mount whose ability it is, the creature "on the other side")
+        if got is None:
+            return []
+        return [("crew" if e.kind == "crew_tapped" else "saddle", got[0], got[1], e.player,
+                 {"oid": e.object_id, "actor": e.player, "other": e.by_card, "other_oid": e.source})]
+    if e.kind in ("crewed", "saddled"):  # 702.122e: its crew ability resolved; 702.171b: it became saddled
+        got = _object_then(plan, e.card, e.object_id)
+        return [(e.kind, got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player})] if got is not None else []
     if e.kind == "exploited":  # -- keyword triggers (wave 23D) -- 702.110b: the exploiter (it may have been sacrificed itself: its last known
         by = _object_then(plan, e.by_card, e.source)  # information) and the creature it exploited, as it was
         was = _object_then(plan, e.card, e.object_id)
@@ -680,6 +689,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     event, obj, _, player, info = fact
     you = watcher.controller
     if not _other_ok(plan, cond, watcher, info):
+        return False
+    if cond.get("main_phase") and plan.state.turn.phase not in ("main1", "main2"):  # -- crew & saddle (wave 23D) -- "during your main phase"
         return False
     if cond.get("exploited") and not (  # -- keyword triggers (wave 23D) -- "exploits a nontoken creature": the one sacrificed, as it was (702.110b)
             info.get("exploited") and selectors.matches(plan, selectors.from_key(cond["exploited"]), info["exploited"][0],
