@@ -69,7 +69,7 @@ def _enters_choices(ch: Characteristics) -> list[str]:
     from app.rules.scripts import self_text
 
     texts = [self_text(ab.text, ch.name) for ab in ch.abilities]
-    named = [d["effects"][0]["what"] for t in texts if (d := card_names.enters_choice(t)) is not None]
+    named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
     return [m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None] + ["card name" for _ in named]
 
 

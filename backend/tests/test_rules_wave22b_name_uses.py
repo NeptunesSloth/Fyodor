@@ -10,8 +10,8 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave12a_counters_keywords import answer, real
-from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
+from tests.test_rules_wave12a_counters_keywords import real
+from tests.wave9c_kit import build, card_named, check, life, mana, to_hand, zone_of
 
 EXTRA = [
     real("Silverquill Silencer", "{W}{B}", 2, "Creature — Human Cleric", "As this creature enters, choose a nonland card name.\nWhenever an opponent casts a spell with the chosen name, they lose 3 life and you draw a card.", ("3", "2"), "WB"),
@@ -21,6 +21,8 @@ EXTRA = [
          colors=["U", "W"], color_identity=["U", "W"], card_faces=[
              {"object": "card_face", "name": "Failure", "mana_cost": "{1}{U}", "type_line": "Instant", "oracle_text": "Return target spell to its owner's hand."},
              {"object": "card_face", "name": "Comply", "mana_cost": "{W}", "type_line": "Sorcery", "oracle_text": "Aftermath (Cast this spell only from your graveyard. Then exile it.)\nChoose a card name. Until your next turn, your opponents can't cast spells with the chosen name."}]),
+    real("Sorcerous Spyglass", "{2}", 2, "Artifact", "As this artifact enters, look at an opponent's hand, then choose any card name.\nActivated abilities of sources with the chosen name can't be activated unless they're mana abilities."),
+    real("Probe Pinger", "{1}", 1, "Artifact", "{T}: Probe Pinger deals 1 damage to any target."),
     real("Cabal Therapy", "{B}", 1, "Sorcery", "Choose a nonland card name. Target player reveals their hand and discards all cards with that name.\nFlashback\u2014Sacrifice a creature. (You may cast this card from your graveyard by sacrificing a creature in addition to paying its other costs. Then exile this card.)", None, "B"),
     real("Probe Bolt", "{R}", 1, "Instant", "Probe Bolt deals 1 damage to any target.", None, "R"),
     real("Probe Charm", "{G}", 1, "Instant", "You gain 1 life.", None, "G"),
@@ -58,7 +60,7 @@ def run(s, *names, limit=30):
     raise AssertionError("the stack never emptied")
 
 
-@pytest.mark.parametrize("name", ["Silverquill Silencer", "Declaration of Naught", "Demonic Consultation", "Failure // Comply", "Cabal Therapy"])
+@pytest.mark.parametrize("name", ["Silverquill Silencer", "Declaration of Naught", "Demonic Consultation", "Failure // Comply", "Cabal Therapy", "Sorcerous Spyglass"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -85,7 +87,7 @@ def test_declaration_of_naught_counters_only_a_spell_with_the_chosen_name(cards)
     s.state.rules.prefs["p1"].response = "on"
     s.state.rules.prefs["p2"].response = "on"
     act(s, "p1", type="pass_priority")  # Alice passes with an empty stack: Bob may cast an instant
-    bolt, charm = to_hand(s, "Probe Bolt", "p2"), to_hand(s, "Probe Charm", "p2")
+    bolt = to_hand(s, "Probe Bolt", "p2")
     act(s, "p2", type="add_mana", player="p2", mana={"R": 1, "G": 1})
     act(s, "p2", type="cast_spell", card_id=bolt.id, targets=["p1"])
     assert s.state.cards[bolt.id].zone == "stack" and s.state.rules.priority == "p1"
@@ -158,4 +160,37 @@ def test_cabal_therapy_discards_every_card_with_the_chosen_name_from_the_reveale
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Cabal Therapy").id, targets=["p2"])
     run(s, "Probe Bolt")
     assert s.state.cards[hand[0].id].zone == "p2:graveyard" and s.state.cards[hand[1].id].zone == "p2:hand"
+    check(s)
+
+
+def test_look_at_a_hand_then_name_shows_the_hand_to_the_chooser_alone(cards):
+    """Sorcerous Spyglass: "look at an opponent's hand, then choose any card name" (701.20e: only the one looking sees it)."""
+    import json
+
+    from app.game.views import SPECTATOR, build_view
+    from app.rules.view import decision_view
+
+    s = build(cards, ["Sorcerous Spyglass"], ["Probe Bolt", "Probe Charm"])
+    bolt, charm = to_hand(s, "Probe Bolt", "p2"), to_hand(s, "Probe Charm", "p2")
+    mana(s, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Sorcerous Spyglass").id)
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.options[0].id == "__name__"
+    assert {o.card_id for o in d.options[1:]} == {bolt.id, charm.id}  # the looker is shown that hand
+    assert "looks at Bob's hand" in " ".join(p.t or "" for e in s.state.log for p in e.parts)
+    # nobody else learns anything: not the decision, not the cards (the other viewers' state), not the log
+    mine, theirs = json.dumps(decision_view(s.state, d, "p1")), json.dumps(decision_view(s.state, d, "p2"))
+    assert "Probe Bolt" in mine and bolt.id in mine
+    assert "Probe" not in theirs and bolt.id not in theirs and decision_view(s.state, d, "p2")["kind"] == "waiting"
+    watching = json.dumps(build_view(s.state, SPECTATOR))  # a spectator sees neither the hand nor the decision
+    assert "Probe Bolt" not in watching and "Probe Charm" not in watching
+    assert not (s.state.cards[bolt.id].revealed_to or s.state.cards[charm.id].revealed_to)
+    log = " ".join(p.t or "" for e in s.state.log for p in e.parts)
+    assert "Probe Bolt" not in log and "Probe Charm" not in log
+    name_it(s, "Probe Charm")
+    spy = card_named(s, "Sorcerous Spyglass")
+    assert s.state.cards[spy.id].choices["Chosen card name"] == "Probe Charm"
+    assert not (s.state.cards[bolt.id].revealed_to or s.state.cards[charm.id].revealed_to)  # still in their hand, still hidden
     check(s)

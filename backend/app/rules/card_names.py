@@ -23,9 +23,11 @@ from typing import TYPE_CHECKING, Any
 from app.cards.names import normalize_name
 from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption
+from app.game.state import zone_key
 
 if TYPE_CHECKING:
     from app.game.rules_state import Decision
+    from app.game.state import CardInstance
     from app.rules.characteristics import Characteristics
     from app.rules.plan import Plan
 
@@ -47,7 +49,7 @@ def option(what: str) -> DecisionOption:
 
 
 def is_free_text(d: Decision) -> bool:
-    return len(d.options) == 1 and d.options[0].id == FREE_TEXT
+    return bool(d.options) and d.options[0].id == FREE_TEXT  # (further options only show what the chooser looked at)
 
 
 def _allowed(what: str, type_line: str) -> bool:
@@ -112,10 +114,41 @@ def matches(plan: Plan, source: str | None, ch: Characteristics) -> bool:
     return has_name(ch, chosen(plan, source))
 
 
+LOOK = "opponent to look at"  # the first question of "look at an opponent's hand, then choose any card name" (public: which hand)
+
+
 def enters_choice(text: str) -> dict[str, Any] | None:
-    """"As ~ enters, choose a card name." (614.1c, 614.12a): the same entering replacement as the other "As ~ enters, choose …"."""
+    """"As ~ enters, choose a card name." (614.1c, 614.12a): the same entering replacement as the other "As ~ enters, choose …".
+    "As ~ enters, look at an opponent's hand, then choose any card name." (Sorcerous Spyglass, Anointed Peacekeeper): which opponent is asked
+    first (publicly), then the name, with that hand shown in the private decision (``prompt``)."""
     m = re.fullmatch(rf"As ~ enters, choose (?:a|an) (?P<what>{WHAT_RX})\.", text)
-    if m is None:
+    if m is not None:
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": m["what"], "remember": True}]}
+    if text == "As ~ enters, look at an opponent's hand, then choose any card name.":
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": LOOK},
+                            {"do": "choose_value", "who": "you", "what": "card name", "remember": True, "look": True}]}
+    return None
+
+
+def sole_opponent(plan: Plan, player: str) -> str | None:
+    """The one opponent left, if exactly one (no question is needed to pick whose hand)."""
+    others = [p for p in plan.live() if p != player]
+    return others[0] if len(others) == 1 else None
+
+
+def prompt(plan: Plan, card: CardInstance, player: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]] | None:
+    """The question of the look-then-name entry (None: not one of its questions). Naming shows the chosen opponent's hand to the chooser alone,
+    as options of the private decision (701.20e: only the one looking sees it; nothing is revealed, nothing is recorded in the log but the look)."""
+    what = choice["what"]
+    if what == LOOK:
+        return (f"{card.name}: as it enters, choose an opponent whose hand you look at",
+                [DecisionOption(id=p, label=plan.name(p)) for p in plan.live() if p != player])
+    look = choice.get("look")
+    if not is_choice(what) or not look or look not in plan.state.players:
         return None
-    return {"kind": "replacement", "replacement": "enters_choice",
-            "effects": [{"do": "choose_value", "who": "you", "what": m["what"], "remember": True}]}
+    plan.note(f"{plan.name(player)} looks at {plan.name(look)}'s hand", actor=player)
+    hand = [DecisionOption(id=f"seen:{cid}", label=plan.state.cards[cid].name or "a card", card_id=cid, group="seen")
+            for cid in plan.state.zones.get(zone_key(look, "hand"), []) if cid in plan.state.cards]
+    return f"{card.name}: as it enters, choose any card name (you look at {plan.name(look)}'s hand)", [option(what), *hand]

@@ -189,7 +189,9 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
     from app.rules.casting import summoning_sick  # casting imports this module
 
     name = card.name or "It"
-    from app.rules import prohibitions  # -- prohibitions (wave 22B) -- 614.17 / 119.4: "Players can't pay life or sacrifice creatures …"
+    from app.rules import (
+        prohibitions,  # -- prohibitions (wave 22B) -- 614.17 / 119.4: "Players can't pay life or sacrifice creatures …"
+    )
 
     for comp in cost.components:
         if comp.kind == C.PAY_LIFE and (comp.amount or comp.life_rule) and (why := prohibitions.life_banned(plan.state, plan.info)):
