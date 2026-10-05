@@ -209,10 +209,8 @@ def test_wordings(text, expected):
 
 
 @pytest.mark.parametrize("text", [
-    "As long as ~ has a slumber counter on it, it's a land.",  # Arixmethes: a type-setting effect (not read)
     "As long as you control five or more enchantments, each other non-Aura enchantment you control is a creature in addition to "
     "its other types and has base power and base toughness each equal to its mana value.",  # Starfield of Nyx (613.8)
-    "As long as ~ has eight or more +1/+1 counters on it, it's a 0/0 creature in addition to its other types and it has annihilator 2.",
     "As long as it's monstrous, creatures you control get +1/+1.",  # "it": not certainly the source
     "As long as you control six or more lands, ~ isn't a creature.",  # a layer-4 condition that reads types (613.8)
     "As long as this card is in your graveyard, ~ gets +1/+1.",  # a card in a graveyard is no permanent
@@ -230,7 +228,7 @@ def test_coverage_of_the_lines():
     assert ok("You may cast this card from your graveyard as long as you control a Zombie.", "Gravecrawler", "Creature — Zombie")
     assert ok("If you control two or more other lands, this land enters tapped.", "Den of the Bugbear", "Land")
     assert ok("You may cast this card from your graveyard as long as you attacked this turn.")  # (wave 16D: history conditions are read)
-    assert not ok("As long as Arixmethes has a slumber counter on it, it's a land.", "Arixmethes, Slumbering Isle")
+    assert ok("As long as Arixmethes has a slumber counter on it, it's a land.", "Arixmethes, Slumbering Isle")  # (wave 20B: types set, 205.1a)
 
 
 # -- a static that functions from the graveyard (113.6b) --------------------------------------------------------

@@ -57,6 +57,28 @@ def test_creature_in_addition_with_base_power_and_keyword(cards):
     roundtrip(s)
 
 
+def test_granted_annihilator_works_when_it_attacks(cards):
+    s = table(cards)
+    idol = token(s, "p1", "Idol", "Kindred Artifact — Eldrazi", IDOL)
+    set_counters(s, idol, "+1/+1", 8)
+    for i in range(4):
+        token(s, "p2", f"Rock{i}", "Token Artifact — Rock")
+    automate(s)
+    before = len(s.state.zones["p2:battlefield"])
+    attack(s, (idol, "p2"))
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.player == "p2":
+            act(s, "p2", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.min_choices])
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    for _ in range(6):
+        if s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert len(s.state.zones["p2:battlefield"]) == before - 2  # 702.86a: annihilator 2
+    replay_matches(s)
+
+
 def test_vehicle_becomes_an_artifact_creature_with_counters(cards):
     s = table(cards)
     van = token(s, "p1", "Balloon", "Artifact — Vehicle", BALLOON, "1/4")
