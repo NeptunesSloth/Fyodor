@@ -56,4 +56,37 @@ def attach_to(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"attach_to": attach_to}
+def choose(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- attach choice (wave 25A) -- "You may attach an Equipment you control to it." / "Attach any number of Equipment you control to it."
+    (Nahiri, Heir of the Ancients; Armed and Armored): not targeted — as it resolves its controller chooses which Equipment they control
+    (701.3a; one that can't be attached there, 701.3b, or is attached to it already isn't offered), at once and in no order (``n`` 1: one)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import attachments, effects
+
+    hosts = effects._cards(plan, ctx, str(e.get("who") or "self"))
+    me = ctx["controller"]
+    if not hosts:
+        return True
+    host = hosts[0]
+    pool = [c.id for c in plan.state.cards.values()
+            if c.zone == f"{me}:battlefield" and c.controller == me and "Equipment" in plan.ch(c).subtypes and c.attached_to != host
+            and attachments.host_problem(plan, c, host) is None]
+    if not pool:
+        return True
+    effects.decide(plan, player=me, kind="choose_cards", prompt=f"{ctx.get('name') or 'Attach'}: attach which Equipment to {plan.state.cards[host].name}?",
+                   options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Equipment", card_id=c) for c in pool],
+                   min_choices=1 if e.get("n") == 1 and not e.get("optional") else 0, max_choices=1 if e.get("n") == 1 else len(pool), resume={"step": "attach_choose", "ctx": ctx, "host": host})
+    return False
+
+
+def resume_choose(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import attachments
+    from app.rules.effects import continue_effects
+
+    for cid in chosen:
+        attachments.attach(plan, cid, d.resume["host"], d.player)
+    continue_effects(plan, d.resume["ctx"])
+
+
+PRIMITIVES = {"attach_to": attach_to, "attach_choose": choose}
+RESUME = {"attach_choose": resume_choose}

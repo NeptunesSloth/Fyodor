@@ -22,10 +22,11 @@ from app.rules.plan import Plan, decide
 
 # "Tap target creature. It doesn't untap during its controller's untap step for as long as ~ remains tapped." (611.2b):
 # a rule-modifying restriction (``doesnt_untap``, read by engine._keep_tapped) that lasts while the source stays tapped.
-_HOLD = re.compile(r"^(?P<o>.+?) doesn't untap during its controller's untap step for as long as (?P<d>~ remains tapped|you control ~)$")
+_HOLD = re.compile(r"^(?P<o>.+?) (?:doesn't untap during its controller's untap step|don't untap during their controllers' untap steps) for as long as "
+                   r"(?P<d>~ remains tapped|you control ~|~ remains on the battlefield)$")  # (wave 25A: plural; "remains on the battlefield")
 # -- as long as (wave 9B) -- "… for as long as you control ~" (Ty Lee, Icefall Regent, Dungeon Geists): 611.2b, ends when
 # the source leaves the battlefield or another player controls it (delayed.py "source_controlled")
-_DURATION = {"~ remains tapped": "source_tapped", "you control ~": "source_controlled"}
+_DURATION = {"~ remains tapped": "source_tapped", "you control ~": "source_controlled", "~ remains on the battlefield": "source_on_battlefield"}
 
 
 def _hold(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:

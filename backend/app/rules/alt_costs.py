@@ -176,9 +176,10 @@ def define(t: str) -> dict[str, Any] | None:
 # (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
 PROWL_COND = "a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell"  # 702.76a
 KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None,
-                 "prowl": PROWL_COND, "overload": None, "emerge": None, "foretell": None, "mutate": None}  # (wave 17C: prowl; wave 18D: mutate, 702.140a)
+                 "prowl": PROWL_COND, "overload": None, "emerge": None, "foretell": None, "mutate": None,
+                 "web-slinging": None}  # (wave 17C: prowl; wave 18D: mutate, 702.140a)
 # (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate)(?: from (?P<q>[A-Za-z]+))? "
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate|web-slinging)(?: from (?P<q>[A-Za-z]+))? "
                            r"(?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
 # when the prowl condition holds for that spell
@@ -198,6 +199,23 @@ def grant_prowl(t: str) -> dict[str, Any] | None:
             "mv": None, "cond": _cond(PROWL_COND), "tag": "prowl", "effects": []}
 
 
+# -- Marvel keywords (wave 25A) -- "Each legendary spell you cast that's one or more colors has web-slinging {G}{W}{U}." (Peter Parker's back face)
+GRANT_WEB = re.compile(r"^each (?P<sel>[A-Za-z][A-Za-z' -]*?) spell you cast(?: (?P<tail>that['’]s one or more colors))? has web-slinging "
+                       r"(?P<cost>(?:\{[^}X]+\})+)$")
+WEB_RETURN = " and return a tapped creature you control to its owner's hand"  # 702.188a
+
+
+def grant_web_slinging(t: str) -> dict[str, Any] | None:
+    m = GRANT_WEB.fullmatch(t)
+    if m is None or parse_cost(f"pay {m['cost']}{WEB_RETURN}") is None:
+        return None
+    from app.rules.permissions import spell_filter
+
+    key = spell_filter(m["sel"], m["tail"])
+    return {"kind": "static", "static": "alt_cost", "cost": f"pay {m['cost']}{WEB_RETURN}", "table": True, "filter": key, "once": False,
+            "zone": None, "mv": None, "cond": None, "tag": "web-slinging", "effects": []} if key is not None else None
+
+
 def keyword_definition(line: str) -> dict[str, Any] | None:
     m = _KEYWORD_LINE.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
     if m is None:
@@ -212,6 +230,8 @@ def keyword_definition(line: str) -> dict[str, Any] | None:
         if what not in ("creature", "artifact", "enchantment", "land"):
             return None
         pay += f" and sacrifice {'an' if what[0] in 'aeiou' else 'a'} {what}"
+    if kw == "web-slinging":  # -- Marvel keywords (wave 25A) -- 702.188a: "paying [cost] and returning a tapped creature you control to its owner's hand"
+        pay += WEB_RETURN
     found = define(f"you may {pay} rather than pay ~'s mana cost" + (f" if {cond}" if cond else ""))
     # ("tag": what the cast record says it was cast for; warp: only "from your hand", 702.185a)
     return {**found, "tag": kw, **({"hand_only": True} if kw == "warp" else {})} if found is not None else None  # (foretell 702.143a: only from the foretell zone, see offers())

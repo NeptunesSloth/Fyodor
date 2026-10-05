@@ -86,5 +86,14 @@ def _to_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "attach_to", "src": "target", "who": "it"}], src  # (-- triggers (wave 19B) -- resolve_it binds "it")
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_ONE, _one), (_PAIR, _pair), (_TO_SELF, _to_self),
+# -- attach choice (wave 25A) -- "you may attach an Equipment you control to it" (attach_entry.choose: not targeted)
+_CHOOSE = re.compile(rf"^(?P<may>you may )?attach (?P<n>an|any number of) Equipment you control to (?P<to>it|that creature|{_SELF})$")
+
+
+def _choose(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "attach_choose", "n": 1 if m["n"] == "an" else 0, "who": "it" if m["to"] in ("it", "that creature") else "self",
+             **({"optional": True} if m["may"] else {})}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_CHOOSE, _choose), (_ONE, _one), (_PAIR, _pair), (_TO_SELF, _to_self),
                                                 (_TO_THIS_CREATURE, _to_self), (_TO_IT, _to_it), (_UNATTACH, _unattach)]

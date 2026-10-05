@@ -510,6 +510,8 @@ def _with_rider(text: str) -> tuple[str, Any]:
 def _rider_value(phrase: str) -> Any:
     """A rider's quantity: "its power" / "that creature's toughness" / "~'s power" (app: _stat),
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
+    if phrase == "the total amount of mana paid this way":  # -- trigger other (wave 25B) -- join forces (app/rules/join_forces.py)
+        return {"paid_x": "jf"}
     if re.fullmatch(r"(?:(?:\d+|one|two|three) plus )?the sacrificed (?:creature|artifact|permanent|land|enchantment)'s "
                     r"(?:power|toughness|mana value)", phrase):  # -- amounts (wave 12C) --
         return _stat(phrase)
@@ -680,8 +682,8 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     # -- recursion & tutors (wave 4M) -- "Search your library for up to X basic land cards, where X is the number of
     # lands you control, put them onto the battlefield tapped, then shuffle." (Boundless Realms): how many cards may be
     # found is the count, read as the search begins (107.3c: X defined by the ability's text)
-    sized = re.fullmatch(r"(?P<a>search your library for up to [xX] (?!.*\bwith mana value [xX]\b).+?),? where [xX] is (?P<v>.+?), "
-                         r"(?P<b>(?:put|reveal) .+)", text)
+    sized = re.fullmatch(r"(?P<a>(?:(?:each player|each opponent) )?search(?:es)? (?:your|their) library for up to [xX] "  # (wave 25B: "each player searches")
+                         r"(?!.*\bwith mana value [xX]\b).+?),? where [xX] is (?P<v>.+?), (?P<b>(?:puts?|reveal) .+)", text)
     if sized:
         found = _search(f"{sized['a']}, {sized['b']}")
         if found is None or found[0][0].get("max") != {"x": 1}:
@@ -1352,6 +1354,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["s"] == "your":
             return [{"do": "set_life", "who": "you", "n": n}], None
         return [{"do": "set_life", "who": "target", "n": n}], _LEGACY_TARGETS["target player"]
+    # -- trigger other (wave 25B) -- 119.5: "Your life total becomes the number of creatures you control" (Touch of the Eternal), "… the number of
+    # charge counters on this artifact" (Eternity Vessel), "… the total toughness of creatures you control" (Loxodon Lifechanter): a counted amount
+    m = re.fullmatch(r"(?P<s>target player's|your) life total becomes (?:equal to )?(?P<v>the (?:number|total) .+)", text)
+    if m and rider is None and (v := values.parse_count(m["v"], it="it")) is not None and "'it'" not in str(v):
+        if m["s"] == "your":
+            return [{"do": "set_life", "who": "you", "n": v}], None
+        return [{"do": "set_life", "who": "target", "n": v}], _LEGACY_TARGETS["target player"]
     # -- attached events (wave 8D) -- "that player loses half their life, rounded up" (119.3; half of the life total as it is
     # when the instruction is carried out, 107.1a; effects.lose_life)
     m = re.fullmatch(_SUBJ + r"loses? (?P<f>half|a third of) (?:their|your) life, rounded (?P<r>up|down)", text)
@@ -1560,8 +1569,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "phase_out", "who": _who(kind, key)}], _one(group)
-    m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap) (?P<o>.+)", text)
-    if m:
+    m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap|airbend) (?P<o>.+)", text)  # (-- trigger other (wave 25B) -- airbend 701.65: app/rules/airbend.py)
+    if m and not (m["v"] == "airbend" and re.search(r"\bspells?\b", m["o"])):
         whos, groups = _objects(m["o"])
         if len(whos) > 1:  # "destroy target artifact and target enchantment": one group each (115.3)
             if len(groups) != len(whos):

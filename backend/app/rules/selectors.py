@@ -287,6 +287,11 @@ def _blocking_source(s: Selector, m: re.Match[str]) -> Selector:  # blocks (509.
     return replace(s, extras=(*s.extras, "blocking_source" if m["b"].startswith("blocking") else "blocked_by_source"))
 
 
+@_suffix(r"that has an Adventure")  # -- trigger other (wave 25B) -- 715.1: the card is an adventurer card ("It doesn't need to have gone on the adventure first")
+def _has_adventure(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "has_adventure"))
+
+
 @_suffix(r"with \{[xX]\} in (?:its|their) mana costs?")  # -- activated wordings (wave 15D) -- "a spell with {X} in its mana cost" (107.3)
 def _has_x_cost(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "x_cost"))
@@ -345,9 +350,14 @@ def _you_own(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, owner="you")
 
 
-@_suffix(r"(?:an opponent owns|you don't own)")
+@_suffix(r"(?:an opponent owns|you don't own|(?:is |are )?owned by (?:another player|an opponent))")  # (wave 25B: owned by another player)
 def _opp_own(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, owner="opponent")
+
+
+@_suffix(r"you control but don't own")  # -- trigger other (wave 25B) -- 108.3 / 110.2: you control it, another player owns it (Edea)
+def _control_not_own(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, controller="you", owner="opponent")
 
 
 @_suffix(r"(?:from|in) your (?P<z>graveyard|hand|library)")
@@ -581,6 +591,15 @@ _SUFFIXES.insert(0, (_COUNT_CMP, _compare_count))  # (first: "… you control" i
 def _mv_source_counters(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, ("mv" if m["what"] == "mana value" else "power", "==" if m["op"] == "equal to" else "<=",
                                             SOURCE_COUNTERS + m["k"])))
+
+
+COLORS_SPENT = "colors_spent"  # -- trigger other (wave 25B) -- converge: the colors of mana spent to cast the source (its payment record)
+
+
+@_suffix(r"with (?P<what>mana value|power) (?P<op>equal to|less than or equal to) the number of colors of mana spent to cast "
+         r"(?:~|this (?:spell|creature|permanent|artifact|enchantment))")
+def _mv_colors_spent(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, compare=(*s.compare, ("mv" if m["what"] == "mana value" else "power", "==" if m["op"] == "equal to" else "<=", COLORS_SPENT)))
 
 
 def _source_counters(plan: Plan, source: str | None, kind: str) -> int | None:
@@ -1396,6 +1415,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if have is None:
                 return False
             n = have
+        elif n == COLORS_SPENT:  # (wave 25B) the source's payment record, as values reads it for "the number of colors of mana spent"
+            from app.rules import values
+
+            src = plan.state.cards.get(source or "")
+            if src is None:
+                return False
+            n = values.evaluate(plan, {"controller": you, "source_card": src.id, "source_object": plan.oid(src)}, {"colors_spent": 1})
         elif n == X_VALUE:  # (107.3f: X is the one chosen for the spell; none known: nothing matches)
             src = plan.state.cards.get(source or "")
             x = src.stack_info.x if src is not None and src.stack_info is not None and src.stack_info.x is not None \
@@ -1494,6 +1520,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if src is None or not src.zone.endswith(":battlefield") or not card.zone.endswith(":battlefield"):
                 return False
             if (not card.blocks(src.id)) if extra == "blocking_source" else (not src.blocks(card.id)):
+                return False
+        if extra == "has_adventure":  # (wave 25B) the printing is an adventurer card, whichever half it is as it is cast
+            data = plan.info.get(card.card_id) if card.card_id else None
+            faces = (data or {}).get("faces") or []  # (review 25B: an omen card shares the layout but has an Omen, 720.2a, not an Adventure)
+            if not (data and data.get("layout") == "adventure" and len(faces) > 1 and "Adventure" in str(faces[1].get("type_line") or "")):
                 return False
         if extra == "greatest_power_own":  # -- damage wordings (wave 6B) -- the greatest power among creatures its
             # controller controls (Crackling Doom: what the sacrificing player may choose; ties all qualify)

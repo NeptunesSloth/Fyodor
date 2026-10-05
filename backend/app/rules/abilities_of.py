@@ -81,6 +81,57 @@ def parse(rest: str) -> dict[str, Any] | None:
     return out
 
 
+# -- keyword inheritance (wave 25A) -- "As long as a card exiled with this creature has flying, this creature has flying. The same is true for
+# fear, first strike, double strike, haste, landwalk, protection, and trample." (Death-Mask Duplicant, Urborg Scavengers, Eater of Virtue),
+# "As long as a creature card with flying is in a graveyard, this creature has flying. The same is true for fear, …" (Cairn Wanderer): the
+# subject has each listed keyword while some object of the set has it — read as lending those keyword abilities (113.10, 613.1f), the lender's own
+# lines as it has them (a lender's protection is "protection from red": the subject gets that line; a landwalk, its own line).
+INHERITED = frozenset({"flying", "fear", "first strike", "double strike", "deathtouch", "haste", "hexproof", "indestructible", "lifelink", "menace",
+                       "reach", "trample", "vigilance", "shroud", "landwalk", "protection"})
+_EXILED_SET = r"a card exiled with (?:~|this creature|it)"
+_INHERIT = [re.compile(rf"^As long as (?P<set>{_EXILED_SET}) has (?P<k>[a-z ]+?), (?P<who>~|this creature|equipped creature) has (?P=k)\.$"),
+            re.compile(rf"^(?P<who>~|This creature|Equipped creature) has (?P<k>[a-z ]+?) as long as (?P<set>{_EXILED_SET}) has (?P=k)\.$"),
+            re.compile(r"^As long as (?P<set>a creature card with (?P<k>[a-z ]+?) is in a graveyard), (?P<who>~|this creature) has (?P=k)\.$")]
+_SAME = re.compile(r"^The same is true for (?P<ks>[a-z, ]+?)\.$")
+
+
+def inherit(text: str, definition: Any) -> dict[str, Any] | None:
+    """The static for "As long as <set> has K, <subject> has K. The same is true for K2, K3, and K4." (``definition``: statics._definition)."""
+    parts = re.split(r"(?<=\.) (?=The same)", text.strip())
+    if len(parts) != 2 or (same := _SAME.match(parts[1])) is None:
+        return None
+    for rx in _INHERIT:
+        m = rx.match(parts[0])
+        if m is not None:
+            break
+    else:
+        return None
+    keywords = [m["k"], *(k.strip() for k in re.split(r", and |, | and ", same["ks"]) if k.strip())]
+    if not set(keywords) <= INHERITED:
+        return None  # (e.g. "protection from any color": not read)
+    attached = m["who"].lower() == "equipped creature"
+    linked = m["set"].startswith("a card exiled with")
+    sel = None if linked else selectors.parse("creature card in a graveyard")
+    if not linked and (sel is None or sel.zones != ("graveyard",)):
+        return None
+    found: dict[str, Any] = definition("attached" if attached else "self", "creature" if attached else None, [],
+                                       abilities_of={"sel": sel.key() if sel is not None else None, "linked": linked, "no_mana": False,
+                                                     "keywords": keywords})
+    return found
+
+
+def _keyword_lines(plan: Plan, lender: CardInstance, keywords: list[str]) -> list[AbilityText]:
+    """-- keyword inheritance (wave 25A) -- the keyword lines of the lender among ``keywords`` (a landwalk: any "…walk" line)."""
+    out: list[AbilityText] = []
+    for ab in plan.ch(lender).abilities:
+        if ab.index >= BORROWED or ab.kind != "keywords":
+            continue
+        for kw in ab.keywords:
+            if kw in keywords or (kw.endswith("walk") and "landwalk" in keywords):
+                out.append(replace(ab, keywords=(kw,)))
+    return out
+
+
 def manual(ability: AbilityText) -> bool:
     """A borrowed ability that is lent but not automated (scripts.define): a linked one (607.5) or a modal one (its modes are shown)."""
     return ability.index >= BORROWED and (bool(_LINKED_TEXT.search(ability.text)) or "\n• " in ability.text)
@@ -128,6 +179,7 @@ def collect(plan: Plan, st: Static, borrower: CardInstance) -> list[AbilityText]
     for lender in sorted(lenders, key=lambda c: r.objects.get(c.id, 0)):
         if lender.id == borrower.id or lender.face_down:  # (a face-down card's abilities are hidden information: never shown by lending)
             continue
-        for k, ab in enumerate(_lent(plan, lender, d["no_mana"])[: STRIDE]):
+        lines = _keyword_lines(plan, lender, d["keywords"]) if d.get("keywords") else _lent(plan, lender, d["no_mana"])
+        for k, ab in enumerate(lines[: STRIDE]):
             out.append(replace(ab, index=BORROWED + STRIDE * r.objects.get(lender.id, 0) + k))
     return out

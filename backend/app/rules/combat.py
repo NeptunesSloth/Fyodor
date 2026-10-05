@@ -72,6 +72,12 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
             return f"{ach.name} can't be blocked by creatures with {arg} power"
         if name == "cant_be_blocked_if_defender_controls" and _defender_controls(state, info, arg, blocker.controller):
             return f"{ach.name} can't be blocked while {state.players[blocker.controller].name} controls {_phrase(arg)}"
+        if name == "cant_be_blocked_if_defender" and _defender_condition(state, info, arg, blocker.controller):  # -- as long as (wave 25A) --
+            return f"{ach.name} can't be blocked while {state.players[blocker.controller].name} {arg.split(':')[0].replace('count', 'controls').replace('most', 'controls the most')}"
+        if name == "cant_be_blocked_by_if_defender":
+            fact, _, sels = arg.partition("@@")
+            if _defender_condition(state, info, fact, blocker.controller) and _any_selector(state, info, sels, blocker, bch, attacker):
+                return f"{ach.name} can't be blocked by {_phrase(sels)} while {state.players[blocker.controller].name} meets the condition"
     for rule in sorted(scripts.statics(bch)):
         name, arg = rule_arg(rule)
         if name == "block_only" and not _any_selector(state, info, arg, attacker, ach, blocker):
@@ -175,6 +181,32 @@ def _defender_controls(state: GameState, info: CardInfo | None, arg: str, defend
 
     view = _view(state, info)
     return any(selectors.candidates(view, selectors.replace(sel, controller="you"), defender) for sel in rule_selectors(arg))  # (wave 21A: the defender's own)
+
+
+def _defender_condition(state: GameState, info: CardInfo | None, fact: str, defender: str) -> bool:
+    """-- as long as (wave 25A) -- a fact about the defending player (statics._defender_fact), as it is as blockers are declared (509.1b)."""
+    kind, _, rest = fact.partition(":")
+    if info is None:
+        return False
+    if kind == "controls":
+        return _defender_controls(state, info, rest, defender)
+    if kind == "counters":
+        return state.players[defender].resources.get(rest, 0) > 0
+    from app.rules.layers import _view
+
+    view = _view(state, info)
+
+    def count(sel: Any, who: str) -> int:
+        return len(selectors.candidates(view, selectors.replace(sel, controller="you"), who))
+
+    if kind == "count":
+        n, _, keys = rest.partition(":")
+        return any(count(sel, defender) >= int(n) for sel in rule_selectors(keys))
+    if kind == "most":
+        mine = count(selectors.Selector(types=("Creature",)), defender)
+        live = [p for p in state.seat_order if not state.players[p].left]
+        return all(mine >= count(selectors.Selector(types=("Creature",)), p) for p in live)
+    return False
 
 
 def _phrase(arg: str) -> str:
@@ -374,6 +406,8 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         from app.rules import triggers  # triggers → plan; imported late
 
         plan.rules.attacked_players[plan.actor] = sorted({x.target for x in a.attackers if x.target in plan.state.players})  # (melee: 18E)
+        plan.rules.attack_power[plan.actor] = sum((plan.ch(plan.state.cards[x.card_id]).pt or (0, 0))[0]  # (wave 25B: 508.1)
+                                                  for x in a.attackers)
 
         note_attack(plan.state, plan.actor,  # (wave 4D: the attacking objects)
                     [plan.oid(plan.state.cards[x.card_id]) for x in a.attackers],  # 508.1: "if you attacked this turn" (conditional clauses, wave 1B)

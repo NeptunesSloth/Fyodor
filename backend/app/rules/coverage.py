@@ -297,8 +297,12 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # -- keyword actions & face-down (wave 3F) -- refused on purpose, with the missing piece named
 REFUSED += (
-    (re.compile(r"\bairbend", re.I),
-     "airbend (701.65): needs a cast-from-exile permission whose alternative cost is {2}, for the card's owner"),
+    # (-- trigger other (wave 25B) -- airbending a permanent is read now: app/rules/airbend.py; a spell's exile from the stack isn't)
+    (re.compile(r"\bairbend[^.]*\bspells?\b", re.I), "airbending a spell: exiling it from the stack with that permission isn't modelled"),
+    # (review 25B: "Choose up to one target creature, then airbend all other creatures": "other" is other than the chosen one, not the source;
+    # scripts._clause refuses it)
+    (re.compile(r"\bchoose [^.]*\btargets?\b[^.]*, then \w+ all other\b", re.I),
+     "'all other' after a chosen target means other than the chosen objects: not modelled"),
     (re.compile(r"\bwaterbend", re.I),
      "waterbend (701.67): a cost whose generic part may be paid by tapping artifacts/creatures isn't modelled"),
     (re.compile(r"\bmanifests? the top card of (?:that player's|target player's|an opponent's)", re.I),
@@ -426,6 +430,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import harmonize
 
         return harmonize.parse(line) is not None
+    if kw == "mayhem":  # -- Marvel keywords (wave 25A) -- app/rules/mayhem.py: a mana mayhem cost without X, or none
+        from app.rules import mayhem
+
+        return mayhem.parse(line) is not None
     if kw == "disturb":  # -- casting extras (wave 18E) -- app/rules/disturb.py: a mana disturb cost (the back face is the spell)
         from app.rules import disturb
 
@@ -434,7 +442,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import graveyard_keywords
 
         return graveyard_keywords.supported(kw, line)
-    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "emerge", "foretell", "mutate"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
+    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "emerge", "foretell", "mutate", "web-slinging"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(line) is not None

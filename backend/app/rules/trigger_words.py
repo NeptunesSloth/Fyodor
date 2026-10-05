@@ -39,6 +39,8 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         body = _THEY.sub(lambda m: f"{m['i'] or ''}that player {_VERBS[m['v']]}", body)
         # -- damage wordings (wave 6B) -- "At the beginning of each player's upkeep, ~ deals 1 damage to them."
         body = re.sub(r"\b(deals? (?:\d+|X) damage) to them\b", r"\1 to that player", body)
+        # -- trigger other (wave 25B) -- "… deals 2 damage to that player unless they control two or more basic lands": they are that player
+        body = re.sub(r"\b(unless|if) they (control|have)\b", lambda m: f"{m[1]} that player {'controls' if m[2] == 'control' else 'has'}", body)
     # -- intervening ifs (wave 11F) -- "if you have fewer than seven cards in hand, draw cards equal to the difference": the
     # difference between that number and the cards in hand as it resolves (608.2h; the "if" holds again then, 603.4)
     body = re.sub(r"^(if you have fewer than (\w+) cards in hand, draw cards equal to) the difference\.$",
@@ -49,6 +51,17 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         body = re.sub(r"^(if (?:(?:at least )?\w+ (?:or more )?)?mana from [^,]+? (?:was|were) spent to cast) it,", r"\1 that spell,", body)
     if name == "cast_self":  # -- history (wave 22E) -- "When you cast this spell, … where X is the amount of mana spent to cast it" (Prossh)
         body = re.sub(r"\bthe amount of mana spent to cast it\b", "the amount of mana spent to cast this spell", body)
+    if name == "dies_self" or (cond is not None and cond.get("event") == "die" and cond.get("subject") == "self"):
+        # -- trigger other (wave 25B) -- "When this creature dies, … return this card to …": the card it is now, in its owner's graveyard (400.7: "it")
+        body = re.sub(r"\b(return|put|exile|shuffle) this card\b", r"\1 it", body)
+    if cond is not None and cond.get("subject") == "sel" and cond.get("sel"):  # -- trigger other (wave 25B) -- "Whenever another Wizard you
+        from app.rules import (
+            selectors,  # control enters, … a copy of that Wizard": the object the event is about, "that creature"
+        )
+        from app.rules.creature_types import CREATURE_TYPES
+
+        for sub in selectors.from_key(cond["sel"]).subtypes:
+            body = re.sub(rf"\bthat {re.escape(sub)}\b", "that creature" if sub in CREATURE_TYPES else "that permanent", body)
     if cond is not None and cond.get("subject") == "source":  # -- source damage (wave 11F) -- 609.7: its controller
         body = re.sub(r"\bthat source's controller\b", "that player", body)
     if cond is not None and (cond.get("event") == "targeted" or (cond.get("event") == "either" and all(
@@ -66,6 +79,8 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
     body = drawn_toll.rewrite(body)
     # -- counters (wave 7C) -- heroic: "Whenever you cast a spell that targets ~, put a +1/+1 counter on it": the creature
     # that was targeted (the spell is "that spell"), which is ~ itself
+    if (cond or {}).get("event") == "cast":  # -- trigger other (wave 25B) -- "If that spell has mana value 5 or greater, …": the spell's mana value
+        body = re.sub(r"\b([Ii]f) that spell has mana value (\d+|X) or (greater|less)\b", r"\1 that spell's mana value is \2 or \3", body)
     if (cond or {}).get("event") == "cast":  # -- triggers (wave 21B) -- "Whenever you cast a spell, you lose life equal to its mana value"
         body = re.sub(r"^((?:you )?(?:lose|gain)s? life equal to) its mana value\.$", r"\1 that spell's mana value.", body)
         body = re.sub(r"^(if the amount of mana spent to cast it was less than its mana value, .+? equal to) the difference\.$",
@@ -75,6 +90,7 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
     return body
 
 
+_PUT_NUMBER_OF = re.compile(r"\b(?P<c>[Pp])ut a number of (?P<k>\+1/\+1|-1/-1|[a-z]+) counters equal to (?P<v>[^.]+?) on (?P<t>[^.]+?)\.")
 _NUMBER_OF = re.compile(r"\b(?P<c>[Cc])reate a number of (?P<what>[^.]+? tokens?(?: with [^.]+?)?) equal to (?P<v>[^.]+)\.")
 _SAC_OF = re.compile(r"\bthe (power|toughness|mana value) of the sacrificed (creature|artifact|permanent|land|enchantment)\b")
 _SAC_ITS = re.compile(r"(\bthe sacrificed (creature|artifact|permanent|land|enchantment)'s (?:power|toughness|mana value)\b[^.]*? equal to )"
@@ -92,6 +108,8 @@ def plain_amounts(body: str) -> str:
     body = _SAC_OF.sub(r"the sacrificed \2's \1", body)
     body = _SAC_ITS.sub(r"\1the sacrificed \2's \3", body)
     body = _NUMBER_OF.sub(lambda m: f"{m['c']}reate X {m['what']}, where X is {m['v']}.", body)
+    # -- trigger other (wave 25B) -- "put a number of +1/+1 counters equal to its power on up to one target creature": X counters, where X is it
+    body = _PUT_NUMBER_OF.sub(lambda m: f"{m['c']}ut X {m['k']} counters on {m['t']}, where X is {m['v']}.", body)
     m = _GAIN_AND_DRAW.match(body.strip())
     if m is not None:
         body = f"you gain life equal to {m['v']}. Draw cards equal to {m['v']}."

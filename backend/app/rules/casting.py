@@ -1974,6 +1974,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
                 return True
             continue
         cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free,
+                          alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None,  # (wave 25B: airbend)
                           targets=_hint_targets(ch))  # -- review (Codex) --
         if grant is not None and grant.spend:  # -- as long as (wave 9B) -- 118.14
             cost = M.spend_as(cost, grant.spend)
@@ -2053,7 +2054,9 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
             continue  # (-- static_other sweep (wave 17C) -- conspire / teamwork: the creatures to tap aren't there)
         try:
             cost = cost_changes.reduce_only(spell_cost(state, card, ch, info=info, player=player,
-                                                       free=grant is not None and grant.free), (offer.mana,))
+                                                       free=grant is not None and grant.free,
+                                                       alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None),
+                                            (offer.mana,))
         except ActionError:
             continue
         if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
@@ -2132,8 +2135,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free)
     free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
     base = M.parse_cost(ch.mana_cost)
+    airbent = grant is not None and bool(grant.alt_mana)  # -- trigger other (wave 25B) -- airbend 701.65a: cast only by paying its alternative cost
     if base.x and a.x_value is None:
-        if not free and a.alt_cost is None:
+        if not free and a.alt_cost is None and not airbent:
             raise ActionError(f"Choose a value for X to cast {ch.name}")
         a.x_value = 0  # 107.3b: X is 0 when a spell is cast without paying its mana cost (or for an alternative cost, wave 4I)
     alternative: M.ManaCost | None = M.parse_cost("{3}") if a.face_down else None
@@ -2158,6 +2162,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
                 or card.zone != zone_key(plan.actor, "hand"):
             raise ActionError("Only a card with awaken can be cast for its awaken cost from your hand, with no other alternative cost")
         alternative = M.parse_cost(keyword_cost(ch, "awaken", AWAKEN) or "")
+    if airbent:  # (an alternative cost: only one, 118.9a; the intent names none of its own)
+        if free or alternative is not None or a.face_down or a.alt_cost is not None:
+            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+        alternative = M.parse_cost(grant.alt_mana)  # type: ignore[union-attr]
     if free and (alternative is not None or a.face_down):
         raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
     # -- cost changers (wave 4I) -- an alternative cost written on a card (Force of Will, Jodah: app/rules/alt_costs.py)
@@ -2374,8 +2382,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}, "face_down": True, "face_down_kind": face_down_kind})
     else:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
-    if a.face and (rd := plan.info.get(card.card_id or "")) is not None and chars.room(rd):  # -- Rooms (wave 18G) -- 709.5d: the cast
-        plan.do({"type": "set_face", "card_id": card.id, "face": a.face})  # half (the move out of the hand reset the face)
+    if a.face and not a.face_down and plan.state.cards[card.id].face != a.face:
+        # -- Rooms (wave 18G) -- 709.5d: the cast half (the move out of the hand reset the face); -- trigger other (wave 25B) -- 709.3b, 715.3b:
+        # likewise the Adventure / the second half of a split card: on the stack it has only that half's characteristics (so "a creature spell"
+        # isn't an Adventure half, "whenever you cast an Adventure spell" is); (review 25B) and a modal double-faced card's back face, 712.11
+        plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     if cast_zone == "exile":  # -- static_other sweep (wave 17C) -- "Spells you cast from exile have convoke." (cast_limits.granted_helpers reads it)
         plan.do({"type": "set_stack_info", "card_id": card.id, "tags": ["Cast from exile"]})
     if grant is not None and grant.how == "prepared":  # -- prepared (wave 13C) -- 722.3c, 601.2i: it loses the designation as the copy is cast
@@ -2401,7 +2412,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.do({"type": "hide", "card_ids": list(a.splice)}, actor=plan.actor)  # (701.20a: shown, then hidden again in the hand: review 18E)
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else "awaken" if a.awaken else \
         "harmonize" if harmonized else "flashback" if flashback else "free" if free \
-        else alt_offer.tag if escaping and alt_offer is not None and alt_offer.tag in ("disturb", "graveyard") else "escape" if escaping else \
+        else alt_offer.tag if escaping and alt_offer is not None and alt_offer.tag in ("disturb", "graveyard", "mayhem") else "escape" if escaping else \
         (alt_offer.tag or "alternative") if alt_offer is not None else None  # ("escape": 702.138b, wave 5I; blitz: 15E)
     if foretold:
         plan.rules.foretold.pop(card.id, None)
@@ -2418,7 +2429,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Harmonize"] if harmonized else ["Jump-start"] if jumped else \
         ["Aftermath" if "aftermath" in ch.keywords else "Flashback"] if flashback else ["Dashed"] if a.dash else \
-        ["Disturbed" if alt_offer is not None and alt_offer.tag == "disturb" else "Alternative cost" if alt_offer is not None and alt_offer.tag == "graveyard" else "Escaped"] if escaping else ["Foretold"] if foretold else []  # (wave 5I; 18E)
+        ["Disturbed" if alt_offer is not None and alt_offer.tag == "disturb" else "Alternative cost" if alt_offer is not None and alt_offer.tag in ("graveyard", "mayhem") else "Escaped"] if escaping else ["Foretold"] if foretold else []  # (wave 5I; 18E)
     if grant is not None and grant.how == "permission":
         permissions.consume(plan, grant)  # (a "once during each of your turns" permission is used up)
         tags.append(f"Cast from {from_where}" + (" without paying its mana cost" if free else ""))

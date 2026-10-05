@@ -799,6 +799,9 @@ class Permission(BaseModel):
     # 702.170d ("during your main phase while the stack is empty", ``sorcery``, even for an instant)
     after_turn: int = 0
     sorcery: bool = False
+    # -- trigger other (wave 25B) -- airbend 701.65a: the card may be cast only by paying this rather than its mana cost (an alternative
+    # cost, 118.9), for as long as it remains exiled (the permission follows the object, 400.7h)
+    alt_mana: str = ""
 
 
 class CostModifier(BaseModel):
@@ -830,6 +833,10 @@ class TopReveal(BaseModel):
     player: str
     to: Literal["all", "owner", "none"]  # (-- hidden exile (wave 18A) -- "none": only the face-down looking below)
     face_down: bool = False  # 708.5 exception: ``player`` may also look at the face-down creatures others control
+    # -- revealed zones (wave 25A) -- "Players play with the top card of their libraries revealed." (``whose`` "players"), "Your opponents play with
+    # their hands revealed." / "Players play with their hands revealed." / "Play with your hand revealed." (``zone`` "hand": shown to every player, 701.20a)
+    zone: Literal["library", "hand"] = "library"
+    whose: Literal["you", "opponents", "players"] = "you"
 
 
 class ReconcileItem(BaseModel):
@@ -902,6 +909,9 @@ class RulesState(BaseModel):
     # (melee, 702.121a: the opponents each attacking player attacked directly — not through a planeswalker or battle, 506.3 — in the
     # latest declaration of attackers: "for each opponent you attacked with a creature this combat")
     attacked_players: dict[str, list[str]] = Field(default_factory=dict)
+    # -- trigger other (wave 25B) -- player -> the total power of the creatures declared as attackers in their latest declaration, as they
+    # were declared ("you attacked with creatures with total power 6 or greater this combat": pack tactics; review 25B: a snapshot)
+    attack_power: dict[str, int] = Field(default_factory=dict)
     miracle: list[str] = Field(default_factory=list)
     miracle_turn: dict[str, int] = Field(default_factory=dict)
     miracled: list[str] = Field(default_factory=list)

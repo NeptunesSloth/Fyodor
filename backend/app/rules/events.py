@@ -147,8 +147,11 @@ def parse_condition(cond: str) -> Condition | None:
         return None
     # -- grammar (wave 11C) -- 700.9: "a modified creature you control dies / leaves" would read its Auras and Equipment after
     # they let go of it (704.5n): not modelled, so the ability stays manual (counters alone are kept in its last known info)
-    if found is not None and found.get("event") in ("die", "leave", "either", "multi") and re.search(r"modified|enchanted_or_equipped",
-                                                                                                   str(found)):
+    # (-- trigger other (wave 25B) -- a plain "a modified creature you control dies / leaves" is read from the object's last known
+    # information: the counters and attachments it had as it left, 603.10a: triggers._was_modified)
+    if found is not None and found.get("event") in ("die", "leave", "either", "multi") and re.search(
+            r"enchanted_or_equipped" if found.get("event") in ("die", "leave") and found.get("subject") in ("sel", "self_or") and not found.get("aggregate") else
+            r"modified|enchanted_or_equipped", str(found)):
         return None
     # -- history (wave 22E) -- 701.15b: a goaded creature is read live, as it attacks; an object that has left (a creature that died as it
     # dealt damage, or dies) is rebuilt from its last known information, which doesn't keep the goad: such triggers stay manual
@@ -206,6 +209,9 @@ def _count(word: str) -> int:
 
 
 def _parse(c: str) -> Condition | None:
+    # -- trigger other (wave 25B) -- 701.18b: to play a card is to play it as a land or cast it as a spell, whichever is appropriate
+    if c in ("you play a card", "a player plays a card", "an opponent plays a card"):
+        return _parse(c.replace(" a card", " a land or cast a spell" if c.startswith("you") else " a land or casts a spell"))
     # -- triggers (wave 19B) -- "your commander attacks / enters / deals combat damage to a player" is "a commander you control …"
     # (903.3: a commander its owner's deck names; the selector reads it on the battlefield), "you attack with your commander" /
     # "~ attacks an opponent" (the one of your opponents the attack is declared against, 508.3a)
@@ -507,7 +513,7 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(r"(?P<s>.+?) (?P<v>is|are) put into (?P<g>your|an opponent's|a player's|a) graveyard(?P<fb> from the battlefield)?", c)
     if m and (m["fb"] or (m["g"] == "a" and "card" not in m["s"])):
         inner = _parse(f"{m['s']} {'dies' if m['v'] == 'is' else 'die'}")
-        if inner is None or inner.get("event") != "die" or inner.get("subject") not in ("self", "sel"):
+        if inner is None or inner.get("event") != "die" or inner.get("subject") not in ("self", "sel", "self_or"):  # (wave 25B: "~ or another …")
             return None
         if m["g"] in ("a", "a player's"):
             return inner
@@ -645,7 +651,17 @@ def _combat(c: str) -> Condition | None:
             raise _Refuse
         return {**base, "event": "attack", "alone": True, **_defender(m["d"])}
     # "~ attacks while you control a creature with power 4 or greater" (read as it triggers)
-    m = re.fullmatch(r"(?P<s>.+?) attacks while (?P<w>you control .+|saddled)", c)  # (wave 23D: 702.171b "while saddled", ~ itself)
+    # (-- trigger other (wave 25B) -- also "while there are four or more card types among cards in your graveyard" (delirium),
+    # "while you have no cards in hand"; and "Whenever you attack while you control …": the player's attack, 508.3c)
+    m = re.fullmatch(r"you attack while (?P<w>you control .+|there (?:is|are) .+|you have .+)", c)
+    if m:
+        from app.rules import conditions
+
+        holds, base = conditions.parse(m["w"]), _parse("you attack")
+        if holds is None or base is None:
+            raise _Refuse
+        return {**base, "while": holds}
+    m = re.fullmatch(r"(?P<s>.+?) attacks while (?P<w>you control .+|there (?:is|are) .+|you have .+|saddled)", c)  # (wave 23D: 702.171b "while saddled", ~ itself)
     if m:
         from app.rules import conditions  # (selectors and values only)
 
@@ -673,7 +689,7 @@ def _combat(c: str) -> Condition | None:
     return None
 
 
-_FROM = {"from exile": "exile", "from your graveyard": "graveyard", "from a graveyard": "graveyard",
+_FROM = {"from exile": "exile", "from your graveyard": "graveyard", "from a graveyard": "graveyard", "from your library": "library",  # (-- trigger other (wave 25B) -- Melek)
          "from anywhere other than your hand": "not_hand", "from your hand": "hand",
          "from anywhere other than their hand": "not_hand"}  # (wave 17D: Ghostly Pilferer)
 
@@ -727,7 +743,7 @@ def _cast(c: str) -> Condition | None:
     if spell.startswith(("your ", "their ")) or " each turn" in spell or "copy" in spell or " this turn" in spell:
         return None
     f = re.fullmatch(r"(?P<rest>.+?) (?P<from>from exile|from your graveyard|from a graveyard|"
-                     r"from anywhere other than your hand|from your hand|from anywhere other than their hand)", spell)
+                     r"from anywhere other than your hand|from your hand|from your library|from anywhere other than their hand)", spell)
     if f:
         out["from"] = _FROM[f["from"]]
         spell = f["rest"]

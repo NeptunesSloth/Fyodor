@@ -3420,6 +3420,11 @@ from app.rules import drawn_toll as _drawn_toll  # noqa: E402, I001
 PRIMITIVES["drawn_toll"] = _drawn_toll.toll
 RESUME["drawn_toll"] = _drawn_toll.resume_pick
 RESUME["drawn_toll_each"] = _drawn_toll.resume_each
+# -- Doctor Who keywords (wave 25A) -- time travel (app/rules/time_travel.py)
+from app.rules import time_travel as _time_travel  # noqa: E402, I001
+
+PRIMITIVES.update(_time_travel.PRIMITIVES)
+RESUME.update(_time_travel.RESUME)
 # -- end if you do (wave 8C) --
 
 
@@ -4098,6 +4103,7 @@ PRIMITIVES.update(_decayed.PRIMITIVES)
 from app.rules import attach_entry as _attach_entry  # noqa: E402, I001
 
 PRIMITIVES.update(_attach_entry.PRIMITIVES)
+RESUME.update(_attach_entry.RESUME)  # (wave 25A: attach_choose)
 from app.rules import populate as _populate  # noqa: E402, I001
 
 PRIMITIVES.update(_populate.PRIMITIVES)
@@ -4187,3 +4193,20 @@ RESUME.update(_counter_kinds.RESUME)
 from app.rules import suspend_grants as _suspend_grants  # noqa: E402, I001
 
 PRIMITIVES.update(_suspend_grants.PRIMITIVES)
+# -- trigger other (wave 25B) -- airbend 701.65 (app/rules/airbend.py)
+from app.rules import airbend as _airbend  # noqa: E402, I001
+
+PRIMITIVES.update(_airbend.PRIMITIVES)
+# -- trigger other (wave 25B) -- "create a Food token or a Treasure token" (app/rules/resolution_choice.py)
+from app.rules import resolution_choice as _resolution_choice  # noqa: E402, I001
+
+PRIMITIVES.update(_resolution_choice.PRIMITIVES)
+RESUME[_resolution_choice.STEP] = _resolution_choice.resume
+# -- trigger other (wave 25B) -- "put the cards in your hand on the bottom of your library in any order, then draw that many cards" (app/rules/hand_wheel.py)
+from app.rules import hand_wheel as _hand_wheel  # noqa: E402, I001
+
+PRIMITIVES.update(_hand_wheel.PRIMITIVES)
+# -- trigger other (wave 25B) -- join forces (app/rules/join_forces.py)
+from app.rules import join_forces as _join_forces  # noqa: E402, I001
+
+PRIMITIVES.update(_join_forces.PRIMITIVES)
