@@ -278,7 +278,7 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     # Conditions app/rules/conditions.py deliberately doesn't read: the clause (or the whole ability) stays manual.
     # -- refused modal/conditional (wave 3R1) -- how a spell was cast (the zone, the caster's main phase, the mana of
     # each type spent) is now on its payment record (conditions._cast_how); what stays refused:
-    (re.compile(r"\b(?:entered|was put onto the battlefield) from (?:your|a) (?:library|graveyard)\b", re.I),
+    (re.compile(r"\b(?:entered from (?:your|a) library|was put onto the battlefield from (?:your|a) (?:library|graveyard))\b", re.I),  # (wave 22E: "entered from a graveyard" is recorded now)
      "the zone a permanent entered from isn't recorded with the object: not modelled"),
     # (-- mana provenance (wave 18B) -- {S} and "mana from a Treasure" spent to cast a spell are read now: app/rules/mana_units.py;
     # what stays refused: mana spent on an ability, {S} "of that spell's colors", mana spent to cast other creatures as they enter)

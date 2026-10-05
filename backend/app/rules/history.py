@@ -110,6 +110,24 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     raise ValueError(f"unknown history condition {cond!r}")
 
 
+# -- history (wave 22E) -- where a permanent entered from (Entry.from_zone, recorded as it entered: 603.2, 603.4)
+def entered_from(zone: str | None, want: str, you: str) -> bool:
+    """Did a permanent enter from this zone ("graveyard" | "your graveyard" | "exile" | "your hand" …)? ``zone`` is the zone key it left
+    ("<owner>:graveyard", "stack"); "your" is the ability controller's zone."""
+    if not zone:
+        return False
+    owner, _, name = zone.rpartition(":")
+    if want.startswith("your "):
+        return name == want[5:] and owner == you
+    return name == want
+
+
+def entry_came_from(plan: Plan, object_id: str | None, want: str, you: str) -> bool:
+    """"if it entered from your graveyard": the entry of the object this turn."""
+    return any(e.object_id == object_id and entered_from(e.from_zone, want, you) for e in reversed(log_for(plan).entered))
+# -- end history (wave 22E) --
+
+
 # -- refused modal/conditional (wave 3R1) --
 def entered(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> int:
     """How many permanents matching ``cond["sel"]`` entered the battlefield under the ability controller's control
@@ -172,7 +190,7 @@ def note_cast(plan: Plan, card: Any) -> None:
     log.casts.append(CastNote(player=card.controller, object_id=plan.oid(card), types=sorted(ch.types),
                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
                               mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None,
-                              alt=record.alternative if record is not None else None))
+                              alt=record.alternative if record is not None else None, x_cost="{X}" in ch.mana_cost))
 
 
 def _stack_mv(card: Any, ch: Any) -> int:
@@ -332,7 +350,7 @@ _NOTE_FIELDS = {"types", "not_types", "subtypes", "not_subtypes", "supertypes", 
                 "colorless", "multicolored", "token", "compare", "extras", "union", "zones"}
 
 
-def note_selector_ok(sel: Any) -> bool:
+def note_selector_ok(sel: Any, spell: bool = False) -> bool:
     from dataclasses import fields
 
     from app.rules.selectors import Selector
@@ -341,11 +359,14 @@ def note_selector_ok(sel: Any) -> bool:
     for f in fields(sel):
         if f.name not in _NOTE_FIELDS and getattr(sel, f.name) != getattr(blank, f.name):
             return False
-    return set(sel.extras) <= {"all_types"} and all(c[0] == "mv" and isinstance(c[2], int) for c in sel.compare)
+    # (-- history (wave 22E) -- a spell's note also records whether its cost has {X}, and "outlaw"-style subtype lists answer from the subtypes)
+    extras_ok = {"all_types", *(("x_cost",) if spell else ())}
+    return all(e in extras_ok or e.startswith("subtype_any:") for e in sel.extras) \
+        and all(c[0] == "mv" and isinstance(c[2], int) for c in sel.compare)
 
 
 def note_matches(sel: Any, types: Any, subtypes: Any = (), supertypes: Any = (), colors: Any = (), mv: float = 0,
-                 token: bool | None = None) -> bool:
+                 token: bool | None = None, x_cost: bool | None = None) -> bool:
     """Does an object, as recorded then, match a selector ``note_selector_ok`` accepts?"""
     types, subtypes, supertypes, colors = set(types), set(subtypes), set(supertypes), set(colors)
     if sel.union:
@@ -370,6 +391,11 @@ def note_matches(sel: Any, types: Any, subtypes: Any = (), supertypes: Any = (),
         return False
     if sel.token is not None and token is not None and sel.token != token:
         return False
+    if "x_cost" in sel.extras and not x_cost:
+        return False
+    for extra in sel.extras:  # (wave 22E) "outlaw": any of these subtypes
+        if extra.startswith("subtype_any:") and not set(extra[12:].split("|")) & subtypes:
+            return False
     ops = {">=": float.__ge__, "<=": float.__le__, "==": float.__eq__}
     return all(ops[op](float(mv), float(n)) for _, op, n in sel.compare)
 
@@ -397,7 +423,7 @@ def _cast(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -
             continue
         if me_src is not None and me_src in (note.object_id, note.became):
             continue
-        if note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv):
+        if note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv, x_cost=note.x_cost):
             per[note.player] = per.get(note.player, 0) + 1
     return _per_player(plan, ctx, cond, per)
 

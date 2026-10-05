@@ -392,6 +392,9 @@ class Entry(BaseModel):
     # -- entry forms (wave 5F) -- whether it entered tapped ("When this land enters untapped", "Whenever a permanent
     # you control enters tapped": part of the event, 603.2); None: not known (an older save)
     tapped: bool | None = None
+    # -- history (wave 22E) -- the zone it entered from (a zone key, "<owner>:graveyard" / "<owner>:stack" …): "enters from your
+    # graveyard", "if it entered from a graveyard" (603.2, 603.4); None: from nowhere (created) or an older save
+    from_zone: str | None = Field(default=None, max_length=40)
 # -- end refused modal/conditional (wave 3R1) --
 
 
@@ -411,6 +414,7 @@ class CastNote(BaseModel):
     cast_from: str | None = Field(default=None, max_length=20)  # "hand", "graveyard", "exile", "command" …
     alt: str | None = Field(default=None, max_length=20)  # -- void (wave 19E) -- the alternative cost it was cast for ("warp": 702.185a)
     became: str | None = Field(default=None, max_length=80)  # the permanent a permanent spell became (608.3)
+    x_cost: bool = False  # -- history (wave 22E) -- its mana cost has {X} ("a spell with {X} in its mana cost", 107.3); older saves: False
 
 
 class TurnFact(BaseModel):
@@ -1333,7 +1337,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         if new_name == "battlefield" and card is not None and new_oid is not None \
                 and (log := turn_log_now(state)) is not None:  # -- refused modal/conditional (wave 3R1) --
             log.entered.append(Entry(card=card_id, object_id=new_oid, controller=card.controller,
-                                     tapped=card.tapped))  # (-- entry forms (wave 5F) --)
+                                     tapped=card.tapped, from_zone=old_zone))  # (-- entry forms (wave 5F) --; wave 22E: from_zone)
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
              from_zone=old_zone, to_zone=new_zone)

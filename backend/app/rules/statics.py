@@ -633,6 +633,8 @@ def _subject(subject: str, *, plural: bool = False) -> tuple[str | None, str | N
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card:
         return None, None  # spells ("Creature spells you cast have …") and cards in other zones: not here
+    if "goaded" in sel.extras:  # (review 22E) "Goaded creatures … can't block": a layer-6 grant that depends on the goad (613.8a),
+        return None, None  # which this engine applies by timestamp only - it would miss creatures goaded later: refused
     return sel.key(), None
 
 

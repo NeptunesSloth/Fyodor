@@ -47,9 +47,12 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         body = re.sub(r"^(if (?:at least \w+|\w+ or more) mana was spent to cast) it,", r"\1 that spell,", body)
         # (-- mana provenance (wave 18B) -- "if mana from a Treasure / three or more mana from creatures was spent to cast it")
         body = re.sub(r"^(if (?:(?:at least )?\w+ (?:or more )?)?mana from [^,]+? (?:was|were) spent to cast) it,", r"\1 that spell,", body)
+    if name == "cast_self":  # -- history (wave 22E) -- "When you cast this spell, … where X is the amount of mana spent to cast it" (Prossh)
+        body = re.sub(r"\bthe amount of mana spent to cast it\b", "the amount of mana spent to cast this spell", body)
     if cond is not None and cond.get("subject") == "source":  # -- source damage (wave 11F) -- 609.7: its controller
         body = re.sub(r"\bthat source's controller\b", "that player", body)
-    if cond is not None and cond.get("event") == "targeted":  # -- triggers (wave 21B) -- 115.1: "that spell's controller" is the player whose spell or ability targeted it
+    if cond is not None and (cond.get("event") == "targeted" or (cond.get("event") == "either" and all(
+            c.get("event") == "targeted" for c in cond.get("conds", [])))):  # -- triggers (wave 21B; wave 22E: also "you or a permanent") -- 115.1: "that spell's controller" is the player whose spell or ability targeted it
         body = re.sub(r"\bthat spell(?: or ability)?'s controller\b", "that player", body)
     if cond is not None and cond.get("event") == "attack" and cond.get("defender") == "player":  # -- review (wave 21) -- "attacks a player,
         body = re.sub(r"^if no opponent has more life than that player,", "if no opponent has more life than defending player,", body)  # if no
