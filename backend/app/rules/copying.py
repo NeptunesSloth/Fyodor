@@ -172,15 +172,16 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
     from app.rules.layers import _subtype_fits
 
     kept = [a for a in ch.abilities if not a.intrinsic]
-    rewrite = bool(ex.add_text)
+    supertypes = (ch.supertypes | frozenset(ex.add_supertypes)) - frozenset(ex.remove_supertypes)
+    types = (frozenset(ex.set_types) if ex.set_types is not None else ch.types) | frozenset(ex.add_types)  # (wave 24A: 707.9b)
+    gained = [*ex.add_text, *(t for ty, ts in ex.text_if.items() if ty in types for t in ts)]  # (707.9f: as the copy would be)
+    rewrite = bool(gained)
     if ex.power is not None or ex.toughness is not None:
         # 707.9d: a characteristic-defining ability that defines the power and toughness isn't copied
         cda = {i for i, d in scripts.definitions(ch).items() if d.get("static") == "cda"}
         if cda:
             kept = [a for a in kept if a.index not in cda]
             rewrite = True
-    supertypes = (ch.supertypes | frozenset(ex.add_supertypes)) - frozenset(ex.remove_supertypes)
-    types = ch.types | frozenset(ex.add_types)
     subtypes = frozenset(s for s in ch.subtypes | frozenset(ex.add_subtypes) if _subtype_fits(s, types))
     if ex.set_creature_types is not None:  # -- token copies & attach on entry (wave 5J) -- 205.1a, 707.9d
         from app.rules.creature_types import CREATURE_TYPES
@@ -195,7 +196,7 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
         if any(a.kind == "static" and a.text.startswith(every[:-1]) for a in kept):
             kept = [a for a in kept if not (a.kind == "static" and a.text.startswith(every[:-1]))]
             rewrite = True
-    text = "\n".join([*(a.text for a in kept), *ex.add_text]) if rewrite else ch.oracle_text
+    text = "\n".join([*(a.text for a in kept), *gained]) if rewrite else ch.oracle_text
     if rewrite:
         abilities = chars.with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
     elif subtypes != ch.subtypes:
@@ -1096,7 +1097,7 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     if source is None or answer not in entry_candidates(plan, controller, what, card.id):
         plan.note(f"{card.name or 'It'}: what it was to copy is gone, so it enters as itself", actor=controller)
         return False
-    excepts = [CopyExcept.model_validate(x) for x in d.get("excepts") or []]
+    excepts = [keep_colors(ex, _own(plan, card).colors) for ex in (CopyExcept.model_validate(x) for x in d.get("excepts") or [])]
     recipe = with_excepts(recipe_of(plan, source), excepts)
     # (on the object as it is now; it follows the card to the object it becomes as it enters,
     # whatever its number: rules_state._diff — never a predicted id, 400.7)
@@ -1105,6 +1106,38 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     if d.get("tapped"):  # -- enter as copy (wave 5F) -- "enter tapped as a copy" (Vesuva)
         out["tapped"] = True
     return False
+
+
+def keep_colors(ex: CopyExcept, own: frozenset[str]) -> CopyExcept:
+    """-- copy exceptions (wave 24A) -- 707.9c-d: "it doesn't copy that creature's color": the object keeps the colors it has (as its
+    copiable values are, before this copy effect), and a color-defining ability or indicator of the copied object isn't copied."""
+    return ex.model_copy(update={"keep_color": False, "set_colors": sorted(own)}) if ex.keep_color else ex
+
+
+def entry_counters(plan: Plan, card: CardInstance, controller: str, ch: Characteristics, choices: dict[str, str] | None,
+                   x: int | None) -> dict[str, int]:
+    """-- copy exceptions (wave 24A) -- 707.9e: "… except it enters with an additional +1/+1 counter on it [if it's a creature]" is an
+    additional effect of the replacement effect, so it happens only while the object enters as that copy, and isn't copied by a later
+    copy. 707.9f: "if it's a creature" is judged on what the copy is (``ch``); "if you control that creature" on the copied permanent.
+    A copy whose copied text enters as a copy itself applies another copy effect afterwards: the exception doesn't happen (707.9e)."""
+    from app.rules import scripts
+
+    d = enter_definition(plan, card)
+    if d is None or not d.get("enter_counters") or not entering_as_copy(plan, card):
+        return {}
+    if any(x_.get("replacement") == "enter_as_copy" for x_ in scripts.definitions(ch).values()):
+        return {}
+    source = plan.state.cards.get((choices or {}).get(str(d["what"]), ""))
+    out: dict[str, int] = {}
+    for c in d["enter_counters"]:
+        if c.get("if_type") and c["if_type"] not in ch.types:
+            continue
+        if c.get("if_control") and (source is None or source.controller != controller):
+            continue
+        n = int(x or 0) if c["n"] == "X" else int(c["n"])
+        if n > 0:
+            out[c["counter"]] = out.get(c["counter"], 0) + n
+    return out
 
 
 # -- becoming a copy (707.4) -------------------------------------------------------------------------
@@ -1126,7 +1159,8 @@ def become_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         _manual(plan, new_job(ctx, controller=ctx["controller"], objects=[], retarget=False, label=ctx.get("name") or "Copy"),
                 f"{ctx.get('name') or 'Copy'}: becoming a copy of {problem} isn't automated — do it by hand, then press Done")
         return False
-    recipe = with_excepts(recipe_of(plan, source), [CopyExcept.model_validate(x) for x in e.get("excepts") or []])
+    own = characteristics(recipe_of(plan, plan.state.cards[who[0]]), plan.info).colors if len(who) == 1 else frozenset()
+    recipe = with_excepts(recipe_of(plan, source), [keep_colors(CopyExcept.model_validate(x), own) for x in e.get("excepts") or []])
     duration: Literal["end_of_turn", "permanent"] = "end_of_turn" if e.get("duration") == "end_of_turn" else "permanent"
     add_copy_effect(plan, [plan.oid(c) for c in who], recipe, ctx["controller"], duration=duration)
     plan.note(f"{', '.join(plan.state.cards[c].name for c in who)} becomes a copy of {recipe.source or 'it'}"
@@ -1169,16 +1203,29 @@ _SUBJECT = r"(?:(?:that )?(?:it|the token|the tokens|the copy|the copies|they) )
 _QUOTE = re.compile(r'"[^"]*"')
 
 
-def parse_excepts(text: str | None) -> CopyExcept | None:
+def parse_excepts(text: str | None, enters: bool = False) -> CopyExcept | None:
     """A copy effect's exceptions (707.9) in the closed wording the engine carries out: "it has
     haste [and "…"]" (707.9a), "it isn't legendary", "it's an artifact / a Spirit in addition to
     its other types" (707.9b; 707.9d: type-defining abilities stay), "it's 7/7" (707.9b; 707.9d:
     a P/T-defining ability isn't copied), "the copy is red" (707.9d), joined by commas and "and".
-    None for anything else (the ability stays manual)."""
+    None for anything else (the ability stays manual).
+    -- copy exceptions (wave 24A) -- also "it enters with [N] additional +1/+1 counters on it [if it's a creature]" (707.9e: an
+    additional effect, read only with ``enters``: an object entering as a copy), "if it's a creature, <exceptions>" (707.9f),
+    "it's an artifact … and it loses all other card types" (707.9b), "it has hexproof and this ability" (707.9a), "it doesn't copy
+    that creature's color" (707.9c)."""
     ex = CopyExcept()
     if not text:
         return ex
-    quotes = _QUOTE.findall(text)
+    cond = re.fullmatch(r"(?P<head>.*?),? and,? if it(?:'s| is) an? (?P<t>creature|planeswalker), (?P<tail>.+)", text)
+    if cond is not None:  # 707.9f: judged on what the copy would be without that exception (``_apply``)
+        head, tail = parse_excepts(cond["head"], enters), parse_excepts(cond["tail"], enters)
+        kind = cond["t"].capitalize()
+        if head is None or tail is None or tail.model_copy(update={"add_text": [], "enter_counters": []}) != CopyExcept():
+            return None
+        return head.model_copy(update={"text_if": {kind: tail.add_text} if tail.add_text else {},
+                                       "enter_counters": [{**c, "if_type": kind} for c in tail.enter_counters]}) \
+            if not head.text_if and not head.enter_counters else None
+    quotes = [q.replace("‹granter›", "~") for q in _QUOTE.findall(text)]  # (a quoted ability is the copy's own: its name is ~)
     masked = _QUOTE.sub("\x00", text)
     parts = re.split(r",? and (?=(?:it|it's|it is|is|has|the token|the copy|they)\b)|, (?=(?:it|the token|the copy|they)\b)",
                      masked)
@@ -1188,11 +1235,11 @@ def parse_excepts(text: str | None) -> CopyExcept | None:
             restored = restored.replace("\x00", quotes.pop(0), 1)
         if "\x00" in restored or not _except_clause(restored.strip(), ex):
             return None
-    return ex
+    return ex if enters or not ex.enter_counters else None  # (707.9e: only an object entering as a copy "enters with" more)
 
 
 def _except_clause(clause: str, ex: CopyExcept) -> bool:
-    from app.rules import token_grammar
+    from app.rules import layers, token_grammar
     from app.rules.creature_types import CREATURE_TYPES
 
     c = re.sub(r"\bit's\b", "it is", clause)
@@ -1201,8 +1248,23 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     if re.fullmatch(r"(?:its|his|her) name is [^\"]+", c) and ex.name is None:  # -- enter as copy other (wave 20F) -- 707.9b: a modified name
         ex.name = NAME_MARKER
         return True
-    if re.fullmatch(_SUBJECT + r"(?:is|are) legendary in addition to (?:its|their) other types", c):  # (707.9b)
-        ex.add_supertypes = sorted({*ex.add_supertypes, "Legendary"})
+    m = re.fullmatch(_SUBJECT + r"(?:is|are) (?P<s>(?:legendary|snow)(?: and (?:legendary|snow))?) in addition to (?:its|their) other types", c)
+    if m:  # (707.9b; wave 24A: "legendary and snow", Moritte of the Frost)
+        ex.add_supertypes = sorted({*ex.add_supertypes, *(w.capitalize() for w in m["s"].split(" and "))})
+        return True
+    m = re.fullmatch(_SUBJECT + r"enters? with (?P<n>an?|one|two|three|four|X|\d+) (?:additional )?(?P<k>\+1/\+1|loyalty) counters? on (?:it|them)"
+                                r"(?: if (?:it is an? (?P<t>creature|planeswalker)|(?P<own>you control that (?:creature|permanent))))?", c)
+    if m:  # -- copy exceptions (wave 24A) -- 707.9e: an additional effect of the replacement (``entry_counters``), not a copiable value
+        from app.rules import token_grammar
+
+        n: Any = "X" if m["n"] == "X" else int(m["n"]) if m["n"].isdigit() else token_grammar.NUMBERS[m["n"]]
+        ex.enter_counters = [*ex.enter_counters, {"counter": m["k"], "n": n, **({"if_type": m["t"].capitalize()} if m["t"] else {}),
+                                                    **({"if_control": True} if m["own"] else {})}]
+        return True
+    if re.fullmatch(_SUBJECT + r"loses all other card types", c):  # (707.9b; wave 24A) — with the types the exception names
+        return ex.set_types is not None
+    if re.fullmatch(_SUBJECT + r"doesn't copy that creature's color", c.replace("does not", "doesn't")) and not ex.keep_color:  # (707.9c)
+        ex.keep_color = True
         return True
     if re.fullmatch(_SUBJECT + r"(?:is|are) not legendary(?: if (?:the|that) (?:spell|creature|permanent) is legendary)?", c):
         ex.remove_supertypes = sorted({*ex.remove_supertypes, "Legendary"})
@@ -1214,6 +1276,25 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         ex.no_mana_cost = True
         return True
     m = re.fullmatch(_SUBJECT + r"(?:has|have) (?P<abil>.+)", c)
+    if m and ("this ability" in _QUOTE.sub("", m["abil"])):  # -- copy exceptions (wave 24A) -- "has flying and this ability [and "…"]" (707.9a)
+        quotes = _QUOTE.findall(m["abil"])
+        bits = [b for b in re.split(r",? and |, ", _QUOTE.sub("\x00", m["abil"])) if b]
+        kws: list[str] = []
+        added: list[str] = []
+        for b in bits:
+            if b == "this ability":
+                added.append(THIS_ABILITY)
+            elif b == "\x00" and quotes:
+                q = token_grammar._with(quotes.pop(0))
+                if q is None or q[0] or q[1] is None:
+                    return False
+                added.append(q[1])
+            elif (found := token_grammar._with(b)) is not None and found[0] and found[1] is None:
+                kws += found[0]
+            else:
+                return False
+        ex.add_text = [*ex.add_text, *(k.capitalize() for k in kws), *added]
+        return True
     if m:
         found = token_grammar._with(m["abil"])
         if found is None:
@@ -1263,7 +1344,7 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     # -- enter as copy (wave 5F) -- "it's a Synth artifact creature in addition to its other types" (707.9b, 707.9d)
     m = re.fullmatch(_SUBJECT + r"(?:is|are) an? (?P<subs>(?:[A-Z][A-Za-z'-]* )+)(?P<t>artifact creature|artifact|creature)s? "
                                 r"in addition to (?:its|their) other types", c)
-    if m and all(s in CREATURE_TYPES for s in m["subs"].split()):
+    if m and all(s in CREATURE_TYPES | layers.ARTIFACT_TYPES for s in m["subs"].split()):  # (wave 24A: "a Vehicle artifact", Dermotaxi)
         ex.add_types = sorted({*ex.add_types, *(w.capitalize() for w in m["t"].split())})
         ex.add_subtypes = sorted({*ex.add_subtypes, *m["subs"].split()})
         return True
@@ -1273,8 +1354,22 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         return True
     m = re.fullmatch(_SUBJECT + r"(?:is|are) (?:an? )?(?P<s>[A-Z][A-Za-z'-]*(?: [A-Z][A-Za-z'-]*)*?) in addition to "
                                 r"(?:its|their) other (?:creature )?types", c)
-    if m and all(s in CREATURE_TYPES for s in m["s"].split(" ")):
+    if m and all(s in CREATURE_TYPES | layers.LAND_TYPES | layers.ARTIFACT_TYPES for s in m["s"].split(" ")):  # (wave 24A: "a Cave")
         ex.add_subtypes = sorted({*ex.add_subtypes, *m["s"].split(" ")})
+        return True
+    # -- copy exceptions (wave 24A) -- 707.9b: "it's a Vehicle artifact with crew 3" / "it's an artifact": the card types are exactly these
+    # (no "in addition to its other types"; "and loses all other card types" says so, Imposter Mech, Machine God's Effigy)
+    m = re.fullmatch(_SUBJECT + r"(?:is|are) an? (?P<subs>(?:[A-Z][A-Za-z'-]* )*)(?P<t>artifact|enchantment)(?: with (?P<kws>[^\"]+))?", c)
+    if m and "in addition" not in c and ex.set_types is None:
+        allowed = layers.ARTIFACT_TYPES if m["t"] == "artifact" else layers.ENCHANTMENT_TYPES
+        crew = re.findall(r"\bcrew \d+", m["kws"] or "")
+        rest = re.sub(r",? ?(?:and )?\bcrew \d+", "", m["kws"] or "").strip()
+        found = token_grammar._with(rest) if rest else ([], None)
+        if found is None or found[1] is not None or not all(sub in allowed for sub in m["subs"].split()):
+            return False
+        ex.set_types = [m["t"].capitalize()]
+        ex.add_subtypes = sorted({*ex.add_subtypes, *m["subs"].split()})
+        ex.add_text = [*ex.add_text, *(k.capitalize() for k in found[0]), *(k.capitalize() for k in crew)]
         return True
     m = re.fullmatch(_SUBJECT + r"(?:is|are) (?P<c>white|blue|black|red|green)", c)
     if m:
@@ -1432,11 +1527,12 @@ def define_static(text: str) -> dict[str, Any] | None:
     # -- enter as copy (wave 5F) -- any permanent ("nonland permanent", "artifact or enchantment", "Equipment"): an Aura
     # would have to attach as it enters (303.4f) — not offered as something to copy (``entry_candidates`` / ``supported_source``);
     # a Room is (review 18G: the copy has its halves, 709.5b, and neither door unlocked, 709.5c/d)
-    ex = parse_excepts(exc or None)
+    ex = parse_excepts(exc or None, enters=True)
     if ex is None:
         return None
+    counters, ex = ex.enter_counters, ex.model_copy(update={"enter_counters": []})  # (707.9e: not copiable values)
     out = {"kind": "replacement", "replacement": "enter_as_copy", "optional": True,
-           "what": what + (MV_SPENT if spent else "") + TO_COPY, "effects": [], **_dump(ex)}
+           "what": what + (MV_SPENT if spent else "") + TO_COPY, "effects": [], **_dump(ex), **({"enter_counters": counters} if counters else {})}
     if not until_eot and m["tapped"]:
         out["tapped"] = True  # (Vesuva: tapped only if it enters as a copy)
     if until_eot:

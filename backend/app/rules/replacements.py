@@ -285,6 +285,10 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                 n = _counter_amount(plan, card.id, controller, d, x)
                 if n > 0:
                     counters[d["counter"]] = counters.get(d["counter"], 0) + n
+        from app.rules import copying
+
+        for kind, n in copying.entry_counters(plan, card, controller, ch, choices, x).items():  # -- copy exceptions (wave 24A) -- 707.9e
+            counters[kind] = counters.get(kind, 0) + n
         # -- counters (wave 7C) -- the kind its controller chose as it enters
         from app.rules import counter_choice
 

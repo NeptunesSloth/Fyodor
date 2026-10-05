@@ -218,6 +218,15 @@ class CopyExcept(BaseModel):
     # (205.1a: they replace the copied ones; other subtypes stay), changeling isn't copied (707.9d)
     set_creature_types: list[str] | None = None
     no_mana_cost: bool = False  # -- keywords (wave 15E) -- "it has no mana cost" (embalm 702.128a, eternalize 702.129a): a copiable value
+    # -- copy exceptions (wave 24A) -- 707.9b: "it's an artifact" / "it loses all other card types": the card types are exactly these;
+    # 707.9a/f: abilities gained only if the result is that type ("if it's a creature, … has changeling"); 707.9c-d: "it doesn't copy
+    # that creature's color" (``keep_color``: the object's own colors, filled in as the copy effect is made)
+    set_types: list[str] | None = None
+    text_if: dict[str, list[str]] = Field(default_factory=dict)
+    keep_color: bool = False
+    # 707.9e: "it enters with an additional +1/+1 counter on it": an additional effect of the replacement, NOT a copiable value — read
+    # only while parsing (``copying.define_static`` moves these onto the definition). {"counter", "n": int | "X", "if_type", "if_control"}
+    enter_counters: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class CopyRecipe(BaseModel):
