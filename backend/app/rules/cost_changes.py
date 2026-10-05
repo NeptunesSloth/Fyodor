@@ -293,10 +293,15 @@ ORDINAL = re.compile(rf"^the (?P<ord>first|second) (?:(?P<sel>[A-Za-z][A-Za-z' -
                      r"less to cast$")
 
 
+# -- casting costs (wave 22F) -- Damping Sphere: "Each spell a player casts costs {1} more to cast for each other spell that player has cast this
+# turn." — the count is the caster's own (601.2f reads the turn's record, which doesn't include the spell being cast: 601.2i)
+PER_CASTER = re.compile(rf"^each spell a player casts costs {_SYMBOL} more to cast for each other spell that player has cast this turn$")
+
+
 def special(t: str) -> bool:
     """Is this a table cost changer with more than the plain "<spells> cost {N} less/more to cast" (which
     permissions.STATIC_COST reads)? Then :func:`static_definition` reads it or nothing does."""
-    if ORDINAL.fullmatch(t) or TARGETING.fullmatch(t):
+    if ORDINAL.fullmatch(t) or TARGETING.fullmatch(t) or TARGETING_LIFE.fullmatch(t) or PER_CASTER.fullmatch(t):
         return True
     m = STATIC.fullmatch(t)
     return m is not None and bool(m["during"] or m["with"] or m["chosen"] or m["from"] or m["rest"] or m["own"] or not m["n"].isdigit())
@@ -310,7 +315,10 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     o = ORDINAL.fullmatch(t)
     if o:
         return _ordinal_definition(o)
-    tm = TARGETING.fullmatch(t)
+    if (pc := PER_CASTER.fullmatch(t)) is not None and pc["n"].isdigit():
+        return {"kind": "static", "static": "cost_modifier", "delta": int(pc["n"]), "caster": "any", "filter": None,
+                "change": {"dir": 1, "n": int(pc["n"]), "per_caster": True}, "effects": []}
+    tm = TARGETING.fullmatch(t) or TARGETING_LIFE.fullmatch(t)
     if tm:
         return _targeting_definition(tm)
     m = STATIC.fullmatch(t)
@@ -376,13 +384,29 @@ TARGETING = re.compile(rf"^spells (?P<who>you cast |your opponents cast )?that t
                        r"(?P<dir>less|more) to cast$")
 
 
-def _targeting_definition(m: re.Match[str]) -> dict[str, Any] | None:
-    from app.rules import selectors
+# -- casting costs (wave 22F) -- "Spells your opponents cast that target this creature cost an additional 3 life to cast." (Terror of the Peaks):
+# an additional cost (118.8) chosen by the targets (601.2c), paid with the rest (601.2h) — life can be paid only up to the life total (119.4)
+TARGETING_LIFE = re.compile(r"^spells (?P<who>you cast |your opponents cast )?that target (?P<what>[^.]+?) cost an additional (?P<life>\d+) life to cast$")
 
+
+def _targeting_definition(m: re.Match[str]) -> dict[str, Any] | None:
+    if "life" in m.groupdict():
+        d = _targeting_definition_of(m["who"], m["what"])
+        return {**d, "delta": 0, "change": {"dir": 1, "n": 0}, "life": int(m["life"])} if d is not None else None
     if not m["n"].isdigit():
         return None
-    what = m["what"]
-    if what == "~":
+    d = _targeting_definition_of(m["who"], m["what"])
+    if d is None:
+        return None
+    n = int(m["n"])
+    sign = -1 if m["dir"] == "less" else 1
+    return {**d, "delta": sign * n, "change": {"dir": sign, "n": n}}
+
+
+def _targeting_definition_of(who: str | None, what: str) -> dict[str, Any] | None:
+    from app.rules import selectors
+
+    if what in ("~", "this creature"):
         target = "self"
     else:
         phrase = re.sub(r"^(?:a|an|one or more) ", "", what)
@@ -391,11 +415,22 @@ def _targeting_definition(m: re.Match[str]) -> dict[str, Any] | None:
                 or sel.attacking or sel.blocking or sel.other:
             return None
         target = sel.key()
-    n = int(m["n"])
-    sign = -1 if m["dir"] == "less" else 1
-    caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
-    return {"kind": "static", "static": "cost_modifier", "delta": sign * n, "caster": caster, "filter": None,
-            "change": {"dir": sign, "n": n}, "target": target, "effects": []}
+    caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[who]
+    return {"kind": "static", "static": "cost_modifier", "caster": caster, "filter": None, "target": target, "effects": []}
+
+
+def targeting_life(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo,
+                   targets: tuple[str, ...]) -> int:
+    """-- casting costs (wave 22F) -- the life the table adds to this spell's cost because of its targets (Terror of the Peaks)."""
+    from app.rules import permissions
+
+    total = 0
+    for src, _, d in permissions._table_statics(state, info, {"cost_modifier"}):
+        if not d.get("life") or (d["caster"] == "you" and src.controller != player) or (d["caster"] == "opponent" and src.controller == player):
+            continue
+        if targets != ANY_TARGET and _targets_match(state, info, src, d["target"], targets):
+            total += int(d["life"])
+    return total
 
 
 def _targets_match(state: GameState, info: CardInfo, src: CardInstance, target: str, targets: tuple[str, ...]) -> bool:
@@ -482,6 +517,12 @@ def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[st
         if not (where in zones or "your_graveyard" in zones and card.zone == f"{player}:graveyard"
                 or "not_hand" in zones and card.zone != f"{player}:hand"):
             return None
+    if d["change"].get("per_caster"):  # -- casting costs (wave 22F) -- the spells this caster has cast so far this turn
+        from app.rules import history
+
+        log = history.log_for(view_of(state, player, info))
+        n = int(d["change"]["n"]) * sum(1 for note in log.casts if note.player == player)
+        return d["change"]["dir"] * n if n else None
     n = amount(view_of(on_stack(state, card), src.controller, info), context(state, src.controller, src), d["change"])
     return d["change"]["dir"] * n if n else None
 

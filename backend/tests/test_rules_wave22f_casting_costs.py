@@ -29,7 +29,7 @@ def card_db(settings):
     from app.cards.importer import build_database
 
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY, *LIFE], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
 
 
@@ -190,4 +190,33 @@ def test_colorless_mana_pays_colored_costs_with_an_orrery(cards):
     act(s, "p1", type="cast_spell", card_id=bears[0].id)
     answer(s)
     assert s.state.cards[bears[0].id].zone == "p1:battlefield"
+    check(s)
+
+
+# -- "cost an additional N life" for its targets (601.2f, 119.4) --
+LIFE = [
+    real("Terror of the Peaks", "{3}{R}{R}", 5, "Creature — Dragon", "Flying\nSpells your opponents cast that target this creature cost an "
+         "additional 3 life to cast.\nWhenever another creature you control enters, this creature deals damage equal to that creature's power "
+         "to any target.", ("5", "4"), "R"),
+]
+
+
+def test_terror_of_the_peaks_is_full(cards):
+    assert coverage.of_card_data(cards.resolve("Terror of the Peaks")).level == "FULL"
+
+
+def test_spells_that_target_terror_cost_3_life(cards):
+    s = build(cards, ["Terror of the Peaks", "Lightning Bolt"], ["Lightning Bolt"])
+    terror, mine, theirs = put(s, "Terror of the Peaks"), to_hand(s, "Lightning Bolt"), to_hand(s, "Lightning Bolt", "p2")
+    mana(s, R=1)
+    mana(s, "p2", R=2)
+    act(s, "p1", type="cast_spell", card_id=mine.id, targets=["p1"])  # (Bob may respond)
+    life_before = s.state.players["p2"].life
+    act(s, "p2", type="set_life", player="p2", value=2)
+    with pytest.raises(ActionError):  # 119.4: only 2 life to pay 3
+        act(s, "p2", type="cast_spell", card_id=theirs.id, targets=[terror.id])
+    act(s, "p2", type="set_life", player="p2", value=life_before)
+    act(s, "p2", type="cast_spell", card_id=theirs.id, targets=[terror.id])
+    assert s.state.players["p2"].life == life_before - 3
+    answer(s)
     check(s)
