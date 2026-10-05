@@ -2578,6 +2578,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                          and effects[prev_start].get("who") == "you")):  # (wave 21B: "Sacrifice a creature. If you can't, …": 701.21a, one object)  # -- keywords (wave 15E) -- fading 702.32a: "Remove a fade counter
             text = "if you don't, " + text[len("if you can't, "):]  # from this permanent. If you can't, sacrifice it." (the removal
             # of a counter that isn't there is the one that wasn't done, as "If you don't" reads it)
+        if (they_do := _that_player_does(text, effects)) is not None:  # (wave 25D)
+            text = they_do
         if (if_do := _IF_YOU_DO.match(text)) is not None:
             bind = _last_payment(effects)
             pick = next((e for e in reversed(effects) if e["do"] == "pick_looked"), None)
@@ -2986,9 +2988,16 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     object (the trigger's own source); "When you do" (a reflexive trigger, 603.12) isn't read."""
     from app.rules import optional_payment
 
-    if not text.startswith("you may ") or not following or not re.match(r"^(?:If you (?:do|don't)|If you do or if [^,]+|When you do), ", following[0]):
+    # -- optional payments by another player (wave 25D) -- "That player may discard a card. If the player does, they draw a card." (Curse of
+    # Chaos, Paralyze, Unifying Theory): the trigger event's player decides and pays (118.12); "If the player does" is read as "If you do"
+    # (the loop below), what follows being about that player
+    other = re.match(r"^(?:that|that attacking) player may ", text)
+    if other is not None and following and re.match(r"^If (?:the player|that player|they) (?:do|does), ", following[0]):
+        phrase, payer = text[other.end():], "that_player"
+    elif not text.startswith("you may ") or not following or not re.match(r"^(?:If you (?:do|don't)|If you do or if [^,]+|When you do), ", following[0]):
         return None
-    phrase = text[len("you may "):]
+    else:
+        phrase, payer = text[len("you may "):], "you"
     if re.search(r"\bit\b", phrase) and it != "self":
         return None
     cost = optional_payment.cost_text(phrase)
@@ -3003,7 +3012,27 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
             return None
         cost, sized = found.pop("cost"), found
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
-    return {"do": "optional_payment", "who": "you", "cost": cost, "bind": bind, **sized}
+    return {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind, **sized}
+
+
+_THEY_VERBS = {"draw": "draws", "discard": "discards", "lose": "loses", "gain": "gains", "put": "puts", "create": "creates",
+               "add": "adds", "sacrifice": "sacrifices", "return": "returns", "exile": "exiles", "sacrifices": "sacrifices"}
+
+
+def _that_player_does(text: str, effects: list[dict[str, Any]]) -> str | None:
+    """-- optional payments by another player (wave 25D) -- "If the player does, they draw a card." after "That player may discard a card.":
+    the same instruction as "If you do, …", about that player ("they" → "that player"); None when it isn't one or the verb isn't read."""
+    m = re.match(r"^if (?:the player|that player|they) (?:do|does), (?P<rest>.+)$", text)
+    pay = next((e for e in reversed(effects) if e["do"] == "optional_payment"), None)
+    if m is None or pay is None or pay.get("who") != "that_player":
+        return None
+    rest = re.sub(r"\bthe creature\b", "that creature", m["rest"])
+    t = re.match(r"^they (?P<v>[a-z]+) (?P<more>.+)$", rest)
+    if t is not None:
+        if t["v"] not in _THEY_VERBS:
+            return None
+        rest = f"that player {_THEY_VERBS[t['v']]} {t['more']}"
+    return f"if you do, {rest}"
 
 
 def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False,

@@ -27,6 +27,7 @@ EXTRA = [card(c["name"], set_code="t25d", number=f"B{i:02d}", **{k: v for k, v i
 FODDER = [
     card("Probe Beast", set_code="t25d", number="B90", mana_cost="{2}{G}", cmc=3.0, type_line="Creature — Beast", oracle_text="", power="3",
          toughness="3", colors=["G"], color_identity=["G"]),
+    card("Probe Spell Book", set_code="t25d", number="B92", mana_cost="{1}", cmc=1.0, type_line="Instant", oracle_text="", colors=[], color_identity=[]),
     card("Probe Curse", set_code="t25d", number="B91", mana_cost="{B}", cmc=1.0, type_line="Enchantment — Aura", oracle_text="Enchant creature",
          colors=["B"], color_identity=["B"]),
 ]
@@ -166,6 +167,73 @@ def test_a_crown_grants_protection_until_end_of_turn(cards):
     from app.rules import protection
 
     assert protection.qualities(ch(s, other_beast)) and "protection" in ch(s, beast).keywords
+    roundtrip(s)
+
+
+def to_decision(s, pid, limit=200):
+    """Pass priority (answering nothing else) until ``pid`` has a decision."""
+    for _ in range(limit):
+        d = decision(s)
+        if d is not None:
+            return d
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no decision arrived")
+
+
+def test_the_enchanted_creatures_controller_pays_to_untap_it(cards):
+    """118.12: "that player may pay {4}. If the player does, untap the creature." The decision is the enchanted creature's controller's."""
+    s = build(cards, "Paralyze")
+    for _ in range(4):
+        act(s, "p2", type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2" and c.zone != "p2:battlefield")],
+            to={"player": "p2", "zone": "battlefield"})
+    ogre = make(s, "p2", "Ogre", "Ogre", "3/3")
+    cast_on(s, "Paralyze", ogre, B=1)
+    assert s.state.cards[ogre.id].tapped  # "When this Aura enters, tap enchanted creature."
+    act(s, "p1", type="pass_priority", until="next_turn")
+    d = to_decision(s, "p2")
+    assert d.player == "p2" and {o.id for o in d.options} >= {"pay", "decline"}  # Bob decides, not Alice
+    choose(s, "pay")
+    for _ in range(20):
+        if not s.state.zones.get("stack") and decision(s) is None:
+            break
+        if decision(s) is not None:
+            choose(s, decision(s).options[0].id)
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert not s.state.cards[ogre.id].tapped  # untapped by the Aura's trigger (it hadn't untapped in the untap step)
+    roundtrip(s)
+
+
+def test_declining_leaves_the_creature_tapped(cards):
+    s = build(cards, "Paralyze")
+    for _ in range(4):
+        act(s, "p2", type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2" and c.zone != "p2:battlefield")],
+            to={"player": "p2", "zone": "battlefield"})
+    ogre = make(s, "p2", "Ogre", "Ogre", "3/3")
+    cast_on(s, "Paralyze", ogre, B=1)
+    act(s, "p1", type="pass_priority", until="next_turn")
+    d = to_decision(s, "p2")
+    choose(s, "decline")
+    settle(s)
+    assert s.state.cards[ogre.id].tapped
+    roundtrip(s)
+
+
+def test_unifying_theory_the_caster_pays_and_draws(cards):
+    s = build(cards, "Unifying Theory", "Probe Spell Book")
+    on_battlefield(s, "Unifying Theory")
+    for _ in range(2):
+        act(s, "p1", type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone != "p1:battlefield")],
+            to={"player": "p1", "zone": "battlefield"})
+    book = to_hand(s, "Probe Spell Book")
+    pay(s, C=1)
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="cast_spell", card_id=book.id)
+    d = to_decision(s, "p1")
+    assert d.player == "p1"
+    choose(s, "pay")
+    settle(s)
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + 1  # the spell left the hand, one card drawn ("If the player does, they draw a card")
     roundtrip(s)
 
 
