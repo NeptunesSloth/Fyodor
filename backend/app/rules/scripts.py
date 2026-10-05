@@ -453,6 +453,8 @@ _MOVERS = {"destroy", "destroy_all", "exile", "exile_until", "bounce", "return_c
            "sacrifice_choice", "discard", "mill", "search", "pick_looked", "create_token",
            "edict"}  # (edict: wave 4A)
 _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are tokens, not cards: 111.1)
+_RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
+_MOVERS.add("linked_cards")
 _RECORDING["create_attacking"] = None  # -- keywords (wave 15E) -- "create … tokens that are tapped and attacking. Sacrifice them …":
 _MOVERS.add("create_attacking")  # the pronoun names the tokens made, not the ability's source (was bound to the source)
 _CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n",
@@ -513,6 +515,8 @@ class _Introducer:
                 self.number = 1  # -- damage sized by a count (wave 20A) -- "until you reveal a nonland card. … that card's mana value": the one found
         if self.do == "destroy_all":
             self.number = 2
+        if self.do == "linked_cards":
+            self.number = None  # (one card or several: whichever the referring wording says)
         if self.do == "edict" and g is None and who != "you":  # (wave 4A: one each, from several players)
             self.number = 2
 
@@ -584,6 +588,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
     out: list[dict[str, Any]] = []
     intros: list[_Introducer] = []
     starts = sentences if sentences is not None else list(range(len(effects)))
+    if _exiled_with.LINKED:  # -- resolution memory (wave 22D) -- 607.2a: what the linked ability exiled, as the first instruction
+        effects = [{"do": "linked_cards"}, *effects]
+        starts = [0, *(s + 1 for s in starts)]
 
     def sentence_of(index: int) -> int:
         return sum(1 for s in starts if s <= index) - 1
@@ -833,6 +840,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 intros.append(_Introducer(index, e, groups))
     except _NoMatch:
         return None
+    if out and out[0].get("do") == "linked_cards" and "as" not in out[0]:
+        out = out[1:]  # (-- resolution memory (wave 22D) -- nothing read the linked cards through it)
     return out
 
 
@@ -1252,7 +1261,7 @@ def _granted_token_text(quoted: str) -> str:
     return quoted
 
 
-@effect(r"(?P<s>its controller|its owner|that player|that creature's controller|that permanent's controller|"
+@effect(r"(?P<s>its controller|its owner|the exiled card's owner|that player|that creature's controller|that permanent's controller|"
         r"target player|target opponent|each opponent|each player) creates (?P<rest>.+)")
 def _someone_creates(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """"Its controller creates a 3/3 green Beast creature token": the create templates with a
@@ -1966,13 +1975,15 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
     head, rest = body[start: m.start()], body[:start] + "\0" + body[m.end():]
     # (what the wrappers around the sentence grammar bind afterwards — "this way" counts, the target player's hand — is not read)
-    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"|"cost:exiled"', json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):
+    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"' + ('' if _exiled_with.LINKED else r'|"cost:exiled"'),
+                                  json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):  # (22D: the linked card)
         return None
     now = _x_now()
     outer = list(now)
     now[:] = [value, False]  # (-- X sized by a count (wave 19F) -- swapped in by _parse_effects before it binds the pronouns)
     try:
-        got = _parse_effects_checked(rest.replace("\0", re.sub(r"\bX\b", str(_X_SENTINEL), head)), it, event_player)
+        standin = re.sub(r"\ban (?=\d+/\d+\b)", "a ", re.sub(r"\bX\b", str(_X_SENTINEL), head))  # (-- wave 22D -- "an X/X token")
+        got = _parse_effects_checked(rest.replace("\0", standin), it, event_player)
         hit = now[1]
     finally:
         now[:] = outer
@@ -2001,6 +2012,9 @@ def _swap_x(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
             return [swap(x, key) for x in v]
         if isinstance(v, dict):
             return {k: swap(x, k) for k, x in v.items()}
+        if key in ("power", "toughness") and v == str(_X_SENTINEL):  # -- wave 22D -- a token's printed "X/X" (effects.create_token reads the value)
+            _x_now()[1] = True
+            return value
         if isinstance(v, bool) or v not in (_X_SENTINEL, -_X_SENTINEL):
             return v
         if key not in _X_KEYS or (v < 0 and key == "n"):
@@ -3055,7 +3069,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if abilities_of.manual(ability):  # (review 18F: a borrowed linked or modal ability, 607.5)
         return None
     view = _granter_view(ability) if "‹granter" in ability.text else None
-    d = _define(view[0] if view else ability, ch)
+    with _exiled_with.reading(ability, self_text(ability.text, ch.name)):  # -- resolution memory (wave 22D) -- 607.2a: "the exiled card's owner …"
+        d = _define(view[0] if view else ability, ch)
     if view and d is not None:
         d = _granter_bound(d, view[1])
     # -- exiled with (wave 6D) -- 607.2a linked abilities (app/rules/exiled_with.py)

@@ -20,7 +20,12 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
+
+from app.game.rules_state import ObjectRef
+from app.rules import context
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -100,7 +105,7 @@ def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | No
 
     if d is None:
         return None
-    refers = WHO in json.dumps(d, default=str)
+    refers = WHO in json.dumps(d, default=str) or "linked_cards" in json.dumps(d, default=str)
     others = [ab for ab in ch.abilities if ab.index != ability.index and ab.kind in ("triggered", "activated")]
     if refers and _exiles(d):  # -- review (wave 6R) -- its own exiled card (see _OFF)
         global _OFF
@@ -120,6 +125,38 @@ def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | No
     if not referring:
         return d
     return {**d, "effects": [{**e, "link": True} if e.get("do") in ("exile", "exile_top") or e.get("exile") else e for e in d["effects"]]}
+
+
+# -- resolution memory (wave 22D) -- 607.2a: a referring ability that does more than return / put the cards ("the exiled card's owner
+# creates an X/X token, where X is the mana value of the exiled card": Skyclave Apparition, Hoarding Dragon, Unidentified Hovership)
+# reads the linked cards through a leading pseudo-instruction ``linked_cards`` that binds them (as the objects they were put into
+# exile as: their owner and mana value are the same wherever they have gone since, 608.2h), so the ordinary pronoun grammar
+# ("the exiled card", "its owner", "that card's mana value") finds them. ``LINKED`` is set while such an ability is read.
+LINKED = False
+_EXILES = re.compile(r"\bexiles?\b|\bexiling\b")
+
+
+@contextmanager
+def reading(ability: Any, text: str) -> Iterator[None]:
+    """While the ability (its text, ~ for itself) is read: does it only refer to what another ability exiled?"""
+    global LINKED
+    LINKED = ability.kind in ("triggered", "activated") and _REFERS.search(text) is not None and _EXILES.search(text) is None
+    try:
+        yield
+    finally:
+        LINKED = False
+
+
+def linked_cards(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Bind the cards the linked ability exiled (a token that was exiled has ceased to exist, 111.8: not found)."""
+    if e.get("as"):
+        found = [ObjectRef(card=cid, object_id=oid, zone=f"{plan.state.cards[cid].owner}:exile")
+                 for oid in plan.rules.exiled_with.get(ctx.get("source_object") or "", []) if (cid := oid.rsplit(".", 1)[0]) in plan.state.cards]
+        context.refs(ctx)[e["as"]] = {"kind": "objects", "objects": [r.model_dump(mode="json") for r in found]}
+    return True
+
+
+PRIMITIVES = {"linked_cards": linked_cards}
 
 
 def record(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> None:

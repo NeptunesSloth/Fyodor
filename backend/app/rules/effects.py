@@ -2187,6 +2187,10 @@ PRIMITIVES.update(entry_forms.PRIMITIVES)  # -- entry forms (wave 5F) -- "It's a
 from app.rules import merged as _merged  # noqa: E402
 
 PRIMITIVES.update(_merged.PRIMITIVES)  # -- merged permanents (wave 18D) -- meld, 701.42
+# -- resolution memory (wave 22D) --
+from app.rules import exiled_with as _exiled_with  # noqa: E402
+
+PRIMITIVES.update(_exiled_with.PRIMITIVES)
 
 
 def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
