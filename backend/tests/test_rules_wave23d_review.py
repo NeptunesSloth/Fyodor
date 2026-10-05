@@ -53,6 +53,9 @@ CARDS = [
     ("Reckless Velocitaur", "{3}{R}", "Creature — Minotaur Pilot", "3", "3",
      "Whenever this creature saddles a Mount or crews a Vehicle during your main phase, that Mount or Vehicle gets +2/+0 and gains trample "
      "until end of turn."),
+    ("Metrognome", "{4}", "Artifact", None, None,
+     "When a spell or ability an opponent controls causes you to discard this card, create four 1/1 colorless Gnome artifact creature tokens.\n"
+     "{4}, {T}: Create a 1/1 colorless Gnome artifact creature token."),
     ("Probe Legend", "{B}", "Legendary Creature — Human", "1", "1", ""),
     ("Probe Relic", "{1}", "Artifact", None, None, "{T}: Add {C}."),
     ("Probe Totem", "{1}", "Artifact", None, None, "{T}: Add {C}."),
@@ -251,6 +254,15 @@ def test_saddling_asks_which_creatures_and_survives_a_save(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[soldier.id])
     answer(s)
     assert s.state.cards[soldier.id].tapped and any(f.kind == "saddled" for f in s.state.rules.turn_log.facts)
+    check(s)
+
+
+def test_metrognome_discarded_into_exile_by_rest_in_peace_still_triggers(cards):
+    """113.6k: the discard trigger works from the zone the card went to; Rest in Peace exiled it, but it was discarded (701.9a)."""
+    s = opponent_discards(cards, "Mind Rot", held=("Metrognome",), board=("Rest in Peace",))
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Mind Rot", "p2").id, targets=["p1"])
+    answer(s)
+    assert zone_of(s, "Metrognome") == "p1:exile" and len(tokens(s, "Gnome")) == 4
     check(s)
 
 
