@@ -64,7 +64,9 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str) ->
 
     if not cond_ok(cond) or cond is None:
         return None
-    inner = scripts._clause(clause)
+    from app.rules import cast_riders  # -- cast riders (wave 25C) -- "…, that creature enters with an additional +1/+1 counter on it"
+
+    inner = cast_riders.parse(cond, clause) or scripts._clause(clause)
     if inner is None or inner[1] is not None:  # (the deferred ability's own target: chosen as it triggers)
         return None
     effects = delayed.inner_for_event(inner[0])

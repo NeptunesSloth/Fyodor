@@ -97,6 +97,12 @@ REAL += [  # (synthetic: Jugan's line is on the back face of a Saga, which this 
          color_identity=["G"], power="3", toughness="3", oracle_text="Whenever another creature you control enters, you may pay {X}. When "
          "you do, put X +1/+1 counters on that creature."),
 ]
+REAL += [  # (synthetic: the Saga chapters of Kumano Faces Kakkazan and Summon: Brynhildr as plain sorceries)
+    card("Probe Boon", set_code="tst", number="C25-16", mana_cost="{G}", cmc=1.0, type_line="Sorcery", colors=["G"], color_identity=["G"],
+         oracle_text="When you next cast a creature spell this turn, that creature enters with an additional +1/+1 counter on it."),
+    card("Probe Haste", set_code="tst", number="C25-17", mana_cost="{R}", cmc=1.0, type_line="Sorcery", colors=["R"], color_identity=["R"],
+         oracle_text="When you next cast a creature spell this turn, it gains haste until end of turn."),
+]
 OURS = [c["name"] for c in REAL]
 
 
@@ -442,4 +448,38 @@ def test_a_reflexive_x_ability_still_names_the_creature_that_entered(cards):
     pass_until_stack_empty(s)
     _answer_x(s, 2)
     assert s.state.cards[bear.id].counters.get("+1/+1") == 2  # "that creature": the Bears, not the source
+    replay_matches(s)
+
+
+# -- 603.7 / 614.1c / 611.2a: "When you next cast a creature spell this turn, …" changes the spell it triggered on -----
+def test_next_creature_spell_enters_with_an_additional_counter_once(cards):
+    s = build(cards)
+    boon = put(s, "Probe Boon", "hand")
+    first, second = put(s, "Grizzly Bears", "hand", nth=0), put(s, "Grizzly Bears", "hand", nth=1)
+    mana(s, G=5, C=5)
+    act(s, "p1", type="cast_spell", card_id=boon.id)
+    pass_until_stack_empty(s)
+    act(s, "p1", type="cast_spell", card_id=first.id)  # triggers the watch: its ability goes on the stack above the spell
+    pass_until_stack_empty(s)
+    act(s, "p1", type="cast_spell", card_id=second.id)  # the watch was spent (603.7b: "next")
+    pass_until_stack_empty(s)
+    assert s.state.cards[first.id].zone == "p1:battlefield" and s.state.cards[first.id].counters.get("+1/+1") == 1
+    assert s.state.cards[second.id].zone == "p1:battlefield" and not s.state.cards[second.id].counters.get("+1/+1")
+    replay_matches(s)
+    assert reload(s).state.model_dump(mode="json") == s.state.model_dump(mode="json")
+
+
+def test_next_creature_spell_gains_haste_until_end_of_turn(cards):
+    s = build(cards)
+    spell = put(s, "Probe Haste", "hand")
+    bear = put(s, "Grizzly Bears", "hand")
+    mana(s, R=1, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    pass_until_stack_empty(s)
+    act(s, "p1", type="cast_spell", card_id=bear.id)
+    pass_until_stack_empty(s)
+    from app.rules.plan import Plan
+
+    assert s.state.cards[bear.id].zone == "p1:battlefield"
+    assert "haste" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bear.id]).keywords
     replay_matches(s)

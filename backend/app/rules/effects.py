@@ -4205,3 +4205,7 @@ RESUME.update(_counter_kinds.RESUME)
 from app.rules import suspend_grants as _suspend_grants  # noqa: E402, I001
 
 PRIMITIVES.update(_suspend_grants.PRIMITIVES)
+# -- cast riders (wave 25C) -- "When you next cast a creature spell this turn, that creature enters with an additional +1/+1 counter on it."
+from app.rules import cast_riders as _cast_riders  # noqa: E402, I001
+
+PRIMITIVES.update(_cast_riders.PRIMITIVES)
