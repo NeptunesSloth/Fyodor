@@ -639,12 +639,13 @@ def _combat(c: str) -> Condition | None:
             raise _Refuse
         return {**base, "event": "attack", "alone": True, **_defender(m["d"])}
     # "~ attacks while you control a creature with power 4 or greater" (read as it triggers)
-    m = re.fullmatch(r"(?P<s>.+?) attacks while (?P<w>you control .+)", c)
+    m = re.fullmatch(r"(?P<s>.+?) attacks while (?P<w>you control .+|saddled)", c)  # (wave 23D: 702.171b "while saddled", ~ itself)
     if m:
         from app.rules import conditions  # (selectors and values only)
 
         base = _subject(m["s"], host=True)
-        holds = conditions.parse(m["w"])
+        holds = {"object": "self", "designation": "saddled"} if m["w"] == "saddled" and m["s"] == "~" else \
+            None if m["w"] == "saddled" else conditions.parse(m["w"])
         if base is None or holds is None:
             raise _Refuse
         return {**base, "event": "attack", "while": holds}
@@ -777,6 +778,13 @@ def _player_action(c: str) -> Condition | None:
     if m:
         return {"event": "land_played", "subject": "player", "player": _PLAYERS[m["p"]], "obj": _object_sel(m["o"]),
                 "aggregate": False}
+    # -- discard causes (wave 23D) -- 701.9: "a spell or ability an opponent controls causes you to discard this card / a card / cards"
+    m = re.fullmatch(r"a spell or ability an opponent controls causes you to discard (?P<o>this card|~|a card|one or more cards|cards)", c)
+    if m:
+        if m["o"] in ("this card", "~"):
+            return {"event": "discard", "subject": "self", "cause": "opponent"}
+        return {"event": "discard", "subject": "player", "player": "you", "obj": _object_sel("card", card=True), "cause": "opponent",
+                "aggregate": m["o"] != "a card"}
     m = re.fullmatch(rf"{_P} (?P<v>sacrifices?|discards?|cycles? or discards?|cycles?|creates?|mills?) (?P<o>.+)", c)
     if not m:
         # -- triggers (wave 17D) -- "Whenever one or more nonland cards are milled" (701.17a: put from a library into its owner's graveyard)
@@ -855,6 +863,26 @@ _PLAIN_COUNTERS = frozenset({"lore", "loyalty", "charge", "oil", "time", "quest"
 def _object_event(c: str) -> Condition | None:
     """Object events beyond the basic verbs: counters put on (122.6), leaving a graveyard (603.10a),
     becoming the target of a spell or ability (115.9, 603.2e), dealing damage (120.1)."""
+    # -- crew & saddle (wave 23D) -- 702.122b / 702.171c: "Whenever ~ crews a Vehicle" / "~ saddles a Mount or crews a Vehicle during your
+    # main phase" (a creature tapped to pay the cost; the Vehicle / Mount is the creature "on the other side"), 702.122e: "~ becomes crewed"
+    m = re.fullmatch(r"~ (?:(?P<s>saddles a Mount) or )?(?P<c>crews a Vehicle)(?P<d> during your main phase)?", c)
+    if m:
+        crew = {"event": "crew", "subject": "self", "other": selectors.Selector(types=("Artifact",), subtypes=("Vehicle",)).key()}
+        saddle = {"event": "saddle", "subject": "self", "other": selectors.Selector(subtypes=("Mount",)).key()}
+        main = {"main_phase": True} if m["d"] else {}
+        if not m["s"]:
+            return {**crew, **main, **({"during": "you"} if m["d"] else {})}
+        return {"event": "either", "subject": "self", "other": crew["other"], "conds": [{**crew, **main}, {**saddle, **main}],
+                **({"during": "you"} if m["d"] else {})}  # (``other``: the Vehicle or Mount, for "that Mount or Vehicle")
+    if c == "~ becomes crewed":
+        return {"event": "crewed", "subject": "self"}
+    # -- keyword triggers (wave 23D) -- 702.110b: "When ~ exploits a creature", "Whenever a creature you control exploits a non-Human creature"
+    m = re.fullmatch(r"(?P<s>~|an? .+?|another .+?) exploits (?P<o>an? .+)", c)
+    if m:
+        base = _subject(m["s"])
+        if base is None or base.get("aggregate"):
+            raise _Refuse
+        return {**base, "event": "exploit", "exploited": _object_sel(m["o"])}
     # "one or more +1/+1 counters are put on ~", "a +1/+1 counter is put on a creature you control"
     # -- counters (wave 5H) -- "you put one or more +1/+1 counters on a creature you control" (122.6, 122.6a: the player
     # who put them — the step's actor at the counter choke point). Only +1/+1 counters: -1/-1 counters dealt as damage

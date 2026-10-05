@@ -47,6 +47,7 @@ KEYWORDS = frozenset({
     "cumulative upkeep", "buyback", "entwine", "splice", "retrace", "replicate", "soulbond", "unleash", "battle cry",
     "living weapon", "totem armor", "umbra armor", "fortify", "reconfigure", "for mirrodin!", "prototype",
     "read ahead", "ravenous", "squad", "enlist", "decayed", "cleave", "compleated", "demonstrate", "hideaway",
+    "exploit",  # (wave 23D)
     "myriad", "melee", "friends forever", "choose a background", "doctor's companion", "space sculptor", "gift",
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",

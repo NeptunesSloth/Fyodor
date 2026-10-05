@@ -90,6 +90,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return list(plan.live())
     if who == "each_opponent":
         return [p for p in plan.live() if p != me]
+    if who == "gifted":  # -- gift (wave 23D) -- 702.174d-i: the opponent the gift was promised to
+        from app.rules import gift
+
+        return gift.recipient(plan, ctx)
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.players and t["id"] in plan.live()]
     if who == "target_player_or_controller":  # -- damage wordings (wave 6B) -- "that player or that planeswalker's
@@ -1068,6 +1072,11 @@ def animate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                           controller=ctx["controller"], add_types=tuple(e["types"]),
                           label=f"{' '.join(e['types'])} until end of turn ({ctx.get('name', '')})")
         _mark(plan, cards, "Crewed" if e.get("crewed") else " ".join(e["types"]))
+        if e.get("crewed"):  # -- crew & saddle (wave 23D) -- 702.122e: "becomes crewed" is its crew ability resolving
+            from app.game.rules_state import emit
+
+            for c in cards:
+                emit(plan.state, "crewed", object_id=plan.oid(c), card=c, player=plan.state.cards[c].controller)
     return True
 
 
@@ -2015,6 +2024,8 @@ def sacrifice_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("exile") == "until" and not _cards(plan, ctx, "self"):  # -- resolution memory (wave 22D) -- 610.3a-b: the source left: nothing happens
         _remember(plan, ctx, e, [])
         return True
+    if e.get("exploit"):  # -- keyword triggers (wave 23D) -- 702.110b: the creature sacrificed as the exploit ability resolves is exploited
+        ctx["exploiting"] = True
     return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("exile") or False,
                            bool(e.get("link")), bool(e.get("upto")))
 
@@ -2073,6 +2084,10 @@ def _sacrifice_cards(plan: Plan, cards: list[str], actor: str, ctx: Context | No
         from app.rules.triggers import sacrificing  # (triggers imports this module)
 
         sacrificing(plan, cards)
+        if ctx is not None and ctx.pop("exploiting", False):  # -- keyword triggers (wave 23D) -- 702.110b
+            from app.rules.triggers import exploiting
+
+            exploiting(plan, cards, ctx["source_card"], ctx["controller"])
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=actor)
     if ctx is not None:
         _moved(plan, ctx, e, before)
@@ -2273,9 +2288,10 @@ PRIMITIVES = {
 from app.rules import copying  # noqa: E402
 
 PRIMITIVES.update(copying.PRIMITIVES)
-from app.rules import phasing  # noqa: E402
+from app.rules import crew_saddle, phasing  # noqa: E402
 
 PRIMITIVES.update(phasing.PRIMITIVES)  # -- phasing (wave 13D) -- 702.26
+PRIMITIVES.update(crew_saddle.PRIMITIVES)  # -- crew & saddle (wave 23D) -- 702.171
 PRIMITIVES.update(entry_forms.PRIMITIVES)  # -- entry forms (wave 5F) -- "It's an enchantment." (611.2e)
 from app.rules import merged as _merged  # noqa: E402
 

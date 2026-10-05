@@ -598,6 +598,8 @@ def keyword_component(o: Optional) -> Any:
     from app.rules.selectors import Selector
 
     untapped = Selector(types=("Creature",), controller="you", tapped=False)
+    if o.kind == "gift":  # -- gift (wave 23D) -- choosing the opponent costs nothing (702.174a)
+        return None
     if o.kind in ("evidence", "behold"):  # -- casting costs (wave 22F) --
         return own_cost(o.text)
     if o.kind == "casualty":  # -- casting extras (wave 18E) -- 702.153a: "you may sacrifice a creature with power N or greater"
@@ -634,6 +636,10 @@ def optional_offers(state: GameState, player: str, card: CardInstance, ch: Chara
         if (m := re.fullmatch(r"Teamwork (\d+)", text)) is not None:
             out.append(Optional(f"{card.id}:teamwork", f"Teamwork {m[1]}: tap creatures with total power {m[1]} or more", 0, "", "teamwork",
                                 int(m[1])))
+    from app.rules import gift
+
+    if gift.offered(ch):  # -- gift (wave 23D) -- 702.174a: "As an additional cost to cast this spell, you may choose an opponent."
+        out.append(Optional(f"{card.id}:gift", "Gift: promise an opponent a gift", 0, "", "gift"))
     for d in permissions._definitions(ch).values():  # -- casting costs (wave 22F) -- collect evidence / behold on the spell itself
         if d.get("static") == "own_optional":
             out.append(Optional(f"{card.id}:{d['optional']}", f"{d['cost']} (additional cost)", 0, "", d["optional"], text=d["cost"]))

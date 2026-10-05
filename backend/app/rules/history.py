@@ -217,6 +217,8 @@ def note_events(plan: Plan, events: list[Any]) -> None:
                                     "supertypes": sorted(ch.supertypes)} if ch is not None else {}
             if kind == "create_token" and obj is not None:  # 111.2: the player who creates a token is its owner
                 log.facts.append(TurnFact(kind="token", player=obj.owner, object_id=info.get("oid"), token=True, **what))
+            elif kind == "discard" and not (info.get("to") or "").endswith(":graveyard"):
+                continue  # (review 23D: a discard put elsewhere instead was noted as it was replaced, note_discards)
             elif kind in ("discard", "sacrifice") and player is not None and obj is not None:
                 log.facts.append(TurnFact(kind=kind, player=player, object_id=info.get("oid"), token=obj.is_token, **what))
             elif kind == "dealt_damage" and obj is None and info.get("recipient"):  # a player was dealt damage (120.3)

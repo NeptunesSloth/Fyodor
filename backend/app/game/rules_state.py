@@ -310,6 +310,10 @@ EventKind = Literal[
     "mana_added",  # a mana ability produced mana (106.3, 106.12a); convoke/improvise/delve never do
     "drew",  # a player drew a card (121.2: one event per card)
     "crewed",
+    "crew_tapped",  # -- crew & saddle (wave 23D) -- 702.122b: a creature (``object_id``) tapped to pay the crew cost of ``by_card`` (``source``)
+    "saddle_tapped",  # 702.171c: likewise for a saddle ability
+    "saddled",  # 702.171b: ``card`` became saddled
+    "exploited",  # -- keyword triggers (wave 23D) -- 702.110b: ``card`` (object ``object_id``) was sacrificed to exploit ``by_card`` (``source``: its object)
     "turned_face_up",  # 702.37e (morph)  # a Vehicle became crewed (702.122)
     # 701.21a: a permanent was sacrificed (emitted just before it moves, in the same batch; the
     # object is the permanent as it was — "whenever you sacrifice …" looks back in time, 603.10a)
@@ -345,6 +349,7 @@ class Event(BaseModel):
     actor: str | None = None
     looked: int = 0  # -- scry counts (wave 19C) -- a scry / surveil: how many cards it looked at (701.22d: fewer than N with a short library)
     group: int = 0  # -- counters (wave 7C) -- counters one instruction put in several steps share it (122.6); 0: alone
+    by_card: str | None = None  # -- keyword triggers (wave 23D) -- "exploited": the creature with exploit (a card id)
 
 
 MAX_EVENTS = 500  # unconsumed events kept (a trigger collector consumes them; M16)
@@ -720,6 +725,7 @@ class PaymentRecord(BaseModel):
     returned_attacking: dict[str, str] = Field(default_factory=dict)
     tapped_for_cost: list[str] = Field(default_factory=list)  # "Tap an untapped creature you control" (not for mana)
     kicked: int = 0  # 702.33d: times its kicker cost was paid
+    gift_to: str | None = Field(default=None, max_length=64)  # -- gift (wave 23D) -- 702.174a: the opponent the gift was promised to
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
     prototyped: bool = False  # -- casting extras (wave 18E) -- 718.3: cast prototyped (the spell and the permanent have the alternative values)
     additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
@@ -1350,7 +1356,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                                      tapped=card.tapped, from_zone=old_zone))  # (-- entry forms (wave 5F) --; wave 22E: from_zone)
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
-             from_zone=old_zone, to_zone=new_zone)
+             from_zone=old_zone, to_zone=new_zone, actor=actor)  # (wave 23D: who moved it: a discard an opponent's effect caused, 701.9)
     # -- review (wave 18D) -- 730.3 / 712.21: the cards of a merged permanent that left (other than the one its instance became) were
     # never objects of their own: each is put into the zone from the battlefield, a new object there (not one more permanent leaving)
     pile = {p["id"]: snap for snap in before.snaps.values() for p in snap.merged}

@@ -885,8 +885,8 @@ def move_instead(plan: Plan, cid: str, outcome: str | Cand, actor: str | None) -
         return
     card = plan.state.cards[cid]
     owner = card.owner
-    if outcome == "exile":
-        plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "exile"}}, actor=actor)
+    if outcome in ("exile", "battlefield"):  # (review 23D: battlefield, a discard's "put it onto the battlefield instead")
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": outcome}}, actor=actor)
         return
     where = outcome.split(":", 1)[1]
     if where == "shuffle":  # 701.24 (shuffle), "reveal": its name is public as it goes (a card from a hidden zone shows itself)
@@ -919,7 +919,7 @@ def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
             break
 
 
-_OUTCOME_TEXT = {"exile": "Exile it", "library:top": "Put it on top of its owner's library", "library:bottom":
+_OUTCOME_TEXT = {"exile": "Exile it", "battlefield": "Put it onto the battlefield","library:top": "Put it on top of its owner's library", "library:bottom":
                  "Put it on the bottom of its owner's library", "library:shuffle": "Reveal it and shuffle it into its owner's library"}
 
 
@@ -957,7 +957,7 @@ def resume_616(plan: Plan, d: Any, chosen: list[str]) -> None:
         return
     if cand.used:  # (a spell cast "without paying …": its one-shot "exile it instead" is used up, 614.5)
         plan.rules.exile_if_graveyard = [o for o in plan.rules.exile_if_graveyard if o != p["oid"]]
-    move_instead(plan, cid, cand, card.controller)
+    move_instead(plan, cid, cand, p.get("actor") or card.controller)
 
 
 def leave_stack_instead(plan: Plan, card: CardInstance, controller: str) -> bool:
@@ -1016,6 +1016,18 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             continue
         frm = _from_zone(card)
         oid = plan.oid(card)
+        if dest == "graveyard" and frm == "hand" and actor not in (None, card.owner) and any(
+                d["kind"] == "replacement" and d.get("replacement") == "discard_battlefield" for d in _definitions(plan, card).values()):
+            # -- discard causes (wave 23D) -- 614.1a: "If a spell or ability an opponent controls causes you to discard this card, put it onto
+            # the battlefield instead": a static ability of the card, not a self-replacement effect (614.15), so with Rest in Peace its
+            # owner chooses which applies (616.1, review 23D)
+            pick = _pick(plan, card, [*zone_candidates(plan, card, dest), Cand(card.name or "its own ability", "battlefield")], dest)
+            if pick is None:
+                held.append(cid)
+            else:
+                replaced.append((cid, pick.outcome, pick.label))
+                riders += [pick.rider] if pick.rider is not None else []
+            continue
         if dest == "graveyard" and frm == "hand":
             # 616.1: madness and an "exile instead" static (Rest in Peace) would both replace a
             # discard; the card's owner chooses. Only madness leads anywhere different (the
@@ -1043,6 +1055,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
                 replaced.append((cid, "command", "903.9b"))
             elif answer is None:
                 r.pending_903_9b[cid] = dest  # asked right after the move (sba → offer_903_9b)
+    for cid in held:  # (review 23D: who moved it, for "a spell or ability an opponent controls causes you to discard", 701.9)
+        r.pending_616[cid]["actor"] = actor
     if held:  # -- zone replacements (wave 22C) -- they stay put until chosen (616.1: offer_616, before anyone gets priority)
         if dest == "graveyard":  # (review 22C: a held discard is discarded all the same, 701.9a, whichever replacement applies)
             from app.rules import history
@@ -1079,6 +1093,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
     text = ("Exiled instead" + (f" ({', '.join(whys)})" if whys and whys != ["903.9b"] else "")) if replaced else "Discarded into exile (madness)"
     if replaced and all(zone.startswith("library:") for _, zone, _ in replaced):
         text = "Put into its owner's library instead"
+    if replaced and all(zone == "battlefield" for _, zone, _ in replaced):  # (review 23D: Obstinate Baloth)
+        text = "Put onto the battlefield instead"
     if replaced and all(zone == "command" for _, zone, _ in replaced):
         text = "Put into the command zone instead (903.9b)"
     ids = [cid for cid, _, _ in replaced] + [cid for cid, _ in madness]

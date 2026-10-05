@@ -49,6 +49,7 @@ SUPPORTED_REPLACEMENTS: set[str] = {
     "enters_choice",  # "As ~ enters, choose a color / creature type / …" (614.12a): chosen before it enters, recorded on it
     "enters_with_counters",  # "~ enters [tapped] with N … counters on it [for each …]" (614.1c, 122.6)
     "enters_turn_down",  # "As ~ enters, turn all other nontoken creatures face down." (708.2a; wave 18A: replacements.turn_down)
+    "discard_battlefield",  # -- discard causes (wave 23D) -- "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it into your graveyard."
     "exile_instead",  # "If ~ would die / be put into a graveyard from anywhere, exile it instead" (own and statics)
     "library_instead",  # "If ~ would die, put it on top of / on the bottom of its owner's library instead" (wave 20B)
     "shuffle_instead",  # -- zone replacements (wave 22C) -- "… reveal ~ and shuffle it into its owner's library instead" (Blightsteel)
@@ -489,8 +490,12 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules.casting import TRANSMUTE
 
         return TRANSMUTE.fullmatch(line.strip().rstrip(".")) is not None
-    if kw == "crew":  # casting.crew: "Crew N"
-        return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "gift":  # -- gift (wave 23D) -- app/rules/gift.py (the gifts the grammar performs; not "an extra turn")
+        from app.rules import gift
+
+        return gift.supported(line)
+    if kw in ("crew", "saddle"):  # casting.crew: "Crew N" (-- crew & saddle (wave 23D) -- 702.171a: "Saddle N", the same cost)
+        return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "flashback":  # casting.flashback_parts: a mana flashback cost, with other parts alt_costs reads (wave 16B)
         from app.rules.casting import flashback_parts  # (casting imports coverage, via the engine)
 

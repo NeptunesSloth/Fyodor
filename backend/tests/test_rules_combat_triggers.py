@@ -82,11 +82,14 @@ def test_parse(cond, expected):
 @pytest.mark.parametrize("cond", [
     "~ attacks a battle",  # (310: battles aren't modelled)
     "~ deals combat damage to a battle",
-    "~ attacks while saddled",  # (702.171: saddle isn't modelled)
     "~ attacks while you control a foo",
 ])
 def test_refused(cond):
     assert events.parse_condition(cond) is None
+
+
+def test_while_saddled_is_read_as_it_triggers():  # -- wave 23D -- 702.171b
+    assert events.parse_condition("~ attacks while saddled") == {"subject": "self", "event": "attack", "while": {"object": "self", "designation": "saddled"}}
 
 
 def test_while_is_read_as_it_triggers():

@@ -649,7 +649,8 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
     if isinstance(a, A.CastSpell):  # -- kicked / instead (wave 4G) -- 601.2c / 702.33g: targets tied to the kicker
         from app.rules import kicked_instead
 
-        specs = kicked_instead.applicable(specs, a.kicker or int(a.awaken))  # (awaken: -- static_other sweep (wave 16B) --)
+        specs = kicked_instead.applicable(specs, a.kicker or int(a.awaken) or int(f"{a.card_id}:gift" in a.optional_costs))  # (awaken: wave 16B;
+        # gift: wave 23D, 702.174m: the targets only a promised spell chooses)
     found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id), a.card_id, list(a.targets),
                           list(a.target_counts), list(a.division), a.x_value, what, exclude)
     if found.ask is not None:
@@ -2235,6 +2236,14 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         raise ActionError(f"{ch.name} can be cast now only if its targets meet its flash condition")
     optional = cost_changes.chosen_optional(plan.state, plan.actor, card, ch, plan.info, a.optional_costs) \
         if a.optional_costs and not plan.manual(card) else []  # -- cost changers (wave 4I) -- (601.2b)
+    gift_to: str | None = None
+    if any(o.kind == "gift" for o in optional):  # -- gift (wave 23D) -- 702.174a: the opponent the gift is promised to
+        from app.rules import gift
+
+        found_gift = gift.announce(plan, a, card, ch)
+        if found_gift is gift.WAITING:
+            return
+        gift_to = found_gift
     if a.optional_costs and plan.manual(card):
         raise ActionError("That card is played by hand: pay its costs with the table tools")
     # -- costs (wave 3$) -- 601.2b: an additional cost ("sacrifice a creature", "discard a card", "pay 2 life") is
@@ -2266,9 +2275,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(  # -- casting costs (wave 22F) -- Terror of the Peaks: life for its targets (601.2f)
             components=(costs.CostComponent(costs.PAY_LIFE, amount=target_life, text=f"Pay {target_life} life"),), life=target_life))
     if optional:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
-        add_cost = alt_costs.merged(add_cost, costs.AbilityCost(components=tuple(
-            cost_changes.keyword_component(o) if o.kind else costs.CostComponent(costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life")
-            for o in optional), life=sum(o.life for o in optional)))
+        parts = tuple(c for o in optional if (c := cost_changes.keyword_component(o) if o.kind else costs.CostComponent(
+            costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life")) is not None)  # (wave 23D: a gift costs nothing)
+        if parts:
+            add_cost = alt_costs.merged(add_cost, costs.AbilityCost(components=parts, life=sum(o.life for o in optional)))
     add_objects: dict[int, list[str]] = {}
     if add_cost is not None:
         problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
@@ -2366,7 +2376,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     record.additional = (["buyback"] if a.buyback else []) + (["entwine"] if entwined else ["kicker"] if a.kicker else []) \
         + [f"optional:{o.source}" for o in optional]  # (wave 4I: Defiler of Vigor's life)
     record.prototyped = a.prototype  # -- casting extras (wave 18E) -- 718.3b
-    record.kicked = kicked or int(a.awaken)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as "If this spell was kicked")
+    record.kicked = kicked or int(a.awaken) or int(gift_to is not None)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as
+    record.gift_to = gift_to  # "If this spell was kicked"; wave 23D: a promised gift, 702.174k, likewise)
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Harmonize"] if harmonized else ["Jump-start"] if jumped else \
@@ -2430,16 +2441,16 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=modal_effects(definition, picked, True), x=a.x_value, modes=picked,
-                                      **picked_targets.entry(None), kicked=kicked or int(a.awaken))  # (-- static_other sweep (wave 16B) --)
+                                      **picked_targets.entry(None), kicked=kicked or int(a.awaken) or int(gift_to is not None))  # (-- static_other sweep (wave 16B) --)
     elif definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
         effects_in_order = modal_effects(definition, picked, False)
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
-                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=kicked or int(a.awaken))
+                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=kicked or int(a.awaken) or int(gift_to is not None))
     elif definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=a.x_value,
-                                      **picked_targets.entry(definition), kicked=kicked or int(a.awaken))
+                                      **picked_targets.entry(definition), kicked=kicked or int(a.awaken) or int(gift_to is not None))
     r.aura_targets = {k: v for k, v in r.aura_targets.items() if k != card.id and plan.state.cards.get(k) is not None
                       and plan.state.cards[k].zone == STACK}  # (review (wave 18D): never a target this card had as an earlier spell)
     if aura is not None and chosen:
@@ -2728,20 +2739,28 @@ def crew_value(c: CardInstance, ch: Characteristics) -> int:
     return max(0, base + sum(int(r.split(":")[1]) for r in ch.imposed if r.startswith("crew_plus:")))
 
 
-def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int) -> None:
+def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int, kind: str = "crew") -> None:
     """Crew N: tap any number of untapped creatures you control with total power N or greater:
-    this Vehicle becomes an artifact creature until end of turn. (Summoning-sick creatures may crew.)"""
+    this Vehicle becomes an artifact creature until end of turn. (Summoning-sick creatures may crew.)
+    -- crew & saddle (wave 23D) -- ``kind`` "saddle" (702.171a): the same cost, "this permanent becomes saddled until end of turn.
+    Activate only as a sorcery." (app/rules/crew_saddle.py)"""
+    from app.rules import crew_saddle
+
+    saddle = kind == "saddle"
+    if saddle and (plan.state.turn.active_player != plan.actor or plan.state.turn.phase not in MAIN_PHASES or plan.state.zones.get(STACK)):
+        raise ActionError("Saddle only as a sorcery: in your main phase with an empty stack")
+
     def crew_power_of(cid: str) -> int:
         c = plan.state.cards[cid]
         return crew_value(c, plan.ch(c))
 
     candidates = [c.id for c in plan.state.cards.values() if c.zone == card.zone and c.controller == plan.actor
                   and c.id != card.id and not c.tapped and plan.in_game(c) and plan.ch(c).is_creature
-                  and "cant_crew" not in plan.ch(c).imposed]  # (wave 16F: Bound in Gold, 702.122)
+                  and (saddle or "cant_crew" not in plan.ch(c).imposed)]  # (wave 16F: Bound in Gold, 702.122d; review 23D: it may saddle)
     if sum(crew_power_of(c) for c in candidates) < n:
         raise ActionError(f"{ch.name}: you don't control untapped creatures with total power {n} or greater")
     if a.crew is None:
-        decide(plan, player=plan.actor, kind="choose_cards", prompt=f"Crew {n}: tap creatures with total power {n} or greater",
+        decide(plan, player=plan.actor, kind="choose_cards", prompt=f"{kind.capitalize()} {n}: tap creatures with total power {n} or greater",
                options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name} ({crew_power_of(c)})", card_id=c)
                         for c in candidates],
                min_choices=1, max_choices=len(candidates),
@@ -2749,14 +2768,15 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
         return
     chosen = list(dict.fromkeys(a.crew))
     if not chosen or any(c not in candidates for c in chosen):
-        raise ActionError("Crew with untapped creatures you control")
+        raise ActionError(f"{kind.capitalize()} with untapped creatures you control")
     if sum(crew_power_of(c) for c in chosen) < n:
         raise ActionError(f"Those creatures have less than {n} total power")
     oid = plan.oid(card)
-    ability_id = _new_ability(plan, card, f"{ch.name} becomes an artifact creature until end of turn.")
+    ability_id = _new_ability(plan, card, f"{ch.name} becomes {'saddled' if saddle else 'an artifact creature'} until end of turn.")
     plan.do({"type": "tap", "card_ids": chosen, "tapped": True})
-    emit(plan.state, "crewed", object_id=oid, card=card.id, player=plan.actor)
-    _stacked(plan, card, oid, ch, ability_id, [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}])
+    crew_saddle.tapped_to_pay(plan, kind, chosen, card)  # (702.122b, 702.171c)
+    _stacked(plan, card, oid, ch, ability_id, [{"do": "saddled"}] if saddle else
+             [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}])
 
 
 # -- static statics (wave 10B) -- cascade a permanent gives the spell as it's cast (cast_limits.granted_cascade)
@@ -3100,6 +3120,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     n = crew_power(ch, a.ability) if not plan.manual(card) else None
     if n is not None:
         crew(plan, card, ch, a, n)
+        return
+    from app.rules import crew_saddle  # -- crew & saddle (wave 23D) --
+
+    n = crew_saddle.saddle_power(ch, a.ability) if not plan.manual(card) else None
+    if n is not None:
+        crew(plan, card, ch, a, n, "saddle")
         return
     equip = attachments.equip_cost(ch, a.ability) if not plan.manual(card) else None
     if equip is not None:
@@ -3509,8 +3535,16 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
 
 def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteristics, index: int, info: CardInfo,
               check_priority: bool) -> bool:
+    from app.rules import (
+        crew_saddle,  # -- crew & saddle (wave 23D) -- 702.171a: a saddle ability is the same cost, at sorcery speed
+    )
+
     n = crew_power(ch, index)
     r = state.rules
+    saddle = n is None
+    if n is None and (n := crew_saddle.saddle_power(ch, index)) is not None and (
+            state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK)):
+        return False
     if n is None or r is None or (check_priority and (r.priority != player or r.decision is not None)):
         return False
     # -- cast limits (wave 5E) -- crew is an activated ability (702.122a)
@@ -3524,7 +3558,7 @@ def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteris
     for c in state.cards.values():
         if c.zone == card.zone and c.controller == player and c.id != card.id and not c.tapped:
             cch = derive(state, c, chars.of(c, info), info)
-            if cch.is_creature and "cant_crew" not in cch.imposed:
+            if cch.is_creature and (saddle or "cant_crew" not in cch.imposed):
                 total += crew_value(c, cch)
     return total >= n
 

@@ -281,6 +281,10 @@ def self_text(text: str, name: str) -> str:
     out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
     out = re.sub(r"(\bto the battlefield) and (attach this (?:Equipment|Aura) to it\b)", lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", out)  # (wave 19C: Nim Deathmantle: two instructions in order)
     out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
+    # -- gift (wave 23D) -- 702.174k: a promised gift is read as the spell having been kicked (app/rules/gift.py): "If the gift was promised, …"
+    # opens a sentence of the spell, "When ~ enters, if the gift was promised, …" is the permanent's intervening "if"
+    out = re.sub(r"(?:^|(?<=\. ))If the gift was promised, ", "If this spell was kicked, ", out)
+    out = re.sub(r"\bif the gift was promised, ", "if it was kicked, ", out)
     # -- damage sized by a count (wave 20A) -- "Choose any target. Scry 3, then reveal the top card of your library. ~ deals damage equal to
     # that card's mana value to that permanent or player." (Riddle of Lightning): the target is declared as the spell is cast (115.1, 601.2c)
     # whatever the order of the text, so the damage sentence names "any target" itself
@@ -3478,6 +3482,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # -- trigger tail (wave 15B) -- "When this creature blocks a creature, destroy both creatures / that creature and
                     # this creature.": the creature on the other side, then this one (509.3b)
                     body = re.sub(r"^destroy (?:both creatures|that creature and ~)\.$", "destroy that creature. Destroy ~.", body)
+                if cond is not None and cond.get("event") in ("crew", "saddle", "either") and other_side.wanted(cond):
+                    body = re.sub(r"\bthat (?:Mount or Vehicle|Vehicle|Mount)\b", "that creature", body)  # -- crew & saddle (wave 23D) -- the event's other object
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
                 if ante == "self_gone":  # -- trigger tail (wave 15B) -- "put her into her owner's library third from the top"
                     # (a gendered pronoun is written ~): the card after it left, found where it went (400.7e), like "it"
@@ -3942,6 +3948,11 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
             if kw in _kw_meanings.MEANINGS:  # -- static wordings (wave 6E) -- read as its CR meaning (app/rules/keyword_triggers.py)
                 out += [(1000 + ab.index * 10 + k + 100000 * j, d) for j, d in enumerate(_kw_meanings.first_piece(kw, ab.text, ab.keywords[:k].count(kw)))]
+            if kw == "gift":  # -- gift (wave 23D) -- 702.174b: a permanent's enters trigger (an instant or sorcery: spell_definition)
+                from app.rules import gift
+
+                if (gd := gift.trigger(ch)) is not None:
+                    out.append((1000 + ab.index * 10 + k, gd))
             if kw == "backup" and (bd := _kw_meanings.backup_definition(ch, ab, ab.keywords[:k].count(kw))) is not None:
                 out.append((1000 + ab.index * 10 + k, bd))  # -- keywords (wave 15E) -- 702.165a
             if kw == "partner" and (pw := _kw_meanings.partner_with_definition(ab.text)) is not None:  # -- keyword pieces (wave 8A) --
@@ -4029,6 +4040,10 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     # part of what the spell does)
     text_lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab)]
     if text_lines and text_lines[0].text in _MODAL_HEADERS:
+        from app.rules import gift
+
+        if gift.has_line(ch):
+            return None  # -- gift (wave 23D) -- the gift effect of a modal spell isn't added to its modes: not read
         modal = modal_definition(text_lines, ch.name)
         # (a spell has no trigger event: "that player" / "that much" can't be bound)
         return modal if modal is not None and _event_refs_ok(modal) else None
@@ -4061,6 +4076,15 @@ def spell_definition(ch: Characteristics) -> Definition | None:
             effects += rename_bindings(_renumber(defs[ab.index]["effects"], index), f"l{ab.index}_")
         except _NoMatch:
             return None
+    from app.rules import (
+        gift,  # -- gift (wave 23D) -- 702.174j: its effect happens before the spell's other abilities
+    )
+
+    if gift.has_line(ch):
+        lead = gift.spell_effects(ch)
+        if not lead:
+            return None
+        effects = lead + effects
     # -- X sized by a count (wave 4K) -- the Zenith cycle's "Shuffle ~ into its owner's library."
     from app.rules import x_spells
 
@@ -4512,6 +4536,9 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
             else:
                 out["n"] = {"times": [n, each]} if n != 1 else each
         return out
+    if text == "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it " \
+               "into your graveyard.":  # -- discard causes (wave 23D) -- 614.1a, 701.9: the discard is replaced (replacements.replace_move)
+        return {"kind": "replacement", "replacement": "discard_battlefield", "effects": []}
     if _LEAVES_EXILE_SELF.match(text):  # -- zone replacements (wave 22C) -- "If ~ would leave the battlefield, exile it instead of putting it anywhere else."
         return {"kind": "replacement", "replacement": "exile_instead", "from": "leaves", "effects": []}
     m = EXILE_INSTEAD_SELF.match(text)

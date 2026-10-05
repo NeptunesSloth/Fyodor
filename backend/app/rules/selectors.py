@@ -260,6 +260,13 @@ def _dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "dealt_damage_you" if m["you"] else "dealt_damage"))
 
 
+# -- crew & saddle (wave 23D) -- "creature that crewed it this turn" / "that saddled it this turn": tapped this turn to pay a crew / saddle
+# ability of the source (702.122c, 702.171c; app/rules/crew_saddle.py)
+@_suffix(r"that (?P<k>crewed|saddled) (?:it|~|this (?:Vehicle|Mount|permanent)) this turn")
+def _crewed_it(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "crewed_it" if m["k"] == "crewed" else "saddled_it"))
+
+
 @_suffix(r"dealt damage by (?:this creature|~) this turn")  # -- damage history (wave 19E) -- "a creature dealt damage by ~ this turn"
 def _dealt_damage_by_source(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "dealt_damage_by_source"))
@@ -1454,6 +1461,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             from app.rules import card_names
 
             if not card_names.has_name(ch, extra[5:]):
+                return False
+        if extra in ("crewed_it", "saddled_it"):  # (wave 23D)
+            from app.rules import crew_saddle
+
+            src = plan.state.cards.get(source or "")
+            if src is None or not crew_saddle.tapped_for(plan, "crew" if extra == "crewed_it" else "saddle", plan.oid(card), plan.oid(src)):
                 return False
         if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
             return False  # (wave 12C)

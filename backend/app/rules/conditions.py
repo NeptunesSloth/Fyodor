@@ -944,7 +944,7 @@ def _object(t: str) -> Condition | None:
     if lv := re.fullmatch(r"level (\d+)( or greater)?", what):  # -- Class (wave 16A) -- 716.2a, 716.2b
         at_level: Condition = {"object": who, "level": int(lv[1]), "min": bool(lv[2])}
         return {"not": at_level} if negate else at_level
-    if what in _ATTACHED or what in ("renowned", "monstrous"):  # (wave 11F)
+    if what in _ATTACHED or what in ("renowned", "monstrous", "saddled"):  # (wave 11F; wave 23D: saddled, 702.171b)
         test: Condition = {"object": who, **({"attached": list(_ATTACHED[what])} if what in _ATTACHED else {"designation": what})}
         return {"not": test} if negate else test
     if what in _STATES:
@@ -1206,6 +1206,10 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         n = plan.rules.levels.get(plan.oid(card), 1)
         return n >= cond["level"] if cond["min"] else n == cond["level"]
     if "designation" in cond:  # 701.37b, 702.112b: kept until the permanent leaves, so only the object it still is
+        if cond["designation"] == "saddled":  # -- crew & saddle (wave 23D) -- 702.171b: until end of turn (this turn's log)
+            from app.rules import crew_saddle
+
+            return crew_saddle.is_saddled(plan, card)
         return plan.oid(card) in (plan.rules.monstrous if cond["designation"] == "monstrous" else plan.rules.renowned)
     if "beats_self" in cond:  # "its power is greater than ~'s": either stat named (as it is, or as it last existed, 608.2h)
         mine = values._object(plan, ctx, "self")
@@ -1300,6 +1304,8 @@ _SPENT_OVER_PT = re.compile(r"the amount of mana you spent is greater than (?:th
 
 def _cast_how(t: str) -> Condition | None:
     """A condition about how the source was cast, or None."""
+    if t in ("the gift was promised", "its gift cost was paid", "this spell's gift cost was paid"):  # -- gift (wave 23D) -- 702.174k: read as kicked
+        return {"object": "self", "cast": {"kicked": True}}
     if t == "evidence was collected":  # -- casting costs (wave 22F) -- 701.59a: the spell's optional additional cost, announced as it was cast
         return {"object": "self", "cast": {"optional": "evidence"}}
     if re.fullmatch(r"an? [a-z]+ was beheld", t):  # 701.4a: "If a Dragon was beheld" (the only behold cost on the spell)
