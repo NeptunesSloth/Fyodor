@@ -616,6 +616,16 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         if found is None or found[0][0].get("max") != {"x": 1}:
             raise _Fail
         return [{**found[0][0], "max": _rider_value(sized["v"])}], None
+    # -- resolution memory (wave 22D) -- "Search your library for a creature card with mana value X or less, where X is 2 plus the
+    # sacrificed creature's mana value, put it onto the battlefield, then shuffle." (Eldritch Evolution): X is defined by the ability's
+    # text (107.3c) and read as the search is made (608.2h; the sacrificed creature as it last existed)
+    mvx = re.fullmatch(r"(?P<a>search your library for (?!up to ).+? mana value [xX](?: or less)?),? where [xX] is (?P<v>.+?), "
+                       r"(?P<b>(?:put|reveal) .+)", text)
+    if mvx:
+        found = _search(f"{mvx['a']}, {mvx['b']}")
+        if found is None or not _has_x(found[0]):
+            raise _Fail
+        return _bind_x(found[0], _rider_value(mvx["v"])), found[1]
     # -- end recursion & tutors (wave 4M) --
     m = _SEARCH.fullmatch(text)
     if not m:
