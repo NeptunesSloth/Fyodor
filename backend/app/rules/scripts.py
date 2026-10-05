@@ -87,7 +87,7 @@ TRIGGERS = [
     (re.compile(r"^When ~ leaves the battlefield, (?P<body>.+)$"), "ltb_self"),
     (re.compile(r"^At the beginning of your upkeep, (?P<body>.+)$"), "upkeep_you"),
     (re.compile(r"^At the beginning of your end step, (?P<body>.+)$"), "end_step_you"),
-    (re.compile(r"^Whenever ~ attacks, (?P<body>.+)$"), "attacks_self"),
+    (re.compile(r"^Whenever ~ attacks, (?!blocks, or )(?P<body>.+)$"), "attacks_self"),
     (re.compile(r"^Whenever ~ enters or attacks, (?P<body>.+)$"), "enters_or_attacks_self"),
     (re.compile(r"^(?:Landfall — )?Whenever a land you control enters, (?P<body>.+)$"), "landfall"),
     (re.compile(r"^When ~ becomes the target of a spell or ability, (?P<body>.+)$"), "targeted_self"),
@@ -362,6 +362,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         return None
     if event == "either" and cond.get("subject") in ("self", "self_or", "sel", "host") and all(c["event"] in _GONE for c in cond["conds"]):
         return "self_gone" if cond["subject"] == "self" else "event_gone"  # -- trigger tail (wave 15B) -- "dies or is put into exile"
+    if event == "either" and cond.get("subject") == "self" and all(c["event"] in _STAYING for c in cond["conds"]):
+        return "self"  # -- history (wave 22E) -- "Whenever ~ attacks, blocks, or becomes the target of a spell, it deals …"
     if event == "multi":
         if cond.get("subject") == "host":  # -- attached events (wave 4L) -- the attacking / blocking creature
             return "event" if all(x in _STAYING for x in cond["events"]) else None
@@ -381,6 +383,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         return "event_gone"  # -- triggers (wave 19B) -- "Whenever an opponent sacrifices a permanent, put that card onto the battlefield": 603.10a
     if subject == "player" and event in ("discard", "tapped_for_mana") and cond.get("obj") and not cond.get("aggregate"):
         return "event"  # -- triggers (wave 17D) -- "Whenever you discard a card, exile that card": the discarded card, now in the graveyard (701.9a)
+    if subject == "player" and event == "you_attack" and cond.get("min_attackers"):
+        return "event_all"  # -- history (wave 22E) -- "Whenever you attack with eight or more creatures, those creatures get +4/+4"
     if subject in ("sel", "self_or", "host", "self_or_host") or (subject == "player" and event == "create_token"):  # (wave 20A: "~ or equipped creature … it")
         if event in _STAYING:
             return "event_all" if cond.get("aggregate") else "event"
@@ -3430,7 +3434,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # spell or ability unless its controller pays {2}." (ward's own text, 702.21a): the spell or ability the event names
                 tm = re.fullmatch(r"counter that spell or ability unless its controller pays ((?:\{[^}X]+\})+)\.?", body)
                 counter_it: list[dict[str, Any]] = [{"do": "counter_unless", "who": "event_source", "cost": tm[1]}] if tm else []
-                parsed = parse_effects(body, it=ante, event_player=has_player) if tm is None or (cond or {}).get("event") != "targeted" \
+                plain_counter = body in ("counter that spell or ability.", "counter that spell.")  # -- history (wave 22E) -- Glyph Keeper, Kira: 701.6a
+                if plain_counter:
+                    counter_it = [{"do": "counter", "who": "event_source"}]
+                parsed = parse_effects(body, it=ante, event_player=has_player) if (tm is None and not plain_counter) or not _targeted(cond) \
                     else (counter_it, None, False)
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
@@ -3496,7 +3503,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 )
 
                 if (trigger == "cast_self" or "cast_self" in name) and re.search(r'"(?:self|event)', json.dumps(
-                        [e for e in effects if not (e["do"] == "only_if" and _conds.is_cast_condition(e["cond"]))], default=str)):
+                        [e for e in effects if not (e["do"] == "only_if" and _conds.is_cast_condition(e["cond"]))], default=str).replace(
+                            '{"mana_spent": "self"}', "")):  # (wave 22E: the spell's own payment record is what the amount reads, 601.2h)
                     return None  # -- cast triggers (wave 6D) -- the spell itself is on the stack: not read as "~"
                 if trigger == "state":  # -- state triggers (wave 6D) -- 603.8
                     from app.rules import state_triggers
@@ -3622,11 +3630,17 @@ def _intervening_may(body: str, it: str | None, event_player: bool) -> tuple[lis
 # -- end this-turn history (wave 4D) --
 
 
+def _targeted(cond: dict[str, Any] | None) -> bool:
+    """-- history (wave 22E) -- a "becomes the target of a spell or ability" event (also "you or a permanent you control": either)."""
+    return cond is not None and (cond["event"] == "targeted" or (
+        cond["event"] == "either" and all(c.get("event") == "targeted" for c in cond.get("conds", []))))
+
+
 def _has_player(cond: dict[str, Any]) -> bool:
     """Does the event name a player ("that player")? The player who acted, or who was dealt damage."""
     if cond.get("subject") == "player" or cond["event"] in _PLAYER_EVENTS:
         return True
-    if cond["event"] == "targeted":  # -- triggers (wave 19B; wave 21B: any controller) -- the player whose spell or ability it was
+    if _targeted(cond):  # -- triggers (wave 19B; wave 21B: any controller) -- the player whose spell or ability it was
         return True
     # -- triggers (wave 5D) -- "Whenever a creature an opponent controls dies / enters, that player …": the opponent
     # who controlled it (one object per event: not "one or more", 603.2c; triggers._event)
@@ -3703,7 +3717,8 @@ def _event_refs_ok(d: Definition) -> bool:
         return False
     if wants_player and not _has_player(cond):
         return False
-    return not wants_amount or (cond["event"] in _AMOUNT_EVENTS and (cond["event"] != "attack" or bool(cond.get("aggregate"))))  # (17D: attack counts only as "one or more")
+    return not wants_amount or (cond["event"] in _AMOUNT_EVENTS and (cond["event"] != "attack" or bool(cond.get("aggregate")))) or bool(
+        cond["event"] == "you_attack" and cond.get("min_attackers"))  # (17D: attack counts only as "one or more"; wave 22E: "that many" attackers)
 
 
 @lru_cache(maxsize=20000)

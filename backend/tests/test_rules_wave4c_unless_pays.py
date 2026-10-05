@@ -169,9 +169,12 @@ def test_first_kind_wordings():
     assert sentinel is not None and sentinel["first_kind"] and "not_types" in sentinel["spell"]
     either = events.parse_condition("you cast your first instant or sorcery spell each turn")
     assert either is not None and either["first_kind"]
-    for refused in ("a player casts their first multicolored spell each turn", "you cast your first Human creature spell each turn",
-                    "you cast your first noncreature, nonland spell each turn"):
-        assert events.parse_condition(refused) is None  # (marks can't answer these exactly)
+    # (wave 22E: the kinds the marks can't answer are read from the turn's cast log instead: types, subtypes, colors, mana value …)
+    for noted in ("a player casts their first multicolored spell each turn", "you cast your first Human creature spell each turn",
+                  "you cast your first noncreature, nonland spell each turn"):
+        found = events.parse_condition(noted)
+        assert found is not None and found["first_note"] and "first_kind" not in found
+    assert events.parse_condition("you cast your first spell with flying each turn") is None  # (keywords aren't recorded)
 
 
 # -- Esper Sentinel: the first noncreature spell of each opponent each turn --------------------------------

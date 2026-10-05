@@ -34,7 +34,8 @@ A condition is a dict:
   "hand" | "not_hand": the zone the spell was cast from), ``targets`` ("self" or a selector key:
   a spell that targets it, 115.9b), ``kicked``;
 * targeted only: ``by`` ("any" | "opponent" | "you": who controls the spell or ability), ``spell_only``
-  (a spell, not an ability), ``first_each_turn`` ("for the first time each turn");
+  (a spell, not an ability), ``spell_sel`` (the kind of spell: a selector key, wave 22E), ``first_each_turn`` ("for the first time
+  each turn"); its subject may be a player ("you becomes the target": ``subject`` "player");
 * counters_put only: ``counter`` (the kind, or None for any);
 * deal_damage only: ``to`` ("any" | "player" | "opponent" | "creature" | "you" | "planeswalker" |
   "player_or_pw" | "player_or_battle" | "enchanted_player"), ``combat`` (True: only combat damage, False: only noncombat
@@ -101,7 +102,7 @@ _PLAYER_VERBS = [
 _PLAYERS = {"you": "you", "an opponent": "opponent", "a player": "any", "each opponent": "opponent",
             "enchanted player": "enchanted"}  # (wave 16F: a Curse's "enchanted player")
 _NTH = {"second": 2, "third": 3, "first": 1, "fourth": 4, "fifth": 5}
-_COUNT = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
+_COUNT = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}  # (wave 22E: eight …)
 _MULTI = {"enters": "enter", "dies": "die", "attacks": "attack", "leaves the battlefield": "leave", "blocks": "block",
           "becomes blocked": "blocked", "becomes tapped": "tapped", "becomes untapped": "untapped",
           "is dealt damage": "dealt_damage",
@@ -148,6 +149,10 @@ def parse_condition(cond: str) -> Condition | None:
     # they let go of it (704.5n): not modelled, so the ability stays manual (counters alone are kept in its last known info)
     if found is not None and found.get("event") in ("die", "leave", "either", "multi") and re.search(r"modified|enchanted_or_equipped",
                                                                                                    str(found)):
+        return None
+    # -- history (wave 22E) -- 701.15b: a goaded creature is read live, as it attacks; an object that has left (a creature that died as it
+    # dealt damage, or dies) is rebuilt from its last known information, which doesn't keep the goad: such triggers stay manual
+    if found is not None and "goaded" in str(found) and not (found.get("event") == "attack" and found.get("subject") == "sel"):
         return None
     return found
 
@@ -214,6 +219,17 @@ def _parse(c: str) -> Condition | None:
         return found
     if c.endswith(" attacks an opponent"):
         return _parse(c[: -len("an opponent")] + "one of your opponents")
+    # -- history (wave 22E) -- "When ~ enters from a graveyard", "Whenever a creature enters from your graveyard": the zone it came from
+    # is part of the event (603.2; the engine records it with the entry: rules_state.Entry.from_zone)
+    m = re.fullmatch(r"(?P<s>.+?) enters?(?: the battlefield)? from (?P<z>your graveyard|a graveyard|exile|your hand)", c)
+    if m:
+        inner = _parse(f"{m['s']} enters")
+        if inner is None or inner.get("event") not in ("enter", "either") or inner.get("aggregate") \
+                or (inner["event"] == "either" and any(x["event"] != "enter" for x in inner["conds"])):
+            return None
+        if inner["event"] == "either":
+            return {**inner, "conds": [{**x, "entered_from": m["z"].replace("a ", "")} for x in inner["conds"]]}
+        return {**inner, "entered_from": m["z"].replace("a ", "")}
     # -- entry forms (wave 11F) -- "Whenever a creature enters [the battlefield] under your control" is "a creature you control
     # enters" (603.6a: an object entering the battlefield, under that player's control); "under an opponent's control":
     # "an opponent controls". (A permanent "an opponent owns" is another thing: not read.)
@@ -365,6 +381,15 @@ def _parse(c: str) -> Condition | None:
         if a is None or b is None or a.get("aggregate") or b.get("aggregate") or a["event"] == b["event"]:
             return None
         return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
+    # -- history (wave 22E) -- "Whenever this creature attacks, blocks, or becomes the target of a spell": a list of verbs for one
+    # subject, each its own event (603.2c); every part must read on its own with that subject
+    m = re.fullmatch(r"(?P<s>~|this creature|this permanent) (?P<rest>[^,]+(?:, [^,]+)+), or (?P<last>.+)", c)
+    if m:
+        parts = [_parse(f"{m['s']} {p}") for p in (*m["rest"].split(", "), m["last"])]
+        if any(p is None or p.get("aggregate") or p["event"] in ("either", "multi") for p in parts) \
+                or len({p["event"] for p in parts if p}) != len(parts):
+            return None
+        return {"event": "either", "subject": "self", "conds": parts}
     # -- triggers (wave 17D) -- "Whenever you cast a black spell or a Swamp you control enters" (Staff of the Death Magus): two whole
     # conditions, each its own event (603.2c); split where both halves read on their own
     for part in re.finditer(r" or ", c):
@@ -678,13 +703,17 @@ def _cast(c: str) -> Condition | None:
     if nth and (nth["each"] or out.get("turn")):  # (the Nth spell of any kind: counted per player per turn)
         return {**out, "nth": _NTH[nth["nth"]], "spell": selectors.Selector(zones=("stack",)).key()}
     # -- unless pays (wave 4C) -- "their first noncreature spell each turn" (app/rules/unless_pays.py: the kind's marks)
-    kind = re.fullmatch(r"(?:your|their) first (?P<kind>[a-z ]+?) spell each turn", spell)
+    kind = re.fullmatch(r"(?:your|their) first (?P<phrase>(?:[A-Za-z0-9 ,/-]+? spell|spell with [A-Za-z0-9 {}]+?)) each turn", spell)
     if kind and not out.get("turn"):
         from app.rules import unless_pays
 
-        ksel = selectors.parse(f"{kind['kind']} spell")
+        ksel = selectors.parse(kind["phrase"])
         key = selectors.replace(ksel, zones=("stack",)).key() if ksel is not None and ksel.player is None else None
-        return {**out, "first_kind": True, "spell": key} if key is not None and unless_pays.first_kind_ok(key) else None
+        if key is not None and not unless_pays.first_kind_ok(key):  # -- history (wave 22E) -- "their first multicolored spell each turn": any kind
+            from app.rules import history  # the turn's cast log records (types, subtypes, supertypes, colors, mana value)
+
+            return {**out, "first_note": True, "spell": key} if history.note_selector_ok(selectors.from_key(key), spell=True) else None
+        return {**out, "first_kind": True, "spell": key} if key is not None else None
     # -- end unless pays (wave 4C) --
     if spell.startswith(("your ", "their ")) or " each turn" in spell or "copy" in spell or " this turn" in spell:
         return None
@@ -835,14 +864,32 @@ def _object_event(c: str) -> Condition | None:
                 "sel": selectors.replace(sel, zone_owner="opponent" if c.endswith("an opponent's graveyard") else "you").key(),
                 "aggregate": m["o"].startswith("one or more ")}
     # "~ becomes the target of a spell or ability an opponent controls [for the first time each turn]"
-    m = re.fullmatch(r"(?P<s>.+?) becomes the target of (?P<what>a spell or ability|a spell)"
+    # -- history (wave 22E) -- also "you" (115.1: a player is a target too), "you or a permanent you control", and the kind of spell
+    # ("an instant or sorcery spell", "an Aura spell": read on the stack as it targeted); "for the first time each turn" is the
+    # first of THOSE events this turn (any, or by you / an opponent when named), kept in triggers._targeted_generic
+    m = re.fullmatch(r"(?P<s>.+?) becomes? the target of (?P<what>a spell or ability|an? (?:(?P<adj>[\w ]+?) )?spell)"
                      r"(?: (?P<by>an opponent controls|you control))?(?P<first> for the first time each turn)?", c)
     if m:
+        extra: Condition = {"event": "targeted", "by": {"an opponent controls": "opponent", "you control": "you"}.get(m["by"] or "", "any"),
+                            "spell_only": m["what"] != "a spell or ability", "first_each_turn": bool(m["first"])}
+        if m["adj"]:
+            kind = selectors.parse(f"{m['adj']} spell")
+            if kind is None or kind.zones != ("stack",) or kind.player is not None:
+                raise _Refuse
+            extra["spell_sel"] = kind.key()
+        if m["s"] == "you":
+            return {**extra, "subject": "player", "player": "you"}
+        parts = re.fullmatch(r"you or (?P<r>an? permanent you control|another permanent you control|an? creature you control)", m["s"])
+        if parts:
+            perm = _subject(parts["r"])
+            if perm is None or m["first"]:
+                raise _Refuse
+            return {"event": "either", "subject": "mixed",
+                    "conds": [{**extra, "subject": "player", "player": "you"}, {**extra, **perm}]}
         base = _subject(m["s"], host=True)
-        if base is None:
+        if base is None or (m["first"] and base["subject"] != "self"):
             raise _Refuse
-        return {**base, "event": "targeted", "by": {"an opponent controls": "opponent", "you control": "you"}.get(m["by"] or "", "any"),
-                "spell_only": m["what"] == "a spell", "first_each_turn": bool(m["first"])}
+        return {**base, **extra}
     # "~ is dealt combat damage" (a creature dealt lethal damage was still dealt it: 510.3a, 603.10a);
     # "you're dealt combat damage", "an opponent is dealt noncombat damage": the player dealt it
     m = re.fullmatch(r"(?P<s>.+?)(?: is|'re| are) dealt (?P<c>combat |noncombat )?damage", c)
