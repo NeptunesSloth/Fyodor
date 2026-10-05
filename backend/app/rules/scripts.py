@@ -753,9 +753,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     if intro is None:
                         return None
                 else:
-                    # -- dice (wave 25A) -- a pronoun inside one row of a results table / one "If …," branch doesn't name what another branch did
-                    in_gate = e.get("do") in ("grant_play", "free_cast", "look_exiled") and any(g.get("do") == "only_if" and g_i < index <= g_i + int(g.get("skip", 0)) for g_i, g in enumerate(out[:index]))
-                    intro = objects(index, 1 if pronoun == "it" else 2, verb or None, skip_gated=in_gate)
+                    intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
                 if e.get("do") in ("grant_play", "free_cast", "look_exiled") and (
                         intro is None or (intro.do not in _MOVERS and not _exiles_countered(out[intro.index]))):
                     # "You may play that card this turn": only what an earlier instruction of this
