@@ -964,6 +964,10 @@ def token_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         _manual(plan, new_job(ctx, controller=ctx["controller"], objects=[], retarget=False, label=ctx.get("name") or "Copy"),
                 f"{ctx.get('name') or 'Copy'}: do this by hand — {'; '.join(refused)} — then press Done")
         return False
+    if e.get("attacking") and made:  # -- token copy (wave 20F) -- "tapped and attacking" (508.4): attacking, never "attacked"
+        from app.rules import token_grammar
+
+        return token_grammar.enter_attacking(plan, ctx, made)
     return True
 
 
@@ -1186,6 +1190,12 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     c = re.sub(r"\bit's\b", "it is", clause)
     c = re.sub(r"\bthey're\b", "they are", c)
     c = c.replace("isn't", "is not").replace("aren't", "are not")
+    if re.fullmatch(r"(?:its|his|her) name is [^\"]+", c) and ex.name is None:  # -- enter as copy other (wave 20F) -- 707.9b: a modified name
+        ex.name = NAME_MARKER
+        return True
+    if re.fullmatch(_SUBJECT + r"(?:is|are) legendary in addition to (?:its|their) other types", c):  # (707.9b)
+        ex.add_supertypes = sorted({*ex.add_supertypes, "Legendary"})
+        return True
     if re.fullmatch(_SUBJECT + r"(?:is|are) not legendary(?: if (?:the|that) (?:spell|creature|permanent) is legendary)?", c):
         ex.remove_supertypes = sorted({*ex.remove_supertypes, "Legendary"})
         return True
@@ -1211,10 +1221,10 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     # P/T set, the creature type(s) and card types added, the colors set — or added with "colors and"
     m = re.fullmatch(_SUBJECT + r"(?:is|are) (?:an? )?(?P<p>\d+)/(?P<t>\d+) (?P<colors>(?:white|blue|black|red|green)"
                                 r"(?:,? (?:and )?(?:white|blue|black|red|green))* )?(?P<subs>(?:[A-Z][A-Za-z'-]* )*)"
-                                r"(?P<types>(?:artifact )?creatures?)(?: with (?P<kws>[^\"]+?))? in addition to "
+                                r"(?P<types>(?:artifact )?creatures?)?(?: with (?P<kws>[^\"]+?))? ?in addition to "
                                 r"(?:its|their) other (?P<both>colors and )?types", c)
     if m:
-        artifact = m["types"].startswith("artifact")
+        artifact = (m["types"] or "").startswith("artifact")
         subs = [s[:-1] if s.endswith("s") and s[:-1] in CREATURE_TYPES and s not in CREATURE_TYPES else s
                 for s in m["subs"].split()]
         allowed = CREATURE_TYPES | (token_grammar.ARTIFACT_TYPES if artifact else frozenset())
@@ -1227,7 +1237,8 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         elif colors:
             ex.set_colors = colors
         ex.power, ex.toughness = m["p"], m["t"]
-        ex.add_types = sorted({*ex.add_types, "Creature", *(["Artifact"] if artifact else [])})
+        # (wave 20F: "a 2/2 black Zombie in addition to its other colors and types": the creature type alone, 707.9b)
+        ex.add_types = sorted({*ex.add_types, *(["Creature"] if m["types"] else []), *(["Artifact"] if artifact else [])})
         ex.add_subtypes = sorted({*ex.add_subtypes, *subs})
         ex.add_text = [*ex.add_text, *(k.capitalize() for k in with_kws[0])]
         return True
@@ -1267,6 +1278,7 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
 # -- enter as copy (wave 5F) -- "except it has this ability" (Thespian's Stage, Cryptoplasm, Dimir Doppelganger): the copy
 # gains the very ability that made it (707.9a) — its printed line, filled in from the ability being defined
 THIS_ABILITY = "\x00this ability"
+NAME_MARKER = "\x00name"  # -- enter as copy other (wave 20F) -- ``with_this_ability`` writes the printed name in
 
 
 def with_this_ability(d: dict[str, Any], text: str) -> dict[str, Any] | None:
@@ -1274,6 +1286,13 @@ def with_this_ability(d: dict[str, Any], text: str) -> dict[str, Any] | None:
     import json
 
     raw = json.dumps(d)
+    name_marker = json.dumps(NAME_MARKER)[1:-1]
+    if name_marker in raw:  # -- enter as copy other (wave 20F) -- "except its name is Sakashima the Impostor": the name as printed (not ~)
+        named = re.search(r"\b(?:its|his|her) name is (?P<n>.+?)(?=, (?:it|he|she|they)\b| and (?:it|he|she|they)\b|\.(?:\s|$)|$)", text)
+        if named is None or '"' in named["n"]:
+            return None
+        raw = raw.replace(name_marker, json.dumps(named["n"])[1:-1])
+        d = json.loads(raw)
     marker = json.dumps(THIS_ABILITY)
     if marker not in raw:
         return d

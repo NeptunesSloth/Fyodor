@@ -398,12 +398,15 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     if kind != "static":
         return None
     # -- small wordings (wave 11E) -- "Creature spells you control can't be countered." (101.2, 701.6)
-    m = re.fullmatch(r"(?:(?P<sel>[\w ,'-]+?) )?spells you control can't be countered", t)
+    # (-- cant restrictions (wave 20F) -- "Creature spells can't be countered" (Gaea's Herald), "Creature spells you cast …", "… you control
+    # with power 5 or greater …": whose spells, and a with-tail; 101.2, 701.6)
+    m = re.fullmatch(r"(?:(?P<sel>[\w ,'-]+?) )?spells(?: (?P<own>you control|you cast))?(?: (?P<with>with (?:power|toughness) "
+                     r"\d+ or (?:greater|less)))? can't be countered", t)  # (not "mana value": a spell's X, 107.3f, isn't read here)
     if m:
-        key = spell_filter(m["sel"]) if m["sel"] else None
-        if m["sel"] and key is None:
+        key = spell_filter(m["sel"], m["with"]) if m["sel"] or m["with"] else None
+        if (m["sel"] or m["with"]) and key is None:
             return None
-        return {"kind": "static", "static": "spells_uncounterable", "filter": key, "effects": []}
+        return {"kind": "static", "static": "spells_uncounterable", "filter": key, "effects": [], **({} if m["own"] else {"any_player": True})}
     m = STATIC_FREE.fullmatch(t)
     if m:
         key = spell_filter(m["sel"]) if m["sel"] else None
@@ -708,7 +711,7 @@ def spell_matches(state: GameState, player: str, card: CardInstance, ch: Charact
 def spell_uncounterable(state: GameState, info: CardInfo, card: CardInstance, ch: Characteristics) -> bool:
     """-- small wordings (wave 11E) -- does a static on the table say this spell, controlled by its caster, can't be
     countered (101.2, 701.6)?"""
-    return any(src.controller == card.controller and (not d["filter"] or spell_matches(state, card.controller, card, ch, d["filter"], info))
+    return any((d.get("any_player") or src.controller == card.controller) and (not d["filter"] or spell_matches(state, card.controller, card, ch, d["filter"], info))
                for src, _, d in _table_statics(state, info, {"spells_uncounterable"}))
 
 

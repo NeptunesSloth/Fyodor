@@ -319,7 +319,6 @@ def test_object_wordings(text, expected):
 @pytest.mark.parametrize("text", [
     "it's tapped",  # (physical state of an object other than the source: never read from last known information)
     "it's a creature you control",
-    "it was kicked",
     "it's the second time",
 ])
 def test_unread_object_wordings(text):

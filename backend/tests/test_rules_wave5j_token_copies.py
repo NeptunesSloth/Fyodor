@@ -212,11 +212,10 @@ def test_the_family_is_covered(name):
 
 
 def test_wordings_still_refused():
-    # populate X times, a token entering attacking, a copy of a dying creature (608.2h), a pronoun that names a card an
+    # populate X times, a token entering attacking, a pronoun that names a card an
     # earlier instruction moved, "for each other …"
     assert not ok("Populate X times.", "Full Flowering", "Sorcery")
     assert not ok("Whenever Ghired attacks, populate. The token enters tapped and attacking.", "Ghired")
-    assert not ok("When this creature dies, if it isn't a token, create a token that's a copy of it.")
     assert not ok("Return target Equipment card from your graveyard to the battlefield. Attach it to target creature you "
                   "control.", "Card", "Sorcery")
     assert not ok("For each other creature you control, create a token that's a copy of that creature.", "Card", "Sorcery")

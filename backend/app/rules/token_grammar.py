@@ -299,11 +299,16 @@ def create_attacking(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool
     defending player). They are attacking but never "attacked" (no attack triggers)."""
     from app.rules import effects  # (effects registers this module's primitives)
 
-    pid = ctx["controller"]
     before = set(plan.state.cards)
     effects.create_token(plan, ctx, {**e, "who": "you", "tapped": bool(e.get("tapped"))})
-    new = [cid for cid, c in plan.state.cards.items() if cid not in before and c.controller == pid
-           and c.zone.endswith(":battlefield")]
+    return enter_attacking(plan, ctx, [cid for cid in plan.state.cards if cid not in before])
+
+
+def enter_attacking(plan: Plan, ctx: dict[str, Any], made: list[str]) -> bool:
+    """-- token copy (wave 20F) -- the attack choice of tokens that just entered "tapped and attacking" (508.4), also for token
+    copies (copying.token_copy); False while their controller is asked whom they attack."""
+    pid = ctx["controller"]
+    new = [c for c in made if (card := plan.state.cards.get(c)) is not None and card.controller == pid and card.zone.endswith(":battlefield")]
     if not new or plan.state.turn.phase not in _ATTACKING_PHASES or pid != plan.active:
         return True
     options = [DecisionOption(id=p, label=plan.name(p)) for p in plan.live() if p != pid]
