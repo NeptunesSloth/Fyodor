@@ -251,14 +251,16 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "keep_mana", "color": {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[m[1]], "effects": []}
     # -- static_other sweep (wave 21A) -- 702.34a: "Each instant and sorcery card in your graveyard has flashback. The flashback cost is equal to that
     # card's mana cost." (Lier, Disciple of the Drowned), "During your turn, each … has flashback. Its flashback cost is equal to its mana cost."
-    m = re.fullmatch(r"(?P<turn>during your turn, )?each (?P<sel>[a-z ,'-]+?) cards? in your graveyard has flashback\. (?:the|its) flashback cost "
-                     r"is equal to (?:that card's|its) mana cost", t, re.I)
+    # -- casting costs (wave 22F) -- "During your turn, each Lesson card in your graveyard has flashback {1}." (Iroh, Grand Lotus): a fixed cost; a
+    # reminder after the sentence is read past
+    m = re.fullmatch(r"(?P<turn>during your turn, )?each (?P<sel>[a-z ,'-]+?) cards? in your graveyard has flashback(?:\. (?:the|its) flashback cost "
+                     r"is equal to (?:that card's|its) mana cost| (?P<fixed>\{\d+\}))(?: \(.*\))?", t, re.I)
     if m:
         sel = selectors.parse(m["sel"].replace(" and ", " or ") + " card in your graveyard")
         if sel is None or sel.zones != ("graveyard",) or not sel.card or sel.player is not None:
             return None
         return {"kind": "static", "static": "gy_flashback", "sel": selectors.replace(sel, zone_owner="you").key(),
-                "your_turn": bool(m["turn"]), "effects": []}
+                "your_turn": bool(m["turn"]), "effects": [], **({"cost": m["fixed"]} if m["fixed"] else {})}
     m = STATIC_SPEND.fullmatch(t)
     if m:
         ok, key = _filter(m["sel"])

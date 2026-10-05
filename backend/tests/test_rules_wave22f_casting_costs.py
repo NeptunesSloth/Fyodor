@@ -29,7 +29,7 @@ def card_db(settings):
     from app.cards.importer import build_database
 
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY, *LIFE, *SPHERE, *EVIDENCE, *DEMON], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY, *LIFE, *SPHERE, *EVIDENCE, *DEMON, *IROH], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
 
 
@@ -351,4 +351,31 @@ def test_cast_an_enchantment_by_paying_life_once_each_turn(cards):
     assert s.state.cards[first.id].zone == "p1:battlefield" and s.state.players["p1"].life == before - 3
     with pytest.raises(ActionError):  # once during each of your turns
         act(s, "p1", type="cast_spell", card_id=second.id, free=True)
+    check(s)
+
+
+# -- static grants of flashback to cards in a graveyard (113.6, 702.34) --
+IROH = [
+    real("Iroh, Grand Lotus", "{3}{G}{U}{R}", 6, "Legendary Creature — Human Noble Ally", "Firebending 2\nDuring your turn, each non-Lesson instant and "
+         "sorcery card in your graveyard has flashback. The flashback cost is equal to that card's mana cost. (You may cast a card from your "
+         "graveyard for its flashback cost. Then exile it.)\nDuring your turn, each Lesson card in your graveyard has flashback {1}.", ("5", "5"), "GUR"),
+    real("Environmental Sciences", "{2}", 2, "Sorcery — Lesson", "Search your library for a basic land card, reveal it, put it into your hand, then "
+         "shuffle. You gain 2 life.", None),
+]
+
+
+def test_iroh_flashback_lines_are_read(cards):
+    feats = {f.id: f.supported for f in coverage.of_card_data(cards.resolve("Iroh, Grand Lotus")).features}
+    assert feats["text:1"] and feats["text:2"]
+
+
+def test_lesson_cards_have_flashback_for_a_fixed_cost(cards):
+    s = build(cards, ["Iroh, Grand Lotus", "Environmental Sciences"])
+    put(s, "Iroh, Grand Lotus")
+    lesson = card_named(s, "Environmental Sciences")
+    act(s, "p1", type="move", card_ids=[lesson.id], to={"zone": "graveyard"})
+    mana(s, C=1)  # flashback {1}, not its {2} mana cost
+    act(s, "p1", type="cast_spell", card_id=lesson.id)
+    answer(s)
+    assert s.state.cards[lesson.id].zone == "p1:exile"  # flashback exiles it (702.34a)
     check(s)
