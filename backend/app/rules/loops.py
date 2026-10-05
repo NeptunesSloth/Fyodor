@@ -77,7 +77,12 @@ def may_sentence(text: str) -> list[dict[str, Any]] | None:
 
 def plain(body: str) -> str:
     """"…, put it into your graveyard and repeat this process": two instructions in order (608.2c), as "…, then repeat this process"."""
-    return re.sub(r"(, [^,.]+?) and repeat this process\b", r"\1, then repeat this process", body) if "repeat this process" in body else body
+    if "repeat this process" not in body:
+        return body
+    body = re.sub(r"(, [^,.]+?) and repeat this process\b", r"\1, then repeat this process", body)
+    # "Create a Food token, then you may exile three cards from your graveyard. If you do, repeat this process.": the optional part
+    # is a sentence of its own (the instructions are in the same order, 608.2c), which is how "If you do" reads its payment
+    return re.sub(r", then (you may [^.,]+)\. (If you do, )", r". Then \1. \2", body)
 
 
 def finish(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | None:

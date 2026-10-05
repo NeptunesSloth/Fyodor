@@ -46,6 +46,8 @@ CARDS = [
     ("Probe Soldier", "{1}{W}", "Creature — Human Soldier", "1", "1", ""),
     ("Probe Relic", "{1}", "Artifact", None, None, "{T}: Add {C}."),
     ("Probe Spell", "{2}", "Sorcery", None, None, "Draw a card."),
+    ("Pride of the Road", "{3}{W}", "Creature — Zombie Cat Warrior", "2", "5",
+     f"Vigilance\n{ENGINES}\nMax speed — At the beginning of combat on your turn, target creature or Vehicle you control gains double strike until end of turn."),
     ("Act of Treason", "{2}{R}", "Sorcery", None, None,
      "Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn. (It can attack and {T} this turn.)"),
 ]
@@ -272,4 +274,33 @@ def test_the_speed_trigger_belongs_to_the_active_player_only(cards):
     set_speed(s, 1, "p2")  # (Bob has speed 1 too: an opponent losing life on Alice's turn raises Alice's speed, never Bob's)
     bolt(s, "p2")
     assert speed(s) == 2 and speed(s, "p2") == 1
+    check(s)
+
+
+@pytest.mark.parametrize("n", [1, 2, 3])
+def test_x_is_your_speed_in_a_static_and_in_a_cost_reduction(cards, n):
+    s = build(cards, ["Samut, the Driving Force", "Probe Soldier", "Probe Spell"], [])
+    put(s, "Samut, the Driving Force")
+    put(s, "Probe Soldier")
+    set_speed(s, n)
+    assert pt(s, "Probe Soldier") == (1 + n, 1)  # "Other creatures you control get +X/+0, where X is your speed"
+    c = to_hand(s, "Probe Spell")  # {2}: "Noncreature spells you cast cost {X} less"
+    mana(s, G=max(0, 2 - n))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert zone_of(s, "Probe Spell") == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize("n,gets", [(3, False), (4, True)])
+def test_a_max_speed_trigger_with_a_target_only_exists_at_max_speed(cards, n, gets):
+    s = build(cards, ["Pride of the Road", "Probe Soldier"], [])
+    put(s, "Pride of the Road")
+    soldier = put(s, "Probe Soldier")
+    set_speed(s, n)
+    act(s, "p1", type="pass_priority")  # → the beginning of combat on Alice's turn
+    answer(s, soldier.id)
+    from app.rules.plan import Plan
+
+    assert ("double strike" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[soldier.id]).keywords) == gets
     check(s)

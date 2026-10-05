@@ -32,6 +32,9 @@ EXTRA = [c for c in CLASH if c["name"] in ("Test Giant", "Test Mite")] + [
     real("Balustrade Spy", "{3}{B}", 4, "Creature — Vampire Rogue",
          "Flying\nWhen this creature enters, target player reveals cards from the top of their library until they reveal a land card, then "
          "puts those cards into their graveyard.", ("3", "2"), "B"),
+    real("Insatiable Frugivore", "{3}{B}", 4, "Creature — Rat Berserker",
+         "When this creature enters, create a Food token, then you may exile three cards from your graveyard. If you do, repeat this process.\n"
+         "{3}{B}, Sacrifice X Foods: Creatures you control get +X/+0 and gain menace until end of turn.", ("2", "4"), "B"),
     real("Ad Nauseam", "{3}{B}{B}", 5, "Instant",
          "Reveal the top card of your library and put that card into your hand. You lose life equal to its mana value. You may repeat this "
          "process any number of times.", None, "B"),
@@ -47,7 +50,7 @@ def card_db(settings):
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", ["Hoarder's Greed", "Remorseless Punishment", "Zimone and Dina", "Ad Nauseam", "Balustrade Spy"])
+@pytest.mark.parametrize("name", ["Hoarder's Greed", "Remorseless Punishment", "Zimone and Dina", "Ad Nauseam", "Balustrade Spy", "Insatiable Frugivore"])
 def test_the_repeat_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -155,4 +158,19 @@ def test_reveal_until_a_land_then_the_revealed_cards_go_to_the_graveyard(cards):
     names = [s.state.cards[c].name for c in s.state.zones["p2:graveyard"]]
     assert names.count("Test Mite") == 1 and names.count("Test Giant") == 1 and names.count("Island") == 1  # revealed down to the first land
     assert len(s.state.zones["p2:graveyard"]) == before + 3
+    check(s)
+
+
+@pytest.mark.parametrize("yards,foods", [(2, 1), (3, 2), (7, 3)])
+def test_each_turn_of_the_process_pays_again_until_it_cant(cards, yards, foods):
+    """Insatiable Frugivore: a Food, then exile three cards from the graveyard: if you do, the whole process again (a Food, three more cards …)."""
+    s = build(cards, ["Insatiable Frugivore"], [], forests=12)
+    spawn = [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Forest" and c.zone == "p1:library"][:yards]
+    for c in spawn:
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    frug = to_hand(s, "Insatiable Frugivore")
+    mana(s, B=1, G=3)
+    act(s, "p1", type="cast_spell", card_id=frug.id)
+    answer(s, limit=60)
+    assert len([c for c in s.state.cards.values() if c.is_token and c.name == "Food"]) == foods
     check(s)
