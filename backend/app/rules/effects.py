@@ -3975,3 +3975,7 @@ from app.rules import counter_moves as _counter_moves  # noqa: E402, I001  -- mo
 PRIMITIVES.update(_counter_moves.PRIMITIVES)
 RESUME[_counter_moves.STEP] = _counter_moves.resume
 RESUME.update(_choice_grants.RESUME)
+# -- zone replacements (wave 22C) -- "If it would leave the battlefield, exile it instead of putting it anywhere else." (app/rules/leave_exile.py)
+from app.rules import leave_exile as _leave_exile  # noqa: E402, I001
+
+PRIMITIVES.update(_leave_exile.PRIMITIVES)

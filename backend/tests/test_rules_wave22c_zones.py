@@ -129,3 +129,44 @@ def test_a_milled_blightsteel_is_shuffled_back_instead(cards):
     drive(s)
     assert zone_of(s, blight) == "p1:library" and not graveyard(s)
     roundtrip(s)
+
+
+# == "If it would leave the battlefield, exile it instead of putting it anywhere else." (Whip of Erebos, Geth, 614.1a) ==
+WHIP = ("{1}: Return target creature card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the "
+        "next end step. If it would leave the battlefield, exile it instead of putting it anywhere else.")
+GETH = ("{1}: Return target creature card from your graveyard to the battlefield. It gains \"If this creature would leave the "
+        "battlefield, exile it instead of putting it anywhere else.\"")
+
+
+def reanimate(s, text):
+    bear = put(s, "Grizzly Bears", "graveyard")
+    t = permanent(s, "p1", "Reanimator", "Enchantment", text)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=t.id, ability=0, targets=[bear.id])
+    drive(s)
+    return next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p1:battlefield")
+
+
+@pytest.mark.parametrize("text", [WHIP, GETH])
+@pytest.mark.parametrize("how, mover", [("sacrificed", "{1}: Sacrifice a creature."), ("bounced", "{1}: Return target creature to its owner's hand.")])
+def test_a_reanimated_creature_that_would_leave_is_exiled_instead(cards, text, how, mover):
+    s = game(cards, ["Grizzly Bears"])
+    permanent(s, "p1", "Mourner", "Enchantment", "Whenever a creature dies, you gain 1 life.")
+    bear = reanimate(s, text)
+    mover_card = permanent(s, "p1", "Mover", "Enchantment", mover)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=mover_card.id, ability=0, **({"targets": [bear.id]} if "target" in mover else {}))
+    drive(s)
+    assert zone_of(s, bear) == "p1:exile" and not graveyard(s) and s.state.players["p1"].life == 40  # (never died)
+    roundtrip(s)
+
+
+def test_the_replacement_belongs_to_that_object_only(cards):
+    s = game(cards, ["Grizzly Bears"])
+    bear = reanimate(s, WHIP)
+    assert zone_of(s, bear) == "p1:battlefield" and s.state.rules.exile_if_leaves
+    act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "exile"})  # (exiled by hand: it is a new object if it ever returns)
+    again = put(s, "Grizzly Bears", "battlefield")  # (a different object entirely: not replaced when it dies)
+    assert zone_of(s, again) == "p1:battlefield"
+    act(s, "p1", type="move", card_ids=[again.id], to={"player": "p1", "zone": "graveyard"})
+    assert zone_of(s, again) == "p1:graveyard"

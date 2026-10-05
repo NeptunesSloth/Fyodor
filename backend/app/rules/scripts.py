@@ -4002,6 +4002,7 @@ _UNLESS_COUNT = re.compile(r"^you control (?P<n>\w+) or (?P<cmp>more|fewer) (?P<
 _UNLESS_OPPONENTS = re.compile(r"^you have (?P<n>\w+) or more opponents$")
 # The object's own "instead": "If ~ would die, exile it instead." / "… be put into a graveyard from anywhere …"
 EXILE_INSTEAD_SELF = re.compile(r"^If ~ would (?P<what>die|be put into a graveyard from anywhere), exile it instead\.$")
+_LEAVES_EXILE_SELF = re.compile(r"^If ~ would leave the battlefield, exile it instead(?: of putting it anywhere else)?\.$")
 # -- zone replacements (wave 22C) -- "If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead." (Blightsteel Colossus)
 SHUFFLE_INSTEAD_SELF = re.compile(r"^If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead\.$")
 # -- instead (wave 20B) -- "If this creature would die, put it on the bottom of its owner's library instead." (Nissa's Chosen; on top: Gravebane Zombie)
@@ -4391,6 +4392,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
             else:
                 out["n"] = {"times": [n, each]} if n != 1 else each
         return out
+    if _LEAVES_EXILE_SELF.match(text):  # -- zone replacements (wave 22C) -- "If ~ would leave the battlefield, exile it instead of putting it anywhere else."
+        return {"kind": "replacement", "replacement": "exile_instead", "from": "leaves", "effects": []}
     m = EXILE_INSTEAD_SELF.match(text)
     if m:
         return {"kind": "replacement", "replacement": "exile_instead",
@@ -4487,6 +4490,10 @@ def _turn_record(text: str) -> list[dict[str, Any]] | None:
 
 def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
     """A sentence that sets up a replacement effect for the rest of the turn, or None."""
+    from app.rules import leave_exile  # -- zone replacements (wave 22C) -- "If it would leave the battlefield, exile it instead of …"
+
+    if effects and (left := leave_exile.sentence(text)) is not None:
+        return left
     if _CREATURE_NO_REGEN_EXILE.match(text):  # -- can't regenerate (wave 19E) -- "If it's a creature, it can't be regenerated this turn, …"
         refs = {e["who"] for e in effects if isinstance(e.get("who"), str) and _group_of(e) is not None}
         found = [w for w in refs if (g := _group_of({"who": w})) is not None and g < len(groups)

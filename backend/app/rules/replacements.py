@@ -790,10 +790,19 @@ def _self_shuffle_instead(plan: Plan, card: CardInstance) -> bool:
     return any(d["kind"] == "replacement" and d.get("replacement") == "shuffle_instead" for d in _definitions(plan, card).values())
 
 
-def graveyard_candidates(plan: Plan, card: CardInstance) -> list[Cand]:
-    """The replacement effects that apply to ``card`` going to a graveyard now, in no particular order."""
+def zone_candidates(plan: Plan, card: CardInstance, dest: str = "graveyard") -> list[Cand]:
+    """The replacement effects that apply to ``card`` going to ``dest`` now (a graveyard, or for a permanent anywhere but
+    exile: "if it would leave the battlefield, exile it instead"), in no particular order."""
     frm = _from_zone(card)
     out: list[Cand] = []
+    if frm == "battlefield" and dest not in ("exile", "battlefield"):
+        if plan.oid(card) in plan.rules.exile_if_leaves:  # 702.84a: "If it would leave the battlefield, exile it instead of putting it anywhere else."
+            out.append(("unearth", "exile", False))
+        if any(d["kind"] == "replacement" and d.get("replacement") == "exile_instead" and d.get("from") == "leaves"
+               for d in _definitions(plan, card).values()):
+            out.append((card.name or "its own ability", "exile", False))
+    if dest != "graveyard":
+        return out
     if frm == "stack" and plan.oid(card) in plan.rules.exile_if_graveyard:  # -- refused look/cast-free (wave 3R5) -- a spell cast
         out.append(("its own cast", "exile", True))  # "without paying …": "If that spell would be put into your graveyard, exile it instead"
     if frm == "battlefield" and card.counters.get("finality", 0) > 0:  # 122.1h (-- refused zones/sized (wave 3R4) --)
@@ -875,7 +884,7 @@ def resume_616(plan: Plan, d: Any, chosen: list[str]) -> None:
 def leave_stack_instead(plan: Plan, card: CardInstance, controller: str) -> bool:
     """A spell leaving the stack for a graveyard (resolved or countered) that a replacement sends elsewhere. True: handled
     (moved, or held for a 616.1 choice)."""
-    cands = graveyard_candidates(plan, card)
+    cands = zone_candidates(plan, card)
     if not cands:
         return False
     pick = _pick(plan, card, cands, "graveyard")
@@ -925,28 +934,25 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             continue
         frm = _from_zone(card)
         oid = plan.oid(card)
-        if frm == "battlefield" and dest not in ("exile", "battlefield") and oid in r.exile_if_leaves:
-            r.exile_if_leaves = [o for o in r.exile_if_leaves if o != oid]  # used up (614.5)
-            replaced.append((cid, "exile", "unearth"))
-            continue
-        if dest == "graveyard":
-            if frm == "hand":
-                # 616.1: madness and an "exile instead" static (Rest in Peace) would both replace a
-                # discard; the card's owner chooses. Only madness leads anywhere different (the
-                # card is exiled either way, and may then be cast), so it is applied first.
-                cost = _madness_cost(plan, card)
-                if cost is not None:
-                    madness.append((cid, cost))
-                    continue
-            if cands := graveyard_candidates(plan, card):  # -- zone replacements (wave 22C) -- 616.1 among the candidates
-                pick = _pick(plan, card, cands, dest)
-                if pick is None:
-                    held.append(cid)  # two different results: its controller chooses (asked before priority)
-                    continue
-                if pick[2]:  # (a spell cast "without paying …": its one-shot "exile it instead" is used up, 614.5)
-                    r.exile_if_graveyard = [o for o in r.exile_if_graveyard if o != oid]
-                replaced.append((cid, pick[1], pick[0]))
+        if dest == "graveyard" and frm == "hand":
+            # 616.1: madness and an "exile instead" static (Rest in Peace) would both replace a
+            # discard; the card's owner chooses. Only madness leads anywhere different (the
+            # card is exiled either way, and may then be cast), so it is applied first.
+            cost = _madness_cost(plan, card)
+            if cost is not None:
+                madness.append((cid, cost))
                 continue
+        if cands := zone_candidates(plan, card, dest):  # -- zone replacements (wave 22C) -- 616.1 among the candidates
+            pick = _pick(plan, card, cands, dest)
+            if pick is None:
+                held.append(cid)  # two different results: its controller chooses (asked before priority)
+                continue
+            if pick[2]:  # (a spell cast "without paying …": its one-shot "exile it instead" is used up, 614.5)
+                r.exile_if_graveyard = [o for o in r.exile_if_graveyard if o != oid]
+            if frm == "battlefield":  # (it leaves: the object is gone, and a "leaves the battlefield" record with it)
+                r.exile_if_leaves = [o for o in r.exile_if_leaves if o != oid]
+            replaced.append((cid, pick[1], pick[0]))
+            continue
         if dest in ("hand", "library"):
             answer = _commander_instead(plan, card, dest)
             if answer:
@@ -997,7 +1003,7 @@ def _replace_mill(plan: Plan, payload: dict[str, Any], actor: str | None) -> dic
     pid = payload.get("player") or actor or plan.actor
     library = plan.state.zones.get(zone_key(pid, "library"), [])
     top = library[: int(payload.get("count", 1))]
-    picks = {cid: graveyard_candidates(plan, plan.state.cards[cid]) for cid in top}  # -- zone replacements (wave 22C) --
+    picks = {cid: zone_candidates(plan, plan.state.cards[cid]) for cid in top}  # -- zone replacements (wave 22C) --
     if not any(picks.values()):
         return payload
     changed: list[str] = []
