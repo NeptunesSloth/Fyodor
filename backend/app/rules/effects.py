@@ -1305,7 +1305,7 @@ def free_cast_offer(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if card is None or not card.zone.endswith(":exile"):
         return True
     plan.rules.free_casts.append(cid)
-    decide(plan, player=card.owner, kind="choose_one", prompt=f"Cast {card.name} without paying its mana cost?",
+    decide(plan, player=card.owner, kind="choose_one", prompt=f"Rebound: cast {card.name} without paying its mana cost?",
            options=[DecisionOption(id="yes", label="Cast it"), DecisionOption(id="no", label="Leave it exiled")],
            resume={"step": "suspend_cast", "ctx": ctx, "card": cid}, source=card)
     return False
