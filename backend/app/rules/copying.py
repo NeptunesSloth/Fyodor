@@ -47,8 +47,8 @@ linked abilities (707.7) — the grammar doesn't read those wordings, so the car
 other card types", 707.9b), abilities gained only if the result is a creature / planeswalker (707.9f: Moritte), "it doesn't copy that
 creature's color" (707.9c: the object's own colors, ``keep_colors``) and — read only for an object entering as a copy — "it enters with
 an additional +1/+1 counter on it [if it's a creature]" (707.9e: an additional effect of the replacement, kept on the definition and
-applied by ``entry_counters`` through ``replacements.entering_counters``; never a copiable value, and dropped when the copied text
-enters as a copy itself). A character card's "he's / his name is" is read like "it". "Becomes a copy" accepts "another" / "up to one other"
+applied by ``entry_counters`` through ``replacements.entering_counters``; never a copiable value; the engine applies no later copy effect
+as it enters, so they always happen). A character card's "he's / his name is" is read like "it". "Becomes a copy" accepts "another" / "up to one other"
 targets, the object a trigger or earlier instruction names ("it", "that creature": as it last existed when it left, 608.2h), a card in a
 graveyard (its printed values, 707.2) and a group ("each other creature [you control]", ``parse_become_group``: one effect on the group as
 it is as it begins, 611.2c). "Enter as a copy of a creature card in a graveyard" reads public cards only.
@@ -1130,13 +1130,11 @@ def entry_counters(plan: Plan, card: CardInstance, controller: str, ch: Characte
     """-- copy exceptions (wave 24A) -- 707.9e: "… except it enters with an additional +1/+1 counter on it [if it's a creature]" is an
     additional effect of the replacement effect, so it happens only while the object enters as that copy, and isn't copied by a later
     copy. 707.9f: "if it's a creature" is judged on what the copy is (``ch``); "if you control that creature" on the copied permanent.
-    A copy whose copied text enters as a copy itself applies another copy effect afterwards: the exception doesn't happen (707.9e)."""
-    from app.rules import scripts
-
+    (review 24A: the exception is lost only when another copy effect is applied after it; the engine applies only the entering card's
+    own "enter as a copy" — ``enter_definition`` — never a copied one, so the counters are always put, even when the copied object
+    has such a replacement and was itself not copying anything.)"""
     d = enter_definition(plan, card)
     if d is None or not d.get("enter_counters") or not entering_as_copy(plan, card):
-        return {}
-    if any(x_.get("replacement") == "enter_as_copy" for x_ in scripts.definitions(ch).values()):
         return {}
     source = plan.state.cards.get((choices or {}).get(str(d["what"]), ""))
     out: dict[str, int] = {}
@@ -1539,7 +1537,9 @@ def parse_become(what: str | None, until: bool, exc: str | None, pre: str = "", 
     effect: dict[str, Any] = {"do": "become_copy", "who": "self", "with": "target", **_dump(ex)}
     if until:
         effect["duration"] = "end_of_turn"
-    return [effect], group["what"]
+    # (review 24A: "up to one" keeps its group, min 0 — the ability goes on the stack with no target, 115.1/601.2c, and the rest of it
+    # still happens: Irma's "Then put a +1/+1 counter on her")
+    return [effect], group if group["min"] == 0 else group["what"]
 
 
 def parse_become_group(grp: str, ctl: bool, others: bool, src: str | None, what: str | None, until: bool, exc: str | None

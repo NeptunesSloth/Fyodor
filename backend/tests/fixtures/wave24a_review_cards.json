@@ -1,0 +1,194 @@
+[
+ {
+  "name": "Naga Fleshcrafter",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Snake Shapeshifter",
+  "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.\nRenew — {2}{U}, Exile this card from your graveyard: Put a +1/+1 counter on target nonlegendary creature you control. Each other creature you control becomes a copy of that creature until end of turn. Activate only as a sorcery.",
+  "power": "0",
+  "toughness": "0",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Renew"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Myrkul, Lord of Bones",
+  "mana_cost": "{4}{W}{B}{G}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — God",
+  "oracle_text": "As long as your life total is less than or equal to half your starting life total, Myrkul has indestructible.\nWhenever another nontoken creature you control dies, you may exile it. If you do, create a token that's a copy of that card, except it's an enchantment and loses all other card types.",
+  "power": "7",
+  "toughness": "5",
+  "loyalty": null,
+  "colors": [
+   "B",
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Irma, Part-Time Mutant",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Mutant Shapeshifter",
+  "oracle_text": "At the beginning of combat on your turn, Irma becomes a copy of up to one other target creature you control, except her name is Irma, Part-Time Mutant and she has this ability. Then put a +1/+1 counter on her.",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Muddle, the Ever-Changing",
+  "mana_cost": "{2}{U}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Elemental Otter Shapeshifter",
+  "oracle_text": "Whenever you cast an instant or sorcery spell, Muddle becomes a copy of up to one target nonlegendary creature you control until end of turn, except it has myriad. (Whenever it attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)",
+  "power": "3",
+  "toughness": "3",
+  "loyalty": null,
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Auton Soldier",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Artifact Creature — Alien Soldier",
+  "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield, except it isn't legendary, is an artifact in addition to its other types, and has myriad. (Whenever it attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)",
+  "power": "0",
+  "toughness": "0",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Shameless Charlatan",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Enchantment — Background",
+  "oracle_text": "Commander creatures you own have \"{2}{U}: This creature becomes a copy of another target creature.\"",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Silent Hallcreeper",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Enchantment Creature — Horror",
+  "oracle_text": "This creature can't be blocked.\nWhenever this creature deals combat damage to a player, choose one that hasn't been chosen —\n• Put two +1/+1 counters on this creature.\n• Draw a card.\n• This creature becomes a copy of another target creature you control.",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Lazav, Dimir Mastermind",
+  "mana_cost": "{U}{U}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Shapeshifter",
+  "oracle_text": "Hexproof\nWhenever a creature card is put into an opponent's graveyard from anywhere, you may have Lazav become a copy of that card, except its name is Lazav, Dimir Mastermind, it's legendary in addition to its other types, and it has hexproof and this ability.",
+  "power": "3",
+  "toughness": "3",
+  "loyalty": null,
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Hexproof"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Renegade Doppelganger",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Shapeshifter",
+  "oracle_text": "Whenever another creature you control enters, you may have this creature become a copy of that creature until end of turn. (If it does, it loses this ability for the rest of the turn.)",
+  "power": "0",
+  "toughness": "1",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Cephalid Facetaker",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Octopus Rogue",
+  "oracle_text": "This creature can't be blocked.\nAt the beginning of combat on your turn, you may have this creature become a copy of another target creature until end of turn, except it's 1/4 and has \"This creature can't be blocked.\"",
+  "power": "1",
+  "toughness": "4",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ }
+]
