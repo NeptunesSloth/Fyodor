@@ -36,6 +36,8 @@ EXTRA = [
     card('Lush Growth', set_code='tst', number='20A14', mana_cost='{G}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant land\nEnchanted land is a Mountain, Forest, and Plains.', colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
     card('Living Terrain', set_code='tst', number='20A15', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Enchantment — Aura', oracle_text="Enchant land\nEnchanted land is a 5/6 green Treefolk creature that's still a land.", colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
     card('Mana Chains', set_code='tst', number='20A16', mana_cost='{U}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature has "Cumulative upkeep {1}." (At the beginning of its controller\'s upkeep, that player puts an age counter on it, then sacrifices it unless they pay its upkeep cost for each age counter on it.)', colors=['U'], color_identity=['U'], keywords=['Enchant']),  # noqa: E501
+    card('Simian Sling', set_code='tst', number='20A21', mana_cost='{R}', cmc=1.0, type_line='Artifact Creature — Equipment Monkey', oracle_text="Equipped creature gets +1/+1.\nWhenever this creature or equipped creature becomes blocked, it deals 1 damage to defending player.\nReconfigure {2} ({2}: Attach to target creature you control; or unattach from a creature. Reconfigure only as a sorcery. While attached, this isn't a creature.)", power='1', toughness='1', colors=['R'], color_identity=['R'], keywords=['Reconfigure']),  # noqa: E501
+    card('Legion Loyalty', set_code='tst', number='20A22', mana_cost='{6}{W}{W}', cmc=8.0, type_line='Enchantment', oracle_text="Creatures you control have myriad. (Whenever a creature with myriad attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)", colors=['W'], color_identity=['W']),  # noqa: E501
     card('Stub Giant', set_code='tst', number='20A09', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Giant', oracle_text='', power='2', toughness='2', colors=['G'], color_identity=['G']),  # noqa: E501
     card('Stub Shock', set_code='tst', number='20A10', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Stub Shock deals 2 damage to any target.', colors=['R'], color_identity=['R']),  # noqa: E501
     card('Stub Exile', set_code='tst', number='20A17', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text='Exile target creature.', colors=['W'], color_identity=['W']),  # noqa: E501
@@ -44,7 +46,7 @@ EXTRA = [
 ]
 AURAS = ["Spider-Man No More", "Retro-Mutation", "Canopy Cover", "Glamdring", "Hedron Matrix", "Blade of Selves", "Glittering Frost",
          "Ordeal of Thassa",
-         "Chainflail Centipede", "Kaya's Ghostform", "Lush Growth", "Living Terrain", "Mana Chains"]
+         "Chainflail Centipede", "Kaya's Ghostform", "Lush Growth", "Living Terrain", "Mana Chains", "Simian Sling", "Legion Loyalty"]
 
 
 @pytest.fixture()
@@ -116,7 +118,7 @@ def test_glamdring_counts_instants_and_sorceries_in_your_graveyard(cards):
     for name in ("Stub Shock", "Stub Rites"):
         c = next(c for c in s.state.cards.values() if c.name == name and c.zone == "p1:library")
         act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
-    assert pt(s, giant) == (4, 2) 
+    assert pt(s, giant) == (4, 2)  # the two spells count (a creature card in the graveyard would not)
     check(s)
 
 
@@ -217,4 +219,33 @@ def test_granted_cumulative_upkeep_sacrifices_it_when_unpaid(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["sacrifice"])
     settle(s)
     assert s.state.cards[giant.id].zone == "p1:graveyard"  # 702.24a: the creature has the ability, so it's sacrificed
+    check(s)
+
+
+def test_this_creature_or_equipped_creature_becomes_blocked_it_deals_damage_to_defending_player(cards):
+    s = build(cards, "Simian Sling")
+    sling = put(s, "Simian Sling")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    act(s, "p1", type="attach", card_ids=[sling.id], to=bear.id)
+    wall = token_of(s, "p2", "Wall", "Token Creature — Wall", "0/4")
+    next_own_turn(s)
+    attack_with(s, bear)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": bear.id}])
+    settle(s)
+    assert s.state.players["p2"].life == 39  # 509.3d: the equipped creature became blocked: 1 damage from it to the defending player
+    check(s)
+
+
+def test_a_static_myriad_grant_on_every_creature_you_control(cards):
+    s = build3(cards, "Legion Loyalty")
+    put(s, "Legion Loyalty")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "3/3")
+    next_own_turn(s)
+    attack_with(s, bear)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "choose_one"
+          and "token copy" in s.state.rules.decision.prompt)
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["p3"])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 37
     check(s)

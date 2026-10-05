@@ -300,8 +300,12 @@ def _stat(phrase: str, its: str = "it") -> Any:
     if (m := re.fullmatch(r"the (?P<stat>mana value) of (?:that|the) spell|the spell's (?P<stat2>mana value)", phrase)) is not None:
         return {"mana_value": "that_spell"}  # (wave 19F: a cast trigger's spell, or the one a counter instruction just countered)
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
-    m = re.fullmatch(r"(?:(?P<its>its)|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
+    m = re.fullmatch(r"(?:(?P<its>its)|that (?P<noun>creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
                      r"(?P<spell>that spell's)|(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
+    if m and m["noun"] in ("card", "artifact", "enchantment", "land", "planeswalker"):
+        # -- damage sized by a count (wave 20A) -- "gets +X/+0, where X is that card's mana value" (Goblin Machinist): the card an earlier instruction
+        # revealed, never the creature that is pumped (``_bind_its`` leaves the placeholder for scripts.resolve_it)
+        return _Ante({_STATS[m["stat"]]: "it"})
     if m:
         # -- refused copy/mana (wave 3R3) -- "that spell's": a cast/copy trigger's spell even after an instruction
         # named another object (Deekah: "create a … token. Put X +1/+1 counters on it, where X is that spell's mana
@@ -1965,12 +1969,16 @@ def _permanents(effects: Effects, target: Any) -> bool:
     return True
 
 
+class _Ante(dict[str, Any]):
+    """A value whose "it" is an object an earlier instruction named, not the subject of the sentence it is written in."""
+
+
 def _bind_its(v: Any, its: str | None) -> Any:
     """A rider's placeholder "it" ("where X is its power", "for each counter on it") as the pump's
     own subject; refused when the subject is a pronoun the grammar can't bind here."""
     if isinstance(v, list):
         return [_bind_its(x, its) for x in v]
-    if not isinstance(v, dict):
+    if not isinstance(v, dict) or isinstance(v, _Ante):
         return v
     out = {}
     for k, x in v.items():
