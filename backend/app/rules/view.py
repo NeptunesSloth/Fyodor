@@ -13,7 +13,7 @@ from typing import Any
 
 from app.game import ops
 from app.game.control import acting_as, controller_of, decider_of
-from app.game.rules_state import CANCELLABLE_STEPS, preset_name
+from app.game.rules_state import cancelable, preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
 from app.rules import characteristics as chars
@@ -114,7 +114,7 @@ def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
                                 "source_id": d.source_id, "options": options,
                                 "min_choices": d.min_choices, "max_choices": d.max_choices,
                                 "rememberable": d.memory_key is not None,
-                                "cancelable": (d.resume or {}).get("step") in CANCELLABLE_STEPS}  # (wave 24D)
+                                "cancelable": cancelable(d)}  # (wave 24D)
         if d.display is not None:
             full["display"] = d.display
         if decider != d.player:

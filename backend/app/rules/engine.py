@@ -25,7 +25,15 @@ from typing import Any
 from app.game import actions as A
 from app.game.control import acting_as, controller_of, decider_of
 from app.game.errors import ActionError
-from app.game.rules_state import Decision, DecisionOption, PaymentRecord, PlayerPrefs, TurnCount, Yield
+from app.game.rules_state import (
+    Decision,
+    DecisionOption,
+    PaymentRecord,
+    PlayerPrefs,
+    TurnCount,
+    Yield,
+    cancelable,
+)
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import (
     assist,  # -- casting extras (wave 18E) --
@@ -1104,7 +1112,7 @@ def choose(plan: Plan, a: A.Choose) -> None:
         raise ActionError(f"It's {plan.name(d.player)}'s decision")
     chosen = list(a.option_ids)
     valid = {o.id for o in d.options}
-    if (d.resume or {}).get("step") in casting.CANCELLABLE:
+    if cancelable(d):
         valid.add("cancel")  # (-- cancelling a cast (wave 24D) --)
     from app.rules import card_names  # -- card names (wave 22B) -- 201.4: a typed name answers it
 
@@ -1134,7 +1142,7 @@ def choose(plan: Plan, a: A.Choose) -> None:
         answered = [groups[c] for c in chosen]
         if len(set(answered)) != len(answered) or set(answered) != set(groups.values()):
             raise ActionError("Answer each question once")
-    cancelling = chosen == ["cancel"] and (d.resume or {}).get("step") in casting.CANCELLABLE  # (-- cancelling a cast (wave 24D) --)
+    cancelling = chosen == ["cancel"] and cancelable(d)  # (-- cancelling a cast (wave 24D) --)
     if not cancelling and not d.min_choices <= len(chosen) <= d.max_choices:
         n = d.min_choices if d.min_choices == d.max_choices else f"{d.min_choices}–{d.max_choices}"
         raise ActionError(f"Choose {n}")

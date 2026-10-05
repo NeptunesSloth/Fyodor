@@ -17,7 +17,6 @@ from typing import Any
 from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.rules_state import (
-    CANCELLABLE_STEPS,
     CostContribution,
     DecisionOption,
     PaymentRecord,
@@ -25,6 +24,7 @@ from app.game.rules_state import (
     StackEntry,
     TargetRef,
     TurnCount,
+    cancelable,
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
@@ -603,12 +603,9 @@ def _helper_sources(state: GameState, player: str, info: CardInfo, spell: Charac
 # -- targets (601.2c) --------------------------------------------------------------------
 # -- cancelling a cast (wave 24D) -- 601.2 / 602.2: a proposal that can't be completed is rewound to before it was made; the
 # announcement choices (modes, targets) come before anything is paid or moved here, so cancelling one just ends the attempt.
-CANCELLABLE = CANCELLABLE_STEPS
-
-
 def cancelled(plan: Plan, d: Any, chosen: list[str]) -> bool:
     """Did the player cancel this announcement? Then nothing was committed: priority comes back to them."""
-    if chosen != ["cancel"] or (d.resume or {}).get("step") not in CANCELLABLE:
+    if chosen != ["cancel"] or not cancelable(d):
         return False
     plan.note(f"{plan.name(d.player)} cancelled")
     plan.rules.priority = d.player

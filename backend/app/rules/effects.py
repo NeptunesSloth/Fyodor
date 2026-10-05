@@ -1768,7 +1768,7 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: search for a {e.get('label') or 'card'}",
                options=options, resume={"step": "search_zones", "ctx": ctx, "e": e})
         return False
-    if e.get("may") and barred_search(plan, ctx, e):  # -- prohibitions (wave 24D) -- 614.17b: no choosing to search; so no shuffle
+    if e.get("may") and barred_search(plan, ctx, e):  # -- prohibitions (wave 24D) -- 608.2d: no choosing to search; so no shuffle
         return True
     if e.get("may"):
         # "Its controller may search …, then shuffle" (Path to Exile): searching is their choice,
@@ -1782,7 +1782,7 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def barred_search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """-- prohibitions (wave 24D) -- 614.17b: "You may search your library …" can't be chosen while the searcher can't search it, so the
+    """-- prohibitions (wave 24D) -- 608.2d (the player can't choose an impossible option): "You may search your library …" can't be chosen while the searcher can't search it, so the
     instruction is skipped whole — no search and (the ruling) no shuffle, unlike a mandatory "search …, then shuffle"
     (a "may" over several zones, or a search of someone else's library, stays as it was)."""
     from app.rules import prohibitions
@@ -3022,8 +3022,8 @@ def resume_may(plan: Plan, d: Any, chosen: list[str]) -> None:
         continue_effects(plan, ctx)
     else:
         plan.note(f"{plan.name(d.player)} chose not to")
-        prev = ctx["effects"][ctx["next"] - 1]
-        if prev["do"] == "may_rest" and prev.get("skip"):
+        prev = ctx["effects"][ctx["next"] - 1] if ctx["next"] else {}  # (-- review (wave 24D) -- a whole-ability "may" asked at next 0)
+        if prev.get("do") == "may_rest" and prev.get("skip"):
             ctx["next"] += prev["skip"]  # -- optional first sentence (wave 24D) -- only X is skipped, "Then Y" still happens
             continue_effects(plan, ctx)
         else:

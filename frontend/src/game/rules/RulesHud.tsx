@@ -478,7 +478,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
       <button className="tt-btn brass" data-testid="decision-done" disabled={!canSubmitChoice(picked.length, min, max)} onClick={() => done(picked)}>
         {doneLabel(picked.length, min, max)}
       </button>
-        {d.cancelable && <button className="tt-btn ghost" data-testid="option-cancel" onClick={() => done(["cancel"])}>Cancel</button>}
+      {d.cancelable && <button className="tt-btn ghost" data-testid="option-cancel" onClick={() => done(["cancel"])}>Cancel</button>}
     </div>
   );
 }
