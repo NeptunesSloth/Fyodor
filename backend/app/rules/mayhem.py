@@ -42,7 +42,7 @@ def discarded_this_turn(state: GameState, card: CardInstance) -> bool:
     """701.9a, 702.187b: this card (this object, 400.7) was discarded this turn."""
     r = state.rules
     log = r.turn_log if r is not None else None
-    if log is None or log.turn != state.turn.number:
+    if r is None or log is None or log.turn != state.turn.number:
         return False
     oid = r.object_id(card.id)
     return any(f.kind == "discard" and f.object_id == oid for f in log.facts)
