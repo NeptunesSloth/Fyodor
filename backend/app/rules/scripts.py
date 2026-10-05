@@ -3508,10 +3508,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     from app.rules import optional_payment
 
                     act = um["act"]
-                    cost = optional_payment.cost_text("pay " + act[5:] if act.startswith("pays ") else "discard a card")
-                    if cost is None or "{" in cost:
+                    pay_cost = optional_payment.cost_text("pay " + act[5:] if act.startswith("pays ") else "discard a card")
+                    if pay_cost is None or "{" in pay_cost:
                         return None
-                    counter_it = [{"do": "optional_payment", "who": "event_player", "cost": cost, "bind": "pay0"},
+                    counter_it = [{"do": "optional_payment", "who": "event_player", "cost": pay_cost, "bind": "pay0"},
                                   {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
                                   {"do": "counter", "who": "event_source"}]
                 parsed = parse_effects(body, it=ante, event_player=has_player) if (tm is None and not plain_counter and um is None) \

@@ -1385,7 +1385,7 @@ def _ability_sources(plan: Plan, sids: list[str], e: dict[str, Any]) -> dict[str
     for sid in sids:
         entry = plan.rules.stack.get(sid)
         card = plan.state.cards.get(entry.source_card or "") if entry is not None and plan.state.cards[sid].ability is not None else None
-        if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == entry.source_object \
+        if card is not None and entry is not None and card.zone.endswith(":battlefield") and plan.oid(card) == entry.source_object \
                 and (not e.get("perm_types") or plan.ch(card).types & set(e["perm_types"])):
             out[sid] = card.id
     return out
