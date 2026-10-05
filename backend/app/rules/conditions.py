@@ -1276,6 +1276,8 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "self", "cast": {"alt": "prowl"}}
     if t in ("this spell was foretold", "it was foretold"):  # -- hidden exile (wave 18A) -- 702.143c: cast for its foretell cost (the only way)
         return {"object": _cast_who(t.split()[0]), "cast": {"alt": "foretell"}}
+    if t in ("it was kicked", "this spell was kicked", "~ was kicked"):  # -- kicked instead (wave 20F) -- 702.33d: "When you cast this
+        return {"object": _cast_who(t.split()[0]), "cast": {"kicked": True}}  # spell, if it was kicked, …" (its record, 601.2h)
     if t in ("it escaped", "~ escaped"):  # -- escape (wave 5I) -- 702.138b
         return {"object": _cast_who(t.split()[0]), "cast": {"escaped": True}}
     if _NO_MANA.fullmatch(t):  # -- if you do (wave 5G) -- "if no mana was spent to cast it" (a cast trigger's spell)

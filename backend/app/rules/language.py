@@ -776,12 +776,14 @@ _REST = (r"(?:the rest|the rest of (?:those|the) cards|the rest of them|the othe
          rf"(?P<rest>into (?:your|their) graveyard|into your hand|on the bottom(?: of {_LIBREF})? in (?:any|a random) order|"
          rf"on the bottom of {_LIBREF}|(?:back )?on top of {_LIBREF} in any order)")
 _PICK_TO = ("into your hand|onto the battlefield tapped and attacking|onto the battlefield tapped|onto the battlefield|into your graveyard|"
-            "on top of your library|on the bottom of your library|on the bottom of that player's library|"
+            "into their graveyard|into that player's graveyard|"  # (wave 20F: another player's library, its owner's graveyard, 404.1)
+            "back on top of your library|on top of your library|on the bottom of your library|on the bottom of that player's library|"
             "on top of that player's library|on the bottom of that library|on top of that library")
 _PICK_DESTS = {**_DESTS, "onto the battlefield tapped and attacking": "battlefield_attacking",  # (wave 3R5: 508.4)
                "on top of your library": "top", "on the bottom of your library": "bottom",
                "on the bottom of that player's library": "bottom", "on top of that player's library": "top",
-               "on the bottom of that library": "bottom", "on top of that library": "top"}
+               "on the bottom of that library": "bottom", "on top of that library": "top",
+               "into their graveyard": "graveyard", "into that player's graveyard": "graveyard", "back on top of your library": "top"}
 _PICK = re.compile(
     rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |(?P<exile>(?:you may )?exile) |put )"
     rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among (?:them|the cards milled this way|the milled cards|those cards)|revealed this way|milled this way))"

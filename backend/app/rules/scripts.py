@@ -2196,6 +2196,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         text = _lower_first(sentence.rstrip(".").strip())
         if (i > 0 or effects) and text.startswith("then ") and not text.startswith(("then shuffle", "then you may ")):
             text = text[5:]  # -- waves 3D/3L/3C -- "Then that creature deals …" / "Then draw a card.": "then" only orders (608.2c)
+        if any(x.get("do") == "token_copy" for x in effects):  # -- token copy (wave 20F) -- "Exile the token at end of combat": the one just made
+            text = re.sub(r"^(exile|sacrifice) (?:the|that) token (at (?:the beginning of .+|end of combat))$", r"\1 it \2", text)
         # -- X sized by a count (wave 4K) -- "If X is 10 or more, also create X 4/4 … tokens" (Finale of Glory): in addition
         # to what came before (not instead of it): the plain conditional instruction
         text = re.sub(r"^(if x is \w+ or (?:more|greater), )also (?=create |draw |you gain |put )", r"\1", text, flags=re.I)
@@ -3269,7 +3271,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     return None
                 if trigger == "state" and "counters on" in m["state"]:  # (wave 19D: a state about ~'s own counters: "it" is ~)
                     body = re.sub(r"^(exile|sacrifice) it\b", r"\1 ~", body)
-                kicked = re.match(r"^if (?:it|~) was kicked, (?P<rest>.+)$", body) if name == "enters_self" else None
+                kicked = re.match(r"^if (?:it|~) was kicked, (?P<rest>.+)$", body) if name in ("enters_self", "cast_self") else None  # (wave 20F: cast_self, 702.33d)
                 if kicked is not None:  # 603.4 intervening "if": checked as it triggers (triggers._add)
                     body = kicked["rest"]
                 cond = None
@@ -3421,7 +3423,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     out["limit"] = restrictions.limit_kind(limit)
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
-                if (trigger == "cast_self" or "cast_self" in name) and re.search(r'"(?:self|event)', json.dumps(effects, default=str)):
+                from app.rules import (
+                    conditions as _conds,  # (-- kicked instead (wave 20F) -- "if it was kicked": the spell's own record, 601.2h)
+                )
+
+                if (trigger == "cast_self" or "cast_self" in name) and re.search(r'"(?:self|event)', json.dumps(
+                        [e for e in effects if not (e["do"] == "only_if" and _conds.is_cast_condition(e["cond"]))], default=str)):
                     return None  # -- cast triggers (wave 6D) -- the spell itself is on the stack: not read as "~"
                 if trigger == "state":  # -- state triggers (wave 6D) -- 603.8
                     from app.rules import state_triggers
@@ -5414,15 +5421,17 @@ def _copy_new_targets(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 @_first
-@effect(r"create (?P<n>a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|\d+) (?P<tapped>tapped )?tokens? "
-        r"that(?:'s| are) (?:a )?cop(?:y|ies) of (?P<src>.+?)(?P<each> for each time (?:it|this creature) was kicked)?"
-        r"(?:, except (?P<exc>.+))?")
+@effect(r"create (?P<n>a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|\d+) (?P<tapped>tapped (?P<atk>and attacking )?)?tokens? "
+        r"that(?:'s| are) (?:a )?cop(?:y|ies) of (?P<src>.+?)(?P<atk2> and that's tapped and attacking)?"
+        r"(?P<each> for each time (?:it|this creature) was kicked)?(?:, except (?P<exc>.+))?")
 def _token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import copying
 
-    found = copying.parse_token_copy(m["n"], bool(m["tapped"]), m["src"], m["exc"])
+    found = copying.parse_token_copy(m["n"], bool(m["tapped"] or m["atk2"]), m["src"], m["exc"])
     if found is None:
         raise _NoMatch
+    if m["atk"] or m["atk2"]:  # -- token copy (wave 20F) -- 508.4: it enters tapped and attacking (token_grammar.enter_attacking)
+        found[0][0]["attacking"] = True
     if m["each"]:  # -- keywords (wave 15E) -- squad 702.157a: once for each time its cost was paid (702.33d's count)
         found[0][0]["n"] = {"kicked": 1}
     return found
