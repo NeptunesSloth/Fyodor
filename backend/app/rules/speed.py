@@ -7,7 +7,8 @@
   action: ``sba._round`` calls :func:`start_engines`).
 * 702.179d: the inherent triggered ability of a player with 1 or more speed (no source): "Whenever one or more opponents lose life
   during your turn, if your speed is less than 4, your speed increases by 1. This ability triggers only once each turn." The life
-  loss is the table's ``life_loss`` event; the intervening "if" is checked as it triggers and as it resolves (603.4); the once-a-turn
+  loss is the table's ``life_loss`` event; the intervening "if" is checked as it triggers (``if``) and as it resolves (the ``only_if`` gate,
+  603.4; review 24B); the once-a-turn
   limit is the same ``once_each_turn`` limit abilities use (only the active player's ability can trigger in a turn).
 * 702.179c: increasing the speed of a player with none makes it that value; 702.179e / 702.178a: max speed is speed 4
   (``{"value": {"player_counters": "speed"}, "op": ">=", "n": 4}``: Gomif lets it grow further and is still at max speed).
@@ -15,7 +16,8 @@
   is rewritten that way (:func:`rewrite`) and read by the grant / "as long as" grammar the engine has.
 
 Refused (manual): speed changes other than the inherent increase ("reduce that opponent's speed", Gomif's "can increase beyond 4",
-"Pay X speed"), a max speed ability of a card in a zone other than the battlefield (702.178b).
+"Pay X speed"), a max speed ability of a card in a zone other than the battlefield (702.178b) other than an activated one ("Activate only
+if you have max speed": :func:`rewrite`). Speed is not a counter: proliferate leaves it alone (review 24B).
 """
 
 from __future__ import annotations
@@ -65,7 +67,7 @@ def on_events(plan: Plan, events: list[Event]) -> None:
         return
     for e in events:
         if e.kind == "life_loss" and not e.manual and e.player and e.player != ap and e.player in plan.live() and e.amount > 0:
-            designations._add_trigger(plan, ap, "Speed", [{"do": "speed", "n": 1}], index=INDEX,
+            designations._add_trigger(plan, ap, "Speed", [{"do": "only_if", "cond": _HAS, "skip": 1}, {"do": "speed", "n": 1}], index=INDEX,
                                       extra={"if": _HAS, "limit": "once_each_turn"})
             return  # (one trigger a turn: the limit also stops a later event's)
 

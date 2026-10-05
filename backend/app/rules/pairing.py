@@ -81,9 +81,15 @@ def _unpaired(plan: Plan, controller: str, *, but: str | None = None) -> list[Ca
     return [c for c in plan.state.cards.values() if c.id != but and _creature(plan, c, controller) and not is_paired(plan, c)]
 
 
+def _source(plan: Plan, ctx: Context) -> CardInstance | None:
+    """The soulbond creature, as the object the ability triggered for (400.7, 702.95c: one that left and came back is a new object)."""
+    me = plan.state.cards.get(ctx.get("source_card") or "")
+    return me if me is not None and (not ctx.get("source_object") or plan.oid(me) == ctx["source_object"]) else None
+
+
 def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
     """The intervening "if" of soulbond (603.4: as it triggers and as it resolves)."""
-    me = plan.state.cards.get(ctx.get("source_card") or "")
+    me = _source(plan, ctx)
     you = ctx["controller"]
     if not _creature(plan, me, you) or is_paired(plan, me):  # type: ignore[arg-type]
         return False
@@ -111,7 +117,7 @@ def _make(plan: Plan, a: CardInstance, b: CardInstance, controller: str) -> None
 def pair(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """702.95a / 702.95c: pair the source with the creature that entered, or with another unpaired creature the controller chooses."""
     you = ctx["controller"]
-    me = plan.state.cards.get(ctx.get("source_card") or "")
+    me = _source(plan, ctx)
     if not _creature(plan, me, you) or is_paired(plan, me):  # type: ignore[arg-type]
         return True
     if e["with"] == "event":
@@ -135,7 +141,7 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
 
     ctx = d.resume["ctx"]
     you = ctx["controller"]
-    me = plan.state.cards.get(ctx.get("source_card") or "")
+    me = _source(plan, ctx)
     other = plan.state.cards.get(chosen[0]) if len(chosen) == 1 else None
     if other is None or other not in _unpaired(plan, you, but=getattr(me, "id", None)):
         raise ActionError("Choose one of the creatures")

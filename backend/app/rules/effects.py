@@ -1013,8 +1013,9 @@ def proliferate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     options = [DecisionOption(id=c.id, label=f"{c.name} ({', '.join(f'{v} {k}' for k, v in c.counters.items() if v)})", card_id=c.id)
                for c in plan.state.cards.values()
                if c.zone.endswith(":battlefield") and plan.in_game(c) and any(v > 0 for v in c.counters.values())]
-    options += [DecisionOption(id=pid, label=f"{plan.name(pid)} ({', '.join(f'{v} {k}' for k, v in p.resources.items() if v > 0)})")
-                for pid, p in plan.state.players.items() if pid in plan.live() and any(v > 0 for v in p.resources.values())]
+    # (review 24B: speed is a player resource but not a counter, 702.179: proliferate never touches it)
+    options += [DecisionOption(id=pid, label=f"{plan.name(pid)} ({', '.join(f'{v} {k}' for k, v in p.resources.items() if v > 0 and k != 'speed')})")
+                for pid, p in plan.state.players.items() if pid in plan.live() and any(v > 0 and k != "speed" for k, v in p.resources.items())]
     from app.game.rules_state import emit
 
     if not options:
@@ -1034,7 +1035,7 @@ def resume_proliferate(plan: Plan, d: Any, chosen: list[str]) -> None:
         if x in plan.state.cards:
             puts += [(x, kind, 1) for kind, v in plan.state.cards[x].counters.items() if v > 0]
         elif x in plan.state.players:
-            puts += [(x, kind, 1) for kind, v in plan.state.players[x].resources.items() if v > 0]
+            puts += [(x, kind, 1) for kind, v in plan.state.players[x].resources.items() if v > 0 and kind != "speed"]
     from app.game.rules_state import emit
 
     emit(plan.state, "designation", counter="proliferate", player=d.player)  # -- trigger tail (wave 15B) -- 701.34a: "you proliferate"
