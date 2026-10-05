@@ -89,18 +89,18 @@ def parse_cost(text: str | None) -> ManaCost:
 # -- as long as (wave 9B) -- 118.14 / 609.4b: "mana of any type can be spent" and "spend mana as though it were mana of any
 # color" change only how the cost may be paid. Any type: every symbol made of mana types is paid by one mana of any type
 # (a generic requirement; {S} still needs a snow source, a Phyrexian symbol keeps its own way: the choice is only wider
-# there). Any color: a colored or all-color hybrid symbol is paid by one mana of any color (colorless can't be spent as a
-# color); {C} and {2/B}-style symbols are untouched. (Any type: {2/B} becomes one generic.)
+# there). Any color: a colored or all-color hybrid symbol is paid by one mana of any kind (colorless mana is treated as the color,
+# wave 22F); {C} and {2/B}-style symbols are untouched. (Any type: {2/B} becomes one generic.)
 def spend_as(cost: ManaCost, mode: str) -> ManaCost:
     if mode == "type":
         return ManaCost(cost.generic + sum(1 for c in cost.colored if c != SNOW) + len(cost.hybrid),  # ({2/B}: one mana pays {B})
                         tuple(c for c in cost.colored if c == SNOW), (), cost.phyrexian, cost.x, cost.unsupported)
     if mode == "color":
-        any_color = tuple(COLORS)
-        hybrid = tuple(any_color if all(x in COLORS for x in h) else h for h in cost.hybrid)
-        return ManaCost(cost.generic, tuple(c for c in cost.colored if c not in COLORS),
-                        hybrid + tuple(any_color for c in cost.colored if c in COLORS),
-                        cost.phyrexian, cost.x, cost.unsupported)
+        # -- casting costs (wave 22F) -- 609.4: colorless mana spent "as though it were mana of any color" is treated as the color
+        # needed, so a colored (or all-color hybrid) symbol is paid by any one mana; {C} and {2/B}-style symbols are untouched
+        paid = sum(1 for c in cost.colored if c in COLORS) + sum(1 for h in cost.hybrid if all(x in COLORS for x in h))
+        return ManaCost(cost.generic + paid, tuple(c for c in cost.colored if c not in COLORS),
+                        tuple(h for h in cost.hybrid if not all(x in COLORS for x in h)), cost.phyrexian, cost.x, cost.unsupported)
     return cost
 
 

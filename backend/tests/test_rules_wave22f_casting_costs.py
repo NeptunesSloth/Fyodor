@@ -29,7 +29,7 @@ def card_db(settings):
     from app.cards.importer import build_database
 
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA, *FLASH], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
 
 
@@ -163,4 +163,31 @@ def test_flash_if_it_targets_a_permanent_you_control(cards):
         act(s, "p1", type="cast_spell", card_id=photo.id, targets=[theirs.id])
     act(s, "p1", type="cast_spell", card_id=photo.id, targets=[mine.id])
     answer(s)
+    check(s)
+
+
+# -- spend mana as though it were mana of any color (609.4b) --
+ORRERY = [
+    real("Chromatic Orrery", "{7}", 7, "Legendary Artifact", "You may spend mana as though it were mana of any color.\n{T}: Add {C}{C}{C}{C}{C}.\n"
+         "{5}, {T}: Draw a card for each color among permanents you control."),
+]
+
+
+def test_orrery_line_is_read(cards):
+    feats = {f.id: f.supported for f in coverage.of_card_data(cards.resolve("Chromatic Orrery")).features}
+    assert feats["text:0"]
+
+
+def test_colorless_mana_pays_colored_costs_with_an_orrery(cards):
+    s = build(cards, ["Chromatic Orrery", "Grizzly Bears", "Grizzly Bears"])
+    bears = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    for b in bears:
+        act(s, "p1", type="move", card_ids=[b.id], to={"zone": "hand"})
+    mana(s, C=2)  # {1}{G}: colorless can't pay {G} without the Orrery
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bears[0].id)
+    put(s, "Chromatic Orrery")
+    act(s, "p1", type="cast_spell", card_id=bears[0].id)
+    answer(s)
+    assert s.state.cards[bears[0].id].zone == "p1:battlefield"
     check(s)
