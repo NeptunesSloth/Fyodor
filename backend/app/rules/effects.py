@@ -2518,11 +2518,12 @@ def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                      "index": e["place"] - 1}, actor=ctx["controller"])
         _moved(plan, ctx, e, before)
         return True
-    if e["place"] in ("choice", "choice_second") and len(cards) == 1:
+    if e["place"] in ("choice", "choice_second", "choice_you") and len(cards) == 1:
         card = plan.state.cards[cards[0]]
         second = e["place"] == "choice_second"  # -- static_other sweep (wave 17C) -- "second from the top or on the bottom" (Lost Days)
-        decide(plan, player=card.owner, kind="choose_one",
-               prompt=f"Put {card.name} " + ("second from the top or on the bottom of your library?" if second else "on the top or the bottom of your library?"),
+        # (-- ability words (wave 20C) -- "on your choice of the top or bottom of its owner's library": the controller chooses)
+        decide(plan, player=ctx["controller"] if e["place"] == "choice_you" else card.owner, kind="choose_one",
+               prompt=f"Put {card.name} " + ("second from the top or on the bottom of your library?" if second else "on the top or the bottom of its owner's library?" if e["place"] == "choice_you" else "on the top or the bottom of your library?"),
                options=[DecisionOption(id="second" if second else "top", label="Second from the top" if second else "On top"),
                         DecisionOption(id="bottom", label="On the bottom")],
                resume={"step": "library_place", "card": card.id, "ctx": ctx, "e": e, "before": [r.model_dump(mode="json") for r in before]},

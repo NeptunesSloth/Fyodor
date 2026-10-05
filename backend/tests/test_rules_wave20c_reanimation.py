@@ -21,7 +21,7 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_attachments import build, named, to_hand, token
-from tests.test_rules_conditionals import attack
+from tests.test_rules_conditionals import attack, pick, settle, to_turn, token_of
 from tests.test_rules_effects import mana, replay_matches
 from tests.test_rules_wave4l_attached import equip, put, to_attack
 
@@ -56,12 +56,19 @@ EXTRA = [
     card('Monstrosity of the Lake', set_code='tst', number='XA', mana_cost='{4}{U}', cmc=5.0, type_line='Legendary Creature — Kraken',
          oracle_text='When Monstrosity of the Lake enters, you may pay {5}. If you do, tap all creatures your opponents control, then put a stun counter on each of those creatures. (If a permanent with a stun counter would become untapped, remove one from it instead.)\nIslandcycling {2} ({2}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)',
          power='4', toughness='6', colors=['U'], color_identity=['U'], keywords=['Islandcycling', 'Landcycling', 'Typecycling', 'Cycling']),
+    card('Arashin Sovereign', set_code='tst', number='XB', mana_cost='{5}{G}{W}', cmc=7.0, type_line='Creature — Dragon',
+         oracle_text="Flying\nWhen this creature dies, you may put it on your choice of the top or bottom of its owner's library.",
+         power='6', toughness='6', colors=['G', 'W'], color_identity=['G', 'W'], keywords=['Flying']),
+    card('Not Forgotten', set_code='tst', number='XC', mana_cost='{1}{W}', cmc=2.0, type_line='Sorcery',
+         oracle_text="Put target card from a graveyard on your choice of the top or bottom of its owner's library. Create a 1/1 white Spirit creature token with flying.",
+         power=None, toughness=None, colors=['W'], color_identity=['W'], keywords=[]),
     card('Cycler Test Elf', set_code='tst', number='X6', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Elf',
          oracle_text='Forestcycling {1} ({1}, Discard this card: Search your library for a Forest card, reveal it, put it into your hand, then shuffle.)',
          power='1', toughness='1', colors=['G'], color_identity=['G'], keywords=['Forestcycling', 'Landcycling', 'Typecycling', 'Cycling']),
 ]
 FULL = ['Sword of Light and Shadow', 'Undead Butler', 'Sandbender Scavengers', 'Sacred Excavation', 'Tuktuk the Explorer', "Skrelv's Hive",
-        'Cycler Test Elf', "Praetor's Counsel", 'Wrenn and Seven', 'Smile at Death', 'Monstrosity of the Lake']
+        'Cycler Test Elf', "Praetor's Counsel", 'Wrenn and Seven', 'Smile at Death', 'Monstrosity of the Lake',
+        'Arashin Sovereign', 'Not Forgotten']
 
 
 @pytest.fixture()
@@ -99,7 +106,8 @@ def play_on(s, answer, blockers=()):
             act(s, d.player, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for a, b in blockers])
         elif d is not None:
             ids = [o.id for o in d.options]
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=[answer] if answer in ids else ids[: max(1, d.min_choices)])
+            wanted = next((a for a in ((answer,) if isinstance(answer, str) else answer) if a in ids), None)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[wanted] if wanted else ids[: max(1, d.min_choices)])
         elif s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
             return
         else:
@@ -107,10 +115,10 @@ def play_on(s, answer, blockers=()):
     raise AssertionError("combat never ended")
 
 
-def die_in_combat(s, creature, answer="yes"):
-    """``creature`` attacks Bob, whose 5/5 Ogre blocks and kills it."""
-    act(s, "p2", type="create_token", player="p2", token={"name": "Ogre", "type_line": "Token Creature — Ogre", "power": "5",
-                                                         "toughness": "5", "text": ""})
+def die_in_combat(s, creature, answer="yes", power="5"):
+    """``creature`` attacks Bob, whose Ogre (5/5, or bigger with reach to block a flier) blocks and kills it."""
+    act(s, "p2", type="create_token", player="p2", token={"name": "Ogre", "type_line": "Token Creature — Ogre", "power": power,
+                                                         "toughness": power, "text": "Reach"})
     s.state.rules.controlled_since[creature.id].turn = 0
     to_attack(s)
     attack(s, (creature, "p2"))
@@ -173,7 +181,6 @@ def test_sacred_excavation_returns_cards_with_cycling_including_typecycling(card
     spell = to_hand(s, "Sacred Excavation")
     mana(s, "p1", W=1, C=1)
     act(s, "p1", type="cast_spell", card_id=spell.id, targets=[elf.id], target_counts=[1])
-    from tests.test_rules_conditionals import settle
 
     settle(s)
     assert s.state.cards[elf.id].zone == "p1:hand" and s.state.cards[plain.id].zone == "p1:graveyard"
@@ -205,7 +212,6 @@ def test_praetors_counsel_returns_the_graveyard_exiles_itself_and_ends_the_hand_
     """"You have no maximum hand size for the rest of the game.": the player has it (RulesState.no_max_hand) after the spell is gone."""
     from app.rules import hand_size
     from app.rules.plan import Plan
-    from tests.test_rules_conditionals import settle
 
     s = build(cards, "Praetor's Counsel", "Llanowar Elves", "Lightning Bolt")
     elves, bolt = to_gy(s, "Llanowar Elves"), to_gy(s, "Lightning Bolt")
@@ -226,7 +232,6 @@ def test_praetors_counsel_returns_the_graveyard_exiles_itself_and_ends_the_hand_
 
 def test_smile_at_death_puts_a_counter_on_each_of_those_creatures(cards):
     """"Put a +1/+1 counter on each of those creatures." = each of the (up to two) creatures the sentence before returned."""
-    from tests.test_rules_conditionals import settle, to_turn
 
     s = build(cards, "Smile at Death", "Llanowar Elves", "Abbot of Keral Keep", "Foundry Inspector")
     put(s, "Smile at Death")
@@ -245,7 +250,6 @@ def test_smile_at_death_puts_a_counter_on_each_of_those_creatures(cards):
 
 
 def test_vulture_counts_only_the_fliers_that_dealt_combat_damage(cards):
-    from tests.test_rules_conditionals import token_of
 
     s = build(cards, "Llanowar Elves")
     text = ("Flying\nWhenever one or more creatures you control with flying deal combat damage to a player, put a +1/+1 counter on each of "
@@ -266,9 +270,46 @@ def test_vulture_counts_only_the_fliers_that_dealt_combat_damage(cards):
     replay_matches(reloaded(s))
 
 
+@pytest.mark.parametrize("where", ["top", "bottom"])
+def test_arashin_sovereign_goes_to_the_place_its_controller_chooses(cards, where):
+
+
+    s = build(cards, "Arashin Sovereign")
+    dragon = put(s, "Arashin Sovereign")
+    die_in_combat(s, dragon, answer=("yes", where), power="7")  # (a 7/7 with reach blocks the 6/6 flier)
+    library = s.state.zones["p1:library"]
+    assert s.state.cards[dragon.id].zone == "p1:library"
+    assert (library[0] if where == "top" else library[-1]) == dragon.id
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_not_forgotten_puts_a_graveyard_card_on_the_chosen_end_of_its_owners_library(cards):
+
+    s = build(cards, "Not Forgotten", "Llanowar Elves")
+    elves = to_gy(s, "Llanowar Elves")
+    spell = to_hand(s, "Not Forgotten")
+    mana(s, "p1", W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[elves.id])
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            assert d.player == "p1"  # (the controller of the spell chooses, not the owner)
+            pick(s, "bottom")
+    assert s.state.zones["p1:library"][-1] == elves.id
+    assert any(c.name == "Spirit" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    settle(s)
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
 def test_monstrosity_of_the_lake_stuns_each_creature_it_tapped(cards):
     """"tap all creatures your opponents control, then put a stun counter on each of those creatures": the creatures tapped, not mine."""
-    from tests.test_rules_conditionals import pick
+
 
     s = build(cards, "Monstrosity of the Lake")
     mine = token(s, "p1", "Mine")
@@ -295,7 +336,6 @@ def test_monstrosity_of_the_lake_stuns_each_creature_it_tapped(cards):
 def test_wrenn_and_seven_ultimate_returns_permanents_and_the_emblem_removes_the_hand_limit(cards):
     from app.rules import hand_size
     from app.rules.plan import Plan
-    from tests.test_rules_conditionals import settle
 
     s = build(cards, "Wrenn and Seven", "Llanowar Elves", "Lightning Bolt")
     elves, bolt = to_gy(s, "Llanowar Elves"), to_gy(s, "Lightning Bolt")
