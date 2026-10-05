@@ -881,7 +881,7 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
     for target, kind, n in puts:
         if target in plan.state.players:
             events.append({"kind": "player_counters", "player": target, "counter": kind, "n": int(n), "by": by, "applied": [],
-                           **({"give": True} if give else {})})
+                           **({"give": True} if give or target != by else {})})  # (counters one player "gives" another: 120.3b, left to the players)
         elif target in plan.state.cards:
             ev: Event = {"kind": "counters", "card": target, "oid": plan.oid(target), "counter": kind, "n": int(n),
                          "by": by, "effect": bool(effect), "applied": []}

@@ -107,6 +107,15 @@ def test_pir_gives_one_more_counter_on_your_permanents(cards):
     replay_matches(s)
 
 
+def test_vorinclex_leaves_counters_you_give_another_player_to_the_players(cards):
+    s = build(cards)
+    permanent(s, "p1", "Vorinclex", "Creature", VORINCLEX)
+    activate(s, token(s, "p1", "Poisoner", text="{1}: Target opponent gets two poison counters."), targets=["p2"])
+    assert s.state.players["p2"].resources.get("poison") == 2  # (neither doubled nor halved: 120.3b, UNVERIFIED)
+    assert any("whether giving counters is putting them" in str(e) for e in s.state.log)
+    replay_matches(s)
+
+
 def test_vorinclex_leaves_infect_poison_to_the_players_with_a_note(cards):
     """120.3b: poison is "given" — whether that is "putting" isn't settled, so it is neither doubled nor silently ignored."""
     s = table(cards)
