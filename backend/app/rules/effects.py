@@ -3001,7 +3001,12 @@ def resume_may(plan: Plan, d: Any, chosen: list[str]) -> None:
         continue_effects(plan, ctx)
     else:
         plan.note(f"{plan.name(d.player)} chose not to")
-        finish(plan, ctx)
+        prev = ctx["effects"][ctx["next"] - 1]
+        if prev["do"] == "may_rest" and prev.get("skip"):
+            ctx["next"] += prev["skip"]  # -- optional first sentence (wave 24D) -- only X is skipped, "Then Y" still happens
+            continue_effects(plan, ctx)
+        else:
+            finish(plan, ctx)
 
 
 def continue_effects(plan: Plan, ctx: Context) -> None:

@@ -1132,7 +1132,8 @@ def choose(plan: Plan, a: A.Choose) -> None:
         answered = [groups[c] for c in chosen]
         if len(set(answered)) != len(answered) or set(answered) != set(groups.values()):
             raise ActionError("Answer each question once")
-    if not d.min_choices <= len(chosen) <= d.max_choices:
+    cancelling = chosen == ["cancel"] and (d.resume or {}).get("step") in casting.CANCELLABLE  # (-- cancelling a cast (wave 24D) --)
+    if not cancelling and not d.min_choices <= len(chosen) <= d.max_choices:
         n = d.min_choices if d.min_choices == d.max_choices else f"{d.min_choices}–{d.max_choices}"
         raise ActionError(f"Choose {n}")
     if a.remember is not None:

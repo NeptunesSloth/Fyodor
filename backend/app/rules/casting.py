@@ -600,6 +600,22 @@ def _helper_sources(state: GameState, player: str, info: CardInfo, spell: Charac
 
 
 # -- targets (601.2c) --------------------------------------------------------------------
+# -- cancelling a cast (wave 24D) -- 601.2 / 602.2: a proposal that can't be completed is rewound to before it was made; the
+# announcement choices (modes, targets) come before anything is paid or moved here, so cancelling one just ends the attempt.
+CANCEL = DecisionOption(id="cancel", label="Cancel")
+CANCELLABLE = ("cast_target", "cast_group", "cast_modes", "cast_slot_target")
+
+
+def cancelled(plan: Plan, d: Any, chosen: list[str]) -> bool:
+    """Did the player cancel this announcement? Then nothing was committed: priority comes back to them."""
+    if chosen != ["cancel"] or (d.resume or {}).get("step") not in CANCELLABLE:
+        return False
+    plan.note(f"{plan.name(d.player)} cancelled")
+    plan.rules.priority = d.player
+    plan.hold = d.player
+    return True
+
+
 def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any] | None,
                   what: str, *, exclude: tuple[str, ...] = ()) -> list[TargetRef] | None:
     """The target of an automated spell or ability: validated if given, else asked (privately).
@@ -615,8 +631,8 @@ def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: di
     if not legal:
         raise ActionError(f"{what} has no legal target")
     decide(plan, player=plan.actor, kind="choose_one", prompt=f"Choose a target for {what}",
-           options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
-           resume={"step": "cast_target", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
+           options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal]
+           + [CANCEL], resume={"step": "cast_target", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
     return None
 
 
@@ -673,7 +689,7 @@ def ask_targets(plan: Plan, player: str, found: Any, specs: list[dict[str, Any]]
         decide(plan, player=player, kind="choose_cards",
                prompt=f"Choose {count} target{'s' if hi != 1 else ''} for {what}" + (f" (group {g + 1} of {len(specs)})" if many else ""),
                options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None)
-                        for x in options],
+                        for x in options] + [CANCEL],
                min_choices=lo, max_choices=hi, resume=resume)
         return
     _, g, total = found.ask
@@ -687,6 +703,8 @@ def ask_targets(plan: Plan, player: str, found: Any, specs: list[dict[str, Any]]
 
 
 def resume_cast_group(plan: Plan, d: Any, chosen: list[str]) -> None:
+    if cancelled(plan, d, chosen):
+        return
     from app.rules.engine import INTENTS  # the engine imports this module
 
     intent = A.parse_action(d.resume["intent"])
@@ -767,13 +785,15 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     per = hi if repeat else 1  # "You may choose the same mode more than once": each mode offered N times
     decide(plan, player=plan.actor, kind="choose_cards",
            prompt=f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}",
-           options=[DecisionOption(id=f"{i}:{k}", label=modes[i]["text"][:120]) for i in allowed for k in range(per)],
+           options=[DecisionOption(id=f"{i}:{k}", label=modes[i]["text"][:120]) for i in allowed for k in range(per)] + [CANCEL],
            min_choices=lo, max_choices=hi,
            resume={"step": "cast_modes", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
     return None
 
 
 def resume_cast_modes(plan: Plan, d: Any, chosen: list[str]) -> None:
+    if cancelled(plan, d, chosen):
+        return
     from app.rules.engine import INTENTS  # the engine imports this module
 
     intent = A.parse_action(d.resume["intent"])
@@ -805,13 +825,15 @@ def choose_slot_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, specs: l
             raise ActionError(f"{what} has no legal target for that mode")
         decide(plan, player=plan.actor, kind="choose_one", prompt=f"Choose a target for {what} (mode {n + 1})",
                options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None)
-                        for x in legal],
+                        for x in legal] + [CANCEL],
                resume={"step": "cast_slot_target", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
         return None
     return out
 
 
 def resume_cast_slot_target(plan: Plan, d: Any, chosen: list[str]) -> None:
+    if cancelled(plan, d, chosen):
+        return
     from app.rules.engine import INTENTS  # the engine imports this module
 
     intent = A.parse_action(d.resume["intent"])
@@ -822,6 +844,8 @@ def resume_cast_slot_target(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
+    if cancelled(plan, d, chosen):
+        return
     from app.rules.engine import INTENTS  # the engine imports this module
 
     intent = A.parse_action(d.resume["intent"])
