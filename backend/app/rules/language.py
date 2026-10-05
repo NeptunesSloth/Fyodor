@@ -2340,7 +2340,8 @@ CHOOSE_FROM_HAND_GY = (r"you choose (?:a|an) (?P<sel>.+?) from (?:it or (?:a|an)
 # "Look at target player's hand." (Gitaxian Probe, Peek): a private look (701.20e: only the looking player sees it)
 LOOK_HAND = rf"look at (?P<s>{CHOOSER})'s hand(?: and (?P<ch>choose .+))?"  # (Painful Memories, Extortion: "… and choose a card from it")
 # "Target player reveals their hand and discards all nonland cards." (Amnesia, Trapfinder's Trick)
-DISCARD_ALL_REVEALED = rf"(?P<s>{CHOOSER}) reveals their hand and discards all (?P<sel>.+?) cards?"
+DISCARD_ALL_REVEALED = (rf"(?P<s>{CHOOSER}) reveals their hand and discards all (?:(?P<sel>.+?) )?cards?"
+                        r"(?P<tail> with (?:the chosen|that) name)?")  # (wave 22B: Cabal Therapy, "all cards with that name")
 DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
 CHOOSE_VALUE = rf"choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player|{_NAME_WHAT})"
@@ -2430,7 +2431,9 @@ def exile_from_hand(m: re.Match[str]) -> tuple[Effects, Any]:
 
 def discard_all_revealed(m: re.Match[str]) -> tuple[Effects, Any]:
     who, group = _chooser(m["s"])
-    sel = selectors.parse(m["sel"] + " cards")
+    if not m["sel"] and not m["tail"]:
+        raise _Fail
+    sel = selectors.parse((m["sel"] + " " if m["sel"] else "") + "cards" + (m["tail"] or ""))
     if who in ("each_player", "each_opponent") or sel is None or sel.player is not None or not sel.card or sel.zones:
         raise _Fail
     return [{"do": "reveal_hand", "who": who}, {"do": "discard_named", "who": "revealed", "sel": sel.key()}], _one(group)

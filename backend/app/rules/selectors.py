@@ -623,7 +623,7 @@ CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_c
                  "not_chosen_color": "color", "chosen_name": "card name"}  # (-- card names (wave 22B) -- app/rules/card_names.py)
 
 
-@_suffix(r"(?:with|that has) the chosen name")  # -- card names (wave 22B) -- 709.4a: one of its names is the chosen name
+@_suffix(r"(?:with|that has) (?:the chosen|that) name")  # -- card names (wave 22B) -- 709.4a: one of its names is the chosen name
 def _of_chosen_name(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "chosen_name"))
 
