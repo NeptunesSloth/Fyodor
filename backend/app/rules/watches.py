@@ -64,7 +64,9 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str) ->
 
     if not cond_ok(cond) or cond is None:
         return None
-    from app.rules import cast_riders  # -- cast riders (wave 25C) -- "…, that creature enters with an additional +1/+1 counter on it"
+    from app.rules import (
+        cast_riders,  # -- cast riders (wave 25C) -- "…, that creature enters with an additional +1/+1 counter on it"
+    )
 
     inner = cast_riders.parse(cond, clause) or scripts._clause(clause)
     if inner is None:
