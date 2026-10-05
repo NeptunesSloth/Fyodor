@@ -16,7 +16,7 @@ from tests.test_rules_wave9b_exile_permission import answer, build, find, put, r
 from tests.test_rules_wave12a_counters_keywords import real
 
 EXTRA = [
-    real("Necromantic Selection", "{4}{B}{B}", 6, "Sorcery",
+    real("Necromantic Selection", "{4}{B}{B}{B}", 7, "Sorcery",
          "Destroy all creatures, then return a creature card put into a graveyard this way to the battlefield under your control. It's a black Zombie in addition to its other colors and types. Exile Necromantic Selection.",
          None, "B"),
     real("Probe Two", "{1}{G}", 2, "Creature — Beast", "", ("2", "2"), "G"),
@@ -92,7 +92,7 @@ def test_necromantic_selection_returns_one_of_the_creatures_it_destroyed(cards):
     put(s, "Probe Two", "battlefield")
     viper = put(s, "Ambush Viper", "battlefield", pid="p2")
     spell = put(s, "Necromantic Selection", "hand")
-    mana(s, B=2, C=4)
+    mana(s, B=3, C=4)
     act(s, "p1", type="cast_spell", card_id=spell.id)
     pass_until_stack_empty(s)
     d = s.state.rules.decision
