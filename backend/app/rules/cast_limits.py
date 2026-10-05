@@ -97,8 +97,10 @@ EFFECT_FLASH = re.compile(r"^(?:until end of turn, )?you may cast (?:(?P<sel>[A-
                           r"as though they had flash$")
 # -- static_other sweep (wave 19A) -- 609.4b / 118.14: "You may spend mana as though it were mana of any color to cast planeswalker spells."
 # (Oath of Nissa), "You can spend mana of any type to cast creature spells." (Vizier of the Menagerie): how the cost of those spells may be paid
-STATIC_SPEND = re.compile(r"^you (?P<how>may spend mana as though it were mana of any color|can spend mana of any type) to cast "
-                          r"(?P<sel>[A-Za-z][A-Za-z' ,-]*?) spells$")
+# -- casting costs (wave 22F) -- Chromatic Orrery / Mycosynth Lattice: "You may spend mana as though it were mana of any color." / "Players may
+# …" (every spell and ability: any mana pays a colored symbol, 609.4b), Agatha's Soul Cauldron: "… to activate abilities of creatures you control."
+STATIC_SPEND = re.compile(r"^(?P<who>you|players) (?P<how>may spend mana as though it were mana of any color|can spend mana of any type)"
+                          r"(?: to (?:cast (?P<sel>[A-Za-z][A-Za-z' ,-]*?) spells|(?P<act>activate abilities of creatures you control)))?$")
 STATIC_HASTE = "you may activate abilities of creatures you control as though those creatures had haste"
 # 702.51 / 702.126 / 702.66: "Nonartifact spells you cast have improvise." / "Artifact spells you cast have convoke." / "Spells
 # you cast have delve." — the spell has it while it's being cast (601.2g-h: costs are paid with the spell on the stack)
@@ -249,21 +251,25 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "keep_mana", "color": {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[m[1]], "effects": []}
     # -- static_other sweep (wave 21A) -- 702.34a: "Each instant and sorcery card in your graveyard has flashback. The flashback cost is equal to that
     # card's mana cost." (Lier, Disciple of the Drowned), "During your turn, each … has flashback. Its flashback cost is equal to its mana cost."
-    m = re.fullmatch(r"(?P<turn>during your turn, )?each (?P<sel>[a-z ,'-]+?) cards? in your graveyard has flashback\. (?:the|its) flashback cost "
-                     r"is equal to (?:that card's|its) mana cost", t, re.I)
+    # -- casting costs (wave 22F) -- "During your turn, each Lesson card in your graveyard has flashback {1}." (Iroh, Grand Lotus): a fixed cost; a
+    # reminder after the sentence is read past
+    m = re.fullmatch(r"(?P<turn>during your turn, )?each (?P<sel>[a-z ,'-]+?) cards? in your graveyard has flashback(?:\. (?:the|its) flashback cost "
+                     r"is equal to (?:that card's|its) mana cost| (?P<fixed>\{\d+\}))(?: \(.*\))?", t, re.I)
     if m:
         sel = selectors.parse(m["sel"].replace(" and ", " or ") + " card in your graveyard")
         if sel is None or sel.zones != ("graveyard",) or not sel.card or sel.player is not None:
             return None
         return {"kind": "static", "static": "gy_flashback", "sel": selectors.replace(sel, zone_owner="you").key(),
-                "your_turn": bool(m["turn"]), "effects": []}
+                "your_turn": bool(m["turn"]), "effects": [], **({"cost": m["fixed"]} if m["fixed"] else {})}
     m = STATIC_SPEND.fullmatch(t)
     if m:
         ok, key = _filter(m["sel"])
-        if not ok or key is None:
+        everything = not m["sel"] and not m["act"]  # (wave 22F: no "to …": every spell and every activated ability)
+        if not ok or (key is None and m["sel"]) or (m["who"] == "players" and (m["sel"] or m["act"] or m["how"].startswith("can"))):
             return None
-        return {"kind": "static", "static": "spend_as", "mode": "type" if m["how"].startswith("can") else "color", "filter": key,
-                "effects": []}
+        return {"kind": "static", "static": "spend_as", "mode": "type" if m["how"].startswith("can") else "color", "filter": key, "effects": [],
+                **({"abilities": "all" if everything else "creatures"} if everything or m["act"] else {}),
+                **({"players": True} if m["who"] == "players" else {}), **({"no_spells": True} if m["act"] else {})}
     m = STATIC_CASCADE.fullmatch(t)
     if m:  # -- static statics (wave 10B) --
         return _cascade_definition(m)
@@ -617,8 +623,17 @@ def spend_mode(state: GameState, player: str, card: CardInstance, ch: Characteri
         return None
     from app.rules.permissions import spell_matches
 
-    modes = {d["mode"] for src, d in _statics(state, info, "spend_as") if src.controller == player
-             and spell_matches(state, player, card, ch, d["filter"], info)}
+    modes = {d["mode"] for src, d in _statics(state, info, "spend_as") if (src.controller == player or d.get("players")) and not d.get("no_spells")
+             and (d["filter"] is None or spell_matches(state, player, card, ch, d["filter"], info))}
+    return "type" if "type" in modes else "color" if modes else None
+
+
+def ability_spend_mode(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> str | None:
+    """-- casting costs (wave 22F) -- 609.4b: how ``player``'s statics let them spend mana on this activated ability."""
+    if info is None:
+        return None
+    modes = {d["mode"] for src, d in _statics(state, info, "spend_as") if (src.controller == player or d.get("players")) and d.get("abilities")
+             and (d["abilities"] == "all" or (ch.is_creature and card.controller == src.controller))}
     return "type" if "type" in modes else "color" if modes else None
 
 

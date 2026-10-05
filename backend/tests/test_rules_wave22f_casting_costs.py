@@ -1,0 +1,482 @@
+"""Wave 22F (casting & costs). Real Oracle text, replay and save/load for each.
+
+* 601.2c / 601.2f: "This spell costs {N} less to cast if it targets …" is read once the targets are chosen.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from app.game.errors import ActionError
+from app.rules import coverage
+from tests.fixtures.cards import fixture_cards
+from tests.game_helpers import act
+from tests.test_rules_wave12a_counters_keywords import answer, real
+from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
+
+EXTRA = [
+    real("Seized from Slumber", "{4}{W}", 5, "Instant", "This spell costs {3} less to cast if it targets a tapped creature.\n"
+         "Destroy target creature.", None, "W"),
+    real("Mystical Dispute", "{2}{U}", 3, "Instant", "This spell costs {2} less to cast if it targets a blue spell.\n"
+         "Counter target spell unless its controller pays {3}.", None, "U"),
+    real("Vanish into Eternity", "{2}{W}", 3, "Instant", "This spell costs {3} more to cast if it targets a creature.\n"
+         "Exile target nonland permanent.", None, "W"),
+]
+
+
+@pytest.fixture()
+def card_db(settings):
+    from app.cards.importer import build_database
+
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), *EXTRA, *FLASH, *ORRERY, *LIFE, *SPHERE, *EVIDENCE, *DEMON, *IROH, *REVIEW], settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in EXTRA])
+def test_target_cost_coverage_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_costs_less_if_it_targets_a_tapped_creature(cards):
+    s = build(cards, ["Seized from Slumber"], ["Grizzly Bears", "Grizzly Bears"])
+    spell = to_hand(s, "Seized from Slumber")
+    bears = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2"]
+    for c in bears:
+        act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p2", type="tap", card_ids=[bears[0].id])
+    mana(s, W=1, C=1)  # {4}{W} is out of reach; {1}{W} is the price against a tapped creature
+    with pytest.raises(ActionError):  # an untapped target: the full price
+        act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears[1].id])
+    assert s.state.cards[spell.id].zone == "p1:hand"  # nothing was paid or moved
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears[0].id])
+    answer(s)
+    assert s.state.cards[bears[0].id].zone == "p2:graveyard"
+    check(s)
+
+
+def test_costs_less_if_it_targets_a_blue_spell(cards):
+    s = build(cards, ["Mystical Dispute", "Lightning Bolt"], ["Opt"])
+    dispute, bolt, opt = to_hand(s, "Mystical Dispute"), to_hand(s, "Lightning Bolt"), to_hand(s, "Opt", "p2")
+    put(s, "Island", "p2")
+    mana(s, U=1, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    act(s, "p2", type="tap", card_ids=[put(s, "Island", "p2").id])
+    mana(s, "p2", U=1)
+    act(s, "p2", type="cast_spell", card_id=opt.id)  # Bob responds with a blue spell
+    with pytest.raises(ActionError):  # a red spell: {2}{U} is out of reach with {U}
+        act(s, "p1", type="cast_spell", card_id=dispute.id, targets=[bolt.id])
+    act(s, "p1", type="cast_spell", card_id=dispute.id, targets=[opt.id])  # a blue spell: {U}
+    answer(s)
+    check(s)
+
+
+def test_costs_more_if_it_targets_a_creature(cards):
+    s = build(cards, ["Vanish into Eternity", "Llanowar Elves"], ["Grizzly Bears", "Sol Ring"])
+    spell = to_hand(s, "Vanish into Eternity")
+    bears, ring = put(s, "Grizzly Bears", "p2"), put(s, "Sol Ring", "p2")
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[ring.id])  # not a creature: {2}{W}
+    answer(s)
+    assert s.state.cards[ring.id].zone == "p2:exile"
+    check(s)
+    s = build(cards, ["Vanish into Eternity"], ["Grizzly Bears"])
+    spell, bears = to_hand(s, "Vanish into Eternity"), put(s, "Grizzly Bears", "p2")
+    mana(s, W=1, C=2)
+    with pytest.raises(ActionError):  # a creature: {5}{W}
+        act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id])
+
+
+# -- flash "if …" (601.3b-d) --
+FLASH = [
+    real("Rout", "{3}{W}{W}", 5, "Sorcery", "You may cast this spell as though it had flash if you pay {2} more to cast it. (You may cast it any time "
+         "you could cast an instant.)\nDestroy all creatures. They can't be regenerated.", None, "W"),
+    real("Silver Scrutiny", "{X}{U}{U}", 2, "Sorcery", "You may cast this spell as though it had flash if X is 3 or less.\nDraw X cards.", None, "U"),
+    real("Flash Photography", "{2}{U}{U}", 4, "Sorcery", "You may cast this spell as though it had flash if it targets a permanent you control.\n"
+         "Create a token that's a copy of target permanent.\nFlashback {4}{U}{U}", None, "U"),
+]
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in FLASH if c["name"] != "Rout"])
+def test_flash_condition_coverage_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_rout_flash_line_is_read(cards):  # (its "can't be regenerated" half is track 22C's, so the card isn't FULL yet)
+    feats = {f.id: f.supported for f in coverage.of_card_data(cards.resolve("Rout")).features}
+    assert feats["text:0"]
+
+
+def _stack_busy(s):
+    """Alice's Lightning Bolt and Bob's Opt in response are on the stack: Alice has priority again and a sorcery needs flash."""
+    bolt, opt = to_hand(s, "Lightning Bolt"), to_hand(s, "Opt", "p2")
+    put(s, "Island", "p2")  # (so Bob can respond and the Bolt waits on the stack)
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    mana(s, "p2", U=1)
+    act(s, "p2", type="cast_spell", card_id=opt.id)
+
+
+def test_flash_if_you_pay_more(cards):
+    s = build(cards, ["Rout", "Lightning Bolt"], ["Opt"])
+    rout = to_hand(s, "Rout")
+    mana(s, W=2, C=3)  # {3}{W}{W}: not enough for the flash price {5}{W}{W}
+    _stack_busy(s)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=rout.id)
+    mana(s, C=2)
+    act(s, "p1", type="cast_spell", card_id=rout.id)
+    answer(s)
+    assert s.state.cards[rout.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_no_extra_cost_at_sorcery_timing(cards):
+    s = build(cards, ["Rout"])
+    rout = to_hand(s, "Rout")
+    mana(s, W=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=rout.id)
+    answer(s)
+    assert s.state.cards[rout.id].zone == "p1:graveyard"
+
+
+def test_flash_if_x_is_three_or_less(cards):
+    s = build(cards, ["Silver Scrutiny", "Lightning Bolt"], ["Opt"])
+    scrutiny = to_hand(s, "Silver Scrutiny")
+    mana(s, U=2, C=4)
+    _stack_busy(s)
+    with pytest.raises(ActionError, match="X is 3 or less"):
+        act(s, "p1", type="cast_spell", card_id=scrutiny.id, x_value=4)
+    act(s, "p1", type="cast_spell", card_id=scrutiny.id, x_value=3)
+    answer(s)
+    assert s.state.cards[scrutiny.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_flash_if_it_targets_a_permanent_you_control(cards):
+    s = build(cards, ["Flash Photography", "Lightning Bolt", "Grizzly Bears"], ["Grizzly Bears", "Opt"])
+    photo = to_hand(s, "Flash Photography")
+    mine, theirs = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2")
+    mana(s, U=2, C=2)
+    _stack_busy(s)
+    with pytest.raises(ActionError, match="flash condition"):  # the target is theirs: no flash
+        act(s, "p1", type="cast_spell", card_id=photo.id, targets=[theirs.id])
+    act(s, "p1", type="cast_spell", card_id=photo.id, targets=[mine.id])
+    answer(s)
+    check(s)
+
+
+# -- spend mana as though it were mana of any color (609.4b) --
+ORRERY = [
+    real("Chromatic Orrery", "{7}", 7, "Legendary Artifact", "You may spend mana as though it were mana of any color.\n{T}: Add {C}{C}{C}{C}{C}.\n"
+         "{5}, {T}: Draw a card for each color among permanents you control."),
+]
+
+
+def test_orrery_line_is_read(cards):
+    feats = {f.id: f.supported for f in coverage.of_card_data(cards.resolve("Chromatic Orrery")).features}
+    assert feats["text:0"]
+
+
+def test_colorless_mana_pays_colored_costs_with_an_orrery(cards):
+    s = build(cards, ["Chromatic Orrery", "Grizzly Bears", "Grizzly Bears"])
+    bears = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    for b in bears:
+        act(s, "p1", type="move", card_ids=[b.id], to={"zone": "hand"})
+    mana(s, C=2)  # {1}{G}: colorless can't pay {G} without the Orrery
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bears[0].id)
+    put(s, "Chromatic Orrery")
+    act(s, "p1", type="cast_spell", card_id=bears[0].id)
+    answer(s)
+    assert s.state.cards[bears[0].id].zone == "p1:battlefield"
+    check(s)
+
+
+# -- "cost an additional N life" for its targets (601.2f, 119.4) --
+LIFE = [
+    real("Terror of the Peaks", "{3}{R}{R}", 5, "Creature — Dragon", "Flying\nSpells your opponents cast that target this creature cost an "
+         "additional 3 life to cast.\nWhenever another creature you control enters, this creature deals damage equal to that creature's power "
+         "to any target.", ("5", "4"), "R"),
+]
+
+
+def test_terror_of_the_peaks_is_full(cards):
+    assert coverage.of_card_data(cards.resolve("Terror of the Peaks")).level == "FULL"
+
+
+def test_spells_that_target_terror_cost_3_life(cards):
+    s = build(cards, ["Terror of the Peaks", "Lightning Bolt"], ["Lightning Bolt"])
+    terror, mine, theirs = put(s, "Terror of the Peaks"), to_hand(s, "Lightning Bolt"), to_hand(s, "Lightning Bolt", "p2")
+    mana(s, R=1)
+    mana(s, "p2", R=2)
+    act(s, "p1", type="cast_spell", card_id=mine.id, targets=["p1"])  # (Bob may respond)
+    life_before = s.state.players["p2"].life
+    act(s, "p2", type="set_life", player="p2", value=2)
+    with pytest.raises(ActionError):  # 119.4: only 2 life to pay 3
+        act(s, "p2", type="cast_spell", card_id=theirs.id, targets=[terror.id])
+    act(s, "p2", type="set_life", player="p2", value=life_before)
+    act(s, "p2", type="cast_spell", card_id=theirs.id, targets=[terror.id])
+    assert s.state.players["p2"].life == life_before - 3
+    answer(s)
+    check(s)
+
+
+# -- Damping Sphere: the caster's own count of spells this turn --
+SPHERE = [
+    real("Damping Sphere", "{2}", 2, "Artifact", "If a land is tapped for mana, it produces {C} instead of any other type and amount.\n"
+         "Each spell a player casts costs {1} more to cast for each other spell that player has cast this turn."),
+]
+
+
+def test_damping_sphere_cost_line_is_read(cards):
+    feats = {f.id: f.supported for f in coverage.of_card_data(cards.resolve("Damping Sphere")).features}
+    assert feats["text:1"]
+
+
+def test_each_spell_costs_one_more_for_each_other_spell_that_player_cast(cards):
+    s = build(cards, ["Damping Sphere", "Lightning Bolt", "Lightning Bolt", "Lightning Bolt"])
+    put(s, "Damping Sphere")
+    bolts = [c for c in s.state.cards.values() if c.name == "Lightning Bolt" and c.owner == "p1"]
+    for b in bolts:
+        act(s, "p1", type="move", card_ids=[b.id], to={"zone": "hand"})
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolts[0].id, targets=["p2"])  # the first spell: no increase
+    answer(s)
+    mana(s, R=1)
+    with pytest.raises(ActionError):  # the second: {R}{1}
+        act(s, "p1", type="cast_spell", card_id=bolts[1].id, targets=["p2"])
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=bolts[1].id, targets=["p2"])
+    answer(s)
+    mana(s, R=1, C=1)
+    with pytest.raises(ActionError):  # the third: {R}{2}
+        act(s, "p1", type="cast_spell", card_id=bolts[2].id, targets=["p2"])
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=bolts[2].id, targets=["p2"])
+    answer(s)
+    check(s)
+
+
+# -- 601.2: an illegal cast returns to the moment before it was proposed --
+def test_an_illegal_target_cancels_the_cast_and_pays_nothing(cards):
+    s = build(cards, ["Seized from Slumber", "Grizzly Bears"])
+    spell, bears = to_hand(s, "Seized from Slumber"), put(s, "Grizzly Bears")
+    land = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")
+    mana(s, W=1, C=4)
+    for target in (land.id, "nobody"):  # a card that isn't a creature on the battlefield, and something that isn't on the table
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=spell.id, targets=[target])
+        assert s.state.cards[spell.id].zone == "p1:hand" and s.state.players["p1"].mana == {"W": 1, "C": 4}
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id])
+    assert s.state.players["p1"].mana == {}
+    answer(s)
+    check(s)
+
+
+# -- optional additional costs on the spell itself: collect evidence / behold (601.2b, 701.59a, 701.4a) --
+EVIDENCE = [
+    real("Vitu-Ghazi Inspector", "{1}{G}", 2, "Creature — Elf Detective", "As an additional cost to cast this spell, you may collect evidence 6. "
+         "(Exile cards with total mana value 6 or greater from your graveyard.)\nReach\nWhen this creature enters, if evidence was collected, put a "
+         "+1/+1 counter on target creature and you gain 2 life.", ("1", "3"), "G"),
+    real("Extract a Confession", "{1}{B}", 2, "Sorcery", "As an additional cost to cast this spell, you may collect evidence 6. (Exile cards with total "
+         "mana value 6 or greater from your graveyard.)\nEach opponent sacrifices a creature of their choice. If evidence was collected, instead "
+         "each opponent sacrifices a creature with the greatest power among creatures they control.", None, "B"),
+    real("Crimestopper Sprite", "{2}{U}", 3, "Creature — Faerie Detective", "As an additional cost to cast this spell, you may collect evidence 6. "
+         "(Exile cards with total mana value 6 or greater from your graveyard.)\nFlying\nWhen this creature enters, tap target creature. If "
+         "evidence was collected, put a stun counter on it. (If a permanent with a stun counter would become untapped, remove one from it "
+         "instead.)", ("2", "2"), "U"),
+]
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in EVIDENCE])
+def test_optional_additional_cost_lines_are_read(cards, name):
+    feats = {f.id: f.supported for f in coverage.of_card_data(cards.resolve(name)).features}
+    assert all(feats.values())
+
+
+def test_collect_evidence_as_an_optional_additional_cost(cards):
+    s = build(cards, ["Extract a Confession", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears"], ["Grizzly Bears", "Llanowar Elves"])
+    spell = to_hand(s, "Extract a Confession")
+    mine = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    for c in mine:  # three mana value 2 cards: total 6
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    bear, elf = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, optional_costs=[f"{spell.id}:evidence"])
+    for _ in range(6):  # (the cards to exile are chosen: all three are needed)
+        d = s.state.rules.decision
+        if d is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.max_choices or 1)])
+    answer(s)
+    assert all(s.state.cards[c.id].zone == "p1:exile" for c in mine)  # evidence collected: exiled from the graveyard
+    assert s.state.cards[bear.id].zone == "p2:graveyard" and s.state.cards[elf.id].zone == "p2:battlefield"  # the greatest power one
+    check(s)
+
+
+def test_without_evidence_the_opponent_chooses(cards):
+    s = build(cards, ["Extract a Confession", "Grizzly Bears"], ["Grizzly Bears", "Llanowar Elves"])
+    spell = to_hand(s, "Extract a Confession")
+    put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"  # Bob chooses what to sacrifice
+
+
+# -- paying life equal to its mana value rather than paying its mana cost (118.9, 119.4) --
+DEMON = [
+    real("Demon of Fate's Design", "{4}{B}{B}", 6, "Enchantment Creature — Demon", "Flying, trample\nOnce during each of your turns, you may cast an "
+         "enchantment spell by paying life equal to its mana value rather than paying its mana cost.\n{2}{B}, Sacrifice another enchantment: "
+         "This creature gets +X/+0 until end of turn, where X is the sacrificed enchantment's mana value.", ("6", "6"), "B"),
+    real("Phyrexian Arena", "{1}{B}{B}", 3, "Enchantment", "At the beginning of your upkeep, you draw a card and you lose 1 life.", None, "B"),
+]
+
+
+def test_demon_of_fates_design_line_is_read(cards):
+    feats = {f.id: f.supported for f in coverage.of_card_data(cards.resolve("Demon of Fate's Design")).features}
+    assert feats["text:1"]
+
+
+def test_cast_an_enchantment_by_paying_life_once_each_turn(cards):
+    s = build(cards, ["Demon of Fate's Design", "Phyrexian Arena", "Phyrexian Arena"])
+    put(s, "Demon of Fate's Design")
+    first, second = [c for c in s.state.cards.values() if c.name == "Phyrexian Arena" and c.owner == "p1"]
+    for c in (first, second):
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+    before = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=first.id, free=True)  # paying life instead of {1}{B}{B}
+    answer(s)
+    assert s.state.cards[first.id].zone == "p1:battlefield" and s.state.players["p1"].life == before - 3
+    with pytest.raises(ActionError):  # once during each of your turns
+        act(s, "p1", type="cast_spell", card_id=second.id, free=True)
+    check(s)
+
+
+# -- static grants of flashback to cards in a graveyard (113.6, 702.34) --
+IROH = [
+    real("Iroh, Grand Lotus", "{3}{G}{U}{R}", 6, "Legendary Creature — Human Noble Ally", "Firebending 2\nDuring your turn, each non-Lesson instant and "
+         "sorcery card in your graveyard has flashback. The flashback cost is equal to that card's mana cost. (You may cast a card from your "
+         "graveyard for its flashback cost. Then exile it.)\nDuring your turn, each Lesson card in your graveyard has flashback {1}.", ("5", "5"), "GUR"),
+    real("Environmental Sciences", "{2}", 2, "Sorcery — Lesson", "Search your library for a basic land card, reveal it, put it into your hand, then "
+         "shuffle. You gain 2 life.", None),
+]
+
+
+def test_iroh_flashback_lines_are_read(cards):
+    feats = {f.id: f.supported for f in coverage.of_card_data(cards.resolve("Iroh, Grand Lotus")).features}
+    assert feats["text:1"] and feats["text:2"]
+
+
+def test_lesson_cards_have_flashback_for_a_fixed_cost(cards):
+    s = build(cards, ["Iroh, Grand Lotus", "Environmental Sciences"])
+    put(s, "Iroh, Grand Lotus")
+    lesson = card_named(s, "Environmental Sciences")
+    act(s, "p1", type="move", card_ids=[lesson.id], to={"zone": "graveyard"})
+    mana(s, C=1)  # flashback {1}, not its {2} mana cost
+    act(s, "p1", type="cast_spell", card_id=lesson.id)
+    answer(s)
+    assert s.state.cards[lesson.id].zone == "p1:exile"  # flashback exiles it (702.34a)
+    check(s)
+
+
+# -- review 22F --
+REVIEW = [
+    real("Not of This World", "{7}", 7, "Kindred Instant — Eldrazi", "Counter target spell or ability that targets a permanent you control.\n"
+         "This spell costs {7} less to cast if it targets a spell or ability that targets a creature you control with power 7 or greater."),
+    real("Ancient Brontodon", "{6}{G}{G}", 8, "Creature — Dinosaur", "", ("9", "9"), "G"),
+    real("Rod of Ruin", "{4}", 4, "Artifact", "{3}, {T}: Rod of Ruin deals 1 damage to any target."),
+    real("Shivan Dragon", "{4}{R}{R}", 6, "Creature — Dragon", "Flying\n{R}: This creature gets +1/+0 until end of turn.", ("5", "5"), "R"),
+    real("Timely Ward", "{2}{W}", 3, "Enchantment — Aura", "You may cast this spell as though it had flash if it targets a commander.\n"
+         "Enchant creature\nEnchanted creature has indestructible.", None, "W"),
+    real("Sythis, Harvest's Hand", "{G}{W}", 2, "Legendary Enchantment Creature — Nymph",
+         "Whenever you cast an enchantment spell, you gain 1 life and draw a card.", ("1", "2"), "GW"),
+]
+
+
+def test_not_of_this_world_is_free_against_an_ability(cards):
+    """The reduction reads an ability on the stack too, and that ability's own target (relative to the caster)."""
+    s = build(cards, ["Not of This World", "Ancient Brontodon", "Lightning Bolt"], ["Rod of Ruin"])
+    notw, dino, bolt = to_hand(s, "Not of This World"), put(s, "Ancient Brontodon"), to_hand(s, "Lightning Bolt")
+    rod = put(s, "Rod of Ruin", "p2")
+    mana(s, R=1)
+    mana(s, "p2", C=3)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    act(s, "p2", type="activate_ability", card_id=rod.id, ability=0, targets=[dino.id])
+    act(s, "p1", type="cast_spell", card_id=notw.id, targets=[s.state.zones["stack"][-1]])  # {0}: no mana is open
+    answer(s)
+    assert s.state.cards[dino.id].damage == 0 and s.state.cards[notw.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_timely_ward_is_offered_at_instant_speed_only_with_a_commander_to_target(cards):
+    """601.3b: the target choice would be a dead end without a commander on the battlefield, so the cast isn't offered."""
+    from app.rules import casting
+
+    s = build(cards, ["Timely Ward", "Grizzly Bears", "Lightning Bolt"], ["Opt"])
+    ward = to_hand(s, "Timely Ward")
+    put(s, "Grizzly Bears")
+    mana(s, W=1, C=2)
+    _stack_busy(s)
+    assert not casting.castable(s.state, "p1", ward, s.cards, check_priority=False)
+    krenko = card_named(s, "Krenko, Mob Boss")
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"player": "p1", "zone": "battlefield"})
+    assert casting.castable(s.state, "p1", ward, s.cards, check_priority=False)
+
+
+def test_demon_pays_life_for_a_commander_cast_from_the_command_zone(cards):
+    """No "from your hand" on Demon of Fate's Design: the alternative cost applies wherever the spell is cast from (118.9)."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    alice = deck(cards, "Sythis, Harvest's Hand", [(1, "Demon of Fate's Design"), (9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(9, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    put(s, "Demon of Fate's Design")
+    sythis = card_named(s, "Sythis, Harvest's Hand")
+    assert sythis.zone == "p1:command"
+    before = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=sythis.id, free=True)
+    answer(s)
+    assert s.state.players["p1"].life == before - 2 and s.state.cards[sythis.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_damping_sphere_counts_only_the_casters_spells(cards):
+    s = build(cards, ["Damping Sphere", "Lightning Bolt", "Lightning Bolt"], ["Opt"])
+    put(s, "Damping Sphere")
+    b1, b2 = [c for c in s.state.cards.values() if c.name == "Lightning Bolt" and c.owner == "p1"]
+    opt = to_hand(s, "Opt", "p2")
+    act(s, "p1", type="move", card_ids=[b1.id, b2.id], to={"zone": "hand"})
+    put(s, "Island", "p2")
+    mana(s, R=1)
+    mana(s, "p2", U=1)
+    act(s, "p1", type="cast_spell", card_id=b1.id, targets=["p2"])
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=opt.id)  # Bob's first spell this turn: {U} (Alice's Bolt isn't his)
+    assert s.state.players["p2"].mana == {}
+    answer(s)
+    mana(s, R=1)  # Alice's second: {1}{R} (Bob's Opt isn't hers)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=b2.id, targets=["p2"])
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=b2.id, targets=["p2"])
+    answer(s)
+    check(s)
+
+
+def test_orrery_colorless_mana_pays_an_activated_ability(cards):
+    s = build(cards, ["Chromatic Orrery", "Shivan Dragon"])
+    put(s, "Chromatic Orrery")
+    dragon = put(s, "Shivan Dragon")
+    mana(s, C=1)  # {R}, paid with colorless (609.4b; Mycosynth Lattice ruling: "even colorless mana")
+    act(s, "p1", type="activate_ability", card_id=dragon.id, ability=1)
+    answer(s)
+    assert s.state.players["p1"].mana == {}
+    check(s)

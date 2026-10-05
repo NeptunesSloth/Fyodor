@@ -162,6 +162,8 @@ def _static_flashback(state: GameState, card: CardInstance, ch: Characteristics,
         if src.controller != card.owner or (d["your_turn"] and state.turn.active_player != card.owner):
             continue
         if selectors.matches(Plan.view(state, card.owner, info), selectors.from_key(d["sel"]), card, ch, card.owner):
+            if d.get("cost"):  # -- casting costs (wave 22F) -- "has flashback {1}": the cost the static states
+                return str(d["cost"])
             return None if not ch.mana_cost or "//" in ch.mana_cost or _two_ways(card) else str(ch.mana_cost)
     return None
 
