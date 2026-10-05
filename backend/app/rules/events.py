@@ -710,7 +710,9 @@ def _cast(c: str) -> Condition | None:
         ksel = selectors.parse(kind["phrase"])
         key = selectors.replace(ksel, zones=("stack",)).key() if ksel is not None and ksel.player is None else None
         if key is not None and not unless_pays.first_kind_ok(key):  # -- history (wave 22E) -- "their first multicolored spell each turn": any kind
-            from app.rules import history  # the turn's cast log records (types, subtypes, supertypes, colors, mana value)
+            from app.rules import (
+                history,  # the turn's cast log records (types, subtypes, supertypes, colors, mana value)
+            )
 
             return {**out, "first_note": True, "spell": key} if history.note_selector_ok(selectors.from_key(key), spell=True) else None
         return {**out, "first_kind": True, "spell": key} if key is not None else None
