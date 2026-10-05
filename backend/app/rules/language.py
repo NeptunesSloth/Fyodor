@@ -3132,7 +3132,7 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     if kind not in ("target", "each") or not _graveyard_cards(key):
         return None
     if host_group is not None:  # -- attached events (wave 25D) -- "Return target Aura card … attached to target creature": two groups, the card then its host
-        if kind != "target":
+        if kind != "target" or group is None:
             return None
         return [{**effect, "who": "target:0", "host": "target:1"}], _out([group, host_group])
     return [{**effect, "who": _who(kind, key)}], _one(group)
