@@ -49,6 +49,11 @@ CARDS = [
     ("Loxodon Lifechanter", "{5}{W}", "Creature — Elephant Cleric", "4", "6",
      "When this creature enters, you may have your life total become the total toughness of creatures you control.\n"
      "{5}{W}: This creature gets +X/+X until end of turn, where X is your life total."),
+    ("Brood of Cockroaches", "{1}{B}", "Creature — Insect", "1", "1",
+     "When this creature is put into your graveyard from the battlefield, at the beginning of the next end step, you lose 1 life and return "
+     "this card to your hand."),
+    ("Atrocious Experiment", "{2}{B}", "Sorcery", None, None,
+     "Target player mills two cards, draws two cards, and loses 2 life. (To mill a card, a player puts the top card of their library into their graveyard.)"),
     ("Probe Dummy", "{1}", "Creature — Bear", "1", "1", ""),
     ("Probe Tough", "{3}", "Creature — Wall", "0", "4", ""),
 ]
@@ -219,4 +224,34 @@ def test_loxodon_lifechanter_sets_the_life_total_to_the_total_toughness(cards):
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Loxodon Lifechanter").id)
     answer(s, "yes")
     assert life(s) == 10  # (4 + the Lifechanter's own 6)
+    check(s)
+
+
+def test_brood_of_cockroaches_comes_back_to_hand_at_the_next_end_step_and_costs_a_life(cards):
+    """"…put into your graveyard from the battlefield, at the beginning of the next end step, you lose 1 life and return this card to your hand":
+    the card it is now, in the graveyard (400.7: the new object), found there at the end step (603.7)."""
+    from tests.test_rules_conditionals import to_turn
+
+    s = build(cards, ["Brood of Cockroaches", "Lightning Bolt"])
+    brood = put(s, "Brood of Cockroaches")
+    to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=[brood.id])
+    answer(s)
+    assert zone_of(s, "Brood of Cockroaches") == "p1:graveyard"
+    to_turn(s, 2, "main1")  # (Alice's end step passes)
+    assert zone_of(s, "Brood of Cockroaches") == "p1:hand" and life(s) == 39
+    check(s)
+
+
+def test_a_serial_list_for_one_player_is_carried_out_in_order(cards):
+    """Atrocious Experiment: "Target player mills two cards, draws two cards, and loses 2 life" (608.2c)."""
+    s = build(cards, ["Atrocious Experiment"])
+    to_hand(s, "Atrocious Experiment")
+    mana(s, B=3)
+    library, hand, bob_life = len(s.state.zones["p2:library"]), len(s.state.zones["p2:hand"]), life(s, "p2")
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Atrocious Experiment").id, targets=["p2"])
+    answer(s)
+    assert len(s.state.zones["p2:library"]) == library - 4 and len(s.state.zones["p2:hand"]) == hand + 2  # (2 milled, then 2 drawn)
+    assert life(s, "p2") == bob_life - 2
     check(s)

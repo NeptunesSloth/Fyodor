@@ -52,6 +52,9 @@ CARDS = [
     ("Probe Brute", "{3}", "Creature — Ogre", "4", "4", ""),
     ("Probe Imp", "{1}", "Creature — Imp", "1", "1", ""),
     ("Probe Blade", "{1}", "Artifact — Equipment", None, None, "Equipped creature gets +1/+1.\nEquip {1}"),
+    ("The Ur-Dragon", "{4}{W}{U}{B}{R}{G}", "Legendary Creature — Dragon Avatar", "10", "10",
+     "Eminence — As long as The Ur-Dragon is in the command zone or on the battlefield, other Dragon spells you cast cost {1} less to cast.\nFlying"),
+    ("Probe Dragon", "{2}{R}", "Creature — Dragon", "2", "2", ""),
 ]
 EXTRA = [card(n, set_code="t25b", number=f"T{i:02d}", mana_cost=mc, cmc=float(sum(1 for _ in mc.split("}")) - 1), type_line=tl,
               colors=["B"], color_identity=["B"], oracle_text=text, power=p, toughness=t)
@@ -294,4 +297,16 @@ def test_a_creature_spell_that_has_an_adventure_counts_whichever_half_is_a_creat
     act(s, "p1", type="cast_spell", card_id=giant.id, face=face, **({"targets": ["p2"]} if face else {}))
     answer(s)
     assert len(s.state.zones["p1:hand"]) == hand + draws
+    check(s)
+
+
+def test_eminence_cost_reduction_works_from_the_command_zone(cards):
+    """The Ur-Dragon: "as long as ~ is in the command zone or on the battlefield, other Dragon spells you cast cost {1} less" (113.6b)."""
+    from app.rules.view import hints
+
+    s = build_commander(cards, "The Ur-Dragon", ["Probe Dragon"])
+    assert zone_of(s, "The Ur-Dragon") == "p1:command"
+    dragon = to_hand(s, "Probe Dragon")
+    mana(s, R=1, C=1)  # ({2}{R} less {1})
+    assert dragon.id in hints(s.state, "p1", s.cards)["castable"]
     check(s)

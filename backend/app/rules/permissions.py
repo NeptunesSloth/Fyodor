@@ -790,13 +790,19 @@ def _table_statics(state: GameState, info: CardInfo, kinds: set[str]) -> list[tu
         return []
     live = set(live_players(state))
     out = []
+    from app.rules import designations, triggers
+
     for card in state.cards.values():
-        if not card.zone.endswith(":battlefield") or card.face_down or card.controller not in live \
+        # -- trigger other (wave 25B) -- eminence: a static that names "in the command zone or on the battlefield" works from the command zone (113.6b)
+        eminent = card.zone.endswith(":command") and not designations.emblem_card(card)
+        if not (card.zone.endswith(":battlefield") or eminent) or card.face_down or card.controller not in live \
                 or r.card_mode(card.id) == "manual":
             continue
         ch = derive(state, card, chars.of(card, info), info)
         for index, d in scripts.definitions(ch).items():
             if d.get("kind") == "static" and d.get("static") in kinds:
+                if eminent and (d.get("change") or {}).get("cond") != triggers.COMMAND_OR_BATTLEFIELD:
+                    continue
                 out.append((card, index, d))
     return out
 
