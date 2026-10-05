@@ -2309,7 +2309,7 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if len(owners) == 1:
         ctx["looked"] = cards
     # (the objects looked at, for "that card's mana value" and the like: still in the library)
-    _remember(plan, ctx, e, [ctx["found"]] if ctx.get("found") else cards)
+    _remember(plan, ctx, e, [ctx["found"]] if ctx.get("found") else [] if e.get("until") else cards)  # (wave 20A: none found: no "that card")
     return True
 
 

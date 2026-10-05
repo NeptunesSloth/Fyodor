@@ -300,8 +300,12 @@ def _stat(phrase: str, its: str = "it") -> Any:
     if (m := re.fullmatch(r"the (?P<stat>mana value) of (?:that|the) spell|the spell's (?P<stat2>mana value)", phrase)) is not None:
         return {"mana_value": "that_spell"}  # (wave 19F: a cast trigger's spell, or the one a counter instruction just countered)
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
-    m = re.fullmatch(r"(?:(?P<its>its)|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
+    m = re.fullmatch(r"(?:(?P<its>its)|that (?P<noun>creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
                      r"(?P<spell>that spell's)|(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
+    if m and m["noun"] == "card":
+        # -- damage sized by a count (wave 20A) -- "gets +X/+0, where X is that card's mana value" (Goblin Machinist): the card an earlier instruction
+        # revealed, never the creature that is pumped (``_bind_its`` leaves the placeholder for scripts.resolve_it)
+        return _Ante({_STATS[m["stat"]]: "it"})
     if m:
         # -- refused copy/mana (wave 3R3) -- "that spell's": a cast/copy trigger's spell even after an instruction
         # named another object (Deekah: "create a … token. Put X +1/+1 counters on it, where X is that spell's mana
@@ -803,11 +807,14 @@ _PICK = re.compile(
     rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |(?P<exile>(?:you may )?exile) |put )"
     rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among (?:them|the cards milled this way|the milled cards|those cards)|revealed this way|milled this way))"
     r"|(?= (?:into|on|onto) )| them(?= (?:into|on|onto) ))"
-    r"|(?P<that>that card|it|the revealed card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
+    r"|(?P<that>that card|it|the revealed card|the nonland card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
     r"(?: and put (?:it|them|the revealed cards|that card|those cards))?"
     rf"(?:(?P<fd> face down)| (?P<to>{_PICK_TO}))?"
     rf"(?:,? (?:and |then )?(?:put )?{_REST})?")
-_REST_ALONE = re.compile(rf"(?:put {_REST}|exile (?P<exile>the rest|all other cards revealed this way))")
+# (-- damage sized by a count (wave 20A) -- "Put the revealed cards on the bottom of your library in a random order." after a reveal-until:
+# all of them, the card found too, which hasn't moved)
+_REST_ALONE = re.compile(rf"(?:put {_REST}|put the revealed cards (?P<rest2>on the bottom of {_LIBREF} in (?:a random|any) order)|"
+                         r"exile (?P<exile>the rest|all other cards revealed this way))")
 # -- refused look/cast-free (wave 3R5) -- "That player exiles cards from the top of their library until they exile an
 # instant or sorcery card" (the subject's own library), and "Then that player puts the exiled cards that weren't
 # cast this way on the bottom of their library in a random order" (random: who puts them doesn't matter)
@@ -1065,7 +1072,7 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         return [_rest(m["rest"])], None
     m = _REST_ALONE.fullmatch(text)
     if m:
-        return [{"do": "rest_looked", "to": "exile"} if m["exile"] else _rest(m["rest"])], None
+        return [{"do": "rest_looked", "to": "exile"} if m["exile"] else _rest(m["rest"] or m["rest2"])], None
     m = _SHUFFLE.fullmatch(text)
     if m:
         who, group = ("you", None)
@@ -1979,12 +1986,16 @@ def _permanents(effects: Effects, target: Any) -> bool:
     return True
 
 
+class _Ante(dict[str, Any]):
+    """A value whose "it" is an object an earlier instruction named, not the subject of the sentence it is written in."""
+
+
 def _bind_its(v: Any, its: str | None) -> Any:
     """A rider's placeholder "it" ("where X is its power", "for each counter on it") as the pump's
     own subject; refused when the subject is a pronoun the grammar can't bind here."""
     if isinstance(v, list):
         return [_bind_its(x, its) for x in v]
-    if not isinstance(v, dict):
+    if not isinstance(v, dict) or isinstance(v, _Ante):
         return v
     out = {}
     for k, x in v.items():

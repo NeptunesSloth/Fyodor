@@ -50,6 +50,8 @@ _IS = re.compile(r"^is (?:a|an) (?P<desc>.+?)(?: with base power and toughness (
 
 def protect(predicate: str) -> str:
     """Keep Darksteel Mutation's "it loses all other abilities, card types, and creature types" one piece."""
+    predicate = re.sub(rf"\bis an? (?:{_BASICS})(?:(?:, and |, | and )(?:{_BASICS}))+",  # (wave 20A: "is a Mountain, Forest, and Plains": one piece)
+                       lambda m: re.sub(r", and |, | and ", "\u0004", m[0]), predicate)
     return predicate.replace("it loses all other abilities, card types, and creature types", _LOSE_TYPES) \
         .replace("its other colors and types", "its other colors_and_types")
 
@@ -57,7 +59,7 @@ def protect(predicate: str) -> str:
 def piece(text: str, extra: dict[str, Any]) -> bool | list[int] | None:
     """One predicate piece about layers 4-6 → recorded in ``extra`` (True; a base P/T [p, t] to set), False when it
     is one of these but not read, None when it's not one of these."""
-    text = re.sub(r"^it (?=loses )", "", text)
+    text = re.sub(r"^it (?=loses )", "", text).replace("\u0004", ", ")
     if text == _LOSE_TYPES:
         extra["lose_all"] = True
         extra["_lose_types"] = True
@@ -74,14 +76,14 @@ def piece(text: str, extra: dict[str, Any]) -> bool | list[int] | None:
         extra.setdefault("lose_keywords", []).append(m["kw"])
         return True
     # -- land types set (wave 12D) -- "Enchanted land is a Swamp." / "is a Mountain, Forest, and Plains." (305.7, 613.1d)
-    m = re.fullmatch(rf"is an? (?P<t>{_BASICS}(?:(?:, | and |, and ){_BASICS})*)", text)
+    m = re.fullmatch(rf"is an? (?P<t>(?:{_BASICS})(?:(?:, | and |, and )(?:{_BASICS}))*)", text)  # (wave 20A: the alternation grouped)
     if m:
         if "set_land_types" in _layer4(extra):
             return False
         _layer4(extra)["set_land_types"] = re.findall(_BASICS, m["t"])
         return True
-    if text == "is legendary":
-        _layer4(extra).setdefault("add_supertypes", []).append("Legendary")
+    if text in ("is legendary", "is snow"):  # (wave 20A: "Enchanted land is snow", 205.4a: a supertype added)
+        _layer4(extra).setdefault("add_supertypes", []).append(text[3:].capitalize())
         return True
     if text in ("is every creature type", "is all creature types"):  # (205.3m: "all creature types")
         _layer4(extra)["all_creature_types"] = True

@@ -167,7 +167,7 @@ def _cmp(word: str | None) -> str:
 
 # -- counters (wave 7C) -- "~ has twenty or more growth counters on it", "there are three or more brick counters on this
 # artifact", "~ has no charge counters on it": how many counters of a kind its source has now (122.1)
-_SELF_COUNTS = re.compile(r"(?:(?:~|this [a-z]+) has|there (?:are|is)) (?:(?P<n>\w+) or (?P<cmp>more|fewer)|(?P<no>no)) "
+_SELF_COUNTS = re.compile(r"(?:(?:~|this [a-z]+|(?P<host>enchanted creature)) has|there (?:are|is)) (?:(?P<n>\w+) or (?P<cmp>more|fewer)|(?P<no>no)) "
                           r"(?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?:it|~|this [a-z]+)")
 
 
@@ -185,7 +185,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     if m and m["k"] not in ("any", "more", "fewer"):
         n = 0 if m["no"] else _num(m["n"])
         if n is not None:
-            return {"value": {"counters": m["k"], "on": "self"}, "op": "==" if m["no"] else _cmp(m["cmp"]), "n": n}
+            # (-- attached events (wave 20A) -- "Then if enchanted creature has three or more +1/+1 counters on it": what it's attached to)
+            return {"value": {"counters": m["k"], "on": "host" if m["host"] else "self"}, "op": "==" if m["no"] else _cmp(m["cmp"]), "n": n}
     from app.rules import (
         coin_flips,  # -- coin flips (wave 7E) -- "If you win the flip" (705.2: app/rules/coin_flips.py)
     )
