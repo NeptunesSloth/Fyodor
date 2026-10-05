@@ -108,11 +108,12 @@ def cant_enter(plan: Plan, card: CardInstance, controller: str) -> tuple[str, bo
     if not found:
         return None
     ch = plan.ch(card)
+    types = {"Creature"} if card.face_down else ch.types  # (-- wave 24D -- 708.2 / 701.40a: a face-down object is a 2/2 creature card)
     for src, d in found:
         if not any(card.zone.endswith(f":{z}") for z in d["zones"]):
             continue
         sel = selectors.from_key(d["sel"])
-        if sel.types and not set(sel.types) & ch.types or set(sel.not_types) & ch.types:
+        if sel.types and not set(sel.types) & types or set(sel.not_types) & types:
             continue
         return _label(src), not card.zone.endswith((":library", ":hand"))
     return None

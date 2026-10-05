@@ -55,3 +55,30 @@ def test_optional_search_under_mindlock_orb_does_not_shuffle(cards, orb):
     else:
         assert library(s, "p2") != before  # the search happened and the library was shuffled
     check(s)
+
+
+# -- Grafdigger's Cage vs manifest (701.40f, 614.17d) ------------------------------------------------------------------------
+EXTRA += [
+    real("Grafdigger's Cage", "{1}", 1, "Artifact", "Creature cards in graveyards and libraries can't enter the battlefield.\nPlayers can't cast spells from graveyards or libraries."),
+    real("Soul Summons", "{W}", 1, "Sorcery", "Manifest the top card of your library.", None, "W"),
+]
+
+
+@pytest.mark.parametrize("cage", [False, True])
+def test_cage_stops_a_manifest_from_the_library(cards, cage):
+    s = build(cards, ["Soul Summons", "Grafdigger's Cage"], [])
+    if cage:
+        put(s, "Grafdigger's Cage")
+    spell = to_hand(s, "Soul Summons")
+    top = library(s, "p1")[0]
+    mana(s, W=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    for _ in range(4):
+        if s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+    face_down = [c for c in s.state.cards.values() if c.face_down and c.zone == "p1:battlefield"]
+    if cage:  # 701.40f: the face-down creature can't enter, so the card stays on top of the library
+        assert not face_down and library(s, "p1")[0] == top and s.state.cards[top].zone == "p1:library"
+    else:
+        assert len(face_down) == 1
+    check(s)
