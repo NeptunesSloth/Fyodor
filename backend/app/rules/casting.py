@@ -2126,6 +2126,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if not free and a.alt_cost is None and not (grant is not None and grant.pay):
             raise ActionError(f"Choose a value for X to cast {ch.name}")
         a.x_value = 0  # 107.3b: X is 0 when a spell is cast without paying its mana cost (or for an alternative cost, wave 4I)
+    elif base.x and a.x_value and (free or (grant is not None and grant.pay)):  # -- review (wave 25A) -- 107.3b: the only legal choice is 0
+        raise ActionError(f"X is 0 when {ch.name} is cast without paying its mana cost or for an alternative cost without X (107.3b)")
     alternative: M.ManaCost | None = M.parse_cost("{3}") if a.face_down else None
     additional: list[M.ManaCost] = []
     if a.buyback:
