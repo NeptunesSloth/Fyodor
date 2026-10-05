@@ -215,6 +215,8 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
         worded = ("Boast", line[len("Boast — "):])
     if line.startswith("Power-up — ") and ":" in line:  # -- counters (wave 7C) -- 702.193a (restrictions.parse, power_up.py)
         worded = ("Power-up", line[len("Power-up — "):])
+    if line.startswith("Forecast — ") and ":" in line:  # -- forecast (wave 24C) -- 702.57a (restrictions.parse; the cost is revealed from the hand)
+        worded = ("Forecast", line[len("Forecast — "):])
     if worded is not None:  # (wave 4F: channel is read, 113.6m)
         cost = worded[1].split(":", 1)[0]
         if _COST_START.match(cost) and len(cost) < 120:

@@ -335,5 +335,8 @@ card data, and the supplementary Attraction deck needs deck-building support.
   the same condition grammar; a negated mana test stays refused (a spell cast by hand has no known payment).
 - Hone counters (122.1j): +1/+0 to the creature the Equipment is attached to (`layers._hone`, layer 7c).
 - "[mandatory counters]. When you do, …" is a reflexive trigger (603.12) that waits for the counters really being put (Solemnity stops it).
-- Not built (left for later): forecast (702.57: from-hand activation with a "reveal this card" cost, 11 cards), the Adversary cycle ("pay … any number of
+- Forecast (702.57a): "Forecast — {cost}, Reveal this card from your hand: …" is an activated ability from the hand (`costs.REVEAL_SELF`, `from_hand`),
+  your upkeep only and once each turn (`restrictions.parse`); the reveal is shown in the log and ends at once (`cost_payment.pay`). The hand menu offers it
+  (`rulesMenu.ts`). Not read: a forecast cost tapping creatures (Sky Hussar), Paladin of Prahv's "whenever target creature deals damage this turn".
+- Not built (left for later): the Adversary cycle ("pay … any number of
   times"), cast-trigger riders ("that creature enters with an additional +1/+1 counter": Torgal, Kumano, Fenrir), enters-as-copy with counters (Spark Double).

@@ -20,7 +20,7 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_conditionals import build, settle, to_hand, token_of
+from tests.test_rules_conditionals import build, to_hand, token_of
 from tests.test_rules_effects import mana, replay_matches
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave24c_hone_cards.json").read_text("utf-8"))

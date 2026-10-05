@@ -451,6 +451,10 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             sacrifice += ids  # (wave 4H) 701.61a: the Food, sacrificed with the cost's other sacrifices
         elif _pay_new_part(plan, comp, card, ids, record):  # -- activation costs (wave 4H) --
             continue
+        elif comp.kind == C.REVEAL_SELF:  # -- forecast (wave 24C) -- 702.57a: shown to everyone (701.20a: in the log), then hidden again: the card
+            plan.do({"type": "reveal", "card_ids": [card.id]}, actor=player)  # stays in the hand and a reveal doesn't last
+            plan.do({"type": "hide", "card_ids": [card.id]}, actor=player)
+            record.revealed.append(card.id)
         elif comp.kind in ("REVEAL_FROM_HAND", C.BEHOLD):  # -- static_other sweep (wave 17C) -- revealed to everyone (701.20a); a beheld permanent just is
             shown = [c for c in ids if plan.state.cards[c].zone.endswith(":hand")]
             if shown:

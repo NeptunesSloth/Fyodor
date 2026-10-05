@@ -40,6 +40,8 @@ _N = r"(?P<n>a|an|another|one|two|three|four|five|six|seven|eight|nine|ten|thirt
 _SAC_CHOSEN = re.compile(rf"^Sacrifice {_N} (?P<what>.+)$")
 _DISCARD = re.compile(rf"^Discard {_N} (?P<what>(?:[\w\-]+ )*cards?)(?P<random> at random)?$")
 _DISCARD_SELF = re.compile(r"^Discard (?:this card|~)$")  # -- ability words (wave 4F) -- channel (113.6m)
+_REVEAL_SELF = re.compile(r"^Reveal (?:this (?:card|creature)|~) from your hand$")  # -- forecast (wave 24C) -- 702.57a (113.6m: from the hand)
+REVEAL_SELF = "REVEAL_SELF"
 _EXILE_SELF_GY = re.compile(rf"^Exile {_SELF} from your graveyard$")
 _EXILE_SELF = re.compile(rf"^Exile {_SELF}$")
 _EXILE_GY = re.compile(rf"^Exile {_N} (?P<what>(?:[\w\-]+ )*cards? from your graveyard)$")
@@ -171,7 +173,7 @@ class AbilityCost:
     def from_hand(self) -> bool:
         """-- ability words (wave 4F) -- 113.6m: "Discard this card" (channel: "{1}{R}, Discard this card: …") moves
         the card out of its owner's hand, so the ability works only there."""
-        return any(c.kind == DISCARD and c.selector is None for c in self.components)
+        return any((c.kind == DISCARD and c.selector is None) or c.kind == REVEAL_SELF for c in self.components)
 
     @property
     def from_graveyard(self) -> bool:
@@ -244,6 +246,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(EXILE_FROM_GRAVEYARD, text=part)
     if _DISCARD_SELF.match(part):  # -- ability words (wave 4F) -- "Discard this card" (701.9a; 113.6m: from the hand)
         return CostComponent(DISCARD, text=part)
+    if _REVEAL_SELF.match(part):  # -- forecast (wave 24C) -- revealed to everyone (701.20a), the card stays in the hand
+        return CostComponent(REVEAL_SELF, text=part)
     if _EXILE_SELF.match(part):
         return CostComponent(EXILE, text=part)
     if _RETURN_SELF.match(part):

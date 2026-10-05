@@ -259,6 +259,8 @@ def self_text(text: str, name: str) -> str:
         out = out[len("Boast — "):]
     if out.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193a (restrictions.parse, power_up.py)
         out = out[len("Power-up — "):]
+    if out.startswith("Forecast — "):  # -- forecast (wave 24C) -- 702.57a (the restriction: restrictions.parse)
+        out = out[len("Forecast — "):]
     if out == text and (worded := word_prefix(text)) is not None:  # -- refused zones/sized (wave 3R4) -- 207.2d
         out = worded[1]
     short = _short_name(name, out)
@@ -4147,7 +4149,7 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
 
 
 def _from_hand_ability(ab: AbilityText) -> bool:
-    return ab.kind == "activated" and re.search(r"(?:^|, )Discard (?:this card|~)(?:,|$)", ab.cost or "") is not None
+    return ab.kind == "activated" and re.search(r"(?:^|, )(?:Discard|Reveal) (?:this (?:card|creature)|~)(?: from your hand)?(?:,|$)", ab.cost or "") is not None
 
 
 def spell_definition(ch: Characteristics) -> Definition | None:

@@ -172,7 +172,8 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     const text = oracle;
     abilityLines(text).forEach((line, i) => {
       // (wave 5A) 113.6m / 605.3a: "Exile this card from your hand: Add {R}." (Simian Spirit Guide)
-      if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line) || /^suspend \d+\s*[—-]/i.test(line)
+      // (wave 24C) 702.57a: "Forecast — {1}{U}, Reveal this card from your hand: …" (the server checks the upkeep and once each turn)
+      if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line) || /^suspend \d+\s*[—-]/i.test(line) || /^forecast\s*—/i.test(line)
         || /^Exile this card from your hand: Add /.test(line)) {
         items.push({ label: line.replace(/\s*\(.*$/, ""), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
       }
