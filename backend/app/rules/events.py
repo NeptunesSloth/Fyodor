@@ -416,6 +416,12 @@ def _parse(c: str) -> Condition | None:
         return conds[0] if len(conds) == 1 else {"event": "either", "subject": "player", "player": "you", "conds": conds}
     if c == "you roll one or more dice":  # -- rolling dice (wave 13E) -- 706: once per roll, however many dice (rules/dice.py)
         return {"event": "roll", "subject": "player", "player": "you"}
+    from app.rules import (
+        dice,  # -- dice (wave 24B) -- "you roll a 6", "a 4 or higher", "your third die each turn" (one event per die)
+    )
+
+    if (rolled := dice.event_condition(c)) is not None:
+        return rolled
     for rx, event in _DESIGNATION_EVENTS:  # -- counters & designations (wave 3E) --
         m = rx.fullmatch(c)
         if m:

@@ -350,6 +350,11 @@ class Event(BaseModel):
     looked: int = 0  # -- scry counts (wave 19C) -- a scry / surveil: how many cards it looked at (701.22d: fewer than N with a short library)
     group: int = 0  # -- counters (wave 7C) -- counters one instruction put in several steps share it (122.6); 0: alone
     by_card: str | None = None  # -- keyword triggers (wave 23D) -- "exploited": the creature with exploit (a card id)
+    # -- dice (wave 24B) -- a ``designation`` event with counter "roll_die": one die rolled by ``player`` (706.2: ``amount`` its result after
+    # modifiers, ``natural`` the number on the die, ``sides`` the die's size, ``nth`` how many dice they have rolled this turn, this one included)
+    natural: int = 0
+    nth: int = 0
+    sides: int = 0
 
 
 MAX_EVENTS = 500  # unconsumed events kept (a trigger collector consumes them; M16)
@@ -477,6 +482,7 @@ class TurnLog(BaseModel):
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
     # "<source object>:<ability index>" -> how many times that ability resolved this turn (copies included)
     resolved: dict[str, int] = Field(default_factory=dict)
+    rolled: dict[str, int] = Field(default_factory=dict)  # -- dice (wave 24B) -- player -> dice rolled this turn (706.6: an ignored roll never happened)
     # -- end this-turn history (wave 4D) --
 
 

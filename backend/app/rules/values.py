@@ -517,6 +517,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import dice
 
         return dice.evaluate(ctx, v["die"])
+    if "dice" in v:  # -- dice (wave 24B) -- the even / odd / different results of this resolution's roll
+        from app.rules import dice
+
+        return dice.count_of(ctx, v["dice"])
     if "paid_x" in v:  # -- sized payments (wave 5G) -- the X an optional payment of this resolution paid
         from app.rules import paid_x
 

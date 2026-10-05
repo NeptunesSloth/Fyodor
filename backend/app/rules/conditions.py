@@ -576,6 +576,12 @@ def _died(m: re.Match[str]) -> Condition | None:
     return None if n is None else {"history": "died", "who": "you" if m["mine"] else "any", "n": n}
 
 
+@_history_pattern(r"you(?:'ve)? rolled (?P<n>\w+) or more dice this turn")
+def _rolled(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])
+    return None if n is None else {"history": "rolled", "n": n}  # -- dice (wave 24B) -- 706.6 (history.rolled via the turn log)
+
+
 @_history_pattern(r"a creature you controlled died this turn")
 def _died_mine(m: re.Match[str]) -> Condition:
     return {"history": "died", "who": "you", "n": 1}

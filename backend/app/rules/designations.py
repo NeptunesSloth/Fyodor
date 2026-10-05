@@ -212,6 +212,9 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [(e.counter, None, None, e.player, {"nth": e.amount, "amount": e.looked})]  # (wave 19C: "cards looked at while scrying this way")
     if e.counter == "roll" and e.player:  # -- rolling dice (wave 13E) -- "Whenever you roll one or more dice" (app/rules/dice.py)
         return [("roll", None, None, e.player, {"high": e.amount})]
+    if e.counter == "roll_die" and e.player:  # -- dice (wave 24B) -- one die (706.2): its result, the natural result, the size, the turn's count
+        return [("roll_die", None, None, e.player, {"amount": e.amount, "natural": e.natural, "sides": e.sides, "nth": e.nth,
+                                                    "actor": e.player})]
     if e.counter == "crime" and e.player:  # -- crimes (wave 6D) -- 700.13
         return [("commit_crime", None, None, e.player, {})]
     if e.counter in ("monstrous", "renowned") and e.card in plan.state.cards:  # -- becomes monstrous (wave 6D) --

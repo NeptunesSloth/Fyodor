@@ -3774,7 +3774,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # tokens created … the number of them (603.2c)
 _AMOUNT_EVENTS = {"gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
-                  "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library"}  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
+                  "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library",
+                  "roll_die"}  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
@@ -3848,6 +3849,8 @@ def _event_refs_ok(d: Definition) -> bool:
     ev = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
     if '"same_name": "event"' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- value grammar (wave 23C) -- "that spell": the spell a cast trigger is about
+    if '"of": "roll"' in raw and not (ev is not None and ev["event"] == "roll_die"):
+        return False  # -- dice (wave 24B) -- "if the roll was 4 or higher": the one die a roll trigger is about
     if '"died": 1' in raw and not (ev is not None and ev["event"] == "die" and not ev.get("aggregate")):
         return False  # -- value grammar (wave 23C) -- "the power of the creature that died": the one creature a "dies" trigger is about
     if '"of": "damage"' in raw and not (ev is not None and ev["event"] in ("dealt_damage", "deal_damage", "deal_damage_opponent", "deal_combat_damage_player")):
