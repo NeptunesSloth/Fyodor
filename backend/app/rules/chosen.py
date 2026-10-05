@@ -62,10 +62,23 @@ def _uses(node: Any, key: str = "") -> list[tuple[str, str]]:
 
 
 def _enters_choices(ch: Characteristics) -> list[str]:
+    from app.rules import (
+        card_names,  # -- card names (wave 22B) -- "As ~ enters, choose a card name." counts as a card name choice
+    )
     from app.rules.language import ENTERS_CHOICE
     from app.rules.scripts import self_text
 
-    return [m["what"] for ab in ch.abilities if (m := ENTERS_CHOICE.match(self_text(ab.text, ch.name))) is not None]
+    texts = [self_text(ab.text, ch.name) for ab in ch.abilities]
+    named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
+    return [m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None] + ["card name" for _ in named]
+
+
+def _kind(what: str | None) -> str | None:
+    from app.rules import (
+        card_names,  # -- card names (wave 22B) -- every "… card name" choice is the one "card name" value
+    )
+
+    return "card name" if card_names.is_choice(what) else what
 
 
 def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
@@ -92,7 +105,7 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     for what in {w for _, w in uses}:
         if what == "?":
             return False
-        inside = [i for i, e in enumerate(effects) if e.get("do") == "choose_value" and e.get("what") == what
+        inside = [i for i, e in enumerate(effects) if e.get("do") == "choose_value" and _kind(e.get("what")) == what
                   and not e.get("remember")]
         if inside:  # a choice made as it resolves: only in the instructions after it
             if len(inside) != 1 or what in _enters_choices(ch):
@@ -103,7 +116,7 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
             continue
         if d.get("kind") == "spell" or _enters_choices(ch).count(what) != 1:
             return False
-        if any(w == what and k not in _SOURCE_KEYS for k, w in uses):
+        if any(w == what and k not in _SOURCE_KEYS and not (k == "filter" and d.get("static") == "cast_limit") for k, w in uses):  # (wave 22B)
             return False
     return True
 

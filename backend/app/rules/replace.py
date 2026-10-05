@@ -847,6 +847,8 @@ class CounterPlan:
 def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effect: bool,
                   entering: dict[str, str] | None, answers: dict[str, str], ask: bool,
                   cands: list[Candidate] | None = None, newcomers: list[str] | None = None) -> CounterPlan | Ask:
+    from app.rules import prohibitions  # -- prohibitions (wave 22B) -- 614.17
+
     planner = Planner(plan, cands if cands is not None else candidates(plan, ("counters", "player_counters")), answers, ask=ask)
     finals: list[tuple[Event, list[Event]]] = []
     events: list[Event] = []
@@ -871,7 +873,12 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
     try:
         for ev in events:
             out: list[Event] = []
-            if ev["n"] > 0 or (ev.get("entering") and extra_kinds):  # (wave 5H: a zero entering event too)
+            if ev["kind"] == "counters" and ev["n"] > 0 and (
+                    barred := prohibitions.cant_counters(plan, ev["card"], ev.get("controller") if ev.get("entering") else None)):
+                ev["prohibited"] = barred  # -- prohibitions (wave 22B) -- 614.17: no event: nothing replaces or triggers on it
+            elif ev["kind"] == "player_counters" and ev["n"] > 0 and (barred := prohibitions.cant_get_counters(plan)):
+                ev["prohibited"] = barred
+            elif ev["n"] > 0 or (ev.get("entering") and extra_kinds):  # (wave 5H: a zero entering event too)
                 planner.settle(ev, {}, out.append)
             else:
                 out = [ev]  # (removing counters: nothing replaces it)
@@ -887,6 +894,10 @@ def do_counters(plan: Plan, planned: CounterPlan, *, by: str) -> None:
     left_to_players(plan, planned.planner)
     groups: dict[tuple[str, str, int], list[str]] = {}
     for before, out in planned.finals:
+        if before.get("prohibited"):  # -- prohibitions (wave 22B) -- 614.17
+            card_id = before.get("card")
+            who = plan.name(before["player"]) if card_id is None else plan.state.cards[card_id].name or "a permanent"
+            plan.note(f"{before['prohibited']}: counters can't be put on {who}", [card_id] if card_id else [], actor=by)
         note_applied(plan, before, out, actor=by)
         for ev in out:
             if ev["n"] == 0:

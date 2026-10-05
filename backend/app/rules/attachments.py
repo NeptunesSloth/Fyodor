@@ -264,6 +264,14 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
             entry["stays"] = True  # -- transform (wave 11A) -- 712.14a: a card that isn't a double-faced card stays where it is
         if card is None or entry.get("stays"):
             continue
+        # -- prohibitions (wave 22B) -- 614.17: "Creature cards in graveyards and libraries can't enter the battlefield."
+        from app.rules import prohibitions
+
+        if (barred := prohibitions.cant_enter(plan, card, entry["player"])) is not None:
+            if barred[1]:  # (a card in a hidden zone stays silently: a note would show that one was found)
+                plan.note(f"{barred[0]}: a card can't enter the battlefield", [card.id])
+            entry["stays"] = True
+            continue
         # -- entering for a cost (wave 5G) -- what it may pay with: not one entering with it, nor one another of them
         # chose (614.13a-b)
         from app.rules import enter_cost

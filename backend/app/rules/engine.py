@@ -1097,6 +1097,14 @@ def choose(plan: Plan, a: A.Choose) -> None:
         raise ActionError(f"It's {plan.name(d.player)}'s decision")
     chosen = list(a.option_ids)
     valid = {o.id for o in d.options}
+    from app.rules import card_names  # -- card names (wave 22B) -- 201.4: a typed name answers it
+
+    if card_names.is_free_text(d):
+        if chosen or a.amounts:
+            raise ActionError("Type a card name")
+        chosen, valid = [card_names.answer(plan, d, a.name)], set()
+    elif a.name is not None:
+        raise ActionError("A name only answers a card-name choice")
     if d.kind == "divide":  # 601.2d: an amount per option (target), at least 1 each, adding up to the total
         total = int((d.resume or {}).get("total", 0))
         least = int((d.resume or {}).get("least", 1))  # (-- multiple blocks (wave 13B) -- 510.1d: a share may be 0)
@@ -1108,6 +1116,8 @@ def choose(plan: Plan, a: A.Choose) -> None:
         chosen = [str(n) for n in a.amounts]
     elif a.amounts:
         raise ActionError("Amounts only answer a division")
+    elif card_names.is_free_text(d):
+        pass
     elif len(set(chosen)) != len(chosen) or not set(chosen) <= valid:
         raise ActionError("Choose from the options offered")
     if d.kind == "reconcile":

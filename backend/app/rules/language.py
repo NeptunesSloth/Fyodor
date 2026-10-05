@@ -25,6 +25,9 @@ from typing import Any
 
 from app.rules import characteristics as chars
 from app.rules import selectors, sized_damage, this_way, values  # (this_way: wave 4A; sized_damage: wave 4E)
+from app.rules.card_names import (
+    WHAT_RX as _NAME_WHAT,  # -- card names (wave 22B) -- "Choose a nonland card name."
+)
 
 Effects = list[dict[str, Any]]
 AMT = values.AMOUNT
@@ -1523,6 +1526,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], _one(group)
+    # -- prohibitions (wave 22B) -- 602.5: "Its activated abilities can't be activated this turn." (Koma, Deadlock Trap): the rule "cant_activate"
+    # (mana abilities too, as for detain), on the object the sentence is about, until end of turn
+    m = re.fullmatch(r"(?P<o>it|that creature|that permanent)'s activated abilities can't be activated this turn|"
+                     r"(?P<o2>its|their) activated abilities can't be activated this turn", text)
+    if m:
+        kind, key, group = ref("it" if m["o2"] else m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": ["cant_activate"]}], _one(group)
     # -- no combat damage (wave 19E) -- "If you do, this creature assigns no combat damage this turn." (510.1a: it assigns 0; read by
     # combat._assigns; a rule-modifying effect, not prevention: lifelink, deathtouch and damage replacements see no damage at all)
     m = re.fullmatch(r"(?P<o>~|it|this creature|that creature|target creature) assigns no combat damage this turn", text)
@@ -2354,10 +2366,11 @@ CHOOSE_FROM_HAND_GY = (r"you choose (?:a|an) (?P<sel>.+?) from (?:it or (?:a|an)
 # "Look at target player's hand." (Gitaxian Probe, Peek): a private look (701.20e: only the looking player sees it)
 LOOK_HAND = rf"look at (?P<s>{CHOOSER})'s hand(?: and (?P<ch>choose .+))?"  # (Painful Memories, Extortion: "… and choose a card from it")
 # "Target player reveals their hand and discards all nonland cards." (Amnesia, Trapfinder's Trick)
-DISCARD_ALL_REVEALED = rf"(?P<s>{CHOOSER}) reveals their hand and discards all (?P<sel>.+?) cards?"
+DISCARD_ALL_REVEALED = (rf"(?P<s>{CHOOSER}) reveals their hand and discards all (?:(?P<sel>.+?) )?cards?"
+                        r"(?P<tail> with (?:the chosen|that) name)?")  # (wave 22B: Cabal Therapy, "all cards with that name")
 DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
-CHOOSE_VALUE = r"choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player)"
+CHOOSE_VALUE = rf"choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player|{_NAME_WHAT})"
 ENTERS_CHOICE = re.compile(r"^As ~ enters, choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player)\.$")
 
 
@@ -2444,7 +2457,9 @@ def exile_from_hand(m: re.Match[str]) -> tuple[Effects, Any]:
 
 def discard_all_revealed(m: re.Match[str]) -> tuple[Effects, Any]:
     who, group = _chooser(m["s"])
-    sel = selectors.parse(m["sel"] + " cards")
+    if not m["sel"] and not m["tail"]:
+        raise _Fail
+    sel = selectors.parse((m["sel"] + " " if m["sel"] else "") + "cards" + (m["tail"] or ""))
     if who in ("each_player", "each_opponent") or sel is None or sel.player is not None or not sel.card or sel.zones:
         raise _Fail
     return [{"do": "reveal_hand", "who": who}, {"do": "discard_named", "who": "revealed", "sel": sel.key()}], _one(group)
