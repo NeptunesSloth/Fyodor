@@ -550,7 +550,7 @@ def enchant(s, aura, host):
 def test_aura_wordings_that_set_the_type_are_covered():
     for c in AURAS:
         sup, types, sub = parse_type_line(c["type_line"])
-        chs = Characteristics(name=c["name"], supertypes=sup, types=types, subtypes=sub, oracle_text=c["oracle_text"],
+        chs = Characteristics(name=c["name"], supertypes=sup, types=types, subtypes=sub, oracle_text=c["oracle_text"], mana_cost=c.get("mana_cost") or "",
                               abilities=tuple(parse_abilities(c["oracle_text"])))
         assert coverage.of_characteristics(chs).level == "FULL", c["name"]
 
@@ -608,4 +608,120 @@ def test_stop_cold_takes_all_abilities_of_a_permanent_and_keeps_it_tapped(cards)
     stone = put(s, "Mind Stone", "battlefield")
     enchant(s, "Stop Cold", stone)
     assert ch(s, stone).abilities == () and "doesnt_untap" in ch(s, stone).imposed
+    roundtrip(s)
+
+
+# -- resolved effects on a group (611.2c: the objects it began with; 613.1d-f, 613.4b) ---------------------------------------
+RESOLVED = [
+    card('Allosaurus Shepherd', set_code="tst", number="22A40", mana_cost='{G}', cmc=1.0, type_line='Creature — Elf Shaman',
+         oracle_text="This spell can't be countered.\nGreen spells you control can't be countered.\n{4}{G}{G}: Until end of turn, each Elf "
+                     "creature you control has base power and toughness 5/5 and becomes a Dinosaur in addition to its other creature types.",
+         power='1', toughness='1', colors=['G'], color_identity=['G']),
+    card('Zur, Eternal Schemer', set_code="tst", number="22A41", mana_cost='{W}{U}{B}', cmc=3.0, type_line='Legendary Creature — Human Wizard',
+         oracle_text='Flying\nEnchantment creatures you control have deathtouch, lifelink, and hexproof.\n{1}{W}: Target non-Aura '
+                     'enchantment you control becomes a creature in addition to its other types and has base power and base toughness '
+                     'each equal to its mana value.', power='1', toughness='4', colors=['W', 'U', 'B'],
+         color_identity=['W', 'U', 'B'], keywords=['Flying']),
+    card('Curious Colossus', set_code="tst", number="22A42", mana_cost='{5}{W}{W}', cmc=7.0, type_line='Creature — Giant Warrior',
+         oracle_text='When this creature enters, each creature target opponent controls loses all abilities, becomes a Coward in addition '
+                     'to its other types, and has base power and toughness 1/1.', power='7', toughness='7', colors=['W'],
+         color_identity=['W']),
+    card('Day of Black Sun', set_code="tst", number="22A43", mana_cost='{X}{B}{B}', cmc=2.0, type_line='Sorcery',
+         oracle_text='Each creature with mana value X or less loses all abilities until end of turn. Destroy those creatures.',
+         colors=['B'], color_identity=['B']),
+    card('Tezzeret the Seeker', set_code="tst", number="22A44", mana_cost='{3}{U}{U}', cmc=5.0, type_line='Legendary Planeswalker — Tezzeret',
+         oracle_text='+1: Untap up to two target artifacts.\n−X: Search your library for an artifact card with mana value X or less, put it '
+                     'onto the battlefield, then shuffle.\n−5: Artifacts you control become artifact creatures with base power and '
+                     'toughness 5/5 until end of turn.', colors=['U'], color_identity=['U'], loyalty='5'),
+]
+EXTRA.extend(RESOLVED)
+
+
+def new_token(s, pid, name, type_line, pt="1/1", text=""):
+    p, t = pt.split("/")
+    act(s, pid, type="create_token", player=pid, token={"name": name, "type_line": type_line, "power": p, "toughness": t, "text": text})
+    return next(c for c in s.state.cards.values() if c.name == name and c.owner == pid)
+
+
+def test_resolved_group_wordings_are_covered():
+    for c in RESOLVED:
+        level = coverage.of_card_data(c)
+        assert level.level == "FULL" or c["name"] == "Tezzeret the Seeker", (c["name"], level.manual_parts)
+    assert ok("−5: Artifacts you control become artifact creatures with base power and toughness 5/5 until end of turn.",
+              "Tezzeret the Seeker", "Legendary Planeswalker — Tezzeret")
+
+
+def test_allosaurus_shepherd_makes_the_elves_you_control_5_5_dinosaurs(cards):
+    s = build(cards, [(1, "Allosaurus Shepherd"), (1, "Grizzly Bears")])
+    shepherd, bears = put(s, "Allosaurus Shepherd", "battlefield"), put(s, "Grizzly Bears", "battlefield")
+    elf = new_token(s, "p1", "Elf Token", "Token Creature — Elf Warrior")
+    theirs = new_token(s, "p2", "Their Elf", "Token Creature — Elf")
+    ability = next(a.index for a in ch(s, shepherd).abilities if a.kind == "activated")
+    mana(s, G=2, C=4)
+    act(s, "p1", type="activate_ability", card_id=shepherd.id, ability=ability)
+    pass_until_stack_empty(s)
+    for c in (shepherd, elf):
+        assert ch(s, c).pt == (5, 5) and "Dinosaur" in ch(s, c).subtypes and "Elf" in ch(s, c).subtypes  # 205.1b: in addition
+    assert ch(s, bears).pt == (2, 2) and ch(s, theirs).pt == (1, 1)  # (only the Elves you control)
+    late = new_token(s, "p1", "Late Elf", "Token Creature — Elf")  # 611.2c: not an object the effect began with
+    assert ch(s, late).pt == (1, 1)
+    roundtrip(s)
+
+
+def test_zur_makes_a_non_aura_enchantment_a_creature_of_its_mana_value(cards):
+    s = build(cards, [(1, "Zur, Eternal Schemer"), (1, "Glorious Anthem"), (1, "Grizzly Bears")])
+    zur, anthem = put(s, "Zur, Eternal Schemer", "battlefield"), put(s, "Glorious Anthem", "battlefield")
+    ability = next(a.index for a in ch(s, zur).abilities if a.kind == "activated")
+    mana(s, W=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=zur.id, ability=ability, targets=[anthem.id])
+    pass_until_stack_empty(s)
+    assert ch(s, anthem).is_creature and "Enchantment" in ch(s, anthem).types
+    assert ch(s, anthem).pt == (4, 4)  # base 3/3 (its mana value), and its own +1/+1
+    assert {"deathtouch", "lifelink", "hexproof"} <= ch(s, anthem).keywords  # Zur: enchantment creatures you control
+    roundtrip(s)
+
+
+def test_curious_colossus_takes_the_abilities_of_their_creatures(cards):
+    s = build(cards, [(1, "Curious Colossus")], [(1, "Grizzly Bears"), (1, "Island"), (8, "Island")])
+    theirs = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    token = new_token(s, "p2", "Flyer", "Token Creature — Bird", "3/3", "Flying")
+    mine = new_token(s, "p1", "Mine", "Token Creature — Bird", "3/3", "Flying")
+    colossus = put(s, "Curious Colossus", "hand")
+    mana(s, W=2, C=5)
+    act(s, "p1", type="cast_spell", card_id=colossus.id)
+    pass_until_stack_empty(s)
+    d = rules(s).decision
+    if d is not None:  # the target opponent
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        pass_until_stack_empty(s)
+    for c in (theirs, token):
+        assert ch(s, c).pt == (1, 1) and "Coward" in ch(s, c).subtypes and ch(s, c).abilities == ()
+    assert ch(s, mine).pt == (3, 3) and "flying" in ch(s, mine).keywords
+    roundtrip(s)
+
+
+def test_day_of_black_sun_takes_indestructible_before_destroying(cards):
+    s = build(cards, [(1, "Day of Black Sun")])
+    tough = new_token(s, "p2", "Tough", "Token Creature — Golem", "2/2", "Indestructible")
+    big = new_token(s, "p1", "Big", "Token Creature — Golem", "5/5")
+    spell = put(s, "Day of Black Sun", "hand")
+    mana(s, B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=1)
+    pass_until_stack_empty(s)
+    assert tough.id not in s.state.cards and big.id not in s.state.cards  # (tokens have mana value 0: both died, and ceased to exist)
+    roundtrip(s)
+
+
+def test_tezzeret_the_seeker_animates_your_artifacts(cards):
+    s = build(cards, [(1, "Tezzeret the Seeker"), (1, "Mind Stone"), (1, "Sol Ring")], [(1, "Mind Stone"), (9, "Island")])
+    walker, stone = put(s, "Tezzeret the Seeker", "battlefield"), put(s, "Mind Stone", "battlefield")
+    theirs = put(s, "Mind Stone", "battlefield", pid="p2")
+    act(s, "p1", type="counter", card_ids=[walker.id], kind="loyalty", delta=5)
+    ability = [a.index for a in ch(s, walker).abilities if a.text.startswith("−5")][-1]
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=ability)
+    pass_until_stack_empty(s)
+    assert ch(s, stone).types == {"Artifact", "Creature"} and ch(s, stone).pt == (5, 5)  # 205.1b: an artifact creature keeps its types
+    assert mana_texts(s, stone) == ["{T}: Add {C}."] and not ch(s, theirs).is_creature
+    late = put(s, "Sol Ring", "battlefield")  # 611.2c
+    assert not ch(s, late).is_creature
     roundtrip(s)
