@@ -39,7 +39,14 @@ from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wa
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules import restrictions, selectors, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
-from app.rules.costs import DISCARD, EXILE, EXILE_FROM_GRAVEYARD, SACRIFICE, parse_ability_cost, spell_additional_cost
+from app.rules.costs import (
+    DISCARD,
+    EXILE,
+    EXILE_FROM_GRAVEYARD,
+    SACRIFICE,
+    parse_ability_cost,
+    spell_additional_cost,
+)
 from app.rules.oracle import AbilityText, parse_abilities, split_sentences, word_prefix
 from app.rules.values import UNMODELED_COUNTERS
 

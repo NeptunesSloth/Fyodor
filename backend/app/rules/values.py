@@ -698,8 +698,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 
         if v["for_player"] not in ("target", "event"):
             raise ValueError(f"unbound player in {v!r}")  # (scripts binds "that_player" / "target_player" / "target_opponent" or refuses the line)
-        who = _target_players(plan, ctx) if v["for_player"] == "target" else context.players(plan, ctx, context.EVENT)
-        return evaluate(plan, {**ctx, "controller": who[0]}, v["of"]) if len(who) == 1 else 0
+        players = _target_players(plan, ctx) if v["for_player"] == "target" else context.players(plan, ctx, context.EVENT)
+        return evaluate(plan, {**ctx, "controller": players[0]}, v["of"]) if len(players) == 1 else 0
     if "counters_among" in v or "counter_kinds" in v:  # -- value grammar (wave 23C) -- counters on a group of permanents (122.1)
         held = [plan.state.cards[c].counters for c in selectors.candidates(plan, selectors.from_key(v["of"]), you, _other_than(ctx))]
         if "counter_kinds" in v:
