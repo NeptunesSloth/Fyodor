@@ -198,7 +198,8 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     if card is None or not card.zone.endswith(":battlefield"):
         return "it's not on the battlefield"
     hch = plan.ch(card)
-    if protection.protected_from(hch, sch):
+    # -- attached events (wave 25D) -- 702.16n: a protection that "doesn't remove" this Aura / Auras isn't why an Aura falls off
+    if protection.protected_from(hch, sch, lambda k: k == f"self:{source.id}" or (k == "auras" and kind == "aura")):
         return f"{hch.name} has protection from it"
     if kind == "aura":
         if sch.is_creature:

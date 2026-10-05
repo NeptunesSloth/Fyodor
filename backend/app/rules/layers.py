@@ -692,9 +692,16 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         for k, (st, text) in enumerate(grants):
             if "‹granter›" in text and state.rules is not None:  # -- granted from object (wave 18F) -- 607.1a: the granting object
                 text = text.replace("‹granter›", f"‹granter#{state.rules.object_id(st.source)}›")
+            if text == "Protection from the chosen color":  # -- attached events (wave 25D) -- the granting Aura's own recorded color
+                src = state.cards.get(st.source)
+                color = (src.choices.get("Chosen color") or "").strip().lower() if src is not None else ""
+                if color not in ("white", "blue", "black", "red", "green"):
+                    continue
+                text = f"Protection from {color}"
             ab = granted_ability(text)
             if ab is not None:
-                extra.append(replace(ab, index=100 + k))
+                keeps = st.definition.get("keeps")  # (702.16n: attachments.host_problem)
+                extra.append(replace(ab, index=100 + k, keeps=None if keeps is None else f"self:{st.source}" if keeps == "self" else keeps))
         ch = replace(ch, abilities=ch.abilities + tuple(extra))
     lent = tuple({ab.index: ab for seq, ab in borrowed if wipe is None or (seq, 0, 0) > wipe}.values())
     if lent:

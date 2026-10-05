@@ -87,6 +87,8 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
         return False  # (wave 11E: "~ is the chosen type in addition to its other types" needs that one choice)
 
     dumped = json.dumps(d)
+    if "Protection from the chosen color" in dumped and d.get("static") == "grant":  # -- attached events (wave 25D) -- an Aura's static: its own enters choice
+        return _enters_choices(ch).count("color") == 1
     if "Protection from the chosen color" in dumped:  # -- chosen type (wave 20E) -- only in the instructions after a "Choose a color." of this resolution
         effects = d.get("effects") or []
         picks = [i for i, e in enumerate(effects) if e.get("do") == "choose_value" and e.get("what") == "color" and not e.get("remember")]

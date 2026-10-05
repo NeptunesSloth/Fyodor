@@ -1,0 +1,102 @@
+[
+ {
+  "name": "Black Ward",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature has protection from black. This effect doesn't remove this Aura.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Flickering Ward",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nAs this Aura enters, choose a color.\nEnchanted creature has protection from the chosen color. This effect doesn't remove this Aura.\n{W}: Return this Aura to its owner's hand.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Spectra Ward",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +2/+2 and has protection from each color. This effect doesn't remove Auras. (It can't be blocked, targeted, or dealt damage by anything that's white, blue, black, red, or green.)",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Tattoo Ward",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +1/+1 and has protection from enchantments. This effect doesn't remove this Aura.\nSacrifice this Aura: Destroy target enchantment.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Red Ward",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature has protection from red. This effect doesn't remove this Aura.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ }
+]

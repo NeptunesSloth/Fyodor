@@ -140,6 +140,14 @@ def parse(text: str) -> Definition | None:
                r"\1 is a \4 with base power and toughness \2/\3 in addition to its other types.", t)
     t = t.replace(" be activated unless they're mana abilities", " be activated-nonmana")  # ("unless" is not a condition here)
     t = re.sub(r"(?<=Vehicles)\. Its (activated abilities can't be activated-nonmana\.)$", r", and its \1", t)
+    # -- attached events (wave 25D) -- 702.16n: "Enchanted creature has protection from black. This effect doesn't remove this Aura." (the Wards),
+    # "… gets +2/+2 and has protection from each color. This effect doesn't remove Auras." (Spectra Ward): the grant, and the Auras the
+    # protection doesn't make fall off (attachments.host_problem); only on an Aura's own grant
+    m = re.fullmatch(r"(?P<grant>Enchanted creature (?:gets [^.\"]+? and )?has protection from [^.\"]+)\. This effect doesn't remove "
+                     r"(?P<k>this Aura|~|Auras)\.", t)
+    if m:
+        inner = parse(m["grant"] + ".")
+        return None if inner is None or inner["who"] != "attached" else {**inner, "keeps": "auras" if m["k"] == "Auras" else "self"}
     if not t.endswith(".") and not t.endswith('."'):
         return None
     if re.sub(r'"[^"]*"', "", t).count(". ") or "\n" in t:  # (wave 16F: sentences inside a quoted granted ability are its own)
@@ -764,6 +772,9 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         if rest in TRIGGERED_GRANTS or rest == "riot" or re.fullmatch(MEANING_GRANTS, rest):  # -- static wordings (wave 6E) --
             # (wave 17C: riot is read from the entering permanent's characteristics as it enters, 614.12: app/rules/riot.py)
             grants.append(rest.capitalize())  # (wave 15A: "have extort", "have afflict 2": their CR meaning, keyword_triggers)
+            continue
+        if rest == "protection from the chosen color":  # -- attached events (wave 25D) -- the color the Aura's "As ~ enters, choose a color" recorded
+            grants.append("Protection from the chosen color")  # (layers writes the answer in; chosen.chosen_value_ok: the one choice)
             continue
         line = keyword_line(rest.replace(_FROM_JOIN, " and from "))  # -- attached events (wave 4L) --
         if line is not None:
