@@ -479,8 +479,10 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
         if to == "graveyard" or (e.to_zone is None and snap.is_token):  # 700.4
             out.append(("die", card, ch, snap.controller, info))
         out += _to_graveyard(plan, e, frm)  # -- into a graveyard (wave 6D) --
+        out += _to_zone(plan, e, frm)  # -- counters (wave 21D) --
         return out
     out += _to_graveyard(plan, e, frm)  # -- into a graveyard (wave 6D) --
+    out += _to_zone(plan, e, frm)  # -- counters (wave 21D) --
     if frm == "hand" and to == "graveyard" and e.card:
         # 701.9a: "To discard a card, move it from its owner's hand to that player's graveyard" —
         # the rules engine moves a card that way only by discarding it (an effect, a cost, cycling)
@@ -508,6 +510,19 @@ def _to_graveyard(plan: Plan, e: Event, frm: str) -> list[Fact]:
         return []
     return [("to_graveyard", got[0], got[1], got[0].owner,
              {"oid": e.new_object_id, "from": frm, "amount": 1, "to": e.to_zone})]
+
+
+def _to_zone(plan: Plan, e: Event, frm: str) -> list[Fact]:
+    """-- counters (wave 21D) -- a card put into exile or into a library from another zone: the new object there (603.6c: "from
+    anywhere" doesn't look back), with the zone and the owner of the zone it came from. (A token never is a card there: 111.7.)"""
+    to = _zone(e.to_zone)
+    if to not in ("exile", "library") or frm == to or not e.card or not e.new_object_id:
+        return []
+    got = _card_in(plan, e.card, e.to_zone)
+    if got is None or got[0].is_token or plan.oid(got[0]) != e.new_object_id:
+        return []
+    return [(f"to_{to}", got[0], got[1], got[0].owner,
+             {"oid": e.new_object_id, "from": frm, "from_owner": (e.from_zone or "").split(":")[0] or None, "amount": 1, "to": e.to_zone})]
 
 
 def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
@@ -697,6 +712,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if event == "cast":
         if cond.get("nth") and info.get("nth") != cond["nth"]:
             return False
+        if cond.get("nth_min") and int(info.get("nth") or 0) < cond["nth_min"]:  # -- counters (wave 21D) --
+            return False
         if cond.get("first_kind"):  # -- unless pays (wave 4C) --
             from app.rules import unless_pays
 
@@ -739,6 +756,9 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event == "to_graveyard" and cond.get("from") and info.get("from") != cond["from"]:  # -- into a graveyard (wave 6D)
         return False
+    if event in ("to_exile", "to_library") and ((cond.get("froms") and info.get("from") not in cond["froms"])
+                                                 or (cond.get("from_owner") == "you" and info.get("from_owner") != you)):
+        return False  # -- counters (wave 21D) -- "put into exile from your graveyard"
     # -- graveyard owner (wave 6D) -- "put into your / an opponent's graveyard": its owner's graveyard (400.3)
     if event == "die" and cond.get("gy_owner") and (obj is None or (obj.owner == you) != (cond["gy_owner"] == "you")):
         return False
