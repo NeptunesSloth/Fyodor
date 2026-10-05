@@ -449,6 +449,61 @@ def test_genju_animates_its_forest_and_comes_back_when_it_dies(cards):
     roundtrip(s)
 
 
+def test_a_curse_limits_the_enchanted_players_spells(cards):
+    """601.3 / 611.3a: "Enchanted player can't cast more than one spell each turn." — the Aura's prohibition applies to the player it's attached to."""
+    from app.game.errors import ActionError
+
+    s = build(cards, "Curse of Exhaustion", "Probe Spell Book")
+    curse = to_hand(s, "Curse of Exhaustion")
+    pay(s, W=2, C=2)
+    for prefs in s.state.rules.prefs.values():
+        prefs.response = "on"
+    act(s, "p1", type="cast_spell", card_id=curse.id, targets=["p1"])  # (Alice curses herself: the one player this scenario acts for)
+    pass_until_stack_empty(s)
+    assert s.state.cards[curse.id].attached_player == "p1"
+    book = to_hand(s, "Probe Spell Book")
+    pay(s, C=2)
+    with pytest.raises(ActionError, match="can't cast"):
+        act(s, "p1", type="cast_spell", card_id=book.id)  # the Curse was the first spell this turn
+    roundtrip(s)
+
+
+def test_grievous_wound_the_enchanted_player_cant_gain_life_and_loses_half_when_dealt_damage(cards):
+    from app.rules import cant_gain
+
+    s = build(cards, "Grievous Wound", "Lightning Bolt")
+    wound = to_hand(s, "Grievous Wound")
+    pay(s, B=2, C=3)
+    for prefs in s.state.rules.prefs.values():
+        prefs.response = "on"
+    act(s, "p1", type="cast_spell", card_id=wound.id, targets=["p2"])
+    pass_until_stack_empty(s)
+    assert s.state.cards[wound.id].attached_player == "p2"
+    plan = Plan(s.state, "p1", s.cards, None)
+    assert cant_gain.why_not(plan, "p2") is not None and cant_gain.why_not(plan, "p1") is None  # only the enchanted player
+    bolt = to_hand(s, "Lightning Bolt")
+    pay(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    settle(s)
+    assert s.state.players["p2"].life == 40 - 3 - 19  # 37 life, then "lose half their life, rounded up" (19)
+    roundtrip(s)
+
+
+def test_brand_of_ill_omen_stops_the_enchanted_creatures_controller_casting_creatures(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, "Brand of Ill Omen", "Probe Beast", "Probe Spell Book", "U.S.Agent, John Walker")
+    beast = on_battlefield(s, "Probe Beast")
+    cast_on(s, "Brand of Ill Omen", beast, R=1, C=3)
+    agent = to_hand(s, "U.S.Agent, John Walker")
+    pay(s, W=1, C=3)
+    with pytest.raises(ActionError, match="can't cast"):
+        act(s, "p1", type="cast_spell", card_id=agent.id)  # a creature spell
+    book = to_hand(s, "Probe Spell Book")
+    act(s, "p1", type="cast_spell", card_id=book.id)  # a noncreature one is fine
+    roundtrip(s)
+
+
 def test_unifying_theory_the_caster_pays_and_draws(cards):
     s = build(cards, "Unifying Theory", "Probe Spell Book")
     on_battlefield(s, "Unifying Theory")

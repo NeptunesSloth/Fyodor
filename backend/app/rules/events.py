@@ -963,8 +963,8 @@ def _object_event(c: str) -> Condition | None:
     # "~ is dealt combat damage" (a creature dealt lethal damage was still dealt it: 510.3a, 603.10a);
     # "you're dealt combat damage", "an opponent is dealt noncombat damage": the player dealt it
     m = re.fullmatch(r"(?P<s>.+?)(?: is|'re| are) dealt (?P<c>combat |noncombat )?damage", c)
-    if m and (m["c"] or m["s"] in ("you", "an opponent", "a player")):
-        if m["s"] in ("you", "an opponent", "a player"):
+    if m and (m["c"] or m["s"] in ("you", "an opponent", "a player", "enchanted player")):  # (wave 25D: a Curse's "enchanted player")
+        if m["s"] in ("you", "an opponent", "a player", "enchanted player"):
             dealt: Condition | None = {"subject": "player", "player": _PLAYERS[m["s"]]}
         else:
             dealt = _subject(m["s"], host=True)

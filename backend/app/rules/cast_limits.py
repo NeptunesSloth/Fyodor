@@ -59,13 +59,14 @@ _FROMS = {"anywhere other than their hands": ("not_hand",), "graveyards": ("grav
 _ACTS = {"activate abilities of artifacts, creatures, or enchantments": "ace",
          "activate abilities that aren't mana abilities": "nonmana",
          "activate abilities of cards in graveyards": "graveyard", "activate planeswalkers' loyalty abilities": "loyalty"}
-_WHO = {"your opponents": "opponents", "players": "each", "each player": "each", "you": "you"}
+_WHO = {"your opponents": "opponents", "players": "each", "each player": "each", "you": "you",
+        "enchanted player": "enchanted", "enchanted creature's controller": "host_controller"}  # (wave 25D: an Aura's Curse, Brand of Ill Omen)
 _WHEN = {"during your turn": "your_turn", "during combat": "combat"}
 # "Your opponents can't cast spells during your turn." / "During your turn, your opponents can't cast spells or activate
 # abilities of artifacts, creatures, or enchantments." / "Your opponents can't cast spells from anywhere other than their
 # hands." / "Players can't cast spells from graveyards or activate abilities of cards in graveyards." / "During combat,
 # players can't cast spells or activate abilities that aren't mana abilities." / "You can't cast creature spells."
-STATIC_CAST = re.compile(rf"^(?:(?P<lead>during your turn|during combat), )?(?P<who>your opponents|players|each player|you) "
+STATIC_CAST = re.compile(rf"^(?:(?P<lead>during your turn|during combat), )?(?P<who>your opponents|players|each player|you|enchanted player|enchanted creature's controller) "
                          rf"can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>during your turn|during combat))?$")
 # "Each player can't cast more than one spell each turn." / "Each player can't cast more than one noncreature spell each turn."
 # -- prohibitions (wave 22B) -- 601.3: "Spells with the chosen name can't be cast." (Meddling Mage, Nevermore), "Creature spells can't be cast."
@@ -75,7 +76,7 @@ STATIC_NOBODY = re.compile(r"^(?P<sel>[A-Za-z][A-Za-z' ,-]*?)? ?spells(?P<tail> 
 # 602.5: "Activated abilities of sources with the chosen name can't be activated [unless they're mana abilities]." (Pithing Needle, Phyrexian
 # Revoker, Sorcerous Spyglass, Voidstone Gargoyle)
 STATIC_NAMED = re.compile(r"^activated abilities of sources with the chosen name can't be activated(?P<nm> unless they're mana abilities)?$")
-STATIC_ONE = re.compile(r"^(?P<who>each player|you) can't cast more than one (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell each turn$")
+STATIC_ONE = re.compile(r"^(?P<who>each player|you|enchanted player) can't cast more than one (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell each turn$")
 # "Each player who has cast a nonartifact spell this turn can't cast additional nonartifact spells." (the same, read as one)
 STATIC_ADDITIONAL = re.compile(r"^each player who has cast (?:a|an) (?P<sel>[a-z][a-z' ,-]*?) spell this turn can't cast additional "
                                r"(?P<sel2>[a-z][a-z' ,-]*?) spells$")
@@ -499,7 +500,14 @@ def _statics(state: GameState, info: CardInfo | None, kind: str) -> list[tuple[C
     return out
 
 
-def _who_ok(who: str, player: str, controller: str) -> bool:
+def _who_ok(who: str, player: str, controller: str, src: CardInstance | None = None, state: GameState | None = None) -> bool:
+    if who in ("enchanted", "host_controller"):  # -- attached events (wave 25D) -- the player the Aura is attached to / the controller of the creature it is
+        if src is None or state is None:
+            return False
+        if who == "enchanted":
+            return src.attached_player == player
+        host = state.cards.get(src.attached_to or "")
+        return host is not None and host.zone.endswith(":battlefield") and host.controller == player
     return who == "each" or (who == "opponents" and player != controller) or (who == "you" and player == controller)
 
 
@@ -569,7 +577,7 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
         if x.get("player") == player and _record_live(state, x) and _cast_hit(state, player, card, ch, info, x):
             return f"{x.get('label') or 'An effect'}: you can't cast {_spells_words(x.get('filter'), x.get('from'))} now"
     for src, d in _statics(state, info, "cast_limit"):
-        if _who_ok(d["who"], player, src.controller) and _when_ok(state, d.get("when"), src.controller) \
+        if _who_ok(d["who"], player, src.controller, src, state) and _when_ok(state, d.get("when"), src.controller) \
                 and _cast_hit(state, player, card, ch, info, d, resolving, src.id):
             more = " more than once this turn" if d.get("max") is not None else \
                 " except any time you could cast a sorcery" if d.get("sorcery") else ""
@@ -621,7 +629,7 @@ def activation_problem(state: GameState, player: str, card: CardInstance, ch: Ch
                 and _act_hit(state, player, card, ch, x["act"], x, x.get("controller") or player, info, mana=mana, loyalty=loyalty):
             return f"{x.get('label') or 'An effect'}: that ability can't be activated now"
     for src, d in _statics(state, info, "cast_limit"):
-        if d.get("act") and _who_ok(d["who"], player, src.controller) and _when_ok(state, d.get("when"), src.controller) \
+        if d.get("act") and _who_ok(d["who"], player, src.controller, src, state) and _when_ok(state, d.get("when"), src.controller) \
                 and _act_hit(state, player, card, ch, d["act"], d, src.controller, info, mana=mana, loyalty=loyalty, source=src.id):
             return f"{src.name or 'A permanent'}: that ability can't be activated now"
     return None
