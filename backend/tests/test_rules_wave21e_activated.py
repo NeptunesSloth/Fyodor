@@ -19,10 +19,11 @@ from pathlib import Path
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import combat_rules, coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave5j_token_copies import ch, drive, find, game, mana, put, roundtrip
+from tests.test_rules_wave5j_token_copies import ch, drive, game, mana, put, roundtrip
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave21e_cards.json").read_text("utf-8"))
 EXTRA = [card(c["name"], set_code="t21e", number=f"E{i:02d}", **{k: v for k, v in c.items() if k != "name"}) for i, c in enumerate(DATA)]
@@ -59,7 +60,7 @@ def test_keeper_of_the_flame_needs_an_opponent_with_more_life_as_it_is_activated
     keeper = put(s, "Keeper of the Flame")
     unready(s, keeper)
     mana(s, R=2)
-    with pytest.raises(Exception):  # (equal life: there is no legal target)
+    with pytest.raises(ActionError):  # (equal life: there is no legal target)
         activate(s, keeper, targets=["p2"])
     act(s, "p1", type="set_life", player="p1", value=30)
     activate(s, keeper, targets=["p2"])
@@ -116,7 +117,7 @@ def test_plagon_assigns_toughness_and_dreadlight_needs_an_exiled_card(cards):
     drive(s)
     assert "assign_toughness" in ch(s, plagon).imposed
     mana(s, U=2, C=3)
-    with pytest.raises(Exception):  # (no card of Alice's in exile)
+    with pytest.raises(ActionError):  # (no card of Alice's in exile)
         activate(s, dread)
     put(s, "Forest", "exile")
     activate(s, dread)
