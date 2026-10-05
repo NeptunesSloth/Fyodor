@@ -19,6 +19,7 @@ EXTRA = [
     real("Akroma's Blessing", '{2}{W}', 3, 'Instant', 'Choose a color. Creatures you control gain protection from the chosen color until end of turn.', None, 'W'),
     real('Brave the Elements', '{W}', 1, 'Instant', 'Choose a color. White creatures you control gain protection from the chosen color until end of turn.', None, 'W'),
     real('Bathe in Light', '{W}', 1, 'Instant', 'Radiance — Choose a color. Target creature and each other creature that shares a color with it gain protection from the chosen color until end of turn.', None, 'W'),
+    real('Glory', '{3}{W}{W}', 5, 'Creature — Incarnation', "Flying\n{2}{W}: Choose a color. Creatures you control gain protection from the chosen color until end of turn. Activate only if this card is in your graveyard.", ("3", "3"), 'W'),
     real('Probe Soldier', '{1}{W}', 2, 'Creature — Human Soldier', '', ("1", "1"), 'W'),
     real('Probe Knight', '{1}{W}', 2, 'Creature — Human Knight', '', ("2", "2"), 'W'),
     real('Probe Elf', '{G}', 1, 'Creature — Elf', '', ("1", "1"), 'G'),
@@ -66,4 +67,26 @@ def test_radiance_gives_every_creature_of_a_shared_color_the_chosen_protection(c
         with pytest.raises(ActionError):
             act(s, "p1", type="cast_spell", card_id=to_hand(s, "Probe Burst").id, targets=[protected.id])
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Probe Burst").id, targets=[elf.id])  # (green: shares no color with the target)
+    check(s)
+
+
+def test_glory_is_activated_from_the_graveyard_and_each_activation_keeps_its_own_color(cards):
+    """(review 20E) "Activate only if this card is in your graveyard" (113.6m: the ability works there, and only there); two
+    activations naming red and blue give protection from both (each effect reads its own choice)."""
+    from app.rules import protection
+    from app.rules.characteristics import Characteristics
+    from app.rules.plan import Plan
+
+    s = build(cards, ["Glory", "Probe Soldier"], [])
+    glory = card_named(s, "Glory")
+    soldier = put(s, "Probe Soldier")
+    act(s, "p1", type="move", card_ids=[glory.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, "p1", W=2, C=4)
+    idx = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[glory.id]).abilities if "{2}{W}" in a.text)
+    for color in ("Red", "Blue"):
+        act(s, "p1", type="activate_ability", card_id=glory.id, ability=idx)
+        answer(s, color)
+    plan = Plan(s.state, "p1", s.cards, None)
+    ch = plan.ch(s.state.cards[soldier.id])
+    assert [protection.protected_from(ch, Characteristics(name="x", colors=frozenset({c}))) for c in "RUG"] == [True, True, False]
     check(s)
