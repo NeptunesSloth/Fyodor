@@ -290,7 +290,8 @@ def _counter_threshold(text: str) -> str:
     text = re.sub(r"(counters? on ~) and ~ (gains|gets) ", r"\1. ~ \2 ", text)  # "put a counter on ~ and he gains flying …": two instructions
     text = re.sub(r"(counters? on ~\. Then if )it has( [^,.]+? counters? on )it,", r"\1~ has\2~,", text)
     text = re.sub(r"(counters? on ~\. Then if there (?:are|is) [^,.]+? counters? on )it,", r"\1~,", text)
-    return re.sub(r"(Then if (?:~ has|there are) [^,.]+? (\S+) counters? on ~, )remove (?:those counters|them all|all of them|them)\b", r"\1remove all \2 counters from ~", text)
+    return re.sub(r"(Then if (?:~ has|there are) [^,.]+? (\S+) counters? on ~, (?:you may )?)remove (?:those counters|them all|all of them|them)\b",
+                  r"\1remove all \2 counters from ~", text)  # (wave 20F: "you may remove those counters and transform it", Primal Amulet)
 
 
 EFFECTS: list[tuple[re.Pattern[str], Any]] = []
@@ -705,6 +706,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     # "When ~ dies, return it to its owner's hand": the new object the card became in
                     # the zone it went to, found there and only there (400.7e, 603.6c)
                     e["who"] = "event.new"
+                elif pronoun == "it" and not verb and antecedent in ("self_gone", "event_gone") and e.get("do") == "token_copy":
+                    # -- token copy (wave 20F) -- 608.2h, 111.12: "When ~ dies, create a token that's a copy of it": its last known information
+                    e["who"] = "self" if antecedent == "self_gone" else "event"
                 elif pronoun == "them" and not verb and antecedent == "event_all":
                     e["who"] = "event"  # "they get +1/+0": every object of the "one or more" event (603.2c)
                 elif pronoun == "them" and not verb and index > 0 and _counted_group(out[index - 1]) is not None \
@@ -1807,7 +1811,7 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                   r"\g<a>, then \g<b>, then ", text)
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
-                                 r"remove|add|investigate|prevent|amass|proliferate|manifest)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
+                                 r"remove|add|investigate|prevent|amass|proliferate|manifest|transform)\b)"):  # (wave 20F: transform)  # (remove: wave 6D, "untap it and remove it from combat")
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
@@ -2454,6 +2458,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 inner = _conditional_inner(cond_m["rest"])
             else:
                 inner = _conditional_inner(cond_m["rest"], cond) if cond is not None else None
+            if inner is None and cond is not None and cond_m["rest"].startswith("you may ") and i == len(texts) - 1:
+                # -- transform (wave 20F) -- "Then if you have seven or more cards in your graveyard, you may transform ~." at the end of
+                # the ability (608.2c): the gate, then the controller's choice for the rest (unless_pays.may_rest, 603.5)
+                inner = _conditional_inner(cond_m["rest"][len("you may "):], cond)
+                inner = ([{"do": "may_rest"}, *inner[0]], inner[1]) if inner is not None and not inner[1] else None
             if inner is None:
                 return None
             added = _add_groups(groups, *inner)  # (its target, if any: its own group, 115.3)

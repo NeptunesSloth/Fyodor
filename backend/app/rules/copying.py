@@ -1211,10 +1211,10 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     # P/T set, the creature type(s) and card types added, the colors set — or added with "colors and"
     m = re.fullmatch(_SUBJECT + r"(?:is|are) (?:an? )?(?P<p>\d+)/(?P<t>\d+) (?P<colors>(?:white|blue|black|red|green)"
                                 r"(?:,? (?:and )?(?:white|blue|black|red|green))* )?(?P<subs>(?:[A-Z][A-Za-z'-]* )*)"
-                                r"(?P<types>(?:artifact )?creatures?)(?: with (?P<kws>[^\"]+?))? in addition to "
+                                r"(?P<types>(?:artifact )?creatures?)?(?: with (?P<kws>[^\"]+?))? in addition to "
                                 r"(?:its|their) other (?P<both>colors and )?types", c)
     if m:
-        artifact = m["types"].startswith("artifact")
+        artifact = (m["types"] or "").startswith("artifact")
         subs = [s[:-1] if s.endswith("s") and s[:-1] in CREATURE_TYPES and s not in CREATURE_TYPES else s
                 for s in m["subs"].split()]
         allowed = CREATURE_TYPES | (token_grammar.ARTIFACT_TYPES if artifact else frozenset())
@@ -1227,7 +1227,8 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         elif colors:
             ex.set_colors = colors
         ex.power, ex.toughness = m["p"], m["t"]
-        ex.add_types = sorted({*ex.add_types, "Creature", *(["Artifact"] if artifact else [])})
+        # (wave 20F: "a 2/2 black Zombie in addition to its other colors and types": the creature type alone, 707.9b)
+        ex.add_types = sorted({*ex.add_types, *(["Creature"] if m["types"] else []), *(["Artifact"] if artifact else [])})
         ex.add_subtypes = sorted({*ex.add_subtypes, *subs})
         ex.add_text = [*ex.add_text, *(k.capitalize() for k in with_kws[0])]
         return True
