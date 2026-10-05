@@ -58,6 +58,7 @@ SELECTORS: dict[str, tuple[bool, Check | None]] = {
     # (a player, or any planeswalker: not only an opponent's)
     "player_or_planeswalker": (True, _types("Planeswalker")),
     "opponent_or_planeswalker": (True, _types("Planeswalker")),
+    "permanent_or_player": (True, lambda plan, who, card, ch: True),  # -- counter kinds (wave 24C) -- "target permanent or player"
 }
 OPPONENTS_ONLY = ("opponent", "opponent_or_planeswalker")
 

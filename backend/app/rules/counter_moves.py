@@ -11,7 +11,9 @@ creature." (Scrounging Bandar), "move all +1/+1 counters from all creatures onto
   controller chooses how many (608.2d, a decision for them).
 
 Effect: ``{"do": "move_counters", "who": <to>, "from": <from> | absent (the source), "kind": k | None, "n": int | "all" | "any"}``.
-Refused (manual): "any number of counters" of mixed kinds, moving onto several objects ("onto other creatures"), "a counter of each
+"Move any number of counters from target permanent you control onto a second target permanent" (wave 24C: Resourceful Defense) asks
+how many of each kind, kind by kind (counter_kinds.ask_amounts). Refused (manual): "any number of counters" from a group of sources
+(which object each comes off is the player's choice), moving onto several objects ("onto other creatures"), "a counter of each
 kind not on ~", and anything riding on the number moved.
 """
 
@@ -53,6 +55,11 @@ def move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     n = e.get("n", "all")
     if n == "all":
         return _do(plan, ctx, e, sources, to[0], have)
+    if n == "any" and not e.get("kind"):  # -- counter kinds (wave 24C) -- "any number of counters": how many of each kind, in turn
+        from app.rules import counter_kinds
+
+        counter_kinds.ask_amounts(plan, ctx, e, have, {"do": "move", "from": sources, "to": to[0]})
+        return False
     if len(have) > 1:  # "a counter": which kind (the controller's choice)
         decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Move'}: choose a kind of counter",
                options=[DecisionOption(id=k, label=f"{k} counter") for k in sorted(have)], resume={"step": STEP, "ctx": ctx, "e": e})
@@ -64,6 +71,10 @@ def move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                resume={"step": STEP, "ctx": ctx, "e": e, "kind": kind})
         return False
     return _do(plan, ctx, e, sources, to[0], {kind: min(int(n), total)})
+
+
+def finish(plan: Plan, ctx: Context, e: dict[str, Any], sources: list[str], to: str, amounts: dict[str, int]) -> bool:
+    return _do(plan, ctx, e, sources, to, amounts)
 
 
 def _do(plan: Plan, ctx: Context, e: dict[str, Any], sources: list[str], to: str, amounts: dict[str, int]) -> bool:

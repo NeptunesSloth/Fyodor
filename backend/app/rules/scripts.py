@@ -2323,6 +2323,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import recursion as _recursion  # -- recursion & tutors (wave 4M) --
 
     body = _recursion.join_sized_search(body)
+    from app.rules import counter_kinds as _counter_kinds  # -- counter kinds (wave 24C) --
+
+    body = _counter_kinds.join(body)
     from app.rules import name_search  # -- name search (wave 11D) --
 
     body = name_search.rewrite(body)
