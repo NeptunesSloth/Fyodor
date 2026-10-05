@@ -88,7 +88,6 @@ def picker(*labels):
     todo = list(labels)
 
     def choose(d):
-        print("DECISION", d.kind, d.prompt, [(o.id, o.label) for o in d.options])
         if todo:
             want = todo.pop(0)
             if isinstance(want, list):
@@ -302,4 +301,19 @@ def test_estrids_invocation_copy_blinks_itself_in_the_upkeep(cards):
     drive(s, picker("pay", "Spiritual"))
     until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
     assert s.state.cards[inv.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+@pytest.mark.parametrize(("carol_power", "draws"), [("2/2", 1), ("4/4", 2)])
+def test_bitter_work_draws_once_per_player_attacked_with_a_big_creature(cards, carol_power, draws):
+    s = three(cards, ["Bitter Work"])
+    put(s, "Bitter Work")
+    big = token(s, "p1", "Big", "4/4", "Token Creature — Beast")
+    other = token(s, "p1", "Other", carol_power, "Token Creature — Beast")
+    unready(s, big, other)
+    to_attack(s)
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": big.id, "target": "p2"}, {"card_id": other.id, "target": "p3"}])
+    drive(s)
+    assert len(s.state.zones["p1:hand"]) == hand + draws
     roundtrip(s)
