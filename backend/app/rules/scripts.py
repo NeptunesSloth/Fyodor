@@ -4857,7 +4857,7 @@ def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # their layers, 613.6); "It's still a land." is ``still_a``, which turns the types it set into
 # types added (205.1b). A quoted ability it grants must be one the engine carries out
 # (``granted_ability``), else the ability stays manual.
-@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:(?:a|an) |(?=\d+/\d+ [A-Za-z ]*creatures)|the basic land type of your choice|the (?:creature type|color or colors|color)(?: other than [A-Z][a-z]+)? of your choice).*)")
+@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:(?:a|an) |(?=\d+/\d+ [A-Za-z ]*creatures)|(?=(?:artifact |enchantment )?creatures with base power)|the basic land type of your choice|the (?:creature type|color or colors|color)(?: other than [A-Z][a-z]+)? of your choice).*)")
 def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
@@ -4877,6 +4877,16 @@ def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 # -- static wordings (wave 6E) -- "Target creature becomes red [and gains haste] until end of turn." (language._BECOME_COLOR)
+# -- layers (wave 22A) -- "All creatures lose all abilities until end of turn." (Final Showdown), "Target creature loses all abilities until
+# end of turn.": the layer 6 effect (613.1f) on the objects as it resolves (611.2c) — a ``become`` that changes nothing else
+@effect(r"(?P<text>(?:until end of turn, )?.+? loses? all abilities(?: until end of turn)?)")
+def _loses_all_abilities(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    found = _language.parse_loses_all(m["text"])
+    if found is None:
+        raise _NoMatch
+    return found
+
+
 @effect(r"(?P<text>(?:until end of turn, )?.+? becomes? (?:colorless|white|blue|black|red|green)\b.*)")
 def _become_colored(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     found = _language.parse_become(m["text"])
@@ -4931,10 +4941,10 @@ def _base_pt(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # locked in then (611.2c)
 @_first
 @effect(r"(?P<lead>(?:until end of turn|until your next turn), )?(?:each creature|creatures) target (?P<pl>player|opponent) controls "
-        r"(?P<rest>(?:loses? all abilities and )?(?:becomes? .+|(?:has|have) base .+))")
+        r"(?P<rest>(?:loses? all abilities(?: and |, ))?(?:becomes? .+|(?:has|have) base .+))")  # (wave 22A: "…, becomes a Coward …")
 def _their_creatures_become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     text = f"{m['lead'] or ''}all creatures {re.sub(r'^lose ', 'loses ', m['rest'])}"
-    bm = _language.re.fullmatch(_language.BASE_PT, text)
+    bm = None if " becomes " in text else _language.re.fullmatch(_language.BASE_PT, text)  # (wave 22A: "…, becomes a Coward …, and has base …")
     try:
         found = _language.parse_base_pt(bm) if bm else _language.parse_become(text)
     except _language._Fail:

@@ -119,6 +119,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("partner",)
     if re.fullmatch(r"flashback—.+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 16B) -- 702.34a: "Flashback—{1}{U}, Pay 3 life."
         return ("flashback",)  # (one keyword: the comma is inside its cost)
+    if re.fullmatch(r"enchant [^;]+", line.strip(), re.IGNORECASE):  # -- layers (wave 22A) -- 702.5a: "Enchant creature, land, or planeswalker" is one keyword
+        return ("enchant",)  # (the commas list what it may enchant)
     if re.fullmatch(r"ward—[^;]+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 17C) -- "Ward—{2}, Pay 2 life." (one cost of two parts)
         return ("ward",)
     pieces = [p for p in re.split(r"[,;]\s*", line) if p.strip()]

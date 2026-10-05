@@ -1,0 +1,753 @@
+"""Group layers (wave 22A), researched against CR 2026-09-25: type setting (305.7), "lose all abilities" for a group (613.1f),
+group animation with per-object power and toughness (613.1d, 613.4b), colors / legendary / chosen-color statics in every zone
+(613.1e, 611.3), and the order of all of them: timestamps (613.7), dependencies (613.8), an effect that began keeps its objects
+in every layer (613.6). app/rules/group_layers.py solves the table; app/rules/layers.py applies it.
+
+Every scenario uses real Commander-legal cards with their current Oracle text, checks that replaying the recorded history
+reproduces the table, and that a save/load round trip keeps it.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from app.game.state import GameState
+from app.rules import coverage
+from app.rules.characteristics import Characteristics, parse_type_line
+from app.rules.oracle import parse_abilities
+from app.rules.plan import Plan
+from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act
+from tests.test_rules_effects import mana, pass_until_stack_empty, replay_matches, rules
+from tests.test_rules_permissions import build, hold, put
+
+EXTRA = [
+    card('Urborg, Tomb of Yawgmoth', set_code="tst", number="22A01", type_line='Legendary Land',
+         oracle_text='Each land is a Swamp in addition to its other land types.'),
+    card('Blood Moon', set_code="tst", number="22A02", mana_cost='{2}{R}', cmc=3.0, type_line='Enchantment',
+         oracle_text='Nonbasic lands are Mountains.', colors=['R'], color_identity=['R']),
+    card('Harbinger of the Seas', set_code="tst", number="22A03", mana_cost='{1}{U}{U}', cmc=3.0, type_line='Creature — Merfolk Wizard',
+         oracle_text='Nonbasic lands are Islands.', power='2', toughness='2', colors=['U'], color_identity=['U']),
+    card('Conversion', set_code="tst", number="22A25", mana_cost='{2}{W}{W}', cmc=4.0, type_line='Enchantment',
+         oracle_text='At the beginning of your upkeep, sacrifice this enchantment unless you pay {W}{W}.\nAll Mountains are Plains.',
+         colors=['W'], color_identity=['W']),
+    card('Humility', set_code="tst", number="22A04", mana_cost='{2}{W}{W}', cmc=4.0, type_line='Enchantment',
+         oracle_text='All creatures lose all abilities and have base power and toughness 1/1.', colors=['W'], color_identity=['W']),
+    card('Dress Down', set_code="tst", number="22A05", mana_cost='{1}{U}', cmc=2.0, type_line='Enchantment',
+         oracle_text='Flash\nWhen this enchantment enters, draw a card.\nCreatures lose all abilities.\n'
+                     'At the beginning of the end step, sacrifice this enchantment.', colors=['U'], color_identity=['U'], keywords=['Flash']),
+    card('Opalescence', set_code="tst", number="22A06", mana_cost='{2}{W}{W}', cmc=4.0, type_line='Enchantment',
+         oracle_text='Each other non-Aura enchantment is a creature in addition to its other types and has base power and base '
+                     'toughness each equal to its mana value.', colors=['W'], color_identity=['W']),
+    card('March of the Machines', set_code="tst", number="22A07", mana_cost='{3}{U}', cmc=4.0, type_line='Enchantment',
+         oracle_text="Each noncreature artifact is an artifact creature with power and toughness each equal to its mana value. "
+                     "(Equipment that's a creature can't equip a creature.)", colors=['U'], color_identity=['U']),
+    card('Mycosynth Lattice', set_code="tst", number="22A08", mana_cost='{6}', cmc=6.0, type_line='Artifact',
+         oracle_text="All permanents are artifacts in addition to their other types.\nAll cards that aren't on the battlefield, spells, "
+                     "and permanents are colorless.\nPlayers may spend mana as though it were mana of any color."),
+    card("Painter's Servant", set_code="tst", number="22A09", mana_cost='{2}', cmc=2.0, type_line='Artifact Creature — Scarecrow',
+         oracle_text="As this creature enters, choose a color.\nAll cards that aren't on the battlefield, spells, and permanents are "
+                     "the chosen color in addition to their other colors.", power='1', toughness='3'),
+    card('Thran Lens', set_code="tst", number="22A10", mana_cost='{2}', cmc=2.0, type_line='Artifact',
+         oracle_text='All permanents are colorless.'),
+    card('Leyline of Singularity', set_code="tst", number="22A11", mana_cost='{2}{U}{U}', cmc=4.0, type_line='Enchantment',
+         oracle_text="If this card is in your opening hand, you may begin the game with it on the battlefield.\n"
+                     "All nonland permanents are legendary.", colors=['U'], color_identity=['U']),
+    card('Encroaching Mycosynth', set_code="tst", number="22A12", mana_cost='{3}{U}', cmc=4.0, type_line='Artifact',
+         oracle_text="Nonland permanents you control are artifacts in addition to their other types. The same is true for permanent "
+                     "spells you control and nonland permanent cards you own that aren't on the battlefield.", colors=['U'],
+         color_identity=['U']),
+    card('Kormus Bell', set_code="tst", number="22A13", mana_cost='{4}', cmc=4.0, type_line='Artifact',
+         oracle_text='All Swamps are 1/1 black creatures that are still lands.'),
+    card('Ambush Commander', set_code="tst", number="22A14", mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Elf',
+         oracle_text="Forests you control are 1/1 green Elf creatures that are still lands.\n{1}{G}, Sacrifice an Elf: Target creature "
+                     "gets +3/+3 until end of turn.", power='2', toughness='2', colors=['G'], color_identity=['G']),
+    card('Dryad of the Ilysian Grove', set_code="tst", number="22A15", mana_cost='{2}{G}', cmc=3.0,
+         type_line='Enchantment Creature — Nymph Dryad',
+         oracle_text='You may play an additional land on each of your turns.\nLands you control are every basic land type in '
+                     'addition to their other types.', power='2', toughness='4', colors=['G'], color_identity=['G']),
+    card('Ashaya, Soul of the Wild', set_code="tst", number="22A16", mana_cost='{3}{G}{G}', cmc=5.0,
+         type_line='Legendary Creature — Elemental',
+         oracle_text="Ashaya's power and toughness are each equal to the number of lands you control.\nNontoken creatures you control "
+                     "are Forest lands in addition to their other types. (They're still affected by summoning sickness.)",
+         power='*', toughness='*', colors=['G'], color_identity=['G']),
+    card('Glorious Anthem', set_code="tst", number="22A17", mana_cost='{1}{W}{W}', cmc=3.0, type_line='Enchantment',
+         oracle_text='Creatures you control get +1/+1.', colors=['W'], color_identity=['W']),
+    card('Lord of Atlantis', set_code="tst", number="22A18", mana_cost='{U}{U}', cmc=2.0, type_line='Creature — Merfolk',
+         oracle_text='Other Merfolk get +1/+1 and have islandwalk.', power='2', toughness='2', colors=['U'], color_identity=['U']),
+    card('Mind Stone', set_code="tst", number="22A19", mana_cost='{2}', cmc=2.0, type_line='Artifact',
+         oracle_text='{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.'),
+    card('Darksteel Citadel', set_code="tst", number="22A20", type_line='Artifact Land',
+         oracle_text='Indestructible\n{T}: Add {C}.', keywords=['Indestructible']),
+    card('Kher Keep', set_code="tst", number="22A21", type_line='Land',
+         oracle_text='{T}: Add {C}.\n{1}{R}, {T}: Create a 0/1 red Kobold creature token named Kobolds of Kher Keep.'),
+    card('Fires of Yavimaya', set_code="tst", number="22A22", mana_cost='{1}{R}{G}', cmc=3.0, type_line='Enchantment',
+         oracle_text='Creatures you control have haste.\nSacrifice this enchantment: Target creature gets +2/+2 until end of turn.',
+         colors=['R', 'G'], color_identity=['R', 'G']),
+    card('Blood Sun', set_code="tst", number="22A23", mana_cost='{2}{R}', cmc=3.0, type_line='Enchantment',
+         oracle_text='When this enchantment enters, draw a card.\nAll lands lose all abilities except mana abilities.', colors=['R'],
+         color_identity=['R']),
+    card('Toxicrene', set_code="tst", number="22A24", mana_cost='{3}{G}', cmc=4.0, type_line='Creature — Tyranid',
+         oracle_text='Reach, deathtouch\nHypertoxic Miasma — All lands have "{T}: Add one mana of any color" and lose all other '
+                     'abilities.', power='2', toughness='4', colors=['G'], color_identity=['G'], keywords=['Reach', 'Deathtouch']),
+]
+
+
+@pytest.fixture()
+def card_db(settings):
+    from app.cards.importer import build_database
+
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
+def ch(s, c):
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])
+
+
+def roundtrip(s):
+    """Replay rebuilds the same table, and a save/load round trip keeps it."""
+    replay_matches(s)
+    dumped = s.state.model_dump(mode="json")
+    assert GameState.model_validate(dumped).model_dump(mode="json") == dumped
+
+
+def ok(text, name="Card", type_line="Enchantment"):
+    sup, types, sub = parse_type_line(type_line)
+    feats = coverage.features_of(Characteristics(name=name, supertypes=sup, types=types, subtypes=sub, oracle_text=text,
+                                                 abilities=tuple(parse_abilities(text))))
+    return all(f.supported for f in feats if f.id.startswith("text:"))
+
+
+def mana_texts(s, c):
+    return sorted(a.text for a in ch(s, c).abilities if a.kind == "mana")
+
+
+# -- Blood Moon: a land type SET (305.7) ------------------------------------------------------------------------
+def test_wordings_are_covered():
+    assert ok("Nonbasic lands are Mountains.", "Blood Moon")
+    assert ok("Nonbasic lands are Islands.", "Harbinger of the Seas", "Creature — Merfolk Wizard")
+    assert ok("All Mountains are Plains.", "Conversion")
+    assert ok("All creatures lose all abilities and have base power and toughness 1/1.", "Humility")
+    assert ok("Creatures lose all abilities.", "Dress Down")
+    assert ok("Each other non-Aura enchantment is a creature in addition to its other types and has base power and base toughness "
+              "each equal to its mana value.", "Opalescence")
+    assert ok("Each noncreature artifact is an artifact creature with power and toughness each equal to its mana value.",
+              "March of the Machines")
+    assert ok("All permanents are colorless.", "Thran Lens", "Artifact")
+    assert ok("All nonland permanents are legendary.", "Leyline of Singularity")
+    # a text this reads only in part is not read at all
+    assert not ok("Nonbasic lands are Mountains and have flying.", "Card")
+    assert not ok("Creatures lose all abilities until end of turn.", "Card")
+
+
+def test_blood_moon_sets_land_types_and_takes_the_rules_text(cards):
+    s = build(cards, [(1, "Blood Moon"), (1, "Command Tower"), (1, "Forest"), (1, "Kher Keep")])
+    tower, forest, keep = (put(s, n, "battlefield") for n in ("Command Tower", "Forest", "Kher Keep"))
+    assert mana_texts(s, keep) == ["{T}: Add {C}."]
+    put(s, "Blood Moon", "battlefield")
+    for land in (tower, keep):  # 305.7: nonbasic: the land types are Mountain only, the rules-text abilities are gone
+        assert ch(s, land).subtypes == {"Mountain"} and ch(s, land).types == {"Land"}
+        assert mana_texts(s, land) == ["{T}: Add {R}."]  # 305.6: the new type's mana ability
+    assert ch(s, forest).subtypes == {"Forest"} and mana_texts(s, forest) == ["{T}: Add {G}."]  # a basic land is not affected
+    roundtrip(s)
+    put(s, "Blood Moon", "graveyard")  # it leaves: everything is as printed again (611.3b)
+    assert mana_texts(s, keep) == ["{T}: Add {C}."] and ch(s, keep).subtypes == set()
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("urborg_first", [True, False])
+def test_blood_moon_and_urborg_in_either_order(cards, urborg_first):
+    """613.8a: Urborg's ability exists only if Blood Moon doesn't take it away (305.7), so Blood Moon applies first whatever the
+    timestamps: every nonbasic land is only a Mountain, and the basic Forest is not a Swamp."""
+    s = build(cards, [(1, "Blood Moon"), (1, "Urborg, Tomb of Yawgmoth"), (1, "Forest"), (1, "Command Tower")])
+    forest, tower = put(s, "Forest", "battlefield"), put(s, "Command Tower", "battlefield")
+    for name in (["Urborg, Tomb of Yawgmoth", "Blood Moon"] if urborg_first else ["Blood Moon", "Urborg, Tomb of Yawgmoth"]):
+        put(s, name, "battlefield")
+    urborg = next(c for c in s.state.cards.values() if c.name.startswith("Urborg"))
+    assert ch(s, urborg).subtypes == {"Mountain"} and ch(s, tower).subtypes == {"Mountain"}
+    assert ch(s, forest).subtypes == {"Forest"} and mana_texts(s, forest) == ["{T}: Add {G}."]
+    roundtrip(s)
+    put(s, "Blood Moon", "graveyard")  # Blood Moon gone: Urborg works again
+    assert ch(s, forest).subtypes == {"Forest", "Swamp"} and ch(s, urborg).subtypes == {"Swamp"}
+    roundtrip(s)
+
+
+def test_the_later_land_type_setter_wins(cards):
+    """613.7: two effects that set the land types of the same lands apply in timestamp order."""
+    s = build(cards, [(1, "Blood Moon"), (1, "Harbinger of the Seas"), (1, "Command Tower")])
+    tower = put(s, "Command Tower", "battlefield")
+    put(s, "Blood Moon", "battlefield")
+    put(s, "Harbinger of the Seas", "battlefield")
+    assert ch(s, tower).subtypes == {"Island"} and mana_texts(s, tower) == ["{T}: Add {U}."]
+    put(s, "Blood Moon", "graveyard")
+    put(s, "Blood Moon", "battlefield")  # a new object: the newest timestamp
+    assert ch(s, tower).subtypes == {"Mountain"}
+    roundtrip(s)
+
+
+# -- Humility, Dress Down: a group loses all abilities (613.1f) ---------------------------------------------------------
+def test_humility_takes_all_abilities_and_sets_the_base_power_and_toughness(cards):
+    s = build(cards, [(1, "Humility"), (1, "Glorious Anthem"), (1, "Lord of Atlantis"), (1, "Harbinger of the Seas"),
+                      (1, "Grizzly Bears"), (1, "Command Tower")])
+    bears, lord, harb, tower = (put(s, n, "battlefield") for n in ("Grizzly Bears", "Lord of Atlantis", "Harbinger of the Seas",
+                                                                  "Command Tower"))
+    put(s, "Glorious Anthem", "battlefield")
+    assert ch(s, harb).pt == (4, 4) and "islandwalk" in ch(s, harb).keywords  # the Anthem and the lord
+    assert ch(s, tower).subtypes == {"Island"}  # (Harbinger's static)
+    put(s, "Humility", "battlefield")
+    for c in (bears, lord, harb):
+        assert ch(s, c).abilities == () and not ch(s, c).keywords
+        assert ch(s, c).pt == (2, 2)  # 7b: base 1/1, then the Anthem's +1/+1 in 7c (an Enchantment's static: it keeps its ability)
+    # 613.6: Harbinger's effect began in layer 4, before Humility took its ability in layer 6: it keeps applying to the same lands
+    assert ch(s, tower).subtypes == {"Island"}
+    roundtrip(s)
+    put(s, "Humility", "graveyard")
+    assert ch(s, harb).pt == (4, 4) and ch(s, tower).subtypes == {"Island"}
+    roundtrip(s)
+
+
+def test_dress_down_takes_abilities_only(cards):
+    s = build(cards, [(1, "Dress Down"), (1, "Lord of Atlantis"), (1, "Harbinger of the Seas")])
+    lord, harb = put(s, "Lord of Atlantis", "battlefield"), put(s, "Harbinger of the Seas", "battlefield")
+    assert ch(s, harb).pt == (3, 3)
+    put(s, "Dress Down", "battlefield")
+    assert ch(s, harb).pt == (2, 2) and ch(s, harb).abilities == () and ch(s, lord).abilities == ()  # base 2/2, nothing else changes
+    roundtrip(s)
+
+
+# -- Opalescence: a group animated, each with its own base power and toughness (613.1d, 613.4b) -----------------------
+def test_opalescence_makes_each_other_non_aura_enchantment_a_creature_with_its_mana_value(cards):
+    s = build(cards, [(1, "Opalescence"), (1, "Glorious Anthem"), (1, "Fires of Yavimaya"), (1, "Grizzly Bears")])
+    anthem, fires = put(s, "Glorious Anthem", "battlefield"), put(s, "Fires of Yavimaya", "battlefield")
+    bears = put(s, "Grizzly Bears", "battlefield")
+    opal = put(s, "Opalescence", "battlefield")
+    assert not ch(s, opal).is_creature  # "other"
+    for enchantment in (anthem, fires):
+        assert ch(s, enchantment).is_creature and "Enchantment" in ch(s, enchantment).types
+    assert ch(s, fires).pt == (4, 4) and ch(s, bears).pt == (3, 3)  # 3/3, and the Anthem's +1/+1 for every creature (itself too)
+    assert ch(s, anthem).pt == (4, 4)
+    roundtrip(s)
+    put(s, "Opalescence", "graveyard")
+    assert not ch(s, anthem).is_creature and ch(s, bears).pt == (3, 3)  # (the Anthem: +1/+1 for the creatures you control)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("humility_first", [True, False])
+def test_humility_and_opalescence_in_either_order(cards, humility_first):
+    """The Gatherer ruling of Opalescence / Humility, from 613.7 and 613.6: Opalescence makes the other enchantments creatures in
+    layer 4; Humility's effect begins in layer 6 and applies to every creature, itself included (it keeps applying to the same
+    objects in layer 7b even though it lost its own ability, 613.6); in layer 7b the later timestamp wins: Humility newer: every
+    one of these creatures is 1/1; Opalescence newer: the enchantments are as big as their mana value."""
+    s = build(cards, [(1, "Humility"), (1, "Opalescence"), (1, "Glorious Anthem"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    anthem = put(s, "Glorious Anthem", "battlefield")
+    for name in (["Humility", "Opalescence"] if humility_first else ["Opalescence", "Humility"]):
+        put(s, name, "battlefield")
+    humility = next(c for c in s.state.cards.values() if c.name == "Humility")
+    opal = next(c for c in s.state.cards.values() if c.name == "Opalescence")
+    assert not ch(s, opal).is_creature and ch(s, opal).abilities and ch(s, bears).abilities == ()
+    assert ch(s, humility).is_creature and ch(s, humility).abilities == () and ch(s, anthem).abilities == ()
+    # the Anthem has no abilities (Humility): its bonus is gone
+    if humility_first:
+        assert (ch(s, humility).pt, ch(s, anthem).pt, ch(s, bears).pt) == ((4, 4), (3, 3), (1, 1))
+    else:
+        assert (ch(s, humility).pt, ch(s, anthem).pt, ch(s, bears).pt) == ((1, 1), (1, 1), (1, 1))
+    roundtrip(s)
+    put(s, "Humility", "graveyard")  # Humility gone: the creatures have their abilities again
+    assert ch(s, anthem).abilities and ch(s, anthem).pt == (4, 4) and ch(s, bears).pt == (3, 3)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("dress_down_first", [True, False])
+def test_two_effects_that_take_abilities_away_apply_in_timestamp_order(cards, dress_down_first):
+    """613.8b: Dress Down's and Humility's effects each remove the other's ability (both are creatures under Opalescence), a
+    dependency loop, so they apply in timestamp order (613.7): the older takes the other's ability away before it begins to apply
+    (613.6), so only its effect is there."""
+    s = build(cards, [(1, "Opalescence"), (1, "Dress Down"), (1, "Humility"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    put(s, "Opalescence", "battlefield")
+    for name in (["Dress Down", "Humility"] if dress_down_first else ["Humility", "Dress Down"]):
+        put(s, name, "battlefield")
+    assert ch(s, bears).abilities == ()
+    assert ch(s, bears).pt == ((2, 2) if dress_down_first else (1, 1))  # (only Humility sets a base power and toughness)
+    roundtrip(s)
+
+
+# -- March of the Machines: the group is not what the subject says any more by layer 7b (613.6) ----------------------------
+@pytest.mark.parametrize("humility_first", [True, False])
+def test_march_of_the_machines_and_humility(cards, humility_first):
+    s = build(cards, [(1, "March of the Machines"), (1, "Humility"), (1, "Mind Stone"), (1, "Sol Ring"), (1, "Painter's Servant")])
+    stone, ring, servant = (put(s, n, "battlefield") for n in ("Mind Stone", "Sol Ring", "Painter's Servant"))
+    put(s, "March of the Machines", "battlefield")
+    assert ch(s, stone).is_creature and ch(s, stone).types == {"Artifact", "Creature"}
+    assert ch(s, stone).pt == (2, 2) and ch(s, ring).pt == (1, 1)  # 613.6: still "each noncreature artifact" in layer 7b
+    assert ch(s, servant).pt == (1, 3)  # an artifact creature already: not affected
+    assert mana_texts(s, stone) == ["{T}: Add {C}."]
+    put(s, "Humility", "battlefield")  # (newest: its 1/1 beats the mana value)
+    assert ch(s, stone).abilities == () and ch(s, stone).pt == (1, 1)
+    roundtrip(s)
+    if not humility_first:
+        put(s, "March of the Machines", "graveyard")
+        put(s, "March of the Machines", "battlefield")  # March is newest now: its mana values come after Humility's 1/1
+        assert ch(s, stone).pt == (2, 2) and ch(s, stone).abilities == ()
+        roundtrip(s)
+
+
+# -- colors, supertypes and added types of groups, in every zone (613.1d-e, 611.3) ----------------------------------------
+def test_thran_lens_makes_permanents_colorless(cards):
+    s = build(cards, [(1, "Thran Lens"), (1, "Grizzly Bears"), (1, "Lightning Bolt")])
+    bears, bolt = put(s, "Grizzly Bears", "battlefield"), put(s, "Lightning Bolt", "hand")
+    assert ch(s, bears).colors == {"G"}
+    put(s, "Thran Lens", "battlefield")
+    assert ch(s, bears).colors == set() and ch(s, bolt).colors == {"R"}  # (permanents only)
+    roundtrip(s)
+    put(s, "Thran Lens", "graveyard")
+    assert ch(s, bears).colors == {"G"}
+
+
+def test_mycosynth_lattice_colors_every_object_in_every_zone(cards):
+    s = build(cards, [(1, "Mycosynth Lattice"), (1, "Grizzly Bears"), (1, "Lightning Bolt"), (1, "Murder")],
+              [(1, "Forest"), (9, "Island")])
+    bears, bolt, murder = (put(s, n, "hand") for n in ("Grizzly Bears", "Lightning Bolt", "Murder"))
+    gy = put(s, "Murder", "graveyard")
+    theirs = put(s, "Forest", "battlefield", pid="p2")
+    assert ch(s, bolt).colors == {"R"} and ch(s, gy).colors == {"B"}
+    put(s, "Mycosynth Lattice", "battlefield")
+    for c in (bolt, gy, bears, murder):  # hand, graveyard (any owner's, any zone: 205.? "cards that aren't on the battlefield")
+        assert ch(s, c).colors == set()
+    assert "Artifact" in ch(s, theirs).types  # (the first line: all permanents are artifacts)
+    mana(s, G=1, C=1)
+    hold(s)
+    act(s, "p1", type="cast_spell", card_id=bears.id)  # a spell (on the stack): colorless too
+    assert s.state.cards[bears.id].zone == "stack" and ch(s, bears).colors == set()
+    roundtrip(s)
+    put(s, "Mycosynth Lattice", "graveyard")
+    assert ch(s, bolt).colors == {"R"} and ch(s, bears).colors == {"G"}
+
+
+def cast_servant(s, color):
+    spell = put(s, "Painter's Servant", "hand")
+    mana(s, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    pass_until_stack_empty(s)
+    d = rules(s).decision
+    assert [o.id for o in d.options] == ["White", "Blue", "Black", "Red", "Green"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[color])
+    pass_until_stack_empty(s)
+    return s.state.cards[spell.id]
+
+
+def test_painters_servant_adds_the_chosen_color_in_every_zone(cards):
+    s = build(cards, [(1, "Painter's Servant"), (1, "Grizzly Bears"), (1, "Lightning Bolt")])
+    bolt, bears = put(s, "Lightning Bolt", "hand"), put(s, "Grizzly Bears", "battlefield")
+    servant = cast_servant(s, "Blue")
+    assert servant.zone.endswith(":battlefield") and servant.choices == {"Chosen color": "Blue"}
+    assert ch(s, bolt).colors == {"R", "U"} and ch(s, bears).colors == {"G", "U"}  # "in addition to their other colors"
+    assert ch(s, servant).colors == {"U"}  # (colorless, now blue)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("lattice_first", [True, False])
+def test_mycosynth_lattice_and_painters_servant_in_timestamp_order(cards, lattice_first):
+    """613.7: both effects are in layer 5 and neither depends on the other: the later one wins (Lattice: colorless; the Servant:
+    its color in addition to the others)."""
+    s = build(cards, [(1, "Painter's Servant"), (1, "Mycosynth Lattice"), (1, "Lightning Bolt")])
+    bolt = put(s, "Lightning Bolt", "hand")
+    if lattice_first:
+        put(s, "Mycosynth Lattice", "battlefield")
+        servant = cast_servant(s, "Green")
+        assert ch(s, bolt).colors == {"G"} and ch(s, servant).colors == {"G"}
+    else:
+        servant = cast_servant(s, "Green")
+        put(s, "Mycosynth Lattice", "battlefield")
+        assert ch(s, bolt).colors == set() and ch(s, servant).colors == set()
+    roundtrip(s)
+
+
+def test_leyline_of_singularity_makes_nonland_permanents_legendary(cards):
+    s = build(cards, [(1, "Leyline of Singularity"), (1, "Grizzly Bears"), (1, "Forest")])
+    bears, forest = put(s, "Grizzly Bears", "battlefield"), put(s, "Forest", "battlefield")
+    put(s, "Leyline of Singularity", "battlefield")
+    assert "Legendary" in ch(s, bears).supertypes and "Legendary" not in ch(s, forest).supertypes
+    roundtrip(s)
+    put(s, "Leyline of Singularity", "graveyard")
+    assert "Legendary" not in ch(s, bears).supertypes
+
+
+def test_encroaching_mycosynth_adds_artifact_to_your_nonland_permanents_spells_and_cards(cards):
+    s = build(cards, [(1, "Encroaching Mycosynth"), (1, "Grizzly Bears"), (1, "Lightning Bolt"), (1, "Forest"), (1, "Mind Stone")],
+              [(1, "Grizzly Bears"), (9, "Island")])
+    mine, bolt, forest = put(s, "Grizzly Bears", "battlefield"), put(s, "Lightning Bolt", "hand"), put(s, "Forest", "battlefield")
+    stone = put(s, "Mind Stone", "graveyard")
+    theirs = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    put(s, "Encroaching Mycosynth", "battlefield")
+    assert ch(s, mine).types == {"Creature", "Artifact"} and ch(s, theirs).types == {"Creature"}  # "you control"
+    assert ch(s, forest).types == {"Land"} and ch(s, bolt).types == {"Instant"}  # nonland permanent cards only
+    assert ch(s, stone).types == {"Artifact"}
+    in_hand = put(s, "Grizzly Bears", "hand")
+    assert ch(s, in_hand).types == {"Creature", "Artifact"}  # a permanent card you own, not on the battlefield
+    assert ch(s, put(s, "Grizzly Bears", "hand", pid="p2")).types == {"Creature"}
+    roundtrip(s)
+
+
+# -- animated lands: a group that stays what it was (613.1d, 613.6) -------------------------------------------------
+def test_kormus_bell_animates_swamps_and_urborg_makes_every_land_one(cards):
+    s = build(cards, [(1, "Kormus Bell"), (1, "Urborg, Tomb of Yawgmoth"), (1, "Forest")])
+    forest = put(s, "Forest", "battlefield")
+    put(s, "Kormus Bell", "battlefield")
+    assert not ch(s, forest).is_creature
+    put(s, "Urborg, Tomb of Yawgmoth", "battlefield")  # 613.8: the Bell's "Swamps" depends on Urborg: it waits for it
+    urborg = next(c for c in s.state.cards.values() if c.name.startswith("Urborg"))
+    for land in (forest, urborg):
+        assert ch(s, land).types == {"Land", "Creature"} and ch(s, land).pt == (1, 1) and ch(s, land).colors == {"B"}
+    roundtrip(s)
+
+
+def test_ambush_commander_makes_your_forests_green_elves(cards):
+    s = build(cards, [(1, "Ambush Commander"), (1, "Forest"), (1, "Command Tower")], [(1, "Forest"), (9, "Island")])
+    mine, tower, theirs = put(s, "Forest", "battlefield"), put(s, "Command Tower", "battlefield"), put(s, "Forest", "battlefield", pid="p2")
+    put(s, "Ambush Commander", "battlefield")
+    assert ch(s, mine).types == {"Land", "Creature"} and "Elf" in ch(s, mine).subtypes and "Forest" in ch(s, mine).subtypes
+    assert ch(s, mine).pt == (1, 1) and ch(s, mine).colors == {"G"}
+    assert not ch(s, tower).is_creature and not ch(s, theirs).is_creature
+    roundtrip(s)
+
+
+# -- Blood Sun and Toxicrene: all abilities but mana abilities (613.1f) -------------------------------------------------------
+def test_blood_sun_lands_keep_only_mana_abilities(cards):
+    s = build(cards, [(1, "Blood Sun"), (1, "Kher Keep"), (1, "Command Tower")])
+    keep, tower = put(s, "Kher Keep", "battlefield"), put(s, "Command Tower", "battlefield")
+    assert any(a.kind != "mana" for a in ch(s, keep).abilities)
+    put(s, "Blood Sun", "battlefield")
+    assert [a.kind for a in ch(s, keep).abilities] == ["mana"] and mana_texts(s, tower) == mana_texts(s, tower)
+    assert [a.text for a in ch(s, keep).abilities] == ["{T}: Add {C}."]
+    roundtrip(s)
+    put(s, "Blood Sun", "graveyard")
+    assert any(a.kind != "mana" for a in ch(s, keep).abilities)
+
+
+def test_toxicrene_lands_have_one_mana_ability_and_lose_the_rest(cards):
+    s = build(cards, [(1, "Toxicrene"), (1, "Kher Keep"), (1, "Forest")])
+    keep, forest = put(s, "Kher Keep", "battlefield"), put(s, "Forest", "battlefield")
+    put(s, "Toxicrene", "battlefield")
+    assert [a.text for a in ch(s, keep).abilities] == ["{T}: Add one mana of any color."]
+    assert [a.text for a in ch(s, forest).abilities] == ["{T}: Add one mana of any color."]  # (the intrinsic one is lost too)
+    roundtrip(s)
+
+
+# -- the table stays fast with the group layers solved (test_rules_statics.py::test_full_board_derive_is_fast) --------------
+def test_full_board_with_layered_statics_derives_fast(cards):
+    import time
+
+    from tests.game_helpers import turn_on
+    from tests.test_rules_combat import creature, table
+
+    s = table(cards)
+    creature(s, "p1", "Moon", "0/4", "Nonbasic lands are Mountains.")
+    creature(s, "p1", "Banner", "0/4", "Creatures you control get +1/+1.")
+    creature(s, "p1", "Dress", "0/4", "Creatures you control have flying as long as you control a Mountain.")
+    creature(s, "p2", "Shade", "0/4", "All permanents are colorless.")
+    for i in range(35):
+        creature(s, "p1", f"A{i}", "2/2")
+    for i in range(36):
+        creature(s, "p2", f"B{i}", "2/2")
+    turn_on(s)
+    plan = Plan(s.state, "p1", cards, None)
+    field = [c for c in s.state.cards.values() if c.zone.endswith(":battlefield")]
+    for c in field:
+        plan.ch(c)
+    t0 = time.perf_counter()
+    for c in field:
+        plan.ch(c)
+    elapsed = time.perf_counter() - t0
+    a0 = next(c for c in field if c.name == "A0")
+    assert plan.ch(a0).pt == (3, 3) and plan.ch(a0).colors == set()
+    assert elapsed < 0.5, f"{elapsed * 1000:.0f} ms for a pass over {len(field)} permanents"
+
+
+# -- dependencies on what an effect changes (613.8a) -------------------------------------------------------------------
+@pytest.mark.parametrize("conversion_first", [True, False])
+def test_conversion_waits_for_blood_moon(cards, conversion_first):
+    """"All Mountains are Plains." applies to the objects that are Mountains: the lands Blood Moon makes Mountains are among
+    them whatever the timestamps (613.8a-b): every nonbasic land ends up a Plains, and the basic Mountain too."""
+    s = build(cards, [(1, "Blood Moon"), (1, "Conversion"), (1, "Command Tower"), (1, "Forest")])
+    tower, forest = put(s, "Command Tower", "battlefield"), put(s, "Forest", "battlefield")
+    for name in (["Conversion", "Blood Moon"] if conversion_first else ["Blood Moon", "Conversion"]):
+        put(s, name, "battlefield")
+    assert ch(s, tower).subtypes == {"Plains"} and mana_texts(s, tower) == ["{T}: Add {W}."]
+    assert ch(s, forest).subtypes == {"Forest"}
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("dryad_first", [True, False])
+def test_dryad_waits_for_ashaya(cards, dryad_first):
+    s = build(cards, [(1, "Dryad of the Ilysian Grove"), (1, "Ashaya, Soul of the Wild"), (1, "Forest")])
+    put(s, "Forest", "battlefield")
+    for name in (["Dryad of the Ilysian Grove", "Ashaya, Soul of the Wild"] if dryad_first
+                 else ["Ashaya, Soul of the Wild", "Dryad of the Ilysian Grove"]):
+        put(s, name, "battlefield")
+    dryad = next(c for c in s.state.cards.values() if c.name.startswith("Dryad"))
+    assert {"Plains", "Island", "Swamp", "Mountain", "Forest"} <= ch(s, dryad).subtypes and "Land" in ch(s, dryad).types
+    roundtrip(s)
+
+
+# -- the engine reads the characteristics these statics change (702.16: protection) -----------------------------------------
+def test_protection_from_red_sees_the_colorless_bolt(cards):
+    """Mycosynth Lattice makes the spell colorless (611.3, 613.1e), so a creature with protection from red can be its target."""
+    from app.game.errors import ActionError
+    from tests.test_rules_effects import token
+
+    s = build(cards, [(1, "Mycosynth Lattice"), (1, "Lightning Bolt")])
+    pro = token(s, "p2", "Protected", "2/2", "Protection from red")
+    bolt = put(s, "Lightning Bolt", "hand")
+    mana(s, R=1)
+    hold(s)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[pro.id])  # (red: can't target it, 702.16b)
+    put(s, "Mycosynth Lattice", "battlefield")
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[pro.id])
+    assert s.state.cards[bolt.id].zone == "stack"
+    roundtrip(s)
+
+
+# -- Auras that set the card type of what they enchant (205.1a, 305.7, 613.1d-f) -----------------------------------------
+AURAS = [
+    card('Imprisoned in the Moon', set_code="tst", number="22A30", mana_cost='{2}{U}', cmc=3.0, type_line='Enchantment — Aura',
+         oracle_text='Enchant creature, land, or planeswalker\nEnchanted permanent is a colorless land with "{T}: Add {C}" and loses '
+                     'all other card types and abilities.', colors=['U'], color_identity=['U'], keywords=['Enchant']),
+    card('Song of the Dryads', set_code="tst", number="22A31", mana_cost='{2}{G}', cmc=3.0, type_line='Enchantment — Aura',
+         oracle_text='Enchant permanent\nEnchanted permanent is a colorless Forest land.', colors=['G'], color_identity=['G'],
+         keywords=['Enchant']),
+    card('Sugar Coat', set_code="tst", number="22A32", mana_cost='{2}{U}', cmc=3.0, type_line='Enchantment — Aura',
+         oracle_text='Flash\nEnchant creature or Food\nEnchanted permanent is a colorless Food artifact with "{2}, {T}, Sacrifice this '
+                     'artifact: You gain 3 life" and loses all other card types and abilities.', colors=['U'], color_identity=['U'],
+         keywords=['Flash', 'Enchant']),
+    card('In Too Deep', set_code="tst", number="22A33", mana_cost='{U}{U}', cmc=2.0, type_line='Enchantment — Aura',
+         oracle_text='Split second\nEnchant creature, planeswalker, or Clue\nEnchanted permanent is a colorless Clue artifact with '
+                     '"{2}, Sacrifice this artifact: Draw a card" and loses all other abilities.', colors=['U'],
+         color_identity=['U'], keywords=['Split second', 'Enchant']),
+    card('Minimus Containment', set_code="tst", number="22A34", mana_cost='{2}{W}', cmc=3.0, type_line='Enchantment — Aura',
+         oracle_text='Enchant nonland permanent\nEnchanted permanent is a Treasure artifact with "{T}, Sacrifice this artifact: Add '
+                     'one mana of any color," and it loses all other abilities.', colors=['W'], color_identity=['W'],
+         keywords=['Enchant']),
+    card('Stop Cold', set_code="tst", number="22A35", mana_cost='{3}{U}', cmc=4.0, type_line='Enchantment — Aura',
+         oracle_text="Flash\nEnchant artifact or creature\nWhen this Aura enters, tap enchanted permanent.\nEnchanted permanent loses all "
+                     "abilities and doesn't untap during its controller's untap step.", colors=['U'], color_identity=['U'],
+         keywords=['Flash', 'Enchant']),
+]
+EXTRA.extend(AURAS)
+
+
+def enchant(s, aura, host):
+    put(s, aura, "battlefield")
+    a = next(c for c in s.state.cards.values() if c.name == aura)
+    act(s, "p1", type="attach", card_ids=[a.id], to=host.id)
+    return a
+
+
+def test_aura_wordings_that_set_the_type_are_covered():
+    for c in AURAS:
+        sup, types, sub = parse_type_line(c["type_line"])
+        chs = Characteristics(name=c["name"], supertypes=sup, types=types, subtypes=sub, oracle_text=c["oracle_text"], mana_cost=c.get("mana_cost") or "",
+                              abilities=tuple(parse_abilities(c["oracle_text"])))
+        assert coverage.of_characteristics(chs).level == "FULL", c["name"]
+
+
+def test_imprisoned_in_the_moon_makes_a_colorless_land_with_one_mana_ability(cards):
+    s = build(cards, [(1, "Imprisoned in the Moon"), (1, "Grizzly Bears"), (1, "Forest")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    enchant(s, "Imprisoned in the Moon", bears)
+    assert ch(s, bears).types == {"Land"} and ch(s, bears).colors == set() and ch(s, bears).subtypes == set()
+    assert [a.text for a in ch(s, bears).abilities] == ["{T}: Add {C}."] and not ch(s, bears).is_creature  # (no longer a creature)
+    roundtrip(s)
+    put(s, "Imprisoned in the Moon", "graveyard")
+    assert ch(s, bears).types == {"Creature"} and ch(s, bears).pt == (2, 2)
+    s2 = build(cards, [(1, "Imprisoned in the Moon"), (1, "Forest")])
+    forest2 = put(s2, "Forest", "battlefield")
+    enchant(s2, "Imprisoned in the Moon", forest2)  # its Forest mana ability is an ability: it loses it (613.1f, 305.6)
+    assert [a.text for a in ch(s2, forest2).abilities] == ["{T}: Add {C}."] and ch(s2, forest2).subtypes == {"Forest"}
+
+
+def test_song_of_the_dryads_makes_a_forest_land(cards):
+    s = build(cards, [(1, "Song of the Dryads"), (1, "Grizzly Bears"), (1, "Command Tower")])
+    bears, tower = put(s, "Grizzly Bears", "battlefield"), put(s, "Command Tower", "battlefield")
+    enchant(s, "Song of the Dryads", bears)
+    assert ch(s, bears).types == {"Land"} and ch(s, bears).subtypes == {"Forest"} and ch(s, bears).colors == set()
+    assert mana_texts(s, bears) == ["{T}: Add {G}."]  # 305.6
+    roundtrip(s)
+    put(s, "Song of the Dryads", "graveyard")
+    enchant(s, "Song of the Dryads", tower) if False else None
+    assert ch(s, bears).types == {"Creature"}
+
+
+def test_sugar_coat_in_too_deep_and_minimus_containment_make_artifacts(cards):
+    s = build(cards, [(1, "Sugar Coat"), (1, "In Too Deep"), (1, "Minimus Containment"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    enchant(s, "Sugar Coat", bears)
+    assert ch(s, bears).types == {"Artifact"} and ch(s, bears).subtypes == {"Food"} and ch(s, bears).colors == set()
+    assert [a.text for a in ch(s, bears).abilities] == ["{2}, {T}, Sacrifice ~: You gain 3 life."]
+    roundtrip(s)
+    put(s, "Sugar Coat", "graveyard")
+    s = build(cards, [(1, "In Too Deep"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    enchant(s, "In Too Deep", bears)
+    assert ch(s, bears).types == {"Artifact"} and ch(s, bears).subtypes == {"Clue"} and ch(s, bears).colors == set()
+    assert [a.text for a in ch(s, bears).abilities] == ["{2}, Sacrifice ~: Draw a card."]
+    s = build(cards, [(1, "Minimus Containment"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    enchant(s, "Minimus Containment", bears)
+    assert ch(s, bears).types == {"Artifact"} and ch(s, bears).subtypes == {"Treasure"} and ch(s, bears).colors == {"G"}
+    assert [a.text for a in ch(s, bears).abilities] == ["{T}, Sacrifice ~: Add one mana of any color."]
+    roundtrip(s)
+
+
+def test_stop_cold_takes_all_abilities_of_a_permanent_and_keeps_it_tapped(cards):
+    s = build(cards, [(1, "Stop Cold"), (1, "Mind Stone")])
+    stone = put(s, "Mind Stone", "battlefield")
+    enchant(s, "Stop Cold", stone)
+    assert ch(s, stone).abilities == () and "doesnt_untap" in ch(s, stone).imposed
+    roundtrip(s)
+
+
+# -- resolved effects on a group (611.2c: the objects it began with; 613.1d-f, 613.4b) ---------------------------------------
+RESOLVED = [
+    card('Allosaurus Shepherd', set_code="tst", number="22A40", mana_cost='{G}', cmc=1.0, type_line='Creature — Elf Shaman',
+         oracle_text="This spell can't be countered.\nGreen spells you control can't be countered.\n{4}{G}{G}: Until end of turn, each Elf "
+                     "creature you control has base power and toughness 5/5 and becomes a Dinosaur in addition to its other creature types.",
+         power='1', toughness='1', colors=['G'], color_identity=['G']),
+    card('Zur, Eternal Schemer', set_code="tst", number="22A41", mana_cost='{W}{U}{B}', cmc=3.0, type_line='Legendary Creature — Human Wizard',
+         oracle_text='Flying\nEnchantment creatures you control have deathtouch, lifelink, and hexproof.\n{1}{W}: Target non-Aura '
+                     'enchantment you control becomes a creature in addition to its other types and has base power and base toughness '
+                     'each equal to its mana value.', power='1', toughness='4', colors=['W', 'U', 'B'],
+         color_identity=['W', 'U', 'B'], keywords=['Flying']),
+    card('Curious Colossus', set_code="tst", number="22A42", mana_cost='{5}{W}{W}', cmc=7.0, type_line='Creature — Giant Warrior',
+         oracle_text='When this creature enters, each creature target opponent controls loses all abilities, becomes a Coward in addition '
+                     'to its other types, and has base power and toughness 1/1.', power='7', toughness='7', colors=['W'],
+         color_identity=['W']),
+    card('Day of Black Sun', set_code="tst", number="22A43", mana_cost='{X}{B}{B}', cmc=2.0, type_line='Sorcery',
+         oracle_text='Each creature with mana value X or less loses all abilities until end of turn. Destroy those creatures.',
+         colors=['B'], color_identity=['B']),
+    card('Tezzeret the Seeker', set_code="tst", number="22A44", mana_cost='{3}{U}{U}', cmc=5.0, type_line='Legendary Planeswalker — Tezzeret',
+         oracle_text='+1: Untap up to two target artifacts.\n−X: Search your library for an artifact card with mana value X or less, put it '
+                     'onto the battlefield, then shuffle.\n−5: Artifacts you control become artifact creatures with base power and '
+                     'toughness 5/5 until end of turn.', colors=['U'], color_identity=['U'], loyalty='5'),
+]
+EXTRA.extend(RESOLVED)
+
+
+def new_token(s, pid, name, type_line, pt="1/1", text=""):
+    p, t = pt.split("/")
+    act(s, pid, type="create_token", player=pid, token={"name": name, "type_line": type_line, "power": p, "toughness": t, "text": text})
+    return next(c for c in s.state.cards.values() if c.name == name and c.owner == pid)
+
+
+def test_resolved_group_wordings_are_covered():
+    for c in RESOLVED:
+        level = coverage.of_card_data(c)
+        assert level.level == "FULL" or c["name"] == "Tezzeret the Seeker", (c["name"], level.manual_parts)
+    assert ok("−5: Artifacts you control become artifact creatures with base power and toughness 5/5 until end of turn.",
+              "Tezzeret the Seeker", "Legendary Planeswalker — Tezzeret")
+
+
+def test_allosaurus_shepherd_makes_the_elves_you_control_5_5_dinosaurs(cards):
+    s = build(cards, [(1, "Allosaurus Shepherd"), (1, "Grizzly Bears")])
+    shepherd, bears = put(s, "Allosaurus Shepherd", "battlefield"), put(s, "Grizzly Bears", "battlefield")
+    elf = new_token(s, "p1", "Elf Token", "Token Creature — Elf Warrior")
+    theirs = new_token(s, "p2", "Their Elf", "Token Creature — Elf")
+    ability = next(a.index for a in ch(s, shepherd).abilities if a.kind == "activated")
+    mana(s, G=2, C=4)
+    act(s, "p1", type="activate_ability", card_id=shepherd.id, ability=ability)
+    pass_until_stack_empty(s)
+    for c in (shepherd, elf):
+        assert ch(s, c).pt == (5, 5) and "Dinosaur" in ch(s, c).subtypes and "Elf" in ch(s, c).subtypes  # 205.1b: in addition
+    assert ch(s, bears).pt == (2, 2) and ch(s, theirs).pt == (1, 1)  # (only the Elves you control)
+    late = new_token(s, "p1", "Late Elf", "Token Creature — Elf")  # 611.2c: not an object the effect began with
+    assert ch(s, late).pt == (1, 1)
+    roundtrip(s)
+
+
+def test_zur_makes_a_non_aura_enchantment_a_creature_of_its_mana_value(cards):
+    s = build(cards, [(1, "Zur, Eternal Schemer"), (1, "Glorious Anthem"), (1, "Grizzly Bears")])
+    zur, anthem = put(s, "Zur, Eternal Schemer", "battlefield"), put(s, "Glorious Anthem", "battlefield")
+    ability = next(a.index for a in ch(s, zur).abilities if a.kind == "activated")
+    mana(s, W=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=zur.id, ability=ability, targets=[anthem.id])
+    pass_until_stack_empty(s)
+    assert ch(s, anthem).is_creature and "Enchantment" in ch(s, anthem).types
+    assert ch(s, anthem).pt == (4, 4)  # base 3/3 (its mana value), and its own +1/+1
+    assert {"deathtouch", "lifelink", "hexproof"} <= ch(s, anthem).keywords  # Zur: enchantment creatures you control
+    roundtrip(s)
+
+
+def test_curious_colossus_takes_the_abilities_of_their_creatures(cards):
+    s = build(cards, [(1, "Curious Colossus")], [(1, "Grizzly Bears"), (1, "Island"), (8, "Island")])
+    theirs = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    token = new_token(s, "p2", "Flyer", "Token Creature — Bird", "3/3", "Flying")
+    mine = new_token(s, "p1", "Mine", "Token Creature — Bird", "3/3", "Flying")
+    colossus = put(s, "Curious Colossus", "hand")
+    mana(s, W=2, C=5)
+    act(s, "p1", type="cast_spell", card_id=colossus.id)
+    pass_until_stack_empty(s)
+    d = rules(s).decision
+    if d is not None:  # the target opponent
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        pass_until_stack_empty(s)
+    for c in (theirs, token):
+        assert ch(s, c).pt == (1, 1) and "Coward" in ch(s, c).subtypes and ch(s, c).abilities == ()
+    assert ch(s, mine).pt == (3, 3) and "flying" in ch(s, mine).keywords
+    roundtrip(s)
+
+
+def test_day_of_black_sun_takes_indestructible_before_destroying(cards):
+    s = build(cards, [(1, "Day of Black Sun")])
+    tough = new_token(s, "p2", "Tough", "Token Creature — Golem", "2/2", "Indestructible")
+    big = new_token(s, "p1", "Big", "Token Creature — Golem", "5/5")
+    spell = put(s, "Day of Black Sun", "hand")
+    mana(s, B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=1)
+    pass_until_stack_empty(s)
+    assert tough.id not in s.state.cards and big.id not in s.state.cards  # (tokens have mana value 0: both died, and ceased to exist)
+    roundtrip(s)
+
+
+def test_tezzeret_the_seeker_animates_your_artifacts(cards):
+    s = build(cards, [(1, "Tezzeret the Seeker"), (1, "Mind Stone"), (1, "Sol Ring")], [(1, "Mind Stone"), (9, "Island")])
+    walker, stone = put(s, "Tezzeret the Seeker", "battlefield"), put(s, "Mind Stone", "battlefield")
+    theirs = put(s, "Mind Stone", "battlefield", pid="p2")
+    act(s, "p1", type="counter", card_ids=[walker.id], kind="loyalty", delta=5)
+    ability = [a.index for a in ch(s, walker).abilities if a.text.startswith("−5")][-1]
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=ability)
+    pass_until_stack_empty(s)
+    assert ch(s, stone).types == {"Artifact", "Creature"} and ch(s, stone).pt == (5, 5)  # 205.1b: an artifact creature keeps its types
+    assert mana_texts(s, stone) == ["{T}: Add {C}."] and not ch(s, theirs).is_creature
+    late = put(s, "Sol Ring", "battlefield")  # 611.2c
+    assert not ch(s, late).is_creature
+    roundtrip(s)
+
+
+# -- a condition that counts objects, read as the table is solved (611.3a, 613.8) -------------------------------------------
+EXTRA.append(card('Starfield of Nyx', set_code="tst", number="22A50", mana_cost='{4}{W}', cmc=5.0, type_line='Enchantment',
+                  oracle_text="At the beginning of your upkeep, you may return target enchantment card from your graveyard to the "
+                              "battlefield.\nAs long as you control five or more enchantments, each other non-Aura enchantment you "
+                              "control is a creature in addition to its other types and has base power and base toughness each equal to "
+                              "its mana value.", colors=['W'], color_identity=['W']))
+
+
+def test_starfield_of_nyx_animates_your_other_enchantments_while_you_control_five(cards):
+    s = build(cards, [(1, "Starfield of Nyx"), (1, "Glorious Anthem"), (1, "Fires of Yavimaya"), (1, "Blood Sun"), (1, "Conversion")],
+              [(1, "Glorious Anthem"), (9, "Island")])
+    starfield, anthem = put(s, "Starfield of Nyx", "battlefield"), put(s, "Glorious Anthem", "battlefield")
+    fires, sun = put(s, "Fires of Yavimaya", "battlefield"), put(s, "Blood Sun", "battlefield")
+    theirs = put(s, "Glorious Anthem", "battlefield", pid="p2")
+    assert not ch(s, anthem).is_creature  # four enchantments
+    conversion = put(s, "Conversion", "battlefield")  # the fifth
+    for c in (anthem, fires, sun, conversion):
+        assert ch(s, c).is_creature and "Enchantment" in ch(s, c).types
+    assert ch(s, fires).pt == (4, 4) and ch(s, sun).pt == (4, 4) and ch(s, conversion).pt == (5, 5)  # mana value + the Anthem's +1/+1
+    assert not ch(s, starfield).is_creature and not ch(s, theirs).is_creature
+    roundtrip(s)
+    put(s, "Conversion", "graveyard")  # four again
+    assert not ch(s, anthem).is_creature
+    roundtrip(s)
