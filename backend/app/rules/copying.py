@@ -1016,7 +1016,7 @@ def entry_candidates(plan: Plan, controller: str, what: str, card_id: str | None
     out = []
     for cid in selectors.candidates(plan, sel, controller):
         card = plan.state.cards[cid]
-        if card.zone.endswith(":battlefield") and supported_source(plan, card) is None \
+        if cid != card_id and card.zone.rsplit(":", 1)[-1] in sel.zones and supported_source(plan, card) is None \
                 and (limit is None or plan.ch(card).mana_value <= limit):
             out.append(cid)
     return out
@@ -1149,6 +1149,8 @@ def become_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     who = [c for c in effects._cards(plan, ctx, e.get("who") or "self") if plan.state.cards[c].zone.endswith(":battlefield")]
     of = effects._cards(plan, ctx, e["with"])
+    if e.get("others"):  # -- copy exceptions (wave 24A) -- "each other creature": other than the one copied
+        who = [c for c in who if c not in of]
     base: CopyRecipe | None = None
     if e.get("last_known") and not any(plan.state.cards[c].zone.endswith(":battlefield") for c in of):
         # -- copy exceptions (wave 24A) -- "becomes a copy of that creature" when it died / left: its copiable values as it last existed
@@ -1517,7 +1519,8 @@ def parse_become(what: str | None, until: bool, exc: str | None, pre: str = "", 
     if what is None or group is None or (group["min"], group["max"]) not in ((1, 1), (0, 1)) or (group["min"] == 0 and not pre.startswith("up to one")):
         return None
     sel = selectors.from_key(group["what"]) if group["what"].startswith(selectors.PREFIX) else None
-    if sel is None or sel.zones != ("battlefield",) or sel.player is not None:
+    # (wave 24A: or a card in a graveyard — public, its printed values are what is copied, 707.2: Lazav, the Multifarious)
+    if sel is None or sel.zones not in (("battlefield",), ("graveyard",)) or sel.player is not None or (sel.zones == ("graveyard",) and not sel.card):
         return None
     ex = parse_excepts(exc)
     if ex is None:
@@ -1525,6 +1528,37 @@ def parse_become(what: str | None, until: bool, exc: str | None, pre: str = "", 
     effect: dict[str, Any] = {"do": "become_copy", "who": "self", "with": "target", **_dump(ex)}
     if until:
         effect["duration"] = "end_of_turn"
+    return [effect], group["what"]
+
+
+def parse_become_group(grp: str, ctl: bool, others: bool, src: str | None, what: str | None, until: bool, exc: str | None
+                       ) -> tuple[list[dict[str, Any]], Any] | None:
+    """-- copy exceptions (wave 24A) -- "Each other creature [you control] becomes a copy of that creature / target <permanent> [until end of
+    turn] [, except it isn't legendary]" (Nanogene Conversion, Mirrorweave, Hall of Mirrors) and "each creature you control other than
+    the chosen creature …" (Loki): one layer-1 effect on the group as it is as the effect begins (611.2c), each a copy of the same
+    object (707.2: its values as they are then). "Other" is other than the object copied. Exceptions that name one object (its name, "this
+    ability", the color it keeps) have no meaning for a group."""
+    from app.rules import selectors
+
+    sel = selectors.parse(f"{grp} you control" if ctl else grp)
+    if sel is None or sel.zones != ("battlefield",) or sel.player is not None or sel.card or sel.other:
+        return None
+    ex = parse_excepts(exc)
+    if ex is None or ex.name is not None or ex.keep_color or THIS_ABILITY in ex.add_text:
+        return None
+    effect: dict[str, Any] = {"do": "become_copy", "who": sel.key(), "with": "it" if src else "target", **_dump(ex)}
+    if others:
+        effect["others"] = True
+    if until:
+        effect["duration"] = "end_of_turn"
+    if src:
+        return [effect], None
+    group = _target_group("target " + (what or ""))
+    if group is None or (group["min"], group["max"]) != (1, 1) or "another" in group:
+        return None
+    sel2 = selectors.from_key(group["what"]) if group["what"].startswith(selectors.PREFIX) else None
+    if sel2 is None or sel2.zones != ("battlefield",) or sel2.player is not None:
+        return None
     return [effect], group["what"]
 
 
@@ -1559,7 +1593,9 @@ def define_static(text: str) -> dict[str, Any] | None:
     spent = what.endswith(" on the battlefield" + _MV_SPENT_TEXT)  # -- enter as copy (wave 5F) -- Mockingbird
     what = what.removesuffix(_MV_SPENT_TEXT).removesuffix(" on the battlefield")
     sel = selectors.parse(what)
-    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.other:
+    # (wave 24A: or a card in a graveyard — "any creature card in a graveyard", Body Double: public, its printed values, 707.2)
+    if sel is None or sel.player is not None or sel.other or sel.zones not in (("battlefield",), ("graveyard",)) \
+            or sel.card != (sel.zones == ("graveyard",)):
         return None
     # -- enter as copy (wave 5F) -- any permanent ("nonland permanent", "artifact or enchantment", "Equipment"): an Aura
     # would have to attach as it enters (303.4f) — not offered as something to copy (``entry_candidates`` / ``supported_source``);

@@ -5877,6 +5877,19 @@ def _become_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return found
 
 
+# -- copy exceptions (wave 24A) -- "Each other creature you control becomes a copy of that creature until end of turn, except it isn't legendary."
+@_first
+@effect(r"each (?P<other>other )?(?P<grp>[a-z -]+?)(?P<ctl> you control)?(?P<oth> other than the chosen creature)? becomes a copy of "
+        r"(?:(?P<src>it|that creature)|target (?P<what>.+?))(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")
+def _become_copy_group(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import copying
+
+    found = copying.parse_become_group(m["grp"], bool(m["ctl"]), bool(m["other"] or m["oth"]), m["src"], m["what"], bool(m["until"]), m["exc"])
+    if found is None:
+        raise _NoMatch
+    return found
+
+
 # The tokens a copy creates are what a following "it" / "that token" names ("Sacrifice it at the
 # beginning of the next end step."): the resolution records them (effects._remember).
 _RECORDING.update({"token_copy": None})

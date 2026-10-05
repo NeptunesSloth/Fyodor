@@ -1,0 +1,206 @@
+[
+ {
+  "name": "Nanogene Conversion",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose target creature you control. Each other creature becomes a copy of that creature until end of turn, except it isn't legendary.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Mirrorweave",
+  "mana_cost": "{2}{W/U}{W/U}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Each other creature becomes a copy of target nonlegendary creature until end of turn.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Loki, Lord of Misrule",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature \u2014 God Sorcerer Villain",
+  "oracle_text": "{U}, {T}: Choose target creature you control. Each creature you control other than the chosen creature becomes a copy of that creature until end of turn, except it isn't legendary. Activate only as a sorcery.",
+  "power": "3",
+  "toughness": "4",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Body Double",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Creature \u2014 Shapeshifter",
+  "oracle_text": "You may have this creature enter as a copy of any creature card in a graveyard.",
+  "power": "0",
+  "toughness": "0",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Echoing Deeps",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land \u2014 Cave",
+  "oracle_text": "You may have this land enter tapped as a copy of any land card in a graveyard, except it's a Cave in addition to its other types.\n{T}: Add {C}.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Dimir Doppelganger",
+  "mana_cost": "{1}{U}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature \u2014 Shapeshifter",
+  "oracle_text": "{1}{U}{B}: Exile target creature card from a graveyard. This creature becomes a copy of that card, except it has this ability.",
+  "power": "0",
+  "toughness": "2",
+  "loyalty": null,
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Lazav, the Multifarious",
+  "mana_cost": "{U}{B}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature \u2014 Shapeshifter",
+  "oracle_text": "When Lazav enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\n{X}: Lazav becomes a copy of target creature card in your graveyard with mana value X, except its name is Lazav, the Multifarious, it's legendary in addition to its other types, and it has this ability.",
+  "power": "1",
+  "toughness": "3",
+  "loyalty": null,
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Surveil"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Likeness Looter",
+  "mana_cost": "{U}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Faerie Shapeshifter",
+  "oracle_text": "Flying\n{T}: Draw a card, then discard a card.\n{X}: This creature becomes a copy of target creature card in your graveyard with mana value X, except it has flying and this ability. Activate only as a sorcery.",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Shifting Woodland",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Forest.\n{T}: Add {G}.\nDelirium \u2014 {2}{G}{G}: This land becomes a copy of target permanent card in your graveyard until end of turn. Activate only if there are four or more card types among cards in your graveyard.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Delirium"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Mirrorform",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Instant",
+  "oracle_text": "Each nonland permanent you control becomes a copy of target non-Aura permanent.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Forest",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Basic Land \u2014 Forest",
+  "oracle_text": "({T}: Add {G}.)",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ }
+]
