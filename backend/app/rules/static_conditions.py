@@ -63,6 +63,9 @@ _LIFE_VS_START = {
 }
 _LIFE_MORE = re.compile(r"you have at least (?P<n>\w+) life more than your starting life total"
                         r"|your life total is at least (?P<m>\w+) greater than your starting life total")
+# -- as long as (wave 25A) -- "there are three or more cards exiled with this creature" / "four or more card types among cards exiled with ~"
+# (Veteran Survivor, Keen-Eyed Curator): the cards its linked exiling ability put into exile and that are still those objects there (607.2a, 400.7)
+_EXILED_COUNT = re.compile(r"there are (?P<n>\w+) or more (?P<what>cards|card types among cards) exiled with (?:~|this \w+)")
 _SELF_COUNTERS = re.compile(r"there are (?P<n>\w+) or more (?P<kind>\+1/\+1|-1/-1|[a-z]+) counters on ~")
 
 
@@ -158,6 +161,9 @@ def parse(text: str) -> Condition | None:
     if m:
         n = _num(m["n"] or m["m"])
         return {"static": "life_vs_start", "op": ">=", "plus": n, "half": False} if n is not None else None
+    m = _EXILED_COUNT.fullmatch(t)
+    if m and (n := _num(m["n"])) is not None:
+        return {"static": "exiled_count", "n": n, "types": m["what"] != "cards"}
     m = _SELF_COUNTERS.fullmatch(t)
     if m:
         n = _num(m["n"])
@@ -202,7 +208,7 @@ def compound(text: str) -> Condition | None:
     return None
 
 
-KINDS = frozenset({"attached_ctrl_is", "self_is", "attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all",
+KINDS = frozenset({"exiled_count", "attached_ctrl_is", "self_is", "attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all",
                     "most_common_color", "hand_most", "paired"})  # (wave 20B)
 
 
@@ -238,6 +244,14 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
         if cond["noun"] == "artifact" and "Artifact" not in ch.types:
             return False
         return selectors.matches(plan, selectors.from_key(cond["sel"]), target, ch, controller, source.id)
+    if kind == "exiled_count":  # -- as long as (wave 25A) -- the cards exiled with the source (exiled_with.cards), their types counted as they are in exile
+        r = plan.rules
+        found = [state_card for oid in (r.exiled_with.get(r.object_id(source.id), []) if r is not None else [])
+                 if (state_card := plan.state.cards.get(oid.rsplit(".", 1)[0])) is not None and state_card.zone.endswith(":exile")
+                 and plan.oid(state_card.id) == oid]
+        if cond["types"]:
+            return len({t for c in found for t in plan.ch(c).types}) >= cond["n"]
+        return len(found) >= cond["n"]
     if kind == "attached_ctrl_is":  # -- as long as (wave 25A) -- the host's controller is (or isn't) the source's controller
         host = attached_object(plan, source)
         return host is not None and (host.controller == controller) == cond["you"]

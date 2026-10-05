@@ -38,6 +38,10 @@ def definition(text: str) -> Definition | None:
     # -- as long as (wave 25A) -- "As long as you control enchanted creature, it gets +2/+2.": "it" is the creature the condition names
     text = re.sub(r"^(As long as [^,]*\b(enchanted|equipped) creature\b[^,]*), it (?=(?:gets|has|can't)\b)",
                   lambda m: f"{m[1]}, {m[2].capitalize()} creature ", text.strip())
+    from app.rules import abilities_of  # -- keyword inheritance (wave 25A) -- "The same is true for …"
+
+    if (inherited := abilities_of.inherit(text, statics._definition)) is not None:
+        return inherited
     parts = _SENTENCES.split(text.strip())
     if not 2 <= len(parts) <= 3:
         return None

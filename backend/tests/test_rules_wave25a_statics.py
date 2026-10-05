@@ -37,6 +37,12 @@ EXTRA = [
     card('Yuffie, Materia Hunter', set_code='tst', number='M10', mana_cost='{2}{R}', cmc=3.0, type_line='Legendary Creature — Human Ninja', oracle_text='Ninjutsu {1}{R} ({1}{R}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhen Yuffie enters, gain control of target noncreature artifact for as long as you control Yuffie. Then you may attach an Equipment you control to Yuffie.', power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=['Ninjutsu'], layout='normal'),  # noqa: E501
     card('Short Sword', set_code='tst', number='M11', mana_cost='{1}', cmc=1.0, type_line='Artifact — Equipment', oracle_text='Equipped creature gets +1/+1.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)', colors=[], color_identity=[], keywords=['Equip'], layout='normal'),  # noqa: E501
     card('Nahiri, Heir of the Ancients', set_code='tst', number='M12', mana_cost='{2}{R}{W}', cmc=4.0, type_line='Legendary Planeswalker — Nahiri', oracle_text='+1: Create a 1/1 white Kor Warrior creature token. You may attach an Equipment you control to it.\n−2: Look at the top six cards of your library. You may reveal a Warrior or Equipment card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\n−3: Nahiri deals damage to target creature or planeswalker equal to twice the number of Equipment you control.', colors=['R', 'W'], color_identity=['R', 'W'], keywords=[], layout='normal'),  # noqa: E501
+    card('Cairn Wanderer', set_code='tst', number='M13', mana_cost='{4}{B}', cmc=5.0, type_line='Creature — Shapeshifter', oracle_text='Changeling (This card is every creature type.)\nAs long as a creature card with flying is in a graveyard, this creature has flying. The same is true for fear, first strike, double strike, deathtouch, haste, landwalk, lifelink, protection, reach, trample, shroud, and vigilance.', power='4', toughness='4', colors=['B'], color_identity=['B'], keywords=['Changeling'], layout='normal'),  # noqa: E501
+    card('Urborg Scavengers', set_code='tst', number='M14', mana_cost='{2}{B}', cmc=3.0, type_line='Creature — Spirit', oracle_text='Whenever this creature enters or attacks, exile target card from a graveyard. Put a +1/+1 counter on this creature.\nThis creature has flying as long as a card exiled with it has flying. The same is true for first strike, double strike, deathtouch, haste, hexproof, indestructible, lifelink, menace, reach, trample, and vigilance.', power='2', toughness='2', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Wind Drake', set_code='tst', number='M15', mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Drake', oracle_text='Flying', power='2', toughness='2', colors=['U'], color_identity=['U'], keywords=['Flying'], layout='normal'),  # noqa: E501
+    card('Vampire Interloper', set_code='tst', number='M16', mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Vampire Scout', oracle_text="Flying\nThis creature can't block.", power='2', toughness='1', colors=['B'], color_identity=['B'], keywords=['Flying'], layout='normal'),  # noqa: E501
+    card('Keen-Eyed Curator', set_code='tst', number='M17', mana_cost='{G}{G}', cmc=2.0, type_line='Creature — Raccoon Scout', oracle_text='As long as there are four or more card types among cards exiled with this creature, it gets +4/+4 and has trample.\n{1}: Exile target card from a graveyard.', power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
+    card('Lightning Bolt', set_code='tst', number='M18', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Lightning Bolt deals 3 damage to any target.', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='M99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
 ]
 
@@ -168,4 +174,53 @@ def test_yuffie_takes_an_artifact_and_may_attach_an_equipment_to_herself(cards):
     assert find(s, "Short Sword").controller == "p1"
     assert s.state.cards[mine.id].attached_to == find(s, "Yuffie, Materia Hunter").id  # 701.3a
     assert s.state.cards[theirs.id].controller == "p1" and s.state.cards[theirs.id].attached_to is None
+    roundtrip(s)
+
+
+def test_a_creature_with_a_keyword_in_a_graveyard_gives_it_to_cairn_wanderer(cards):
+    s = build(cards, p1=("Cairn Wanderer", "Wind Drake"), p2=("Test Bear",))
+    wanderer = put(s, "Cairn Wanderer", "battlefield")
+    assert "flying" not in ch(s, wanderer).keywords
+    put(s, "Test Bear", "graveyard", pid="p2")  # (no flying: nothing)
+    assert "flying" not in ch(s, wanderer).keywords
+    drake = put(s, "Wind Drake", "graveyard")  # a creature card with flying is in a graveyard
+    assert "flying" in ch(s, wanderer).keywords
+    put(s, "Wind Drake", "exile")  # and no longer: 611.3a
+    assert "flying" not in ch(s, wanderer).keywords and drake.id
+    roundtrip(s)
+
+
+def test_urborg_scavengers_has_the_keywords_of_the_cards_it_exiled(cards):
+    s = build(cards, p1=("Urborg Scavengers",), p2=("Wind Drake",))
+    put(s, "Wind Drake", "graveyard", pid="p2")
+    scav = put(s, "Urborg Scavengers", "hand")
+    mana(s, B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=scav.id)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.card_id == find(s, "Wind Drake", "p2").id][:1]
+            or [d.options[0].id])
+    assert find(s, "Wind Drake", "p2").zone == "p2:exile"
+    assert "flying" in ch(s, find(s, "Urborg Scavengers")).keywords  # "a card exiled with it has flying"
+    assert ch(s, find(s, "Urborg Scavengers")).pt == (3, 3)  # +1/+1 counter
+    roundtrip(s)
+
+
+def test_keen_eyed_curator_counts_the_card_types_among_the_cards_it_exiled(cards):
+    s = build(cards, p1=("Keen-Eyed Curator",), p2=("Test Bear", "Lightning Bolt", "Short Sword"))
+    curator = put(s, "Keen-Eyed Curator", "battlefield")
+    for name in ("Test Bear", "Island", "Lightning Bolt", "Short Sword"):  # a creature, a land, an instant, an artifact
+        put(s, name, "graveyard", pid="p2")
+    for i, name in enumerate(("Test Bear", "Island", "Lightning Bolt", "Short Sword")):
+        mana(s, C=1)
+        act(s, "p1", type="activate_ability", card_id=curator.id, ability=1, targets=[find(s, name, "p2").id])  # {1}: Exile target card from a graveyard
+        answer(s)
+        want = (3, 3) if i < 3 else (7, 7)  # 611.3a: "four or more card types among cards exiled with this creature": +4/+4 and trample
+        assert ch(s, find(s, "Keen-Eyed Curator")).pt == want
+    assert "trample" in ch(s, find(s, "Keen-Eyed Curator")).keywords
     roundtrip(s)
