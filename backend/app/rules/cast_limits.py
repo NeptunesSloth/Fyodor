@@ -252,8 +252,6 @@ def static_definition(text: str) -> Definition | None:
     m = re.fullmatch(r"(?P<turn>during your turn, )?each (?P<sel>[a-z ,'-]+?) cards? in your graveyard has flashback\. (?:the|its) flashback cost "
                      r"is equal to (?:that card's|its) mana cost", t, re.I)
     if m:
-        from app.rules import selectors
-
         sel = selectors.parse(m["sel"].replace(" and ", " or ") + " card in your graveyard")
         if sel is None or sel.zones != ("graveyard",) or not sel.card or sel.player is not None:
             return None
