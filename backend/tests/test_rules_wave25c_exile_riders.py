@@ -122,6 +122,11 @@ REAL += [
          "don't, Chandra deals 2 damage to each opponent.\n+1: Add {R}{R}.\n−3: Chandra deals 4 damage to target creature.\n−7: You get an "
          "emblem with \"Whenever you cast a spell, this emblem deals 5 damage to any target.\""),
 ]
+REAL += [
+    card("Hurl Through Hell", set_code="tst", number="C25-22", mana_cost="{2}{B}{R}", cmc=4.0, type_line="Instant", colors=["B", "R"],
+         color_identity=["B", "R"], oracle_text="Exile target creature. Until the end of your next turn, you may cast that card and you may "
+         "spend mana as though it were mana of any color to cast that spell."),
+]
 OURS = [c["name"] for c in REAL]
 
 
@@ -587,4 +592,21 @@ def test_chandra_torch_of_defiance_casts_the_exiled_card_or_deals_two_damage(car
         choose(s, [], resolve=True)
         assert s.state.players["p2"].life == 38  # "If you don't": Chandra's 2 damage
         assert s.state.cards[top].zone == "p1:exile"
+    replay_matches(s)
+
+
+# -- 609.4b: "you may cast that card and you may spend mana as though it were mana of any color to cast that spell" ----
+def test_hurl_through_hell_lets_you_cast_the_exiled_creature_with_any_mana(cards):
+    s = build(cards)
+    bear = put(s, "Cloud Sprite", "battlefield", pid="p2")
+    hurl = put(s, "Hurl Through Hell", "hand")
+    mana(s, B=1, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=hurl.id, targets=[bear.id])
+    pass_until_stack_empty(s)
+    exiled = [c for c in s.state.cards.values() if c.name == "Cloud Sprite" and c.zone == "p2:exile"]
+    assert len(exiled) == 1
+    mana(s, R=1)  # the Sprite costs {U}: red mana pays the blue (609.4b)
+    act(s, "p1", type="cast_spell", card_id=exiled[0].id)
+    pass_until_stack_empty(s)
+    assert s.state.cards[exiled[0].id].zone == "p1:battlefield"  # (cast by Alice: hers to control)
     replay_matches(s)

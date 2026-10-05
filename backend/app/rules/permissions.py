@@ -128,7 +128,8 @@ FACE_DOWN_LOOK = re.compile(r"^you may look at (?P<top>the top card of your libr
 # this resolves, ignoring timing" — not a permission that lasts: refused.
 GRANT_THAT = re.compile(r"^(?:(?P<until>until end of turn|until the end of your next turn|until your next end step), )?you may (?P<verb>play|cast) "
                         r"(?P<what>that card|those cards|it)(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?"
-                        r"(?:, and (?P<spend>mana of any type can be spent to cast (?:that spell|those spells)))?$")  # (wave 25C: Dire Fleet Daredevil)
+                        r"(?:, and (?P<spend>mana of any type can be spent to cast (?:that spell|those spells))"  # (wave 25C: Dire Fleet Daredevil)
+                        r"| and (?P<spend2>you may spend mana as though it were mana of any (?P<k2>color|type) to cast (?:that spell|those spells)))?$")  # (Hurl Through Hell)
 # -- refused grants/replacements (wave 3R2) -- "You may play that card until the end of your next turn."
 _TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|those cards|it|them)(?: without paying (?:its|their) mana costs?)?) "
                              r"(?P<until>until end of turn|until the end of your next turn|until your next end step)$")
@@ -731,21 +732,22 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             return None  # (several cards at once, or playing a land as this resolves: not modelled)
         return [{"do": "free_cast", "zone": "that", "who": "it:card", "filter": None, "mv": None, "optional": True}], None
     if m:
-        if not (m["until"] or m["this_turn"]) and m["verb"] == "cast" and m["what"] != "those cards" and not m["spend"]:
+        spend_kind = "type" if m["spend"] else (m["k2"] if m["spend2"] else "")
+        if not (m["until"] or m["this_turn"]) and m["verb"] == "cast" and m["what"] != "those cards" and not spend_kind:
             # -- if you do (wave 25C) -- a bare "You may cast that card." (Chandra, Torch of Defiance): cast as this resolves (608.2g), its mana cost
             # paid — the paid free cast of the copy wording; "If you don't, …" after it reads whether a spell was cast
             return [{"do": "free_cast", "zone": "that", "who": "it:card", "filter": None, "mv": None, "optional": True, "paid": True}], None
         if (m["until"] and m["this_turn"]) or not (m["until"] or m["this_turn"]):
             return None  # (a bare "you may play that card" / several cards: cast as this resolves, not modelled)
         free = bool(m["free"])  # (wave 3C) "... without paying its mana cost" (118.9)
-        if m["spend"] and (free or m["verb"] != "cast" or (m["what"] == "those cards") != ("those spells" in m["spend"])):
+        if spend_kind and (free or m["verb"] != "cast" or (m["what"] == "those cards") != ("those spells" in (m["spend"] or m["spend2"]))):
             return None  # (-- if you do (wave 25C) -- 118.14: mana is spent only to cast, never for a free cast)
         until = {"until the end of your next turn": "end_of_next_turn", "until your next end step": "next_end_step"}.get(m["until"], "end_of_turn")
         # "who": a pronoun for scripts.resolve_it — the object(s) the preceding instruction moved
         # ("that card": a card — never a token the same sentence created, 111.1: scripts.resolve_it)
         return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play",
                  "cast": True, "until": until, "optional": True, **({"free": True} if free else {}),
-                 **({"spend": "type"} if m["spend"] else {})}], None
+                 **({"spend": spend_kind} if spend_kind else {})}], None
     m = GRANT_ZONE.fullmatch(text)
     if m:
         if m["until"] and m["this_turn"]:
