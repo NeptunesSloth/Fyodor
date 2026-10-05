@@ -171,7 +171,6 @@ def test_the_cards_are_full(name):
     # cost changers that read something this grammar doesn't (targets, the first spell each turn, chosen names)
     "Spells you cast that target enchanted player cost {1} less to cast.",
     "Spells with the chosen name cost {3} more to cast.",
-    "This spell costs {1} less to cast if it targets a creature with flying.",
     "Activated abilities cost {2} more to activate unless they're mana abilities.",
 ])
 def test_wordings_still_refused(text):

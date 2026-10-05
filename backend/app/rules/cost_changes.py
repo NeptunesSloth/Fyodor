@@ -243,10 +243,9 @@ def own_changes(state: GameState, player: str, card: CardInstance, ch: Character
         if not change:
             continue
         view = view or view_of(on_stack(state, card), player, info)
-        if change.get("targets"):  # "… if it targets …": the chosen targets (601.2c comes before 601.2f)
-            if (targets == ANY_TARGET and change["dir"] > 0) or (
-                    targets != ANY_TARGET and not targets_fit(view, card, player, change["targets"], targets)):
-                continue
+        if change.get("targets") and ((targets == ANY_TARGET and change["dir"] > 0) or (
+                targets != ANY_TARGET and not targets_fit(view, card, player, change["targets"], targets))):
+            continue  # "… if it targets …": the chosen targets (601.2c comes before 601.2f)
         n = amount(view, context(state, player, card), change)
         n = min(n, change["cap"]) if "cap" in change else n
         if n:
@@ -406,7 +405,7 @@ def _targeting_definition(m: re.Match[str]) -> dict[str, Any] | None:
 def _targeting_definition_of(who: str | None, what: str) -> dict[str, Any] | None:
     from app.rules import selectors
 
-    if what in ("~", "this creature"):
+    if what == "~":
         target = "self"
     else:
         phrase = re.sub(r"^(?:a|an|one or more) ", "", what)
@@ -600,7 +599,7 @@ def keyword_component(o: Optional) -> Any:
 
     untapped = Selector(types=("Creature",), controller="you", tapped=False)
     if o.kind in ("evidence", "behold"):  # -- casting costs (wave 22F) --
-        return own_cost(o.text)  # type: ignore[return-value]
+        return own_cost(o.text)
     if o.kind == "casualty":  # -- casting extras (wave 18E) -- 702.153a: "you may sacrifice a creature with power N or greater"
         key = C._selector(f"creature you control with power {o.n} or greater", zone="battlefield")
         return C.CostComponent(C.SACRIFICE, amount=1, selector=key, text=f"Sacrifice a creature with power {o.n} or greater")

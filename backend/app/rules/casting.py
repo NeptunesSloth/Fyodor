@@ -3201,7 +3201,9 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
         reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own, ability.text)
         if reduced != cost.mana:
             cost = replace(cost, mana=reduced)
-        from app.rules import cast_limits  # -- casting costs (wave 22F) -- 609.4b: "spend mana as though it were mana of any color" on abilities
+        from app.rules import (
+            cast_limits,  # -- casting costs (wave 22F) -- 609.4b: "spend mana as though it were mana of any color" on abilities
+        )
 
         if cost.mana and (mode := cast_limits.ability_spend_mode(state, card.controller, card, ch, info)):
             cost = replace(cost, mana=M.spend_as(M.parse_cost(cost.mana), mode).text())
