@@ -73,6 +73,8 @@ def payment(phrase: str) -> dict[str, Any] | None:
         return {"cost": "", "life_x": v, **({"that_many": True} if _LIFE_EQUAL.match(p) else {})}
     if p == "pay that much life":
         return {"cost": "", "life_x": {"event_amount": 1}}
+    if p == "pay any amount of life":  # -- if you do (wave 21C) -- Necrodominance: the payer chooses 0 up to their life total (119.4), "that many" is it
+        return {"cost": "", "choose_x": {"max": {"life": "you"}, "life": True}, "that_many": True}
     return None
 
 
@@ -148,13 +150,17 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
     most = 0
     while most < limit and casting.can_pay(plan.state, payer, M.parse_cost(f"{{{most + 1}}}"), plan.info):
         most += 1
-    options = [DecisionOption(id=f"{CHOOSE}{n}", label=f"Pay {{{n}}} (X = {n})") for n in range(most + 1)]
+    life = bool(e["choose_x"].get("life"))
+    if life:  # (the cap is the life total, 119.4: life can be paid only from a total at least that large)
+        most = max(0, limit)
+    options = [DecisionOption(id=f"{CHOOSE}{n}", label=f"Pay {n} life (X = {n})" if life else f"Pay {{{n}}} (X = {n})")
+               for n in range(most + 1)]
     options.append(DecisionOption(id=O.DECLINE, label="Don't pay"))
     hint = " (tap your mana first)" if O._self_pays(plan, payer) else ""
     source = plan.state.cards.get(ctx.get("source_card") or "")
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {{X}}? Choose X{hint}",
            options=options, source=source,
-           resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer}, "cost": "{0}"})
+           resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "life": life}, "cost": "{0}"})
     return False
 
 
@@ -176,7 +182,7 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
         _record(ctx, bind, True, 0)
         effects.continue_effects(plan, ctx)
         return
-    text = f"{{{n}}}"
+    text = f"Pay {n} life" if info.get("life") else f"{{{n}}}"
     cost = O.parse(text)
     assert cost is not None
     ctx.setdefault("paid_x", {})[bind] = n

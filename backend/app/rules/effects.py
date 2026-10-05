@@ -1901,13 +1901,19 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         picked = [c for pid in order for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
         return _discard_next(plan, ctx, 0, [], picked, e.get("as"))
     return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("to", "graveyard"),
-                         e.get("zone", "hand"), bool(e.get("upto")))
+                         e.get("zone", "hand"), bool(e.get("upto")), e.get("sel"))
 
 
 def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picked: list[str],
-                  binding: str | None = None, dest: str = "graveyard", src: str = "hand", upto: bool = False) -> bool:
+                  binding: str | None = None, dest: str = "graveyard", src: str = "hand", upto: bool = False,
+                  sel: str | None = None) -> bool:
     for i, pid in enumerate(players):
         hand = plan.state.zones.get(zone_key(pid, src), [])  # (wave 15D: "exiles a card from their graveyard", public, 404.1)
+        if sel:  # -- if you do (wave 21C) -- "discard a creature card": only cards of that kind can be chosen (701.9a)
+            from app.rules import characteristics as chars
+
+            kind = selectors.from_key(sel)
+            hand = [c for c in hand if selectors.matches(plan, kind, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
         n = min(want, len(hand)) if want or not upto else len(hand)  # (upto, 0: "any number of cards")
         if n == 0:
             continue
@@ -1921,7 +1927,7 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
                min_choices=0 if upto else n, max_choices=n,  # (-- trigger tail (wave 15B) -- "up to N" / "any number": 701.9a)
                resume={"step": "discard", "ctx": ctx, "want": want, "rest": players[i + 1:], "picked": picked,
-                       "as": binding, "to": dest, "zone": src, "upto": upto})
+                       "as": binding, "to": dest, "zone": src, "upto": upto, "sel": sel})
         return False
     cards = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(f":{src}")]
     e = {"as": binding}
@@ -1936,7 +1942,8 @@ def resume_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx = d.resume["ctx"]
     picked = [*(d.resume.get("picked") or []), *chosen]
     if _discard_next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or [], picked, d.resume.get("as"),
-                     d.resume.get("to", "graveyard"), d.resume.get("zone", "hand"), bool(d.resume.get("upto"))):
+                     d.resume.get("to", "graveyard"), d.resume.get("zone", "hand"), bool(d.resume.get("upto")),
+                     d.resume.get("sel")):
         continue_effects(plan, ctx)
 
 
