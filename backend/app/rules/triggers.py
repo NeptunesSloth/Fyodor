@@ -231,6 +231,13 @@ def exploiting(plan: Plan, card_ids: list[str], exploiter: str, player: str) -> 
             emit(plan.state, "exploited", object_id=plan.oid(card), card=cid, player=player, source=plan.oid(src), by_card=exploiter)
 
 
+def _discarded_instead(plan: Plan, e: Event) -> bool:
+    """-- review (wave 23D) -- 701.9a, 702.35a: a card discarded that a replacement put somewhere other than the graveyard (madness,
+    Rest in Peace, "put it onto the battlefield instead") was discarded all the same (``history.note_discards`` logged it)."""
+    log = plan.rules.turn_log
+    return log.turn == plan.state.turn.number and any(f.kind == "discard" and f.object_id == e.object_id for f in log.facts)
+
+
 def collect(plan: Plan) -> None:
     """Look at the events since the last look (603.2)."""
     r = plan.rules
@@ -389,8 +396,10 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         # 601.2i: what the condition can ask about the spell as it became cast — the Nth spell its
         # caster cast this turn, the zone it was cast from, its targets (115.9b), whether it was kicked
         nth = e.amount or r.spells_this_turn(e.player or "", plan.state.turn.number)
-        info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),
-                "opponent_turn": plan.active != e.player, "kicked": bool(entry is not None and entry.kicked),
+        paid = r.payments.get(plan.oid(spell))  # (review 23D: a promised gift / awaken is read as "kicked" by the spell's own text only:
+        kicked = bool(entry is not None and entry.kicked and not (paid is not None and (paid.gift_to or paid.alternative == "awaken")))
+        info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),  # 702.33d, 702.174k)
+                "opponent_turn": plan.active != e.player, "kicked": kicked,
                 "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]}
         # -- unless pays (wave 4C) -- "their first noncreature spell each turn"
         from app.rules import unless_pays
@@ -482,6 +491,19 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
     return []
 
 
+def _discard_facts(plan: Plan, e: Event) -> list[Fact]:
+    # 701.9a: "To discard a card, move it from its owner's hand to that player's graveyard" — the rules engine moves a card that
+    # way only by discarding it (an effect, a cost, cycling); -- review (wave 23D) -- or a replacement put the discard elsewhere
+    if _zone(e.from_zone) != "hand" or not e.card or not (_zone(e.to_zone) == "graveyard" or _discarded_instead(plan, e)):
+        return []
+    got = _card_in(plan, e.card, e.to_zone if _zone(e.to_zone) != "battlefield" else e.from_zone)  # (a permanent now: the card it was)
+    if got is None or (e.from_zone or "").split(":")[0] != got[0].owner:
+        return []
+    return [("discard", got[0], got[1], got[0].owner, {"oid": e.new_object_id, "actor": got[0].owner, "amount": 1,
+                                                       "new_oid": e.new_object_id, "to": e.to_zone,
+                                                       "by": e.actor})]  # (wave 23D: ``by``: the player whose effect moved it)
+
+
 def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
     r = plan.rules
     frm, to = _zone(e.from_zone), _zone(e.to_zone)
@@ -497,7 +519,7 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
             if e.from_zone is None and got[0].is_token:  # 111.2: a token was created
                 out.append(("create_token", got[0], got[1], got[0].controller,
                             {**entered, "actor": got[0].controller, "amount": 1}))
-        return out
+        return out + _discard_facts(plan, e)  # (review 23D: Obstinate Baloth, discarded onto the battlefield)
     if frm == "battlefield" and to != "battlefield":
         snap = r.lki.get(e.object_id or "")
         if snap is None:  # (-- review (wave 18D) -- a card of a merged permanent that left: put there, not a permanent leaving, 730.3)
@@ -512,14 +534,7 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
         return out
     out += _to_graveyard(plan, e, frm)  # -- into a graveyard (wave 6D) --
     out += _to_zone(plan, e, frm)  # -- counters (wave 21D) --
-    if frm == "hand" and to == "graveyard" and e.card:
-        # 701.9a: "To discard a card, move it from its owner's hand to that player's graveyard" —
-        # the rules engine moves a card that way only by discarding it (an effect, a cost, cycling)
-        got = _card_in(plan, e.card, e.to_zone)
-        if got is not None and (e.from_zone or "").split(":")[0] == got[0].owner:
-            out.append(("discard", got[0], got[1], got[0].owner,
-                        {"oid": e.new_object_id, "actor": got[0].owner, "amount": 1, "new_oid": e.new_object_id,
-                         "to": e.to_zone, "by": e.actor}))  # (wave 23D: ``by``: the player whose effect moved it)
+    out += _discard_facts(plan, e)
     if frm == "graveyard" and to != "graveyard" and e.card:
         # "leaves your graveyard": the card as it was there (603.10a looks back in time)
         got = _card_in(plan, e.card, e.from_zone)
@@ -1064,7 +1079,8 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
                 ch = plan.ch(card)
                 watchers += [((card, ch, i, d), -big, big) for i, d in abilities(plan, ch, "event")
                              if d.get("cond", {}).get("event") == "cycle" and d["cond"].get("subject") == "self"]
-        if e.kind == "zone_change" and not e.manual and _zone(e.from_zone) == "hand" and _zone(e.to_zone) == "graveyard" and e.card in plan.state.cards:
+        if e.kind == "zone_change" and not e.manual and _zone(e.from_zone) == "hand" and e.card in plan.state.cards and (
+                _zone(e.to_zone) == "graveyard" or (_zone(e.to_zone) == "exile" and _discarded_instead(plan, e))):  # (review 23D: or exiled instead)
             card = plan.state.cards[e.card]  # -- discard causes (wave 23D) -- "When a spell or ability an opponent controls causes you to
             if not plan.manual(card) and card.owner in plan.live():  # discard this card": it is in the graveyard by now (701.9a)
                 ch = plan.ch(card)

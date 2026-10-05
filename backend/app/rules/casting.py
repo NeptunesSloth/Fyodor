@@ -2756,7 +2756,7 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
 
     candidates = [c.id for c in plan.state.cards.values() if c.zone == card.zone and c.controller == plan.actor
                   and c.id != card.id and not c.tapped and plan.in_game(c) and plan.ch(c).is_creature
-                  and "cant_crew" not in plan.ch(c).imposed]  # (wave 16F: Bound in Gold, 702.122)
+                  and (saddle or "cant_crew" not in plan.ch(c).imposed)]  # (wave 16F: Bound in Gold, 702.122d; review 23D: it may saddle)
     if sum(crew_power_of(c) for c in candidates) < n:
         raise ActionError(f"{ch.name}: you don't control untapped creatures with total power {n} or greater")
     if a.crew is None:
@@ -3541,6 +3541,7 @@ def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteris
 
     n = crew_power(ch, index)
     r = state.rules
+    saddle = n is None
     if n is None and (n := crew_saddle.saddle_power(ch, index)) is not None and (
             state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK)):
         return False
@@ -3557,7 +3558,7 @@ def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteris
     for c in state.cards.values():
         if c.zone == card.zone and c.controller == player and c.id != card.id and not c.tapped:
             cch = derive(state, c, chars.of(c, info), info)
-            if cch.is_creature and "cant_crew" not in cch.imposed:
+            if cch.is_creature and (saddle or "cant_crew" not in cch.imposed):
                 total += crew_value(c, cch)
     return total >= n
 
