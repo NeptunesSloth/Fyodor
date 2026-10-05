@@ -532,7 +532,7 @@ def _subject(s: str, *, host: bool = False, many: bool = False) -> Condition | N
     m = re.fullmatch(r"(?P<q>a|an|another|one or more) (?P<rest>.+)", s)
     if not m or (m["q"] == "one or more" and not many):
         return None
-    if (m["q"] == "one or more") != selectors.is_plural(m["rest"]):
+    if (m["q"] == "one or more") != selectors.is_plural(m["rest"]) and not re.search(r"\b(?:Merfolk|Moonfolk)\b", m["rest"]):  # (wave 21B: invariant plurals)
         return None
     phrase = ("another " if m["q"] == "another" else "") + m["rest"]
     sel = selectors.parse(phrase) if not many else _token_or_sel(phrase)
@@ -550,11 +550,16 @@ def _combat(c: str) -> Condition | None:
     # 508.3d / 508.3e: "a player attacks you", "an opponent attacks you with two or more creatures",
     # "you attack a player", "a player attacks one of your opponents" — once per player attacked
     m = re.fullmatch(rf"(?P<p>you|an opponent|a player) attacks? (?P<d>{_DEFENDER_RE})"
-                     r"(?: with (?P<n>\w+) or more creatures)?", c)
+                     r"(?: with (?:(?P<n>\w+) or more )?(?P<o>creatures|creatures with .+))?", c)  # (wave 21B: "creatures with power 4 or greater")
     if m and not (m["p"] == "you" and m["d"] in ("you", "you or a planeswalker you control")):
         out: Condition = {"event": "you_attack", "subject": "player", "player": _PLAYERS[m["p"]], **_defender(m["d"])}
         if m["n"]:
             out["min_attackers"] = _count(m["n"])
+        if m["o"] and m["o"] != "creatures":  # -- triggers (wave 21B) -- 508.3c: the creatures declared as attackers, those matching
+            sel = selectors.parse(m["o"])
+            if sel is None or sel.player is not None or sel.card or m["n"] not in (None, "one"):
+                raise _Refuse
+            out.update(min_attackers=1, sel=sel.key())
         return out
     # 508.3b: "enchanted player is attacked", "you're attacked"
     m = re.fullmatch(r"(?P<p>enchanted player is|you're|you are) attacked", c)
