@@ -32,6 +32,14 @@ CARDS = [
      "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, when it enters, they draw a card.)\nReach\n"
      "When this creature enters, if the gift was promised, destroy target artifact or enchantment an opponent controls."),
     ("Probe Counter", "{U}{U}", "Instant", None, None, "Counter target spell."),
+    ("Starforged Sword", "{4}", "Artifact — Equipment", None, None,
+     "Gift a tapped Fish (You may promise an opponent a gift as you cast this spell. If you do, when it enters, they create a tapped 1/1 blue Fish creature token.)\n"
+     "When this Equipment enters, if the gift was promised, attach this Equipment to target creature you control.\n"
+     "Equipped creature gets +3/+3 and loses flying.\nEquip {3}"),
+    ("Coiling Rebirth", "{3}{B}{B}", "Sorcery", None, None,
+     "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its other effects.)\n"
+     "Return target creature card from your graveyard to the battlefield. Then if the gift was promised and that creature isn't legendary, "
+     "create a token that's a copy of that creature, except it's 1/1."),
     ("Probe Relic", "{1}", "Artifact", None, None, "{T}: Add {C}."),
     ("Probe Totem", "{1}", "Artifact", None, None, "{T}: Add {C}."),
     ("Probe Soldier", "{1}{W}", "Creature — Human Soldier", "1", "1", ""),
@@ -55,7 +63,7 @@ def level(name):
     return coverage.of_card_data({**c, "faces": c.get("card_faces") or []}).level
 
 
-@pytest.mark.parametrize("name", [c[0] for c in CARDS[:4]])
+@pytest.mark.parametrize("name", [c[0] for c in CARDS[:4]] + ["Starforged Sword", "Coiling Rebirth"])
 def test_the_gift_cards_are_full(name):
     assert level(name) == "FULL", name
 
@@ -181,4 +189,27 @@ def test_a_permanent_with_gift_gives_it_when_it_enters(cards, gift):
     assert hand(s, "p2") == bob_hand + (1 if gift else 0)
     assert zone_of(s, "Probe Relic", "p2") == ("p2:graveyard" if gift else "p2:battlefield")
     assert relic.id in s.state.cards
+    check(s)
+
+
+def test_starforged_sword_attaches_when_it_enters_with_a_promised_gift(cards):
+    s = build(cards, ["Starforged Sword", "Probe Soldier"], [])
+    soldier = put(s, "Probe Soldier")
+    to_hand(s, "Starforged Sword")
+    mana(s, G=4)
+    cast(s, "Starforged Sword", gift=True, targets=[soldier.id])
+    assert s.state.cards[card_named(s, "Starforged Sword").id].attached_to == soldier.id and len(fish(s)) == 1
+    check(s)
+
+
+@pytest.mark.parametrize("gift,tokens", [(True, 1), (False, 0)])
+def test_coiling_rebirth_copies_only_when_promised(cards, gift, tokens):
+    s = build(cards, ["Coiling Rebirth", "Probe Soldier"], [])
+    soldier = put(s, "Probe Soldier")
+    act(s, "p1", type="move", card_ids=[soldier.id], to={"zone": "graveyard"})
+    to_hand(s, "Coiling Rebirth")
+    mana(s, B=5)
+    cast(s, "Coiling Rebirth", gift=gift, targets=[soldier.id])
+    assert zone_of(s, "Probe Soldier") == "p1:battlefield"
+    assert len([c for c in s.state.cards.values() if c.is_token and c.name == "Probe Soldier"]) == tokens
     check(s)
