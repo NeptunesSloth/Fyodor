@@ -1944,11 +1944,23 @@ def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tup
         # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
         from app.rules import top_library
 
-        return top_library.private_gate(_excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(
+        return _no_regen_scope(top_library.private_gate(_excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(
             this_way.dealt_to(this_way.excess_dealt(this_way.damage_dealt(_energy_paid(_parse_effects(body, it, event_player))))))),
-            it))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
+            it)))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
     except _NoMatch:
         return None
+
+
+def _no_regen_scope(got: Any) -> Any:
+    """-- regeneration (wave 22C) -- "… can't be regenerated" is read by the destruction of the ability it is part of
+    (effects._can_regenerate): after a delayed trigger's captured effects it would not reach the destruction that trigger
+    carries out (War Barge), so that wording stays manual."""
+    if got is not None:
+        effects = got[0]
+        for i, e in enumerate(effects):
+            if e.get("do") == "delayed" and any(x.get("do") == "no_regen" for x in effects[i + 1 + int(e.get("n", 0)):]):
+                raise _NoMatch
+    return got
 
 
 # -- X defined by text (wave 12C) -- "Each opponent loses X life and you scry X, where X is the number of Zombies you control."

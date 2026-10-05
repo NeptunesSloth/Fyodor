@@ -239,6 +239,21 @@ def test_head_of_the_hunt_is_a_reflexive_trigger_that_makes_the_wolf_afterwards(
     roundtrip(s)
 
 
+# == a Class's level 3 line (716.2a): Innkeeper's Talent doubles the counters you put only once it is level 3 ==
+@pytest.mark.parametrize("level, counters", [(1, 1), (2, 1), (3, 2)])
+def test_innkeepers_talent_doubles_counters_from_level_3(cards, level, counters):
+    s = game(cards, ["Innkeeper's Talent", "Grizzly Bears"])
+    talent = put(s, "Innkeeper's Talent")
+    s.state.rules.levels[s.state.rules.object_id(talent.id)] = level
+    bear = put(s, "Grizzly Bears")
+    feeder = permanent(s, "p1", "Feeder", "Enchantment", "{1}: Put a +1/+1 counter on target creature.")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=feeder.id, ability=0, targets=[bear.id])
+    drive(s)
+    assert s.state.cards[bear.id].counters == {"+1/+1": counters}
+    roundtrip(s)
+
+
 def test_the_replacement_belongs_to_that_object_only(cards):
     s = game(cards, ["Grizzly Bears"])
     bear = reanimate(s, WHIP)
