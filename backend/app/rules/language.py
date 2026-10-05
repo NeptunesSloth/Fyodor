@@ -2265,10 +2265,19 @@ def _check_per_player(effects: Effects, groups: list[dict[str, Any]]) -> None:
         raise _Fail
 
 
+_EACH_TO_CONTROLLER = re.compile(rf"(?P<s>each .+?) deals (?P<n>{AMT}) damage to its controller")
+
+
 def _sized_damage_forms(text: str, rider: Any) -> tuple[Effects, Any] | None:
     """"Target creature deals damage to itself equal to its power" / "Each creature deals damage to
     itself equal to its power" (the creature is the source: 120.3; its power as it is or as it last
     existed: 608.2h)."""
+    each_ctrl = _EACH_TO_CONTROLLER.fullmatch(text)  # -- modal spells (wave 24D) -- "Each creature deals 1 damage to its controller."
+    if each_ctrl is not None and rider is None:
+        kind, key, _ = ref(each_ctrl["s"])
+        if kind != "each" or selectors.from_key(key).player is not None:
+            raise _Fail
+        return [{"do": "damage", "who": "itself", "n": _amount(each_ctrl["n"]), "src": "each:" + key, "to": "controller"}], None
     m = sized_damage.SELF_DAMAGE.fullmatch(text)
     if m is None:
         return None

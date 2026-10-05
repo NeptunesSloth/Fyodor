@@ -101,3 +101,25 @@ def test_cancel_mode_choice_rewinds_cast(cards):
     pick(s, "cancel")
     assert s.state.cards[spell.id].zone == "p1:hand" and s.state.rules.decision is None and not s.state.zones.get("stack")
     assert s.state.players["p1"].mana.get("B") == 1
+
+
+EXTRA += [
+    card("Rakdos Charm", set_code="tst", number="24D-RC", mana_cost="{B}{R}", cmc=2.0, type_line="Instant",
+         oracle_text="Choose one —\n• Exile target player's graveyard.\n• Destroy target artifact.\n• Each creature deals 1 damage to its controller.",
+         colors=["B", "R"], color_identity=["B", "R"]),
+]
+
+
+def test_each_creature_deals_damage_to_its_controller(cards):
+    """Rakdos Charm: every creature is a damage source (120.3) dealing 1 to ITS controller, all at once."""
+    s = build(cards, "Rakdos Charm")
+    spell = to_hand(s, "Rakdos Charm")
+    token(s, "p1", "Mine", "2/2")
+    token(s, "p2", "Theirs", "2/2")
+    token(s, "p2", "Theirs2", "3/3")
+    before = {p: s.state.players[p].life for p in ("p1", "p2")}
+    mana(s, B=1, R=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, modes=[2])
+    settle(s)
+    assert s.state.players["p1"].life == before["p1"] - 1 and s.state.players["p2"].life == before["p2"] - 2
+    replay_matches(s)
