@@ -255,7 +255,8 @@ def after(plan: Plan, card: CardInstance, kind: str, n: int) -> None:
     elif kind == "upkeep_draw":  # -- delayed triggers (wave 23B) --
         from app.rules import delayed
 
-        delayed.create_plain(plan, card.controller, card.id, plan.oid(card.id), plan.ch(card).name,
+        # (review 23B: 603.7e — whoever activated it; a card sacrificed as the cost is back under its owner's control by now)
+        delayed.create_plain(plan, plan.actor if plan.actor in plan.state.players else card.controller, card.id, plan.oid(card.id), plan.ch(card).name,
                              {"kind": "step", "step": "upkeep", "whose": "next_turn"}, [{"do": "draw", "who": "you", "n": 1}])
     elif kind == "stay_tapped":  # -- next untap step (wave 6A) --
         if card.zone.endswith(":battlefield"):

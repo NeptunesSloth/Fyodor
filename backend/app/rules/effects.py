@@ -3524,7 +3524,8 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         for cid in group:  # the table marker (cleared at cleanup for "until end of turn", 514.2; by a zone change, 400.7)
             markers += delayed.marker_ids(plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60],
                                                    "value": f"{p}/{t}" if p is not None and t is not None else None,
-                                                   "text": _MARKER_TEXT.get(duration, "as long as it's on the battlefield")}))
+                                                   "text": _MARKER_TEXT.get(duration) or (delayed.LABELS[duration].replace("~", name or "its source")  # (review 23B: whose)
+                                                           if duration.startswith("source_") else "as long as it's on the battlefield")}))
         for effect in plan.rules.effects:  # ending the effects removes these markers (app/rules/delayed.py)
             if effect.id in made:
                 effect.markers = [*(effect.markers or []), *markers]
