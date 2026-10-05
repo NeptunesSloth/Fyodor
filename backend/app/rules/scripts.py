@@ -811,7 +811,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                                           (lambda: "event") if antecedent == "event_spell" else None)
             for pk in ("p", "t"):  # -- as long as (wave 9B) -- "gets +X/+X …, where X is the discarded card's mana value" (a pump / become)
                 # (wave 20A: a pump's plain "it" is "that card's mana value", language._Ante; a "become" reads its own "it")
-                placeholder = r'"(?:it:[a-z]+|cost:exiled)"|"(?:power|toughness|mana_value)": "it"' if e.get("do") == "pump" else r'"(?:it:[a-z]+|cost:exiled)"'
+                placeholder = r'"(?:it:[a-z]+|cost:exiled)"|"(?:power|toughness|mana_value|colors)": "it"' if e.get("do") == "pump" else r'"(?:it:[a-z]+|cost:exiled)"'
                 if e.get("do") in ("pump", "become") and re.search(placeholder, json.dumps(e.get(pk), default=str)):
                     e[pk] = _bind_stats(e[pk], lambda verb=None, at=index: stat_ref(at, verb), None)
             # -- X sized by a count (wave 4K) -- an "X/X" token's P/T: the same placeholders as an amount
@@ -1969,6 +1969,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # -- static_other sweep (wave 17C) -- 701.16a: "Its controller investigates." is "Its controller creates a Clue token." (Fateful Absence)
     body = re.sub(r"(?i)\b(its controller|that creature's controller|that permanent's controller) investigates\b", r"\1 creates a Clue token", body)
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
+    if re.match(r"(?i)choose a creature type\.", body):  # -- value grammar (wave 23C) -- "Choose a creature type. Draw a card for each creature you control of that type."
+        body = body.replace(" of that type", " of the chosen type")  # (the type this very instruction chose)
     # -- activated sweep (wave 17B) -- "Destroy each artifact, creature, and enchantment with mana value X or less.": "each" is distributive,
     # so the list is any of them and the qualifier is every kind's (Pernicious Deed); "and/or" is the selector grammar's spelling
     body = re.sub(r"(?i)\b(each|all) ((?:(?:artifact|creature|enchantment|land|planeswalker|battle), )+)and "
@@ -1990,9 +1992,9 @@ def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tup
         # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
         from app.rules import top_library
 
-        return _no_regen_scope(top_library.private_gate(_excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(
+        return _no_regen_scope(top_library.private_gate(_excess_redirect(_value_targets(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(
             this_way.dealt_to(this_way.excess_dealt(this_way.damage_dealt(_energy_paid(_parse_effects(body, it, event_player))))))),
-            it)))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
+            it))))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
     except _NoMatch:
         return None
 
@@ -2133,6 +2135,20 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
         return None if marker in text or relative in text else found
     effects = json.loads(text.replace(marker, '{"hand": "' + bound + '"}').replace(relative, f'"for_player": "{bound}"'))
     return (_own_counts(effects) if bound == "target" else effects), found[1], found[2]
+
+
+def _value_targets(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- value grammar (wave 23C) -- "Draw a card for each tapped creature target opponent controls." (values.target_relative): the target
+    player / opponent a value names is the sentence's own target (115.1) when no other target is declared; beside a different one it is
+    ambiguous, so the line stays manual (608.2b: it is that player, as chosen)."""
+    text = json.dumps(found[0]) if found is not None else ""
+    wanted = {w for w in ("player", "opponent") if f'"for_player": "target_{w}"' in text}
+    if found is None or not wanted:
+        return found
+    if len(wanted) != 1 or found[1] not in (None, *wanted):
+        raise _NoMatch
+    (who,) = wanted
+    return json.loads(text.replace(f'"for_player": "target_{who}"', '"for_player": "target"')), who, found[2]
 
 
 def _own_counts(v: Any) -> Any:
@@ -2672,7 +2688,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     if pay_objects.leftover(resolved):  # -- if you do (wave 8C) -- "the exiled card" with no payment before it
         return None
-    if re.search(r'"(?:power|toughness|mana_value)": "it:(?!discarded)', json.dumps(resolved, default=str)):
+    if re.search(r'"(?:power|toughness|mana_value)": "it:(?!discarded)|"colors": "it"', json.dumps(resolved, default=str)):
         return None  # (-- X sized by a count (wave 19F) -- "the milled card's …" in a field that binds no such reference)
     if not _cast_conditions_ok(resolved) or not _did_refs_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
         return None

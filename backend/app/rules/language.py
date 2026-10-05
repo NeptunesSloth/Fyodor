@@ -475,6 +475,8 @@ def _rider_value(phrase: str) -> Any:
                     r"the exiled (?:creature )?card's|the exiled creature's) (?:power|toughness|mana value)", phrase) or re.fullmatch(
                         r"the mana value of (?:that spell|the spell|the exiled card|the milled card)", phrase):  # (wave 19F)
         return _stat(phrase)
+    if phrase in ("of its colors", "of that spell's colors"):  # -- value grammar (wave 23C) -- "for each of its colors": how many colors the object is (105.1)
+        return {"colors": "that_spell" if "spell" in phrase else "it"}
     if phrase in ("the number of colors that spell is", "the number of colors it is") or re.fullmatch(
             r"the (?:power|toughness|mana value) of the creature that died|the (?:power|toughness|mana value) of the (?:card|creature|permanent|artifact|enchantment|land|creature card) (?:exiled|returned|milled|destroyed) this way", phrase) or re.fullmatch(
             r"(?:two|three|four) times (?:its|~'s|this creature's|that creature's) (?:power|toughness|mana value)", phrase):  # -- value grammar (wave 23C) -- 105.1
@@ -482,6 +484,8 @@ def _rider_value(phrase: str) -> Any:
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
         return tw
     v = values.parse_count(phrase, it="it")
+    if v is None:
+        v = values.target_relative(phrase)  # -- value grammar (wave 23C) -- "creature target opponent controls": scripts._value_targets
     if v is None:
         v = sized_damage.per_player(phrase)  # -- damage sized by a count (wave 4E) -- (damage only: parse_sentence checks)
     if v is None:
@@ -2073,7 +2077,7 @@ def _bind_its(v: Any, its: str | None) -> Any:
         return v
     out = {}
     for k, x in v.items():
-        if k in ("power", "toughness", "mana_value", "on") and x == "it":
+        if k in ("power", "toughness", "mana_value", "on", "colors") and x == "it":
             if its is None:
                 raise _Fail
             x = its

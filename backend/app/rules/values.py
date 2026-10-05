@@ -153,6 +153,23 @@ def player_relative(phrase: str) -> Value | None:
     return {"for_player": "that_player", "of": inner}
 
 
+_TARGET_RELATIVE = re.compile(r"^(?P<what>.+?) (?:(?P<ctl>target (?:player|opponent) controls)|in target (?P<own>player|opponent)'s (?P<zone>graveyard|hand))$")
+
+
+def target_relative(phrase: str) -> Value | None:
+    """-- value grammar (wave 23C) -- "tapped creature target opponent controls" / "card in target opponent's hand" / "creature card in target player's
+    graveyard": the count for the one player a target names ("you" of the phrase is that player), as ``{"for_player": "target_opponent" |
+    "target_player", "of": …}``; scripts._value_targets declares the target when the sentence names none (115.1) and binds it."""
+    m = _TARGET_RELATIVE.match(phrase)
+    if m is None:
+        return None
+    who = "opponent" if "opponent" in phrase.rpartition(" target ")[2][:9] or m["own"] == "opponent" else "player"
+    inner = _parse_count(f"{m['what']} you control" if m["ctl"] else f"{m['what']} in your {m['zone']}", it=None)
+    if inner is None or any(k in str(inner) for k in ('"controller":"that_player"', '"zone_owner":"that_player"', "chosen", "'on'")):
+        return None
+    return {"for_player": f"target_{who}", "of": inner}
+
+
 def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     """See ``_parse_count``. -- damage wordings (wave 6B) -- a count of what "that player" controls is a different
     number for each player it could name (the target player's, the recipient's: app/rules/sized_damage.py): never read
@@ -180,10 +197,16 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     what = m["what"] if m else p
     if what.lower() == "x":
         return {"x": 1}
-    if (ahead := re.fullmatch(r"(?:the )?number of players who control (?:at least (?P<k>two|three|four) )?more (?P<w>lands|creatures|artifacts|enchantments)"
-                              r" than you", p)) is not None:  # -- tutor (wave 20D) -- Oreskos Explorer, Surveyor's Scope (a count of players, 107.1)
-        inner = _parse_count(f"the number of {ahead['w']} you control", it=it)
-        return None if inner is None else {"ahead": inner, "margin": NUMBERS[ahead["k"]] if ahead["k"] else 1}
+    if (ahead := re.fullmatch(r"(?:the )?(?:number of )?(?:players?|opponents?) who (?P<verb>controls?|has|have) (?:at least (?P<k>two|three|four) )?(?P<cmp>more|fewer|less) "
+                              r"(?P<w>lands|creatures|artifacts|enchantments|life|cards in hand|cards in their hand) than you", p)) is not None \
+            and ((ahead["w"] in ("life", "cards in hand", "cards in their hand")) == (ahead["verb"] in ("has", "have"))):
+        # -- tutor (wave 20D) -- Oreskos Explorer, Surveyor's Scope (a count of players, 107.1); -- value grammar (wave 23C) -- "opponent who has less
+        # life than you" / "who controls fewer creatures than you": each other player's own value against yours
+        inner = {"life": "you"} if ahead["w"] == "life" else {"hand": "you"} if ahead["w"].startswith("cards") \
+            else _parse_count(f"the number of {ahead['w']} you control", it=it)
+        if inner is None:
+            return None
+        return {"ahead": inner, "margin": NUMBERS[ahead["k"]] if ahead["k"] else 1, **({} if ahead["cmp"] == "more" else {"below": True})}
     from app.rules import (
         dice,  # -- rolling dice (wave 12A) -- "the result", "that result", "the other result" (706.4)
     )
@@ -225,7 +248,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"hand": "chosen"}
     if what in ("creatures in your party", "creature in your party"):  # -- refused modal/conditional (wave 3R1) --
         return {"party": "you"}  # 700.8
-    if what in ("time you've cast a commander from the command zone this game", "times you've cast a commander from the command zone this game"):
+    if what in ("time you've cast a commander from the command zone this game", "times you've cast a commander from the command zone this game",
+                "time you've cast your commander from the command zone this game", "times you've cast your commander from the command zone this game"):
         return {"commander_casts": 1}  # -- triggers (wave 19B) -- 903.8: every cast of one of your commanders from the command zone
     if what in ("cards in target player's hand", "cards in target opponent's hand"):
         return {"hand": "target"}
@@ -237,8 +261,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"exiled_with": 1}  # -- resolution memory (wave 22D) -- 607.2a: the cards the linked ability exiled and that are still there
     if what == "opponent you attacked with a creature this combat":  # -- casting extras (wave 18E) -- melee 702.121a
         return {"attacked_opponents": 1}
-    if what in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
-        return {"kicked": 1}
+    if re.fullmatch(r"times? (?:it|he|she|~|this (?:spell|creature|permanent|enchantment|artifact|land|planeswalker)) (?:was|were) kicked", what):
+        return {"kicked": 1}  # (wave 23C: plural and "he"/"she"/"this permanent": 702.33d, a permanent remembers how its spell was kicked)
     if what in ("times this creature has mutated", "times ~ has mutated", "times this permanent has mutated", "time this creature has mutated"):  # -- merged permanents (wave 18D)
         return {"mutated": 1}  # (702.140: how many spells merged with it)
     if what in ("creature it devoured", "creature ~ devoured"):  # -- keyword mechanics (wave 9D) -- 702.82b
@@ -260,6 +284,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"life": "target"}
     if what in ("the highest life total among your opponents", "the greatest life total among your opponents"):
         return {"life": "opponent_max"}
+    m = re.fullmatch(r"(?P<c>white|blue|black|red|green) mana symbols? (?:in|among) the mana costs? of permanents you control", what)
+    if m:  # -- value grammar (wave 23C) -- 700.5: that IS devotion (chroma)
+        return {"devotion": [_COLOR_WORDS[m["c"]]]}
     m = _DEVOTION.match(what)
     if m:
         return {"devotion": [_COLOR_WORDS[c] for c in (m["c1"], m["c2"]) if c]}
@@ -406,6 +433,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
     if (m := _TURN_SPELL.match(what)):
         return {"spells_cast": "you" if m["who"] == "you" else "event_player"}
+    if re.fullmatch(r"cards? you(?:'ve)? discarded this turn", what):  # -- value grammar (wave 23C) -- a cycled card is discarded too (702.29a)
+        return {"turn_history": "discarded"}
     m = re.fullmatch(r"creature (?:(?P<any>that attacked)|(?P<mine>you attacked with)) this turn", what)
     if m:  # -- cost self reduction (wave 16F) -- the creatures declared as attackers (508.1, wave 4D log), whether or not still here
         return {"turn_history": "attackers", **({"who": "you"} if m["mine"] else {})}
@@ -445,7 +474,7 @@ def _normalise(what: str) -> str:
     """Noun phrases the selector grammar spells differently: "cards in all graveyards" (400.1:
     every player's), "instant and sorcery cards" (cards of either type: a list, not "artifact
     creature"'s both-types reading)."""
-    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", re.sub(r" on the battlefield(?=$| named ~)", "", what))  # (sized amounts, wave 3D)
+    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", re.sub(r" on the battlefield(?=$| named ~| with )", "", what))  # (sized amounts, wave 3D)
     return re.sub(rf"\b(?P<a>{_TYPE_WORDS}) and (?P<b>{_TYPE_WORDS}) (?P<n>cards?|spells?)\b", r"\g<a> or \g<b> \g<n>", out)
 
 
@@ -529,7 +558,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                    for cid in ids if name and chars.of(plan.state.cards[cid], plan.info).name == name)
     if "ahead" in v:  # -- tutor (wave 20D) -- "the number of players who control [at least two] more lands than you": the same count read for each other player
         mine = evaluate(plan, ctx, v["ahead"])
-        return sum(1 for p in plan.live() if p != you and evaluate(plan, {**ctx, "controller": p}, v["ahead"]) >= mine + v["margin"])
+        return sum(1 for p in plan.live() if p != you and (evaluate(plan, {**ctx, "controller": p}, v["ahead"]) + v["margin"] <= mine if v.get("below")
+                                                           else evaluate(plan, {**ctx, "controller": p}, v["ahead"]) >= mine + v["margin"]))
     if "count" in v:
         sel = selectors.from_key(v["count"])
         if ctx.get("unknown_choice_raises") and "chosen" in (sel.controller, sel.zone_owner):
@@ -666,6 +696,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "for_player" in v:  # -- value grammar (wave 23C) -- "the number of cards in that player's graveyard": the count as that one player's ("you" of the phrase)
         from app.rules import context
 
+        if v["for_player"] not in ("target", "event"):
+            raise ValueError(f"unbound player in {v!r}")  # (scripts binds "that_player" / "target_player" / "target_opponent" or refuses the line)
         who = _target_players(plan, ctx) if v["for_player"] == "target" else context.players(plan, ctx, context.EVENT)
         return evaluate(plan, {**ctx, "controller": who[0]}, v["of"]) if len(who) == 1 else 0
     if "counters_among" in v or "counter_kinds" in v:  # -- value grammar (wave 23C) -- counters on a group of permanents (122.1)
