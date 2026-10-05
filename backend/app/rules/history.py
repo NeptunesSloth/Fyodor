@@ -533,6 +533,7 @@ _WAVE_4D: dict[str, Any] = {
         f"{cond['key']}:t{plan.state.turn.number}", 0) >= int(cond["n"]),
     "self_attacked": lambda plan, ctx, cond, log: _source_object(plan, ctx) in {a for v in log.attackers.values() for a in v},
     "graveyard_cards": lambda plan, ctx, cond, log: _graveyard_cards(plan, ctx, cond, log),
+    "rolled": lambda plan, ctx, cond, log: log.rolled.get(ctx["controller"], 0) >= int(cond["n"]),  # -- dice (wave 24B) --
 }
 
 

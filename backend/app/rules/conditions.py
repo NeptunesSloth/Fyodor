@@ -504,7 +504,28 @@ _DESIGNATIONS = {"there is no monarch": "no_monarch", "an opponent is the monarc
                  "it's day": "day", "it's night": "night", "it's neither day nor night": "neither_day_nor_night"}
 
 
+# -- speed (wave 24B) -- 702.179e: "you have max speed" is speed 4 (or more: Gomif's speed can pass 4 and stays at max speed)
+_SPEED = re.compile(r"you (?P<neg>don't |do not )?have max speed|your speed is (?:less than (?P<lt>\w+)|(?P<n>\w+) or (?P<cmp>greater|higher|more|less|lower))")
+
+
+def _speed_condition(s: re.Match[str]) -> Condition | None:
+    speed: dict[str, Any] = {"player_counters": "speed"}
+    if s["lt"] or s["cmp"] in ("less", "lower"):
+        n = _num(s["lt"] or s["n"])
+        return None if n is None else {"value": speed, "op": "<=", "n": n - 1 if s["lt"] else n}
+    if s["n"] is None:  # max speed
+        return {"value": speed, "op": "<=" if s["neg"] else ">=", "n": 3 if s["neg"] else 4}
+    n = _num(s["n"])
+    return None if n is None else {"value": speed, "op": ">=", "n": n}
+
+
 def designation_condition(t: str) -> Condition | None:
+    if (s := _SPEED.fullmatch(t)) is not None:
+        return _speed_condition(s)
+    from app.rules import pairing  # -- soulbond (wave 24B) --
+
+    if (p := pairing.condition(t)) is not None:
+        return p
     m = _HAS_COUNTERS.fullmatch(t)
     if m:
         n = 0 if m["no"] else 1 if m["a"] else _num(m["n"] or "")
@@ -553,6 +574,12 @@ def _not_attacked(m: re.Match[str]) -> Condition:
 def _died(m: re.Match[str]) -> Condition | None:
     n = 1 if m["n"] is None else _num(m["n"])
     return None if n is None else {"history": "died", "who": "you" if m["mine"] else "any", "n": n}
+
+
+@_history_pattern(r"you(?:'ve)? rolled (?P<n>\w+) or more dice this turn")
+def _rolled(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])
+    return None if n is None else {"history": "rolled", "n": n}  # -- dice (wave 24B) -- 706.6 (history.rolled via the turn log)
 
 
 @_history_pattern(r"a creature you controlled died this turn")
@@ -1031,6 +1058,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import activation_words
 
         return activation_words.holds(plan, ctx, cond)
+    if "paired" in cond:  # -- soulbond (wave 24B) -- 702.95a (app/rules/pairing.py)
+        from app.rules import pairing
+
+        return pairing.holds(plan, ctx, cond)
     if "pair" in cond:  # -- merged permanents (wave 18D) --
         from app.rules import merged
 

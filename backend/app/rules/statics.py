@@ -302,6 +302,8 @@ def parse(text: str) -> Definition | None:
     who, kind = _subject(subject, plural=re.match(r"(?:get|have) ", predicate) is not None)
     if who is None:
         return None
+    if who == "paired" and not any(c.get("static") == "paired" for c in conds):
+        return None  # -- soulbond (wave 24B) -- the pair subject and the "is paired" condition go together
     if who != "attached" and any(_mentions(c, ("attached_stat", "attached_ctrl")) for c in conds):
         return None  # -- attached events (wave 16F) -- "its power / its controller" names the object an Aura or Equipment is on
     if who.startswith(UNION) and (conds or x_phrase is not None or defender_sel or rule_cond):
@@ -613,6 +615,8 @@ def _subject(subject: str, *, plural: bool = False) -> tuple[str | None, str | N
     low = subject.lower()
     if low in ("~", "it"):
         return "self", None
+    if low in ("both creatures", "each of those creatures"):  # -- soulbond (wave 24B) -- 702.95b: the pair (needs the "paired" condition)
+        return "paired", None
     if low in ATTACHED_SUBJECTS:
         kind = ATTACHED_SUBJECTS[low]
         return ("attached", kind) if kind else (None, None)
@@ -1068,6 +1072,11 @@ def applies(plan: Plan, d: Definition, *, source: CardInstance, controller: str,
     who = d["who"]
     if who == "self":
         if card.id != source.id:
+            return False
+    elif who == "paired":  # -- soulbond (wave 24B) -- the source and the creature it is paired with (the condition says it is)
+        from app.rules import pairing
+
+        if card.id != source.id and plan.oid(card) != pairing.partner_oid(plan, source):
             return False
     elif who == "attached":
         if source.attached_to != card.id:

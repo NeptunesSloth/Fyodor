@@ -277,6 +277,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"mana_spent": "event" if m["o"] == "that spell" else "self"}
     if what == "your life total":
         return {"life": "you"}
+    if what == "your speed":  # -- speed (wave 24B) -- 702.179f: no speed reads as 0 (values.evaluate: the player counter)
+        return {"player_counters": "speed"}
     m = re.fullmatch(r"unspent (?:(white|blue|black|red|green) )?mana you have", what)  # -- static_other sweep (wave 21A) -- Omnath, Locus of Mana
     if m:
         return {"unspent": {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}.get(m[1] or "", "")}
@@ -515,6 +517,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import dice
 
         return dice.evaluate(ctx, v["die"])
+    if "dice" in v:  # -- dice (wave 24B) -- the even / odd / different results of this resolution's roll
+        from app.rules import dice
+
+        return dice.count_of(ctx, v["dice"])
     if "paid_x" in v:  # -- sized payments (wave 5G) -- the X an optional payment of this resolution paid
         from app.rules import paid_x
 

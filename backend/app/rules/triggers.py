@@ -247,6 +247,9 @@ def collect(plan: Plan) -> None:
     from app.rules import designations
 
     designations.day_night_sync(plan)
+    from app.rules import pairing  # -- soulbond (wave 24B) -- 702.95e: a pair ends, any time
+
+    pairing.sync(plan)
     if any(e.batch > r.batch for e in r.events):
         # An event recorded after the step's last table change (a spell becoming cast, 601.2i)
         # is its own batch: close it now, before anyone would receive priority (603.3), rather
@@ -273,6 +276,9 @@ def collect(plan: Plan) -> None:
     from app.rules import designations
 
     designations.on_events(plan, new)
+    from app.rules import speed  # -- speed (wave 24B) -- 702.179d: the inherent speed trigger
+
+    speed.on_events(plan, new)
     for e in new:
         if e.kind == "spell_cast" and not e.manual:
             _cast_triggers(plan, e.card or "", e.player or "", e.batch)
@@ -751,6 +757,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event in ("scry", "surveil") and cond.get("nth") and info.get("nth") != cond["nth"]:  # -- looks (wave 8B) --
         return False
+    if event == "roll_die":  # -- dice (wave 24B) -- the die's own result / size / place in the turn (app/rules/dice.py)
+        from app.rules import dice
+
+        if not dice.die_matches(cond, info):
+            return False
     if event == "die" and cond.get("damaged_by_self") and not _damaged_by(plan, watcher, info.get("oid")):  # (wave 7C)
         return False
     if event == "die" and cond.get("in_combat") and plan.state.turn.phase not in COMBAT_PHASES:  # (wave 16C: "dies during combat")

@@ -89,6 +89,8 @@ def attached_selector(desc: str) -> str | None:
 def parse(text: str) -> Condition | None:
     """A condition only a static ability's context answers, or None (statics.py tries the others)."""
     t = text.strip()
+    if t in ("~ is paired with another creature", "this creature is paired with another creature"):  # -- soulbond (wave 24B) -- 702.95b
+        return {"static": "paired"}
     m = _ATTACHED.fullmatch(t)
     if m:
         key = attached_selector(m["desc"])
@@ -188,7 +190,7 @@ def compound(text: str) -> Condition | None:
 
 
 KINDS = frozenset({"attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all",
-                    "most_common_color", "hand_most"})  # (wave 20B)
+                    "most_common_color", "hand_most", "paired"})  # (wave 20B)
 
 
 def attached_object(plan: Plan, source: CardInstance) -> CardInstance | None:
@@ -205,6 +207,10 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
     kind = cond["static"]
     if kind == "all":
         return all(statics.holds(plan, c, source=source, controller=controller) for c in cond["conds"])
+    if kind == "paired":  # -- soulbond (wave 24B) -- 702.95b (app/rules/pairing.py)
+        from app.rules import pairing
+
+        return pairing.is_paired(plan, source)
     if kind == "zone":  # 113.6b: the card is in its owner's graveyard
         return source.zone == f"{source.owner}:graveyard"
     if kind == "attached_is":

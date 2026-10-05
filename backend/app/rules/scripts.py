@@ -2350,6 +2350,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = re.sub(r"(chooses [^.]*? they control)\. Destroy the rest\.", r"\1, then the rest are destroyed.", body)  # (wave 11D)
     # -- reveal until (wave 13E) -- 701.20b: the revealed cards stay in the library, so "shuffle the rest into your library" is a
     # shuffle of it ("…, then shuffle"); "you may reveal … until … If you do, put that card …": the reveal is the optional action
+    body = _loops.plain(body)  # -- loops and repeats (wave 24B) -- "draw a card and repeat this process"
+    # (-- loops and repeats (wave 24B) -- "Target player reveals cards from the top of their library until they reveal a land card, then puts those
+    # cards into their graveyard.": the revealed cards of that one library, all of them, are put into its owner's graveyard)
+    body = re.sub(r"(reveals cards from the top of their library until they reveal an? [^.,]+?), then puts those cards into their graveyard",
+                  r"\1. Put those cards into their graveyard", body)
     if "until you reveal " in body:
         body = re.sub(r"(until you reveal [^.]*?)\. If you do, put ", r"\1. Put ", body) if "ou may reveal cards" in body else body
         body = re.sub(r"(?:, then| and) shuffle (?:the rest|all other cards revealed this way) into your library", ", then shuffle", body)
@@ -2681,6 +2686,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (extra_land := _land_plays.sentence(text)) is not None:  # -- one-shot extra land plays (wave 8A) -- 305.2 (a permission)
             effects += extra_land
             continue
+        if effects and (looping := _loops.may_sentence(text)) is not None:  # -- loops and repeats (wave 24B) -- "You may repeat this process any number of times."
+            effects += looping
+            continue
         if effects and text.startswith("then you may ") and _may_then_if_you_do(text[5:], texts[i + 1:], effects, probe=False) is not None:
             text = text[5:]  # (-- if you do (wave 15C) -- "then" only orders, 608.2c)
         elif effects and text.startswith("then you may ") and not any(p.match(text) for p, _ in EFFECTS) \
@@ -2749,6 +2757,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         return None
     if not _dice.refs_ok(resolved):  # -- rolling dice (wave 12A) -- "equal to the result" only after a roll
         return None
+    if (spans := _loops.finish(resolved)) is None:  # -- loops and repeats (wave 24B) -- what "repeat this process" repeats
+        return None
+    resolved = spans
     if not _coin_flips.refs_ok(resolved):  # -- coin flips (wave 7E) -- "If you win the flip" only after a flip
         return None
     # -- "this way" outcomes (wave 4A) -- "discard your hand, then draw that many cards": "that many" is the
@@ -3803,7 +3814,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # tokens created … the number of them (603.2c)
 _AMOUNT_EVENTS = {"gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
-                  "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library"}  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
+                  "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library",
+                  "roll_die"}  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
@@ -3877,6 +3889,8 @@ def _event_refs_ok(d: Definition) -> bool:
     ev = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
     if '"same_name": "event"' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- value grammar (wave 23C) -- "that spell": the spell a cast trigger is about
+    if '"of": "roll"' in raw and not (ev is not None and ev["event"] == "roll_die"):
+        return False  # -- dice (wave 24B) -- "if the roll was 4 or higher": the one die a roll trigger is about
     if '"died": 1' in raw and not (ev is not None and ev["event"] == "die" and not ev.get("aggregate")):
         return False  # -- value grammar (wave 23C) -- "the power of the creature that died": the one creature a "dies" trigger is about
     if '"of": "damage"' in raw and not (ev is not None and ev["event"] in ("dealt_damage", "deal_damage", "deal_damage_opponent", "deal_combat_damage_player")):
@@ -4483,6 +4497,12 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return extra
     if (cant := cant_gain.static_definition(text)) is not None:  # "Players can't gain life." (614.17)
         return cant
+    from app.rules import (
+        dice,  # -- dice (wave 24B) -- "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll."
+    )
+
+    if (roll_extra := dice.static_definition(text)) is not None:
+        return roll_extra
     from app.rules import hand_size  # -- hand size (wave 4J) -- "You have no maximum hand size." (402.2)
 
     if (no_max := hand_size.static_definition(text)) is not None:
@@ -6492,6 +6512,14 @@ EFFECTS[:0] = _clash.TEMPLATES
 from app.rules import dice as _dice  # noqa: E402, I001
 
 EFFECTS[:0] = _dice.TEMPLATES
+# -- soulbond (wave 24B) -- "pair this creature with another unpaired creature you control" (702.95a: app/rules/pairing.py)
+from app.rules import pairing as _pairing  # noqa: E402, I001
+
+EFFECTS[:0] = _pairing.TEMPLATES
+# -- loops and repeats (wave 24B) -- "Repeat this process" (608.2c: app/rules/loops.py)
+from app.rules import loops as _loops  # noqa: E402, I001
+
+EFFECTS[:0] = _loops.TEMPLATES
 # -- block effects (wave 7E) -- "Target creature can't block this creature this turn." (app/rules/block_effects.py)
 from app.rules import block_effects as _block_effects  # noqa: E402, I001
 
