@@ -84,10 +84,10 @@ class _Solver:
         self.cards = {cid: c for cid, c in state.cards.items() if c.zone.endswith(":battlefield")}
         self.base: dict[str, Characteristics] = {}
         self.effects: dict[str, list[Any]] = {}
-        self.own4: dict[str, list[tuple[int, dict[str, Any]]]] = {}
-        self.own5: dict[str, list[tuple[int, dict[str, Any]]]] = {}
-        self.applied4: dict[str, list[tuple[int, dict[str, Any]]]] = {}
-        self.applied5: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+        self.own4: dict[str, list[tuple[float, dict[str, Any]]]] = {}
+        self.own5: dict[str, list[tuple[float, dict[str, Any]]]] = {}
+        self.applied4: dict[str, list[tuple[float, dict[str, Any]]]] = {}
+        self.applied5: dict[str, list[tuple[float, dict[str, Any]]]] = {}
         self.members: dict[int, frozenset[str]] = {}
         self.removed: set[int] = set()
         # the timestamp an effect is applied at: its own, or just after the effects it waited for (613.8b)
@@ -124,14 +124,31 @@ class _Solver:
     def _begin(self, st: Static, layer: int) -> bool:
         """Does the static begin to apply now (its source still has the ability, 613.6; its conditions hold)? Otherwise it is
         left out (lost) or applies to nothing."""
-        from app.rules import layers as L
 
         if st.source in self.dead:
             self.removed.add(id(st))
             return False
-        if st.definition.get("conditions") and not L._conditions(self.view, st, self.tkey):
+        if st.definition.get("conditions") and not self._holds(st):
             self.members[id(st)] = frozenset()
             return False
+        return True
+
+    def _holds(self, st: Static) -> bool:
+        """The static's conditions, read now (611.3a): a count of objects ("As long as you control five or more enchantments") from the
+        objects as the effects applied so far leave them (613.8: not as they were printed), anything else as ``layers._conditions``."""
+        from app.rules import statics as grammar
+
+        source = self.cards[st.source]
+        for cond in st.definition["conditions"]:
+            value = cond.get("value")
+            if cond.get("static") is None and isinstance(value, dict) and set(value) == {"count"}:
+                sel = selectors.from_key(value["count"])
+                key = (st.seq, 0, 0)
+                n = sum(1 for cid in self.cards if selectors.matches(self.view, sel, self.cards[cid], self.at(cid, key), st.controller, st.source))
+                if not {"==": n == cond["n"], ">=": n >= cond["n"], "<=": n <= cond["n"], "<": n < cond["n"], ">": n > cond["n"]}[cond["op"]]:
+                    return False
+            elif not grammar.holds(self.view, cond, source=source, controller=st.controller):
+                return False
         return True
 
     def _find(self, st: Static) -> frozenset[str]:
@@ -239,15 +256,15 @@ class _Solver:
 
 # -- applying (app/rules/layers.py ``_derive``) ----------------------------------------------------
 def entries(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None
-            ) -> tuple[list[tuple[int, dict[str, Any]]], list[tuple[int, dict[str, Any]]]]:
+            ) -> tuple[list[tuple[float, dict[str, Any]]], list[tuple[float, dict[str, Any]]]]:
     """The layered group statics that apply to ``card`` in layers 4 and 5, each (timestamp, definition): on the battlefield the
     objects found as the table was solved (613.6); elsewhere the cards and spells a static that works everywhere names (611.3)."""
     if info is None or state.rules is None:
         return [], []
     from app.rules.layers import statics
 
-    layer4: list[tuple[int, dict[str, Any]]] = []
-    layer5: list[tuple[int, dict[str, Any]]] = []
+    layer4: list[tuple[float, dict[str, Any]]] = []
+    layer5: list[tuple[float, dict[str, Any]]] = []
     on_field = card.zone.endswith(":battlefield")
     for st in statics(state, info):
         d = st.definition

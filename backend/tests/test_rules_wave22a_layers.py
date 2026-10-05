@@ -224,7 +224,7 @@ def test_opalescence_makes_each_other_non_aura_enchantment_a_creature_with_its_m
     bears = put(s, "Grizzly Bears", "battlefield")
     opal = put(s, "Opalescence", "battlefield")
     assert not ch(s, opal).is_creature  # "other"
-    for enchantment, mv in ((anthem, 3), (fires, 3)):
+    for enchantment in (anthem, fires):
         assert ch(s, enchantment).is_creature and "Enchantment" in ch(s, enchantment).types
     assert ch(s, fires).pt == (4, 4) and ch(s, bears).pt == (3, 3)  # 3/3, and the Anthem's +1/+1 for every creature (itself too)
     assert ch(s, anthem).pt == (4, 4)
@@ -441,8 +441,8 @@ def test_toxicrene_lands_have_one_mana_ability_and_lose_the_rest(cards):
 def test_full_board_with_layered_statics_derives_fast(cards):
     import time
 
-    from tests.test_rules_combat import creature, table
     from tests.game_helpers import turn_on
+    from tests.test_rules_combat import creature, table
 
     s = table(cards)
     creature(s, "p1", "Moon", "0/4", "Nonbasic lands are Mountains.")
@@ -557,7 +557,7 @@ def test_aura_wordings_that_set_the_type_are_covered():
 
 def test_imprisoned_in_the_moon_makes_a_colorless_land_with_one_mana_ability(cards):
     s = build(cards, [(1, "Imprisoned in the Moon"), (1, "Grizzly Bears"), (1, "Forest")])
-    bears, forest = put(s, "Grizzly Bears", "battlefield"), put(s, "Forest", "battlefield")
+    bears = put(s, "Grizzly Bears", "battlefield")
     enchant(s, "Imprisoned in the Moon", bears)
     assert ch(s, bears).types == {"Land"} and ch(s, bears).colors == set() and ch(s, bears).subtypes == set()
     assert [a.text for a in ch(s, bears).abilities] == ["{T}: Add {C}."] and not ch(s, bears).is_creature  # (no longer a creature)
@@ -724,4 +724,30 @@ def test_tezzeret_the_seeker_animates_your_artifacts(cards):
     assert mana_texts(s, stone) == ["{T}: Add {C}."] and not ch(s, theirs).is_creature
     late = put(s, "Sol Ring", "battlefield")  # 611.2c
     assert not ch(s, late).is_creature
+    roundtrip(s)
+
+
+# -- a condition that counts objects, read as the table is solved (611.3a, 613.8) -------------------------------------------
+EXTRA.append(card('Starfield of Nyx', set_code="tst", number="22A50", mana_cost='{4}{W}', cmc=5.0, type_line='Enchantment',
+                  oracle_text="At the beginning of your upkeep, you may return target enchantment card from your graveyard to the "
+                              "battlefield.\nAs long as you control five or more enchantments, each other non-Aura enchantment you "
+                              "control is a creature in addition to its other types and has base power and base toughness each equal to "
+                              "its mana value.", colors=['W'], color_identity=['W']))
+
+
+def test_starfield_of_nyx_animates_your_other_enchantments_while_you_control_five(cards):
+    s = build(cards, [(1, "Starfield of Nyx"), (1, "Glorious Anthem"), (1, "Fires of Yavimaya"), (1, "Blood Sun"), (1, "Conversion")],
+              [(1, "Glorious Anthem"), (9, "Island")])
+    starfield, anthem = put(s, "Starfield of Nyx", "battlefield"), put(s, "Glorious Anthem", "battlefield")
+    fires, sun = put(s, "Fires of Yavimaya", "battlefield"), put(s, "Blood Sun", "battlefield")
+    theirs = put(s, "Glorious Anthem", "battlefield", pid="p2")
+    assert not ch(s, anthem).is_creature  # four enchantments
+    conversion = put(s, "Conversion", "battlefield")  # the fifth
+    for c in (anthem, fires, sun, conversion):
+        assert ch(s, c).is_creature and "Enchantment" in ch(s, c).types
+    assert ch(s, fires).pt == (4, 4) and ch(s, sun).pt == (4, 4) and ch(s, conversion).pt == (5, 5)  # mana value + the Anthem's +1/+1
+    assert not ch(s, starfield).is_creature and not ch(s, theirs).is_creature
+    roundtrip(s)
+    put(s, "Conversion", "graveyard")  # four again
+    assert not ch(s, anthem).is_creature
     roundtrip(s)

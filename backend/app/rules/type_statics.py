@@ -143,12 +143,20 @@ def _layered(text: str) -> dict[str, Any] | None:
     from app.rules.scripts import granted_ability
     from app.rules.statics import GRANTABLE_KEYWORDS
 
+    if (m := re.fullmatch(r"As long as (?P<cond>[^,]+), (?P<rest>[a-zA-Z].+)", text)) is not None:  # 611.3a: read as the table is solved
+        from app.rules import statics as grammar
+
+        cond, found = grammar.condition(m["cond"]), _layered(m["rest"][0].upper() + m["rest"][1:])
+        if cond is None or found is None or found["conditions"] or not _count_of(cond, found):
+            return None
+        return {**found, "conditions": [cond]}
+
     if (m := _LAND_SET.fullmatch(text)) is not None:  # 305.7: the land types are set (never the card types)
         found = _definition(m["s"], {"set_land_types": [_LAND_PLURALS.get(m["t"], m["t"].rstrip("s") if m["t"] != "Plains" else m["t"])]})
         return found if found is not None and _lands(found) else None
     if (m := _LOSE_ALL.fullmatch(text)) is not None:  # 613.1f
         return _definition(m["s"], None, base=[int(m["p"]), int(m["t"])] if m["p"] else None, lose_all=True,
-                           **({"keep_mana": True} if m["mana"] else {}))
+                           **({"keep_mana": True} if m["mana"] else {}))  # type: ignore[arg-type]
     if (m := _HAVE_LOSE.fullmatch(text)) is not None:  # (Toxicrene) 613.1f: the abilities it grants come after it takes them away
         q = m["q"][1:-1]
         q = q if q[-1] in ".)" else q + "."
@@ -176,13 +184,30 @@ def _layered(text: str) -> dict[str, Any] | None:
         if any(w not in CREATURE_TYPES for w in subs) or (m["kw"] and m["kw"] not in GRANTABLE_KEYWORDS):
             return None
         return _definition(m["s"], {"add_types": ["Creature"], "add_subtypes": subs}, base=[int(m["p"]), int(m["t"])],
-                           keywords=[m["kw"]] if m["kw"] else None, **({"set_colors": [_COLOR_CODES[m["col"]]]} if m["col"] else {}))
+                           keywords=[m["kw"]] if m["kw"] else None, **({"set_colors": [_COLOR_CODES[m["col"]]]} if m["col"] else {}))  # type: ignore[arg-type]
     if (m := _LIFE_AND_LIMB.fullmatch(text)) is not None:  # 205.1b: creature and land types added, the color set
         if m["sub"] not in CREATURE_TYPES or m["land"] not in BASIC:
             return None
         return _definition(m["s"], {"add_types": ["Creature", "Land"], "add_subtypes": [m["sub"], m["land"]]},
                            base=[int(m["p"]), int(m["t"])], set_colors=[_COLOR_CODES[m["col"]]])
     return None
+
+
+def _count_of(cond: dict[str, Any], found: dict[str, Any]) -> bool:
+    """May this condition gate the static? It is read as the table is solved, so it must not depend on what the static itself changes:
+    a count of objects of types the static leaves alone ("five or more enchantments" for a static that makes them creatures), or a
+    condition that reads no characteristics at all (``statics._layer4_safe``)."""
+    from app.rules import selectors
+    from app.rules.statics import _layer4_safe
+
+    value = cond.get("value")
+    if cond.get("static") is not None or not isinstance(value, dict) or set(value) != {"count"}:
+        return _layer4_safe(cond)
+    sel = selectors.from_key(value["count"])
+    l4 = found.get("layer4") or {}
+    changed = {*l4.get("add_types", ()), *l4.get("set_types", ())}
+    return bool(sel.types) and not set(sel.types) & changed and not (sel.subtypes or sel.colors or sel.not_types or sel.not_subtypes) \
+        and not (found.get("lose_all") or "set_colors" in found or "add_colors" in found or l4.get("set_land_types"))
 
 
 def _lands(d: dict[str, Any]) -> bool:

@@ -225,7 +225,7 @@ def consistent(extra: dict[str, Any], kind: str | None) -> bool:
 
 
 # -- applying (app/rules/layers.py) ------------------------------------------------------------------------------
-def layer45(state: GameState, card: CardInstance, table: list[Static]) -> list[tuple[int, dict[str, Any]]]:
+def layer45(state: GameState, card: CardInstance, table: list[Static]) -> list[tuple[float, dict[str, Any]]]:
     """The type- and color-changing statics of what is attached to ``card`` (timestamp, definition): applied to it
     whatever it is right now (Frogify ruling: an Aura on a permanent that is a creature only for a while keeps it a
     creature)."""

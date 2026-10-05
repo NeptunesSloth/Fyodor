@@ -27,7 +27,7 @@ effect began). An Aura, Equipment or Fortification gets a new timestamp as it be
 (613.7e), a permanent as it turns face up or down (613.7f) and a double-faced permanent as it
 transforms (613.7g): ``RulesState.restamped``, read by ``timestamp``. Not tracked: APNAP order
 among simultaneous entries (613.7m: creation order is used).
-Dependencies (613.8): a static's subject is read from the object after layer 4 and the resolved
+Group statics of layers 4-6 (app/rules/group_layers.py, wave 22A) are solved against each other: 613.6 (the objects an effect began with), 613.8 (dependencies, loops in timestamp order), 305.7. Otherwise: a static's subject is read from the object after layer 4 and the resolved
 layer-6 effects; a subject that asks about keywords ("creatures with flying …") is read again once
 layer 6 is applied, until nothing changes — other dependencies (types, power) aren't modelled.
 Layers 1–5 (copy, control, text, color) are next; the model already carries the layer number.
@@ -337,7 +337,7 @@ def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristi
                 continue
         elif not grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True):
             continue
-        if _conditions(view, st, tkey):
+        if st.members is not None or _conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
             hits.append(st)
     return hits, imposed
 
@@ -454,7 +454,7 @@ def _subtype_fits(sub: str, types: frozenset[str]) -> bool:
 
 
 def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
-            own: list[tuple[int, dict[str, Any]]] | None = None) -> Characteristics:
+            own: list[tuple[float, dict[str, Any]]] | None = None) -> Characteristics:
     """613.1d in timestamp order: types set (205.1a: replacing) or added (205.1b: "in addition to
     its other types", "it's still a land", "artifact creature"; a crewed Vehicle, 702.122),
     supertypes gained (205.4b), creature types set (205.1b: the other subtypes stay) or added
@@ -465,7 +465,7 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
     from app.rules.creature_types import CREATURE_TYPES
 
     types, subtypes, supers = ch.types, ch.subtypes, ch.supertypes
-    ordered: list[tuple[tuple[int, int, int], Any]] = [((e.object_seq, 1, e.timestamp), e) for e in effects if e.layer == "4"]
+    ordered: list[tuple[tuple[float, int, int], Any]] = [((e.object_seq, 1, e.timestamp), e) for e in effects if e.layer == "4"]
     ordered += [((seq, 0, 0), d) for seq, d in own or ()]
     ordered.sort(key=lambda x: x[0])
     for _, e in ordered:
@@ -521,12 +521,12 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
 
 
 def _layer5(ch: Characteristics, effects: list[ContinuousEffect],
-            own: list[tuple[int, dict[str, Any]]] | None = None) -> Characteristics:
+            own: list[tuple[float, dict[str, Any]]] | None = None) -> Characteristics:
     """613.1e in timestamp order: "becomes a green creature" replaces its colors, "colorless"
     removes them, "in addition to its other colors" adds (105.3). -- attached events (wave 4L) -- ``own``: statics
     of what is attached to it that set its colors ("is a green Elk creature"), interleaved by timestamp (613.7)."""
     colors = ch.colors
-    ordered: list[tuple[tuple[int, int, int], Any]] = [((e.object_seq, 1, e.timestamp), e) for e in effects]
+    ordered: list[tuple[tuple[float, int, int], Any]] = [((e.object_seq, 1, e.timestamp), e) for e in effects]
     ordered += [((seq, 0, 0), d) for seq, d in own or () if "set_colors" in d or "add_colors" in d]
     ordered.sort(key=lambda x: x[0])
     for _, e in ordered:
@@ -742,7 +742,7 @@ _L4_VISITING: set[str] = set()
 
 
 def _own_layer4(state: GameState, card: CardInstance, info: CardInfo | None,
-                table: list[Static] | None = None) -> list[tuple[int, dict[str, Any]]]:
+                table: list[Static] | None = None) -> list[tuple[float, dict[str, Any]]]:
     """The object's own layer-4 statics whose conditions hold now ("As long as your devotion to red is less than
     five, ~ isn't a creature."; app/rules/statics.py ``_layer4_parts``). Applied for every reader, also while
     another static's condition reads this object (``_depth`` > 0): their conditions never read characteristics
@@ -774,7 +774,7 @@ def _own_layer4(state: GameState, card: CardInstance, info: CardInfo | None,
 
 
 def _own_layer5(state: GameState, card: CardInstance, info: CardInfo | None,
-                table: list[Static] | None = None) -> list[tuple[int, dict[str, Any]]]:
+                table: list[Static] | None = None) -> list[tuple[float, dict[str, Any]]]:
     """-- ability words (wave 9C) -- the object's own color statics whose conditions hold now ("As long as there are seven or
     more cards in your graveyard, this creature gets +1/+1, is black, …"; statics ``_color_safe``: conditions that never
     read the colors being derived)."""
@@ -808,7 +808,7 @@ def _grants(d: dict[str, Any]) -> bool:
 
 
 def _attached45(state: GameState, card: CardInstance, info: CardInfo | None,
-                table: list[Static] | None = None) -> list[tuple[int, dict[str, Any]]]:
+                table: list[Static] | None = None) -> list[tuple[float, dict[str, Any]]]:
     """-- attached events (wave 4L) -- the type/color statics of the Auras and Equipment attached to it."""
     if info is None or state.rules is None or not card.zone.endswith(":battlefield"):
         return []
