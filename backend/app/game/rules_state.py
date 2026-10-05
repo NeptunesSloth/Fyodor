@@ -852,6 +852,8 @@ class RulesState(BaseModel):
     # object's ability was activated / triggered — "<object id>:<ability index>:t<turn>" -> count this
     # turn, "<object id>:<ability index>:game" -> count this game (602.5b, 400.7: per object).
     ability_uses: dict[str, int] = Field(default_factory=dict)
+    # -- soulbond (wave 24B) -- 702.95b: paired creatures, both directions: object id -> (partner's object id, the pairing's controller)
+    pairs: dict[str, tuple[str, str]] = Field(default_factory=dict)
     # -- modal triggered/activated abilities (wave 1A) --
     # "Choose one that hasn't been chosen [this turn]": the modes already chosen for that ability of
     # that object (app/rules/modal_abilities.py) — "<object id>:<ability index>:game" (the game) or

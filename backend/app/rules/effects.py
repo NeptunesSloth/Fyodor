@@ -4137,4 +4137,9 @@ PRIMITIVES.update(_villainous.PRIMITIVES)
 from app.rules import speed as _speed  # noqa: E402, I001
 
 PRIMITIVES.update(_speed.PRIMITIVES)
+# -- soulbond (wave 24B) -- 702.95 (app/rules/pairing.py)
+from app.rules import pairing as _pairing  # noqa: E402, I001
+
+PRIMITIVES.update(_pairing.PRIMITIVES)
+RESUME[_pairing.STEP] = _pairing.resume
 RESUME.update(_villainous.RESUME)

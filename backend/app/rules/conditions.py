@@ -522,6 +522,10 @@ def _speed_condition(s: re.Match[str]) -> Condition | None:
 def designation_condition(t: str) -> Condition | None:
     if (s := _SPEED.fullmatch(t)) is not None:
         return _speed_condition(s)
+    from app.rules import pairing  # -- soulbond (wave 24B) --
+
+    if (p := pairing.condition(t)) is not None:
+        return p
     m = _HAS_COUNTERS.fullmatch(t)
     if m:
         n = 0 if m["no"] else 1 if m["a"] else _num(m["n"] or "")
@@ -1048,6 +1052,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import activation_words
 
         return activation_words.holds(plan, ctx, cond)
+    if "paired" in cond:  # -- soulbond (wave 24B) -- 702.95a (app/rules/pairing.py)
+        from app.rules import pairing
+
+        return pairing.holds(plan, ctx, cond)
     if "pair" in cond:  # -- merged permanents (wave 18D) --
         from app.rules import merged
 

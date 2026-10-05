@@ -247,6 +247,9 @@ def collect(plan: Plan) -> None:
     from app.rules import designations
 
     designations.day_night_sync(plan)
+    from app.rules import pairing  # -- soulbond (wave 24B) -- 702.95e: a pair ends, any time
+
+    pairing.sync(plan)
     if any(e.batch > r.batch for e in r.events):
         # An event recorded after the step's last table change (a spell becoming cast, 601.2i)
         # is its own batch: close it now, before anyone would receive priority (603.3), rather

@@ -14,6 +14,7 @@ import re
 from functools import lru_cache
 from typing import Any
 
+from app.rules import pairing
 from app.rules.oracle import AbilityText
 
 # keyword → its meaning (CR 2026-09-25), "{n}" standing for the keyword's number
@@ -89,6 +90,7 @@ MEANINGS: dict[str, str] = {
                "graveyard to your hand. If you don't, exile ~.",
     # -- keyword triggers (wave 23D) -- 702.110a exploit ("you may sacrifice a creature" is the exploit: effects.sacrifice_choice ``exploit``)
     "exploit": "When this creature enters, you may sacrifice a creature.",
+    "soulbond": pairing.MEANING,  # -- soulbond (wave 24B) -- 702.95a: two triggered abilities (app/rules/pairing.py)
 }
 _OPTIONAL = frozenset({"provoke"})  # (the controller may choose not to do it, when it resolves)
 _COSTED = frozenset({"squad", "offspring"})  # keywords written with a cost (paid as kicker is: costs.kicker_cost)

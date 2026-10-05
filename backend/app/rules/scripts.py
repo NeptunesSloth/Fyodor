@@ -6448,6 +6448,10 @@ EFFECTS[:0] = _clash.TEMPLATES
 from app.rules import dice as _dice  # noqa: E402, I001
 
 EFFECTS[:0] = _dice.TEMPLATES
+# -- soulbond (wave 24B) -- "pair this creature with another unpaired creature you control" (702.95a: app/rules/pairing.py)
+from app.rules import pairing as _pairing  # noqa: E402, I001
+
+EFFECTS[:0] = _pairing.TEMPLATES
 # -- block effects (wave 7E) -- "Target creature can't block this creature this turn." (app/rules/block_effects.py)
 from app.rules import block_effects as _block_effects  # noqa: E402, I001
 
