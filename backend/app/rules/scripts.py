@@ -4336,9 +4336,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
         cast_if = conditions.parse(lead["c"], objects=True)
         if cast_if is not None and lead["c"].endswith(" this turn") and (  # -- this-turn conditions (wave 8D) -- 608.2i, 614.12:
-                "history" in cast_if or all("history" in x for x in cast_if.get("any", [None]))):  # read as it enters
-            pass
-        elif cast_if is not None and lead["c"].startswith("you control another "):  # -- counters (wave 21D) -- 614.12 (read after it moved: "another")
+                "history" in cast_if or all("history" in x for x in cast_if.get("any", [None]))) or cast_if is not None and lead["c"].startswith("you control another "):  # read as it enters
             pass
         elif cast_if is None or "cast" not in cast_if or cast_if.get("object") != "self":
             return None
@@ -4384,8 +4382,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         if m["each"]:
             each_text = m["each"]
             if " counter on it for each " in each_text or " counters on it for each " in each_text:  # -- counters (wave 21D) -- the same
-                kinds = re.findall(r" and (?:an?|one) (\+1/\+1|-1/-1|[a-z]+) counters? on it for each ", each_text)
-                if m["n"] not in ("a", "an", "one") or any(k != m["kind"] for k in kinds):  # kind's counter once more for each group
+                each_kinds = re.findall(r" and (?:an?|one) (\+1/\+1|-1/-1|[a-z]+) counters? on it for each ", each_text)
+                if m["n"] not in ("a", "an", "one") or any(k != m["kind"] for k in each_kinds):  # kind's counter once more for each group
                     return None
                 each_text = re.sub(r" and (?:an?|one) \S+ counters? on it for each ", " and each ", each_text)
             each = _for_each(each_text)
