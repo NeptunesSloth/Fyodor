@@ -285,3 +285,37 @@ def test_path_of_ancestry_scries_for_a_spell_sharing_a_type_with_the_commander(c
         check(s)
 
 
+# -- saves: the new fields have defaults ------------------------------------------------------------------------------
+def test_an_older_save_without_the_new_log_fields_loads(cards):
+    from app.game.state import GameState
+
+    s = build(cards, ["Treacherous Pit-Dweller"], [])
+    dweller = to_hand(s, "Treacherous Pit-Dweller")
+    act(s, "p1", type="move", card_ids=[dweller.id], to={"player": "p1", "zone": "battlefield"})
+    dumped = s.state.model_dump(mode="json")
+    entries = dumped["rules"]["turn_log"]["entered"]
+    assert entries and "from_zone" in entries[0]
+    for e in entries:
+        del e["from_zone"]  # (a save from before wave 22E)
+    loaded = GameState.model_validate(dumped)
+    assert all(e.from_zone is None for e in loaded.rules.turn_log.entered)
+    assert GameState.model_validate(loaded.model_dump(mode="json")).model_dump(mode="json") == loaded.model_dump(mode="json")
+
+
+# -- 508.1 / 603.2c: "Whenever you attack with eight or more creatures, those creatures get +4/+4" -------------------------
+def test_attack_with_eight_or_more_creatures_gets_those_creatures_champions_from_beyond(cards):
+    for n in (7, 8):
+        s2 = build(cards, ["Champions from Beyond", *["Probe Soldier"] * 8], [])
+        kit_put(s2, "Champions from Beyond")
+        mine = [c for c in s2.state.cards.values() if c.name == "Probe Soldier" and c.owner == "p1"]
+        for c in mine:
+            act(s2, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+            s2.state.rules.controlled_since[c.id].turn = 0
+        act(s2, "p1", type="pass_priority")  # -> declare attackers
+        assert s2.state.rules.decision.kind == "declare_attackers"
+        act(s2, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in mine[:n]])
+        drive(s2)  # (both Champions triggers resolve: four or more scry and draw, eight or more pump)
+        assert pt(s2, "Probe Soldier") == ((5, 5) if n == 8 else (1, 1))  # (seven: no trigger)
+        check(s2)
+
+

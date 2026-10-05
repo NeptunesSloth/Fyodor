@@ -102,7 +102,7 @@ _PLAYER_VERBS = [
 _PLAYERS = {"you": "you", "an opponent": "opponent", "a player": "any", "each opponent": "opponent",
             "enchanted player": "enchanted"}  # (wave 16F: a Curse's "enchanted player")
 _NTH = {"second": 2, "third": 3, "first": 1, "fourth": 4, "fifth": 5}
-_COUNT = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
+_COUNT = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}  # (wave 22E: eight …)
 _MULTI = {"enters": "enter", "dies": "die", "attacks": "attack", "leaves the battlefield": "leave", "blocks": "block",
           "becomes blocked": "blocked", "becomes tapped": "tapped", "becomes untapped": "untapped",
           "is dealt damage": "dealt_damage",

@@ -383,6 +383,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         return "event_gone"  # -- triggers (wave 19B) -- "Whenever an opponent sacrifices a permanent, put that card onto the battlefield": 603.10a
     if subject == "player" and event in ("discard", "tapped_for_mana") and cond.get("obj") and not cond.get("aggregate"):
         return "event"  # -- triggers (wave 17D) -- "Whenever you discard a card, exile that card": the discarded card, now in the graveyard (701.9a)
+    if subject == "player" and event == "you_attack" and cond.get("min_attackers"):
+        return "event_all"  # -- history (wave 22E) -- "Whenever you attack with eight or more creatures, those creatures get +4/+4"
     if subject in ("sel", "self_or", "host", "self_or_host") or (subject == "player" and event == "create_token"):  # (wave 20A: "~ or equipped creature … it")
         if event in _STAYING:
             return "event_all" if cond.get("aggregate") else "event"
@@ -3708,7 +3710,8 @@ def _event_refs_ok(d: Definition) -> bool:
         return False
     if wants_player and not _has_player(cond):
         return False
-    return not wants_amount or (cond["event"] in _AMOUNT_EVENTS and (cond["event"] != "attack" or bool(cond.get("aggregate"))))  # (17D: attack counts only as "one or more")
+    return not wants_amount or (cond["event"] in _AMOUNT_EVENTS and (cond["event"] != "attack" or bool(cond.get("aggregate")))) or bool(
+        cond["event"] == "you_attack" and cond.get("min_attackers"))  # (17D: attack counts only as "one or more"; wave 22E: "that many" attackers)
 
 
 @lru_cache(maxsize=20000)

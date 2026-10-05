@@ -245,5 +245,47 @@
   "keywords": [
    "Scry"
   ]
+ },
+ {
+  "name": "Champions from Beyond",
+  "layout": "normal",
+  "mana_cost": "{X}{W}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, create X 1/1 colorless Hero creature tokens.\nLight Party \u2014 Whenever you attack with four or more creatures, scry 2, then draw a card.\nFull Party \u2014 Whenever you attack with eight or more creatures, those creatures get +4/+4 until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Full Party",
+   "Light Party",
+   "Scry"
+  ]
+ },
+ {
+  "name": "Prossh, Skyraider of Kher",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{R}{G}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature \u2014 Dragon",
+  "oracle_text": "When you cast this spell, create X 0/1 red Kobold creature tokens named Kobolds of Kher Keep, where X is the amount of mana spent to cast it.\nFlying\nSacrifice another creature: Prossh gets +1/+0 until end of turn.",
+  "power": "5",
+  "toughness": "5",
+  "colors": [
+   "B",
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ]
  }
 ]

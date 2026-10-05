@@ -871,10 +871,14 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
         players = [player]
     else:
         players = [player] if player and obj is None else []
-    return TriggerEvent(kind=kind, batch=batch, objects=[ref] if ref else [], new_objects=new, players=players,
+    attackers: list[ObjectRef] = []
+    if kind == "you_attack":  # -- history (wave 22E) -- "those creatures" / "that many": the creatures declared as attackers (508.1), 603.2c
+        attackers = [ObjectRef(card=c, object_id=plan.oid(plan.state.cards[c]), zone=plan.state.cards[c].zone)
+                     for c in info.get("attacking") or [] if c in plan.state.cards]
+    return TriggerEvent(kind=kind, batch=batch, objects=[ref] if ref else attackers, new_objects=new, players=players,
                         source=info.get("source_ref") or (
                             _source_ref(plan, info.get("source_oid")) if kind == "dealt_damage" else None),
-                        amount=int(info.get("amount") or 0), count=1,
+                        amount=int(info.get("amount") or 0) or len(attackers), count=1,
                         defended=info.get("defended") if kind == "you_attack" else _attack_defended(plan, kind, obj),
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
