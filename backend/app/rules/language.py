@@ -509,7 +509,7 @@ _SEARCH = re.compile(
     rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, ))?"
     rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE}))(?P<shuf>, then shuffles?)?"
     rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
-    rf"|then shuffle and put {_PRON} on top(?: in any order)?)")  # ("in any order": wave 3R4)
+    rf"|then shuffle and put {_PRON} (?:on top(?: in any order)?|(?P<third>third from the top)))")  # ("in any order": wave 3R4; third: wave 20D)
 _DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
           "into your graveyard": "graveyard"}
 _MV_X = re.compile(r"(?P<rest>.+?),? with mana value [xX](?P<less> or less)?")
@@ -564,7 +564,7 @@ def _search_selectors(text: str, one: bool) -> dict[str, Any]:
         return {"sel": keys[0], "alts": keys}
     # -- end recursion & tutors (wave 4M) --
     parts = re.split(r"(?:, and |, | and )(?=an? )", text)
-    if len(parts) > 1 and one:
+    if len(parts) > 1 and one and not re.search(r", or an? ", text):  # (wave 20D: "a snow permanent card, a legendary card, or a Saga card" are alternatives)
         keys = [_card_selector(re.sub(r"^an? ", "", x)) for x in parts]
         if None in keys:
             raise _Fail
@@ -680,6 +680,10 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         to = _DESTS[m["dest"]]
     else:
         to = "top"
+        if m["third"]:  # -- tutor (wave 20D) -- Long-Term Plans: after the shuffle, the third card from the top (401.4; fewer cards: the bottom)
+            if n != 1 or anything:
+                raise _Fail
+            extra["depth"] = 3
         if n != 1:
             extra["top_order"] = True  # -- refused zones/sized (wave 3R4) -- several on top: the searcher orders them (401.4)
     if to != "top" and not (m["shuf"] or m["shuf2"]):

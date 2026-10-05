@@ -1854,7 +1854,8 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
                 new_id = r.new_ids[r.perm.index(before.index(cid))]
                 tops.append(new_id)
                 if not e.get("top_order"):
-                    plan.do({"type": "move", "card_ids": [new_id], "to": {"player": pid, "zone": "library"}, "index": 0}, actor=pid)
+                    plan.do({"type": "move", "card_ids": [new_id], "to": {"player": pid, "zone": "library"},
+                             "index": e.get("depth", 1) - 1}, actor=pid)  # (wave 20D: "third from the top")
             if e.get("top_order") and len(tops) > 1:  # -- refused zones/sized (wave 3R4) -- 401.4: in the order the
                 _ask_order(plan, ctx, pid, pid, tops, "top")  # searcher chooses (private); the resolution goes on after
                 return

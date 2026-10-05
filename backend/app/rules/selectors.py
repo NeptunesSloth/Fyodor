@@ -396,6 +396,11 @@ def _power_or_toughness(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"pot:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))
 
 
+@_suffix(r"with a basic land type")  # -- tutor (wave 20D) -- 205.3i: "a land card with a basic land type" (Nervous Gardener, Perilous Forays)
+def _basic_land_type(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "basic_land_type"))
+
+
 @_suffix(r"with total power and toughness (?P<n>\d+) or (?P<dir>less|greater)")  # -- put from hand (wave 19E) -- Meek Attack
 def _total_pt(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"pts:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))
@@ -1308,6 +1313,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             vals = [v for v in (_stat(ch, "power"), _stat(ch, "toughness")) if v is not None]
             if not any(v <= n if op == "<=" else v >= n for v in vals):
                 return False
+        if extra == "basic_land_type" and not ch.subtypes & {"Plains", "Island", "Swamp", "Mountain", "Forest"}:
+            return False  # (wave 20D)
         if extra.startswith("pts:"):  # -- put from hand (wave 19E) -- the power and toughness added (a * is no number: no match)
             pw, tg = _stat(ch, "power"), _stat(ch, "toughness")
             if pw is None or tg is None or not (pw + tg <= int(extra[6:]) if extra[4:6] == "<=" else pw + tg >= int(extra[6:])):

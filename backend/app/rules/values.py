@@ -157,6 +157,10 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     what = m["what"] if m else p
     if what.lower() == "x":
         return {"x": 1}
+    if (ahead := re.fullmatch(r"(?:the )?number of players who control (?:at least (?P<k>two|three|four) )?more (?P<w>lands|creatures|artifacts|enchantments)"
+                              r" than you", p)) is not None:  # -- tutor (wave 20D) -- Oreskos Explorer, Surveyor's Scope (a count of players, 107.1)
+        inner = _parse_count(f"the number of {ahead['w']} you control", it=it)
+        return None if inner is None else {"ahead": inner, "margin": NUMBERS[ahead["k"]] if ahead["k"] else 1}
     from app.rules import (
         dice,  # -- rolling dice (wave 12A) -- "the result", "that result", "the other result" (706.4)
     )
@@ -461,6 +465,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         live = plan.live()
         return sum(1 for key, ids in plan.state.zones.items() if key.endswith(":graveyard") and key.split(":")[0] in live
                    for cid in ids if name and chars.of(plan.state.cards[cid], plan.info).name == name)
+    if "ahead" in v:  # -- tutor (wave 20D) -- "the number of players who control [at least two] more lands than you": the same count read for each other player
+        mine = evaluate(plan, ctx, v["ahead"])
+        return sum(1 for p in plan.live() if p != you and evaluate(plan, {**ctx, "controller": p}, v["ahead"]) >= mine + v["margin"])
     if "count" in v:
         sel = selectors.from_key(v["count"])
         if ctx.get("unknown_choice_raises") and "chosen" in (sel.controller, sel.zone_owner):
