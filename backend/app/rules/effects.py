@@ -4142,4 +4142,9 @@ from app.rules import pairing as _pairing  # noqa: E402, I001
 
 PRIMITIVES.update(_pairing.PRIMITIVES)
 RESUME[_pairing.STEP] = _pairing.resume
+# -- loops and repeats (wave 24B) -- "Repeat this process" (608.2c: app/rules/loops.py)
+from app.rules import loops as _loops  # noqa: E402, I001
+
+PRIMITIVES.update(_loops.PRIMITIVES)
+RESUME[_loops.STEP] = _loops.resume
 RESUME.update(_villainous.RESUME)

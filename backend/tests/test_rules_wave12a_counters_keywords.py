@@ -156,7 +156,7 @@ def test_each_clashing_player_may_put_their_card_on_the_bottom(cards):
 def test_a_clash_needs_its_own_clash_for_if_you_win():
     assert scripts.parse_effects("If you win, draw a card.") is None
     assert scripts.parse_effects("Clash with an opponent. If you win, draw a card.") is not None
-    assert scripts.parse_effects("You lose 2 life and draw two cards, then clash with an opponent. If you win, repeat this process.") is None
+    assert scripts.parse_effects("You lose 2 life and draw two cards, then clash with an opponent. If you win, repeat this process.") is not None  # (wave 24B: loops.py)
 
 
 # -- detain (701.35) --------------------------------------------------------------------------------------

@@ -2672,6 +2672,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (extra_land := _land_plays.sentence(text)) is not None:  # -- one-shot extra land plays (wave 8A) -- 305.2 (a permission)
             effects += extra_land
             continue
+        if effects and (looping := _loops.may_sentence(text)) is not None:  # -- loops and repeats (wave 24B) -- "You may repeat this process any number of times."
+            effects += looping
+            continue
         if effects and text.startswith("then you may ") and _may_then_if_you_do(text[5:], texts[i + 1:], effects, probe=False) is not None:
             text = text[5:]  # (-- if you do (wave 15C) -- "then" only orders, 608.2c)
         if text.startswith("you may "):
@@ -2734,6 +2737,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         return None
     if not _dice.refs_ok(resolved):  # -- rolling dice (wave 12A) -- "equal to the result" only after a roll
         return None
+    if (spans := _loops.finish(resolved)) is None:  # -- loops and repeats (wave 24B) -- what "repeat this process" repeats
+        return None
+    resolved = spans
     if not _coin_flips.refs_ok(resolved):  # -- coin flips (wave 7E) -- "If you win the flip" only after a flip
         return None
     # -- "this way" outcomes (wave 4A) -- "discard your hand, then draw that many cards": "that many" is the
@@ -6455,6 +6461,10 @@ EFFECTS[:0] = _dice.TEMPLATES
 from app.rules import pairing as _pairing  # noqa: E402, I001
 
 EFFECTS[:0] = _pairing.TEMPLATES
+# -- loops and repeats (wave 24B) -- "Repeat this process" (608.2c: app/rules/loops.py)
+from app.rules import loops as _loops  # noqa: E402, I001
+
+EFFECTS[:0] = _loops.TEMPLATES
 # -- block effects (wave 7E) -- "Target creature can't block this creature this turn." (app/rules/block_effects.py)
 from app.rules import block_effects as _block_effects  # noqa: E402, I001
 
