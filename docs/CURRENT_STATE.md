@@ -154,9 +154,15 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   A mana ability whose cost a cost modifier changes (Gloom on a white enchantment) is left to the
   player. An enchanted land whose own {T} ability restricts spending is left to the player while
   enchanted.
-- **Replacements**: life-loss replacements (no choke point yet), "shuffle into its library instead"
-  (Blightsteel, Progenitus), Academy Manufactor, Vorinclex-style counter replacements, count-level
-  draw replacements (Alms Collector), Kalitas against another "exile instead".
+- **Replacements** (wave 22C): counter putters ("If you / an opponent would put …": Vorinclex, Lae'zel, Pir; the
+  putter is `by`, 122.6a; review 22C: counters "given" are put — 122.6, 701.34a — so infect/toxic poison is put by the
+  source's controller, 120.3b/g, and "target player gets N" by the effect's controller), "reveal ~ and shuffle it into its owner's library instead" (Blightsteel, Nexus of Fate),
+  "exile instead" with a rider (Kalitas token, Head of the Hunt reflexive trigger, life), "If it would leave the
+  battlefield, exile it instead" (Whip of Erebos family), and the 616.1 choice between differing graveyard
+  replacements (the card stays put and its controller is asked before priority: `pending_616`). Still manual:
+  life-loss replacements (no choke point yet), Academy Manufactor and Divine Visitation (token replaced by another:
+  ordering with the "plus a Food" statics is unsettled), count-level draw replacements (Alms Collector), exile with
+  counters / linked exile (Dauthi, Valgavoth, Darkness Crystal), Loading Zone ("creature, Spacecraft, or Planet").
 - **Costs**: K'rrik and Dream Halls (per-mana payment), Suppression Field (crew and unearth skip the
   cost-modifier path), activation costs that depend on a target, "Remove X counters from among …",
   comma-listed sacrifice choices.

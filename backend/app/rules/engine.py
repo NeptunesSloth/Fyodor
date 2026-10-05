@@ -812,8 +812,7 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
     # a Rest in Peace-style effect ("an instant or sorcery card … from anywhere", "a card …"), like the one cast from a graveyard above
     card = plan.state.cards[card_id]
     if card_id in plan.state.zones.get(STACK, []) and not card.is_token and card.card_id is not None and plan.ch(card).is_instant_or_sorcery \
-            and (replacements._self_exile_instead(plan, card) or replacements._static_exile_instead(plan, card) is not None):
-        plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
+            and replacements.leave_stack_instead(plan, card, controller):  # -- zone replacements (wave 22C) -- exile / shuffle / 616.1 choice
         return
     stack = plan.state.zones.get(STACK, [])
     if card_id in stack:
@@ -1416,6 +1415,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "mutate_choice": merged.resume_choice,  # -- merged permanents (wave 18D) --
     "commander_first": replacements.resume_commander_first,  # 903.9b asked before the move
     "shield_order": replacements.resume_shield_order,
+    "zone_replace_order": replacements.resume_616,  # -- zone replacements (wave 22C) --
     # -- replacement effects stage 2 (wave 2E): which of several replacement / prevention effects
     # applies first (616.1), then the paused site runs again (app/rules/replace.py) --
     "replace_order": effects.replace.resume_order,

@@ -244,7 +244,9 @@ class Planner:
 
     # -- kind-specific rules ------------------------------------------------------------------------
     def applies(self, c: Candidate, ev: Event, sim: Sim) -> bool:
-        if c.event != ev["kind"] or c.id in (ev.get("applied") or ()):
+        # (-- counter putters (wave 22C) -- "… on a permanent or player": one counters static also applies to player events)
+        if (c.event != ev["kind"] and not (c.event == "counters" and ev["kind"] == "player_counters" and c.match.get("players"))) \
+                or c.id in (ev.get("applied") or ()):
             return False
         fn = _APPLIES.get(ev["kind"])
         return bool(fn and fn(self.plan, c, ev, sim))
@@ -769,6 +771,8 @@ def _counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     m = c.match
     if m.get("counter") and m["counter"] != ev["counter"]:
         return False
+    if not _putter_ok(c, ev):
+        return False
     if m.get("effect_only") and not ev.get("effect"):
         return False  # "If an effect would put …": not a cost (Doubling Season; 614.16)
     card, ch = _counter_object(plan, ev)
@@ -782,12 +786,31 @@ def _counters_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event
     if op.get("entering"):  # -- counters (wave 5H) --
         return [{**ev, "n": max(0, ev["n"] + int(op["n"]) * _entering_times(plan, c, ev))}]
     n = ev["n"] * int(op["n"]) if op["do"] == "mul" else ev["n"] + int(op["n"]) if op["do"] == "add" else ev["n"]
+    if op["do"] == "half":  # -- counter putters (wave 22C) -- "half that many … rounded down" (Vorinclex)
+        n = ev["n"] // 2
     return [{**ev, "n": max(0, n)}]
+
+
+def _putter_ok(c: Candidate, ev: Event) -> bool:
+    """-- counter putters (wave 22C) -- "If you / an opponent would put …": the player putting them (``by``) is the
+    static's controller or not (122.6a, 120.3d). (Review 22C: counters "given" are put — 122.6 calls an object
+    "given counters" as it enters counters being put on it, and proliferate (701.34a) "gives" them — so infect / toxic
+    poison is put by the source's controller, 120.3b/g, and "target opponent gets …" by the effect's controller, 608.2c.)"""
+    putter = c.match.get("putter")
+    if not putter:
+        return True
+    return bool(ev.get("by")) and (ev["by"] == c.controller) == (putter == "you")
 
 
 def _player_counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if ev["n"] <= 0:
         return False
+    if c.event == "counters":  # -- counter putters (wave 22C) -- "on a permanent or player" / "or on yourself"
+        if c.match["players"] == "you" and ev["player"] != c.controller:
+            return False
+        if c.match.get("counter") and c.match["counter"] != ev["counter"]:
+            return False
+        return _putter_ok(c, ev)
     who = c.match.get("who")
     return not (who == "you" and ev["player"] != c.controller)
 
@@ -857,7 +880,7 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
                          if not any(p[0] == cid and p[1] == kind for p in puts)]
     for target, kind, n in puts:
         if target in plan.state.players:
-            events.append({"kind": "player_counters", "player": target, "counter": kind, "n": int(n), "applied": []})
+            events.append({"kind": "player_counters", "player": target, "counter": kind, "n": int(n), "by": by, "applied": []})
         elif target in plan.state.cards:
             ev: Event = {"kind": "counters", "card": target, "oid": plan.oid(target), "counter": kind, "n": int(n),
                          "by": by, "effect": bool(effect), "applied": []}
