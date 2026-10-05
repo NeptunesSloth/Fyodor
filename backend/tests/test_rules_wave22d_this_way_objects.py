@@ -130,3 +130,30 @@ def test_the_ancient_one_mills_by_the_mana_value_of_the_card_discarded_this_way(
     assert s.state.cards[rock.id].zone == "p1:graveyard"
     assert len(s.state.zones["p2:library"]) == library - 3  # "cards equal to its mana value": the Rock's 3
     roundtrip(s)
+
+
+@pytest.mark.parametrize("name", ["Glacial Dragonhunt", "Severance Priest"])
+def test_more_coverage_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_severance_priest_token_is_the_size_of_the_exiled_card(cards):
+    s = build(cards, p1=("Severance Priest",), p2=("Probe Rock",))
+    rock = put(s, "Probe Rock", "hand", pid="p2")
+    priest = put(s, "Severance Priest", "hand")
+    mana(s, W=1, B=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=priest.id)
+    for _ in range(6):  # target the opponent, say yes, choose the Rock
+        pass_until_stack_empty(s)
+        d = s.state.rules.decision
+        if d is None:
+            break
+        pick = [o.id for o in d.options if o.card_id == rock.id] or [d.options[0].id]
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=pick if d.kind != "choose_cards" else [rock.id])
+    assert s.state.cards[rock.id].zone == "p2:exile"
+    act(s, "p1", type="set_damage", card_ids=[priest.id], value=3)
+    act(s, s.state.rules.priority, type="pass_priority")
+    from tests.wave9c_kit import pt
+
+    assert pt(s, "Spirit", "p2") == (3, 3)  # the exiled card's owner gets an X/X, X = the Rock's mana value
+    roundtrip(s)
