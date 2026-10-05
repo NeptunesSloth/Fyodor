@@ -2480,6 +2480,7 @@ def exile_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     ("cards exiled this way", 400.7j)."""
     owners = _library_owner(plan, ctx, e)
     before: list[ObjectRef] = []
+    taken: list[str] = []
     ctx["found"] = None
     for pid in owners:
         library = _library(plan, pid)
@@ -2495,8 +2496,13 @@ def exile_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not n:
             continue
         before += [r for r in (context.ref_of(plan, c) for c in library[:n]) if r is not None]
+        taken += library[:n]
         plan.do({"type": "mill", "player": pid, "count": n, "to": "exile", "face_down": bool(e.get("face_down")),
                  "blind": bool(e.get("face_down"))}, actor=pid)
+    if e.get("link"):  # -- tutor (wave 20D) -- 607.2a: "exile the top card of your library face down" linked to "Put all cards exiled with ~ into their owners' hands"
+        from app.rules import exiled_with
+
+        exiled_with.record(plan, ctx, taken)
     _moved(plan, ctx, e, before)  # the new objects in exile (400.7j)
     if e.get("bind") and not e.get("as"):  # (a permission's "You may play that card": app/rules/permissions.py)
         context.bind_moved(plan, ctx, e["bind"], before)

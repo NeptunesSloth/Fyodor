@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 WHO = "exiled_with"
 _THE = r"(?:the exiled cards?|all cards exiled with (?:it|~))"
 _BATTLEFIELD = re.compile(rf"^return {_THE} to the battlefield(?P<tapped> tapped)? under (?:its|their) owner(?:'s|s') control$")
-_HAND = re.compile(rf"^return {_THE} to (?:its|their) owner(?:'s|s') hands?$")
+_HAND = re.compile(rf"^(?:return|put) {_THE} (?:to|into) (?:its|their) owner(?:'s|s') hands?$")  # (wave 20D: "Put all cards exiled with ~ into their owners' hands.")
 _REFERS = re.compile(r"\bthe exiled cards?\b|\bcards? exiled with (?:it\b|~)")  # (wave 17D: "~" has no word boundary after it)
 
 
@@ -90,7 +90,7 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_
 def _exiles(d: dict[str, Any] | None) -> bool:
     # (-- champion (wave 12B) -- also a payment: "sacrifice it unless you exile another Merfolk you control", recorded by
     # optional_payment._pay)
-    return d is not None and any(e.get("do") == "exile" or e.get("exile") or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile "))
+    return d is not None and any(e.get("do") in ("exile", "exile_top") or e.get("exile") or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile "))
                                  for e in d.get("effects") or [])
 
 
@@ -119,7 +119,7 @@ def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | No
     referring = [ab for ab in ch.abilities if ab.index != ability.index and _REFERS.search(scripts.self_text(ab.text, ch.name))]
     if not referring:
         return d
-    return {**d, "effects": [{**e, "link": True} if e.get("do") == "exile" or e.get("exile") else e for e in d["effects"]]}
+    return {**d, "effects": [{**e, "link": True} if e.get("do") in ("exile", "exile_top") or e.get("exile") else e for e in d["effects"]]}
 
 
 def record(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> None:
