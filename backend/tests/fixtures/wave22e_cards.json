@@ -287,5 +287,25 @@
   "keywords": [
    "Flying"
   ]
+ },
+ {
+  "name": "Owlin Spiralmancer",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature \u2014 Bird Wizard",
+  "oracle_text": "Flying, vigilance\nWhenever you cast your first spell with {X} in its mana cost each turn, you may copy it. You may choose new targets for the copy. (A copy of a permanent spell becomes a token.)",
+  "power": "3",
+  "toughness": "4",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance"
+  ]
  }
 ]

@@ -682,13 +682,17 @@ def _cast(c: str) -> Condition | None:
     if nth and (nth["each"] or out.get("turn")):  # (the Nth spell of any kind: counted per player per turn)
         return {**out, "nth": _NTH[nth["nth"]], "spell": selectors.Selector(zones=("stack",)).key()}
     # -- unless pays (wave 4C) -- "their first noncreature spell each turn" (app/rules/unless_pays.py: the kind's marks)
-    kind = re.fullmatch(r"(?:your|their) first (?P<kind>[a-z ]+?) spell each turn", spell)
+    kind = re.fullmatch(r"(?:your|their) first (?P<phrase>(?:[A-Za-z0-9 ,/-]+? spell|spell with [A-Za-z0-9 {}]+?)) each turn", spell)
     if kind and not out.get("turn"):
         from app.rules import unless_pays
 
-        ksel = selectors.parse(f"{kind['kind']} spell")
+        ksel = selectors.parse(kind["phrase"])
         key = selectors.replace(ksel, zones=("stack",)).key() if ksel is not None and ksel.player is None else None
-        return {**out, "first_kind": True, "spell": key} if key is not None and unless_pays.first_kind_ok(key) else None
+        if key is not None and not unless_pays.first_kind_ok(key):  # -- history (wave 22E) -- "their first multicolored spell each turn": any kind
+            from app.rules import history  # the turn's cast log records (types, subtypes, supertypes, colors, mana value)
+
+            return {**out, "first_note": True, "spell": key} if history.note_selector_ok(selectors.from_key(key), spell=True) else None
+        return {**out, "first_kind": True, "spell": key} if key is not None else None
     # -- end unless pays (wave 4C) --
     if spell.startswith(("your ", "their ")) or " each turn" in spell or "copy" in spell or " this turn" in spell:
         return None

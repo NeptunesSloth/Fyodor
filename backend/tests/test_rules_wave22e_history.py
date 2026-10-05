@@ -32,6 +32,8 @@ EXTRA += [card("Probe Cantrip", set_code="t22e", number="E90", mana_cost="{U}", 
                color_identity=["R"], oracle_text="Probe Burst deals 1 damage to any target."),
           card("Probe Soldier", set_code="t22e", number="E92", mana_cost="{1}{W}", cmc=2.0, type_line="Creature — Human Soldier",
                colors=["W"], color_identity=["W"], oracle_text="", power="1", toughness="1"),
+          card("Probe Blaze", set_code="t22e", number="E96", mana_cost="{X}{R}", cmc=1.0, type_line="Sorcery", colors=["R"],
+               color_identity=["R"], oracle_text="Probe Blaze deals X damage to any target."),
           card("Probe Goblin", set_code="t22e", number="E95", mana_cost="{R}", cmc=1.0, type_line="Creature — Goblin", colors=["R"],
                color_identity=["R"], oracle_text="", power="1", toughness="1"),
           card("Probe Reanimate", set_code="t22e", number="E93", mana_cost="{B}", cmc=1.0, type_line="Sorcery", colors=["B"],
@@ -283,6 +285,32 @@ def test_path_of_ancestry_scries_for_a_spell_sharing_a_type_with_the_commander(c
         settle_stack(s)
         assert zone_of(s, spell) == "p1:battlefield"
         check(s)
+
+
+# -- 601.2i: "Whenever you cast your first spell with {X} in its mana cost each turn" (any kind of spell: the turn's casts) --
+def test_first_spell_with_x_each_turn_owlin_spiralmancer(cards):
+    s = build(cards, ["Owlin Spiralmancer", "Probe Blaze", "Probe Blaze", "Probe Soldier"], [])
+    kit_put(s, "Owlin Spiralmancer")
+    soldier = to_hand(s, "Probe Soldier")
+    act(s, "p1", type="add_mana", player="p1", mana={"W": 1, "C": 1})
+    act(s, "p1", type="cast_spell", card_id=soldier.id)  # no {X}: it neither triggers it nor counts as the first
+    d = settle_stack(s)
+    assert d is None
+    blazes = [c for c in s.state.cards.values() if c.name == "Probe Blaze" and c.owner == "p1"]
+    for c in blazes:
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+    asked = []
+    for c in blazes:
+        act(s, "p1", type="add_mana", player="p1", mana={"R": 2})
+        act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"], x_value=1)
+        d = settle_stack(s)
+        asked.append(d is not None)
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"])
+            drive(s)  # (keep the copy's target)
+    assert asked == [True, False]  # the first with {X}; the second isn't
+    assert life(s, "p2") == 40 - 1 - 1 - 1  # (the first, its copy and the second)
+    check(s)
 
 
 # -- saves: the new fields have defaults ------------------------------------------------------------------------------

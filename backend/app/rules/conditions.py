@@ -652,7 +652,7 @@ def _history_sel(phrase: str, zone: str) -> str | None:
     from app.rules import history
 
     sel = selectors.parse(phrase)
-    if sel is None or not history.note_selector_ok(sel) or sel.zones != (zone,):
+    if sel is None or not history.note_selector_ok(sel, spell=zone == "stack") or sel.zones != (zone,):
         return None
     return sel.key()
 

@@ -703,6 +703,13 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
 
             if not unless_pays.first_of_kind(cond["spell"], info.get("kinds_before") or []):
                 return False
+        if cond.get("first_note"):  # -- history (wave 22E) -- 601.2i: no spell of that kind by this player earlier this turn (the turn's casts, as cast)
+            from app.rules import history
+
+            kind = selectors.from_key(cond["spell"])
+            if sum(1 for n in history.log_for(plan).casts if n.player == player
+                   and history.note_matches(kind, n.types, n.subtypes, n.supertypes, n.colors, n.mv, x_cost=n.x_cost)) != 1:
+                return False
         if cond.get("turn") == "opponent" and not info.get("opponent_turn"):
             return False
         if cond.get("kicked") and not info.get("kicked"):
