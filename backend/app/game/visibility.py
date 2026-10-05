@@ -54,7 +54,7 @@ def _sees(state: GameState, card: CardInstance, viewer: str) -> bool:
     for view in state.views:
         if view.viewer == viewer and view.zone == card.zone and (view.kind == "search" or card.id in view.card_ids):
             return True
-    return zone == "library" and top_revealed(state, card, viewer)
+    return (zone == "library" and top_revealed(state, card, viewer)) or (zone == "hand" and hand_revealed(state, card))
 
 
 def shown_at_end(state: GameState, card: CardInstance, zone: str) -> bool:
@@ -65,6 +65,25 @@ def shown_at_end(state: GameState, card: CardInstance, zone: str) -> bool:
     if r is None or not (card.face_down and zone in ("battlefield", "stack") or zone == "foretell"):
         return False
     return r.winner is not None or card.owner in r.lost or card.owner in r.conceded
+
+
+def hand_revealed(state: GameState, card: CardInstance) -> bool:
+    """-- revealed zones (wave 25A) -- "Your opponents play with their hands revealed." / "Players play with their hands revealed." (701.20a: shown to
+    every player, spectators too): while a source that has it is on a battlefield, face up and automated, the hands it names are open. The source's
+    controller is "you" / "your opponents" (``RulesState.top_reveals``, refreshed by the engine)."""
+    rules = state.rules
+    if rules is None or not rules.top_reveals:
+        return False
+    owner = card.owner
+    for reveal in rules.top_reveals:
+        source = state.cards.get(reveal.source)
+        if reveal.zone != "hand" or source is None or source.face_down or not source.zone.endswith(":battlefield") \
+                or rules.card_mode(source.id) == "manual":
+            continue
+        controller = source.controller
+        if reveal.whose == "players" or (reveal.whose == "you" and owner == controller) or (reveal.whose == "opponents" and owner != controller):
+            return True
+    return False
 
 
 def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
@@ -87,8 +106,10 @@ def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
                 or rules.card_mode(source.id) == "manual":
             continue
         controller = source.controller
-        if reveal.to == "none" or card.zone != f"{controller}:library" or (reveal.to == "owner" and viewer != controller):
+        if reveal.zone != "library":
             continue
+        if reveal.to == "none" or (card.zone != f"{controller}:library" and reveal.whose != "players") or (reveal.to == "owner" and viewer != controller):
+            continue  # (-- revealed zones (wave 25A) -- "Players play with the top card of their libraries revealed": whose "players": any library)
         return True
     return False
 

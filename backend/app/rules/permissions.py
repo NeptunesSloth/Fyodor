@@ -116,6 +116,12 @@ SELF_GY_WHILE = re.compile(r"^you may cast (?:this card|~) from your graveyard (
 # "You may cast creature spells as though they had flash." (601.3b)
 FLASH = re.compile(rf"^you may cast (?:{_SEL} )?spells as though they had flash$")
 TOP_REVEAL = "play with the top card of your library revealed"
+REVEALED_ZONES: dict[str, dict[str, str]] = {  # -- revealed zones (wave 25A) --
+    "players play with the top card of their libraries revealed": {"zone": "library", "whose": "players"},
+    "your opponents play with their hands revealed": {"zone": "hand", "whose": "opponents"},
+    "players play with their hands revealed": {"zone": "hand", "whose": "players"},
+    "play with your hand revealed": {"zone": "hand", "whose": "you"},
+}
 TOP_LOOK = "you may look at the top card of your library any time"
 # 708.5 lets you look at your own face-down permanents only; these let you look at the others' (creatures: face-down spells aren't
 # permanents). In Commander every other player is an opponent.
@@ -580,6 +586,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": False,
                 "play": False, "cast": True, "filter": key, "effects": []}
+    if (shown := REVEALED_ZONES.get(t)) is not None:  # -- revealed zones (wave 25A) -- 401.5, 701.20a: every player's top card, or the hands
+        return {"kind": "static", "static": "top_reveal", "to": "all", "effects": [], **shown}
     if t == TOP_REVEAL:
         return {"kind": "static", "static": "top_reveal", "to": "all", "effects": []}
     if t == TOP_LOOK:
@@ -1237,7 +1245,8 @@ def refresh_reveals(state: GameState, info: CardInfo) -> None:
             ch = derive(state, card, ch, info)
         for d in scripts.definitions(ch).values():
             if d.get("kind") == "static" and d.get("static") == "top_reveal":
-                found.append(TopReveal(source=card.id, player=card.controller, to=d["to"], face_down=bool(d.get("face_down"))))
+                found.append(TopReveal(source=card.id, player=card.controller, to=d["to"], face_down=bool(d.get("face_down")),
+                                       zone=d.get("zone", "library"), whose=d.get("whose", "you")))
             elif d.get("kind") == "static" and d.get("static") == "permission" and d.get("look"):  # (wave 5I: Radha)
                 found.append(TopReveal(source=card.id, player=card.controller, to="owner"))
     if found != r.top_reveals:

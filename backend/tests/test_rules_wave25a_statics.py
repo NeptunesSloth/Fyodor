@@ -52,6 +52,9 @@ EXTRA = [
     card('Vampire Interloper', set_code='tst', number='M26', mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Vampire Scout', oracle_text="Flying\nThis creature can't block.", power='2', toughness='1', colors=['B'], color_identity=['B'], keywords=['Flying'], layout='normal'),  # noqa: E501
     card('Country Roads', set_code='tst', number='M27', cmc=0.0, type_line='Land', oracle_text='This land enters tapped unless you control a Mount or Vehicle.\n{T}: Add {W}.\n{1}{W}, {T}, Sacrifice this land: Create a 1/1 colorless Pilot creature token with "This token saddles Mounts and crews Vehicles as though its power were 2 greater." Activate only as a sorcery.', colors=[], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
     card("Smuggler's Copter", set_code='tst', number='M28', mana_cost='{2}', cmc=2.0, type_line='Artifact — Vehicle', oracle_text='Flying\nWhenever this Vehicle attacks or blocks, you may draw a card. If you do, discard a card.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)', power='3', toughness='3', colors=[], color_identity=[], keywords=['Flying', 'Crew'], layout='normal'),  # noqa: E501
+    card('Telepathy', set_code='tst', number='M28', mana_cost='{U}', cmc=1.0, type_line='Enchantment', oracle_text='Your opponents play with their hands revealed.', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Lantern of Insight', set_code='tst', number='M29', mana_cost='{1}', cmc=1.0, type_line='Artifact', oracle_text='Players play with the top card of their libraries revealed.\n{T}, Sacrifice this artifact: Target player shuffles.', colors=[], color_identity=[], keywords=[], layout='normal'),  # noqa: E501
+    card('Revelation', set_code='tst', number='M30', mana_cost='{G}', cmc=1.0, type_line='World Enchantment', oracle_text='Players play with their hands revealed.', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='M99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
 ]
 
@@ -307,4 +310,47 @@ def test_a_road_enters_untapped_with_a_vehicle(cards):
     land = put(s, "Country Roads", "hand")
     act(s, "p1", type="play_land", card_id=land.id)
     assert not find(s, "Country Roads").tapped
+    roundtrip(s)
+
+
+def seen(s, viewer):
+    import json
+
+    from app.game.views import build_view
+
+    return json.dumps(build_view(s.state, viewer), default=str)
+
+
+def test_telepathy_shows_the_opponents_hands_to_everyone_and_only_theirs(cards):
+    from app.game.views import SPECTATOR
+
+    s = build(cards, p1=("Telepathy", "Isamaru, Hound of Konda"), p2=("Hooded Horror",))
+    put(s, "Isamaru, Hound of Konda", "hand")
+    put(s, "Hooded Horror", "hand", pid="p2")
+    for v in ("p1", "p2", SPECTATOR):  # nothing is shown yet
+        assert (v == "p1" or "Isamaru" not in seen(s, v)) and (v == "p2" or "Hooded Horror" not in seen(s, v))
+    put(s, "Telepathy", "battlefield")
+    for v in ("p1", "p2", SPECTATOR):  # "Your opponents play with their hands revealed": Bob's hand is open to every player
+        assert "Hooded Horror" in seen(s, v)
+    assert "Isamaru" not in seen(s, "p2") and "Isamaru" not in seen(s, SPECTATOR)  # Alice's own hand stays hers
+    put(s, "Telepathy", "graveyard")  # the source left the battlefield: shut again (611.3a)
+    assert "Hooded Horror" not in seen(s, "p1") and "Hooded Horror" not in seen(s, SPECTATOR)
+    roundtrip(s)
+
+
+def test_revelation_and_lantern_of_insight_open_every_hand_and_every_top_card(cards):
+    from app.game.views import SPECTATOR
+
+    s = build(cards, p1=("Revelation", "Lantern of Insight", "Isamaru, Hound of Konda"), p2=("Hooded Horror",))
+    put(s, "Isamaru, Hound of Konda", "hand")
+    put(s, "Hooded Horror", "hand", pid="p2")
+    put(s, "Revelation", "battlefield")  # "Players play with their hands revealed."
+    for v in ("p1", "p2", SPECTATOR):
+        assert "Isamaru" in seen(s, v) and "Hooded Horror" in seen(s, v)
+    put(s, "Revelation", "graveyard")
+    put(s, "Hooded Horror", "library", pid="p2", position="top")
+    assert "Hooded Horror" not in seen(s, "p1") and "Hooded Horror" not in seen(s, SPECTATOR)  # (a card on top of a library is hidden)
+    put(s, "Lantern of Insight", "battlefield")  # "Players play with the top card of their libraries revealed."
+    assert "Hooded Horror" in seen(s, "p1") and "Hooded Horror" in seen(s, "p2")
+    assert "Hooded Horror" in seen(s, SPECTATOR)
     roundtrip(s)
