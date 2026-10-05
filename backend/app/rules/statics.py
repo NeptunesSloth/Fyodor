@@ -105,6 +105,8 @@ ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "cre
 _PT = re.compile(r"^(?P<p>[+−-]\d+)/(?P<t>[+−-]\d+)$")
 _BASE = re.compile(r"^base power and toughness (?P<p>\d+)/(?P<t>\d+)$")
 _QUOTED = re.compile(r'^"(?P<q>[^"]+)"$')
+_DEF_ATTACK = re.compile(r"^~ can't attack (?P<k>unless|if) (?:defending player (?:controls an? (?P<sel>.+)|(?P<pois>is poisoned)|(?P<mon>is the monarch)"
+                         r"|has (?P<n>\w+) or more cards in their graveyard)|you control more (?P<more>creatures|lands) than defending player)$")
 _DENY = re.compile(r"^(?P<s>(?:Creatures|Permanents) .+? control) lose (?P<kw>[a-z ]+) and can't have or gain (?P=kw)$")  # (10B)
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
@@ -155,6 +157,27 @@ def parse(text: str) -> Definition | None:
     # -- untap choice (wave 7F) -- 502.3: asked in the untap step (app/rules/untap_choice.py)
     if body == "You may choose not to untap ~ during your untap step":
         return _definition("self", None, [], rules=["may_stay_tapped"])
+    # -- static_other sweep (wave 21A) -- 508.1c: "~ can't attack unless defending player controls a Forest." (Gorilla Pack), "… if defending
+    # player controls an untapped creature with power 3 or greater." (Orgg), "… unless defending player is the monarch / is poisoned / has seven
+    # or more cards in their graveyard", "… unless you control more creatures than defending player." (Mogg Toady): where it may attack
+    # (app/rules/combat.py ``attack_forbidden``, so goaded / must-attack creatures weigh it too, 508.1d)
+    m = _DEF_ATTACK.fullmatch(body)
+    if m:
+        fact = None
+        if m["sel"]:
+            key = _sel_key(m["sel"], plural=False)
+            fact = f"controls:{key}" if key else None
+        elif m["more"]:
+            key = _sel_key(m["more"])
+            fact = f"outnumbers:@you:{key}" if key and m["k"] == "unless" else None
+        elif m["n"]:
+            fact = f"graveyard:{_num(m['n'])}" if _num(m["n"]) and m["k"] == "unless" else None
+        elif m["k"] == "unless":
+            fact = "poisoned" if m["pois"] else "monarch"
+        return _definition("self", None, [], rules=[f"cant_attack_{m['k']}_def:{fact}"]) if fact else None
+    m = re.fullmatch(r"~ can't block unless you control more (?P<more>creatures|lands) than attacking player", body)  # (509.1b: the mirror)
+    if m and (key := _sel_key(m["more"])):
+        return _definition("self", None, [], rules=[f"cant_block_unless_more:@you:{key}"])
     # -- dynamic values (agent F): "~ gets +X/+X, where X is …" (the X of a static is defined by its text)
     x_phrase: str | None = None
     m = re.match(r"^(?P<rest>.+), where X is (?P<x>.+)$", body)

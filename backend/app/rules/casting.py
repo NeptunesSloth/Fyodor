@@ -1514,20 +1514,20 @@ def flashback_extra(ch: Characteristics) -> AbilityCost | None:
     return None
 
 
-def from_graveyard(card: CardInstance, player: str, ch: Characteristics, state: GameState | None = None) -> bool:
+def from_graveyard(card: CardInstance, player: str, ch: Characteristics, state: GameState | None = None, info: CardInfo | None = None) -> bool:
     """Casting with flashback: from your own graveyard, when it has a (mana) flashback cost — its
     own, or (wave 3R2, ``state``) one an effect gave it this turn (app/rules/graveyard_grants.py)."""
     if card.zone != zone_key(player, "graveyard") or card.owner != player:
         return False
     # -- static_other sweep (wave 16B) -- 702.127a: the aftermath half is cast from a graveyard and exiled as it leaves the stack
-    return "aftermath" in ch.keywords or flashback_cost(ch) is not None or (state is not None and _granted_flashback(state, card, ch) is not None)
+    return "aftermath" in ch.keywords or flashback_cost(ch) is not None or (state is not None and _granted_flashback(state, card, ch, info) is not None)
 
 
-def _granted_flashback(state: GameState, card: CardInstance, ch: Characteristics) -> str | None:
+def _granted_flashback(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> str | None:
     """-- refused grants/replacements (wave 3R2) -- "… gains flashback until end of turn" (Snapcaster Mage)."""
     from app.rules import graveyard_grants
 
-    return graveyard_grants.flashback_cost(state, card, ch)
+    return graveyard_grants.flashback_cost(state, card, ch, info)
 
 
 MORPH = re.compile(r"^(?P<kind>morph|megamorph) (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
@@ -1686,7 +1686,7 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
     from app.rules import keyword_actions
 
     how = "hand" if card.zone == zone_key(player, "hand") else "command" if from_command_zone(card, player) else \
-        "flashback" if from_graveyard(card, player, ch, state) else None
+        "flashback" if from_graveyard(card, player, ch, state, info) else None
     if how is None and card.is_token and (perm := keyword_actions.prepared_permanent(state, card.id)) is not None \
             and perm.controller == player:
         how = "prepared"  # -- prepared (wave 13C) -- 722.3c: its controller may cast the copy in exile
@@ -1855,7 +1855,7 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
         base = alternative
     else:
         in_graveyard = card.zone == zone_key(card.owner, "graveyard")
-        flashback = (flashback_cost(ch) or _granted_flashback(state, card, ch)) if in_graveyard else None  # (wave 3R2)
+        flashback = (flashback_cost(ch) or _granted_flashback(state, card, ch, info)) if in_graveyard else None  # (wave 3R2)
         base = M.parse_cost(flashback or ch.mana_cost).with_x(x)
     extras = list(additional)
     if kicker:
@@ -2258,7 +2258,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         return
     commander_cast = from_command_zone(card, plan.actor)
     harmonized = alt_offer is not None and alt_offer.tag == "harmonize"  # -- casting extras (wave 18E) -- 702.180a: exiled as it leaves the stack
-    flashback = from_graveyard(card, plan.actor, ch, plan.state) and not escaping  # (wave 5I: escape instead, 118.9a)
+    flashback = from_graveyard(card, plan.actor, ch, plan.state, plan.info) and not escaping  # (wave 5I: escape instead, 118.9a)
     jumped = grant is not None and grant.exile  # -- casting extras (wave 18E) -- 702.133a: cast with jump-start
     card_was_in_hand = card.zone == zone_key(plan.actor, "hand")
     cast_zone = card.zone.rsplit(":", 1)[-1]  # -- refused modal/conditional (wave 3R1) -- where it was cast from

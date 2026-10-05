@@ -230,6 +230,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"mana_spent": "event" if m["o"] == "that spell" else "self"}
     if what == "your life total":
         return {"life": "you"}
+    m = re.fullmatch(r"unspent (?:(white|blue|black|red|green) )?mana you have", what)  # -- static_other sweep (wave 21A) -- Omnath, Locus of Mana
+    if m:
+        return {"unspent": {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}.get(m[1] or "", "")}
     if what in ("target player's life total", "target opponent's life total"):
         return {"life": "target"}
     if what in ("the highest life total among your opponents", "the greatest life total among your opponents"):
@@ -547,6 +550,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if v["life"] == "player_min":  # -- static wordings (wave 6E) -- "a player has 13 or less life": the lowest life total
             return min([plan.state.players[p].life for p in plan.live()] or [0])
         return max([plan.state.players[p].life for p in _target_players(plan, ctx)] or [0])
+    if "unspent" in v:  # (106.4: the plain pool and the units both hold mana; "" = any color)
+        me = plan.state.players[you]
+        return sum(n for c, n in me.mana.items() if v["unspent"] in ("", c)) + sum(1 for u in me.mana_units if v["unspent"] in ("", u.sym))
     if "player_counters" in v:
         if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together
             return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you)

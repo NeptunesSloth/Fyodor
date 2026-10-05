@@ -243,6 +243,20 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "loyalty_rule", "who": "you", "twice": True, "effects": []}
     if t == "you may activate loyalty abilities of ~ on any player's turn any time you could cast an instant":
         return {"kind": "static", "static": "loyalty_rule", "who": "self", "instant": True, "effects": []}
+    # -- static_other sweep (wave 21A) -- 106.4 / 500.4: "You don't lose unspent red mana as steps and phases end." (app/rules/kept_mana.py)
+    m = re.fullmatch(r"you don't lose unspent (white|blue|black|red|green) mana as steps and phases end", t)
+    if m:
+        return {"kind": "static", "static": "keep_mana", "color": {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[m[1]], "effects": []}
+    # -- static_other sweep (wave 21A) -- 702.34a: "Each instant and sorcery card in your graveyard has flashback. The flashback cost is equal to that
+    # card's mana cost." (Lier, Disciple of the Drowned), "During your turn, each … has flashback. Its flashback cost is equal to its mana cost."
+    m = re.fullmatch(r"(?P<turn>during your turn, )?each (?P<sel>[a-z ,'-]+?) cards? in your graveyard has flashback\. (?:the|its) flashback cost "
+                     r"is equal to (?:that card's|its) mana cost", t, re.I)
+    if m:
+        sel = selectors.parse(m["sel"].replace(" and ", " or ") + " card in your graveyard")
+        if sel is None or sel.zones != ("graveyard",) or not sel.card or sel.player is not None:
+            return None
+        return {"kind": "static", "static": "gy_flashback", "sel": selectors.replace(sel, zone_owner="you").key(),
+                "your_turn": bool(m["turn"]), "effects": []}
     m = STATIC_SPEND.fullmatch(t)
     if m:
         ok, key = _filter(m["sel"])
@@ -402,7 +416,7 @@ def _spells_words(key: str | None, frm: list[str] | None) -> str:
 
 # -- reading the table -----------------------------------------------------------------------------
 _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
-_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as")
+_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as", "keep_mana", "gy_flashback")
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
