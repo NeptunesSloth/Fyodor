@@ -103,8 +103,8 @@ _STATUS = {"you're the monarch": "monarch", "you are the monarch": "monarch", "y
            "you have the city's blessing": "city_blessing"}
 _THIS_TURN = r"(?P<when>this|last) turn"
 _DIFFERENT_POWERS = re.compile(r"you control (?P<n>\w+) or more creatures with different powers")
-# -- token & pump wordings (wave 6C) -- "if you control seven or more lands with different names" (Field of the Dead)
-_DIFFERENT_NAMES = re.compile(r"you control (?P<n>\w+) or more (?P<what>lands|creatures|artifacts|permanents) with different names")
+# -- token & pump wordings (wave 6C) -- "if you control seven or more lands with different names" (Field of the Dead; wave 20D: "ten or more Gates with different names", Maze's End)
+_DIFFERENT_NAMES = re.compile(r"you control (?P<n>\w+) or more (?P<what>lands|creatures|artifacts|permanents|[A-Z][a-z]+s) with different names")
 _TOTAL_POWER = re.compile(r"creatures you control have total power (?P<n>\w+) or greater")
 _GRAVEYARD = re.compile(r"there(?:'s| is| are) (?:(?P<a>a|an)|(?P<no>no)|(?P<n>\w+) or more) (?P<sel>.+? in your (?:graveyard|library))")
 # (wave 16F: "a Warrior card is in your graveyard", "there are no cards in your library")

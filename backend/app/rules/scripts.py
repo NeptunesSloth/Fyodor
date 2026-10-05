@@ -1877,6 +1877,7 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     body = re.sub(r"((?i:search) your library for [^.]+?)(?: and (reveal (?:them|it)))?\. ((?:Reveal (?:those cards|them|that card|it), )?"
                   r"[Pp]ut (?:one(?: of them)?|those cards|them|that card|it) [^.]+?)(?:, then shuffle|\. Then shuffle)\b",
                   lambda m: f"{m[1]}, {m[2] + ', ' if m[2] else ''}{m[3][:1].lower()}{m[3][1:]}, then shuffle", body)
+    body = re.sub(r"(?i)^(sacrifice (?:~|this \w+)), (search your library for )", r"\1. \2", body)  # (Defense of the Heart: two instructions in order)
     # -- static_other sweep (wave 19A) -- "Choose a creature type. Draw a card for each permanent you control of that type." (Distant
     # Melody): "that type" is the type just chosen, as in "of the chosen type" (app/rules/chosen.py)
     body = re.sub(r"(Choose a creature type\. [^.]*?) of that type\b", r"\1 of the chosen type", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)

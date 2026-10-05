@@ -1682,10 +1682,10 @@ def _search_matches(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, key: 
         name = (src.name if src is not None else "") if e["name"] == "~" else e["name"]
         matching = [c for c in matching if name and (plan.state.cards[c].name or "").lower() == name.lower()]
     if e.get("mv"):
-        op, value = e["mv"][0], _amount(plan, ctx, e["mv"][1])
+        op, value = e["mv"][0], e["mv"][1] if e["mv"][0] == "in" else _amount(plan, ctx, e["mv"][1])
         mvs = {c: chars.of(plan.state.cards[c], plan.info).mana_value for c in matching}
         matching = [c for c in matching if (mvs[c] <= value if op == "<=" else mvs[c] < value if op == "<"  # ("<": wave 4M)
-                                            else mvs[c] == value)]
+                                            else mvs[c] in value if op == "in" else mvs[c] == value)]  # ("in": wave 20D, "4 or 5")
     return matching
 
 
@@ -1793,6 +1793,13 @@ def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
             from app.game.errors import ActionError
 
             raise ActionError("The cards you find must have different names")
+    if e.get("total_mv") is not None:  # -- tutor (wave 20D) -- "creature cards with total mana value 6 or less" (Protean Hulk)
+        from app.rules import characteristics as chars
+
+        if sum(chars.of(plan.state.cards[c], plan.info).mana_value for c in chosen if c in plan.state.cards) > e["total_mv"]:
+            from app.game.errors import ActionError
+
+            raise ActionError(f"The cards you find must have total mana value {e['total_mv']} or less")
     _recursion.check_found(plan, e, chosen)  # -- recursion & tutors (wave 4M) -- "… that share a land type"
     if e.get("parts"):  # the next kind of card, or all the cards found
         chosen = [*d.resume.get("picked", []), *chosen]

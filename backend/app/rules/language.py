@@ -512,7 +512,9 @@ _SEARCH = re.compile(
     rf"|then shuffle and put {_PRON} (?:on top(?: in any order)?|(?P<third>third from the top)))")  # ("in any order": wave 3R4; third: wave 20D)
 _DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
           "into your graveyard": "graveyard"}
-_MV_X = re.compile(r"(?P<rest>.+?),? with mana value [xX](?P<less> or less)?")
+_MV_X = re.compile(r"(?P<rest>.+?),? (?:with|that (?:each )?have) mana value [xX](?P<less> or less)?")  # (wave 20D: Uncage the Menagerie)
+# -- tutor (wave 20D) -- a number: "with mana value 4 or 5" (Transit Mage), "that have mana value 9" (Grozoth), "… 3 or less"
+_MV_N = re.compile(r"(?P<rest>.+?),? (?:with|that (?:each )?have) mana value (?P<a>\d+)(?: or (?P<b>\d+|less))?")
 _NAMED = re.compile(r"(?P<rest>card|cards) named (?P<name>.+)")
 _MV_EQUAL = re.compile(r"(?P<rest>.+?),? with mana value equal to (?:(?P<n>\d+|one|two) plus )?(?P<v>the sacrificed \w+'s mana value)"
                        r"(?: plus (?P<n2>\d+|one|two))?")  # (wave 3R4)
@@ -631,6 +633,12 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
             raise _Fail
         sel_text = distinct["rest"] + distinct["tail"]
         extra["distinct_names"] = True
+    total = re.fullmatch(r"(?P<rest>.+?) with total mana value (?P<n>\d+) or less", sel_text)
+    if total:  # -- tutor (wave 20D) -- Protean Hulk: the cards found have this much mana value in all (checked as the searcher chooses: effects.resume_search)
+        if m["n"] != "any number of":
+            raise _Fail
+        sel_text = total["rest"]
+        extra["total_mv"] = int(total["n"])
     named = _NAMED.fullmatch(sel_text)
     if named:
         if re.search(r" or an? |and/or |\bnamed\b", named["name"]):  # -- wave 3S: "a card named X or an Equipment card" (alternatives): not read --
@@ -642,6 +650,11 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     if mv:
         extra["mv"] = ["<=" if mv["less"] else "==", _amount("x")]
         sel_text = mv["rest"]
+    mvn = None if mv else _MV_N.fullmatch(sel_text)
+    if mvn:
+        extra["mv"] = ["<=", int(mvn["a"])] if mvn["b"] == "less" else ["in", [int(mvn["a"]), int(mvn["b"])]] if mvn["b"] else ["==", int(mvn["a"])]
+        sel_text = mvn["rest"]
+        mv = mvn
     # -- refused zones/sized (wave 3R4) -- "with mana value equal to 1 plus the sacrificed creature's mana value"
     # (Birthing Pod; the sacrificed creature is read from the cost's payment record: scripts.define checks it is one)
     pod = None if mv else _MV_EQUAL.fullmatch(sel_text)
