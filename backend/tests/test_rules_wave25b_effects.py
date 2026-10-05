@@ -35,6 +35,14 @@ CARDS = [
     ("Teferi's Puzzle Box", "{4}", "Artifact", None, None,
      "At the beginning of each player's draw step, that player puts the cards in their hand on the bottom of their library in any order, then "
      "draws that many cards."),
+    ("Rising Waters", "{3}{U}", "Enchantment", None, None,
+     "Lands don't untap during their controllers' untap steps.\nAt the beginning of each player's upkeep, that player untaps a land they control."),
+    ("Gruff Triplets", "{3}{G}{G}{G}", "Creature — Satyr Warrior", "3", "3",
+     "Trample\nWhen this creature enters, if it isn't a token, create two tokens that are copies of it.\n"
+     "When this creature dies, put a number of +1/+1 counters equal to its power on each creature you control named Gruff Triplets."),
+    ("Presumed Dead", "{1}{B}", "Instant", None, None,
+     "Until end of turn, target creature gets +2/+0 and gains \"When this creature dies, return it to the battlefield under its owner's control "
+     "and suspect it.\" (A suspected creature has menace and can't block.)"),
     ("Probe Dummy", "{1}", "Creature — Bear", "1", "1", ""),
     ("Probe Tough", "{3}", "Creature — Wall", "0", "4", ""),
 ]
@@ -137,4 +145,43 @@ def test_mindmoil_with_one_card_in_hand_asks_no_order(cards):
     assert s.state.rules.decision is None or s.state.rules.decision.kind != "order"  # (one card: nothing to order)
     answer(s)
     assert other.id in s.state.zones["p1:library"] and len(s.state.zones["p1:hand"]) == 1
+    check(s)
+
+
+def test_each_player_untaps_one_land_of_their_own_choice_in_their_upkeep(cards):
+    """Rising Waters: "that player untaps a land they control" - that player (not the enchantment's controller) chooses which (608.2d)."""
+    s = build(cards, ["Rising Waters"])
+    put(s, "Rising Waters")
+    islands = [c for c in s.state.zones["p2:library"] if s.state.cards[c].name == "Island"][:3]
+    for c in islands:
+        act(s, "p2", type="move", card_ids=[c], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p2", type="tap", card_ids=islands)
+    for _ in range(60):  # on to Bob's turn: his lands don't untap in his untap step, but his upkeep trigger lets him untap one
+        d = s.state.rules.decision
+        if d is not None and d.player == "p2" and d.kind == "choose_cards":
+            break
+        act(s, s.state.rules.priority or "p1", type="pass_priority") if d is None else answer(s)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and {o.id for o in d.options} == set(islands)
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[islands[1]])
+    answer(s)
+    assert [s.state.cards[c].tapped for c in islands] == [True, False, True]
+    check(s)
+
+
+def test_gruff_triplets_dying_puts_counters_equal_to_its_power_on_each_creature_named_gruff_triplets(cards):
+    s = build(cards, ["Gruff Triplets", "Lightning Bolt", "Probe Dummy"])
+    dying = put(s, "Gruff Triplets")
+    # a second creature with the same name (a token copy, 201.2): made by the table's token tool
+    act(s, "p1", type="create_token", player="p1", token={"name": "Gruff Triplets", "type_line": "Token Creature — Satyr Warrior", "power": "3",
+                                                            "toughness": "3", "text": ""})
+    twin = next(c for c in s.state.cards.values() if c.is_token and c.name == "Gruff Triplets")
+    dummy = put(s, "Probe Dummy")
+    to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=[dying.id])
+    answer(s)
+    assert zone_of(s, "Gruff Triplets") == "p1:graveyard"
+    assert sum(s.state.cards[twin.id].counters.values()) == 3  # (its power as it died: 3)
+    assert sum(s.state.cards[dummy.id].counters.values()) == 0  # (only creatures named Gruff Triplets)
     check(s)

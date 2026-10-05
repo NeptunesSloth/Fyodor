@@ -1918,7 +1918,7 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
                   r"\g<a>, then \g<b>, then ", text)
     for joiner in (r", then ", r" and (?=(?:~(?= )|(?:you|target|each|it|that player|draw|lose|gain|put|return|exile|"  # (wave 25B: "and ~ deals …": no \b after the ~)
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
-                                 r"remove|add|investigate|prevent|amass|proliferate|manifest|transform)\b))"):  # (wave 20F: transform)  # (remove: wave 6D, "untap it and remove it from combat")
+                                 r"remove|add|investigate|prevent|amass|proliferate|manifest|transform|suspect)\b))"):  # (wave 25B: suspect)  # (wave 20F: transform)  # (remove: wave 6D, "untap it and remove it from combat")
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue

@@ -40,6 +40,11 @@ CARDS = [
      "Eminence — Whenever another nontoken Wizard you control enters, if Inalla is in the command zone or on the battlefield, you may pay {1}. "
      "If you do, create a token that's a copy of that Wizard. The token gains haste. Exile it at the beginning of the next end step.\n"
      "Tap five untapped Wizards you control: Target player loses 7 life."),
+    ("Costume Closet", "{1}{W}", "Artifact", None, None,
+     "This artifact enters with two +1/+1 counters on it.\n{T}: Move a +1/+1 counter from this artifact onto target creature you control. "
+     "Activate only as a sorcery.\nWhenever a modified creature you control leaves the battlefield, put a +1/+1 counter on this artifact. "
+     "(Equipment, Auras you control, and counters are modifications.)"),
+    ("Probe Dummy", "{1}", "Creature — Bear", "1", "1", ""),
     ("Probe Vampire", "{B}", "Creature — Vampire", "1", "1", ""),
     ("Probe Wizard", "{U}", "Creature — Human Wizard", "1", "1", ""),
     ("Probe Brute", "{3}", "Creature — Ogre", "4", "4", ""),
@@ -258,4 +263,18 @@ def test_inalla_copies_a_wizard_from_the_command_zone_for_one_and_exiles_it_at_t
     token = next(c for c in wizards if c.is_token)
     assert "haste" in Plan(s.state, "p1", s.cards, None).ch(token).keywords  # ("The token gains haste.": no duration, 611.2a)
     assert s.state.rules.delayed  # (the exile at the beginning of the next end step, 603.7)
+    check(s)
+
+
+def test_a_modified_creature_leaving_the_battlefield_is_read_as_it_last_existed(cards):
+    """Costume Closet: "Whenever a modified creature you control leaves the battlefield, put a +1/+1 counter on this artifact"."""
+    s = build(cards, ["Costume Closet", "Probe Imp", "Probe Dummy", "Lightning Bolt"])
+    closet = put(s, "Costume Closet")
+    modified, plain = put(s, "Probe Imp"), put(s, "Probe Dummy")
+    act(s, "p1", type="counter", card_ids=[modified.id], kind="+1/+1", delta=1)
+    base = sum(s.state.cards[closet.id].counters.values())
+    bolt(s, plain.id)
+    assert sum(s.state.cards[closet.id].counters.values()) == base  # (it had no counter: not modified)
+    bolt(s, modified.id)
+    assert sum(s.state.cards[closet.id].counters.values()) == base + 1
     check(s)

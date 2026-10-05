@@ -29,6 +29,9 @@ if TYPE_CHECKING:
 
 _N = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8}
 _UNTAP_UP_TO = re.compile(r"^(?:you )?untap up to (?P<n>one|two|three|four|five|six|seven|eight) lands(?P<y> you control)?$")
+# -- trigger other (wave 25B) -- "Untap a land you control." (an exact choice of one: 608.2c), "Untap a creature you control.", and the
+# player doing it: "that player untaps a land they control." (Hokori, Rising Waters: that player chooses, 608.2d)
+_UNTAP_ONE = re.compile(r"^(?:(?P<who>you|that player) )?untaps? (?:an?|one) (?P<k>land|creature)(?P<y> (?:you|they) control)?$")
 _OTHER_STEP = re.compile(r"^Untap (?:(?P<self>this (?:artifact|creature|permanent|land|enchantment)|~)|(?:all|each) (?P<sel>.+?)) "
                          r"during each other player's untap step\.$")
 STATIC = "untap_other_steps"
@@ -54,7 +57,20 @@ def _draw_and_untap(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]
     return [{"do": "draw", "who": "you", "n": _N[m["d"]]}, *untap], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_UNTAP_UP_TO, _template), (_DRAW_AND_UNTAP, _draw_and_untap)]
+def _untap_one(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors
+
+    if m["who"] == "that player" and not m["y"]:
+        from app.rules.scripts import _NoMatch
+
+        raise _NoMatch  # (whose lands? only "they control" is read)
+    sel = selectors.parse(f"tapped {m['k']}s you control" if m["y"] else f"tapped {m['k']}s")  # ("you" is the one who chooses)
+    assert sel is not None
+    return [{"do": "untap_choice", "n": 1, "sel": sel.key(), "exact": True, "kind": m["k"],
+             **({"who": "that_player"} if m["who"] == "that player" else {})}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_UNTAP_UP_TO, _template), (_DRAW_AND_UNTAP, _draw_and_untap), (_UNTAP_ONE, _untap_one)]
 
 
 def untap_choice(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -63,15 +79,21 @@ def untap_choice(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import selectors
     from app.rules.plan import decide
 
-    you = ctx["controller"]
+    from app.rules.effects import _players
+
+    you = (_players(plan, ctx, e["who"]) or [None])[0] if e.get("who") else ctx["controller"]  # (wave 25B: "that player untaps …")
+    if you is None:
+        return True
     found = [c for c in selectors.candidates(plan, selectors.from_key(e["sel"]), you, ctx.get("source_card"))
              if plan.state.cards[c].tapped and plan.state.cards[c].zone.endswith(":battlefield")]
     if not found:
         return True
     n = min(int(e["n"]), len(found))
-    decide(plan, player=you, kind="choose_cards", prompt=f"{ctx.get('name', '') or 'Untap'}: untap up to {e['n']} lands",
-           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Land", card_id=c) for c in found],
-           min_choices=0, max_choices=n, resume={"step": "untap_choice", "ctx": ctx, "e": e})
+    noun = "lands" if e.get("kind", "land") == "land" else "creatures"
+    decide(plan, player=you, kind="choose_cards",
+           prompt=f"{ctx.get('name', '') or 'Untap'}: untap " + (f"{n} {noun[:-1]}" if e.get("exact") else f"up to {e['n']} {noun}"),
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or noun[:-1].title(), card_id=c) for c in found],
+           min_choices=n if e.get("exact") else 0, max_choices=n, resume={"step": "untap_choice", "ctx": ctx, "e": e, "chooser": you})
     return False
 
 
@@ -81,12 +103,13 @@ def resume_untap_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
 
     ctx, e = d.resume["ctx"], d.resume["e"]
     sel = selectors.from_key(e["sel"])
+    chooser = d.resume.get("chooser") or ctx["controller"]  # (wave 25B: "that player untaps a land they control")
     picked = list(dict.fromkeys(chosen))[: int(e["n"])]
     cards = [c for c in picked if (card := plan.state.cards.get(c)) is not None and card.tapped
-             and card.zone.endswith(":battlefield") and selectors.matches(plan, sel, card, plan.ch(card), ctx["controller"])]
-    cards = keyword_actions.untap_stunned(plan, cards, ctx["controller"])  # 122.1d
+             and card.zone.endswith(":battlefield") and selectors.matches(plan, sel, card, plan.ch(card), chooser)]
+    cards = keyword_actions.untap_stunned(plan, cards, chooser)  # 122.1d
     if cards:
-        plan.do({"type": "tap", "card_ids": cards, "tapped": False}, actor=ctx["controller"])
+        plan.do({"type": "tap", "card_ids": cards, "tapped": False}, actor=chooser)
     continue_effects(plan, ctx)
 
 
