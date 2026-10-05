@@ -341,14 +341,14 @@ _OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? who (?:(?P<drew>dre
                             r"this turn$")
 
 
-_OPPONENTS_HAND = re.compile(r"^(?:the number of )?opponents? who (?:has|have) (?:(?P<more>more cards in hand than you)|"
-                             r"(?P<n>\w+) or (?P<cmp>more|fewer) cards in hand)$")  # (-- triggers (wave 21B) --)
+_OPPONENTS_HAND = re.compile(r"^(?:the number of )?opponents? who (?:has|have) (?P<n>\w+) or (?P<cmp>more|fewer) cards in hand$")  # (-- triggers (wave 21B) --)
+# ("who has more cards in hand than you" stays manual: tests/test_rules_wave8b_triggers.py)
 
 
 def _turn_amount(what: str) -> Value | None:
     if m := _OPPONENTS_HAND.match(what):  # each opponent whose hand size now says so (the count of a hand is public)
-        n = None if m["more"] else int(m["n"]) if m["n"].isdigit() else NUMBERS.get(m["n"])
-        return {"opponents_hand": "than_you" if m["more"] else m["cmp"], "n": n} if m["more"] or n is not None else None
+        n = int(m["n"]) if m["n"].isdigit() else NUMBERS.get(m["n"])
+        return {"opponents_hand": m["cmp"], "n": n} if n is not None else None
     m = _TURN_LIFE.match(what)
     if m:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
@@ -550,8 +550,7 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return party_size(plan, you)
     if "opponents_hand" in v:  # -- triggers (wave 21B) -- the opponents still in the game (800.4a), by hand size as it resolves
         size = {p: len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live() if p != you}
-        mine = len(plan.state.zones.get(f"{you}:hand", []))
-        return sum(1 for k in size.values() if (k > mine if v["opponents_hand"] == "than_you" else k >= v["n"] if v["opponents_hand"] == "more" else k <= v["n"]))
+        return sum(1 for k in size.values() if (k >= v["n"] if v["opponents_hand"] == "more" else k <= v["n"]))
     if "commander_casts" in v:  # -- triggers (wave 19B) --
         return sum(plan.state.players[you].commander_casts.values())
     if "distinct" in v:

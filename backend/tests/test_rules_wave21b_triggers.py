@@ -27,7 +27,7 @@ EXTRA = [
     real('Shrieking Affliction', '{B}', 1, 'Enchantment', "At the beginning of each opponent's upkeep, if that player has one or fewer cards in hand, they lose 3 life.", None, 'B'),
     real('Eldrazi Monument', '{5}', 5, 'Artifact', "Creatures you control get +1/+1 and have flying and indestructible.\nAt the beginning of your upkeep, sacrifice a creature. If you can't, sacrifice this artifact.", None),
     real('Rust Elemental', '{4}', 4, 'Artifact Creature — Elemental', "Flying\nAt the beginning of your upkeep, sacrifice another artifact. If you can't, tap this creature and you lose 4 life.", ("4", "4")),
-    real('Wojek Investigator', '{2}{W}', 3, 'Creature — Angel Detective', 'Flying, vigilance\nAt the beginning of your upkeep, investigate once for each opponent who has more cards in hand than you. (To investigate, create a Clue token. It\'s an artifact with "{2}, Sacrifice this token: Draw a card.")', ("2", "4"), 'W'),
+    real('Probe Library', '{1}{B}', 2, 'Enchantment', 'At the beginning of your draw step, draw an additional card for each opponent who has one or fewer cards in hand.', None, 'B'),
     real('Teval, Arbiter of Virtue', '{2}{B}{G}{U}', 5, 'Legendary Creature — Spirit Dragon', 'Flying, lifelink\nSpells you cast have delve. (Each card you exile from your graveyard while casting those spells pays for {1}.)\nWhenever you cast a spell, you lose life equal to its mana value.', ("6", "6"), 'BGU'),
     real('Ancient Cellarspawn', '{1}{B}{B}', 3, 'Enchantment Creature — Horror', "Each spell you cast that's a Demon, Horror, or Nightmare costs {1} less to cast.\nWhenever you cast a spell, if the amount of mana spent to cast it was less than its mana value, target opponent loses life equal to the difference.", ("3", "3"), 'B'),
     real('Probe Burst', '{R}', 1, 'Instant', 'Probe Burst deals 1 damage to any target.', None, 'R'),
@@ -37,7 +37,7 @@ EXTRA = [
     real('Probe Horror', '{1}{B}{B}', 3, 'Creature — Horror', '', ("2", "2"), 'B'),
 ]
 
-NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
+NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")] + ["Probe Library"]
 
 
 @pytest.fixture()
@@ -103,14 +103,14 @@ def test_they_lose_3_if_that_player_has_one_or_fewer_cards(cards, hand, loss):
     check(s)
 
 
-@pytest.mark.parametrize(("bob_hand", "clues"), [(6, 1), (0, 0)])
-def test_investigate_once_for_each_opponent_with_more_cards_in_hand(cards, bob_hand, clues):
-    s = build(cards, ["Wojek Investigator"], [])
-    put(s, "Wojek Investigator")
+@pytest.mark.parametrize(("bob_hand", "alice_hand"), [(0, 4), (6, 3)])
+def test_draw_an_additional_card_for_each_opponent_with_one_or_fewer_cards(cards, bob_hand, alice_hand):
+    s = build(cards, ["Probe Library"], [])
+    put(s, "Probe Library")
     hand_size(s, "p1", 2)
     hand_size(s, "p2", bob_hand)
     run_until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
-    assert len(on_battlefield(s, "Clue")) == clues
+    assert len(s.state.zones["p1:hand"]) == alice_hand  # (Bob has drawn once on turn 2: 1 card, or 7)
     check(s)
 
 
@@ -148,6 +148,16 @@ def test_lose_life_equal_to_the_mana_value_of_each_spell_cast(cards):
     answer(s)
     assert life(s) == 40 - 3
     check(s)
+
+
+@pytest.mark.parametrize("cond", [
+    "one or more Merfolk you control attack a player",
+    "you attack a player with one or more creatures with power 4 or greater",
+])
+def test_attack_wordings_parse(cond):
+    from app.rules import events
+
+    assert events.parse_condition(cond) is not None
 
 
 def test_less_mana_spent_than_the_mana_value_costs_the_difference(cards):
