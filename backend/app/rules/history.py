@@ -39,7 +39,15 @@ def log_for(plan: Plan, last: bool = False) -> TurnLog:
             if log is not None and log.turn == n - 1:
                 return log
         return TurnLog()
-    return rules.turn_log if rules.turn_log.turn == n else TurnLog()
+    log = rules.turn_log if rules.turn_log.turn == n else TurnLog(turn=n)
+    # -- review (wave 24A) -- 608.2h: a resolution that counts what it just did ("sacrifice any number of creatures, then draw a
+    # card for each that died this turn") reads the facts of events no trigger collection has noted yet, in a scratch copy
+    pending = [e for e in rules.events if e.batch > rules.trigger_batch]
+    if not pending:
+        return log
+    scratch = TurnLog(turn=n)
+    note_events(plan, pending, into=scratch)
+    return log.model_copy(update={"facts": [*log.facts, *scratch.facts]}) if scratch.facts else log
 
 
 def departed_types(plan: Plan, d: Departure) -> set[str]:
@@ -548,12 +556,7 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     if kind == "attackers":  # -- cost self reduction (wave 16F) -- each creature declared as an attacker this turn, once (508.1)
         return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
     if kind in ("tokens", "sacrificed", "discarded"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)
-        facts = log.facts
-        if kind == "discarded":  # -- review (wave 23C) -- 608.2h: "Discard your hand, then draw a card for each card you've discarded this
-            pending = TurnLog(turn=log.turn)  # turn" counts the discards this resolution just made (events not yet looked at for triggers)
-            note_events(plan, [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch], into=pending)
-            facts = [*facts, *pending.facts]
-        return sum(1 for f in facts if f.kind == {"tokens": "token", "sacrificed": "sacrifice", "discarded": "discard"}[kind]
+        return sum(1 for f in log.facts if f.kind == {"tokens": "token", "sacrificed": "sacrifice", "discarded": "discard"}[kind]
                    and (f.player == me or v.get("who") == "any"))  # (wave 21F: "who": "any" — each permanent sacrificed, whoever did it)
     if kind in ("opp_lost", "opp_damage"):  # (the opponents still in the game: 800.4a)
         opps = {p for p in plan.live() if p != me}

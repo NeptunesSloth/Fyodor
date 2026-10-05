@@ -34,8 +34,8 @@ def matches(plan: Plan, card: Any, extra: str, you: str | None, source: str | No
     if plan.rules is None:
         return False
     oid = plan.oid(card)
-    # (recipient object, recipient player, source object) of each damage event this turn: the log's, and those not yet
-    # recorded in it — dealt earlier in the same resolution ("~ deals 1 damage to target creature. Then destroy each
+    # (recipient object, recipient player, source object) of each damage event this turn; log_for includes those not yet
+    # recorded — dealt earlier in the same resolution ("~ deals 1 damage to target creature. Then destroy each
     # creature … that was dealt damage this turn", Swift Demise; 608.2c: the instructions in order)
     dealt: list[tuple[str | None, str | None, str | None]] = []
     for f in log_for(plan, False).facts:
@@ -43,10 +43,6 @@ def matches(plan: Plan, card: Any, extra: str, you: str | None, source: str | No
             dealt.append((f.object_id, None, f.source))
         elif f.kind == "damage" and f.amount > 0:
             dealt.append((None, f.player, f.object_id))
-    r = plan.rules
-    for e in r.events:
-        if e.kind == "damage" and e.amount > 0 and e.batch > r.trigger_batch and e.turn == plan.state.turn.number:
-            dealt.append((None, e.player, e.source) if e.player is not None else (e.object_id, None, e.source))
     if extra == WAS_DEALT:
         return any(to == oid for to, _, _ in dealt)
     if extra == BY_SOURCE:
