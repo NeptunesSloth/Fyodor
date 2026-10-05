@@ -217,7 +217,7 @@ def _life(text: str) -> Definition | None:
 
 
 # -- damage (120.4b, 614.1a, 615.10) ----------------------------------------------------------------
-_DAMAGE = re.compile(r"^If (?P<src>.+?) would deal (?P<kind>combat |noncombat )?damage(?: to (?P<to>.+?))?, (?P<rest>.+)\.$")
+_DAMAGE = re.compile(r"^If (?P<src>.+?) would deal (?:(?P<min>\d+) or more )?(?P<kind>combat |noncombat )?damage(?: to (?P<to>.+?))?, (?P<rest>.+)\.$")  # (min: wave 20B)
 _BACK = (r"(?: to (?:that permanent or player|that player or permanent|that player|that creature|that permanent|"
          r"that planeswalker|it|~|equipped creature|enchanted creature))?")
 _DAMAGE_OPS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -231,6 +231,9 @@ _DAMAGE_OPS: tuple[tuple[re.Pattern[str], str], ...] = (
      "add_value"),
     (re.compile(r"^(?:it|that source) deals that much damage minus (?P<n>\d+|one|two)" + _BACK + r" instead$"), "sub"),
     (re.compile(r"^(?:it|that source) deals half that damage, rounded down," + _BACK + r" instead$"), "half"),
+    # -- instead (wave 20B) -- "If a source would deal 4 or more damage to a permanent or player, that source deals 3 damage to that
+    # permanent or player instead." (Divine Presence): the threshold is in the condition (``at_least``), the amount is the cap
+    (re.compile(r"^(?:it|that source) deals (?P<n>\d+|one|two|three) damage" + _BACK + r" instead$"), "cap"),
     (re.compile(r"^prevent (?P<n>\d+|one|two|three) of that damage$"), "prevent"),
     (re.compile(r"^prevent all but (?P<n>\d+|one) of that damage$"), "prevent_all_but"),
     (re.compile(r"^prevent that damage$"), "prevent_all"),
@@ -260,6 +263,14 @@ def _source(phrase: str) -> dict[str, Any] | None:
     if len(halves) > 1:
         alts = [_source(h) for h in halves]
         return {"alts": alts} if all(a is not None and "alts" not in a for a in alts) else None
+    # -- instead (wave 20B) -- "a Wizard you control" (Kuja): a source of that creature type, as "a Wizard source you control"
+    one = re.fullmatch(r"(?P<det>an?) (?P<sub>[A-Z][a-z]+)(?P<ctrl> you control| an opponent controls)", phrase)
+    if one is not None:
+        from app.rules.creature_types import CREATURE_TYPES
+
+        if one["sub"] not in CREATURE_TYPES:
+            return None
+        phrase = f"{one['det']} {one['sub']} source{one['ctrl']}"
     m = _SOURCE.match(phrase)
     if m is None:
         return None
@@ -406,6 +417,13 @@ def _damage(text: str) -> Definition | None:
         match: dict[str, Any] = {"source": src, "to": to}
         if m["kind"]:
             match["combat"] = m["kind"] == "combat "
+        if (kind == "cap") != (m["min"] is not None):
+            return None  # ("deals 3 damage instead" only after "would deal N or more damage", and that only with it)
+        if m["min"]:
+            match["at_least"] = int(m["min"])
+        if kind == "cap":
+            cap = _num(m2["n"])
+            return _static("damage", match, {"do": "cap", "n": cap}) if cap and cap < match["at_least"] else None
         if kind == "mul":
             return _static("damage", match, {"do": "mul", "n": 2 if m2["m"] == "double" else 3})
         if kind == "mul2":

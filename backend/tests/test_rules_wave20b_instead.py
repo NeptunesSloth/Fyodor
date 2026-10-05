@@ -33,3 +33,40 @@ def test_arcane_heist_casts_their_bolt_free_and_it_is_exiled(cards):
     assert s.state.players["p2"].life == 37  # the Bolt was cast and resolved
     assert s.state.cards[bolt.id].zone == "p2:exile"  # 614.1a: exiled instead of going to its owner's graveyard
     roundtrip(s)
+
+
+PRESENCE = "If a source would deal 4 or more damage to a permanent or player, that source deals 3 damage to that permanent or player instead."
+
+
+def test_four_or_more_damage_becomes_three(cards):
+    from tests.test_rules_combat import attack, automate, creature, table
+    from tests.test_rules_conditionals import until
+
+    s = table(cards)
+    act(s, "p2", type="create_token", player="p2", token={"name": "Divine Presence", "type_line": "Token Enchantment — Test", "text": PRESENCE})
+    big, small = creature(s, "p1", "Big", "5/5"), creature(s, "p1", "Small", "2/2")
+    automate(s)
+    attack(s, (big, "p2"), (small, "p2"))
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert s.state.players["p2"].life == 35  # 614.1a: the 5 became 3 (a source dealing 4 or more); the 2 is untouched
+    roundtrip(s)
+
+
+KUJA = "If a Wizard you control would deal damage to a permanent or player, it deals double that damage instead."
+
+
+def test_a_wizard_you_control_deals_double_damage(cards):
+    from tests.test_rules_combat import attack, automate, table
+    from tests.test_rules_conditionals import until
+
+    s = table(cards)
+    act(s, "p1", type="create_token", player="p1", token={"name": "Wizard Bear", "type_line": "Token Creature — Wizard", "power": "2",
+                                                          "toughness": "2", "text": KUJA})
+    act(s, "p1", type="create_token", player="p1", token={"name": "Plain Bear", "type_line": "Token Creature — Bear", "power": "2",
+                                                          "toughness": "2"})
+    wizard, plain = (next(c for c in s.state.cards.values() if c.name == n) for n in ("Wizard Bear", "Plain Bear"))
+    automate(s)
+    attack(s, (wizard, "p2"), (plain, "p2"))
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert s.state.players["p2"].life == 34  # 614.1a: the Wizard's 2 doubled to 4; the other bear's 2 is not
+    roundtrip(s)
