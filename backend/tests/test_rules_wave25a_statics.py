@@ -34,6 +34,9 @@ EXTRA = [
     card('Novice Knight', set_code='tst', number='M07', mana_cost='{W}', cmc=1.0, type_line='Creature — Human Knight', oracle_text="Defender (This creature can't attack.)\nAs long as this creature is enchanted or equipped, it can attack as though it didn't have defender.", power='2', toughness='3', colors=['W'], color_identity=['W'], keywords=['Defender'], layout='normal'),  # noqa: E501
     card('Elite Vanguard', set_code='tst', number='M08', mana_cost='{W}', cmc=1.0, type_line='Creature — Human Soldier', power='2', toughness='1', colors=['W'], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
     card('Isamaru, Hound of Konda', set_code='tst', number='M09', mana_cost='{W}', cmc=1.0, type_line='Legendary Creature — Dog', power='2', toughness='2', colors=['W'], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
+    card('Yuffie, Materia Hunter', set_code='tst', number='M10', mana_cost='{2}{R}', cmc=3.0, type_line='Legendary Creature — Human Ninja', oracle_text='Ninjutsu {1}{R} ({1}{R}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhen Yuffie enters, gain control of target noncreature artifact for as long as you control Yuffie. Then you may attach an Equipment you control to Yuffie.', power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=['Ninjutsu'], layout='normal'),  # noqa: E501
+    card('Short Sword', set_code='tst', number='M11', mana_cost='{1}', cmc=1.0, type_line='Artifact — Equipment', oracle_text='Equipped creature gets +1/+1.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)', colors=[], color_identity=[], keywords=['Equip'], layout='normal'),  # noqa: E501
+    card('Nahiri, Heir of the Ancients', set_code='tst', number='M12', mana_cost='{2}{R}{W}', cmc=4.0, type_line='Legendary Planeswalker — Nahiri', oracle_text='+1: Create a 1/1 white Kor Warrior creature token. You may attach an Equipment you control to it.\n−2: Look at the top six cards of your library. You may reveal a Warrior or Equipment card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\n−3: Nahiri deals damage to target creature or planeswalker equal to twice the number of Equipment you control.', colors=['R', 'W'], color_identity=['R', 'W'], keywords=[], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='M99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
 ]
 
@@ -141,4 +144,28 @@ def test_a_bestowed_triton_wavebreaker_is_no_creature_so_it_has_no_prowess_but_g
     assert find(s, "Triton Wavebreaker").attached_to == bear.id
     assert not ch(s, find(s, "Triton Wavebreaker")).is_creature and "prowess" not in ch(s, find(s, "Triton Wavebreaker")).keywords
     assert "prowess" in ch(s, bear).keywords and ch(s, bear).pt == (3, 3)  # "Enchanted creature gets +1/+1 and has prowess"
+    roundtrip(s)
+
+
+def test_yuffie_takes_an_artifact_and_may_attach_an_equipment_to_herself(cards):
+    s = build(cards, p1=("Yuffie, Materia Hunter", "Short Sword"), p2=("Short Sword",))
+    mine = put(s, "Short Sword", "battlefield")
+    theirs = put(s, "Short Sword", "battlefield", pid="p2")
+    yuffie = put(s, "Yuffie, Materia Hunter", "hand")
+    mana(s, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=yuffie.id)
+    for _ in range(14):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        if d.kind == "choose_cards" and (d.resume or {}).get("step") == "attach_choose":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[mine.id])  # "attach an Equipment you control to Yuffie"
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.id in ("yes", theirs.id)][:1] or [d.options[0].id])
+    assert find(s, "Short Sword").controller == "p1"
+    assert s.state.cards[mine.id].attached_to == find(s, "Yuffie, Materia Hunter").id  # 701.3a
+    assert s.state.cards[theirs.id].controller == "p1" and s.state.cards[theirs.id].attached_to is None
     roundtrip(s)
