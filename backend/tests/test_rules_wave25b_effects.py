@@ -43,6 +43,12 @@ CARDS = [
     ("Presumed Dead", "{1}{B}", "Instant", None, None,
      "Until end of turn, target creature gets +2/+0 and gains \"When this creature dies, return it to the battlefield under its owner's control "
      "and suspect it.\" (A suspected creature has menace and can't block.)"),
+    ("Eternity Vessel", "{6}", "Artifact", None, None,
+     "This artifact enters with X charge counters on it, where X is your life total.\nLandfall — Whenever a land you control enters, you may "
+     "have your life total become the number of charge counters on this artifact."),
+    ("Loxodon Lifechanter", "{5}{W}", "Creature — Elephant Cleric", "4", "6",
+     "When this creature enters, you may have your life total become the total toughness of creatures you control.\n"
+     "{5}{W}: This creature gets +X/+X until end of turn, where X is your life total."),
     ("Probe Dummy", "{1}", "Creature — Bear", "1", "1", ""),
     ("Probe Tough", "{3}", "Creature — Wall", "0", "4", ""),
 ]
@@ -184,4 +190,33 @@ def test_gruff_triplets_dying_puts_counters_equal_to_its_power_on_each_creature_
     assert zone_of(s, "Gruff Triplets") == "p1:graveyard"
     assert sum(s.state.cards[twin.id].counters.values()) == 3  # (its power as it died: 3)
     assert sum(s.state.cards[dummy.id].counters.values()) == 0  # (only creatures named Gruff Triplets)
+    check(s)
+
+
+@pytest.mark.parametrize("answer_to_may,expected", [("yes", 40), ("no", 25)])
+def test_eternity_vessel_sets_the_life_total_to_its_charge_counters(cards, answer_to_may, expected):
+    """119.5: "your life total becomes N" - the player gains or loses the difference. It enters with 40 counters (life 40)."""
+    s = build(cards, ["Eternity Vessel"], forests=14)
+    to_hand(s, "Eternity Vessel")
+    mana(s, C=6)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Eternity Vessel").id)
+    answer(s)
+    assert s.state.cards[card_named(s, "Eternity Vessel").id].counters.get("charge") == 40
+    act(s, "p1", type="life", delta=-15)
+    forest = next(c for c in s.state.zones["p1:library"] if s.state.cards[c].name == "Forest")
+    act(s, "p1", type="move", card_ids=[forest], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="play_land", card_id=forest)
+    answer(s, answer_to_may)
+    assert life(s) == expected
+    check(s)
+
+
+def test_loxodon_lifechanter_sets_the_life_total_to_the_total_toughness(cards):
+    s = build(cards, ["Loxodon Lifechanter", "Probe Tough"])
+    put(s, "Probe Tough")  # toughness 4
+    to_hand(s, "Loxodon Lifechanter")
+    mana(s, W=6)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Loxodon Lifechanter").id)
+    answer(s, "yes")
+    assert life(s) == 10  # (4 + the Lifechanter's own 6)
     check(s)

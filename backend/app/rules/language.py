@@ -1354,6 +1354,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["s"] == "your":
             return [{"do": "set_life", "who": "you", "n": n}], None
         return [{"do": "set_life", "who": "target", "n": n}], _LEGACY_TARGETS["target player"]
+    # -- trigger other (wave 25B) -- 119.5: "Your life total becomes the number of creatures you control" (Touch of the Eternal), "… the number of
+    # charge counters on this artifact" (Eternity Vessel), "… the total toughness of creatures you control" (Loxodon Lifechanter): a counted amount
+    m = re.fullmatch(r"(?P<s>target player's|your) life total becomes (?:equal to )?(?P<v>the (?:number|total) .+)", text)
+    if m and rider is None and (v := values.parse_count(m["v"], it="it")) is not None and "'it'" not in str(v):
+        if m["s"] == "your":
+            return [{"do": "set_life", "who": "you", "n": v}], None
+        return [{"do": "set_life", "who": "target", "n": v}], _LEGACY_TARGETS["target player"]
     # -- attached events (wave 8D) -- "that player loses half their life, rounded up" (119.3; half of the life total as it is
     # when the instruction is carried out, 107.1a; effects.lose_life)
     m = re.fullmatch(_SUBJ + r"loses? (?P<f>half|a third of) (?:their|your) life, rounded (?P<r>up|down)", text)
