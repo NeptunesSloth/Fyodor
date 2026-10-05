@@ -19,7 +19,7 @@ from app.rules import scripts
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_effects import mana, pass_until_stack_empty, replay_matches
-from tests.test_rules_refused_look import choose, decision, find, put
+from tests.test_rules_refused_look import choose, decision, find, put, stack_library
 
 REAL = [
     card("Dire Fleet Daredevil", set_code="tst", number="C25-1", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Human Pirate",
@@ -115,6 +115,12 @@ REAL += [
 REAL += [  # (synthetic: chapters II and III of Showdown of the Skalds as a plain sorcery)
     card("Probe Watch", set_code="tst", number="C25-20", mana_cost="{R}", cmc=1.0, type_line="Sorcery", colors=["R"], color_identity=["R"],
          oracle_text="Whenever you cast a spell this turn, put a +1/+1 counter on target creature you control."),
+]
+REAL += [
+    card("Chandra, Torch of Defiance", set_code="tst", number="C25-21", mana_cost="{2}{R}{R}", cmc=4.0, type_line="Legendary Planeswalker — Chandra",
+         colors=["R"], color_identity=["R"], loyalty="4", oracle_text="+1: Exile the top card of your library. You may cast that card. If you "
+         "don't, Chandra deals 2 damage to each opponent.\n+1: Add {R}{R}.\n−3: Chandra deals 4 damage to target creature.\n−7: You get an "
+         "emblem with \"Whenever you cast a spell, this emblem deals 5 damage to any target.\""),
 ]
 OURS = [c["name"] for c in REAL]
 
@@ -559,3 +565,26 @@ def test_a_turn_watch_with_a_target_asks_for_it_every_time_it_triggers(cards):
     assert s.state.players["p2"].life == 34
     replay_matches(s)
     assert reload(s).state.model_dump(mode="json") == s.state.model_dump(mode="json")
+
+
+# -- 608.2g / 608.2c: "You may cast that card. If you don't, …" — cast as it resolves (mana cost paid), else the damage -----------
+@pytest.mark.parametrize("cast", [True, False])
+def test_chandra_torch_of_defiance_casts_the_exiled_card_or_deals_two_damage(cards, cast):
+    s = build(cards)
+    chandra = put(s, "Chandra, Torch of Defiance", "battlefield")
+    act(s, "p1", type="counter", card_ids=[chandra.id], kind="loyalty", delta=4)
+    top = stack_library(s, ["Lightning Bolt"])[0]
+    mana(s, R=1)
+    act(s, "p1", type="activate_ability", card_id=chandra.id, ability=0)
+    pass_until_stack_empty(s)
+    d = decision(s, "free_cast_pick")
+    assert [o.id for o in d.options] == [top]
+    if cast:
+        choose(s, [top])
+        choose(s, ["p2"], resolve=True)
+        assert s.state.players["p2"].life == 37 and s.state.players["p1"].mana == {}  # the Bolt, paid with its {R}
+    else:
+        choose(s, [], resolve=True)
+        assert s.state.players["p2"].life == 38  # "If you don't": Chandra's 2 damage
+        assert s.state.cards[top].zone == "p1:exile"
+    replay_matches(s)

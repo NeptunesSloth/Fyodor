@@ -731,8 +731,12 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             return None  # (several cards at once, or playing a land as this resolves: not modelled)
         return [{"do": "free_cast", "zone": "that", "who": "it:card", "filter": None, "mv": None, "optional": True}], None
     if m:
+        if not (m["until"] or m["this_turn"]) and m["verb"] == "cast" and m["what"] != "those cards" and not m["spend"]:
+            # -- if you do (wave 25C) -- a bare "You may cast that card." (Chandra, Torch of Defiance): cast as this resolves (608.2g), its mana cost
+            # paid — the paid free cast of the copy wording; "If you don't, …" after it reads whether a spell was cast
+            return [{"do": "free_cast", "zone": "that", "who": "it:card", "filter": None, "mv": None, "optional": True, "paid": True}], None
         if (m["until"] and m["this_turn"]) or not (m["until"] or m["this_turn"]):
-            return None  # (a bare "you may cast that card": cast it as this resolves, not modelled)
+            return None  # (a bare "you may play that card" / several cards: cast as this resolves, not modelled)
         free = bool(m["free"])  # (wave 3C) "... without paying its mana cost" (118.9)
         if m["spend"] and (free or m["verb"] != "cast" or (m["what"] == "those cards") != ("those spells" in m["spend"])):
             return None  # (-- if you do (wave 25C) -- 118.14: mana is spent only to cast, never for a free cast)
