@@ -479,18 +479,21 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
         elif comp.kind == C.DISCARD:
             if comp.random:  # (the choice is recorded as the move, so replays repeat it)
                 pool = [c for c in candidates(plan, comp, player, card)]
-                if len(pool) < comp.amount:
+                need = objects_needed(comp, record.x)  # (wave 25D: "discard X cards at random")
+                if len(pool) < need:
                     raise ActionError(f"You can't pay “{comp.text}”")
-                ids = secrets.SystemRandom().sample(pool, comp.amount)
+                ids = secrets.SystemRandom().sample(pool, need)
             if comp.selector is None:  # -- ability words (wave 4F) -- "Discard this card" (channel)
                 ids = [card.id]
-            plan.do({"type": "move", "card_ids": ids, "to": {"zone": "graveyard"}})  # 701.9a
+            if ids:  # (wave 25D: X may be 0, 107.3a: nothing to discard)
+                plan.do({"type": "move", "card_ids": ids, "to": {"zone": "graveyard"}})  # 701.9a
             record.discarded += ids
         elif comp.kind == C.EXILE_TO_GY:  # -- if you do (wave 15C) -- each to its owner's graveyard (400.3)
             plan.do({"type": "move", "card_ids": ids, "to": {"zone": "graveyard"}})
         elif comp.kind in (C.EXILE, C.EXILE_FROM_GRAVEYARD, "EXILE_FROM_HAND", C.CRAFT):  # (wave 4I: from the hand, public in exile, 406.3)
             ids = ids if comp.selector is not None or comp.kind == C.CRAFT else [card.id]
-            plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})
+            if ids:  # (wave 25D: "exile X cards from your graveyard" with X = 0)
+                plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})
             record.exiled += ids
         elif comp.kind == C.RETURN_PERMANENT:
             ids = ids if comp.selector is not None else [card.id]
@@ -498,7 +501,8 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
                 target = plan.state.cards[rid].attacking
                 if target is not None:
                     record.returned_attacking[rid] = target.id
-            plan.do({"type": "move", "card_ids": ids, "to": {"zone": "hand"}})
+            if ids:  # (wave 25D: "return X Swamps" with X = 0)
+                plan.do({"type": "move", "card_ids": ids, "to": {"zone": "hand"}})
             record.returned += ids
     if sacrifice:  # 701.21a: to their owners' graveyards, all at once
         from app.rules.triggers import sacrificing  # (the event "whenever you sacrifice …" triggers on)

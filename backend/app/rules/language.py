@@ -294,6 +294,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
     if m:
         plural = "what" not in m.groupdict() or m["what"].endswith("s")
         return ("them" if plural else "it"), m["verb"], None  # (resolved to that instruction's objects)
+    if re.fullmatch(r"(?:enchanted|equipped) creature and other creatures that share a creature type with it", p):  # -- attached events (wave 25D) --
+        return "host_kin", "", None  # the Crowns (effects._host_kin); a kind no other wording reads, so only the effects that name it use it
     if p in ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact"):
         return "host", "", None  # what the source Aura / Equipment is attached to
     if p in PLAYER_GROUPS:
@@ -327,7 +329,7 @@ def _untargeted_defending(sel: selectors.Selector) -> bool:
 def _who(kind: str, key: str) -> str:
     if kind in ("it", "them"):
         return f"{kind}:{key}" if key else kind  # "them:exiled": the objects the exile instruction moved
-    return {"target": "target", "self": "self", "host": "host", "players": key, "each": key}[kind]
+    return {"target": "target", "self": "self", "host": "host", "host_kin": "host:kin", "players": key, "each": key}[kind]
 
 
 # -- dynamic values (agent F) -------------------------------------------------------------------

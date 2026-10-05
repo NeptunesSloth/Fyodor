@@ -133,6 +133,42 @@ def cast(s, name, **mana):
     return c
 
 
+def make(s, pid, name, kind, pt="2/2"):
+    p, t = pt.split("/")
+    act(s, pid, type="create_token", player=pid, token={"name": name, "type_line": f"Token Creature — {kind}", "power": p, "toughness": t, "text": ""})
+    return next(c for c in s.state.cards.values() if c.name == name)
+
+
+def test_a_crown_affects_every_creature_that_shares_a_type_with_the_enchanted_one(cards):
+    s = build(cards, "Crown of Suspicion", "Probe Beast")
+    beast = on_battlefield(s, "Probe Beast")
+    cast_on(s, "Crown of Suspicion", beast, B=1, C=1)
+    crown = next(c for c in s.state.cards.values() if c.name == "Crown of Suspicion")
+    other_beast = make(s, "p2", "Their Beast", "Beast")  # any controller: "other creatures that share a creature type with it" (205.3m)
+    elf = make(s, "p1", "Elf", "Elf Warrior")
+    assert ch(s, beast).pt == (5, 2)
+    index = next(a.index for a in ch(s, crown).abilities if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=crown.id, ability=index)
+    settle(s)
+    assert ch(s, beast).pt == (5, 2) and ch(s, other_beast).pt == (4, 1) and ch(s, elf).pt == (2, 2)  # the Aura is gone: 3/3 +2/-1, a 2/2 +2/-1
+    roundtrip(s)
+
+
+def test_a_crown_grants_protection_until_end_of_turn(cards):
+    s = build(cards, "Crown of Awe", "Probe Beast")
+    beast = on_battlefield(s, "Probe Beast")
+    cast_on(s, "Crown of Awe", beast, W=1, C=1)
+    crown = next(c for c in s.state.cards.values() if c.name == "Crown of Awe")
+    other_beast = make(s, "p2", "Their Beast", "Beast")
+    index = next(a.index for a in ch(s, crown).abilities if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=crown.id, ability=index)
+    settle(s)
+    from app.rules import protection
+
+    assert protection.qualities(ch(s, other_beast)) and "protection" in ch(s, beast).keywords
+    roundtrip(s)
+
+
 def test_us_agent_attaches_the_equipment_token_it_made(cards):
     s = build(cards, "U.S.Agent, John Walker")
     agent = cast(s, "U.S.Agent, John Walker", W=1, C=3)
