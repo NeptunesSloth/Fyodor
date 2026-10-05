@@ -1,4 +1,4 @@
-"""Wave 25A: the Marvel keywords mayhem and web-slinging (CR 702.187, 702.188). Real Oracle text, replay and save/load for each.
+"""Wave 25A: the Marvel and Doctor Who keywords mayhem, web-slinging, airbend and time travel (CR 702.187, 702.188, 701.65, 701.56). Real Oracle text, replay and save/load for each.
 
 * 702.187b: "As long as you discarded this card this turn, you may cast it from your graveyard by paying [cost] rather than paying its
   mana cost" (an alternative cost; the card is that object only: 400.7); 702.187c: a bare "Mayhem" lets you play it from there.
@@ -31,6 +31,9 @@ EXTRA = [
     card('Peter Parker // Amazing Spider-Man', set_code='tst', number='M09', mana_cost='{1}{W} // {1}{G}{W}{U}', cmc=2.0, type_line='Legendary Creature — Human Scientist Hero // Legendary Creature — Spider Human Hero', oracle_text="When Peter Parker enters, create a 2/1 green Spider creature token with reach.\n{1}{G}{W}{U}: Transform Peter Parker. Activate only as a sorcery.\n//\nVigilance, reach\nEach legendary spell you cast that's one or more colors has web-slinging {G}{W}{U}. (You may cast a spell for its web-slinging cost if you also return a tapped creature you control to its owner's hand.)", power='0', toughness='1', colors=['G', 'U', 'W'], color_identity=['G', 'U', 'W'], keywords=['Reach', 'Vigilance', 'Transform'], layout='modal_dfc', card_faces=[{'name': 'Peter Parker', 'mana_cost': '{1}{W}', 'type_line': 'Legendary Creature — Human Scientist Hero', 'oracle_text': 'When Peter Parker enters, create a 2/1 green Spider creature token with reach.\n{1}{G}{W}{U}: Transform Peter Parker. Activate only as a sorcery.', 'power': '0', 'toughness': '1', 'colors': ['W']}, {'name': 'Amazing Spider-Man', 'mana_cost': '{1}{G}{W}{U}', 'type_line': 'Legendary Creature — Spider Human Hero', 'oracle_text': "Vigilance, reach\nEach legendary spell you cast that's one or more colors has web-slinging {G}{W}{U}. (You may cast a spell for its web-slinging cost if you also return a tapped creature you control to its owner's hand.)", 'power': '4', 'toughness': '4', 'colors': ['G', 'U', 'W']}], image_uris=None),  # noqa: E501
     card('Airbending Lesson', set_code='tst', number='M10', mana_cost='{2}{W}', cmc=3.0, type_line='Instant — Lesson', oracle_text="Airbend target nonland permanent. (Exile it. While it's exiled, its owner may cast it for {2} rather than its mana cost.)\nDraw a card.", colors=['W'], color_identity=['W'], keywords=['Airbend'], layout='normal'),  # noqa: E501
     card('Monk Gyatso', set_code='tst', number='M11', mana_cost='{3}{W}', cmc=4.0, type_line='Legendary Creature — Human Monk', oracle_text="Whenever another creature you control becomes the target of a spell or ability, you may airbend that creature. (Exile it. While it's exiled, its owner may cast it for {2} rather than its mana cost.)", power='3', toughness='3', colors=['W'], color_identity=['W'], keywords=['Airbend'], layout='normal'),  # noqa: E501
+    card('Rift Bolt', set_code='tst', number='M14', mana_cost='{2}{R}', cmc=3.0, type_line='Sorcery', oracle_text='Rift Bolt deals 3 damage to any target.\nSuspend 1—{R} (Rather than cast this card from your hand, you may pay {R} and exile it with a time counter on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)', colors=['R'], color_identity=['R'], keywords=['Suspend'], layout='normal'),  # noqa: E501
+    card('Wibbly-wobbly, Timey-wimey', set_code='tst', number='M15', mana_cost='{1}{U}', cmc=2.0, type_line='Sorcery', oracle_text='Time travel. (For each suspended card you own and each permanent you control with a time counter on it, you may add or remove a time counter.)\nDraw a card.', colors=['U'], color_identity=['U'], keywords=['Time Travel'], layout='normal'),  # noqa: E501
+    card('Aven Riftwatcher', set_code='tst', number='M16', mana_cost='{2}{W}', cmc=3.0, type_line='Creature — Bird Rebel Soldier', oracle_text='Flying\nVanishing 3 (This creature enters with three time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)\nWhen this creature enters or leaves the battlefield, you gain 2 life.', power='2', toughness='3', colors=['W'], color_identity=['W'], keywords=['Flying', 'Vanishing'], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='M20', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
 ]
 
@@ -44,7 +47,7 @@ def card_db(settings: Settings) -> Path:
 
 @pytest.mark.parametrize("name", ["Raging Goblinoids", "Oscorp Industries", "Sandman's Quicksand", "Prison Break", "Spiders-Man, Heroic Horde", "Spider-UK",
                                   "Norman Osborn // Green Goblin", "Peter Parker // Amazing Spider-Man",
-                                  "Airbending Lesson", "Monk Gyatso"])
+                                  "Airbending Lesson", "Monk Gyatso", "Wibbly-wobbly, Timey-wimey", "Aven Riftwatcher"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -236,4 +239,81 @@ def test_airbend_by_a_trigger_names_the_creature_that_became_the_target(cards):
     answer(s)
     assert find(s, "Test Bear").zone == "p1:exile"
     assert any(p.pay == "{2}" and p.card == bear.id for p in s.state.rules.permissions)
+    roundtrip(s)
+
+
+def travel(s, name, picks, how):
+    """Cast ``name`` (time travel), choose the objects ``picks`` and for each answer ``how`` ("add" / "remove")."""
+    s.state.players["p1"].mana = {}
+    mana(s, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=find(s, name).id)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None:
+            if s.state.zones.get("stack"):
+                act(s, s.state.rules.priority, type="pass_priority")
+                continue
+            break
+        if d.kind == "choose_cards":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.card_id in picks])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[how])
+        if (d.resume or {}).get("step") == "time_travel_each" and not d.resume["left"][1:]:
+            break
+
+
+def test_time_travel_adds_a_time_counter_to_a_suspended_card(cards):
+    s = build(cards, p1=("Rift Bolt", "Wibbly-wobbly, Timey-wimey"))
+    bolt = put(s, "Rift Bolt", "hand")
+    mana(s, R=1)
+    act(s, "p1", type="activate_ability", card_id=bolt.id, ability=1)  # Suspend 1—{R}
+    put(s, "Wibbly-wobbly, Timey-wimey", "hand")
+    s.state.players["p1"].mana = {}
+    travel(s, "Wibbly-wobbly, Timey-wimey", {bolt.id}, "add")
+    answer(s)
+    assert s.state.cards[bolt.id].counters == {"time": 2}  # 701.56a
+    assert find(s, "Wibbly-wobbly, Timey-wimey").zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_time_travel_removing_the_last_counter_lets_you_cast_the_suspended_card(cards):
+    s = build(cards, p1=("Rift Bolt", "Wibbly-wobbly, Timey-wimey"))
+    bolt = put(s, "Rift Bolt", "hand")
+    mana(s, R=1)
+    act(s, "p1", type="activate_ability", card_id=bolt.id, ability=1)
+    put(s, "Wibbly-wobbly, Timey-wimey", "hand")
+    travel(s, "Wibbly-wobbly, Timey-wimey", {bolt.id}, "remove")
+    for _ in range(12):  # the time travel resolves, then 702.62c's trigger: "you may cast it without paying its mana cost"
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "choose_one" and "yes" in [o.id for o in d.options]:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["p2"])
+    assert s.state.players["p2"].life == 37  # Rift Bolt, cast without paying {2}{R}
+    assert find(s, "Rift Bolt").zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_time_travel_with_nothing_to_choose_does_nothing(cards):
+    s = build(cards, p1=("Wibbly-wobbly, Timey-wimey",))
+    put(s, "Wibbly-wobbly, Timey-wimey", "hand")
+    mana(s, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=find(s, "Wibbly-wobbly, Timey-wimey").id)
+    answer(s)
+    assert find(s, "Wibbly-wobbly, Timey-wimey").zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_time_travel_on_a_permanent_removing_the_last_counter_triggers_vanishing(cards):
+    s = build(cards, p1=("Aven Riftwatcher", "Wibbly-wobbly, Timey-wimey"))
+    bird = put(s, "Aven Riftwatcher", "battlefield")
+    act(s, "p1", type="counter", card_ids=[bird.id], kind="time", delta=1)
+    put(s, "Wibbly-wobbly, Timey-wimey", "hand")
+    travel(s, "Wibbly-wobbly, Timey-wimey", {bird.id}, "remove")
+    answer(s)
+    assert find(s, "Aven Riftwatcher").zone == "p1:graveyard"  # 702.63a: sacrificed when the last time counter is removed
     roundtrip(s)

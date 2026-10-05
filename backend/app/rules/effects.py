@@ -1305,7 +1305,7 @@ def free_cast_offer(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if card is None or not card.zone.endswith(":exile"):
         return True
     plan.rules.free_casts.append(cid)
-    decide(plan, player=card.owner, kind="choose_one", prompt=f"Rebound: cast {card.name} without paying its mana cost?",
+    decide(plan, player=card.owner, kind="choose_one", prompt=f"Cast {card.name} without paying its mana cost?",
            options=[DecisionOption(id="yes", label="Cast it"), DecisionOption(id="no", label="Leave it exiled")],
            resume={"step": "suspend_cast", "ctx": ctx, "card": cid}, source=card)
     return False
@@ -3420,6 +3420,11 @@ from app.rules import drawn_toll as _drawn_toll  # noqa: E402, I001
 PRIMITIVES["drawn_toll"] = _drawn_toll.toll
 RESUME["drawn_toll"] = _drawn_toll.resume_pick
 RESUME["drawn_toll_each"] = _drawn_toll.resume_each
+# -- Doctor Who keywords (wave 25A) -- time travel (app/rules/time_travel.py)
+from app.rules import time_travel as _time_travel  # noqa: E402, I001
+
+PRIMITIVES.update(_time_travel.PRIMITIVES)
+RESUME.update(_time_travel.RESUME)
 # -- end if you do (wave 8C) --
 
 
