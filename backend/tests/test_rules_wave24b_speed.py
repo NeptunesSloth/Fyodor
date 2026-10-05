@@ -41,6 +41,8 @@ CARDS = [
     ("Momentum Breaker", "{1}{B}", "Enchantment", None, None,
      f"{ENGINES}\nWhen this enchantment enters, each opponent sacrifices a creature or Vehicle of their choice. Each opponent who can't "
      "discards a card.\n{2}, Sacrifice this enchantment: You gain life equal to your speed."),
+    ("Leonin Surveyor", "{1}{W}", "Creature — Cat Scout", "2", "2",
+     f"{ENGINES}\nDuring your turn, this creature has first strike.\nMax speed — {{3}}, Exile this card from your graveyard: Draw a card."),
     ("Probe Soldier", "{1}{W}", "Creature — Human Soldier", "1", "1", ""),
     ("Probe Relic", "{1}", "Artifact", None, None, "{T}: Add {C}."),
     ("Probe Spell", "{2}", "Sorcery", None, None, "Draw a card."),
@@ -64,7 +66,7 @@ def level(name):
     return coverage.of_card_data({**c, "faces": c.get("card_faces") or []}).level
 
 
-@pytest.mark.parametrize("name", [c[0] for c in CARDS[:9]])
+@pytest.mark.parametrize("name", [c[0] for c in CARDS[:9]] + ["Leonin Surveyor"])
 def test_the_speed_cards_are_full(name):
     assert level(name) == "FULL", name
 
@@ -213,4 +215,25 @@ def test_your_speed_as_a_value(cards):
     act(s, "p1", type="activate_ability", card_id=mb.id, ability=2)
     answer(s)
     assert life(s) == 43 and zone_of(s, "Momentum Breaker") == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize("n,works", [(3, False), (4, True)])
+def test_max_speed_ability_that_works_from_the_graveyard(cards, n, works):
+    """702.178b: the granted ability works from the zone it states: {3}, Exile this card from your graveyard: Draw a card, only at max speed."""
+    s = build(cards, ["Leonin Surveyor"], [])
+    c = card_named(s, "Leonin Surveyor")
+    act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    set_speed(s, n)
+    mana(s, G=3)
+    hand = len(s.state.zones["p1:hand"])
+    ab = next(a.index for a in __import__("app.rules.plan", fromlist=["Plan"]).Plan(s.state, "p1", s.cards, None).ch(
+        s.state.cards[c.id]).abilities if a.kind == "activated")
+    if works:
+        act(s, "p1", type="activate_ability", card_id=c.id, ability=ab)
+        answer(s)
+        assert len(s.state.zones["p1:hand"]) == hand + 1 and zone_of(s, "Leonin Surveyor") == "p1:exile"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=c.id, ability=ab)
     check(s)

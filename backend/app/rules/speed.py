@@ -88,9 +88,13 @@ _OTHER_ZONE = re.compile(r"\bfrom (?:your|a|their) (?:graveyard|hand|library|exi
 
 def rewrite(text: str) -> str:
     m = _WORD.match(text)
-    if m is None or _OTHER_ZONE.search(m["rest"]):
+    if m is None:
         return text
     rest = m["rest"].strip()
+    if _OTHER_ZONE.search(rest):
+        # 702.178b: the granted ability works from the zone it states: an activated ability of a card in a graveyard is "[cost]: [effect]. Activate only
+        # if you have max speed." (the ability exists exactly while the speed is 4: the same moments it can be activated)
+        return f"{rest} Activate only if you have max speed." if re.match(r"^[^.:\"]{1,80}: ", rest) and rest.endswith(".") and not rest.startswith(("When", "At ")) else text
     if _ABILITY.match(rest):
         return f'As long as you have max speed, ~ has "{rest}"'
     return f"As long as you have max speed, {rest[:1].lower()}{rest[1:]}"
