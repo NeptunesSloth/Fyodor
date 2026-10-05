@@ -74,6 +74,12 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
         return False  # (wave 11E: "~ is the chosen type in addition to its other types" needs that one choice)
 
     dumped = json.dumps(d)
+    if "Protection from the chosen color" in dumped:  # -- chosen type (wave 20E) -- only in the instructions after a "Choose a color." of this resolution
+        effects = d.get("effects") or []
+        picks = [i for i, e in enumerate(effects) if e.get("do") == "choose_value" and e.get("what") == "color" and not e.get("remember")]
+        if len(picks) != 1 or any("Protection from the chosen color" in json.dumps(e) for e in effects[: picks[0]]) \
+                or "Protection from the chosen color" in json.dumps({k: v for k, v in d.items() if k != "effects"}):
+            return False
     if ('"hand": "chosen"' in dumped or '\\"controller\\":\\"chosen\\"' in dumped or '\\"zone_owner\\":\\"chosen\\"' in dumped) \
             and not chooses_player(ch):
         return False  # (wave 16F: "the chosen player" needs the one "As ~ enters, choose an opponent / a player.")
@@ -115,6 +121,8 @@ def bind_effects(effects: list[dict[str, Any]], what: str, value: str) -> list[d
             sel = selectors.from_key(node)
             if selectors.chosen_what(sel) == what and (bound := selectors.bind_chosen(sel, value)) is not None:
                 return bound.key()
+        if node == "Protection from the chosen color" and what == "color":  # (wave 20E: protection_grants.CHOSEN_LINE)
+            return f"Protection from {value.lower()}"
         return node
 
     return [walk(e) for e in effects]

@@ -63,6 +63,10 @@ def sized_cost(phrase: str, its: str | None = None) -> dict[str, Any] | None:
     if m:
         n = {"x": 1} if m["v"] is None else _value(m["v"], its)
         return {"cost": "", "per": "{1}", "n": n} if n is not None else None
+    m = re.fullmatch(r"mana equal to (?P<v>.+)", phrase.strip())  # -- unless pays (wave 20E) -- "pays mana equal to the greatest power among creatures you control"
+    if m:
+        n = _value(m["v"], its)
+        return {"cost": "", "per": "{1}", "n": n} if n is not None else None
     m = _SIZED.match(phrase.strip())
     if m is None:
         return None

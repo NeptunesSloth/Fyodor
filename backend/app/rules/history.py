@@ -341,7 +341,7 @@ def note_selector_ok(sel: Any) -> bool:
     for f in fields(sel):
         if f.name not in _NOTE_FIELDS and getattr(sel, f.name) != getattr(blank, f.name):
             return False
-    return set(sel.extras) <= {"all_types"} and all(c[0] == "mv" for c in sel.compare)
+    return set(sel.extras) <= {"all_types"} and all(c[0] == "mv" and isinstance(c[2], int) for c in sel.compare)
 
 
 def note_matches(sel: Any, types: Any, subtypes: Any = (), supertypes: Any = (), colors: Any = (), mv: float = 0,

@@ -299,7 +299,9 @@ def spell_filter(phrase: str | None, tail: str | None = None) -> str | None:
     if sel is None or sel.player is not None or sel.zones != ("stack",):
         return None
     kinds = sum(bool(x) for x in (sel.types, sel.subtypes, sel.colors, sel.supertypes, sel.not_types, sel.colorless))
-    if re.search(r"\bor\b|,", text) and not sel.union and kinds > 1:
+    # (-- cost changers (wave 20E) -- "red or green creature": any of those colors, and the type: the colors are one list, 105.1)
+    colors_then_type = re.fullmatch(r"(?:white|blue|black|red|green)(?:(?: or|,) (?:white|blue|black|red|green))+ [a-z]+", text, re.I)
+    if re.search(r"\bor\b|,", text) and not sel.union and kinds > 1 and not (colors_then_type and len(sel.colors) > 1 and sel.types):
         return None  # "red or creature" can't be one selector: a list of one kind only
     return sel.key()
 
@@ -418,6 +420,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 "self": False, "free": True, "play": False, "cast": True, "filter": key, "effects": []}
     # -- end cast without paying (wave 3C) --
     t = re.sub(r"^(\w+) spells and (\w+) spells ", r"\1 or \2 spells ", t)  # "kithkin spells and soldier spells you cast"
+    # -- cost changers (wave 20E) -- "Red creature spells and green creature spells cost {1} more" is "red or green creature spells"; a
+    # leading "As long as ~ is tapped, creature spells you cast cost {2} less to cast" is the same sentence with its condition last
+    t = re.sub(r"^(\w+) (\w+) spells and (\w+) \2 spells ", r"\1 or \3 \2 spells ", t, flags=re.I)
+    t = re.sub(r"^as long as (?P<c>[^,]+), (?P<r>.+ costs? \{[^}]+\} (?:less|more) to cast)$", r"\g<r> as long as \g<c>", t, flags=re.I)
     if cost_changes.special(t):  # -- cost changers (wave 4I) -- a turn, the chosen type, a zone, "for each", X, colored
         return cost_changes.static_definition(t, lines)
     m = STATIC_COST.fullmatch(t)

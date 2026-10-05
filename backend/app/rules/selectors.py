@@ -535,15 +535,34 @@ def _without_counters(s: Selector, m: re.Match[str]) -> Selector:
 
 COUNTER_ANY = "*"
 SOURCE_COUNTERS = "counters:"  # a comparison with the number of a kind of counters on the source (as it last existed)
+# -- control change (wave 20E) -- "target creature with power less than or equal to the number of creatures you control" (Beguiler of
+# Wills), "… with mana value less than or equal to the number of Vampires you control" (Dominating Vampire): a comparison with the
+# number of permanents the ability's controller controls that fit a selector, counted when the target is chosen and again as it resolves
+COUNT_STAT = "cnt:"
+_COUNT_CMP = re.compile(r"(?:,)? with (?P<what>mana value|power|toughness) (?P<op>less than or equal to|less than) the number of "
+                        r"(?P<k>[A-Za-z' -]+? you control)$")
+
+
+def _compare_count(s: Selector, m: re.Match[str]) -> Selector:
+    counted = parse(m["k"])
+    if counted is None or counted.player is not None or counted.card or counted.zones != ("battlefield",) or counted.controller != "you" \
+            or counted.compare or counted.extras:
+        raise ValueError("a count this comparison doesn't read")
+    return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]],
+                                            "<=" if m["op"] == "less than or equal to" else "<", COUNT_STAT + counted.key())))
+
+
+_SUFFIXES.insert(0, (_COUNT_CMP, _compare_count))  # (first: "… you control" is also the controller suffix)
 
 
 # "each nonland permanent with mana value equal to the number of charge counters on ~" (Ratchet Bomb, Blast Zone),
 # "a spell with mana value equal to the number of charge counters on ~" (Chalice of the Void): the source's counters as
 # it is, or as it last existed on the battlefield (sacrificed as a cost: 608.2h, 122.2)
-@_suffix(r"with mana value (?P<op>equal to|less than or equal to) the number of (?P<k>\+1/\+1|[a-z]+) counters on "
+@_suffix(r"with (?P<what>mana value|power) (?P<op>equal to|less than or equal to) the number of (?P<k>\+1/\+1|[a-z]+) counters on "  # (wave 20E: power)
          r"(?:~|this (?:artifact|land|creature|enchantment|permanent))")
 def _mv_source_counters(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, compare=(*s.compare, ("mv", "==" if m["op"] == "equal to" else "<=", SOURCE_COUNTERS + m["k"])))
+    return replace(s, compare=(*s.compare, ("mv" if m["what"] == "mana value" else "power", "==" if m["op"] == "equal to" else "<=",
+                                            SOURCE_COUNTERS + m["k"])))
 
 
 def _source_counters(plan: Plan, source: str | None, kind: str) -> int | None:
@@ -1274,6 +1293,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if ref_value is None:
                 return False
             n = ref_value
+        elif isinstance(n, str) and n.startswith(COUNT_STAT):  # -- control change (wave 20E) --
+            n = len(candidates(plan, from_key(n[len(COUNT_STAT):]), you, source))
         elif isinstance(n, str) and n.startswith(SOURCE_COUNTERS):  # -- counters (wave 5H) --
             have = _source_counters(plan, source, n[len(SOURCE_COUNTERS):])
             if have is None:
