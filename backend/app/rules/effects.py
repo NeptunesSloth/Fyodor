@@ -1682,10 +1682,10 @@ def _search_matches(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, key: 
         name = (src.name if src is not None else "") if e["name"] == "~" else e["name"]
         matching = [c for c in matching if name and (plan.state.cards[c].name or "").lower() == name.lower()]
     if e.get("mv"):
-        op, value = e["mv"][0], e["mv"][1] if e["mv"][0] == "in" else _amount(plan, ctx, e["mv"][1])
+        op, value = e["mv"][0], (e["mv"][1] if e["mv"][0] == "in" else _amount(plan, ctx, e["mv"][1]))
         mvs = {c: chars.of(plan.state.cards[c], plan.info).mana_value for c in matching}
         matching = [c for c in matching if (mvs[c] <= value if op == "<=" else mvs[c] < value if op == "<"  # ("<": wave 4M)
-                                            else mvs[c] in value if op == "in" else mvs[c] == value)]  # ("in": wave 20D, "4 or 5")
+                                            else mvs[c] in e["mv"][1] if op == "in" else mvs[c] == value)]  # ("in": wave 20D, "4 or 5")
     return matching
 
 
