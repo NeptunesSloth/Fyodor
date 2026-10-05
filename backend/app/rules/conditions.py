@@ -127,6 +127,7 @@ _VERSUS = re.compile(r"an opponent (?:(?P<controls>controls)|has) more (?P<what>
 # "you control more creatures than an opponent" (the same quantity, read for each of them)
 _AS = {"that player": "event", "defending player": "defended", "a player": "any"}
 _VERSUS_WHO = re.compile(r"(?P<who>that player|defending player) (?:(?P<controls>controls)|has) more (?P<what>.+?) than you")
+_NO_MORE_LIFE = re.compile(r"no opponent has more life than (?P<who>that player|defending player)")
 _VERSUS_REV = re.compile(r"you (?:(?P<controls>control)|have) more (?P<what>.+?) than an opponent")
 _COMMANDER = re.compile(r"you control (?P<which>your commander|a commander)")
 # "it's a land card", "that creature is a Human", "~ is an enchantment", "it was a creature card"
@@ -355,6 +356,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         if n is None:
             return None
         return {"value": {"x": 1}, "op": "==" if not m["cmp"] else ("<=" if m["cmp"] in ("less", "fewer") else ">="), "n": n}
+    m = _NO_MORE_LIFE.fullmatch(t)  # -- if you do (wave 21C) -- "no opponent has more life than that player" (Alliance commanders)
+    if m:  # 603.4: every opponent of the controller has at most that player's life (that player may be one of them)
+        return {"versus": {"value": {"life": "you"}, "op": "<=", "every": True, "ref": _AS[m["who"]]}}
     m = _VERSUS.fullmatch(t)
     if m is None:  # -- intervening ifs (wave 11F) -- "that player controls more lands than you", "you have more life than an opponent"
         m = (_VERSUS_WHO.fullmatch(t) if objects else None) or _VERSUS_REV.fullmatch(t)
@@ -961,7 +965,8 @@ def needs_event(cond: Condition) -> bool:
     if "as" in cond:
         return cond["as"] != "any" or needs_event(cond["cond"])
     return any(needs_event(c) for k in ("all", "any") for c in cond.get(k, ())) or (
-        "not" in cond and needs_event(cond["not"])) or cond.get("versus", {}).get("who") in ("event", "defended")
+        "not" in cond and needs_event(cond["not"])) or (
+        cond.get("versus", {}).get("who") in ("event", "defended") or cond.get("versus", {}).get("ref") in ("event", "defended"))
 
 
 def objects_in(cond: Condition) -> list[str]:
@@ -1099,7 +1104,13 @@ def _status(plan: Plan, you: str, kind: str) -> bool:
 def _versus(plan: Plan, ctx: dict[str, Any], spec: dict[str, Any]) -> bool:
     """Some one opponent's quantity compared with yours ("an opponent controls more lands than you"):
     the same quantity read for each of them (as "you" of that quantity). ``who`` (wave 11F): that one player instead."""
-    mine = values.evaluate(plan, ctx, spec["value"])
+    if spec.get("ref"):  # -- if you do (wave 21C) -- the quantity of that one player (event / defending), not the controller's
+        ref = _as_players(plan, ctx, spec["ref"])
+        if len(ref) != 1:
+            return False
+        mine = values.evaluate(plan, {**ctx, "controller": ref[0]}, spec["value"])
+    else:
+        mine = values.evaluate(plan, ctx, spec["value"])
     each = any if not spec.get("every") else all  # (wave 7A: "fewer creatures than each opponent")
     others = _as_players(plan, ctx, spec["who"]) if spec.get("who") else [p for p in plan.live() if p != ctx["controller"]]
     if spec.get("who") and len(others) != 1:

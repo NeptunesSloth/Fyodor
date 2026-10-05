@@ -1292,6 +1292,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m and rider is None:
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": 0 if m["any"] else _amount(m["n"]), "upto": True}], target
+    # -- if you do (wave 21C) -- 701.9a: "discard a creature card" / "discard any number of creature cards": only cards of that kind
+    # may be chosen (and as many as can be, if fewer match)
+    m = re.fullmatch(_SUBJ + rf"discards? (?:(?P<one>an?)|up to (?P<up>{AMT})|(?P<any>any number of)|(?P<n>{AMT})) (?P<sel>[a-z -]+?) cards?", text)
+    if m and rider is None and m["sel"] != "random":
+        sel = selectors.parse(m["sel"] + " card")
+        if sel is not None and sel.card and not sel.zones and sel.player is None:
+            who, target = _subject(m)
+            n = 1 if m["one"] else 0 if m["any"] else _amount(m["up"] or m["n"])
+            return [{"do": "discard", "who": who, "n": n, "sel": sel.key(), **({"upto": True} if m["any"] or m["up"] else {})}], target
     # -- if you do (wave 15C) -- "target player mills half their library, rounded up" (107.1a: half of the cards in the
     # library as the instruction is carried out; 701.17a; effects.mill)
     m = re.fullmatch(_SUBJ + r"mills? half (?:(?P<your>your)|their) library, rounded (?P<r>up|down)", text)
@@ -2368,7 +2377,7 @@ def edict(m: re.Match[str]) -> tuple[Effects, Any]:
     key = _permanent_sel(m["sel"])
     n = _amount(m["n"])
     if m.groupdict().get("each"):  # -- counters sweep (wave 19D) -- "… of their choice for each soot counter on this artifact": a count read as it resolves
-        v = values.parse_count(m["each"], it="self")
+        v = this_way.parse(m["each"]) if m["each"].endswith(" this way") else values.parse_count(m["each"], it="self")  # (wave 21C: Malfegor)
         if v is None:
             raise _Fail
         n = v if n == 1 else {"times": [n, v]}

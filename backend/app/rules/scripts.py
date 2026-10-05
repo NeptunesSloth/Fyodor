@@ -1905,6 +1905,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     body = re.sub(rf"(?i)^(create [^.]+?) (at the beginning of (?:{_delayed.WHEN_RE}))(\.?)$", r"\2, \1\3", body)
     # -- trigger tail (wave 15B) -- "Discard any number of cards, then draw that many cards.": "that many" is the cards discarded
     # this way (701.9a), not a trigger event's amount; "plus one" would be a different (single) draw: not read
+    # -- if you do (wave 21C) -- "You may discard up to two cards. If you do, draw that many cards." (Fable of the Mirror-Breaker): "up to" /
+    # "any number" already let the player choose none, and none discarded draws none, so it reads as "discard …, then draw that many"
+    body = re.sub(r"(?i)\byou may (discard (?:up to \w+|any number of) cards?)\. If you do, draw that many cards\b(?! plus)",
+                  r"\1, then draw that many cards", body)
     body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus)",
                   r"\1, then draw a card for each card discarded this way", body)
     # 701.70a: "Recruit" means "Draw a card, then discard a card. If you discarded a nonland card this way, create a 1/1 white
@@ -2463,6 +2467,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             others = bool(groups) or any(x["do"] in _MOVERS for x in effects if x is not pay_e)
             rest_text = pay_objects.rewrite(rest_text, pay_e, "event" if others else it)  # -- if you do (wave 8C) -- "that creature's mana value"
             inner = _clause(rest_text) if not rest_text.startswith("you may ") else None
+            if inner is not None and pay_e.get("cost") == "Exile ~" and rest_text.startswith("return it to the battlefield"):
+                # -- if you do (wave 21C) -- "you may exile Hikari. If you do, return it …": "it" is the exiled source, never a cast spell
+                inner = ([{**x, "who": "self"} if x.get("who") == "it" else x for x in inner[0]], inner[1])
             if inner is not None:
                 inner = pay_objects.bind(inner, pay_e)  # -- if you do (wave 8C) -- the sacrificed / exiled object, from the payment
             if inner is None:
@@ -5146,7 +5153,7 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 # is still legal is acted on). An object named any other way ("exile it": the card may have left where it
 # was) might not be there: "If you do" would then be false, which this reading can't tell.
 _CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token"})
-_CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce", "gain_control"})  # (wave 19E: gain control of a chosen target: it changes hands or the ability fizzles)
+_CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce", "gain_control", "pump", "grant"})  # (wave 19E: gain control of a chosen target: it changes hands or the ability fizzles; wave 21C: "you may have target creature get +2/+0 and gain haste until end of turn. If you do, …")
 _PROBED = frozenset({"draw", "exile", "bounce", "add_counters"})  # (their "If you do" reads the result: effects._did)
 
 
@@ -5179,10 +5186,14 @@ def _if_you_do_after_may(if_do: re.Match[str], effects: list[dict[str, Any]], op
     (608.2b), A included — which is what the rules say for the printed ability too."""
     if not optional or index != 1 or sentences != 2 or if_do["neg"] or if_do["rest"].startswith("you may "):
         return None
-    if not effects or not all(_certain_when_chosen(e) or _probed_move(e) for e in effects):  # (wave 3R1: a probed move)
-        return None
     found = _clause(if_do["rest"])
     if found is None or not found[0]:
+        return None
+    # -- if you do (wave 21C) -- "you may have it get +4/+0 until end of turn. If you do, sacrifice it at the beginning of the next end
+    # step.": the pump of the source itself may have nothing to act on, but then the delayed sacrifice of that same object has none either
+    self_pump = (all(e["do"] in ("pump", "grant") and e.get("who") in ("self", "it") for e in effects) and len(found[0]) == 2
+                 and found[0][1] == {"do": "deferred:sacrifice", "who": "it"})
+    if not effects or not (self_pump or all(_certain_when_chosen(e) or _probed_move(e) for e in effects)):  # (wave 3R1: a probed move)
         return None
     return found[0], found[1]
 
