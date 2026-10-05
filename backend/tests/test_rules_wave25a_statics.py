@@ -43,6 +43,10 @@ EXTRA = [
     card('Vampire Interloper', set_code='tst', number='M16', mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Vampire Scout', oracle_text="Flying\nThis creature can't block.", power='2', toughness='1', colors=['B'], color_identity=['B'], keywords=['Flying'], layout='normal'),  # noqa: E501
     card('Keen-Eyed Curator', set_code='tst', number='M17', mana_cost='{G}{G}', cmc=2.0, type_line='Creature — Raccoon Scout', oracle_text='As long as there are four or more card types among cards exiled with this creature, it gets +4/+4 and has trample.\n{1}: Exile target card from a graveyard.', power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
     card('Lightning Bolt', set_code='tst', number='M18', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Lightning Bolt deals 3 damage to any target.', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
+    card('Hooded Horror', set_code='tst', number='M19', mana_cost='{4}{B}', cmc=5.0, type_line='Creature — Horror', oracle_text="This creature can't be blocked as long as defending player controls the most creatures or is tied for the most.", power='4', toughness='4', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Nightkin Ambusher', set_code='tst', number='M20', mana_cost='{2}{U}{B}', cmc=4.0, type_line='Creature — Mutant Warrior', oracle_text="Ward {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)\nWhen this creature enters, target player gets four rad counters.\nThis creature can't be blocked as long as defending player has a rad counter.", power='4', toughness='4', colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Ward'], layout='normal'),  # noqa: E501
+    card('Arctic Foxes', set_code='tst', number='M21', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Fox', oracle_text="This creature can't be blocked by creatures with power 2 or greater as long as defending player controls a snow land.", power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
+    card('Snow-Covered Island', set_code='tst', number='M22', cmc=0.0, type_line='Basic Snow Land — Island', oracle_text='({T}: Add {U}.)', colors=[], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='M99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),
 ]
 
@@ -223,4 +227,39 @@ def test_keen_eyed_curator_counts_the_card_types_among_the_cards_it_exiled(cards
         want = (3, 3) if i < 3 else (7, 7)  # 611.3a: "four or more card types among cards exiled with this creature": +4/+4 and trample
         assert ch(s, find(s, "Keen-Eyed Curator")).pt == want
     assert "trample" in ch(s, find(s, "Keen-Eyed Curator")).keywords
+    roundtrip(s)
+
+
+def block_problem_of(s, attacker_card, blocker_card):
+    from app.rules.combat import block_problem
+    from app.rules.plan import Plan
+
+    p = Plan(s.state, "p1", s.cards, None)
+    return block_problem(s.state, s.state.cards[blocker_card.id], p.ch(s.state.cards[blocker_card.id]), s.state.cards[attacker_card.id],
+                         p.ch(s.state.cards[attacker_card.id]), s.cards)
+
+
+def test_defender_counts_and_counters_decide_whether_a_creature_can_be_blocked(cards):
+    s = build(cards, p1=("Nightkin Ambusher", "Hooded Horror"))
+    ambusher = put(s, "Nightkin Ambusher", "battlefield")
+    horror = put(s, "Hooded Horror", "battlefield")
+    blocker = token(s, "p2", "Blocker", "2/2")
+    assert block_problem_of(s, ambusher, blocker) is None  # the defending player has no rad counter
+    act(s, "p1", type="resource", player="p2", key="rad", delta=4)  # (When it enters: target player gets four rad counters)
+    assert "can't be blocked" in block_problem_of(s, ambusher, blocker)
+    # Hooded Horror: Alice controls 2 creatures, Bob 1: he doesn't control the most, so it can be blocked; with 2 each (tied) it can't
+    assert block_problem_of(s, horror, blocker) is None
+    token(s, "p2", "Second", "1/1")
+    assert "can't be blocked" in block_problem_of(s, horror, blocker)
+    roundtrip(s)
+
+
+def test_a_snow_land_stops_creatures_with_power_two_or_more_from_blocking_arctic_foxes(cards):
+    s = build(cards, p1=("Arctic Foxes",), p2=("Snow-Covered Island",))
+    foxes = put(s, "Arctic Foxes", "battlefield")
+    big, small = token(s, "p2", "Big", "2/2"), token(s, "p2", "Small", "1/1")
+    assert block_problem_of(s, foxes, big) is None  # no snow land yet
+    put(s, "Snow-Covered Island", "battlefield", pid="p2")
+    assert "can't be blocked by" in block_problem_of(s, foxes, big)
+    assert block_problem_of(s, foxes, small) is None  # power 1: it still can block
     roundtrip(s)

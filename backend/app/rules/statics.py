@@ -230,9 +230,9 @@ def parse(text: str) -> Definition | None:
             body = m["rest"]
             names_source = _names_source(m["cond"])
         else:
-            m = re.match(r"^(?P<rest>.+?) as long as defending player controls an? (?P<sel>.+)$", body)
+            m = re.match(r"^(?P<rest>.+?) as long as defending player (?P<cond>(?:controls|has) .+)$", body)
             if m:
-                defender_sel = _sel_key(m["sel"], plural=False)
+                defender_sel = _defender_fact(m["cond"])  # (wave 25A: "controls three or more artifacts", "has a rad counter", "the most creatures")
                 if defender_sel is None:
                     return None
                 body = m["rest"]
@@ -349,10 +349,16 @@ def parse(text: str) -> Definition | None:
     if who != "self" and any(_relative(sel) for r in parts["rules"] for sel in rule_selectors(rule_arg(r)[1])):
         return None  # "Blue creatures can't block creatures you control": the rule, once on a blue creature, has lost "you"
     if defender_sel is not None:
-        if parts["rules"] != ["cant_be_blocked"] or parts["p"] or parts["t"] or parts["keywords"] or parts["grants"] \
-                or parts["each"]:
+        only_rule = len(parts["rules"]) == 1 and rule_arg(parts["rules"][0])[0] in ("cant_be_blocked", "cant_be_blocked_by")
+        if not only_rule or parts["p"] or parts["t"] or parts["keywords"] or parts["grants"] or parts["each"]:
             return None
-        parts["rules"] = [f"cant_be_blocked_if_defender_controls:{defender_sel}"]
+        name, arg = rule_arg(parts["rules"][0])
+        if name == "cant_be_blocked_by":  # -- as long as (wave 25A) -- "can't be blocked by creatures with power 2 or greater as long as defending player …" (Arctic Foxes)
+            parts["rules"] = [f"cant_be_blocked_by_if_defender:{defender_sel}@@{arg}"]
+        elif defender_sel.startswith("controls:"):
+            parts["rules"] = [f"cant_be_blocked_if_defender_controls:{defender_sel[len('controls:'):]}"]
+        else:
+            parts["rules"] = [f"cant_be_blocked_if_defender:{defender_sel}"]
     if who in ("self", "attached") and any(_zone_of(c) for c in conds):
         return None  # -- conditional statics (wave 4B) -- a card in a graveyard is no permanent to grant to
     if layer4 is not None:
@@ -710,6 +716,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
     predicate = attached_types.protect(predicate)
     predicate = predicate.replace("instant and sorcery card", "instant or sorcery card")  # -- attached events (wave 20A) -- one noun phrase, not two pieces
     for piece in _pieces(predicate):
+        piece = piece[3:] if piece.startswith("it can") and verb is None and rules else piece  # (wave 25A: "… as though it didn't have defender and it can't be blocked")
         rule = _rule(piece)
         if rule is not None:
             rules.extend(r for r in rule if r not in rules)
@@ -916,6 +923,22 @@ def _rule(piece: str) -> list[str] | None:
         sels = _sels(m["sel"])
         return [f"cant_block_sel:{sels}"] if sels else None
     return None
+
+
+def _defender_fact(cond: str) -> str | None:
+    """-- as long as (wave 25A) -- a fact about the defending player in a combat rule: "controls:<selector>" (a permanent of a kind), "count:<n>:<selector>"
+    (n or more), "counters:<kind>" (a player counter) or "most:creatures" (no other player controls more creatures)."""
+    m = re.fullmatch(r"controls an? (?P<sel>.+)", cond)
+    if m:
+        key = _sel_key(m["sel"], plural=False)
+        return f"controls:{key}" if key else None
+    m = re.fullmatch(r"controls (?P<n>\w+) or more (?P<sel>.+)", cond)
+    if m and (n := _num(m["n"])) and (key := _sel_key(m["sel"])):
+        return f"count:{n}:{key}"
+    m = re.fullmatch(r"has an? (?P<k>[a-z]+) counter", cond)
+    if m and m["k"] in ("rad", "poison", "energy", "experience"):
+        return f"counters:{m['k']}"
+    return "most:creatures" if cond == "controls the most creatures or is tied for the most" else None
 
 
 def _sels(phrase: str) -> str | None:
