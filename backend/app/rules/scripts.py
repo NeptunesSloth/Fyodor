@@ -280,6 +280,11 @@ def self_text(text: str, name: str) -> str:
     out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
     out = re.sub(r"(\bto the battlefield) and (attach this (?:Equipment|Aura) to it\b)", lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", out)  # (wave 19C: Nim Deathmantle: two instructions in order)
     out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
+    # -- damage sized by a count (wave 20A) -- "Choose any target. Scry 3, then reveal the top card of your library. ~ deals damage equal to
+    # that card's mana value to that permanent or player." (Riddle of Lightning): the target is declared as the spell is cast (115.1, 601.2c)
+    # whatever the order of the text, so the damage sentence names "any target" itself
+    if out.startswith("Choose any target. ") and out.count("that permanent or player") == 1 and out.count("\n") == 0:
+        out = out[len("Choose any target. "):].replace("that permanent or player", "any target")
     return _counter_threshold(out)
 
 
@@ -502,6 +507,8 @@ class _Introducer:
         if self.do in _CHOSEN:  # ("sacrifice a creature", "create two … tokens"): as many as it says
             n = e.get(_CHOSEN[self.do], 1)
             self.number = 1 if n == 1 else (2 if isinstance(n, int) else None)
+            if self.do == "look_top" and e.get("until"):
+                self.number = 1  # -- damage sized by a count (wave 20A) -- "until you reveal a nonland card. … that card's mana value": the one found
         if self.do == "destroy_all":
             self.number = 2
         if self.do == "edict" and g is None and who != "you":  # (wave 4A: one each, from several players)

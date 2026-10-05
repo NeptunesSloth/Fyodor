@@ -786,11 +786,14 @@ _PICK = re.compile(
     rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |(?P<exile>(?:you may )?exile) |put )"
     rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among (?:them|the cards milled this way|the milled cards|those cards)|revealed this way|milled this way))"
     r"|(?= (?:into|on|onto) )| them(?= (?:into|on|onto) ))"
-    r"|(?P<that>that card|it|the revealed card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
+    r"|(?P<that>that card|it|the revealed card|the nonland card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
     r"(?: and put (?:it|them|the revealed cards|that card|those cards))?"
     rf"(?:(?P<fd> face down)| (?P<to>{_PICK_TO}))?"
     rf"(?:,? (?:and |then )?(?:put )?{_REST})?")
-_REST_ALONE = re.compile(rf"(?:put {_REST}|exile (?P<exile>the rest|all other cards revealed this way))")
+# (-- damage sized by a count (wave 20A) -- "Put the revealed cards on the bottom of your library in a random order." after a reveal-until:
+# all of them, the card found too, which hasn't moved)
+_REST_ALONE = re.compile(rf"(?:put {_REST}|put the revealed cards (?P<rest2>on the bottom of {_LIBREF} in (?:a random|any) order)|"
+                         r"exile (?P<exile>the rest|all other cards revealed this way))")
 # -- refused look/cast-free (wave 3R5) -- "That player exiles cards from the top of their library until they exile an
 # instant or sorcery card" (the subject's own library), and "Then that player puts the exiled cards that weren't
 # cast this way on the bottom of their library in a random order" (random: who puts them doesn't matter)
@@ -1048,7 +1051,7 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         return [_rest(m["rest"])], None
     m = _REST_ALONE.fullmatch(text)
     if m:
-        return [{"do": "rest_looked", "to": "exile"} if m["exile"] else _rest(m["rest"])], None
+        return [{"do": "rest_looked", "to": "exile"} if m["exile"] else _rest(m["rest"] or m["rest2"])], None
     m = _SHUFFLE.fullmatch(text)
     if m:
         who, group = ("you", None)
