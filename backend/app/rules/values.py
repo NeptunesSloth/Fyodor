@@ -198,7 +198,7 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if what.lower() == "x":
         return {"x": 1}
     if (ahead := re.fullmatch(r"(?:the )?(?:number of )?(?:players?|opponents?) who (?P<verb>controls?|has|have) (?:at least (?P<k>two|three|four) )?(?P<cmp>more|fewer|less) "
-                              r"(?P<w>lands|creatures|artifacts|enchantments|life|cards in hand|cards in their hand) than you", p)) is not None \
+                              r"(?P<w>lands|creatures|artifacts|enchantments) than you", p)) is not None \
             and ((ahead["w"] in ("life", "cards in hand", "cards in their hand")) == (ahead["verb"] in ("has", "have"))):
         # -- tutor (wave 20D) -- Oreskos Explorer, Surveyor's Scope (a count of players, 107.1); -- value grammar (wave 23C) -- "opponent who has less
         # life than you" / "who controls fewer creatures than you": each other player's own value against yours
