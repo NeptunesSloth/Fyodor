@@ -65,9 +65,12 @@ def maximum(plan: Plan, player: str) -> int | None:
     from app.rules.layers import timestamp
     from app.rules.replace import conditional_lines
 
+    if player in plan.rules.no_max_hand:  # (wave 20C)
+        return None
     size = MAX_HAND_SIZE
     for c in sorted(plan.state.cards.values(), key=lambda c: timestamp(plan.state, c.id)):  # (613.7: oldest first, the latest set wins)
-        if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
+        emblem = c.zone.endswith(":command") and c.token is not None and c.token.type_line == "Emblem"  # (wave 20C: 114.4)
+        if not (c.zone.endswith(":battlefield") or emblem) or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         ch = plan.ch(c)
         skip = conditional_lines(ch)  # (a leveler's / Class's level lines: the level isn't tracked)
@@ -84,3 +87,21 @@ def maximum(plan: Plan, player: str) -> int | None:
 def no_maximum(plan: Plan, player: str) -> bool:
     """Whether a permanent gives ``player`` no maximum hand size (402.2)."""
     return maximum(plan, player) is None
+
+
+# -- ability words (wave 20C) -- "You have no maximum hand size for the rest of the game." (Praetor's Counsel, Ancient Silver Dragon):
+# 611.2a: a continuous effect from a resolving ability that changes the rules lasts "for the rest of the game"; it doesn't depend on
+# the object (610.3) and works for the player who got it, whatever leaves (``RulesState.no_max_hand``, read by ``maximum``).
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
+    (re.compile(r"^you have no maximum hand size for the rest of the game$"), lambda m: ([{"do": "no_max_hand"}], None))]
+
+
+def no_max_hand(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    who = str(ctx["controller"])
+    if who not in plan.rules.no_max_hand:
+        plan.rules.no_max_hand.append(who)
+    plan.note(f"{plan.name(who)} has no maximum hand size for the rest of the game", actor=who)
+    return True
+
+
+PRIMITIVES = {"no_max_hand": no_max_hand}

@@ -31,7 +31,15 @@ EXTRA = [
          oracle_text='Flying, vigilance\nEerie — Whenever an enchantment you control enters and whenever you fully unlock a Room, this creature gets +1/+1 until end of turn.',
          power='1', toughness='3', colors=['U'], color_identity=['U'], keywords=['Flying', 'Vigilance']),
 ]
-FULL = ['Gremlin Tamer', 'Balemurk Leech', 'Erratic Apparition']
+EXTRA += [
+    card('Omnath, Locus of Creation', set_code='tst', number='Y3', mana_cost='{R}{G}{W}{U}', cmc=4.0, type_line='Legendary Creature — Elemental',
+         oracle_text="When Omnath enters, draw a card.\nLandfall — Whenever a land you control enters, you gain 4 life if this is the first time this ability has resolved this turn. If it's the second time, add {R}{G}{W}{U}. If it's the third time, Omnath deals 4 damage to each opponent and each planeswalker you don't control.",
+         power='4', toughness='4', colors=['G', 'R', 'U', 'W'], color_identity=['G', 'R', 'U', 'W'], keywords=['Landfall']),
+]
+EXTRA.append(card('Azusa, Lost but Seeking', set_code='tst', number='Y4', mana_cost='{2}{G}', cmc=3.0, type_line='Legendary Creature — Human Monk',
+                  oracle_text='You may play two additional lands on each of your turns.', power='1', toughness='2', colors=['G'],
+                  color_identity=['G'], keywords=[]))
+FULL = ['Gremlin Tamer', 'Balemurk Leech', 'Erratic Apparition', 'Omnath, Locus of Creation', 'Azusa, Lost but Seeking']
 
 
 @pytest.fixture()
@@ -66,6 +74,31 @@ def test_eerie_triggers_when_the_room_enters_and_again_when_it_is_fully_unlocked
     act(s, "p1", type="unlock_door", card_id=room.id, door=2)
     settle(s)
     assert len(gremlins(s)) == 2  # 709.5i: the second designation fully unlocks it
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_omnath_reads_which_time_the_landfall_ability_resolves(cards):
+    """"If it's the second time, …": the second resolution this turn, the third the next (history: resolution n)."""
+    s = build(cards, "Omnath, Locus of Creation", "Azusa, Lost but Seeking")
+    on_field(s, "Omnath, Locus of Creation")
+    on_field(s, "Azusa, Lost but Seeking")
+    settle(s)  # (Omnath's own enter trigger draws a card)
+    lands = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library"][:3]
+    for land in lands:
+        act(s, "p1", type="move", card_ids=[land.id], to={"player": "p1", "zone": "hand"})
+    life = s.state.players["p1"].life
+    opp = s.state.players["p2"].life
+    act(s, "p1", type="play_land", card_id=lands[0].id)
+    settle(s)
+    assert s.state.players["p1"].life == life + 4 and s.state.players["p2"].life == opp  # the first time: gain 4 life
+    act(s, "p1", type="play_land", card_id=lands[1].id)
+    settle(s)
+    assert s.state.players["p1"].life == life + 4  # the second time: the mana, no life
+    assert {k: v for k, v in s.state.players["p1"].mana.items() if v} == {"R": 1, "G": 1, "W": 1, "U": 1}
+    act(s, "p1", type="play_land", card_id=lands[2].id)
+    settle(s)
+    assert s.state.players["p2"].life == opp - 4 and s.state.players["p1"].life == life + 4  # the third time: 4 damage
     replay_matches(s)
     replay_matches(reloaded(s))
 

@@ -896,6 +896,8 @@ class RulesState(BaseModel):
     # … and "can't gain life this turn / for the rest of the game" (614.17; app/rules/cant_gain.py):
     # {"id", "player", "controller", "turn" (None: the rest of the game), "label"}
     cant_gain: list[dict[str, Any]] = Field(default_factory=list)
+    # -- ability words (wave 20C) -- "You have no maximum hand size for the rest of the game." (app/rules/hand_size.py): the players
+    no_max_hand: list[str] = Field(default_factory=list)
     # -- cast limits (wave 5E) -- "… can't cast spells this turn / until your next turn" (601.3, 602.5;
     # app/rules/cast_limits.py): {"id", "player", "controller", "until": "turn"|"next_turn", "turn", "filter", "from",
     # "act", "label"}

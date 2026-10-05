@@ -3292,7 +3292,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                         names = [h[0] for h in halves if h]
                         generic = [h[1] for h in halves if h and h[1] is not None]
                         if names == ["event", "event"] and generic[0]["event"] != generic[1]["event"] and not re.search(
-                                r"\b(?:it|its|it's|that|those|them|they)\b", m["body"]) and not any(
+                                r"\b(?:it|its|it's|that|those|them|they)\b", re.sub(r"\bit's the \w+ time\b", "", m["body"])) and not any(
                                 g.get("aggregate") or g["event"] in ("either", "multi") for g in generic):
                             # -- ability words (wave 20C) -- "Whenever an enchantment you control enters and whenever you fully unlock a
                             # Room" (eerie): two whole conditions, each its own event (603.2c) — the "or" form's either condition
@@ -5750,6 +5750,9 @@ from app.rules import source_shields as _source_shields  # noqa: E402
 # (and 614.10 skips: app/rules/skips.py; 614.17 "can't gain life": app/rules/cant_gain.py; flashback and "you may play
 # this card" granted to graveyard cards: app/rules/graveyard_grants.py)
 EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLATES, *_graveyard_grants.TEMPLATES]
+from app.rules import hand_size as _hand_size  # noqa: E402  -- ability words (wave 20C) --
+
+EFFECTS[:0] = _hand_size.TEMPLATES  # "You have no maximum hand size for the rest of the game."
 # -- next untap step (wave 6A) -- "… doesn't untap during its controller's next untap step" (app/rules/next_untap.py)
 from app.rules import next_untap as _next_untap  # noqa: E402
 

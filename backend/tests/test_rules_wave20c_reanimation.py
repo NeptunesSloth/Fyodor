@@ -43,12 +43,18 @@ EXTRA = [
     card("Skrelv's Hive", set_code='tst', number='X5', mana_cost='{1}{W}', cmc=2.0, type_line='Enchantment',
          oracle_text='At the beginning of your upkeep, you lose 1 life and create a 1/1 colorless Phyrexian Mite artifact creature token with toxic 1 and "This token can\'t block."\nCorrupted — As long as an opponent has three or more poison counters, creatures you control with toxic have lifelink.',
          power=None, toughness=None, colors=['W'], color_identity=['W'], keywords=[]),
+    card("Praetor's Counsel", set_code='tst', number='X7', mana_cost='{5}{G}{G}{G}', cmc=8.0, type_line='Sorcery',
+         oracle_text="Return all cards from your graveyard to your hand. Exile Praetor's Counsel. You have no maximum hand size for the rest of the game.",
+         power=None, toughness=None, colors=['G'], color_identity=['G'], keywords=[]),
+    card('Wrenn and Seven', set_code='tst', number='X8', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Legendary Planeswalker — Wrenn',
+         oracle_text='+1: Reveal the top four cards of your library. Put all land cards revealed this way into your hand and the rest into your graveyard.\n0: Put any number of land cards from your hand onto the battlefield tapped.\n−3: Create a green Treefolk creature token with reach and "This token\'s power and toughness are each equal to the number of lands you control."\n−8: Return all permanent cards from your graveyard to your hand. You get an emblem with "You have no maximum hand size."',
+         power=None, toughness=None, loyalty='5', colors=['G'], color_identity=['G'], keywords=[]),
     card('Cycler Test Elf', set_code='tst', number='X6', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Elf',
          oracle_text='Forestcycling {1} ({1}, Discard this card: Search your library for a Forest card, reveal it, put it into your hand, then shuffle.)',
          power='1', toughness='1', colors=['G'], color_identity=['G'], keywords=['Forestcycling', 'Landcycling', 'Typecycling', 'Cycling']),
 ]
 FULL = ['Sword of Light and Shadow', 'Undead Butler', 'Sandbender Scavengers', 'Sacred Excavation', 'Tuktuk the Explorer', "Skrelv's Hive",
-        'Cycler Test Elf']
+        'Cycler Test Elf', "Praetor's Counsel", 'Wrenn and Seven']
 
 
 @pytest.fixture()
@@ -184,6 +190,47 @@ def test_tuktuk_the_explorer_leaves_tuktuk_the_returned(cards):
     back = named(s, "Tuktuk the Returned")
     assert back.zone == "p1:battlefield" and back.is_token and (back.token.power, back.token.toughness) == ("5", "5")
     assert "Legendary" in back.token.type_line and "Golem" in back.token.type_line
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_praetors_counsel_returns_the_graveyard_exiles_itself_and_ends_the_hand_limit_for_good(cards):
+    """"You have no maximum hand size for the rest of the game.": the player has it (RulesState.no_max_hand) after the spell is gone."""
+    from app.rules import hand_size
+    from app.rules.plan import Plan
+    from tests.test_rules_conditionals import settle
+
+    s = build(cards, "Praetor's Counsel", "Llanowar Elves", "Lightning Bolt")
+    elves, bolt = to_gy(s, "Llanowar Elves"), to_gy(s, "Lightning Bolt")
+    spell = to_hand(s, "Praetor's Counsel")
+    p = Plan(s.state, "p1", s.cards, None)
+    assert hand_size.maximum(p, "p1") == 7 and hand_size.maximum(p, "p2") == 7
+    mana(s, "p1", G=3, C=5)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    settle(s)
+    assert s.state.cards[elves.id].zone == "p1:hand" and s.state.cards[bolt.id].zone == "p1:hand"
+    assert s.state.cards[spell.id].zone == "p1:exile"
+    p = Plan(s.state, "p1", s.cards, None)
+    assert hand_size.maximum(p, "p1") is None and hand_size.maximum(p, "p2") == 7
+    replay_matches(s)
+    replay_matches(reloaded(s))
+    assert reloaded(s).state.rules.no_max_hand == ["p1"]  # (a save keeps it)
+
+
+def test_wrenn_and_seven_ultimate_returns_permanents_and_the_emblem_removes_the_hand_limit(cards):
+    from app.rules import hand_size
+    from app.rules.plan import Plan
+    from tests.test_rules_conditionals import settle
+
+    s = build(cards, "Wrenn and Seven", "Llanowar Elves", "Lightning Bolt")
+    elves, bolt = to_gy(s, "Llanowar Elves"), to_gy(s, "Lightning Bolt")
+    wrenn = put(s, "Wrenn and Seven")
+    act(s, "p1", type="counter", card_ids=[wrenn.id], kind="loyalty", delta=8)
+    act(s, "p1", type="activate_ability", card_id=wrenn.id, ability=3)  # −8
+    settle(s)
+    assert s.state.cards[elves.id].zone == "p1:hand" and s.state.cards[bolt.id].zone == "p1:graveyard"  # (permanent cards only)
+    assert hand_size.maximum(Plan(s.state, "p1", s.cards, None), "p1") is None
+    assert hand_size.maximum(Plan(s.state, "p1", s.cards, None), "p2") == 7
     replay_matches(s)
     replay_matches(reloaded(s))
 

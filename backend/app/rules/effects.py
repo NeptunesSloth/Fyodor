@@ -3775,6 +3775,9 @@ PRIMITIVES["exchange_life"] = exchange_life
 PRIMITIVES["exchange_life_stat"] = exchange_life_stat
 PRIMITIVES["set_life"] = set_life  # (wave 16C)  # -- activated wordings (wave 15D) --
 PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
+from app.rules import hand_size as _hand_size  # noqa: E402  -- ability words (wave 20C) --
+
+PRIMITIVES.update(_hand_size.PRIMITIVES)  # "You have no maximum hand size for the rest of the game." (app/rules/hand_size.py)
 PRIMITIVES.update(graveyard_grants.PRIMITIVES)  # "gains flashback until end of turn" (app/rules/graveyard_grants.py)
 RESUME.update(graveyard_grants.RESUME)  # ("Choose one of them.")
 RESUME.update(source_shields.RESUME)
