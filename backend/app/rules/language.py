@@ -831,6 +831,9 @@ _OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that pe
 # opponent controls shuffles it into their library." (Cathartic Parting)
 _OWNER_SECOND = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it into their library second from the top or on the bottom")
 _OWNER_SHUFFLES_TARGET = re.compile(r"the owner of (?P<o>target .+?) shuffles it into their library")
+# -- ability words (wave 20C) -- "Put target card from a graveyard on your choice of the top or bottom of its owner's library." (Not
+# Forgotten): the same two places, chosen by the player the instruction is given to (you), not the owner
+_YOUR_CHOICE = re.compile(r"put (?P<o>.+?) on your choice of the top or bottom of (?:its|their) owner's library")
 _OWNER_CHOICE = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it on their choice of the top or bottom of their library")
 # (-- static_other sweep (wave 16B) -- "the cards from your hand": the hand alone, for a count of what was shuffled in)
 _SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)?|shuffle (?:your|the cards from your) (?P<z>graveyard|hand and graveyard|hand) into your library"
@@ -1115,6 +1118,12 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         if kind not in ("target", "self", "it"):
             raise _Fail
         return [{"do": "to_library", "who": _who(kind, key), "place": "choice"}], _one(group)
+    m = _YOUR_CHOICE.fullmatch(text)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind not in ("target", "self", "it"):
+            raise _Fail
+        return [{"do": "to_library", "who": _who(kind, key), "place": "choice_you"}], _one(group)
     m = _OWNER_SECOND.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"] or m["o2"])

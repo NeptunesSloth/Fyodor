@@ -240,6 +240,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             return [("unlock_door", card, plan.ch(card), card.controller, {"oid": e.object_id, "door": e.amount})]
         return []
+    if e.counter == "fully_unlocked" and e.player:  # -- ability words (wave 20C) -- 709.5i: the player who got the Room's second designation
+        return [("fully_unlock", None, None, e.player, {})]
     if e.counter == "counters_spell" and e.player:  # -- counter events (wave 19C) -- the controller of the spell or ability that countered it
         return [("counters_spell", None, None, e.player, {})]
     if e.counter == "proliferate" and e.player:  # -- trigger tail (wave 15B) -- 701.34a
@@ -940,6 +942,8 @@ def emblem_text_ok(text: str) -> bool:
         return False
     for d in scripts.definitions(ch).values():
         if d.get("kind") == "static":
+            if d.get("static") == "no_max_hand":  # -- ability words (wave 20C) -- "You have no maximum hand size." (hand_size.maximum reads emblems)
+                continue
             if d.get("static") != "grant" or zone_static(d) or d.get("also"):
                 return False
         elif d.get("kind") != "triggered" or not (d.get("trigger") in _EMBLEM_TRIGGERS or str(d.get("trigger")).startswith("step:")):

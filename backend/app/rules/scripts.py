@@ -265,7 +265,8 @@ def self_text(text: str, name: str) -> str:
 
     def _own(part: str) -> str:
         for n in names:
-            part = re.sub(rf"(?<!\w){re.escape(n)}(?!\w)", "~", part)  # (wave 16D: a name ending in "!" has no \b after it)
+            # (wave 20C: the short name before "the/of Capital" starts another name: "create Tuktuk the Returned, a legendary …")
+            part = re.sub(rf"(?<!\w){re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else ""), "~", part)  # (wave 16D: a name ending in "!" has no \b after it)
         return part
 
     # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the
@@ -1783,7 +1784,7 @@ def _that_many(left: tuple[list[dict[str, Any]], Any], text: str) -> tuple[list[
     return [{**right[0][0], "per_controller": {"this_way": kind, "of": None}}], right[1]
 
 
-def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
+def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any] | None:
     """An instruction, or two joined by ", then" / "and" ("Scry 1, then draw a card.", "You draw
     two cards and you lose 2 life."): each half must be understood. Each "target" word is its
     own target group (115.3); the halves' groups are numbered in order."""
@@ -1829,10 +1830,15 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                              r"returns|creates|searches|scry|surveil|gets)\b", parts[1]):
             parts[1] = f"{subj[1]} {parts[1]}"
             same_target = subj[1].startswith("target")  # (one word "target": the same target)
-        left = _clause(parts[0])
+        left = _clause(parts[0], may_ok)
         right = _that_many(left, parts[1]) if left is not None else None  # -- static_other sweep (wave 16B) --
-        right = right or _clause(parts[1])
-        if left is None or right is None:
+        right = right or _clause(parts[1], may_ok)
+        # -- reanimation (wave 20C) -- "You gain 3 life and you may return up to one target creature card …" (608.2c): only the second
+        # instruction is optional, asked as the resolution reaches it (unless_pays.may_rest: the rest of the ability, so it must end the
+        # sentence and, in parse_effects, the ability)
+        if right is None and may_ok and parts[1].startswith("you may ") and (inner := _one_clause(parts[1][len("you may "):])) is not None:
+            right = ([{"do": "may_rest"}, *inner[0]], inner[1])
+        if left is None or right is None or any(e.get("do") == "may_rest" for e in left[0]):
             continue
         lgroups, rgroups = _as_groups(left[1]), _as_groups(right[1])
         if same_target:
@@ -2148,6 +2154,15 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     )
 
     body = pump_each.rewrite(body)
+    # -- ability words (wave 20C) -- "… if this is the first time this ability has resolved this turn. If it's the second time, …" (Omnath,
+    # Vito): a bare "it's the second time" means this same ability's resolutions, once the sentence before has said so
+    if re.search(r"\bthis is the \w+ time this ability has resolved this turn\b", body):
+        body = re.sub(r"\b([Ii]f) it's the (first|second|third|fourth|fifth) time\b", r"\1 this is the \2 time this ability has resolved this turn", body)
+    # -- reanimation (wave 20C) -- "Put a +1/+1 counter on each of those creatures." / "Each of those creatures gains haste": the
+    # objects the sentence before named, as "each of them" / "those creatures" read them (608.2c)
+    body = re.sub(r"(\b[Pp]ut [^.,]+? counters? on) each of those (?:creatures|permanents|cards|artifacts|lands|enchantments)\b", r"\1 each of them", body)
+    body = re.sub(r"(^|\. )Each of those (creatures|permanents|cards|artifacts|lands|enchantments) (gains|gets|loses) ",
+                  lambda m: f"{m[1]}Those {m[2]} {m[3][:-1]} ", body)
     from app.rules import combat_rules as _combat_rules  # -- keywords (wave 15E) -- myriad's two sentences
 
     body = _combat_rules.merge_myriad(body)
@@ -2500,8 +2515,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 continue
             if effects:
                 # "…. You may reveal … from among them …": a clause that models its own choice
-                own = _clause(text)
-                if own is None or not any(x.get("optional") for x in own[0]):
+                own = _clause(text, True)
+                if own is None and i == len(texts) - 1 and (inner := _one_clause(text[len("you may "):])) is not None:
+                    own = ([{"do": "may_rest"}, *inner[0]], inner[1])  # -- reanimation (wave 20C) -- the last sentence: may_rest asks for all of it
+                if own is None or not any(x.get("optional") or x.get("do") == "may_rest" for x in own[0]):
                     return None  # "…. You may …" mid-ability: not a simple optional trigger
                 effects += _add_groups(groups, own[0], own[1])
                 continue
@@ -2525,13 +2542,15 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 effects += _add_groups(groups, found, sel)  # each word "target": its own group (115.3)
                 break
         else:
-            parsed_clause = _unless_sentence(text, effects, it=it) or _trailing_conditional(text) or _clause(text)
+            parsed_clause = _unless_sentence(text, effects, it=it) or _trailing_conditional(text) or _clause(text, True)
             if parsed_clause is None:
                 return None
             found, sel = parsed_clause
             effects += _add_groups(groups, found, sel)
     if _x_now():
         effects = _swap_x(effects)
+    if any(e.get("do") == "may_rest" for e in effects[:sentences[-1]]):
+        return None  # -- reanimation (wave 20C) -- may_rest ends the resolution on "no": nothing may follow its sentence
     resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
     if resolved is not None:  # -- refused modal/conditional (wave 3R1) -- an "instead" pronoun naming the target
         resolved = _gated_other_rewrite(_branch_refs_retarget(resolved))
@@ -3302,10 +3321,19 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                             return None
                         names = [h[0] for h in halves if h]
                         generic = [h[1] for h in halves if h and h[1] is not None]
-                        if len(set(names)) < 2 or len(generic) > 1:
+                        if names == ["event", "event"] and generic[0]["event"] != generic[1]["event"] and not re.search(
+                                r"\b(?:it|its|it's|that|those|them|they)\b", re.sub(r"\bit's the \w+ time\b", "", m["body"])) and not any(
+                                g.get("aggregate") or g["event"] in ("either", "multi") for g in generic):
+                            # -- ability words (wave 20C) -- "Whenever an enchantment you control enters and whenever you fully unlock a
+                            # Room" (eerie): two whole conditions, each its own event (603.2c) — the "or" form's either condition
+                            cond = {"event": "either", "conds": generic,
+                                    "subject": generic[0]["subject"] if generic[0]["subject"] == generic[1]["subject"] else "mixed"}
+                            name = "event"
+                        elif len(set(names)) < 2 or len(generic) > 1:
                             return None
-                        cond = generic[0] if generic else None
-                        name = "multi:" + "+".join(names)
+                        else:
+                            cond = generic[0] if generic else None
+                            name = "multi:" + "+".join(names)
                     else:
                         cond = event_grammar.parse_condition(m["cond"])
                         if cond is None:
@@ -5276,7 +5304,9 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
                                                              "optional": parsed_d[2], **target_fields(parsed_d[1])}}
     if len(base) == 1 and base[0]["do"] == "optional_payment" and base[0].get("bind"):
         cond: dict[str, Any] = {"succeeded": base[0]["bind"]}
-    elif not optional and (name := _probe_previous(effects, prev_start)) is not None:
+    elif (name := _probe_previous(effects, prev_start)) is not None and (not optional or prev_start == 0):
+        # (-- death triggers (wave 20C) -- "When this creature dies, you may exile it. When you do, …": the "may" at the head of an
+        # ability is asked as it resolves, then A runs and B follows only if A was done, 603.12)
         cond = {"succeeded": name}
     else:
         return None
@@ -5773,6 +5803,9 @@ from app.rules import source_shields as _source_shields  # noqa: E402
 # (and 614.10 skips: app/rules/skips.py; 614.17 "can't gain life": app/rules/cant_gain.py; flashback and "you may play
 # this card" granted to graveyard cards: app/rules/graveyard_grants.py)
 EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLATES, *_graveyard_grants.TEMPLATES]
+from app.rules import hand_size as _hand_size  # noqa: E402  -- ability words (wave 20C) --
+
+EFFECTS[:0] = _hand_size.TEMPLATES  # "You have no maximum hand size for the rest of the game."
 # -- next untap step (wave 6A) -- "… doesn't untap during its controller's next untap step" (app/rules/next_untap.py)
 from app.rules import next_untap as _next_untap  # noqa: E402
 

@@ -493,13 +493,18 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 # -- token & pump wordings (wave 6C) -- keywords a selector may ask about but a grant doesn't give ("if you control no
 # creatures with decayed": read from the object's keywords, like the others)
 _WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke",
-                  "modular")  # (wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
+                  "modular", "toxic", "mutate", "awaken")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
 # an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
 
 @_suffix(r"(?:with|that has) (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")  # (wave 15B: "a spell that has convoke")
 def _with_kw(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, with_keywords=(*s.with_keywords, m["kw"]))
+
+
+@_suffix(r"with (?:cycling|cycling abilities)")  # -- reanimation (wave 20C) -- 702.29f: typecycling abilities are cycling abilities
+def _with_cycling(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "cycling_ability"))
 
 
 @_suffix(r"with (?:an? morph ability|morph abilities)")  # -- hidden exile (wave 18A) -- 702.37b: megamorph is a morph ability too
@@ -1359,6 +1364,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
             return False
         if extra == "morph_ability" and not {"morph", "megamorph"} & ch.keywords:
+            return False
+        if extra == "cycling_ability" and not any(k.endswith("cycling") for k in ch.keywords):  # (wave 20C)
             return False
         if extra == "unblocked" and card.id in plan.rules.blocked:  # (wave 15E) a blocked attacker stays blocked
             return False
