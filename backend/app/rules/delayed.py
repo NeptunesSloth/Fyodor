@@ -223,6 +223,15 @@ def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, na
         turn=plan.state.turn.number, step=plan.state.turn.phase))
 
 
+def create_plain(plan: Plan, controller: str, card_id: str, oid: str, name: str, when: dict[str, Any],
+                 effects: list[dict[str, Any]]) -> None:
+    """-- delayed triggers (wave 23B) -- a delayed triggered ability a mana ability creates as it resolves (603.7a: Barbed Sextant's "Draw a
+    card at the beginning of the next turn's upkeep"): its controller and source as they were (603.7d-e), nothing bound to an object."""
+    plan.rules.delayed.append(DelayedTrigger(
+        id=secrets.token_hex(4), controller=controller, source_card=card_id, source_object=oid, name=name, when=when, effects=effects,
+        turn=plan.state.turn.number, step=plan.state.turn.phase))
+
+
 def describe_when(when: dict[str, Any]) -> str:
     if when["kind"] == "designation":  # (wave 3E: app/rules/designations.py fires these)
         return "when an opponent becomes the monarch"

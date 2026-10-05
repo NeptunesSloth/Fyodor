@@ -1942,7 +1942,7 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
                   lambda m: f"{m[1]}{m[2]}{m[4]} unless you pay {m[3]}.", body)
     # -- trigger tail (wave 16C) -- "Create a 4/4 … token with flying at the beginning of the next end step." (Rukh Egg): the same delayed
     # trigger (603.7) as the leading wording, which the token grammar reads whole
-    body = re.sub(rf"(?i)^(create [^.]+?) (at the beginning of (?:{_delayed.WHEN_RE}))(\.?)$", r"\2, \1\3", body)
+    body = re.sub(rf"(?i)^\s*(create [^.]+?) (at the beginning of (?:{_delayed.WHEN_RE}))(\.?)$", lambda m: f"{m[2]}, {m[1][:1].lower()}{m[1][1:]}{m[3]}", body)
     # -- trigger tail (wave 15B) -- "Discard any number of cards, then draw that many cards.": "that many" is the cards discarded
     # this way (701.9a), not a trigger event's amount; "plus one" would be a different (single) draw: not read
     # -- if you do (wave 21C) -- "You may discard up to two cards. If you do, draw that many cards." (Fable of the Mirror-Breaker): "up to" /
@@ -4771,6 +4771,13 @@ def _deferred(clause: str, when: dict[str, Any], key: str = "") -> tuple[list[di
             and (key != "their next upkeep" or "its owner's" in clause)):
         raise _NoMatch
     return _delayed.wrap_when(inner[0], when), inner[1]
+
+
+# -- delayed triggers (wave 23B) -- 701.21a: "Its controller sacrifices it at the beginning of the next end step." (Celestial Sword, Cauldron
+# Dance): whoever controls the object as the delayed trigger resolves sacrifices it (``by`` "controller", as evoke's), nothing if it left
+@effect(r"its controller sacrifices it")
+def _controller_sacrifices_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "sacrifice", "who": "it", "by": "controller"}], None
 
 
 @effect(rf"at the beginning of (?P<when>{_delayed.WHEN_RE}), (?P<clause>.+)")

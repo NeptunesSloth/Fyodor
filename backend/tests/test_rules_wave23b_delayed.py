@@ -120,3 +120,74 @@ def test_pact_waits_for_its_controllers_upkeep(cards):
     until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "upkeep", limit=80)
     pass_until_stack_empty(s)
     assert decision(s) is None and "p1" not in rules(s).lost and len(rules(s).delayed) == 1
+
+
+# -- payloads: a token / a draw / a sacrifice at a later step (603.7) ---------------------------------------------------
+PAYLOADS = [
+    card('Barbed Sextant', set_code='tst', number='D10', mana_cost='{1}', cmc=1.0, type_line='Artifact', oracle_text="{1}, {T}, Sacrifice this artifact: Add one mana of any color. Draw a card at the beginning of the next turn's upkeep."),  # noqa: E501
+    card('Celestial Sword', set_code='tst', number='D11', mana_cost='{6}', cmc=6.0, type_line='Artifact', oracle_text='{3}, {T}: Target creature you control gets +3/+3 until end of turn. Its controller sacrifices it at the beginning of the next end step.'),  # noqa: E501
+    card('Transluminant', set_code='tst', number='D12', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Dryad Shaman', oracle_text='{W}, Sacrifice this creature: Create a 1/1 white Spirit creature token with flying at the beginning of the next end step.', power='2', toughness='2', colors=['G'], color_identity=['G', 'W']),  # noqa: E501
+    card('Test Ox', set_code='tst', number='D13', mana_cost='{2}', cmc=2.0, type_line='Creature — Ox', oracle_text='', power='3', toughness='3'),  # noqa: E501
+]
+EXTRA += PAYLOADS
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in PAYLOADS if c["name"] != "Test Ox"])
+def test_payload_cards_are_automated(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_barbed_sextant_adds_mana_and_draws_at_the_next_upkeep(cards):
+    s = build(cards, p1=("Barbed Sextant",))
+    sextant = put(s, "Barbed Sextant", "battlefield")
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    act(s, "p1", type="activate_ability", card_id=sextant.id, ability=0)  # a mana ability: no stack (605.3b)
+    act(s, "p1", type="choose", decision_id=rules(s).decision.id, option_ids=["3"])  # {R}
+    assert s.state.players["p1"].mana == {"R": 1}  # ({1} paid with the {C})
+    assert s.state.cards[sextant.id].zone.endswith(":graveyard")
+    (t,) = rules(s).delayed
+    assert t.when == {"kind": "step", "step": "upkeep", "whose": "next_turn"} and t.controller == "p1"
+    roundtrip(s)  # (saved and loaded with the delayed trigger waiting)
+    hand = len(s.state.zones.get("p1:hand", []))
+    for pid in s.state.players:
+        act(s, pid, type="set_prefs", response="on")  # (everyone stops at each object on the stack)
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "upkeep")
+    assert len(s.state.zones["stack"]) == 1  # (the delayed trigger, at the beginning of the next turn's upkeep)
+    pass_until_stack_empty(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1 and not rules(s).delayed  # (the next turn's upkeep: the opponent's)
+    roundtrip(s)
+
+
+def test_transluminant_makes_the_token_at_the_end_step(cards):
+    s = build(cards, p1=("Transluminant",))
+    t = put(s, "Transluminant", "battlefield")
+    act(s, "p1", type="add_mana", player="p1", mana={"W": 1})
+    act(s, "p1", type="activate_ability", card_id=t.id, ability=0)
+    pass_until_stack_empty(s)
+    assert s.state.cards[t.id].zone.endswith(":graveyard")
+    assert not [c for c in s.state.cards.values() if c.is_token and c.name == "Spirit"]  # (not yet: 603.7a)
+    (d,) = rules(s).delayed
+    assert d.when == {"kind": "step", "step": "end", "whose": "next"}
+    roundtrip(s)
+    for pid in s.state.players:
+        act(s, pid, type="set_prefs", response="on")
+    until(s, lambda s: any(c.is_token and c.name == "Spirit" for c in s.state.cards.values()))
+    spirit = next(c for c in s.state.cards.values() if c.is_token and c.name == "Spirit")
+    assert spirit.zone == "p1:battlefield" and s.state.turn.phase == "end"
+    roundtrip(s)
+
+
+def test_celestial_sword_pump_then_the_controller_sacrifices_it(cards):
+    s = build(cards, p1=("Celestial Sword", "Test Ox"))
+    sword = put(s, "Celestial Sword", "battlefield")
+    ox = put(s, "Test Ox", "battlefield")
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 3})
+    act(s, "p1", type="activate_ability", card_id=sword.id, ability=0, targets=[ox.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[ox.id].zone == "p1:battlefield" and len(rules(s).delayed) == 1
+    roundtrip(s)
+    for pid in s.state.players:
+        act(s, pid, type="set_prefs", response="on")
+    until(s, lambda s: s.state.cards[ox.id].zone.endswith(":graveyard") or s.state.turn.number > 1)
+    assert s.state.cards[ox.id].zone == "p1:graveyard" and s.state.turn.number == 1 and s.state.turn.phase == "end"  # (601.2: this turn's end step)
+    roundtrip(s)

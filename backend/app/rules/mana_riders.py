@@ -183,6 +183,10 @@ def rider(sentence: str) -> tuple[str, int] | None:
         return f"counter:{m['k']}", 1
     if m := _SAC_IF_NONE.fullmatch(sentence):
         return f"sac_if_none:{m['k']}", 0
+    # -- delayed triggers (wave 23B) -- "Draw a card at the beginning of the next turn's upkeep." (Barbed Sextant, Astrolabe): a delayed
+    # triggered ability the mana ability creates as it resolves (603.7a; 605.3b: it resolves at once, so it is created then)
+    if _UPKEEP_DRAW.fullmatch(sentence):
+        return "upkeep_draw", 1
     # -- next untap step (wave 6A) -- "This land doesn't untap during your next untap step." (Cloudcrest Lake; 502.3,
     # app/rules/next_untap.py): weighed by the payer like a small cost
     if _STAYS_TAPPED.fullmatch(sentence):
@@ -190,6 +194,7 @@ def rider(sentence: str) -> tuple[str, int] | None:
     return None
 
 
+_UPKEEP_DRAW = re.compile(r"^Draw a card at the beginning of the next turn's upkeep\.?$")
 _STAYS_TAPPED = re.compile(r"^(?:This (?:land|artifact|creature|permanent)|~) doesn't untap during your next untap step\.?$")
 
 
@@ -247,6 +252,11 @@ def after(plan: Plan, card: CardInstance, kind: str, n: int) -> None:
 
         if card.zone.endswith(":battlefield") and card.counters.get(kind.split(":", 1)[1], 0) == 0:
             _sacrifice_cards(plan, [card.id], card.controller)
+    elif kind == "upkeep_draw":  # -- delayed triggers (wave 23B) --
+        from app.rules import delayed
+
+        delayed.create_plain(plan, card.controller, card.id, plan.oid(card.id), plan.ch(card).name,
+                             {"kind": "step", "step": "upkeep", "whose": "next_turn"}, [{"do": "draw", "who": "you", "n": 1}])
     elif kind == "stay_tapped":  # -- next untap step (wave 6A) --
         if card.zone.endswith(":battlefield"):
             plan.rules.stay_tapped.append({"oid": plan.oid(card.id), "player": card.controller})
