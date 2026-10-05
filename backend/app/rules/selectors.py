@@ -226,6 +226,11 @@ def _thats_status(s: Selector, m: re.Match[str]) -> Selector:
     return s2
 
 
+@_suffix(r"other than that (?:creature|permanent)")  # -- stack interaction (wave 23B) -- Pawpatch Recruit: not the object the trigger's event is about
+def _other_than_event(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "not_event"))
+
+
 @_suffix(r"that attacked this turn")  # -- combat (wave 5C) -- declared as attackers this turn (508.1; 508.4: not put)
 def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     if not m.string[: m.start()].endswith("creatures"):
@@ -1220,7 +1225,7 @@ def attacker_of(event: Any) -> str | None:
     if event is None:
         return None
     kind = event.get("kind") if isinstance(event, dict) else getattr(event, "kind", None)
-    if kind != "attack":
+    if kind not in ("attack", "targeted"):  # (wave 23B: the object that became a target, for "other than that creature")
         return None
     objects = event.get("objects") if isinstance(event, dict) else getattr(event, "objects", None)
     if not objects:
@@ -1397,6 +1402,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if value is None or not isinstance(n, int) or not {"<=": value <= n, ">=": value >= n, "==": value == n, "<": value < n, ">": value > n}[op]:
             return False
     for extra in sel.extras:
+        if extra == "not_event" and card.id == attacker:  # (wave 23B) the event's own object (``attacker``: attacker_of)
+            return False
         if extra == "enchanted" and not _has_attached(plan, card, "Aura"):
             return False
         if extra == "equipped" and not _has_attached(plan, card, "Equipment"):

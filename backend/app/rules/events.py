@@ -895,11 +895,12 @@ def _object_event(c: str) -> Condition | None:
     # -- history (wave 22E) -- also "you" (115.1: a player is a target too), "you or a permanent you control", and the kind of spell
     # ("an instant or sorcery spell", "an Aura spell": read on the stack as it targeted); "for the first time each turn" is the
     # first of THOSE events this turn (any, or by you / an opponent when named), kept in triggers._targeted_generic
-    m = re.fullmatch(r"(?P<s>.+?) becomes? the target of (?P<what>a spell or ability|an? (?:(?P<adj>[\w ]+?) )?spell)"
+    m = re.fullmatch(r"(?P<s>.+?) becomes? the target of (?P<what>a spell or ability|an ability|an? (?:(?P<adj>[\w ]+?) )?spell)"
                      r"(?: (?P<by>an opponent controls|you control))?(?P<first> for the first time each turn)?", c)
     if m:
         extra: Condition = {"event": "targeted", "by": {"an opponent controls": "opponent", "you control": "you"}.get(m["by"] or "", "any"),
-                            "spell_only": m["what"] != "a spell or ability", "first_each_turn": bool(m["first"])}
+                            "spell_only": m["what"] not in ("a spell or ability", "an ability"), "first_each_turn": bool(m["first"]),
+                            **({"ability_only": True} if m["what"] == "an ability" else {})}  # (wave 23B: Loki's "an ability you control")
         if m["adj"]:
             kind = selectors.parse(f"{m['adj']} spell")
             if kind is None or kind.zones != ("stack",) or kind.player is not None:
@@ -907,6 +908,9 @@ def _object_event(c: str) -> Condition | None:
             extra["spell_sel"] = kind.key()
         if m["s"] == "you":
             return {**extra, "subject": "player", "player": "you"}
+        if m["s"] == "a player or permanent" and not m["first"]:  # -- stack interaction (wave 23B) -- 115.1: a player or a permanent (Loki)
+            return {"event": "either", "subject": "mixed",
+                    "conds": [{**extra, "subject": "player", "player": "any"}, {**extra, **(_subject("a permanent") or {})}]}
         parts = re.fullmatch(r"you or (?P<r>an? permanent you control|another permanent you control|an? creature you control)", m["s"])
         if parts:
             perm = _subject(parts["r"])

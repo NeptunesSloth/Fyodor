@@ -3500,8 +3500,22 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 plain_counter = body in ("counter that spell or ability.", "counter that spell.")  # -- history (wave 22E) -- Glyph Keeper, Kira: 701.6a
                 if plain_counter:
                     counter_it = [{"do": "counter", "who": "event_source"}]
-                parsed = parse_effects(body, it=ante, event_player=has_player) if (tm is None and not plain_counter) or not _targeted(cond) \
-                    else (counter_it, None, False)
+                # -- stack interaction (wave 23B) -- "counter that spell unless its controller discards a card" (Reality Smasher), "… unless that
+                # player pays 4 life" (Parnesse): 118.12a, the payer is the player whose spell or ability targeted it, deciding as this resolves
+                um = None if tm or plain_counter or not _targeted(cond) else re.fullmatch(
+                    r"counter that spell(?: or ability)? unless (?:its controller|that player) (?P<act>pays [^{}.]+|discards a card)\.?", body)
+                if um is not None:
+                    from app.rules import optional_payment
+
+                    act = um["act"]
+                    cost = optional_payment.cost_text("pay " + act[5:] if act.startswith("pays ") else "discard a card")
+                    if cost is None or "{" in cost:
+                        return None
+                    counter_it = [{"do": "optional_payment", "who": "event_player", "cost": cost, "bind": "pay0"},
+                                  {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
+                                  {"do": "counter", "who": "event_source"}]
+                parsed = parse_effects(body, it=ante, event_player=has_player) if (tm is None and not plain_counter and um is None) \
+                    or not _targeted(cond) else (counter_it, None, False)
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
                 if parsed is None and cond is not None and cond.get("other") and cond.get("subject", "self") in ("self", "host") and (
@@ -3744,6 +3758,8 @@ def _event_refs_ok(d: Definition) -> bool:
     if '\\"evt:' in raw and not (ev is not None and ev["event"] != "multi" and not ev.get("aggregate") and (
             ev.get("subject") in ("sel", "self", "self_or", "self_or_host", "host") or (ev.get("subject") == "player" and ev.get("obj")))):
         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
+    if "not_event" in raw and not (ev is not None and ev["event"] == "targeted"):  # -- stack interaction (wave 23B) -- "other than that creature":
+        return False  # the object a "becomes the target" event is about (selectors.attacker_of); nothing else names one here
     if '"as": "defended"' in raw and not (d.get("trigger") == "attacks_self" or (
             ev is not None and ev["event"] in ("attack", "unblocked", "blocked", "you_attack"))):
         return False

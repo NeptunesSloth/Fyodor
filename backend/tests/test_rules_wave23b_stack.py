@@ -380,3 +380,98 @@ def test_louisoixs_sacrifice_pays_two_or_sacrifices_a_legendary_creature(cards):
     answer(s)
     assert life(s, "p2") == 40 and not stack(s)
     roundtrip(s)
+
+
+# -- becomes the target of a spell or ability (115.1, 603.2e) ---------------------------------------------------------------------
+TARGETED = [
+    card('Reality Smasher', set_code='tst', number='T01', mana_cost='{4}{C}', cmc=5.0, type_line='Creature — Eldrazi', oracle_text='({C} represents colorless mana.)\nTrample, haste\nWhenever this creature becomes the target of a spell an opponent controls, counter that spell unless its controller discards a card.', power='5', toughness='5', keywords=['Haste', 'Trample']),  # noqa: E501
+    card('Pawpatch Recruit', set_code='tst', number='T02', mana_cost='{G}', cmc=1.0, type_line='Creature — Rabbit Warrior', oracle_text='Offspring {2} (You may pay an additional {2} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)\nTrample\nWhenever a creature you control becomes the target of a spell or ability an opponent controls, put a +1/+1 counter on target creature you control other than that creature.', power='2', toughness='1', colors=['G'], color_identity=['G'], keywords=['Offspring', 'Trample']),  # noqa: E501
+    card('Loki, God of Mischief', set_code='tst', number='T03', mana_cost='{1}{U}', cmc=2.0, type_line='Legendary Creature — God Sorcerer Villain', oracle_text='Whenever a player or permanent becomes the target of an ability you control, draw a card. This ability triggers only once each turn.', power='2', toughness='1', colors=['U'], color_identity=['U']),  # noqa: E501
+]
+EXTRA += TARGETED
+EXTRA += [card('Test Repeater', set_code='tst', number='T04', mana_cost='{1}', cmc=1.0, type_line='Artifact', oracle_text='{1}: Test Repeater deals 1 damage to any target.')]
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in TARGETED])
+def test_targeted_cards_are_automated(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def p2_priority(s):
+    """On until p2 has priority (a step of p1's turn) with nothing on the stack."""
+    for _ in range(12):
+        if s.state.rules.priority == "p2" and not stack(s):
+            return
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("p2 never got priority")
+
+
+def bolt(s, target):
+    card = put(s, "Lightning Bolt", "hand", "p2")
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=card.id, targets=[target])
+    return card
+
+
+def test_reality_smasher_counters_the_spell_unless_its_controller_discards(cards):
+    for discard in (False, True):
+        s = build(cards, p1=("Reality Smasher",), p2=("Lightning Bolt", "Test Fodder"))
+        prefs(s)
+        smasher = put(s, "Reality Smasher", "battlefield")
+        fodder = put(s, "Test Fodder", "hand", "p2")
+        p2_priority(s)
+        spell = bolt(s, smasher.id)
+        for _ in range(8):  # the trigger (603.2e) resolves first: p2 may discard a card (118.12a), privately
+            d = s.state.rules.decision
+            if d is not None:
+                assert d.player == "p2" and [o.id for o in d.options][:2] == ["pay", "decline"]
+                assert "options" not in s.view("p1")["rules"]["decision"]  # (the payer's decision)
+                roundtrip(s)
+                act(s, "p2", type="choose", decision_id=d.id, option_ids=["pay" if discard else "decline"], **({}))
+            elif stack(s):
+                act(s, s.state.rules.priority, type="pass_priority")
+            else:
+                break
+        if discard:
+            assert s.state.cards[fodder.id].zone.endswith(":graveyard")  # (discarded: the Bolt resolves)
+            assert s.state.cards[spell.id].zone.endswith(":graveyard") and s.state.cards[smasher.id].damage == 3
+        else:
+            assert s.state.cards[fodder.id].zone.endswith(":hand") and s.state.cards[smasher.id].damage == 0  # (countered)
+        roundtrip(s)
+
+
+def test_pawpatch_recruit_puts_the_counter_on_another_creature(cards):
+    s = build(cards, p1=("Pawpatch Recruit", "Test Ox"), p2=("Lightning Bolt",))
+    prefs(s)
+    recruit = put(s, "Pawpatch Recruit", "battlefield")
+    ox = put(s, "Test Ox", "battlefield")
+    p2_priority(s)
+    bolt(s, ox.id)  # the Ox becomes the target: "target creature you control other than that creature"
+    answer(s)
+    assert s.state.cards[recruit.id].counters.get("+1/+1") == 1 and not s.state.cards[ox.id].counters
+    roundtrip(s)
+
+
+def test_pawpatch_recruit_has_no_other_creature_to_choose_when_alone(cards):
+    s = build(cards, p1=("Pawpatch Recruit",), p2=("Lightning Bolt",))
+    prefs(s)
+    recruit = put(s, "Pawpatch Recruit", "battlefield")
+    p2_priority(s)
+    bolt(s, recruit.id)
+    answer(s)
+    assert not s.state.cards[recruit.id].counters  # (no legal target: the trigger is removed from the stack, 603.3d)
+    roundtrip(s)
+
+
+def test_loki_draws_once_each_turn_for_abilities_you_control(cards):
+    s = build(cards, p1=("Loki, God of Mischief", "Test Repeater"))
+    put(s, "Loki, God of Mischief", "battlefield")
+    rep = put(s, "Test Repeater", "battlefield")
+    hand = len(s.state.zones.get("p1:hand", []))
+    for n in (1, 2):
+        mana(s, C=1)
+        act(s, "p1", type="activate_ability", card_id=rep.id, ability=0, targets=["p2"])
+        answer(s)
+        assert life(s, "p2") == 40 - n
+        assert len(s.state.zones.get("p1:hand", [])) == hand + 1  # (a card from the first, none from the second: once each turn)
+    roundtrip(s)

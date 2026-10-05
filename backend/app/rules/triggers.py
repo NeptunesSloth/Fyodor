@@ -738,6 +738,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
         if cond.get("spell_only") and not info.get("spell"):
             return False
+        if cond.get("ability_only") and info.get("spell"):  # -- stack interaction (wave 23B) -- "becomes the target of an ability"
+            return False
         if cond.get("first_each_turn") and not (info.get("first") or {}).get({"you": "by", "opponent": "by_opp"}.get(by, "any")):
             return False
         if cond.get("spell_sel"):  # -- history (wave 22E) -- "an instant or sorcery spell": the spell as it is on the stack
