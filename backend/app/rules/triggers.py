@@ -519,7 +519,7 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
         if got is not None and (e.from_zone or "").split(":")[0] == got[0].owner:
             out.append(("discard", got[0], got[1], got[0].owner,
                         {"oid": e.new_object_id, "actor": got[0].owner, "amount": 1, "new_oid": e.new_object_id,
-                         "to": e.to_zone}))
+                         "to": e.to_zone, "by": e.actor}))  # (wave 23D: ``by``: the player whose effect moved it)
     if frm == "graveyard" and to != "graveyard" and e.card:
         # "leaves your graveyard": the card as it was there (603.10a looks back in time)
         got = _card_in(plan, e.card, e.from_zone)
@@ -689,6 +689,9 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     event, obj, _, player, info = fact
     you = watcher.controller
     if not _other_ok(plan, cond, watcher, info):
+        return False
+    if cond.get("cause") == "opponent" and not (  # -- discard causes (wave 23D) -- 701.9: "a spell or ability an opponent controls causes you to
+            info.get("by") and info["by"] != player):  # discard": the discard was moved by a resolving effect of another player
         return False
     if cond.get("main_phase") and plan.state.turn.phase not in ("main1", "main2"):  # -- crew & saddle (wave 23D) -- "during your main phase"
         return False
@@ -1061,6 +1064,12 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
                 ch = plan.ch(card)
                 watchers += [((card, ch, i, d), -big, big) for i, d in abilities(plan, ch, "event")
                              if d.get("cond", {}).get("event") == "cycle" and d["cond"].get("subject") == "self"]
+        if e.kind == "zone_change" and not e.manual and _zone(e.from_zone) == "hand" and _zone(e.to_zone) == "graveyard" and e.card in plan.state.cards:
+            card = plan.state.cards[e.card]  # -- discard causes (wave 23D) -- "When a spell or ability an opponent controls causes you to
+            if not plan.manual(card) and card.owner in plan.live():  # discard this card": it is in the graveyard by now (701.9a)
+                ch = plan.ch(card)
+                watchers += [((card, ch, i, d), -big, big) for i, d in abilities(plan, ch, "event")
+                             if d.get("cond", {}).get("event") == "discard" and d["cond"].get("subject") == "self"]
         if e.kind != "zone_change":
             continue
         if _zone(e.to_zone) == "stack" and e.card:

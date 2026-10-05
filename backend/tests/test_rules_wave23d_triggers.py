@@ -63,6 +63,12 @@ CARDS = [
     ("Mobilizer Mech", "{1}{U}", "Artifact — Vehicle", "3", "4",
      "Flying\nWhenever this Vehicle becomes crewed, up to one other target Vehicle you control becomes an artifact creature until end of turn.\n"
      "Crew 3 (Tap any number of creatures you control with total power 3 or more: This Vehicle becomes an artifact creature until end of turn.)"),
+    ("Metrognome", "{4}", "Artifact", None, None,
+     "When a spell or ability an opponent controls causes you to discard this card, create four 1/1 colorless Gnome artifact creature tokens.\n"
+     "{4}, {T}: Create a 1/1 colorless Gnome artifact creature token."),
+    ("Spiritual Focus", "{1}{W}", "Enchantment", None, None,
+     "Whenever a spell or ability an opponent controls causes you to discard a card, you gain 2 life and you may draw a card."),
+    ("Mind Rot", "{2}{B}", "Sorcery", None, None, "Target player discards two cards."),
     ("Probe Giant", "{W}", "Creature — Giant", "5", "5", ""),
     ("Probe Soldier", "{W}", "Creature — Human Soldier", "1", "1", ""),
 ]
@@ -389,4 +395,64 @@ def test_becomes_crewed_triggers_when_the_crew_ability_resolves(cards):
     assert "Creature" not in ch_of(s, "Golden Argosy").types
     crewed(s, "Mobilizer Mech", "Probe Giant", picks=[card_named(s, "Golden Argosy").id])
     assert "Creature" in ch_of(s, "Golden Argosy").types and "Creature" in ch_of(s, "Mobilizer Mech").types
+    check(s)
+
+
+def discard_scenario(cards, caster, extra=()):
+    """Alice holds Metrognome (and ``extra``); ``caster`` (p1 on her turn, p2 on his) casts Mind Rot on her."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Metrognome", "Mind Rot", *extra], ["Mind Rot"])
+    for n in ("Metrognome", *extra):
+        if n != "Spiritual Focus":
+            to_hand(s, n)
+    for n in extra:
+        if n == "Spiritual Focus":
+            put(s, n)
+    if caster == "p2":
+        until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1" and s.state.rules.priority == "p2", limit=300)
+    else:
+        to_hand(s, "Mind Rot")
+    mana(s, caster, B=3)
+    if caster == "p2":
+        act(s, "p2", type="cast_spell", card_id=card_named(s, "Mind Rot", "p2").id, targets=["p1"])
+    else:
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Mind Rot").id, targets=["p1"])
+    return s
+
+
+@pytest.mark.parametrize("caster,gnomes", [("p2", 4), ("p1", 0)])
+def test_discarded_by_an_opponents_spell_triggers_and_by_your_own_does_not(cards, caster, gnomes):
+    s = discard_scenario(cards, caster)
+    answer(s, "yes", "yes")
+    assert zone_of(s, "Metrognome") == "p1:graveyard"
+    assert len([c for c in s.state.cards.values() if c.is_token and c.name == "Gnome"]) == gnomes
+    check(s)
+
+
+def test_discarding_to_hand_size_in_your_own_cleanup_step_is_not_an_opponents_doing(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Metrognome"], [])
+    to_hand(s, "Metrognome")
+    for cid in list(s.state.zones["p1:library"])[:7]:
+        act(s, "p1", type="move", card_ids=[cid], to={"zone": "hand"})
+    assert len(s.state.zones["p1:hand"]) == 8
+    until(s, lambda s: s.state.turn.number == 2, limit=300)
+    assert len(s.state.zones["p1:hand"]) == 7  # (the cleanup step: one discarded)
+    assert not [c for c in s.state.cards.values() if c.is_token and c.name == "Gnome"]
+    check(s)
+
+
+def test_spiritual_focus_triggers_for_each_card_an_opponent_makes_you_discard(cards):
+    s = discard_scenario(cards, "p2", ("Spiritual Focus", "Probe Soldier"))
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"] if d.kind == "confirm" else [o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert life(s) == 44  # two cards discarded: 2 life each (Mind Rot: two cards)
     check(s)

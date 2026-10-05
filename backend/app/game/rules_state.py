@@ -1355,7 +1355,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                                      tapped=card.tapped, from_zone=old_zone))  # (-- entry forms (wave 5F) --; wave 22E: from_zone)
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
-             from_zone=old_zone, to_zone=new_zone)
+             from_zone=old_zone, to_zone=new_zone, actor=actor)  # (wave 23D: who moved it: a discard an opponent's effect caused, 701.9)
     # -- review (wave 18D) -- 730.3 / 712.21: the cards of a merged permanent that left (other than the one its instance became) were
     # never objects of their own: each is put into the zone from the battlefield, a new object there (not one more permanent leaving)
     pile = {p["id"]: snap for snap in before.snaps.values() for p in snap.merged}

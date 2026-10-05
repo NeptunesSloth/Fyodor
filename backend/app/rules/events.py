@@ -778,6 +778,13 @@ def _player_action(c: str) -> Condition | None:
     if m:
         return {"event": "land_played", "subject": "player", "player": _PLAYERS[m["p"]], "obj": _object_sel(m["o"]),
                 "aggregate": False}
+    # -- discard causes (wave 23D) -- 701.9: "a spell or ability an opponent controls causes you to discard this card / a card / cards"
+    m = re.fullmatch(r"a spell or ability an opponent controls causes you to discard (?P<o>this card|~|a card|one or more cards|cards)", c)
+    if m:
+        if m["o"] in ("this card", "~"):
+            return {"event": "discard", "subject": "self", "cause": "opponent"}
+        return {"event": "discard", "subject": "player", "player": "you", "obj": _object_sel("card", card=True), "cause": "opponent",
+                "aggregate": m["o"] != "a card"}
     m = re.fullmatch(rf"{_P} (?P<v>sacrifices?|discards?|cycles? or discards?|cycles?|creates?|mills?) (?P<o>.+)", c)
     if not m:
         # -- triggers (wave 17D) -- "Whenever one or more nonland cards are milled" (701.17a: put from a library into its owner's graveyard)
