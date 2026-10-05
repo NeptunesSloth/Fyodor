@@ -2585,7 +2585,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += _add_groups(groups, found, sel)
     if _x_now():
         effects = _swap_x(effects)
-    if any(e.get("do") == "may_rest" for e in effects[:sentences[-1]]):
+    if any(e.get("do") == "may_rest" for e in effects[:sentences[-1]]) and not (
+            effects[sentences[-1]].get("do") == "reflexive" and '"discarded"' in json.dumps(effects[sentences[-1]].get("cond"))):
+        # (-- resolution memory (wave 22D) -- but a reflexive "When you discard a card this way" ends with it anyway: no discard, no trigger)
         return None  # -- reanimation (wave 20C) -- may_rest ends the resolution on "no": nothing may follow its sentence
     resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
     if resolved is not None:  # -- refused modal/conditional (wave 3R1) -- an "instead" pronoun naming the target
@@ -5333,17 +5335,21 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     "you may" (603.3c-d). B is read alone: a pronoun in it naming what A did ("that creature's power") isn't read."""
     base = effects[prev_start:]
     if (disc := _REFLEX_DISCARD.match(rest)) is not None:  # -- reflexive discards (wave 19C) -- the discard just before, counted "this way"
-        last = base[-1] if base else None
+        di = max((i for i, b in enumerate(base) if b["do"] == "discard"), default=None)  # (-- wave 22D -- draws may follow it: "Discard a card, then draw two cards.")
+        last = base[di] if di is not None and all(b["do"] == "draw" for b in base[di + 1:]) else None
         cond_d = this_way.condition(f"{disc['w']} was discarded this way")
         tail = rest[disc.end():]
         if last is None or last["do"] != "discard" or last.get("who") not in (None, "you") or last.get("n") != 1 \
                 or any(last.get(k) for k in ("all", "random", "upto", "to", "zone")) or cond_d is None:
             return None
-        parsed_d = parse_effects(tail[:1].upper() + tail[1:], "self" if it == "self" else None)
+        # -- resolution memory (wave 22D) -- "… deals damage equal to that card's mana value": the card discarded, as the event object (608.2h)
+        card_stat = re.search(r"\b(?:that card's|its) mana value\b", tail) is not None and last.get("n") == 1
+        parsed_d = parse_effects(tail[:1].upper() + tail[1:], "event" if card_stat else "self" if it == "self" else None)
         if parsed_d is None or not parsed_d[0]:
             return None
-        return {"do": "reflexive", "cond": cond_d, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": parsed_d[0],
-                                                             "optional": parsed_d[2], **target_fields(parsed_d[1])}}
+        out_d = {"do": "reflexive", "cond": cond_d, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": parsed_d[0],
+                                                              "optional": parsed_d[2], **target_fields(parsed_d[1])}}
+        return {**out_d, "lki": "cond_ref"} if card_stat else out_d
     if len(base) == 1 and base[0]["do"] == "optional_payment" and base[0].get("bind"):
         cond: dict[str, Any] = {"succeeded": base[0]["bind"]}
     elif (name := _probe_previous(effects, prev_start)) is not None and (not optional or prev_start == 0):

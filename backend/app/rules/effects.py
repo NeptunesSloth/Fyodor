@@ -2782,7 +2782,10 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.triggers import _add  # (triggers imports this module)
 
     if conditions.holds(plan, ctx, e["cond"]):
-        event = _reflexive_event(plan, ctx, e["lki"]) if e.get("lki") else None  # -- reflexive LKI (wave 4J) --
+        # (-- resolution memory (wave 22D) -- "cond_ref": the objects the counted "… this way" instruction acted on: "When you discard a card
+        # this way, … that card's mana value")
+        name = e["cond"]["value"]["ref_count"] if e.get("lki") == "cond_ref" else e.get("lki")
+        event = _reflexive_event(plan, ctx, name) if name else None  # -- reflexive LKI (wave 4J) --
         _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
              name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=event)
     return True
@@ -2796,7 +2799,7 @@ def _reflexive_event(plan: Plan, ctx: Context, name: str) -> Any:
     from app.game.rules_state import TriggerEvent
 
     b = context.refs(ctx).get(name) or {}
-    before = [ObjectRef.model_validate(r) for r in b.get("objects") or []] if b.get("kind") == "payment" else []
+    before = [ObjectRef.model_validate(r) for r in b.get("objects") or []] if b.get("kind") in ("payment", "objects") else []
     objects = [r.model_copy(update={"snapshot": context.snapshot(plan, r)}) for r in before]
     return TriggerEvent(kind="reflexive", objects=objects, count=len(objects))
 # -- end reflexive LKI (wave 4J) --

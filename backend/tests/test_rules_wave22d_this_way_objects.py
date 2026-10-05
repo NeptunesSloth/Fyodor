@@ -20,6 +20,10 @@ EXTRA = [
          "Destroy all creatures, then return a creature card put into a graveyard this way to the battlefield under your control. It's a black Zombie in addition to its other colors and types. Exile Necromantic Selection.",
          None, "B"),
     real("Probe Two", "{1}{G}", 2, "Creature — Beast", "", ("2", "2"), "G"),
+    real("Probe Rock", "{3}", 3, "Artifact", "", None),
+    real("The Ancient One", "{U}{B}", 2, "Legendary Creature — Spirit God",
+         "Descend 8 — The Ancient One can't attack or block unless there are eight or more permanent cards in your graveyard.\n{2}{U}{B}: Draw a card, then discard a card. When you discard a card this way, target player mills cards equal to its mana value.",
+         ("8", "8"), "BU"),
 ]
 
 
@@ -55,4 +59,27 @@ def test_necromantic_selection_returns_one_of_the_creatures_it_destroyed(cards):
     assert "Zombie" in ch.subtypes and "B" in ch.colors and "Snake" in ch.subtypes  # "in addition to its other colors and types"
     assert s.state.cards[find(s, "Probe Two").id].zone == "p1:graveyard"
     assert s.state.cards[find(s, "Necromantic Selection").id].zone == "p1:exile"
+    roundtrip(s)
+
+
+def test_the_ancient_one_mills_by_the_mana_value_of_the_card_discarded_this_way(cards):
+    s = build(cards, p1=("The Ancient One", "Probe Rock"))
+    one = put(s, "The Ancient One", "battlefield")
+    rock = put(s, "Probe Rock", "hand")  # the only card in hand besides the one drawn
+    for c in list(s.state.zones["p1:hand"]):
+        if c != rock.id:
+            act(s, "p1", type="move", card_ids=[c], to={"player": "p1", "zone": "library"})
+    mana(s, U=1, B=1, C=2)
+    library = len(s.state.zones["p2:library"])
+    act(s, "p1", type="activate_ability", card_id=one.id, ability=1)
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[rock.id])  # discard the Rock (mana value 3)
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    assert d is not None  # the reflexive trigger's target: a player
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+    pass_until_stack_empty(s)
+    assert s.state.cards[rock.id].zone == "p1:graveyard"
+    assert len(s.state.zones["p2:library"]) == library - 3  # "cards equal to its mana value": the Rock's 3
     roundtrip(s)

@@ -13,8 +13,8 @@ from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import mana, pass_until_stack_empty
+from tests.test_rules_wave9b_exile_permission import answer, build, put, roundtrip
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
 
 EXTRA = [
     real("Kitesail Freebooter", "{1}{B}", 2, "Creature — Human Pirate",
