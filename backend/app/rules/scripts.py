@@ -318,7 +318,7 @@ def _it_source(word: str) -> dict[str, str]:
 _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
             "deal_combat_damage_player", "deal_damage", "counters_put", "targeted", "create_token"}
 _STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive", "mutate"})  # -- becomes monstrous (wave 6D) --
-_STAYING.add("to_graveyard")  # -- into a graveyard (wave 6D) -- the card(s) there, as they are there
+_STAYING.update({"to_graveyard", "to_exile", "to_library"})  # -- into a graveyard (wave 6D; wave 21D: exile, a library) -- the card(s) there, as they are there
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 _STAYING.add("turned_face_up")  # -- hidden exile (wave 18A) -- "Whenever a creature you control is turned face up, put a counter on it"
 # Zone-change events after which "it" is the new object the card became where it went — found
@@ -3580,7 +3580,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # tokens created … the number of them (603.2c)
 _AMOUNT_EVENTS = {"gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
-                  "player_counters", "mill", "attack", "scry"}  # (player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
+                  "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library"}  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
@@ -4095,6 +4095,9 @@ def _for_each(phrase: str) -> Any:
         return {"mana_spent": "self"}
     if phrase in ("color of mana spent to cast it", "color of mana spent to cast ~"):  # -- ability words (wave 4F) --
         return {"colors_spent": 1}  # converge (its spell's payment record, read as it enters: replacements._counter_amount)
+    if " and each " in phrase:  # -- counters (wave 21D) -- "for each other Zombie you control and each Zombie card in your graveyard": the sum
+        halves = [_for_each(x) for x in phrase.split(" and each ")]
+        return {"plus": halves} if len(halves) == 2 and all(h is not None and "count" in h for h in halves) else None
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or (not sel.card and sel.zones == ("battlefield",) and not sel.other):
         return None
@@ -4297,6 +4300,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if tail is not None:
         text = f"If {tail['c'][3:].replace(' it', ' ~', 1)}, {tail['body']}."
     # -- this-turn conditions (wave 8D) -- "~ enters with a +1/+1 counter on it if you attacked this turn." (Raid, Morbid …)
+    # -- counters (wave 21D) -- "~ enters with a +1/+1 counter on it if you control a permanent with mana value 4 or greater." (614.12: the
+    # condition is read as it enters, before it is on the battlefield: "another"); the same wording read after it moved
+    ctail = re.fullmatch(r"(?P<body>~ enters with .+? counters? on it) if you control an? (?P<what>[^,]+)\.", text)
+    if ctail is not None:
+        text = f"If you control another {ctail['what']}, {ctail['body']}."
     ttail = re.fullmatch(r"(?P<body>~ enters with .+? counters? on it) if (?P<c>[^,]+ this turn)\.", text)
     if ttail is not None:
         text = f"If {ttail['c']}, {ttail['body']}."
@@ -4329,6 +4337,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         cast_if = conditions.parse(lead["c"], objects=True)
         if cast_if is not None and lead["c"].endswith(" this turn") and (  # -- this-turn conditions (wave 8D) -- 608.2i, 614.12:
                 "history" in cast_if or all("history" in x for x in cast_if.get("any", [None]))):  # read as it enters
+            pass
+        elif cast_if is not None and lead["c"].startswith("you control another "):  # -- counters (wave 21D) -- 614.12 (read after it moved: "another")
             pass
         elif cast_if is None or "cast" not in cast_if or cast_if.get("object") != "self":
             return None
@@ -4372,7 +4382,13 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         if m["kw"]:  # -- counters (wave 7C) -- "… and with haste": the keyword it enters with, for as long as it stays
             out["grant"] = [m["kw"]]
         if m["each"]:
-            each = _for_each(m["each"])
+            each_text = m["each"]
+            if " counter on it for each " in each_text or " counters on it for each " in each_text:  # -- counters (wave 21D) -- the same
+                kinds = re.findall(r" and (?:an?|one) (\+1/\+1|-1/-1|[a-z]+) counters? on it for each ", each_text)
+                if m["n"] not in ("a", "an", "one") or any(k != m["kind"] for k in kinds):  # kind's counter once more for each group
+                    return None
+                each_text = re.sub(r" and (?:an?|one) \S+ counters? on it for each ", " and each ", each_text)
+            each = _for_each(each_text)
             if each is None and re.fullmatch(r"(?:nontoken )?creature that died this turn", m["each"]):
                 # -- counters (wave 7C) -- this turn's history (wave 4D), read as it enters
                 from app.rules import values

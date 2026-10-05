@@ -139,7 +139,11 @@ def target_group(phrase: str) -> dict[str, Any] | None:
         lo = hi = _qty(m["n"])
     if not 1 <= hi <= MAX_TARGETS:
         raise _Fail
-    if hi > 1 and re.search(r"\ban opponent(?:'s)?\b", rest):
+    # -- counters (wave 21D) -- "one or two target creatures an opponent controls": each target must be a permanent some opponent controls
+    # (115.1, 601.2c: each target is judged against the printed restriction on its own; no word asks for the same opponent)
+    each_opponents = what.startswith(selectors.PREFIX) and re.search(r"\ban opponent controls\b", rest) is not None \
+        and selectors.from_key(what).controller == "opponent" and selectors.from_key(what).zones == ("battlefield",)
+    if hi > 1 and not each_opponents and re.search(r"\ban opponent(?:'s)?\b", rest):
         raise _Fail  # "two target cards from an opponent's graveyard": the same opponent? (not a guess)
     if hi > 1 and what.startswith(selectors.PREFIX) and selectors.from_key(what).controller == "defending":
         raise _Fail  # "two target creatures defending player controls": one specific defending player (508.5a)
@@ -428,6 +432,10 @@ def _with_rider(text: str) -> tuple[str, Any]:
     the value of X (None if there's none). A rider may read the object the sentence is about
     ("where X is its power", "for each +1/+1 counter on it"): a placeholder "it", bound by
     scripts.resolve_it for an amount, or by the pump grammar to its own subject."""
+    # -- counters (wave 21D) -- "put a number of +1/+1 counters on it equal to that creature's power" is "put X … counters on it, where X is …"
+    n = re.fullmatch(r"(put) a number of ([+-]\d+/[+-]\d+|[a-z]+) counters on (.+?) equal to (.+)", text)
+    if n:
+        return f"put X {n[2]} counters on {n[3]}", ("x", _rider_value(n[4]))
     m = re.search(r",? where [xX] is (.+)$", text)  # (Oracle writes X; the lowercase form is the older tests')
     if m:
         return text[: m.start()], ("x", _rider_value(m[1]))

@@ -453,6 +453,21 @@ def _parse(c: str) -> Condition | None:
         elif m["f"] == "a library":  # (wave 16C: Dreadhound — any player's library)
             out["from"] = "library"
         return out
+    # -- counters (wave 21D) -- "one or more cards are put into exile [from your graveyard / your hand / your library and/or your
+    # graveyard]" (Rakshasa Vizier, Laelia), "… into a library from anywhere" (Dutiful Knowledge Seeker): a card (never a token,
+    # 111.7) put there, as it is there (603.6c); "during your turn" is the generic qualifier
+    m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?P<z>exile|a library)"
+                     r"(?: from (?P<f>your graveyard|your hand|your library and/or your graveyard|anywhere))?", c)
+    if m and (m["z"] == "exile" or m["f"] == "anywhere"):
+        gsel = selectors.from_key(_object_sel(m["o"], card=True))
+        if gsel.zones or gsel.zone_owner:
+            return None
+        out = {"event": "to_exile" if m["z"] == "exile" else "to_library", "subject": "sel",
+               "aggregate": m["o"].startswith("one or more "), "sel": gsel.key()}
+        if m["f"] and m["f"] != "anywhere":
+            out["froms"] = ["library", "graveyard"] if "library" in m["f"] else [m["f"].split()[1]]
+            out["from_owner"] = "you"
+        return out
     # -- graveyard owner (wave 6D) -- "a creature is put into an opponent's graveyard from the battlefield", "a nontoken
     # creature is put into your graveyard from the battlefield", "~ is put into your graveyard from the battlefield": it
     # died (700.4), and a card goes to its OWNER's graveyard (400.3; a token too, 111.7) — whose graveyard is the owner's
@@ -652,6 +667,8 @@ def _cast(c: str) -> Condition | None:
     if t:
         out["turn"] = "opponent"
         spell = t["rest"]
+    if spell == "a spell other than your first spell each turn":  # -- counters (wave 21D) -- 601.2i: the second or later (Arcbound Tracker)
+        return {**out, "nth_min": 2, "spell": selectors.Selector(zones=("stack",)).key()}
     nth = re.fullmatch(r"(?:your|their) (?P<nth>first|second|third|fourth|fifth) spell(?P<each> each turn)?", spell)
     if nth and (nth["each"] or out.get("turn")):  # (the Nth spell of any kind: counted per player per turn)
         return {**out, "nth": _NTH[nth["nth"]], "spell": selectors.Selector(zones=("stack",)).key()}

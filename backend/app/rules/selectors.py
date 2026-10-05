@@ -66,6 +66,7 @@ _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves"
               "plains": "Plains", "pegasi": "Pegasus", "octopi": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
 _IRREGULAR.update({"oxen": "Ox", "armies": "Army", "spies": "Spy", "cyclopes": "Cyclops"})  # -- static wordings (wave 6E) --
 _IRREGULAR.update({"aurochs": "Aurochs"})  # -- trigger tail (wave 15B) -- (its own plural)
+_IRREGULAR.update({"heroes": "Hero"})  # -- counters (wave 21D) --
 _MARKERS = {"card", "spell", "perm", "token", "commander"}  # nouns that mark what kind of object, not its type
 ZONES = ("battlefield", "graveyard", "hand", "exile", "library", "stack", "command")
 
@@ -493,7 +494,7 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 # -- token & pump wordings (wave 6C) -- keywords a selector may ask about but a grant doesn't give ("if you control no
 # creatures with decayed": read from the object's keywords, like the others)
 _WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke",
-                  "modular", "toxic", "mutate", "awaken")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
+                  "modular", "toxic", "mutate", "awaken", "cascade")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
 # an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
 
@@ -881,9 +882,27 @@ def single_target(plan: Plan, card: CardInstance) -> bool:
 # -- end stack interaction (wave 5B) --
 
 
+# -- counters (wave 21D) -- "Pest, Bat, Insect, Snake, and Spider you control" (Blech): a list of creature types joined by "and" names an
+# object with any of them, like "Pest, Bat, or Spider you control" (the same group)
+_TYPE_AND = re.compile(r"^(?P<pre>(?:other |another )?)(?P<list>[A-Z][A-Za-z'\-]+(?:, [A-Z][A-Za-z'\-]+)*,? and [A-Z][A-Za-z'\-]+)"
+                       r"(?P<post>(?: you control)?)$")
+
+
+def _type_and(phrase: str) -> str:
+    from app.rules.creature_types import CREATURE_TYPES
+
+    m = _TYPE_AND.match(phrase)
+    if m is None:
+        return phrase
+    words = re.split(r",? and |, ", m["list"])
+    if not all(w in CREATURE_TYPES or _IRREGULAR.get(w.lower()) in CREATURE_TYPES or w[:-1] in CREATURE_TYPES for w in words):
+        return phrase
+    return f"{m['pre']}{', '.join(words[:-1])}{',' if len(words) > 2 else ''} or {words[-1]}{m['post']}"
+
+
 def parse(phrase: str) -> Selector | None:
     """A noun phrase without its determiner ("nonland permanent an opponent controls") → Selector."""
-    return _parse(phrase.strip())
+    return _parse(_type_and(phrase.strip()))
 
 
 # -- outlaws (wave 11F) -- 700.12: an object with the Assassin, Mercenary, Pirate, Rogue and/or Warlock creature types
