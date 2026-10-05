@@ -4200,3 +4200,7 @@ RESUME[_resolution_choice.STEP] = _resolution_choice.resume
 from app.rules import hand_wheel as _hand_wheel  # noqa: E402, I001
 
 PRIMITIVES.update(_hand_wheel.PRIMITIVES)
+# -- trigger other (wave 25B) -- join forces (app/rules/join_forces.py)
+from app.rules import join_forces as _join_forces  # noqa: E402, I001
+
+PRIMITIVES.update(_join_forces.PRIMITIVES)

@@ -1177,6 +1177,13 @@ def _create_one_of(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "pick_one", "options": options}], None
 
 
+# -- trigger other (wave 25B) -- join forces: "Starting with you, each player may pay any amount of mana." (app/rules/join_forces.py); the
+# total is "the total amount of mana paid this way" (language._rider_value)
+@effect(r"(?:starting with you, each player|each player starting with you) may pay any amount of mana")
+def _join_forces(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "join_forces", "bind": "jf"}], None
+
+
 # -- trigger other (wave 25B) -- "Put the cards in your hand on the bottom of your library in any order, then draw that many cards."
 # (app/rules/hand_wheel.py); "that player puts the cards in their hand … then draws that many cards" (Teferi's Puzzle Box)
 @effect(r"(?:(?P<who>you|that player) )?puts? the cards in (?:your|their) hand on the bottom of (?:your|their) library in any order, "

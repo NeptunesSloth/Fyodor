@@ -510,6 +510,8 @@ def _with_rider(text: str) -> tuple[str, Any]:
 def _rider_value(phrase: str) -> Any:
     """A rider's quantity: "its power" / "that creature's toughness" / "~'s power" (app: _stat),
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
+    if phrase == "the total amount of mana paid this way":  # -- trigger other (wave 25B) -- join forces (app/rules/join_forces.py)
+        return {"paid_x": "jf"}
     if re.fullmatch(r"(?:(?:\d+|one|two|three) plus )?the sacrificed (?:creature|artifact|permanent|land|enchantment)'s "
                     r"(?:power|toughness|mana value)", phrase):  # -- amounts (wave 12C) --
         return _stat(phrase)
@@ -680,8 +682,8 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     # -- recursion & tutors (wave 4M) -- "Search your library for up to X basic land cards, where X is the number of
     # lands you control, put them onto the battlefield tapped, then shuffle." (Boundless Realms): how many cards may be
     # found is the count, read as the search begins (107.3c: X defined by the ability's text)
-    sized = re.fullmatch(r"(?P<a>search your library for up to [xX] (?!.*\bwith mana value [xX]\b).+?),? where [xX] is (?P<v>.+?), "
-                         r"(?P<b>(?:put|reveal) .+)", text)
+    sized = re.fullmatch(r"(?P<a>(?:(?:each player|each opponent) )?search(?:es)? (?:your|their) library for up to [xX] "  # (wave 25B: "each player searches")
+                         r"(?!.*\bwith mana value [xX]\b).+?),? where [xX] is (?P<v>.+?), (?P<b>(?:puts?|reveal) .+)", text)
     if sized:
         found = _search(f"{sized['a']}, {sized['b']}")
         if found is None or found[0][0].get("max") != {"x": 1}:
