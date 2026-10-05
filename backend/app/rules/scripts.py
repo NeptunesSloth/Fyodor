@@ -1963,7 +1963,9 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     body = re.sub(r"(?i)\b(each|all) ((?:(?:artifact|creature|enchantment|land|planeswalker|battle), )+)and "
                   r"((?:artifact|creature|enchantment|land|planeswalker|battle) with mana value\b)", r"\1 \2and/or \3", body)
     from app.rules import per_opponent  # -- per-opponent targets (wave 12C) --
+    from app.rules import player_filter  # -- per-player filters (wave 23A) -- ", then each opponent who …" is a sentence of its own
 
+    body = player_filter.rewrite(body)
     if (each_opp := per_opponent.parse(body, lambda b: parse_effects(b, it, event_player=event_player))) is not None:
         return each_opp
     found = _parse_effects_checked(body, it, event_player)
@@ -1972,6 +1974,12 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     if found is not None and '{"x": 1}' not in json.dumps(found[0]):
         return found
     return _where_x(body, it, event_player) or found  # (X left as a cast X by the sentence grammar: read as the text defines it, if it can be)
+
+
+def _plain_clause(text: str, it: str | None, event_player: bool) -> list[dict[str, Any]] | None:
+    """-- per-player filters (wave 23A) -- one clause's effects when it has no target and no "may" of its own (else None)."""
+    found = parse_effects(text, it, event_player=event_player)
+    return found[0] if found is not None and found[1] is None and not found[2] else None
 
 
 def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -2398,6 +2406,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         from app.rules import paid_x as _paid_x  # -- sized payments (wave 5G) -- "X can't be greater than …"
 
         if _paid_x.cap_sentence(text, effects):
+            continue
+        # -- per-player filters (wave 23A) -- "Each opponent who doesn't control an Elf loses 1 life." / "Each opponent who can't …"
+        from app.rules import player_filter as _player_filter
+
+        if (filtered := _player_filter.sentence(text, effects, lambda t: _plain_clause(t, it, event_player))) is not None:
+            effects += filtered
             continue
         # -- if you do (wave 6F) -- "Each opponent may …. Each opponent who doesn't …"
         from app.rules import each_may as _each_may
