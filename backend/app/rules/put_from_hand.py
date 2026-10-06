@@ -20,6 +20,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
+from app.rules import context
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -90,6 +91,8 @@ def put_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     may = bool(e.get("optional")) or bool(e.get("many"))  # ("you may": none is a choice; a trigger's "you may" was asked already, 603.5)
     if not options and not (may and plan.state.zones.get(f"{pid}:hand")):
         effects._remember(plan, ctx, e, [])
+        if e.get("did"):  # -- if you do (wave 26C) -- "If you do": no card was put onto the battlefield
+            context.bind_payment(ctx, e["did"], False)
         return True  # (nothing is announced: the hand is hidden)
     # (-- review 25C -- a "you may" is asked whenever the hand holds cards, so whether the question appears doesn't tell the other
     # players that a matching card is there: the triggered abilities' "may" moved here, scripts._own_choice)
@@ -136,6 +139,8 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
             raise ActionError("Choose a matching card from your hand")
         cards.append(cid)
     before = effects._remember(plan, ctx, e, cards)
+    if e.get("did"):  # -- if you do (wave 26C) -- 608.2c: a card was chosen and entered (the grammar reads it only for cards that can't stay in the hand)
+        context.bind_payment(ctx, e["did"], bool(cards))
     entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped"))} for c in cards]
     if entries and not attachments.enter(plan, entries, ctx):
         return  # (an Aura chooses what it enchants; the resolution goes on from there)

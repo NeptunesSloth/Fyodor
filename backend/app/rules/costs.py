@@ -36,6 +36,7 @@ _ENERGY = re.compile(r"^Pay (?:(?P<symbols>(?:\{E\})+)|(?P<n>\w+) \{E\})$")
 _REMOVE = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|four|five|six|seven|eight|\d+) (?P<kind>[\w+/\-]+) counters? from (this \w+|it|~|(?P<name>.+))$"
 )
+_REMOVE_ALL = re.compile(rf"^Remove all (?P<kind>[\w+/\-]+) counters from {_SELF}$")  # (the source's own: ~ / this permanent)
 _N = r"(?P<n>a|an|another|one|two|three|four|five|six|seven|eight|nine|ten|thirteen|fifteen|\d+)"  # (seven …: wave 4H; fifteen: 17B)
 _SAC_CHOSEN = re.compile(rf"^Sacrifice {_N} (?P<what>.+)$")
 _DISCARD = re.compile(rf"^Discard {_N} (?P<what>(?:[\w\-]+ )*cards?)(?P<random> at random)?$")
@@ -51,7 +52,7 @@ _RETURN = re.compile(rf"^Return {_N} (?P<what>.+? you control) to (?:its|their) 
 # "return X Swamps you control to their owner's hand" (the sacrifice / exile ones are ``_SAC_X`` / ``_EXILE_GY_X``)
 _DISCARD_X = re.compile(r"^Discard X (?P<what>(?:[\w\-]+ )*cards?)(?P<random> at random)?$")
 _RETURN_X = re.compile(r"^Return X (?P<what>.+? you control) to (?:its|their) owner's hands?$")
-_TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another )?untapped (?P<what>.+ you control)$")
+_TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another )?untapped (?P<what>.+ you control(?: other than (?:~|this creature))?)$")
 _UNTAP_OTHER = re.compile(rf"^Untap {_N} tapped (?P<what>.+ you control)$")  # -- activated sweep (wave 17B) -- Halo Fountain
 _REMOVE_CHOSEN = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|\d+) (?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? from (?:a|an|another) (?P<what>.+)$")
@@ -103,6 +104,8 @@ class CostComponent:
     named_self: bool = False  # (wave 4H) grandeur, "Discard another card named ~": a card with the source's name
     more: bool = False  # -- casting extras (wave 18E) -- "N or more" (craft materials)
     up_to: bool = False  # -- casting extras (wave 18E) -- "up to N" (harmonize 702.180a: "tapping up to one untapped creature"): none is a choice
+    every: bool = False  # -- activated sweep (wave 26C) -- "Remove all oil counters from ~": X is every such counter there is, set as it's activated
+    among: bool = False  # -- activated sweep (wave 26C) -- "Remove two +1/+1 counters from among creatures you control": any permanents, one pick per counter
 
     @property
     def chosen(self) -> bool:
@@ -121,7 +124,7 @@ class CostComponent:
         """-- activation costs (wave 4H) -- a part only an activated ability's activation pays (casting.activate_to_stack
         through app/rules/cost_payment.py): never a mana ability's (605: no stack, no X), an optional payment's or a
         spell's additional cost."""
-        return self.kind in WAVE_4H_KINDS or (self.x and self.kind != PAY_ENERGY) or self.counter == ANY_COUNTER \
+        return self.kind in WAVE_4H_KINDS or (self.x and self.kind != PAY_ENERGY) or self.counter == ANY_COUNTER or self.among \
             or self.life_rule is not None or (self.kind == EXILE and self.selector is not None) \
             or self.alt is not None or self.named_self
 
@@ -161,7 +164,7 @@ class AbilityCost:
     def x_chosen(self) -> bool:
         """-- activation costs (wave 4H) -- a part sized by an X announced as it's activated (107.3a, 107.3k):
         "Sacrifice X Treasures", "Remove X ki counters from this creature", "Pay X {E}"."""
-        return any(c.x for c in self.components)
+        return any(c.x and not c.every for c in self.components)
 
     @property
     def energy(self) -> int:
@@ -244,6 +247,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
             return CostComponent(PAY_ENERGY, amount=0, x=True, text=part)
         n = m["symbols"].count("{E}") if m["symbols"] else _ENERGY_WORDS.get(m["n"].lower()) or (int(m["n"]) if m["n"].isdigit() else 0)
         return CostComponent(PAY_ENERGY, amount=n, text=part) if n else None
+    if m := _REMOVE_ALL.match(part):  # -- activated sweep (wave 26C) -- 602.2b: not announced, it's all of them (casting sets X to that many)
+        return CostComponent(REMOVE_COUNTER, amount=0, counter=m["kind"], x=True, every=True, text=part)
     if (m := _REMOVE.match(part)) and (not m.group("name") or m.group("name") == card_name):
         return CostComponent(REMOVE_COUNTER, amount=_n(m["n"]), counter=m["kind"], text=part)
     if _EXILE_SELF_GY.match(part):
@@ -271,7 +276,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         key = _selector(m["what"], zone="battlefield", other=m["n"] == "another")
         return CostComponent(RETURN_PERMANENT, amount=_n(m["n"]), selector=key, text=part) if key else None
     if m := _TAP_OTHER.match(part):
-        key = _selector("untapped " + m["what"], zone="battlefield", other=bool(m["another"]) or m["n"] == "another")
+        what, other = re.subn(r" other than (?:~|this creature)$", "", m["what"])  # (wave 26C: "Tap an untapped red creature you control other than ~")
+        key = _selector("untapped " + what, zone="battlefield", other=bool(m["another"]) or m["n"] == "another" or bool(other))
         return CostComponent(TAP_OTHER, amount=_n(m["n"]), selector=key, text=part) if key else None
     if m := _UNTAP_OTHER.match(part):
         key = _selector("tapped " + m["what"], zone="battlefield")
@@ -311,6 +317,9 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False)
     kinds = [c.kind for c in components]
     if kinds.count(TAP) + kinds.count(UNTAP) > 1:
         unsupported.append(cost)  # ("{T}, {Q}" isn't a thing; never guess)
+    if any(c.every for c in components) and (sum(c.every for c in components) > 1 or any(
+            (c.x and not c.every) or (c.kind == MANA and "X" in c.text) for c in components)):
+        unsupported.append(cost)  # (wave 26C: the one X is the counters removed; a second X would be the same number)
     return AbilityCost(
         mana="".join(c.text for c in components if c.kind == MANA),
         tap=TAP in kinds, untap=UNTAP in kinds,
@@ -340,6 +349,7 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False)
 _ANY_SELF = re.compile(rf"^Remove (?P<n>a|an|one|two|three|four|five) counters? from {_SELF}$")
 _ANY_CHOSEN = re.compile(r"^Remove (?:a|one) counter from (?P<another>a|an|another) (?P<what>[^,]+ you control)$")
 _X_SELF = re.compile(rf"^Remove X (?P<kind>[\w+/\-]+) counters from {_SELF}$")
+_AMONG = re.compile(r"^Remove (?P<n>a|one|two|three|four|five|X) (?:(?P<kind>\+1/\+1|-1/-1|[a-z]+) )?counters? from among (?P<what>.+ you control)$")
 _PUT_SELF = re.compile(rf"^Put {_N} (?P<kind>[\w+/\-]+) counters? on {_SELF}$")
 _PUT_CHOSEN = re.compile(rf"^Put {_N} (?P<kind>[+-]\d+/[+-]\d+) counters? on (?P<another>a|an|another) (?P<what>[^,]+ you control)$")
 _BLIGHT = re.compile(r"^Blight (?P<n>\d+)$")
@@ -407,6 +417,12 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(REMOVE_COUNTER, counter=ANY_COUNTER, selector=key, text=part) if key else None
     if m := _X_SELF.match(part):
         return CostComponent(REMOVE_COUNTER, amount=0, counter=m["kind"], x=True, text=part)
+    if m := _AMONG.match(part):  # -- activated sweep (wave 26C) -- 122.1: the counters come off any of the permanents, one pick for each counter
+        key = _selector(m["what"], zone="battlefield")
+        if key is None or m["what"].startswith("other "):
+            return None
+        return CostComponent(REMOVE_COUNTER, amount=0 if m["n"] == "X" else _n(m["n"]), counter=m["kind"] or ANY_COUNTER, selector=key,
+                             x=m["n"] == "X", among=True, text=part)
     if m := _PUT_SELF.match(part):
         return CostComponent(PUT_COUNTER, amount=_n(m["n"]), counter=m["kind"], text=part) if m["n"] != "another" else None
     if m := _PUT_CHOSEN.match(part):

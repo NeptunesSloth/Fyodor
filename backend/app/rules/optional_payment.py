@@ -50,7 +50,9 @@ STEP = "pay_or_sacrifice"
 PAY, DECLINE = "pay", "decline"
 SUPPORTED = frozenset({C.MANA, C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.DISCARD, C.EXILE, C.EXILE_FROM_GRAVEYARD,
                        C.REMOVE_COUNTER, C.RETURN_PERMANENT, C.TAP_OTHER, C.PUT_COUNTER, C.DISCARD_HAND,
-                       C.MILL, "EXILE_FROM_HAND", C.EXILE_TO_GY})  # (MILL, EXILE_FROM_HAND: wave 8C; EXILE_TO_GY: wave 15C)  # (PUT_COUNTER: wave 6F, blight)
+                       C.MILL, "EXILE_FROM_HAND", C.EXILE_TO_GY,  # (MILL, EXILE_FROM_HAND: wave 8C; EXILE_TO_GY: wave 15C)  # (PUT_COUNTER: wave 6F, blight)
+                       C.FORAGE, C.COLLECT_EVIDENCE})  # (wave 26C: "you may forage", "you may collect evidence 4": 701.61a, 701.59a)
+FLEXIBLE = (C.FORAGE, C.COLLECT_EVIDENCE)  # (wave 26C) the cards that pay are chosen as a whole (cost_payment._flexible_options)
 _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 
 
@@ -61,7 +63,7 @@ def _blight_like(comp: C.CostComponent) -> bool:
     """A "put N counters on a creature you control" part (blight): one chosen permanent of the payer's — or "discard
     your hand" (every card in it; ``paid_x`` records how many, for "draw that many cards"); -- champion (wave 12B) -- or one chosen
     permanent exiled (702.72a)."""
-    return (comp.kind == C.PUT_COUNTER and comp.selector is not None and comp.alt is None and not comp.x) \
+    return comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE) or (comp.kind == C.PUT_COUNTER and comp.selector is not None and comp.alt is None and not comp.x) \
         or comp.kind == C.DISCARD_HAND or comp.kind == C.MILL \
         or (comp.kind == C.EXILE and comp.selector is not None and comp.amount == 1) \
         or (comp.kind == C.SACRIFICE and comp.alt is not None and comp.selector is not None)  # (wave 8C: mill 701.17b; "another creature or an artifact")
@@ -236,6 +238,13 @@ def _problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: di
     if chosen is not None:
         used: set[str] = set()
         for i, comp in cost.choices:
+            if comp.kind in FLEXIBLE:  # -- if you do (wave 26C) -- forage / collect evidence: validated as a whole (701.61a, 701.59a)
+                options, _ = cost_payment._flexible_options(plan, comp, source, payer, used)
+                picks = chosen.get(i, [])
+                if len(set(picks)) != len(picks) or any(c not in options for c in picks) or not cost_payment._flexible_ok(plan, comp, picks):
+                    return f"Those can't pay “{comp.text}”"
+                used |= set(picks)
+                continue
             usable = [c for c in cost_payment.candidates(plan, comp, payer, source)
                       if c not in cost_payment._reserved(cost, comp, source) and c not in used]
             picks = chosen.get(i, [])
@@ -368,7 +377,12 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
             context.bind_payment(ctx, opt["bind"], False)
             effects.continue_effects(plan, ctx)
             return
-        if len(chosen) != r["amount"]:
+        if r.get("flexible"):  # -- if you do (wave 26C) -- forage / collect evidence: the picks must pay the part as a whole
+            comp = cost.components[r["component"]]
+            options, _ = cost_payment._flexible_options(plan, comp, _source(plan, ctx), d.player, set())
+            if len(set(chosen)) != len(chosen) or any(c not in options for c in chosen) or not cost_payment._flexible_ok(plan, comp, chosen):
+                raise ActionError(f"Those cards don't pay “{comp.text}”")
+        elif len(chosen) != r["amount"]:
             raise ActionError(f"Choose {r['amount']}")
         opt = {**opt, "chosen": {**opt["chosen"], str(r["component"]): list(chosen)}}
     elif opt.get("alts") and chosen[0].startswith(f"{PAY}:"):  # -- if you do (wave 6F) -- the cost picked
@@ -463,6 +477,17 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
     for i, comp in cost.choices:
         if i in picked:
             continue
+        if comp.kind in FLEXIBLE:  # -- if you do (wave 26C) -- the payer picks the graveyard cards (or the Food) as a whole; none is a decline
+            options, payable = cost_payment._flexible_options(plan, comp, source, payer, used)
+            if not payable:
+                return True  # (validated again in _pay: it can't be paid any more)
+            decide(plan, player=payer, kind="choose_cards",
+                   prompt=f"{ctx.get('name') or 'It'}: choose the cards for “{comp.text}”, or none to decline",
+                   options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
+                   min_choices=0, max_choices=len(options) if comp.kind == C.COLLECT_EVIDENCE else 3,
+                   resume=_resume(ctx, opt, cost, component=i, amount=None, hand=True, flexible=True),
+                   source=plan.state.cards.get(ctx.get("source_card") or ""))
+            return False
         was, plan.resolution_cost = plan.resolution_cost, True  # (review 22B)
         try:
             usable = [c for c in cost_payment.candidates(plan, comp, payer, source)

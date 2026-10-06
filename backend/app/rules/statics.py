@@ -944,6 +944,10 @@ def _rule(piece: str) -> list[str] | None:
     if m:
         sels = _sels(m["sel"])
         return [f"cant_be_blocked_{'except_' if m['except'] else ''}by:{sels}"] if sels else None
+    m = re.fullmatch(r"can't block or be blocked by (?P<sel>.+)", piece)  # -- activated sweep (wave 26C) -- the Spirit tokens: both rules, one selector
+    if m:
+        sels = _sels(m["sel"])
+        return [f"cant_be_blocked_by:{sels}", f"cant_block_sel:{sels}"] if sels else None
     m = re.fullmatch(r"can block only (?P<sel>.+)", piece)
     if m:
         sels = _sels(m["sel"])

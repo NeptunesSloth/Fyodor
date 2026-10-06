@@ -349,6 +349,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
+    if (m := re.fullmatch(r"the (?P<stat>power|toughness|mana value) of the creature tapped this way", phrase)) is not None:
+        return {_STATS[m["stat"]]: "cost:tapped"}  # -- activated sweep (wave 26C) -- the one creature a cost tapped (an activated ability only: scripts.define checks)
     if (m := re.fullmatch(r"the revealed card's (?P<stat>power|toughness|mana value)", phrase)) is not None:
         return {_STATS[m["stat"]]: "cost:revealed"}  # -- static_other sweep (wave 17C) -- the card a spell's additional cost revealed
     if (m := re.fullmatch(r"the discarded card's (?P<stat>power|toughness|mana value)|the (?P<stat2>mana value) of the discarded card",
@@ -550,7 +552,8 @@ def _rider_value(phrase: str) -> Any:
     if phrase in ("of its colors", "of that spell's colors"):  # -- value grammar (wave 23C) -- "for each of its colors": how many colors the object is (105.1)
         return {"colors": "that_spell" if "spell" in phrase else "it"}
     if phrase in ("the number of colors that spell is", "the number of colors it is") or re.fullmatch(
-            r"the (?:power|toughness|mana value) of the creature that died|the (?:power|toughness|mana value) of the (?:card|creature|permanent|artifact|enchantment|land|creature card) (?:exiled|returned|milled|destroyed) this way", phrase) or re.fullmatch(
+            r"the (?:power|toughness|mana value) of the creature that died|the (?:power|toughness) of the creature tapped this way|"
+            r"the (?:power|toughness|mana value) of the (?:card|creature|permanent|artifact|enchantment|land|creature card) (?:exiled|returned|milled|destroyed) this way", phrase) or re.fullmatch(
             r"(?:two|three|four) times (?:its|~'s|this creature's|that creature's) (?:power|toughness|mana value)", phrase):  # -- value grammar (wave 23C) -- 105.1
         return _stat(phrase)
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
@@ -3070,6 +3073,7 @@ _RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any nu
                         rf" from (?P<z>{_RA_ZONE})")
 _RA_SELF = re.compile(r"(?:this card|~) from your graveyard")
 _RA_LIB = re.compile(r"put (?P<o>.+? from your graveyard) on top of your library")  # (wave 3R4)
+_RA_LIB_NTH = re.compile(r"put (?:this card|~) from your graveyard into your library (?P<n>second|third) from the top")
 
 
 def _graveyard_cards(key: str) -> bool:
@@ -3083,6 +3087,9 @@ def gy_to_library(text: str) -> tuple[Effects, Any] | None:
     from the graveyard). None for anything else ("put target … on top": the older grammar)."""
     text = text[len("then "):] if text.startswith("then you may ") else text  # ("Then you may …": "then" only orders)
     may = text.startswith("you may ")
+    nth = _RA_LIB_NTH.fullmatch(text)  # -- activated sweep (wave 26C) -- "put this card from your graveyard into your library third from the top" (Bookwurm)
+    if nth is not None and not may:
+        return [{"do": "to_library", "who": "self_gy", "place": {"second": 2, "third": 3}[nth["n"]]}], None
     lib = _RA_LIB.fullmatch(text[len("you may "):] if may else text)
     if lib is None:
         return None

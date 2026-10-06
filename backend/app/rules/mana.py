@@ -290,7 +290,7 @@ def _choice_part(part: str) -> bool:
     found = C.parse_ability_cost(part, card_name="~")
     # -- activated sweep (wave 17B) -- also exerting / untapping the source ({Q}, 107.6) and foraging (701.61a): paid by hand
     return not found.unsupported and bool(found.components) and all(
-        c.kind in (C.EXERT, C.UNTAP, C.FORAGE) or (
+        c.kind in (C.EXERT, C.UNTAP, C.FORAGE, C.DISCARD_HAND) or (  # (wave 26C: "Discard your hand", 701.9a: no choice, paid with the rest)
             (not c.activation_only or (c.x and c.kind == C.TAP_OTHER)) and c.selector is not None  # (X: Hazel, "Tap X untapped tokens")
             and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random)
         for c in found.components)
@@ -406,6 +406,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             riders.append(rd)
         elif s == "Activate only once each turn":
             once = True
+        elif s == "Activate only as an instant" and chooses:
+            pass  # -- activated sweep (wave 26C) -- 602.5d: when you have priority; a cost of objects is only ever paid by hand (never mid-payment)
         elif (t := _ACTIVATE_TURN.fullmatch(s)) and condition is None:  # -- activated sweep (wave 17B) -- 602.5d: whose turn it is
             condition = _general_condition("it's your turn" if t["w"] == "your turn" else "it's an opponent's turn")
             once = once or bool(t["once"])

@@ -98,7 +98,7 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
             continue
         if comp.named_self and plan.ch(card).name != plan.ch(source).name:  # (wave 4H: grandeur)
             continue
-        if comp.kind == C.REMOVE_COUNTER and counters_on(card, comp.counter) < comp.amount:  # (any kind: wave 4H)
+        if comp.kind == C.REMOVE_COUNTER and counters_on(card, comp.counter) < (1 if comp.among else comp.amount):  # (any kind: wave 4H; among: 26C)
             continue
         if comp.kind == C.SACRIFICE and not plan.resolution_cost:  # -- prohibitions (wave 22B) -- "Players can't … sacrifice creatures to cast
             from app.rules import prohibitions  # spells or activate abilities"
@@ -225,6 +225,10 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
         elif comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- enough materials (the other parts' choices are checked as a whole)
             if len([c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]) < comp.amount:
                 return f"You can't pay “{comp.text}”"
+        elif comp.kind == C.REMOVE_COUNTER and comp.among:  # -- activated sweep (wave 26C) -- enough counters among the permanents (118.3)
+            holders = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
+            if sum(counters_on(plan.state.cards[c], comp.counter) for c in holders) < (max(0, x or 0) if comp.x else comp.amount):
+                return f"You can't pay “{comp.text}”"
         elif comp.selector is not None and comp.kind not in (C.COLLECT_EVIDENCE, C.WATERBEND):  # (collect evidence: _new_part_problem, wave 4H; waterbend: any number, even none)
             usable = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
             if len(usable) < objects_needed(comp, x) and not comp.up_to:  # (X / one permanent for its counters: wave 4H)
@@ -260,8 +264,8 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, cost: 
                 return None
             out[i] = found
             continue
-        if comp.counter == C.ANY_COUNTER or comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # -- activation costs (wave 4H) --
-            chooser = _choose_counters if comp.counter == C.ANY_COUNTER else _choose_flexible
+        if comp.counter == C.ANY_COUNTER or comp.among or comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # -- activation costs (wave 4H) --
+            chooser = _choose_counters if comp.counter == C.ANY_COUNTER or comp.among else _choose_flexible
             found = chooser(plan, a, i, comp, cost, card, what, given.get(i), used)
             if found is None:
                 return None
@@ -385,14 +389,19 @@ def _choose_counters(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFace
         c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card) and c not in used]
     tokens = counter_tokens(plan, holders)
     need = comp.amount
+    if comp.among:  # -- activated sweep (wave 26C) -- "from among creatures you control": each counter of that kind on any of them (122.1)
+        need = max(0, getattr(a, "x_value", None) or 0) if comp.x else comp.amount
+        tokens = {t: v for t, v in tokens.items() if comp.counter == C.ANY_COUNTER or v[1] == comp.counter}
     if given is not None:
         if len(given) != need or len(set(given)) != len(given) or any(t not in tokens for t in given) \
-                or len({tokens[t][0] for t in given}) != 1:
-            raise ActionError(f"Choose {need} counter{'s' if need != 1 else ''} on one permanent to pay “{comp.text}”")
+                or (not comp.among and len({tokens[t][0] for t in given}) != 1):
+            raise ActionError(f"Choose {need} counter{'s' if need != 1 else ''}{'' if comp.among else ' on one permanent'} to pay “{comp.text}”")
         chosen = list(given)
     elif len(tokens) < need:
         raise ActionError(f"You can't pay “{comp.text}”")  # 118.3
-    elif len(set(tokens.values())) == 1 or (len(tokens) == need and len(holders) == 1):
+    elif need == 0:
+        chosen = []  # (X announced as 0, 107.3a: nothing to remove)
+    elif len(set(tokens.values())) == 1 or (len(tokens) == need and (len(holders) == 1 or comp.among)):
         chosen = list(tokens)[:need]  # (one kind on one permanent, or exactly that many: no choice to make)
     else:
         decide(plan, player=plan.actor, kind="choose_cards",
@@ -468,6 +477,7 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             if ids:
                 plan.do({"type": "tap", "card_ids": ids, "tapped": True})
             record.tapped_for_cost += ids
+            record.tapped_objects += [plan.oid(c) for c in ids]  # (review 26C: last known information, 608.2h)
         elif comp.kind == C.UNTAP_OTHER:  # -- activated sweep (wave 17B) -- 701.26b
             plan.do({"type": "tap", "card_ids": ids, "tapped": False})
         elif comp.kind == C.REMOVE_COUNTER and comp.selector is not None:
@@ -520,6 +530,11 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
         else:
             plan.do({"type": "move", "card_ids": top, "to": {"zone": "exile"}})
             record.exiled += top
+    for comp in cost.components:  # -- if you do (wave 26C) -- "Whenever you forage / collect evidence" (701.61, 701.59): the cost was paid
+        if comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE):
+            from app.game.rules_state import emit
+
+            emit(plan.state, "designation", counter="forage" if comp.kind == C.FORAGE else "collect_evidence", player=player)
 
 
 def _flexible_options(plan: Plan, comp: CostComponent, card: CardInstance, player: str,
@@ -575,7 +590,7 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
     """-- activation costs (wave 4H) -- pay one of this wave's parts (True), or leave it to :func:`pay` (False)."""
     player = plan.actor
     x = record.x or 0
-    if comp.kind == C.REMOVE_COUNTER and comp.counter == C.ANY_COUNTER:
+    if comp.kind == C.REMOVE_COUNTER and (comp.counter == C.ANY_COUNTER or comp.among):  # (among: wave 26C)
         tokens = counter_tokens(plan, list(dict.fromkeys(t.rsplit(":", 2)[0] for t in ids)))
         removed: dict[tuple[str, str], int] = {}
         for t in ids:

@@ -44,6 +44,7 @@ from app.rules.costs import (
     EXILE,
     EXILE_FROM_GRAVEYARD,
     SACRIFICE,
+    TAP_OTHER,
     parse_ability_cost,
     spell_additional_cost,
 )
@@ -276,7 +277,7 @@ def self_text(text: str, name: str) -> str:
     def _own(part: str) -> str:
         for n in names:
             # (wave 20C: the short name before "the/of Capital" starts another name: "create Tuktuk the Returned, a legendary …")
-            part = re.sub(rf"(?<!\w){re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else ""), "~", part)  # (wave 16D: a name ending in "!" has no \b after it)
+            part = re.sub(rf"(?<![\w-]){re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else ""), "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
         return part
 
     # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the
@@ -1464,6 +1465,15 @@ def _return_yours(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "return_yours", "n": num(m["n"]), "what": "land" if m["what"].startswith("land") else "creature"}], None
 
 
+@effect(r"return any number of (?P<land>Plains|Islands|Swamps|Mountains|Forests) you control to their owner's hands?")
+def _return_any(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import (
+        sweep,  # -- activated sweep (wave 26C) -- "Sweep — Return any number of Plains you control …"
+    )
+
+    return [{"do": "return_any", "land": sweep.LANDS[m["land"]]}], None
+
+
 @effect(r"counter (?P<sel>target spell|target creature spell|target noncreature spell|target instant or sorcery spell)")
 def _counter(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "counter", "who": "target"}], SELECTORS[m["sel"]]
@@ -2024,6 +2034,16 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    found = _parse_effects_plain(body, it, event_player=event_player)
+    if found is None and re.search(r"\bbecomes?\b", body):  # -- activated sweep (wave 26C) -- "gets +3/+3 and becomes a Bear Berserker" (predicates.py)
+        from app.rules import predicates
+
+        if (split := predicates.split(body)) is not None:
+            found = _parse_effects_plain(split, it, event_player=event_player)
+    return found
+
+
+def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """One sentence (or two joined by ". ") of effects → (effects, targets, optional). Targets:
     None, a selector key (one "target [something]"), or a list of target groups (see
     target_fields). ``it``: what the pronoun "it" means when no target precedes it (resolve_it);
@@ -2641,6 +2661,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (instead := replacement_sentence(text, effects, groups)) is not None:  # -- replacement effects stage 2 (wave 2E) --  (before 1B: a replacement, not a condition)
             effects += instead
             continue
+        # -- if you do (wave 26C) -- "If you do, X. Otherwise, Y." is "If you don't, Y" (118.12: the same payment / probe decides both)
+        if i and text.startswith("otherwise, ") and texts[i - 1].lower().startswith("if you do, "):
+            text = "if you don't, " + text[len("otherwise, "):]
         # -- conditional / instead clauses (wave 1B) --  "If C, Y instead." / "Y instead if C." / "Otherwise, Z."
         if (branch := _instead_or_otherwise(text, effects, prev_start, groups, it)) is not None:
             if branch is False:
@@ -3132,8 +3155,13 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     # Chaos, Paralyze, Unifying Theory): the trigger event's player decides and pays (118.12); "If the player does" is read as "If you do"
     # (the loop below), what follows being about that player
     other = re.match(r"^(?:that|that attacking) player may ", text)
-    if other is not None and following and re.match(r"^If (?:the player|that player|they) (?:do|does), ", following[0]):
-        phrase, payer = text[other.end():], "that_player"
+    # (-- if you do (wave 26C) -- "Its controller may pay 1 life. If they do, they draw a card." (Gix): the controller of the trigger event's
+    # object, as it last existed (608.2h) — only in a trigger about an object)
+    its = re.match(r"^its controller may ", text) if it == "event" else None
+    if (other or its) is not None and following and re.match(r"^If (?:the player|that player|they) (?:do|does), ", following[0]):
+        phrase, payer = text[(other or its).end():], "that_player" if other else "ref:event.controller"  # type: ignore[union-attr]
+    elif not following and re.fullmatch(r"you may (?:forage|collect evidence \d+)", text):
+        phrase, payer = text[len("you may "):], "you"  # -- if you do (wave 26C) -- paid for its event alone: "Whenever you forage / collect evidence, …"
     elif not text.startswith("you may ") or not following or not re.match(r"^(?:If you (?:do|don't)|If you do or if [^,]+|When you do), ", following[0]):
         return None
     else:
@@ -3183,14 +3211,14 @@ def _that_player_does(text: str, effects: list[dict[str, Any]]) -> str | None:
     the same instruction as "If you do, …", about that player ("they" → "that player"); None when it isn't one or the verb isn't read."""
     m = re.match(r"^if (?:the player|that player|they) (?:do|does), (?P<rest>.+)$", text)
     pay = next((e for e in reversed(effects) if e["do"] == "optional_payment"), None)
-    if m is None or pay is None or pay.get("who") != "that_player":
+    if m is None or pay is None or pay.get("who") not in ("that_player", "ref:event.controller"):
         return None
     rest = re.sub(r"\bthe creature\b", "that creature", m["rest"])
     t = re.match(r"^they (?P<v>[a-z]+) (?P<more>.+)$", rest)
     if t is not None:
         if t["v"] not in _THEY_VERBS:
             return None
-        rest = f"that player {_THEY_VERBS[t['v']]} {t['more']}"
+        rest = f"{'that player' if pay['who'] == 'that_player' else 'its controller'} {_THEY_VERBS[t['v']]} {t['more']}"
     return f"if you do, {rest}"
 
 
@@ -3297,6 +3325,9 @@ def _unless_rider(text: str, effects: list[dict[str, Any]], prev_start: int) -> 
     if not exile and they is None and alt is None:
         return None
     prev = effects[prev_start:]
+    if they is not None and not exile and alt is None and prev and prev[-1]["do"] == "optional_payment" \
+            and prev[-1].get("who") in ("that_player", "ref:event.controller") and they["v"] in ("do", "does"):
+        return None  # (wave 26C: "That player may pay 1 life. If they do, …": the ask's own "If you do", read by _that_player_does)
     if len(prev) == 1 and prev[0]["do"] == "counter_unless" and str(prev[0].get("who")).startswith("target"):
         # "Counter target spell unless its controller pays {3}." read as the payment it is (118.12a), so the
         # rider has a payment to read and a counter to modify
@@ -3487,6 +3518,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if cost is None or [c.kind for c in cost.components].count(DISCARD) != 1 or not any(
                 c.kind == DISCARD and c.selector is not None and c.amount == 1 for c in cost.components):
             return None
+    if d is not None and '"cost:tapped"' in json.dumps(d, default=str):  # -- activated sweep (wave 26C) -- the one creature an activation cost tapped
+        cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
+        if cost is None or [c.kind for c in cost.components].count(TAP_OTHER) != 1 or not any(
+                c.kind == TAP_OTHER and c.selector is not None and c.amount == 1 and not c.x for c in cost.components):
+            return None
     if d is not None and ("cost:revealed" in json.dumps(d, default=str) or '"rev:' in json.dumps(d, default=str)):  # -- static_other sweep (wave 17C) --
         cost = spell_additional_cost(ch.abilities) if d.get("kind") == "spell" else None  # (a spell's additional cost revealed it)
         if cost is None or [c.kind for c in cost.components].count("REVEAL_FROM_HAND") != 1 or cost.either:
@@ -3578,15 +3614,20 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # (wave 19F: or its own "When this creature becomes monstrous" with a "Monstrosity X" ability on the card: that X, 701.37c)
     monstrous_x = d is not None and (d.get("cond") or {}) == {"subject": "self", "event": "become_monstrous"} and any(
         "Monstrosity X" in a.text for a in ch.abilities) and "where X is" not in ability.text
+    from app.rules import (
+        removed_all,  # -- activated sweep (wave 26C) -- its "where X is the number of … counters removed this way" was read as the cost's X
+    )
+
+    where_text = removed_all.WHERE.sub("", ability.text) if ability.kind == "activated" else ability.text
     if d is not None and '{"x": 1}' in json.dumps(d.get("effects") or [], default=str) and (
-            re.search(r"\bwhere X is\b", ability.text)
+            re.search(r"\bwhere X is\b", where_text)
             or (d.get("kind") == "triggered" and d.get("trigger") != "enters_self" and not monstrous_x)):
         return None
     # -- review (wave 12C) -- the X a selector compares with ("with mana value X or less": selectors.X_VALUE, the cast X) or
     # the stand-in number of _where_x, left in any field: that X isn't what "where X is" defines — manual
     from app.rules import selectors  # (a leaf module)
 
-    if d is not None and re.search(r"\bwhere X is\b", ability.text) and re.search(
+    if d is not None and re.search(r"\bwhere X is\b", where_text) and re.search(
             rf'(?<![\d-]){_X_SENTINEL}(?!\d)|,{selectors.X_VALUE}\]', json.dumps(d, default=str)):
         return None
     if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str) and not (
@@ -3949,6 +3990,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 return out
         return None
     if ability.kind == "spell":
+        from app.rules import (
+            sweep,  # -- activated sweep (wave 26C) -- "Sweep — Return any number of Plains you control …"
+        )
+
+        if (text := sweep.rewrite(text)) is None:  # type: ignore[assignment]
+            return None
         parsed = _own_choice(parse_effects(text))  # (_own_choice: wave 3R5)
         if parsed is None or parsed[2]:
             return None
@@ -3990,6 +4037,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import cost_changes
 
         body, own_cost = cost_changes.split_ability(body)
+        from app.rules import (
+            removed_all,  # -- activated sweep (wave 26C) -- "Remove all oil counters from ~: … the number removed this way"
+        )
+
+        if (body := removed_all.rewrite(body, cost)) is None:  # type: ignore[assignment]
+            return None
         if own_cost is not None and (not cost_changes.ability_change(text) or "{X}" in (ability.cost or "") or not cost.mana):
             return None
         # -- end cost changers (wave 4I) --
@@ -5744,7 +5797,7 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 # was) might not be there: "If you do" would then be false, which this reading can't tell.
 _CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token"})
 _CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce", "gain_control", "pump", "grant"})  # (wave 19E: gain control of a chosen target: it changes hands or the ability fizzles; wave 21C: "you may have target creature get +2/+0 and gain haste until end of turn. If you do, …")
-_PROBED = frozenset({"draw", "exile", "bounce", "add_counters"})  # (their "If you do" reads the result: effects._did)
+_PROBED = frozenset({"draw", "exile", "bounce", "add_counters", "put_from_hand"})  # (their "If you do" reads the result: effects._did; wave 26C: put_from_hand)
 
 
 def _probed_move(e: dict[str, Any]) -> bool:
@@ -5753,6 +5806,9 @@ def _probed_move(e: dict[str, Any]) -> bool:
     false when the card had already left (400.7: there's nothing to exile) — no certainty is needed."""
     if e["do"] == "add_counters":  # -- if you do (wave 15C) -- counters on a chosen object: probed (effects._did_counters_up)
         return isinstance(e.get("who"), str) and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")
+    if e["do"] == "put_from_hand":  # -- if you do (wave 26C) -- one creature / land card from the hand (never an Aura, which may stay in the hand, 303.4g)
+        sel = selectors.from_key(e["sel"])
+        return not e.get("many") and not e.get("alt") and not e.get("attacking") and bool(sel.types) and set(sel.types) <= {"Creature", "Land"}
     return e["do"] in ("exile", "bounce") and isinstance(e.get("who"), str) and not e.get("optional")
 
 

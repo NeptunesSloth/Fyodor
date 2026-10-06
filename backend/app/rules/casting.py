@@ -118,7 +118,7 @@ def _choice_cost_ok(extra: Any) -> bool:
     from app.rules import costs as C
 
     return not extra.unsupported and all(
-        c.kind in (C.MANA, C.TAP, C.PAY_LIFE, C.EXERT, C.UNTAP, C.FORAGE)  # (wave 17B: exert, {Q}, forage: paid by hand)
+        c.kind in (C.MANA, C.TAP, C.PAY_LIFE, C.EXERT, C.UNTAP, C.FORAGE, C.DISCARD_HAND)  # (wave 17B: exert, {Q}, forage: paid by hand; 26C: discard your hand)
         or ((not c.activation_only or (c.x and c.kind == C.TAP_OTHER)) and (  # (X: Hazel of the Rootbloom)
             (c.kind in (C.SACRIFICE, C.REMOVE_COUNTER) and c.selector is None)
             or (c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD)
@@ -3277,6 +3277,11 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     parsed = dict(mana_abilities(plan.state, card, plan.info)).get(a.ability) if ability.kind == "mana" else None
     if parsed is None:
         raise ActionError("While paying you can only tap for mana")
+    if parsed.chooses:  # -- review 26C -- produce() doesn't pay a cost that chooses objects ("Sacrifice a creature", "Discard your hand"):
+        # it's paid only through _activate_choosing, whose own decision can't run inside this one. Activated before paying (with
+        # priority) instead; "Activate only as an instant" (Lion's Eye Diamond) needs priority anyway (304.5, 602.5e), which a
+        # player paying a cost (601.2g-h) or a resolving payment (608.2) doesn't have.
+        raise ActionError(f"Activate {ch.name}’s mana ability before you start paying (its cost is chosen as it's paid)")
     if ability_taxes(plan.state, plan.info) and mana_ability_taxed(plan.state, card, ch, parsed, plan.info):  # (review 4R)
         raise ActionError(f"Another effect changes the cost of {ch.name}’s mana ability: activate it by hand with the table tools")
     if parsed.tap and not can_use_tap_abilities(plan.state, card, ch, plan.info):
@@ -3441,6 +3446,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         mana = _locked(plan, mana)
     if (mana.x or cost.loyalty_x or cost.energy_x or cost.x_chosen) and a.x_value is None:  # (wave 3E: "Pay X {E}"; x_chosen: wave 4H)
         raise ActionError("Choose a value for X")
+    if (every := next((c for c in cost.components if c.every), None)) is not None:
+        a.x_value = cost_payment.counters_on(card, every.counter)  # -- activated sweep (wave 26C) -- "Remove all oil counters": all there are now (602.2b)
     if cost.loyalty_x and card.counters.get("loyalty", 0) < (a.x_value or 0):
         raise ActionError(f"{ch.name} doesn't have {a.x_value} loyalty")  # 606.6
     if definition is None:
