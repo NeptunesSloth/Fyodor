@@ -143,9 +143,10 @@ def _with(part: str | None) -> tuple[list[str], str | None] | None:
     kws = [k.strip() for k in re.split(r", and |, | and ", part) if k.strip()]
     # (wave 3E: "toxic N", read by combat.py from the token's keyword line, 702.164)
     # (wave 17D: a keyword whose meaning is a triggered ability the engine reads — training, mentor, dethrone … — 702.149a)
-    from app.rules import keyword_triggers
-
-    from app.rules import protection  # -- trigger other (wave 26B) -- "with protection from black" (702.16): the qualities the engine enforces
+    from app.rules import (
+        keyword_triggers,
+        protection,  # -- trigger other (wave 26B) -- "with protection from black" (702.16): the qualities the engine enforces
+    )
 
     if any(k not in SUPPORTED_KEYWORDS and not re.fullmatch(r"toxic \d+", k) and not keyword_triggers.supported(k, k)
            and not (k.startswith("protection from ") and protection.supported(k)) for k in kws):

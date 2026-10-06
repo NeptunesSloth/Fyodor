@@ -620,7 +620,6 @@ class TriggerEvent(BaseModel):
     amount: int = 0  # life gained or lost, damage dealt (summed over a "one or more" batch)
     count: int = 0  # how many objects / events the batch had
     defended: str | None = None  # -- combat (wave 5C) -- "Whenever you attack a player": the player attacked (508.3e)
-    attacked: str | None = None  # -- trigger other (wave 26B) -- the planeswalker or battle an attacking creature attacked (508.5)
     # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, …": that creature (509.3c-d)
     other: ObjectRef | None = None
 

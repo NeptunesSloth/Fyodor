@@ -1,7 +1,6 @@
 """Wave 26B: trigger wordings. Real Oracle text; every scenario checks the replay and a save and a load.
 
 * 508.1d / 611.2: "That token gains haste until end of turn and attacks this combat if able." (Legion Warboss): the requirement ends with the combat.
-* 508.5: "deals 1 damage to the player or planeswalker it's attacking" (Hellrider): the one the triggering attacker attacks.
 * 118.12a: "That player may <cost>. If they don't, <effect>." read as "<effect> unless that player <pays the cost>".
 * 701.20a: "reveal that many cards from the top of your library" after combat damage (Ojer Kaslem): the damage dealt.
 """
@@ -24,11 +23,6 @@ CARDS = [
     ("Legion Warboss", "{2}{R}", "Creature — Goblin Warrior", "2", "2",
      "Mentor\nAt the beginning of combat on your turn, create a 1/1 red Goblin creature token. That token gains haste until end of turn "
      "and attacks this combat if able."),
-    ("Hellrider", "{2}{R}{R}", "Creature — Devil", "3", "3",
-     "Haste\nWhenever a creature you control attacks, Hellrider deals 1 damage to the player or planeswalker it's attacking."),
-    ("Raid Bombardment", "{2}{R}", "Enchantment", None, None,
-     "Whenever a creature you control with power 2 or less attacks, this enchantment deals 1 damage to the player or planeswalker that "
-     "creature is attacking."),
     ("Ojer Kaslem, Deepest Growth", "{3}{G}{G}", "Legendary Creature — God", "6", "6",
      "Trample\nWhenever Ojer Kaslem deals combat damage to a player, reveal that many cards from the top of your library. You may put a "
      "creature card and/or a land card from among them onto the battlefield. Put the rest on the bottom in a random order."),
@@ -41,6 +35,10 @@ CARDS = [
      "control with the same name as that permanent until this enchantment leaves the battlefield."),
     ("Hunted Horror", "{1}{B}{B}", "Creature — Horror", "4", "4",
      "Menace\nWhen this creature enters, target opponent creates two 3/3 green Centaur creature tokens with protection from black."),
+    ("Choco, Seeker of Paradise", "{1}{G}", "Legendary Creature — Bird", "2", "2",
+     "Whenever one or more Birds you control attack, look at that many cards from the top of your library. You may put one of them into "
+     "your hand. Then put any number of land cards from among them onto the battlefield tapped and the rest into your graveyard."),
+    ("Probe Bird", "{1}", "Creature — Bird", "1", "1", ""),
     ("Probe Smash", "{W}", "Instant", None, None, "Destroy target enchantment."),
     ("Probe Imp", "{1}", "Creature — Imp", "1", "1", ""),
     ("Probe Brute", "{3}", "Creature — Ogre", "4", "4", ""),
@@ -113,47 +111,6 @@ def test_legion_warboss_token_has_haste_and_must_attack_this_combat(cards):
     check(s)
 
 
-def test_hellrider_damages_the_player_each_attacker_attacks(cards):
-    s = build(cards, ["Hellrider", "Probe Imp", "Probe Brute"])
-    put(s, "Hellrider")
-    put(s, "Probe Imp")
-    put(s, "Probe Brute")
-    ready(s, "Hellrider", "Probe Imp", "Probe Brute")
-    before = life(s, "p2")
-    to_declare_attackers(s)
-    attack(s, "Hellrider", "Probe Imp", "Probe Brute")
-    # three attackers: three triggers of 1, then combat damage 3 + 1 + 4 (no blockers)
-    assert life(s, "p2") == before - 3 - 8
-    check(s)
-
-
-def test_hellrider_damages_the_planeswalker_it_attacks_not_its_controller(cards):
-    s = build(cards, ["Hellrider"], ["Test Walker Card"])
-    put(s, "Hellrider")
-    ready(s, "Hellrider")
-    walker = put(s, "Test Walker Card", "p2")
-    act(s, "p2", type="counter", card_ids=[walker.id], kind="loyalty", delta=5)
-    before = life(s, "p2")
-    to_declare_attackers(s)
-    attack(s, "Hellrider", target=walker.id)
-    assert life(s, "p2") == before  # (the trigger's 1 and the combat damage 3 both went to the planeswalker)
-    assert s.state.cards[walker.id].counters.get("loyalty") == 1
-    check(s)
-
-
-def test_raid_bombardment_only_counts_small_attackers(cards):
-    s = build(cards, ["Raid Bombardment", "Probe Imp", "Probe Brute"])
-    put(s, "Raid Bombardment")
-    put(s, "Probe Imp")
-    put(s, "Probe Brute")
-    ready(s, "Probe Imp", "Probe Brute")
-    before = life(s, "p2")
-    to_declare_attackers(s)
-    attack(s, "Probe Imp", "Probe Brute")
-    assert life(s, "p2") == before - 1 - 5  # (one trigger, for the Imp only)
-    check(s)
-
-
 def test_ojer_reveals_as_many_cards_as_damage_dealt(cards):
     s = build(cards, ["Ojer Kaslem, Deepest Growth"])
     put(s, "Ojer Kaslem, Deepest Growth")
@@ -210,4 +167,17 @@ def test_target_opponent_creates_tokens_with_protection(cards):
     assert len(centaurs) == 2
     plan = Plan(s.state, "p1", s.cards, None)
     assert all(protection.protected_from(plan.ch(c), plan.ch(horror)) for c in centaurs)
+    check(s)
+
+
+@pytest.mark.parametrize("birds,looked", [(["Choco, Seeker of Paradise"], 1), (["Choco, Seeker of Paradise", "Probe Bird"], 2)])
+def test_look_at_that_many_cards_is_the_number_of_birds_that_attacked(cards, birds, looked):
+    s = build(cards, ["Choco, Seeker of Paradise", "Probe Bird", "Probe Imp"])
+    for b in birds:
+        put(s, b)
+    ready(s, *birds)
+    library = len(s.state.zones["p1:library"])
+    to_declare_attackers(s)
+    attack(s, *birds)
+    assert len(s.state.zones["p1:library"]) == library - looked  # (the library is Forests: each leaves for the hand, the table or the graveyard)
     check(s)

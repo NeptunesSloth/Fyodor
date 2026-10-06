@@ -1248,13 +1248,6 @@ def _damage(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "damage", "who": "target", "n": num(m["n"]), **_it_source(m["src"])}], SELECTORS[m["sel"]]
 
 
-# -- trigger other (wave 26B) -- "Whenever a creature you control attacks, this creature deals 1 damage to the player or planeswalker it's
-# attacking." (Hellrider, Raid Bombardment): the attacker the trigger is about (508.5; app/rules/defending.py reads the captured event)
-@effect(r"~ deals {N} damage to the player or planeswalker (?:it's|that creature is) attacking")
-def _damage_attacked(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    return [{"do": "damage", "who": "defending_player_or_pw", "n": num(m["n"])}], None
-
-
 @effect(r"~ deals {N} damage to each opponent")
 def _damage_opponents(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "damage", "who": "each_opponent", "n": num(m["n"])}], None

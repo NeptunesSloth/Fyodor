@@ -419,8 +419,8 @@ def clause(text: str) -> tuple[Effects, Any] | None:
         return _restrict(m["o"], ["must_attack"])
     m = _MUST_COMBAT.fullmatch(text)
     if m:  # -- trigger other (wave 26B) -- "That token attacks this combat if able." (Legion Warboss): ends with the combat (611.2)
-        found = _restrict(m["o"], ["must_attack"])
-        return ([{**found[0][0], "duration": "end_of_combat"}], found[1]) if found is not None else None
+        combat = _restrict(m["o"], ["must_attack"])
+        return ([{**combat[0][0], "duration": "end_of_combat"}], combat[1]) if combat is not None else None
     if _MYRIAD.fullmatch(text):  # (both sentences: the exile is part of the keyword, 702.116a)
         from app.rules import delayed
 

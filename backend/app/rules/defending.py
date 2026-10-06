@@ -58,19 +58,3 @@ def players(plan: Any, ctx: dict[str, Any]) -> list[str]:
     """``who: "defending_player"`` at resolution: the player the trigger event captured, while they're in the game."""
     pid = (ctx.get("event") or {}).get("defended")
     return [pid] if pid and pid in plan.live() else []
-
-
-# -- trigger other (wave 26B) -- "deals 1 damage to the player or planeswalker it's attacking" (Hellrider): the one the event's attacker
-# attacked (508.5), captured as it triggered; an attacked battle is neither (the wording names players and planeswalkers)
-OR_PW = "defending_player_or_pw"
-
-
-def player_or_pw(plan: Any, ctx: dict[str, Any]) -> tuple[list[str], list[str]]:
-    """(players, planeswalker cards) the event's attacker attacked, while still in the game / on the battlefield."""
-    ev = ctx.get("event") or {}
-    if ev.get("attacked") is None:
-        return players(plan, ctx), []
-    card = plan.state.cards.get(ev["attacked"])
-    if card is None or not card.zone.endswith(":battlefield") or "Planeswalker" not in plan.ch(card).types:
-        return [], []
-    return [], [card.id]
