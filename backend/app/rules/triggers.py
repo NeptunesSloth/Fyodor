@@ -1982,7 +1982,7 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
         try:
             found = choose_groups(plan, specs, t.controller, source_of(plan, t.source_card), t.source_card,
                                   picks["targets"], picks["counts"], picks["division"], cast_x(plan, t), t.name or "It",
-                                  attacker=attacker)  # (wave 19F: "up to X target …", X as 107.3m / 701.37c give it)
+                                  attacker=attacker, source_object=t.source_object)  # (wave 19F: "up to X target …", X as 107.3m / 701.37c give it)
         except ActionError:  # 603.3d: no legal choice for a required target: removed from the stack
             r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
             plan.note(f"{t.name}'s ability doesn't have enough legal targets and is removed")

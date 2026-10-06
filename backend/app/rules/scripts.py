@@ -2222,7 +2222,12 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
         v = language.x_definition(text)
         return (values.player_relative(text) or v) if v is None or "that_player" in json.dumps(v) else v
 
-    value, tail = defined_as(m["def"]), ""
+    text_def = m["def"]
+    if re.search(r" as you (?:activate this ability|cast this spell)$", text_def) and len(re.findall(r"\bX\b", body[: m.start()])) == 1 \
+            and re.search(r"\bup to X (?:other )?targets?\b", body[: m.start()]):
+        text_def = text_def.rsplit(" as you ", 1)[0]  # -- X target counts (wave 27C) -- "…, where X is the number of Bobbleheads you control as you activate this
+        # ability": X only counts the targets, which are chosen at that moment (601.2c)
+    value, tail = defined_as(text_def), ""
     if value is None and ", then " in m["def"]:  # -- value grammar (wave 23C) -- "Scry X, where X is the greatest mana value among permanents you control, then draw three cards."
         defined, tail = m["def"].split(", then ", 1)  # (the definition ends where the next instruction begins)
         value, tail = defined_as(defined), ", then " + tail
@@ -2236,14 +2241,38 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     outer = list(now)
     now[:] = [value, False]  # (-- X sized by a count (wave 19F) -- swapped in by _parse_effects before it binds the pronouns)
     try:
-        standin = re.sub(r"\ban (?=\d+/\d+\b)", "a ", re.sub(r"\bX\b", str(_X_SENTINEL), head))  # (-- wave 22D -- "an X/X token")
+        # -- X target counts (wave 27C) -- "up to X target …, where X is <a count>": the count is read as the targets are chosen (601.2c)
+        standin = re.sub(r"\ban (?=\d+/\d+\b)", "a ", re.sub(r"\bX\b(?! (?:other )?targets?\b)", str(_X_SENTINEL), head))  # (-- wave 22D -- "an X/X token")
         got = _parse_effects_checked(rest.replace("\0", standin), it, event_player)
         hit = now[1]
     finally:
         now[:] = outer
+    if got is not None and isinstance(got[1], list) and any(g.get("x_count") for g in got[1]):
+        got = _x_target_counts(got, value)
+        hit = got is not None
     if got is None or str(_X_SENTINEL) in json.dumps(got[1]) or not hit:
         return None
     return got
+
+
+_X_TARGET_VALUES = frozenset({"count", "counters", "on", "devotion", "kicked", "mutated", "hand", "plus", "times"})
+
+
+def _x_target_counts(found: tuple[list[dict[str, Any]], Any, bool], value: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- X target counts (wave 27C) -- the groups "up to X target …" of a sentence whose X a "where X is …" defines take that value
+    (``x_value``, read by targets.choose_groups as the targets are chosen: 601.2c, 107.3c). "X target …" (exactly X) and values that
+    need what a resolution knows (an event's, a chosen object's, a result) stay manual."""
+
+    def plain(v: Any) -> bool:
+        return isinstance(v, int) or (isinstance(v, dict) and set(v) <= _X_TARGET_VALUES and all(
+            plain(x) for k, x in v.items() if k in ("plus", "times") for x in (x if isinstance(x, list) else [x]))
+            and '"that_player"' not in json.dumps(v) and '"it"' not in json.dumps(v))
+
+    groups = found[1]
+    if value is None or not plain(value) or any(g.get("x_count") == "exact" for g in groups):
+        return None
+    out = [{k: v for k, v in g.items() if k != "x_count"} | {"x_value": value} if g.get("x_count") else g for g in groups]
+    return found[0], out, found[2]
 
 
 _X_LOCAL = threading.local()  # (review 19: per thread — games may parse cards concurrently)
