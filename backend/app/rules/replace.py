@@ -1001,6 +1001,11 @@ def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
         return False
     if m.get("hand_empty") and sim["hand"].get(pid, 0) > 0:
         return False  # -- draw bodies (wave 28B) -- "while you have no cards in hand": as the draw would happen
+    if m.get("max_speed"):
+        from app.rules import speed
+
+        if speed.of(plan, pid) < speed.MAX:  # 702.178a: "as long as you have max speed"
+            return False
     if m.get("not_first_in_draw_step"):
         # 504.1: the first card they draw in each of their draw steps (the turn-based draw)
         in_their_draw_step = plan.state.turn.phase == "draw" and plan.active == pid

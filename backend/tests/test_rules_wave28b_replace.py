@@ -48,6 +48,7 @@ EXTRA = [
     card("Quantum Riddler", set_code="tst", number="W25", mana_cost="{3}{U}{U}", cmc=5.0, type_line="Creature — Sphinx", power="4", toughness="6", colors=["U"], color_identity=["U"], keywords=["Flying", "Warp"], oracle_text="Flying\nWhen this creature enters, draw a card.\nAs long as you have one or fewer cards in hand, if you would draw one or more cards, you draw that many cards plus one instead.\nWarp {1}{U}"),  # noqa: E501
     card("Alms Collector", set_code="tst", number="W26", mana_cost="{3}{W}", cmc=4.0, type_line="Creature — Cat Cleric", power="3", toughness="4", colors=["W"], color_identity=["W"], keywords=["Flash"], oracle_text="Flash\nIf an opponent would draw two or more cards, instead you and that player each draw a card."),  # noqa: E501
     card("Sign in Blood", set_code="tst", number="W27", mana_cost="{B}{B}", cmc=2.0, type_line="Sorcery", colors=["B"], color_identity=["B"], oracle_text="Target player draws two cards and loses 2 life."),  # noqa: E501
+    card("Vnwxt, Verbose Host", set_code="tst", number="W28", mana_cost="{1}{U}", cmc=2.0, type_line="Legendary Creature — Homunculus", power="0", toughness="4", colors=["U"], color_identity=["U"], keywords=["Max speed", "Start your engines!"], oracle_text="Start your engines! (If you have no speed, it starts at 1. It increases once on each of your turns when an opponent loses life. Max speed is 4.)\nYou have no maximum hand size.\nMax speed — If you would draw a card, draw two cards instead."),  # noqa: E501
     card("Test Small", set_code="tst", number="W10", mana_cost="{G}", cmc=1.0, type_line="Creature — Elf", power="2", toughness="2", colors=["G"], color_identity=["G"], oracle_text=""),  # noqa: E501
     card("Divination", set_code="tst", number="W09", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"], color_identity=["U"], oracle_text="Draw two cards."),  # noqa: E501
 ]
@@ -530,6 +531,20 @@ def test_alms_collector_ignores_a_single_draw_and_its_controllers_own_draw(cards
     act(s, "p1", type="cast_spell", card_id=c.id)
     settle(s)
     assert len(zone(s, "hand")) == hand - 1 + 2  # (an opponent's draw of two or more cards only)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("speed,hand_gain", [(4, 4), (3, 2)])
+def test_vnwxt_draws_two_instead_of_each_draw_only_at_max_speed(cards, speed, hand_gain):
+    s = build(cards, p1=("Divination", "Vnwxt, Verbose Host"))
+    put(s, "Vnwxt, Verbose Host", "battlefield")
+    act(s, "p1", type="set_resource", player="p1", key="speed", value=speed)
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    hand = len(zone(s, "hand"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert len(zone(s, "hand")) == hand - 1 + hand_gain  # 702.178a: each of the two draws becomes two (not replaced again: 614.5)
     roundtrip(s)
 
 

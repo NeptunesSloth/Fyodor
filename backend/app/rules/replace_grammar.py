@@ -188,7 +188,7 @@ _EXCEPT_FIRST = {"you": " except the first one you draw in each of your draw ste
                  "opponent": " except the first one they draw in each of their draw steps",
                  "any": " except the first one they draw in each of their draw steps"}
 # (-- draw bodies (wave 28B) -- "while you have no cards in hand": 614.11, checked as each draw would happen)
-_DRAW = re.compile(r"^If (?P<who>you|an opponent|a player) would draw a card(?P<exc> except the first one (?:you|they) draw "
+_DRAW = re.compile(r"^(?P<ms>As long as you have max speed, if|If) (?P<who>you|an opponent|a player) would draw a card(?P<exc> except the first one (?:you|they) draw "
                    r"in each of (?:your|their) draw steps)?(?P<empty> while your library has no cards in it)?"
                    r"(?P<nohand> while you have no cards in hand)?, (?P<rest>.+)\.$")
 
@@ -215,9 +215,11 @@ def _draw(text: str) -> Definition | None:
     who = {"you": "you", "an opponent": "opponent", "a player": "any"}[m["who"]]
     if m["exc"] and m["exc"] != _EXCEPT_FIRST[who]:
         return None
-    if (m["empty"] or m["nohand"]) and who != "you":
+    if (m["empty"] or m["nohand"] or m["ms"] != "If") and who != "you":
         return None
     match: dict[str, Any] = {"who": who}
+    if m["ms"] != "If":
+        match["max_speed"] = True  # (-- draw bodies (wave 28B) -- "Max speed — …" is "As long as you have max speed, …": 702.178a, speed.py)
     if m["exc"]:
         match["not_first_in_draw_step"] = True  # 504.1: the draw step's turn-based draw is the first
     if m["empty"]:
