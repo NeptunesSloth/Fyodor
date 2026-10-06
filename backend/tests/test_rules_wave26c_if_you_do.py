@@ -63,6 +63,12 @@ REAL = [
     ("Chromium, the Mutable", "{4}{W}{U}{B}", "Legendary Creature — Elder Dragon", "7", "7",
      "Flash\nThis spell can't be countered.\nFlying\nDiscard a card: Until end of turn, Chromium becomes a Human with base power and toughness 1/1, "
      "loses all abilities, and gains hexproof. It can't be blocked this turn."),
+    ("Corpseberry Cultivator", "{1}{B/G}{B/G}", "Creature — Squirrel Warlock", "2", "3",
+     "At the beginning of combat on your turn, you may forage. (Exile three cards from your graveyard or sacrifice a Food.)\n"
+     "Whenever you forage, put a +1/+1 counter on this creature."),
+    ("Surveillance Monitor", "{3}{U}", "Creature — Vedalken Detective", "3", "3",
+     "When this creature enters, you may collect evidence 4. (Exile cards with total mana value 4 or greater from your graveyard.)\n"
+     "Whenever you collect evidence, create a 1/1 colorless Thopter artifact creature token with flying."),
     ("Flameblast Dragon", "{4}{R}{R}", "Creature — Dragon", "5", "5",
      "Flying\nWhenever this creature attacks, you may pay {X}{R}. If you do, it deals X damage to any target."),
 ]
@@ -423,4 +429,30 @@ def test_chromium_loses_all_abilities_then_gains_hexproof_in_that_order(cards):
     answer(s)
     ch = chars_of(s, "Chromium, the Mutable")
     assert set(ch.subtypes) == {"Human"} and ch.pt == (1, 1) and set(ch.keywords) == {"hexproof"}  # (613.7: the later grant outlives the removal)
+    check(s)
+
+
+def test_whenever_you_forage_triggers_on_the_cost_being_paid(cards):
+    s = build(cards, ["Corpseberry Cultivator", "Giant Opportunity", "Rent Is Due", "Insatiable Appetite"])
+    put(s, "Corpseberry Cultivator")
+    to_graveyard(s, "Giant Opportunity", "Rent Is Due", "Insatiable Appetite")
+    act(s, "p1", type="pass_priority")  # -> the beginning of combat: "you may forage"
+    d = until_asked(s)
+    assert d.player == "p1" and [o.id for o in d.options] == ["pay", "decline"]
+    pick(s, "pay")
+    d = until_asked(s)
+    pick(s, *[o.id for o in d.options][:3])
+    answer(s)
+    assert counters(s, "Corpseberry Cultivator", "+1/+1") == 1 and graveyard(s) == []
+    check(s)
+
+
+def test_whenever_you_forage_does_not_trigger_when_declined(cards):
+    s = build(cards, ["Corpseberry Cultivator", "Giant Opportunity", "Rent Is Due", "Insatiable Appetite"])
+    put(s, "Corpseberry Cultivator")
+    to_graveyard(s, "Giant Opportunity", "Rent Is Due", "Insatiable Appetite")
+    act(s, "p1", type="pass_priority")
+    pick(s, "decline")
+    answer(s)
+    assert counters(s, "Corpseberry Cultivator", "+1/+1") == 0 and len(graveyard(s)) == 3
     check(s)

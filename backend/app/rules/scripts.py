@@ -3098,6 +3098,8 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     its = re.match(r"^its controller may ", text) if it == "event" else None
     if (other or its) is not None and following and re.match(r"^If (?:the player|that player|they) (?:do|does), ", following[0]):
         phrase, payer = text[(other or its).end():], "that_player" if other else "ref:event.controller"  # type: ignore[union-attr]
+    elif not following and re.fullmatch(r"you may (?:forage|collect evidence \d+)", text):
+        phrase, payer = text[len("you may "):], "you"  # -- if you do (wave 26C) -- paid for its event alone: "Whenever you forage / collect evidence, …"
     elif not text.startswith("you may ") or not following or not re.match(r"^(?:If you (?:do|don't)|If you do or if [^,]+|When you do), ", following[0]):
         return None
     else:

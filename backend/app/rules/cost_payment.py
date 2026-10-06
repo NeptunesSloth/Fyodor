@@ -520,6 +520,11 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
         else:
             plan.do({"type": "move", "card_ids": top, "to": {"zone": "exile"}})
             record.exiled += top
+    for comp in cost.components:  # -- if you do (wave 26C) -- "Whenever you forage / collect evidence" (701.61, 701.59): the cost was paid
+        if comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE):
+            from app.game.rules_state import emit
+
+            emit(plan.state, "designation", counter="forage" if comp.kind == C.FORAGE else "collect_evidence", player=player)
 
 
 def _flexible_options(plan: Plan, comp: CostComponent, card: CardInstance, player: str,
