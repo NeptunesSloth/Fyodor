@@ -121,6 +121,10 @@ _OBJECT_VS_REVEALED = re.compile(r"(?:its|that creature's|that permanent's) (?P<
 # -- trigger other (wave 25B) -- converge: "if its mana value is less than or equal to the number of colors of mana spent to cast this spell"
 _OBJECT_VS_COLORS = re.compile(r"(?:its|that creature's|that permanent's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|"
                                r"equal to) the number of colors of mana spent to cast (?:this spell|~)")
+# -- static_other sweep (wave 26A) -- "if its toughness is less than or equal to the number of cards in your graveyard", "if its mana value is
+# less than or equal to the greatest mana value among permanents you control": the object's characteristic against a count read as it resolves
+_OBJECT_VS_COUNT = re.compile(r"(?:its|that creature's|that permanent's|that spell's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|"
+                              r"less than|greater than or equal to|greater than|equal to) (?P<v>the (?:number of|greatest) .+)")
 _REF_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "==", "greater than or equal to": ">=", "greater than": ">"}
 _REF_STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
 _X_IS = re.compile(r"x is (?P<n>\w+)(?: or (?P<cmp>more|greater|less|fewer))?", re.IGNORECASE)
@@ -946,6 +950,9 @@ def _object(t: str) -> Condition | None:
     if m:  # -- static_other sweep (wave 17C) -- "its power is less than or equal to the revealed card's power" (Titan's Presence)
         return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]],
                 "n": {_REF_STATS[m["ref"]]: "cost:revealed"}}
+    m = _OBJECT_VS_COUNT.fullmatch(t)
+    if m and (count := values.parse_count(m["v"])) is not None:
+        return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]], "n": {"count_value": count}}
     m = _OBJECT_STAT.fullmatch(t)
     if m:  # "its mana value was 3 or less", "its power is 4 or greater"
         n = _num(m["n"] or m["n2"])
@@ -1279,6 +1286,8 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         bound: Any = cond["n"]
         if isinstance(bound, dict) and "colors_spent" in bound:  # (wave 25B) converge, 202.3 / 601.2h: the colors of mana spent to cast the spell
             bound = values.evaluate(plan, ctx, bound)
+        elif isinstance(bound, dict) and "count_value" in bound:  # (wave 26A) a count of the table, read as the spell resolves
+            bound = values.evaluate(plan, ctx, bound["count_value"])
         elif isinstance(bound, dict):  # -- static_other sweep (wave 17C) -- the card a spell's cost revealed
             bound = values.evaluate(plan, ctx, bound) if values._object(plan, ctx, "cost:revealed") is not None else None
         return value is not None and bound is not None and bool(_OPS[cond["op"]](value, bound))

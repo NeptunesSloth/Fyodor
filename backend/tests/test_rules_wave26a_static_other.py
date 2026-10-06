@@ -25,6 +25,7 @@ EXTRA = [
     card("River's Rebuke", set_code='tst', number='N03', mana_cost='{4}{U}{U}', cmc=6.0, type_line='Sorcery', oracle_text="Return all nonland permanents target player controls to their owner's hand.", colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
     card('Evaporate', set_code='tst', number='N04', mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text='Evaporate deals 1 damage to each white and/or blue creature.', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
     card('Test Knight', set_code='tst', number='N97', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Knight', power='2', toughness='2', colors=['W'], color_identity=['W'], oracle_text=''),  # noqa: E501
+    card('Ghastly Demise', set_code='tst', number='N05', mana_cost='{B}', cmc=1.0, type_line='Instant', oracle_text='Destroy target nonblack creature if its toughness is less than or equal to the number of cards in your graveyard.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='N99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),  # noqa: E501
     card('Test Glass', set_code='tst', number='N98', mana_cost='{W}', cmc=1.0, type_line='Enchantment', oracle_text='', colors=['W'], color_identity=['W']),  # noqa: E501
 ]
@@ -37,14 +38,14 @@ def card_db(settings: Settings) -> Path:
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", ["Simoon", "Primeval Light", "River's Rebuke", "Evaporate"])
+@pytest.mark.parametrize("name", ["Simoon", "Primeval Light", "River's Rebuke", "Evaporate", "Ghastly Demise"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
 def cast(s, name, target):
     put(s, name, "hand")
-    mana(s, W=3, U=6, R=3, G=3)
+    mana(s, W=3, U=6, R=3, G=3, B=3)
     act(s, "p1", type="cast_spell", card_id=find(s, name).id, targets=[target])
     answer(s)
 
@@ -81,4 +82,15 @@ def test_evaporate_hits_white_and_or_blue_creatures_only(cards):
     act(s, "p1", type="cast_spell", card_id=find(s, "Evaporate").id)
     answer(s)
     assert s.state.cards[knight.id].damage == 1 and s.state.cards[bear.id].damage == 0
+    roundtrip(s)
+
+
+@pytest.mark.parametrize(("graveyard", "dies"), [(1, False), (2, True)])
+def test_ghastly_demise_compares_toughness_with_my_graveyard(cards, graveyard, dies):
+    s = build(cards, p1=("Ghastly Demise", "Evaporate", "Simoon"), p2=("Test Bear",))
+    bear = put(s, "Test Bear", "battlefield", pid="p2")
+    for name in ("Evaporate", "Simoon")[:graveyard]:
+        put(s, name, "graveyard")
+    cast(s, "Ghastly Demise", bear.id)
+    assert (s.state.cards[bear.id].zone == "p2:graveyard") is dies
     roundtrip(s)
