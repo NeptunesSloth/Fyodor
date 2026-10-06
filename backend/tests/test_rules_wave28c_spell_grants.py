@@ -279,6 +279,7 @@ def test_the_next_spell_grant_ends_at_end_of_turn(cards):
     act(s, "p1", type="activate_ability", card_id=archway.id, ability=2)
     run(s)
     assert s.state.rules.next_spell_grants
+    roundtrip(s)  # (saved and loaded with the grant waiting)
     to_turn(s, 3)
     assert s.state.rules.next_spell_grants == []  # 514.2
     roundtrip(s)

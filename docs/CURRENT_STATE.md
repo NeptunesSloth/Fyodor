@@ -340,3 +340,18 @@ card data, and the supplementary Attraction deck needs deck-building support.
   (`rulesMenu.ts`). Not read: a forecast cost tapping creatures (Sky Hussar), Paladin of Prahv's "whenever target creature deals damage this turn".
 - Not built (left for later): the Adversary cycle ("pay … any number of
   times"), cast-trigger riders ("that creature enters with an additional +1/+1 counter": Torgal, Kumano, Fenrir), enters-as-copy with counters (Spark Double).
+
+## Spell grants and hand abilities (wave 28C)
+- `spell_grants.py` (113.6, 604.1, 613.1f): a static "Instant and sorcery spells you control have lifelink / deathtouch / split second" (Radiant
+  Scrollwielder, Soulfire Grand Master, Heartflame Duelist, Firesong and Sunspeaker (red), Pestilent Spirit, Samut) gives the keyword to the spells
+  on the stack its controller controls, read afresh each time the spell is derived (`layers._derive`, like `zone_grants`): it ends when the source
+  leaves. "Noble creatures you control and Lesson spells you control have lifelink" (Lo and Li) is the ordinary creature grant plus `spell_grants`.
+  Lifelink and deathtouch apply to the damage the spell deals (`effects._ability_source` reads the spell's keywords on the stack, 702.15b / 702.2b);
+  `split_second.on_stack` reads the spell with its grants (702.61a). "Spells you cast have …" for other keywords stays in `cast_limits`.
+- "The next [noncreature] spell you cast this turn has improvise / convoke / affinity for artifacts / cascade / storm" (Archway of Innovation, Wand of
+  the Worldsoul, Flockchaser Phantom, Saheeli the Gifted, Don & Raph, Dark Apostle, Sloppity Bilepiper, Smoldering Stagecoach, Crackling Spellslinger,
+  Storm, Force of Nature) is `RulesState.next_spell_grants` (`NextSpellGrant`): read while the next matching spell is cast (`cast_limits.granted_helpers`
+  / `granted_affinities` / `granted_instances`), used up by `history.note_cast`, ended in cleanup. A grant naming a kind of spell waits for one.
+  Not read: Shadow the Hedgehog's split second "if mana from an artifact was spent" (a payment condition), TARDIS's "and you may planeswalk".
+- Hidden-zone abilities (602.2a, 701.20a): `casting._create_ability` reveals a card activated from the hand for the moment the ability is created,
+  so cycling, channel, transmute, ninjutsu and every other ability from the hand name their source on the stack; the rest of the hand stays hidden.
