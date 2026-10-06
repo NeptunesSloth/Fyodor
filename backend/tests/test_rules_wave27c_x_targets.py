@@ -16,6 +16,9 @@ REAL = [
     ("Recantation", "{2}{U}{U}", "Enchantment", None, None,
      "At the beginning of your upkeep, you may put a verse counter on this enchantment.\n"
      "{U}, Sacrifice this enchantment: Return up to X target permanents to their owners' hands, where X is the number of verse counters on this enchantment."),
+    ("Marshal's Anthem", "{1}{W}{W}", "Enchantment", None, None,
+     "Multikicker {1}{W} (You may pay an additional {1}{W} any number of times as you cast this spell.)\nCreatures you control get +1/+1.\n"
+     "When this enchantment enters, return up to X target creature cards from your graveyard to the battlefield, where X is the number of times this enchantment was kicked."),
     ("Endurance Bobblehead", "{3}", "Artifact — Bobblehead", None, None,
      "{T}: Add one mana of any color.\n{3}, {T}: Up to X target creatures you control get +1/+0 and gain indestructible until end of turn, where X is the "
      "number of Bobbleheads you control as you activate this ability. Activate only as a sorcery."),
@@ -67,4 +70,23 @@ def test_recantation_counts_its_verse_counters_though_it_is_sacrificed(cards):
         act(s, "p1", type="activate_ability", card_id=rec, ability=1, targets=[a.id, b.id, c.id], target_counts=[3])
     act(s, "p1", type="activate_ability", card_id=rec, ability=1, targets=[a.id, b.id], target_counts=[2])
     answer(s)
+    check(s)
+
+
+@pytest.mark.parametrize("kicks", [0, 1])
+def test_marshals_anthem_trigger_counts_its_kicks(cards, kicks):
+    from tests.wave9c_kit import mana, to_hand
+
+    s = build(cards, ["Marshal's Anthem", "Llanowar Elves"])
+    act(s, "p1", type="move", card_ids=[card_named(s, "Llanowar Elves").id], to={"zone": "graveyard"})
+    spell = to_hand(s, "Marshal's Anthem")
+    mana(s, W=6)
+    act(s, "p1", type="cast_spell", card_id=spell.id, kicker=kicks)
+    from tests.test_rules_conditionals import until_asked
+
+    d = until_asked(s)
+    if kicks:  # (X = 1: one of the creature cards may be chosen)
+        assert d is not None and d.max_choices == 1
+    else:  # (X = 0: no targets, nothing to choose)
+        assert d is None
     check(s)
