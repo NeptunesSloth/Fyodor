@@ -2035,6 +2035,7 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # Melody): "that type" is the type just chosen, as in "of the chosen type" (app/rules/chosen.py)
     body = re.sub(r"(Choose a creature type\. [^.]*?) of that type\b", r"\1 of the chosen type", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     body = _stack_interaction.rewrite(body)  # -- stack interaction (wave 23B) -- Ouphe Vandals: the rider of a counter of an ability
+    body = _fight_pair.rewrite(body)  # -- counters (wave 26D) -- "Choose target creature you control and target creature you don't control. … Then those creatures fight each other."
     # -- delayed triggers (wave 23B) -- 118.12a: "At the beginning of your next upkeep, pay {3}{U}{U}. If you don't, you lose the game."
     # (the Pacts) is "… you lose the game unless you pay {3}{U}{U}": the payer is the delayed trigger's controller, as it resolves
     body = re.sub(rf"(?i)(^|\. )(at the beginning of (?:{_delayed.WHEN_RE}), )pay ((?:\{{[^}}]+\}})+)\. If you don't, (you lose the game)\.?",
@@ -6725,6 +6726,7 @@ from app.rules import stack_interaction as _stack_interaction  # noqa: E402, I00
 
 EFFECTS[:0] = _stack_interaction.TEMPLATES
 # -- end stack interaction (wave 5B) --
+from app.rules import fight_pair as _fight_pair  # noqa: E402  -- counters (wave 26D) -- two chosen creatures fight
 
 # -- turn grants (wave 6A) -- one subject for two grants ("… gains vigilance until end of turn and can't be blocked this
 # turn"): after every other template (it defers to the generic grammar first: app/rules/turn_grants.py)

@@ -38,6 +38,9 @@ EXTRA = [
     card("Agent's Toolkit", set_code='tst', number='W11', mana_cost='{1}{G}{U}', cmc=3.0, type_line='Artifact — Clue', oracle_text='This artifact enters with a +1/+1 counter, a flying counter, a deathtouch counter, and a shield counter on it. (If it would be dealt damage or destroyed, remove a shield counter from it instead.)\nWhenever a creature you control enters, you may move a counter from this artifact onto that creature.\n{2}, Sacrifice this artifact: Draw a card.', colors=['G', 'U'], color_identity=['G', 'U'], keywords=[], layout='normal'),  # noqa: E501
     card('Heightened Reflexes', set_code='tst', number='W12', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Target creature gets +1/+0 until end of turn. Put a first strike counter on it.', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
     card('Momentum Rumbler', set_code='tst', number='W13', mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Dinosaur', oracle_text="Whenever this creature attacks, if it doesn't have first strike, put a first strike counter on it.\nWhenever this creature attacks, if it has first strike, it gains double strike until end of turn.", power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
+    card('Hog-Monkey Rampage', set_code='tst', number='W14', mana_cost='{1}{R/G}', cmc=2.0, type_line='Instant', oracle_text='Choose target creature you control and target creature an opponent controls. Put a +1/+1 counter on the creature you control if it has power 4 or greater. Then those creatures fight each other. (Each deals damage equal to its power to the other.)', colors=['G', 'R'], color_identity=['G', 'R'], keywords=['Fight'], layout='normal'),  # noqa: E501
+    card('Joust', set_code='tst', number='W15', mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text="Choose target creature you control and target creature you don't control. The creature you control gets +2/+1 until end of turn if it's a Knight. Then those creatures fight each other. (Each deals damage equal to its power to the other.)", colors=['R'], color_identity=['R'], keywords=['Fight'], layout='normal'),  # noqa: E501
+    card('Tail Swipe', set_code='tst', number='W16', mana_cost='{G}', cmc=1.0, type_line='Instant', oracle_text="Choose target creature you control and target creature you don't control. If you cast this spell during your main phase, the creature you control gets +1/+1 until end of turn. Then those creatures fight each other. (Each deals damage equal to its power to the other.)", colors=['G'], color_identity=['G'], keywords=['Fight'], layout='normal'),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -168,6 +171,22 @@ def test_keyword_counters_first_strike_and_several_kinds(cards):
     act(s, "p1", type="cast_spell", card_id=reflex.id, targets=[bears.id])
     settle(s)
     assert counters(s, bears.id) == {"first strike": 1} and "first strike" in ch(s, bears.id).keywords
+    roundtrip(s)
+
+
+def test_choose_two_creatures_then_they_fight(cards):
+    # 115.1, 601.2c, 701.14: both are chosen as the spell is cast; the counter goes on the creature you control only if its power is 4 or more
+    s = pbuild(cards, [(1, "Hog-Monkey Rampage"), (1, "Grizzly Bears")], bob=[(2, "Grizzly Bears")])
+    theirs = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[theirs.id], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p1", type="create_token", player="p1", token={"name": "Big", "type_line": "Token Creature — Test", "power": "4", "toughness": "4"})
+    big = next(c for c in s.state.cards.values() if c.name == "Big")
+    spell = put(s, "Hog-Monkey Rampage", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 2})
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[theirs.id, big.id], target_counts=[1, 1])
+    settle(s)
+    assert counters(s, big.id) == {"+1/+1": 1}  # power 4: the counter, then the fight (5 damage to their 2/2, 2 to ours)
+    assert s.state.cards[theirs.id].zone == "p2:graveyard" and s.state.cards[big.id].damage == 2
     roundtrip(s)
 
 

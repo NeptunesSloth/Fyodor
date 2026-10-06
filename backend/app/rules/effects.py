@@ -699,8 +699,8 @@ def fight(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     on the battlefield or isn't a creature any more, or was an illegal target (701.14b: illegal
     targets were dropped on resolution; "up to one target" with none chosen: nothing to fight).
     A creature fighting itself deals damage equal to twice its power to itself (701.14c)."""
-    a = _cards(plan, ctx, e["who"])
-    b = _cards(plan, ctx, e["with"])
+    a = _cards(plan, ctx, e["who"].replace("pair:", "target:"))  # (wave 26D: "pair:N" = the ability's Nth chosen group, app/rules/fight_pair.py)
+    b = _cards(plan, ctx, e["with"].replace("pair:", "target:"))
     _remember(plan, ctx, e, a)
     if len(a) != 1 or len(b) != 1:
         plan.note(f"{ctx.get('name') or 'It'}: no fight (one of the creatures is gone or wasn't chosen)", actor=ctx["controller"])

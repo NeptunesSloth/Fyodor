@@ -1955,6 +1955,8 @@ def _target_forms(text: str) -> tuple[Effects, Any] | None:
         if len(whos) != len(groups):
             raise _Fail  # ("choose a creature": a choice, not a target — the player-choices grammar)
         return [{"do": "choose_targets", "who": w} for w in whos], _out(groups)
+    if text == "the two chosen creatures fight each other":  # -- counters (wave 26D) -- app/rules/fight_pair.py: the two groups before it
+        return [{"do": "fight", "who": "pair:0", "with": "pair:1"}], None
     m = _FIGHTS.fullmatch(text)
     if m:
         if not has_primitive("fight"):
