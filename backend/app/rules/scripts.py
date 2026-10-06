@@ -1913,13 +1913,49 @@ def _that_many(left: tuple[list[dict[str, Any]], Any], text: str) -> tuple[list[
     return [{**right[0][0], "per_controller": {"this_way": kind, "of": None}}], right[1]
 
 
+# -- static_other sweep (wave 26A) -- "[Each|all] <group> target player controls" in any instruction whose verb already reads "<group> you
+# control": the objects that player controls as it resolves (608.2c); the player is the instruction's one target (115.1), the objects are
+# not targeted. Only verbs that find their objects through effects._cards (which reads "controlled:target|<selector>").
+_THEIR_GROUP = re.compile(r"target (player|opponent) controls\b")
+_THEIR_GROUP_VERBS = frozenset({"tap", "untap", "destroy", "exile", "bounce", "pump", "grant", "restrict", "damage", "add_counters",
+                                "phase_out"})
+
+
+def _their_group_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
+    from app.rules import selectors
+
+    m = _THEIR_GROUP.search(text)
+    if m is None or "target" in text[:m.start()] + text[m.end():]:
+        return None
+    words = text[:m.start()].split(" ")[:-1]  # (the words before "target"; the last item of the split is empty)
+    best = None
+    for n in range(1, min(5, len(words) + 1)):  # the longest group phrase the selector grammar reads: "each white and/or blue creature"
+        phrase = " ".join(words[-n:])
+        sel, mine = selectors.parse(phrase), selectors.parse(phrase + " you control")
+        if sel is not None and mine is not None and sel.player is None and sel.controller is None and not sel.card \
+                and ((n < len(words) and words[-n - 1] in ("each", "all")) or selectors.is_plural(phrase)):
+            best = (sel, mine)
+    if best is None:
+        return None
+    sel, mine = best
+    found = _one_clause(text[:m.start()] + "you control" + text[m.end():])
+    if found is None or found[1] is not None:
+        return None
+    mine_key, their_key = mine.key(), f"controlled:target|{sel.key()}"
+    effects = [{**e, "who": their_key} if e.get("who") == mine_key else e for e in found[0]]
+    if not any(e.get("who") == their_key for e in effects) or mine_key in json.dumps(effects) \
+            or any(e["do"] not in _THEIR_GROUP_VERBS for e in effects if e.get("who") == their_key):
+        return None
+    return effects, SELECTORS[f"target {m[1]}"]
+
+
 def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any] | None:
     """An instruction, or two joined by ", then" / "and" ("Scry 1, then draw a card.", "You draw
     two cards and you lose 2 life."): each half must be understood. Each "target" word is its
     own target group (115.3); the halves' groups are numbered in order."""
     if re.match(r"choose [^,]*\btargets?\b[^,]*, then \w+ all other\b", text):
         return None  # (review 25B: "Choose up to one target creature, then airbend all other creatures": other than the chosen one, unread)
-    found = _one_clause(text)
+    found = _one_clause(text) or _their_group_clause(text)
     if found is not None:
         return found
     # -- token & pump wordings (wave 6C) -- "This creature gets +1/+0 until end of turn and deals 1 damage to you." (one

@@ -466,12 +466,34 @@ _AND_TARGET = (r" and (?=(?:each of )?(?:another |up to \w+ |any number of |one 
                r"|any (?:other )?target)")
 
 
+# -- static_other sweep (wave 26A) -- "each creature target opponent controls", "all nonland permanents target player controls",
+# "creatures target player controls": the permanents of the one player the sentence targets (115.1: the target is the player; the
+# objects are not targeted). Read when the sentence resolves (effects._controlled_by); the player is a target group of its own.
+_TARGET_CONTROLS = re.compile(r"^(?:(?:each|all) )?(?P<sel>.+?) (?P<t>target (?:player|opponent)) controls$")
+
+
+def target_controls(part: str, groups: list[dict[str, Any]]) -> str | None:
+    """The ``who`` of a [group] "target player controls" phrase (its target group appended to ``groups``), else None."""
+    m = _TARGET_CONTROLS.fullmatch(part)
+    if m is None or (not part.startswith(("each ", "all ")) and not selectors.is_plural(m["sel"])):
+        return None
+    sel = selectors.parse(m["sel"])
+    if sel is None or sel.player is not None or sel.controller is not None or sel.card or sel.zones != ("battlefield",):
+        raise _Fail
+    who = "target" if not groups else f"target:{len(groups)}"
+    groups.append(target_group(m["t"]) or {})
+    return f"controlled:{who}|{sel.key()}"
+
+
 def _objects(o: str) -> tuple[list[str], list[dict[str, Any]]]:
     """"target creature and target artifact" → (who per part, target groups): each "target" is
     its own group (115.3), named "target" (the first) / "target:<k>"."""
     whos: list[str] = []
     groups: list[dict[str, Any]] = []
     for part in re.split(_AND_TARGET, o):
+        if (controlled := target_controls(part, groups)) is not None:
+            whos.append(controlled)
+            continue
         kind, key, group = ref(part)
         if group is not None:
             whos.append("target" if not groups else f"target:{len(groups)}")
@@ -1535,7 +1557,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
             if part == "each other opponent":  # -- sized amounts (wave 3D) -- the opponents besides the one the event named
                 effects.append({"do": "damage", "who": "each_other_opponent", "n": n, **src})
                 continue
-            controlled = _that_player_controls(part)  # -- damage sized by a count (wave 4E) --
+            controlled = target_controls(part, groups) or _that_player_controls(part)  # -- damage sized by a count (wave 4E) --
             if controlled is not None:
                 effects.append({"do": "damage", "who": controlled, "n": n, **src})
                 continue
