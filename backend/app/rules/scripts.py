@@ -2224,7 +2224,7 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
 
     text_def = m["def"]
     if re.search(r" as you (?:activate this ability|cast this spell)$", text_def) and len(re.findall(r"\bX\b", body[: m.start()])) == 1 \
-            and re.search(r"\bup to X (?:other )?targets?\b", body[: m.start()]):
+            and re.search(r"(?i)\bup to X (?:other )?targets?\b", body[: m.start()]):
         text_def = text_def.rsplit(" as you ", 1)[0]  # -- X target counts (wave 27C) -- "…, where X is the number of Bobbleheads you control as you activate this
         # ability": X only counts the targets, which are chosen at that moment (601.2c)
     value, tail = defined_as(text_def), ""
