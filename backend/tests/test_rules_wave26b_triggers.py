@@ -39,12 +39,14 @@ CARDS = [
     ("Banishment", "{2}{W}{W}", "Enchantment", None, None,
      "When this enchantment enters, exile target nonland permanent an opponent controls and all other nonland permanents your opponents "
      "control with the same name as that permanent until this enchantment leaves the battlefield."),
+    ("Hunted Horror", "{1}{B}{B}", "Creature — Horror", "4", "4",
+     "Menace\nWhen this creature enters, target opponent creates two 3/3 green Centaur creature tokens with protection from black."),
     ("Probe Smash", "{W}", "Instant", None, None, "Destroy target enchantment."),
     ("Probe Imp", "{1}", "Creature — Imp", "1", "1", ""),
     ("Probe Brute", "{3}", "Creature — Ogre", "4", "4", ""),
 ]
 EXTRA = [card(n, set_code="t26b", number=f"T{i:02d}", mana_cost=mc, cmc=float(sum(1 for _ in mc.split("}")) - 1), type_line=tl,
-              colors=["R"], color_identity=["R"], oracle_text=text, power=p, toughness=t)
+              colors=["B"] if "{B}" in mc else ["R"], color_identity=["R"], oracle_text=text, power=p, toughness=t)
          for i, (n, mc, tl, p, t, text) in enumerate(CARDS)]
 
 
@@ -192,4 +194,20 @@ def test_banishment_exiles_every_same_named_permanent_of_the_opponents_until_it_
     drive(s)
     assert s.state.cards[banishment.id].zone == "p1:graveyard"
     assert all(s.state.cards[c.id].zone == "p2:battlefield" for c in theirs)
+    check(s)
+
+
+def test_target_opponent_creates_tokens_with_protection(cards):
+    from app.rules import protection
+
+    s = build(cards, ["Hunted Horror"])
+    horror = card_named(s, "Hunted Horror")
+    act(s, "p1", type="move", card_ids=[horror.id], to={"zone": "hand"})
+    mana(s, B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=horror.id)
+    drive(s)
+    centaurs = tokens(s, "Centaur", "p2")
+    assert len(centaurs) == 2
+    plan = Plan(s.state, "p1", s.cards, None)
+    assert all(protection.protected_from(plan.ch(c), plan.ch(horror)) for c in centaurs)
     check(s)

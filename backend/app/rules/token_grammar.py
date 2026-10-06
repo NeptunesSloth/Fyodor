@@ -145,7 +145,10 @@ def _with(part: str | None) -> tuple[list[str], str | None] | None:
     # (wave 17D: a keyword whose meaning is a triggered ability the engine reads — training, mentor, dethrone … — 702.149a)
     from app.rules import keyword_triggers
 
-    if any(k not in SUPPORTED_KEYWORDS and not re.fullmatch(r"toxic \d+", k) and not keyword_triggers.supported(k, k) for k in kws):
+    from app.rules import protection  # -- trigger other (wave 26B) -- "with protection from black" (702.16): the qualities the engine enforces
+
+    if any(k not in SUPPORTED_KEYWORDS and not re.fullmatch(r"toxic \d+", k) and not keyword_triggers.supported(k, k)
+           and not (k.startswith("protection from ") and protection.supported(k)) for k in kws):
         return None
     if quoted is not None:
         quoted = _quoted_text(quoted)
