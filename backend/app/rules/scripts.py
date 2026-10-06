@@ -2234,7 +2234,11 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
     head, rest = body[start: m.start()], body[:start] + "\0" + tail + body[m.end():]
     # (what the wrappers around the sentence grammar bind afterwards — "this way" counts, the target player's hand — is not read)
-    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"' + (''),
+    # -- event batches (wave 28D) -- "up to X target …, where X is the number of nonland cards milled this way" (The Wise Mothman): a
+    # "this way" count in a target count is the trigger's own batch (event_batch.bind, in define); anywhere else it stays refused
+    this_way_x = value is not None and '"this_way"' in json.dumps(value) and "ref_count" not in json.dumps(value) \
+        and bool(re.search(r"(?i)\bup to X (?:other )?targets?\b", head))
+    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"' + ('' if this_way_x else '|"this_way"'),
                                   json.dumps(value).replace('"for_player": "that_player"', "")) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):  # (22D: the linked card)
         return None
     now = _x_now()
@@ -2255,7 +2259,8 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     return got
 
 
-_X_TARGET_VALUES = frozenset({"count", "counters", "on", "devotion", "kicked", "mutated", "hand", "plus", "times"})
+_X_TARGET_VALUES = frozenset({"count", "counters", "on", "devotion", "kicked", "mutated", "hand", "plus", "times",
+                              "event_amount", "of", "turn_history", "mana_spent", "this_way"})  # (wave 28D: known as a trigger is put on the stack, 603.3d)
 
 
 def _x_target_counts(found: tuple[list[dict[str, Any]], Any, bool], value: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -3626,6 +3631,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     if d is not None and d.get("kind") != "spell" and '"spell_self_move"' in json.dumps(d, default=str):
         return None  # -- counters (wave 7C) -- only a spell moves itself off the stack
+    from app.rules import event_batch  # -- event batches (wave 28D) -- "milled this way" in a "one or more … are milled" trigger
+
+    d = event_batch.bind(d)
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
         return None
     from app.rules import (
