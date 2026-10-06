@@ -17,7 +17,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import creature, pick, until_asked
 from tests.test_rules_wave12a_counters_keywords import answer
-from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
+from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
 
 REAL = [
     ("Elenda and Azor", "{3}{W}{U}{B}", "Legendary Creature — Vampire Knight Sphinx", "6", "6",
@@ -36,6 +36,19 @@ REAL = [
     ("Rent Is Due", "{W}", "Enchantment", None, None,
      "At the beginning of your end step, you may tap two untapped creatures and/or Treasures you control. If you do, draw a card. "
      "Otherwise, sacrifice this enchantment."),
+    ("Essence Bottle", "{2}", "Artifact", None, None,
+     "{3}, {T}: Put an elixir counter on this artifact.\n{T}, Remove all elixir counters from this artifact: You gain 2 life for each elixir "
+     "counter removed this way."),
+    ("Molten Hydra", "{1}{R}", "Creature — Hydra", "1", "1",
+     "{1}{R}{R}: Put a +1/+1 counter on this creature.\n{T}, Remove all +1/+1 counters from this creature: It deals damage to any target "
+     "equal to the number of +1/+1 counters removed this way."),
+    ("Geometric Nexus", "{2}", "Artifact", None, None,
+     "Whenever a player casts an instant or sorcery spell, put a number of charge counters on this artifact equal to that spell's mana value.\n"
+     "{6}, {T}, Remove all charge counters from this artifact: Create a 0/0 green and blue Fractal creature token. Put X +1/+1 counters on "
+     "it, where X is the number of charge counters removed this way."),
+    ("Vish Kal, Blood Arbiter", "{4}{W}{B}{B}", "Legendary Creature — Vampire", "5", "5",
+     "Flying, lifelink\nSacrifice a creature: Put X +1/+1 counters on Vish Kal, where X is the sacrificed creature's power.\n"
+     "Remove all +1/+1 counters from Vish Kal: Target creature gets -1/-1 until end of turn for each +1/+1 counter removed this way."),
     ("Flameblast Dragon", "{4}{R}{R}", "Creature — Dragon", "5", "5",
      "Flying\nWhenever this creature attacks, you may pay {X}{R}. If you do, it deals X damage to any target."),
 ]
@@ -173,3 +186,76 @@ def test_refused_forms(cards):
 
     assert scripts.parse_effects("Draw a card. Otherwise, discard a card.") is None
     assert scripts.parse_effects("You may pay {X}{X}. If you do, draw X cards.") is None
+
+
+# -- "Remove all oil counters from ~: … the number removed this way" ------------------------------------------------
+def counters(s, name, kind):
+    return s.state.cards[card_named(s, name).id].counters.get(kind, 0)
+
+
+def add_counters(s, name, kind, n):
+    act(s, "p1", type="counter", card_ids=[card_named(s, name).id], kind=kind, delta=n)
+
+
+def activate(s, name, start, **kw):
+    c = card_named(s, name)
+    index = next(i for i, a in enumerate(s.cards.resolve(name).get("oracle_text", "").split("\n")) if a.startswith(start))
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=index, **kw)
+
+
+@pytest.mark.parametrize("n", [0, 3])
+def test_essence_bottle_gains_for_every_counter_it_removed(cards, n):
+    s = build(cards, ["Essence Bottle"])
+    put(s, "Essence Bottle")
+    if n:
+        add_counters(s, "Essence Bottle", "elixir", n)
+    before = life(s)
+    activate(s, "Essence Bottle", "{T}, Remove all")  # (no X announced: it is every counter there is, 602.2b)
+    answer(s)
+    assert life(s) == before + 2 * n and counters(s, "Essence Bottle", "elixir") == 0
+    check(s)
+
+
+@pytest.mark.parametrize("n", [0, 2])
+def test_molten_hydra_deals_damage_equal_to_the_counters_removed(cards, n):
+    s = build(cards, ["Molten Hydra"])
+    put(s, "Molten Hydra")
+    ready(s, "Molten Hydra")
+    if n:
+        add_counters(s, "Molten Hydra", "+1/+1", n)
+    before = life(s, "p2")
+    activate(s, "Molten Hydra", "{T}, Remove all", targets=["p2"])
+    answer(s)
+    assert life(s, "p2") == before - n and counters(s, "Molten Hydra", "+1/+1") == 0
+    check(s)
+
+
+def test_geometric_nexus_token_gets_that_many_counters(cards):
+    s = build(cards, ["Geometric Nexus"])
+    put(s, "Geometric Nexus")
+    add_counters(s, "Geometric Nexus", "charge", 4)
+    mana(s, C=6)
+    activate(s, "Geometric Nexus", "{6}")
+    answer(s)
+    fractal = next(c for c in s.state.cards.values() if c.name == "Fractal" and c.zone == "p1:battlefield")
+    assert fractal.counters.get("+1/+1") == 4 and counters(s, "Geometric Nexus", "charge") == 0
+    check(s)
+
+
+def test_vish_kal_shrinks_the_target_for_each_counter_removed(cards):
+    s = build(cards, ["Vish Kal, Blood Arbiter"])
+    put(s, "Vish Kal, Blood Arbiter")
+    bear = creature(s, "p2", "Bear", pt="3/3")
+    add_counters(s, "Vish Kal, Blood Arbiter", "+1/+1", 3)
+    activate(s, "Vish Kal, Blood Arbiter", "Remove all", targets=[bear.id])
+    answer(s)
+    assert bear.id not in s.state.cards  # (-3/-3: the 3/3 token died and ceased to exist)
+    assert counters(s, "Vish Kal, Blood Arbiter", "+1/+1") == 0
+    check(s)
+
+
+def test_removed_this_way_is_read_only_when_the_cost_removed_them(cards):
+    from app.rules import scripts
+
+    # a trigger's "that much" / a cost that removes a fixed number never reads as the removed-all X
+    assert scripts.parse_effects("Put X +1/+1 counters on it, where X is the number of charge counters removed this way.") is None

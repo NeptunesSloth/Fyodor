@@ -3441,6 +3441,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         mana = _locked(plan, mana)
     if (mana.x or cost.loyalty_x or cost.energy_x or cost.x_chosen) and a.x_value is None:  # (wave 3E: "Pay X {E}"; x_chosen: wave 4H)
         raise ActionError("Choose a value for X")
+    if (every := next((c for c in cost.components if c.every), None)) is not None:
+        a.x_value = cost_payment.counters_on(card, every.counter)  # -- activated sweep (wave 26C) -- "Remove all oil counters": all there are now (602.2b)
     if cost.loyalty_x and card.counters.get("loyalty", 0) < (a.x_value or 0):
         raise ActionError(f"{ch.name} doesn't have {a.x_value} loyalty")  # 606.6
     if definition is None:

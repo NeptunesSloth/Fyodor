@@ -3533,15 +3533,20 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # (wave 19F: or its own "When this creature becomes monstrous" with a "Monstrosity X" ability on the card: that X, 701.37c)
     monstrous_x = d is not None and (d.get("cond") or {}) == {"subject": "self", "event": "become_monstrous"} and any(
         "Monstrosity X" in a.text for a in ch.abilities) and "where X is" not in ability.text
+    from app.rules import (
+        removed_all,  # -- activated sweep (wave 26C) -- its "where X is the number of … counters removed this way" was read as the cost's X
+    )
+
+    where_text = removed_all.WHERE.sub("", ability.text) if ability.kind == "activated" else ability.text
     if d is not None and '{"x": 1}' in json.dumps(d.get("effects") or [], default=str) and (
-            re.search(r"\bwhere X is\b", ability.text)
+            re.search(r"\bwhere X is\b", where_text)
             or (d.get("kind") == "triggered" and d.get("trigger") != "enters_self" and not monstrous_x)):
         return None
     # -- review (wave 12C) -- the X a selector compares with ("with mana value X or less": selectors.X_VALUE, the cast X) or
     # the stand-in number of _where_x, left in any field: that X isn't what "where X is" defines — manual
     from app.rules import selectors  # (a leaf module)
 
-    if d is not None and re.search(r"\bwhere X is\b", ability.text) and re.search(
+    if d is not None and re.search(r"\bwhere X is\b", where_text) and re.search(
             rf'(?<![\d-]){_X_SENTINEL}(?!\d)|,{selectors.X_VALUE}\]', json.dumps(d, default=str)):
         return None
     if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str) and not (
@@ -3945,6 +3950,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import cost_changes
 
         body, own_cost = cost_changes.split_ability(body)
+        from app.rules import (
+            removed_all,  # -- activated sweep (wave 26C) -- "Remove all oil counters from ~: … the number removed this way"
+        )
+
+        if (body := removed_all.rewrite(body, cost)) is None:  # type: ignore[assignment]
+            return None
         if own_cost is not None and (not cost_changes.ability_change(text) or "{X}" in (ability.cost or "") or not cost.mana):
             return None
         # -- end cost changers (wave 4I) --
