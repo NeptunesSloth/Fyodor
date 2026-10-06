@@ -2039,6 +2039,11 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # Melody): "that type" is the type just chosen, as in "of the chosen type" (app/rules/chosen.py)
     body = re.sub(r"(Choose a creature type\. [^.]*?) of that type\b", r"\1 of the chosen type", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     body = _stack_interaction.rewrite(body)  # -- stack interaction (wave 23B) -- Ouphe Vandals: the rider of a counter of an ability
+    # -- unless pays (wave 26D) -- 118.12a: "Each opponent sacrifices a permanent of their choice unless they pay {1}." (Rishadan Cutpurse) is
+    # "Each opponent may pay {1}. Each opponent who doesn't sacrifices a permanent of their choice." (app/rules/each_may.py: each player
+    # is offered their own payment in turn order, 101.4)
+    body = re.sub(r"(^|\. )[Ee]ach (opponent|player) ((?:sacrifices|loses|discards|exiles) [^.]*?) unless they pay ((?:\{[^}]+\})+)\.",
+                  lambda m: f"{m[1]}Each {m[2]} may pay {m[4]}. Each {m[2]} who doesn't {m[3]}.", body)
     body = _fight_pair.rewrite(body)  # -- counters (wave 26D) -- "Choose target creature you control and target creature you don't control. … Then those creatures fight each other."
     # -- delayed triggers (wave 23B) -- 118.12a: "At the beginning of your next upkeep, pay {3}{U}{U}. If you don't, you lose the game."
     # (the Pacts) is "… you lose the game unless you pay {3}{U}{U}": the payer is the delayed trigger's controller, as it resolves
@@ -3199,6 +3204,10 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         return None  # -- unless pays (wave 4C) -- "its mana value": the target object's, only when there is one
     if who == "you":
         payer = "you"
+    elif who in ("they", "that player") and whos == {"it.controller"} and not groups:
+        payer = "it.controller"  # (wave 26D) "that creature's controller loses 2 life unless they pay {2}": they are that controller
+    elif who in ("its controller", "that creature's controller") and whos == {"it"} and not groups:
+        payer = "it.controller"  # -- unless pays (wave 26D) -- "destroy that creature unless its controller pays {2}": the trigger's object (resolve_it)
     elif who in ("its controller", "that creature's controller"):
         if "target" not in whos or not groups or group_player is not False:
             return None
