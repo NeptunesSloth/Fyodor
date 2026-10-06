@@ -29,7 +29,7 @@ from tests.test_rules_conditionals import to_turn
 from tests.test_rules_effects import mana
 from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
 from tests.test_rules_wave13a_emblems import emblems, get_emblem
-from tests.test_rules_wave26a_static_other import EXTRA
+from tests.test_rules_wave26a_static_other import EXTRA, cast
 
 SARKHAN = 'You get an emblem with "At the beginning of your draw step, draw two additional cards" and "At the beginning of your end step, discard your hand."'  # noqa: E501
 REVIEW = [
@@ -38,6 +38,7 @@ REVIEW = [
     card('Instigator', set_code='tst', number='R03', mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Human Spellshaper', power='1', toughness='1', oracle_text='{1}{B}{B}, {T}, Discard a card: Creatures target player controls attack this turn if able.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card("Galadriel's Dismissal", set_code='tst', number='R04', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text="Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)\nTarget creature phases out. If this spell was kicked, each creature target player controls phases out instead. (Treat phased-out creatures and anything attached to them as though they don't exist until their controller's next turn.)", colors=['W'], color_identity=['W'], keywords=['Kicker'], layout='normal'),  # noqa: E501
     card('Opposition Agent', set_code='tst', number='R05', mana_cost='{2}{B}', cmc=3.0, type_line='Creature — Human Rogue', power='3', toughness='2', oracle_text="Flash\nYou control your opponents while they're searching their libraries.\nWhile an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them.", colors=['B'], color_identity=['B'], keywords=['Flash'], layout='normal'),  # noqa: E501
+    card('Part in Friendship', set_code='tst', number='R07', mana_cost='{4}{G}', cmc=5.0, type_line='Enchantment', oracle_text='Whenever a nontoken creature you control dies, reveal cards from the top of your library until you reveal a creature card. If its mana value is less than or equal to the number of lands you control, put it onto the battlefield. Otherwise, put it into your hand. Put the rest on the bottom of your library in a random order. This ability triggers only once each turn.', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
     card('Ashiok, Dream Render', set_code='tst', number='R06', mana_cost='{1}{U/B}{U/B}', cmc=3.0, type_line='Legendary Planeswalker — Ashiok', loyalty='5', oracle_text="Spells and abilities your opponents control can't cause their controller to search their library.\n−1: Target player mills four cards. Then exile each opponent's graveyard.", colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Mill'], layout='normal'),  # noqa: E501
 ]
 
@@ -140,4 +141,18 @@ def test_sarkhans_emblem_draws_two_more_in_the_draw_step_and_discards_at_the_end
     assert len(s.state.zones["p1:hand"]) == hand + 3  # the turn's draw (504.1), then the trigger's two (504.2)
     to_turn(s, 4, "main1")
     assert s.state.zones["p1:hand"] == [] and len(s.state.zones["p2:hand"]) > 0  # Alice's end step only
+    roundtrip(s)
+
+
+@pytest.mark.parametrize(("lands", "zone"), [(3, "p1:battlefield"), (2, "p1:hand")])
+def test_part_in_friendship_compares_the_revealed_creatures_mana_value_with_my_lands(cards, lands, zone):
+    s = build(cards, p1=("Part in Friendship", "Test Knight", "Test Bear", "Ghastly Demise", "Evaporate", "Simoon"))
+    put(s, "Part in Friendship", "battlefield")
+    knight = put(s, "Test Knight", "battlefield")
+    forests = [c.id for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone != "p1:battlefield"]
+    act(s, "p1", type="move", card_ids=forests[:lands], to={"player": "p1", "zone": "battlefield"})
+    put(s, "Test Bear", "library", position="top")
+    put(s, "Evaporate", "graveyard"), put(s, "Simoon", "graveyard")
+    cast(s, "Ghastly Demise", knight.id)  # the Knight dies (toughness 2, two cards in my graveyard)
+    assert find(s, "Test Bear").zone == zone  # mana value 3 against the lands I control as it resolves
     roundtrip(s)
