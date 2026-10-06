@@ -882,6 +882,10 @@ def day_night_sync(plan: Plan) -> bool:
         to = 0
     for c in flip:
         plan.do({"type": "set_face", "card_id": c.id, "face": to, "faces": 2}, actor=c.controller)
+        # -- transform (wave 26D) -- 701.28, 702.145: the flip is a transformation like any other: "transforms into X" and "a permanent transforms" triggers
+        from app.game.rules_state import emit
+
+        emit(plan.state, "designation", counter="transformed", card=c.id, object_id=plan.oid(c.id), player=c.controller)
         changed = True
     return changed
 

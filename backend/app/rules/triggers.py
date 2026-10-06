@@ -726,7 +726,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     """The parts of a condition beyond its subject and event."""
     from app.rules import selectors
 
-    event, obj, _, player, info = fact
+    event, obj, och, player, info = fact
     you = watcher.controller
     if not _other_ok(plan, cond, watcher, info):
         return False
@@ -740,6 +740,9 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                                                         info["exploited"][1], you, watcher.id)):
         return False
     if cond.get("into") and (info.get("face_name") or "").lower() != cond["into"].lower():  # -- transform (wave 16F) --
+        return False
+    if cond.get("into_sel") and not (obj is not None and och is not None and selectors.matches(  # -- transform (wave 26D) -- "transforms into a Phyrexian": its new face
+            plan, selectors.from_key(cond["into_sel"]), obj, och, you, watcher.id)):
         return False
     if cond.get("alone") and info.get("attackers") != 1:  # 506.5
         return False

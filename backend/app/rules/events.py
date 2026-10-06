@@ -452,10 +452,21 @@ def _parse(c: str) -> Condition | None:
     # and is now the face named (the ability is printed on that face; "~": whichever it is)
     m = re.fullmatch(r"(?P<s>~|this creature|this permanent) enters or transforms into (?P<n>.+)", c)  # -- transform (wave 26D) -- Huntmaster of the Fells: each is its own event (603.2c)
     if m:
-        return {"event": "either", "subject": "self", "conds": [{"subject": "self", "event": "enter"}, {"subject": "self", "event": "transform", "into": m["n"]}]}
+        return {"event": "either", "subject": "self", "conds": [{"subject": "self", "event": "enter"}, {"subject": "self", "event": "transform", **({"into": m["n"]} if m["n"] != "~" else {})}]}
     m = re.fullmatch(r"(?P<s>~|this creature|this permanent) transforms into (?P<n>.+)", c)
     if m:
         return {"subject": "self", "event": "transform", **({"into": m["n"]} if m["n"] != "~" else {})}
+    m = re.fullmatch(r"(?P<s>~|this creature|this permanent) transforms", c)  # -- transform (wave 26D) -- any face
+    if m:
+        return {"subject": "self", "event": "transform"}
+    m = re.fullmatch(r"(?P<s>(?:a|another) [^,]+? you control) transforms(?: into (?P<d>an? [^,]+))?", c)  # (701.28: the permanent that turned over; its new face is read)
+    if m:
+        base = _subject(m["s"])
+        sel = selectors.parse(re.sub(r"^an? ", "", m["d"])) if m["d"] else None
+        if base is None or base.get("aggregate") or (m["d"] and (sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card
+                                                              or sel.controller or sel.other)):
+            return None
+        return {**base, "event": "transform", **({"into_sel": sel.key()} if sel is not None else {})}
     # -- merged permanents (wave 18D) -- 702.140d: "Whenever this creature mutates" (it merged with a mutating creature spell)
     if c in ("~ mutates", "this creature mutates", "this permanent mutates"):
         return {"subject": "self", "event": "mutate"}

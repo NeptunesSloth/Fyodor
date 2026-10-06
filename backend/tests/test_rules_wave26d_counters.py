@@ -53,6 +53,16 @@ EXTRA = [
     card('Xenograft', set_code='tst', number='W26', mana_cost='{4}{U}', cmc=5.0, type_line='Enchantment', oracle_text='As this enchantment enters, choose a creature type.\nEach creature you control is the chosen type in addition to its other types.', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
     card('Realmwright', set_code='tst', number='W27', mana_cost='{U}', cmc=1.0, type_line='Creature — Vedalken Wizard', oracle_text='As this creature enters, choose a basic land type.\nLands you control are the chosen type in addition to their other types.', power='1', toughness='1', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
     card('Arcane Adaptation', set_code='tst', number='W28', mana_cost='{2}{U}', cmc=3.0, type_line='Enchantment', oracle_text="As this enchantment enters, choose a creature type.\nCreatures you control are the chosen type in addition to their other types. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.", colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card("Brutal Cathar // Moonrage Brute", set_code="tst", number="W90", layout="transform", mana_cost=None, cmc=3.0,
+         type_line="Creature \u2014 Human Soldier Werewolf // Creature \u2014 Werewolf", colors=["W"], color_identity=["R", "W"], image_uris=None,
+         card_faces=[
+             {"object": "card_face", "name": "Brutal Cathar", "mana_cost": "{2}{W}", "type_line": "Creature \u2014 Human Soldier Werewolf",
+              "oracle_text": "Whenever this creature enters or transforms into Brutal Cathar, exile target creature an opponent controls until this "
+              "creature leaves the battlefield.\nDaybound (If a player casts no spells during their own turn, it becomes night next turn.)",
+              "power": "2", "toughness": "2", "colors": ["W"]},
+             {"object": "card_face", "name": "Moonrage Brute", "mana_cost": "", "type_line": "Creature \u2014 Werewolf",
+              "oracle_text": "First strike\nWard\u2014Pay 3 life.\nNightbound (If a player casts at least two spells during their own turn, it becomes "
+              "day next turn.)", "power": "3", "toughness": "3", "colors": ["R"]}]),
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -357,6 +367,32 @@ def test_chosen_type_is_added_to_the_creatures_you_control(cards):
     assert ch(s, mine).subtypes == {"Bear", "Elf"}
     act(s, "p1", type="move", card_ids=[theirs], to={"player": "p1", "zone": "battlefield"})  # a creature that arrives later too (611.3a)
     assert "Elf" in ch(s, theirs).subtypes
+    roundtrip(s)
+
+
+def test_day_night_flip_is_a_transformation_for_its_triggers(cards):
+    # 701.28, 702.145: a daybound permanent that turns over at day "transforms into Brutal Cathar": its trigger exiles a creature until it leaves
+    s = pbuild(cards, [(1, "Brutal Cathar // Moonrage Brute"), (1, "Forest")], bob=[(1, "Grizzly Bears")])
+    theirs = next(c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[theirs], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p1", type="set_day_night", value="night")
+    cathar = put(s, "Brutal Cathar // Moonrage Brute", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"W": 3})
+    act(s, "p1", type="cast_spell", card_id=cathar.id)
+    settle(s)
+    assert s.state.cards[cathar.id].face == 1 and s.state.cards[theirs].zone == "p2:battlefield"  # entered transformed: no Cathar trigger
+    act(s, "p1", type="set_day_night", value="day")
+    forest = put(s, "Forest", "hand")
+    act(s, "p1", type="play_land", card_id=forest.id)  # (any rules intent makes the engine look at day and night again)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[cathar.id].face == 0 and s.state.cards[theirs].zone == "p2:exile"
     roundtrip(s)
 
 
