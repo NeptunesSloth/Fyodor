@@ -300,8 +300,11 @@ def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     m = FREE_TARGET.fullmatch(text)
     if m is None:
         return None
-    play = m["verb"] == "play"  # -- free cast (wave 27D) -- "You may play target Elemental card from your graveyard without paying its mana cost." (Horde of Notions)
-    timed = bool(m["until"] or m["this_turn"]) or (play and bool(m["free"]))
+    # -- free cast (wave 27D) -- "play target …" only as a permission for a stated duration (611.2a). -- review (wave 27D) -- a bare "You may
+    # play target Elemental card from your graveyard without paying its mana cost." (Horde of Notions) is played as it resolves (608.2g),
+    # a land among them only with a land play left on your turn (305.2a/305.3: Tangled Florahedron's back face): not modelled, stays manual
+    play = m["verb"] == "play"
+    timed = bool(m["until"] or m["this_turn"])
     if (m["until"] and m["this_turn"]) or (m["spend"] and (m["free"] or not timed)) or (play and not timed):
         return None  # (mana spent is only for a permission; a free cast spends none)
     phrase = m["what"][len("target "):]
