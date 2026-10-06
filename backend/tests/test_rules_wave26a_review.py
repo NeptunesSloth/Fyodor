@@ -18,12 +18,12 @@ import pytest
 
 from app.cards.importer import build_database
 from app.config import Settings
-from tests.fixtures.cards import card, fixture_cards
+from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
+from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_attachments import ch
-from app.game.errors import ActionError
 from tests.test_rules_combat import attack, block
 from tests.test_rules_conditionals import to_turn
 from tests.test_rules_effects import mana

@@ -1006,14 +1006,14 @@ def _each_own_qualifier(phrase: str) -> Selector | None:
     parts = [p.strip() for p in re.split(r",? or |, ", phrase) if p.strip()]
     if len(parts) < 2 or _CLAUSE_WORDS.search(phrase):
         return None
-    subs = [_parse(p) for p in parts]
-    if any(s is None or s.player is not None or s.card or s.either or s.union or s.ability is not None or s.zones != ("battlefield",)
-           or s.other for s in subs):
+    subs = [s for s in map(_parse, parts) if s is not None]
+    if len(subs) < len(parts) or any(s.player is not None or s.card or s.either or s.union or s.ability is not None
+                                     or s.zones != ("battlefield",) or s.other for s in subs):
         return None
-    bare = [replace(s, types=(), subtypes=()) == Selector() for s in subs]  # type: ignore[union-attr]
+    bare = [replace(s, types=(), subtypes=()) == Selector() for s in subs]
     if not bare[0] and any(bare[1:]):
         return None
-    return Selector(either=tuple(s.key() for s in subs if s is not None))
+    return Selector(either=tuple(s.key() for s in subs))
 
 
 def parse_either(phrase: str) -> Selector | None:

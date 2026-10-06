@@ -1257,8 +1257,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "to_library", "who": "self" if m["o"] == "~'s" else "it", "place": "shuffle"}], None
     m = _PLAYER_LIBRARY.fullmatch(text)  # -- static_other sweep (wave 26A) -- "That player shuffles that card into their library." (Perish the Thought)
     if m:
-        nth = ("second", "third", "fourth", "fifth", "sixth", "seventh").index(m["nth"]) + 2 if m["nth"] else "shuffle"
-        return [{"do": "to_library", "who": "it", "place": nth}], None
+        where: int | str = ("second", "third", "fourth", "fifth", "sixth", "seventh").index(m["nth"]) + 2 if m["nth"] else "shuffle"
+        return [{"do": "to_library", "who": "it", "place": where}], None
     m = _OWNER_CHOICE.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"] or m["o2"])
