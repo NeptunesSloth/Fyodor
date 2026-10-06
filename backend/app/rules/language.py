@@ -692,12 +692,29 @@ def _search_selectors(text: str, one: bool) -> dict[str, Any]:
     raise _Fail
 
 
+# -- static_other sweep (wave 26A) -- "Search target opponent's library for a creature card and put that card onto the battlefield under
+# your control." (Bribery, Acquire), "… up to three creature cards and put them into their graveyard." (Life's Finale), "… for a card and
+# exile it." (Extract, Bitter Ordeal): the searcher is the ability's controller, the library is the target player's (701.23a); the cards
+# found are the library owner's, so they go to that owner's graveyard or exile, or enter under the searcher's control
+_SEARCH_THEIRS = re.compile(r"search (?P<t>target opponent|target player)'s library for (?P<mid>.+?),? and "
+                            r"(?:put (?:that card|it|them|those cards) (?:(?P<bf>onto the battlefield under your control)|(?P<gy>into (?:their|that player's) graveyard))"
+                            r"|exile (?:it|them))")
+SELECTORS_TARGET = {"target opponent": "opponent", "target player": "player"}
+
+
 def _search(text: str) -> tuple[Effects, str | None] | None:
     """701.23: "Search your library for [up to N] [card selector], [reveal it,] put it [where], then
     shuffle" (or "…, reveal it, then shuffle and put that card on top"; "exile it [face down]";
     "put one onto the battlefield and the other into your hand"). A card "named …", or with "mana
     value X or less" (the X the spell or ability has), is searched for too. Without "then shuffle"
     the library is not shuffled (701.24 shuffles only when told to)."""
+    if (theirs := _SEARCH_THEIRS.fullmatch(text)) is not None:  # -- static_other sweep (wave 26A) -- another player's library (701.23)
+        std = {"b": "put it onto the battlefield", "g": "put it into your graveyard", "x": "exile it"}[
+            "b" if theirs["bf"] else "g" if theirs["gy"] else "x"]
+        found = _search(f"search your library for {theirs['mid']}, {std}")
+        if found is None or found[0][0].get("who", "you") != "you" or found[0][0].get("parts") or found[0][0].get("to2"):
+            raise _Fail
+        return [{**found[0][0], "library": "target"}], SELECTORS_TARGET[theirs["t"]]
     # -- recursion & tutors (wave 4M) -- "… then shuffle. You may search your library for a basic land card, put it onto the
     # battlefield, then shuffle." (Demolition Field, mid-ability): searching is the controller's choice, asked first; one
     # who doesn't search doesn't shuffle (effects.search, as for "Its controller may search …")

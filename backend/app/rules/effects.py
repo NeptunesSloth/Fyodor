@@ -1793,6 +1793,11 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         ctx["effects"] = [*ctx["effects"][:at], *({**e, "who": f"player:{p}"} for p in order), *ctx["effects"][at:]]
         continue_effects(plan, ctx)
         return False
+    if e.get("library"):  # -- static_other sweep (wave 26A) -- "Search target opponent's library for …": the controller searches it (701.23a)
+        owners = _players(plan, ctx, e["library"])
+        if not owners:
+            return True
+        e = {**e, "lib_pid": owners[0]}
     if e.get("who", "you") != "you":  # "Its controller may search their library …" (Path to Exile)
         who = _players(plan, ctx, e["who"])
         if not who:
@@ -1870,10 +1875,11 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
         if not zones:  # nothing is searched; "then shuffle" is its own instruction (701.24) and still happens
             _finish_search(plan, ctx, e, pid, [], {})
             return False
-    library = [c for c in plan.state.zones.get(zone_key(pid, "library"), []) if c not in picked] if "library" in zones else []
+    owner = e.get("lib_pid", pid)  # (wave 26A: whose library is searched; the searcher's own unless a target's)
+    library = [c for c in plan.state.zones.get(zone_key(owner, "library"), []) if c not in picked] if "library" in zones else []
     if e.get("sel"):  # a structured card selector (app/rules/selectors.py)
         parts = e.get("parts")  # "a Forest card and a Plains card": one card of each kind, asked in turn
-        matching = _search_matches(plan, ctx, e, pid, parts[part] if parts else e["sel"], library)
+        matching = _search_matches(plan, ctx, e, owner, parts[part] if parts else e["sel"], library)
         if "graveyard" in zones:  # (wave 3R4) the graveyard's cards are public (404.2): the same test, read there
             graveyard = [c for c in plan.state.zones.get(zone_key(pid, "graveyard"), []) if c not in picked]
             keys = [selectors.replace(selectors.from_key(k), zones=("graveyard",)).key() for k in (e.get("alts") or [e["sel"]])]
@@ -1893,7 +1899,8 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
     # ("Up to N cards" may find fewer: only a single "a card" or an explicit ``upto: False`` forces.)
     quantity_only = e.get("filter") == "any" or (e.get("sel") is not None and e.get("label") in ("card", "cards"))
     forced = quantity_only and not e.get("upto", e.get("label") == "cards")
-    decide(plan, player=pid, kind="choose_cards", prompt=f"Search your {' and '.join(zones)} ({what})",
+    whose = f"{plan.name(owner)}'s" if owner != pid else "your"
+    decide(plan, player=pid, kind="choose_cards", prompt=f"Search {whose} {' and '.join(zones)} ({what})",
            options=options, min_choices=min(most, len(options)) if forced else 0, max_choices=min(most, len(options)),
            decider=_player_control.search_controller(plan, pid) if "library" in zones else None,  # (-- wave 18H -- 723.2: Opposition Agent)
            resume={"step": "search", "ctx": ctx, "e": e, "part": part, "picked": picked})
@@ -1943,12 +1950,13 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
     from app.rules import attachments  # attachments → effects (resume)
 
     entering = []
+    owner = e.get("lib_pid", pid)  # (wave 26A: a target player's library: the cards found are theirs; they enter under the searcher's control)
     found = _remember(plan, ctx, e, chosen)  # (library objects: a hidden zone, so nothing is read from them)
     # -- controlling another player (wave 18H) -- Opposition Agent: "they exile each card they find" (701.23): a card found in the
     # library is exiled and nothing else the instruction says about it happens (it is a new object, 400.7); the Agent's
     # controller may play it for as long as it remains exiled, spending mana as though it were any color
     agents = _player_control.search_exile(plan, pid) if "library" in (e.get("zones") or ["library"]) else []
-    exiled = [c for c in chosen if agents and plan.state.cards[c].zone == zone_key(pid, "library")]
+    exiled = [c for c in chosen if agents and plan.state.cards[c].zone == zone_key(owner, "library")]
     dest = {**dest, **{c: "exile" for c in exiled}}
     if e.get("reveal"):
         for cid in chosen:
@@ -1957,7 +1965,7 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
     for cid in chosen:
         to = dest[cid]
         if to in ("hand", "graveyard", "exile"):
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": to},
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": to},
                      **({"face_down": True} if e.get("face_down") and cid not in exiled else {})}, actor=pid)
         elif to in ("battlefield", "battlefield_tapped"):
             entering.append({"card": cid, "player": pid, "actor": pid, "tapped": to == "battlefield_tapped"})
@@ -1968,7 +1976,7 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
         from app.rules import exiled_with
 
         exiled_with.record(plan, ctx, [c for c in chosen if dest[c] == "exile"])
-    shuffle = pid if e.get("shuffle", True) else None  # 701.24: a library is shuffled only when the text says so
+    shuffle = owner if e.get("shuffle", True) else None  # 701.24: a library is shuffled only when the text says so
     if "library" not in (e.get("zones") or ["library"]):
         shuffle = None  # -- refused zones/sized (wave 3R4) -- "If you search your library this way, shuffle"
     if entering and not attachments.enter(plan, entering, ctx, shuffle=shuffle):  # an Aura chooses what it enchants (303.4f)

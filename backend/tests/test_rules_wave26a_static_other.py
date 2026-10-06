@@ -36,6 +36,10 @@ EXTRA = [
     card("Talara's Bane", set_code='tst', number='N11', mana_cost='{1}{B}', cmc=2.0, type_line='Sorcery', oracle_text="Target opponent reveals their hand. You choose a green or white creature card from it. You gain life equal to that creature card's toughness, then that player discards that card.", colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('Break Under Pressure', set_code='tst', number='N12', mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text='Target opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('End of the Hunt', set_code='tst', number='N13', mana_cost='{1}{B}', cmc=2.0, type_line='Sorcery', oracle_text='Target opponent exiles a creature or planeswalker they control with the greatest mana value among creatures and planeswalkers they control.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Seek Test', set_code='tst', number='N17', mana_cost='{1}{B}', cmc=2.0, type_line='Sorcery', oracle_text="Search target opponent's library for a card and exile it. You gain life equal to its mana value. Then that player shuffles.", colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Bribery', set_code='tst', number='N14', mana_cost='{3}{U}{U}', cmc=5.0, type_line='Sorcery', oracle_text="Search target opponent's library for a creature card and put that card onto the battlefield under your control. Then that player shuffles.", colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Bitter Ordeal', set_code='tst', number='N15', mana_cost='{1}{B}', cmc=2.0, type_line='Sorcery', oracle_text="Gravestorm\nSearch target player's library for a card and exile it. Then that player shuffles.", colors=['B'], color_identity=['B'], keywords=['Gravestorm'], layout='normal'),  # noqa: E501
+    card("Life's Finale", set_code='tst', number='N16', mana_cost='{4}{B}{B}', cmc=6.0, type_line='Sorcery', oracle_text="Destroy all creatures, then search target opponent's library for up to three creature cards and put them into their graveyard. Then that player shuffles.", colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='N99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),  # noqa: E501
     card('Test Glass', set_code='tst', number='N98', mana_cost='{W}', cmc=1.0, type_line='Enchantment', oracle_text='', colors=['W'], color_identity=['W']),  # noqa: E501
 ]
@@ -180,4 +184,37 @@ def test_greatest_mana_value_among_their_creatures(cards, spell, zone):
     bear, knight = put(s, "Test Bear", "battlefield", pid="p2"), put(s, "Test Knight", "battlefield", pid="p2")
     cast(s, spell, "p2")
     assert s.state.cards[bear.id].zone == zone and s.state.cards[knight.id].zone == "p2:battlefield"
+    roundtrip(s)
+
+
+# -- "Search target opponent's library …" (701.23a: the controller searches the target player's library) --
+def test_bribery_puts_their_creature_onto_my_battlefield_and_they_shuffle(cards):
+    s = build(cards, p1=("Bribery",), p2=("Test Bear",))
+    before = len(s.state.zones["p2:library"])
+    cast(s, "Bribery", "p2")
+    bear = find(s, "Test Bear", "p2")
+    assert bear.zone == "p1:battlefield" and bear.controller == "p1" and bear.owner == "p2"
+    assert len(s.state.zones["p2:library"]) == before - 1
+    roundtrip(s)
+
+
+def test_bitter_ordeal_exiles_the_card_i_find(cards):
+    s = build(cards, p1=("Bitter Ordeal",), p2=("Test Bear",))
+    cast(s, "Bitter Ordeal", "p2")
+    assert sum(1 for c in s.state.cards.values() if c.owner == "p2" and c.zone == "p2:exile") == 1
+    roundtrip(s)
+
+
+def test_seek_gains_life_equal_to_the_exiled_cards_mana_value(cards):
+    s = build(cards, p1=("Seek Test",), p2=("Test Bear",))
+    life = s.state.players["p1"].life
+    cast(s, "Seek Test", "p2")
+    assert s.state.players["p1"].life == life + 3  # Test Bear: mana value 3 (the only card with a mana cost in that library)
+    roundtrip(s)
+
+
+def test_lifes_finale_puts_up_to_three_creatures_into_their_graveyard(cards):
+    s = build(cards, p1=("Life's Finale",), p2=("Test Bear", "Test Knight"))
+    cast(s, "Life's Finale", "p2")
+    assert {c.name for c in s.state.cards.values() if c.zone == "p2:graveyard"} >= {"Test Bear"}
     roundtrip(s)

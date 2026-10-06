@@ -441,6 +441,8 @@ def step_names_player(d: dict[str, Any]) -> bool:
 def _group_of(e: dict[str, Any]) -> int | None:
     """The target group an effect acts on ("target:<g>"; plain "target" is group 0)."""
     who = e.get("who")
+    if e.get("library") is not None:  # -- static_other sweep (wave 26A) -- "Search target opponent's library": the target player is its group
+        who = e["library"]
     if who == "target":
         return 0
     if isinstance(who, str) and who.startswith("target:"):
@@ -993,7 +995,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
+_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
