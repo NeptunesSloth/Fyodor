@@ -371,9 +371,9 @@ def _stat(phrase: str, its: str = "it") -> Any:
     if phrase in ("the number of colors that spell is", "the number of colors it is"):  # -- value grammar (wave 23C) -- how many colors an object is (105.1)
         return {"colors": "that_spell" if "spell" in phrase else its}
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
-    m = re.fullmatch(r"(?:(?P<its>its)|that (?P<noun>creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
+    m = re.fullmatch(r"(?:(?P<its>its)|that (?P<noun>creature|permanent|card|artifact|enchantment|land|planeswalker)(?P<cd> card)?'s|"  # (wave 26A: "that creature card's toughness")
                      r"(?P<spell>that spell's)|(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
-    if m and m["noun"] == "card":
+    if m and (m["noun"] == "card" or m["cd"]):
         # -- damage sized by a count (wave 20A) -- "gets +X/+0, where X is that card's mana value" (Goblin Machinist): the card an earlier instruction
         # revealed, never the creature that is pumped (``_bind_its`` leaves the placeholder for scripts.resolve_it)
         return _Ante({_STATS[m["stat"]]: "it"})
@@ -948,6 +948,9 @@ _OWNERS = r"(?:its owner's|their owner's|their owners'|your)"
 _TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_OWNERS} library")
 _NTH_FROM_TOP = re.compile(rf"put (?P<o>.+?) into {_OWNERS} library (?P<nth>second|third|fourth|fifth|sixth|seventh) from the top")
 _SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
+# (the player whose card was chosen from the revealed hand: the card goes to its owner's library, 401.3 / 701.24)
+_PLAYER_LIBRARY = re.compile(r"that player (?:shuffles (?:that card|it) into their library|puts (?:that card|it) into their library "
+                             r"(?P<nth>second|third|fourth|fifth|sixth|seventh) from the top)")
 _OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that permanent's) owner shuffles it into their library")
 # -- static_other sweep (wave 17C) -- "The owner of target creature or enchantment puts it into their library second from the top or on the
 # bottom." (Lost Days, Temporal Cleansing): its owner's choice between the two places; "The owner of target artifact or enchantment an
@@ -1235,6 +1238,10 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     m = _OWNER_SHUFFLES.fullmatch(text)
     if m:
         return [{"do": "to_library", "who": "self" if m["o"] == "~'s" else "it", "place": "shuffle"}], None
+    m = _PLAYER_LIBRARY.fullmatch(text)  # -- static_other sweep (wave 26A) -- "That player shuffles that card into their library." (Perish the Thought)
+    if m:
+        nth = ("second", "third", "fourth", "fifth", "sixth", "seventh").index(m["nth"]) + 2 if m["nth"] else "shuffle"
+        return [{"do": "to_library", "who": "it", "place": nth}], None
     m = _OWNER_CHOICE.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"] or m["o2"])

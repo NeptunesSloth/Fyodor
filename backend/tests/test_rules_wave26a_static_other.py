@@ -30,6 +30,10 @@ EXTRA = [
     card('Ghastly Demise', set_code='tst', number='N05', mana_cost='{B}', cmc=1.0, type_line='Instant', oracle_text='Destroy target nonblack creature if its toughness is less than or equal to the number of cards in your graveyard.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('Touch of Darkness', set_code='tst', number='N06', mana_cost='{B}', cmc=1.0, type_line='Instant', oracle_text='One or more target creatures become black until end of turn.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('Viridescent Wisps', set_code='tst', number='N07', mana_cost='{G}', cmc=1.0, type_line='Instant', oracle_text='Target creature becomes green and gets +1/+0 until end of turn.\nDraw a card.', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
+    card('Soul Search', set_code='tst', number='N08', mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text="Target opponent reveals their hand. You choose a nonland card from it. Exile that card. If the card's mana value is 1 or less, create a 1/1 white and black Spirit creature token with flying.", colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Perish the Thought', set_code='tst', number='N09', mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text='Target opponent reveals their hand. You choose a card from it. That player shuffles that card into their library.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Lost Hours', set_code='tst', number='N10', mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text='Target player reveals their hand. You choose a nonland card from it. That player puts that card into their library third from the top.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card("Talara's Bane", set_code='tst', number='N11', mana_cost='{1}{B}', cmc=2.0, type_line='Sorcery', oracle_text="Target opponent reveals their hand. You choose a green or white creature card from it. You gain life equal to that creature card's toughness, then that player discards that card.", colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='N99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),  # noqa: E501
     card('Test Glass', set_code='tst', number='N98', mana_cost='{W}', cmc=1.0, type_line='Enchantment', oracle_text='', colors=['W'], color_identity=['W']),  # noqa: E501
 ]
@@ -42,7 +46,7 @@ def card_db(settings: Settings) -> Path:
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", ["Simoon", "Primeval Light", "River's Rebuke", "Evaporate", "Ghastly Demise", "Touch of Darkness", "Viridescent Wisps"])
+@pytest.mark.parametrize("name", ["Simoon", "Primeval Light", "River's Rebuke", "Evaporate", "Ghastly Demise", "Touch of Darkness", "Viridescent Wisps", "Soul Search", "Perish the Thought", "Lost Hours", "Talara's Bane"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -129,4 +133,40 @@ def test_becomes_green_and_gets_plus_one_zero(cards):
     act(s, "p1", type="cast_spell", card_id=find(s, "Viridescent Wisps").id, targets=[knight.id])
     answer(s)
     assert ch(s, s.state.cards[knight.id]).colors == {"G"} and ch(s, s.state.cards[knight.id]).pt == (3, 2)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize(("victim", "spirit"), [("Test Glass", True), ("Test Bear", False)])
+def test_soul_search_reads_the_exiled_cards_mana_value(cards, victim, spirit):
+    s = build(cards, p1=("Soul Search",), p2=(victim,))
+    put(s, victim, "hand", pid="p2")
+    cast(s, "Soul Search", "p2")
+    assert find(s, victim, "p2").zone == "p2:exile"
+    assert any(c.name == "Spirit" and c.zone == "p1:battlefield" for c in s.state.cards.values()) is spirit
+    roundtrip(s)
+
+
+def test_chosen_card_goes_back_to_the_library_shuffled(cards):
+    s = build(cards, p1=("Perish the Thought",), p2=("Test Bear",))
+    put(s, "Test Bear", "hand", pid="p2")
+    cast(s, "Perish the Thought", "p2")
+    assert find(s, "Test Bear", "p2").zone == "p2:library"
+    roundtrip(s)
+
+
+def test_chosen_card_goes_third_from_the_top(cards):
+    s = build(cards, p1=("Lost Hours",), p2=("Test Bear",))
+    put(s, "Test Bear", "hand", pid="p2")
+    cast(s, "Lost Hours", "p2")
+    bear = find(s, "Test Bear", "p2")
+    assert s.state.zones["p2:library"].index(bear.id) == 2
+    roundtrip(s)
+
+
+def test_talaras_bane_gains_the_chosen_cards_toughness_then_discards_it(cards):
+    s = build(cards, p1=("Talara's Bane",), p2=("Test Knight",))
+    put(s, "Test Knight", "hand", pid="p2")
+    life = s.state.players["p1"].life
+    cast(s, "Talara's Bane", "p2")
+    assert s.state.players["p1"].life == life + 2 and find(s, "Test Knight", "p2").zone == "p2:graveyard"
     roundtrip(s)
