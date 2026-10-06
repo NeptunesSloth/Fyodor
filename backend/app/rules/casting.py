@@ -2609,8 +2609,21 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
     _stacked(plan, card, oid, ch, ability_id, effects)
 
 
+def _create_ability(plan: Plan, card: CardInstance, text: str) -> Any:
+    """-- hidden-zone abilities (wave 28C) -- 602.2a / 701.20a: an ability activated from a hidden zone (the hand) reveals its card, so
+    the ability on the stack names it for everyone (cycling, channel, ninjutsu, "put this card from your hand …"); the card is hidden
+    again at once if it stays there, and the rest of the hand is never shown."""
+    shown = card.zone == zone_key(plan.actor, "hand") and not card.revealed_to
+    if shown:
+        plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
+    created = plan.do({"type": "create_ability", "text": text, "source_id": card.id, "kind": "activated"})
+    if shown:
+        plan.do({"type": "hide", "card_ids": [card.id]}, actor=plan.actor)
+    return created
+
+
 def _new_ability(plan: Plan, card: CardInstance, text: str) -> str | None:
-    created = plan.do({"type": "create_ability", "text": text[:500], "source_id": card.id, "kind": "activated"})
+    created = _create_ability(plan, card, text[:500])
     new_ids = getattr(created, "r", None)
     return new_ids.ids[0] if new_ids is not None else None
 
@@ -3501,12 +3514,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     effect = ability.text.split(":", 1)[1].strip() if ":" in ability.text else ability.text
     # -- review (wave 27D) -- 602.2a / 701.20a: a card whose ability is activated from the hand is revealed, so the ability on the stack
     # names it for everyone; the card stays in the hand, anonymous again once the stack object carries its name
-    shown = cost.hand_only and card.zone == zone_key(plan.actor, "hand") and not card.revealed_to
-    if shown:
-        plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
-    created = plan.do({"type": "create_ability", "text": effect[:500], "source_id": card.id, "kind": "activated"})
-    if shown:
-        plan.do({"type": "hide", "card_ids": [card.id]}, actor=plan.actor)
+    created = _create_ability(plan, card, effect[:500])
     new_ids = getattr(created, "r", None)
     ability_id = new_ids.ids[0] if new_ids is not None else None
     # Pay the costs (602.2): tap first so the source can't also pay for its own mana cost.
