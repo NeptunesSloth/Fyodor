@@ -291,7 +291,8 @@ def self_text(text: str, name: str) -> str:
     out = '"'.join(own(p) if i % 2 == 0 else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
     out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
     out = re.sub(r"(\bto the battlefield) and (attach this (?:Equipment|Aura) to it\b)", lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", out)  # (wave 19C: Nim Deathmantle: two instructions in order)
-    out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room|token)\b", "~", out)  # (wave 26C: token)
+    out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
+    out = re.sub(r"\b[Tt]his token\b(?!['’]s)", "~", out)  # -- activated sweep (wave 26C) -- a token's own ability ("When this token dies", "sacrifice this token"; not its "'s power")
     # -- gift (wave 23D) -- 702.174k: a promised gift is read as the spell having been kicked (app/rules/gift.py): "If the gift was promised, …"
     # opens a sentence of the spell, "When ~ enters, if the gift was promised, …" is the permanent's intervening "if"
     out = re.sub(r"(?:^|(?<=\. ))If the gift was promised, ", "If this spell was kicked, ", out)

@@ -153,6 +153,7 @@ def parse(text: str) -> Definition | None:
     if re.sub(r'"[^"]*"', "", t).count(". ") or "\n" in t:  # (wave 16F: sentences inside a quoted granted ability are its own)
         return None  # two sentences: one of them says something we'd silently drop
     body = t[:-1] if t.endswith(".") else t
+    body = re.sub(r"^This token\b", "~", body)  # -- activated sweep (wave 26C) -- a token's own static ("This token can't block or be blocked by non-Spirit creatures.")
     if re.fullmatch(r"A deck can have (?:any number of|up to \w+) cards named ~", body):
         return {"kind": "static", "static": "deck_rule", "effects": []}  # -- static grants (wave 15A) -- 100.2a / 903.5b: deck building only
     cda = parse_cda(body)
