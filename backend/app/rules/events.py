@@ -614,7 +614,9 @@ def _subject(s: str, *, host: bool = False, many: bool = False) -> Condition | N
     return {"subject": "sel", "sel": sel.key(), "aggregate": m["q"] == "one or more"}
 
 
-def _defender(d: str | None) -> Condition:
+def _defender(d: str | None, player_attack: bool = False) -> Condition:
+    if d and _DEFENDERS[d] in ("opponent_any", "other_opponent") and not player_attack:
+        raise _Refuse  # (review 27B) only "<a player> attacks …" reads these (a creature's attack, a count of attackers: not read)
     return {"defender": _DEFENDERS[d]} if d else {}
 
 
@@ -625,7 +627,10 @@ def _combat(c: str) -> Condition | None:
     m = re.fullmatch(rf"(?P<p>you|an opponent|a player) attacks? (?P<d>{_DEFENDER_RE})"
                      r"(?: with (?:(?P<n>\w+) or more )?(?P<o>creatures|creatures with .+))?", c)  # (wave 21B: "creatures with power 4 or greater")
     if m and not (m["p"] == "you" and m["d"] in ("you", "you or a planeswalker you control")):
-        out: Condition = {"event": "you_attack", "subject": "player", "player": _PLAYERS[m["p"]], **_defender(m["d"])}
+        kind = _DEFENDERS[m["d"]]  # (review 27B) "one or more of your opponents": the declaration, not a count per player;
+        if kind in ("opponent_any", "other_opponent") and (m["n"] or m["o"]) or (kind == "other_opponent" and m["p"] != "an opponent"):
+            raise _Refuse  # "another one of your opponents": other than you and the attacking opponent (Karazikar)
+        out: Condition = {"event": "you_attack", "subject": "player", "player": _PLAYERS[m["p"]], **_defender(m["d"], True)}
         if m["n"]:
             out["min_attackers"] = _count(m["n"])
         if m["o"] and m["o"] != "creatures":  # -- triggers (wave 21B) -- 508.3c: the creatures declared as attackers, those matching

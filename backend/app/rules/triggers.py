@@ -1924,6 +1924,8 @@ def bind_that_player(t: PendingTrigger) -> None:
         raw = raw.replace('\\"controller\\":\\"defended_player\\"', f'\\"controller\\":\\"player:{t.event.defended}\\"')
         t.ability = json.loads(raw)
     players = list(t.event.players) if t.event is not None else []
+    if t.event is not None and t.event.kind == "you_attack" and t.event.defended and (t.ability.get("cond") or {}).get("player") == "you":
+        players = [t.event.defended]  # (review 27B) "Whenever you attack a player, tap target creature that player controls": the one attacked (508.3e)
     if len(players) != 1:
         return
     for key in ("controller", "zone_owner"):  # (zone_owner: wave 15C, "from that player's graveyard")

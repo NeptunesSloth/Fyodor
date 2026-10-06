@@ -52,7 +52,7 @@ def table(cards, mine, players=2):
     decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in mine), (2, "Probe Imp"), (8, "Forest")]),
              deck(cards, "Atraxa, Praetors' Voice", [*((1, n) for n in mine), (2, "Probe Imp"), (10, "Island")]),
              deck(cards, "Krenko, Mob Boss", [*((1, n) for n in mine), (2, "Probe Imp"), (10, "Mountain")])][:players]
-    s = GameSession(enable(new_game([PlayerSetup(n, cards=d) for n, d in zip(("Alice", "Bob", "Carol"), decks)], shuffle=False)), cards=cards)
+    s = GameSession(enable(new_game([PlayerSetup(n, cards=d) for n, d in zip(("Alice", "Bob", "Carol")[:players], decks, strict=True)], shuffle=False)), cards=cards)
     act(s, "p1", type="pass_priority")
     return s
 
@@ -125,7 +125,7 @@ def test_cast_trigger_reads_a_list_of_mana_values(cards):
         act(s, "p1", type="cast_spell", card_id=c.id)
         drive(s)
         have = len([x for x in s.state.cards.values() if x.is_token and x.name == "Eldrazi Spawn" and x.controller == "p1"])
-        assert have == (2 if name == "Probe Giant" else 0), (name, have)
+        assert have == spawns, (name, have)
     check(s)
 
 
