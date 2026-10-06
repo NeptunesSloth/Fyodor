@@ -1109,6 +1109,7 @@ def _parse(phrase: str) -> Selector | None:
         return replace(s, card=base.card, zones=base.zones if s.zones == ("battlefield",) else s.zones, types=base.types,
                        subtypes=tuple(dict.fromkeys(c[1] for c in subs if c is not None)))
     # -- end recursion & tutors (wave 4M) --
+    text = re.sub(r"\b(white|blue|black|red|green)(,?) and/or (?=white\b|blue\b|black\b|red\b|green\b)", r"\1\2 or ", text)  # (wave 26A: 105.1 colors, "and/or" = "or")
     words = text.replace(",", " ,").split()
     if not words:
         return None

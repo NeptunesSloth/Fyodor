@@ -23,6 +23,8 @@ EXTRA = [
     card('Simoon', set_code='tst', number='N01', mana_cost='{R}{G}', cmc=2.0, type_line='Instant', oracle_text='Simoon deals 1 damage to each creature target opponent controls.', colors=['R', 'G'], color_identity=['R', 'G'], keywords=[], layout='normal'),  # noqa: E501
     card('Primeval Light', set_code='tst', number='N02', mana_cost='{1}{G}{G}', cmc=3.0, type_line='Sorcery', oracle_text='Destroy all enchantments target player controls.', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
     card("River's Rebuke", set_code='tst', number='N03', mana_cost='{4}{U}{U}', cmc=6.0, type_line='Sorcery', oracle_text="Return all nonland permanents target player controls to their owner's hand.", colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Evaporate', set_code='tst', number='N04', mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text='Evaporate deals 1 damage to each white and/or blue creature.', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
+    card('Test Knight', set_code='tst', number='N97', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Knight', power='2', toughness='2', colors=['W'], color_identity=['W'], oracle_text=''),  # noqa: E501
     card('Test Bear', set_code='tst', number='N99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),  # noqa: E501
     card('Test Glass', set_code='tst', number='N98', mana_cost='{W}', cmc=1.0, type_line='Enchantment', oracle_text='', colors=['W'], color_identity=['W']),  # noqa: E501
 ]
@@ -35,7 +37,7 @@ def card_db(settings: Settings) -> Path:
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", ["Simoon", "Primeval Light", "River's Rebuke"])
+@pytest.mark.parametrize("name", ["Simoon", "Primeval Light", "River's Rebuke", "Evaporate"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -68,4 +70,15 @@ def test_rivers_rebuke_returns_their_nonland_permanents_to_their_owners(cards):
     mine, theirs = put(s, "Test Bear", "battlefield"), put(s, "Test Bear", "battlefield", pid="p2")
     cast(s, "River's Rebuke", "p2")
     assert s.state.cards[theirs.id].zone == "p2:hand" and s.state.cards[mine.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_evaporate_hits_white_and_or_blue_creatures_only(cards):
+    s = build(cards, p1=("Evaporate", "Test Bear"), p2=("Test Knight",))
+    bear, knight = put(s, "Test Bear", "battlefield"), put(s, "Test Knight", "battlefield", pid="p2")
+    put(s, "Evaporate", "hand")
+    mana(s, R=3)
+    act(s, "p1", type="cast_spell", card_id=find(s, "Evaporate").id)
+    answer(s)
+    assert s.state.cards[knight.id].damage == 1 and s.state.cards[bear.id].damage == 0
     roundtrip(s)
