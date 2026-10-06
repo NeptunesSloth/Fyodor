@@ -112,6 +112,8 @@ def definition_supported(d: dict[str, Any]) -> bool:
 
         if not graveyard_trigger_ok(d):
             return False
+    if d.get("kind") != "activated" and any(f'"{w}"' in json.dumps(d, default=str) for w in ("self_hand", "self_command")):
+        return False  # -- activated from hand / command zone (wave 27D) -- 113.6m: only an activated ability is read there
     # -- refused grants/replacements (wave 3R2) -- a flashback cost never stated
     from app.rules import graveyard_grants
 

@@ -185,7 +185,7 @@ ONCE_LIFE = re.compile(r"^once during each of your turns, you may cast (?:a|an) 
 # -- if you do (wave 25C) -- also "You may cast target instant or sorcery card from your graveyard this turn." (a permission for that card,
 # 611.2a), "Until end of turn, you may cast target … without paying its mana cost." and the bare "You may cast target instant card from
 # your graveyard." (cast as this resolves, its mana cost paid: 608.2g, the paid free_cast of the copy wording)
-FREE_TARGET = re.compile(r"^(?:(?P<until>until end of turn), )?(?:you may )?cast (?P<what>target .+?)(?P<this_turn> this turn)?"
+FREE_TARGET = re.compile(r"^(?:(?P<until>until end of turn), )?(?:you may )?(?P<verb>cast|play) (?P<what>target .+?)(?P<this_turn> this turn)?"
                          r"(?P<free> without paying its mana cost)?(?:, and (?P<spend>mana of any type can be spent to cast that spell))?$")
 _FREE_COUNT = {"a": 1, "an": 1, "up to one": 1, "up to two": 2, "up to three": 3, "any number of": 99}
 
@@ -300,8 +300,12 @@ def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     m = FREE_TARGET.fullmatch(text)
     if m is None:
         return None
+    # -- free cast (wave 27D) -- "play target …" only as a permission for a stated duration (611.2a). -- review (wave 27D) -- a bare "You may
+    # play target Elemental card from your graveyard without paying its mana cost." (Horde of Notions) is played as it resolves (608.2g),
+    # a land among them only with a land play left on your turn (305.2a/305.3: Tangled Florahedron's back face): not modelled, stays manual
+    play = m["verb"] == "play"
     timed = bool(m["until"] or m["this_turn"])
-    if (m["until"] and m["this_turn"]) or (m["spend"] and (m["free"] or not timed)):
+    if (m["until"] and m["this_turn"]) or (m["spend"] and (m["free"] or not timed)) or (play and not timed):
         return None  # (mana spent is only for a permission; a free cast spends none)
     phrase = m["what"][len("target "):]
     mv = re.search(rf" {_FREE_MV}(?= from )", phrase)
@@ -311,7 +315,7 @@ def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if mv and mv["v"] is not None and not any(isinstance(c[2], str) and c[2].startswith("src:") for c in sel.compare):
         return None  # (a limit read as it resolves that the selector doesn't read: only "its / ~'s power" is — the target's legality is checked then, 608.2b)
     if timed:
-        return [{"do": "grant_play", "who": "target", "play": False, "cast": True, "until": "end_of_turn", "optional": True,
+        return [{"do": "grant_play", "who": "target", "play": play, "cast": True, "until": "end_of_turn", "optional": True,
                  **({"free": True} if m["free"] else {}), **({"spend": "type"} if m["spend"] else {})}], sel.key()
     return [{"do": "free_cast", "zone": "target", "filter": None, "optional": True, "mv": None, "n": 1,
              **({} if m["free"] else {"paid": True})}], sel.key()

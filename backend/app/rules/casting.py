@@ -3157,6 +3157,14 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
         unearth(plan, card, ch, a, unearth_cost)
         return
+    if card.zone == zone_key(plan.actor, "command") and card.owner == plan.actor:  # -- activated from hand / command zone (wave 27D)
+        ch = plan.ch(card)
+        ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+        if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).command_only:  # 113.6m
+            _activation_limit(plan, card, ch)
+            activate_to_stack(plan, card, ch, ability, a)
+            return
+        raise ActionError("That card has no ability to use from the command zone")
     ch = plan.ch(card)
     # -- activation wordings (wave 7B) -- 602.2: "Any player may activate this ability."
     ab = next((x for x in ch.abilities if x.index == a.ability), None)
@@ -3322,6 +3330,14 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
     if ability.kind == "activated" and ":" in ability.text and (_GRAVEYARD_SELF.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~"))
                                                                  or "Activate only if this card is in your graveyard" in ability.text):
         cost = replace(cost, graveyard_only=True)  # (review 20E: Glory's "Activate only if this card is in your graveyard.", 113.6m)
+    # -- activated from hand / command zone (wave 27D) -- 113.6m: "Put this card from your hand onto the battlefield" / "Put ~ onto the
+    # battlefield from the command zone" moves the card out of that zone, so the ability works only there
+    if ability.kind == "activated" and ":" in ability.text:
+        body = scripts.self_text(ability.text.split(":", 1)[1].strip(), ch.name).lower()
+        if "put this card from your hand onto the battlefield" in body or "put ~ from your hand onto the battlefield" in body:
+            cost = replace(cost, hand_only=True)
+        elif "put ~ onto the battlefield from the command zone" in body:
+            cost = replace(cost, command_only=True)
     return cost
 
 
@@ -3346,6 +3362,9 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     if cost.from_hand:  # -- ability words (wave 4F) -- 113.6m: "Discard this card" (channel) works only from the hand
         if card.zone != zone_key(player, "hand") or card.owner != player:
             return "That ability can only be activated from your hand"
+    elif cost.command_only:  # -- activated from hand / command zone (wave 27D) -- 113.6m
+        if card.zone != zone_key(player, "command") or card.owner != player:
+            return "That ability can only be activated from the command zone"
     elif cost.from_graveyard:  # 113.6m: its cost moves it out of your graveyard, so it works only there
         if card.zone != zone_key(player, "graveyard") or card.owner != player:
             return "That ability can only be activated from your graveyard"
@@ -3480,7 +3499,14 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
                     exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability))):
         return
     effect = ability.text.split(":", 1)[1].strip() if ":" in ability.text else ability.text
+    # -- review (wave 27D) -- 602.2a / 701.20a: a card whose ability is activated from the hand is revealed, so the ability on the stack
+    # names it for everyone; the card stays in the hand, anonymous again once the stack object carries its name
+    shown = cost.hand_only and card.zone == zone_key(plan.actor, "hand") and not card.revealed_to
+    if shown:
+        plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
     created = plan.do({"type": "create_ability", "text": effect[:500], "source_id": card.id, "kind": "activated"})
+    if shown:
+        plan.do({"type": "hide", "card_ids": [card.id]}, actor=plan.actor)
     new_ids = getattr(created, "r", None)
     ability_id = new_ids.ids[0] if new_ids is not None else None
     # Pay the costs (602.2): tap first so the source can't also pay for its own mana cost.
@@ -3569,6 +3595,14 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                     ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),  # (wave 4I)
                                     check_priority=check_priority,
                                     info=info) is None:
+                out.append({"card_id": cid, "ability": ab.index})
+    for cid in state.zones.get(zone_key(player, "command"), []):  # -- activated from hand / command zone (wave 27D) -- 113.6m
+        card = state.cards[cid]
+        ch = chars.of(card, info)
+        for ab in ch.abilities:
+            if ab.kind == "activated" and ability_cost(ch, ab).command_only and \
+                    ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),
+                                    check_priority=check_priority, info=info) is None:
                 out.append({"card_id": cid, "ability": ab.index})
     for cid in state.zones.get(zone_key(player, "hand"), []):  # -- keywords (wave 15E) -- ninjutsu (702.49a)
         card = state.cards[cid]
