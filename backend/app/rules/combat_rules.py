@@ -346,6 +346,7 @@ _EXTRA = re.compile(r"(?:after this (?:(?P<main>main )|(?P<combat>combat ))?phas
                     r"(?P<and> followed by an additional main phase)?"
                     r"|there is an additional combat phase after this (?:(?P<main2>main )|(?P<combat2>combat ))?phase)")
 _MUST = re.compile(r"(?P<o>.+?) attacks? this turn if able")
+_MUST_COMBAT = re.compile(r"(?P<o>.+?) attacks this combat if able")  # -- trigger other (wave 26B) -- 508.1d, this combat only
 _MUST_YOU = re.compile(r"(?P<o>target creature(?: an opponent controls)?) attacks you this turn if able")  # -- activated other (wave 21E) --
 _EACH_COMBAT = re.compile(r"(?P<o>.+?) (?:attack each combat if able(?P<pl> and attack a player other than you if able)?"
                          r"|attacks each combat if able(?P<sg> and attacks a player other than you if able)?)"
@@ -416,6 +417,10 @@ def clause(text: str) -> tuple[Effects, Any] | None:
     m = _MUST.fullmatch(text)
     if m:
         return _restrict(m["o"], ["must_attack"])
+    m = _MUST_COMBAT.fullmatch(text)
+    if m:  # -- trigger other (wave 26B) -- "That token attacks this combat if able." (Legion Warboss): ends with the combat (611.2)
+        combat = _restrict(m["o"], ["must_attack"])
+        return ([{**combat[0][0], "duration": "end_of_combat"}], combat[1]) if combat is not None else None
     if _MYRIAD.fullmatch(text):  # (both sentences: the exile is part of the keyword, 702.116a)
         from app.rules import delayed
 
