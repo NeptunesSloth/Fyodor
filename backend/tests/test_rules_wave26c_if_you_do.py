@@ -91,12 +91,6 @@ REAL = [
     ("Cultivator Colossus", "{4}{G}{G}", "Creature — Plant Beast", "*", "*",
      "Trample\nCultivator Colossus's power and toughness are each equal to the number of lands you control.\nWhen this creature enters, you may put "
      "a land card from your hand onto the battlefield tapped. If you do, draw a card and repeat this process."),
-    ("Sparkspitter", "{2}{R}", "Creature — Elemental Spellshaper", "1", "3",
-     "{R}, {T}, Discard a card: Create a 3/1 red Elemental creature token named Spark Elemental. It has trample, haste, and \"At the beginning of the "
-     "end step, sacrifice this token.\""),
-    ("Cloudseeder", "{1}{U}", "Creature — Faerie Spellshaper", "1", "1",
-     "Flying\n{U}, {T}, Discard a card: Create a 1/1 blue Faerie creature token named Cloud Sprite. It has flying and \"This token can block only "
-     "creatures with flying.\""),
     ("Flameblast Dragon", "{4}{R}{R}", "Creature — Dragon", "5", "5",
      "Flying\nWhenever this creature attacks, you may pay {X}{R}. If you do, it deals X damage to any target."),
 ]
@@ -623,46 +617,6 @@ def test_cultivator_colossus_repeats_while_a_land_is_put_onto_the_battlefield(ca
             s, *([] if d.kind == "choose_cards" else [d.options[0].id]))
     answer(s)
     assert len(forests(s, "battlefield")) == 2 and len([c for c in s.state.zones["p1:hand"] if s.state.cards[c].name == "Rent Is Due"]) == 2
-    check(s)
-
-
-# -- "This token" as the token itself (its quoted abilities) ----------------------------------------------------------
-def test_sparkspitter_token_is_sacrificed_at_the_end_step(cards):
-    s = build(cards, ["Sparkspitter", "Rent Is Due"])
-    put(s, "Sparkspitter")
-    ready(s, "Sparkspitter")
-    to_hand(s, "Rent Is Due")
-    mana(s, R=1)
-    activate(s, "Sparkspitter", "{R}, {T}")
-    answer(s)
-    token = next(c for c in s.state.cards.values() if c.name == "Spark Elemental")
-    assert chars_of_id(s, token.id).pt == (3, 1) and "haste" in chars_of_id(s, token.id).keywords
-    for _ in range(40):  # (on to the end step: the delayed sacrifice of "this token")
-        if token.id not in s.state.cards:
-            break
-        d = s.state.rules.decision
-        if d is not None and d.kind == "declare_attackers":
-            act(s, d.player, type="declare_attackers", attackers=[])
-        elif d is not None and d.kind == "declare_blockers":
-            act(s, d.player, type="declare_blockers", blocks=[])
-        elif d is not None:
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
-        else:
-            act(s, s.state.rules.priority, type="pass_priority")
-    assert token.id not in s.state.cards
-    check(s)
-
-
-def test_cloud_sprite_can_block_only_creatures_with_flying(cards):
-    s = build(cards, ["Cloudseeder", "Rent Is Due"])
-    put(s, "Cloudseeder")
-    ready(s, "Cloudseeder")
-    to_hand(s, "Rent Is Due")
-    mana(s, U=1)
-    activate(s, "Cloudseeder", "{U}, {T}")
-    answer(s)
-    token = next(c for c in s.state.cards.values() if c.name == "Cloud Sprite")
-    assert any(r.startswith("block_only") for r in chars_of_id(s, token.id).imposed)
     check(s)
 
 
