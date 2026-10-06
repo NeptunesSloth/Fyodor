@@ -51,7 +51,7 @@ PAY, DECLINE = "pay", "decline"
 SUPPORTED = frozenset({C.MANA, C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.DISCARD, C.EXILE, C.EXILE_FROM_GRAVEYARD,
                        C.REMOVE_COUNTER, C.RETURN_PERMANENT, C.TAP_OTHER, C.PUT_COUNTER, C.DISCARD_HAND,
                        C.MILL, "EXILE_FROM_HAND", C.EXILE_TO_GY,  # (MILL, EXILE_FROM_HAND: wave 8C; EXILE_TO_GY: wave 15C)  # (PUT_COUNTER: wave 6F, blight)
-                       C.FORAGE, C.COLLECT_EVIDENCE})  # (wave 26C: "you may forage", "you may collect evidence 4": 701.61a, 701.59a)
+                       C.FORAGE, C.COLLECT_EVIDENCE, "SOURCE_DAMAGE"})  # (SOURCE_DAMAGE: wave 27A; wave 26C: "you may forage", "you may collect evidence 4": 701.61a, 701.59a)
 FLEXIBLE = (C.FORAGE, C.COLLECT_EVIDENCE)  # (wave 26C) the cards that pay are chosen as a whole (cost_payment._flexible_options)
 _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 
@@ -137,8 +137,16 @@ REVEAL_FROM_HAND = "REVEAL_FROM_HAND"
 _REVEAL_FROM_HAND = re.compile(r"^Reveal (?:a|an) (?P<what>[A-Za-z]+ card) from your hand$")
 
 
+# -- unless damage (wave 27A) -- "… unless its controller has ~ deal 4 damage to them." (Lava Blister, Molten Influence, Skullscorch): the payer
+# has the source deal the damage to them as the cost (118.12a); it is damage dealt by the source (120.3: prevention, protection and lifelink
+# apply, 615), and the cost counts as paid even if the damage is prevented (118.12: what is chosen, not what happens).
+_SOURCE_DAMAGE = re.compile(r"^Have (?:~|this [a-z]+) deal (?P<n>\d+) damage to you$")
+
+
 def parse(text: str) -> AbilityCost | None:
     """The cost text as components, or None if any part isn't one the engine pays here."""
+    if (d := _SOURCE_DAMAGE.match(text)) is not None:  # (wave 27A)
+        return AbilityCost(components=(C.CostComponent("SOURCE_DAMAGE", amount=int(d["n"]), text=text),))
     if text == _HAND_TO_BOTTOM_TEXT:  # -- if you do (wave 6F) --
         return _hand_to_bottom()
     if (r := _REVEAL_FROM_HAND.match(text)) is not None:  # -- if you do (wave 15C) --
@@ -550,6 +558,11 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
         cost_payment.pay(plan, cost, source, chosen, record)
     finally:
         plan.actor = actor
+    for comp in cost.components:  # -- unless damage (wave 27A) -- the source deals the damage to the payer (120.3)
+        if comp.kind == "SOURCE_DAMAGE":
+            from app.rules import effects
+
+            effects._deal(plan, ctx, [(effects._ability_source(plan, ctx), payer, comp.amount)])
     for i, comp in enumerate(cost.components):  # -- if you do (wave 15C) -- shown to everyone, and it stays in the hand
         if comp.kind == REVEAL_FROM_HAND and chosen.get(i):
             plan.do({"type": "reveal", "card_ids": chosen[i]}, actor=payer)
