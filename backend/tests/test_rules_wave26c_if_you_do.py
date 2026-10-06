@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -54,6 +55,14 @@ REAL = [
     ("Dragonsoul Knight", "{2}{R}", "Creature — Human Knight", "2", "2",
      "First strike\n{W}{U}{B}{R}{G}: Until end of turn, this creature becomes a Dragon, gets +5/+3, and gains flying and trample."),
     ("Wishful Merfolk", "{1}{U}", "Creature — Merfolk", "3", "2", "Defender\n{1}{U}: This creature loses defender and becomes a Human until end of turn."),
+    ("Treetop Sentries", "{3}{G}", "Creature — Squirrel Archer", "2", "4",
+     "Reach\nWhen this creature enters, you may forage. If you do, draw a card. (To forage, exile three cards from your graveyard or sacrifice a Food.)"),
+    ("Izoni, Center of the Web", "{4}{B}{G}", "Legendary Creature — Elf Detective", "5", "4",
+     "Menace\nWhenever Izoni enters or attacks, you may collect evidence 4. If you do, create two 2/1 black and green Spider creature tokens with "
+     "reach and menace.\nSacrifice four tokens: Surveil 2, then draw two cards. You gain 2 life."),
+    ("Chromium, the Mutable", "{4}{W}{U}{B}", "Legendary Creature — Elder Dragon", "7", "7",
+     "Flash\nThis spell can't be countered.\nFlying\nDiscard a card: Until end of turn, Chromium becomes a Human with base power and toughness 1/1, "
+     "loses all abilities, and gains hexproof. It can't be blocked this turn."),
     ("Flameblast Dragon", "{4}{R}{R}", "Creature — Dragon", "5", "5",
      "Flying\nWhenever this creature attacks, you may pay {X}{R}. If you do, it deals X damage to any target."),
 ]
@@ -309,4 +318,109 @@ def test_wishful_merfolk_loses_defender_and_becomes_a_human(cards):
     answer(s)
     ch = chars_of(s, "Wishful Merfolk")
     assert set(ch.subtypes) == {"Human"} and "defender" not in ch.keywords
+    check(s)
+
+
+# -- "you may forage" / "you may collect evidence 4" ---------------------------------------------------------------------
+def to_graveyard(s, *names):
+    for n in names:
+        act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"zone": "graveyard"})
+
+
+def graveyard(s):
+    return list(s.state.zones.get("p1:graveyard", []))
+
+
+def cast_sentries(s):
+    to_hand(s, "Treetop Sentries")
+    mana(s, G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Treetop Sentries").id)
+    return until_asked(s)
+
+
+@pytest.mark.parametrize("how", ["graveyard", "food", "decline"])
+def test_treetop_sentries_forage_is_an_optional_payment(cards, how):
+    s = build(cards, ["Treetop Sentries", "Giant Opportunity", "Rent Is Due", "Insatiable Appetite"])
+    food = creature(s, "p1", "Food", pt="0/0", type_line="Token Artifact — Food") if how == "food" else None
+    if how != "food":
+        to_graveyard(s, "Giant Opportunity", "Rent Is Due", "Insatiable Appetite")
+    before = hand_size(s)
+    d = cast_sentries(s)
+    assert d.player == "p1" and [o.id for o in d.options] == ["pay", "decline"]
+    pick(s, "decline" if how == "decline" else "pay")
+    if how != "decline":
+        d = until_asked(s)
+        pick(s, *([o.id for o in d.options][:3] if how == "graveyard" else [food.id]))
+    answer(s)
+    assert hand_size(s) == before + (0 if how == "decline" else 1)
+    assert len(graveyard(s)) == (3 if how == "decline" else 0)
+    assert (food.id not in s.state.cards) if how == "food" else True  # (a token Food sacrificed: gone)
+    check(s)
+
+
+def test_forage_needs_three_graveyard_cards_or_a_food(cards):
+    s = build(cards, ["Treetop Sentries", "Giant Opportunity", "Rent Is Due"])
+    to_graveyard(s, "Giant Opportunity", "Rent Is Due")
+    before = hand_size(s)
+    assert cast_sentries(s) is None  # (two cards and no Food: the payment isn't offered, 118.3)
+    answer(s)
+    assert hand_size(s) == before and len(graveyard(s)) == 2
+    check(s)
+
+
+def test_forage_picks_must_pay_as_a_whole(cards):
+    s = build(cards, ["Treetop Sentries", "Giant Opportunity", "Rent Is Due", "Insatiable Appetite"])
+    to_graveyard(s, "Giant Opportunity", "Rent Is Due", "Insatiable Appetite")
+    d = cast_sentries(s)
+    pick(s, "pay")
+    d = until_asked(s)
+    with pytest.raises(ActionError):
+        pick(s, d.options[0].id, d.options[1].id)  # (two cards are not three)
+    check(s)
+
+
+def cast_izoni(s):
+    to_hand(s, "Izoni, Center of the Web")
+    mana(s, B=1, G=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Izoni, Center of the Web").id)
+    return until_asked(s)
+
+
+def spiders(s):
+    return [c for c in s.state.cards.values() if c.name == "Spider" and c.zone == "p1:battlefield"]
+
+
+def test_izoni_collect_evidence_exiles_cards_with_total_mana_value_four(cards):
+    s = build(cards, ["Izoni, Center of the Web", "Giant Opportunity", "Rent Is Due"])
+    to_graveyard(s, "Giant Opportunity", "Rent Is Due")  # (mana value 3 + 1)
+    d = cast_izoni(s)
+    pick(s, "pay")
+    d = until_asked(s)
+    assert set(o.id for o in d.options) == set(graveyard(s))
+    pick(s, *[o.id for o in d.options])
+    answer(s)
+    assert len(spiders(s)) == 2 and graveyard(s) == []
+    assert all(c.zone == "p1:exile" for c in s.state.cards.values() if c.name in ("Giant Opportunity", "Rent Is Due"))
+    check(s)
+
+
+def test_collect_evidence_is_not_offered_below_the_total(cards):
+    s = build(cards, ["Izoni, Center of the Web", "Rent Is Due"])
+    to_graveyard(s, "Rent Is Due")  # (mana value 1 < 4)
+    assert cast_izoni(s) is None
+    answer(s)
+    assert spiders(s) == [] and len(graveyard(s)) == 1
+    check(s)
+
+
+def test_chromium_loses_all_abilities_then_gains_hexproof_in_that_order(cards):
+    s = build(cards, ["Chromium, the Mutable", "Rent Is Due"])
+    put(s, "Chromium, the Mutable")
+    to_hand(s, "Rent Is Due")
+    before = chars_of(s, "Chromium, the Mutable")
+    assert "flying" in before.keywords and before.pt == (7, 7)
+    activate(s, "Chromium, the Mutable", "Discard a card")
+    answer(s)
+    ch = chars_of(s, "Chromium, the Mutable")
+    assert set(ch.subtypes) == {"Human"} and ch.pt == (1, 1) and set(ch.keywords) == {"hexproof"}  # (613.7: the later grant outlives the removal)
     check(s)
