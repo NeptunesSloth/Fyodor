@@ -120,7 +120,7 @@ _PLAYER_COUNTERS = re.compile(r"^If you would get one or more counters, you get 
 # controller is put by them too: review 22C, see replace._putter_ok).
 _PUTTER = re.compile(r"^If (?P<who>you|an opponent) would put one or more counters on (?P<on>.+?), (?:put|they put) "
                      r"(?P<how>twice that many|half that many|that many plus one) of each of those kinds of counters on "
-                     r"that permanent or player instead(?P<down>, rounded down)?\.$")
+                     r"that permanent(?P<orp> or player)? instead(?P<down>, rounded down)?\.$")
 _PUTTER_OPS: dict[str, dict[str, Any]] = {"twice that many": {"do": "mul", "n": 2}, "that many plus one": {"do": "add", "n": 1}, "half that many": {"do": "half"}}
 
 
@@ -132,6 +132,8 @@ def _putter(m: re.Match[str]) -> Definition | None:
         on, players = "a permanent", "any"
     elif on.endswith(" or on yourself") and m["who"] == "you":
         on, players = on[: -len(" or on yourself")], "you"
+    if bool(m["orp"]) != bool(players):  # (-- counter putters (wave 28B) -- "on a permanent you control, … on that permanent instead": Doc Samson)
+        return None
     obj = _object(on)
     if obj is None:
         return None

@@ -41,10 +41,11 @@ EXTRA = [
     card("Thought Scour", set_code="tst", number="W18", mana_cost="{U}", cmc=1.0, type_line="Instant", colors=["U"], color_identity=["U"], oracle_text="Target player mills two cards.\nDraw a card."),  # noqa: E501
     card("Bruvac the Grandiloquent", set_code="tst", number="W19", mana_cost="{2}{U}", cmc=3.0, type_line="Legendary Creature — Human Advisor", power="1", toughness="4", colors=["U"], color_identity=["U"], oracle_text="If an opponent would mill one or more cards, they mill twice that many cards instead. (To mill a card, a player puts the top card of their library into their graveyard.)"),  # noqa: E501
     card("The Water Crystal", set_code="tst", number="W20", mana_cost="{2}{U}{U}", cmc=4.0, type_line="Legendary Artifact", colors=["U"], color_identity=["U"], oracle_text="Blue spells you cast cost {1} less to cast.\nIf an opponent would mill one or more cards, they mill that many cards plus four instead.\n{4}{U}{U}, {T}: Each opponent mills cards equal to the number of cards in your hand."),  # noqa: E501
+    card("Faerie Vandal", set_code="tst", number="W21", mana_cost="{1}{U}", cmc=2.0, type_line="Creature — Faerie Rogue", power="1", toughness="2", colors=["U"], color_identity=["U"], keywords=["Flying", "Flash"], oracle_text="Flash (You may cast this spell any time you could cast an instant.)\nFlying\nWhenever you draw your second card each turn, put a +1/+1 counter on this creature."),  # noqa: E501
     card("Test Small", set_code="tst", number="W10", mana_cost="{G}", cmc=1.0, type_line="Creature — Elf", power="2", toughness="2", colors=["G"], color_identity=["G"], oracle_text=""),  # noqa: E501
     card("Divination", set_code="tst", number="W09", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"], color_identity=["U"], oracle_text="Draw two cards."),  # noqa: E501
 ]
-FULL = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Small", "Vampire's Kiss", "Greed", "Boon Reflection", "Thought Scour")]
+FULL = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Small", "Vampire's Kiss", "Greed", "Boon Reflection", "Thought Scour", "Faerie Vandal")]
 
 
 @pytest.fixture()
@@ -401,6 +402,44 @@ def test_bloodletter_doubles_the_life_lost_to_combat_damage_not_the_damage_dealt
     through_combat(s)
     assert s.state.players["p2"].life == 40 - 6  # 120.3a, 614.1a: 3 combat damage, 6 life lost
     assert any(e.kind == "damage" and e.amount == 3 for e in s.state.rules.events)
+    roundtrip(s)
+
+
+def test_a_replaced_draw_is_not_drawn_for_second_card_each_turn_triggers_but_the_replacements_own_draws_are(cards):
+    s = build(cards, p1=("Divination", "Underrealm Lich", "Faerie Vandal"))
+    put(s, "Underrealm Lich", "battlefield")
+    vandal = put(s, "Faerie Vandal", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert not s.state.cards[vandal.id].counters  # 614.6 / 121.5: two cards were put into the hand, none was drawn
+    roundtrip(s)
+    s = build(cards, p1=("Divination", "Blood Scrivener", "Faerie Vandal"))
+    put(s, "Blood Scrivener", "battlefield")
+    vandal = put(s, "Faerie Vandal", "battlefield")
+    c = put(s, "Divination", "hand")
+    empty_hand(s, c.id)
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert s.state.cards[vandal.id].counters == {"+1/+1": 1}  # the two draws Blood Scrivener makes instead are real draws: the second one counts
+    roundtrip(s)
+
+
+def test_doc_samson_adds_one_counter_of_each_kind_to_a_permanent_its_controller_puts_them_on(cards):
+    from tests.test_rules_attachments import build as tbuild
+    from tests.test_rules_attachments import token
+    from tests.test_rules_replacements2 import activate, permanent
+
+    s = tbuild(cards)
+    permanent(s, "p1", "Samson", "Creature", "If you would put one or more counters on a permanent you control, put that many plus one of "
+              "each of those kinds of counters on that permanent instead.")
+    mine, theirs = token(s, "p1", "Bear"), token(s, "p2", "Wolf")
+    feeder = token(s, "p1", "Feeder", text="{1}: Put a +1/+1 counter on target creature.")
+    activate(s, feeder, targets=[mine.id])
+    activate(s, feeder, targets=[theirs.id])  # a permanent its controller doesn't control: no change
+    assert s.state.cards[mine.id].counters == {"+1/+1": 2} and s.state.cards[theirs.id].counters == {"+1/+1": 1}
     roundtrip(s)
 
 
