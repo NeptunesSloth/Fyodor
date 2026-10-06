@@ -1812,7 +1812,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
                 groups_out.append(group)
             return effects_out, _out(groups_out)
     # -- end counters (wave 5H) --
-    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o>.+)", text)
+    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|(?:first|double) strike|[a-z]+) counters? on (?P<o>.+)", text)  # (wave 26D: first / double strike)
     if m:
         if m["k"] in values.UNMODELED_COUNTERS:
             raise _Fail

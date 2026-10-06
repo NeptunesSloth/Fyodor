@@ -282,9 +282,10 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
             counters["+1/+1"] = counters.get("+1/+1", 0) + x
         for d in scripts.definitions(ch).values():
             if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
-                n = _counter_amount(plan, card.id, controller, d, x)
-                if n > 0:
-                    counters[d["counter"]] = counters.get(d["counter"], 0) + n
+                for part in (d, *d.get("also", ())):  # (wave 26D: "enters with a +1/+1 counter, a flying counter, …": one event, 122.6)
+                    n = _counter_amount(plan, card.id, controller, part, x)
+                    if n > 0:
+                        counters[part["counter"]] = counters.get(part["counter"], 0) + n
         from app.rules import copying
 
         for kind, n in copying.entry_counters(plan, card, controller, ch, choices, x).items():  # -- copy exceptions (wave 24A) -- 707.9e

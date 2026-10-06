@@ -4430,7 +4430,7 @@ SHOCK = re.compile(r"^As ~ enters, you may pay (?P<n>\d+) life\. If you don't, i
 # "~ enters [tapped] with N … counters on it [for each …]" (614.1c); "If ~ was kicked, it enters with …" (702.33e)
 ENTERS_WITH = re.compile(r"^(?:(?P<kicked>If ~ was kicked, it)|~) enters (?P<tapped>tapped (?:and )?)?with "
                          r"(?P<n>twice X|X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "  # (twice X: wave 4K)
-                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it(?: for each (?P<each>.+?)|, where X is (?P<xdef>.+?))?"
+                         r"(?P<kind>\+1/\+1|-1/-1|(?:first|double) strike|[a-z]+) counters? on it(?: for each (?P<each>.+?)|, where X is (?P<xdef>.+?))?"
                          r"(?: and with (?P<kw>haste|trample|flying|first strike|fear))?\.$")  # (kw: wave 7C)
 ENTERS_TAPPED_UNLESS = re.compile(r"^~ enters tapped unless (?P<cond>.+)\.$")
 _A_THING = r"(?:a|an) (?P<{name}>[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*|legendary(?: [a-z]+)? creature|basic land|planeswalker)"
@@ -4841,6 +4841,18 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (chosen_kind := counter_choice.parse(text)) is not None:
         return chosen_kind
+    from app.rules import values
+
+    several = re.fullmatch(rf"~ enters with (?P<list>(?:(?:{values.AMOUNT}) (?:[+-]\d+/[+-]\d+|(?:first|double) strike|[a-z]+) counters?,? )+and "  # (wave 26D) 122.6: one event
+                           rf"(?:{values.AMOUNT}) (?:[+-]\d+/[+-]\d+|(?:first|double) strike|[a-z]+) counters?) on it\.", text)
+    if several is not None and cast_if is None:  # "~ enters with a +1/+1 counter, a flying counter, a deathtouch counter, and a shield counter on it." (Agent's Toolkit)
+        specs = [re.fullmatch(rf"(?P<n>{values.AMOUNT}) (?P<k>[+-]\d+/[+-]\d+|(?:first|double) strike|[a-z]+) counters?", p.strip())
+                 for p in re.split(r",? and |, ", several["list"])]
+        kinds = [(p["k"], num(p["n"])) for p in specs if p is not None]
+        if len(kinds) != len(specs) or len({k for k, _ in kinds}) != len(kinds) or any(k in UNMODELED_COUNTERS for k, _ in kinds):
+            return None
+        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": kinds[0][0], "n": kinds[0][1], "effects": [],
+                "also": [{"counter": k, "n": n} for k, n in kinds[1:]]}
     m = ENTERS_WITH.match(text)
     if m and m["kw"] and (not m["kicked"] or m["each"] or m["xdef"] or cast_if is not None or m["n"] in ("X", "twice X")):
         return None  # -- counters (wave 7C) -- "If ~ was kicked, it enters with N +1/+1 counters on it and with haste." only

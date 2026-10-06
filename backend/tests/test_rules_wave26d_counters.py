@@ -35,6 +35,9 @@ EXTRA = [
     card('Omo, Queen of Vesuva', set_code='tst', number='W08', mana_cost='{2}{G/U}', cmc=3.0, type_line='Legendary Creature — Shapeshifter Noble', oracle_text='Whenever Omo enters or attacks, put an everything counter on each of up to one target land and up to one target creature.\nEach land with an everything counter on it is every land type in addition to its other types.\nEach nonland creature with an everything counter on it is every creature type.', power='1', toughness='5', colors=['G', 'U'], color_identity=['G', 'U'], keywords=[], layout='normal'),  # noqa: E501
     card('Clamavus', set_code='tst', number='W09', mana_cost='{4}{G}', cmc=5.0, type_line='Creature — Human Tyranid Artificer', oracle_text='Proclamator Hailer — Each creature you control gets +1/+1 for each +1/+1 counter on it.', power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Proclamator Hailer'], layout='normal'),  # noqa: E501
     card('Toxrill, the Corrosive', set_code='tst', number='W10', mana_cost='{5}{B}{B}', cmc=7.0, type_line='Legendary Creature — Slug Horror', oracle_text="At the beginning of each end step, put a slime counter on each creature you don't control.\nCreatures you don't control get -1/-1 for each slime counter on them.\nWhenever a creature you don't control with a slime counter on it dies, create a 1/1 black Slug creature token.\n{U}{B}, Sacrifice a Slug: Draw a card.", power='7', toughness='7', colors=['B'], color_identity=['B', 'U'], keywords=[], layout='normal'),  # noqa: E501
+    card("Agent's Toolkit", set_code='tst', number='W11', mana_cost='{1}{G}{U}', cmc=3.0, type_line='Artifact — Clue', oracle_text='This artifact enters with a +1/+1 counter, a flying counter, a deathtouch counter, and a shield counter on it. (If it would be dealt damage or destroyed, remove a shield counter from it instead.)\nWhenever a creature you control enters, you may move a counter from this artifact onto that creature.\n{2}, Sacrifice this artifact: Draw a card.', colors=['G', 'U'], color_identity=['G', 'U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Heightened Reflexes', set_code='tst', number='W12', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Target creature gets +1/+0 until end of turn. Put a first strike counter on it.', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
+    card('Momentum Rumbler', set_code='tst', number='W13', mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Dinosaur', oracle_text="Whenever this creature attacks, if it doesn't have first strike, put a first strike counter on it.\nWhenever this creature attacks, if it has first strike, it gains double strike until end of turn.", power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -148,6 +151,23 @@ def test_pump_for_each_counter_on_it(cards):
     act(s, "p1", type="counter", card_ids=[theirs, a], kind="slime", delta=2)
     assert ch(s, a).pt == (4, 4)  # 6/6, -1/-1 for each of its two slime counters
     assert ch(s, theirs).pt == (2, 2)  # Toxrill's own controller's creatures aren't "creatures you don't control"
+    roundtrip(s)
+
+
+def test_keyword_counters_first_strike_and_several_kinds(cards):
+    # 122.1b: a first strike counter gives first strike; "enters with a +1/+1 counter, a flying counter, …" is one event (122.6)
+    s = pbuild(cards, [(1, "Heightened Reflexes"), (1, "Agent's Toolkit"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    toolkit = put(s, "Agent's Toolkit", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"G": 3, "U": 2})
+    act(s, "p1", type="cast_spell", card_id=toolkit.id)
+    settle(s)
+    assert counters(s, toolkit.id) == {"+1/+1": 1, "flying": 1, "deathtouch": 1, "shield": 1}
+    reflex = put(s, "Heightened Reflexes", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1})
+    act(s, "p1", type="cast_spell", card_id=reflex.id, targets=[bears.id])
+    settle(s)
+    assert counters(s, bears.id) == {"first strike": 1} and "first strike" in ch(s, bears.id).keywords
     roundtrip(s)
 
 
