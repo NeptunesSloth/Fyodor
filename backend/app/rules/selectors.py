@@ -498,6 +498,14 @@ def _compare_event(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], "<=" if m["eq"] else "<", EVENT_STAT + _REF_STAT[m["what"]])))
 
 
+@_suffix(r"with mana value equal to that spell's mana value")
+def _compare_event_spell(s: Selector, m: re.Match[str]) -> Selector:
+    # -- event spells (wave 28D) -- "return target creature card with mana value equal to that spell's mana value from your graveyard to your
+    # hand" (Krile Baldesion): the spell the trigger is about, read as the ability goes on the stack (triggers.bind_event_stat; 202.3e: an X in
+    # its cost counts what was chosen for it)
+    return replace(s, compare=(*s.compare, ("mv", "==", EVENT_STAT + "mv")))
+
+
 # -- static_other sweep (wave 17C) -- "Exile each creature and planeswalker with mana value less than the revealed card's mana value."
 # (Calamity of the Titans): a comparison with the card the source spell's additional cost revealed (its payment record)
 REVEALED_STAT = "rev:"

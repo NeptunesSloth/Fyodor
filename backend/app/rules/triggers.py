@@ -1953,6 +1953,8 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
         return
     for what in ("mv", "power", "toughness"):
         n = _stat(ch, what)
+        if n is not None and what == "mv" and card is not None and card.zone == "stack" and card.stack_info is not None and card.stack_info.x:
+            n += card.stack_info.x * ch.mana_cost.count("{X}")  # -- event spells (wave 28D) -- 202.3e: X on the stack is the value chosen
         if n is not None:
             raw = raw.replace(f'\\"{EVENT_STAT}{what}\\"', str(n))
     t.ability = json.loads(raw)
@@ -1964,6 +1966,10 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
     bind_that_player(t)  # -- damage wordings (wave 6B) --
     bind_event_stat(plan, t)  # -- reanimation (wave 16F) --
+    from app.rules import where_bound  # -- bounds defined by text (wave 28D) -- "mana value X or less, where X is …" (603.3d)
+
+    t.ability = where_bound.bind(plan, t.ability, t.controller, t.source_card, t.source_object,
+                                 t.event.model_dump(mode="json") if t.event is not None else None)
     from app.rules import (
         per_opponent,  # -- per-opponent targets (wave 12C) -- a group for each opponent, as it is put
     )
