@@ -3277,6 +3277,11 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     parsed = dict(mana_abilities(plan.state, card, plan.info)).get(a.ability) if ability.kind == "mana" else None
     if parsed is None:
         raise ActionError("While paying you can only tap for mana")
+    if parsed.chooses:  # -- review 26C -- produce() doesn't pay a cost that chooses objects ("Sacrifice a creature", "Discard your hand"):
+        # it's paid only through _activate_choosing, whose own decision can't run inside this one. Activated before paying (with
+        # priority) instead; "Activate only as an instant" (Lion's Eye Diamond) needs priority anyway (304.5, 602.5e), which a
+        # player paying a cost (601.2g-h) or a resolving payment (608.2) doesn't have.
+        raise ActionError(f"Activate {ch.name}’s mana ability before you start paying (its cost is chosen as it's paid)")
     if ability_taxes(plan.state, plan.info) and mana_ability_taxed(plan.state, card, ch, parsed, plan.info):  # (review 4R)
         raise ActionError(f"Another effect changes the cost of {ch.name}’s mana ability: activate it by hand with the table tools")
     if parsed.tap and not can_use_tap_abilities(plan.state, card, ch, plan.info):
