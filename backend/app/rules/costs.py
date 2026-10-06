@@ -294,6 +294,9 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False)
     components: list[CostComponent] = []
     unsupported: list[str] = []
     cost = cost.replace("half your life, rounded up", "half your life rounded up")  # (one part: wave 4H)
+    # -- tutor (wave 26D) -- "Sacrifice a red creature, a green creature, and a white creature" (the Heralds): one part, three objects
+    cost = re.sub(r"(Sacrifice (?:an?|another) [^,{}:]+?), ((?:an?|another) [^,{}:]+?), and ((?:an?|another) [^,{}:]+?)(?=,|$)",
+                  r"\1 and \2 and \3", cost)
     if card_name and "," in card_name:  # (wave 4H) "Discard another card named Korlash, Heir to Blackblade": one part
         cost = cost.replace(card_name, "~")
     for part in (p.strip() for p in cost.split(",")):
@@ -473,13 +476,11 @@ def wave4h_parts(part: str, card_name: str) -> list[CostComponent] | None:
         return [one]
     pieces = _AND.split(part)
     verb = _VERB.match(part)
-    if len(pieces) != 2 or verb is None:
+    if not 2 <= len(pieces) <= 3 or verb is None or (len(pieces) == 3 and verb["verb"] != "Sacrifice"):  # (wave 26D: three sacrifices, the Heralds)
         return None
-    second = pieces[1]
-    if _VERB.match(second[:1].upper() + second[1:]) is None:
-        second = f"{verb['verb']} {second}"
+    rest = [r[:1].upper() + r[1:] if _VERB.match(r[:1].upper() + r[1:]) else f"{verb['verb']} {r}" for r in pieces[1:]]
     out: list[CostComponent] = []
-    for piece in (pieces[0], second[:1].upper() + second[1:]):
+    for piece in (pieces[0], *rest):
         found = _component(piece, card_name) or _one_4h(piece, card_name)
         if found is None:
             return None

@@ -743,6 +743,25 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
             raise _Fail
         extra["name"] = named["name"]
         sel_text = named["rest"]
+    # -- tutor (wave 26D) -- "a card with the same name as that creature / target creature / another creature you control / a card in your
+    # graveyard" (app/rules/same_name.py); "that creature" is the trigger event's (scripts: only in a trigger about an object)
+    same = re.fullmatch(r"(?P<rest>.+?) with the same name as (?P<ref>that creature|that card|target [^,]+|another creature you control|a card in your graveyard)",
+                        sel_text)
+    target_found = None
+    if same:
+        ref, sel_text = same["ref"], same["rest"]
+        if ref.startswith("target "):
+            group = target_group(ref)
+            if group is None or not str(group["what"]).startswith(selectors.PREFIX):
+                raise _Fail
+            extra["name_as"], target_found = "target", _one(group)
+        elif ref.startswith("that "):
+            extra["name_as"] = "it"
+        else:
+            sel_ref = selectors.parse("another creature you control" if ref.startswith("another") else "card from your graveyard")
+            if sel_ref is None:
+                raise _Fail
+            extra["name_as"] = {"sel": sel_ref.key()}
     mv = _MV_X.fullmatch(sel_text)
     if mv:
         extra["mv"] = ["<=" if mv["less"] else "==", _amount("x")]
@@ -804,7 +823,7 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         extra["shuffle"] = False  # (only when the text says so: 701.23e)
     return [{"do": "search", "who": _SEARCHERS[m["who"]] if m["who"] else "you", "label": m["sel"], "max": n,
              "to": to, "reveal": bool(m["reveal"]), "upto": bool(m["upto"]) or anything,
-             **({"face_down": True} if m["fd"] else {}), **({"may": True} if m["who"] and not forced else {}), **extra}], None
+             **({"face_down": True} if m["fd"] else {}), **({"may": True} if m["who"] and not forced else {}), **extra}], target_found
 
 
 # -- refused zones/sized (wave 3R4) -- "Search your library and/or graveyard for a card named …, reveal it, and

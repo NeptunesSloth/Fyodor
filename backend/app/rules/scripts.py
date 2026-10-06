@@ -729,6 +729,10 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         for index, e in enumerate(effects):
             e = dict(e)
             out.append(e)
+            if e.get("name_as") == "it":  # -- tutor (wave 26D) -- "a card with the same name as that creature": the trigger event's object only
+                if antecedent not in ("event", "event_gone"):
+                    return None
+                e["name_as"] = "event"
             if e.get("do") == "copy_spell" and e.get("first") and not e.get("excepts") and index > 0 \
                     and (moved := objects(index, 1, "card")) is not None and moved.do in _MOVERS:
                 # -- cast a copy (wave 13C) -- "Exile target … card. Copy it.": the card an earlier instruction moved

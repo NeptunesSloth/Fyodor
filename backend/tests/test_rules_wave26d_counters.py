@@ -41,6 +41,11 @@ EXTRA = [
     card('Hog-Monkey Rampage', set_code='tst', number='W14', mana_cost='{1}{R/G}', cmc=2.0, type_line='Instant', oracle_text='Choose target creature you control and target creature an opponent controls. Put a +1/+1 counter on the creature you control if it has power 4 or greater. Then those creatures fight each other. (Each deals damage equal to its power to the other.)', colors=['G', 'R'], color_identity=['G', 'R'], keywords=['Fight'], layout='normal'),  # noqa: E501
     card('Joust', set_code='tst', number='W15', mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text="Choose target creature you control and target creature you don't control. The creature you control gets +2/+1 until end of turn if it's a Knight. Then those creatures fight each other. (Each deals damage equal to its power to the other.)", colors=['R'], color_identity=['R'], keywords=['Fight'], layout='normal'),  # noqa: E501
     card('Tail Swipe', set_code='tst', number='W16', mana_cost='{G}', cmc=1.0, type_line='Instant', oracle_text="Choose target creature you control and target creature you don't control. If you cast this spell during your main phase, the creature you control gets +1/+1 until end of turn. Then those creatures fight each other. (Each deals damage equal to its power to the other.)", colors=['G'], color_identity=['G'], keywords=['Fight'], layout='normal'),  # noqa: E501
+    card('Pack Hunt', set_code='tst', number='W17', mana_cost='{3}{G}', cmc=4.0, type_line='Sorcery', oracle_text='Search your library for up to three cards with the same name as target creature, reveal them, put them into your hand, then shuffle.', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
+    card('Remembrance', set_code='tst', number='W18', mana_cost='{3}{W}', cmc=4.0, type_line='Enchantment', oracle_text='Whenever a nontoken creature you control dies, you may search your library for a card with the same name as that creature, reveal it, put it into your hand, then shuffle.', colors=['W'], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
+    card('Pattern Matcher', set_code='tst', number='W19', mana_cost='{4}', cmc=4.0, type_line='Artifact Creature — Golem', oracle_text='When this creature enters, you may search your library for a card with the same name as another creature you control, reveal it, put it into your hand, then shuffle.', power='3', toughness='3', colors=[], color_identity=[], keywords=[], layout='normal'),  # noqa: E501
+    card("Behemoth's Herald", set_code='tst', number='W20', mana_cost='{G}', cmc=1.0, type_line='Creature — Elf Shaman', oracle_text='{2}{G}, {T}, Sacrifice a red creature, a green creature, and a white creature: Search your library for a card named Godsire, put it onto the battlefield, then shuffle.', power='1', toughness='1', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
+    card('Godsire', set_code='tst', number='W21', mana_cost='{4}{R}{G}{G}{W}', cmc=8.0, type_line='Creature — Beast', oracle_text="Vigilance\n{T}: Create an 8/8 Beast creature token that's red, green, and white.", power='8', toughness='8', colors=['G', 'R', 'W'], color_identity=['G', 'R', 'W'], keywords=['Vigilance'], layout='normal'),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -187,6 +192,69 @@ def test_choose_two_creatures_then_they_fight(cards):
     settle(s)
     assert counters(s, big.id) == {"+1/+1": 1}  # power 4: the counter, then the fight (5 damage to their 2/2, 2 to ours)
     assert s.state.cards[theirs.id].zone == "p2:graveyard" and s.state.cards[big.id].damage == 2
+    roundtrip(s)
+
+
+def choose_all(s):
+    """Answer a card choice by taking every card offered (and let the stack resolve)."""
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.max_choices or len(d.options)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_search_for_the_same_name_as_target(cards):
+    # 201.2, 701.23b: only the cards named like the target (a name nothing else has finds nothing)
+    s = pbuild(cards, [(1, "Pack Hunt"), (4, "Grizzly Bears"), (1, "Remembrance")])
+    bears = [c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    act(s, "p1", type="move", card_ids=bears[:1], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="move", card_ids=bears[1:], to={"player": "p1", "zone": "library"})
+    act(s, "p1", type="move", card_ids=[find(s, "Remembrance").id], to={"player": "p1", "zone": "library"})
+    spell = put(s, "Pack Hunt", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"G": 4})
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears[0]], target_counts=[1])
+    choose_all(s)
+    in_hand = sorted(c.name for c in s.state.cards.values() if c.zone == "p1:hand" and c.owner == "p1")
+    assert in_hand.count("Grizzly Bears") == 3 and "Remembrance" not in in_hand
+    roundtrip(s)
+
+
+def test_search_for_the_same_name_as_the_creature_that_died(cards):
+    # Remembrance: the name the creature had when it died (608.2h); a token has none worth a search (nontoken only)
+    s = pbuild(cards, [(1, "Remembrance"), (3, "Grizzly Bears"), (1, "Lightning Bolt")])
+    bears = [c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    put(s, "Remembrance", "battlefield")
+    act(s, "p1", type="move", card_ids=bears[:1], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="move", card_ids=bears[1:], to={"player": "p1", "zone": "library"})
+    bolt = put(s, "Lightning Bolt", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1})
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[bears[0]])
+    choose_all(s)
+    assert s.state.cards[bears[0]].zone == "p1:graveyard"
+    assert sum(1 for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p1:hand") == 1
+    roundtrip(s)
+
+
+def test_herald_sacrifices_three_creatures_of_three_colors(cards):
+    # 602.2b: three separate sacrifice costs, one creature each ("a red creature, a green creature, and a white creature")
+    s = pbuild(cards, [(1, "Behemoth's Herald"), (1, "Godsire")])
+    herald = put(s, "Behemoth's Herald", "battlefield")
+    s.state.rules.controlled_since[herald.id].turn = -1  # (it has been there since before this turn began)
+    made = []
+    for i, colors in enumerate((["R"], ["G"], ["W"], ["U"])):
+        act(s, "p1", type="create_token", player="p1", token={"name": f"Pal{i}", "type_line": "Token Creature \u2014 Test", "power": "1",
+                                                             "toughness": "1", "colors": colors})
+        made.append(next(c.id for c in s.state.cards.values() if c.name == f"Pal{i}"))
+    godsire = put(s, "Godsire", "library")
+    act(s, "p1", type="add_mana", player="p1", mana={"G": 3})
+    act(s, "p1", type="activate_ability", card_id=herald.id, ability=0)
+    choose_all(s)
+    assert s.state.cards[godsire.id].zone == "p1:battlefield"
+    assert all(c not in s.state.cards for c in made[:3]) and s.state.cards[made[3]].zone == "p1:battlefield"  # the blue one stays
     roundtrip(s)
 
 

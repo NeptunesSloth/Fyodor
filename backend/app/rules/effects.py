@@ -1772,6 +1772,11 @@ def _search_matches(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, key: 
         src = plan.state.cards.get(ctx.get("source_card") or "")
         name = (src.name if src is not None else "") if e["name"] == "~" else e["name"]
         matching = [c for c in matching if name and (plan.state.cards[c].name or "").lower() == name.lower()]
+    if e.get("name_as") is not None:  # -- tutor (wave 26D) -- "a card with the same name as that creature" (app/rules/same_name.py)
+        from app.rules import same_name
+
+        wanted = same_name.names(plan, ctx, e["name_as"])
+        matching = [c for c in matching if (plan.state.cards[c].name or "").lower() in wanted]
     if e.get("mv"):
         op, value = e["mv"][0], (e["mv"][1] if e["mv"][0] == "in" else _amount(plan, ctx, e["mv"][1]))
         mvs = {c: chars.of(plan.state.cards[c], plan.info).mana_value for c in matching}
