@@ -192,6 +192,8 @@ def parse(text: str) -> Condition | None:
         return {"static": "hand_most"}
     if t == "an opponent has no cards in hand":  # (Guul Draz Specter: some one opponent)
         return {"static": "opp_hand", "op": "==", "n": 0}
+    if t == "a player has no cards in hand":  # -- static_other (wave 27A) -- (Lupine Prototype: any one player, you included)
+        return {"static": "any_hand", "n": 0}
     if t == "an opponent is poisoned":  # 122.1f: has one or more poison counters (Viridian Betrayers)
         return {"value": {"player_counters": "poison"}, "op": ">=", "n": 1, "per_opponent": True}
     return None
@@ -199,7 +201,7 @@ def parse(text: str) -> Condition | None:
 
 _MOST_COMMON = re.compile(r"(?P<c>white|blue|black|red|green) is the most common color among all permanents or is tied for most common")
 _ANY_PLAYER = re.compile(r"any player controls (?:a|an) (?P<sel>.+)")
-_PLAIN = frozenset({"opp_graveyard", "opp_life", "opp_hand", "life_vs_start"})
+_PLAIN = frozenset({"opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "any_hand"})
 
 
 def compound(text: str) -> Condition | None:
@@ -219,7 +221,7 @@ def compound(text: str) -> Condition | None:
 
 
 KINDS = frozenset({"top_card", "exiled_count", "attached_ctrl_is", "self_is", "attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all",
-                    "most_common_color", "hand_most", "paired"})  # (wave 20B)
+                    "most_common_color", "hand_most", "paired", "any_hand"})  # (wave 20B)
 
 
 def attached_object(plan: Plan, source: CardInstance) -> CardInstance | None:
@@ -306,6 +308,8 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
         return any(len(plan.state.zones.get(f"{p}:graveyard", ())) >= cond["n"] for p in opponents)
     if kind == "opp_life":
         return any(plan.state.players[p].life <= cond["n"] for p in opponents)
+    if kind == "any_hand":  # (wave 27A) some player in the game has exactly n cards in hand
+        return any(len(plan.state.zones.get(f"{p}:hand", ())) == cond["n"] for p in plan.live())
     if kind == "opp_hand":
         return any(len(plan.state.zones.get(f"{p}:hand", ())) == cond["n"] for p in opponents)
     if kind == "life_vs_start":

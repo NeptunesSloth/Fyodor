@@ -238,6 +238,13 @@ def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "attacked_this_turn"))
 
 
+@_suffix(r"that blocked this turn")  # -- combat state (wave 27A) -- declared as blockers this turn (509.1g); a creature put onto the battlefield blocking never "blocked"
+def _blocked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    if not m.string[: m.start()].endswith(("creature", "creatures")):
+        raise ValueError("only \"creature(s) that blocked this turn\"")
+    return replace(s, extras=(*s.extras, "blocked_this_turn"))
+
+
 @_suffix(r"drawn this turn")  # -- drawn this turn (wave 18G) -- "cards in your hand drawn this turn" (Sylvan Library): TurnLog.drawn
 def _drawn_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "drawn_this_turn"))
@@ -1542,6 +1549,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
             return False
+        if extra == "blocked_this_turn" and not _blocked_this_turn_now(plan, card):  # -- combat state (wave 27A) --
+            return False
         if extra == "drawn_this_turn" and not drawn_now(plan, card):  # -- drawn this turn (wave 18G) --
             return False
         if extra in ("was_dealt_damage", "dealt_damage", "dealt_damage_you", "dealt_damage_by_source"):  # -- damage history (wave 6B) --
@@ -1610,6 +1619,12 @@ def _attacked_this_turn_now(plan: Plan, card: CardInstance) -> bool:
     if r is None or r.turn_log.turn != plan.state.turn.number:
         return False
     return r.object_id(card.id) in {a for ids in r.turn_log.attackers.values() for a in ids}
+
+
+def _blocked_this_turn_now(plan: Plan, card: CardInstance) -> bool:
+    """-- combat state (wave 27A) -- the object (400.7) was declared as a blocker this turn (TurnLog.blockers)."""
+    r = plan.state.rules
+    return r is not None and r.turn_log.turn == plan.state.turn.number and r.object_id(card.id) in r.turn_log.blockers
 
 
 def _ability_kind(plan: Plan, card: CardInstance, kind: str) -> bool:

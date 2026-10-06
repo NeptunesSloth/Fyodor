@@ -14,7 +14,7 @@ from typing import Any, Literal
 
 from app.game import actions as A
 from app.game.errors import ActionError
-from app.game.rules_state import DecisionOption
+from app.game.rules_state import DecisionOption, note_block
 from app.game.state import CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
 from app.rules import mana as M
@@ -676,6 +676,7 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         plan.do({"type": "block", "card_id": decl.blocker_id, "attacker_id": decl.attacker_id, "also": decl.blocker_id in done})
         done.add(decl.blocker_id)
     r.blocked = list(dict.fromkeys([*r.blocked, *per_attacker]))
+    note_block(plan.state, [plan.oid(plan.state.cards[b]) for b in dict.fromkeys(x.blocker_id for x in a.blocks)])  # (wave 27A)
     if a.blocks:
         from app.rules import triggers  # triggers → plan; imported late
 
