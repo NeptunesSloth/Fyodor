@@ -810,7 +810,16 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                         for r in e["rules"]]}  # (@src: wave 7E; wave 13B: each "can block an additional creature" adds up, 509.1a)  # -- combat (wave 5C) -- (Kardur)
     group = who.startswith(selectors.PREFIX) and not e.get("locked")
     duration = e.get("duration", "end_of_turn")
-    if cards or group:
+    if who.startswith("controlled:") and not e.get("locked"):  # -- review (wave 26A) -- "Creatures target player controls attack this
+        # turn if able" / "can't block this turn": the player is fixed as it resolves, the creatures are not (611.2c): one group per player,
+        # read through the selector's "player:<id>" controller, so a creature that comes under their control later this turn is affected too
+        players, _, key = who[len("controlled:"):].partition("|")
+        for pid in _players(plan, ctx, "target" if players == "target:0" and not ctx.get("groups") else players):
+            mine = selectors.replace(selectors.from_key(key), controller=f"player:{pid}").key()
+            layers.add_effect(plan, affected=[], layer="6", source=ctx.get("source_object"), controller=ctx["controller"],
+                              imposes=tuple(e["rules"]), label=", ".join(e["rules"]), who=mine, source_card=ctx.get("source_card"),
+                              duration=duration)
+    elif cards or group:
         layers.add_effect(plan, affected=[] if group else [plan.oid(c) for c in cards], layer="6",
                           source=ctx.get("source_object"), controller=ctx["controller"], imposes=tuple(e["rules"]),
                           label=", ".join(e["rules"]), who=who if group else None, source_card=ctx.get("source_card"),
@@ -1868,14 +1877,15 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
         prohibitions,  # -- prohibitions (wave 22B) -- 614.17: "Players can't search libraries."
     )
 
-    if "library" in zones and (why := prohibitions.cant_search(plan, pid, ctx["controller"])) is not None:
-        plan.note(f"{why}: {plan.name(pid)} can't search their library", actor=pid)
+    owner = e.get("lib_pid", pid)  # (wave 26A: whose library is searched; the searcher's own unless a target's)
+    if "library" in zones and (why := prohibitions.cant_search(plan, pid, ctx["controller"], owner)) is not None:
+        whose = "their" if owner == pid else plan.name(owner) + "'s"
+        plan.note(f"{why}: {plan.name(pid)} can't search {whose} library", actor=pid)
         zones = [z for z in zones if z != "library"]
         e = {**e, "zones": zones}
         if not zones:  # nothing is searched; "then shuffle" is its own instruction (701.24) and still happens
             _finish_search(plan, ctx, e, pid, [], {})
             return False
-    owner = e.get("lib_pid", pid)  # (wave 26A: whose library is searched; the searcher's own unless a target's)
     library = [c for c in plan.state.zones.get(zone_key(owner, "library"), []) if c not in picked] if "library" in zones else []
     if e.get("sel"):  # a structured card selector (app/rules/selectors.py)
         parts = e.get("parts")  # "a Forest card and a Plains card": one card of each kind, asked in turn
@@ -1902,7 +1912,7 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
     whose = f"{plan.name(owner)}'s" if owner != pid else "your"
     decide(plan, player=pid, kind="choose_cards", prompt=f"Search {whose} {' and '.join(zones)} ({what})",
            options=options, min_choices=min(most, len(options)) if forced else 0, max_choices=min(most, len(options)),
-           decider=_player_control.search_controller(plan, pid) if "library" in zones else None,  # (-- wave 18H -- 723.2: Opposition Agent)
+           decider=_player_control.search_controller(plan, pid) if "library" in zones and owner == pid else None,  # (-- wave 18H -- 723.2: Opposition Agent; review 26A: only while they search their own library)
            resume={"step": "search", "ctx": ctx, "e": e, "part": part, "picked": picked})
     return False
 
@@ -1955,7 +1965,7 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
     # -- controlling another player (wave 18H) -- Opposition Agent: "they exile each card they find" (701.23): a card found in the
     # library is exiled and nothing else the instruction says about it happens (it is a new object, 400.7); the Agent's
     # controller may play it for as long as it remains exiled, spending mana as though it were any color
-    agents = _player_control.search_exile(plan, pid) if "library" in (e.get("zones") or ["library"]) else []
+    agents = _player_control.search_exile(plan, pid) if "library" in (e.get("zones") or ["library"]) and owner == pid else []  # (review 26A: "their library")
     exiled = [c for c in chosen if agents and plan.state.cards[c].zone == zone_key(owner, "library")]
     dest = {**dest, **{c: "exile" for c in exiled}}
     if e.get("reveal"):

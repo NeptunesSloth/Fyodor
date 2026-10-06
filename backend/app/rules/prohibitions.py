@@ -154,13 +154,15 @@ def cant_counters(plan: Plan, card_id: str, entering_for: str | None) -> str | N
 # -- cost payment (601.2h, 602.2b, 119.4) -- a cost that includes paying life or sacrificing something the line forbids can't be paid, so the
 # spell or ability can't be begun (nothing is paid: 601.2h). Read from the table as it is (cast_limits._statics): ``mana_ability`` costs are
 # only stopped by the lines that say "activate abilities" (Sylex: "that aren't mana abilities").
-def cant_search(plan: Plan, searcher: str, by: str) -> str | None:
+def cant_search(plan: Plan, searcher: str, by: str, library: str | None = None) -> str | None:
     """614.17 / 701.23: the permanent or effect keeping ``searcher`` from searching a library now, or None. ``by``: the controller of the spell or
     ability that has them search ("Spells and abilities your opponents control can't cause their controller to search their library":
-    only a searcher who controls that spell or ability, and who is its static's controller's opponent)."""
+    only a searcher who controls that spell or ability, and who is its static's controller's opponent). ``library``: whose library is
+    searched (review 26A: "Search target opponent's library": not "their library", so the "caused" kind doesn't stop it)."""
     for src, d in _statics(plan, "cant_search"):
         mine = src.controller == searcher
-        if d["who"] == "each" or (d["who"] == "opponents" and not mine) or (d["who"] == "caused" and not mine and searcher == by):
+        caused = d["who"] == "caused" and not mine and searcher == by and library in (None, searcher)
+        if d["who"] == "each" or (d["who"] == "opponents" and not mine) or caused:
             return _label(src)
     turn = plan.state.turn.number
     return "an effect" if any(x["what"] == "search" and x["player"] == searcher and x["turn"] == turn for x in plan.rules.results) else None
