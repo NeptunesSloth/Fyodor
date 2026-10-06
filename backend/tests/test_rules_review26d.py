@@ -19,9 +19,15 @@ from tests.game_helpers import act
 from tests.test_rules_permissions import build as pbuild
 from tests.test_rules_permissions import put
 from tests.test_rules_wave26d_counters import EXTRA as W26D
-from tests.test_rules_wave26d_counters import counters, find, roundtrip, settle
+from tests.test_rules_wave26d_counters import ch, counters, roundtrip, settle
 
 EXTRA = [
+    card("Realmwright", set_code="tst", number="R05", mana_cost="{U}", cmc=1.0, type_line="Creature — Vedalken Wizard",
+         oracle_text="As this creature enters, choose a basic land type.\nLands you control are the chosen type in addition to their other types.",
+         power="1", toughness="1", colors=["U"], color_identity=["U"], layout="normal"),
+    card("Afterlife Insurance", set_code="tst", number="R04", mana_cost="{1}{W/B}", cmc=2.0, type_line="Instant",
+         oracle_text="Creatures you control gain afterlife 1 until end of turn. Draw a card. (When a creature with afterlife 1 dies, create a 1/1 "
+         "white and black Spirit creature token with flying.)", colors=["B", "W"], color_identity=["B", "W"], layout="normal"),
     card("Cult of the Waxing Moon", set_code="tst", number="R01", mana_cost="{4}{G}", cmc=5.0, type_line="Creature — Human Shaman",
          oracle_text="Whenever a permanent you control transforms into a non-Human creature, create a 2/2 green Wolf creature token.",
          power="5", toughness="4", colors=["G"], color_identity=["G"], layout="normal"),
@@ -117,3 +123,83 @@ def test_enters_with_count_never_counts_itself(cards):
     assert s.state.cards[mich.id].zone == "p1:battlefield"
     assert counters(s, mich.id) == {"+1/+1": 4}
     roundtrip(s)
+
+
+@pytest.mark.parametrize("pays", [False, True])
+def test_unless_that_creatures_controller_pays_after_it_died(cards, pays):
+    # Death Charmer: the creature it damaged died of that damage; "that creature's controller" is read as it last existed (608.2h)
+    from tests.test_rules_combat import attack, automate, block, creature, table
+
+    s = table(cards)
+    charmer = creature(s, "p1", "Death Charmer", "2/2", "Whenever this creature deals combat damage to a creature, that creature's controller loses 2 life unless they pay {2}.")
+    chump = creature(s, "p2", "Chump", "1/1")
+    forests = [c.id for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p2"][:2]
+    act(s, "p2", type="move", card_ids=forests, to={"player": "p2", "zone": "battlefield"})
+    life = s.state.players["p2"].life
+    automate(s)
+    attack(s, (charmer, "p2"))
+    block(s, "p2", (chump, charmer))
+    asked = []
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is None:
+            if s.state.rules.step.endswith("main2"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        asked.append(d.player)
+        wanted = [o.id for o in d.options if o.id == ("pay" if pays else "decline")] or [d.options[0].id]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=wanted[:1])
+    assert chump.id not in s.state.cards or s.state.cards[chump.id].zone != "p2:battlefield"
+    assert asked == ["p2"]
+    assert s.state.players["p2"].life == (life if pays else life - 2)
+    roundtrip(s)
+
+
+def test_granted_afterlife_looks_back_when_the_creature_dies(cards):
+    # 702.135a, 603.10a: "gain afterlife 1 until end of turn" grants the leaves-the-battlefield trigger; it looks back at the creature
+    s = pbuild(cards, [(1, "Afterlife Insurance"), (1, "Grizzly Bears"), (1, "Lightning Bolt")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    spell = put(s, "Afterlife Insurance", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"W": 2})
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    settle(s)
+    bolt = put(s, "Lightning Bolt", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1})
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard"
+    spirits = [c for c in s.state.cards.values() if c.name == "Spirit" and c.zone == "p1:battlefield"]
+    assert len(spirits) == 1
+    roundtrip(s)
+
+
+def test_lands_are_the_chosen_basic_land_type(cards):
+    # 205.1b, 305.6, 614.12a: Realmwright's basic land type, chosen as it entered, is added to the lands you control: they tap for it too
+    s = pbuild(cards, [(1, "Realmwright"), (1, "Forest")], bob=[(1, "Forest")])
+    forest = put(s, "Forest", "battlefield")
+    theirs = put(s, "Forest", "battlefield", pid="p2")
+    spell = put(s, "Realmwright", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"U": 1})
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.id == "Island")])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[spell.id].choices.get("Chosen basic land type") == "Island"
+    assert ch(s, forest.id).subtypes == {"Forest", "Island"} and ch(s, theirs.id).subtypes == {"Forest"}
+    assert "{T}: Add {U}." in [a.text for a in ch(s, forest.id).abilities]
+    roundtrip(s)
+
+
+def test_token_own_name_starting_its_ability_reads_this_creature():
+    # The Tiger God's "The Tiger God can't be blocked by more than one creature.": its own name, at the start of a sentence
+    from app.rules import token_grammar
+
+    made = token_grammar.parse("create The Tiger God, a legendary 4/4 green Cat God creature token with \"The Tiger God can't be blocked by "
+                               "more than one creature.\"")
+    assert made is not None and made[0]["token"]["text"] == "This creature can't be blocked by more than one creature."

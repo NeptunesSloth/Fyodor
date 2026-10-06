@@ -219,7 +219,8 @@ def parse(sentence: str) -> list[Effect] | None:
             return None
         subtypes = _subtypes(m["sub"], extra)
         own = m["lname"] or m["name"] or m["name2"]  # -- saga (wave 26D) -- its own name in its quoted ability: "When Smaug dies, …" is "When this creature dies, …"
-        parsed_with = _with(re.sub(r'"[^"]*"', lambda q: q[0].replace(own, "this creature"), m["with"]) if own and m["with"] else m["with"])
+        parsed_with = _with(re.sub(r'"[^"]*"', lambda q: re.sub(rf'(^"|\. )?{re.escape(own)}', lambda k: f"{k[1]}This creature" if k[1] else "this creature",
+                                                                q[0]), m["with"]) if own and m["with"] else m["with"])  # (review: "The Tiger God can't …" starts a sentence)
         if subtypes is None or parsed_with is None:
             return None
         kws, quoted = parsed_with
