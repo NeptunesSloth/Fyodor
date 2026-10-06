@@ -2046,7 +2046,7 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # -- unless pays (wave 26D) -- 118.12a: "Each opponent sacrifices a permanent of their choice unless they pay {1}." (Rishadan Cutpurse) is
     # "Each opponent may pay {1}. Each opponent who doesn't sacrifices a permanent of their choice." (app/rules/each_may.py: each player
     # is offered their own payment in turn order, 101.4)
-    body = re.sub(r"(^|\. )[Ee]ach (opponent|player) ((?:sacrifices|loses|discards|exiles) [^.]*?) unless they pay ((?:\{[^}]+\})+)\.",
+    body = re.sub(r"(^|\. )[Ee]ach (opponent|player) (sacrifices [^.]*?) unless they pay ((?:\{[^}]+\})+)\.",
                   lambda m: f"{m[1]}Each {m[2]} may pay {m[4]}. Each {m[2]} who doesn't {m[3]}.", body)
     # -- control change (wave 26D) -- "It gains haste and myriad until end of turn." (Firbolg Flutist), "… and annihilator 2 …" (Flayer of Loyalties):
     # a keyword with its own triggered ability is granted as the ability line it is (613.1f, 702.116a, 702.86a), the quoted-grant grammar
