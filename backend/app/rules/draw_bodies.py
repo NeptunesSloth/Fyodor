@@ -24,8 +24,8 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 BODY_OK = frozenset({"look_top", "pick_looked", "rest_looked", "exile_top", "grant_play", "return_choice", "only_if", "draw",
-                     "lose_life", "gain_life", "mill", "scry", "surveil", "add_counters", "create_token"})
-_WHO_OK = ("you", "ref:", "self")
+                     "lose_life", "gain_life", "mill", "scry", "surveil", "add_counters", "create_token", "discard"})
+_WHO_OK = ("you", "ref:", "self", "each_opponent")
 
 
 def parse(text: str) -> list[dict[str, Any]] | None:

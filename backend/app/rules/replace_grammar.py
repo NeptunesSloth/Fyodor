@@ -247,6 +247,20 @@ def _draw(text: str) -> Definition | None:
     return None
 
 
+# -- draw counts (wave 28B) -- 121.2a / 616.1g: replacements that refer to the number of cards an instruction draws are applied first
+_DCOUNT_PLUS = re.compile(r"^As long as you have one or fewer cards in hand, if you would draw one or more cards, you draw that many "
+                          r"cards plus one instead\.$")
+_DCOUNT_EACH = "If an opponent would draw two or more cards, instead you and that player each draw a card."
+
+
+def _draw_count(text: str) -> Definition | None:
+    if _DCOUNT_PLUS.match(text):
+        return _static("draw_count", {"who": "you", "min": 1, "hand_max": 1}, {"do": "add", "n": 1})
+    if text == _DCOUNT_EACH:
+        return _static("draw_count", {"who": "opponent", "min": 2}, {"do": "each_one"})
+    return None
+
+
 # -- life gain (119.10) -----------------------------------------------------------------------------
 _LIFE = re.compile(r"^If (?P<who>you|an opponent|a player) would gain life(?P<cap> while you have (?P<n>\d+) or less life)?, "
                    r"(?P<rest>.+) instead\.$")
@@ -605,7 +619,7 @@ def _mill(text: str) -> Definition | None:
     return _static("mill", {"who": who}, {"do": "add", "n": n}) if n else None
 
 
-PARSERS = (_tokens, _counters, _draw, _life, _loss, _mill, _damage, _enters_tapped, _enter_extra)
+PARSERS = (_tokens, _counters, _draw, _draw_count, _life, _loss, _mill, _damage, _enters_tapped, _enter_extra)
 
 
 def parse(text: str) -> Definition | None:

@@ -169,6 +169,7 @@ SUPPORTED_REPLACE_OPS["counters"] = SUPPORTED_REPLACE_OPS["counters"] | {"half"}
 # -- replacements: draws and life (wave 28B) -- a draw replaced by its own instructions (app/rules/draw_bodies.py)
 SUPPORTED_REPLACE_OPS["draw"] = SUPPORTED_REPLACE_OPS["draw"] | {"body"}
 SUPPORTED_REPLACE_OPS["mill"] = frozenset({"mul", "add"})  # 701.17a: Bruvac the Grandiloquent, The Water Crystal (replace.mill_counts)
+SUPPORTED_REPLACE_OPS["draw_count"] = frozenset({"add", "each_one"})  # 121.2a: Quantum Riddler, Alms Collector (replace.draw_cards)
 SUPPORTED_REPLACE_OPS["life_loss"] = frozenset({"mul"})  # 119.3: Bloodletter of Aclazotz (app/rules/replace.py lose_life)
 SUPPORTED_REPLACEMENTS |= {
     "enters_tapped_others",  # 614.1d, 614.12: "Creatures your opponents control enter tapped."
@@ -194,6 +195,11 @@ def stage2_supported(d: dict[str, Any]) -> bool | None:
     for e in effects:  # "Until end of turn, if …" / "If … this turn, …": a record of a statics' wording
         if e.get("do") == "replace_record" and (e.get("op") or {}).get("do") not in SUPPORTED_REPLACE_OPS.get(str(e.get("event")), ()):
             return False
+        if e.get("do") == "replace_record" and (e.get("op") or {}).get("do") == "body":  # -- replacements: draws (wave 28B) --
+            from app.rules import draw_bodies
+
+            if not draw_bodies.supported((e.get("op") or {}).get("effects") or []):
+                return False
     return None
 # -- end replacement effects stage 2 (wave 2E) --
 

@@ -5180,6 +5180,7 @@ _DIES_DEALT = re.compile(r"(?P<what>creature|permanent|creature or planeswalker)
 
 
 _UNTIL_EOT_IF = re.compile(r"^until end of turn, (?P<rest>if .+)$")
+_NEXT_TIME_DRAW = re.compile(r"^the next time you would draw a card this turn, (?P<rest>.+)$")  # -- replacements: draws (wave 28B) -- Words of …
 _IF_THIS_TURN = re.compile(r"^(?P<head>if [^,]+?) this turn(?P<tail>, .+)$")
 
 
@@ -5196,6 +5197,11 @@ def _turn_record(text: str) -> list[dict[str, Any]] | None:
         d = replace_grammar.parse(enter["rest"][0].upper() + enter["rest"][1:] + ".")
         if d is not None and d.get("static") == "replace":
             return [{"do": "replace_record", "event": d["event"], "match": d["match"], "op": d["op"]}]
+    if (nxt := _NEXT_TIME_DRAW.match(text)) is not None:  # -- replacements: draws (wave 28B) -- 614.5 / 611.2a: one draw, then it's spent
+        d = replace_grammar.parse("If you would draw a card, " + nxt["rest"] + ".")
+        if d is not None and d.get("static") == "replace" and d.get("event") == "draw" and d["op"].get("do") in ("body", "draw", "skip"):
+            return [{"do": "replace_record", "event": "draw", "match": d["match"], "op": {**d["op"], "once": True}}]
+        return None
     m = _UNTIL_EOT_IF.match(text)
     body = m["rest"] if m else None
     if body is None:

@@ -42,10 +42,16 @@ EXTRA = [
     card("Bruvac the Grandiloquent", set_code="tst", number="W19", mana_cost="{2}{U}", cmc=3.0, type_line="Legendary Creature — Human Advisor", power="1", toughness="4", colors=["U"], color_identity=["U"], oracle_text="If an opponent would mill one or more cards, they mill twice that many cards instead. (To mill a card, a player puts the top card of their library into their graveyard.)"),  # noqa: E501
     card("The Water Crystal", set_code="tst", number="W20", mana_cost="{2}{U}{U}", cmc=4.0, type_line="Legendary Artifact", colors=["U"], color_identity=["U"], oracle_text="Blue spells you cast cost {1} less to cast.\nIf an opponent would mill one or more cards, they mill that many cards plus four instead.\n{4}{U}{U}, {T}: Each opponent mills cards equal to the number of cards in your hand."),  # noqa: E501
     card("Faerie Vandal", set_code="tst", number="W21", mana_cost="{1}{U}", cmc=2.0, type_line="Creature — Faerie Rogue", power="1", toughness="2", colors=["U"], color_identity=["U"], keywords=["Flying", "Flash"], oracle_text="Flash (You may cast this spell any time you could cast an instant.)\nFlying\nWhenever you draw your second card each turn, put a +1/+1 counter on this creature."),  # noqa: E501
+    card("Words of Worship", set_code="tst", number="W22", mana_cost="{2}{W}", cmc=3.0, type_line="Enchantment", colors=["W"], color_identity=["W"], oracle_text="{1}: The next time you would draw a card this turn, you gain 5 life instead."),  # noqa: E501
+    card("Words of Wilding", set_code="tst", number="W23", mana_cost="{2}{G}", cmc=3.0, type_line="Enchantment", colors=["G"], color_identity=["G"], oracle_text="{1}: The next time you would draw a card this turn, create a 2/2 green Bear creature token instead."),  # noqa: E501
+    card("Words of Waste", set_code="tst", number="W24", mana_cost="{2}{B}", cmc=3.0, type_line="Enchantment", colors=["B"], color_identity=["B"], oracle_text="{1}: The next time you would draw a card this turn, each opponent discards a card instead."),  # noqa: E501
+    card("Quantum Riddler", set_code="tst", number="W25", mana_cost="{3}{U}{U}", cmc=5.0, type_line="Creature — Sphinx", power="4", toughness="6", colors=["U"], color_identity=["U"], keywords=["Flying", "Warp"], oracle_text="Flying\nWhen this creature enters, draw a card.\nAs long as you have one or fewer cards in hand, if you would draw one or more cards, you draw that many cards plus one instead.\nWarp {1}{U}"),  # noqa: E501
+    card("Alms Collector", set_code="tst", number="W26", mana_cost="{3}{W}", cmc=4.0, type_line="Creature — Cat Cleric", power="3", toughness="4", colors=["W"], color_identity=["W"], keywords=["Flash"], oracle_text="Flash\nIf an opponent would draw two or more cards, instead you and that player each draw a card."),  # noqa: E501
+    card("Sign in Blood", set_code="tst", number="W27", mana_cost="{B}{B}", cmc=2.0, type_line="Sorcery", colors=["B"], color_identity=["B"], oracle_text="Target player draws two cards and loses 2 life."),  # noqa: E501
     card("Test Small", set_code="tst", number="W10", mana_cost="{G}", cmc=1.0, type_line="Creature — Elf", power="2", toughness="2", colors=["G"], color_identity=["G"], oracle_text=""),  # noqa: E501
     card("Divination", set_code="tst", number="W09", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"], color_identity=["U"], oracle_text="Draw two cards."),  # noqa: E501
 ]
-FULL = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Small", "Vampire's Kiss", "Greed", "Boon Reflection", "Thought Scour", "Faerie Vandal")]
+FULL = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Small", "Vampire's Kiss", "Greed", "Boon Reflection", "Thought Scour", "Faerie Vandal", "Sign in Blood")]
 
 
 @pytest.fixture()
@@ -424,6 +430,93 @@ def test_a_replaced_draw_is_not_drawn_for_second_card_each_turn_triggers_but_the
     act(s, "p1", type="cast_spell", card_id=c.id)
     settle(s)
     assert s.state.cards[vandal.id].counters == {"+1/+1": 1}  # the two draws Blood Scrivener makes instead are real draws: the second one counts
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("in_hand,drawn", [(0, 3), (1, 3), (2, 2)])
+def test_quantum_riddler_adds_a_card_to_a_draw_instruction_while_it_has_one_or_fewer_cards_in_hand(cards, in_hand, drawn):
+    s = build(cards, p1=("Divination", "Quantum Riddler", "Test Small"))
+    put(s, "Quantum Riddler", "battlefield")
+    c = put(s, "Divination", "hand")
+    if in_hand:
+        extra = [x for x in zone(s, "library") if s.state.cards[x].name == "Forest"][:in_hand]
+        act(s, "p1", type="move", card_ids=extra, to={"player": "p1", "zone": "hand"})
+    mana(s, C=2, U=1)
+    hand = len(zone(s, "hand"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert len(zone(s, "hand")) == hand - 1 + drawn  # 121.2a, 616.1g: "draw two" becomes three; the count is changed once
+    roundtrip(s)
+
+
+def test_alms_collector_replaces_an_opponents_draw_of_two_or_more_cards(cards):
+    s = build(cards, p1=("Alms Collector", "Sign in Blood"))
+    put(s, "Alms Collector", "battlefield")
+    c = put(s, "Sign in Blood", "hand")
+    mana(s, B=2)
+    mine, theirs, life = len(zone(s, "hand")), len(zone(s, "hand", "p2")), s.state.players["p2"].life
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"])
+    settle(s)
+    assert len(zone(s, "hand")) == mine - 1 + 1 and len(zone(s, "hand", "p2")) == theirs + 1  # you and that player each draw a card
+    assert s.state.players["p2"].life == life - 2  # (the rest of the spell still happens, 121.7)
+    roundtrip(s)
+
+
+def test_alms_collector_ignores_a_single_draw_and_its_controllers_own_draw(cards):
+    s = build(cards, p1=("Alms Collector", "Divination"))
+    put(s, "Alms Collector", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    hand = len(zone(s, "hand"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert len(zone(s, "hand")) == hand - 1 + 2  # (an opponent's draw of two or more cards only)
+    roundtrip(s)
+
+
+def test_words_of_worship_replaces_only_the_next_draw_this_turn(cards):
+    s = build(cards, p1=("Divination", "Words of Worship"))
+    words = put(s, "Words of Worship", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=3, U=1)
+    life, hand = s.state.players["p1"].life, len(zone(s, "hand"))
+    act(s, "p1", type="activate_ability", card_id=words.id, ability=0)
+    settle(s)
+    roundtrip(s)  # (the replacement effect waits: it is part of the saved table)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert s.state.players["p1"].life == life + 5  # 611.2a: the first draw is replaced…
+    assert len(zone(s, "hand")) == hand - 1 + 1  # …the second is drawn: the effect was used up (614.5)
+    roundtrip(s)
+
+
+def test_each_activation_of_words_replaces_a_draw_of_its_own(cards):
+    s = build(cards, p1=("Divination", "Words of Wilding"))
+    words = put(s, "Words of Wilding", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=4, U=1)
+    hand = len(zone(s, "hand"))
+    for _ in range(2):
+        act(s, "p1", type="activate_ability", card_id=words.id, ability=0)
+        settle(s)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    bears = [x for x in s.state.cards.values() if x.token and x.token.name == "Bear" and x.zone == "p1:battlefield"]
+    assert len(bears) == 2 and len(zone(s, "hand")) == hand - 1  # both draws replaced, by one effect each
+    roundtrip(s)
+
+
+def test_words_of_waste_makes_each_opponent_discard_instead_of_the_draw(cards):
+    s = build(cards, p1=("Divination", "Words of Waste"), p2=("Test Small",))
+    words = put(s, "Words of Waste", "battlefield")
+    put(s, "Test Small", "hand", "p2")
+    c = put(s, "Divination", "hand")
+    mana(s, C=3, U=1)
+    act(s, "p1", type="activate_ability", card_id=words.id, ability=0)
+    settle(s)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert zone(s, "hand", "p2") == [] and find(s, "Test Small", "p2").zone == "p2:graveyard"
     roundtrip(s)
 
 

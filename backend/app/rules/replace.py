@@ -175,8 +175,8 @@ def record_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
     for rec in plan.rules.replacements:
         if rec.get("kind") != "replace" or rec.get("turn") != turn or rec.get("event") not in events:
             continue
-        if rec.get("controller") not in plan.live():
-            continue  # 800.4a: effects of a player who left the game end
+        if rec.get("controller") not in plan.live() or rec.get("spent"):
+            continue  # 800.4a: effects of a player who left the game end (-- replacements: draws (wave 28B) -- "the next time": spent)
         out.append(Candidate(id=f"r:{rec['id']}", event=rec["event"], match=rec.get("match") or {}, op=rec["op"],
                              controller=rec["controller"], source_card=rec.get("source_card"), source_oid=rec.get("source"),
                              seq=(int(rec.get("seq") or 0), 1, 0), label=rec.get("label") or "an effect",
@@ -240,6 +240,7 @@ class Planner:
     answers: dict[str, str] = field(default_factory=dict)
     ask: bool = True  # False: a site that can't pause (remembered answers only)
     left: list[tuple[Event, list[str]]] = field(default_factory=list)  # (event, effects left to the players)
+    used: list[str] = field(default_factory=list)  # (-- replacements: draws (wave 28B) -- the effects applied to the events, for "the next time")
     opt_n: int = 0  # (optional replacements met so far in this pass: each is its own question, wave 16B)
 
     # -- kind-specific rules ------------------------------------------------------------------------
@@ -275,6 +276,7 @@ class Planner:
         ``sim`` and handed to ``on_final`` in order (614.11a / 121.6b: a replacement's events
         complete before the sequence goes on)."""
         if (opt := self.optional(ev, sim)) is not None:  # -- static_other sweep (wave 16B) -- dredge: the player took it
+            self.used.append(opt.id)
             for nxt in self.apply(opt, ev, sim):
                 self.settle(nxt, sim, on_final)
             return
@@ -294,6 +296,7 @@ class Planner:
                     on_final(ev)
                     return
                 chosen = picked
+        self.used.append(chosen.id)
         for nxt in self.apply(chosen, ev, sim):
             self.settle(nxt, sim, on_final)
 
@@ -371,7 +374,7 @@ class Planner:
 def affected(plan: Plan, ev: Event) -> str | None:
     """616.1: the affected object's controller (its owner if it has none) or the affected player."""
     kind = ev["kind"]
-    if kind in ("tokens", "draw", "life", "life_loss", "mill", "player_counters"):
+    if kind in ("tokens", "draw", "draw_count", "life", "life_loss", "mill", "player_counters"):
         return ev.get("player")
     if kind == "counters":
         if ev.get("controller"):
@@ -420,6 +423,8 @@ def describe(plan: Plan, ev: Event) -> str:
         return f"{n} {ev['counter']} counter{'s' if n != 1 else ''} for {plan.name(ev['player'])}"
     if kind == "draw":
         return f"{plan.name(ev['player'])} draws a card"
+    if kind == "draw_count":
+        return f"{plan.name(ev['player'])} draws {ev['n']} card{'s' if ev['n'] != 1 else ''}"
     if kind == "dredge":
         return f"{plan.name(ev['player'])} dredges {ev['n']}"
     if kind == "body":  # -- draw bodies (wave 28B) --
@@ -993,6 +998,25 @@ def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     return True
 
 
+def _dcount_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
+    """-- replacements: draws (wave 28B) -- "If you would draw one or more cards …" / "If an opponent would draw two or more cards …" (121.2a)."""
+    pid, m = ev["player"], c.match
+    if pid not in plan.live() or ev["n"] < int(m.get("min", 1)):
+        return False
+    who = m.get("who")
+    if who == "you" and pid != c.controller or who == "opponent" and pid == c.controller:
+        return False
+    return m.get("hand_max") is None or sim["hand"].get(pid, 0) <= int(m["hand_max"])  # ("as long as you have one or fewer cards in hand")
+
+
+def _dcount_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
+    if c.op["do"] == "add":
+        return [{**ev, "n": ev["n"] + int(c.op["n"])}]
+    if c.op["do"] == "each_one":  # "instead you and that player each draw a card" (121.7: the draws happen one at a time)
+        return [{"kind": "draw", "player": p} for p in dict.fromkeys([c.controller, ev["player"]])]
+    return [ev]
+
+
 def _draw_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     op = c.op["do"]
     if op == "win":
@@ -1056,7 +1080,8 @@ def _dredge(plan: Plan, f: Event) -> None:
 
 
 def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then: dict[str, Any] | None = None,
-               answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None, exclude: list[str] | None = None) -> bool:
+               answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None, exclude: list[str] | None = None,
+               counted: bool = False) -> bool:
     """THE draw choke point (see the module docstring). 121.2: one card at a time; 121.2c: the
     active player draws all their cards first, then the others in turn order; 121.6a / 614.11:
     replacement effects apply even with an empty library; 704.5b: a draw from an empty library
@@ -1064,7 +1089,8 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
     -- draw bodies (wave 28B) -- ``exclude``: replacement effects that already applied to the event these draws come from (614.5: a body's own
     "draw a card" isn't replaced by that effect again; the context of a body says so, ``repl_applied``). 121.6b: a body is completed before
     the draws after it; the plan stops at it and the rest is planned once it is done (the continuation ``draw_rest``), so False also
-    means "a replacement effect is running and goes on by itself"."""
+    means "a replacement effect is running and goes on by itself". ``counted``: the instruction's replacements that refer to the number of
+    cards drawn (121.2a, 616.1g: "If you would draw one or more cards …") have already applied (the rest of a draw sequence after a body)."""
     answers = answers if answers is not None else _ctx_answers(ctx)
     exclude = list(exclude if exclude is not None else (ctx or {}).get("repl_applied") or [])
     order = plan.apnap()
@@ -1076,10 +1102,21 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
         cands = [c for c in cands if c.op.get("do") != "body"]
     planner = Planner(plan, cands, answers, ask=then is not None)
     sim = _draw_sim(plan, who)
-    slots = [pid for pid in who for _ in range(max(0, int(n[pid] if isinstance(n, dict) else n)))]  # (a dict: each player's own count, wave 16B)
+    slots: list[str] = []
     actions: list[tuple[Event, list[Event]]] = []
     cut: int | None = None
+    count_planner = Planner(plan, [] if counted else candidates(plan, "draw_count"), answers, ask=then is not None)
     try:
+        for pid in who:  # (a dict: each player's own count, wave 16B)
+            k = max(0, int(n[pid] if isinstance(n, dict) else n))
+            if k and count_planner.cands:  # -- replacements: draws (wave 28B) -- 121.2a: an instruction to draw N cards is modified first, 616.1g
+                cev: Event = {"kind": "draw_count", "player": pid, "n": k, "applied": list(exclude)}
+                counted_out: list[Event] = []
+                count_planner.settle(cev, sim, counted_out.append)
+                for f in counted_out:
+                    slots += [f["player"]] * f["n"] if f["kind"] == "draw_count" else [f["player"]] if f["kind"] == "draw" else []
+            else:
+                slots += [pid] * k
         for i, pid in enumerate(slots):
             ev: Event = {"kind": "draw", "player": pid, "applied": list(exclude)}
             out: list[Event] = []
@@ -1089,26 +1126,30 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
                 cut = i  # (-- static_other sweep (wave 16B) -- a dredge mills cards that may be dredged for the next draw: the draws after it
                 break  # are planned again once it has happened; likewise after a body, 121.6b)
     except Ask as q:
-        request = {"players": who, "n": n, "exclude": exclude}
+        request = {"players": who, "n": n, "exclude": exclude, "counted": counted}
         if _pause(plan, q, answers, _resume_for(then, "draw", request)):
             return False
         raise
     left_to_players(plan, planner)
+    left_to_players(plan, count_planner)
+    for rec in plan.rules.replacements:  # -- replacements: draws (wave 28B) -- "The next time you would draw a card this turn": one draw, then spent
+        if rec.get("kind") == "replace" and (rec.get("op") or {}).get("once") and f"r:{rec['id']}" in planner.used:
+            rec["spent"] = True
     rest: dict[str, int] = {}
     for pid in slots[cut + 1:] if cut is not None else ():
         rest[pid] = rest.get(pid, 0) + 1
-    after = {"do": "draw_rest", "players": [p for p in who if p in rest], "n": rest, "then": then, "exclude": exclude}
+    after = {"do": "draw_rest", "players": [p for p in who if p in rest], "n": rest, "then": then, "exclude": exclude}  # (already counted)
     if do_draws(plan, actions, after):
         return False
     if rest:
-        return draw_cards(plan, [p for p in who if p in rest], rest, then=then, answers={}, exclude=exclude)
+        return draw_cards(plan, [p for p in who if p in rest], rest, then=then, answers={}, exclude=exclude, counted=True)
     return True
 
 
 def _then_draw_rest(plan: Plan, then: dict[str, Any]) -> None:
     """-- draw bodies (wave 28B) -- a replacement effect is done: the draws that were left, then what the instruction goes on with."""
     if not then["players"] or draw_cards(plan, list(then["players"]), dict(then["n"]), then=then["then"], answers={},
-                                         exclude=list(then.get("exclude") or [])):
+                                         exclude=list(then.get("exclude") or []), counted=True):
         run_then(plan, then["then"])
 
 
@@ -1191,7 +1232,7 @@ def _win(plan: Plan, pid: str) -> None:
 def _run_draw(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     n = request["n"]
     if draw_cards(plan, list(request["players"]), n if isinstance(n, dict) else int(n), then=then, answers=answers,
-                  exclude=list(request.get("exclude") or [])):
+                  exclude=list(request.get("exclude") or []), counted=bool(request.get("counted"))):
         run_then(plan, then)
 
 
@@ -1924,10 +1965,10 @@ def ask_shield(plan: Plan, s: ShieldAsk, resume: dict[str, Any], order: list[str
 
 # -- the kinds' rules (the loop dispatches on the event's kind) ------------------------------------
 _APPLIES: dict[str, Any] = {"tokens": _tokens_applies, "counters": _counters_applies, "player_counters": _player_counters_applies,
-                            "draw": _draw_applies, "life": _life_applies, "life_loss": _loss_applies, "mill": _mill_applies,
+                            "draw": _draw_applies, "draw_count": _dcount_applies, "life": _life_applies, "life_loss": _loss_applies, "mill": _mill_applies,
                             "damage": _damage_applies}
 _APPLY: dict[str, Any] = {"tokens": _tokens_apply, "counters": _counters_apply, "player_counters": _counters_apply,
-                          "draw": _draw_apply, "life": _life_apply, "life_loss": _loss_apply, "mill": _mill_apply,
+                          "draw": _draw_apply, "draw_count": _dcount_apply, "life": _life_apply, "life_loss": _loss_apply, "mill": _mill_apply,
                           "damage": _damage_apply}
 _PERFORM: dict[str, Any] = {"draw": _draw_perform, "dredge": _dredge_perform, "life": _life_perform, "life_loss": _life_perform}
 SITES: dict[str, Any] = {"tokens": _run_tokens, "counters": _run_counters, "draw": _run_draw, "life": _run_life, "loss": _run_loss}
