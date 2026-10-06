@@ -2368,7 +2368,7 @@ def _may_else(m: re.Match[str]) -> str:
     """"That player may pay 2 life. If they don't, they lose 3 life." → "That player loses 3 life unless that player pays 2 life."
     (118.12a: the payer named in the third person, the effect's "they" the same player)."""
     verb, _, rest = m["cost"].partition(" ")
-    effect = re.sub(r"^they (\w+)", r"that player \1s", m["rest"])
+    effect = re.sub(r"^they (\w+)", lambda t: f"that player {_THEY_VERBS.get(t[1], t[1])}", m["rest"])  # (an unknown verb stays unread)
     return f"{effect[:1].upper()}{effect[1:]} unless that player {verb}s {rest}."
 
 
