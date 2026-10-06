@@ -1,9 +1,9 @@
 """Review of wave 26C (CR 2026-09-25). Real Oracle text; every scenario checks the replay and a save and a load.
 
 * 304.5 / 602.5e: "Activate only as an instant" needs priority, which a player paying a cost (601.2g-h) or a resolving payment doesn't
-  have: Lion's Eye Diamond can't be activated mid-payment. And a mana ability whose cost chooses objects (Ashnod's Altar's
-  sacrifice, LED's discard) is paid only through its own choice, never as plain mana while another payment is pending (it was
-  free mana: the chosen cost was skipped).
+  have: Lion's Eye Diamond can't be activated mid-payment. A mana ability whose cost chooses objects (Ashnod's Altar's
+  sacrifice) is paid through its own choice, never as plain mana (it was free mana: the chosen cost was skipped); wave 28D nests
+  that choice in the payment prompt (tests/test_rules_wave28d_nested_mana.py).
 * 608.2h / 400.7: "the power of the creature tapped this way" is that creature as it last existed once it has left.
 * 118.3: "Remove X +1/+1 counters from among creatures you control" can't be paid with more counters than there are.
 * 113.6m: Bookwurm's "Put this card from your graveyard …" works only in the graveyard.
@@ -48,7 +48,7 @@ def test_lions_eye_diamond_cannot_be_activated_while_paying_for_a_spell(cards):
     check(s)
 
 
-def test_a_sacrifice_mana_ability_is_not_free_while_paying(cards):
+def test_a_sacrifice_mana_ability_pays_its_cost_while_paying(cards):  # (wave 28D: nested in the payment, 605.3a; it was refused in 26C)
     s = build(cards, ["Giant Opportunity"])
     self_payment(s)
     act(s, "p1", type="create_token", player="p1", token={"name": "Altar", "type_line": "Token Artifact",
@@ -57,9 +57,9 @@ def test_a_sacrifice_mana_ability_is_not_free_while_paying(cards):
     altar = card_named(s, "Altar")
     spell = to_hand(s, "Giant Opportunity")
     act(s, "p1", type="cast_spell", card_id=spell.id)
-    with pytest.raises(ActionError):
-        act(s, "p1", type="activate_ability", card_id=altar.id, ability=0)
-    assert s.state.cards[bear.id].zone == "p1:battlefield" and s.state.players["p1"].mana.get("C", 0) == 0
+    act(s, "p1", type="activate_ability", card_id=altar.id, ability=0)
+    assert bear.id not in s.state.cards  # (the creature was sacrificed as the cost: not free mana)
+    assert s.state.players["p1"].mana.get("C", 0) == 2
     check(s)
 
 

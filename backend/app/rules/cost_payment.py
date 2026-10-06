@@ -51,8 +51,35 @@ def _reserved(cost: AbilityCost, comp: CostComponent, source: CardInstance) -> s
     return set()
 
 
+def _spoken_for(plan: Plan) -> set[str]:
+    """-- nested payment choices (wave 28D) -- while a mana ability's cost is chosen inside a payment prompt (605.3a), the objects the
+    spell or ability being paid for already names (its targets, the creatures convoking, what its other costs chose) aren't offered:
+    the payment is carried out again from its announcement, which needs them where they were."""
+    outer = plan.rules.payment_outer
+    if outer is None:
+        return set()
+    found: set[str] = set()
+    stack: list[Any] = [(outer.resume or {}).get("intent")]
+    while stack:
+        v = stack.pop()
+        if isinstance(v, str):
+            if v in plan.state.cards:
+                found.add(v)
+        elif isinstance(v, dict):
+            stack.extend(v.values())
+        elif isinstance(v, list):
+            stack.extend(v)
+    return found
+
+
 def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstance) -> list[str]:
     """Objects that could pay ``comp`` (one part of a cost), in a stable order."""
+    spoken = _spoken_for(plan)
+    found = _candidates(plan, comp, player, source)
+    return [c for c in found if c not in spoken] if spoken else found
+
+
+def _candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstance) -> list[str]:
     if comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- 702.167a-b: permanents you control (selector) and/or cards in your graveyard (alt)
         out = []
         for z, key in ((zone_key(player, "battlefield"), comp.selector), (zone_key(player, "graveyard"), comp.alt)):
