@@ -69,6 +69,12 @@ REAL = [
     ("Surveillance Monitor", "{3}{U}", "Creature — Vedalken Detective", "3", "3",
      "When this creature enters, you may collect evidence 4. (Exile cards with total mana value 4 or greater from your graveyard.)\n"
      "Whenever you collect evidence, create a 1/1 colorless Thopter artifact creature token with flying."),
+    ("Plow Through Reito", "{1}{W}", "Instant — Arcane", None, None,
+     "Sweep — Return any number of Plains you control to their owner's hand. Target creature gets +1/+1 until end of turn for each Plains "
+     "returned this way."),
+    ("Barrel Down Sokenzan", "{2}{R}", "Instant — Arcane", None, None,
+     "Sweep — Return any number of Mountains you control to their owner's hand. Barrel Down Sokenzan deals damage to target creature equal "
+     "to twice the number of Mountains returned this way."),
     ("Flameblast Dragon", "{4}{R}{R}", "Creature — Dragon", "5", "5",
      "Flying\nWhenever this creature attacks, you may pay {X}{R}. If you do, it deals X damage to any target."),
 ]
@@ -456,3 +462,41 @@ def test_whenever_you_forage_does_not_trigger_when_declined(cards):
     answer(s)
     assert counters(s, "Corpseberry Cultivator", "+1/+1") == 0 and len(graveyard(s)) == 3
     check(s)
+
+
+# -- Sweep: "Return any number of Plains you control to their owner's hand. … for each Plains returned this way." ------
+@pytest.mark.parametrize("n", [0, 2])
+def test_plow_through_reito_pumps_for_each_plains_returned(cards, n):
+    s = build(cards, ["Plow Through Reito"])
+    plains = [creature(s, "p1", f"Plains {i}", pt="0/0", type_line="Land — Plains") for i in range(2)]
+    bear = creature(s, "p1", "Bear")
+    spell = to_hand(s, "Plow Through Reito")
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bear.id])
+    d = until_asked(s)
+    assert d.player == "p1" and len(d.options) == 2 and d.min_choices == 0  # (any number: none is a choice, 107.1c)
+    pick(s, *[p.id for p in plains][:n])
+    answer(s)
+    assert chars_of_id(s, bear.id).pt == (2 + n, 2 + n)
+    assert sum(1 for p in plains if p.id not in s.state.cards or s.state.cards[p.id].zone != "p1:battlefield") == n  # (tokens leave for good)
+    check(s)
+
+
+def test_barrel_down_sokenzan_deals_twice_the_mountains_returned(cards):
+    s = build(cards, ["Barrel Down Sokenzan"])
+    mountains = [creature(s, "p1", f"Mountain {i}", pt="0/0", type_line="Land — Mountain") for i in range(2)]
+    ogre = creature(s, "p2", "Ogre", pt="4/4")
+    spell = to_hand(s, "Barrel Down Sokenzan")
+    mana(s, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[ogre.id])
+    d = until_asked(s)
+    pick(s, *[m.id for m in mountains])
+    answer(s)
+    assert ogre.id not in s.state.cards  # (2 x 2 = 4 damage kills the 4/4)
+    check(s)
+
+
+def chars_of_id(s, cid):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[cid])

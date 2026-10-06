@@ -1401,6 +1401,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     # step name also continues the older pay-or-sacrifice / counter-unless prompts
     "pay_or_sacrifice": optional_payment.resume,
     "return_yours": effects.resume_return_yours,
+    "return_any": effects.resume_return_any,  # (wave 26C)
     "explore": effects.resume_explore,
     "aura_enters": attachments.resume_aura_enters,
     "battle_protector": battles.resume_protector,  # 310.11

@@ -1462,6 +1462,15 @@ def _return_yours(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "return_yours", "n": num(m["n"]), "what": "land" if m["what"].startswith("land") else "creature"}], None
 
 
+@effect(r"return any number of (?P<land>Plains|Islands|Swamps|Mountains|Forests) you control to their owner's hands?")
+def _return_any(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import (
+        sweep,  # -- activated sweep (wave 26C) -- "Sweep — Return any number of Plains you control …"
+    )
+
+    return [{"do": "return_any", "land": sweep.LANDS[m["land"]]}], None
+
+
 @effect(r"counter (?P<sel>target spell|target creature spell|target noncreature spell|target instant or sorcery spell)")
 def _counter(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "counter", "who": "target"}], SELECTORS[m["sel"]]
@@ -3921,6 +3930,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 return out
         return None
     if ability.kind == "spell":
+        from app.rules import (
+            sweep,  # -- activated sweep (wave 26C) -- "Sweep — Return any number of Plains you control …"
+        )
+
+        if (text := sweep.rewrite(text)) is None:  # type: ignore[assignment]
+            return None
         parsed = _own_choice(parse_effects(text))  # (_own_choice: wave 3R5)
         if parsed is None or parsed[2]:
             return None

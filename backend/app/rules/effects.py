@@ -1156,6 +1156,30 @@ def return_yours(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
+def return_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- activated sweep (wave 26C) -- "Sweep — Return any number of Plains you control to their owner's hand." (107.1c: any number
+    includes none; the controller chooses as it resolves, 608.2d). The number returned is the X the rest of the spell reads
+    ("for each Plains returned this way", 608.2c: what the instruction actually did)."""
+    pid = ctx["controller"]
+    pool = [c.id for c in plan.state.cards.values() if c.zone == zone_key(pid, "battlefield") and c.controller == pid
+            and plan.in_game(c) and e["land"] in plan.ch(c).subtypes]
+    ctx["x"] = 0
+    if not pool:
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt=f"Return any number of {e['land']}s you control to your hand",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
+           min_choices=0, max_choices=len(pool), resume={"step": "return_any", "ctx": ctx})
+    return False
+
+
+def resume_return_any(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx = d.resume["ctx"]
+    ctx["x"] = len(chosen)
+    if chosen:
+        _return_to_hands(plan, chosen, d.player)
+    continue_effects(plan, ctx)
+
+
 def _return_to_hands(plan: Plan, ids: list[str], actor: str) -> None:
     for cid in ids:
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "hand"}}, actor=actor)
@@ -2343,7 +2367,7 @@ PRIMITIVES = {
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen, "no_regen_turn": no_regen_turn,
-    "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
+    "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "return_any": return_any, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
     "sacrifice": sacrifice, "ascend": ascend, "explore": explore, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
