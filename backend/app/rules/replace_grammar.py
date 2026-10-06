@@ -185,9 +185,25 @@ def _counters(text: str) -> Definition | None:
 _EXCEPT_FIRST = {"you": " except the first one you draw in each of your draw steps",
                  "opponent": " except the first one they draw in each of their draw steps",
                  "any": " except the first one they draw in each of their draw steps"}
+# (-- draw bodies (wave 28B) -- "while you have no cards in hand": 614.11, checked as each draw would happen)
 _DRAW = re.compile(r"^If (?P<who>you|an opponent|a player) would draw a card(?P<exc> except the first one (?:you|they) draw "
-                   r"in each of (?:your|their) draw steps)?(?P<empty> while your library has no cards in it)?, "
-                   r"(?P<rest>.+)\.$")
+                   r"in each of (?:your|their) draw steps)?(?P<empty> while your library has no cards in it)?"
+                   r"(?P<nohand> while you have no cards in hand)?, (?P<rest>.+)\.$")
+
+
+def _draw_body(rest: str) -> tuple[str, bool] | None:
+    """-- draw bodies (wave 28B) -- "instead <effects>", "<effects> instead[. <more>]" or "you may <effects> instead": the effects text
+    and whether the affected player may decline (616.1: a replacement the player isn't made to apply)."""
+    if rest.startswith("instead "):
+        body, optional = rest[len("instead "):], False
+    else:
+        first, dot, tail = rest.partition(". ")
+        if not first.endswith(" instead"):
+            return None
+        body, optional = first[: -len(" instead")] + (dot + tail if dot else ""), False
+    if body.startswith("you may ") and body.count("you may ") == 1:
+        body, optional = body[len("you may "):], True
+    return (body, optional) if "instead" not in body else None
 
 
 def _draw(text: str) -> Definition | None:
@@ -197,13 +213,15 @@ def _draw(text: str) -> Definition | None:
     who = {"you": "you", "an opponent": "opponent", "a player": "any"}[m["who"]]
     if m["exc"] and m["exc"] != _EXCEPT_FIRST[who]:
         return None
-    if m["empty"] and who != "you":
+    if (m["empty"] or m["nohand"]) and who != "you":
         return None
     match: dict[str, Any] = {"who": who}
     if m["exc"]:
         match["not_first_in_draw_step"] = True  # 504.1: the draw step's turn-based draw is the first
     if m["empty"]:
         match["library_empty"] = True  # 614.11 / 121.6a: applies even though no card could be drawn
+    if m["nohand"]:
+        match["hand_empty"] = True  # (Phial of Galadriel, Blood Scrivener: no cards in hand as the draw would happen)
     rest = m["rest"]
     if rest == "you win the game instead" and who == "you":
         return _static("draw", match, {"do": "win"})
@@ -211,11 +229,19 @@ def _draw(text: str) -> Definition | None:
         if (rest == "skip that draw instead") != (who == "you"):
             return None
         return _static("draw", match, {"do": "skip"})
+    if rest == "you may skip that draw instead" and who == "you":  # (Obstinate Familiar: its player chooses)
+        return _static("draw", match, {"do": "skip", "optional": True})
     if rest == "instead that player skips that draw and you draw a card" and who == "opponent":
         return _static("draw", match, {"do": "steal"})
     m2 = re.fullmatch(r"draw (?P<n>two|three) cards instead", rest)
     if m2 and who == "you" and not m["empty"]:
         return _static("draw", match, {"do": "draw", "n": _NUMBERS[m2["n"]]})
+    if who == "you" and (got := _draw_body(rest)) is not None:
+        from app.rules import draw_bodies  # (a leaf module over the effect grammar)
+
+        effects = draw_bodies.parse(got[0])
+        if effects is not None:
+            return _static("draw", match, {"do": "body", "effects": effects, **({"optional": True} if got[1] else {})})
     return None
 
 

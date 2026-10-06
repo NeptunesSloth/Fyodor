@@ -1,0 +1,260 @@
+"""Wave 28B: draw replacements with a body ("If you would draw a card, instead <effects>") and life-loss modifiers.
+Real Oracle wording (the local card database, current), replay and save/load for each scenario.
+
+* 121.6, 614.11: an effect that replaces a card draw applies even with an empty library; 121.6b / 614.11a: its actions are
+  completed before the sequence of draws goes on; 121.2: "draw N" is N separate draws, each replaced on its own.
+* 614.5: a replacement effect applies once to an event and the events that modify it (a draw inside the replacement
+  isn't replaced by the same effect again); 614.6: a replaced draw never happens (no "drew" event).
+* 121.5: cards moved from a library to a hand without "draw" are not drawn.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from app.cards.importer import build_database
+from app.config import Settings
+from app.rules import coverage
+from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act
+from tests.test_rules_effects import mana
+from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
+
+EXTRA = [
+    card("Underrealm Lich", set_code="tst", number="W01", mana_cost="{3}{B}{G}", cmc=5.0, type_line="Creature — Zombie Elf Shaman", power="4", toughness="3", colors=["B", "G"], color_identity=["B", "G"], oracle_text="If you would draw a card, instead look at the top three cards of your library, then put one into your hand and the rest into your graveyard.\nPay 4 life: This creature gains indestructible until end of turn. Tap it."),  # noqa: E501
+    card("Eruth, Tormented Prophet", set_code="tst", number="W02", mana_cost="{1}{U}{R}", cmc=3.0, type_line="Legendary Creature — Human Wizard", power="2", toughness="4", colors=["R", "U"], color_identity=["R", "U"], oracle_text="If you would draw a card, exile the top two cards of your library instead. You may play those cards this turn."),  # noqa: E501
+    card("Blood Scrivener", set_code="tst", number="W03", mana_cost="{1}{B}", cmc=2.0, type_line="Creature — Zombie Wizard", power="2", toughness="1", colors=["B"], color_identity=["B"], oracle_text="If you would draw a card while you have no cards in hand, instead you draw two cards and you lose 1 life."),  # noqa: E501
+    card("Phial of Galadriel", set_code="tst", number="W04", mana_cost="{3}", cmc=3.0, type_line="Legendary Artifact", oracle_text="If you would draw a card while you have no cards in hand, draw two cards instead.\nIf you would gain life while you have 5 or less life, you gain twice that much life instead.\n{T}: Add one mana of any color."),  # noqa: E501
+    card("Enduring Renewal", set_code="tst", number="W05", mana_cost="{2}{W}{W}", cmc=4.0, type_line="Enchantment", colors=["W"], color_identity=["W"], oracle_text="Play with your hand revealed.\nIf you would draw a card, reveal the top card of your library instead. If it's a creature card, put it into your graveyard. Otherwise, draw a card.\nWhenever a creature is put into your graveyard from the battlefield, return it to your hand."),  # noqa: E501
+    card("Obstinate Familiar", set_code="tst", number="W06", mana_cost="{R}", cmc=1.0, type_line="Creature — Lizard", power="1", toughness="1", colors=["R"], color_identity=["R"], oracle_text="If you would draw a card, you may skip that draw instead."),  # noqa: E501
+    card("Forbidden Crypt", set_code="tst", number="W07", mana_cost="{3}{B}{B}", cmc=5.0, type_line="Enchantment", colors=["B"], color_identity=["B"], oracle_text="If you would draw a card, return a card from your graveyard to your hand instead. If you can't, you lose the game.\nIf a card would be put into your graveyard from anywhere, exile that card instead."),  # noqa: E501
+    card("Bloodletter of Aclazotz", set_code="tst", number="W08", mana_cost="{1}{B}{B}{B}", cmc=4.0, type_line="Creature — Vampire Demon", power="2", toughness="4", colors=["B"], color_identity=["B"], oracle_text="Flying\nIf an opponent would lose life during your turn, they lose twice that much life instead. (Damage causes loss of life.)", keywords=["Flying"]),  # noqa: E501
+    card("Test Small", set_code="tst", number="W10", mana_cost="{G}", cmc=1.0, type_line="Creature — Elf", power="2", toughness="2", colors=["G"], color_identity=["G"], oracle_text=""),  # noqa: E501
+    card("Divination", set_code="tst", number="W09", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"], color_identity=["U"], oracle_text="Draw two cards."),  # noqa: E501
+]
+FULL = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Small", "Phial of Galadriel", "Bloodletter of Aclazotz")]
+
+
+@pytest.fixture()
+def card_db(settings: Settings) -> Path:
+    settings.ensure_dirs()
+    names = {c["name"] for c in fixture_cards()}
+    build_database(fixture_cards() + [c for c in EXTRA if c["name"] not in names], settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
+def zone(s, name, pid="p1"):
+    return s.state.zones.get(f"{pid}:{name}", [])
+
+
+def cast_divination(cards, *others, hand_empty=False):
+    s = build(cards, p1=("Divination", *others))
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    return s
+
+
+@pytest.mark.parametrize("name", FULL)
+def test_coverage_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_underrealm_lich_replaces_each_draw_of_a_sequence_with_its_own_look(cards):
+    s = build(cards, p1=("Divination", "Underrealm Lich"))
+    put(s, "Underrealm Lich", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    hand, lib, gy = len(zone(s, "hand")), len(zone(s, "library")), len(zone(s, "graveyard"))
+    top = list(zone(s, "library")[:6])
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and [o.card_id for o in d.options] == top[:3]  # 121.6b: the first draw's look
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[1].id])
+    d = s.state.rules.decision
+    assert d is not None and [o.card_id for o in d.options] == [x for x in zone(s, "library")[:3]]  # then the second draw's own look
+    assert top[1] in zone(s, "hand") and top[0] in zone(s, "graveyard") and top[2] in zone(s, "graveyard")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    answer(s)
+    assert len(zone(s, "hand")) == hand - 1 + 2 and len(zone(s, "library")) == lib - 6  # (Divination left the hand)
+    assert len(zone(s, "graveyard")) == gy + 4 + 1  # four not chosen, and Divination itself
+    assert s.state.rules.turn_log.drew.get("p1", 0) == 0  # 614.6: the draws never happened, 121.5: nothing was drawn
+    roundtrip(s)
+
+
+def settle(s, pick=None, limit=40):
+    """Resolve the stack, answering decisions with ``pick(decision)`` (option ids) or the first option."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = (pick(d) if pick else None) or [d.options[0].id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+def empty_hand(s, keep):
+    for x in list(zone(s, "hand")):
+        if x != keep:
+            act(s, "p1", type="move", card_ids=[x], to={"player": "p1", "zone": "graveyard"})
+
+
+def to_draw_step_of_p1(s, limit=60):
+    """Pass priority until p1's next draw step (turn 3): a decision of the replacement stops the walk."""
+    for _ in range(limit):
+        if s.state.rules.decision is not None or (s.state.turn.number == 3 and s.state.turn.phase == "draw"):
+            return
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no draw step")
+
+
+def test_a_draw_step_draw_is_replaced_and_the_step_goes_on_afterwards(cards):
+    s = build(cards, p1=("Underrealm Lich",))
+    put(s, "Underrealm Lich", "battlefield")
+    top = list(zone(s, "library")[:3])
+    to_draw_step_of_p1(s)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and [o.card_id for o in d.options] == top  # 504.1: the turn-based draw, replaced (121.6)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[2].id])
+    assert top[2] in zone(s, "hand") and top[0] in zone(s, "graveyard")
+    for _ in range(3):  # (the step goes on: the turn reaches its main phase with priority)
+        if s.state.turn.phase == "main1":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.turn.phase == "main1" and s.state.turn.number == 3
+    roundtrip(s)
+
+
+def test_a_replaced_draw_with_an_empty_library_still_happens_and_nobody_loses(cards):
+    s = build(cards, p1=("Divination", "Underrealm Lich"))
+    put(s, "Underrealm Lich", "battlefield")
+    act(s, "p1", type="move", card_ids=list(zone(s, "library")), to={"player": "p1", "zone": "exile"})
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert "p1" not in s.state.rules.lost and "p1" not in s.state.rules.drew_from_empty  # 121.6a / 614.11: replaced, so no draw was attempted
+    roundtrip(s)
+
+
+def test_two_draw_replacements_are_ordered_by_the_player(cards):
+    s = build(cards, p1=("Divination", "Underrealm Lich", "Eruth, Tormented Prophet"))
+    put(s, "Underrealm Lich", "battlefield")
+    put(s, "Eruth, Tormented Prophet", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and "which applies first" in d.prompt.lower() or "apply" in d.prompt.lower()  # 616.1
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    settle(s)  # (whichever applied first replaced the draw; the other one found nothing left to replace: 614.5 / 614.6)
+    assert s.state.rules.turn_log.drew.get("p1", 0) == 0
+    roundtrip(s)
+
+
+def test_eruth_exiles_two_for_each_draw_and_they_can_be_played_this_turn(cards):
+    s = build(cards, p1=("Divination", "Eruth, Tormented Prophet"))
+    put(s, "Eruth, Tormented Prophet", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    hand, lib = len(zone(s, "hand")), len(zone(s, "library"))
+    top = list(zone(s, "library")[:4])
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert len(zone(s, "hand")) == hand - 1 and len(zone(s, "library")) == lib - 4  # Divination left the hand; nothing was drawn
+    assert [x for x in top if x in zone(s, "exile")] == top  # 121.6b: two exiled for the first draw, two for the second
+    assert s.state.rules.turn_log.drew.get("p1", 0) == 0
+    land = next(x for x in top if s.state.cards[x].name == "Forest")  # "You may play those cards this turn"
+    act(s, "p1", type="play_land", card_id=land)
+    assert s.state.cards[land].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_blood_scrivener_draws_two_and_loses_a_life_only_with_an_empty_hand(cards):
+    s = build(cards, p1=("Divination", "Blood Scrivener"))
+    put(s, "Blood Scrivener", "battlefield")
+    c = put(s, "Divination", "hand")
+    empty_hand(s, c.id)
+    mana(s, C=2, U=1)
+    life, lib = s.state.players["p1"].life, len(zone(s, "library"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    # draw 1: the hand is empty -> two cards and 1 life (the replacement doesn't apply to those two draws again, 614.5);
+    # draw 2: the hand isn't empty any more -> an ordinary draw
+    assert s.state.players["p1"].life == life - 1
+    assert len(zone(s, "hand")) == 3 and len(zone(s, "library")) == lib - 3
+    assert s.state.rules.turn_log.drew.get("p1", 0) == 3
+    roundtrip(s)
+
+
+def test_blood_scrivener_does_nothing_with_cards_in_hand(cards):
+    s = build(cards, p1=("Divination", "Blood Scrivener", "Test Small"))
+    put(s, "Blood Scrivener", "battlefield")
+    c = put(s, "Divination", "hand")
+    put(s, "Test Small", "hand")  # (the hand isn't empty)
+    mana(s, C=2, U=1)
+    life, hand = s.state.players["p1"].life, len(zone(s, "hand"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert s.state.players["p1"].life == life and len(zone(s, "hand")) == hand - 1 + 2
+    roundtrip(s)
+
+
+def test_phial_of_galadriel_draws_two_instead_of_one_with_an_empty_hand(cards):
+    s = build(cards, p1=("Divination", "Phial of Galadriel"))
+    put(s, "Phial of Galadriel", "battlefield")
+    c = put(s, "Divination", "hand")
+    empty_hand(s, c.id)
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert len(zone(s, "hand")) == 3  # two instead of the first draw, then one ordinary draw (hand no longer empty)
+    roundtrip(s)
+
+
+def test_enduring_renewal_puts_a_revealed_creature_into_the_graveyard_else_draws_it(cards):
+    s = build(cards, p1=("Divination", "Enduring Renewal", "Test Small"))
+    put(s, "Enduring Renewal", "battlefield")
+    creature = find(s, "Test Small").id
+    act(s, "p1", type="move", card_ids=[creature], to={"player": "p1", "zone": "library"}, position="top")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    hand, size = len(zone(s, "hand")), len(zone(s, "library"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert s.state.cards[creature].zone == "p1:graveyard"  # revealed creature card: into the graveyard (the draw is gone)
+    assert len(zone(s, "hand")) == hand - 1 + 1 and len(zone(s, "library")) == size - 2  # the second draw: a Forest, drawn
+    roundtrip(s)
+
+
+def test_obstinate_familiar_may_skip_a_draw(cards):
+    s = build(cards, p1=("Divination", "Obstinate Familiar"))
+    put(s, "Obstinate Familiar", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    hand = len(zone(s, "hand"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and {o.id for o in d.options} >= {"decline"}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["o0"])  # skip the first draw
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["decline"])  # draw the second normally
+    settle(s)
+    assert len(zone(s, "hand")) == hand - 1 + 1
+    roundtrip(s)
+
+
+def test_forbidden_crypt_loses_the_game_with_an_empty_graveyard(cards):
+    s = build(cards, p1=("Divination", "Forbidden Crypt"))
+    put(s, "Forbidden Crypt", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert "p1" in s.state.rules.lost  # 104.3e: "If you can't, you lose the game."
+    roundtrip(s)

@@ -422,6 +422,8 @@ def describe(plan: Plan, ev: Event) -> str:
         return f"{plan.name(ev['player'])} draws a card"
     if kind == "dredge":
         return f"{plan.name(ev['player'])} dredges {ev['n']}"
+    if kind == "body":  # -- draw bodies (wave 28B) --
+        return f"{ev['label']}'s effect"
     if kind == "win":
         return f"{plan.name(ev['player'])} wins the game"
     if kind == "life":
@@ -469,7 +471,8 @@ def ask(plan: Plan, q: Ask, answers: dict[str, str], resume: dict[str, Any]) -> 
         base["ctx"].pop(ANSWERS, None)
     if isinstance(q, AskOptional):  # -- static_other sweep (wave 16B) -- 702.52a: "you may instead" (public: a card in a graveyard)
         decide(plan, player=q.chooser, kind="choose_one", prompt=f"{what}: apply a replacement effect instead? (702.52)",
-               options=[*(DecisionOption(id=f"o{i}", label=f"{c.label}: mill {c.op['n']}, return it to your hand", card_id=c.source_card)
+               options=[*(DecisionOption(id=f"o{i}", label=f"{c.label}: mill {c.op['n']}, return it to your hand" if c.op.get("do") == "dredge"
+                                     else f"{c.label}: apply it instead", card_id=c.source_card)
                           for i, c in enumerate(q.applicable)), DecisionOption(id="decline", label="Draw normally")],
                resume={**base, "map": {**{f"o{i}": c.id for i, c in enumerate(q.applicable)}, "decline": "decline"}})
         return
@@ -554,7 +557,7 @@ def run_then(plan: Plan, then: dict[str, Any] | None) -> None:
     fn(plan, then)
 
 
-THEN: dict[str, Any] = {}  # continuation name -> fn(plan, then): filled by the sites' modules
+THEN: dict[str, Any] = {"draw_rest": lambda plan, then: _then_draw_rest(plan, then)}  # continuation name -> fn(plan, then): filled by the sites' modules
 
 
 def _ctx_answers(ctx: dict[str, Any] | None) -> dict[str, str]:
@@ -960,7 +963,8 @@ def draws_this_step(plan: Plan, pid: str) -> int:
 
 def _draw_sim(plan: Plan, players: list[str]) -> Sim:
     return {"library": {p: len(plan.state.zones.get(zone_key(p, "library"), [])) for p in plan.state.players},
-            "step": {p: draws_this_step(plan, p) for p in plan.state.players}, "dredged": []}
+            "step": {p: draws_this_step(plan, p) for p in plan.state.players}, "dredged": [],
+            "hand": {p: len(plan.state.zones.get(zone_key(p, "hand"), [])) for p in plan.state.players}}
 
 
 def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
@@ -977,6 +981,8 @@ def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
         return False  # a record for one player ("if target player would draw a card")
     if m.get("library_empty") and sim["library"].get(pid, 0) > 0:
         return False
+    if m.get("hand_empty") and sim["hand"].get(pid, 0) > 0:
+        return False  # -- draw bodies (wave 28B) -- "while you have no cards in hand": as the draw would happen
     if m.get("not_first_in_draw_step"):
         # 504.1: the first card they draw in each of their draw steps (the turn-based draw)
         in_their_draw_step = plan.state.turn.phase == "draw" and plan.active == pid
@@ -997,6 +1003,9 @@ def _draw_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         return [{"kind": "dredge", "player": ev["player"], "card": c.op["card"], "n": int(c.op["n"])}]
     if op == "draw":
         return [{"kind": "draw", "player": ev["player"]} for _ in range(int(c.op["n"]))]
+    if op == "body":  # -- draw bodies (wave 28B) -- run by do_draws once everything before it has happened (app/rules/draw_bodies.py)
+        return [{"kind": "body", "player": ev["player"], "effects": c.op["effects"], "controller": c.controller,
+                 "source_card": c.source_card, "source_oid": c.source_oid, "label": c.label}]
     return [ev]
 
 
@@ -1006,6 +1015,7 @@ def _draw_perform(plan: Plan, ev: Event, sim: Sim) -> None:
     if left > 0:
         sim["library"][pid] = left - 1
         sim["step"][pid] = sim["step"].get(pid, 0) + 1
+        sim["hand"][pid] = sim["hand"].get(pid, 0) + 1
 
 
 def _dredge_perform(plan: Plan, ev: Event, sim: Sim) -> None:
@@ -1043,47 +1053,66 @@ def _dredge(plan: Plan, f: Event) -> None:
 
 
 def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then: dict[str, Any] | None = None,
-               answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None) -> bool:
+               answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None, exclude: list[str] | None = None) -> bool:
     """THE draw choke point (see the module docstring). 121.2: one card at a time; 121.2c: the
     active player draws all their cards first, then the others in turn order; 121.6a / 614.11:
     replacement effects apply even with an empty library; 704.5b: a draw from an empty library
-    that isn't replaced loses the game at the next check. False while a choice is open."""
+    that isn't replaced loses the game at the next check. False while a choice is open.
+    -- draw bodies (wave 28B) -- ``exclude``: replacement effects that already applied to the event these draws come from (614.5: a body's own
+    "draw a card" isn't replaced by that effect again; the context of a body says so, ``repl_applied``). 121.6b: a body is completed before
+    the draws after it; the plan stops at it and the rest is planned once it is done (the continuation ``draw_rest``), so False also
+    means "a replacement effect is running and goes on by itself"."""
     answers = answers if answers is not None else _ctx_answers(ctx)
+    exclude = list(exclude if exclude is not None else (ctx or {}).get("repl_applied") or [])
     order = plan.apnap()
     who = sorted([p for p in players if p in plan.live()], key=lambda p: order.index(p) if p in order else len(order))
-    planner = Planner(plan, [*candidates(plan, "draw"), *dredge_candidates(plan, who)], answers, ask=then is not None)
+    cands = [*candidates(plan, "draw"), *dredge_candidates(plan, who)]
+    if then is None:  # (a site that can't pause can't run a replacement effect's choices: the players do it, 616.1)
+        for c in [c for c in cands if c.op.get("do") == "body" and c.id not in exclude]:
+            plan.note(f"{c.label} would replace a draw here, and the engine can't ask: apply it by hand (121.6)")
+        cands = [c for c in cands if c.op.get("do") != "body"]
+    planner = Planner(plan, cands, answers, ask=then is not None)
     sim = _draw_sim(plan, who)
+    slots = [pid for pid in who for _ in range(max(0, int(n[pid] if isinstance(n, dict) else n)))]  # (a dict: each player's own count, wave 16B)
     actions: list[tuple[Event, list[Event]]] = []
+    cut: int | None = None
     try:
-        for pid in who:
-            for _ in range(max(0, int(n[pid] if isinstance(n, dict) else n))):  # (a dict: each player's own count, wave 16B)
-                ev: Event = {"kind": "draw", "player": pid, "applied": []}
-                out: list[Event] = []
-                planner.settle(ev, sim, out.append)
-                actions.append((ev, out))
+        for i, pid in enumerate(slots):
+            ev: Event = {"kind": "draw", "player": pid, "applied": list(exclude)}
+            out: list[Event] = []
+            planner.settle(ev, sim, out.append)
+            actions.append((ev, out))
+            if any(f["kind"] in ("dredge", "body") for f in out):
+                cut = i  # (-- static_other sweep (wave 16B) -- a dredge mills cards that may be dredged for the next draw: the draws after it
+                break  # are planned again once it has happened; likewise after a body, 121.6b)
     except Ask as q:
-        request = {"players": who, "n": n}
+        request = {"players": who, "n": n, "exclude": exclude}
         if _pause(plan, q, answers, _resume_for(then, "draw", request)):
             return False
         raise
     left_to_players(plan, planner)
-    # -- static_other sweep (wave 16B) -- a dredge mills cards that may be dredged for the next draw: those draws are planned again
-    # once it has happened (answers start over: the question for the next one is its own)
-    cut = next((k for k, (_, out) in enumerate(actions) if any(f["kind"] == "dredge" for f in out)), None)
     rest: dict[str, int] = {}
-    if cut is not None:
-        for before, _ in actions[cut + 1:]:
-            rest[before["player"]] = rest.get(before["player"], 0) + 1
-        actions = actions[: cut + 1]
-    do_draws(plan, actions)
+    for pid in slots[cut + 1:] if cut is not None else ():
+        rest[pid] = rest.get(pid, 0) + 1
+    after = {"do": "draw_rest", "players": [p for p in who if p in rest], "n": rest, "then": then, "exclude": exclude}
+    if do_draws(plan, actions, after):
+        return False
     if rest:
-        return draw_cards(plan, [p for p in who if p in rest], rest, then=then, answers={})
+        return draw_cards(plan, [p for p in who if p in rest], rest, then=then, answers={}, exclude=exclude)
     return True
 
 
-def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]]) -> None:
+def _then_draw_rest(plan: Plan, then: dict[str, Any]) -> None:
+    """-- draw bodies (wave 28B) -- a replacement effect is done: the draws that were left, then what the instruction goes on with."""
+    if not then["players"] or draw_cards(plan, list(then["players"]), dict(then["n"]), then=then["then"], answers={},
+                                         exclude=list(then.get("exclude") or [])):
+        run_then(plan, then["then"])
+
+
+def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[str, Any] | None = None) -> bool:
     """The final events of a draw sequence, in order: consecutive draws by one player are one
-    table step (each card is still its own "drew" event, 121.2)."""
+    table step (each card is still its own "drew" event, 121.2). True when a body (wave 28B) was run last: ``after`` goes on once it is
+    done (the plan stops at a body, so nothing follows it)."""
     r = plan.rules
     run: list[str] = []
 
@@ -1124,7 +1153,14 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]]) -> None:
             elif f["kind"] == "win":
                 flush()
                 _win(plan, f["player"])
+            elif f["kind"] == "body":  # -- draw bodies (wave 28B) -- 121.6b: completed before the draws after it (draw_bodies.py)
+                flush()
+                from app.rules import draw_bodies
+
+                draw_bodies.run(plan, f, after or {"do": "draw_rest", "players": [], "n": {}, "then": None})
+                return True
     flush()
+    return False
 
 
 def _win(plan: Plan, pid: str) -> None:
@@ -1151,7 +1187,8 @@ def _win(plan: Plan, pid: str) -> None:
 
 def _run_draw(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     n = request["n"]
-    if draw_cards(plan, list(request["players"]), n if isinstance(n, dict) else int(n), then=then, answers=answers):
+    if draw_cards(plan, list(request["players"]), n if isinstance(n, dict) else int(n), then=then, answers=answers,
+                  exclude=list(request.get("exclude") or [])):
         run_then(plan, then)
 
 

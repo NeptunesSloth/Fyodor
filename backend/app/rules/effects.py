@@ -3149,6 +3149,9 @@ def continue_effects(plan: Plan, ctx: Context) -> None:
             context.bind_objects(plan, ctx, e["note_group"]["as"], _cards(plan, ctx, e["note_group"]["who"]))
         if not PRIMITIVES[e["do"]](plan, ctx, e):
             return  # waiting for a choice; the decision's resume continues from ctx["next"]
+    if ctx.get("body_done") is not None:  # -- draw bodies (wave 28B) -- a replacement effect's own resolution: no stack object (draw_bodies.py)
+        replace.run_then(plan, ctx["body_done"])
+        return
     finish(plan, ctx)
 
 
@@ -3926,6 +3929,10 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return _return_cards(plan, ctx, e, picked)
     most = min(want, len(pool))
     least = 0 if e.get("upto") else most
+    if most == 0 and e.get("lose_if_none"):  # -- draw bodies (wave 28B) -- "If you can't, you lose the game." (104.3e; Forbidden Crypt)
+        from app.rules import win_game
+
+        return win_game.lose_game(plan, ctx, {"who": "you"})
     if most == 0 or (least == most == len(pool)):
         return _return_cards(plan, ctx, e, pool[:most])
     decide(plan, player=pid, kind="choose_cards",

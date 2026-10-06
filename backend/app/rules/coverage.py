@@ -166,6 +166,8 @@ SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"prevent_ha
 SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra"}
 # -- replacements & prevention (wave 22C) -- "put half that many … rounded down" (Vorinclex) on counters
 SUPPORTED_REPLACE_OPS["counters"] = SUPPORTED_REPLACE_OPS["counters"] | {"half"}
+# -- replacements: draws and life (wave 28B) -- a draw replaced by its own instructions (app/rules/draw_bodies.py)
+SUPPORTED_REPLACE_OPS["draw"] = SUPPORTED_REPLACE_OPS["draw"] | {"body"}
 SUPPORTED_REPLACEMENTS |= {
     "enters_tapped_others",  # 614.1d, 614.12: "Creatures your opponents control enter tapped."
     "exile_if_dies",  # "If that creature / a creature dealt damage this way would die this turn, exile it instead." (611.2a)
@@ -176,7 +178,12 @@ def stage2_supported(d: dict[str, Any]) -> bool | None:
     """Stage 2 definitions: automated when their event and op are listed above (None: not one, or
     nothing here to object to)."""
     if d.get("kind") == "static" and d.get("static") == "replace":
-        return (d.get("op") or {}).get("do") in SUPPORTED_REPLACE_OPS.get(str(d.get("event")), frozenset())
+        op = d.get("op") or {}
+        if op.get("do") == "body":  # -- replacements: draws and life (wave 28B) -- only the instructions a body may carry
+            from app.rules import draw_bodies
+
+            return draw_bodies.supported(op.get("effects") or [])
+        return op.get("do") in SUPPORTED_REPLACE_OPS.get(str(d.get("event")), frozenset())
     if d.get("kind") == "static" and d.get("static") == "enters_tapped_others":
         return "enters_tapped_others" in SUPPORTED_REPLACEMENTS
     effects = d.get("effects") or []
