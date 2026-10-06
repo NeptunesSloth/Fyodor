@@ -105,6 +105,7 @@ class CostComponent:
     more: bool = False  # -- casting extras (wave 18E) -- "N or more" (craft materials)
     up_to: bool = False  # -- casting extras (wave 18E) -- "up to N" (harmonize 702.180a: "tapping up to one untapped creature"): none is a choice
     every: bool = False  # -- activated sweep (wave 26C) -- "Remove all oil counters from ~": X is every such counter there is, set as it's activated
+    among: bool = False  # -- activated sweep (wave 26C) -- "Remove two +1/+1 counters from among creatures you control": any permanents, one pick per counter
 
     @property
     def chosen(self) -> bool:
@@ -123,7 +124,7 @@ class CostComponent:
         """-- activation costs (wave 4H) -- a part only an activated ability's activation pays (casting.activate_to_stack
         through app/rules/cost_payment.py): never a mana ability's (605: no stack, no X), an optional payment's or a
         spell's additional cost."""
-        return self.kind in WAVE_4H_KINDS or (self.x and self.kind != PAY_ENERGY) or self.counter == ANY_COUNTER \
+        return self.kind in WAVE_4H_KINDS or (self.x and self.kind != PAY_ENERGY) or self.counter == ANY_COUNTER or self.among \
             or self.life_rule is not None or (self.kind == EXILE and self.selector is not None) \
             or self.alt is not None or self.named_self
 
@@ -348,6 +349,7 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False)
 _ANY_SELF = re.compile(rf"^Remove (?P<n>a|an|one|two|three|four|five) counters? from {_SELF}$")
 _ANY_CHOSEN = re.compile(r"^Remove (?:a|one) counter from (?P<another>a|an|another) (?P<what>[^,]+ you control)$")
 _X_SELF = re.compile(rf"^Remove X (?P<kind>[\w+/\-]+) counters from {_SELF}$")
+_AMONG = re.compile(r"^Remove (?P<n>a|one|two|three|four|five|X) (?:(?P<kind>\+1/\+1|-1/-1|[a-z]+) )?counters? from among (?P<what>.+ you control)$")
 _PUT_SELF = re.compile(rf"^Put {_N} (?P<kind>[\w+/\-]+) counters? on {_SELF}$")
 _PUT_CHOSEN = re.compile(rf"^Put {_N} (?P<kind>[+-]\d+/[+-]\d+) counters? on (?P<another>a|an|another) (?P<what>[^,]+ you control)$")
 _BLIGHT = re.compile(r"^Blight (?P<n>\d+)$")
@@ -415,6 +417,12 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(REMOVE_COUNTER, counter=ANY_COUNTER, selector=key, text=part) if key else None
     if m := _X_SELF.match(part):
         return CostComponent(REMOVE_COUNTER, amount=0, counter=m["kind"], x=True, text=part)
+    if m := _AMONG.match(part):  # -- activated sweep (wave 26C) -- 122.1: the counters come off any of the permanents, one pick for each counter
+        key = _selector(m["what"], zone="battlefield")
+        if key is None or m["what"].startswith("other "):
+            return None
+        return CostComponent(REMOVE_COUNTER, amount=0 if m["n"] == "X" else _n(m["n"]), counter=m["kind"] or ANY_COUNTER, selector=key,
+                             x=m["n"] == "X", among=True, text=part)
     if m := _PUT_SELF.match(part):
         return CostComponent(PUT_COUNTER, amount=_n(m["n"]), counter=m["kind"], text=part) if m["n"] != "another" else None
     if m := _PUT_CHOSEN.match(part):

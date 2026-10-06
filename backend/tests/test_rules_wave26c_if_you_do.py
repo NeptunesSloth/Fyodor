@@ -78,6 +78,11 @@ REAL = [
     ("Keldon Battlewagon", "{5}", "Artifact Creature — Juggernaut", "0", "3",
      "Trample\nThis creature can't block.\nWhen this creature attacks, sacrifice it at end of combat.\nTap an untapped creature you control: This "
      "creature gets +X/+0 until end of turn, where X is the power of the creature tapped this way."),
+    ("Hopeful Initiate", "{W}", "Creature — Human Warlock", "1", "2",
+     "Training (Whenever this creature attacks with another creature with greater power, put a +1/+1 counter on this creature.)\n"
+     "{2}{W}, Remove two +1/+1 counters from among creatures you control: Destroy target artifact or enchantment."),
+    ("Retribution of the Ancients", "{B}", "Enchantment", None, None,
+     "{B}, Remove X +1/+1 counters from among creatures you control: Target creature gets -X/-X until end of turn."),
     ("Flameblast Dragon", "{4}{R}{R}", "Creature — Dragon", "5", "5",
      "Flying\nWhenever this creature attacks, you may pay {X}{R}. If you do, it deals X damage to any target."),
 ]
@@ -514,4 +519,48 @@ def test_keldon_battlewagon_gets_the_power_of_the_creature_tapped_this_way(cards
     pick(s, bear.id)
     answer(s)
     assert s.state.cards[bear.id].tapped and chars_of(s, "Keldon Battlewagon").pt == (3, 3)
+    check(s)
+
+
+# -- "Remove two +1/+1 counters from among creatures you control" ----------------------------------------------------
+def test_hopeful_initiate_removes_counters_from_among_creatures(cards):
+    s = build(cards, ["Hopeful Initiate"])
+    put(s, "Hopeful Initiate")
+    bear = creature(s, "p1", "Bear")
+    relic = creature(s, "p2", "Relic", pt="0/0", type_line="Token Artifact")
+    add_counters(s, "Hopeful Initiate", "+1/+1", 2)
+    act(s, "p1", type="counter", card_ids=[bear.id], kind="+1/+1", delta=1)
+    mana(s, W=1, C=2)
+    activate(s, "Hopeful Initiate", "{2}{W}", targets=[relic.id])
+    d = until_asked(s)
+    assert d.player == "p1" and len(d.options) == 3  # (every counter is a choice: two on the Initiate, one on the Bear)
+    check(s)
+    pick(s, *[o.id for o in d.options if o.card_id == bear.id], *[o.id for o in d.options if o.card_id != bear.id][:1])
+    answer(s)
+    assert relic.id not in s.state.cards  # (destroyed)
+    assert counters(s, "Hopeful Initiate", "+1/+1") == 1 and s.state.cards[bear.id].counters.get("+1/+1", 0) == 0
+    check(s)
+
+
+def test_among_cost_is_not_payable_without_enough_counters(cards):
+    s = build(cards, ["Hopeful Initiate"])
+    put(s, "Hopeful Initiate")
+    relic = creature(s, "p2", "Relic", pt="0/0", type_line="Token Artifact")
+    add_counters(s, "Hopeful Initiate", "+1/+1", 1)
+    mana(s, W=1, C=2)
+    with pytest.raises(ActionError):
+        activate(s, "Hopeful Initiate", "{2}{W}", targets=[relic.id])
+    check(s)
+
+
+def test_retribution_of_the_ancients_x_counters_from_among_creatures(cards):
+    s = build(cards, ["Retribution of the Ancients"])
+    put(s, "Retribution of the Ancients")
+    mine = creature(s, "p1", "Mine", pt="1/1")
+    ogre = creature(s, "p2", "Ogre", pt="3/3")
+    act(s, "p1", type="counter", card_ids=[mine.id], kind="+1/+1", delta=2)
+    mana(s, B=1)
+    activate(s, "Retribution of the Ancients", "{B}", targets=[ogre.id], x_value=2)
+    answer(s)
+    assert s.state.cards[mine.id].counters.get("+1/+1", 0) == 0 and chars_of_id(s, ogre.id).pt == (1, 1)
     check(s)
