@@ -26,6 +26,8 @@ REAL = [
      "You may sacrifice two Foods. If you do, create a 7/7 green Giant creature token. Otherwise, create three Food tokens. "
      "(They're artifacts with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")"),
     ("Doom Blade", "{1}{B}", "Instant", "Destroy target nonblack creature."),
+    ("Rhystic Study", "{2}{U}", "Enchantment", "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}."),
+    ("Giant Growth", "{G}", "Instant", "Target creature gets +3/+3 until end of turn."),
 ]
 EXTRA = [card(n, set_code="t28d", number=f"T{i:02d}", mana_cost=mc, cmc=float(len(mc.replace("{", "").split("}")) - 1), type_line=tl,
               colors=["B"] if n == "Doom Blade" else [], color_identity=[], oracle_text=text)
@@ -211,4 +213,39 @@ def test_the_spells_own_target_isnt_offered_for_the_sacrifice(cards):
     assert gone(s, cub) and alive(s, elf)  # (and the spell resolved: the bear was its target, destroyed)
     assert gone(s, bear)
     assert s.state.cards[spell.id].zone != "p1:hand"  # (B + CC paid {1}{B}: it was cast)
+    check(s)
+
+
+def test_a_payment_prompt_of_an_unless_cost_takes_a_nested_altar_too(cards):
+    """Rhystic Study: Bob is asked whether to pay {1}; he sacrifices a creature to Ashnod's Altar first (605.3a), then pays."""
+    from tests.test_rules_conditionals import to_turn
+    from tests.test_rules_wave4c_unless_pays import hand
+
+    s = build(cards, ["Rhystic Study"], ["Giant Growth", "Ashnod's Altar"])
+    self_payment(s)
+    put(s, "Rhystic Study")
+    to_turn(s, 2)
+    self_payment(s)
+    put(s, "Ashnod's Altar", "p2")
+    bear, cub = creature(s, "p2", "Bear"), creature(s, "p2", "Cub")
+    growth = to_hand(s, "Giant Growth", "p2")
+    act(s, "p2", type="add_mana", player="p2", mana={"G": 1})
+    act(s, "p2", type="add_mana", player="p2", mana={"C": 1})
+    act(s, "p2", type="cast_spell", card_id=growth.id, targets=[bear.id])
+    d = until_asked(s)
+    assert d.player == "p2" and [o.id for o in d.options] == ["pay", "decline"]
+    assert d.resume["step"] == "pay_or_sacrifice"
+    act(s, "p2", type="activate_ability", card_id=card_named(s, "Ashnod's Altar", "p2").id, ability=0)
+    nested = s.state.rules.decision
+    assert nested.kind == "choose_cards" and s.state.rules.payment_outer is not None
+    check(s)
+    pick(s, cub.id)
+    d = s.state.rules.decision
+    assert d.resume["step"] == "pay_or_sacrifice" and [o.id for o in d.options] == ["pay", "decline"] and s.state.rules.payment_outer is None
+    assert s.state.players["p2"].mana.get("C") == 3 and cub.id not in s.state.cards
+    check(s)
+    before = len(hand(s, "p1"))
+    pick(s, "pay")
+    until_asked(s)
+    assert s.state.players["p2"].mana.get("C", 0) == 2 and len(hand(s, "p1")) == before  # (paid {1}: Alice doesn't draw)
     check(s)
