@@ -254,7 +254,8 @@ def test_herald_sacrifices_three_creatures_of_three_colors(cards):
     act(s, "p1", type="activate_ability", card_id=herald.id, ability=0)
     choose_all(s)
     assert s.state.cards[godsire.id].zone == "p1:battlefield"
-    assert all(c not in s.state.cards for c in made[:3]) and s.state.cards[made[3]].zone == "p1:battlefield"  # the blue one stays
+    gone = [c for c in made + [herald.id] if c not in s.state.cards or s.state.cards[c].zone != "p1:battlefield"]
+    assert made[0] in gone and made[2] in gone and made[3] not in gone and len(gone) == 3  # one red, one white, one green (the Herald itself is green)
     roundtrip(s)
 
 
