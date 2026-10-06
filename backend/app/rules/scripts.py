@@ -2459,6 +2459,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
         return None
+    if event_player:  # -- trigger sweep (wave 27B) -- "that attacking player creates a Treasure token" (Jolene): the event's player (508.1)
+        body = re.sub(r"\b([Tt]hat|[Tt]he) attacking player\b", "that player", body)
+        both = re.fullmatch(r"[Yy]ou and that player each ((?:draw|lose|gain|discard|mill) [^.]+?(?: and (?:draw|lose|gain|discard|mill) [^.]+?)*)\.", body)
+        if both is not None:  # "you and that player each draw a card and lose 1 life" (Karazikar): the same of each, you first
+            theirs = re.sub(r"\b(draw|lose|gain|discard|mill)\b", lambda v: _THEY_VERBS.get(v[1], v[1] + "s"), both[1])
+            body = f"{both[1][0].upper() + both[1][1:]}. That player {theirs}."
     if it == "self":  # -- triggers (wave 17D) -- "draw a card for each Aura and Equipment attached to it": "it" is the source (Wyleth)
         body = re.sub(r"\b(Auras?|Equipment) attached to it\b", r"\1 attached to ~", body)
     # -- review (wave 7R) -- "Create a tapped 2/2 black Zombie creature token and exile that card." (Wight): "that card" is

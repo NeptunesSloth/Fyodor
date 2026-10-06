@@ -425,6 +425,13 @@ def _power_or_toughness(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"pot:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))
 
 
+# -- trigger sweep (wave 27B) -- "a creature spell with mana value 4, 5, or 6", "with power 2 or 3": one of the listed values (107.1: whole numbers)
+@_suffix(r"with (?P<what>mana value|power|toughness) (?P<vals>\d+(?:, \d+)*,? or \d+)")
+def _one_of_values(s: Selector, m: re.Match[str]) -> Selector:
+    vals = sorted({int(v) for v in re.findall(r"\d+", m["vals"])})
+    return replace(s, extras=(*s.extras, f"in:{ {'mana value': 'mv'}.get(m['what'], m['what']) }:{','.join(map(str, vals))}"))
+
+
 @_suffix(r"with a basic land type")  # -- tutor (wave 20D) -- 205.3i: "a land card with a basic land type" (Nervous Gardener, Perilous Forays)
 def _basic_land_type(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "basic_land_type"))
@@ -1487,6 +1494,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             op, n = ("<=", int(extra[6:])) if extra[4:6] == "<=" else (">=", int(extra[6:]))
             vals = [v for v in (_stat(ch, "power"), _stat(ch, "toughness")) if v is not None]
             if not any(v <= n if op == "<=" else v >= n for v in vals):
+                return False
+        if extra.startswith("in:"):  # (wave 27B) mana value / power / toughness is one of the listed numbers (on the stack: X counts, 202.3e)
+            _, what, listed = extra.split(":")
+            value = _stat(ch, what)
+            if value is not None and what == "mv" and zone == "stack" and card.stack_info is not None and card.stack_info.x:
+                value += card.stack_info.x * ch.mana_cost.count("{X}")
+            if value is None or value not in {int(v) for v in listed.split(",")}:
                 return False
         if extra == "basic_land_type" and not ch.subtypes & {"Plains", "Island", "Swamp", "Mountain", "Forest"}:
             return False  # (wave 20D)
