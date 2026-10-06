@@ -490,7 +490,7 @@ def _each_part(rest: str, x_value: values.Value | None, it: str | None) -> dict[
 
     Definition key ``each`` on a grant static; app/rules/layers.py applies it in layer 7c."""
     m = _PT_EACH.match(rest)
-    if m and (rel := _relative_count(m["each"])) is not None:  # -- token & pump wordings (wave 6C) --
+    if m and (rel := _relative_count(m["each"], it)) is not None:  # -- token & pump wordings (wave 6C) --
         return {"p": _signed(m["p"]), "t": _signed(m["t"]), "value": rel}
     if m:
         v = values.parse_count(m["each"], it=it)  # ("counters on it": on the source, when ~ is the subject)
@@ -533,9 +533,14 @@ def _controller_count(phrase: str) -> dict[str, Any] | None:
     return {"relative": "controller", "of": inner} if inner is not None and isinstance(inner, dict) else None
 
 
-def _relative_count(each: str) -> dict[str, Any] | None:
+_COUNTERS_ON_IT = re.compile(r"^(?:(?P<k>\+1/\+1|-1/-1|[a-z]+) )?counters? on (?:it|them)$")
+
+
+def _relative_count(each: str, it: str | None = None) -> dict[str, Any] | None:
     if (ctl := _controller_count(each)) is not None:
         return ctl
+    if it is None and (c := _COUNTERS_ON_IT.match(each)) is not None:  # -- counters (wave 26D) -- "for each +1/+1 counter on it": the object modified (611.3a)
+        return {"relative": "counters", "kind": c["k"] or "any"}
     if each == "of its colors":  # -- attached events (wave 16F) -- 105.1: the colors of the object modified (Civic Saber)
         return {"relative": "colors"}
     m = _SHARING.match(each) or _SAME_NAME.match(each)
@@ -577,7 +582,7 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
     if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
         return goaded["s"], goaded["p"]
-    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?(?= combat damage)|(?:crews|saddles)(?= (?:Vehicles|Mounts)))\b", body)  # (assigns: wave 6E; crews: 17C)
+    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|(?<!you )don't|doesn't|assigns?(?= combat damage)|(?:crews|saddles)(?= (?:Vehicles|Mounts)))\b", body)  # (assigns: wave 6E; crews: 17C)
     if m is None or m.start() == 0:
         return None, None
     return body[: m.start()].strip(), body[m.start():].strip()

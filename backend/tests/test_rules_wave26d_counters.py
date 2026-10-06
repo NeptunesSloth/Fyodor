@@ -33,6 +33,8 @@ EXTRA = [
     card("Sigarda's Summons", set_code='tst', number='W06', mana_cost='{4}{W}{W}', cmc=6.0, type_line='Enchantment', oracle_text='Creatures you control with +1/+1 counters on them have base power and toughness 4/4, have flying, and are Angels in addition to their other types.', colors=['W'], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
     card('Rimefeather Owl', set_code='tst', number='W07', mana_cost='{5}{U}{U}', cmc=7.0, type_line='Snow Creature — Bird', oracle_text="Flying\nRimefeather Owl's power and toughness are each equal to the number of snow permanents on the battlefield.\n{1}{S}: Put an ice counter on target permanent.\nPermanents with ice counters on them are snow.", power='*', toughness='*', colors=['U'], color_identity=['U'], keywords=['Flying'], layout='normal'),  # noqa: E501
     card('Omo, Queen of Vesuva', set_code='tst', number='W08', mana_cost='{2}{G/U}', cmc=3.0, type_line='Legendary Creature — Shapeshifter Noble', oracle_text='Whenever Omo enters or attacks, put an everything counter on each of up to one target land and up to one target creature.\nEach land with an everything counter on it is every land type in addition to its other types.\nEach nonland creature with an everything counter on it is every creature type.', power='1', toughness='5', colors=['G', 'U'], color_identity=['G', 'U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Clamavus', set_code='tst', number='W09', mana_cost='{4}{G}', cmc=5.0, type_line='Creature — Human Tyranid Artificer', oracle_text='Proclamator Hailer — Each creature you control gets +1/+1 for each +1/+1 counter on it.', power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Proclamator Hailer'], layout='normal'),  # noqa: E501
+    card('Toxrill, the Corrosive', set_code='tst', number='W10', mana_cost='{5}{B}{B}', cmc=7.0, type_line='Legendary Creature — Slug Horror', oracle_text="At the beginning of each end step, put a slime counter on each creature you don't control.\nCreatures you don't control get -1/-1 for each slime counter on them.\nWhenever a creature you don't control with a slime counter on it dies, create a 1/1 black Slug creature token.\n{U}{B}, Sacrifice a Slug: Draw a card.", power='7', toughness='7', colors=['B'], color_identity=['B', 'U'], keywords=[], layout='normal'),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -128,6 +130,24 @@ def test_counter_conditioned_group_statics(cards):
     assert ch(s, a).types == {"Creature", "Artifact"} and "Angel" in ch(s, a).subtypes
     assert ch(s, a).pt == (5, 5) and "flying" in ch(s, a).keywords  # base 4/4 (7b), the counter on top (7d): 5/5
     assert ch(s, b).types == {"Creature"} and "Angel" not in ch(s, b).subtypes and "flying" not in ch(s, b).keywords
+    roundtrip(s)
+
+
+def test_pump_for_each_counter_on_it(cards):
+    # 613.4c, 611.3a: read for each creature it modifies, whenever its characteristics are
+    s = pbuild(cards, [(1, "Clamavus"), (2, "Grizzly Bears")], bob=[(1, "Toxrill, the Corrosive"), (2, "Grizzly Bears")])
+    a, b = [c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"][:2]
+    theirs = next(c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2")
+    for c in (a, b):
+        act(s, "p1", type="move", card_ids=[c], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p2", type="move", card_ids=[theirs], to={"player": "p2", "zone": "battlefield"})
+    put(s, "Clamavus", "battlefield")
+    act(s, "p1", type="counter", card_ids=[a], kind="+1/+1", delta=2)
+    assert ch(s, a).pt == (6, 6) and ch(s, b).pt == (2, 2)  # 2/2 + two counters, +2/+2 for them again
+    put(s, "Toxrill, the Corrosive", "battlefield", pid="p2")
+    act(s, "p1", type="counter", card_ids=[theirs, a], kind="slime", delta=2)
+    assert ch(s, a).pt == (4, 4)  # 6/6, -1/-1 for each of its two slime counters
+    assert ch(s, theirs).pt == (2, 2)  # Toxrill's own controller's creatures aren't "creatures you don't control"
     roundtrip(s)
 
 
