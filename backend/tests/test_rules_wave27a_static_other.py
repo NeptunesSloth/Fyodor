@@ -95,3 +95,22 @@ def test_barrage_hits_only_a_creature_that_blocked(cards):
 
 def test_lupine_prototype_needs_a_player_with_no_cards_in_hand(cards):
     assert coverage.of_card_data(cards.resolve("Lupine Prototype")).level == "FULL"
+
+
+def test_ensoul_artifact_makes_the_artifact_a_creature_that_is_still_an_artifact(cards):
+    # 205.1b / 613.1d / 613.4b: "Enchanted artifact is a creature with base power and toughness 5/5 in addition to its other types."
+    from app.rules import sba
+    from app.rules.plan import Plan
+    from tests.test_rules_wave16f_smaller import _token
+    from tests.wave9c_kit import build as kit_build
+    from tests.wave9c_kit import check
+
+    s = kit_build(cards)
+    rock = _token(s, "p1", "Rock", "Token Artifact", (None, None))
+    aura = _token(s, "p1", "Ensoul", "Token Enchantment — Aura", (None, None),
+                  text="Enchant artifact\nEnchanted artifact is a creature with base power and toughness 5/5 in addition to its other types.")
+    act(s, "p1", type="attach", card_ids=[aura.id], to=rock.id)
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[rock.id])
+    assert {"Artifact", "Creature"} <= ch.types
+    assert (sba.power(s.state.cards[rock.id], ch), sba.toughness(s.state.cards[rock.id], ch)) == (5, 5)
+    check(s)

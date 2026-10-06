@@ -162,7 +162,7 @@ def _desc(m: re.Match[str], extra: dict[str, Any]) -> bool | list[int]:
     layer4 = _layer4(extra)
     if legendary:
         layer4.setdefault("add_supertypes", []).append("Legendary")
-    if m["add"] and creature and m["p"] and subs and not (artifact or legendary):
+    if m["add"] and creature and m["p"] and not (artifact or legendary) and (subs or colors is None):  # (wave 27A: Ensoul Artifact, no creature type)
         # -- Zendikon (wave 16F) -- "Enchanted land is a 3/3 black Ooze creature. It's still a land.": the land becomes a creature of
         # that type with that base P/T (and that color) and stays a land (205.1b, 613.1d); only a land (see ``consistent``)
         layer4.setdefault("add_types", []).append("Creature")
@@ -203,7 +203,7 @@ def consistent(extra: dict[str, Any], kind: str | None) -> bool:
     if kind == "permanent" and set(extra) == {"lose_all"}:  # (wave 22A) "Enchanted permanent loses all abilities" (613.1f)
         return True
     if extra.pop("_animate", False):
-        return kind == "land" and set(extra) <= {"layer4", "set_colors"} and not lose_types
+        return kind in ("land", "artifact") and set(extra) <= {"layer4", "set_colors"} and not lose_types  # (wave 27A: Ensoul Artifact)
     layer4 = extra.get("layer4") or {}
     if "set_land_types" in layer4:  # -- land types set (wave 12D) -- only an Aura's "Enchanted land is a Swamp." on its own
         return kind == "land" and set(extra) == {"layer4"} and set(layer4) == {"set_land_types"} and not lose_types
