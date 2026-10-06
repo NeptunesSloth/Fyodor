@@ -203,3 +203,19 @@ def test_token_own_name_starting_its_ability_reads_this_creature():
     made = token_grammar.parse("create The Tiger God, a legendary 4/4 green Cat God creature token with \"The Tiger God can't be blocked by "
                                "more than one creature.\"")
     assert made is not None and made[0]["token"]["text"] == "This creature can't be blocked by more than one creature."
+
+
+def test_fight_with_one_illegal_target_still_applies_the_rider(cards):
+    # 608.2b, 701.14b: their creature left before Tail Swipe resolved: no fight, but the creature you control (still legal) gets +1/+1
+    s = pbuild(cards, [(1, "Tail Swipe"), (1, "Grizzly Bears")], bob=[(1, "Grizzly Bears")])
+    mine = put(s, "Grizzly Bears", "battlefield")
+    theirs = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    spell = put(s, "Tail Swipe", "hand")
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    act(s, "p1", type="add_mana", player="p1", mana={"G": 1})
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[theirs.id, mine.id], target_counts=[1, 1])
+    act(s, "p2", type="move", card_ids=[theirs.id], to={"player": "p2", "zone": "hand"})
+    settle(s)
+    assert s.state.cards[spell.id].zone == "p1:graveyard"
+    assert ch(s, mine.id).pt == (3, 3) and s.state.cards[mine.id].damage == 0
+    roundtrip(s)
