@@ -3093,6 +3093,9 @@ _RA_ZONE = r"(?:your graveyard|a graveyard|an opponent's graveyard)"
 _RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any number of )|(?P<n>{AMT}) )(?P<what>[^,]+?)(?P<rand> at random)?"
                         rf" from (?P<z>{_RA_ZONE})")
 _RA_SELF = re.compile(r"(?:this card|~) from your graveyard")
+# -- activated from hand / command zone (wave 27D) -- "Put this card from your hand onto the battlefield." (Talon Gates of Madara, Urban
+# Retreat), "Put ~ onto the battlefield from the command zone." (Derevi): the source itself, only while it is still that object there
+_RA_SELF_ZONE = re.compile(r"put (?:(?P<h>this card|~) from your hand onto the battlefield|~ onto the battlefield from the command zone)")
 _RA_LIB = re.compile(r"put (?P<o>.+? from your graveyard) on top of your library")  # (wave 3R4)
 _RA_LIB_NTH = re.compile(r"put (?:this card|~) from your graveyard into your library (?P<n>second|third) from the top")
 
@@ -3191,6 +3194,9 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     """The graveyard-return wordings above; None when the sentence is not one of them (the older
     grammar then reads it, or it stays manual)."""
     text = text[len("then "):] if text.startswith("then you may ") else text  # (wave 3R4: "Then you may return …")
+    if (z := _RA_SELF_ZONE.fullmatch(text)) is not None:  # -- activated from hand / command zone (wave 27D) -- 113.6m
+        return [{"do": "return_card", "to": "battlefield", "tapped": False, "under": "you",
+                 "who": "self_hand" if z["h"] else "self_command"}], None
     # -- recursion & tutors (wave 4M) -- "Then you return up to two creature cards …" (Unseal the Necropolis), "Then you put
     # a creature card from a graveyard onto the battlefield under your control" (Extract from Darkness): the subject
     # is the one instructed anyway (110.2a)

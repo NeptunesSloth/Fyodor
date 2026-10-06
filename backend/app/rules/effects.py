@@ -188,6 +188,11 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         if src is not None and src.zone.endswith(":graveyard") and plan.oid(src) == ctx.get("source_object"):
             return [src.id]
         return []
+    if who in ("self_hand", "self_command"):  # -- activated from hand / command zone (wave 27D) -- 113.6m: the source, only while it
+        src = plan.state.cards.get(ctx.get("source_card") or "")  # is still the same object in that zone (400.7)
+        if src is not None and src.zone.endswith(":" + who[5:]) and plan.oid(src) == ctx.get("source_object"):
+            return [src.id]
+        return []
     if who.startswith("self_aura_gy"):  # -- sagas & attached-object triggers (wave 3S) --
         return _aura_card(plan, ctx, who)
     if who == "host":  # "enchanted creature" / "equipped creature": what the source is attached to now

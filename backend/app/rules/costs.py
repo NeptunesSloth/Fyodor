@@ -142,6 +142,8 @@ class AbilityCost:
     unsupported: tuple[str, ...] = field(default_factory=tuple)
     components: tuple[CostComponent, ...] = ()
     graveyard_only: bool = False  # -- reanimation (wave 3R) -- its effect moves this card out of your graveyard (113.6m)
+    hand_only: bool = False  # -- activated from hand / command zone (wave 27D) -- its effect moves this card out of your hand (113.6m)
+    command_only: bool = False  # (…or out of the command zone)
     life_x: bool = False  # -- X sized by a count (wave 4K) -- a spell's "pay X life" (107.3a: X announced as it's cast)
     # -- static wordings (wave 6E) -- "As an additional cost to cast this spell, discard a card or pay 3 life.": the
     # costs to choose between (601.2b), each a cost of its own (a mana one: ``mana`` only); no components of its own
@@ -180,7 +182,7 @@ class AbilityCost:
     def from_hand(self) -> bool:
         """-- ability words (wave 4F) -- 113.6m: "Discard this card" (channel: "{1}{R}, Discard this card: …") moves
         the card out of its owner's hand, so the ability works only there."""
-        return any((c.kind == DISCARD and c.selector is None) or c.kind == REVEAL_SELF for c in self.components)
+        return self.hand_only or any((c.kind == DISCARD and c.selector is None) or c.kind == REVEAL_SELF for c in self.components)
 
     @property
     def from_graveyard(self) -> bool:
