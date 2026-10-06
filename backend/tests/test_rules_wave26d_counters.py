@@ -16,15 +16,23 @@ from app.config import Settings
 from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import coverage
+from app.rules.plan import Plan
 from tests import test_rules_cost_contributions as cb
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
+from tests.test_rules_permissions import build as pbuild
+from tests.test_rules_permissions import put
 from tests.test_rules_effects import replay_matches
 
 EXTRA = [
     card('Ancient Imperiosaur', set_code='tst', number='W01', mana_cost='{5}{G}{G}', cmc=7.0, type_line='Creature — Dinosaur', oracle_text="Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nTrample, ward {2}\nThis creature enters with two +1/+1 counters on it for each creature that convoked it.", power='6', toughness='6', colors=['G'], color_identity=['G'], keywords=['Trample', 'Ward', 'Convoke'], layout='normal'),  # noqa: E501
     card('Venerated Loxodon', set_code='tst', number='W02', mana_cost='{4}{W}', cmc=5.0, type_line='Creature — Elephant Cleric', oracle_text="Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nWhen this creature enters, put a +1/+1 counter on each creature that convoked it.", power='4', toughness='4', colors=['W'], color_identity=['W'], keywords=['Convoke'], layout='normal'),  # noqa: E501
     card('Michelangelo, On the Scene', set_code='tst', number='W03', mana_cost='{4}{G}{G}', cmc=6.0, type_line='Legendary Creature — Mutant Ninja Turtle', oracle_text="Trample (This creature can deal excess combat damage to the player it's attacking.)\nMichelangelo enters with a +1/+1 counter on him for each land you control.\nWhen Michelangelo dies, return this card to your hand.", power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Trample'], layout='normal'),  # noqa: E501
+    card('The Flesh Is Weak', set_code='tst', number='W04', mana_cost='{2}{W}{U}{B}', cmc=5.0, type_line='Enchantment', oracle_text='When this enchantment enters, put a +1/+1 counter on each creature you control.\nCreatures you control with +1/+1 counters on them are artifacts in addition to their other types.\nNonartifact creatures get -1/-1.', colors=['B', 'U', 'W'], color_identity=['B', 'U', 'W'], keywords=[], layout='normal'),  # noqa: E501
+    card('Aurification', set_code='tst', number='W05', mana_cost='{2}{W}{W}', cmc=4.0, type_line='Enchantment', oracle_text="Whenever a creature deals damage to you, put a gold counter on it.\nEach creature with a gold counter on it is a Wall in addition to its other creature types and has defender. (Those creatures can't attack.)\nWhen this enchantment leaves the battlefield, remove all gold counters from all creatures.", colors=['W'], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
+    card("Sigarda's Summons", set_code='tst', number='W06', mana_cost='{4}{W}{W}', cmc=6.0, type_line='Enchantment', oracle_text='Creatures you control with +1/+1 counters on them have base power and toughness 4/4, have flying, and are Angels in addition to their other types.', colors=['W'], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
+    card('Rimefeather Owl', set_code='tst', number='W07', mana_cost='{5}{U}{U}', cmc=7.0, type_line='Snow Creature — Bird', oracle_text="Flying\nRimefeather Owl's power and toughness are each equal to the number of snow permanents on the battlefield.\n{1}{S}: Put an ice counter on target permanent.\nPermanents with ice counters on them are snow.", power='*', toughness='*', colors=['U'], color_identity=['U'], keywords=['Flying'], layout='normal'),  # noqa: E501
+    card('Omo, Queen of Vesuva', set_code='tst', number='W08', mana_cost='{2}{G/U}', cmc=3.0, type_line='Legendary Creature — Shapeshifter Noble', oracle_text='Whenever Omo enters or attacks, put an everything counter on each of up to one target land and up to one target creature.\nEach land with an everything counter on it is every land type in addition to its other types.\nEach nonland creature with an everything counter on it is every creature type.', power='1', toughness='5', colors=['G', 'U'], color_identity=['G', 'U'], keywords=[], layout='normal'),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -100,6 +108,38 @@ def test_convoke_counters_on_each_convoker(cards):
     assert s.state.cards[card.id].zone == "p1:battlefield"
     assert all(counters(s, c) == {"+1/+1": 1} for c in made)
     assert counters(s, card.id) == {} and counters(s, find(s, "Bystander").id) == {}
+    roundtrip(s)
+
+
+def ch(s, cid):
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[cid])
+
+
+def test_counter_conditioned_group_statics(cards):
+    # 613.1d-f: "Creatures you control with +1/+1 counters on them are artifacts / Angels, have base 4/4 and flying": only the ones with counters
+    s = pbuild(cards, [(1, "The Flesh Is Weak"), (1, "Sigarda's Summons"), (2, "Grizzly Bears")])
+    a, b = [c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"][:2]
+    for c in (a, b):
+        act(s, "p1", type="move", card_ids=[c], to={"player": "p1", "zone": "battlefield"})
+    put(s, "The Flesh Is Weak", "battlefield")
+    put(s, "Sigarda's Summons", "battlefield")
+    assert ch(s, a).types == {"Creature"} and ch(s, a).pt == (1, 1)
+    act(s, "p1", type="counter", card_ids=[a], kind="+1/+1", delta=1)
+    assert ch(s, a).types == {"Creature", "Artifact"} and "Angel" in ch(s, a).subtypes
+    assert ch(s, a).pt == (5, 5) and "flying" in ch(s, a).keywords  # base 4/4 (7b), the counter on top (7d): 5/5
+    assert ch(s, b).types == {"Creature"} and "Angel" not in ch(s, b).subtypes and "flying" not in ch(s, b).keywords
+    roundtrip(s)
+
+
+def test_gold_counters_make_walls_with_defender(cards):
+    s = pbuild(cards, [(1, "Aurification"), (2, "Grizzly Bears")])
+    a, b = [c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"][:2]
+    for c in (a, b):
+        act(s, "p1", type="move", card_ids=[c], to={"player": "p1", "zone": "battlefield"})
+    put(s, "Aurification", "battlefield")
+    act(s, "p1", type="counter", card_ids=[a], kind="gold", delta=1)
+    assert "Wall" in ch(s, a).subtypes and "defender" in ch(s, a).keywords
+    assert "Wall" not in ch(s, b).subtypes and "defender" not in ch(s, b).keywords
     roundtrip(s)
 
 
