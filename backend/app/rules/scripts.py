@@ -3183,6 +3183,8 @@ def _free_dont(rest: str, effects: list[dict[str, Any]], negate: bool = True) ->
         if not negate:
             return None
         inner: list[dict[str, Any]] = [{"do": "found_to", "to": "hand"}]  # (checked against the cast's source below)
+    elif rest in ("exile it", "exile that card") and negate:  # -- play now (wave 28A) -- Djinn of Wishes: "You may play that card without paying
+        inner = [{"do": "found_to", "to": "exile"}]  # its mana cost. If you don't, exile it." (the revealed card, still in the library)
     else:
         parsed = _clause(rest)
         if parsed is None or parsed[1] is not None:

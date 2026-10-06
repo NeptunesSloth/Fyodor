@@ -323,9 +323,8 @@ REFUSED += (
      "Sylvan Library: which hidden cards in a hand were drawn this turn isn't tracked per card"),
     (re.compile(r"\bas many times as you choose, you may pay 1 life, put those cards on the bottom\b", re.I),
      "Lim-Dûl's Vault: a repeated look-and-pay loop, then a shuffle that keeps the last cards on top, isn't modelled"),
-    (re.compile(r"\byou may play (?:that card|it|one of those cards) without paying\b", re.I),
-     "\"you may play that card\" as the ability resolves: playing a land during a resolution (305.2a: it uses a land play) "
-     "isn't modelled; free casts never play lands"),
+    (re.compile(r"\byou may play one of those cards without paying\b", re.I),  # (-- play now (wave 28A) -- "that card" / "it" are read now)
+     "\"you may play one of those cards\" as the ability resolves: a choice among several cards, any of them a land, isn't modelled"),
     (re.compile(r"\b(?:any number of|up to \w+) (?!target\b)[^.]*?with total mana value \w+ or less\b", re.I),  # (targets: wave 3R4)
      "choosing a set of cards or spells under a total mana value limit: not modelled"),
     (re.compile(r"\bcast (?:the copy|the copies|any number of the copies|those copies)\b", re.I),

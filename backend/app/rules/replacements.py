@@ -346,6 +346,8 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
     """The choice a permanent's own "As ~ enters, you may …" asks for before it enters (614.12a)."""
     if not plan.state.players.get(entry["player"]):
         return None
+    if entry.get("modal_back"):  # -- play now (wave 28A) -- 712.12: the land face chosen enters face up, so its replacements apply
+        card = card.model_copy(update={"face": 1})
     return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
                       answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry),
                       reserved=set(entry.get("reserved") or ())).get("choice")  # (reserved: wave 5G)
@@ -539,7 +541,7 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         if card is None or any(card.id == c.id for _, c, _ in planned):
             continue
         # (-- transform, wave 11A -- 712.14a: it enters with its back face up, so that face's replacement effects apply)
-        planned.append((entry, card, entry_plan(plan, card.model_copy(update={"face": 1}) if entry.get("transformed") else card,
+        planned.append((entry, card, entry_plan(plan, card.model_copy(update={"face": 1}) if entry.get("transformed") or entry.get("modal_back") else card,
                                                  entry["player"], pay_life=entry.get("pay_life"),
                                                  tapped=bool(entry.get("tapped")), answers=entry.get("choices"),
                                                  x=entry.get("x"), extra=_extra(entry),
@@ -576,7 +578,7 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
     tapped = [c.id for _, c, ep in planned if ep["tapped"]]
     if tapped:
         payload["tapped_ids"] = tapped
-    back = [c.id for e, c, _ in planned if e.get("transformed")]
+    back = [c.id for e, c, _ in planned if e.get("transformed") or e.get("modal_back")]  # (modal_back: wave 28A, 712.12)
     if back:
         payload["back_ids"] = back
     if any(e["player"] != first["player"] for e, _, _ in planned):
@@ -594,6 +596,10 @@ def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any], toge
     entered = plan.state.cards.get(card_id)
     if entered is None or not entered.zone.endswith(":battlefield"):
         return
+    if entry.get("played"):  # -- play now (wave 28A) -- 305.1: a land played as an effect resolves ("When you play another land")
+        from app.game.rules_state import emit
+
+        emit(plan.state, "land_played", object_id=plan.oid(entered), card=card_id, player=controller)
     oid = plan.oid(entered)
     if entry.get("gain_haste"):
         from app.rules import layers

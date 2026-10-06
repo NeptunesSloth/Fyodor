@@ -3033,6 +3033,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if a.x_value is None and M.parse_cost(ch.mana_cost).x:
         a.x_value = 0  # X is 0 when a spell is cast without paying its mana cost (107.3b)
     plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
+    if a.face and plan.state.cards[card.id].face != a.face:  # -- play now (wave 28A) -- 712.11b, 709.3b: the half / back face being cast
+        plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     if add_cost is not None:  # (601.2h: with the rest of the total cost)
         if add_cost.life:
             plan.do({"type": "life", "player": plan.actor, "delta": -add_cost.life})  # 119.4

@@ -86,3 +86,13 @@ def allowed(state: GameState, player: str, info: CardInfo | None) -> int:
         n += sum(int(d.get("n") or 0) for d in scripts.definitions(ch).values()
                  if d.get("kind") == "static" and d.get("static") == EXTRA_LANDS and (c.controller == player or d.get("all")))
     return n
+
+
+# -- play now (wave 28A) -- 305.2a-b / 305.3: whether an effect that tells a player to play a land can be followed
+def open_for_effect(state: GameState, player: str, info: CardInfo | None) -> bool:
+    """305.3: only on the player's own turn; 305.2a-b: a land play is left (lands played as special actions and during resolutions
+    count). Timing (a main phase, an empty stack, priority: 305.1) is the special action's, not an effect's: 608.2g."""
+    if state.rules is None or state.turn.active_player != player:
+        return False
+    played = state.rules.lands_this_turn(player, state.turn.number)
+    return played < 1 or played < allowed(state, player, info)
