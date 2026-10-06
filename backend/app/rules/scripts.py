@@ -1985,6 +1985,16 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    found = _parse_effects_plain(body, it, event_player=event_player)
+    if found is None and re.search(r"\bbecomes?\b", body):  # -- activated sweep (wave 26C) -- "gets +3/+3 and becomes a Bear Berserker" (predicates.py)
+        from app.rules import predicates
+
+        if (split := predicates.split(body)) is not None:
+            found = _parse_effects_plain(split, it, event_player=event_player)
+    return found
+
+
+def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """One sentence (or two joined by ". ") of effects → (effects, targets, optional). Targets:
     None, a selector key (one "target [something]"), or a list of target groups (see
     target_fields). ``it``: what the pronoun "it" means when no target precedes it (resolve_it);

@@ -17,7 +17,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import creature, pick, until_asked
 from tests.test_rules_wave12a_counters_keywords import answer
-from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
+from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
 
 REAL = [
     ("Elenda and Azor", "{3}{W}{U}{B}", "Legendary Creature — Vampire Knight Sphinx", "6", "6",
@@ -49,6 +49,11 @@ REAL = [
     ("Vish Kal, Blood Arbiter", "{4}{W}{B}{B}", "Legendary Creature — Vampire", "5", "5",
      "Flying, lifelink\nSacrifice a creature: Put X +1/+1 counters on Vish Kal, where X is the sacrificed creature's power.\n"
      "Remove all +1/+1 counters from Vish Kal: Target creature gets -1/-1 until end of turn for each +1/+1 counter removed this way."),
+    ("Lion's Eye Diamond", "{0}", "Artifact", None, None,
+     "Discard your hand, Sacrifice this artifact: Add three mana of any one color. Activate only as an instant."),
+    ("Dragonsoul Knight", "{2}{R}", "Creature — Human Knight", "2", "2",
+     "First strike\n{W}{U}{B}{R}{G}: Until end of turn, this creature becomes a Dragon, gets +5/+3, and gains flying and trample."),
+    ("Wishful Merfolk", "{1}{U}", "Creature — Merfolk", "3", "2", "Defender\n{1}{U}: This creature loses defender and becomes a Human until end of turn."),
     ("Flameblast Dragon", "{4}{R}{R}", "Creature — Dragon", "5", "5",
      "Flying\nWhenever this creature attacks, you may pay {X}{R}. If you do, it deals X damage to any target."),
 ]
@@ -259,3 +264,49 @@ def test_removed_this_way_is_read_only_when_the_cost_removed_them(cards):
 
     # a trigger's "that much" / a cost that removes a fixed number never reads as the removed-all X
     assert scripts.parse_effects("Put X +1/+1 counters on it, where X is the number of charge counters removed this way.") is None
+
+
+# -- "Discard your hand, Sacrifice this artifact: Add three mana of any one color." -----------------------------------
+def test_lions_eye_diamond_discards_the_hand_as_a_cost(cards):
+    s = build(cards, ["Lion's Eye Diamond", "Giant Opportunity", "Rent Is Due"])
+    put(s, "Lion's Eye Diamond")
+    to_hand(s, "Giant Opportunity")
+    to_hand(s, "Rent Is Due")
+    assert hand_size(s) == 2
+    activate(s, "Lion's Eye Diamond", "Discard your hand")
+    pick(s, "2")  # (which color: W U B R G)
+    assert hand_size(s) == 0 and zone_of(s, "Giant Opportunity") == "p1:graveyard" and zone_of(s, "Lion's Eye Diamond") == "p1:graveyard"
+    assert s.state.players["p1"].mana.get("B") == 3
+    check(s)
+
+
+# -- one subject, several predicates ----------------------------------------------------------------------------------
+def chars_of(s, name):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card_named(s, name).id])
+
+
+def test_dragonsoul_knight_becomes_gets_and_gains_until_end_of_turn(cards):
+    s = build(cards, ["Dragonsoul Knight"])
+    put(s, "Dragonsoul Knight")
+    before = chars_of(s, "Dragonsoul Knight")
+    assert set(before.subtypes) == {"Human", "Knight"} and before.pt == (2, 2)
+    mana(s, W=1, U=1, B=1, R=1, G=1)
+    activate(s, "Dragonsoul Knight", "{W}{U}{B}{R}{G}")
+    answer(s)
+    ch = chars_of(s, "Dragonsoul Knight")
+    assert set(ch.subtypes) == {"Dragon"} and ch.pt == (7, 5) and {"flying", "trample", "first strike"} <= set(ch.keywords)
+    check(s)
+
+
+def test_wishful_merfolk_loses_defender_and_becomes_a_human(cards):
+    s = build(cards, ["Wishful Merfolk"])
+    put(s, "Wishful Merfolk")
+    mana(s, U=2)
+    assert "defender" in chars_of(s, "Wishful Merfolk").keywords
+    activate(s, "Wishful Merfolk", "{1}{U}")
+    answer(s)
+    ch = chars_of(s, "Wishful Merfolk")
+    assert set(ch.subtypes) == {"Human"} and "defender" not in ch.keywords
+    check(s)

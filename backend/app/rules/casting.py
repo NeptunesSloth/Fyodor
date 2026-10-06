@@ -118,7 +118,7 @@ def _choice_cost_ok(extra: Any) -> bool:
     from app.rules import costs as C
 
     return not extra.unsupported and all(
-        c.kind in (C.MANA, C.TAP, C.PAY_LIFE, C.EXERT, C.UNTAP, C.FORAGE)  # (wave 17B: exert, {Q}, forage: paid by hand)
+        c.kind in (C.MANA, C.TAP, C.PAY_LIFE, C.EXERT, C.UNTAP, C.FORAGE, C.DISCARD_HAND)  # (wave 17B: exert, {Q}, forage: paid by hand; 26C: discard your hand)
         or ((not c.activation_only or (c.x and c.kind == C.TAP_OTHER)) and (  # (X: Hazel of the Rootbloom)
             (c.kind in (C.SACRIFICE, C.REMOVE_COUNTER) and c.selector is None)
             or (c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD)
