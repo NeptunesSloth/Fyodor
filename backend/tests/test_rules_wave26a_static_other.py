@@ -16,6 +16,7 @@ from app.config import Settings
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
+from tests.test_rules_attachments import ch
 from tests.test_rules_combat import _blocks, _evasion_table
 from tests.test_rules_effects import mana
 from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
@@ -27,6 +28,8 @@ EXTRA = [
     card('Evaporate', set_code='tst', number='N04', mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text='Evaporate deals 1 damage to each white and/or blue creature.', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
     card('Test Knight', set_code='tst', number='N97', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Knight', power='2', toughness='2', colors=['W'], color_identity=['W'], oracle_text=''),  # noqa: E501
     card('Ghastly Demise', set_code='tst', number='N05', mana_cost='{B}', cmc=1.0, type_line='Instant', oracle_text='Destroy target nonblack creature if its toughness is less than or equal to the number of cards in your graveyard.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Touch of Darkness', set_code='tst', number='N06', mana_cost='{B}', cmc=1.0, type_line='Instant', oracle_text='One or more target creatures become black until end of turn.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Viridescent Wisps', set_code='tst', number='N07', mana_cost='{G}', cmc=1.0, type_line='Instant', oracle_text='Target creature becomes green and gets +1/+0 until end of turn.\nDraw a card.', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='N99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),  # noqa: E501
     card('Test Glass', set_code='tst', number='N98', mana_cost='{W}', cmc=1.0, type_line='Enchantment', oracle_text='', colors=['W'], color_identity=['W']),  # noqa: E501
 ]
@@ -39,7 +42,7 @@ def card_db(settings: Settings) -> Path:
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", ["Simoon", "Primeval Light", "River's Rebuke", "Evaporate", "Ghastly Demise"])
+@pytest.mark.parametrize("name", ["Simoon", "Primeval Light", "River's Rebuke", "Evaporate", "Ghastly Demise", "Touch of Darkness", "Viridescent Wisps"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -105,3 +108,25 @@ def test_great_wall_style_static_ignores_only_its_landwalk(cards, wall, blockabl
     act(s, "p2", type="move", card_ids=[forest.id], to={"zone": "battlefield"})
     act(s, "p2", type="create_token", player="p2", token={"name": "Wall", "type_line": "Token Artifact", "text": wall})
     assert _blocks(s, sneak, guard) is blockable
+
+
+def test_one_or_more_target_creatures_become_black(cards):
+    s = build(cards, p1=("Touch of Darkness", "Test Bear"), p2=("Test Knight",))
+    bear, knight = put(s, "Test Bear", "battlefield"), put(s, "Test Knight", "battlefield", pid="p2")
+    put(s, "Touch of Darkness", "hand")
+    mana(s, B=2)
+    act(s, "p1", type="cast_spell", card_id=find(s, "Touch of Darkness").id, targets=[bear.id, knight.id], target_counts=[2])
+    answer(s)
+    assert ch(s, s.state.cards[bear.id]).colors == {"B"} and ch(s, s.state.cards[knight.id]).colors == {"B"}
+    roundtrip(s)
+
+
+def test_becomes_green_and_gets_plus_one_zero(cards):
+    s = build(cards, p1=("Viridescent Wisps", "Test Knight"))
+    knight = put(s, "Test Knight", "battlefield")
+    put(s, "Viridescent Wisps", "hand")
+    mana(s, G=2)
+    act(s, "p1", type="cast_spell", card_id=find(s, "Viridescent Wisps").id, targets=[knight.id])
+    answer(s)
+    assert ch(s, s.state.cards[knight.id]).colors == {"G"} and ch(s, s.state.cards[knight.id]).pt == (3, 2)
+    roundtrip(s)

@@ -82,7 +82,7 @@ _QTY = r"one|two|three|four|five|six|seven|eight|nine|ten|\d+"
 # -- target forms (agent T) --  "up to one other target creature", "each of up to two other targets",
 # "any number of other target nonland permanents you control": "other" inside a counted group
 _GROUP = re.compile(rf"^(?:each of )?(?:up to (?P<upto>{_QTY}|X)|(?P<range>one or two|one, two, or three)|"  # (X: wave 4K)
-                    rf"(?P<any>any number of)|(?P<n>{_QTY}|X)) (?P<other>(?:an)?other )?(?P<rest>targets|target .+)$")
+                    rf"(?P<any>any number of)|(?P<more>one or more)|(?P<n>{_QTY}|X)) (?P<other>(?:an)?other )?(?P<rest>targets|target .+)$")
 
 
 def _qty(word: str) -> int:
@@ -147,6 +147,8 @@ def target_group(phrase: str) -> dict[str, Any] | None:
         lo, hi = 1, 2 if m["range"] == "one or two" else 3
     elif m["any"]:
         lo, hi = 0, MAX_TARGETS
+    elif m["more"]:  # (wave 26A) 601.2c: at least one, as many as there are legal targets
+        lo, hi = 1, MAX_TARGETS
     else:
         lo = hi = _qty(m["n"])
     if not 1 <= hi <= MAX_TARGETS:
@@ -2915,6 +2917,7 @@ def _become(text: str) -> tuple[Effects, Any]:
 # permanent becomes blue in addition to its other colors until end of turn." (Indigo Faerie: the color is added, 105.3, 613.1e)
 _BECOME_COLOR = re.compile(r"^(?:(?P<lead>until end of turn, ))?(?P<o>.+?)(?: gains? (?P<pre>[a-z ]+?) and)? becomes? (?P<colors>colorless|"
                            + _COLOR_LIST + r")(?P<add> in addition to its other colors)?"
+                           r"(?: and gets (?P<pp>[+−-]\d+)/(?P<tt>[+−-]\d+))?"  # (wave 26A: Viridescent Wisps)
                            r"(?: and gains? (?P<gain>[a-z ]+?))?(?P<trail> until end of turn)?$")
 
 
@@ -2928,6 +2931,8 @@ def _become_color(m: re.Match[str]) -> tuple[Effects, Any]:
         raise _Fail
     out: Effects = [{"do": "become", "who": who, "types": [], **({"add_colors": colors} if m["add"] else {"colors": colors}),
                      "duration": "end_of_turn"}]
+    if m["pp"]:
+        out.append({"do": "pump", "who": who, "p": _signed(m["pp"]), "t": _signed(m["tt"])})
     if m["gain"] or m["pre"]:
         from app.rules.statics import GRANTABLE_KEYWORDS  # (the keywords a grant carries out, 613.1f)
 
