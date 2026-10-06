@@ -2589,6 +2589,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (instead := replacement_sentence(text, effects, groups)) is not None:  # -- replacement effects stage 2 (wave 2E) --  (before 1B: a replacement, not a condition)
             effects += instead
             continue
+        # -- if you do (wave 26C) -- "If you do, X. Otherwise, Y." is "If you don't, Y" (118.12: the same payment / probe decides both)
+        if i and text.startswith("otherwise, ") and texts[i - 1].lower().startswith("if you do, "):
+            text = "if you don't, " + text[len("otherwise, "):]
         # -- conditional / instead clauses (wave 1B) --  "If C, Y instead." / "Y instead if C." / "Otherwise, Z."
         if (branch := _instead_or_otherwise(text, effects, prev_start, groups, it)) is not None:
             if branch is False:
@@ -3080,8 +3083,11 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     # Chaos, Paralyze, Unifying Theory): the trigger event's player decides and pays (118.12); "If the player does" is read as "If you do"
     # (the loop below), what follows being about that player
     other = re.match(r"^(?:that|that attacking) player may ", text)
-    if other is not None and following and re.match(r"^If (?:the player|that player|they) (?:do|does), ", following[0]):
-        phrase, payer = text[other.end():], "that_player"
+    # (-- if you do (wave 26C) -- "Its controller may pay 1 life. If they do, they draw a card." (Gix): the controller of the trigger event's
+    # object, as it last existed (608.2h) — only in a trigger about an object)
+    its = re.match(r"^its controller may ", text) if it == "event" else None
+    if (other or its) is not None and following and re.match(r"^If (?:the player|that player|they) (?:do|does), ", following[0]):
+        phrase, payer = text[(other or its).end():], "that_player" if other else "ref:event.controller"  # type: ignore[union-attr]
     elif not text.startswith("you may ") or not following or not re.match(r"^(?:If you (?:do|don't)|If you do or if [^,]+|When you do), ", following[0]):
         return None
     else:
@@ -3131,14 +3137,14 @@ def _that_player_does(text: str, effects: list[dict[str, Any]]) -> str | None:
     the same instruction as "If you do, …", about that player ("they" → "that player"); None when it isn't one or the verb isn't read."""
     m = re.match(r"^if (?:the player|that player|they) (?:do|does), (?P<rest>.+)$", text)
     pay = next((e for e in reversed(effects) if e["do"] == "optional_payment"), None)
-    if m is None or pay is None or pay.get("who") != "that_player":
+    if m is None or pay is None or pay.get("who") not in ("that_player", "ref:event.controller"):
         return None
     rest = re.sub(r"\bthe creature\b", "that creature", m["rest"])
     t = re.match(r"^they (?P<v>[a-z]+) (?P<more>.+)$", rest)
     if t is not None:
         if t["v"] not in _THEY_VERBS:
             return None
-        rest = f"that player {_THEY_VERBS[t['v']]} {t['more']}"
+        rest = f"{'that player' if pay['who'] == 'that_player' else 'its controller'} {_THEY_VERBS[t['v']]} {t['more']}"
     return f"if you do, {rest}"
 
 
@@ -3243,6 +3249,9 @@ def _unless_rider(text: str, effects: list[dict[str, Any]], prev_start: int) -> 
     if not exile and they is None and alt is None:
         return None
     prev = effects[prev_start:]
+    if they is not None and not exile and alt is None and prev and prev[-1]["do"] == "optional_payment" \
+            and prev[-1].get("who") in ("that_player", "ref:event.controller") and they["v"] in ("do", "does"):
+        return None  # (wave 26C: "That player may pay 1 life. If they do, …": the ask's own "If you do", read by _that_player_does)
     if len(prev) == 1 and prev[0]["do"] == "counter_unless" and str(prev[0].get("who")).startswith("target"):
         # "Counter target spell unless its controller pays {3}." read as the payment it is (118.12a), so the
         # rider has a payment to read and a counter to modify

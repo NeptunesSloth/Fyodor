@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 Context = dict[str, Any]
 CHOOSE = "x:"  # a decision option "x:<n>": pay {n}
 _MAX = 40  # (the most X offered: far beyond any real table's mana; the payer is never offered more than they can pay)
-_MANA_X = re.compile(r"^pay \{X\}(?:, where X is less than or equal to (?P<cap>.+))?$")
+_MANA_X = re.compile(r"^pay \{X\}(?P<extra>(?:\{[^}X]+\})*)(?:, where X is less than or equal to (?P<cap>.+))?$")  # (wave 26C: "{X}{W}{U}{B}", 118.12)
 _LIFE_X = re.compile(r"^pay X life, where X is (?P<v>.+)$")
 _LIFE_EQUAL = re.compile(r"^pay life equal to (?P<v>.+)$")
 _CAP = re.compile(r"^x can't be greater than (?P<v>.+)$")
@@ -63,7 +63,7 @@ def payment(phrase: str) -> dict[str, Any] | None:
         cap = _value(m["cap"]) if m["cap"] else None
         if m["cap"] and cap is None:
             return None
-        return {"cost": "", "choose_x": {"max": cap}}
+        return {"cost": "", "choose_x": {"max": cap, **({"extra": m["extra"]} if m["extra"] else {})}}
     m = _LIFE_X.match(p) or _LIFE_EQUAL.match(p)
     if m is not None:
         v = _value(m["v"])
@@ -90,7 +90,7 @@ def cap_sentence(text: str, effects: list[dict[str, Any]]) -> bool:
     v = _value(m["v"])
     if v is None or v == {"event_amount": 1}:
         return False
-    pays[0]["choose_x"] = {"max": v}
+    pays[0]["choose_x"] = {**pays[0]["choose_x"], "max": v}
     return True
 
 
@@ -147,20 +147,25 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
         return f"Pay {n} life"
     cap = e["choose_x"].get("max")
     limit = min(_MAX, values.evaluate(plan, ctx, cap)) if cap is not None else _MAX
-    most = 0
-    while most < limit and casting.can_pay(plan.state, payer, M.parse_cost(f"{{{most + 1}}}"), plan.info):
+    extra = e["choose_x"].get("extra", "")  # (wave 26C: the rest of "{X}{W}{U}{B}", paid with the X: 118.3, no partial payment)
+    most = 0 if not extra or casting.can_pay(plan.state, payer, M.parse_cost(extra), plan.info) else -1
+    while most >= 0 and most < limit and casting.can_pay(plan.state, payer, M.parse_cost(f"{{{most + 1}}}{extra}"), plan.info):
         most += 1
+    if most < 0:  # (118.3: the part beside X can't be paid, so nothing can: not offered)
+        plan.note(f"{plan.name(payer)} can't pay {extra} for {ctx.get('name') or 'it'}")
+        _record(ctx, bind, False, 0)
+        return True
     life = bool(e["choose_x"].get("life"))
     if life:  # (the cap is the life total, 119.4: life can be paid only from a total at least that large)
         most = max(0, limit)
-    options = [DecisionOption(id=f"{CHOOSE}{n}", label=f"Pay {n} life (X = {n})" if life else f"Pay {{{n}}} (X = {n})")
+    options = [DecisionOption(id=f"{CHOOSE}{n}", label=f"Pay {n} life (X = {n})" if life else f"Pay {{{n}}}{extra} (X = {n})")
                for n in range(most + 1)]
     options.append(DecisionOption(id=O.DECLINE, label="Don't pay"))
     hint = " (tap your mana first)" if O._self_pays(plan, payer) else ""
     source = plan.state.cards.get(ctx.get("source_card") or "")
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {{X}}? Choose X{hint}",
            options=options, source=source,
-           resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "life": life}, "cost": "{0}"})
+           resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "life": life, "extra": extra}, "cost": f"{{0}}{extra}"})
     return False
 
 
@@ -177,12 +182,13 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
         return
     n = int(chosen[0][len(CHOOSE):])
-    if n == 0:
+    extra = info.get("extra", "")
+    if n == 0 and not extra:
         plan.note(f"{plan.name(payer)} paid {{0}} (X = 0) for {ctx.get('name') or 'it'}")
         _record(ctx, bind, True, 0)
         effects.continue_effects(plan, ctx)
         return
-    text = f"Pay {n} life" if info.get("life") else f"{{{n}}}"
+    text = f"Pay {n} life" if info.get("life") else (f"{{{n}}}{extra}" if n else extra)
     cost = O.parse(text)
     assert cost is not None
     ctx.setdefault("paid_x", {})[bind] = n
