@@ -16,6 +16,7 @@ from app.config import Settings
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
+from tests.test_rules_combat import _blocks, _evasion_table
 from tests.test_rules_effects import mana
 from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
 
@@ -94,3 +95,13 @@ def test_ghastly_demise_compares_toughness_with_my_graveyard(cards, graveyard, d
     cast(s, "Ghastly Demise", bear.id)
     assert (s.state.cards[bear.id].zone == "p2:graveyard") is dies
     roundtrip(s)
+
+
+@pytest.mark.parametrize(("wall", "blockable"), [("Creatures with forestwalk can be blocked as though they didn't have forestwalk.", True),
+                                                 ("Creatures with plainswalk can be blocked as though they didn't have plainswalk.", False)])
+def test_great_wall_style_static_ignores_only_its_landwalk(cards, wall, blockable):
+    s, sneak, guard = _evasion_table(cards, "Forestwalk")
+    forest = next(c for c in s.state.cards.values() if c.owner == "p2" and c.name == "Forest")
+    act(s, "p2", type="move", card_ids=[forest.id], to={"zone": "battlefield"})
+    act(s, "p2", type="create_token", player="p2", token={"name": "Wall", "type_line": "Token Artifact", "text": wall})
+    assert _blocks(s, sneak, guard) is blockable

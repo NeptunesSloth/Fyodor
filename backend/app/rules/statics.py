@@ -890,6 +890,12 @@ RULES.update({"assigns combat damage equal to its toughness rather than its powe
               "assign combat damage equal to their toughness rather than their power": ("assign_toughness",)})
 
 
+# -- static_other sweep (wave 26A) -- 702.14: "Creatures with plainswalk can be blocked as though they didn't have plainswalk." (Great Wall,
+# Lord Magnus, Quagmire, Undertow …): the attacker's landwalk restriction isn't applied (app/rules/combat.py)
+RULES.update({f"can be blocked as though they didn't have {w}": (f"ignore_landwalk:{w}",)
+              for w in ("plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk")})
+
+
 def _rule(piece: str) -> list[str] | None:
     """One predicate piece that imposes a rule → the rule names, or None (not a rule)."""
     plain = RULES.get(piece)

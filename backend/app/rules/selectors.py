@@ -516,7 +516,8 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 # -- token & pump wordings (wave 6C) -- keywords a selector may ask about but a grant doesn't give ("if you control no
 # creatures with decayed": read from the object's keywords, like the others)
 _WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke",
-                  "modular", "toxic", "mutate", "awaken", "cascade")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
+                  "modular", "toxic", "mutate", "awaken", "cascade",
+                  "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk")  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
 # an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
 

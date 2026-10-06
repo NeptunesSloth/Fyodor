@@ -98,7 +98,9 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
         return found
     # landwalk (702.14): unblockable while the defending player controls a land of that type
     for walk, land in LANDWALK.items():
-        if walk in ach.keywords and _controls_land(state, blocker.controller, land, info):
+        # (wave 26A: Great Wall, "Creatures with plainswalk can be blocked as though they didn't have plainswalk": the ability's
+        # restriction is not applied, 702.14 / 509.1b)
+        if walk in ach.keywords and f"ignore_landwalk:{walk}" not in ach.imposed and _controls_land(state, blocker.controller, land, info):
             return f"{ach.name} has {walk}: it can't be blocked while you control a {land}"
     if "shadow" in ach.keywords and "shadow" not in bch.keywords:
         return f"{ach.name} has shadow: only creatures with shadow can block it"
