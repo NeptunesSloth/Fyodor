@@ -26,6 +26,11 @@ REAL = [
      "{T}: Add {C}.\n{T}: Add one mana of any color. Activate only if you've cast a spell this turn.\n{4}: Put this card from your hand onto the battlefield."),
     ("Urban Retreat", "", "Land", None, None,
      "{T}: Add {G}.\n{2}, Return a tapped creature you control to its owner's hand: Put this card from your hand onto the battlefield. Activate only as a sorcery."),
+    ("Emry, Lurker of the Loch", "{2}{U}", "Legendary Creature — Merfolk Wizard", "1", "2",
+     "When Emry enters, mill four cards.\n{T}: Choose target artifact card in your graveyard. You may cast that card this turn."),
+    ("Horde of Notions", "{W}{U}{B}{R}{G}", "Legendary Creature — Elemental", "5", "5",
+     "Vigilance\n{W}{U}{B}{R}{G}: You may play target Elemental card from your graveyard without paying its mana cost."),
+    ("Probe Elemental", "{5}", "Creature — Elemental", "3", "3", "Trample"),
     ("Derevi, Empyrial Tactician", "{G}{W}{U}", "Legendary Creature — Bird Shaman", "2", "3",
      "Flying\nWhen Derevi enters or a creature you control deals combat damage to a player, untap target permanent.\n"
      "{1}{G}{W}{U}: Put Derevi onto the battlefield from the command zone."),
@@ -44,7 +49,7 @@ def card_db(settings):
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", [r[0] for r in REAL])
+@pytest.mark.parametrize("name", [r[0] for r in REAL if r[0] != "Probe Elemental"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -122,3 +127,58 @@ def test_derevi_not_from_the_hand(cards):
     assert listed(s, derevi.id) == []
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=derevi.id, ability=2)
+
+
+def to_gy(s, name):
+    c = card_named(s, name)
+    act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    return c
+
+
+def ready(s, name):
+    s.state.rules.controlled_since[card_named(s, name).id].turn = 0
+
+
+def test_emry_chooses_an_artifact_and_may_cast_it_this_turn(cards):
+    s = build(cards, ["Emry, Lurker of the Loch", "Sol Ring"])
+    ring = to_gy(s, "Sol Ring")
+    emry = put(s, "Emry, Lurker of the Loch")
+    ready(s, "Emry, Lurker of the Loch")
+    act(s, "p1", type="activate_ability", card_id=emry.id, ability=1, targets=[ring.id])
+    run(s)
+    assert s.state.cards[ring.id].zone == "p1:graveyard"  # (chosen, not moved)
+    assert [p.card for p in s.state.rules.permissions] == [ring.id]
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=ring.id)
+    run(s)
+    assert zone_of(s, "Sol Ring") == "p1:battlefield"
+    check(s)
+
+
+def test_emry_permission_ends_with_the_turn(cards):
+    s = build(cards, ["Emry, Lurker of the Loch", "Sol Ring"])
+    ring = to_gy(s, "Sol Ring")
+    emry = put(s, "Emry, Lurker of the Loch")
+    ready(s, "Emry, Lurker of the Loch")
+    act(s, "p1", type="activate_ability", card_id=emry.id, ability=1, targets=[ring.id])
+    run(s)
+    for _ in range(40):
+        if s.state.turn.number > 1:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.turn.number > 1 and s.state.rules.permissions == []
+    check(s)
+
+
+def test_horde_of_notions_plays_an_elemental_free(cards):
+    s = build(cards, ["Horde of Notions", "Probe Elemental"])
+    elemental = to_gy(s, "Probe Elemental")
+    horde = put(s, "Horde of Notions")
+    mana(s, W=1, U=1, B=1, R=1, G=1)
+    act(s, "p1", type="activate_ability", card_id=horde.id, ability=1, targets=[elemental.id])
+    run(s)
+    act(s, "p1", type="cast_spell", card_id=elemental.id, free=True)  # (118.9b: the alternative cost is opted into)
+    run(s)
+    assert zone_of(s, "Probe Elemental") == "p1:battlefield"
+    assert s.state.players["p1"].mana == {}
+    check(s)

@@ -3056,7 +3056,12 @@ def _choose_then(body: str) -> str:
         if m["if"]:  # (both instructions hinge on the same payment: "If you do" names the latest one)
             return f"If you do, choose a {m['what']}. If you do, {rest}."
         return f"{m['c']}hoose a {m['what']}. {rest[:1].upper()}{rest[1:]}."
-    return _CHOOSE_THEN.sub(sub, body)
+    return _CHOOSE_TARGET_CAST.sub(r"You may \g<v> target \g<what> card from your graveyard this turn.", _CHOOSE_THEN.sub(sub, body))
+
+
+# -- free cast (wave 27D) -- "Choose target artifact card in your graveyard. You may cast that card this turn." (Emry): the chosen card is the
+# ability's target (115.1), which the sentence "You may cast target … from your graveyard this turn." grants a permission for (611.2a)
+_CHOOSE_TARGET_CAST = re.compile(r"(?<![^ ])Choose target (?P<what>[a-z ]+?) card in your graveyard\. You may (?P<v>cast|play) that card this turn\.")
 
 
 def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
