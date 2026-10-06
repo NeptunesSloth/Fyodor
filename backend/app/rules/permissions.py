@@ -153,6 +153,10 @@ FREE_COPY = re.compile(r"^(?:if you do, )?you may cast (?P<w>the copy|the copies
 FREE_HAND = re.compile(r"^(?:you may )?cast (?:a|an) (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?(?:spell|card)(?P<h1> from your hand)?"
                        r"(?: with mana value (?:(?P<n>\d+|X) or less|less than or equal to (?P<x2>[^,]+?)))?(?P<h2> from your hand)?"
                        r" without paying its mana cost$")
+# -- play now (wave 28A) -- "You may play a land from the top of your library or cast a spell with mana value less than or equal to the damage dealt
+# from the top of your library without paying its mana cost." (Ziatora's Envoy): the card looked at, a land played (305.2a) or a spell cast within the limit
+PLAY_OR_CAST_TOP = re.compile(r"^you may play a land from the top of your library or cast a spell with mana value (?:(?P<n>\d+|X) or less|"
+                              r"less than or equal to (?P<v>[^,]+?)) from the top of your library without paying its mana cost$")
 # "You may cast spells from your hand without paying their mana costs." (Omniscience) / "You may cast
 # Dragon spells without paying their mana costs."
 STATIC_FREE = re.compile(r"^you may cast (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<hand> from your hand)? without paying their mana costs$")
@@ -213,7 +217,22 @@ def free_mv(n: str | None, v: str | None) -> Any:
     return value
 
 
+# -- play now (wave 28A) -- "You may play lands and cast spells from among cards exiled this way without paying their mana costs." (Gix, Yawgmoth
+# Praetor): any number of them, one at a time (608.2g); a land only while a land play is left (305.2a-b)
+PLAY_AMONG = re.compile(r"^you may play lands and cast spells from among (?:them|those cards|cards exiled this way|the exiled cards|the cards exiled this way)"
+                        r" without paying their mana costs$")
+
+
+# "You may play one of those cards without paying its mana cost." (Vault 112: Sadistic Simulation): one card of those an earlier instruction exiled
+PLAY_ONE = re.compile(r"^you may (?P<verb>play|cast) one of (?:those|the exiled) cards without paying its mana cost$")
+
+
 def _free_among(text: str) -> list[dict[str, Any]] | None:
+    if PLAY_AMONG.fullmatch(text):
+        return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": None, "optional": True, "mv": None, "n": 99, "play": True}]
+    if (one := PLAY_ONE.fullmatch(text)) is not None:
+        return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": None, "optional": True, "mv": None, "n": 1,
+                 **({"play": True} if one["verb"] == "play" else {})}]
     m = FREE_AMONG.fullmatch(text)
     if m is None:
         return None
@@ -743,6 +762,13 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         except ValueError:
             return None
         return [{"do": "free_cast", "zone": "hand", "filter": key, "optional": True, "mv": mv}], None
+    m = PLAY_OR_CAST_TOP.fullmatch(text)  # -- play now (wave 28A) --
+    if m:
+        try:
+            mv = free_mv(m["n"], m["v"])
+        except ValueError:
+            return None
+        return [{"do": "free_cast", "zone": "that", "who": "it:card", "filter": None, "mv": mv, "optional": True, "play": True}], None
     # -- refused grants/replacements (wave 3R2) -- the same permission with its duration at the end ("You may play it
     # until the end of your next turn.": 611.2a, the duration is the one stated, wherever the sentence states it) and
     # "them" for "those cards" ("You may play them until the end of your next turn.")
@@ -1407,7 +1433,10 @@ def play_land_now(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], cid: str, 
     r, turn = plan.rules, plan.state.turn.number
     r.lands_played[pid] = TurnCount(turn=turn, count=r.lands_this_turn(pid, turn) + 1)
     ctx.setdefault("free_cast_done", []).append(cid)
-    _free_cast_over(ctx, e)
+    if int(e.get("n", 1)) > 1:
+        ctx["next"] -= 1  # "any number of them": the same instruction is carried out again for the next card once this one has entered
+    else:
+        _free_cast_over(ctx, e)
     plan.note(f"{plan.name(pid)} plays {chars.as_cast(card, plan.info, face).name or card.name} from their "
               f"{card.zone.rsplit(':', 1)[-1]} ({ctx.get('name') or 'an effect'})", [cid])
     entry: dict[str, Any] = {"card": cid, "player": pid, "actor": pid, "played": True}
