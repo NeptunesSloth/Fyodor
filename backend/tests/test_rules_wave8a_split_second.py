@@ -50,8 +50,9 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-def test_granting_split_second_stays_manual(cards):
-    assert coverage.of_card_data(cards.resolve("Samut, Tyrant of Naktamun")).level != "FULL"
+def test_granting_split_second_is_read_now(cards):
+    """Wave 28C: a static granting split second to the spells on the stack is read (app/rules/spell_grants.py); see test_rules_wave28c_spell_grants."""
+    assert coverage.of_card_data(cards.resolve("Samut, Tyrant of Naktamun")).level == "FULL"
 
 
 def table(cards):
