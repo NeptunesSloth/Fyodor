@@ -246,7 +246,8 @@ def _draw(text: str) -> Definition | None:
 
 
 # -- life gain (119.10) -----------------------------------------------------------------------------
-_LIFE = re.compile(r"^If (?P<who>you|an opponent|a player) would gain life, (?P<rest>.+) instead\.$")
+_LIFE = re.compile(r"^If (?P<who>you|an opponent|a player) would gain life(?P<cap> while you have (?P<n>\d+) or less life)?, "
+                   r"(?P<rest>.+) instead\.$")
 
 
 def _life(text: str) -> Definition | None:
@@ -255,21 +256,41 @@ def _life(text: str) -> Definition | None:
         return None
     who = {"you": "you", "an opponent": "opponent", "a player": "any"}[m["who"]]
     rest = m["rest"]
+    match: dict[str, Any] = {"who": who}
+    if m["cap"]:
+        if who != "you":
+            return None
+        match["life_max"] = int(m["n"])  # (-- life modifiers (wave 28B) -- Phial of Galadriel: as the gain would happen)
     if who == "you":
         if rest == "you gain twice that much life":
-            return _static("life", {"who": who}, {"do": "mul", "n": 2})
+            return _static("life", match, {"do": "mul", "n": 2})
         if rest == "you gain three times that much life":
-            return _static("life", {"who": who}, {"do": "mul", "n": 3})
+            return _static("life", match, {"do": "mul", "n": 3})
         m2 = re.fullmatch(r"you gain that much life plus (?P<n>\d+|one|two|three)", rest)
         if m2:
             n = _num(m2["n"])
-            return _static("life", {"who": who}, {"do": "add", "n": n}) if n else None
+            return _static("life", match, {"do": "add", "n": n}) if n else None
         return None
     if rest == "that player gains no life":
-        return _static("life", {"who": who}, {"do": "set", "n": 0})
+        return _static("life", match, {"do": "set", "n": 0})
     if rest == "that player loses that much life":
-        return _static("life", {"who": who}, {"do": "lose"})
+        return _static("life", match, {"do": "lose"})
     return None
+
+
+# -- life loss (wave 28B) -- "If an opponent would lose life during your turn, they lose twice that much life instead." (Bloodletter of Aclazotz)
+_LOSS = re.compile(r"^If (?P<who>an opponent|a player) would lose life(?P<turn> during your turn)?, "
+                   r"(?:they|that player) lose(?:s)? (?P<how>twice) that much life instead\.$")
+
+
+def _loss(text: str) -> Definition | None:
+    m = _LOSS.match(text)
+    if not m:
+        return None
+    match: dict[str, Any] = {"who": "opponent" if m["who"] == "an opponent" else "any"}
+    if m["turn"]:
+        match["turn"] = "yours"  # (the turn of the effect's controller)
+    return _static("life_loss", match, {"do": "mul", "n": 2})
 
 
 # -- damage (120.4b, 614.1a, 615.10) ----------------------------------------------------------------
@@ -565,7 +586,7 @@ def _enter_extra(text: str) -> Definition | None:
 # -- end counters (wave 5H) --
 
 
-PARSERS = (_tokens, _counters, _draw, _life, _damage, _enters_tapped, _enter_extra)
+PARSERS = (_tokens, _counters, _draw, _life, _loss, _damage, _enters_tapped, _enter_extra)
 
 
 def parse(text: str) -> Definition | None:

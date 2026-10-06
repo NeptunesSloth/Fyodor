@@ -802,8 +802,8 @@ def test_wordings_that_stay_manual():
         "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste "
         "or that many 3/1 green Dog creature tokens with vigilance.",
         # (a rider after prevention, 615.5, is automated since wave 17A: tests/test_rules_wave17a_prevention.py)
-        # "can't" and life-loss replacements (614.17, 119.8) / a draw replaced by looking (Abundance-like)
-        "If an opponent would lose life during your turn, they lose twice that much life instead.",
+        # ("would lose life" doubling is automated since wave 28B: tests/test_rules_wave28b_replace.py) / "can't" (614.17, 119.8) /
+        # a draw replaced by a choice of land or nonland (Abundance)
         "If you would draw a card, you may instead choose land or nonland and reveal cards from the top of your library "
         "until you reveal a card of the chosen kind. Put that card into your hand and put all other cards revealed this "
         "way on the bottom of your library in any order.",

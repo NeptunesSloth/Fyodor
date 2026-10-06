@@ -371,7 +371,7 @@ class Planner:
 def affected(plan: Plan, ev: Event) -> str | None:
     """616.1: the affected object's controller (its owner if it has none) or the affected player."""
     kind = ev["kind"]
-    if kind in ("tokens", "draw", "life", "player_counters"):
+    if kind in ("tokens", "draw", "life", "life_loss", "player_counters"):
         return ev.get("player")
     if kind == "counters":
         if ev.get("controller"):
@@ -1197,7 +1197,32 @@ def _life_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if ev["n"] <= 0 or ev["player"] not in plan.live():
         return False  # 119.10: gaining 0 life isn't a life gain event
     who = c.match.get("who")
-    return not (who == "you" and ev["player"] != c.controller or who == "opponent" and ev["player"] == c.controller)
+    if who == "you" and ev["player"] != c.controller or who == "opponent" and ev["player"] == c.controller:
+        return False
+    cap = c.match.get("life_max")  # -- life modifiers (wave 28B) -- "while you have 5 or less life": as the gain would happen (119.10)
+    return cap is None or int(sim.get("life", {}).get(ev["player"], plan.state.players[ev["player"]].life)) <= int(cap)
+
+
+def _life_perform(plan: Plan, ev: Event, sim: Sim) -> None:
+    if "life" in sim and ev["player"] in sim["life"]:
+        sim["life"][ev["player"]] += ev["n"] if ev["kind"] == "life" else -ev["n"]
+
+
+def _loss_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
+    """-- life modifiers (wave 28B) -- "If an opponent would lose life during your turn, they lose twice that much life instead" (119.3, 614.1a)."""
+    if ev["n"] <= 0 or ev["player"] not in plan.live():
+        return False  # (losing 0 life isn't a life loss event, as for 119.10)
+    who, mine = c.match.get("who"), ev["player"] == c.controller
+    if who == "you" and not mine or who == "opponent" and mine:
+        return False
+    return c.match.get("turn") != "yours" or plan.active == c.controller
+
+
+def _loss_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
+    op = c.op
+    if op["do"] == "mul":
+        return [{**ev, "n": ev["n"] * int(op["n"])}]
+    return [ev]
 
 
 def _life_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
@@ -1216,7 +1241,8 @@ def _life_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
 def plan_life(plan: Plan, gains: list[tuple[str, int, str]], *, answers: dict[str, str], ask: bool,
               cands: list[Candidate] | None = None) -> tuple[list[tuple[Event, list[Event]]], Planner] | Ask:
     """Life gain events ([(player, n, key)], each its own event: 702.15e) through 616.1."""
-    planner = Planner(plan, cands if cands is not None else candidates(plan, "life"), answers, ask=ask)
+    planner = Planner(plan, cands if cands is not None else candidates(plan, ("life", "life_loss")), answers, ask=ask)
+    sim: Sim = {"life": {p: plan.state.players[p].life for p in plan.state.players}}
     order = plan.apnap()
     evs: list[Event] = [{"kind": "life", "player": p, "n": int(n), "key": key, "applied": []} for p, n, key in gains]
     evs.sort(key=lambda e: order.index(e["player"]) if e["player"] in order else len(order))
@@ -1230,7 +1256,7 @@ def plan_life(plan: Plan, gains: list[tuple[str, int, str]], *, answers: dict[st
             if ev["n"] > 0 and (why := cant_gain.why_not(plan, ev["player"])) is not None:
                 finals.append((ev, [{"kind": "nothing", "why": [f"{why}: {plan.name(ev['player'])} can't gain life"]}]))
                 continue
-            planner.settle(ev, {}, out.append)
+            planner.settle(ev, sim, out.append)
             finals.append((ev, out))
     except Ask as q:
         return q
@@ -1261,6 +1287,60 @@ def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dic
 
 def _run_life(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     if gain_life(plan, [(g[0], int(g[1])) for g in request["gains"]], actor=request["actor"], then=then, answers=answers):
+        run_then(plan, then)
+
+
+# == life loss (119.3, 119.4, 118.11, 614.1a) ========================================================
+def plan_loss(plan: Plan, losses: list[tuple[str, int]], *, answers: dict[str, str], ask: bool,
+              cands: list[Candidate] | None = None) -> tuple[list[tuple[Event, list[Event]]], Planner] | Ask:
+    """-- life modifiers (wave 28B) -- life loss events ([(player, n)], each its own event) through 616.1."""
+    planner = Planner(plan, cands if cands is not None else candidates(plan, "life_loss"), answers, ask=ask)
+    order = plan.apnap()
+    evs: list[Event] = [{"kind": "life_loss", "player": p, "n": int(n), "applied": []} for p, n in losses if n > 0]
+    evs.sort(key=lambda e: order.index(e["player"]) if e["player"] in order else len(order))
+    sim: Sim = {"life": {p: plan.state.players[p].life for p in plan.state.players}}
+    finals: list[tuple[Event, list[Event]]] = []
+    try:
+        for ev in evs:
+            out: list[Event] = []
+            planner.settle(ev, sim, out.append)
+            finals.append((ev, out))
+    except Ask as q:
+        return q
+    return finals, planner
+
+
+def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = None, then: dict[str, Any] | None = None,
+              answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None) -> bool:
+    """THE life-loss choke point (wave 28B): every way a player loses life that isn't damage's own result (effects, a payment of life: 119.4
+    "the player loses that much life", 118.11 a payment may be modified by effects) goes through the "would lose life" replacements.
+    With none in force, each player just loses it. False while a choice is open."""
+    losses = [(p, int(n)) for p, n in losses if n > 0 and p in plan.state.players]
+    if not losses:
+        return True
+    if not candidates(plan, "life_loss"):
+        for pid, n in losses:
+            plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor or pid)
+        return True
+    answers = answers if answers is not None else _ctx_answers(ctx)
+    planned = plan_loss(plan, losses, answers=answers, ask=then is not None)
+    if isinstance(planned, Ask):
+        request = {"losses": [list(x) for x in losses], "actor": actor}
+        if _pause(plan, planned, answers, _resume_for(then, "loss", request)):
+            return False
+        raise planned
+    finals, planner = planned
+    left_to_players(plan, planner)
+    for before, out in finals:
+        note_applied(plan, before, out, actor=actor)
+        for ev in out:
+            if ev["kind"] == "life_loss" and ev["n"] > 0:
+                plan.do({"type": "life", "player": ev["player"], "delta": -ev["n"]}, actor=actor or ev["player"])
+    return True
+
+
+def _run_loss(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
+    if lose_life(plan, [(x[0], int(x[1])) for x in request["losses"]], actor=request["actor"], then=then, answers=answers):
         run_then(plan, then)
 
 
@@ -1685,6 +1765,20 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
                     out.lifelink[before["key"]] = out.lifelink.get(before["key"], 0) + f["n"]
                 elif f["kind"] == "life_loss" and f["n"] > 0:
                     out.losses.append((f["player"], f["n"]))
+    if out.players and (loss_cands := candidates(plan, "life_loss")):
+        # -- life modifiers (wave 28B) -- 120.3a: the life lost to damage is a life-loss event of its own (the damage dealt stays what it was):
+        # "would lose life" replacements change it (Bloodletter of Aclazotz: "Damage causes loss of life.")
+        planned_loss = plan_loss(plan, list(out.players.items()), answers=answers, ask=ask, cands=loss_cands)
+        if isinstance(planned_loss, Ask):
+            return planned_loss
+        loss_finals, loss_planner = planned_loss
+        out.left.append(loss_planner)
+        out.life_finals = [*out.life_finals, *loss_finals]
+        out.players = {}
+        for before, finals in loss_finals:
+            lost = sum(f["n"] for f in finals if f["kind"] == "life_loss" and f["n"] > 0)
+            if lost:
+                out.players[before["player"]] = lost
     return out
 
 
@@ -1780,8 +1874,8 @@ def ask_shield(plan: Plan, s: ShieldAsk, resume: dict[str, Any], order: list[str
 
 # -- the kinds' rules (the loop dispatches on the event's kind) ------------------------------------
 _APPLIES: dict[str, Any] = {"tokens": _tokens_applies, "counters": _counters_applies, "player_counters": _player_counters_applies,
-                            "draw": _draw_applies, "life": _life_applies, "damage": _damage_applies}
+                            "draw": _draw_applies, "life": _life_applies, "life_loss": _loss_applies, "damage": _damage_applies}
 _APPLY: dict[str, Any] = {"tokens": _tokens_apply, "counters": _counters_apply, "player_counters": _counters_apply,
-                          "draw": _draw_apply, "life": _life_apply, "damage": _damage_apply}
-_PERFORM: dict[str, Any] = {"draw": _draw_perform, "dredge": _dredge_perform}
-SITES: dict[str, Any] = {"tokens": _run_tokens, "counters": _run_counters, "draw": _run_draw, "life": _run_life}
+                          "draw": _draw_apply, "life": _life_apply, "life_loss": _loss_apply, "damage": _damage_apply}
+_PERFORM: dict[str, Any] = {"draw": _draw_perform, "dredge": _dredge_perform, "life": _life_perform, "life_loss": _life_perform}
+SITES: dict[str, Any] = {"tokens": _run_tokens, "counters": _run_counters, "draw": _run_draw, "life": _run_life, "loss": _run_loss}

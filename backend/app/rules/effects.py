@@ -317,7 +317,7 @@ def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     each = {p: _amount(plan, {**ctx, "recipient": p}, e["n"]) for p in _players(plan, ctx, e["who"])} \
         if sized_damage.has_per_player(e["n"]) else None
     n = 0 if each is not None else _amount(plan, ctx, e["n"])
-    lost = 0
+    losses: list[tuple[str, int]] = []
     for pid in _players(plan, ctx, e["who"]):
         if each is not None:
             n = each[pid]
@@ -326,9 +326,12 @@ def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             div = e.get("of", 2)  # (wave 16C: "a third of their life")
             n = half_of // div + (1 if half_of % div and e["half"] == "up" else 0)
         if n:
-            before = plan.state.players[pid].life
-            plan.do({"type": "life", "player": pid, "delta": -n}, actor=ctx["controller"])
-            lost += max(0, before - plan.state.players[pid].life)
+            losses.append((pid, n))
+    before = {pid: plan.state.players[pid].life for pid, _ in losses}
+    # -- life modifiers (wave 28B) -- the life-loss choke point: "would lose life" replacements (Bloodletter of Aclazotz)
+    if not replace.lose_life(plan, losses, actor=ctx["controller"], then=_then(ctx, e), ctx=ctx):
+        return False
+    lost = sum(max(0, before[pid] - plan.state.players[pid].life) for pid, _ in losses)
     if e.get("bind"):  # -- refused zones/sized (wave 3R4) -- "the life lost this way": the total actually lost (119.3)
         context.bind_amount(ctx, e["bind"], lost)
     return True
@@ -344,7 +347,7 @@ def set_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         want = -(-start // 2) if e["n"] == "half_start" else _amount(plan, ctx, e["n"])  # (107.1a: rounded up)
         diff = want - plan.state.players[pid].life
         if diff < 0:
-            plan.do({"type": "life", "player": pid, "delta": -abs(diff)}, actor=ctx["controller"])
+            replace.lose_life(plan, [(pid, abs(diff))], actor=ctx["controller"])  # -- life modifiers (wave 28B) -- 119.5: a loss event
         elif diff > 0:
             if (why := cant_gain.why_not(plan, pid)) is not None:
                 plan.note(f"{why}: the life total doesn't change", actor=ctx["controller"])
@@ -369,7 +372,7 @@ def exchange_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if (why := cant_gain.why_not(plan, low)) is not None:
         plan.note(f"{why}: the life totals aren't exchanged", actor=ctx["controller"])
         return True
-    plan.do({"type": "life", "player": high, "delta": -diff}, actor=ctx["controller"])
+    replace.lose_life(plan, [(high, diff)], actor=ctx["controller"])  # -- life modifiers (wave 28B) -- 701.12c
     return replace.gain_life(plan, [(low, diff)], actor=ctx["controller"], then=_then(ctx, e), ctx=ctx)
 
 

@@ -110,7 +110,8 @@ def rad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     nonland = sum(1 for cid in milled if cid in plan.state.cards and plan.state.cards[cid].zone == zone_key(pid, "graveyard")
                   and not plan.ch(plan.state.cards[cid]).is_land)
     if nonland:
-        plan.do({"type": "life", "player": pid, "delta": -nonland}, actor=pid)  # (728.1a: life lost "from radiation")
+        from app.rules import replace as _replace_life  # -- life modifiers (wave 28B) -- 119.4 / 118.11: a payment of life is a life loss
+        _replace_life.lose_life(plan, [(pid, nonland)], actor=pid)  # (728.1a: life lost "from radiation")
         plan.do({"type": "resource", "player": pid, "key": "rad", "delta": -min(nonland, n)}, actor=pid)
     return True
 

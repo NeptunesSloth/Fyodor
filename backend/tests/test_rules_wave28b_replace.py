@@ -35,10 +35,13 @@ EXTRA = [
     card("Sages of the Anima", set_code="tst", number="W12", mana_cost="{3}{G}{U}", cmc=5.0, type_line="Creature — Elf Wizard", power="3", toughness="4", colors=["G", "U"], color_identity=["G", "U"], oracle_text="If you would draw a card, instead reveal the top three cards of your library. Put all creature cards revealed this way into your hand and the rest on the bottom of your library in any order."),  # noqa: E501
     card("Out of the Tombs", set_code="tst", number="W13", mana_cost="{2}{B}", cmc=3.0, type_line="Enchantment", colors=["B"], color_identity=["B"], oracle_text="At the beginning of your upkeep, put two eon counters on this enchantment, then mill cards equal to the number of eon counters on it.\nIf you would draw a card while your library has no cards in it, instead return a creature card from your graveyard to the battlefield. If you can't, you lose the game."),  # noqa: E501
     card("Pursuit of Knowledge", set_code="tst", number="W14", mana_cost="{3}{W}", cmc=4.0, type_line="Enchantment", colors=["W"], color_identity=["W"], oracle_text="If you would draw a card, you may put a study counter on this enchantment instead.\nRemove three study counters from this enchantment, Sacrifice this enchantment: Draw seven cards."),  # noqa: E501
+    card("Vampire's Kiss", set_code="tst", number="W15", mana_cost="{1}{B}", cmc=2.0, type_line="Sorcery", colors=["B"], color_identity=["B"], oracle_text="Target player loses 2 life and you gain 2 life."),  # noqa: E501
+    card("Greed", set_code="tst", number="W16", mana_cost="{3}{B}", cmc=4.0, type_line="Enchantment", colors=["B"], color_identity=["B"], oracle_text="{B}, Pay 2 life: Draw a card."),  # noqa: E501
+    card("Boon Reflection", set_code="tst", number="W17", mana_cost="{4}{W}", cmc=5.0, type_line="Enchantment", colors=["W"], color_identity=["W"], oracle_text="If you would gain life, you gain twice that much life instead."),  # noqa: E501
     card("Test Small", set_code="tst", number="W10", mana_cost="{G}", cmc=1.0, type_line="Creature — Elf", power="2", toughness="2", colors=["G"], color_identity=["G"], oracle_text=""),  # noqa: E501
     card("Divination", set_code="tst", number="W09", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"], color_identity=["U"], oracle_text="Draw two cards."),  # noqa: E501
 ]
-FULL = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Small", "Phial of Galadriel", "Bloodletter of Aclazotz")]
+FULL = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Small", "Vampire's Kiss", "Greed", "Boon Reflection")]
 
 
 @pytest.fixture()
@@ -312,6 +315,116 @@ def test_out_of_the_tombs_returns_a_creature_instead_of_a_draw_from_an_empty_lib
     settle(s)
     assert s.state.cards[small.id].zone == "p1:battlefield"  # the first draw; the second finds no creature card: 104.3e
     assert "p1" in s.state.rules.lost
+    roundtrip(s)
+
+
+def kiss(cards, *, bloodletter_for="p1", extra=()):
+    s = build(cards, p1=("Vampire's Kiss", "Bloodletter of Aclazotz", "Lightning Bolt", *extra))
+    put(s, "Bloodletter of Aclazotz", "battlefield", bloodletter_for)
+    return s
+
+
+def test_bloodletter_doubles_an_opponents_life_loss_during_its_controllers_turn(cards):
+    s = kiss(cards)
+    c = put(s, "Vampire's Kiss", "hand")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"])
+    settle(s)
+    assert s.state.players["p2"].life == 40 - 4  # 614.1a: "loses 2 life" -> twice that much
+    assert s.state.players["p1"].life == 40 + 2  # (gaining life is untouched)
+    roundtrip(s)
+
+
+def test_bloodletter_does_not_change_the_damage_only_the_life_it_causes_to_be_lost(cards):
+    s = kiss(cards)
+    c = put(s, "Lightning Bolt", "hand")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"])
+    settle(s)
+    assert s.state.players["p2"].life == 40 - 6  # 120.3a: 3 damage dealt, 6 life lost
+    assert any(e.kind == "damage" and e.amount == 3 for e in s.state.rules.events)
+    roundtrip(s)
+
+
+def test_bloodletter_does_not_double_its_controllers_own_loss(cards):
+    s = kiss(cards)
+    c = put(s, "Vampire's Kiss", "hand")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p1"])
+    settle(s)
+    assert s.state.players["p1"].life == 40 - 2 + 2
+    roundtrip(s)
+
+
+def test_bloodletter_does_nothing_during_the_turn_of_another_player(cards):
+    s = build(cards, p1=("Vampire's Kiss",), p2=("Bloodletter of Aclazotz",))
+    put(s, "Bloodletter of Aclazotz", "battlefield", "p2")
+    c = put(s, "Vampire's Kiss", "hand")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p1"])
+    settle(s)
+    assert s.state.players["p1"].life == 40 - 2 + 2  # it is p1's turn, not the turn of Bloodletter's controller (p2): not doubled
+    roundtrip(s)
+
+
+def test_bloodletter_doubles_life_an_opponent_pays_as_a_cost_during_its_controllers_turn(cards):
+    s = build(cards, p1=("Vampire's Kiss", "Bloodletter of Aclazotz"), p2=("Greed",))
+    put(s, "Bloodletter of Aclazotz", "battlefield")
+    greed = put(s, "Greed", "battlefield", "p2")
+    c = put(s, "Vampire's Kiss", "hand")
+    mana(s, B=1, C=1)
+    mana(s, "p2", B=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p1"])
+    assert s.state.rules.priority == "p2" and s.state.zones.get("stack")
+    ability = 0
+    life = s.state.players["p2"].life
+    act(s, "p2", type="activate_ability", card_id=greed.id, ability=ability)  # 119.4 / 118.11: "Pay 2 life" -> lose twice that much
+    assert s.state.players["p2"].life == life - 4
+    settle(s)
+    roundtrip(s)
+
+
+def test_bloodletter_doubles_the_life_lost_to_combat_damage_not_the_damage_dealt(cards):
+    from tests.test_rules_wave5c_combat import attacking, declare, old, through_combat, to_attack
+    from tests.test_rules_wave5c_combat import build as cbuild
+    from tests.test_rules_wave5c_combat import put as cput
+
+    s = cbuild(cards, "Bloodletter of Aclazotz")
+    cput(s, "Bloodletter of Aclazotz")
+    ogre = old(s, "p1", "Ogre", "3/3")
+    to_attack(s)
+    declare(s, (ogre, "p2"))
+    assert attacking(s, ogre) == "p2"
+    through_combat(s)
+    assert s.state.players["p2"].life == 40 - 6  # 120.3a, 614.1a: 3 combat damage, 6 life lost
+    assert any(e.kind == "damage" and e.amount == 3 for e in s.state.rules.events)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("start,gained", [(5, 4), (6, 2), (40, 2)])
+def test_phial_of_galadriel_doubles_a_gain_only_while_at_five_or_less_life(cards, start, gained):
+    s = build(cards, p1=("Vampire's Kiss", "Phial of Galadriel"))
+    put(s, "Phial of Galadriel", "battlefield")
+    act(s, "p1", type="life", player="p1", delta=start - 40)
+    c = put(s, "Vampire's Kiss", "hand")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"])
+    settle(s)
+    assert s.state.players["p1"].life == start + gained  # 119.10: checked as the gain would happen
+    roundtrip(s)
+
+
+def test_phial_of_galadriel_and_a_second_life_gain_effect_commute(cards):
+    s = build(cards, p1=("Vampire's Kiss", "Phial of Galadriel", "Boon Reflection"))
+    put(s, "Phial of Galadriel", "battlefield")
+    put(s, "Boon Reflection", "battlefield")
+    act(s, "p1", type="life", player="p1", delta=-35)
+    c = put(s, "Vampire's Kiss", "hand")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"])
+    assert s.state.rules.decision is None  # 616.1: both double -> the same result either way: no question
+    settle(s)
+    assert s.state.players["p1"].life == 5 + 8
     roundtrip(s)
 
 

@@ -569,7 +569,8 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         return
     for entry, _card, ep in planned:
         if ep.get("life"):
-            plan.do({"type": "life", "player": entry["player"], "delta": -int(ep["life"])}, actor=entry["actor"])
+            from app.rules import replace as _replace_life  # -- life modifiers (wave 28B) -- 119.4 / 118.11: a payment of life is a life loss
+            _replace_life.lose_life(plan, [(entry["player"], int(ep["life"]))], actor=entry["actor"])
     first = planned[0][0]
     payload: dict[str, Any] = {"type": "move", "card_ids": [c.id for _, c, _ in planned],
                                "to": {"player": first["player"], "zone": "battlefield"}}
