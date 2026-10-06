@@ -2053,6 +2053,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
                   lambda m: m[1] + re.sub(r"\b(myriad|extort|melee|(?:annihilator|afflict|poisonous|frenzy|afterlife) \d+)\b",
                                           lambda k: f'"{k[1].capitalize()}"', m[2]) + m[3]
                   if ("until end of turn" in m[3] or m[1].lower().startswith("until end of turn")) else m[0], body)
+    # -- look top (wave 26D) -- "Put one of those cards into your hand, one on top of your library, and one on the bottom of your library."
+    # (Telling Time, Moment of Truth): one pick for each place, each its own "put one of them …" (the chain read by language._chain)
+    body = re.sub(r"(^|\. )Put one of (?:those cards|them) ((?:into|on) [^,.]+), one ((?:into|on) [^,.]+), and one ((?:into|on) [^,.]+)\.",
+                  lambda m: f"{m[1]}Put one of them {m[2]}, put one of them {m[3]}, and put one of them {m[4]}.", body)
     body = _fight_pair.rewrite(body)  # -- counters (wave 26D) -- "Choose target creature you control and target creature you don't control. … Then those creatures fight each other."
     # -- delayed triggers (wave 23B) -- 118.12a: "At the beginning of your next upkeep, pay {3}{U}{U}. If you don't, you lose the game."
     # (the Pacts) is "… you lose the game unless you pay {3}{U}{U}": the payer is the delayed trigger's controller, as it resolves

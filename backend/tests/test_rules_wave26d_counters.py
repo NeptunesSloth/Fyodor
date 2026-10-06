@@ -46,6 +46,13 @@ EXTRA = [
     card('Pattern Matcher', set_code='tst', number='W19', mana_cost='{4}', cmc=4.0, type_line='Artifact Creature — Golem', oracle_text='When this creature enters, you may search your library for a card with the same name as another creature you control, reveal it, put it into your hand, then shuffle.', power='3', toughness='3', colors=[], color_identity=[], keywords=[], layout='normal'),  # noqa: E501
     card("Behemoth's Herald", set_code='tst', number='W20', mana_cost='{G}', cmc=1.0, type_line='Creature — Elf Shaman', oracle_text='{2}{G}, {T}, Sacrifice a red creature, a green creature, and a white creature: Search your library for a card named Godsire, put it onto the battlefield, then shuffle.', power='1', toughness='1', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
     card('Godsire', set_code='tst', number='W21', mana_cost='{4}{R}{G}{G}{W}', cmc=8.0, type_line='Creature — Beast', oracle_text="Vigilance\n{T}: Create an 8/8 Beast creature token that's red, green, and white.", power='8', toughness='8', colors=['G', 'R', 'W'], color_identity=['G', 'R', 'W'], keywords=['Vigilance'], layout='normal'),  # noqa: E501
+    card('Moment of Truth', set_code='tst', number='W22', mana_cost='{1}{U}', cmc=2.0, type_line='Instant', oracle_text='Look at the top three cards of your library. Put one of those cards into your hand, one into your graveyard, and one on the bottom of your library.', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Dimir Machinations', set_code='tst', number='W23', mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text="Look at the top three cards of target player's library. Exile any number of those cards, then put the rest back in any order.\nTransmute {1}{B}{B} ({1}{B}{B}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)", colors=['B'], color_identity=['B'], keywords=['Transmute'], layout='normal'),  # noqa: E501
+    card('Plague Fiend', set_code='tst', number='W24', mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Insect', oracle_text='Whenever this creature deals combat damage to a creature, destroy that creature unless its controller pays {2}.', power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Rishadan Cutpurse', set_code='tst', number='W25', mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Human Pirate', oracle_text='When this creature enters, each opponent sacrifices a permanent of their choice unless they pay {1}.', power='1', toughness='1', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Xenograft', set_code='tst', number='W26', mana_cost='{4}{U}', cmc=5.0, type_line='Enchantment', oracle_text='As this enchantment enters, choose a creature type.\nEach creature you control is the chosen type in addition to its other types.', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Realmwright', set_code='tst', number='W27', mana_cost='{U}', cmc=1.0, type_line='Creature — Vedalken Wizard', oracle_text='As this creature enters, choose a basic land type.\nLands you control are the chosen type in addition to their other types.', power='1', toughness='1', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Arcane Adaptation', set_code='tst', number='W28', mana_cost='{2}{U}', cmc=3.0, type_line='Enchantment', oracle_text="As this enchantment enters, choose a creature type.\nCreatures you control are the chosen type in addition to their other types. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.", colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -256,6 +263,100 @@ def test_herald_sacrifices_three_creatures_of_three_colors(cards):
     assert s.state.cards[godsire.id].zone == "p1:battlefield"
     gone = [c for c in made + [herald.id] if c not in s.state.cards or s.state.cards[c].zone != "p1:battlefield"]
     assert made[0] in gone and made[2] in gone and made[3] not in gone and len(gone) == 3  # one red, one white, one green (the Herald itself is green)
+    roundtrip(s)
+
+
+def test_look_at_three_one_each_to_hand_graveyard_and_bottom(cards):
+    # 701.20e (look), 401.4: one card to each place, each chosen by the player as it resolves; the top three cards only
+    s = pbuild(cards, [(1, "Moment of Truth"), (6, "Grizzly Bears")])
+    spell = put(s, "Moment of Truth", "hand")
+    library = list(s.state.zones["p1:library"])
+    top3, below = library[:3], library[3:]
+    hand_before = set(s.state.zones["p1:hand"])
+    act(s, "p1", type="add_mana", player="p1", mana={"U": 2})
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    choose_all(s)
+    zones = [s.state.cards[c].zone for c in top3]
+    assert sorted(zones) == ["p1:graveyard", "p1:hand", "p1:library"]  # one each; the third went to the bottom
+    bottom = next(c for c in top3 if s.state.cards[c].zone == "p1:library")
+    assert s.state.zones["p1:library"] == [*below, bottom]
+    assert set(s.state.zones["p1:hand"]) - hand_before == {next(c for c in top3 if s.state.cards[c].zone == "p1:hand")}
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("pays", [False, True])
+def test_each_opponent_sacrifices_a_permanent_unless_they_pay(cards, pays):
+    # 118.12a: "[Effect] unless [that player] pays {1}" — each opponent is offered the payment, and sacrifices only if they don't pay
+    s = pbuild(cards, [(1, "Rishadan Cutpurse")], bob=[(2, "Island")])
+    lands = [c.id for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2"][:2]
+    act(s, "p2", type="move", card_ids=lands, to={"player": "p2", "zone": "battlefield"})
+    spell = put(s, "Rishadan Cutpurse", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"U": 3})
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    if pays:
+        act(s, "p2", type="add_mana", player="p2", mana={"U": 1})
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        wanted = [o.id for o in d.options if o.id == ("pay" if pays else "decline")] or [d.options[0].id]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=wanted[:1])
+    on_field = [c for c in lands if s.state.cards[c].zone == "p2:battlefield"]
+    assert len(on_field) == (2 if pays else 1)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("pays", [False, True])
+def test_destroy_that_creature_unless_its_controller_pays(cards, pays):
+    # 118.12a, 603.2: Plague Fiend's trigger is about the creature it damaged; that creature's controller (not the Fiend's) may pay {2}
+    from tests.test_rules_combat import attack, automate, block, creature, table
+
+    s = table(cards)
+    fiend = creature(s, "p1", "Plague Fiend", "2/2", "Whenever this creature deals combat damage to a creature, destroy that creature unless its controller pays {2}.")
+    wall = creature(s, "p2", "Wall of Test", "1/4")
+    forests = [c.id for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p2"][:2]
+    act(s, "p2", type="move", card_ids=forests, to={"player": "p2", "zone": "battlefield"})
+    automate(s)
+    attack(s, (fiend, "p2"))
+    block(s, "p2", (wall, fiend))
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is None:
+            if wall.id not in s.state.cards or s.state.rules.step.endswith("main2"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        wanted = [o.id for o in d.options if o.id == ("pay" if pays else "decline")] or [d.options[0].id]
+        assert d.player == "p2"  # the damaged creature's controller pays, not the Fiend's
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=wanted[:1])
+    alive = wall.id in s.state.cards and s.state.cards[wall.id].zone == "p2:battlefield"
+    assert alive == pays, (alive, pays)
+    roundtrip(s)
+
+
+def test_chosen_type_is_added_to_the_creatures_you_control(cards):
+    # 205.1b, 614.12a: "Each creature you control is the chosen type in addition to its other types" — the creature type chosen as it entered
+    s = pbuild(cards, [(1, "Xenograft"), (2, "Grizzly Bears")])
+    mine, theirs = [c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"][:2]
+    act(s, "p1", type="move", card_ids=[mine], to={"player": "p1", "zone": "battlefield"})
+    spell = put(s, "Xenograft", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"U": 5})
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.id == "Elf")])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[spell.id].choices.get("Chosen creature type") == "Elf"
+    assert ch(s, mine).subtypes == {"Bear", "Elf"}
+    act(s, "p1", type="move", card_ids=[theirs], to={"player": "p1", "zone": "battlefield"})  # a creature that arrives later too (611.3a)
+    assert "Elf" in ch(s, theirs).subtypes
     roundtrip(s)
 
 

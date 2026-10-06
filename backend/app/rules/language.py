@@ -911,7 +911,7 @@ _REST = (r"(?:the rest|the rest of (?:those|the) cards|the rest of them|the othe
          r"all cards exiled this way that weren't cast|"
          r"all cards revealed this way that weren't put onto the battlefield) "  # (-- if you do (wave 15C) -- Genesis Wave)
          rf"(?P<rest>into (?:your|their) graveyard|into your hand|on the bottom(?: of {_LIBREF})? in (?:any|a random) order|"
-         rf"on the bottom of {_LIBREF}|(?:back )?on top of {_LIBREF} in any order)")
+         rf"on the bottom of {_LIBREF}|(?:back )?on top of {_LIBREF} in any order|back in any order)")  # (wave 26D: "put the rest back in any order")
 _PICK_TO = ("into your hand|onto the battlefield tapped and attacking|onto the battlefield tapped|onto the battlefield|into your graveyard|"
             "into their graveyard|into that player's graveyard|"  # (wave 20F: another player's library, its owner's graveyard, 404.1)
             "back on top of your library|on top of your library|on the bottom of your library|on the bottom of that player's library|"
@@ -924,7 +924,7 @@ _PICK_DESTS = {**_DESTS, "onto the battlefield tapped and attacking": "battlefie
 _PICK = re.compile(
     rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |(?P<exile>(?:you may )?exile) |put )"
     rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among (?:them|the cards milled this way|the milled cards|those cards)|revealed this way|milled this way))"
-    r"|(?= (?:into|on|onto) )| them(?= (?:into|on|onto) ))"
+    r"|(?= (?:into|on|onto) )| them(?= (?:into|on|onto) )| (?:them|those cards)(?=,| and |$))"  # (wave 26D: "exile any number of them / those cards")
     r"|(?P<that>that card|it|the revealed card|the nonland card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
     r"(?: and put (?:it|them|the revealed cards|that card|those cards))?"
     rf"(?:(?P<fd> face down)| (?P<to>{_PICK_TO}))?"
@@ -1015,7 +1015,7 @@ def _pick_alts(text: str) -> tuple[Effects, Any] | None:
 def _rest(where: str) -> dict[str, Any]:
     if where.startswith("into "):
         to = where.split()[-1]
-    elif "on top" in where:
+    elif "on top" in where or where == "back in any order":
         to = "top_any"
     else:
         to = "bottom_random" if "random" in where else "bottom_any"

@@ -49,6 +49,17 @@ def first_layer(d: dict[str, Any]) -> int:
     return 6
 
 
+def with_chosen(state: GameState, st: Static) -> dict[str, Any]:
+    """-- chosen type (wave 26D) -- the layer-4 part of a static that adds "the chosen type": the creature type (or basic land type) its
+    source chose as it entered (614.12a, 205.1b), read now (the table is cached by what is on the battlefield, not by what was chosen)."""
+    d = st.definition
+    l4 = d.get("layer4")
+    if not l4 or not l4.get("chosen_type"):
+        return d
+    value = state.cards[st.source].choices.get("Chosen basic land type" if l4["chosen_type"] == "land" else "Chosen creature type", "").strip()
+    return {**d, "layer4": {**l4, "add_subtypes": [value] if value else []}}
+
+
 def _colors(state: GameState, st: Static) -> dict[str, Any] | None:
     """The layer-5 entry of a static (its chosen color read from its source, 614.12a), or None."""
     d = st.definition
@@ -175,7 +186,7 @@ class _Solver:
             if not self._matches(y, cid, self.at(cid, yk)):
                 continue
             before = self.at(cid, xk)
-            after = L._layer4(before, [], [(y.seq, y.definition)])
+            after = L._layer4(before, [], [(y.seq, with_chosen(self.state, y))])
             if self._matches(x, cid, before) != self._matches(x, cid, after):
                 return True
         return False
@@ -229,7 +240,7 @@ class _Solver:
             found = self._find(st)
             self.order[id(st)] = max([st.seq, *(self.order[w] + 0.5 for w in self.waited.get(id(st), ()) if w in self.order)])
             for cid in found:
-                self.applied4[cid].append((self.order[id(st)], st.definition))
+                self.applied4[cid].append((self.order[id(st)], with_chosen(self.state, st)))
             if st.definition["layer4"].get("set_land_types"):  # 305.7: those lands lose the abilities of their rules text
                 for cid in found:
                     self.dead.setdefault(cid, (-1, 0, 0))
@@ -299,7 +310,7 @@ def entries(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         elif not _elsewhere(st, card, ch):
             continue
         if d.get("layer4"):
-            layer4.append((st.order or st.seq, d))
+            layer4.append((st.order or st.seq, with_chosen(state, st)))
         colors = _colors(state, st) if first_layer(d) <= 5 else None
         if colors is not None and ("set_colors" in colors or "add_colors" in colors):
             layer5.append((st.order or st.seq, colors))
