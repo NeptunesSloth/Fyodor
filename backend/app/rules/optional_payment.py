@@ -558,11 +558,12 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
         cost_payment.pay(plan, cost, source, chosen, record)
     finally:
         plan.actor = actor
-    for comp in cost.components:  # -- unless damage (wave 27A) -- the source deals the damage to the payer (120.3)
-        if comp.kind == "SOURCE_DAMAGE":
-            from app.rules import effects
-
-            effects._deal(plan, ctx, [(effects._ability_source(plan, ctx), payer, comp.amount)])
+    # -- unless damage (wave 27A) -- the source deals the damage to the payer (120.3) as the next instruction (review 27A: a damage
+    # instruction of its own, so the payer's 616.1 choices among replacement / prevention effects can pause it)
+    hurt = [{"do": "damage", "who": f"player:{payer}", "n": comp.amount} for comp in cost.components if comp.kind == "SOURCE_DAMAGE"]
+    if hurt:
+        at = int(ctx.get("next") or 0)
+        ctx["effects"] = [*ctx["effects"][:at], *hurt, *ctx["effects"][at:]]
     for i, comp in enumerate(cost.components):  # -- if you do (wave 15C) -- shown to everyone, and it stays in the hand
         if comp.kind == REVEAL_FROM_HAND and chosen.get(i):
             plan.do({"type": "reveal", "card_ids": chosen[i]}, actor=payer)
