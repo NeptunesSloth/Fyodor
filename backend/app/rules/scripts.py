@@ -2490,6 +2490,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
         return None
+    if event_player:  # -- trigger sweep (wave 27B) -- "you and that player each draw a card and lose 1 life" (Karazikar): each part
+        # is one instruction for both players ("you and that player each draw …": 121.2c, the active player draws first)
+        both = re.fullmatch(r"[Yy]ou and that player each ((?:draw|lose|gain) [^.]+?(?: and (?:draw|lose|gain) [^.]+?)+)\.", body)
+        if both is not None:
+            body = " ".join(f"You and that player each {part}." for part in re.split(r" and (?=(?:draw|lose|gain) )", both[1]))
     if it == "self":  # -- triggers (wave 17D) -- "draw a card for each Aura and Equipment attached to it": "it" is the source (Wyleth)
         body = re.sub(r"\b(Auras?|Equipment) attached to it\b", r"\1 attached to ~", body)
     # -- review (wave 7R) -- "Create a tapped 2/2 black Zombie creature token and exile that card." (Wight): "that card" is
@@ -3937,6 +3942,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     body = re.sub(r"^destroy (?:both creatures|that creature and ~)\.$", "destroy that creature. Destroy ~.", body)
                 if cond is not None and cond.get("event") in ("crew", "saddle", "either") and other_side.wanted(cond):
                     body = re.sub(r"\bthat (?:Mount or Vehicle|Vehicle|Mount)\b", "that creature", body)  # -- crew & saddle (wave 23D) -- the event's other object
+                if cond is not None and cond.get("event") == "you_attack":  # -- trigger sweep (wave 27B; review: an attack's own event only) --
+                    body = re.sub(r"\b([Tt]hat|[Tt]he) attacking player\b", "that player", body)  # the event's player: the attacker (508.1)
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
                 if ante == "self_gone":  # -- trigger tail (wave 15B) -- "put her into her owner's library third from the top"
                     # (a gendered pronoun is written ~): the card after it left, found where it went (400.7e), like "it"
@@ -3995,6 +4002,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
+                if cond is not None and cond.get("event") == "you_attack" and cond.get("player") == "you" and cond.get("defender") \
+                        and "event_player" in json.dumps(effects):
+                    return None  # (review 27B) "Whenever you attack enchanted player, that player loses 2 life": the player attacked, not the event's (you)
                 if to_gy or any(e.get("who") == "self_gy" for e in effects):  # (-- casting extras (wave 18E) -- recover: "If you don't, exile ~" too)
                     effects = [{**e, "who": "self_gy"} if e.get("who") == "self" else e for e in effects]
                 if to_gy:  # -- review 25D -- "When ~ is put into your graveyard from your library, you may exile it. If you do, …" (Creeping

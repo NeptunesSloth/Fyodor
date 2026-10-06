@@ -750,9 +750,12 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         want = cond.get("defender")
         # "whenever you attack" is once per combat; "whenever a player attacks you" once per player
         # attacked (508.3d, 508.3e): each reads only its own fact
-        if event == "you_attack" and bool(want) != ("defended" in info):
+        if event == "you_attack" and want == "opponent_any":  # -- trigger sweep (wave 27B) -- "a player attacks one or more of your opponents": once per attack (508.3d)
+            if "defended" in info or not any(d != watcher.controller for d in info.get("defended_direct", [])):
+                return False
+        elif event == "you_attack" and bool(want) != ("defended" in info):
             return False
-        if want and not _defender_ok(want, watcher, info, plan):
+        if want and want != "opponent_any" and not _defender_ok(want, watcher, info, plan):
             return False
         if cond.get("first_each_turn") and not info.get("first"):
             return False
@@ -908,6 +911,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return defended == you
     if want == "opponent":  # "attacks one of your opponents"
         return defended != you
+    if want == "other_opponent":  # -- trigger sweep (wave 27B) -- "an opponent attacks another one of your opponents": neither you nor the attacker
+        return defended not in (you, info.get("attacker"))
     if want == "enchanted_player":
         return defended == watcher.attached_player
     if want == "most_life":  # -- keywords (wave 15E) -- 702.105a: the player attacked has the most life or is tied for it
@@ -1189,7 +1194,8 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
             plan.rules.once_per_turn[key] = turn
         facts.append((event, c, plan.ch(c), c.controller, info))
     if event == "attack":  # 506.5 / 508.3d: how many creatures were declared as attackers
-        facts.append(("you_attack", None, None, cards[0].controller, {"attackers": len(cards), "attacking": attacking}))
+        facts.append(("you_attack", None, None, cards[0].controller, {"attackers": len(cards), "attacking": attacking,
+                                                                       "defended_direct": sorted({d for d, direct in (_defended(plan, c) for c in cards) if d and direct})}))  # (wave 27B: "one or more of your opponents")
         # 508.3e / 508.3b: once for each player attacked (directly, or through a planeswalker they
         # control), with the creatures attacking them
         groups: dict[str, dict[str, list[str]]] = {}
@@ -1203,7 +1209,7 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
                 g["direct"].append(c.id)
         for defended, g in groups.items():
             facts.append(("you_attack", None, None, cards[0].controller,
-                          {"defended": defended, "direct": bool(g["direct"]), "attackers": len(g["all"]),
+                          {"defended": defended, "attacker": cards[0].controller, "direct": bool(g["direct"]), "attackers": len(g["all"]),
                            "attacking": g["all"], "attacking_direct": g["direct"]}))
     facts += [(_PAIRED[event], c, plan.ch(c), c.controller, {"oid": plan.oid(c), "other": other.id,
                                                               "other_oid": plan.oid(other)})  # (other_oid: wave 6D)
@@ -1918,6 +1924,8 @@ def bind_that_player(t: PendingTrigger) -> None:
         raw = raw.replace('\\"controller\\":\\"defended_player\\"', f'\\"controller\\":\\"player:{t.event.defended}\\"')
         t.ability = json.loads(raw)
     players = list(t.event.players) if t.event is not None else []
+    if t.event is not None and t.event.kind == "you_attack" and t.event.defended and (t.ability.get("cond") or {}).get("player") == "you":
+        players = [t.event.defended]  # (review 27B) "Whenever you attack a player, tap target creature that player controls": the one attacked (508.3e)
     if len(players) != 1:
         return
     for key in ("controller", "zone_owner"):  # (zone_owner: wave 15C, "from that player's graveyard")
