@@ -257,9 +257,11 @@ def planeswalker(name, text):
     ("Elspeth, Sun's Champion", "+1: Create three 1/1 white Soldier creature tokens.\n−3: Destroy all creatures with power 4 or greater.\n"
      "−7: " + ELSPETH, "FULL"),
     ("Ob Nixilis Reignited", "+1: You draw a card and you lose 1 life.\n−3: Destroy target creature.\n−8: " + OB_NIXILIS, "FULL"),
-    # refused: two quoted abilities / a text the grammar can't read / an activated ability / a rule the command zone isn't read for
+    # two quoted abilities, each read (wave 26A); refused: a text the grammar can't read / an activated ability / a rule the command zone isn't read for
     ("Tamiyo, the Moon Sage", '−8: You get an emblem with "You have no maximum hand size" and "Whenever a card is put into your graveyard from '
-     'anywhere, you may return it to your hand."', "PARTIAL"),
+     'anywhere, you may return it to your hand."', "FULL"),
+    ("Two-Ability Refusal", '−8: You get an emblem with "You have no maximum hand size" and "Tap an untapped artifact you control: Draw a card."',
+     "PARTIAL"),
     ("Ob Nixilis of the Black Oath", "−8: You get an emblem with \"{1}{B}, Sacrifice a creature: You gain X life and draw X cards, where X is "
      "the sacrificed creature's power.\"", "PARTIAL"),
     ("Mordenkainen", '−7: You get an emblem with "You have no maximum hand size."', "FULL"),  # (wave 20C: the command zone is read for it)

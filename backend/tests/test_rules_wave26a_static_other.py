@@ -37,6 +37,8 @@ EXTRA = [
     card('Break Under Pressure', set_code='tst', number='N12', mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text='Target opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('End of the Hunt', set_code='tst', number='N13', mana_cost='{1}{B}', cmc=2.0, type_line='Sorcery', oracle_text='Target opponent exiles a creature or planeswalker they control with the greatest mana value among creatures and planeswalkers they control.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('Seek Test', set_code='tst', number='N17', mana_cost='{1}{B}', cmc=2.0, type_line='Sorcery', oracle_text="Search target opponent's library for a card and exile it. You gain life equal to its mana value. Then that player shuffles.", colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Emblem Test', set_code='tst', number='N18', mana_cost='{1}', cmc=1.0, type_line='Sorcery', oracle_text='You get an emblem with "You have no maximum hand size" and "Whenever a card is put into your graveyard from anywhere, you may return it to your hand."', colors=[], color_identity=[], keywords=[], layout='normal'),  # noqa: E501
+    card('Foe Emblem Test', set_code='tst', number='N19', mana_cost='{1}', cmc=1.0, type_line='Sorcery', oracle_text='Target opponent gets an emblem with "Whenever a creature attacks you, it gets +5/+5 and gains trample until end of turn."', colors=[], color_identity=[], keywords=[], layout='normal'),  # noqa: E501
     card('Bribery', set_code='tst', number='N14', mana_cost='{3}{U}{U}', cmc=5.0, type_line='Sorcery', oracle_text="Search target opponent's library for a creature card and put that card onto the battlefield under your control. Then that player shuffles.", colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
     card('Bitter Ordeal', set_code='tst', number='N15', mana_cost='{1}{B}', cmc=2.0, type_line='Sorcery', oracle_text="Gravestorm\nSearch target player's library for a card and exile it. Then that player shuffles.", colors=['B'], color_identity=['B'], keywords=['Gravestorm'], layout='normal'),  # noqa: E501
     card("Life's Finale", set_code='tst', number='N16', mana_cost='{4}{B}{B}', cmc=6.0, type_line='Sorcery', oracle_text="Destroy all creatures, then search target opponent's library for up to three creature cards and put them into their graveyard. Then that player shuffles.", colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
@@ -202,6 +204,32 @@ def test_bitter_ordeal_exiles_the_card_i_find(cards):
     s = build(cards, p1=("Bitter Ordeal",), p2=("Test Bear",))
     cast(s, "Bitter Ordeal", "p2")
     assert sum(1 for c in s.state.cards.values() if c.owner == "p2" and c.zone == "p2:exile") == 1
+    roundtrip(s)
+
+
+@pytest.mark.parametrize(("spell", "target", "owner"), [("Emblem Test", "p1", "p1"), ("Foe Emblem Test", "p2", "p2")])
+def test_emblem_with_several_quoted_abilities_or_a_target_opponent(cards, spell, target, owner):
+    assert coverage.of_card_data(cards.resolve(spell)).level == "FULL"
+    s = build(cards, p1=(spell,))
+    put(s, spell, "hand")
+    mana(s, W=3)
+    act(s, "p1", type="cast_spell", card_id=find(s, spell).id, **({"targets": [target]} if spell.startswith("Foe") else {}))
+    answer(s)
+    emblems = [c for c in s.state.cards.values() if c.zone.endswith(":command") and c.token is not None and c.token.type_line == "Emblem"]
+    assert [e.owner for e in emblems] == [owner]
+    if spell == "Emblem Test":
+        assert emblems[0].token.text.count("\n") == 1
+    roundtrip(s)
+
+
+def test_the_two_ability_emblem_returns_cards_put_into_my_graveyard(cards):
+    s = build(cards, p1=("Emblem Test",))
+    put(s, "Emblem Test", "hand")
+    mana(s, W=3)
+    act(s, "p1", type="cast_spell", card_id=find(s, "Emblem Test").id)
+    answer(s)
+    # the emblem exists when the spell is put into the graveyard (608.2n), so its second ability triggers for that card: "you may return it"
+    assert find(s, "Emblem Test").zone == "p1:hand"
     roundtrip(s)
 
 

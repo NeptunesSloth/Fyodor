@@ -2425,7 +2425,7 @@ def _sized_damage_forms(text: str, rider: Any) -> tuple[Effects, Any] | None:
 _V3 = (r"draws|loses|gains|discards|mills|sacrifices|creates|puts|exiles|returns|reveals|shuffles|scries|surveils|"
        r"gets|searches")
 COMPOUND = (rf"(?P<s>target player|target opponent|each player|each opponent|each of your opponents|that player) "
-            rf"(?P<l>(?:{_V3}) .+?) and (?P<r>(?:{_V3}) .+)")
+            rf"(?P<l>(?:{_V3}) [^\"]+?) and (?P<r>(?:{_V3}) .+)")  # (wave 26A: no "and" inside a quoted ability: an emblem's text)
 
 
 # -- delayed triggers & durations (agent J) --------------------------------------------------------
@@ -3399,7 +3399,7 @@ _MONARCH = re.compile(_SUBJ + r"becomes? the monarch")
 _INITIATIVE = re.compile(_SUBJ + r"takes? the initiative")
 _VENTURE = re.compile(r"(?:you )?venture into (?P<into>the dungeon|Undercity)")
 _RING = re.compile(r"the Ring tempts you")
-_EMBLEM = re.compile(_SUBJ + r'gets? an emblem with "(?P<t>[^"]+)"')  # (nested quotes: not read)
+_EMBLEM = re.compile(_SUBJ + r'gets? an emblem with "(?P<t>[^"]+)"(?P<more>(?: and "[^"]+")*)')  # (nested quotes: not read; wave 26A: several abilities)
 
 
 def _emblem(text: str) -> tuple[Effects, Any] | None:
@@ -3410,10 +3410,13 @@ def _emblem(text: str) -> tuple[Effects, Any] | None:
         return None
     from app.rules.designations import emblem_text_ok
 
-    if not emblem_text_ok(m["t"]):
+    # (wave 26A: "an emblem with "You have no maximum hand size" and "Whenever …."": one ability per quote, one line each; 114.2)
+    abilities = [m["t"], *re.findall(r'"([^"]+)"', m["more"])]
+    text = "\n".join(a if a.endswith((".", "!", "?")) else a + "." for a in abilities)
+    if not emblem_text_ok(text):
         raise _Fail
     who, target = _subject(m)
-    return [{"do": "emblem", "who": who, "text": m["t"]}], target
+    return [{"do": "emblem", "who": who, "text": text}], target
 
 
 def designation_instruction(text: str) -> tuple[Effects, Any] | None:
