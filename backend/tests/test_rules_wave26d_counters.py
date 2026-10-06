@@ -1,0 +1,423 @@
+"""Wave 26D: counter wordings over existing machinery. Real Oracle text, replay and save/load for each.
+
+* 614.1c / 614.12: "enters with N counters for each <group you control>" counts a battlefield group only when the entering
+  permanent can't belong to it (it isn't on the battlefield while the count is read; the count here happens after the move).
+* 702.51a, 601.2h: "each creature that convoked it" reads the spell's payment record (the creatures tapped for convoke).
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from app.cards.importer import build_database
+from app.config import Settings
+from app.game.session import GameSession
+from app.game.state import GameState
+from app.rules import coverage
+from app.rules.plan import Plan
+from tests import test_rules_cost_contributions as cb
+from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act
+from tests.test_rules_effects import replay_matches
+from tests.test_rules_permissions import build as pbuild
+from tests.test_rules_permissions import put
+
+EXTRA = [
+    card('Ancient Imperiosaur', set_code='tst', number='W01', mana_cost='{5}{G}{G}', cmc=7.0, type_line='Creature — Dinosaur', oracle_text="Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nTrample, ward {2}\nThis creature enters with two +1/+1 counters on it for each creature that convoked it.", power='6', toughness='6', colors=['G'], color_identity=['G'], keywords=['Trample', 'Ward', 'Convoke'], layout='normal'),  # noqa: E501
+    card('Venerated Loxodon', set_code='tst', number='W02', mana_cost='{4}{W}', cmc=5.0, type_line='Creature — Elephant Cleric', oracle_text="Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nWhen this creature enters, put a +1/+1 counter on each creature that convoked it.", power='4', toughness='4', colors=['W'], color_identity=['W'], keywords=['Convoke'], layout='normal'),  # noqa: E501
+    card('Michelangelo, On the Scene', set_code='tst', number='W03', mana_cost='{4}{G}{G}', cmc=6.0, type_line='Legendary Creature — Mutant Ninja Turtle', oracle_text="Trample (This creature can deal excess combat damage to the player it's attacking.)\nMichelangelo enters with a +1/+1 counter on him for each land you control.\nWhen Michelangelo dies, return this card to your hand.", power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Trample'], layout='normal'),  # noqa: E501
+    card('The Flesh Is Weak', set_code='tst', number='W04', mana_cost='{2}{W}{U}{B}', cmc=5.0, type_line='Enchantment', oracle_text='When this enchantment enters, put a +1/+1 counter on each creature you control.\nCreatures you control with +1/+1 counters on them are artifacts in addition to their other types.\nNonartifact creatures get -1/-1.', colors=['B', 'U', 'W'], color_identity=['B', 'U', 'W'], keywords=[], layout='normal'),  # noqa: E501
+    card('Aurification', set_code='tst', number='W05', mana_cost='{2}{W}{W}', cmc=4.0, type_line='Enchantment', oracle_text="Whenever a creature deals damage to you, put a gold counter on it.\nEach creature with a gold counter on it is a Wall in addition to its other creature types and has defender. (Those creatures can't attack.)\nWhen this enchantment leaves the battlefield, remove all gold counters from all creatures.", colors=['W'], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
+    card("Sigarda's Summons", set_code='tst', number='W06', mana_cost='{4}{W}{W}', cmc=6.0, type_line='Enchantment', oracle_text='Creatures you control with +1/+1 counters on them have base power and toughness 4/4, have flying, and are Angels in addition to their other types.', colors=['W'], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
+    card('Rimefeather Owl', set_code='tst', number='W07', mana_cost='{5}{U}{U}', cmc=7.0, type_line='Snow Creature — Bird', oracle_text="Flying\nRimefeather Owl's power and toughness are each equal to the number of snow permanents on the battlefield.\n{1}{S}: Put an ice counter on target permanent.\nPermanents with ice counters on them are snow.", power='*', toughness='*', colors=['U'], color_identity=['U'], keywords=['Flying'], layout='normal'),  # noqa: E501
+    card('Omo, Queen of Vesuva', set_code='tst', number='W08', mana_cost='{2}{G/U}', cmc=3.0, type_line='Legendary Creature — Shapeshifter Noble', oracle_text='Whenever Omo enters or attacks, put an everything counter on each of up to one target land and up to one target creature.\nEach land with an everything counter on it is every land type in addition to its other types.\nEach nonland creature with an everything counter on it is every creature type.', power='1', toughness='5', colors=['G', 'U'], color_identity=['G', 'U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Clamavus', set_code='tst', number='W09', mana_cost='{4}{G}', cmc=5.0, type_line='Creature — Human Tyranid Artificer', oracle_text='Proclamator Hailer — Each creature you control gets +1/+1 for each +1/+1 counter on it.', power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Proclamator Hailer'], layout='normal'),  # noqa: E501
+    card('Toxrill, the Corrosive', set_code='tst', number='W10', mana_cost='{5}{B}{B}', cmc=7.0, type_line='Legendary Creature — Slug Horror', oracle_text="At the beginning of each end step, put a slime counter on each creature you don't control.\nCreatures you don't control get -1/-1 for each slime counter on them.\nWhenever a creature you don't control with a slime counter on it dies, create a 1/1 black Slug creature token.\n{U}{B}, Sacrifice a Slug: Draw a card.", power='7', toughness='7', colors=['B'], color_identity=['B', 'U'], keywords=[], layout='normal'),  # noqa: E501
+    card("Agent's Toolkit", set_code='tst', number='W11', mana_cost='{1}{G}{U}', cmc=3.0, type_line='Artifact — Clue', oracle_text='This artifact enters with a +1/+1 counter, a flying counter, a deathtouch counter, and a shield counter on it. (If it would be dealt damage or destroyed, remove a shield counter from it instead.)\nWhenever a creature you control enters, you may move a counter from this artifact onto that creature.\n{2}, Sacrifice this artifact: Draw a card.', colors=['G', 'U'], color_identity=['G', 'U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Heightened Reflexes', set_code='tst', number='W12', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Target creature gets +1/+0 until end of turn. Put a first strike counter on it.', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
+    card('Momentum Rumbler', set_code='tst', number='W13', mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Dinosaur', oracle_text="Whenever this creature attacks, if it doesn't have first strike, put a first strike counter on it.\nWhenever this creature attacks, if it has first strike, it gains double strike until end of turn.", power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
+    card('Hog-Monkey Rampage', set_code='tst', number='W14', mana_cost='{1}{R/G}', cmc=2.0, type_line='Instant', oracle_text='Choose target creature you control and target creature an opponent controls. Put a +1/+1 counter on the creature you control if it has power 4 or greater. Then those creatures fight each other. (Each deals damage equal to its power to the other.)', colors=['G', 'R'], color_identity=['G', 'R'], keywords=['Fight'], layout='normal'),  # noqa: E501
+    card('Joust', set_code='tst', number='W15', mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text="Choose target creature you control and target creature you don't control. The creature you control gets +2/+1 until end of turn if it's a Knight. Then those creatures fight each other. (Each deals damage equal to its power to the other.)", colors=['R'], color_identity=['R'], keywords=['Fight'], layout='normal'),  # noqa: E501
+    card('Tail Swipe', set_code='tst', number='W16', mana_cost='{G}', cmc=1.0, type_line='Instant', oracle_text="Choose target creature you control and target creature you don't control. If you cast this spell during your main phase, the creature you control gets +1/+1 until end of turn. Then those creatures fight each other. (Each deals damage equal to its power to the other.)", colors=['G'], color_identity=['G'], keywords=['Fight'], layout='normal'),  # noqa: E501
+    card('Pack Hunt', set_code='tst', number='W17', mana_cost='{3}{G}', cmc=4.0, type_line='Sorcery', oracle_text='Search your library for up to three cards with the same name as target creature, reveal them, put them into your hand, then shuffle.', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
+    card('Remembrance', set_code='tst', number='W18', mana_cost='{3}{W}', cmc=4.0, type_line='Enchantment', oracle_text='Whenever a nontoken creature you control dies, you may search your library for a card with the same name as that creature, reveal it, put it into your hand, then shuffle.', colors=['W'], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
+    card('Pattern Matcher', set_code='tst', number='W19', mana_cost='{4}', cmc=4.0, type_line='Artifact Creature — Golem', oracle_text='When this creature enters, you may search your library for a card with the same name as another creature you control, reveal it, put it into your hand, then shuffle.', power='3', toughness='3', colors=[], color_identity=[], keywords=[], layout='normal'),  # noqa: E501
+    card("Behemoth's Herald", set_code='tst', number='W20', mana_cost='{G}', cmc=1.0, type_line='Creature — Elf Shaman', oracle_text='{2}{G}, {T}, Sacrifice a red creature, a green creature, and a white creature: Search your library for a card named Godsire, put it onto the battlefield, then shuffle.', power='1', toughness='1', colors=['G'], color_identity=['G'], keywords=[], layout='normal'),  # noqa: E501
+    card('Godsire', set_code='tst', number='W21', mana_cost='{4}{R}{G}{G}{W}', cmc=8.0, type_line='Creature — Beast', oracle_text="Vigilance\n{T}: Create an 8/8 Beast creature token that's red, green, and white.", power='8', toughness='8', colors=['G', 'R', 'W'], color_identity=['G', 'R', 'W'], keywords=['Vigilance'], layout='normal'),  # noqa: E501
+    card('Moment of Truth', set_code='tst', number='W22', mana_cost='{1}{U}', cmc=2.0, type_line='Instant', oracle_text='Look at the top three cards of your library. Put one of those cards into your hand, one into your graveyard, and one on the bottom of your library.', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Dimir Machinations', set_code='tst', number='W23', mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text="Look at the top three cards of target player's library. Exile any number of those cards, then put the rest back in any order.\nTransmute {1}{B}{B} ({1}{B}{B}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)", colors=['B'], color_identity=['B'], keywords=['Transmute'], layout='normal'),  # noqa: E501
+    card('Plague Fiend', set_code='tst', number='W24', mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Insect', oracle_text='Whenever this creature deals combat damage to a creature, destroy that creature unless its controller pays {2}.', power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Rishadan Cutpurse', set_code='tst', number='W25', mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Human Pirate', oracle_text='When this creature enters, each opponent sacrifices a permanent of their choice unless they pay {1}.', power='1', toughness='1', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Xenograft', set_code='tst', number='W26', mana_cost='{4}{U}', cmc=5.0, type_line='Enchantment', oracle_text='As this enchantment enters, choose a creature type.\nEach creature you control is the chosen type in addition to its other types.', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Realmwright', set_code='tst', number='W27', mana_cost='{U}', cmc=1.0, type_line='Creature — Vedalken Wizard', oracle_text='As this creature enters, choose a basic land type.\nLands you control are the chosen type in addition to their other types.', power='1', toughness='1', colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card('Arcane Adaptation', set_code='tst', number='W28', mana_cost='{2}{U}', cmc=3.0, type_line='Enchantment', oracle_text="As this enchantment enters, choose a creature type.\nCreatures you control are the chosen type in addition to their other types. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.", colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
+    card("Brutal Cathar // Moonrage Brute", set_code="tst", number="W90", layout="transform", mana_cost=None, cmc=3.0,
+         type_line="Creature \u2014 Human Soldier Werewolf // Creature \u2014 Werewolf", colors=["W"], color_identity=["R", "W"], image_uris=None,
+         card_faces=[
+             {"object": "card_face", "name": "Brutal Cathar", "mana_cost": "{2}{W}", "type_line": "Creature \u2014 Human Soldier Werewolf",
+              "oracle_text": "Whenever this creature enters or transforms into Brutal Cathar, exile target creature an opponent controls until this "
+              "creature leaves the battlefield.\nDaybound (If a player casts no spells during their own turn, it becomes night next turn.)",
+              "power": "2", "toughness": "2", "colors": ["W"]},
+             {"object": "card_face", "name": "Moonrage Brute", "mana_cost": "", "type_line": "Creature \u2014 Werewolf",
+              "oracle_text": "First strike\nWard\u2014Pay 3 life.\nNightbound (If a player casts at least two spells during their own turn, it becomes "
+              "day next turn.)", "power": "3", "toughness": "3", "colors": ["R"]}]),
+]
+FULL = [c["name"] for c in EXTRA]
+
+
+@pytest.fixture()
+def card_db(settings: Settings) -> Path:
+    settings.ensure_dirs()
+    build_database(fixture_cards() + EXTRA, settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
+def reloaded(s):
+    return GameSession(GameState.model_validate_json(s.state.model_dump_json()), cards=s.cards)
+
+
+def roundtrip(s):
+    replay_matches(s)
+    assert reloaded(s).state.model_dump(mode="json") == s.state.model_dump(mode="json")
+
+
+def counters(s, cid):
+    return dict(s.state.cards[cid].counters)
+
+
+def find(s, name):
+    return next(c for c in s.state.cards.values() if c.name == name)
+
+
+@pytest.mark.parametrize("name", FULL)
+def test_supported(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def convoke_cast(cards, spell, creatures):
+    s, card, made, _, _ = cb.build(cards, spell, creatures=creatures)
+    cb.cast(s, card)
+    for c in made:
+        cb.commit(s, c, "convoke")
+    return s, card, made
+
+
+def settle(s):
+    for _ in range(30):
+        if s.state.rules.decision is not None:
+            d = s.state.rules.decision
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id] if d.options else [])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_convoke_counters_for_each_creature(cards):
+    # 702.51a, 614.1c: enters with two +1/+1 counters for each creature that convoked it (read from the payment record)
+    s, card, made = convoke_cast(cards, "Ancient Imperiosaur", [[], [], []])
+    d = s.state.rules.decision
+    act(s, "p1", type="add_mana", player="p1", mana={"G": 4})
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+    settle(s)
+    assert s.state.cards[card.id].zone == "p1:battlefield"
+    assert counters(s, card.id) == {"+1/+1": 6}
+    roundtrip(s)
+
+
+def test_convoke_counters_on_each_convoker(cards):
+    # "When this creature enters, put a +1/+1 counter on each creature that convoked it": only those creatures
+    s, card, made = convoke_cast(cards, "Venerated Loxodon", [["W"], [], ["G"]])
+    d = s.state.rules.decision
+    act(s, "p1", type="create_token", player="p1", token={"name": "Bystander", "type_line": "Token Creature — Test", "power": "1", "toughness": "1"})
+    act(s, "p1", type="add_mana", player="p1", mana={"W": 2})
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+    settle(s)
+    assert s.state.cards[card.id].zone == "p1:battlefield"
+    assert all(counters(s, c) == {"+1/+1": 1} for c in made)
+    assert counters(s, card.id) == {} and counters(s, find(s, "Bystander").id) == {}
+    roundtrip(s)
+
+
+def ch(s, cid):
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[cid])
+
+
+def test_counter_conditioned_group_statics(cards):
+    # 613.1d-f: "Creatures you control with +1/+1 counters on them are artifacts / Angels, have base 4/4 and flying": only the ones with counters
+    s = pbuild(cards, [(1, "The Flesh Is Weak"), (1, "Sigarda's Summons"), (2, "Grizzly Bears")])
+    a, b = [c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"][:2]
+    for c in (a, b):
+        act(s, "p1", type="move", card_ids=[c], to={"player": "p1", "zone": "battlefield"})
+    put(s, "The Flesh Is Weak", "battlefield")
+    put(s, "Sigarda's Summons", "battlefield")
+    assert ch(s, a).types == {"Creature"} and ch(s, a).pt == (1, 1)
+    act(s, "p1", type="counter", card_ids=[a], kind="+1/+1", delta=1)
+    assert ch(s, a).types == {"Creature", "Artifact"} and "Angel" in ch(s, a).subtypes
+    assert ch(s, a).pt == (5, 5) and "flying" in ch(s, a).keywords  # base 4/4 (7b), the counter on top (7d): 5/5
+    assert ch(s, b).types == {"Creature"} and "Angel" not in ch(s, b).subtypes and "flying" not in ch(s, b).keywords
+    roundtrip(s)
+
+
+def test_pump_for_each_counter_on_it(cards):
+    # 613.4c, 611.3a: read for each creature it modifies, whenever its characteristics are
+    s = pbuild(cards, [(1, "Clamavus"), (2, "Grizzly Bears")], bob=[(1, "Toxrill, the Corrosive"), (2, "Grizzly Bears")])
+    a, b = [c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"][:2]
+    theirs = next(c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2")
+    for c in (a, b):
+        act(s, "p1", type="move", card_ids=[c], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p2", type="move", card_ids=[theirs], to={"player": "p2", "zone": "battlefield"})
+    put(s, "Clamavus", "battlefield")
+    act(s, "p1", type="counter", card_ids=[a], kind="+1/+1", delta=2)
+    assert ch(s, a).pt == (6, 6) and ch(s, b).pt == (2, 2)  # 2/2 + two counters, +2/+2 for them again
+    put(s, "Toxrill, the Corrosive", "battlefield", pid="p2")
+    act(s, "p1", type="counter", card_ids=[theirs, a], kind="slime", delta=2)
+    assert ch(s, a).pt == (4, 4)  # 6/6, -1/-1 for each of its two slime counters
+    assert ch(s, theirs).pt == (2, 2)  # Toxrill's own controller's creatures aren't "creatures you don't control"
+    roundtrip(s)
+
+
+def test_keyword_counters_first_strike_and_several_kinds(cards):
+    # 122.1b: a first strike counter gives first strike; "enters with a +1/+1 counter, a flying counter, …" is one event (122.6)
+    s = pbuild(cards, [(1, "Heightened Reflexes"), (1, "Agent's Toolkit"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    toolkit = put(s, "Agent's Toolkit", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"G": 3, "U": 2})
+    act(s, "p1", type="cast_spell", card_id=toolkit.id)
+    settle(s)
+    assert counters(s, toolkit.id) == {"+1/+1": 1, "flying": 1, "deathtouch": 1, "shield": 1}
+    reflex = put(s, "Heightened Reflexes", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1})
+    act(s, "p1", type="cast_spell", card_id=reflex.id, targets=[bears.id])
+    settle(s)
+    assert counters(s, bears.id) == {"first strike": 1} and "first strike" in ch(s, bears.id).keywords
+    roundtrip(s)
+
+
+def test_choose_two_creatures_then_they_fight(cards):
+    # 115.1, 601.2c, 701.14: both are chosen as the spell is cast; the counter goes on the creature you control only if its power is 4 or more
+    s = pbuild(cards, [(1, "Hog-Monkey Rampage"), (1, "Grizzly Bears")], bob=[(2, "Grizzly Bears")])
+    theirs = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[theirs.id], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p1", type="create_token", player="p1", token={"name": "Big", "type_line": "Token Creature — Test", "power": "4", "toughness": "4"})
+    big = next(c for c in s.state.cards.values() if c.name == "Big")
+    spell = put(s, "Hog-Monkey Rampage", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 2})
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[theirs.id, big.id], target_counts=[1, 1])
+    settle(s)
+    assert counters(s, big.id) == {"+1/+1": 1}  # power 4: the counter, then the fight (5 damage to their 2/2, 2 to ours)
+    assert s.state.cards[theirs.id].zone == "p2:graveyard" and s.state.cards[big.id].damage == 2
+    roundtrip(s)
+
+
+def choose_all(s):
+    """Answer a card choice by taking every card offered (and let the stack resolve)."""
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.max_choices or len(d.options)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_search_for_the_same_name_as_target(cards):
+    # 201.2, 701.23b: only the cards named like the target (a name nothing else has finds nothing)
+    s = pbuild(cards, [(1, "Pack Hunt"), (4, "Grizzly Bears"), (1, "Remembrance")])
+    bears = [c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    act(s, "p1", type="move", card_ids=bears[:1], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="move", card_ids=bears[1:], to={"player": "p1", "zone": "library"})
+    act(s, "p1", type="move", card_ids=[find(s, "Remembrance").id], to={"player": "p1", "zone": "library"})
+    spell = put(s, "Pack Hunt", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"G": 4})
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears[0]], target_counts=[1])
+    choose_all(s)
+    in_hand = sorted(c.name for c in s.state.cards.values() if c.zone == "p1:hand" and c.owner == "p1")
+    assert in_hand.count("Grizzly Bears") == 3 and "Remembrance" not in in_hand
+    roundtrip(s)
+
+
+def test_search_for_the_same_name_as_the_creature_that_died(cards):
+    # Remembrance: the name the creature had when it died (608.2h); a token has none worth a search (nontoken only)
+    s = pbuild(cards, [(1, "Remembrance"), (3, "Grizzly Bears"), (1, "Lightning Bolt")])
+    bears = [c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    put(s, "Remembrance", "battlefield")
+    act(s, "p1", type="move", card_ids=bears[:1], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="move", card_ids=bears[1:], to={"player": "p1", "zone": "library"})
+    bolt = put(s, "Lightning Bolt", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1})
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[bears[0]])
+    choose_all(s)
+    assert s.state.cards[bears[0]].zone == "p1:graveyard"
+    assert sum(1 for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p1:hand") == 1
+    roundtrip(s)
+
+
+def test_herald_sacrifices_three_creatures_of_three_colors(cards):
+    # 602.2b: three separate sacrifice costs, one creature each ("a red creature, a green creature, and a white creature")
+    s = pbuild(cards, [(1, "Behemoth's Herald"), (1, "Godsire")])
+    herald = put(s, "Behemoth's Herald", "battlefield")
+    s.state.rules.controlled_since[herald.id].turn = -1  # (it has been there since before this turn began)
+    made = []
+    for i, colors in enumerate((["R"], ["G"], ["W"], ["U"])):
+        act(s, "p1", type="create_token", player="p1", token={"name": f"Pal{i}", "type_line": "Token Creature \u2014 Test", "power": "1",
+                                                             "toughness": "1", "colors": colors})
+        made.append(next(c.id for c in s.state.cards.values() if c.name == f"Pal{i}"))
+    godsire = put(s, "Godsire", "library")
+    act(s, "p1", type="add_mana", player="p1", mana={"G": 3})
+    act(s, "p1", type="activate_ability", card_id=herald.id, ability=0)
+    choose_all(s)
+    assert s.state.cards[godsire.id].zone == "p1:battlefield"
+    gone = [c for c in made + [herald.id] if c not in s.state.cards or s.state.cards[c].zone != "p1:battlefield"]
+    assert made[0] in gone and made[2] in gone and made[3] not in gone and len(gone) == 3  # one red, one white, one green (the Herald itself is green)
+    roundtrip(s)
+
+
+def test_look_at_three_one_each_to_hand_graveyard_and_bottom(cards):
+    # 701.20e (look), 401.4: one card to each place, each chosen by the player as it resolves; the top three cards only
+    s = pbuild(cards, [(1, "Moment of Truth"), (6, "Grizzly Bears")])
+    spell = put(s, "Moment of Truth", "hand")
+    library = list(s.state.zones["p1:library"])
+    top3, below = library[:3], library[3:]
+    hand_before = set(s.state.zones["p1:hand"])
+    act(s, "p1", type="add_mana", player="p1", mana={"U": 2})
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    choose_all(s)
+    zones = [s.state.cards[c].zone for c in top3]
+    assert sorted(zones) == ["p1:graveyard", "p1:hand", "p1:library"]  # one each; the third went to the bottom
+    bottom = next(c for c in top3 if s.state.cards[c].zone == "p1:library")
+    assert s.state.zones["p1:library"] == [*below, bottom]
+    assert set(s.state.zones["p1:hand"]) - hand_before == {next(c for c in top3 if s.state.cards[c].zone == "p1:hand")}
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("pays", [False, True])
+def test_each_opponent_sacrifices_a_permanent_unless_they_pay(cards, pays):
+    # 118.12a: "[Effect] unless [that player] pays {1}" — each opponent is offered the payment, and sacrifices only if they don't pay
+    s = pbuild(cards, [(1, "Rishadan Cutpurse")], bob=[(2, "Island")])
+    lands = [c.id for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2"][:2]
+    act(s, "p2", type="move", card_ids=lands, to={"player": "p2", "zone": "battlefield"})
+    spell = put(s, "Rishadan Cutpurse", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"U": 3})
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    if pays:
+        act(s, "p2", type="add_mana", player="p2", mana={"U": 1})
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        wanted = [o.id for o in d.options if o.id == ("pay" if pays else "decline")] or [d.options[0].id]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=wanted[:1])
+    on_field = [c for c in lands if s.state.cards[c].zone == "p2:battlefield"]
+    assert len(on_field) == (2 if pays else 1)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("pays", [False, True])
+def test_destroy_that_creature_unless_its_controller_pays(cards, pays):
+    # 118.12a, 603.2: Plague Fiend's trigger is about the creature it damaged; that creature's controller (not the Fiend's) may pay {2}
+    from tests.test_rules_combat import attack, automate, block, creature, table
+
+    s = table(cards)
+    fiend = creature(s, "p1", "Plague Fiend", "2/2", "Whenever this creature deals combat damage to a creature, destroy that creature unless its controller pays {2}.")
+    wall = creature(s, "p2", "Wall of Test", "1/4")
+    forests = [c.id for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p2"][:2]
+    act(s, "p2", type="move", card_ids=forests, to={"player": "p2", "zone": "battlefield"})
+    automate(s)
+    attack(s, (fiend, "p2"))
+    block(s, "p2", (wall, fiend))
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is None:
+            if wall.id not in s.state.cards or s.state.rules.step.endswith("main2"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        wanted = [o.id for o in d.options if o.id == ("pay" if pays else "decline")] or [d.options[0].id]
+        assert d.player == "p2"  # the damaged creature's controller pays, not the Fiend's
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=wanted[:1])
+    alive = wall.id in s.state.cards and s.state.cards[wall.id].zone == "p2:battlefield"
+    assert alive == pays, (alive, pays)
+    roundtrip(s)
+
+
+def test_chosen_type_is_added_to_the_creatures_you_control(cards):
+    # 205.1b, 614.12a: "Each creature you control is the chosen type in addition to its other types" — the creature type chosen as it entered
+    s = pbuild(cards, [(1, "Xenograft"), (2, "Grizzly Bears")])
+    mine, theirs = [c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"][:2]
+    act(s, "p1", type="move", card_ids=[mine], to={"player": "p1", "zone": "battlefield"})
+    spell = put(s, "Xenograft", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"U": 5})
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.id == "Elf")])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[spell.id].choices.get("Chosen creature type") == "Elf"
+    assert ch(s, mine).subtypes == {"Bear", "Elf"}
+    act(s, "p1", type="move", card_ids=[theirs], to={"player": "p1", "zone": "battlefield"})  # a creature that arrives later too (611.3a)
+    assert "Elf" in ch(s, theirs).subtypes
+    roundtrip(s)
+
+
+def test_day_night_flip_is_a_transformation_for_its_triggers(cards):
+    # 701.28, 702.145: a daybound permanent that turns over at day "transforms into Brutal Cathar": its trigger exiles a creature until it leaves
+    s = pbuild(cards, [(1, "Brutal Cathar // Moonrage Brute"), (1, "Forest")], bob=[(1, "Grizzly Bears")])
+    theirs = next(c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[theirs], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p1", type="set_day_night", value="night")
+    cathar = put(s, "Brutal Cathar // Moonrage Brute", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"W": 3})
+    act(s, "p1", type="cast_spell", card_id=cathar.id)
+    settle(s)
+    assert s.state.cards[cathar.id].face == 1 and s.state.cards[theirs].zone == "p2:battlefield"  # entered transformed: no Cathar trigger
+    act(s, "p1", type="set_day_night", value="day")
+    forest = put(s, "Forest", "hand")
+    act(s, "p1", type="play_land", card_id=forest.id)  # (any rules intent makes the engine look at day and night again)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[cathar.id].face == 0 and s.state.cards[theirs].zone == "p2:exile"
+    roundtrip(s)
+
+
+def test_gold_counters_make_walls_with_defender(cards):
+    s = pbuild(cards, [(1, "Aurification"), (2, "Grizzly Bears")])
+    a, b = [c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"][:2]
+    for c in (a, b):
+        act(s, "p1", type="move", card_ids=[c], to={"player": "p1", "zone": "battlefield"})
+    put(s, "Aurification", "battlefield")
+    act(s, "p1", type="counter", card_ids=[a], kind="gold", delta=1)
+    assert "Wall" in ch(s, a).subtypes and "defender" in ch(s, a).keywords
+    assert "Wall" not in ch(s, b).subtypes and "defender" not in ch(s, b).keywords
+    roundtrip(s)
+
+
+def test_enters_with_counters_per_land(cards):
+    # "Michelangelo enters with a +1/+1 counter on him for each land you control": a creature isn't in that group (614.12)
+    s = cb.build(cards, "Michelangelo, On the Scene")[0]
+    mich = find(s, "Michelangelo, On the Scene")
+    lands = [c.id for c in s.state.cards.values() if c.name == "Island" and c.zone == "p1:library"][:3]
+    act(s, "p1", type="move", card_ids=lands, to={"zone": "battlefield"})
+    act(s, "p1", type="move", card_ids=[mich.id], to={"zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"G": 6})
+    act(s, "p1", type="cast_spell", card_id=mich.id)
+    settle(s)
+    assert s.state.cards[mich.id].zone == "p1:battlefield"
+    assert counters(s, mich.id) == {"+1/+1": 3}
+    roundtrip(s)

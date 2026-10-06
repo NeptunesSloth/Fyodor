@@ -41,9 +41,10 @@ _ARE_LANDS = re.compile(rf"^(?P<s>(?:Nontoken )?creatures you control) are (?P<t
 # artifact: You gain 3 life."" (Ragost) / "Other creatures are Food artifacts in addition to their other types and have "..."" (Ygra) /
 # "Nontoken artifacts you control are lands in addition to their other types." (Toph): the same layer-4 addition (613.1d, 205.1b) for any
 # group on the battlefield, the types lower case plural ("artifacts") and the subtypes capitalised ("Foods"), then layer 6 grants
-_ARE_ALSO = re.compile(r"^(?P<during>During your turn, )?(?P<s>[A-Za-z',\- ]+?)(?: have base power and toughness (?P<p>\d+)/(?P<t>\d+) and)? are "
-                       r"(?P<what>[A-Za-z ]+?) in addition to their other (?:creature )?types"
-                       r"(?: and have (?P<q>\"[^\"]+\")(?P<eq>(?:,? (?:and )?equip(?: [A-Z][a-z]+)? \{[^}]+\})+)?\.?"  # (wave 25D: + equip costs, and a period after the quote)
+_ARE_ALSO = re.compile(r"^(?P<during>During your turn, )?(?P<s>[A-Za-z0-9+/',\- ]+?)(?: have base power and toughness (?P<p>\d+)/(?P<t>\d+)(?:, have (?P<kw0>[a-z]+),)? and)? (?:are|is) (?:an? )?"  # (wave 26D: "is a Wall", "…4/4, have flying, and are Angels")
+                       r"(?P<what>[A-Za-z ]+?) in addition to (?:their|its) other (?:creature )?types"
+                       r"(?: and (?:have|has) (?P<kw>[a-z]+)\.|"  # (wave 26D: "and has defender": a keyword, layer 6)
+                       r" and have (?P<q>\"[^\"]+\")(?P<eq>(?:,? (?:and )?equip(?: [A-Z][a-z]+)? \{[^}]+\})+)?\.?"  # (wave 25D: + equip costs, and a period after the quote)
                        r"|\.(?P<same> The same is true for [^.]+\.)?)$")  # (Kudo, Graaz: base P/T, 7b; Roshan: the Maskwood sentence)
 _TYPE_WORDS = {"artifacts": "Artifact", "creatures": "Creature", "enchantments": "Enchantment", "lands": "Land"}
 MASKWOOD = ("Creatures you control are every creature type. The same is true for creature spells you control and "
@@ -121,7 +122,7 @@ def parse(text: str) -> dict[str, Any] | None:
 
 
 # -- layers (wave 22A) -- the group statics of layers 4-6 that change what the objects are (CR 305.7, 613.1d-f, 613.4b)
-_SUBJ = r"(?P<s>(?:All |Each )?[A-Za-z' -]+?(?: and (?:all )?[A-Za-z' -]+?)?(?: you control)?)"
+_SUBJ = r"(?P<s>(?:All |Each )?[A-Za-z0-9+/' -]+?(?: and (?:all )?[A-Za-z' -]+?)?(?: you control)?)"
 _LAND_SET = re.compile(rf"^{_SUBJ} (?:is|are) (?:an? )?(?P<t>Plains|Islands?|Swamps?|Mountains?|Forests?)\.$")
 _LOSE_ALL = re.compile(rf"^{_SUBJ} lose all (?P<other>other )?abilities(?P<mana> except mana abilities)?"
                        r"(?: and have base power and toughness (?P<p>\d+)/(?P<t>\d+))?\.$")
@@ -177,6 +178,21 @@ def _layered(text: str) -> dict[str, Any] | None:
         return _definition(subject, None, everywhere=everywhere, during=bool(m["during"]), **parts) if parts else None
     if (m := _LEGENDARY.fullmatch(text)) is not None:  # 205.4: a supertype added
         return _definition(m["s"], {"add_supertypes": ["Legendary"]})
+    if (m := re.fullmatch(r"(?P<s>Each (?:nonland )?(?P<k>land|creature) with an? [a-z]+ counter on it) is every (?P=k) type"  # (wave 26D) 205.3i (Omo)
+                          r"(?P<add> in addition to its other types)?\.", text)) is not None and bool(m["add"]) == (m["k"] == "land"):
+        from app.rules.layers import LAND_TYPES
+
+        return _definition(m["s"], {"add_subtypes": sorted(LAND_TYPES)} if m["k"] == "land" else {"all_creature_types": True})
+    if (m := re.fullmatch(r"(?P<s>Creatures you control|Each creature you control|Lands you control) (?:is|are) the chosen type in addition to "  # (wave 26D)
+                          r"(?:its|their) other (?:creature )?types\.(?P<same> The same is true for [^.]+\.)?", text)) is not None:
+        # 205.1b: the creature type (Xenograft, Arcane Adaptation) or basic land type (Realmwright) its source chose as it entered (614.12a)
+        everywhere = _everywhere(m["s"], m["same"].strip()) if m["same"] else None
+        if m["same"] and everywhere is None:
+            return None
+        found = _definition(m["s"], {"add_subtypes": [], "chosen_type": "land" if m["s"].startswith("Lands") else "creature"}, everywhere=everywhere)
+        return {**found, "chosen_type": found["layer4"]["chosen_type"]} if found is not None else None
+    if (m := re.fullmatch(rf"{_SUBJ} (?:is|are) snow\.", text)) is not None:  # (wave 26D) 205.4: the supertype snow is added (Rimefeather Owl)
+        return _definition(m["s"], {"add_supertypes": ["Snow"]})
     if (m := _ANIMATE_MV.fullmatch(text)) is not None:  # Opalescence, March of the Machines: 205.1b ("an artifact creature" keeps the
         # object's other types and subtypes too), 613.4b
         return _definition(m["s"], {"add_types": [w.capitalize() for w in m["ty"].split()]}, base_mv=True)
@@ -231,8 +247,8 @@ def _also(m: re.Match[str]) -> dict[str, Any] | None:
             types.append(_TYPE_WORDS[w])
         elif w[:1].isupper() and w.endswith("s") and w[:-1] in CREATURE_TYPES | LAND_TYPES | ARTIFACT_TYPES | ENCHANTMENT_TYPES:
             subtypes.append(w[:-1])
-        elif w[:1].isupper() and w in ARTIFACT_TYPES | LAND_TYPES | ENCHANTMENT_TYPES:
-            subtypes.append(w)  # ("Food artifacts": the singular before the type)
+        elif w[:1].isupper() and w in ARTIFACT_TYPES | LAND_TYPES | ENCHANTMENT_TYPES | CREATURE_TYPES:
+            subtypes.append(w)  # ("Food artifacts": the singular before the type; wave 26D: "is a Wall")
         else:
             return None
     if not types and not subtypes:
@@ -242,8 +258,13 @@ def _also(m: re.Match[str]) -> dict[str, Any] | None:
         everywhere = _everywhere(m["s"], m["same"].strip())
         if everywhere is None or m["p"]:
             return None  # ("The same is true for …": the spells and cards of the same group, as Maskwood Nexus does)
+    from app.rules.statics import GRANTABLE_KEYWORDS
+
+    kws = [k for k in (m["kw0"], m["kw"]) if k]
+    if any(k not in GRANTABLE_KEYWORDS for k in kws):
+        return None
     d = _definition(m["s"], {"add_types": types, "add_subtypes": subtypes}, during=bool(m["during"]), everywhere=everywhere,
-                    base=[int(m["p"]), int(m["t"])] if m["p"] else None)
+                    base=[int(m["p"]), int(m["t"])] if m["p"] else None, keywords=kws or None)
     if d is not None and m["q"]:
         text = m["q"][1:-1].rstrip(",")
         text = text if text[-1] in ".)" else text + "."  # (wave 25D: "…gets +2/+0," ends the clause)

@@ -941,6 +941,8 @@ def _object(t: str) -> Condition | None:
     "~ is tapped": a test of the object the ability refers to (``"it"``: bound by scripts.resolve_it
     to its antecedent). Only characteristics are read of any referred object (608.2h: as it is, or as
     it last existed); physical state (tapped, attacking) only of the source itself."""
+    t = re.sub(r"^(it|that (?:creature|permanent)) has (power|toughness|mana value) (?=\w+ or (?:less|greater|more|fewer))",  # (wave 26D)
+               lambda m: f"{'its' if m[1] == 'it' else m[1] + chr(39) + 's'} {m[2]} is ", t)  # "it has power 4 or greater" = "its power is 4 or greater"
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)'s (?:power|toughness|mana value)) (\w+ or )", r"\1 was \2", t)
     m = _OBJECT_VS_COLORS.fullmatch(t)

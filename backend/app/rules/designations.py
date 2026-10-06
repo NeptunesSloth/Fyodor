@@ -829,9 +829,10 @@ def untap_day_night(plan: Plan, prev_active: str, prev_turn: int) -> None:
 
 def become(plan: Plan, value: str) -> None:
     """"It becomes day / night" (731.1); then daybound / nightbound permanents transform (702.145b, e)."""
-    if plan.state.table.day_night != value:
+    became = plan.state.table.day_night != value
+    if became:
         plan.do({"type": "set_day_night", "value": value}, actor=plan.active)
-    day_night_sync(plan)
+    day_night_sync(plan, became)  # (became: what was there when night began transforms, even if it entered this resolution)
 
 
 def day_night(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -861,7 +862,7 @@ def _bound(plan: Plan) -> tuple[list[CardInstance], list[CardInstance], bool]:
     return day, night, as_enters
 
 
-def day_night_sync(plan: Plan) -> bool:
+def day_night_sync(plan: Plan, became: bool = False) -> bool:
     """702.145c-d, f-g ("any time", not state-based actions): with a daybound permanent and neither
     day nor night, it becomes day; with only nightbound ones, night; at night a daybound permanent
     front face up transforms, by day a nightbound one back face up does (701.27). True if anything
@@ -882,8 +883,20 @@ def day_night_sync(plan: Plan) -> bool:
     else:
         flip = [c for c in night if c.face == 1]
         to = 0
+    # -- review (wave 26D) -- 702.145b, 712.14a: a daybound permanent that entered while it was already night "enters transformed"
+    # (a replacement: it never transformed, so no "transforms" trigger; Howlpack Piper's "enters or transforms into" triggers once).
+    # Every sync right after night begins flips what was already there, so a front face found later at night is a newcomer whose
+    # entry triggers haven't been looked at yet.
+    r = plan.rules
+    entering = {e.new_object_id for e in r.events if e.kind == "zone_change" and e.batch > r.trigger_batch
+                and (e.to_zone or "").endswith(":battlefield")} if to == 1 and not (changed or became) else set()
     for c in flip:
         plan.do({"type": "set_face", "card_id": c.id, "face": to, "faces": 2}, actor=c.controller)
+        # -- transform (wave 26D) -- 701.27, 702.145c/f: the flip is a transformation like any other: "transforms into X" and "a permanent transforms" triggers
+        from app.game.rules_state import emit
+
+        if plan.oid(c.id) not in entering:
+            emit(plan.state, "designation", counter="transformed", card=c.id, object_id=plan.oid(c.id), player=c.controller)
         changed = True
     return changed
 

@@ -35,6 +35,9 @@ from typing import Any, Literal
 
 from app.rules import characteristics as _chars  # (-- hidden exile (wave 18A) --)
 from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
+from app.rules import (
+    fight_pair as _fight_pair,  # -- counters (wave 26D) -- two chosen creatures fight (a leaf module)
+)
 from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules import restrictions, selectors, this_way  # (this_way: wave 4A)
@@ -335,6 +338,7 @@ _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untap
 _STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive", "mutate"})  # -- becomes monstrous (wave 6D) --
 _STAYING.update({"to_graveyard", "to_exile", "to_library"})  # -- into a graveyard (wave 6D; wave 21D: exile, a library) -- the card(s) there, as they are there
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
+_STAYING.add("transform")  # -- transform (wave 26D) -- 701.28, 712.18: the same object turned over: "Whenever a permanent you control transforms into a Phyrexian, put a counter on it"
 _STAYING.add("turned_face_up")  # -- hidden exile (wave 18A) -- "Whenever a creature you control is turned face up, put a counter on it"
 # Zone-change events after which "it" is the new object the card became where it went — found
 # only there (400.7e, 603.6, 603.6c): "When ~ dies, return it to its owner's hand"
@@ -732,6 +736,10 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         for index, e in enumerate(effects):
             e = dict(e)
             out.append(e)
+            if e.get("name_as") == "it":  # -- tutor (wave 26D) -- "a card with the same name as that creature": the trigger event's object only
+                if antecedent not in ("event", "event_gone"):
+                    return None
+                e["name_as"] = "event"
             if e.get("do") == "copy_spell" and e.get("first") and not e.get("excepts") and index > 0 \
                     and (moved := objects(index, 1, "card")) is not None and moved.do in _MOVERS:
                 # -- cast a copy (wave 13C) -- "Exile target … card. Copy it.": the card an earlier instruction moved
@@ -2098,6 +2106,22 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # Melody): "that type" is the type just chosen, as in "of the chosen type" (app/rules/chosen.py)
     body = re.sub(r"(Choose a creature type\. [^.]*?) of that type\b", r"\1 of the chosen type", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     body = _stack_interaction.rewrite(body)  # -- stack interaction (wave 23B) -- Ouphe Vandals: the rider of a counter of an ability
+    # -- unless pays (wave 26D) -- 118.12a: "Each opponent sacrifices a permanent of their choice unless they pay {1}." (Rishadan Cutpurse) is
+    # "Each opponent may pay {1}. Each opponent who doesn't sacrifices a permanent of their choice." (app/rules/each_may.py: each player
+    # is offered their own payment in turn order, 101.4)
+    body = re.sub(r"(^|\. )[Ee]ach (opponent|player) (sacrifices [^.]*?) unless they pay ((?:\{[^}]+\})+)\.",
+                  lambda m: f"{m[1]}Each {m[2]} may pay {m[4]}. Each {m[2]} who doesn't {m[3]}.", body)
+    # -- control change (wave 26D) -- "It gains haste and myriad until end of turn." (Firbolg Flutist), "… and annihilator 2 …" (Flayer of Loyalties):
+    # a keyword with its own triggered ability is granted as the ability line it is (613.1f, 702.116a, 702.86a), the quoted-grant grammar
+    body = re.sub(r"((?:\bgains? |[Uu]ntil end of turn, [^.\"]*?\bgains? ))([^.\"]+?)( until end of turn|(?<=[a-z0-9])(?=\.|$))",
+                  lambda m: m[1] + re.sub(r"\b(myriad|extort|melee|(?:annihilator|afflict|poisonous|frenzy|afterlife) \d+)\b",
+                                          lambda k: f'"{k[1].capitalize()}"', m[2]) + m[3]
+                  if ("until end of turn" in m[3] or m[1].lower().startswith("until end of turn")) else m[0], body)
+    # -- look top (wave 26D) -- "Put one of those cards into your hand, one on top of your library, and one on the bottom of your library."
+    # (Telling Time, Moment of Truth): one pick for each place, each its own "put one of them …" (the chain read by language._chain)
+    body = re.sub(r"(^|\. )Put one of (?:those cards|them) ((?:into|on) [^,.]+), one ((?:into|on) [^,.]+), and one ((?:into|on) [^,.]+)\.",
+                  lambda m: f"{m[1]}Put one of them {m[2]}, put one of them {m[3]}, and put one of them {m[4]}.", body)
+    body = _fight_pair.rewrite(body)  # -- counters (wave 26D) -- "Choose target creature you control and target creature you don't control. … Then those creatures fight each other."
     # -- delayed triggers (wave 23B) -- 118.12a: "At the beginning of your next upkeep, pay {3}{U}{U}. If you don't, you lose the game."
     # (the Pacts) is "… you lose the game unless you pay {3}{U}{U}": the payer is the delayed trigger's controller, as it resolves
     body = re.sub(rf"(?i)(^|\. )(at the beginning of (?:{_delayed.WHEN_RE}), )pay ((?:\{{[^}}]+\}})+)\. If you don't, (you lose the game)\.?",
@@ -3276,6 +3300,10 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         return None  # -- unless pays (wave 4C) -- "its mana value": the target object's, only when there is one
     if who == "you":
         payer = "you"
+    elif who in ("they", "that player") and whos == {"it.controller"} and not groups:
+        payer = "it.controller"  # (wave 26D) "that creature's controller loses 2 life unless they pay {2}": they are that controller
+    elif who in ("its controller", "that creature's controller") and whos == {"it"} and not groups:
+        payer = "it.controller"  # -- unless pays (wave 26D) -- "destroy that creature unless its controller pays {2}": the trigger's object (resolve_it)
     elif who in ("its controller", "that creature's controller"):
         if "target" not in whos or not groups or group_player is not False:
             return None
@@ -3494,7 +3522,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     view = _granter_view(ability) if "‹granter" in ability.text else None
     with _exiled_with.reading(ability, self_text(ability.text, ch.name)):  # -- resolution memory (wave 22D) -- 607.2a: "the exiled card's owner …"
-        d = _define(view[0] if view else ability, ch)
+        d = _enters_self_check(_define(view[0] if view else ability, ch), ch)
     if view and d is not None:
         d = _granter_bound(d, view[1])
     # -- exiled with (wave 6D) -- 607.2a linked abilities (app/rules/exiled_with.py)
@@ -4537,7 +4565,7 @@ SHOCK = re.compile(r"^As ~ enters, you may pay (?P<n>\d+) life\. If you don't, i
 # "~ enters [tapped] with N … counters on it [for each …]" (614.1c); "If ~ was kicked, it enters with …" (702.33e)
 ENTERS_WITH = re.compile(r"^(?:(?P<kicked>If ~ was kicked, it)|~) enters (?P<tapped>tapped (?:and )?)?with "
                          r"(?P<n>twice X|X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "  # (twice X: wave 4K)
-                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it(?: for each (?P<each>.+?)|, where X is (?P<xdef>.+?))?"
+                         r"(?P<kind>\+1/\+1|-1/-1|(?:first|double) strike|[a-z]+) counters? on it(?: for each (?P<each>.+?)|, where X is (?P<xdef>.+?))?"
                          r"(?: and with (?P<kw>haste|trample|flying|first strike|fear))?\.$")  # (kw: wave 7C)
 ENTERS_TAPPED_UNLESS = re.compile(r"^~ enters tapped unless (?P<cond>.+)\.$")
 _A_THING = r"(?:a|an) (?P<{name}>[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*|legendary(?: [a-z]+)? creature|basic land|planeswalker)"
@@ -4635,6 +4663,44 @@ def _unless_condition(text: str) -> Definition | None:
     return None
 
 
+# -- counters (wave 26D) -- "enters with … for each land you control": the permanent isn't on the battlefield while the count is
+# read (614.12), but it is after the move here, so a count over battlefield groups is kept only for a permanent the group can't
+# include (``_enters_self_check``, at ``define``: it knows the card's types)
+def _self_sels(v: Any) -> Definition:
+    from app.rules import selectors
+
+    def walk(x: Any) -> list[str]:
+        if isinstance(x, dict):
+            return [y for k, w in x.items() for y in ([w] if k in ("count", "of") and isinstance(w, str) else walk(w))]
+        return [y for w in x for y in walk(w)] if isinstance(x, list) else []
+
+    keys = [k for k in walk(v) if selectors.from_key(k).zones == ("battlefield",) and not selectors.from_key(k).other]
+    return {"self_sels": keys} if keys else {}
+
+
+def _enters_self_check(d: Definition | None, ch: Characteristics) -> Definition | None:
+    """Drop the ``self_sels`` tag; None for a counted group the check can't read.
+
+    -- review (wave 26D) -- Whether an entering permanent counts itself among "each land you control" when it is one is left
+    unsettled (test_rules_replacements: "Hope"): such a definition is kept but marked ``self_in_group`` — coverage refuses it, and
+    as it enters its controller is told to put the counters on by hand (replacements.entering_counters). Refusing it here instead
+    would read the permanent's *current* types (definitions are made from characteristics with layers applied): under Ashaya
+    ("Nontoken creatures you control are Forest lands") Michelangelo's counters silently vanished. What enters with it is never
+    counted (614.12: replacements._counter_amount, ``not_yet_entered``)."""
+    from app.rules import selectors
+
+    if d is None or "self_sels" not in d:
+        return d
+    d = dict(d)
+    for k in d.pop("self_sels"):
+        s = selectors.from_key(k)
+        if s.extras or s.either or s.union or s.card or not (s.types or s.subtypes):
+            return None
+        if not ((s.types and not set(s.types) & ch.types) or (s.subtypes and not set(s.subtypes) & ch.subtypes)):
+            d["self_in_group"] = True
+    return d
+
+
 def _for_each(phrase: str) -> Any:
     """"for each <group>" on an "enters with" ability: a count the values grammar evaluates as it enters
     — of cards elsewhere ("creature card in your graveyard") or of *other* permanents. A group the
@@ -4648,11 +4714,13 @@ def _for_each(phrase: str) -> Any:
         return {"mana_spent": "self"}
     if phrase in ("color of mana spent to cast it", "color of mana spent to cast ~"):  # -- ability words (wave 4F) --
         return {"colors_spent": 1}  # converge (its spell's payment record, read as it enters: replacements._counter_amount)
+    if phrase in ("creature that convoked it", "creature that convoked ~"):  # -- counters (wave 26D) -- 702.51a
+        return {"convoked": 1}
     if " and each " in phrase:  # -- counters (wave 21D) -- "for each other Zombie you control and each Zombie card in your graveyard": the sum
         halves = [_for_each(x) for x in phrase.split(" and each ")]
         return {"plus": halves} if len(halves) == 2 and all(h is not None and "count" in h for h in halves) else None
     sel = selectors.parse(phrase)
-    if sel is None or sel.player is not None or (not sel.card and sel.zones == ("battlefield",) and not sel.other):
+    if sel is None or sel.player is not None:  # (a battlefield group it might belong to: tagged by the caller, ``_enters_self_check``)
         return None
     return {"count": sel.key()}
 
@@ -4886,16 +4954,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
             return None
         # (a count of permanents that could include itself is read before it enters, 614.12; it's counted after the
         # move here: only "other …" counts and counts outside the battlefield are read)
-        from app.rules import selectors
-
-        def sels(v: Any) -> list[str]:
-            if isinstance(v, dict):
-                return [x for k, w in v.items() for x in ([w] if k in ("count", "of") and isinstance(w, str) else sels(w))]
-            return [x for w in v for x in sels(w)] if isinstance(v, list) else []
-
-        if any(selectors.from_key(k).zones == ("battlefield",) and not selectors.from_key(k).other for k in sels(ev)):
-            return None
-        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": eq["kind"], "n": ev, "effects": []}
+        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": eq["kind"], "n": ev, "effects": [],
+                **_self_sels(ev)}
     # -- end counters (wave 5H) --
     cast_if = None  # -- refused modal/conditional (wave 3R1) -- adamant: "If at least three white mana was spent to
     lead = re.match(r"^If (?P<c>[^,]+), ~ enters with ", text)  # cast this spell, ~ enters with a +1/+1 counter on it."
@@ -4924,6 +4984,18 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (chosen_kind := counter_choice.parse(text)) is not None:
         return chosen_kind
+    from app.rules import values
+
+    several = re.fullmatch(rf"~ enters with (?P<list>(?:(?:{values.AMOUNT}) (?:[+-]\d+/[+-]\d+|(?:first|double) strike|[a-z]+) counters?,? )+and "  # (wave 26D) 122.6: one event
+                           rf"(?:{values.AMOUNT}) (?:[+-]\d+/[+-]\d+|(?:first|double) strike|[a-z]+) counters?) on it\.", text)
+    if several is not None and cast_if is None:  # "~ enters with a +1/+1 counter, a flying counter, a deathtouch counter, and a shield counter on it." (Agent's Toolkit)
+        specs = [re.fullmatch(rf"(?P<n>{values.AMOUNT}) (?P<k>[+-]\d+/[+-]\d+|(?:first|double) strike|[a-z]+) counters?", p.strip())
+                 for p in re.split(r",? and |, ", several["list"])]
+        several_kinds = [(p["k"], num(p["n"])) for p in specs if p is not None]
+        if len(several_kinds) != len(specs) or len({k for k, _ in several_kinds}) != len(several_kinds) or any(k in UNMODELED_COUNTERS for k, _ in several_kinds):
+            return None
+        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": several_kinds[0][0], "n": several_kinds[0][1], "effects": [],
+                "also": [{"counter": k, "n": n} for k, n in several_kinds[1:]]}
     m = ENTERS_WITH.match(text)
     if m and m["kw"] and (not m["kicked"] or m["each"] or m["xdef"] or cast_if is not None or m["n"] in ("X", "twice X")):
         return None  # -- counters (wave 7C) -- "If ~ was kicked, it enters with N +1/+1 counters on it and with haste." only
@@ -4976,6 +5048,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
                 out["per_kick"] = True
             else:
                 out["n"] = {"times": [n, each]} if n != 1 else each
+                out.update(_self_sels(each))
         return out
     if text == "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it " \
                "into your graveyard.":  # -- discard causes (wave 23D) -- 614.1a, 701.9: the discard is replaced (replacements.replace_move)

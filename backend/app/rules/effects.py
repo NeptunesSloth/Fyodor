@@ -699,8 +699,8 @@ def fight(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     on the battlefield or isn't a creature any more, or was an illegal target (701.14b: illegal
     targets were dropped on resolution; "up to one target" with none chosen: nothing to fight).
     A creature fighting itself deals damage equal to twice its power to itself (701.14c)."""
-    a = _cards(plan, ctx, e["who"])
-    b = _cards(plan, ctx, e["with"])
+    a = _cards(plan, ctx, e["who"].replace("pair:", "target:"))  # (wave 26D: "pair:N" = the ability's Nth chosen group, app/rules/fight_pair.py)
+    b = _cards(plan, ctx, e["with"].replace("pair:", "target:"))
     _remember(plan, ctx, e, a)
     if len(a) != 1 or len(b) != 1:
         plan.note(f"{ctx.get('name') or 'It'}: no fight (one of the creatures is gone or wasn't chosen)", actor=ctx["controller"])
@@ -1805,6 +1805,11 @@ def _search_matches(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, key: 
         src = plan.state.cards.get(ctx.get("source_card") or "")
         name = (src.name if src is not None else "") if e["name"] == "~" else e["name"]
         matching = [c for c in matching if name and (plan.state.cards[c].name or "").lower() == name.lower()]
+    if e.get("name_as") is not None:  # -- tutor (wave 26D) -- "a card with the same name as that creature" (app/rules/same_name.py)
+        from app.rules import same_name
+
+        wanted = same_name.names(plan, ctx, e["name_as"])
+        matching = [c for c in matching if (plan.state.cards[c].name or "").lower() in wanted]
     if e.get("mv"):
         op, value = e["mv"][0], (e["mv"][1] if e["mv"][0] == "in" else _amount(plan, ctx, e["mv"][1]))
         mvs = {c: chars.of(plan.state.cards[c], plan.info).mana_value for c in matching}

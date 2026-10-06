@@ -267,6 +267,12 @@ def _crewed_it(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "crewed_it" if m["k"] == "crewed" else "saddled_it"))
 
 
+# -- counters (wave 26D) -- "each creature that convoked it": the creatures its spell's cost was paid with (702.51a, 601.2h payment record)
+@_suffix(r"that convoked (?:it|~|this (?:creature|permanent))")
+def _convoked_it(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "convoked_it"))
+
+
 @_suffix(r"dealt damage by (?:this creature|~) this turn")  # -- damage history (wave 19E) -- "a creature dealt damage by ~ this turn"
 def _dealt_damage_by_source(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "dealt_damage_by_source"))
@@ -1517,6 +1523,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             src = plan.state.cards.get(source or "")
             if src is None or not crew_saddle.tapped_for(plan, "crew" if extra == "crewed_it" else "saddle", plan.oid(card), plan.oid(src)):
+                return False
+        if extra == "convoked_it":  # (wave 26D)
+            rec = plan.rules.payments.get(plan.oid(source)) if source in plan.state.cards else None
+            if rec is None or not any(c.kind == "convoke" and c.object_id == plan.oid(card) for c in rec.contributions):
                 return False
         if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
             return False  # (wave 12C)

@@ -543,6 +543,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return merged.times_mutated_in(plan, ctx)
     if "devoured" in v:  # -- keyword mechanics (wave 9D) -- 702.82b: sacrificed as a result of its devour as it entered
         return plan.rules.devoured.get(ctx.get("source_object") or "", 0)
+    if "convoked" in v:  # -- counters (wave 26D) -- "for each creature that convoked it" (702.51a: its payment record's contributions)
+        record = plan.rules.payments.get(ctx.get("source_object") or "")
+        return len({c.object_id for c in record.contributions if c.kind == "convoke"}) if record is not None else 0
     if "colors_spent" in v:  # -- ability words (wave 4F) -- converge (a spell cast by hand: no mana known, 0)
         record = plan.rules.payments.get(ctx.get("source_object") or "")
         if record is None:
@@ -583,7 +586,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                 raise NoChosenPlayer
         if sel.player is not None:
             return sum(1 for p in plan.live() if selectors.matches_player(plan, sel, p, you))
-        return len(selectors.candidates(plan, sel, you, _other_than(ctx)))
+        away = ctx.get("not_yet_entered") or ()  # -- review (wave 26D) -- an "enters with" count, read before they enter (replacements._counter_amount)
+        return sum(1 for c in selectors.candidates(plan, sel, you, _other_than(ctx)) if c not in away)
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
         from app.rules import context
 
@@ -806,6 +810,8 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
                    and plan.in_game(c) and kinds & plan.ch(c).subtypes)
     if v["relative"] == "controller":  # -- attached events (wave 25D) -- "for each card in its controller's hand": the count as the modified object's controller's ("you")
         return evaluate(plan, {**ctx, "controller": card.controller}, v["of"])
+    if v["relative"] == "counters":  # -- counters (wave 26D) -- "for each +1/+1 counter on it" (122.1): counters on the object modified
+        return sum(n for k, n in card.counters.items() if v["kind"] in ("any", k))
     mine = plan.ch(card)
     if v["relative"] == "mana_value":  # -- attached events (wave 20A) -- 202.3: the object modified (a creature's X is 0 on the battlefield)
         from app.rules.stack_interaction import mana_value

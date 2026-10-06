@@ -155,7 +155,10 @@ def test_enters_with_a_counter_for_each_creature_card_in_your_graveyard(cards):
 
 def test_for_each_of_a_group_it_might_belong_to_stays_manual():
     # whether an entering creature counts itself among "creatures you control" isn't decided here
-    assert not scripts.definitions(ch("Hope", "Creature", "Hope enters with a hope counter on it for each creature you control."))
+    # (review 26D: kept as a definition marked ``self_in_group``, which coverage refuses and the engine leaves to its controller)
+    hope = ch("Hope", "Creature", "Hope enters with a hope counter on it for each creature you control.")
+    assert scripts.definitions(hope) and all(d.get("self_in_group") for d in scripts.definitions(hope).values())
+    assert not coverage.definition_supported(scripts.definitions(hope)[0])
     # ("for each color of mana spent to cast it", converge, is read since wave 4F: test_rules_wave4f_ability_words.py)
     assert scripts.definitions(ch("Sludge", "Creature", "Sludge enters with a +1/+1 counter on it for each other Ooze you control."))
 

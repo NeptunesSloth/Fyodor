@@ -787,6 +787,25 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
             raise _Fail
         extra["name"] = named["name"]
         sel_text = named["rest"]
+    # -- tutor (wave 26D) -- "a card with the same name as that creature / target creature / another creature you control / a card in your
+    # graveyard" (app/rules/same_name.py); "that creature" is the trigger event's (scripts: only in a trigger about an object)
+    same = re.fullmatch(r"(?P<rest>.+?) with the same name as (?P<ref>that creature|that card|target [^,]+|another creature you control|a card in your graveyard)",
+                        sel_text)
+    target_found = None
+    if same:
+        ref, sel_text = same["ref"], same["rest"]
+        if ref.startswith("target "):
+            group = target_group(ref)
+            if group is None or not str(group["what"]).startswith(selectors.PREFIX):
+                raise _Fail
+            extra["name_as"], target_found = "target", _one(group)
+        elif ref.startswith("that "):
+            extra["name_as"] = "it"
+        else:
+            sel_ref = selectors.parse("another creature you control" if ref.startswith("another") else "card from your graveyard")
+            if sel_ref is None:
+                raise _Fail
+            extra["name_as"] = {"sel": sel_ref.key()}
     mv = _MV_X.fullmatch(sel_text)
     if mv:
         extra["mv"] = ["<=" if mv["less"] else "==", _amount("x")]
@@ -848,7 +867,7 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         extra["shuffle"] = False  # (only when the text says so: 701.23e)
     return [{"do": "search", "who": _SEARCHERS[m["who"]] if m["who"] else "you", "label": m["sel"], "max": n,
              "to": to, "reveal": bool(m["reveal"]), "upto": bool(m["upto"]) or anything,
-             **({"face_down": True} if m["fd"] else {}), **({"may": True} if m["who"] and not forced else {}), **extra}], None
+             **({"face_down": True} if m["fd"] else {}), **({"may": True} if m["who"] and not forced else {}), **extra}], target_found
 
 
 # -- refused zones/sized (wave 3R4) -- "Search your library and/or graveyard for a card named …, reveal it, and
@@ -938,7 +957,7 @@ _REST = (r"(?:the rest|the rest of (?:those|the) cards|the rest of them|the othe
          r"all cards exiled this way that weren't cast|"
          r"all cards revealed this way that weren't put onto the battlefield) "  # (-- if you do (wave 15C) -- Genesis Wave)
          rf"(?P<rest>into (?:your|their) graveyard|into your hand|on the bottom(?: of {_LIBREF})? in (?:any|a random) order|"
-         rf"on the bottom of {_LIBREF}|(?:back )?on top of {_LIBREF} in any order)")
+         rf"on the bottom of {_LIBREF}|(?:back )?on top of {_LIBREF} in any order|back in any order)")  # (wave 26D: "put the rest back in any order")
 _PICK_TO = ("into your hand|onto the battlefield tapped and attacking|onto the battlefield tapped|onto the battlefield|into your graveyard|"
             "into their graveyard|into that player's graveyard|"  # (wave 20F: another player's library, its owner's graveyard, 404.1)
             "back on top of your library|on top of your library|on the bottom of your library|on the bottom of that player's library|"
@@ -951,7 +970,7 @@ _PICK_DESTS = {**_DESTS, "onto the battlefield tapped and attacking": "battlefie
 _PICK = re.compile(
     rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |(?P<exile>(?:you may )?exile) |put )"
     rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among (?:them|the cards milled this way|the milled cards|those cards)|revealed this way|milled this way))"
-    r"|(?= (?:into|on|onto) )| them(?= (?:into|on|onto) ))"
+    r"|(?= (?:into|on|onto) )| them(?= (?:into|on|onto) )| (?:them|those cards)(?=,| and |$))"  # (wave 26D: "exile any number of them / those cards")
     r"|(?P<that>that card|it|the revealed card|the nonland card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
     r"(?: and put (?:it|them|the revealed cards|that card|those cards))?"
     rf"(?:(?P<fd> face down)| (?P<to>{_PICK_TO}))?"
@@ -1045,7 +1064,7 @@ def _pick_alts(text: str) -> tuple[Effects, Any] | None:
 def _rest(where: str) -> dict[str, Any]:
     if where.startswith("into "):
         to = where.split()[-1]
-    elif "on top" in where:
+    elif "on top" in where or where == "back in any order":
         to = "top_any"
     else:
         to = "bottom_random" if "random" in where else "bottom_any"
@@ -1863,7 +1882,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
                 groups_out.append(group)
             return effects_out, _out(groups_out)
     # -- end counters (wave 5H) --
-    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o>.+)", text)
+    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|(?:first|double) strike|[a-z]+) counters? on (?P<o>.+)", text)  # (wave 26D: first / double strike)
     if m:
         if m["k"] in values.UNMODELED_COUNTERS:
             raise _Fail
@@ -2006,6 +2025,8 @@ def _target_forms(text: str) -> tuple[Effects, Any] | None:
         if len(whos) != len(groups):
             raise _Fail  # ("choose a creature": a choice, not a target — the player-choices grammar)
         return [{"do": "choose_targets", "who": w} for w in whos], _out(groups)
+    if text == "the two chosen creatures fight each other":  # -- counters (wave 26D) -- app/rules/fight_pair.py: the two groups before it
+        return [{"do": "fight", "who": "pair:0", "with": "pair:1"}], None
     m = _FIGHTS.fullmatch(text)
     if m:
         if not has_primitive("fight"):

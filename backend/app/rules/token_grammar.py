@@ -137,7 +137,7 @@ def _with(part: str | None) -> tuple[list[str], str | None] | None:
         quoted = part[first + 1:-1]
         part = part[:first].rstrip()
         if part.endswith(" and"):
-            part = part[:-4]
+            part = part[:-4].rstrip(", ")  # (wave 26D: "flying, haste, and "…"")
         if '"' in quoted:
             return None
     kws = [k.strip() for k in re.split(r", and |, | and ", part) if k.strip()]
@@ -222,7 +222,9 @@ def parse(sentence: str) -> list[Effect] | None:
         if m["land"] and (m["ench"] or m["art"]):
             return None
         subtypes = _subtypes(m["sub"], extra)
-        parsed_with = _with(m["with"])
+        own = m["lname"] or m["name"] or m["name2"]  # -- saga (wave 26D) -- its own name in its quoted ability: "When Smaug dies, …" is "When this creature dies, …"
+        parsed_with = _with(re.sub(r'"[^"]*"', lambda q: re.sub(rf'(^"|\. )?{re.escape(own)}', lambda k: f"{k[1]}This creature" if k[1] else "this creature",
+                                                                q[0]), m["with"]) if own and m["with"] else m["with"])  # (review: "The Tiger God can't …" starts a sentence)
         if subtypes is None or parsed_with is None:
             return None
         kws, quoted = parsed_with

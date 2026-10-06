@@ -332,7 +332,7 @@ def parse(text: str) -> Definition | None:
         x_value = {"relative": "mana_value"}  # -- attached events (wave 20A) -- the host's own (Hedron Matrix), read per object (611.3a)
     if x_phrase is not None and x_value is None:
         return None
-    parts = _predicate(predicate, x_value, it)
+    parts = _predicate(predicate, x_value, it, group=who not in ("self", "attached") and not who.startswith(UNION))
     if parts is None:
         return None
     if who.startswith(UNION) and (parts["rules"] or parts["each"] or parts["extra"]):
@@ -482,7 +482,7 @@ _CDA = re.compile(r"^(?:[A-Z][a-z]+ — )?~'s (?:(?P<both>power and toughness ar
                   r"(?: and its toughness is equal to that number plus (?P<plus>\d+))?$")
 
 
-def _each_part(rest: str, x_value: values.Value | None, it: str | None) -> dict[str, Any] | None:
+def _each_part(rest: str, x_value: values.Value | None, it: str | None, group: str | None = None) -> dict[str, Any] | None:
     """"+1/+0 for each artifact you control" / "+X/+X" (with the sentence's "where X is …") → the
     dynamic part of a 7c modification (613.4c): ``{"p": ±k, "t": ±k, "value": <value>}`` — the
     object gets p×value / t×value, read whenever its characteristics are (611.3a). None if it
@@ -490,7 +490,7 @@ def _each_part(rest: str, x_value: values.Value | None, it: str | None) -> dict[
 
     Definition key ``each`` on a grant static; app/rules/layers.py applies it in layer 7c."""
     m = _PT_EACH.match(rest)
-    if m and (rel := _relative_count(m["each"])) is not None:  # -- token & pump wordings (wave 6C) --
+    if m and (rel := _relative_count(m["each"], group)) is not None:  # -- token & pump wordings (wave 6C) --
         return {"p": _signed(m["p"]), "t": _signed(m["t"]), "value": rel}
     if m:
         v = values.parse_count(m["each"], it=it)  # ("counters on it": on the source, when ~ is the subject)
@@ -533,9 +533,16 @@ def _controller_count(phrase: str) -> dict[str, Any] | None:
     return {"relative": "controller", "of": inner} if inner is not None and isinstance(inner, dict) else None
 
 
-def _relative_count(each: str) -> dict[str, Any] | None:
+_COUNTERS_ON_IT = re.compile(r"^(?:(?P<k>\+1/\+1|-1/-1|[a-z]+) )?counters? on (?:it|them)$")
+
+
+def _relative_count(each: str, group: str | None = None) -> dict[str, Any] | None:
     if (ctl := _controller_count(each)) is not None:
         return ctl
+    # -- counters (wave 26D) -- "Each creature gets +1/+1 for each +1/+1 counter on it" / "Creatures … get … for each … counter on them": a group
+    # subject's own count, read for each object it modifies (611.3a); ``group``: the pronoun that agrees with its verb ("it" after "gets")
+    if group is not None and (c := _COUNTERS_ON_IT.match(each)) is not None and each.endswith(f" on {group}"):
+        return {"relative": "counters", "kind": c["k"] or "any"}
     if each == "of its colors":  # -- attached events (wave 16F) -- 105.1: the colors of the object modified (Civic Saber)
         return {"relative": "colors"}
     m = _SHARING.match(each) or _SAME_NAME.match(each)
@@ -577,7 +584,7 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
     if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
         return goaded["s"], goaded["p"]
-    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?(?= combat damage)|(?:crews|saddles)(?= (?:Vehicles|Mounts)))\b", body)  # (assigns: wave 6E; crews: 17C)
+    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|(?<!you )don't|doesn't|assigns?(?= combat damage)|(?:crews|saddles)(?= (?:Vehicles|Mounts)))\b", body)  # (assigns: wave 6E; crews: 17C)
     if m is None or m.start() == 0:
         return None, None
     return body[: m.start()].strip(), body[m.start():].strip()
@@ -714,7 +721,7 @@ def _pieces(predicate: str) -> list[str]:
             .replace("\x00", " ") for p in out if p]
 
 
-def _predicate(predicate: str, x_value: values.Value | None = None, it: str | None = None) -> dict[str, Any] | None:
+def _predicate(predicate: str, x_value: values.Value | None = None, it: str | None = None, group: bool = False) -> dict[str, Any] | None:
     """"get +1/+1 and have haste" / "has base power and toughness 2/2" / "have "{T}: Add {G}."" →
     the P/T, base, keyword and ability parts (any that are absent are empty)."""
     from app.rules.scripts import granted_ability  # (scripts imports this module)
@@ -757,6 +764,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         m = re.match(r"^(?P<verb>gets?|ha(?:s|ve)) (?P<rest>.+)$", piece)
         if m:
             verb, rest = ("get" if m["verb"].startswith("get") else "have"), m["rest"]
+            pronoun = "them" if m["verb"] == "get" else "it"
         elif verb is None or verb == "is":
             return None
         else:
@@ -766,7 +774,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
             if pt is None:
                 if each is not None:
                     return None  # (two dynamic parts: not a template)
-                each = _each_part(rest, x_value, it)
+                each = _each_part(rest, x_value, it, pronoun if group else None)
                 if each is None:
                     return None
                 continue
