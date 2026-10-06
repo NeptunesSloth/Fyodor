@@ -1945,7 +1945,8 @@ def _their_group_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         return None
     mine_key, their_key = mine.key(), f"controlled:target|{sel.key()}"
     effects = [{**e, "who": their_key} if e.get("who") == mine_key else e for e in found[0]]
-    if not any(e.get("who") == their_key for e in effects) or mine_key in json.dumps(effects) \
+    # (review 26A: a selector key is itself JSON, so it appears escaped in the dump: "you control" left anywhere else is refused)
+    if not any(e.get("who") == their_key for e in effects) or json.dumps(mine_key)[1:-1] in json.dumps(effects) \
             or any(e["do"] not in _THEIR_GROUP_VERBS for e in effects if e.get("who") == their_key):
         return None
     return effects, SELECTORS[f"target {m[1]}"]

@@ -156,3 +156,11 @@ def test_part_in_friendship_compares_the_revealed_creatures_mana_value_with_my_l
     cast(s, "Ghastly Demise", knight.id)  # the Knight dies (toughness 2, two cards in my graveyard)
     assert find(s, "Test Bear").zone == zone  # mana value 3 against the lands I control as it resolves
     roundtrip(s)
+
+
+def test_a_you_control_left_after_the_group_rewrite_is_refused():
+    from app.rules import scripts
+
+    assert scripts.parse_effects("Creatures target player controls get +2/+2 until end of turn.") is not None
+    # (rewritten "creatures you control get +1/+0 … for each creature you control": which count is whose? not read)
+    assert scripts.parse_effects("Creatures target player controls get +1/+0 until end of turn for each creature you control.") is None
