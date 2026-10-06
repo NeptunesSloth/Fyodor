@@ -885,6 +885,12 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         ids = record.exiled if record is not None else []
         card = plan.state.cards.get(ids[0]) if len(ids) == 1 else None
         return (card, plan.ch(card)) if card is not None else None
+    if who == "cost:tapped":  # -- activated sweep (wave 26C) -- "the power of the creature tapped this way": the one creature a cost tapped (as it is now)
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        ids = record.tapped_for_cost if record is not None else []
+        card = plan.state.cards.get(ids[0]) if len(ids) == 1 else None
+        return (card, plan.ch(card)) if card is not None else None
     if who == "cost:revealed":  # -- static_other sweep (wave 17C) -- "the revealed card's mana value": the one card a spell's cost revealed
         sid = ctx.get("stack_id") or ctx.get("source_card")
         record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None

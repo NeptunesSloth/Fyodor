@@ -52,7 +52,7 @@ _RETURN = re.compile(rf"^Return {_N} (?P<what>.+? you control) to (?:its|their) 
 # "return X Swamps you control to their owner's hand" (the sacrifice / exile ones are ``_SAC_X`` / ``_EXILE_GY_X``)
 _DISCARD_X = re.compile(r"^Discard X (?P<what>(?:[\w\-]+ )*cards?)(?P<random> at random)?$")
 _RETURN_X = re.compile(r"^Return X (?P<what>.+? you control) to (?:its|their) owner's hands?$")
-_TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another )?untapped (?P<what>.+ you control)$")
+_TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another )?untapped (?P<what>.+ you control(?: other than (?:~|this creature))?)$")
 _UNTAP_OTHER = re.compile(rf"^Untap {_N} tapped (?P<what>.+ you control)$")  # -- activated sweep (wave 17B) -- Halo Fountain
 _REMOVE_CHOSEN = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|\d+) (?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? from (?:a|an|another) (?P<what>.+)$")
@@ -275,7 +275,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         key = _selector(m["what"], zone="battlefield", other=m["n"] == "another")
         return CostComponent(RETURN_PERMANENT, amount=_n(m["n"]), selector=key, text=part) if key else None
     if m := _TAP_OTHER.match(part):
-        key = _selector("untapped " + m["what"], zone="battlefield", other=bool(m["another"]) or m["n"] == "another")
+        what, other = re.subn(r" other than (?:~|this creature)$", "", m["what"])  # (wave 26C: "Tap an untapped red creature you control other than ~")
+        key = _selector("untapped " + what, zone="battlefield", other=bool(m["another"]) or m["n"] == "another" or bool(other))
         return CostComponent(TAP_OTHER, amount=_n(m["n"]), selector=key, text=part) if key else None
     if m := _UNTAP_OTHER.match(part):
         key = _selector("tapped " + m["what"], zone="battlefield")

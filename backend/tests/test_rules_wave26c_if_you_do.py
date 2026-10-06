@@ -75,6 +75,9 @@ REAL = [
     ("Barrel Down Sokenzan", "{2}{R}", "Instant — Arcane", None, None,
      "Sweep — Return any number of Mountains you control to their owner's hand. Barrel Down Sokenzan deals damage to target creature equal "
      "to twice the number of Mountains returned this way."),
+    ("Keldon Battlewagon", "{5}", "Artifact Creature — Juggernaut", "0", "3",
+     "Trample\nThis creature can't block.\nWhen this creature attacks, sacrifice it at end of combat.\nTap an untapped creature you control: This "
+     "creature gets +X/+0 until end of turn, where X is the power of the creature tapped this way."),
     ("Flameblast Dragon", "{4}{R}{R}", "Creature — Dragon", "5", "5",
      "Flying\nWhenever this creature attacks, you may pay {X}{R}. If you do, it deals X damage to any target."),
 ]
@@ -500,3 +503,15 @@ def chars_of_id(s, cid):
     from app.rules.plan import Plan
 
     return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[cid])
+
+
+def test_keldon_battlewagon_gets_the_power_of_the_creature_tapped_this_way(cards):
+    s = build(cards, ["Keldon Battlewagon"])
+    put(s, "Keldon Battlewagon")
+    bear = creature(s, "p1", "Bear", pt="3/3")
+    activate(s, "Keldon Battlewagon", "Tap an untapped creature")
+    d = until_asked(s)
+    pick(s, bear.id)
+    answer(s)
+    assert s.state.cards[bear.id].tapped and chars_of(s, "Keldon Battlewagon").pt == (3, 3)
+    check(s)

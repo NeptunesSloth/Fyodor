@@ -347,6 +347,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
+    if (m := re.fullmatch(r"the (?P<stat>power|toughness|mana value) of the creature tapped this way", phrase)) is not None:
+        return {_STATS[m["stat"]]: "cost:tapped"}  # -- activated sweep (wave 26C) -- the one creature a cost tapped (an activated ability only: scripts.define checks)
     if (m := re.fullmatch(r"the revealed card's (?P<stat>power|toughness|mana value)", phrase)) is not None:
         return {_STATS[m["stat"]]: "cost:revealed"}  # -- static_other sweep (wave 17C) -- the card a spell's additional cost revealed
     if (m := re.fullmatch(r"the discarded card's (?P<stat>power|toughness|mana value)|the (?P<stat2>mana value) of the discarded card",
@@ -526,7 +528,8 @@ def _rider_value(phrase: str) -> Any:
     if phrase in ("of its colors", "of that spell's colors"):  # -- value grammar (wave 23C) -- "for each of its colors": how many colors the object is (105.1)
         return {"colors": "that_spell" if "spell" in phrase else "it"}
     if phrase in ("the number of colors that spell is", "the number of colors it is") or re.fullmatch(
-            r"the (?:power|toughness|mana value) of the creature that died|the (?:power|toughness|mana value) of the (?:card|creature|permanent|artifact|enchantment|land|creature card) (?:exiled|returned|milled|destroyed) this way", phrase) or re.fullmatch(
+            r"the (?:power|toughness|mana value) of the creature that died|the (?:power|toughness) of the creature tapped this way|"
+            r"the (?:power|toughness|mana value) of the (?:card|creature|permanent|artifact|enchantment|land|creature card) (?:exiled|returned|milled|destroyed) this way", phrase) or re.fullmatch(
             r"(?:two|three|four) times (?:its|~'s|this creature's|that creature's) (?:power|toughness|mana value)", phrase):  # -- value grammar (wave 23C) -- 105.1
         return _stat(phrase)
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
