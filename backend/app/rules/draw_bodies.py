@@ -24,8 +24,8 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 BODY_OK = frozenset({"look_top", "pick_looked", "rest_looked", "exile_top", "grant_play", "return_choice", "only_if", "draw",
-                     "lose_life", "gain_life", "mill", "scry", "surveil"})
-_WHO_OK = ("you", "ref:")
+                     "lose_life", "gain_life", "mill", "scry", "surveil", "add_counters", "create_token"})
+_WHO_OK = ("you", "ref:", "self")
 
 
 def parse(text: str) -> list[dict[str, Any]] | None:
@@ -43,8 +43,8 @@ def parse(text: str) -> list[dict[str, Any]] | None:
     if targets is not None or optional or not effects:
         return None
     for e in effects:
-        who = e.get("who", "you")
-        if e["do"] not in BODY_OK or not isinstance(who, str) or not who.startswith(_WHO_OK):
+        who, player = e.get("who", "you"), e.get("player", "you")  # (look_top / exile_top / mill name the library's owner: "you")
+        if e["do"] not in BODY_OK or not isinstance(who, str) or not who.startswith(_WHO_OK) or player != "you":
             return None
     return effects
 

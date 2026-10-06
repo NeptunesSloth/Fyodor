@@ -31,6 +31,10 @@ EXTRA = [
     card("Obstinate Familiar", set_code="tst", number="W06", mana_cost="{R}", cmc=1.0, type_line="Creature — Lizard", power="1", toughness="1", colors=["R"], color_identity=["R"], oracle_text="If you would draw a card, you may skip that draw instead."),  # noqa: E501
     card("Forbidden Crypt", set_code="tst", number="W07", mana_cost="{3}{B}{B}", cmc=5.0, type_line="Enchantment", colors=["B"], color_identity=["B"], oracle_text="If you would draw a card, return a card from your graveyard to your hand instead. If you can't, you lose the game.\nIf a card would be put into your graveyard from anywhere, exile that card instead."),  # noqa: E501
     card("Bloodletter of Aclazotz", set_code="tst", number="W08", mana_cost="{1}{B}{B}{B}", cmc=4.0, type_line="Creature — Vampire Demon", power="2", toughness="4", colors=["B"], color_identity=["B"], oracle_text="Flying\nIf an opponent would lose life during your turn, they lose twice that much life instead. (Damage causes loss of life.)", keywords=["Flying"]),  # noqa: E501
+    card("Tomorrow, Azami's Familiar", set_code="tst", number="W11", mana_cost="{5}{U}", cmc=6.0, type_line="Legendary Creature — Spirit", power="1", toughness="5", colors=["U"], color_identity=["U"], oracle_text="If you would draw a card, look at the top three cards of your library instead. Put one of those cards into your hand and the rest on the bottom of your library in any order."),  # noqa: E501
+    card("Sages of the Anima", set_code="tst", number="W12", mana_cost="{3}{G}{U}", cmc=5.0, type_line="Creature — Elf Wizard", power="3", toughness="4", colors=["G", "U"], color_identity=["G", "U"], oracle_text="If you would draw a card, instead reveal the top three cards of your library. Put all creature cards revealed this way into your hand and the rest on the bottom of your library in any order."),  # noqa: E501
+    card("Out of the Tombs", set_code="tst", number="W13", mana_cost="{2}{B}", cmc=3.0, type_line="Enchantment", colors=["B"], color_identity=["B"], oracle_text="At the beginning of your upkeep, put two eon counters on this enchantment, then mill cards equal to the number of eon counters on it.\nIf you would draw a card while your library has no cards in it, instead return a creature card from your graveyard to the battlefield. If you can't, you lose the game."),  # noqa: E501
+    card("Pursuit of Knowledge", set_code="tst", number="W14", mana_cost="{3}{W}", cmc=4.0, type_line="Enchantment", colors=["W"], color_identity=["W"], oracle_text="If you would draw a card, you may put a study counter on this enchantment instead.\nRemove three study counters from this enchantment, Sacrifice this enchantment: Draw seven cards."),  # noqa: E501
     card("Test Small", set_code="tst", number="W10", mana_cost="{G}", cmc=1.0, type_line="Creature — Elf", power="2", toughness="2", colors=["G"], color_identity=["G"], oracle_text=""),  # noqa: E501
     card("Divination", set_code="tst", number="W09", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"], color_identity=["U"], oracle_text="Draw two cards."),  # noqa: E501
 ]
@@ -89,7 +93,7 @@ def settle(s, pick=None, limit=40):
     for _ in range(limit):
         d = s.state.rules.decision
         if d is not None:
-            ids = (pick(d) if pick else None) or [d.options[0].id]
+            ids = (pick(d) if pick else None) or [o.id for o in d.options][: max(1, d.min_choices)]
             act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
         elif s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
@@ -246,6 +250,68 @@ def test_obstinate_familiar_may_skip_a_draw(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["decline"])  # draw the second normally
     settle(s)
     assert len(zone(s, "hand")) == hand - 1 + 1
+    roundtrip(s)
+
+
+def test_tomorrow_puts_one_card_in_hand_and_the_rest_on_the_bottom(cards):
+    s = build(cards, p1=("Divination", "Tomorrow, Azami's Familiar"))
+    put(s, "Tomorrow, Azami's Familiar", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    top = list(zone(s, "library")[:3])
+    lib = len(zone(s, "library"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    d = s.state.rules.decision
+    assert d is not None and [o.card_id for o in d.options] == top
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[top[1]])
+    settle(s)  # (the order of the other two on the bottom, then the second draw's own look)
+    assert top[1] in zone(s, "hand") and len(zone(s, "library")) == lib - 2
+    assert s.state.rules.turn_log.drew.get("p1", 0) == 0
+    roundtrip(s)
+
+
+def test_sages_of_the_anima_reveals_three_and_takes_the_creatures(cards):
+    s = build(cards, p1=("Divination", "Sages of the Anima", "Test Small"))
+    put(s, "Sages of the Anima", "battlefield")
+    small = find(s, "Test Small").id
+    act(s, "p1", type="move", card_ids=[small], to={"player": "p1", "zone": "library"}, position="top")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    hand = len(zone(s, "hand"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert s.state.cards[small].zone == "p1:hand"  # 121.5: put into the hand, not drawn
+    assert len(zone(s, "hand")) == hand - 1 + 1  # the second draw's three cards held no creature
+    roundtrip(s)
+
+
+def test_pursuit_of_knowledge_puts_a_study_counter_instead_when_its_player_says_so(cards):
+    s = build(cards, p1=("Divination", "Pursuit of Knowledge"))
+    pk = put(s, "Pursuit of Knowledge", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    hand = len(zone(s, "hand"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["o0"])  # the first draw: a study counter instead
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["decline"])  # the second: draw it
+    settle(s)
+    assert s.state.cards[pk.id].counters.get("study") == 1 and len(zone(s, "hand")) == hand - 1 + 1
+    roundtrip(s)
+
+
+def test_out_of_the_tombs_returns_a_creature_instead_of_a_draw_from_an_empty_library(cards):
+    s = build(cards, p1=("Divination", "Out of the Tombs", "Test Small"))
+    put(s, "Out of the Tombs", "battlefield")
+    small = put(s, "Test Small", "graveyard")
+    act(s, "p1", type="move", card_ids=list(zone(s, "library")), to={"player": "p1", "zone": "exile"})
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert s.state.cards[small.id].zone == "p1:battlefield"  # the first draw; the second finds no creature card: 104.3e
+    assert "p1" in s.state.rules.lost
     roundtrip(s)
 
 
