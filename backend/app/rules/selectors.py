@@ -994,12 +994,34 @@ _EITHER = re.compile(r"^(?P<head>[a-z]+(?:, [a-z]+)*),? or (?P<last>[a-z]+ (?:wi
                      r"|^(?P<head2>non[a-z]+ [a-z]+) or (?P<last2>non[a-z]+ [a-z]+)$")
 
 
+_CLAUSE_WORDS = re.compile(r"\b(?:with|without|that|who|you|your|they|their|an opponent|opponents?|controls?|owns?|among|named|other|another|"
+                           r"attached|enchanted|equipped|from|in|on|of)\b")
+
+
+def _each_own_qualifier(phrase: str) -> Selector | None:
+    """-- static_other sweep (wave 26A) -- "land or nonblack creature", "black creature or black planeswalker", "artifact or tapped creature",
+    "Forest, green enchantment, or green planeswalker" (target phrases): a list of kinds, each with the qualifier written in front of it
+    (115.1: any of them is a legal target). Read only when each kind stands on its own: no clause after a kind (a controller or "with …"
+    belongs to which kind?), and no qualified first kind followed by a bare one ("tapped artifact or creature": does "tapped" carry over?)."""
+    parts = [p.strip() for p in re.split(r",? or |, ", phrase) if p.strip()]
+    if len(parts) < 2 or _CLAUSE_WORDS.search(phrase):
+        return None
+    subs = [_parse(p) for p in parts]
+    if any(s is None or s.player is not None or s.card or s.either or s.union or s.ability is not None or s.zones != ("battlefield",)
+           or s.other for s in subs):
+        return None
+    bare = [replace(s, types=(), subtypes=()) == Selector() for s in subs]  # type: ignore[union-attr]
+    if not bare[0] and any(bare[1:]):
+        return None
+    return Selector(either=tuple(s.key() for s in subs if s is not None))
+
+
 def parse_either(phrase: str) -> Selector | None:
     """"artifact, enchantment, or creature with flying" (a target phrase: 115.1): an artifact, an enchantment, or a creature with
     flying — the qualifier is the last kind's only."""
     m = _EITHER.match(phrase.strip())
     if m is None:
-        return None
+        return _each_own_qualifier(phrase.strip())
     a, b = _parse(m["head"] or m["head2"]), _parse(m["last"] or m["last2"])
     if a is None or b is None or a.player or b.player or a.zones != ("battlefield",) or b.zones != ("battlefield",):
         return None

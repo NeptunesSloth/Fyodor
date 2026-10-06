@@ -39,6 +39,8 @@ EXTRA = [
     card('Seek Test', set_code='tst', number='N17', mana_cost='{1}{B}', cmc=2.0, type_line='Sorcery', oracle_text="Search target opponent's library for a card and exile it. You gain life equal to its mana value. Then that player shuffles.", colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('Emblem Test', set_code='tst', number='N18', mana_cost='{1}', cmc=1.0, type_line='Sorcery', oracle_text='You get an emblem with "You have no maximum hand size" and "Whenever a card is put into your graveyard from anywhere, you may return it to your hand."', colors=[], color_identity=[], keywords=[], layout='normal'),  # noqa: E501
     card('Foe Emblem Test', set_code='tst', number='N19', mana_cost='{1}', cmc=1.0, type_line='Sorcery', oracle_text='Target opponent gets an emblem with "Whenever a creature attacks you, it gets +5/+5 and gains trample until end of turn."', colors=[], color_identity=[], keywords=[], layout='normal'),  # noqa: E501
+    card('Chaotic Backlash', set_code='tst', number='N20', mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text='Chaotic Backlash deals damage to target player equal to twice the number of white and/or blue permanents they control.', colors=['R'], color_identity=['R'], keywords=[], layout='normal'),  # noqa: E501
+    card('Radiant Strike', set_code='tst', number='N21', mana_cost='{2}{W}', cmc=3.0, type_line='Instant', oracle_text='Destroy target artifact or tapped creature. You gain 3 life.', colors=['W'], color_identity=['W'], keywords=[], layout='normal'),  # noqa: E501
     card('Bribery', set_code='tst', number='N14', mana_cost='{3}{U}{U}', cmc=5.0, type_line='Sorcery', oracle_text="Search target opponent's library for a creature card and put that card onto the battlefield under your control. Then that player shuffles.", colors=['U'], color_identity=['U'], keywords=[], layout='normal'),  # noqa: E501
     card('Bitter Ordeal', set_code='tst', number='N15', mana_cost='{1}{B}', cmc=2.0, type_line='Sorcery', oracle_text="Gravestorm\nSearch target player's library for a card and exile it. Then that player shuffles.", colors=['B'], color_identity=['B'], keywords=['Gravestorm'], layout='normal'),  # noqa: E501
     card("Life's Finale", set_code='tst', number='N16', mana_cost='{4}{B}{B}', cmc=6.0, type_line='Sorcery', oracle_text="Destroy all creatures, then search target opponent's library for up to three creature cards and put them into their graveyard. Then that player shuffles.", colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
@@ -230,6 +232,33 @@ def test_the_two_ability_emblem_returns_cards_put_into_my_graveyard(cards):
     answer(s)
     # the emblem exists when the spell is put into the graveyard (608.2n), so its second ability triggers for that card: "you may return it"
     assert find(s, "Emblem Test").zone == "p1:hand"
+    roundtrip(s)
+
+
+def test_chaotic_backlash_counts_their_white_and_or_blue_permanents(cards):
+    s = build(cards, p1=("Chaotic Backlash",), p2=("Test Knight", "Test Bear", "Test Glass"))
+    for name in ("Test Knight", "Test Bear", "Test Glass"):
+        put(s, name, "battlefield", pid="p2")
+    life = s.state.players["p2"].life
+    cast(s, "Chaotic Backlash", "p2")
+    assert s.state.players["p2"].life == life - 4  # the white Knight and the white enchantment, twice each
+    roundtrip(s)
+
+
+def test_artifact_or_tapped_creature_each_kind_has_its_own_qualifier(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, p1=("Radiant Strike",), p2=("Test Bear",))
+    bear = put(s, "Test Bear", "battlefield", pid="p2")
+    put(s, "Radiant Strike", "hand")
+    mana(s, W=3)
+    with pytest.raises(ActionError):  # an untapped creature isn't "an artifact" nor "a tapped creature"
+        act(s, "p1", type="cast_spell", card_id=find(s, "Radiant Strike").id, targets=[bear.id])
+    act(s, "p2", type="tap", card_ids=[bear.id])
+    life = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=find(s, "Radiant Strike").id, targets=[bear.id])
+    answer(s)
+    assert s.state.cards[bear.id].zone == "p2:graveyard" and s.state.players["p1"].life == life + 3
     roundtrip(s)
 
 
