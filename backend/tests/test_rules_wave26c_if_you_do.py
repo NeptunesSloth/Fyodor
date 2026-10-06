@@ -83,6 +83,8 @@ REAL = [
      "{2}{W}, Remove two +1/+1 counters from among creatures you control: Destroy target artifact or enchantment."),
     ("Retribution of the Ancients", "{B}", "Enchantment", None, None,
      "{B}, Remove X +1/+1 counters from among creatures you control: Target creature gets -X/-X until end of turn."),
+    ("Bookwurm", "{7}{G}", "Creature — Wurm", "7", "7",
+     "Trample\nWhen this creature enters, you gain 3 life and draw a card.\n{2}{G}: Put this card from your graveyard into your library third from the top."),
     ("Flameblast Dragon", "{4}{R}{R}", "Creature — Dragon", "5", "5",
      "Flying\nWhenever this creature attacks, you may pay {X}{R}. If you do, it deals X damage to any target."),
 ]
@@ -563,4 +565,15 @@ def test_retribution_of_the_ancients_x_counters_from_among_creatures(cards):
     activate(s, "Retribution of the Ancients", "{B}", targets=[ogre.id], x_value=2)
     answer(s)
     assert s.state.cards[mine.id].counters.get("+1/+1", 0) == 0 and chars_of_id(s, ogre.id).pt == (1, 1)
+    check(s)
+
+
+def test_bookwurm_puts_itself_third_from_the_top_from_the_graveyard(cards):
+    s = build(cards, ["Bookwurm"])
+    to_graveyard(s, "Bookwurm")
+    mana(s, G=1, C=2)
+    activate(s, "Bookwurm", "{2}{G}")
+    answer(s)
+    library = s.state.zones["p1:library"]
+    assert library.index(card_named(s, "Bookwurm").id) == 2 and graveyard(s) == []
     check(s)

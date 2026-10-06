@@ -2996,6 +2996,7 @@ _RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any nu
                         rf" from (?P<z>{_RA_ZONE})")
 _RA_SELF = re.compile(r"(?:this card|~) from your graveyard")
 _RA_LIB = re.compile(r"put (?P<o>.+? from your graveyard) on top of your library")  # (wave 3R4)
+_RA_LIB_NTH = re.compile(r"put (?:this card|~) from your graveyard into your library (?P<n>second|third) from the top")
 
 
 def _graveyard_cards(key: str) -> bool:
@@ -3009,6 +3010,9 @@ def gy_to_library(text: str) -> tuple[Effects, Any] | None:
     from the graveyard). None for anything else ("put target … on top": the older grammar)."""
     text = text[len("then "):] if text.startswith("then you may ") else text  # ("Then you may …": "then" only orders)
     may = text.startswith("you may ")
+    nth = _RA_LIB_NTH.fullmatch(text)  # -- activated sweep (wave 26C) -- "put this card from your graveyard into your library third from the top" (Bookwurm)
+    if nth is not None and not may:
+        return [{"do": "to_library", "who": "self_gy", "place": {"second": 2, "third": 3}[nth["n"]]}], None
     lib = _RA_LIB.fullmatch(text[len("you may "):] if may else text)
     if lib is None:
         return None
