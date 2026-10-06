@@ -586,7 +586,24 @@ def _enter_extra(text: str) -> Definition | None:
 # -- end counters (wave 5H) --
 
 
-PARSERS = (_tokens, _counters, _draw, _life, _loss, _damage, _enters_tapped, _enter_extra)
+# -- mill counts (wave 28B) -- "If an opponent would mill one or more cards, they mill twice that many cards instead." (Bruvac the
+# Grandiloquent), "… they mill that many cards plus four instead." (The Water Crystal): the count the instruction says (701.17a)
+_MILL = re.compile(r"^If (?P<who>you|an opponent|a player) would mill one or more cards, (?:you|they) mill "
+                   r"(?:(?P<mul>twice) that many cards|that many cards plus (?P<add>\d+|one|two|three|four|five)) instead\.$")
+
+
+def _mill(text: str) -> Definition | None:
+    m = _MILL.match(text)
+    if not m:
+        return None
+    who = {"you": "you", "an opponent": "opponent", "a player": "any"}[m["who"]]
+    if m["mul"]:
+        return _static("mill", {"who": who}, {"do": "mul", "n": 2})
+    n = _num(m["add"])
+    return _static("mill", {"who": who}, {"do": "add", "n": n}) if n else None
+
+
+PARSERS = (_tokens, _counters, _draw, _life, _loss, _mill, _damage, _enters_tapped, _enter_extra)
 
 
 def parse(text: str) -> Definition | None:

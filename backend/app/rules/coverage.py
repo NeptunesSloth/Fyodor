@@ -168,6 +168,7 @@ SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra"}
 SUPPORTED_REPLACE_OPS["counters"] = SUPPORTED_REPLACE_OPS["counters"] | {"half"}
 # -- replacements: draws and life (wave 28B) -- a draw replaced by its own instructions (app/rules/draw_bodies.py)
 SUPPORTED_REPLACE_OPS["draw"] = SUPPORTED_REPLACE_OPS["draw"] | {"body"}
+SUPPORTED_REPLACE_OPS["mill"] = frozenset({"mul", "add"})  # 701.17a: Bruvac the Grandiloquent, The Water Crystal (replace.mill_counts)
 SUPPORTED_REPLACE_OPS["life_loss"] = frozenset({"mul"})  # 119.3: Bloodletter of Aclazotz (app/rules/replace.py lose_life)
 SUPPORTED_REPLACEMENTS |= {
     "enters_tapped_others",  # 614.1d, 614.12: "Creatures your opponents control enter tapped."

@@ -38,10 +38,13 @@ EXTRA = [
     card("Vampire's Kiss", set_code="tst", number="W15", mana_cost="{1}{B}", cmc=2.0, type_line="Sorcery", colors=["B"], color_identity=["B"], oracle_text="Target player loses 2 life and you gain 2 life."),  # noqa: E501
     card("Greed", set_code="tst", number="W16", mana_cost="{3}{B}", cmc=4.0, type_line="Enchantment", colors=["B"], color_identity=["B"], oracle_text="{B}, Pay 2 life: Draw a card."),  # noqa: E501
     card("Boon Reflection", set_code="tst", number="W17", mana_cost="{4}{W}", cmc=5.0, type_line="Enchantment", colors=["W"], color_identity=["W"], oracle_text="If you would gain life, you gain twice that much life instead."),  # noqa: E501
+    card("Thought Scour", set_code="tst", number="W18", mana_cost="{U}", cmc=1.0, type_line="Instant", colors=["U"], color_identity=["U"], oracle_text="Target player mills two cards.\nDraw a card."),  # noqa: E501
+    card("Bruvac the Grandiloquent", set_code="tst", number="W19", mana_cost="{2}{U}", cmc=3.0, type_line="Legendary Creature — Human Advisor", power="1", toughness="4", colors=["U"], color_identity=["U"], oracle_text="If an opponent would mill one or more cards, they mill twice that many cards instead. (To mill a card, a player puts the top card of their library into their graveyard.)"),  # noqa: E501
+    card("The Water Crystal", set_code="tst", number="W20", mana_cost="{2}{U}{U}", cmc=4.0, type_line="Legendary Artifact", colors=["U"], color_identity=["U"], oracle_text="Blue spells you cast cost {1} less to cast.\nIf an opponent would mill one or more cards, they mill that many cards plus four instead.\n{4}{U}{U}, {T}: Each opponent mills cards equal to the number of cards in your hand."),  # noqa: E501
     card("Test Small", set_code="tst", number="W10", mana_cost="{G}", cmc=1.0, type_line="Creature — Elf", power="2", toughness="2", colors=["G"], color_identity=["G"], oracle_text=""),  # noqa: E501
     card("Divination", set_code="tst", number="W09", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"], color_identity=["U"], oracle_text="Draw two cards."),  # noqa: E501
 ]
-FULL = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Small", "Vampire's Kiss", "Greed", "Boon Reflection")]
+FULL = [c["name"] for c in EXTRA if c["name"] not in ("Divination", "Test Small", "Vampire's Kiss", "Greed", "Boon Reflection", "Thought Scour")]
 
 
 @pytest.fixture()
@@ -398,6 +401,58 @@ def test_bloodletter_doubles_the_life_lost_to_combat_damage_not_the_damage_dealt
     through_combat(s)
     assert s.state.players["p2"].life == 40 - 6  # 120.3a, 614.1a: 3 combat damage, 6 life lost
     assert any(e.kind == "damage" and e.amount == 3 for e in s.state.rules.events)
+    roundtrip(s)
+
+
+def mill_two(cards, *permanents):
+    s = build(cards, p1=("Thought Scour", *permanents))
+    for name in permanents:
+        put(s, name, "battlefield")
+    c = put(s, "Thought Scour", "hand")
+    mana(s, U=1, C=4)
+    return s, c
+
+
+@pytest.mark.parametrize("names,milled", [((), 2), (("Bruvac the Grandiloquent",), 4), (("The Water Crystal",), 6)])
+def test_mill_counts_are_changed_for_an_opponent(cards, names, milled):
+    s, c = mill_two(cards, *names)
+    lib, gy = len(zone(s, "library", "p2")), len(zone(s, "graveyard", "p2"))
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"])
+    settle(s)
+    assert len(zone(s, "graveyard", "p2")) == gy + milled and len(zone(s, "library", "p2")) == lib - milled  # 701.17a, 614.1a
+    roundtrip(s)
+
+
+def test_mill_replacement_does_not_change_its_controllers_own_mill(cards):
+    s, c = mill_two(cards, "Bruvac the Grandiloquent")
+    gy = len(zone(s, "graveyard"))
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p1"])
+    settle(s)
+    assert len(zone(s, "graveyard")) == gy + 2 + 1  # (and Thought Scour itself)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("first,milled", [("Bruvac", 2 * 2 + 4), ("Water Crystal", (2 + 4) * 2)])
+def test_two_mill_replacements_that_do_not_commute_are_ordered_by_the_player(cards, first, milled):
+    s, c = mill_two(cards, "Bruvac the Grandiloquent", "The Water Crystal")
+    lib = len(zone(s, "library", "p2"))
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"  # 616.1: the affected player chooses: (2×2)+4 or (2+4)×2
+    prompt_first = "Bruvac" if "apply Bruvac" in d.prompt else "Water Crystal"
+    keep = d.options[0].id if prompt_first == first else d.options[1].id
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[keep])
+    settle(s)
+    assert len(zone(s, "library", "p2")) == max(0, lib - milled)  # (a library of ten holds fewer than twelve)
+    roundtrip(s)
+
+
+def test_a_mill_that_exceeds_the_library_mills_what_is_there(cards):
+    s, c = mill_two(cards, "Bruvac the Grandiloquent")
+    act(s, "p2", type="move", card_ids=list(zone(s, "library", "p2"))[3:], to={"player": "p2", "zone": "exile"})
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"])
+    settle(s)
+    assert len(zone(s, "library", "p2")) == 0 and "p2" not in s.state.rules.lost  # (701.17a; a player loses only on a later draw, 704.5b)
     roundtrip(s)
 
 

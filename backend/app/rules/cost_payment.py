@@ -526,7 +526,11 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
         if len(top) < comp.amount:
             raise ActionError(f"You can't pay “{comp.text}”")  # (118.3; checked before anything was paid)
         if comp.kind == C.MILL:
-            plan.do({"type": "mill", "player": player, "count": comp.amount}, actor=player)
+            from app.rules import replace as _replace_mill  # -- mill counts (wave 28B) -- 701.17a / 118.11: a payment may be modified
+
+            more = sum(k for _, k in _replace_mill.mill_counts(plan, [(player, comp.amount)]) or [(player, comp.amount)])
+            plan.do({"type": "mill", "player": player, "count": min(more, len(plan.state.zones.get(zone_key(player, "library"), [])))},
+                    actor=player)
         else:
             plan.do({"type": "move", "card_ids": top, "to": {"zone": "exile"}})
             record.exiled += top

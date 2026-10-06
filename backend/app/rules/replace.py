@@ -371,7 +371,7 @@ class Planner:
 def affected(plan: Plan, ev: Event) -> str | None:
     """616.1: the affected object's controller (its owner if it has none) or the affected player."""
     kind = ev["kind"]
-    if kind in ("tokens", "draw", "life", "life_loss", "player_counters"):
+    if kind in ("tokens", "draw", "life", "life_loss", "mill", "player_counters"):
         return ev.get("player")
     if kind == "counters":
         if ev.get("controller"):
@@ -430,6 +430,8 @@ def describe(plan: Plan, ev: Event) -> str:
         return f"{plan.name(ev['player'])} gains {ev['n']} life"
     if kind == "life_loss":
         return f"{plan.name(ev['player'])} loses {ev['n']} life"
+    if kind == "mill":
+        return f"{plan.name(ev['player'])} mills {ev['n']} card{'s' if ev['n'] != 1 else ''}"
     if kind == "damage":
         return f"{ev['amount']} damage"
     return kind
@@ -1047,7 +1049,8 @@ def dredge_candidates(plan: Plan, players: list[str]) -> list[Candidate]:
 def _dredge(plan: Plan, f: Event) -> None:
     """Mill N cards, then return the dredged card from the graveyard to its owner's hand (702.52a)."""
     pid, card = f["player"], plan.state.cards.get(f["card"])
-    plan.do({"type": "mill", "player": pid, "count": int(f["n"])}, actor=pid)
+    more = sum(k for _, k in mill_counts(plan, [(pid, int(f["n"]))]) or [(pid, int(f["n"]))])  # (-- mill counts (wave 28B) -- 701.17a)
+    plan.do({"type": "mill", "player": pid, "count": min(more, len(plan.state.zones.get(zone_key(pid, "library"), [])))}, actor=pid)
     if card is not None and card.zone == zone_key(pid, "graveyard"):
         plan.do({"type": "move", "card_ids": [card.id], "to": {"player": pid, "zone": "hand"}}, actor=pid)
 
@@ -1337,6 +1340,53 @@ def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = 
             if ev["kind"] == "life_loss" and ev["n"] > 0:
                 plan.do({"type": "life", "player": ev["player"], "delta": -ev["n"]}, actor=actor or ev["player"])
     return True
+
+
+# == mill (701.17, 614.1a) ==========================================================================
+def _mill_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
+    """-- mill counts (wave 28B) -- "If an opponent would mill one or more cards, they mill twice that many cards instead." (Bruvac, The Water Crystal)"""
+    who, mine = c.match.get("who"), ev["player"] == c.controller
+    return ev["n"] > 0 and ev["player"] in plan.live() and not (who == "you" and not mine or who == "opponent" and mine)
+
+
+def _mill_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
+    if c.op["do"] == "mul":
+        return [{**ev, "n": ev["n"] * int(c.op["n"])}]
+    if c.op["do"] == "add":
+        return [{**ev, "n": ev["n"] + int(c.op["n"])}]
+    return [ev]
+
+
+def mill_counts(plan: Plan, wants: list[tuple[str, int]], *, then: dict[str, Any] | None = None, answers: dict[str, str] | None = None,
+                ctx: dict[str, Any] | None = None) -> list[tuple[str, int]] | None:
+    """THE mill choke point (wave 28B): how many cards each player mills once the "would mill" replacements have applied to the
+    number the instruction says (701.17a: the library may hold fewer — the caller mills what is there). The count is the event,
+    so the caller mills after this returns. None while a choice is open (``then`` continues the instruction)."""
+    wants = [(p, int(n)) for p, n in wants if n > 0 and p in plan.state.players]
+    cands = candidates(plan, "mill")
+    if not cands or not wants:
+        return wants
+    answers = answers if answers is not None else _ctx_answers(ctx)
+    planner = Planner(plan, cands, answers, ask=then is not None)  # (``then``: the instruction run again with the answers, replace.rerun_then)
+    order = plan.apnap()
+    evs: list[Event] = [{"kind": "mill", "player": p, "n": n, "applied": []} for p, n in wants]
+    evs.sort(key=lambda e: order.index(e["player"]) if e["player"] in order else len(order))
+    finals: list[tuple[Event, list[Event]]] = []
+    try:
+        for ev in evs:
+            out: list[Event] = []
+            planner.settle(ev, {}, out.append)
+            finals.append((ev, out))
+    except Ask as q:
+        if _pause(plan, q, answers, _resume_for(then, "mill", {"wants": [list(w) for w in wants]})):
+            return None
+        raise
+    left_to_players(plan, planner)
+    result: list[tuple[str, int]] = []
+    for before, out in finals:
+        note_applied(plan, before, out, actor=before["player"])
+        result.append((before["player"], sum(f["n"] for f in out if f["kind"] == "mill")))
+    return result
 
 
 def _run_loss(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
@@ -1874,8 +1924,10 @@ def ask_shield(plan: Plan, s: ShieldAsk, resume: dict[str, Any], order: list[str
 
 # -- the kinds' rules (the loop dispatches on the event's kind) ------------------------------------
 _APPLIES: dict[str, Any] = {"tokens": _tokens_applies, "counters": _counters_applies, "player_counters": _player_counters_applies,
-                            "draw": _draw_applies, "life": _life_applies, "life_loss": _loss_applies, "damage": _damage_applies}
+                            "draw": _draw_applies, "life": _life_applies, "life_loss": _loss_applies, "mill": _mill_applies,
+                            "damage": _damage_applies}
 _APPLY: dict[str, Any] = {"tokens": _tokens_apply, "counters": _counters_apply, "player_counters": _counters_apply,
-                          "draw": _draw_apply, "life": _life_apply, "life_loss": _loss_apply, "damage": _damage_apply}
+                          "draw": _draw_apply, "life": _life_apply, "life_loss": _loss_apply, "mill": _mill_apply,
+                          "damage": _damage_apply}
 _PERFORM: dict[str, Any] = {"draw": _draw_perform, "dredge": _dredge_perform, "life": _life_perform, "life_loss": _life_perform}
 SITES: dict[str, Any] = {"tokens": _run_tokens, "counters": _run_counters, "draw": _run_draw, "life": _run_life, "loss": _run_loss}

@@ -102,8 +102,11 @@ def rad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     n = plan.state.players[pid].resources.get("rad", 0) if pid in plan.live() else 0
     if n <= 0:
         return True  # 603.4: no rad counters any more — the ability does nothing
+    from app.rules import replace as _replace_mill  # -- mill counts (wave 28B) -- 701.17a: "would mill" replacements change the number
+
+    to_mill = sum(k for _, k in _replace_mill.mill_counts(plan, [(pid, n)]) or [(pid, n)])
     library = plan.state.zones.get(zone_key(pid, "library"), [])
-    milled = list(library[:n])
+    milled = list(library[:to_mill])
     if not milled:
         return True
     plan.do({"type": "mill", "player": pid, "count": len(milled)}, actor=pid)

@@ -1608,11 +1608,19 @@ def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     want = _amount(plan, ctx, e["n"])
     before: list[ObjectRef] = []
+    wants: list[tuple[str, int]] = []
     for pid in _players(plan, ctx, e["who"]):
-        library = plan.state.zones.get(zone_key(pid, "library"), [])
         if e.get("half"):  # -- if you do (wave 15C) -- 107.1a: half the library as it is now, rounded as the text says
-            want = (len(library) + 1) // 2 if e["half"] == "up" else len(library) // 2
-        n = min(want, len(library))
+            size = len(plan.state.zones.get(zone_key(pid, "library"), []))
+            want = (size + 1) // 2 if e["half"] == "up" else size // 2
+        wants.append((pid, want))
+    # -- mill counts (wave 28B) -- "would mill" replacements change the number the instruction says (the library may hold fewer)
+    counts = replace.mill_counts(plan, wants, then=replace.rerun_then(ctx, e), ctx=ctx)  # (run again with the answers, not continued)
+    if counts is None:
+        return False
+    for pid, count in counts:
+        library = plan.state.zones.get(zone_key(pid, "library"), [])
+        n = min(count, len(library))
         before += [r for r in (context.ref_of(plan, c) for c in library[:n]) if r is not None]
         if n:
             plan.do({"type": "mill", "player": pid, "count": n}, actor=pid)
