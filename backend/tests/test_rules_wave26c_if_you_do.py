@@ -85,6 +85,9 @@ REAL = [
      "{B}, Remove X +1/+1 counters from among creatures you control: Target creature gets -X/-X until end of turn."),
     ("Bookwurm", "{7}{G}", "Creature — Wurm", "7", "7",
      "Trample\nWhen this creature enters, you gain 3 life and draw a card.\n{2}{G}: Put this card from your graveyard into your library third from the top."),
+    ("Lost in the Spirit World", "{2}{U}", "Instant", None, None,
+     "Return up to one target creature to its owner's hand. Create a 1/1 colorless Spirit creature token with \"This token can't block or be "
+     "blocked by non-Spirit creatures.\""),
     ("Flameblast Dragon", "{4}{R}{R}", "Creature — Dragon", "5", "5",
      "Flying\nWhenever this creature attacks, you may pay {X}{R}. If you do, it deals X damage to any target."),
 ]
@@ -576,4 +579,16 @@ def test_bookwurm_puts_itself_third_from_the_top_from_the_graveyard(cards):
     answer(s)
     library = s.state.zones["p1:library"]
     assert library.index(card_named(s, "Bookwurm").id) == 2 and graveyard(s) == []
+    check(s)
+
+
+def test_spirit_token_cannot_block_or_be_blocked_by_non_spirits(cards):
+    s = build(cards, ["Lost in the Spirit World"])
+    spell = to_hand(s, "Lost in the Spirit World")
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[])
+    answer(s)
+    token = next(c for c in s.state.cards.values() if c.name == "Spirit" and c.zone == "p1:battlefield")
+    imposed = " ".join(chars_of_id(s, token.id).imposed)
+    assert "cant_be_blocked_by" in imposed and "cant_block_sel" in imposed  # (509.1b / 509.1a: both halves of the one line)
     check(s)
