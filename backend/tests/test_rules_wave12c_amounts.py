@@ -77,7 +77,10 @@ def test_the_wording_is_exact():
     e = scripts.parse_effects("Each opponent loses X life and you scry X, where X is the number of Zombies you control.")[0]
     assert e[0]["n"] == e[1]["n"] and "x" not in e[0]["n"]
     # a target count or a selector bound is not an amount field: stays manual
-    assert scripts.parse_effects("Destroy target creature with toughness X or less, where X is the number of Vampires you control.") is None  # (27C: "up to X target" counts are read as the targets are chosen)
+    assert scripts.parse_effects("Destroy target creature with toughness X or less, where X is the number of Vampires you control.") is None
+    # (27C: "up to X target" is no amount field either: it becomes the group's x_value, read as the targets are chosen, 601.2c)
+    got = scripts.parse_effects("Destroy up to X target artifacts, where X is the number of Vampires you control.")
+    assert got is not None and "n" not in got[0][0] and got[1][0]["x_value"] == {"count": 'sel:{"controller":"you","subtypes":["Vampire"]}'}
 
 
 # -- 107.3c: the text defines X ---------------------------------------------------------------------

@@ -215,8 +215,8 @@ def where_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | N
     from app.rules import values
 
     card = plan.state.cards.get(source_card) if source_card else None
-    ctx = {"controller": chooser, "source_card": source_card, "source_object": source_object or (plan.oid(card) if card else None),
-           "targets": []}
+    ctx: dict[str, Any] = {"controller": chooser, "source_card": source_card, "source_object": source_object or (plan.oid(card) if card else None),
+                           "targets": []}
     return values.evaluate(plan, ctx, spec["x_value"])
 
 

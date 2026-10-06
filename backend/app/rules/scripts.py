@@ -2265,11 +2265,13 @@ def _x_target_counts(found: tuple[list[dict[str, Any]], Any, bool], value: Any) 
 
     def plain(v: Any) -> bool:
         return isinstance(v, int) or (isinstance(v, dict) and set(v) <= _X_TARGET_VALUES and all(
-            plain(x) for k, x in v.items() if k in ("plus", "times") for x in (x if isinstance(x, list) else [x]))
-            and '"that_player"' not in json.dumps(v) and '"it"' not in json.dumps(v))
+            plain(x) for k, x in v.items() if k in ("plus", "times") for x in (x if isinstance(x, list) else [x])))
 
+    # (review 27C: a selector key is an escaped string — unescape it; a target's / the event's / "it"'s count reads 0 while the
+    # targets are chosen: "the number of cards in target opponent's hand" ({"hand": "target"}) stays manual)
+    refs = re.search(r'"(?:that_player|it|target|event|player:[^"]*)"', json.dumps(value).replace('\\"', '"'))
     groups = found[1]
-    if value is None or not plain(value) or any(g.get("x_count") == "exact" for g in groups):
+    if value is None or not plain(value) or refs or any(g.get("x_count") == "exact" for g in groups):
         return None
     out = [{k: v for k, v in g.items() if k != "x_count"} | {"x_value": value} if g.get("x_count") else g for g in groups]
     return found[0], out, found[2]
