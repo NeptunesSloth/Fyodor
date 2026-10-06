@@ -20,9 +20,9 @@ from app.rules.plan import Plan
 from tests import test_rules_cost_contributions as cb
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
+from tests.test_rules_effects import replay_matches
 from tests.test_rules_permissions import build as pbuild
 from tests.test_rules_permissions import put
-from tests.test_rules_effects import replay_matches
 
 EXTRA = [
     card('Ancient Imperiosaur', set_code='tst', number='W01', mana_cost='{5}{G}{G}', cmc=7.0, type_line='Creature — Dinosaur', oracle_text="Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nTrample, ward {2}\nThis creature enters with two +1/+1 counters on it for each creature that convoked it.", power='6', toughness='6', colors=['G'], color_identity=['G'], keywords=['Trample', 'Ward', 'Convoke'], layout='normal'),  # noqa: E501

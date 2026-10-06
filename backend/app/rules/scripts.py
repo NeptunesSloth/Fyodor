@@ -35,6 +35,9 @@ from typing import Any, Literal
 
 from app.rules import characteristics as _chars  # (-- hidden exile (wave 18A) --)
 from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
+from app.rules import (
+    fight_pair as _fight_pair,  # -- counters (wave 26D) -- two chosen creatures fight (a leaf module)
+)
 from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules import restrictions, selectors, this_way  # (this_way: wave 4A)
@@ -2044,6 +2047,12 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # is offered their own payment in turn order, 101.4)
     body = re.sub(r"(^|\. )[Ee]ach (opponent|player) ((?:sacrifices|loses|discards|exiles) [^.]*?) unless they pay ((?:\{[^}]+\})+)\.",
                   lambda m: f"{m[1]}Each {m[2]} may pay {m[4]}. Each {m[2]} who doesn't {m[3]}.", body)
+    # -- control change (wave 26D) -- "It gains haste and myriad until end of turn." (Firbolg Flutist), "… and annihilator 2 …" (Flayer of Loyalties):
+    # a keyword with its own triggered ability is granted as the ability line it is (613.1f, 702.116a, 702.86a), the quoted-grant grammar
+    body = re.sub(r"((?:\bgains? |[Uu]ntil end of turn, [^.\"]*?\bgains? ))([^.\"]+?)( until end of turn|(?<=[a-z0-9])(?=\.|$))",
+                  lambda m: m[1] + re.sub(r"\b(myriad|extort|melee|(?:annihilator|afflict|poisonous|frenzy|afterlife) \d+)\b",
+                                          lambda k: f'"{k[1].capitalize()}"', m[2]) + m[3]
+                  if ("until end of turn" in m[3] or m[1].lower().startswith("until end of turn")) else m[0], body)
     body = _fight_pair.rewrite(body)  # -- counters (wave 26D) -- "Choose target creature you control and target creature you don't control. … Then those creatures fight each other."
     # -- delayed triggers (wave 23B) -- 118.12a: "At the beginning of your next upkeep, pay {3}{U}{U}. If you don't, you lose the game."
     # (the Pacts) is "… you lose the game unless you pay {3}{U}{U}": the payer is the delayed trigger's controller, as it resolves
@@ -4862,11 +4871,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if several is not None and cast_if is None:  # "~ enters with a +1/+1 counter, a flying counter, a deathtouch counter, and a shield counter on it." (Agent's Toolkit)
         specs = [re.fullmatch(rf"(?P<n>{values.AMOUNT}) (?P<k>[+-]\d+/[+-]\d+|(?:first|double) strike|[a-z]+) counters?", p.strip())
                  for p in re.split(r",? and |, ", several["list"])]
-        kinds = [(p["k"], num(p["n"])) for p in specs if p is not None]
-        if len(kinds) != len(specs) or len({k for k, _ in kinds}) != len(kinds) or any(k in UNMODELED_COUNTERS for k, _ in kinds):
+        several_kinds = [(p["k"], num(p["n"])) for p in specs if p is not None]
+        if len(several_kinds) != len(specs) or len({k for k, _ in several_kinds}) != len(several_kinds) or any(k in UNMODELED_COUNTERS for k, _ in several_kinds):
             return None
-        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": kinds[0][0], "n": kinds[0][1], "effects": [],
-                "also": [{"counter": k, "n": n} for k, n in kinds[1:]]}
+        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": several_kinds[0][0], "n": several_kinds[0][1], "effects": [],
+                "also": [{"counter": k, "n": n} for k, n in several_kinds[1:]]}
     m = ENTERS_WITH.match(text)
     if m and m["kw"] and (not m["kicked"] or m["each"] or m["xdef"] or cast_if is not None or m["n"] in ("X", "twice X")):
         return None  # -- counters (wave 7C) -- "If ~ was kicked, it enters with N +1/+1 counters on it and with haste." only
@@ -6739,7 +6748,6 @@ from app.rules import stack_interaction as _stack_interaction  # noqa: E402, I00
 
 EFFECTS[:0] = _stack_interaction.TEMPLATES
 # -- end stack interaction (wave 5B) --
-from app.rules import fight_pair as _fight_pair  # noqa: E402  -- counters (wave 26D) -- two chosen creatures fight
 
 # -- turn grants (wave 6A) -- one subject for two grants ("… gains vigilance until end of turn and can't be blocked this
 # turn"): after every other template (it defers to the generic grammar first: app/rules/turn_grants.py)
