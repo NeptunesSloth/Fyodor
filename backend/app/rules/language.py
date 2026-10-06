@@ -1455,12 +1455,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
             word, noun = "one", "another " + noun
         # -- damage wordings (wave 6B) -- "Each opponent sacrifices a creature with the greatest power among creatures
         # that player controls" (Crackling Doom): among the sacrificing player's own creatures (ties: their choice)
-        greatest = re.fullmatch(r"(?P<s>creature) with the greatest power among creatures (?:that player|they) controls?", noun)
-        sel = selectors.parse(greatest["s"] if greatest else noun)
+        sel = _greatest_own(noun) or selectors.parse(noun)  # (wave 26A: any stat, "creature or planeswalker", "among permanents they control")
         if sel is None or sel.player is not None:
             raise _Fail
-        if greatest:
-            sel = replace(sel, extras=(*sel.extras, "greatest_power_own"))
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(word)}], target
     # -- triggers (wave 19B) -- "Sacrifice any number of other permanents." (God-Eternal Bontu): the player's own choice, none allowed
     m = re.fullmatch(r"sacrifice any number of (?P<sel>.+)", text)
@@ -2527,7 +2524,8 @@ EDICT = rf"(?P<s>{CHOOSER}) sacrifices (?P<n>{AMT}) (?P<sel>.+?) of their choice
 EDICT_OTHERS = rf"each other player sacrifices (?P<n>{AMT}) (?P<sel>.+?)(?: of their choice)?"
 # -- modal spells (wave 24D) -- "Target opponent exiles a creature they control." (Doomfall, Debt to the Kami): the edict's choice (101.4,
 # 701.21a-style: the player chooses among what they control), exiled instead of sacrificed
-EDICT_EXILE = rf"(?P<s>{CHOOSER}) exiles (?P<n>{AMT}) (?P<sel>.+?) they control"
+EDICT_EXILE = (rf"(?P<s>{CHOOSER}) exiles (?P<n>{AMT}) (?P<sel>.+?) they control"
+               r"(?P<great> with the greatest (?:power|toughness|mana value) among .+? they control)?")  # (wave 26A: Blot Out)
 PLAYER_CHOOSES = (rf"(?P<s>{CHOOSER}) chooses (?:(?P<upto>up to )?(?P<n>{AMT})) (?P<sel>.+?) they control"
                   r"(?:, then (?:(?P<sac>sacrifices the rest)|(?P<des>the rest are destroyed)))?")  # (wave 11D: "… then sacrifices the rest")
 REVEAL_HAND = rf"(?P<s>{CHOOSER}) reveals their hand"
@@ -2567,9 +2565,34 @@ def _permanent_sel(phrase: str) -> str:
     return sel.key()
 
 
+_GREATEST_OWN = re.compile(r"(?P<s>.+?) with the greatest (?P<stat>power|toughness|mana value) among (?P<among>.+?) (?:that player|they) controls?")
+
+
+def _greatest_own(noun: str) -> selectors.Selector | None:
+    """-- static_other sweep (wave 26A) -- "a creature or planeswalker with the greatest mana value among creatures and planeswalkers they
+    control" (Break Under Pressure, Blot Out; Crackling Doom's power): among the objects the choosing player controls of the named kinds,
+    one holding the greatest value (ties all qualify). The kinds are card types only (a qualifier would need its own judgement)."""
+    m = _GREATEST_OWN.fullmatch(noun)
+    if m is None:
+        return None
+    sel, among = selectors.parse(m["s"]), selectors.parse(m["among"])
+    if sel is None or among is None or among.player is not None or among.card or among.controller is not None or sel.controller is not None:
+        raise _Fail
+    if replace(among, types=(), not_types=()) != selectors.Selector():
+        raise _Fail
+    kinds = "|".join(among.types) + ("!" + "|".join(among.not_types) if among.not_types else "")
+    return replace(sel, extras=(*sel.extras, f"greatest_own:{m['stat'].replace(' ', '_')}:{kinds}"))
+
+
 def edict(m: re.Match[str]) -> tuple[Effects, Any]:
     who, group = _chooser(m["s"] if "s" in m.groupdict() else "each other player")
-    key = _permanent_sel(m["sel"])
+    if m.groupdict().get("great"):  # -- static_other sweep (wave 26A) -- "… they control with the greatest mana value among … they control"
+        greatest = _greatest_own(m["sel"] + m["great"].replace(" they control", "", 1) + " they control")
+        if greatest is None:
+            raise _Fail
+        key = greatest.key()
+    else:
+        key = _permanent_sel(m["sel"])
     n = _amount(m["n"])
     if m.groupdict().get("each"):  # -- counters sweep (wave 19D) -- "… of their choice for each soot counter on this artifact": a count read as it resolves
         v = this_way.parse(m["each"]) if m["each"].endswith(" this way") else values.parse_count(m["each"], it="self")  # (wave 21C: Malfegor)

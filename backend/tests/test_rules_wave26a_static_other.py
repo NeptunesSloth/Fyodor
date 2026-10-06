@@ -34,6 +34,8 @@ EXTRA = [
     card('Perish the Thought', set_code='tst', number='N09', mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text='Target opponent reveals their hand. You choose a card from it. That player shuffles that card into their library.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('Lost Hours', set_code='tst', number='N10', mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text='Target player reveals their hand. You choose a nonland card from it. That player puts that card into their library third from the top.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card("Talara's Bane", set_code='tst', number='N11', mana_cost='{1}{B}', cmc=2.0, type_line='Sorcery', oracle_text="Target opponent reveals their hand. You choose a green or white creature card from it. You gain life equal to that creature card's toughness, then that player discards that card.", colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('Break Under Pressure', set_code='tst', number='N12', mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text='Target opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
+    card('End of the Hunt', set_code='tst', number='N13', mana_cost='{1}{B}', cmc=2.0, type_line='Sorcery', oracle_text='Target opponent exiles a creature or planeswalker they control with the greatest mana value among creatures and planeswalkers they control.', colors=['B'], color_identity=['B'], keywords=[], layout='normal'),  # noqa: E501
     card('Test Bear', set_code='tst', number='N99', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', power='2', toughness='2', colors=['G'], color_identity=['G'], oracle_text=''),  # noqa: E501
     card('Test Glass', set_code='tst', number='N98', mana_cost='{W}', cmc=1.0, type_line='Enchantment', oracle_text='', colors=['W'], color_identity=['W']),  # noqa: E501
 ]
@@ -46,7 +48,7 @@ def card_db(settings: Settings) -> Path:
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", ["Simoon", "Primeval Light", "River's Rebuke", "Evaporate", "Ghastly Demise", "Touch of Darkness", "Viridescent Wisps", "Soul Search", "Perish the Thought", "Lost Hours", "Talara's Bane"])
+@pytest.mark.parametrize("name", ["Simoon", "Primeval Light", "River's Rebuke", "Evaporate", "Ghastly Demise", "Touch of Darkness", "Viridescent Wisps", "Soul Search", "Perish the Thought", "Lost Hours", "Talara's Bane", "Break Under Pressure", "End of the Hunt"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -169,4 +171,13 @@ def test_talaras_bane_gains_the_chosen_cards_toughness_then_discards_it(cards):
     life = s.state.players["p1"].life
     cast(s, "Talara's Bane", "p2")
     assert s.state.players["p1"].life == life + 2 and find(s, "Test Knight", "p2").zone == "p2:graveyard"
+    roundtrip(s)
+
+
+@pytest.mark.parametrize(("spell", "zone"), [("Break Under Pressure", "p2:graveyard"), ("End of the Hunt", "p2:exile")])
+def test_greatest_mana_value_among_their_creatures(cards, spell, zone):
+    s = build(cards, p1=(spell,), p2=("Test Bear", "Test Knight"))
+    bear, knight = put(s, "Test Bear", "battlefield", pid="p2"), put(s, "Test Knight", "battlefield", pid="p2")
+    cast(s, spell, "p2")
+    assert s.state.cards[bear.id].zone == zone and s.state.cards[knight.id].zone == "p2:battlefield"
     roundtrip(s)

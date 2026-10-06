@@ -1535,6 +1535,17 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                       if c.controller == card.controller and c.zone.endswith(":battlefield") and plan.ch(c).is_creature]
             if mine is None or any(p is None or p > mine for p in others):
                 return False
+        if extra.startswith("greatest_own:"):  # -- static_other sweep (wave 26A) -- "with the greatest mana value among creatures and
+            # planeswalkers they control" (Blot Out): no permanent of those kinds its controller controls beats it (ties all qualify)
+            _, stat, kinds = extra.split(":", 2)
+            stat = "mv" if stat == "mana_value" else stat
+            want, _, unwanted = kinds.partition("!")
+            mine = _stat(ch, stat)
+            rivals = [_stat(plan.ch(c), stat) for c in plan.state.cards.values()
+                      if c.controller == card.controller and c.zone.endswith(":battlefield") and plan.in_game(c)
+                      and (not want or set(want.split("|")) & plan.ch(c).types) and not set(filter(None, unwanted.split("|"))) & plan.ch(c).types]
+            if mine is None or any(p is not None and p > mine for p in rivals):
+                return False
         if extra == "x_cost" and "{X}" not in ch.mana_cost:  # -- activated wordings (wave 15D) -- (107.3: printed in its mana cost)
             return False
         if extra == "toughness_gt_power":  # -- damage wordings (wave 6B) -- as it is now (611.3a for a static)
