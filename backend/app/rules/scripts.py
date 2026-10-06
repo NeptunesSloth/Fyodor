@@ -5743,7 +5743,7 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 # was) might not be there: "If you do" would then be false, which this reading can't tell.
 _CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token"})
 _CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce", "gain_control", "pump", "grant"})  # (wave 19E: gain control of a chosen target: it changes hands or the ability fizzles; wave 21C: "you may have target creature get +2/+0 and gain haste until end of turn. If you do, …")
-_PROBED = frozenset({"draw", "exile", "bounce", "add_counters"})  # (their "If you do" reads the result: effects._did)
+_PROBED = frozenset({"draw", "exile", "bounce", "add_counters", "put_from_hand"})  # (their "If you do" reads the result: effects._did; wave 26C: put_from_hand)
 
 
 def _probed_move(e: dict[str, Any]) -> bool:
@@ -5752,6 +5752,9 @@ def _probed_move(e: dict[str, Any]) -> bool:
     false when the card had already left (400.7: there's nothing to exile) — no certainty is needed."""
     if e["do"] == "add_counters":  # -- if you do (wave 15C) -- counters on a chosen object: probed (effects._did_counters_up)
         return isinstance(e.get("who"), str) and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")
+    if e["do"] == "put_from_hand":  # -- if you do (wave 26C) -- one creature / land card from the hand (never an Aura, which may stay in the hand, 303.4g)
+        sel = selectors.from_key(e["sel"])
+        return not e.get("many") and not e.get("alt") and not e.get("attacking") and bool(sel.types) and set(sel.types) <= {"Creature", "Land"}
     return e["do"] in ("exile", "bounce") and isinstance(e.get("who"), str) and not e.get("optional")
 
 

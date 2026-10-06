@@ -88,6 +88,9 @@ REAL = [
     ("Lost in the Spirit World", "{2}{U}", "Instant", None, None,
      "Return up to one target creature to its owner's hand. Create a 1/1 colorless Spirit creature token with \"This token can't block or be "
      "blocked by non-Spirit creatures.\""),
+    ("Cultivator Colossus", "{4}{G}{G}", "Creature — Plant Beast", "*", "*",
+     "Trample\nCultivator Colossus's power and toughness are each equal to the number of lands you control.\nWhen this creature enters, you may put "
+     "a land card from your hand onto the battlefield tapped. If you do, draw a card and repeat this process."),
     ("Flameblast Dragon", "{4}{R}{R}", "Creature — Dragon", "5", "5",
      "Flying\nWhenever this creature attacks, you may pay {X}{R}. If you do, it deals X damage to any target."),
 ]
@@ -591,4 +594,27 @@ def test_spirit_token_cannot_block_or_be_blocked_by_non_spirits(cards):
     token = next(c for c in s.state.cards.values() if c.name == "Spirit" and c.zone == "p1:battlefield")
     imposed = " ".join(chars_of_id(s, token.id).imposed)
     assert "cant_be_blocked_by" in imposed and "cant_block_sel" in imposed  # (509.1b / 509.1a: both halves of the one line)
+    check(s)
+
+
+def forests(s, zone):
+    return [c for c in s.state.zones.get(f"p1:{zone}", []) if s.state.cards[c].name == "Forest"]
+
+
+def test_cultivator_colossus_repeats_while_a_land_is_put_onto_the_battlefield(cards):
+    s = build(cards, ["Cultivator Colossus", "Rent Is Due", "Rent Is Due", "Rent Is Due"], forests=2)
+    hand_forests = forests(s, "library")
+    assert len(hand_forests) == 2
+    act(s, "p1", type="move", card_ids=hand_forests, to={"zone": "hand"})
+    colossus = to_hand(s, "Cultivator Colossus")
+    mana(s, G=3, C=4)
+    act(s, "p1", type="cast_spell", card_id=colossus.id)
+    for _ in range(8):  # (each question: put a land? the first land card offered, then none is left to offer)
+        d = until_asked(s)
+        if d is None:
+            break
+        pick(s, d.options[0].id) if d.options and d.kind == "choose_cards" and d.options[0].id in hand_forests else pick(
+            s, *([] if d.kind == "choose_cards" else [d.options[0].id]))
+    answer(s)
+    assert len(forests(s, "battlefield")) == 2 and len([c for c in s.state.zones["p1:hand"] if s.state.cards[c].name == "Rent Is Due"]) == 2
     check(s)
