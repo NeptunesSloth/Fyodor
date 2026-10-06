@@ -4572,12 +4572,14 @@ def _self_sels(v: Any) -> Definition:
 
 
 def _enters_self_check(d: Definition | None, ch: Characteristics) -> Definition | None:
-    """Drop the ``self_sels`` tag; None when a counted group could include the entering permanent itself.
+    """Drop the ``self_sels`` tag; None for a counted group the check can't read.
 
-    -- review (wave 26D) -- a test of ``ch``'s types here would read the permanent's *current* types (definitions are made from its
-    characteristics with layers applied): under Ashaya ("Nontoken creatures you control are Forest lands") Michelangelo's "for each land
-    you control" would vanish. The count itself leaves out the entering permanent and what enters with it (614.12:
-    replacements._counter_amount, ``not_yet_entered``), so only the selector shapes that check doesn't cover are refused."""
+    -- review (wave 26D) -- Whether an entering permanent counts itself among "each land you control" when it is one is left
+    unsettled (test_rules_replacements: "Hope"): such a definition is kept but marked ``self_in_group`` — coverage refuses it, and
+    as it enters its controller is told to put the counters on by hand (replacements.entering_counters). Refusing it here instead
+    would read the permanent's *current* types (definitions are made from characteristics with layers applied): under Ashaya
+    ("Nontoken creatures you control are Forest lands") Michelangelo's counters silently vanished. What enters with it is never
+    counted (614.12: replacements._counter_amount, ``not_yet_entered``)."""
     from app.rules import selectors
 
     if d is None or "self_sels" not in d:
@@ -4587,6 +4589,8 @@ def _enters_self_check(d: Definition | None, ch: Characteristics) -> Definition 
         s = selectors.from_key(k)
         if s.extras or s.either or s.union or s.card or not (s.types or s.subtypes):
             return None
+        if not ((s.types and not set(s.types) & ch.types) or (s.subtypes and not set(s.subtypes) & ch.subtypes)):
+            d["self_in_group"] = True
     return d
 
 

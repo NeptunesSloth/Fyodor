@@ -283,6 +283,11 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
             counters["+1/+1"] = counters.get("+1/+1", 0) + x
         for d in scripts.definitions(ch).values():
             if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
+                if d.get("self_in_group"):  # -- review (wave 26D) -- it is one of the group it counts: unsettled (scripts._enters_self_check)
+                    if card.zone.endswith(":battlefield"):  # (not while the counters are only being looked ahead at, before it moves)
+                        plan.note(f"{plan.ch(card).name or 'It'} is one of the permanents its \"enters with\" counters count: whether it counts "
+                                  "itself isn't settled — put its counters on by hand", [card.id])
+                    continue
                 for part in (d, *d.get("also", ())):  # (wave 26D: "enters with a +1/+1 counter, a flying counter, …": one event, 122.6)
                     n = _counter_amount(plan, card.id, controller, part, x, newcomers)
                     if n > 0:
@@ -691,7 +696,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import layers
 
         for d in scripts.definitions(plan.ch(card)).values():
-            if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters" and d.get("grant") \
+            if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters" and d.get("grant") and not d.get("self_in_group") \
                     and _counter_amount(plan, card.id, controller, d, x, newcomers) > 0:
                 layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
                                   add_keywords=tuple(d["grant"]), duration="permanent", label=f"Enters with {d['grant'][0]}")

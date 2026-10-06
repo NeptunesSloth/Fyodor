@@ -120,8 +120,8 @@ def definition_supported(d: dict[str, Any]) -> bool:
     verdict = stage2_supported(d)  # -- replacement effects stage 2 (wave 2E) --
     if verdict is not None:
         return verdict
-    if d.get("kind") == "replacement":
-        return d.get("replacement") in SUPPORTED_REPLACEMENTS
+    if d.get("kind") == "replacement":  # (review 26D: self_in_group — scripts._enters_self_check, unsettled)
+        return d.get("replacement") in SUPPORTED_REPLACEMENTS and not d.get("self_in_group")
     if d.get("kind") == "static" and d.get("static") in ("prevent", "exile_instead"):
         return d["static"] in SUPPORTED_REPLACEMENTS
     if d.get("kind") == "spell" and any(e.get("do") == "prevent_all" for e in d.get("effects") or []):

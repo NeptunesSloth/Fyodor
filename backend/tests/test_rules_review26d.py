@@ -109,9 +109,10 @@ def test_enters_or_transforms_into_triggers_once_when_it_enters_transformed(card
     roundtrip(s)
 
 
-def test_enters_with_count_never_counts_itself(cards):
-    # 614.12: "Michelangelo enters with a +1/+1 counter on him for each land you control", read before he enters: under Ashaya he
-    # becomes a Forest land on the battlefield, but isn't one of the lands counted (three Islands and Ashaya: four)
+def test_enters_with_count_over_a_group_it_joins_is_left_to_its_controller(cards):
+    # "Michelangelo enters with a +1/+1 counter on him for each land you control": under Ashaya he is a Forest land himself, and
+    # whether he counts himself is unsettled (the same question as test_rules_replacements' "Hope"): his controller is told to put the
+    # counters on by hand — never a silent zero, as when the definition vanished with his current types
     s = pbuild(cards, [(1, "Michelangelo, On the Scene"), (1, "Ashaya, Soul of the Wild"), (3, "Island")])
     lands = [c.id for c in s.state.cards.values() if c.name == "Island" and c.owner == "p1"][:3]
     act(s, "p1", type="move", card_ids=lands, to={"player": "p1", "zone": "battlefield"})
@@ -121,7 +122,8 @@ def test_enters_with_count_never_counts_itself(cards):
     act(s, "p1", type="cast_spell", card_id=mich.id)
     settle(s)
     assert s.state.cards[mich.id].zone == "p1:battlefield"
-    assert counters(s, mich.id) == {"+1/+1": 4}
+    assert counters(s, mich.id) == {}
+    assert sum("put its counters on by hand" in "".join(p.t or "" for p in e.parts) for e in s.state.log) == 1
     roundtrip(s)
 
 
