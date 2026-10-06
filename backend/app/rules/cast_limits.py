@@ -474,7 +474,7 @@ def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]
         if not c.zone.endswith(":battlefield") or c.face_down or c.controller not in live or r.card_mode(cid) == "manual":
             continue
         for index, d in scripts.definitions(copiable(state, c, info)).items():
-            if d.get("kind") == "static" and (d.get("static") in _KINDS or d.get("player_shield")):
+            if d.get("kind") == "static" and (d.get("static") in _KINDS or d.get("player_shield") or d.get("spell_grants")):  # (wave 28C: spell_grants.py)
                 out.append((cid, index, d))
     if len(_CACHE) > 256:
         _CACHE.clear()
@@ -686,11 +686,14 @@ def granted_helpers(state: GameState, player: str, spell_card: str, spell: Chara
     """Convoke / improvise / delve that permanents ``player`` controls give this spell they're casting."""
     found = _statics(state, info, "spell_helper")
     card = state.cards.get(spell_card)
+    from app.rules import spell_grants  # -- spell grants (wave 28C) -- "The next spell you cast this turn has improvise."
+
+    nxt = {kw for kw in ("convoke", "improvise") if card is not None and spell_grants.pending(state, player, card, spell, info, kw)}
     if not found or card is None:
-        return set()
+        return nxt
     from app.rules.permissions import spell_matches
 
-    return {d["keyword"] for src, d in found if src.controller == player and d["keyword"] != "affinity"
+    return nxt | {d["keyword"] for src, d in found if src.controller == player and d["keyword"] != "affinity"
             and (d.get("from") is None or card.zone.endswith(":exile")
                  or (card.stack_info is not None and "Cast from exile" in card.stack_info.tags))
             and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))}
@@ -698,10 +701,12 @@ def granted_helpers(state: GameState, player: str, spell_card: str, spell: Chara
 
 def granted_affinities(state: GameState, player: str, card: CardInstance, spell: Characteristics, info: CardInfo) -> list[str]:
     """-- static_other sweep (wave 17C) -- the "affinity for X" words that permanents ``player`` controls give this spell (702.41a)."""
+    from app.rules import spell_grants  # -- spell grants (wave 28C) -- "The next spell you cast this turn has affinity for artifacts."
     from app.rules.permissions import spell_matches
 
     return [d["what"] for src, d in _statics(state, info, "spell_helper") if src.controller == player and d["keyword"] == "affinity"
-            and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))]
+            and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))] + [
+        g.what for g in spell_grants.pending(state, player, card, spell, info, "affinity")]
 
 
 def from_ok(d: Definition, card: CardInstance) -> bool:
@@ -724,14 +729,17 @@ def granted_instances(plan: Plan, spell_card: str, spell: Characteristics, cast_
     reads each one's N)."""
     found = _statics(plan.state, plan.info, "spell_keyword")
     card = plan.state.cards.get(spell_card)
-    if not found or card is None or plan.rules is None:
+    if card is None or plan.rules is None:
         return []
+    from app.rules import spell_grants  # -- spell grants (wave 28C) -- "The next spell you cast this turn has cascade." (702.85a, 702.40a)
     from app.rules.permissions import spell_matches
 
     player, turn = plan.actor, plan.state.turn.number
     log = plan.rules.turn_log if plan.rules.turn_log.turn == turn else None
     earlier = [c for c in (log.casts if log else []) if c.player == player and c.object_id != plan.oid(card)]
-    total: list[Definition] = []
+    total: list[Definition] = [{"keyword": keyword, "count": 1} for _g in spell_grants.pending(plan.state, player, card, spell, plan.info, keyword)]
+    if not found:
+        return total
     for src, d in found:
         if src.controller != player or d.get("keyword") != keyword:
             continue

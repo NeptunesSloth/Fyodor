@@ -713,6 +713,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         )
 
         ch = zone_grants.apply(state, card, ch, info)
+    if info is not None and _depth == 0 and state.rules is not None and card.zone == "stack" and card.ability is None:
+        from app.rules import spell_grants  # -- spell grants (wave 28C) -- "Instant and sorcery spells you control have lifelink." (613.1f, 604.1)
+
+        ch = spell_grants.apply(state, card, ch, info)
     # layer 7
     setters: list[tuple[tuple[int, int, int], int | None, int | None]] = []
     for st in hits:  # 7b: static "has base power and toughness N/N" (613.4b), by its source's timestamp

@@ -1868,6 +1868,10 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if had is not None:
         rest = re.sub(r" and (get|gain) ", r" and \1s ", had["rest"])
         return _one_clause(f"{had['o']} {had['v']}s {rest}")
+    from app.rules import spell_grants  # -- spell grants (wave 28C) -- "The next spell you cast this turn has improvise."
+
+    if (spelled := spell_grants.clause(text)) is not None:
+        return spelled
     from app.rules import language  # the generic grammar (a leaf module)
 
     for pattern, build in EFFECTS:
@@ -3794,6 +3798,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
         if (typed := type_statics.parse(text)) is not None:
             return typed
+    if ability.kind == "static":  # -- spell grants (wave 28C) -- "Instant and sorcery spells you control have lifelink." (app/rules/spell_grants.py)
+        from app.rules import spell_grants
+
+        if (spelled := spell_grants.static_definition(text)) is not None:
+            return spelled
     if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
         return anthem
     if ability.kind == "static":  # -- as long as (wave 9B) -- "… as long as it's black. Otherwise, it gets -1/-2." (app/rules/static_pairs.py)

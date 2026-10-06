@@ -832,6 +832,21 @@ class CostModifier(BaseModel):
     mana: str = Field(default="", max_length=1)  # -- cost changers (wave 4I) -- a colored change ("{W} more"): its color
 
 
+class NextSpellGrant(BaseModel):
+    """-- spell grants (wave 28C) -- "The next spell you cast this turn has improvise." / "The next noncreature spell you cast this turn has
+    cascade.": a keyword the next spell its caster casts this turn (that matches ``filter``) has as it is cast (601.2, 702.51, 702.126,
+    702.85), used up by that cast and ended in cleanup (514.2). One grant per instance (two grants of cascade: two cascades, 702.85c)."""
+
+    id: str
+    player: str
+    keyword: str  # "convoke" | "improvise" | "affinity" | "cascade" | "storm"
+    what: str = ""  # affinity: "artifacts"
+    filter: str | None = None  # a spell selector key ("noncreature"), or None: the next spell, whatever it is
+    turn: int = 0
+    source: str | None = None
+    label: str = Field(default="", max_length=120)
+
+
 class TopReveal(BaseModel):
     """"Play with the top card of your library revealed." / "You may look at the top card of your
     library any time." — while ``source`` is on the battlefield under ``player``'s control, that
@@ -1081,6 +1096,7 @@ class RulesState(BaseModel):
     # library cards are revealed by permanents on the table (app/rules/permissions.py).
     permissions: list[Permission] = Field(default_factory=list)
     cost_modifiers: list[CostModifier] = Field(default_factory=list)
+    next_spell_grants: list[NextSpellGrant] = Field(default_factory=list)  # -- spell grants (wave 28C) --
     top_reveals: list[TopReveal] = Field(default_factory=list)
     # -- conditional / instead clauses (wave 1B) --  this turn's and last turn's history (TurnLog)
     turn_log: TurnLog = Field(default_factory=TurnLog)

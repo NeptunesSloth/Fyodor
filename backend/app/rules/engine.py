@@ -72,6 +72,7 @@ from app.rules import (
     rooms,  # -- Rooms (wave 18G) --
     sba,
     scripts,
+    spell_grants,  # -- spell grants (wave 28C) --
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
 )
@@ -764,6 +765,7 @@ def turn_cleanup(plan: Plan) -> None:
     plan.rules.prevention = {}  # and so do prevention shields
     plan.rules.prevention_riders = {}
     permissions.expire(plan)  # "you may play that card this turn" and friends
+    spell_grants.expire(plan)  # -- spell grants (wave 28C) -- "the next spell you cast this turn" ends (514.2)
     delayed.cleanup(plan)  # "when … this turn" delayed triggers stop watching (514.2)
     for card in list(plan.state.cards.values()):
         for marker in [m for m in card.effects if m.text in ("until end of turn", "this combat")]:

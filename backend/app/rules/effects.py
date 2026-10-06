@@ -21,7 +21,7 @@ import itertools
 from typing import Any
 
 from app.game.rules_state import DecisionOption, ObjectRef, StackEntry
-from app.game.state import ALL, zone_key
+from app.game.state import ALL, STACK, zone_key
 from app.rules import (
     card_names,  # -- card names (wave 22B) -- 201.4
     context,
@@ -418,7 +418,8 @@ def _ability_source(plan: Plan, ctx: Context) -> _Source:
     lki = plan.rules.lki.get(ctx.get("source_object") or "")
     keywords: frozenset[str] = frozenset()
     src_ch = plan.ch(source) if source is not None else None
-    if source is not None and source.zone.endswith(":battlefield") and plan.oid(source) == ctx.get("source_object"):
+    if source is not None and (source.zone.endswith(":battlefield") or (source.zone == STACK and source.ability is None)) \
+            and plan.oid(source) == ctx.get("source_object"):  # (wave 28C: a spell on the stack deals its damage with the abilities it was granted)
         keywords = plan.ch(source).keywords
     elif lki is not None:
         # as it last existed (603.10a, 702.15c, 702.2e): keywords granted by an effect or a static count, and a
@@ -4329,3 +4330,7 @@ from app.rules import pay_untap as _pay_untap  # noqa: E402, I001
 
 PRIMITIVES.update(_pay_untap.PRIMITIVES)
 RESUME[_pay_untap.STEP] = _pay_untap.resume
+# -- spell grants (wave 28C) -- "The next spell you cast this turn has improvise." (app/rules/spell_grants.py)
+from app.rules import spell_grants as _spell_grants  # noqa: E402, I001
+
+PRIMITIVES.update(_spell_grants.PRIMITIVES)
