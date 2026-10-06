@@ -4572,7 +4572,12 @@ def _self_sels(v: Any) -> Definition:
 
 
 def _enters_self_check(d: Definition | None, ch: Characteristics) -> Definition | None:
-    """Drop the ``self_sels`` tag; None when a counted group could include the entering permanent itself."""
+    """Drop the ``self_sels`` tag; None when a counted group could include the entering permanent itself.
+
+    -- review (wave 26D) -- a test of ``ch``'s types here would read the permanent's *current* types (definitions are made from its
+    characteristics with layers applied): under Ashaya ("Nontoken creatures you control are Forest lands") Michelangelo's "for each land
+    you control" would vanish. The count itself leaves out the entering permanent and what enters with it (614.12:
+    replacements._counter_amount, ``not_yet_entered``), so only the selector shapes that check doesn't cover are refused."""
     from app.rules import selectors
 
     if d is None or "self_sels" not in d:
@@ -4580,8 +4585,7 @@ def _enters_self_check(d: Definition | None, ch: Characteristics) -> Definition 
     d = dict(d)
     for k in d.pop("self_sels"):
         s = selectors.from_key(k)
-        if s.extras or s.either or s.union or s.card or not (
-                (s.types and not set(s.types) & ch.types) or (s.subtypes and not set(s.subtypes) & ch.subtypes)):
+        if s.extras or s.either or s.union or s.card or not (s.types or s.subtypes):
             return None
     return d
 

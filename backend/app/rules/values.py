@@ -586,7 +586,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                 raise NoChosenPlayer
         if sel.player is not None:
             return sum(1 for p in plan.live() if selectors.matches_player(plan, sel, p, you))
-        return len(selectors.candidates(plan, sel, you, _other_than(ctx)))
+        away = ctx.get("not_yet_entered") or ()  # -- review (wave 26D) -- an "enters with" count, read before they enter (replacements._counter_amount)
+        return sum(1 for c in selectors.candidates(plan, sel, you, _other_than(ctx)) if c not in away)
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
         from app.rules import context
 

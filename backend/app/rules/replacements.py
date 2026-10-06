@@ -216,7 +216,8 @@ def others_enter_tapped(plan: Plan, card: CardInstance, controller: str) -> bool
 
 
 def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, *, x: int | None = None,
-                      extra: dict[str, int] | None = None, choices: dict[str, str] | None = None) -> dict[str, int]:
+                      extra: dict[str, int] | None = None, choices: dict[str, str] | None = None,
+                      newcomers: list[str] | None = None) -> dict[str, int]:
     """The counters a permanent enters with (122.6): its "enters with" counters (614.1c; the X its
     spell was cast with, 107.3), a planeswalker's loyalty (306.5b), bloodthirst (702.54) and what
     the effect putting it there adds (persist / undying)."""
@@ -283,7 +284,7 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
         for d in scripts.definitions(ch).values():
             if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
                 for part in (d, *d.get("also", ())):  # (wave 26D: "enters with a +1/+1 counter, a flying counter, …": one event, 122.6)
-                    n = _counter_amount(plan, card.id, controller, part, x)
+                    n = _counter_amount(plan, card.id, controller, part, x, newcomers)
                     if n > 0:
                         counters[part["counter"]] = counters.get(part["counter"], 0) + n
         from app.rules import copying
@@ -602,13 +603,17 @@ def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any], toge
         delayed.create_move(plan, controller, entered.id, oid, entry["delayed"], entered.name)
 
 
-def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any], x: int | None) -> int:
+def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any], x: int | None,
+                    newcomers: list[str] | None = None) -> int:
     n = d["n"]
     if n == "X":  # the X its spell was cast with (107.3); 0 when it wasn't cast (put onto the battlefield)
         amount = int(x or 0)
     elif isinstance(n, dict):  # "for each creature card in your graveyard": the values grammar
+        # (-- review (wave 26D) -- 614.12: read before it enters: it and what enters with it aren't on the battlefield yet, whatever
+        # type-changing effects would make them — Michelangelo under Ashaya isn't one of "each land you control")
         amount = values.evaluate(plan, {"controller": controller, "source_card": card_id,  # (wave 4F: converge's record)
-                                        "source_object": plan.oid(card_id), "x": x}, n)  # (x: "twice X", wave 4K)
+                                        "source_object": plan.oid(card_id), "x": x,  # (x: "twice X", wave 4K)
+                                        "not_yet_entered": [card_id, *(newcomers or ())]}, n)
     else:
         amount = int(n)
     # -- review (wave 4R) -- a spell cast by hand has no payment known (engine.absorb_manual_events): X, converge's
@@ -675,7 +680,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     from app.rules import mana_units
 
     mana_units.entered(plan, card, controller)  # -- mana provenance (wave 18B) -- 106.6: "it gains haste"
-    counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices)
+    counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices, newcomers=newcomers)
     puts = [(card_id, kind, n) for kind, n in counters.items() if n > 0]
     from app.rules import replace
 
@@ -687,7 +692,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
 
         for d in scripts.definitions(plan.ch(card)).values():
             if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters" and d.get("grant") \
-                    and _counter_amount(plan, card.id, controller, d, x) > 0:
+                    and _counter_amount(plan, card.id, controller, d, x, newcomers) > 0:
                 layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
                                   add_keywords=tuple(d["grant"]), duration="permanent", label=f"Enters with {d['grant'][0]}")
             elif d["kind"] == "replacement" and d.get("replacement") == "enters_prepared":  # -- prepared (wave 13C) -- 722.3a

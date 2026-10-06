@@ -1,0 +1,119 @@
+"""Review of wave 26D: regression tests for what the review fixed. Real Oracle text, replay and save/load for each.
+
+* 702.145b, 712.14a: a daybound permanent that enters while it's night "enters transformed" — it doesn't transform, so neither
+  "whenever a permanent you control transforms into …" nor the "transforms into" half of "enters or transforms into" triggers.
+* 614.12: an "enters with … for each <group>" count is read before the permanent enters, so it never counts itself, whatever
+  type-changing effects (Ashaya) would make it on the battlefield.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from app.cards.importer import build_database
+from app.config import Settings
+from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act
+from tests.test_rules_permissions import build as pbuild
+from tests.test_rules_permissions import put
+from tests.test_rules_wave26d_counters import EXTRA as W26D
+from tests.test_rules_wave26d_counters import counters, find, roundtrip, settle
+
+EXTRA = [
+    card("Cult of the Waxing Moon", set_code="tst", number="R01", mana_cost="{4}{G}", cmc=5.0, type_line="Creature — Human Shaman",
+         oracle_text="Whenever a permanent you control transforms into a non-Human creature, create a 2/2 green Wolf creature token.",
+         power="5", toughness="4", colors=["G"], color_identity=["G"], layout="normal"),
+    card("Howlpack Piper // Wildsong Howler", set_code="tst", number="R02", layout="transform", mana_cost=None, cmc=4.0,
+         type_line="Creature — Human Werewolf // Creature — Werewolf", colors=["G"], color_identity=["G"], image_uris=None,
+         card_faces=[
+             {"object": "card_face", "name": "Howlpack Piper", "mana_cost": "{3}{G}", "type_line": "Creature — Human Werewolf",
+              "oracle_text": "This spell can't be countered.\n{1}{G}, {T}: You may put a creature card from your hand onto the battlefield. If it's "
+              "a Wolf or Werewolf, untap this creature. Activate only as a sorcery.\nDaybound (If a player casts no spells during their own turn, "
+              "it becomes night next turn.)", "power": "2", "toughness": "2", "colors": ["G"]},
+             {"object": "card_face", "name": "Wildsong Howler", "mana_cost": "", "type_line": "Creature — Werewolf",
+              "oracle_text": "Whenever this creature enters or transforms into Wildsong Howler, look at the top six cards of your library. You may "
+              "reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\n"
+              "Nightbound (If a player casts at least two spells during their own turn, it becomes day next turn.)", "power": "4", "toughness": "4",
+              "colors": ["G"]}]),
+    card("Ashaya, Soul of the Wild", set_code="tst", number="R03", mana_cost="{3}{G}{G}", cmc=5.0, type_line="Legendary Creature — Elemental",
+         oracle_text="Ashaya's power and toughness are each equal to the number of lands you control.\nNontoken creatures you control are Forest "
+         "lands in addition to their other types. (They're still affected by summoning sickness.)", power="*", toughness="*", colors=["G"],
+         color_identity=["G"], layout="normal"),
+]
+
+
+@pytest.fixture()
+def card_db(settings: Settings) -> Path:
+    settings.ensure_dirs()
+    build_database(fixture_cards() + W26D + EXTRA, settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
+def wolves(s):
+    return sum(1 for c in s.state.cards.values() if c.name == "Wolf" and c.zone == "p1:battlefield")
+
+
+def test_entering_at_night_is_not_a_transformation(cards):
+    # 702.145b: Brutal Cathar cast at night enters as Moonrage Brute (a non-Human creature) without transforming: no Wolf.
+    # When it later becomes day and then night again, it does transform (702.145c, f), and the Cult sees the second one.
+    s = pbuild(cards, [(1, "Brutal Cathar // Moonrage Brute"), (1, "Cult of the Waxing Moon"), (2, "Forest")], bob=[(1, "Grizzly Bears")])
+    theirs = next(c.id for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[theirs], to={"player": "p2", "zone": "battlefield"})
+    put(s, "Cult of the Waxing Moon", "battlefield")
+    act(s, "p1", type="set_day_night", value="night")
+    cathar = put(s, "Brutal Cathar // Moonrage Brute", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"W": 3})
+    act(s, "p1", type="cast_spell", card_id=cathar.id)
+    settle(s)
+    assert s.state.cards[cathar.id].face == 1 and wolves(s) == 0
+    act(s, "p1", type="set_day_night", value="day")
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone != "p1:battlefield")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="play_land", card_id=forest.id)
+    settle(s)
+    assert s.state.cards[cathar.id].face == 0 and wolves(s) == 0  # transformed into a Human: no Wolf (the Cathar's own trigger exiled the Bears)
+    act(s, "p1", type="set_day_night", value="night")
+    act(s, "p1", type="pass_priority")  # (any rules intent makes the engine look at day and night again)
+    settle(s)
+    assert s.state.cards[cathar.id].face == 1 and wolves(s) == 1
+    roundtrip(s)
+
+
+def test_enters_or_transforms_into_triggers_once_when_it_enters_transformed(cards):
+    # Wildsong Howler's "Whenever this creature enters or transforms into Wildsong Howler": entering at night is one event, one trigger
+    s = pbuild(cards, [(1, "Howlpack Piper // Wildsong Howler"), (8, "Grizzly Bears")])
+    act(s, "p1", type="set_day_night", value="night")
+    piper = put(s, "Howlpack Piper // Wildsong Howler", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"G": 4})
+    act(s, "p1", type="cast_spell", card_id=piper.id)
+    looks = 0
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            looks += d.prompt == "Choose from among them"
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[piper.id].zone == "p1:battlefield" and s.state.cards[piper.id].face == 1
+    assert looks == 1  # its one trigger
+    roundtrip(s)
+
+
+def test_enters_with_count_never_counts_itself(cards):
+    # 614.12: "Michelangelo enters with a +1/+1 counter on him for each land you control", read before he enters: under Ashaya he
+    # becomes a Forest land on the battlefield, but isn't one of the lands counted (three Islands and Ashaya: four)
+    s = pbuild(cards, [(1, "Michelangelo, On the Scene"), (1, "Ashaya, Soul of the Wild"), (3, "Island")])
+    lands = [c.id for c in s.state.cards.values() if c.name == "Island" and c.owner == "p1"][:3]
+    act(s, "p1", type="move", card_ids=lands, to={"player": "p1", "zone": "battlefield"})
+    put(s, "Ashaya, Soul of the Wild", "battlefield")
+    mich = put(s, "Michelangelo, On the Scene", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"G": 6})
+    act(s, "p1", type="cast_spell", card_id=mich.id)
+    settle(s)
+    assert s.state.cards[mich.id].zone == "p1:battlefield"
+    assert counters(s, mich.id) == {"+1/+1": 4}
+    roundtrip(s)
