@@ -862,7 +862,9 @@ _LIB_WHO = {"your": "you", "target player's": "target player", "target opponent'
             "that player's": "that player", "their": "that player", "each player's": "each player", "each opponent's": "each opponent"}
 _SUBJECTS = r"(?P<subj>target player|target opponent|that player|defending player|each player|each opponent|each of your opponents)"
 _N_CARDS = rf"(?:(?P<n>{AMT}) cards|card)"
-_TOP = re.compile(rf"(?P<verb>look at|reveal) the top {_N_CARDS} of {_LIB}(?P<back>, then put them back in any order)?")
+# (wave 26B: "reveal that many cards from the top of your library": the trigger event's amount, Ojer Kaslem)
+_TOP = re.compile(rf"(?P<verb>look at|reveal) (?:the top {_N_CARDS}|(?P<nm>that many) cards from the top) of {_LIB}"
+                  r"(?P<back>, then put them back in any order)?")
 _SUBJ_TOP = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) the top {_N_CARDS} of their library(?P<fd> face down)?")
 _EXILE_TOP = re.compile(rf"exile the top {_N_CARDS} of {_LIB}(?P<fd> face down)?")
 # -- hidden exile (wave 18A) -- "Put the top two cards of that player's library onto the battlefield face down under your control as
@@ -1075,7 +1077,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     text, rider = _with_rider(text) if re.match(r"^(?:look at|reveal|exile) the top", text) else (text, None)
 
     def count(m: re.Match[str]) -> Any:
-        return _apply(_amount(m["n"]) if m["n"] else 1, rider)
+        n = m["n"] or m.groupdict().get("nm")
+        return _apply(_amount(n) if n else 1, rider)
 
     if text == "you may reveal the top card of your library":  # -- if you do (wave 15C) -- the revealing is the choice (701.20a)
         return [{"do": "look_top", "n": 1, "player": "you", "reveal": True, "optional": True}], None

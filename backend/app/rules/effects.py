@@ -125,6 +125,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         from app.rules import defending
 
         return defending.players(plan, ctx)
+    if who == "defending_player_or_pw":  # -- trigger other (wave 26B) -- the player the attacker attacked (not a planeswalker or battle)
+        from app.rules import defending
+
+        return defending.player_or_pw(plan, ctx)[0]
     if who == "chosen_player":  # -- chosen player (wave 4J) -- the player the source chose as it entered (614.12a)
         from app.rules import chosen
 
@@ -163,6 +167,10 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.cards
                 and plan.oid(t["id"]) == t.get("object_id")]
+    if who == "defending_player_or_pw":  # -- trigger other (wave 26B) -- the planeswalker the attacker attacked
+        from app.rules import defending
+
+        return defending.player_or_pw(plan, ctx)[1]
     if who == "self":
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):

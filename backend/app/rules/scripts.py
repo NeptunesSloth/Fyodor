@@ -1248,6 +1248,13 @@ def _damage(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "damage", "who": "target", "n": num(m["n"]), **_it_source(m["src"])}], SELECTORS[m["sel"]]
 
 
+# -- trigger other (wave 26B) -- "Whenever a creature you control attacks, this creature deals 1 damage to the player or planeswalker it's
+# attacking." (Hellrider, Raid Bombardment): the attacker the trigger is about (508.5; app/rules/defending.py reads the captured event)
+@effect(r"~ deals {N} damage to the player or planeswalker (?:it's|that creature is) attacking")
+def _damage_attacked(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "damage", "who": "defending_player_or_pw", "n": num(m["n"])}], None
+
+
 @effect(r"~ deals {N} damage to each opponent")
 def _damage_opponents(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "damage", "who": "each_opponent", "n": num(m["n"])}], None
@@ -1993,6 +2000,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (gifts := refused_zones.gifts_ability(body)) is not None:
         return gifts
+    # -- trigger other (wave 26B) -- "That token gains haste until end of turn and attacks this combat if able." (Legion Warboss): the two
+    # instructions of one sentence about the same object
+    body = re.sub(r"\b(That token|That creature|It) (gains haste until end of turn) and (attacks this (?:combat|turn) if able)",
+                  r"\1 \2. \1 \3", body)
     # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
     # opponent, the token grammar's "… for each opponent"
     body = re.sub(r"(^|\. )For each opponent, you (create (?![^.,]* with )[^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
@@ -2355,8 +2366,17 @@ def _energy_paid(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
 
 
 # -- may pay or else (wave 4J) -- the whole ability: one payment, one consequence (no "you may" in it)
-_MAY_PAY_ELSE = re.compile(r"^(?:[Tt]hat player|[Tt]hey) may pay (?P<cost>(?:\{[^}]+\})+)\. If (?:the player|that player|they) "
-                           r"(?:doesn't|don't), (?:you (?=create ))?(?P<rest>(?![^.]*\bmay\b)[^.]+)\.$")
+_MAY_PAY_ELSE = re.compile(r"^(?:[Tt]hat player|[Tt]hey) may (?P<cost>pay (?:\{[^}]+\})+"
+                           r"|(?:pay \d+ life|(?:sacrifice|discard|exile) [^.]+))\. If (?:the player|that player|they) "
+                           r"(?:doesn't|don't), (?:you (?=create ))?(?P<rest>(?![^.]*\bmay\b)[^.]+)\.$")  # (wave 26B: life, sacrifice, discard, exile)
+
+
+def _may_else(m: re.Match[str]) -> str:
+    """"That player may pay 2 life. If they don't, they lose 3 life." → "That player loses 3 life unless that player pays 2 life."
+    (118.12a: the payer named in the third person, the effect's "they" the same player)."""
+    verb, _, rest = m["cost"].partition(" ")
+    effect = re.sub(r"^they (\w+)", r"that player \1s", m["rest"])
+    return f"{effect[:1].upper()}{effect[1:]} unless that player {verb}s {rest}."
 
 
 def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -2414,7 +2434,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     start = 0
     # -- may pay or else (wave 4J) -- "That player may pay {2}. If the player doesn't, you create a Treasure token."
     # (Smothering Tithe) is 118.12a's own reading of "[Effect] unless that player pays {2}": read as that
-    body = _MAY_PAY_ELSE.sub(lambda m: f"{m['rest'][:1].upper()}{m['rest'][1:]} unless that player pays {m['cost']}.", body)
+    body = _MAY_PAY_ELSE.sub(_may_else, body)
     from app.rules import recursion as _recursion  # -- recursion & tutors (wave 4M) --
 
     body = _recursion.join_sized_search(body)
@@ -3162,6 +3182,8 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
     if (it == "self" or m["lead"] == "sacrifice ~") and re.search(r"^remove an? [^ ]+ counter from it$", phrase):
         phrase = phrase[:-2] + "~"  # -- trigger tail (wave 15B) -- "sacrifice ~ unless you remove a +1/+1 counter from it": it is the source
     phrase = re.sub(r" or (pays?|discards?|sacrifices?|returns?|exiles?) ", lambda v: f" or {v[1].rstrip('s')} ", phrase)  # (wave 15C)
+    if m["who"] != "you":
+        phrase = re.sub(r"\btheir\b(?! choice)", "your", phrase)  # (wave 26B) a cost is read as its payer's: "exiles a card from their graveyard"
     if re.search(r"\bit\b", phrase):
         return None
     cost = optional_payment.cost_text(phrase)
