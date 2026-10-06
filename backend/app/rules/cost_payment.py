@@ -526,7 +526,7 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
         if len(top) < comp.amount:
             raise ActionError(f"You can't pay “{comp.text}”")  # (118.3; checked before anything was paid)
         if comp.kind == C.MILL:
-            from app.rules import replace as _replace_mill  # -- mill counts (wave 28B) -- 701.17a / 118.11: a payment may be modified
+            from app.rules import replace as _replace_mill  # (wave 28B: 701.17a)
 
             more = sum(k for _, k in _replace_mill.mill_counts(plan, [(player, comp.amount)]) or [(player, comp.amount)])
             plan.do({"type": "mill", "player": player, "count": min(more, len(plan.state.zones.get(zone_key(player, "library"), [])))},
@@ -631,7 +631,7 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
         if amount is None:
             raise ActionError("You have no commander, so that cost can't be paid (903.4f)")
         if amount:
-            from app.rules import replace as _replace_life  # -- life modifiers (wave 28B) -- 119.4 / 118.11: a payment of life is a life loss
+            from app.rules import replace as _replace_life  # (wave 28B: 119.4)
             _replace_life.lose_life(plan, [(player, amount)])
             record.life += amount
         return True

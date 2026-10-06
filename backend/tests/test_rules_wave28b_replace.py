@@ -101,6 +101,40 @@ def test_underrealm_lich_replaces_each_draw_of_a_sequence_with_its_own_look(card
     roundtrip(s)
 
 
+def test_a_body_waiting_for_its_choice_survives_save_and_load_and_goes_on_identically(cards):
+    from tests.test_rules_wave9b_exile_permission import reloaded
+
+    s = build(cards, p1=("Divination", "Underrealm Lich"))
+    put(s, "Underrealm Lich", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    d = s.state.rules.decision
+    assert d is not None
+    s2 = reloaded(s)  # (saved while the first look is open, the second draw still to come)
+    for session in (s, s2):
+        act(session, "p1", type="choose", decision_id=d.id, option_ids=[d.options[1].id])
+        settle(session)
+    assert s2.state.zones == s.state.zones and {k: v.zone for k, v in s2.state.cards.items()} == {k: v.zone for k, v in s.state.cards.items()}
+    assert len(zone(s2, "hand")) == len(zone(s, "hand")) and s2.state.rules.decision is None
+    roundtrip(s2)
+
+
+def test_a_three_player_game_doubles_life_loss_of_every_opponent(cards):
+    from tests.test_rules_wave5c_combat import build as cbuild
+    from tests.test_rules_wave5c_combat import put as cput
+
+    s = cbuild(cards, "Bloodletter of Aclazotz", "Vampire's Kiss", players=3)
+    cput(s, "Bloodletter of Aclazotz")
+    c = find(s, "Vampire's Kiss")
+    act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "hand"})
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p3"])
+    settle(s)
+    assert s.state.players["p3"].life == 40 - 4 and s.state.players["p2"].life == 40
+    roundtrip(s)
+
+
 def settle(s, pick=None, limit=40):
     """Resolve the stack, answering decisions with ``pick(decision)`` (option ids) or the first option."""
     for _ in range(limit):
@@ -144,6 +178,31 @@ def test_a_draw_step_draw_is_replaced_and_the_step_goes_on_afterwards(cards):
             break
         act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.turn.phase == "main1" and s.state.turn.number == 3
+    roundtrip(s)
+
+
+def test_a_draw_a_body_makes_from_an_empty_library_is_an_attempt_and_loses_at_the_next_check(cards):
+    s = build(cards, p1=("Divination", "Blood Scrivener"))
+    put(s, "Blood Scrivener", "battlefield")
+    c = put(s, "Divination", "hand")
+    empty_hand(s, c.id)
+    act(s, "p1", type="move", card_ids=list(zone(s, "library")), to={"player": "p1", "zone": "exile"})
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert "p1" in s.state.rules.lost  # 121.6a: the replacement applied; the two draws it makes are real attempts (121.4, 704.5b)
+    roundtrip(s)
+
+
+def test_out_of_the_tombs_does_nothing_while_the_library_has_cards(cards):
+    s = build(cards, p1=("Divination", "Out of the Tombs"))
+    put(s, "Out of the Tombs", "battlefield")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    hand = len(zone(s, "hand"))
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert len(zone(s, "hand")) == hand - 1 + 2 and "p1" not in s.state.rules.lost
     roundtrip(s)
 
 

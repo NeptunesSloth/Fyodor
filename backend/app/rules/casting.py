@@ -1652,7 +1652,7 @@ def pay_nonmana_cost(plan: Plan, a: A.TurnFaceUp, card: CardInstance, printed: C
     if chosen is None:
         return False
     if cost.life:
-        from app.rules import replace as _replace_life  # -- life modifiers (wave 28B) -- 119.4 / 118.11: a payment of life is a life loss
+        from app.rules import replace as _replace_life  # (wave 28B: 119.4)
         _replace_life.lose_life(plan, [(plan.actor, cost.life)])
     cost_payment.pay(plan, cost, card, chosen, PaymentRecord(card=card.id, controller=plan.actor, total_cost=text))
     for i, comp in enumerate(cost.components):  # "Reveal a blue card in your hand": shown to everyone as the cost is paid (701.20a)
@@ -2410,11 +2410,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
                        origin=origin)
     if add_cost is not None:
         if add_cost.life:
-            from app.rules import replace as _replace_life  # -- life modifiers (wave 28B) -- 119.4 / 118.11: a payment of life is a life loss
+            from app.rules import replace as _replace_life  # (wave 28B: 119.4)
             _replace_life.lose_life(plan, [(plan.actor, add_cost.life)])  # 119.4: paying life is losing it
             record.life += add_cost.life
         if add_cost.life_x and a.x_value:  # -- X sized by a count (wave 4K) -- "pay X life" (119.4)
-            from app.rules import replace as _replace_life  # -- life modifiers (wave 28B) -- 119.4 / 118.11: a payment of life is a life loss
+            from app.rules import replace as _replace_life  # (wave 28B: 119.4)
             _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
             record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
@@ -3042,11 +3042,11 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
     if add_cost is not None:  # (601.2h: with the rest of the total cost)
         if add_cost.life:
-            from app.rules import replace as _replace_life  # -- life modifiers (wave 28B) -- 119.4 / 118.11: a payment of life is a life loss
+            from app.rules import replace as _replace_life  # (wave 28B: 119.4)
             _replace_life.lose_life(plan, [(plan.actor, add_cost.life)])  # 119.4
             record.life += add_cost.life
         if add_cost.life_x and a.x_value:  # -- X sized by a count (wave 4K) -- "pay X life" (119.4)
-            from app.rules import replace as _replace_life  # -- life modifiers (wave 28B) -- 119.4 / 118.11: a payment of life is a life loss
+            from app.rules import replace as _replace_life  # (wave 28B: 119.4)
             _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
             record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile …
@@ -3527,7 +3527,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     for kind, n in cost.remove_counters:
         plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n})
     if cost.life:
-        from app.rules import replace as _replace_life  # -- life modifiers (wave 28B) -- 119.4 / 118.11: a payment of life is a life loss
+        from app.rules import replace as _replace_life  # (wave 28B: 119.4)
         _replace_life.lose_life(plan, [(plan.actor, cost.life)])
     paid = pay(plan, plan.actor, mana.with_x(a.x_value or 0), f"paid {mana.with_x(a.x_value or 0).text()} to activate {ch.name}",
                sources=a.sources, exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability)))

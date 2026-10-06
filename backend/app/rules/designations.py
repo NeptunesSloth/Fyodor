@@ -102,7 +102,7 @@ def rad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     n = plan.state.players[pid].resources.get("rad", 0) if pid in plan.live() else 0
     if n <= 0:
         return True  # 603.4: no rad counters any more — the ability does nothing
-    from app.rules import replace as _replace_mill  # -- mill counts (wave 28B) -- 701.17a: "would mill" replacements change the number
+    from app.rules import replace as _replace_mill  # (wave 28B: 701.17a)
 
     to_mill = sum(k for _, k in _replace_mill.mill_counts(plan, [(pid, n)]) or [(pid, n)])
     library = plan.state.zones.get(zone_key(pid, "library"), [])
@@ -113,7 +113,7 @@ def rad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     nonland = sum(1 for cid in milled if cid in plan.state.cards and plan.state.cards[cid].zone == zone_key(pid, "graveyard")
                   and not plan.ch(plan.state.cards[cid]).is_land)
     if nonland:
-        from app.rules import replace as _replace_life  # -- life modifiers (wave 28B) -- 119.4 / 118.11: a payment of life is a life loss
+        from app.rules import replace as _replace_life  # (wave 28B: 119.4)
         _replace_life.lose_life(plan, [(pid, nonland)], actor=pid)  # (728.1a: life lost "from radiation")
         plan.do({"type": "resource", "player": pid, "key": "rad", "delta": -min(nonland, n)}, actor=pid)
     return True

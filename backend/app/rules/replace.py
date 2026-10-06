@@ -46,9 +46,26 @@ event never happens (614.6), so nothing triggers on it (603.2g): only the final 
 table actions, which is also what history, replay and undo record.
 
 Refused (kept manual) in v1: 616.1b-d (control, copy, back face), redirection (614.9), skip
-(614.10) of steps, "can't" effects (614.17), "can't be prevented" (615.12), paying life (119.4:
-UNVERIFIED whether a payment is replaceable), life-loss replacements, "you would put" counter
+(614.10) of steps, "can't" effects (614.17), "can't be prevented" (615.12), "you would put" counter
 wordings, token replacements that add a different token.
+
+-- replacements: draws and life (wave 28B) --
+* Draw bodies (app/rules/draw_bodies.py): "If you would draw a card, instead <instructions>" runs the instructions (the effect grammar's own)
+  as a small resolution of its own once the draws before it have happened (121.6b / 614.11a); ``draw_cards`` plans one draw at a time, stops
+  at a body and plans the rest when it is done (continuation ``draw_rest``). 614.5: a draw the body makes isn't replaced by that effect
+  again (``exclude`` / the body context's ``repl_applied``); 614.6 / 121.5: a replaced draw never happens, cards a body puts into a hand aren't
+  drawn. "you may … instead" is an optional replacement (the affected player is asked, as for Dredge); a site that can't pause
+  (``then`` None) doesn't run a body: it logs it for the players. "The next time you would draw a card this turn, …" (Words of …) is a
+  record that is spent by the first draw it replaces (``Planner.used``).
+* Count-level draw replacements (121.2a, 616.1g: "If you would draw one or more cards, you draw that many plus one", "If an opponent would
+  draw two or more cards, instead you and that player each draw a card"): event ``draw_count``, applied to the instruction before its
+  individual draws are considered (``draw_cards``, ``counted``).
+* Life loss (119.3, 119.4, 118.11, 614.1a): ``lose_life`` is the choke point of every life loss that isn't damage's own result — effects, a
+  payment of life ("the player loses that much life", and a payment may be modified by effects) — and ``damage_outcome`` applies the same
+  replacements to the life damage causes (120.3a: the damage dealt stays what it was). Only "twice that much" exists on a Commander card
+  (Bloodletter of Aclazotz). Life gain may carry "while you have N or less life" (Phial of Galadriel), read as the gain would happen.
+* Mill counts (701.17a: "If an opponent would mill one or more cards, they mill twice that many / that many plus four"): ``mill_counts``
+  changes the number an instruction says; the caller mills what the library holds.
 
 -- refused grants/replacements (wave 3R2) -- Now automated: redirection statics (614.9, op
 "redirect"), skips (614.10: app/rules/skips.py), "can't gain life" (614.17: app/rules/cant_gain.py),
@@ -57,15 +74,9 @@ app/rules/source_shields.py), a different token added (op "extra": app/rules/ext
 Still refused, and why:
 * 616.1b-d: no replacement the engine applies changes who controls an entering object, makes it a
   copy as it enters through this loop, or has it enter transformed — nothing to order yet.
-* Paying life (119.4): UNVERIFIED whether a payment is a replaceable life-loss event; a cost is
-  paid as written.
-* Life-loss replacements ("If an opponent would lose life during your turn, they lose twice that
-  much life instead."): life loss has no choke point yet (seven direct sites).
 * "If you would put one or more counters" (Vorinclex, Lae'zel): who "puts" a counter is not
   recorded for every site, and whether a player "getting" counters or a source's controller
   "giving" poison counters (120.3b) is "putting" them is UNVERIFIED.
-* Count-level draw replacements ("If an opponent would draw two or more cards, instead …": Alms
-  Collector, 121.2a): draws are proposed one card at a time.
 * Kalitas-style "instead exile that card and create a token" (a zone replacement with an extra
   event): the move replacement runs inside a table step and can't ask the affected player to
   order it against another "exile instead" (616.1), which then matters.
@@ -1013,7 +1024,9 @@ def _dcount_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     if c.op["do"] == "add":
         return [{**ev, "n": ev["n"] + int(c.op["n"])}]
     if c.op["do"] == "each_one":  # "instead you and that player each draw a card" (121.7: the draws happen one at a time)
-        return [{"kind": "draw", "player": p} for p in dict.fromkeys([c.controller, ev["player"]])]
+        order = plan.apnap()  # (121.2c: when several players draw, the active player first)
+        return [{"kind": "draw", "player": p} for p in sorted(dict.fromkeys([c.controller, ev["player"]]),
+                                                               key=lambda p: order.index(p) if p in order else len(order))]
     return [ev]
 
 
@@ -1095,7 +1108,8 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
     exclude = list(exclude if exclude is not None else (ctx or {}).get("repl_applied") or [])
     order = plan.apnap()
     who = sorted([p for p in players if p in plan.live()], key=lambda p: order.index(p) if p in order else len(order))
-    cands = [*candidates(plan, "draw"), *dredge_candidates(plan, who)]
+    found = candidates(plan, ("draw", "draw_count"))  # (one scan of the table)
+    cands = [*(c for c in found if c.event == "draw"), *dredge_candidates(plan, who)]
     if then is None:  # (a site that can't pause can't run a replacement effect's choices: the players do it, 616.1)
         for c in [c for c in cands if c.op.get("do") == "body" and c.id not in exclude]:
             plan.note(f"{c.label} would replace a draw here, and the engine can't ask: apply it by hand (121.6)")
@@ -1105,7 +1119,7 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
     slots: list[str] = []
     actions: list[tuple[Event, list[Event]]] = []
     cut: int | None = None
-    count_planner = Planner(plan, [] if counted else candidates(plan, "draw_count"), answers, ask=then is not None)
+    count_planner = Planner(plan, [] if counted else [c for c in found if c.event == "draw_count"], answers, ask=then is not None)
     try:
         for pid in who:  # (a dict: each player's own count, wave 16B)
             k = max(0, int(n[pid] if isinstance(n, dict) else n))
