@@ -543,6 +543,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return merged.times_mutated_in(plan, ctx)
     if "devoured" in v:  # -- keyword mechanics (wave 9D) -- 702.82b: sacrificed as a result of its devour as it entered
         return plan.rules.devoured.get(ctx.get("source_object") or "", 0)
+    if "convoked" in v:  # -- counters (wave 26D) -- "for each creature that convoked it" (702.51a: its payment record's contributions)
+        record = plan.rules.payments.get(ctx.get("source_object") or "")
+        return len({c.object_id for c in record.contributions if c.kind == "convoke"}) if record is not None else 0
     if "colors_spent" in v:  # -- ability words (wave 4F) -- converge (a spell cast by hand: no mana known, 0)
         record = plan.rules.payments.get(ctx.get("source_object") or "")
         if record is None:

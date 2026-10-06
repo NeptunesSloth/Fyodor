@@ -3409,7 +3409,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     view = _granter_view(ability) if "‹granter" in ability.text else None
     with _exiled_with.reading(ability, self_text(ability.text, ch.name)):  # -- resolution memory (wave 22D) -- 607.2a: "the exiled card's owner …"
-        d = _define(view[0] if view else ability, ch)
+        d = _enters_self_check(_define(view[0] if view else ability, ch), ch)
     if view and d is not None:
         d = _granter_bound(d, view[1])
     # -- exiled with (wave 6D) -- 607.2a linked abilities (app/rules/exiled_with.py)
@@ -4528,6 +4528,36 @@ def _unless_condition(text: str) -> Definition | None:
     return None
 
 
+# -- counters (wave 26D) -- "enters with … for each land you control": the permanent isn't on the battlefield while the count is
+# read (614.12), but it is after the move here, so a count over battlefield groups is kept only for a permanent the group can't
+# include (``_enters_self_check``, at ``define``: it knows the card's types)
+def _self_sels(v: Any) -> Definition:
+    from app.rules import selectors
+
+    def walk(x: Any) -> list[str]:
+        if isinstance(x, dict):
+            return [y for k, w in x.items() for y in ([w] if k in ("count", "of") and isinstance(w, str) else walk(w))]
+        return [y for w in x for y in walk(w)] if isinstance(x, list) else []
+
+    keys = [k for k in walk(v) if selectors.from_key(k).zones == ("battlefield",) and not selectors.from_key(k).other]
+    return {"self_sels": keys} if keys else {}
+
+
+def _enters_self_check(d: Definition | None, ch: Characteristics) -> Definition | None:
+    """Drop the ``self_sels`` tag; None when a counted group could include the entering permanent itself."""
+    from app.rules import selectors
+
+    if d is None or "self_sels" not in d:
+        return d
+    d = dict(d)
+    for k in d.pop("self_sels"):
+        s = selectors.from_key(k)
+        if s.extras or s.either or s.union or s.card or not (
+                (s.types and not set(s.types) & ch.types) or (s.subtypes and not set(s.subtypes) & ch.subtypes)):
+            return None
+    return d
+
+
 def _for_each(phrase: str) -> Any:
     """"for each <group>" on an "enters with" ability: a count the values grammar evaluates as it enters
     — of cards elsewhere ("creature card in your graveyard") or of *other* permanents. A group the
@@ -4541,11 +4571,13 @@ def _for_each(phrase: str) -> Any:
         return {"mana_spent": "self"}
     if phrase in ("color of mana spent to cast it", "color of mana spent to cast ~"):  # -- ability words (wave 4F) --
         return {"colors_spent": 1}  # converge (its spell's payment record, read as it enters: replacements._counter_amount)
+    if phrase in ("creature that convoked it", "creature that convoked ~"):  # -- counters (wave 26D) -- 702.51a
+        return {"convoked": 1}
     if " and each " in phrase:  # -- counters (wave 21D) -- "for each other Zombie you control and each Zombie card in your graveyard": the sum
         halves = [_for_each(x) for x in phrase.split(" and each ")]
         return {"plus": halves} if len(halves) == 2 and all(h is not None and "count" in h for h in halves) else None
     sel = selectors.parse(phrase)
-    if sel is None or sel.player is not None or (not sel.card and sel.zones == ("battlefield",) and not sel.other):
+    if sel is None or sel.player is not None:  # (a battlefield group it might belong to: tagged by the caller, ``_enters_self_check``)
         return None
     return {"count": sel.key()}
 
@@ -4779,16 +4811,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
             return None
         # (a count of permanents that could include itself is read before it enters, 614.12; it's counted after the
         # move here: only "other …" counts and counts outside the battlefield are read)
-        from app.rules import selectors
-
-        def sels(v: Any) -> list[str]:
-            if isinstance(v, dict):
-                return [x for k, w in v.items() for x in ([w] if k in ("count", "of") and isinstance(w, str) else sels(w))]
-            return [x for w in v for x in sels(w)] if isinstance(v, list) else []
-
-        if any(selectors.from_key(k).zones == ("battlefield",) and not selectors.from_key(k).other for k in sels(ev)):
-            return None
-        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": eq["kind"], "n": ev, "effects": []}
+        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": eq["kind"], "n": ev, "effects": [],
+                **_self_sels(ev)}
     # -- end counters (wave 5H) --
     cast_if = None  # -- refused modal/conditional (wave 3R1) -- adamant: "If at least three white mana was spent to
     lead = re.match(r"^If (?P<c>[^,]+), ~ enters with ", text)  # cast this spell, ~ enters with a +1/+1 counter on it."
@@ -4869,6 +4893,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
                 out["per_kick"] = True
             else:
                 out["n"] = {"times": [n, each]} if n != 1 else each
+                out.update(_self_sels(each))
         return out
     if text == "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it " \
                "into your graveyard.":  # -- discard causes (wave 23D) -- 614.1a, 701.9: the discard is replaced (replacements.replace_move)
