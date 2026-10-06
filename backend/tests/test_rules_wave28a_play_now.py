@@ -345,6 +345,26 @@ def test_the_revealed_spell_face_of_a_modal_card_is_cast(cards):
     check(s)
 
 
+def test_a_split_card_is_cast_as_the_half_chosen(cards):
+    s = build(cards, [*OURS, "Fire // Ice"])
+    top = djinn_with_top(s, "Fire // Ice")
+    assert sorted(o.label for o in decision(s).options) == ["Fire", "Ice"]  # 709.3: one half is cast
+    ice = next(o.id for o in decision(s).options if o.label == "Ice")
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="choose", decision_id=decision(s).id, option_ids=[ice])
+    for _ in range(6):  # Ice's target, then it resolves: tap it, draw a card
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[top.id].zone == "p1:graveyard"
+    assert len(s.state.zones["p1:hand"]) == hand + 1
+    check(s)
+
+
 def test_gix_plays_a_land_and_casts_a_spell_from_the_exiled_cards(cards):
     s = build(cards, OURS, theirs=["Lightning Bolt"])
     gix = put(s, "Gix, Yawgmoth Praetor")

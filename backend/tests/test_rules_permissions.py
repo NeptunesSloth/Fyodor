@@ -500,7 +500,8 @@ def test_effect_wordings():
     # card, 608.2g — the free_cast machinery with its mana cost paid, as for "You may cast the copy".)
     bare = P.parse_clause("you may cast that card")
     assert bare is not None and bare[0][0]["do"] == "free_cast" and bare[0][0]["paid"] is True and "until" not in bare[0][0]
-    assert P.parse_clause("you may play it") is None
+    played = P.parse_clause("you may play it")  # -- play now (wave 28A) -- as this resolves: a land too, with a land play left (305.2a-b)
+    assert played is not None and played[0][0]["do"] == "free_cast" and played[0][0]["play"] is True and played[0][0]["paid"] is True
 
 
 def test_that_card_binds_to_what_the_ability_moved_or_stays_manual():
@@ -522,7 +523,8 @@ def test_that_card_binds_to_what_the_ability_moved_or_stays_manual():
     assert scripts.parse_effects("Draw a card. You may play it this turn.", it="self") is None  # (not the source either)
     assert scripts.parse_effects("You may play that card this turn.") is None
     assert scripts.parse_effects("Tap target creature. You may play it this turn.") is None  # (not moved anywhere)
-    assert scripts.parse_effects("Exile the top card of your library. You may play that card.") is None  # (no duration; a land maybe: not read)
+    play_now = scripts.parse_effects("Exile the top card of your library. You may play that card.")  # (wave 28A: no duration: played as it resolves)
+    assert play_now is not None and [e["do"] for e in play_now[0]] == ["exile_top", "free_cast"] and play_now[0][1]["play"] is True
     cast_now = scripts.parse_effects("Exile the top card of your library. You may cast that card.")  # (wave 25C: cast now, mana cost paid)
     assert cast_now is not None and [e["do"] for e in cast_now[0]] == ["exile_top", "free_cast"] and cast_now[0][1]["paid"] is True
     # Ragavan, Nimble Pilferer: a token the same sentence created is not "that card" (111.1), so
