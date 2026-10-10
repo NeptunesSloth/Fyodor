@@ -36,9 +36,9 @@ def card_db(settings: Settings) -> Path:
 
 def lair(cards, replacer, *, empty_hand=True, theirs=()):
     """Alice has ventured to Deep Mines in the Dungeon of the Mad Mage, with ``replacer`` in play (or nothing; ``theirs``: Bob's permanents)
-    and Lightning Bolt, Counterspell and Murder on top of her library (Bolt first); the next venture enters Mad Wizard's Lair. Returns the
+    and Lightning Bolt, Opt and Murder on top of her library (Bolt first); the next venture enters Mad Wizard's Lair. Returns the
     table and the free-cast decisions' offers."""
-    s = table(cards, mine=("Secret Door",), theirs=theirs, hand=tuple(x for x in (replacer, "Lightning Bolt", "Counterspell", "Murder") if x))
+    s = table(cards, mine=("Secret Door",), theirs=theirs, hand=tuple(x for x in (replacer, "Lightning Bolt", "Opt", "Murder") if x))
     door = dfind(s, "Secret Door")
 
     def venture(*answers):
@@ -54,7 +54,7 @@ def lair(cards, replacer, *, empty_hand=True, theirs=()):
     if empty_hand:
         for cid in list(s.state.zones["p1:hand"]):
             act(s, "p1", type="move", card_ids=[cid], to={"player": "p1", "zone": "graveyard"})
-    for name in ("Murder", "Counterspell", "Lightning Bolt"):
+    for name in ("Murder", "Opt", "Lightning Bolt"):
         act(s, "p1", type="move", card_ids=[dfind(s, name).id], to={"player": "p1", "zone": "library"}, position="top")
     return s, door
 
@@ -96,13 +96,13 @@ def test_an_old_turn_log_without_the_new_field_loads():
 def test_everything_it_drew_is_revealed_without_a_replacement(cards):
     s, door = lair(cards, None, empty_hand=False)
     offered, _, _ = enter_the_lair(s, door)
-    assert set(offered) == {"Lightning Bolt", "Counterspell", "Murder"}, offered  # (the control: all three, 701.20a)
+    assert set(offered) == {"Lightning Bolt", "Opt", "Murder"}, offered  # (the control: all three, 701.20a)
     roundtrip(s)
 
 
 @pytest.mark.parametrize("replacer, hidden", [
-    ("Phial of Galadriel", ["Lightning Bolt", "Counterspell"]),  # "draw two cards instead" replaces the first draw: those two aren't revealed
-    ("Blood Scrivener", ["Lightning Bolt", "Counterspell"]),  # "instead you draw two cards and you lose 1 life" likewise
+    ("Phial of Galadriel", ["Lightning Bolt", "Opt"]),  # "draw two cards instead" replaces the first draw: those two aren't revealed
+    ("Blood Scrivener", ["Lightning Bolt", "Opt"]),  # "instead you draw two cards and you lose 1 life" likewise
 ])
 def test_cards_drawn_by_a_replacement_are_not_revealed(cards, replacer, hidden):
     s, door = lair(cards, replacer)
@@ -114,7 +114,7 @@ def test_cards_drawn_by_a_replacement_are_not_revealed(cards, replacer, hidden):
 
 
 @pytest.mark.parametrize("replacer, theirs, drawn", [
-    ("Quantum Riddler", (), ["Lightning Bolt", "Counterspell", "Murder"]),  # "draw three cards" becomes "draw four cards"
+    ("Quantum Riddler", (), ["Lightning Bolt", "Opt", "Murder"]),  # "draw three cards" becomes "draw four cards"
     (None, ("Alms Collector",), ["Lightning Bolt"]),  # Bob's: "instead you and that player each draw a card"
 ])
 def test_a_replacement_of_the_number_of_cards_drawn_leaves_the_reveal_to_the_players(cards, replacer, theirs, drawn):
@@ -140,7 +140,7 @@ def test_a_count_replacement_that_does_not_apply_changes_nothing(cards):
     act(s, "p1", type="move", card_ids=forests, to={"player": "p1", "zone": "hand"})
     manual: list[str] = []
     offered, _, _ = enter_the_lair(s, door, manual)
-    assert set(offered) == {"Lightning Bolt", "Counterspell", "Murder"} and manual == [], (offered, manual)
+    assert set(offered) == {"Lightning Bolt", "Opt", "Murder"} and manual == [], (offered, manual)
     roundtrip(s)
 
 
