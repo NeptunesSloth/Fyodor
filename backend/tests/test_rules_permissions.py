@@ -474,7 +474,11 @@ def test_cost_modifier_wordings(text, expected):
     # (wave 19C: "Once during each of your turns, you may cast an instant or sorcery spell from your graveyard. If a spell cast this
     # way would be put into your graveyard, exile it instead." is read now: Kess, tests/test_rules_wave19c_ifyoudo.py)
     # (wave 4I: "from anywhere other than your hand" and "for each creature in your party" are read now: cost_changes.py)
-    "During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard.",
+    # (wave 30Q: "During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard." is read now:
+    # Muldrotha, tests/test_rules_wave30q_cast_permissions.py)
+    "During each of your turns, you may play a land and cast a permanent spell of each permanent type from the top of your library.",
+    "Once during each of your turns, you may play a land from your graveyard or cast a permanent spell with mana value 3 or less from your graveyard. "
+    "If you do, it gains haste.",
     # (wave 4I: "The first creature spell you cast each turn costs {1} less" is read now: cost_changes.ORDINAL)
     "Spells your opponents cast that target this creature cost {1} more to cast.",
     "You may cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.",

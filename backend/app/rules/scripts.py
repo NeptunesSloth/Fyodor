@@ -3022,6 +3022,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                     and any(x.get("do") == "free_cast" for x in own[0]):
                 effects += _add_groups(groups, own[0], own[1])  # -- hideaway (wave 29D) -- the free cast models its own choice (a card it may play, or none)
                 continue
+            if _GY_CAST.fullmatch(text) and (own := _clause(text, True)) is not None and own[0][0].get("do") == "grant_play":
+                effects += _add_groups(groups, own[0], own[1])  # -- cast permissions (wave 30Q) -- the permission is the optional part (used or not later this turn)
+                continue
             optional, text = True, text[len("you may "):]
             # -- triggers (wave 5D) -- "you may have ~ deal 1 damage …" (603.5)
             from app.rules import trigger_words
@@ -6028,6 +6031,9 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
 # cast's own "you may" is the player's choice after it
 _FREE_PLAY_LEAD = re.compile(r"you may (?:play|cast) (?:that card|it|one of them) without paying its mana cost")
 _FREE_PLAY = re.compile(_FREE_PLAY_LEAD.pattern + r"(?: if .+)?")
+# -- cast permissions (wave 30Q) -- Chainer, Nightmare Adept: "You may cast a creature spell from your graveyard this turn." / Liliana, Untouched by Death:
+# "You may cast Zombie spells from your graveyard this turn." (611.2a: a permission for the turn, not a choice made as this resolves)
+_GY_CAST = re.compile(r"you may cast (?:an? )?[A-Za-z][A-Za-z' ,-]*? spells? from your graveyard this turn")
 
 
 def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:

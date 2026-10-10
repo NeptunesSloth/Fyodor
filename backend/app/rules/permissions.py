@@ -84,13 +84,26 @@ SELF_PER = re.compile(rf"^(?:this spell|~) costs {_N} less to cast for each (?P<
 SELF_IF = re.compile(rf"^(?:this spell|~) costs {_N} less to cast if (?P<cond>.+)$")
 # "You may cast creature spells from the top of your library." / "You may play lands from your
 # graveyard." / "Once during each of your turns, you may cast a creature spell from your graveyard."
+# -- cast permissions (wave 30Q) -- also "During your turn, …" (Leonardo, Festival of Embers), "During each of your turns, you may play a land and
+# cast a permanent spell of each permanent type from your graveyard." (Muldrotha: one use per type, ``slots``), "… play lands and cast Insect spells …"
+# (Zask), "You may play Forests / Desert lands from your graveyard." (Titania, Hazezon: the land's own kind), "… play a [historic] land [from your
+# graveyard] or cast a … spell [with mana value 3 or less] from your graveyard" (Serra Paragon, The Eighth Doctor: one use for either), a quality of the
+# spell ("with mana value 2 or less" Lurrus, "with power or toughness 1 or less"), "… by paying 3 life / sacrificing a land … in addition to paying its
+# other costs" (Noctis, Maestros Ascendancy: a cost paid with the rest, 601.2b), and the rider "If you cast a spell this way, that artifact enters
+# tapped / with a finality counter on it." (Edgar, Noctis, Leonardo) or "If you do, it gains "…"" (Serra Paragon, The Eighth Doctor)
+_QUAL = r" with [a-z ]+? (?:\d+ or (?:less|greater)|less than or equal to the number of [a-z]+ counters on ~)"
 PERMISSION = re.compile(
-    r"^(?P<once>once during each of your turns, )?you may "
-    r"(?P<what>play lands and cast spells|play lands|cast spells|play a land|"
-    r"cast (?:a |an )?(?P<sel>[a-z][a-z' ,-]*?) spells?(?P<qual> with mana value \d+ or less)?|cast (?:this card|~))"
-    r" from (?P<zone>your graveyard|the top of your library)"
+    r"^(?:(?P<once>once during each of your turns, )|(?P<during>during (?:your turn|each of your turns), ))?you may "
+    r"(?P<what>play lands and cast spells|play lands|cast spells|play a land|(?P<slots>play a land and cast a permanent spell of each permanent type)|"
+    r"play lands and cast (?P<psel>[a-z][a-z' ,-]*?) spells|play (?P<lsel>[a-z][a-z']*)(?P<lands> lands)?|"
+    rf"play a (?P<hist>historic )?land(?: from your graveyard)? or cast (?:a |an )?(?P<csel>[a-z][a-z' ,-]*?) spell(?P<cq>{_QUAL})?|"
+    rf"cast (?:a |an )?(?P<sel>[a-z][a-z' ,-]*?) spells?(?P<qual>{_QUAL})?|cast (?:this card|~))"
+    rf" from (?P<zone>your graveyard|the top of your library)(?P<qual2>{_QUAL})?"
+    r"(?: by (?P<by>.+?) in addition to (?:paying )?(?:its|their) other costs)?"
     # -- cast from graveyard (wave 19C) -- 614.1a: "If a spell cast this way would be put into your graveyard, exile it instead."
-    r"(?:\. If (?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead)?$", re.IGNORECASE)
+    r"(?:\. If (?:(?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead"
+    r"|(?:you cast a spell this way|you do), (?:that [a-z]+ enters (?:(?P<tapped>tapped)|(?P<fin>with a finality counter on it))|it gains \"(?P<gain>[^\"]+)\")))?$",
+    re.IGNORECASE)
 # -- resolution memory (wave 22D) -- "You may play lands and cast spells from among cards exiled with this creature." (Nightveil Specter),
 # "During your turn, if an opponent lost life this turn, you may play lands and cast spells from among cards exiled with this enchantment."
 # (Theater of Horrors): a static permission (611.3a) over the cards the object's linked exiling ability exiled (607.2a)
@@ -152,7 +165,10 @@ _TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|thos
                              rf"(?P<until>{_UNTILS})$")
 # -- end refused grants/replacements (wave 3R2) --
 # "Until end of turn, you may play lands and cast spells from your graveyard." (Yawgmoth's Will)
-GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>play lands and cast spells|play lands|cast spells)"
+# -- cast permissions (wave 30Q) -- also "You may cast a creature spell from your graveyard this turn." (Chainer: one spell) and "You may cast Zombie spells
+# from your graveyard this turn." (Liliana, Untouched by Death: any number)
+GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>play lands and cast spells|play lands|cast spells|"
+                        r"cast (?P<a>an? )?(?P<sel>[A-Za-z][A-Za-z' ,-]*?) (?P<sp>spells?))"
                         r" from your graveyard(?P<this_turn> this turn)?$")
 # -- cast a copy (wave 13C) -- "You may cast the copy without paying its mana cost." (707.12; each copy is its own choice, 707.12a)
 # (wave 18F: without "without paying …" the copy's mana cost is paid: 707.12 "You may cast the copy. (You still pay its costs.)")
@@ -400,10 +416,34 @@ def _permission_what(what: str, sel: str | None, qual: str | None) -> dict[str, 
         return {"play": False, "cast": True, "filter": None}
     if what in ("cast this card", "cast ~"):
         return {"play": False, "cast": True, "filter": None, "self": True}
-    key = spell_filter(f"{sel}{qual or ''}")
+    key = spell_filter(sel, qual.strip() if qual else None)  # (-- cast permissions (wave 30Q) -- the quality is the selector's tail: "permanent" + "with mana value 2 or less")
     if key is None:
         return None
     return {"play": False, "cast": True, "filter": key}
+
+
+# -- cast permissions (wave 30Q) -- the permission sentence's other forms (PERMISSION): two kinds of card in one use ("play a land … or cast …"),
+# a land's own kind ("Forests"), and one use per permanent type (Muldrotha)
+SLOT_TYPES = ("Land", "Artifact", "Battle", "Creature", "Enchantment", "Planeswalker")  # 110.4: the permanent types (a land is played, 305.1)
+
+
+def _permission_forms(m: re.Match[str]) -> dict[str, Any] | None:
+    if m["qual2"] and not m["sel"]:
+        return None
+    if m["slots"]:
+        return {"play": True, "cast": True, "filter": spell_filter("permanent"), "slots": True}
+    if m["psel"]:
+        key = spell_filter(m["psel"])
+        return {"play": True, "cast": True, "filter": key} if key else None
+    if m["lsel"]:
+        key = spell_filter(m["lsel"] + (" land" if m["lands"] else ""))
+        return {"play": True, "cast": False, "filter": None, "land_filter": key} if key else None
+    if m["csel"]:
+        key = spell_filter(m["csel"], m["cq"].strip() if m["cq"] else None)
+        return {"play": True, "cast": True, "filter": key, **({"land_filter": "historic"} if m["hist"] else {})} if key else None
+    if m["qual"] and m["qual2"]:
+        return None
+    return _permission_what(m["what"], m["sel"], m["qual"] or m["qual2"])  # ("… spell from your graveyard with mana value …": Arcade Gannon)
 
 
 # -- casting costs (wave 22F) -- 601.3b-c: "You may cast this spell as though it had flash if it targets a commander." (a target chosen
@@ -631,12 +671,30 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 **({"during": "your_turn"} if m["during"] else {}), **({"if": cond} if cond is not None else {})}
     m = PERMISSION.fullmatch(t)
     if m:
-        what = _permission_what(m["what"], m["sel"], m["qual"])
+        what = _permission_forms(m)
         if what is None:
             return None
         zone = "graveyard" if m["zone"] == "your graveyard" else "library_top"
         if (what.get("self") and zone != "graveyard") or (m["exile"] and (zone != "graveyard" or what.get("self"))):
             return None
+        extras: dict[str, Any] = {}
+        if m["by"] or m["tapped"] or m["fin"] or m["gain"] or m["during"] or m["slots"] or m["lsel"] or m["psel"] or m["csel"]:
+            if zone != "graveyard" or what.get("self"):
+                return None  # (-- cast permissions (wave 30Q) -- the new wordings are the graveyard's)
+            if m["by"]:  # 601.2b: "by paying 3 life / sacrificing a creature in addition to paying its other costs" is an additional cost, paid with the rest
+                extra = re.sub(r"\b(discarding|paying|sacrificing|exiling)\b", lambda g: _GERUND[g[1].lower()], m["by"])
+                if costs.parse_additional_cost(extra) is None:
+                    return None
+                extras["extra"] = extra
+            if m["tapped"] or m["fin"] or m["gain"]:
+                extras["enters"] = {**({"tapped": True} if m["tapped"] else {}), **({"counters": {"finality": 1}} if m["fin"] else {}),
+                                    **({"abilities": [m["gain"].replace("~", "this permanent")]} if m["gain"] else {})}  # (the card's own name stands for the one that gains it)
+            if m["during"]:
+                extras["during"] = "your_turn"
+            if what.get("slots"):
+                extras["slots"] = True
+            if what.get("land_filter"):
+                extras["land_filter"] = what["land_filter"]
         if zone == "library_top" and not any(_lower_first(x.strip().rstrip(".")) in (TOP_REVEAL, TOP_LOOK) for x in lines):
             # The engine offers a cast from the top of the library only when the player can see
             # that card (401.5; app/rules/view.hints): without a reveal / look line on the same
@@ -644,7 +702,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "permission", "zone": zone, "once": bool(m["once"]), "flash": False,
                 "self": bool(what.get("self")), "play": what["play"], "cast": what["cast"], "filter": what["filter"],
-                "effects": [], **({"exile_gy": "is" if m["exile"] == "an instant or sorcery" else "all"} if m["exile"] else {})}
+                "effects": [], **extras, **({"exile_gy": "is" if m["exile"] == "an instant or sorcery" else "all"} if m["exile"] else {})}
     m = FLASH.fullmatch(t)
     if m:
         key = spell_filter(m["sel"]) if m["sel"] else None
@@ -848,10 +906,13 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if m:
         if m["until"] and m["this_turn"]:
             return None
-        what = _permission_what(m["what"], None, None)
-        assert what is not None
+        if m["sel"] and bool(m["a"]) == (m["sp"] == "spells"):
+            return None  # ("a creature spells": not English)
+        what = {"play": False, "cast": True, "filter": spell_filter(m["sel"])} if m["sel"] else _permission_what(m["what"], None, None)
+        if what is None or (m["sel"] and what["filter"] is None):
+            return None
         return [{"do": "grant_play", "zone": "graveyard", "play": what["play"], "cast": what["cast"], "until": "end_of_turn",
-                 "optional": True}], None
+                 "optional": True, **({"filter": what["filter"]} if m["sel"] else {}), **({"once": True} if m["a"] else {})}], None
     return None
 
 
@@ -874,6 +935,8 @@ class Grant:
     exile_gy: str = ""  # -- cast from graveyard (wave 19C) -- 614.1a: "all" | "is" (instants and sorceries only): "If a spell cast this way would be put into your graveyard, exile it instead"
     exile: bool = False  # -- casting extras (wave 18E) -- jump-start 702.133a: exile the card instead of putting it anywhere else as it leaves the stack
     alt_mana: str = ""  # -- trigger other (wave 25B) -- airbend 701.65a: an alternative cost the permission requires ("{2}")
+    slot: str = ""  # -- cast permissions (wave 30Q) -- the permanent type this use of "each permanent type" is for (Muldrotha); its ``once_key`` is that type's
+    enters: dict[str, Any] | None = None  # -- cast permissions (wave 30Q) -- "If you cast a spell this way, that artifact enters tapped / with a finality counter" / "it gains …"
 
 
 def _view(state: GameState, player: str, info: CardInfo) -> Plan:
@@ -1031,7 +1094,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         if d["zone"] != "any" and d["zone"] != where:
             continue
-        if d["filter"] and verb == "cast" and not spell_matches(state, player, card, ch, d["filter"], info):
+        if d["filter"] and verb == "cast" and not spell_matches(state, player, card, ch, d["filter"], info, source=src.id):  # (wave 30Q: "quest counters on ~")
             continue
         # -- top of library (wave 5I) -- "artifact spells and colorless spells", the chosen type, historic lands
         from app.rules import top_library
@@ -1041,8 +1104,13 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         key = f"{src.id}:permission:{index}"
         if d["once"] and (r.once_per_turn.get(key) == turn or (state.turn.active_player != player and not d.get("once_any"))):
             continue  # "once during each of your turns" ("once each turn": any turn, wave 5I)
-        out.append(Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
-                         once_key=key if d["once"] else None, extra=d.get("extra") or "", exile_gy=d.get("exile_gy", "")))
+        # -- cast permissions (wave 30Q) -- Muldrotha: a use for each permanent type, a card of several types counting as one of them as it is played or
+        # cast ("choose one as you play it"); one grant per type still unused, the player picks which (cast_grant ``slot``)
+        slots = [t for t in SLOT_TYPES if (t == "Land") == (verb == "play") and t in ch.types and r.once_per_turn.get(f"{key}:{t}") != turn] \
+            if d.get("slots") else [""]
+        out += [Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
+                      once_key=f"{key}:{slot}" if slot else key if d["once"] else None, extra=d.get("extra") or "", exile_gy=d.get("exile_gy", ""),
+                      slot=slot, enters=d.get("enters")) for slot in slots]
     # -- top of library (wave 5I) -- the player picks the permission they use (601.3): a once-each-turn one is offered
     # last, so a cast another permission also allows doesn't use it up
     out.sort(key=lambda g: g.once_key is not None)
@@ -1077,6 +1145,43 @@ def _definitions(ch: Characteristics) -> dict[int, Definition]:
     from app.rules import scripts
 
     return scripts.definitions(ch)
+
+
+def slot_choices(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[str]:
+    """-- cast permissions (wave 30Q) -- the permanent types this cast could use up (Muldrotha, "choose one as you play it"): each still-unused type the
+    spell has. More than one means the caster is asked which (the Muldrotha rulings, 2020-11-10: an artifact creature spell may be the artifact or the creature)."""
+    return sorted({g.slot for g in grants(state, player, card, ch, info, verb="cast") if g.slot and g.zone_ok and not g.free}, key=SLOT_TYPES.index)
+
+
+def ask_slot(plan: Plan, a: Any, card: CardInstance, ch: Characteristics, slots: list[str]) -> None:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    decide(plan, player=plan.actor, kind="choose_one", prompt=f"{ch.name or 'This card'}: cast it as which permanent type?",
+           options=[DecisionOption(id=t, label=t) for t in slots],
+           resume={"step": "slot", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
+
+
+def resume_slot(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game import actions as A
+    from app.rules.engine import INTENTS
+
+    intent = A.parse_action(d.resume["intent"])
+    intent.slot = chosen[0]  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
+
+
+def gain_on_entry(plan: Plan, card_id: str, controller: str, rider: dict[str, Any] | None) -> None:
+    """-- cast permissions (wave 30Q) -- "If you do, it gains "When this permanent is put into a graveyard from the battlefield, exile it and you gain 2
+    life."" (Serra Paragon): the permanent the card became has the ability for as long as it is that object (613.1f layer 6; a new object has none, 400.7)."""
+    card = plan.state.cards.get(card_id)
+    if rider and rider.get("abilities") and card is not None and card.zone.endswith(":battlefield"):
+        from app.rules import layers
+
+        layers.add_effect(plan, affected=[plan.oid(card_id)], layer="6", source=None, controller=controller, duration="permanent",
+                          add_abilities=list(rider["abilities"]), label="Gained from the cast permission")
 
 
 def consume(plan: Plan, grant: Grant | None) -> None:
@@ -1280,6 +1385,7 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             plan.note(f"{plan.name(holder)} may {verb} {card.name} {when}", [cid])
         return True
     r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone=e["zone"],
+                                    filter=e.get("filter"), once=bool(e.get("once")),  # (-- cast permissions (wave 30Q) -- "a creature spell": one spell, of that kind)
                                     exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")),  # (wave 25C)
                                     until=e["until"], turn=turn, source=ctx.get("source_object"),
                                     label=f"{ctx.get('name') or 'An effect'}: {verb} from your {e['zone']} {when}"))

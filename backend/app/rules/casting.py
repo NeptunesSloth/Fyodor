@@ -1779,7 +1779,7 @@ def from_command_zone(card: CardInstance, player: str) -> bool:
 
 
 def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None, *,
-               free: bool = False) -> permissions.Grant | None:
+               free: bool = False, slot: str | None = None) -> permissions.Grant | None:
     """How ``player`` may cast this card from where it is (601.3): from their hand, their commander
     from the command zone, flashback from their graveyard, or a permission (app/rules/permissions):
     a static ability on the table or one an effect granted. ``free``: they want to use a "without
@@ -1811,6 +1811,8 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
         ways = [g for g in found if g.zone_ok and not g.free]
         if how is not None:
             return permissions.Grant(how, flash=flash)
+    if slot is not None:  # -- cast permissions (wave 30Q) -- the permanent type the caster chose to use up (Muldrotha)
+        ways = [g for g in ways if g.slot == slot]
     if not ways:
         return None
     best = min(ways, key=lambda g: bool(g.extra))  # (a way with no extra cost to pay first: the cheaper of two permissions)
@@ -2044,6 +2046,9 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
         grant = cast_grant(state, player, card, ch, info)
+        grant_extra = costs.parse_additional_cost(grant.extra) if grant is not None and grant.extra else None
+        if grant_extra is not None and additional_problem(permissions._view(state, player, info), grant_extra, card, player):
+            continue  # -- cast permissions (wave 30Q) -- the permission's own additional cost ("by sacrificing a land") can't be paid: not offered
         if grant is not None and grant.how in ("escape", "foretell"):  # -- escape (wave 5I) -- only for an escape cost (702.138a)
             if alt_castable(state, player, card, info, check_priority=check_priority):
                 return True
@@ -2063,7 +2068,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
                 cost = M.spend_as(cost, grant.spend)
             if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
                                                                   cost_x="{X}" in ch.mana_cost),
-                       reserve=extra.life if extra is not None else 0):  # (-- hints (wave 30B) -- 119.4: the additional "pay 3 life" first)
+                       reserve=(extra.life if extra is not None else 0) + (grant_extra.life if grant_extra is not None else 0)):  # (-- hints (wave 30B) -- 119.4: the additional "pay 3 life" first)
                 return True
     return False
 
@@ -2266,7 +2271,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking)
     if problem:
         raise ActionError(problem)
-    grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free)
+    grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free, slot=a.slot)
+    if a.slot is not None and grant is None:
+        raise ActionError(f"{ch.name or 'That card'} can't be cast as a {a.slot} spell now")
+    if grant is not None and grant.slot and a.slot is None and len(left := permissions.slot_choices(plan.state, plan.actor, card, ch, plan.info)) > 1:
+        permissions.ask_slot(plan, a, card, ch, left)  # -- cast permissions (wave 30Q) -- "choose one as you cast it" (Muldrotha): asked before anything is paid
+        return
     free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
     base = M.parse_cost(ch.mana_cost)
     airbent = grant is not None and bool(grant.alt_mana)  # -- trigger other (wave 25B) -- airbend 701.65a: cast only by paying its alternative cost
@@ -2610,6 +2620,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else (702.133a, 702.180a)
     if grant is not None and grant.exile_gy and (grant.exile_gy == "all" or ch.is_instant_or_sorcery):  # -- cast from graveyard (wave 19C) -- 614.1a
         plan.rules.exile_if_graveyard.append(plan.oid(card))
+    if grant is not None and grant.enters:  # -- cast permissions (wave 30Q) -- "If you cast a spell this way, that artifact enters tapped / with a finality counter on it"
+        plan.rules.cast_enters[plan.oid(card)] = grant.enters  # (applied as it enters: engine.resolve_top; a countered spell never does, and a new object is a new id, 400.7)
     if a.x_value is not None or tags:
         info: dict[str, Any] = {"type": "set_stack_info", "card_id": card.id}
         if a.x_value is not None:

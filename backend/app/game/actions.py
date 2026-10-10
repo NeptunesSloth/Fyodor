@@ -996,6 +996,8 @@ class CastSpell(_Intent):
     # "As an additional cost to cast green permanent spells, you may pay 2 life" (Defiler of Vigor): the permanents whose
     # optional additional cost is paid (601.2b); the hints list them (``optional_costs``)
     optional_costs: list[Id] = Field(default_factory=list, max_length=10)
+    # -- cast permissions (wave 30Q) -- "each permanent type" (Muldrotha): the type of this card the cast uses up (asked when it has more than one unused)
+    slot: str | None = Field(default=None, max_length=20)
 
 
 class MiracleReveal(_Intent):

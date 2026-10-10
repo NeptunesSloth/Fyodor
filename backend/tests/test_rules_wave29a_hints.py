@@ -10,6 +10,8 @@ The proof that nothing else changed:
   in tests/wave29a_boards.py: both players' whole rules view on 15 tables built from real Oracle text (permissions from every zone, cost
   changers, alternative and optional costs, free casts, casting restrictions, layers, copies, mayhem, spell grants, hidden cards, the other
   player's turn, 3 spells on the stack) and 30 views along a turn and a half of play. The pass must give the same bytes.
+  (Wave 30Q: Muldrotha's and Lurrus's lines are read now, so the ``permissions`` board and the ``play_through`` sequence list the land and the
+  Mind Stone they allow from the graveyard; nothing else in the golden moved.)
 * the same boards with the pass switched off (the old code path, still there for every engine action) must give the same views;
 * a pass is read-only by construction: the table is the same at the end, and no value is stored in it while the table differs from its start;
 * it ends with the call (nothing survives to the next action), belongs to one thread, one table object and one card info, and a probe's copy of
