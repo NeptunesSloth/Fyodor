@@ -11,11 +11,10 @@
 
 from __future__ import annotations
 
-from app.rules import view
-
 import pytest
 
 from app.game.errors import ActionError
+from app.rules import view
 from app.rules.casting import castable, free_castable
 from tests.game_helpers import act
 from tests.test_rules_wave30h_linked_exile import card_db, put_in, settle, to_turn, zone  # noqa: F401
