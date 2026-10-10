@@ -1315,6 +1315,19 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
         plan.actor = prev
 
 
+def bottom_at_random(plan: Plan, pid: str, cards: list[str]) -> list[str]:
+    """-- review (wave 29B) -- "put … on the bottom of your library in a random order" (702.85a, 701.57a): the table's randomness, recorded in
+    the move (replay is deterministic); one move, whose log line lists the cards by name, so the order isn't readable (401.4: a face-down spell's
+    cascade puts the whole library back). Returns the order they went in (top to bottom)."""
+    import secrets
+
+    order = list(cards)
+    (plan.rng or secrets.SystemRandom()).shuffle(order)
+    for at in range(0, len(order), 250):  # (a move names at most 250 cards)
+        plan.do({"type": "move", "card_ids": order[at:at + 250], "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+    return order
+
+
 def cascade(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """702.85a: exile cards from the top of your library until a nonland card with lesser mana
     value; you may cast it without paying its mana cost; the rest go on the bottom in a random order."""
@@ -1334,10 +1347,7 @@ def cascade(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             hit = top
             break
         missed.append(top)
-    order = list(missed)
-    plan.rng.shuffle(order)
-    for cid in order:
-        plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+    order = bottom_at_random(plan, pid, missed)
     if hit is None:
         plan.note("Cascade found nothing")
         return True

@@ -62,10 +62,7 @@ def discover(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             hit = top
             break
         missed.append(top)
-    order = list(missed)
-    plan.rng.shuffle(order)  # (random order, 701.57a)
-    for cid in order:
-        plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+    effects.bottom_at_random(plan, pid, missed)  # (random order, 701.57a; review 29B: one move, its order unreadable, 401.4)
     if hit is None:
         plan.note(f"Discover {n} found nothing")
         return True
