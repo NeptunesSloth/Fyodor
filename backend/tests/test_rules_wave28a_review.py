@@ -5,6 +5,7 @@
 * A free cast the engine granted takes the face its own choice named, never one sent with the cast (a transformed Delver, 712.11a).
 * 305.2a-b: "You may play lands and cast spells from among cards exiled this way" (Gix) plays only as many lands as the player has land plays
   left, one at a time, a spell between them, with a pause for a shock land's choice (614.12a) that survives a save and a load.
+* 800.4a: a player who leaves while another chooses among their exiled cards takes those cards out of the game: the choice is asked again.
 * 107.3b: X is 0 for a spell cast without paying its mana cost (Djinn of Wishes revealing Blaze).
 """
 
@@ -135,8 +136,8 @@ def gix_ready(s, tops):
             break
         if d is None:
             act(s, s.state.rules.priority, type="pass_priority")
-        else:
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:  # (the cards to discard: X of them)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices, len(tops))])
     return list(reversed(ids))
 
 
@@ -168,6 +169,23 @@ def test_gix_plays_only_as_many_lands_as_land_plays_are_left(cards):
     assert s.state.cards[pool].zone == s.state.cards[island].zone == "p1:battlefield" and not s.state.cards[pool].tapped
     assert s.state.cards[island2].zone == "p2:exile" and s.state.cards[bolt].zone == "p2:graveyard"
     assert s.state.players["p1"].life == 38 and s.state.players["p2"].life == 37
+    check(s)
+
+
+def test_cards_of_a_player_who_left_mid_choice_cant_be_played(cards):
+    from tests.test_rules_wave22d_review import build3
+
+    s = build3(cards, NAMES)
+    put(s, "Exploration")
+    islands = gix_ready(s, ["Island", "Island"])
+    d = decision(s)
+    assert {o.card_id for o in d.options} == set(islands)
+    act(s, "p2", type="concede")  # 800.4a: Bob's cards leave the game with him; Alice is still choosing
+    d = decision(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])  # (asked again without them: nothing is left)
+    pass_until_stack_empty(s)
+    assert s.state.rules.decision is None and all(s.state.cards[i].zone == "p2:exile" for i in islands)
+    assert s.state.rules.lands_this_turn("p1", s.state.turn.number) == 0
     check(s)
 
 

@@ -1360,7 +1360,7 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     land_open = play and land_plays.open_for_effect(plan.state, pid, plan.info)  # 305.2a-b, 305.3
     for cid in pool:
         card = plan.state.cards[cid]
-        if plan.rules.card_mode(cid) == "manual" or cid in done:
+        if plan.rules.card_mode(cid) == "manual" or cid in done or not plan.in_game(card):  # (review 28A: 800.4a, its owner left)
             continue
         # (review 28A) a cast too is of one half / face, and only that one is evaluated (709.3a, 712.11c, 715.3a, 601.3e): a sorcery-only cast
         # never casts the instant half of Consecrate // Consume. "If its mana value is odd" (Yennett) tests the card (709.4b) as before, one way
@@ -1519,6 +1519,10 @@ def resume_free_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = plan.rules
     cid, _, at = chosen[0].partition("@")  # -- play now (wave 28A) -- "<card>@<face>": the face of a card with two
     face = int(at) if at else None
+    if not plan.in_game(plan.state.cards[cid]):  # (review 28A) its owner left the game while this was asked (800.4a): asked again without it
+        if free_cast(plan, ctx, e):
+            effects.continue_effects(plan, ctx)
+        return
     if e.get("play") and chars.as_cast(plan.state.cards[cid], plan.info, face).is_land:
         play_land_now(plan, ctx, e, cid, face)
         return
