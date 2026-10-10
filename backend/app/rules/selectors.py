@@ -1462,6 +1462,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             n = ref_value
         elif isinstance(n, str) and n.startswith(COUNT_STAT):  # -- control change (wave 20E) --
             n = len(candidates(plan, from_key(n[len(COUNT_STAT):]), you, source))
+        elif isinstance(n, str) and n.startswith("wx:"):  # -- review 28D -- a bound read again whenever it's checked (107.3c, 608.2b)
+            from app.rules import where_bound
+
+            now = where_bound.read_live(plan, n, you, source)
+            if now is None:
+                return False
+            n = now
         elif isinstance(n, str) and n.startswith(SOURCE_COUNTERS):  # -- counters (wave 5H) --
             have = _source_counters(plan, source, n[len(SOURCE_COUNTERS):])
             if have is None:

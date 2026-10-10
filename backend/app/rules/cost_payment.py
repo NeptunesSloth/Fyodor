@@ -72,6 +72,19 @@ def _spoken_for(plan: Plan) -> set[str]:
     return found
 
 
+def withheld(plan: Plan, comp: CostComponent, player: str, source: CardInstance) -> str:
+    """-- review 28D -- what ``_spoken_for`` leaves out, said in the prompt or refusal (never silently): sacrificing the spell's own target
+    mid-payment is legal (605.3a; the target is then illegal as it resolves, 608.2b), but this payment is replayed from its
+    announcement, so here it's offered only before paying (activate the mana ability with priority, then cast)."""
+    spoken = _spoken_for(plan)
+    held = [c for c in _candidates(plan, comp, player, source) if c in spoken] if spoken else []
+    if not held:
+        return ""
+    names = ", ".join(dict.fromkeys(plan.state.cards[c].name or "a card" for c in held))
+    return (f" — not offered: {names} (what you're paying for already uses {'it' if len(held) == 1 else 'them'}; "
+            "to use it, cancel and activate this before you start paying)")
+
+
 def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstance) -> list[str]:
     """Objects that could pay ``comp`` (one part of a cost), in a stable order."""
     spoken = _spoken_for(plan)
@@ -259,7 +272,7 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
         elif comp.selector is not None and comp.kind not in (C.COLLECT_EVIDENCE, C.WATERBEND):  # (collect evidence: _new_part_problem, wave 4H; waterbend: any number, even none)
             usable = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
             if len(usable) < objects_needed(comp, x) and not comp.up_to:  # (X / one permanent for its counters: wave 4H)
-                return f"You can't pay “{comp.text}”"
+                return f"You can't pay “{comp.text}”" + withheld(plan, comp, player, card)
     return None
 
 
@@ -310,13 +323,13 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, cost: 
             raise ActionError(f"You can't pay “{comp.text}”")  # 118.3
         elif need == 0 or (comp.up_to and not usable):  # -- review (Codex) -- X announced as 0 (107.3a): nothing to choose, and an empty pick would cancel
             chosen = []
-        elif len(usable) == need and not comp.up_to:
+        elif len(usable) == need and not comp.up_to and not withheld(plan, comp, plan.actor, card):  # (review 28D: something left out: asked, with the note)
             chosen = usable  # (no choice to make)
         else:
             verb = _VERBS.get(comp.kind, "use")
             decide(plan, player=plan.actor, kind="choose_cards",
                    prompt=f"{what}: choose {'up to ' if comp.up_to else ''}{need} to {verb} (“{comp.text}”), or "
-                          + ("none to pay without" if comp.up_to else "none to cancel"),
+                          + ("none to pay without" if comp.up_to else "none to cancel") + withheld(plan, comp, plan.actor, card),
                    options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
                    min_choices=0, max_choices=need,
                    resume={"step": "ability_cost", "component": i, "amount": None if comp.up_to else need, "empty_ok": comp.up_to,

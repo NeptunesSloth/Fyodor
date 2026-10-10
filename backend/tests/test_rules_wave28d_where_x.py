@@ -37,7 +37,7 @@ REAL = [
      "Flying, deathtouch, lifelink\nWhenever you gain life, Rodolf Duskbringer gains indestructible until end of turn.\nAt the beginning of your "
      "end step, you may pay {1}{W/B}. When you do, return target creature card with mana value X or less from your graveyard to the "
      "battlefield, where X is the amount of life you gained this turn."),
-    ("Venerable Warsinger", "{4}{W}{W}", "Creature — Human Cleric", "4", "5",
+    ("Venerable Warsinger", "{1}{R}{W}", "Creature — Spirit Cleric", "3", "3",
      "Vigilance, trample\nWhenever this creature deals combat damage to a player, you may return target creature card with mana value X or "
      "less from your graveyard to the battlefield, where X is the amount of damage this creature dealt to that player."),
     ("Astelli Reclaimer", "{3}{W}{W}", "Creature — Human Artificer", "3", "3",
@@ -46,10 +46,6 @@ REAL = [
     ("Krile Baldesion", "{2}{W}{U}", "Legendary Creature — Human Wizard", "2", "4",
      "Lifelink\nTrace Aether — Whenever you cast a noncreature spell, you may return target creature card with mana value equal to that spell's "
      "mana value from your graveyard to your hand. Do this only once each turn."),
-    ("Jodah, the Unifier", "{W}{U}{B}{R}{G}", "Legendary Creature — Human Wizard", "5", "5",
-     "Legendary creatures you control get +X/+X, where X is the number of legendary creatures you control.\nWhenever you cast a legendary spell from your "
-     "hand, exile cards from the top of your library until you exile a nonland, nonlegendary card with lesser mana value. You may cast that card without "
-     "paying its mana cost. Put the exiled cards not cast this way on the bottom of your library in a random order."),
     ("Spellstutter Sprite", "{1}{U}", "Creature — Faerie Wizard", "1", "1",
      "Flash\nFlying\nWhen this creature enters, counter target spell with mana value X or less, where X is the number of Faeries you control."),
     ("Revitalize", "{1}{W}", "Instant", None, None, "You gain 3 life. Draw a card."),
@@ -313,20 +309,20 @@ def test_venerable_warsinger_reads_the_damage_it_dealt(cards):
             break
         else:
             act(s, s.state.rules.priority, type="pass_priority")
-    # (a 4/5 deals 4 damage: mana value 4 or less, so all three)
-    assert {o.id for o in d.options} == {elves.id, bears.id, giant.id}
+    # (a 3/3 deals 3 damage: mana value 3 or less — not the Hill Giant, 4; review 28D: the card's real power)
+    assert {o.id for o in d.options} == {elves.id, bears.id}
     check(s)
-    pick(s, giant.id)
+    pick(s, bears.id)
     settle_all(s)
     for _ in range(4):
-        if s.state.cards[giant.id].zone == "p1:battlefield":
+        if s.state.cards[bears.id].zone == "p1:battlefield":
             break
         d = s.state.rules.decision
         if d is not None:
             pick(s, "yes")
         else:
             act(s, s.state.rules.priority, type="pass_priority")
-    assert s.state.cards[giant.id].zone == "p1:battlefield"
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[giant.id].zone == "p1:graveyard"
     check(s)
 
 
@@ -401,26 +397,7 @@ def test_a_bound_target_survives_a_save_and_load(cards):
     assert replay_ok.state.cards[elves.id].zone == "p1:battlefield"
 
 
-def test_jodah_reads_the_mana_value_of_the_spell_cast(cards):
-    s = build(cards, ["Jodah, the Unifier", "Krile Baldesion", "Hill Giant", "Llanowar Elves"])
-    put(s, "Jodah, the Unifier")
-    for n in ("Hill Giant", "Llanowar Elves"):  # (the top of the library: a mana value 4 card, then a mana value 1 card)
-        pass
-    act(s, "p1", type="move", card_ids=[card_named(s, "Llanowar Elves").id], to={"zone": "library"}, position="top")
-    act(s, "p1", type="move", card_ids=[card_named(s, "Hill Giant").id], to={"zone": "library"}, position="top")
-    mana(s, W=1, U=1, C=2)
-    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Krile Baldesion").id)  # (mana value 4: lesser is 3 or less: not the Hill Giant)
-    for _ in range(12):
-        d = s.state.rules.decision
-        if d is not None:
-            pick(s, "yes") if d.kind == "confirm" else pick(s, *[o.id for o in d.options][: max(1, d.min_choices)])
-        elif s.state.zones.get("stack"):
-            act(s, s.state.rules.priority, type="pass_priority")
-        else:
-            break
-    assert s.state.cards[card_named(s, "Hill Giant").id].zone == "p1:library"  # (exiled, not cast: on the bottom)
-    assert s.state.cards[card_named(s, "Llanowar Elves").id].zone in ("p1:battlefield", "p1:stack")
-    check(s)
+# (Jodah, the Unifier, with its real Oracle text — "a legendary nonland card with lesser mana value": tests/test_rules_review28d.py)
 
 
 @pytest.mark.parametrize("name,countered", [("Llanowar Elves", True), ("Hill Giant", False)])

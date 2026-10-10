@@ -1991,7 +1991,9 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
         from app.rules.casting import ask_targets
         from app.rules.scripts import target_groups
 
-        specs = target_groups(t.ability)
+        # -- review 28D -- "up to X target …, where X is …": X is the only limit (107.3c, 601.2c); the parser's 20 is the cast intents'
+        # field limit, which a trigger's choice (a decision, answered with up to 250 options) doesn't have
+        specs = [{**g, "max": 250} if "x_value" in g else g for g in target_groups(t.ability)]
         picks = picks or {"targets": [], "counts": [], "division": []}
         try:
             found = choose_groups(plan, specs, t.controller, source_of(plan, t.source_card), t.source_card,
@@ -2035,8 +2037,9 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
                                      targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")),
                                      event=t.event, x=cast_x(plan, t), **extra)  # (x: wave 4J, 107.3m)
     if targets:
-        plan.do({"type": "create_arrow", "source": ability_id, "targets": [x.id for x in targets], "kind": "target"},
-                actor=t.controller)
+        for i in range(0, len(targets), 20):  # (review 28D: an arrow points at up to 20; "up to X" may have more)
+            plan.do({"type": "create_arrow", "source": ability_id, "targets": [x.id for x in targets[i:i + 20]], "kind": "target"},
+                    actor=t.controller)
         targeted(plan, ability_id, t.controller, targets)
     return True
 
