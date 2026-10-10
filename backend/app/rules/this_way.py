@@ -19,6 +19,8 @@ What counts (CR 2026-09-25):
   replacement effect was still destroyed (701.8a moves it; the replacement only changes where it
   goes — the Oracle wording "put into a graveyard this way" exists to say the other thing).
 * "exiled": the objects that are in exile after the instruction (the new objects, 400.7j).
+* "created" (wave 30G): the tokens an instruction made, of the name it asked for (``named``: a Chatterfang's extra Squirrels aren't "this way",
+  the Ajani, Nacatl Avenger ruling) — "Create a token. When you do, …" (603.12: the reflexive ability triggers once for each).
 * "put into a/your/their graveyard" / "that died": the objects whose new object is in a graveyard
   ("your": the controller's) as the instruction finished (700.4: "dies" is battlefield → graveyard).
 * The qualifier is read from the object as it last existed where it was for a permanent ("nontoken
@@ -42,7 +44,8 @@ _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled",), "sacrificed": ("sa
           "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned",), "your_hand": ("returned",),
           "graveyard": ("destroyed", "sacrificed", "milled", "discarded"), "your_graveyard": ("milled", "discarded"),
           "died": ("destroyed", "sacrificed"), "tapped": ("tapped",),
-          "revealed": ("revealed",), "shuffled": ("shuffled",)}  # (wave 10C: reveal_hand.py)
+          "revealed": ("revealed",), "shuffled": ("shuffled",),  # (wave 10C: reveal_hand.py)
+          "created": ("created",)}  # -- reflexive this way (wave 30G) -- 603.12: "create a token. When you do, …" (the tokens it made)
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
     r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?"
@@ -250,7 +253,7 @@ def unbound(v: Any) -> bool:
 
 
 def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], you: str) -> bool:
-    if kind in ("tapped", "revealed"):  # (tap_choice binds exactly the permanents it tapped; reveal_hand: the cards it showed, which stay put)
+    if kind in ("tapped", "revealed", "created"):  # (tap_choice binds exactly the permanents it tapped; reveal_hand: the cards it showed, which stay put; create_token: the tokens it made)
         return True
     old_card = plan.state.cards.get(was["card"])
     if kind == "shuffled":  # (-- static_other sweep (wave 16B) -- a library shuffle gives its cards new ids: gone from where it was, or in a library)
@@ -329,6 +332,8 @@ def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[d
     for new, was in zip(news, wases, strict=False):
         if not _happened(plan, v["this_way"], new, was, you):
             continue
+        if v.get("named") and getattr(plan.state.cards.get(new["card"]), "name", None) != v["named"]:
+            continue  # -- reflexive this way (wave 30G) -- the tokens this instruction asked for, by name (a Chatterfang's extra Squirrels aren't)
         if v.get("by") == "you" and getattr(plan.state.cards.get(new["card"]), "owner", None) != you:
             continue  # (wave 19C: only the cards the controller discarded / milled)
         if v["this_way"] == "your_graveyard" and not (new.get("zone") or "").startswith(f"{you}:"):

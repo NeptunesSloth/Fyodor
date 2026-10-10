@@ -2204,8 +2204,7 @@ def test_you_may_exile_a_creature_and_if_you_do_it_returns_at_the_next_end_step(
     ("You may draw a card. If you don't, discard a card.", None),  # (no such "If you don't" without a payment)
     ("You may draw a card. If you do, you may discard a card.", None),  # (a second choice)
     ("You may draw a card. If you do, discard a card. You gain 1 life.", None),  # (a third sentence would be optional too)
-    ("You may draw X cards. If you do, discard a card.", None),  # (a count that could be zero)
-])
+])  # ("You may draw X cards. If you do, …": read since wave 30G — 118.12: chosen, even when the count is zero; the Champion of Wits ruling)
 def test_optional_then_if_you_do_forms_that_are_not_read(text, it):
     assert scripts.parse_effects(text, it=it) is None
 
