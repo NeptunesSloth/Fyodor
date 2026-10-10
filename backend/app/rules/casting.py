@@ -1519,7 +1519,7 @@ def _rerun(plan: Plan, d: Any, intent: Any, sources: list[str]) -> None:
 
 
 def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, exclude: tuple[str, ...] = (),
-            purpose: Purpose | None = None) -> bool:
+            purpose: Purpose | None = None, reserve: int = 0) -> bool:
     everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
     if purpose is not None and purpose.card is not None \
             and helper_kinds(purpose.spell, state, player, purpose.card, info):  # (a hint: never paid here)
@@ -1531,7 +1531,8 @@ def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, 
     try:
         _solve_with_filters(cost, dict(state.players[player].mana),
                             [s for s in everything if s.activation is None] + mana_units.unit_sources(state, player, purpose),
-                            [s for s in everything if s.activation is not None], spendable_life(state, player, info))
+                            [s for s in everything if s.activation is not None],
+                            max(0, spendable_life(state, player, info) - reserve))  # (-- hints (wave 30B) -- 119.4: less the life the spell's other costs pay, as ``_find_payment``'s ``reserve``)
     except M.ManaError:
         return False
     return True
@@ -2053,7 +2054,8 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if grant is not None and grant.spend:  # -- as long as (wave 9B) -- 118.14
             cost = M.spend_as(cost, grant.spend)
         if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
-                                                              cost_x="{X}" in ch.mana_cost)):
+                                                              cost_x="{X}" in ch.mana_cost),
+                   reserve=extra.life if extra is not None else 0):  # (-- hints (wave 30B) -- 119.4: the additional "pay 3 life" first)
             return True
     return False
 
@@ -2104,7 +2106,8 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
         cost = spell_cost(state, card, ch, info=info, player=player, alternative=offer.alt.mana_cost,
                           targets=_hint_targets(ch))  # -- review (Codex) --
         if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
-                                                              cost_x="{X}" in ch.mana_cost)):
+                                                              cost_x="{X}" in ch.mana_cost),
+                   reserve=extra.life if extra is not None else 0):  # (-- hints (wave 30B) -- 119.4)
             out.append({"id": offer.key, "label": offer.label})
     return out
 
@@ -2134,7 +2137,7 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
         except ActionError:
             continue
         if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
-                                                              cost_x="{X}" in ch.mana_cost)):
+                                                              cost_x="{X}" in ch.mana_cost), reserve=offer.life):  # (-- hints (wave 30B) -- 119.4)
             out.append({"id": offer.source, "label": offer.label})
     return out
 # -- end cost changers (wave 4I) --
