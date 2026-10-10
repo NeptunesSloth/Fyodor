@@ -21,7 +21,7 @@ from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_multitarget import respond_on
-from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
+from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave30d_falsify_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -518,4 +518,283 @@ def test_alchemists_talent_counts_only_spells_paid_with_treasure_mana(cards):
     settle(s)
     assert sum(1 for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield") == 1
     assert (life(s, "p2"), life(s, "p3")) == (36, 36), (life(s, "p2"), life(s, "p3"))  # Bolt's 3 to Bob, and the Class's 1 to each
+    check(s)
+
+
+def attack(s, *pairs, turn=None):
+    """Alice declares these attackers ((card, target) pairs) and combat runs to the second main phase unblocked."""
+    if turn:
+        to_phase(s, "declare_attackers", turn=turn)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": t} for c, t in pairs])
+    to_phase(s, "main2")
+
+
+def test_ragavan_exiles_from_the_damaged_players_library_and_a_land_cant_be_cast(cards):
+    """Ragavan, Nimble Pilferer: "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that
+    player's library. Until end of turn, you may cast that card." With three players it is the damaged player's library (Carol's, not
+    Bob's); Alice casts Carol's Lightning Bolt with the Treasure; a land (Ragavan's ruling) can't be cast, so it stays in exile."""
+    s = three(cards, ["Ragavan, Nimble Pilferer"], ["Lightning Bolt"], ["Lightning Bolt"])
+    ragavan = put(s, "Ragavan, Nimble Pilferer")
+    to_phase(s, "declare_attackers", turn=4)  # (Carol has drawn for her turn: the Bolt goes on top of her library now)
+    carol_bolt = card_named(s, "Lightning Bolt", "p3")
+    act(s, "p3", type="move", card_ids=[carol_bolt.id], to={"player": "p3", "zone": "library"}, position="top")
+    attack(s, (ragavan, "p3"))
+    assert life(s, "p3") == 38 and not names(s, "exile", "p2")
+    assert s.state.cards[carol_bolt.id].zone == "p3:exile"
+    assert sum(1 for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield") == 1
+    act(s, "p1", type="cast_spell", card_id=carol_bolt.id, targets=["p2"])
+    settle(s)
+    assert life(s, "p2") == 37 and s.state.cards[carol_bolt.id].zone == "p3:graveyard"  # (to its owner's graveyard)
+    check(s)
+
+
+def test_ragavan_with_a_land_on_top_exiles_it_and_still_makes_the_treasure(cards):
+    s = three(cards, ["Ragavan, Nimble Pilferer"])
+    ragavan = put(s, "Ragavan, Nimble Pilferer")
+    to_phase(s, "declare_attackers", turn=4)
+    top = s.state.zones["p2:library"][0]
+    assert s.state.cards[top].name == "Island"
+    attack(s, (ragavan, "p2"))
+    assert s.state.cards[top].zone == "p2:exile" and life(s, "p2") == 38
+    assert sum(1 for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield") == 1
+    with pytest.raises(ActionError):
+        act(s, "p1", type="play_land", card_id=top)  # (a land can't be played from there: Ragavan says "cast")
+    check(s)
+
+
+def test_face_breaker_makes_one_treasure_per_damage_step_not_per_creature(cards):
+    """Professional Face-Breaker: "Whenever one or more creatures you control deal combat damage to a player, create a Treasure token."
+    (603.2c) Two attackers dealing damage together to the same player make one Treasure; a first striker that deals its damage in an
+    earlier combat damage step (510.4) makes another one."""
+    s = build(cards, ["Professional Face-Breaker", "Grizzly Bears"], forests=20)
+    breaker, bears = put(s, "Professional Face-Breaker"), put(s, "Grizzly Bears")
+    swift = s.state.cards[make_token(s, "p1", "Swift Elf", "Token Creature — Elf", "2/2", "First strike")]
+
+    def treasures():
+        return sum(1 for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield")
+
+    attack(s, (breaker, "p2"), (bears, "p2"), turn=3)
+    assert life(s, "p2") < 40 and treasures() == 1, (life(s, "p2"), treasures())
+    before = life(s, "p2")
+    attack(s, (swift, "p2"), (bears, "p2"), turn=5)
+    assert before - life(s, "p2") == 4 and treasures() == 3, (life(s, "p2"), treasures())  # (the first strike step, then the regular one)
+    check(s)
+
+
+def test_lotho_counts_spells_cast_before_it_and_each_players_own_second_spell(cards):
+    """Lotho, Corrupt Shirriff: "Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token."
+    (Its ruling: spells cast before Lotho count.) Alice's first spell comes before Lotho is there; Bob's second spell then triggers it
+    (his first doesn't); Alice's second triggers it; her third and Bob's third don't."""
+    s = build(cards, ["Lotho, Corrupt Shirriff", *["Lightning Bolt"] * 3], ["Lightning Bolt"] * 3, forests=20)
+    respond_on(s)
+    bolts = [c for c in s.state.cards.values() if c.name == "Lightning Bolt"]
+    mine, theirs = [c for c in bolts if c.owner == "p1"], [c for c in bolts if c.owner == "p2"]
+    for c in mine + theirs:
+        act(s, c.owner, type="move", card_ids=[c.id], to={"zone": "hand"})
+
+    def treasures():
+        return sum(1 for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield")
+
+    def bolt(c, target):
+        mana(s, c.owner, R=1)
+        while s.state.rules.priority != c.owner:  # (the other player passes until the caster has priority)
+            act(s, s.state.rules.priority, type="pass_priority")
+        act(s, c.owner, type="cast_spell", card_id=c.id, targets=[target])
+
+    bolt(mine[0], "p2")  # Alice's first spell, before Lotho
+    put(s, "Lotho, Corrupt Shirriff")
+    bolt(theirs[0], "p2")  # Bob's first
+    assert (life(s, "p1"), treasures()) == (40, 0)
+    bolt(theirs[1], "p2")  # Bob's second: Lotho triggers
+    settle(s)
+    assert (life(s, "p1"), treasures()) == (39, 1), (life(s, "p1"), treasures())
+    bolt(mine[1], "p2")  # Alice's second
+    settle(s)
+    assert (life(s, "p1"), treasures()) == (38, 2), (life(s, "p1"), treasures())
+    bolt(mine[2], "p2")  # her third
+    bolt(theirs[2], "p2")  # Bob's third
+    settle(s)
+    assert (life(s, "p1"), treasures()) == (38, 2), (life(s, "p1"), treasures())
+    check(s)
+
+
+def test_crypt_ghast_adds_black_for_a_nonbasic_land_with_the_swamp_type(cards):
+    """Crypt Ghast: "Whenever you tap a Swamp for mana, add an additional {B}." A Swamp is any land with the subtype (205.3i, 305.6):
+    Underground Sea (Island Swamp) tapped for {B} makes {B}{B}. Alice pays {1}{B}{B} for Murder with the Sea and one Forest only."""
+    s = build(cards, ["Crypt Ghast", "Underground Sea", "Murder"], ["Grizzly Bears"], forests=20)
+    put(s, "Crypt Ghast")
+    put(s, "Underground Sea")
+    bears = put(s, "Grizzly Bears", "p2")
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"player": "p1", "zone": "battlefield"})
+    to_hand(s, "Murder")
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Murder").id, targets=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:graveyard"
+    assert s.state.cards[card_named(s, "Underground Sea").id].tapped and s.state.cards[forest.id].tapped
+    check(s)
+
+
+def test_crypt_ghast_adds_only_for_a_swamp(cards):
+    """A Forest tapped for {G} adds nothing extra; a Swamp tapped for {B} makes {B}{B} (the trigger resolves at once, 605.5a)."""
+    s = build(cards, ["Crypt Ghast", "Swamp"], forests=20)
+    put(s, "Crypt Ghast")
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1")
+    swamp = card_named(s, "Swamp")
+    for c in (forest, swamp):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="activate_ability", card_id=forest.id, ability=0)
+    assert s.state.players["p1"].mana == {"G": 1}, s.state.players["p1"].mana
+    act(s, "p1", type="activate_ability", card_id=swamp.id, ability=0)
+    assert s.state.players["p1"].mana == {"G": 1, "B": 2}, s.state.players["p1"].mana
+    check(s)
+
+
+def lands(s, pid="p1"):
+    return [c for c in s.state.zones[f"{pid}:battlefield"] if "Land" in chars(s, s.state.cards[c]).types]
+
+
+def swarm_game(cards, n_lands):
+    """Alice has Scute Swarm and ``n_lands - 1`` Forests on the battlefield, and one more Forest in hand to play."""
+    s = build(cards, ["Scute Swarm", "Lightning Bolt"], ["Lightning Bolt"], forests=20)
+    swarm = put(s, "Scute Swarm")
+    for f in [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library"][: n_lands - 1]:
+        act(s, "p1", type="move", card_ids=[f.id], to={"player": "p1", "zone": "battlefield"})
+    return s, swarm
+
+
+@pytest.mark.parametrize(("n_lands", "copies"), [(5, 0), (6, 1)])
+def test_scute_swarm_copies_itself_only_from_the_sixth_land(cards, n_lands, copies):
+    """Scute Swarm: "Landfall — … create a 1/1 green Insect creature token. If you control six or more lands, create a token that's a copy of
+    this creature instead." The land that triggered it counts (it is already on the battlefield, 603.6a): five lands in all give an Insect,
+    six a copy of the Swarm."""
+    s, swarm = swarm_game(cards, n_lands)
+    f = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone in ("p1:library", "p1:hand"))
+    act(s, "p1", type="move", card_ids=[f.id], to={"zone": "hand"})
+    act(s, "p1", type="play_land", card_id=f.id)
+    settle(s)
+    assert len(lands(s)) == n_lands
+    assert names(s, "battlefield").count("Scute Swarm") == 1 + copies and names(s, "battlefield").count("Insect") == 1 - copies, names(s, "battlefield")
+    check(s)
+
+
+def test_scute_swarm_copy_survives_the_swarm_dying_in_response(cards):
+    """The trigger doesn't need the Swarm to still be there: it copies the creature as it last existed (608.2h, 707.2), and the six
+    lands are counted as it resolves."""
+    s, swarm = swarm_game(cards, 6)
+    respond_on(s)
+    f = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone in ("p1:library", "p1:hand"))
+    act(s, "p1", type="move", card_ids=[f.id], to={"zone": "hand"})
+    act(s, "p1", type="play_land", card_id=f.id)
+    to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p2", R=1)
+    while s.state.rules.priority != "p2":
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Lightning Bolt", "p2").id, targets=[swarm.id])
+    settle(s)
+    assert s.state.cards[swarm.id].zone == "p1:graveyard"
+    assert names(s, "battlefield") .count("Scute Swarm") == 1 and "Insect" not in names(s, "battlefield"), names(s, "battlefield")
+    check(s)
+
+
+def test_plaguebearer_targets_the_creature_whose_mana_value_is_x(cards):
+    """Plaguebearer: "{X}{X}{B}: Destroy target nonblack creature with mana value X." (107.3g: X is the chosen value in the cost.) A token
+    has mana value 0 (202.3), so X = 0 destroys it but not the Bears, and X = 2 the Bears but not the token or the black Zombie."""
+    s = build(cards, ["Plaguebearer"], ["Grizzly Bears", "Dregscape Zombie"], forests=20)
+    pb = put(s, "Plaguebearer")
+    bears, zombie = put(s, "Grizzly Bears", "p2"), put(s, "Dregscape Zombie", "p2")
+    goblin = s.state.cards[make_token(s, "p2", "Goblin", "Token Creature — Goblin", "1/1")]
+    to_phase(s, "main1", turn=3)  # (no longer summoning sick)
+
+    def kill(x, target):
+        mana(s, B=1, C=2 * x)
+        act(s, "p1", type="activate_ability", card_id=pb.id, ability=0, targets=[target.id], x_value=x)
+        settle(s)
+
+    for x, target in ((0, bears), (2, goblin), (2, zombie)):
+        with pytest.raises(ActionError):
+            kill(x, target)
+        act(s, "p1", type="clear_mana", player="p1")
+    kill(0, goblin)
+    assert goblin.id not in s.state.cards or s.state.cards[goblin.id].zone != "p2:battlefield"
+    kill(2, bears)
+    assert s.state.cards[bears.id].zone == "p2:graveyard" and s.state.cards[zombie.id].zone == "p2:battlefield"
+    check(s)
+
+
+def test_greater_good_draws_the_sacrificed_creatures_last_known_power(cards):
+    """Greater Good: "Sacrifice a creature: Draw cards equal to the sacrificed creature's power, then discard three cards." The Bears were
+    pumped by Giant Growth (+3/+3 until end of turn): they die as a 5/5, and that last-known power (608.2h) is what counts."""
+    s = build(cards, ["Greater Good", "Grizzly Bears", "Giant Growth"], forests=20)
+    gg, bears = put(s, "Greater Good"), put(s, "Grizzly Bears")
+    to_hand(s, "Giant Growth")
+    mana(s, G=1)
+    cast(s, "Giant Growth", targets=[bears.id])
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="activate_ability", card_id=gg.id, ability=0)
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard"
+    assert len(s.state.zones["p1:hand"]) == hand + 5 - 3, (hand, len(s.state.zones["p1:hand"]))
+    check(s)
+
+
+@pytest.mark.parametrize(("victim", "drawn"), [("Kess, Dissident Mage", 3), ("Grizzly Bears", 2)])
+def test_nasty_end_asks_if_the_sacrificed_creature_was_legendary(cards, victim, drawn):
+    """Nasty End: "If the sacrificed creature was legendary, draw three cards instead." (608.2h: it looks at the creature as it was.)"""
+    s = build(cards, ["Nasty End", victim], forests=20)
+    put(s, victim)
+    to_hand(s, "Nasty End")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, B=1, C=1)
+    cast(s, "Nasty End")
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + drawn, (hand, len(s.state.zones["p1:hand"]))
+    check(s)
+
+
+def test_dina_gains_the_last_known_power_of_the_sacrificed_creature(cards):
+    """Dina, Soul Steeper: "{1}, Sacrifice another creature: Dina gets +X/+0 until end of turn, where X is the sacrificed creature's power."
+    The Bears are a 5/5 under Giant Growth when they are sacrificed."""
+    s = build(cards, ["Dina, Soul Steeper", "Grizzly Bears", "Giant Growth"], forests=20)
+    dina, bears = put(s, "Dina, Soul Steeper"), put(s, "Grizzly Bears")
+    base = pt(s, "Dina, Soul Steeper")[0]
+    to_hand(s, "Giant Growth")
+    mana(s, G=1)
+    cast(s, "Giant Growth", targets=[bears.id])
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=dina.id, ability=1)
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard"
+    assert pt(s, "Dina, Soul Steeper")[0] == base + 5, (base, pt(s, "Dina, Soul Steeper"))
+    check(s)
+
+
+def test_metamorph_copy_of_a_walker_enters_with_no_counters_and_dies_without_thopters(cards):
+    """Phyrexian Metamorph copying Hangarback Walker (3 counters on it): "enters with X +1/+1 counters" — X is 0 for a permanent that wasn't
+    cast with an X (107.3f), and counters aren't copiable values (707.2), so the copy is a 0/0 artifact creature that dies (704.5f); its
+    "create a Thopter for each +1/+1 counter on this creature" counts the zero it last had. {U/P} paid with 2 life (107.4f)."""
+    s = build(cards, ["Phyrexian Metamorph", "Hangarback Walker"], forests=20)
+    walker = put(s, "Hangarback Walker")
+    act(s, "p1", type="counter", card_ids=[walker.id], kind="+1/+1", delta=3)
+    to_hand(s, "Phyrexian Metamorph")
+    mana(s, C=3)
+    cast(s, "Phyrexian Metamorph", prefer=("Hangarback Walker", "yes"))
+    assert life(s) == 38, life(s)
+    meta = card_named(s, "Phyrexian Metamorph")
+    assert meta.zone == "p1:graveyard", meta.zone
+    assert names(s, "battlefield").count("Thopter") == 0 and s.state.cards[walker.id].counters == {"+1/+1": 3}
+    check(s)
+
+
+def test_metamorph_copy_is_an_artifact_in_addition_and_sees_an_opponents_creature(cards):
+    """Metamorph "may have this creature enter as a copy of any artifact or creature on the battlefield": Bob's Bears (a creature of
+    another player), "except it's an artifact in addition to its other types" (707.9b): an artifact creature named Grizzly Bears."""
+    s = build(cards, ["Phyrexian Metamorph"], ["Grizzly Bears"], forests=20)
+    put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Phyrexian Metamorph")
+    mana(s, U=1, C=3)
+    cast(s, "Phyrexian Metamorph", prefer=("Grizzly Bears", "yes"))
+    meta = card_named(s, "Phyrexian Metamorph")
+    ch = chars(s, meta)
+    assert meta.zone == "p1:battlefield" and ch.name == "Grizzly Bears" and {"Artifact", "Creature"} <= set(ch.types), (meta.zone, ch.name, ch.types)
+    assert life(s) == 40  # (paid with {U})
     check(s)
