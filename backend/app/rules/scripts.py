@@ -3909,6 +3909,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return granted
     if ability.kind == "triggered":
         text = re.sub(r"^((?:When|Whenever) [^,]+?) while this card is in your graveyard, ", r"\1, if this card is in your graveyard, ", text)  # (wave 19C)
+        # -- this-turn history (wave 30R) -- "Whenever a creature an opponent controls dies, if ~ dealt damage to it this turn, …" (Hawkeye) is
+        # "Whenever a creature an opponent controls dealt damage by ~ this turn dies, …" (events: damaged_by_self): a fact of the past (120.3),
+        # as true when the ability resolves as when it triggers (603.4)
+        text = re.sub(r"^Whenever (an? [^,]+?) dies, if ~ dealt damage to it this turn, ", r"Whenever \1 dealt damage by ~ this turn dies, ", text)
         # -- counters sweep (wave 19D) -- "At the beginning of your upkeep and whenever you cast a white spell, …" (the Shrines): the same
         # two conditions as "Whenever you cast a white spell and at the beginning of your upkeep, …" (603.2: it triggers on each)
         text = re.sub(r"^At the beginning of your (upkeep|end step) and (?:when|whenever) ([^,]+), (.+)$",
@@ -5196,8 +5200,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
                     return None
                 each_text = re.sub(r" and (?:an?|one) \S+ counters? on it for each ", " and each ", each_text)
             each = _for_each(each_text)
-            if each is None and re.fullmatch(r"(?:nontoken )?creature that died this turn", m["each"]):
-                # -- counters (wave 7C) -- this turn's history (wave 4D), read as it enters
+            if each is None and re.fullmatch(r"(?:nontoken )?creature that died(?: under your control)? this turn", m["each"]):
+                # -- counters (wave 7C) -- this turn's history (wave 4D), read as it enters (wave 30R: "under your control", Callous Sell-Sword)
                 from app.rules import values
 
                 each = values.parse_count("the number of " + m["each"].replace("creature", "creatures", 1))

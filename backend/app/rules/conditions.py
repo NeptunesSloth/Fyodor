@@ -624,7 +624,7 @@ def _left(m: re.Match[str]) -> Condition:
     return {"history": "left", "who": "you"}  # revolt (700.4: leaves the battlefield = moves to another zone)
 
 
-@_history_pattern(r"you(?:'ve)? gained (?:life|(?P<n>\w+) or more life) this turn")
+@_history_pattern(r"(?:you(?:'ve)?|your team) gained (?:life|(?P<n>\w+) or more life) this turn")  # (wave 30R: 102.4, outside a team game "your team" is you)
 def _gained(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"]) if m["n"] else 1
     return None if n is None else {"history": "gained", "n": n}
@@ -930,18 +930,25 @@ def _entered_opponent(m: re.Match[str]) -> Condition | None:
     return None if found is None or found.get("other") else {**found, "who": "opponent"}
 
 
-@_history_pattern(rf"{_Q} (?P<sel>.+?) (?P<verb>died|left the battlefield|(?:was|were) put into (?P<gy>a|your) graveyard from the battlefield)"
+# (-- this-turn history (wave 30R) -- "a nontoken creature you controlled died", "a creature an opponent controlled died", "a permanent was put
+# into your hand from the battlefield" (Barrin): who controlled it as it left, and the zone it went to, both recorded as it left (Departure))
+@_history_pattern(rf"{_Q} (?P<sel>.+?)(?P<ctl> you controlled| an opponent controlled)? "
+                  r"(?P<verb>died|left the battlefield|(?:was|were) put into (?P<gy>a|your) (?P<dest>graveyard|hand) from the battlefield)"
                   r"(?P<whose> under your control| under an opponent's control)? this turn")
 def _departed(m: re.Match[str]) -> Condition | None:
     q = _q(m["q"])
     sel = m["sel"]
     key = _history_sel(sel, "battlefield")
-    if q is None or key is None:
+    if q is None or key is None or (m["ctl"] and m["whose"]):
         return None
     out: Condition = {"history": "departed", "sel": key, "n": q[0], "op": q[1],
-                      "died": not m["verb"].startswith("left")}  # 700.4: dies = put into a graveyard from the battlefield
-    if m["whose"]:
-        out["who"] = "you" if "your" in m["whose"] else "opponent"
+                      "died": not m["verb"].startswith("left") and m["dest"] != "hand"}  # 700.4: dies = put into a graveyard from the battlefield
+    if m["dest"] == "hand":
+        out["to"] = "hand"  # (400.3: a permanent goes to its owner's hand — "your hand" is read as its owner's)
+        if m["gy"] != "your":
+            return None
+    if side := m["whose"] or m["ctl"]:
+        out["who"] = "opponent" if "opponent" in side else "you"
     if m["q"] == "another":
         out["other"] = True
     if m["gy"] == "your":
