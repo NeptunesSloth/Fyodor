@@ -1906,6 +1906,17 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind not in ("target", "self", "host", "it"):
             raise _Fail
         return [{"do": "remove_counters", "who": _who(kind, key), "kind": "*", "n": 10**6}], _one(group)
+    # -- counter removal (wave 30L) -- "Remove up to three counters from target permanent." (Glissa Sunslayer, Heartless Act, Render
+    # Inert, Mabel), "Remove a counter from target permanent." (Thrull Parasite, Medicine Runner, Ferropede), "Remove X counters from …,
+    # where X is …" (Thornmantle Striker), "Remove up to four charge counters from …" (Gremlin Mine): no kind named, or "up to": the
+    # controller chooses the kinds and numbers (608.2d, 609.3: counter_kinds.remove_any). A player's counters aren't read here.
+    m = re.fullmatch(rf"remove (?:(?P<up>up to) )?(?P<n>{AMT}) (?:(?P<k>[+-]\d+/[+-]\d+|[a-z]+) )?counters? from (?P<o>.+)", text)
+    if m and (m["up"] or not m["k"]):
+        kind, key, group = ref(m["o"])
+        if kind not in ("target", "self") or re.search(r"\b(?:players?|opponents?)\b", m["o"]) or (rider is not None and rider[0] != "x"):
+            raise _Fail
+        return [{"do": "remove_any_counters", "who": _who(kind, key), "n": _apply(_amount(m["n"]), rider), "upto": bool(m["up"]),
+                 **({"kind": m["k"]} if m["k"] else {})}], _one(group)
     m = re.fullmatch(rf"remove (?P<n>{AMT}|all) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
         kind, key, group = ref(m["o"])
@@ -3151,7 +3162,7 @@ _RA_UNDER = r"(?: under (?P<u>your|its owner's|their owner's|their owners') cont
 _RA_WITH = (r"(?: with (?:(?:an?|one) (?P<add1>additional )?(?P<ck>[+-]\d+/[+-]\d+|[a-z]+) counter|"
             # -- recursion & tutors (wave 4M) -- "… with two additional +1/+1 counters on it" (Rakdos Joins Up): they
             # enter with them (122.6; "additional": besides any it would enter with, 614.1c)
-            r"(?P<cn>two|three|four|five) (?P<add2>additional )?(?P<ck2>\+1/\+1|-1/-1) counters) on it)?")
+            r"(?P<cn>two|three|four|five) (?P<add2>additional )?(?P<ck2>\+1/\+1|-1/-1) counters) on (?:it|him|her|~))?")  # (wave 30L: a named card's "on him" / "on her" (scripts._self_pronouns writes "~"): Winter Soldier, Gallia)
 # "… attached to this creature / that creature" (303.4f, 303.4i, 301.5e): app/rules/effects._return_cards
 # -- attached events (wave 25D) -- also "attached to enchanted creature" (Mantle of the Ancients) and "attached to target creature [you control]"
 # (Gryff's Boon: a target of the ability, chosen with it, 115.1)

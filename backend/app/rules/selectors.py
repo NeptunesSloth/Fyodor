@@ -585,9 +585,16 @@ def _with_counters(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"counter:{m['c'] or COUNTER_ANY}"))
 
 
-@_suffix(r"(?:with no |without (?:an? |any )?)" + _CK + r"counters? on (?:it|them)")
-def _without_counters(s: Selector, m: re.Match[str]) -> Selector:
+@_suffix(r"(?:with no |without (?:an? |any )?|(?:that )?(?:doesn't|don't|does not|do not) have (?:an? |any )?)" + _CK + r"counters? on (?:it|them)")
+def _without_counters(s: Selector, m: re.Match[str]) -> Selector:  # (wave 30L: "that doesn't have a +1/+1 counter on it", Coiling Stalker)
     return replace(s, extras=(*s.extras, f"nocounter:{m['c'] or COUNTER_ANY}"))
+
+
+# -- counter counts (wave 30L) -- "creatures you control with three or more +1/+1 counters on them" (Runadi), "a creature with three or
+# more level counters on it" (Champion's Drake): how many counters of a kind it has (122.1)
+@_suffix(r"with (?P<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten) or more (?P<c>\+1/\+1|-1/-1|[a-z]+) counters on (?:it|them)")
+def _with_n_counters(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"counter:{m['c']}>={_n(m['n'])}"))
 
 
 COUNTER_ANY = "*"
@@ -683,9 +690,8 @@ def _entered_now(plan: Plan, card: CardInstance, you: str | None) -> bool:
 
 
 def _has_counter(card: CardInstance, kind: str) -> bool:
-    if kind == COUNTER_ANY:
-        return any(v > 0 for v in card.counters.values())
-    return card.counters.get(kind, 0) > 0
+    kind, _, need = kind.partition(">=")  # (wave 30L: "with three or more level counters on it")
+    return (sum(card.counters.values()) if kind == COUNTER_ANY else card.counters.get(kind, 0)) >= int(need or 1)
 # -- end counters (wave 5H) --
 
 

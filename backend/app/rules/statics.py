@@ -1046,7 +1046,7 @@ def _condition(text: str) -> dict[str, Any] | None:
     if m:  # -- keyword mechanics (wave 9D) -- 711.2a: a leveler's level symbol with a range
         return {"static": "self_counter", "counter": "level", "op": ">=", "n": int(m["n"]), "max": int(m["m"])}
     m = re.fullmatch(r"(?:it|~) has (?:(?P<one>a|an)|(?P<n>\w+) or more) "  # (wave 4B: "+1/+1 counters", "on him")
-                     r"(?P<kind>(?:\+1/\+1|-1/-1|[a-z]+) )?counters? on (?:it|him|her)", c)
+                     r"(?P<kind>(?:\+1/\+1|-1/-1|[a-z]+) )?counters? on (?:it|him|her|~)", c)  # (wave 30L: self_text writes "on him" as "on ~", Zhao)
     if m:
         n = 1 if m["one"] else _num(m["n"] or "")
         if n is None:
@@ -1063,7 +1063,7 @@ def _condition(text: str) -> dict[str, Any] | None:
     if m:
         n = _num(m["n"])
         return {"static": "graveyard", "op": "<", "n": n} if n is not None else None
-    m = re.fullmatch(r"(?:it|~) has (?P<n>\w+) or fewer (?P<kind>[a-z]+) counters on (?:it|him|her)", c)
+    m = re.fullmatch(r"(?:it|~) has (?P<n>\w+) or fewer (?P<kind>[a-z]+) counters on (?:it|him|her|~)", c)
     if m and _num(m["n"]) is not None:
         return {"static": "self_counter", "counter": m["kind"], "op": ">=", "n": 0, "max": _num(m["n"])}  # (the "max" of wave 9D)
     from app.rules import static_conditions  # -- conditional statics (wave 4B) --

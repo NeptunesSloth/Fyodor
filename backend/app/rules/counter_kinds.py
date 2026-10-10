@@ -134,48 +134,64 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 # -- "any number of counters" (Rhys, the Evermore; counter_moves.py for the move wordings) -----------------------------------------
-def ask_amounts(plan: Plan, ctx: Context, e: dict[str, Any], have: dict[str, int], then: dict[str, Any]) -> None:
-    """How many of each kind (0 to all of them), kind by kind in order (608.2d); ``then`` says what happens with the totals."""
-    _ask_amount(plan, ctx, e, have, {}, then)
+def ask_amounts(plan: Plan, ctx: Context, e: dict[str, Any], have: dict[str, int], then: dict[str, Any]) -> bool:
+    """How many of each kind (0 to all of them), kind by kind in order (608.2d); ``then`` says what happens with the totals.
+    -- counter removal (wave 30L) -- ``then["cap"]``: at most that many in all ("up to three counters"), ``then["need"]``: at least that
+    many (609.3: "remove two counters" removes as many as there are, up to two); a kind whose number is forced isn't asked. True: nothing
+    had to be asked and it is carried out."""
+    return _ask_amount(plan, ctx, e, have, {}, then)
 
 
-def _ask_amount(plan: Plan, ctx: Context, e: dict[str, Any], have: dict[str, int], got: dict[str, int], then: dict[str, Any]) -> None:
-    kind = next(k for k in have if k not in got)
-    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Choose'}: how many {kind} counters?",
-           options=[DecisionOption(id=str(i), label=str(i)) for i in range(have[kind] + 1)],
-           resume={"step": AMOUNTS, "ctx": ctx, "e": e, "have": have, "got": got, "kind": kind, "then": then},
-           source=plan.state.cards.get(ctx.get("source_card") or ""))
+def _bounds(have: dict[str, int], got: dict[str, int], kind: str, then: dict[str, Any]) -> tuple[int, int]:
+    taken = sum(got.values())
+    cap = then.get("cap")
+    rest = sum(n for k, n in have.items() if k not in got and k != kind)
+    return max(0, then.get("need", 0) - taken - rest), have[kind] if cap is None else min(have[kind], cap - taken)
+
+
+def _ask_amount(plan: Plan, ctx: Context, e: dict[str, Any], have: dict[str, int], got: dict[str, int], then: dict[str, Any]) -> bool:
+    while len(got) < len(have):
+        kind = next(k for k in have if k not in got)
+        lo, hi = _bounds(have, got, kind, then)
+        if lo < hi:
+            decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Choose'}: how many {kind} counters?",
+                   options=[DecisionOption(id=str(i), label=str(i)) for i in range(lo, hi + 1)],
+                   resume={"step": AMOUNTS, "ctx": ctx, "e": e, "have": have, "got": got, "kind": kind, "then": then},
+                   source=plan.state.cards.get(ctx.get("source_card") or ""))
+            return False
+        got = {**got, kind: lo}
+    amounts = {k: n for k, n in got.items() if n > 0}
+    plan.note(f"{plan.name(ctx['controller'])} chooses " + (", ".join(f"{n} {k}" for k, n in amounts.items()) or "none"), actor=ctx["controller"])
+    if then["do"] == "move":
+        from app.rules import counter_moves
+
+        return counter_moves.finish(plan, ctx, e, then["from"], then["to"], amounts)
+    for obj in then["from"]:  # removing isn't a put (122.6 is about putting), it passes straight through
+        for k, n in amounts.items():
+            if obj in plan.state.cards and plan.state.cards[obj].counters.get(k, 0) > 0:
+                plan.do({"type": "counter", "card_ids": [obj], "kind": k, "delta": -min(n, plan.state.cards[obj].counters[k])},
+                        actor=ctx["controller"])
+    return True
 
 
 def resume_amount(plan: Plan, d: Any, chosen: list[str]) -> None:
-    from app.rules import counter_moves, effects
+    from app.rules import effects
 
     r = d.resume
     ctx, e, have = r["ctx"], r["e"], r["have"]
-    if len(chosen) != 1 or not chosen[0].isdigit() or int(chosen[0]) > have[r["kind"]]:
+    lo, hi = _bounds(have, r["got"], r["kind"], r["then"])
+    if len(chosen) != 1 or not chosen[0].isdigit() or not lo <= int(chosen[0]) <= hi:
         raise ActionError("Choose a number")
-    got = {**r["got"], r["kind"]: int(chosen[0])}
-    if len(got) < len(have):
-        _ask_amount(plan, ctx, e, have, got, r["then"])
-        return
-    amounts = {k: n for k, n in got.items() if n > 0}
-    plan.note(f"{plan.name(d.player)} chooses " + (", ".join(f"{n} {k}" for k, n in amounts.items()) or "none"), actor=d.player)
-    if r["then"]["do"] == "move":
-        done = counter_moves.finish(plan, ctx, e, r["then"]["from"], r["then"]["to"], amounts)
-    else:
-        for obj in r["then"]["from"]:
-            for k, n in amounts.items():
-                if obj in plan.state.cards and plan.state.cards[obj].counters.get(k, 0) > 0:
-                    plan.do({"type": "counter", "card_ids": [obj], "kind": k, "delta": -min(n, plan.state.cards[obj].counters[k])},
-                            actor=d.player)
-        done = True
-    if done:
+    if _ask_amount(plan, ctx, e, have, {**r["got"], r["kind"]: int(chosen[0])}, r["then"]):
         effects.continue_effects(plan, ctx)
 
 
 def remove_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Remove any number of counters from target creature you control." (122.8: as many as it has; the controller chooses how many of
-    each kind)."""
+    each kind). -- counter removal (wave 30L) -- "Remove up to three counters from target permanent." (Glissa Sunslayer, Heartless Act),
+    "Remove a counter from target permanent." (Thrull Parasite), "Remove X counters from …, where X is …" (Thornmantle Striker), "Remove up
+    to four charge counters from …" (Gremlin Mine): ``n`` counters (``upto``: from none to that many, else as many as there are up to that
+    many, 609.3), the controller choosing the kinds (608.2d); ``kind``: only counters of that kind."""
     from app.rules import effects
 
     cards = effects._cards(plan, ctx, e["who"])
@@ -183,11 +199,12 @@ def remove_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     have: dict[str, int] = {}
     for c in cards:
         for k, v in _counters(plan, c).items():
-            have[k] = have.get(k, 0) + v
-    if not have:
+            if not e.get("kind") or k == e["kind"]:
+                have[k] = have.get(k, 0) + v
+    cap = sum(have.values()) if "n" not in e else min(sum(have.values()), max(0, effects._amount(plan, ctx, e["n"])))
+    if not cap:
         return True
-    ask_amounts(plan, ctx, e, have, {"do": "remove", "from": cards})
-    return False
+    return ask_amounts(plan, ctx, e, have, {"do": "remove", "from": cards, "cap": cap, "need": 0 if e.get("upto") or "n" not in e else cap})
 
 
 PRIMITIVES = {"counter_kinds": kinds, "remove_any_counters": remove_any}

@@ -1,0 +1,370 @@
+[
+ {
+  "name": "Heartless Act",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose one —\n• Destroy target creature with no counters on it.\n• Remove up to three counters from target creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Thornmantle Striker",
+  "layout": "normal",
+  "mana_cost": "{4}{B}",
+  "cmc": 5.0,
+  "type_line": "Creature — Elf Rogue",
+  "oracle_text": "When this creature enters, choose one —\n• Remove X counters from target permanent, where X is the number of Elves you control.\n• Target creature an opponent controls gets -X/-X until end of turn, where X is the number of Elves you control.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Medicine Runner",
+  "layout": "normal",
+  "mana_cost": "{1}{G/W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Elf Cleric",
+  "oracle_text": "When this creature enters, you may remove a counter from target permanent.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Ayara's Oathsworn",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Knight",
+  "oracle_text": "Menace\nWhenever this creature deals combat damage to a player, if it has fewer than four +1/+1 counters on it, put a +1/+1 counter on it. Then if it has exactly four +1/+1 counters on it, search your library for a card, put it into your hand, then shuffle.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Urdnan, Dromoka Warrior",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Warrior",
+  "oracle_text": "When Urdnan enters, put a +1/+1 counter on target creature.\nWhenever you attack, target attacking creature with a +1/+1 counter on it gains first strike until end of turn. If that creature has two or more +1/+1 counters on it, it gains double strike until end of turn instead.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Zhao, the Moon Slayer",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Soldier",
+  "oracle_text": "Menace\nNonbasic lands enter tapped.\n{7}: Put a conqueror counter on Zhao.\nAs long as Zhao has a conqueror counter on him, nonbasic lands are Mountains. (They lose all other land types and abilities and have \"{T}: Add {R}.\")",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Champion's Drake",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Drake",
+  "oracle_text": "Flying\nThis creature gets +3/+3 as long as you control a creature with three or more level counters on it.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Gallia, Tragic Host",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Zombie Satyr",
+  "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\n{4}{B}, Exile another creature card from your graveyard: Return this card from your graveyard to the battlefield tapped with a +1/+1 counter on her.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Solemnity",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Doubling Season",
+  "layout": "normal",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Glissa Sunslayer",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Phyrexian Zombie Elf",
+  "oracle_text": "First strike, deathtouch\nWhenever Glissa Sunslayer deals combat damage to a player, choose one —\n• You draw a card and lose 1 life.\n• Destroy target enchantment.\n• Remove up to three counters from target permanent.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "First strike",
+   "Deathtouch"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Mabel, Bitter Recluse",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Legendary Creature — Mouse Warlock",
+  "oracle_text": "Deathtouch\nWhen Mabel enters, remove up to three counters from another target creature or planeswalker.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Deathtouch"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Homarid",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Homarid",
+  "oracle_text": "This creature enters with a tide counter on it.\nAt the beginning of your upkeep, put a tide counter on this creature.\nAs long as there is exactly one tide counter on this creature, it gets -1/-1.\nAs long as there are exactly three tide counters on this creature, it gets +1/+1.\nWhenever there are four or more tide counters on this creature, remove all tide counters from it.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Hadana's Climb // Winged Temple of Orazca",
+  "layout": "transform",
+  "mana_cost": "{1}{G}{U} // ",
+  "cmc": 3.0,
+  "type_line": "Legendary Enchantment // Legendary Land",
+  "oracle_text": "At the beginning of combat on your turn, put a +1/+1 counter on target creature you control. Then if that creature has three or more +1/+1 counters on it, transform Hadana's Climb.\n//\n(Transforms from Hadana's Climb.)\n{T}: Add one mana of any color.\n{1}{G}{U}, {T}: Target creature you control gains flying and gets +X/+X until end of turn, where X is its power.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Hadana's Climb",
+    "mana_cost": "{1}{G}{U}",
+    "type_line": "Legendary Enchantment",
+    "oracle_text": "At the beginning of combat on your turn, put a +1/+1 counter on target creature you control. Then if that creature has three or more +1/+1 counters on it, transform Hadana's Climb.",
+    "colors": [
+     "G",
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/8/e/8e7554bc-8583-4059-8895-c3845bc27ae3.jpg?1783935281",
+     "normal": "https://cards.scryfall.io/normal/front/8/e/8e7554bc-8583-4059-8895-c3845bc27ae3.jpg?1783935281",
+     "large": "https://cards.scryfall.io/large/front/8/e/8e7554bc-8583-4059-8895-c3845bc27ae3.jpg?1783935281",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/8/e/8e7554bc-8583-4059-8895-c3845bc27ae3.jpg?1783935281"
+    }
+   },
+   {
+    "name": "Winged Temple of Orazca",
+    "mana_cost": "",
+    "type_line": "Legendary Land",
+    "oracle_text": "(Transforms from Hadana's Climb.)\n{T}: Add one mana of any color.\n{1}{G}{U}, {T}: Target creature you control gains flying and gets +X/+X until end of turn, where X is its power.",
+    "colors": [],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/8/e/8e7554bc-8583-4059-8895-c3845bc27ae3.jpg?1783935281",
+     "normal": "https://cards.scryfall.io/normal/back/8/e/8e7554bc-8583-4059-8895-c3845bc27ae3.jpg?1783935281",
+     "large": "https://cards.scryfall.io/large/back/8/e/8e7554bc-8583-4059-8895-c3845bc27ae3.jpg?1783935281",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/8/e/8e7554bc-8583-4059-8895-c3845bc27ae3.jpg?1783935281"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Pipsqueak, Rebel Strongarm",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Rebel Ally",
+  "oracle_text": "Pipsqueak can't attack alone unless he has a +1/+1 counter on him.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Backstreet Bruiser",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Octopus Rogue",
+  "oracle_text": "Defender\nAs long as there are two or more counters among creatures you control, this creature can attack as though it didn't have defender.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Thrull Parasite",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Creature — Thrull",
+  "oracle_text": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\n{T}, Pay 2 life: Remove a counter from target nonland permanent.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Extort"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Gremlin Mine",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact",
+  "oracle_text": "{1}, {T}, Sacrifice this artifact: It deals 4 damage to target artifact creature.\n{1}, {T}, Sacrifice this artifact: Remove up to four charge counters from target noncreature artifact.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Lightning Serpent",
+  "layout": "normal",
+  "mana_cost": "{X}{R}",
+  "cmc": 1.0,
+  "type_line": "Creature — Elemental Serpent",
+  "oracle_text": "Trample, haste\nThis creature enters with X +1/+0 counters on it.\nAt the beginning of the end step, sacrifice this creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Haste",
+   "Trample"
+  ],
+  "power": "2",
+  "toughness": "1"
+ }
+]
