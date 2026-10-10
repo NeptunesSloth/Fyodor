@@ -16,6 +16,7 @@ import pytest
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
+from app.game.errors import ActionError
 from app.game.visibility import SPECTATOR
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
@@ -795,5 +796,5 @@ def test_a_hideaway_land_is_not_playable_from_exile_by_the_ordinary_land_play(ca
     s, isle, tower = tower_scene(cards, drop_left=True)
     hints = s.view("p1")["rules"]["hints"]
     assert tower.id not in hints.get("playable_lands", []) and tower.id not in hints.get("castable", [])  # 406.3a, 305.1: only the ability lets her
-    with pytest.raises(Exception):  # noqa: B017
+    with pytest.raises(ActionError):
         act(s, "p1", type="play_land", card_id=tower.id)

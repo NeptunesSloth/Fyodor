@@ -1047,6 +1047,7 @@ def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.Ma
             plan.do({"type": "rules_damage", "creatures": {}, "players": {who: _replace_rider.damage_loss(plan, who, n, actor=who)},
                      "planeswalkers": {}, "lifelink": {}, "combat": False,
                      "dealt": [{"source": plan.oid(card.id), "target": who, "amount": n}]}, actor=who)
+            r.damaged[who] = plan.state.turn.number  # (-- can't lose life (wave 29D) -- 120.3a: dealt damage, whether or not it made them lose life: bloodthirst)
         elif kind == "draw":  # (review 28B: through the draw choke point like any other draw — a mana ability can't pause: then=None)
             _replace_rider.draw_cards(plan, [who], n)
         else:  # -- mana riders (wave 5A) -- "You gain 2 life.", "Each opponent gains 1 life."
@@ -1997,6 +1998,10 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
             if alt_castable(state, player, card, info, check_priority=check_priority):
                 return True
             continue
+        if grant is not None and grant.how == "flashback" and not manual and card.zone == zone_key(player, "graveyard") \
+                and (fb_more := flashback_extra(ch)) is not None \
+                and additional_problem(permissions._view(state, player, info), fb_more, card, player):
+            continue  # -- can't lose life (wave 29D) -- the flashback cost's other parts ("Pay 3 life") can't be paid (118.3, 119.4b): not offered, as the cast refuses
         cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free,
                           alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None,  # (wave 25B: airbend)
                           targets=_hint_targets(ch))  # -- review (Codex) --

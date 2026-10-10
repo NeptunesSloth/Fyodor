@@ -64,19 +64,16 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_EFFECT, _template)]
 
 # "Until end of turn, your life total can't change, and permanents you control gain hexproof and indestructible." is two instructions with one
 # duration (608.2c); "… your life total can't change and you gain protection from everything." likewise (the shield's own wording ends with
-# the duration: player_shields). "If the gift was promised, all permanents you control phase out, and until your next turn, your life total can't
-# change and you gain protection from everything." (Perch Protection): one condition over three instructions.
+# the duration: player_shields). (Perch Protection's "If the gift was promised, … and until your next turn, your life total can't change and you
+# gain protection from everything." stays unread: its gift of an extra turn, 702.174g, is manual — app/rules/gift.py.)
 _AND = re.compile(r"(?P<d>Until end of turn|Until your next turn), your life total can't change, and (?P<rest>[^.]+?)\.")
 _SHIELD = re.compile(r"Until your next turn, your life total can't change and you gain protection from everything\.")
-_PROMISED = re.compile(r"(?P<if>If the gift was promised), (?P<a>[^.,]+?), and until your next turn, your life total can't change and you gain "
-                       r"protection from everything\.")
 
 
 def rewrite(body: str) -> str:
     body = _AND.sub(lambda m: f"{m['d']}, your life total can't change. {m['d']}, {m['rest']}.", body)
     body = _SHIELD.sub("Until your next turn, your life total can't change. You gain protection from everything until your next turn.", body)
-    return _PROMISED.sub(lambda m: f"{m['if']}, {m['a']}. {m['if']}, until your next turn, your life total can't change. "
-                                   f"{m['if']}, you gain protection from everything until your next turn.", body)
+    return body
 
 
 # -- effects ---------------------------------------------------------------------------------------

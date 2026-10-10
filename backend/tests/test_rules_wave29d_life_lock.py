@@ -44,12 +44,17 @@ REAL = [
     card('Perch Protection', set_code='t29e', number='D17', mana_cost='{4}{W}{W}', cmc=6.0, type_line='Instant', colors=['W'], color_identity=['W'], keywords=['Gift'], oracle_text="Gift an extra turn (You may promise an opponent a gift as you cast this spell. If you do, they take an extra turn after this one.)\nCreate four 2/2 blue Bird creature tokens with flying. If the gift was promised, all permanents you control phase out, and until your next turn, your life total can't change and you gain protection from everything.\nExile Perch Protection."),
     card('Sedgemoor Witch', set_code='t29e', number='D18', mana_cost='{2}{B}', cmc=3.0, type_line='Creature — Human Warlock', power='3', toughness='2', colors=['B'], color_identity=['B'], keywords=['Magecraft', 'Menace', 'Ward'], oracle_text='Menace\nWard—Pay 3 life. (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays 3 life.)\nMagecraft — Whenever you cast or copy an instant or sorcery spell, create a 1/1 black and green Pest creature token with "When this token dies, you gain 1 life."'),
     card('Polluted Delta', set_code='t29e', number='D19', type_line='Land', colors=[], color_identity=[], oracle_text='{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.'),
+    card('Adarkar Wastes', set_code='t29e', number='D20', type_line='Land', colors=[], color_identity=['U', 'W'], oracle_text='{T}: Add {C}.\n{T}: Add {W} or {U}. This land deals 1 damage to you.'),
+    card('Necrodominance', set_code='t29e', number='D21', mana_cost='{B}{B}{B}', cmc=3.0, type_line='Legendary Enchantment', colors=['B'], color_identity=['B'], oracle_text='Skip your draw step.\nAt the beginning of your end step, you may pay any amount of life. If you do, draw that many cards.\nYour maximum hand size is five.\nIf a card or token would be put into your graveyard from anywhere, exile it instead.'),
+    card('White Probe', set_code='t29e', number='E1', mana_cost='{W}', cmc=1.0, type_line='Creature — Soldier', colors=['W'], color_identity=['W'], power='1', toughness='1', oracle_text=''),
+    card('Deep Analysis', set_code='t29e', number='D22', mana_cost='{3}{U}', cmc=4.0, type_line='Sorcery', colors=['U'], color_identity=['U'], keywords=['Flashback'], oracle_text='Target player draws two cards.\nFlashback—{1}{U}, Pay 3 life. (You may cast this card from your graveyard for its flashback cost. Then exile it.)'),
+    card('Phyrexian Arena', set_code='t29e', number='D23', mana_cost='{1}{B}{B}', cmc=3.0, type_line='Enchantment', colors=['B'], color_identity=['B'], oracle_text='At the beginning of your upkeep, you draw a card and lose 1 life.'),
     # -- end real --
 ]
 OURS = [c["name"] for c in REAL]
 DECK = ("Platinum Emperion", "Bloodletter of Aclazotz", "Necropotence", "Horizon Canopy", "Blood Crypt", "Vault Skirge", "Gitaxian Probe",
         "Toxic Deluge", "Flare of Fortitude", "Teferi's Protection", "Tree of Redemption", "Vampire Nighthawk", "Sovereign's Bite",
-        "Stormblood Berserker", "Exsanguinate", "Giant Growth", "Lightning Bolt", "Lightning Bolt", "Sedgemoor Witch", "Polluted Delta")
+        "Stormblood Berserker", "Exsanguinate", "Giant Growth", "Lightning Bolt", "Lightning Bolt", "Sedgemoor Witch", "Polluted Delta", "Adarkar Wastes", "Necrodominance", "White Probe", "Deep Analysis", "Phyrexian Arena")
 
 
 @pytest.fixture()
@@ -127,6 +132,24 @@ def test_an_effect_that_makes_the_player_lose_life_does_nothing_and_the_gain_tha
     assert life(s, "p2") == 40 and life(s, "p1") == 43  # (Alice's own gain is hers; Bob's life total can't change)
     cast(s, "Exsanguinate", x_value=5, mana={"B": 2, "C": 5})  # X = 5: "You gain life equal to the life lost this way": none was lost
     assert life(s, "p2") == 40 and life(s, "p1") == 43
+    check(s)
+
+
+def test_in_a_three_player_game_only_the_locked_opponent_is_spared(cards):
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    alice = deck(cards, "Krenko, Mob Boss", [(1, "Exsanguinate"), (9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(1, "Platinum Emperion"), (10, "Island")])
+    carol = deck(cards, "Krenko, Mob Boss", [(10, "Mountain")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob), PlayerSetup("Carol", cards=carol)],
+                                    shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    lock(s, "p2")
+    cast(s, "Exsanguinate", x_value=4, mana={"B": 2, "C": 4})
+    assert life(s, "p2") == 40 and life(s, "p3") == 36  # Bob's life total can't change; Carol loses 4
+    assert life(s, "p1") == 44  # "gain life equal to the life lost this way": 4, not 8
     check(s)
 
 
@@ -336,6 +359,31 @@ def test_flare_of_fortitude_locks_the_life_total_until_end_of_turn(cards):
     check(s)
 
 
+def keywords(s, c):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id]).keywords
+
+
+def test_flare_of_fortitude_also_gives_hexproof_and_indestructible_and_costs_a_white_creature_if_you_like(cards):
+    from app.rules import casting
+
+    s = table(cards)
+    necro = put(s, "Necropotence")
+    knight = put(s, "White Probe")
+    flare = to_hand(s, "Flare of Fortitude")
+    (alt,) = casting.alt_castable(s.state, "p1", flare, s.cards)
+    act(s, "p1", type="cast_spell", card_id=flare.id, alt_cost=alt["id"])  # "You may sacrifice a nontoken white creature rather than pay …"
+    d = s.state.rules.decision
+    if d is not None:
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[knight.id])
+    pass_until_stack_empty(s)
+    assert knight.zone == "p1:graveyard" and flare.zone == "p1:graveyard" and s.state.players["p1"].mana == {}
+    assert {"hexproof", "indestructible"} <= keywords(s, necro)  # "permanents you control gain hexproof and indestructible"
+    assert [x["until"] for x in s.state.rules.life_locks] == ["turn"]
+    check(s)
+
+
 def test_teferis_protection_locks_the_life_total_until_your_next_turn(cards):
     s = table(cards)
     necro = put(s, "Necropotence")
@@ -354,10 +402,7 @@ def test_teferis_protection_locks_the_life_total_until_your_next_turn(cards):
     check(s)
 
 
-def test_the_effects_with_the_gift_are_read_but_the_gift_of_an_extra_turn_is_not(cards):
-    parsed = scripts.parse_effects("Create four 2/2 blue Bird creature tokens with flying. If the gift was promised, all permanents you control phase out, "
-                                   "and until your next turn, your life total can't change and you gain protection from everything.")
-    assert parsed is not None and [e["do"] for e in parsed[0] if e["do"] != "only_if"] == ["create_token", "phase_out", "life_lock", "player_shield"]
+def test_perch_protection_stays_partial_because_the_gift_of_an_extra_turn_is_manual(cards):
     assert coverage.of_card_data(cards.resolve("Perch Protection")).level != "FULL"  # 702.174g: "Gift an extra turn" is still manual (app/rules/gift.py)
 
 
@@ -388,6 +433,74 @@ def test_the_same_ward_can_be_paid_without_the_lock(cards):
     pass_until_stack_empty(s)
     assert life(s, "p1") == 37 and witch.zone == "p2:graveyard"
     check(s)
+
+
+def test_a_painland_still_deals_its_damage_but_it_makes_the_player_lose_no_life(cards):
+    for locked, left in ((True, 40), (False, 39)):
+        s = table(cards)
+        wastes = put(s, "Adarkar Wastes")
+        if locked:
+            lock(s)
+        probe = to_hand(s, "Gitaxian Probe")
+        act(s, "p1", type="cast_spell", card_id=probe.id, targets=["p2"])  # {U/P}: the blue mana from the Wastes, "This land deals 1 damage to you."
+        pass_until_stack_empty(s)
+        assert wastes.tapped and life(s, "p1") == left
+        log = s.state.rules.turn_log
+        assert any(f.kind == "damage" and f.player == "p1" and f.amount == 1 for f in log.facts)  # the 1 damage was dealt either way (120.3a)
+        assert log.lost.get("p1", 0) == (0 if locked else 1)  # (and "life lost this turn" is what was lost)
+        assert s.state.rules.damaged.get("p1") == s.state.turn.number  # (bloodthirst: "an opponent was dealt damage this turn", for Bob's creatures)
+        check(s)
+
+
+def test_a_flashback_cost_with_life_cant_be_paid(cards):
+    for locked in (True, False):
+        s = table(cards)
+        analysis = to_hand(s, "Deep Analysis")
+        act(s, "p1", type="move", card_ids=[analysis.id], to={"zone": "graveyard"})
+        if locked:
+            lock(s)
+        mana(s, "p1", U=1, C=1)
+        hand = len(s.state.zones["p1:hand"])
+        assert castable(s.state, "p1", analysis, s.cards) is (not locked)  # (the hint agrees with the cast: "Pay 3 life" can't be paid, 119.8)
+        if locked:
+            with pytest.raises(ActionError):
+                act(s, "p1", type="cast_spell", card_id=analysis.id, targets=["p1"])
+            assert analysis.zone == "p1:graveyard" and life(s, "p1") == 40
+        else:
+            act(s, "p1", type="cast_spell", card_id=analysis.id, targets=["p1"])
+            pass_until_stack_empty(s)
+            assert analysis.zone == "p1:exile" and life(s, "p1") == 37 and len(s.state.zones["p1:hand"]) == hand + 2
+        check(s)
+
+
+def test_an_upkeep_trigger_that_draws_and_loses_life_still_draws(cards):
+    for locked, left in ((True, 40), (False, 39)):
+        s = table(cards)
+        put(s, "Phyrexian Arena")
+        if locked:
+            lock(s)
+        hand = len(s.state.zones["p1:hand"])
+        to_turn(s, 3)  # Alice's next upkeep and draw step
+        assert life(s, "p1") == left and len(s.state.zones["p1:hand"]) == hand + 2  # (the draw step's card and Phyrexian Arena's)
+        check(s)
+
+
+def test_pay_any_amount_of_life_offers_only_zero_to_a_player_who_cant_lose_life(cards):
+    for locked in (True, False):
+        s = table(cards)
+        put(s, "Necrodominance")
+        if locked:
+            lock(s)
+        for _ in range(30):  # on to her end step: "you may pay any amount of life"
+            d = s.state.rules.decision
+            if d is not None:
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        assert d is not None and d.player == "p1"
+        labels = [o.label for o in d.options]
+        assert ("Pay 1 life (X = 1)" in labels) is (not locked) and "Pay 0 life (X = 0)" in labels  # 119.4b: 0 can always be paid
+        assert max(int(x.split("X = ")[1].rstrip(")")) for x in labels if "X = " in x) == (0 if locked else 40)
+        check(s)
 
 
 def test_a_fetch_land_cant_be_cracked_by_a_player_who_cant_lose_life(cards):

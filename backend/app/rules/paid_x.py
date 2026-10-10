@@ -157,7 +157,11 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
         return True
     life = bool(e["choose_x"].get("life"))
     if life:  # (the cap is the life total, 119.4: life can be paid only from a total at least that large)
-        most = max(0, limit)
+        from app.rules import (
+            life_lock,  # -- can't lose life (wave 29D) -- 119.8, 119.4b: only 0 life can be paid by a player who can't lose life
+        )
+
+        most = 0 if life_lock.why_not(plan, payer, "lose") else max(0, limit)
     options = [DecisionOption(id=f"{CHOOSE}{n}", label=f"Pay {n} life (X = {n})" if life else f"Pay {{{n}}}{extra} (X = {n})")
                for n in range(most + 1)]
     options.append(DecisionOption(id=O.DECLINE, label="Don't pay"))
