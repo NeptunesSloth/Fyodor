@@ -1349,6 +1349,8 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
         return _free_cast_over(ctx, e)
     pool = _free_pool(plan, ctx, e)
+    if e.get("each") and len(done) > len(ctx.get("free_cast_before") or []) and all(c in done for c in pool):
+        return _free_cast_over(ctx, e)  # -- review 29D -- 607.3: each linked card has been played (hideaway.each)
     if e.get("paid") and any(M.parse_cost(chars.of(plan.state.cards[c], plan.info).mana_cost).x for c in pool):
         from app.rules import (
             copying,  # -- cast a copy (wave 18F) -- X is announced as a spell is cast (601.2b): not automated for a paid cast of a copy
@@ -1411,7 +1413,7 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if not options and not hidden:
         plan.note(f"{plan.name(pid)} has nothing to cast" + ("" if e.get("paid") else " without paying its mana cost"))
         return _free_cast_over(ctx, e)
-    many = int(e.get("n", 1)) > 1
+    many = int(e.get("n", 1)) > 1 and not (e.get("each") and len(pool) < 2)
     decide(plan, player=pid, kind="choose_cards",
            prompt="Choose a spell to cast" + ("" if e.get("paid") else " without paying its mana cost") + (" (one at a time)" if many else "")
                   + " (or none)",

@@ -163,7 +163,7 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
         from app.rules import hideaway
 
         if hideaway.exiles(ch):  # -- hideaway (wave 29D) -- 702.75a: the keyword is the exiling ability (and the only one: 607.2a)
-            return None if exiling else d
+            return None if exiling else hideaway.each(d)
         if len(exiling) != 1 or not _exiles(scripts.define(exiling[0], ch)):
             return None
         return d

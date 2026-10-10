@@ -48,6 +48,16 @@ def exiles(ch: Any) -> bool:
     return any(ab.kind == "keywords" and "hideaway" in ab.keywords and keyword_triggers.supported("hideaway", ab.text) for ab in ch.abilities)
 
 
+def each(d: dict[str, Any]) -> dict[str, Any]:
+    """-- review 29D -- 607.3: when the hideaway trigger was copied or triggered twice (Strionic Resonator, Panharmonicon), "the exiled card"
+    of the linked ability is each card it exiled (Clive's Hideaway ruling 2025-06-06: both may be played): a free play of "the exiled card"
+    plays each of them, one at a time ("one of them", Evercoat Ursine, stays one)."""
+    effects = d.get("effects") or []
+    refs = {f"ref:{e['as']}" for e in effects if e.get("do") == "linked_cards" and e.get("as")}
+    return {**d, "effects": [{**e, "n": 99, "each": True} if e.get("do") == "free_cast" and e.get("who") in refs and "n" not in e else e
+                             for e in effects]}
+
+
 def record(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> None:
     """The card the pick exiled is now one its exiler (the ability's controller) has looked at, exiled by the permanent whose
     ability this is (as it is, or was: 608.2h)."""
