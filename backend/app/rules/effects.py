@@ -23,6 +23,7 @@ from typing import Any
 from app.game.rules_state import DecisionOption, ObjectRef, StackEntry
 from app.game.state import ALL, STACK, zone_key
 from app.rules import (
+    block_effects,  # -- block effects (wave 30P) -- the object arguments of a block rule (a leaf module)
     card_names,  # -- card names (wave 22B) -- 201.4
     context,
     delayed,
@@ -839,9 +840,9 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
     _remember(plan, ctx, e, cards)
-    e = {**e, "rules": [r.replace("@you", ctx["controller"])
-                        .replace("@src", f"e{plan.rules.timestamp + 1}" if r.startswith("block_extra:") else ctx.get("source_object") or "")
-                        for r in e["rules"]]}  # (@src: wave 7E; wave 13B: each "can block an additional creature" adds up, 509.1a)  # -- combat (wave 5C) -- (Kardur)
+    e = {**e, "rules": [block_effects.args(ctx, r.replace("@you", ctx["controller"])
+                        .replace("@src", f"e{plan.rules.timestamp + 1}" if r.startswith("block_extra:") else ctx.get("source_object") or ""))
+                        for r in e["rules"]]}  # (@src: wave 7E; wave 13B: each "can block an additional creature" adds up, 509.1a; @it, @t1: wave 30P)  # -- combat (wave 5C) -- (Kardur)
     group = who.startswith(selectors.PREFIX) and not e.get("locked")
     duration = e.get("duration", "end_of_turn")
     if who.startswith("controlled:") and not e.get("locked"):  # -- review (wave 26A) -- "Creatures target player controls attack this
@@ -1879,7 +1880,7 @@ def blink(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if done:  # (an Aura choosing what it enchants pauses: the binding then keeps what they were)
         _moved(plan, ctx, e, before)  # the permanents they became: new objects (400.7)
     if done and e.get("attacking"):  # -- refused zones/sized (wave 3R4) -- "tapped and attacking" (508.4)
-        return refused_zones.enter_attacking(plan, ctx, cards)
+        return refused_zones.enter_attacking(plan, ctx, cards, e.get("at"))
     return done
 
 
@@ -2373,7 +2374,7 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
     if done:  # (an Aura choosing what it enchants pauses: the binding then keeps what they were)
         _moved(plan, ctx, e, before)  # the permanents they became: new objects (400.7)
     if done and e.get("attacking"):  # -- refused zones/sized (wave 3R4) -- "tapped and attacking" (508.4)
-        return refused_zones.enter_attacking(plan, ctx, cards)
+        return refused_zones.enter_attacking(plan, ctx, cards, e.get("at"))
     return done
 
 
@@ -2769,7 +2770,7 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
     if e["to"] == "battlefield_attacking":  # -- refused look/cast-free (wave 3R5) -- 508.4
         from app.rules import looking
 
-        return looking.attack_with_entered(plan, ctx, chosen)
+        return looking.attack_with_entered(plan, ctx, chosen, e.get("at"))
     return True
 
 

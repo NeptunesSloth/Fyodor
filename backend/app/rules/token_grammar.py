@@ -12,11 +12,13 @@ the engine can't run yet — a Map's "target creature you control explores" — 
 token). "Tapped" is the token entering tapped (111.4, 701.7a); "tapped and attacking" is 508.4:
 its controller chooses which defending player or planeswalker it attacks, it is attacking but
 never "attacked", and outside the declare attackers step or later of a combat phase (or created
-by someone other than the attacking player, 506.3b) it simply isn't attacking.
+by someone other than the attacking player, 506.3b) it simply isn't attacking. "… attacking that player" (wave 30P) says whom (``at``: the player the
+trigger's event is about); ``enter_attacking`` is the one place that asks it, for tokens, token copies and cards put onto the battlefield attacking.
 """
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -55,6 +57,22 @@ PREDEFINED_TOKENS = {
 # -- token & pump wordings (wave 6C) -- 111.10d: "A Walker token is a 2/2 black Zombie creature token named Walker."
 PREDEFINED_CREATURES = {"Walker": {"power": "2", "toughness": "2", "colors": ["B"], "type_line": "Token Creature — Zombie", "text": ""}}
 
+# -- enter attacking (wave 30P) -- 508.4: its controller chooses what it attacks "unless the effect that put it onto the battlefield specifies what
+# it's attacking": "… tapped and attacking that player" (Kaalia: that opponent; Shark Shredder: that player; "defending player"). One reading,
+# ``{"as": "that"}``: the player the trigger's event is about — the one the attacking creature attacks (508.5; TriggerEvent.defended), else the one dealt
+# combat damage (``players``) — read from the event when it resolves, so it is the same player the trigger saw. "… or a planeswalker they control"
+# (Zara, Hans Eriksson) is not read: those stay manual.
+def at_re(n: str = "") -> str:
+    return rf"(?: (?P<at{n}>that player|that opponent|defending player))?"
+
+
+AT = at_re()
+
+
+def at_spec(m: re.Match[str], n: str = "") -> dict[str, Any] | None:
+    return {"as": "that"} if m[f"at{n}"] else None
+
+
 # -- token & pump wordings (wave 6C) -- numbers past ten ("Create thirteen tapped 2/2 black Zombie creature tokens.")
 NUMBERS.update({"eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
                 "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20})
@@ -66,7 +84,7 @@ _CAPS = r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*"
 # words a name may have inside ("Kobolds of Kher Keep", "Wolves of the Hunt", "Voja, Friend to Elves")
 _NAME = r"[A-Z][A-Za-z'\-]*(?:,? (?:(?:of|the|to|of the) )?[A-Z][A-Za-z'\-]*)*"
 _SENTENCE = re.compile(
-    rf"^create (?:(?P<n>{_QTY}) |(?P<lname>{_NAME}), an? (?P<legendary>legendary) )(?P<tapped>tapped )?"
+    rf"^create (?:(?P<n>{_QTY}) |(?P<lname>{_NAME}), an? (?P<legendary>legendary) )(?P<tapped>tapped (?P<atk0>and attacking )?)?"
     rf"(?:(?:(?P<pt>(?:\d+|X)/(?:\d+|X)) )?(?:(?P<colors>{_COLORS}) )?(?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?"
     r"(?P<land>land )?creature tokens?"
     rf"|(?P<ncolors>{_COLORS}) (?P<nsnow>snow )?(?:(?P<nsub>{_CAPS}) )?(?P<nkind>artifact|enchantment) tokens?"  # (wave 15B)
@@ -75,7 +93,7 @@ _SENTENCE = re.compile(
     r"(?: with (?P<with>.+?))?"
     rf"(?: named (?P<name2>{_NAME}))?"  # (wave 6C: "… with flying named Wasp")
     rf"(?: that's (?P<thats>all colors|{_COLORS}))?"  # (wave 6C: "an 8/8 Beast creature token that's red, green, and white")
-    r"(?P<attacking> that(?:'s| are) (?P<atapped>tapped and )?attacking)?$")  # (wave 17D: untapped, "that's attacking": Brimaz)
+    rf"(?P<attacking> that(?:'s| are) (?P<atapped>tapped and )?attacking{AT})?$")  # (wave 17D: untapped, "that's attacking": Brimaz)
 # (wave 6C) "For each creature your opponents control, create a 4/4 green Phyrexian Beast creature token.": the same
 # instruction as "Create a 4/4 … token for each creature your opponents control." (the count is read as it resolves)
 _EACH_FIRST = re.compile(r"^for each (?P<each>[^,\"]+), create (?P<rest>[^\"]+?(?:\"[^\"]+\")?)$")
@@ -254,9 +272,11 @@ def parse(sentence: str) -> list[Effect] | None:
         if v is None or not language._has_x([n, token["power"], token["toughness"]]):
             return None
         n, token = language._bind_x(n, v), language._bind_x(token, v)
-    effect: Effect = {"do": "create_attacking" if m["attacking"] else "create_token", "who": "you", "n": n, "token": token}
+    effect: Effect = {"do": "create_attacking" if m["attacking"] or m["atk0"] else "create_token", "who": "you", "n": n, "token": token}
     if m["tapped"] or m["atapped"]:
         effect["tapped"] = True
+    if (at := at_spec(m)) is not None:  # -- enter attacking (wave 30P) -- "… that's tapped and attacking that player" (508.4)
+        effect["at"] = at
     return [effect]
 
 
@@ -311,6 +331,16 @@ def token_text(quoted: str) -> str | None:
 _ATTACKING_PHASES = ("declare_attackers", "declare_blockers", "combat_damage", "end_combat")
 
 
+def allowed(d: dict[str, Any]) -> bool:
+    """``at`` names "that player": only a trigger about an attack (the player attacked) or combat damage to a player (the one dealt it) has one."""
+    if '"as": "that"' not in json.dumps(d, default=str):
+        return True
+    cond = d.get("cond") or {}
+    return d.get("kind") == "triggered" and (d.get("trigger") == "attacks_self" or (
+        d.get("trigger") == "event" and cond.get("event") in ("attack", "you_attack", "deal_combat_damage_player") and not cond.get("aggregate")
+        and (cond.get("event") != "you_attack" or cond.get("player") == "you")))  # ("you attack a player": not "a player attacks you")
+
+
 def create_attacking(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Create the tokens tapped; during the declare attackers step or later of the combat phase
     (508.4) their controller, if they are the attacking player (506.3b), chooses which defending
@@ -320,20 +350,40 @@ def create_attacking(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool
 
     before = set(plan.state.cards)
     effects.create_token(plan, ctx, {**e, "who": "you", "tapped": bool(e.get("tapped"))})
-    return enter_attacking(plan, ctx, [cid for cid in plan.state.cards if cid not in before])
+    return enter_attacking(plan, ctx, [cid for cid in plan.state.cards if cid not in before], e.get("at"))
 
 
-def enter_attacking(plan: Plan, ctx: dict[str, Any], made: list[str]) -> bool:
-    """-- token copy (wave 20F) -- the attack choice of tokens that just entered "tapped and attacking" (508.4), also for token
-    copies (copying.token_copy); False while their controller is asked whom they attack."""
+def attack_options(plan: Plan, ctx: dict[str, Any], pid: str, at: dict[str, Any] | None = None) -> list[DecisionOption]:
+    """What a creature put onto the battlefield attacking may attack (508.4): any defending player (802.2: every opponent), a planeswalker a defending
+    player controls, or a battle a defending player protects (310.9b); with ``at``, only the player the effect names. Nobody left to name (508.4a-b:
+    that player is gone) leaves none: it enters but never attacks."""
+    from app.rules import battles
+
+    defenders = [p for p in plan.live() if p != pid]
+    if at is not None:
+        ev = ctx.get("event") or {}
+        named = ev.get("defended") or next(iter(ev.get("players") or []), None)
+        defenders = [named] if named in defenders else []
+    options = [DecisionOption(id=p, label=plan.name(p)) for p in defenders]
+    if at is None:
+        options += [DecisionOption(id=c.id, label=f"{c.name} ({plan.name(c.controller)})", card_id=c.id)
+                    for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in defenders
+                    and plan.in_game(c) and "Planeswalker" in plan.ch(c).types]
+        options += [DecisionOption(id=b, label=f"{plan.state.cards[b].name or 'Battle'} (battle)", card_id=b)
+                    for b in battles.attackable(plan.state, pid, defenders, plan.ch)]
+    return options
+
+
+def enter_attacking(plan: Plan, ctx: dict[str, Any], made: list[str], at: dict[str, Any] | None = None) -> bool:
+    """-- token copy (wave 20F) -- the attack choice of creatures that just entered "tapped and attacking" (508.4): tokens, token copies
+    (copying.token_copy), cards put onto the battlefield from a hand or a graveyard or a look (refused_zones, looking, put_from_hand); False while
+    their controller is asked whom they attack."""
     pid = ctx["controller"]
-    new = [c for c in made if (card := plan.state.cards.get(c)) is not None and card.controller == pid and card.zone.endswith(":battlefield")]
+    new = [c for c in made if (card := plan.state.cards.get(c)) is not None and card.controller == pid and card.zone.endswith(":battlefield")
+           and plan.ch(card).is_creature]
     if not new or plan.state.turn.phase not in _ATTACKING_PHASES or pid != plan.active:
         return True
-    options = [DecisionOption(id=p, label=plan.name(p)) for p in plan.live() if p != pid]
-    options += [DecisionOption(id=c.id, label=f"{c.name} ({plan.name(c.controller)})", card_id=c.id)
-                for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller != pid
-                and c.controller in plan.live() and plan.in_game(c) and "Planeswalker" in plan.ch(c).types]
+    options = attack_options(plan, ctx, pid, at)
     if not options:
         return True
     if len(options) == 1:
@@ -343,15 +393,17 @@ def enter_attacking(plan: Plan, ctx: dict[str, Any], made: list[str]) -> bool:
     # ruling: each Gnome can attack a different player): one question per token, the rest follow in ``more``
     decide(plan, player=pid, kind="choose_one", prompt=f"{plan.state.cards[new[0]].name or 'A token'} enters attacking: attacking whom?"
            + (f" ({len(new) - 1} more to place)" if len(new) > 1 else ""),
-           options=options, resume={"step": "token_attack", "ctx": ctx, "cards": new[:1], "more": new[1:]})
+           options=options, resume={"step": "token_attack", "ctx": ctx, "cards": new[:1], "more": new[1:], "at": at})
     return False
 
 
 def _attack_with(plan: Plan, cards: list[str], target: str, actor: str) -> None:
     kind = "player" if target in plan.state.players else "card"
     cards = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
-    if kind == "card" and target not in plan.state.cards:
-        return  # 508.4a: the planeswalker is gone: never an attacking creature
+    if kind == "card" and (target not in plan.state.cards or not plan.state.cards[target].zone.endswith(":battlefield")):
+        return  # 508.4a: the planeswalker or battle is gone: never an attacking creature
+    if kind == "player" and target not in plan.live():
+        return  # 508.4a: that player left the game
     if cards:
         plan.do({"type": "attack", "card_ids": cards, "target": {"kind": kind, "id": target}}, actor=actor)
 
@@ -362,11 +414,9 @@ def resume_token_attack(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
     if chosen:
         _attack_with(plan, r["cards"], chosen[0], d.player)
-    if r.get("more"):  # -- falsification (wave 30D) -- the next token (old saves have no "more": their one answer covered every token)
-        from app.rules import looking
-
-        if not (looking.attack_with_entered if r.get("look") else enter_attacking)(plan, r["ctx"], r["more"]):
-            return
+    # -- falsification (wave 30D) -- the next token (old saves have no "more": their one answer covered every token)
+    if r.get("more") and not enter_attacking(plan, r["ctx"], r["more"], r.get("at")):
+        return
     effects.continue_effects(plan, r["ctx"])
 
 
