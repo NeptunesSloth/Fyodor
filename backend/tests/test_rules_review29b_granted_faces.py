@@ -265,6 +265,33 @@ def test_a_cascade_cast_that_is_paid_clears_its_record(cards):
     check(s)
 
 
+# -- the random order stays hidden (401.4) -----------------------------------------------------------------------------------------------
+def bottom_lines(s, viewer="p2"):
+    """The names each "put on the bottom of" log line lists, as ``viewer`` reads them."""
+    out = []
+    for entry in s.view(viewer)["log"]:
+        parts = entry.get("parts") or []
+        if any("put on the bottom of" in (p.get("t") or "") for p in parts):
+            out.append([g["card"]["name"] for p in parts for g in p.get("group") or [] if g.get("card")])
+    return out
+
+
+def test_the_cards_cascade_went_past_are_logged_in_no_particular_order(cards):
+    """702.85a "in a random order": the cards go to the bottom in one move, whose log line lists them by name; before the review each went in
+    its own move, so the lines told everyone the order (a face-down spell's cascade put the whole library back that way). The declined card's
+    own line says nothing of where among them it landed."""
+    passed = ["Craterhoof Behemoth", "Hit // Run", "Jadzi, Oracle of Arcavios // Journey to the Oracle", "Storm, Force of Nature"]
+    orders = set()
+    for _ in range(6):
+        s, bolt, went_past = cascade_into(cards, "Lightning Bolt", passed=passed)
+        choose(s, "no")
+        lines = bottom_lines(s)
+        assert lines[-2:] == [sorted(passed), ["Lightning Bolt"]]
+        orders.add(tuple(c for c in s.state.zones["p1:library"] if c in {bolt.id, *went_past}))
+        check(s)
+    assert len(orders) > 1  # (the order itself is random)
+
+
 # -- saves from before wave 29B ----------------------------------------------------------------------------------------------------------
 def old_save(s):
     """The table as a save from before wave 29B: the pending "cast it?" offers a plain yes / no, its resume has no ``group``, and the rules
