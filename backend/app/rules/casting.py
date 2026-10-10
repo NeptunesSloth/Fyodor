@@ -3026,8 +3026,8 @@ def _ripple_triggers(plan: Plan, card: CardInstance, ch: Characteristics, cast_f
              definition={"kind": "triggered", "trigger": "ripple", "optional": False, "target": None, "effects": [
                  {"do": "look_top", "n": n, "player": "you", "reveal": True, "optional": True},
                  {"do": "ripple_split", "name": ch.name},
-                 {"do": "rest_looked", "to": "bottom_any"},
-                 {"do": "ripple_cast"}]})
+                 {"do": "ripple_cast"},  # (-- free-cast cleanup (wave 30A) -- before the rest go: a card not cast joins them in one order)
+                 {"do": "rest_looked", "to": "bottom_any"}]})
 
 
 def _storm_triggers(plan: Plan, card: CardInstance, ch: Characteristics, cast_from: str | None) -> None:
