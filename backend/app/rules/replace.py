@@ -258,7 +258,7 @@ class Planner:
     def applies(self, c: Candidate, ev: Event, sim: Sim) -> bool:
         # (-- counter putters (wave 22C) -- "… on a permanent or player": one counters static also applies to player events)
         if (c.event != ev["kind"] and not (c.event == "counters" and ev["kind"] == "player_counters" and c.match.get("players"))) \
-                or c.id in (ev.get("applied") or ()):
+                or c.id in (ev.get("applied") or ()) or (c.op.get("once") and c.id in self.used):  # (review 28B: "the next time": one event)
             return False
         fn = _APPLIES.get(ev["kind"])
         return bool(fn and fn(self.plan, c, ev, sim))

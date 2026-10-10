@@ -163,7 +163,14 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   Still manual: "first time you would draw each turn" (Reed Richards, Scion of Halaster), Island Sanctuary (skip + attack restriction), draws
   that need a player choice from another player (Zur's Weirding, Breathstealer's Crypt, Chains of Mephistopheles), library-of-another-player
   bodies (Shared Fate, Uba Mask), "put into a pile" bodies (Parallel Thoughts, Mangara's Tome), Abundance, Archmage Ascension, Words of War /
-  Wind (targets, "each player returns"), Aladdin's Lamp / Ring of Ma'rûf (X, outside the game), Plagiarize (a targeted record), Vnwxt (max speed).
+  Wind (targets, "each player returns"), Aladdin's Lamp / Ring of Ma'rûf (X, outside the game), Plagiarize (a targeted record).
+  Review 28B: a mana ability's "Draw a card." and "deals 1 damage to you" go through the draw and life-loss replacements (a mana ability
+  can't pause: a body there is left to the players); Alms Collector's "each draw a card" are one-card instructions Quantum Riddler may still
+  change; one call's life gains are simultaneous for Phial (702.15e). Paying life under Bloodletter: no ruling names it — 119.4 (paying life is
+  losing it; affordability is the cost's amount), 118.11 (a cost's actions may be modified) and the Invigorate ruling (2020-08-07: a cost
+  whose action a replacement changes can still be paid) decide it: the payment is doubled. Known gaps (pre-existing): damage replacement /
+  prevention statics don't see a mana ability's damage; "Draw three cards and reveal them" (Mad Wizard's Lair) also reveals cards a "draw two
+  instead" drew (614.11b) — cards a body put into the hand are no longer revealed.
 - **Replacements** (wave 22C): counter putters ("If you / an opponent would put …": Vorinclex, Lae'zel, Pir; the
   putter is `by`, 122.6a; review 22C: counters "given" are put — 122.6, 701.34a — so infect/toxic poison is put by the
   source's controller, 120.3b/g, and "target player gets N" by the effect's controller), "reveal ~ and shuffle it into its owner's library instead" (Blightsteel, Nexus of Fate),
