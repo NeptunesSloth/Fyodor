@@ -1220,11 +1220,39 @@ def suspend_tick(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         plan.do({"type": "counter", "card_ids": [cid], "kind": "time", "delta": -1}, actor=card.owner)
     if card.counters.get("time", 0) > 0:
         return True
-    r.free_casts.append(cid)
-    decide(plan, player=card.owner, kind="choose_one", prompt=f"The last time counter was removed: cast {card.name} without paying its mana cost?",
-           options=[DecisionOption(id="yes", label="Cast it"), DecisionOption(id="no", label="Leave it exiled")],
-           resume={"step": "suspend_cast", "ctx": ctx, "card": cid}, source=card)
-    return False
+    # -- granted casts (wave 29B) -- any half / face (709.3, 712.11b, 715.3)
+    from app.rules import granted_casts
+
+    return granted_casts.ask(plan, ctx, player=card.owner, cid=cid, head="The last time counter was removed", no="Leave it exiled")
+
+
+def leave_uncast(plan: Plan, player: str, cid: str, how: str | None) -> None:
+    """The card the engine offered to cast isn't cast (declined, or nothing can be cast: granted_casts.ask): the grant ends and ``how`` says where it
+    goes -- "bottom" (cascade, ripple), "hand" (discover, 701.57a), "graveyard" (madness), "miracle" (stays in the hand), else it stays exiled."""
+    r = plan.rules
+    r.free_casts = [c for c in r.free_casts if c != cid]
+    r.free_cast_faces.pop(cid, None)
+    r.suspended = [c for c in r.suspended if c != cid]
+    r.alt_costs.pop(cid, None)
+    if how == "miracle":  # -- casting extras (wave 18E) -- 702.94a: it stays in the hand (and is hidden again)
+        from app.rules import miracle
+
+        miracle.done(plan, cid)
+        plan.note(f"{plan.name(player)} keeps it in their hand")
+        return
+    if how == "graveyard" and cid in plan.state.cards:  # madness
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "graveyard"}}, actor=player)
+        return
+    if how == "hand" and cid in plan.state.cards:  # -- discover (wave 9A) -- 701.57a
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "hand"}}, actor=player)
+        plan.note(f"{plan.name(player)} puts it into their hand")
+        return
+    if how == "bottom" and cid in plan.state.cards:  # cascade: it joins the others
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
+                 "position": "bottom"}, actor=player)
+        plan.note(f"{plan.name(player)} puts it on the bottom of their library")
+    else:
+        plan.note(f"{plan.name(player)} leaves it exiled")
 
 
 def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -1234,38 +1262,22 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     cid = d.resume["card"]
     finish(plan, d.resume["ctx"])
     r = plan.rules
-    # -- cast limits (wave 5E) -- a prohibited cast (601.3) can't begin: as if declined
-    from app.rules import cast_limits
+    # -- granted casts (wave 29B) -- "yes" casts the card as it is, "yes@1" its second half / back face (granted_casts.ask)
+    answer, _, at = chosen[0].partition("@")
+    face = int(at) if at else None
+    # -- cast limits (wave 5E) -- a prohibited cast (601.3) can't begin: as if declined (a pending choice of an older save wasn't checked)
+    from app.rules import cast_limits, permissions
 
-    if chosen[0] == "yes" and (limited := cast_limits.free_cast_blocked(plan, d.player, cid)) is not None:
+    card = plan.state.cards.get(cid)
+    one = face if face is not None else 0 if card is not None and len(permissions.play_faces(plan, card)) > 1 else None
+    if answer == "yes" and (limited := cast_limits.free_cast_blocked(plan, d.player, cid, one)) is not None:
         plan.note(limited, actor=d.player)
-        chosen = ["no"]
-    if chosen[0] != "yes":
-        r.free_casts = [c for c in r.free_casts if c != cid]
-        r.suspended = [c for c in r.suspended if c != cid]
-        r.alt_costs.pop(cid, None)
-        if d.resume.get("decline") == "miracle":  # -- casting extras (wave 18E) -- 702.94a: it stays in the hand (and is hidden again)
-            from app.rules import miracle
-
-            miracle.done(plan, cid)
-            plan.note(f"{plan.name(d.player)} keeps it in their hand")
-            return
-        if d.resume.get("decline") == "graveyard" and cid in plan.state.cards:  # madness
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "graveyard"}},
-                    actor=d.player)
-            return
-        if d.resume.get("decline") == "hand" and cid in plan.state.cards:  # -- discover (wave 9A) -- 701.57a
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "hand"}},
-                    actor=d.player)
-            plan.note(f"{plan.name(d.player)} puts it into their hand")
-            return
-        if d.resume.get("decline") == "bottom" and cid in plan.state.cards:  # cascade: it joins the others
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
-                     "position": "bottom"}, actor=d.player)
-            plan.note(f"{plan.name(d.player)} puts it on the bottom of their library")
-        else:
-            plan.note(f"{plan.name(d.player)} leaves it exiled")
+        answer = "no"
+    if answer != "yes":
+        leave_uncast(plan, d.player, cid, d.resume.get("decline"))
         return
+    if face:
+        r.free_cast_faces[cid] = face  # casting.cast_free takes only this one
     if r.decision is not None:
         plan.note("Cast it without paying its mana cost when the pending choice is done")
         return
@@ -1273,7 +1285,7 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     prev = plan.actor
     plan.actor = d.player
     try:
-        cast_spell(plan, A.CastSpell(card_id=cid, free=True))
+        cast_spell(plan, A.CastSpell(card_id=cid, free=True, face=face))
     finally:
         plan.actor = prev
 
@@ -1304,19 +1316,21 @@ def cascade(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if hit is None:
         plan.note("Cascade found nothing")
         return True
-    plan.rules.free_casts.append(hit)
-    name = plan.state.cards[hit].name
-    decide(plan, player=pid, kind="choose_one", prompt=f"Cascade: cast {name} without paying its mana cost?",
-           options=[DecisionOption(id="yes", label="Cast it"), DecisionOption(id="no", label="Put it on the bottom")],
-           resume={"step": "suspend_cast", "ctx": ctx, "card": hit, "decline": "bottom"}, source=plan.state.cards[hit])
-    return False
+    # -- granted casts (wave 29B) -- "if the resulting spell's mana value is less" (702.85a): each half / face
+    from app.rules import granted_casts
+
+    return granted_casts.ask(plan, ctx, player=pid, cid=hit, head="Cascade", no="Put it on the bottom", decline="bottom", below=e["mv"])
 
 
 def ripple_split(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """-- static_other sweep (wave 17C) -- 702.60a: of the revealed cards, those with the spell's name may be cast; the others go on the
     bottom. Two or more copies revealed (a game with several of one card) is a choice this does not carry out: all stay on top."""
+    from app.rules import characteristics as chars
+
     looked = ctx.get("looked") or []
-    same = [c for c in looked if plan.state.cards[c].name == e["name"]]
+    # -- granted casts (wave 29B) -- 201.2a: the same name is one name in common (a split card has two, 709.4a; a nameless face-down spell has none)
+    spell_names = {n for n in e["name"].split(" // ") if n}
+    same = [c for c in looked if spell_names & set(chars.of(plan.state.cards[c], plan.info).name.split(" // "))]
     if len(same) > 1:
         plan.note(f"Ripple: several cards named {e['name']} were revealed; cast them by hand and put the others on the bottom")
         ctx["looked"] = []
@@ -1331,12 +1345,9 @@ def ripple_cast(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     same = ctx.pop("ripple_same", None) or []
     if not same:
         return True
-    card = plan.state.cards[same[0]]
-    plan.rules.free_casts.append(card.id)
-    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Ripple: cast {card.name} without paying its mana cost?",
-           options=[DecisionOption(id="yes", label="Cast it"), DecisionOption(id="no", label="Put it on the bottom")],
-           resume={"step": "suspend_cast", "ctx": ctx, "card": card.id, "decline": "bottom"}, source=card)
-    return False
+    from app.rules import granted_casts  # -- granted casts (wave 29B) --
+
+    return granted_casts.ask(plan, ctx, player=ctx["controller"], cid=same[0], head="Ripple", no="Put it on the bottom", decline="bottom")
 
 
 def unearth(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1383,11 +1394,9 @@ def free_cast_offer(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     card = plan.state.cards.get(cid)
     if card is None or not card.zone.endswith(":exile"):
         return True
-    plan.rules.free_casts.append(cid)
-    decide(plan, player=card.owner, kind="choose_one", prompt=f"Rebound: cast {card.name} without paying its mana cost?",
-           options=[DecisionOption(id="yes", label="Cast it"), DecisionOption(id="no", label="Leave it exiled")],
-           resume={"step": "suspend_cast", "ctx": ctx, "card": cid}, source=card)
-    return False
+    from app.rules import granted_casts  # -- granted casts (wave 29B) --
+
+    return granted_casts.ask(plan, ctx, player=card.owner, cid=cid, head="Rebound", no="Leave it exiled")
 
 
 def madness_offer(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

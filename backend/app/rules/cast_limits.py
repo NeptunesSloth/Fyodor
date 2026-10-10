@@ -786,14 +786,15 @@ def self_flash(state: GameState, player: str, card: CardInstance, ch: Characteri
     return None
 
 
-def free_cast_blocked(plan: Plan, player: str, card_id: str) -> str | None:
+def free_cast_blocked(plan: Plan, player: str, card_id: str, face: int | None = None) -> str | None:
     """A card the engine offered ``player`` to cast as something resolves (608.2g): is that cast prohibited now (601.3)?
-    (A split card / adventure: prohibited only if every half it could be cast as is.)"""
+    (A split card / adventure: prohibited only if every half it could be cast as is; -- granted casts (wave 29B) -- ``face``: that half / face
+    only, 709.3a / 712.11c.)"""
     from app.rules import characteristics as chars
 
     card = plan.state.cards.get(card_id)
     if card is None:
         return None
-    faces = (0, 1) if chars.is_two_spell_card(card, plan.info) else (None,)
+    faces = (face,) if face is not None else (0, 1) if chars.is_two_spell_card(card, plan.info) else (None,)
     found = [cast_problem(plan.state, player, card, chars.as_cast(card, plan.info, f), plan.info, resolving=True) for f in faces]
     return found[0] if all(found) else None

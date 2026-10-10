@@ -2132,6 +2132,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
             raise ActionError("Only a card with morph or disguise can be cast face down from your hand")
         ch = chars.face_down_characteristics(face_down_kind)
+        # -- granted casts (wave 29B) -- 707.2: a copy of a face-down spell is not face down
+        from app.rules import cast_limits as _limits
+
+        if not plan.manual(card) and _limits.granted_cascade(plan, card.id, ch, "hand", "storm"):
+            raise ActionError("A face-down spell that is given storm isn't automated (its copies are face-up 2/2 creature spells): cast it face up")
     problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free)
     if problem:
         raise ActionError(problem)
@@ -2483,13 +2488,19 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     # for "whenever you cast"; amount: the Nth spell its caster cast this turn ("your second spell each turn")
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
          amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)
-    more_cascade = 0 if a.face_down or plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
+    # -- granted casts (wave 29B) -- 708.2, 613.1f, 601.2a: a face-down spell has no abilities of its own, but an effect that gives its spell cascade or
+    # ripple ("the next creature spell you cast this turn has cascade") gives it to this one as it is cast: they trigger (702.85a, 702.60a). Its mana
+    # value is 0 and it has no name (708.2a), so cascade finds nothing and ripple nothing with its name (201.2a). Storm / conspire copy the spell:
+    # not read for a face-down one (a grant of them to a creature spell is refused when it is cast, above)
+    more_cascade = 0 if plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
     if more_cascade or ("cascade" in ch.keywords and not a.face_down and not plan.manual(card)):
         _cascade_triggers(plan, card, ch, more_cascade)
-    if not a.face_down and not plan.manual(card):
-        _storm_triggers(plan, card, ch, record.cast_from)
+    if not plan.manual(card):
+        if not a.face_down:
+            _storm_triggers(plan, card, ch, record.cast_from)
         _ripple_triggers(plan, card, ch, record.cast_from)
-        _conspire_trigger(plan, card, ch, record)
+        if not a.face_down:
+            _conspire_trigger(plan, card, ch, record)
     if "replicate" in ch.keywords and not a.face_down and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
@@ -2947,7 +2958,11 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if card.id not in r.free_casts or card.zone == STACK or ch.is_land:
         raise ActionError("You can't cast that without paying its mana cost now")
     pending = r.free_cast_then  # (review 28A) only the half / face the effect's choice named; a cascaded, suspended … card is cast as it is
-    if a.face and (pending is None or pending["card"] != card.id or pending.get("face") != a.face):
+    # -- granted casts (wave 29B) -- "yes@1" of a cascade, discover, ripple, suspend, rebound names a face too
+    from app.rules import granted_casts
+
+    if not granted_casts.face_ok(r, card.id, a.face) and not (a.face and pending is not None and pending["card"] == card.id
+                                                              and pending.get("face") == a.face):
         raise ActionError("That face of the card can't be cast this way")
     if a.splice or a.prototype:
         raise ActionError("Splice and prototype by hand: Fyodor does them only when a spell is cast with its cost")
@@ -3045,6 +3060,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     from_hand = card.zone == zone_key(plan.actor, "hand")
     _note_cast(plan, record, card.zone.rsplit(":", 1)[-1])  # -- refused modal/conditional (wave 3R1) --
     r.free_casts = [c for c in r.free_casts if c != card.id]
+    r.free_cast_faces.pop(card.id, None)  # (wave 29B)
     r.miracled = [c for c in r.miracled if c != card.id]
     r.suspended = [c for c in r.suspended if c != card.id]
     if card.counters.get("time"):

@@ -1130,6 +1130,8 @@ class RulesState(BaseModel):
     # (app/rules/permissions.free_cast_done); and the stack objects cast "without paying" whose
     # "If that spell would be put into your graveyard, exile it instead" applies (614.1a)
     free_cast_then: dict[str, Any] | None = None
+    # -- granted casts (wave 29B) -- card -> the half / face (1) its "cast it?" answer named ("yes@1"): the only one casting.cast_free accepts
+    free_cast_faces: dict[str, int] = Field(default_factory=dict)
     exile_if_graveyard: list[str] = Field(default_factory=list)
     # -- counters (wave 5H) -- keyword counters (122.1b) on permanents: card id -> kind -> [next_object, timestamp]
     # as the last counter of that kind was put on it (613.7c: all counters of a kind share the newest timestamp), so

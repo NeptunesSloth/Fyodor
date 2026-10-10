@@ -1385,7 +1385,7 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             # -- cast limits (wave 5E) -- a cast no rule or effect prohibits (601.3)
             from app.rules import cast_limits
 
-            if cast_limits.free_cast_blocked(plan, pid, cid) is not None:
+            if cast_limits.free_cast_blocked(plan, pid, cid, face) is not None:  # (wave 29B: the half / face being offered)
                 continue
             options.append(DecisionOption(id=_option_id(cid, face), label=(ch.name if face is not None else card.name) or "Card",
                                           card_id=cid))

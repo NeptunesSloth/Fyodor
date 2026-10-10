@@ -18,9 +18,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from app.game.rules_state import DecisionOption
 from app.game.state import zone_key
-from app.rules.plan import decide
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -71,12 +69,10 @@ def discover(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if hit is None:
         plan.note(f"Discover {n} found nothing")
         return True
-    plan.rules.free_casts.append(hit)
-    card = plan.state.cards[hit]
-    decide(plan, player=pid, kind="choose_one", prompt=f"Discover {n}: cast {card.name} without paying its mana cost?",
-           options=[DecisionOption(id="yes", label="Cast it"), DecisionOption(id="no", label="Put it into your hand")],
-           resume={"step": "suspend_cast", "ctx": ctx, "card": hit, "decline": "hand"}, source=card)
-    return False
+    # -- granted casts (wave 29B) -- "if the resulting spell's mana value is less than or equal to N" (701.57a): each half / face
+    from app.rules import granted_casts
+
+    return granted_casts.ask(plan, ctx, player=pid, cid=hit, head=f"Discover {n}", no="Put it into your hand", decline="hand", at_most=n)
 
 
 PRIMITIVES = {"discover": discover}
