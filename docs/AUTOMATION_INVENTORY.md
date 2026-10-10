@@ -220,7 +220,7 @@ agent, every promotion reviewed.
 | Text changing (layer 3) | 12 | 612 text replacement over parsed scripts: would re-parse rewritten Oracle text at runtime. |
 | Directions / nearest opponent | 5 | Seating and direction aren't modelled. |
 | Companion | 3 | Deck-building restriction (702.139a), outside the game. |
-| Already deliberate (CURRENT_STATE) | — | Unsettled rulings (Panharmonicon vs "create a token", copied Room door, Hellrider after leaving combat), Bolas's Citadel, Garth One-Eye, Chrome Mox, Word of Command, Lim-Dûl's Vault, Djinn of Wishes, Protean Hulk. |
+| Already deliberate (CURRENT_STATE) | — | Unsettled rulings (Panharmonicon vs "create a token", copied Room door, Hellrider after leaving combat), Bolas's Citadel, Garth One-Eye, Chrome Mox, Word of Command, Lim-Dûl's Vault, Protean Hulk. (Djinn of Wishes: automated in wave 28A; it lacked only playing a land mid-resolution.) |
 
 ## 7. Six parallel implementation tracks
 

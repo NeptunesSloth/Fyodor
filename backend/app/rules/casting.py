@@ -2930,6 +2930,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     r = plan.rules
     if card.id not in r.free_casts or card.zone == STACK or ch.is_land:
         raise ActionError("You can't cast that without paying its mana cost now")
+    pending = r.free_cast_then  # (review 28A) only the half / face the effect's choice named; a cascaded, suspended … card is cast as it is
+    if a.face and (pending is None or pending["card"] != card.id or pending.get("face") != a.face):
+        raise ActionError("That face of the card can't be cast this way")
     if a.splice or a.prototype:
         raise ActionError("Splice and prototype by hand: Fyodor does them only when a spell is cast with its cost")
     if a.kicker and (ek := kicker_cost(ch.abilities)) is not None and ek.entwine:  # (-- review (wave 18E) -- 702.42a: all modes, by hand here)

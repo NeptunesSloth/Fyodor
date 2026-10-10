@@ -1362,7 +1362,9 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         card = plan.state.cards[cid]
         if plan.rules.card_mode(cid) == "manual" or cid in done:
             continue
-        for face, ch in play_faces(plan, card) if play else [(None, chars.of(card, plan.info))]:
+        # (review 28A) a cast too is of one half / face, and only that one is evaluated (709.3a, 712.11c, 715.3a, 601.3e): a sorcery-only cast
+        # never casts the instant half of Consecrate // Consume. "If its mana value is odd" (Yennett) tests the card (709.4b) as before, one way
+        for face, ch in [(None, chars.of(card, plan.info))] if e.get("parity") else play_faces(plan, card):
             if not ch.types:
                 continue
             if ch.is_land:
@@ -1469,7 +1471,8 @@ def found_to(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     card = plan.state.cards.get(cid or "")
     if card is None or not card.zone.endswith((":exile", ":library")):
         return True
-    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": pid, "zone": e["to"]}}, actor=pid)
+    # (review 28A) its owner's hand or exile (400.3: "your hand" is its owner's when the card came from another library)
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": e["to"]}}, actor=pid)
     return True
 
 
@@ -1520,7 +1523,7 @@ def resume_free_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
         play_land_now(plan, ctx, e, cid, face)
         return
     r.free_casts.append(cid)
-    r.free_cast_then = {"card": cid, "ctx": ctx, "e": e}
+    r.free_cast_then = {"card": cid, "ctx": ctx, "e": e, **({"face": face} if face else {})}  # (face: review 28A, casting.cast_free checks it)
     prev = plan.actor
     plan.actor = d.player
     try:
