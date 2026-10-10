@@ -2875,6 +2875,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 probes = [f"did{k}" for k in range(len(tracked))]
                 for e, name in zip(tracked, probes, strict=True):
                     e["did"] = name
+                if len(tracked) == 1 and tracked[0]["do"] == "draw" and "event_amount" in json.dumps(added):
+                    # -- reflexive this way (wave 30G) -- "You may draw cards equal to its power. If you do, discard that many cards.": the number the
+                    # draw was worked out to (608.2h), whatever a replacement made of the cards drawn (Horrid Shadowspinner's ruling of 2024-06-07)
+                    added = json.loads(json.dumps(added).replace('{"event_amount": 1}', json.dumps({"ref_amount": probes[0]})))
                 if probes:
                     did_gate: dict[str, Any] = {"succeeded": probes[0]} if len(probes) == 1 else {"all": [{"succeeded": n} for n in probes]}
                     added = [{"do": "only_if", "cond": did_gate, "skip": len(added)}, *added]
@@ -5982,7 +5986,7 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 # was) might not be there: "If you do" would then be false, which this reading can't tell.
 _CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token"})
 _CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce", "gain_control", "pump", "grant"})  # (wave 19E: gain control of a chosen target: it changes hands or the ability fizzles; wave 21C: "you may have target creature get +2/+0 and gain haste until end of turn. If you do, …")
-_PROBED = frozenset({"draw", "exile", "bounce", "add_counters", "put_from_hand"})  # (their "If you do" reads whether the player started it, 118.12: effects._did; wave 26C: put_from_hand)
+_PROBED = frozenset({"draw", "exile", "bounce", "add_counters", "put_from_hand", "lose_life", "tap"})  # (their "If you do" reads whether the player started it, 118.12: effects._did; wave 26C: put_from_hand)
 
 
 def _probed_move(e: dict[str, Any]) -> bool:
@@ -5991,6 +5995,10 @@ def _probed_move(e: dict[str, Any]) -> bool:
     false when the card had already left (400.7: there's nothing to exile) — no certainty is needed."""
     if e["do"] == "add_counters":  # -- if you do (wave 15C) -- counters on a chosen object: probed (effects._did_counters_up)
         return isinstance(e.get("who"), str) and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")
+    if e["do"] == "tap":  # -- if you do (wave 30G) -- "you may tap it. If you do, …": that one permanent, if it is untapped (effects._did_tap)
+        return e.get("who") in ("self", "it") and not e.get("optional")
+    if e["do"] == "lose_life":  # -- if you do (wave 30G) -- "you may have target player lose 3 life. If you do, …": chosen unless their life can't change (effects._did_lose_life)
+        return isinstance(e.get("who"), str) and e["who"].startswith("target") and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")
     if e["do"] == "put_from_hand":  # -- if you do (wave 26C) -- one creature / land card from the hand (never an Aura, which may stay in the hand, 303.4g)
         sel = selectors.from_key(e["sel"])
         return not e.get("many") and not e.get("alt") and not e.get("attacking") and bool(sel.types) and set(sel.types) <= {"Creature", "Land"}
@@ -5998,8 +6006,8 @@ def _probed_move(e: dict[str, Any]) -> bool:
 
 
 def _certain_when_chosen(e: dict[str, Any]) -> bool:
-    if not isinstance(e.get("n", 1), int):
-        return False  # (a count that could be zero)
+    if e["do"] != "draw" and not isinstance(e.get("n", 1), int):
+        return False  # (a count that could be zero; wave 30G: a draw is the player's choice whatever it comes to, 118.12 — Champion of Wits's ruling)
     return e["do"] in _CERTAIN_WHEN_CHOSEN or (e["do"] in _CERTAIN_ON_A_TARGET and str(e.get("who")).startswith("target"))
 
 
@@ -6124,7 +6132,7 @@ def _gated_other_rewrite(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # +1/+1 counter from it. If you do, …", "Discard a card. If you do, draw a card.", "Return it to its owner's hand. If
 # you do, …"): whether the player started that one instruction (118.12; an object gone is "can't", a count other than one is read
 # only if the whole of it could be paid, 118.3), probed as it runs (effects._did_r1, effects._did). The sentence before must be that one instruction (an intervening "if" of a trigger may gate it).
-_DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "remove_counters", "discard", "exile", "bounce", "add_counters"})
+_DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "remove_counters", "discard", "exile", "bounce", "add_counters", "tap"})
 
 
 def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any]],
@@ -6285,7 +6293,8 @@ def _reflex_created(rest: str, made: dict[str, Any]) -> dict[str, Any] | None:
     parsed = parse_effects(body[:1].upper() + body[1:], "event")
     if parsed is None or not parsed[0] or "event_amount" in json.dumps(parsed, default=str):
         return None  # ("that many" of one token each: nothing to count)
-    return {"do": "reflexive", "cond": {"value": {"this_way": "created", "of": None}, "op": ">=", "n": 1}, "lki": "cond_ref", "each": True,
+    named = {"named": made["token"]["name"]}  # (only the tokens this instruction asked for: Chatterfang's extra Squirrels aren't "this way", the Ajani ruling)
+    return {"do": "reflexive", "cond": {"value": {"this_way": "created", "of": None, **named}, "op": ">=", "n": 1}, "lki": "cond_ref", "each": True,
             "ability": {"kind": "triggered", "trigger": "reflexive", "effects": parsed[0], "optional": parsed[2], **target_fields(parsed[1])}}
 
 
@@ -6404,6 +6413,8 @@ def _probe_previous(effects: list[dict[str, Any]], prev_start: int, reflex: bool
         return None  # whether that was "done" isn't settled here (UNCERTAIN): not read
     if base[0]["do"] in ("exile", "bounce") and not isinstance(base[0].get("who"), str):
         return None
+    if base[0]["do"] == "tap" and base[0].get("who") not in ("self", "it"):
+        return None  # -- if you do (wave 30G) -- (only the permanent itself: tapping several, or a target that may already be tapped, is not read)
     # -- if you do (wave 30C) -- 118.3: a mandatory "sacrifice / discard / remove N" with N other than one pays all or nothing (Egon's
     # ruling of 2021-02-05), and "If you do" asks whether it was started: the engine would do part of it, so that's left to the players
     if base[0]["do"] in ("sacrifice", "sacrifice_choice", "discard", "remove_counters") and base[0].get("n", 1) != 1:

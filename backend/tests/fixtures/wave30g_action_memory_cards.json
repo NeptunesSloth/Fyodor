@@ -386,5 +386,150 @@
   "keywords": [],
   "power": "3",
   "toughness": "3"
+ },
+ {
+  "name": "Horrid Shadowspinner",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Horror",
+  "oracle_text": "Lifelink\nWhenever this creature attacks, you may draw cards equal to its power. If you do, discard that many cards.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Lifelink"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Katara, Waterbending Master",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Warrior Ally",
+  "oracle_text": "Whenever you cast a spell during an opponent's turn, you get an experience counter.\nWhenever Katara attacks, you may draw a card for each experience counter you have. If you do, discard a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Champion of Wits",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Snake Wizard",
+  "oracle_text": "When this creature enters, you may draw cards equal to its power. If you do, discard two cards.\nEternalize {5}{U}{U} ({5}{U}{U}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a 4/4 black Zombie Snake Wizard with no mana cost. Eternalize only as a sorcery.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Eternalize"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Armor Wars",
+  "layout": "saga",
+  "mana_cost": "{2}{U}{R}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — You may draw a card for each artifact you control. If you do, each opponent draws a card.\nII — Artifact spells you cast this turn cost {1} less to cast.\nIII — This Saga deals X damage to target opponent, where X is the greatest mana value among artifacts you control.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Ob Nixilis, the Fallen",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{B}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Demon",
+  "oracle_text": "Landfall — Whenever a land you control enters, you may have target player lose 3 life. If you do, put three +1/+1 counters on Ob Nixilis.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Landfall"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Platinum Emperion",
+  "layout": "normal",
+  "mana_cost": "{8}",
+  "cmc": 8.0,
+  "type_line": "Artifact Creature — Golem",
+  "oracle_text": "Your life total can't change. (You can't gain or lose life. You can't pay any amount of life except 0.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "8",
+  "toughness": "8"
+ },
+ {
+  "name": "The Fire Nation Drill",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Artifact — Vehicle",
+  "oracle_text": "Trample\nWhen The Fire Nation Drill enters, you may tap it. When you do, destroy target creature with power 4 or less.\n{1}: Permanents your opponents control lose hexproof and indestructible until end of turn.\nCrew 2",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Crew",
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "3"
+ },
+ {
+  "name": "Gitaxian Anatomist",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Phyrexian Wizard",
+  "oracle_text": "When this creature enters, you may tap it. If you do, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Proliferate"
+  ],
+  "power": "2",
+  "toughness": "5"
  }
 ]

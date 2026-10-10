@@ -291,18 +291,20 @@ def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     want = _amount(plan, ctx, e["n"])
     if e.get("also"):  # -- triggers (wave 5D) -- "You and target opponent each draw a card": one instruction (121.2c)
         players = list(dict.fromkeys([*_players(plan, ctx, e["also"]), *players]))
+    if players and (want > 0 or isinstance(e["n"], dict)):
+        _drawing(ctx, e, want)  # (-- reflexive this way (wave 30G) -- "You may draw cards equal to X. If you do, …": chosen even when X is 0, 118.12)
     if want <= 0 or not players:
         return True
-    _drawing(ctx, e)
     return replace.draw_cards(plan, players, want, then=_then(ctx, e), ctx=ctx)
 
 
-def _drawing(ctx: Context, e: dict[str, Any]) -> None:
+def _drawing(ctx: Context, e: dict[str, Any], want: int = 0) -> None:
     """-- if you do (review 29C) -- "You may draw a card. If you do, …": 118.12 — the draw is a cost paid as it resolves, and "if you do"
     checks that the player chose to draw (or started a mandatory draw), "regardless of what events actually occurred": a draw a
     replacement effect changed (118.11: Underrealm Lich, Notion Thief, dredge) or one from an empty library was still done."""
     if e.get("did"):
         context.bind_payment(ctx, e["did"], True)
+        context.refs(ctx)[e["did"]]["n"] = want  # (the number it came to: "discard that many cards", context.amount)
 
 
 def gain_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -3033,6 +3035,39 @@ def _did_counters_up(fn: Any) -> Any:
 PRIMITIVES["add_counters"] = _did_counters_up(PRIMITIVES["add_counters"])
 
 
+def _did_lose_life(fn: Any) -> Any:
+    """-- if you do (wave 30G) -- "You may have target player lose 3 life. If you do, …" (Ob Nixilis, the Fallen): 118.12 — the player chose to
+    pay it, "regardless of what events actually occurred" (a loss doubled, prevented or replaced was still done, 118.11) — unless that player's
+    life total can't change: then the event can't happen and the cost can't be chosen (119.8, 614.17b; life_lock). Probed before the first run only."""
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        from app.rules import life_lock
+
+        name = e.get("did")
+        if name and name not in context.refs(ctx):
+            context.bind_payment(ctx, name, all(life_lock.why_not(plan, p, "lose") is None for p in _players(plan, ctx, e["who"])))
+        return bool(fn(plan, ctx, e))
+    return run
+
+
+PRIMITIVES["lose_life"] = _did_lose_life(PRIMITIVES["lose_life"])
+
+
+def _did_tap(fn: Any) -> Any:
+    """-- if you do (wave 30G) -- "When this creature enters, you may tap it. When you do, …" (The Fire Nation Drill, Spider-Man, To the Rescue):
+    118.12 — the player chose to pay it; only an untapped permanent can be tapped (701.26a), so one that is tapped already can't be paid (118.3).
+    Probed before the first run only."""
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        if name and name not in context.refs(ctx):
+            cards = _cards(plan, ctx, e["who"])
+            context.bind_payment(ctx, name, bool(cards) and not any(plan.state.cards[c].tapped for c in cards))
+        return bool(fn(plan, ctx, e))
+    return run
+
+
+PRIMITIVES["tap"] = _did_tap(PRIMITIVES["tap"])
+
+
 # -- refused modal/conditional (wave 3R1) -- "Sacrifice this enchantment. If you do, …", "Remove a +1/+1 counter
 # from it. If you do, …", "Discard a card. If you do, …": "If you do" after an instruction that isn't optional asks
 # whether it was started (118.12; a permanent that is already gone can't be sacrificed, 701.21a; a counter
@@ -3090,7 +3125,8 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             event = outer.model_copy(update={"amount": paid}) if outer is not None else TriggerEvent(kind="reflexive", amount=paid)
         # (-- reflexive this way (wave 30G) -- "each": one reflexive ability for each object the event happened to, each about its own object:
         # the rulings of Ajani, Nacatl Avenger (a Doubling Season makes two Cat Warriors: two triggers), 603.12a)
-        for ev in ([event.model_copy(update={"objects": [o], "count": 1, "amount": 1}) for o in event.objects]
+        for ev in ([event.model_copy(update={"objects": [o], "count": 1, "amount": 1}) for o in event.objects
+                    if any(new["card"] == o.card for new, _ in _this_way._matched(plan, ctx, e["cond"]["value"]))]
                    if e.get("each") and event is not None else [event]):
             _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
                  name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=ev)
@@ -3292,8 +3328,9 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "create_token": "create {n} token(s)", "add_counters": "put {n} {kind} counter(s)", "proliferate": "proliferate",
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library"}
     # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
-    parts = [words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution")]
+    parts = [("discard any number" if e["do"] == "discard" else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
+             else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive")]  # (wave 30G: "any number")
     return (", ".join(parts) or "do it").capitalize()
 
 

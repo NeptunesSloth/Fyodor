@@ -33,6 +33,7 @@ EXTRA = [card(c["name"], set_code="w30g", number=f"A{i:02d}", **{k: v for k, v i
     real("Probe Plains", "", 0, "Basic Land — Plains", "({T}: Add {W}.)", None),
     real("Probe Wall", "{3}", 3, "Creature — Wall", "", ("0", "4")),
     real("Probe Three", "{2}{R}", 3, "Creature — Beast", "", ("1", "3"), "R"),
+    real("Probe Arbor", "", 0, "Land Creature — Forest Dryad", "", ("1", "1"), "G"),
 ]
 
 
@@ -45,9 +46,14 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Hidetsugu, Devouring Chaos", "Augusta, Order Returned", "Cait Sith, Fortune Teller",
-                                  "Agatha's Soul Cauldron", "Borborygmos and Fblthp", "Old Rutstein", "Neheb, Dreadhorde Champion",
-                                  "Dáin Ironfoot", "Eastfarthing Farmer", "Tip the Scales"])
+FULL = ["Hidetsugu, Devouring Chaos", "Augusta, Order Returned", "Cait Sith, Fortune Teller", "Agatha's Soul Cauldron", "Borborygmos and Fblthp",
+        "Old Rutstein", "Neheb, Dreadhorde Champion", "Dáin Ironfoot", "Eastfarthing Farmer", "Tip the Scales", "Nyssa of Traken",
+        "Seasoned Cryomancer", "Miasma Demon", "Swashbuckler Extraordinaire", "Loamcrafter Faun", "Scapeshift", "Last-Ditch Effort",
+        "Mana Seism", "Nantuko Cultivator", "Rites of Spring", "Horrid Shadowspinner", "Katara, Waterbending Master", "Champion of Wits",
+        "Armor Wars", "Ob Nixilis, the Fallen", "The Fire Nation Drill", "Gitaxian Anatomist"]
+
+
+@pytest.mark.parametrize("name", FULL)
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -359,9 +365,11 @@ def test_tip_the_scales_a_token_or_a_commander_sent_to_the_command_zone_is_still
 
 
 # -- "If a noncreature, nonland card is milled this way, …": a kind written with a comma (Old Rutstein) ------------------------------
-@pytest.mark.parametrize(("top", "token"), [("Lightning Bolt", "Blood"), ("Probe Plains", "Treasure"), ("Grizzly Bears", "Insect")])
+@pytest.mark.parametrize(("top", "token"), [("Lightning Bolt", ["Blood"]), ("Probe Plains", ["Treasure"]), ("Grizzly Bears", ["Insect"]),
+                                            ("Probe Arbor", ["Insect", "Treasure"])])
 def test_old_rutstein_makes_the_token_for_the_kind_of_card_it_milled(cards, top, token):
-    """608.2c: the three "If a … card is milled this way" sentences each look at the one card milled; "noncreature, nonland" is one kind."""
+    """608.2c: the three "If a … card is milled this way" sentences each look at the one card milled; "noncreature, nonland" is one kind; a
+    card that is both a land and a creature (Dryad Arbor: the Old Rutstein ruling of 2021-11-19) gets both tokens."""
     s = build(cards, ["Old Rutstein", top])
     stack_top(s, [top])
     rutstein = to_hand(s, "Old Rutstein")
@@ -370,7 +378,7 @@ def test_old_rutstein_makes_the_token_for_the_kind_of_card_it_milled(cards, top,
     answer(s)
     assert zone_of(s, top) == "p1:graveyard"
     made = sorted(c.name for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield")
-    assert made == [token], made
+    assert made == token, made
     check(s)
 
 
@@ -502,4 +510,151 @@ def test_miasma_demon_shrinks_up_to_as_many_creatures_as_cards_discarded(cards, 
     assert sum(s.state.cards[c.id].zone == "p1:graveyard" for c in held) == discarded
     assert pt(s, "Probe Wall", "p2") == (-2, 2)
     assert pt(s, "Probe Three", "p2") == ((-1, 1) if discarded == 2 else (1, 3))
+    check(s)
+
+
+def has_double_strike(s, c):
+    from app.rules.plan import Plan
+
+    return "double strike" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id]).keywords
+
+
+# -- "you may sacrifice one or more Treasures. When you do, up to that many target creatures gain double strike" (Swashbuckler Extraordinaire) --
+@pytest.mark.parametrize("sacrificed", [2, 1])
+def test_swashbuckler_gives_double_strike_to_up_to_as_many_creatures_as_treasures_sacrificed(cards, sacrificed):
+    """118.12 + 603.12: "one or more" is a choice of how many (some, or none at all); the reflexive ability's "up to that many" is that number."""
+    s = build(cards, ["Swashbuckler Extraordinaire", "Grizzly Bears"])
+    swash = put(s, "Swashbuckler Extraordinaire")
+    bears = put(s, "Grizzly Bears")
+    ready(s, "Grizzly Bears")
+    for _ in range(2):
+        token_of(s, "p1", "Treasure", "Token Artifact — Treasure", "0/0", "{T}, Sacrifice this token: Add one mana of any color.")
+    treasures = [c for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield"]
+    act(s, "p1", type="pass_priority")  # -> declare attackers
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    pick(s, "confirm", "yes")
+    pick(s, "choose_cards", *[c.id for c in treasures[:sacrificed]])
+    d = pick(s, "choose_cards", *[bears.id, swash.id][:sacrificed])
+    assert d.max_choices == sacrificed
+    answer(s)
+    assert has_double_strike(s, bears) and has_double_strike(s, swash) == (sacrificed == 2)
+    check(s)
+
+
+# -- "you may discard one or more land cards. When you do, return up to that many target nonland permanent cards from your graveyard" ------
+def test_loamcrafter_faun_returns_up_to_as_many_nonland_cards_as_lands_discarded(cards):
+    s = build(cards, ["Loamcrafter Faun", "Probe Plains", "Probe Plains", "Grizzly Bears", "Llanowar Elves", "Sol Ring", "Lightning Bolt"])
+    lands = [to_hand(s, "Probe Plains"), next(c for c in s.state.cards.values() if c.name == "Probe Plains" and c.zone == "p1:library")]
+    act(s, "p1", type="move", card_ids=[lands[1].id], to={"zone": "hand"})
+    dead = [card_named(s, n) for n in ("Grizzly Bears", "Llanowar Elves", "Sol Ring")]
+    for c in dead + [card_named(s, "Lightning Bolt")]:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    faun = to_hand(s, "Loamcrafter Faun")
+    mana(s, G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=faun.id)
+    pick(s, "confirm", "yes")
+    pick(s, "choose_cards", *[c.id for c in lands])
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards" and d.max_choices == 2 and len(d.options) == 3  # (three permanent cards offered, the Bolt isn't one)
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[c.id for c in dead[:2]])
+    answer(s)
+    assert sum(s.state.cards[c.id].zone == "p1:hand" for c in dead) == 2
+    check(s)
+
+
+# -- "You may draw cards equal to X. If you do, discard that many cards / a card": chosen, and the number it was worked out to (118.12) ------
+def attack_with(s, name):
+    act(s, "p1", type="pass_priority")  # -> declare attackers
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": card_named(s, name).id, "target": "p2"}])
+
+
+@pytest.mark.parametrize("counters_on_it", [2, 0])
+def test_horrid_shadowspinner_discards_as_many_cards_as_its_power_drew(cards, counters_on_it):
+    """118.12 + the Horrid Shadowspinner ruling of 2024-06-07: "that many" is its power when the draw was chosen (worked out once, 608.2h) -
+    a 4/4 with two +1/+1 counters draws four and discards four, a plain one three and three."""
+    s = build(cards, ["Horrid Shadowspinner", "Grizzly Bears", "Llanowar Elves", "Lightning Bolt", "Sol Ring", "Arcane Signet", "Opt"])
+    shadow = put(s, "Horrid Shadowspinner")
+    ready(s, "Horrid Shadowspinner")
+    if counters_on_it:
+        act(s, "p1", type="counter", card_ids=[shadow.id], kind="+1/+1", delta=counters_on_it)
+    power = pt(s, "Horrid Shadowspinner")[0]
+    for name in ("Grizzly Bears", "Llanowar Elves", "Lightning Bolt", "Sol Ring"):
+        to_hand(s, name)  # (a hand to choose the discards from)
+    before = len(s.state.zones["p1:hand"])
+    attack_with(s, "Horrid Shadowspinner")
+    pick(s, "confirm", "yes")
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards"  # (the discard of that many)
+    assert d.min_choices == d.max_choices == power
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:power])
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == before and len(s.state.zones["p1:graveyard"]) == power
+    check(s)
+
+
+@pytest.mark.parametrize("experience", [2, 0])
+def test_katara_discards_a_card_once_she_chose_to_draw(cards, experience):
+    """118.12: "If you do" asks whether you chose to draw ("regardless of what events actually occurred"; Champion of Wits's ruling: "if you
+    use the ability, you discard … regardless of how many cards you draw"): with no experience counters that is a draw of none and a discard."""
+    s = build(cards, ["Katara, Waterbending Master", "Grizzly Bears", "Llanowar Elves", "Lightning Bolt"])
+    put(s, "Katara, Waterbending Master")
+    ready(s, "Katara, Waterbending Master")
+    held = to_hand(s, "Lightning Bolt")
+    to_hand(s, "Grizzly Bears")
+    to_hand(s, "Llanowar Elves")
+    if experience:
+        act(s, "p1", type="resource", player="p1", key="experience", delta=experience)
+    attack_with(s, "Katara, Waterbending Master")
+    pick(s, "confirm", "yes")
+    d = pick(s, "choose_cards", held.id)  # (the one card discarded)
+    assert d.min_choices == d.max_choices == 1
+    answer(s)
+    assert s.state.cards[held.id].zone == "p1:graveyard"
+    assert len(s.state.zones["p1:hand"]) == 3 + experience - 1  # (three in hand, one drawn for each experience counter, one discarded)
+    check(s)
+
+
+# -- "you may have target player lose 3 life. If you do, put three +1/+1 counters on ~" (Ob Nixilis, the Fallen) ----------------------------
+@pytest.mark.parametrize(("locked", "counters_put"), [(False, 3), (True, 0)])
+def test_ob_nixilis_the_fallen_grows_only_if_the_loss_could_be_chosen(cards, locked, counters_put):
+    """118.12: "If you do" asks whether the player chose to have the target lose life ("regardless of what events actually occurred"); but a
+    life total that can't change makes the loss impossible, so it can't be chosen (119.8, 614.17b): Platinum Emperion keeps both the life and the counters."""
+    s = build(cards, ["Ob Nixilis, the Fallen"], ["Platinum Emperion"])
+    ob = put(s, "Ob Nixilis, the Fallen")
+    if locked:
+        put(s, "Platinum Emperion", "p2")
+    land = to_hand(s, "Forest")
+    act(s, "p1", type="play_land", card_id=land.id)
+    pick(s, "choose_one", "p2")  # (the target, as the landfall ability goes on the stack)
+    pick(s, "confirm", "yes")  # (the "may", as it resolves)
+    answer(s)
+    assert life(s, "p2") == (40 if locked else 37) and counters(s, ob) == counters_put
+    check(s)
+
+
+# -- "When this enters, you may tap it. When you do, destroy target creature with power 4 or less" (The Fire Nation Drill) -----------------
+def drill(cards):
+    s = build(cards, ["The Fire Nation Drill"], ["Probe Three", "Twisted Abomination"])
+    put(s, "Probe Three", "p2")
+    put(s, "Twisted Abomination", "p2")  # (power 5: not a legal target)
+    spell = to_hand(s, "The Fire Nation Drill")
+    mana(s, B=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    return s
+
+
+@pytest.mark.parametrize("taps", [True, False])
+def test_fire_nation_drill_destroys_only_if_it_was_tapped_for_it(cards, taps):
+    """603.12 + 118.12: "When you do" is that the player chose to tap it: then a creature with power 4 or less is destroyed (the 5-power one is
+    not even a legal target); declining taps nothing and triggers nothing."""
+    s = drill(cards)
+    three, big = card_named(s, "Probe Three", "p2"), card_named(s, "Twisted Abomination", "p2")
+    pick(s, "confirm", "yes" if taps else "no")
+    if taps:
+        d = s.state.rules.decision
+        assert d is not None and [o.id for o in d.options] == [three.id]  # (power 4 or less: not the 5/3)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[three.id])
+    answer(s)
+    assert s.state.cards[card_named(s, "The Fire Nation Drill").id].tapped is taps
+    assert s.state.cards[three.id].zone == ("p2:graveyard" if taps else "p2:battlefield") and s.state.cards[big.id].zone == "p2:battlefield"
     check(s)
