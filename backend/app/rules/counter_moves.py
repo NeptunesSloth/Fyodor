@@ -58,8 +58,7 @@ def move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if n == "any" and not e.get("kind"):  # -- counter kinds (wave 24C) -- "any number of counters": how many of each kind, in turn
         from app.rules import counter_kinds
 
-        counter_kinds.ask_amounts(plan, ctx, e, have, {"do": "move", "from": sources, "to": to[0]})
-        return False
+        return counter_kinds.ask_amounts(plan, ctx, e, have, {"do": "move", "from": sources, "to": to[0]})
     if len(have) > 1:  # "a counter": which kind (the controller's choice)
         decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Move'}: choose a kind of counter",
                options=[DecisionOption(id=k, label=f"{k} counter") for k in sorted(have)], resume={"step": STEP, "ctx": ctx, "e": e})

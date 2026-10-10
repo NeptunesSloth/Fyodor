@@ -123,7 +123,7 @@ _OBJECT_VS_COLORS = re.compile(r"(?:its|that creature's|that permanent's) (?P<st
                                r"equal to) the number of colors of mana spent to cast (?:this spell|~)")
 # -- static_other sweep (wave 26A) -- "if its toughness is less than or equal to the number of cards in your graveyard", "if its mana value is
 # less than or equal to the greatest mana value among permanents you control": the object's characteristic against a count read as it resolves
-_OBJECT_VS_COUNT = re.compile(r"(?:its|that creature's|that permanent's|that spell's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|"
+_OBJECT_VS_COUNT = re.compile(r"(?:its|that creature's|that permanent's|that card's|that spell's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|"
                               r"less than|greater than or equal to|greater than|equal to) (?P<v>the (?:number of|greatest) .+)")
 _REF_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "==", "greater than or equal to": ">=", "greater than": ">"}
 _REF_STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
@@ -164,6 +164,11 @@ _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking",
 _HAD_COUNTERS = re.compile(r"(?P<who>it|~|that creature|that permanent) (?:had|has|(?P<neg>doesn't have|didn't have|had no|has no)) "
                            r"(?:(?:a|an|one or more) )?(?:(?!no |any )(?P<k>\+1/\+1|-1/-1|[a-z]+) )?"
                            r"counters? on (?:it|them|~|him|her)")
+# -- counter counts (wave 30L) -- "it has fewer than four +1/+1 counters on it" (Ayara's Oathsworn), "that creature has two or more
+# +1/+1 counters on it" (Urdnan), "it had two or more …" (Ochre Jelly), "it has exactly four …": how many counters of a kind the object
+# has (122.1), as it is, or as it last existed (608.2h; _object_holds)
+_COUNT_COUNTERS = re.compile(r"(?P<who>it|~|that creature|that permanent) (?:has|had) (?:(?P<n>\w+) or (?P<cmp>more|fewer)|fewer than (?P<f>\w+)|exactly (?P<e>\w+)) "
+                             r"(?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?:it|them|~|him|her)")
 # -- refused modal/conditional (wave 3R1) -- an ability the object has (a characteristic, 109.3: as it is, or as it
 # last existed, 608.2h — granted ones included). Keyword abilities only; "protection" (which quality?) isn't read.
 _HAS_KEYWORD = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card)) (?:has|had|(?P<neg>doesn't have|didn't have)) (?P<kw>decayed|flying|reach|haste|trample|deathtouch|"
@@ -177,7 +182,7 @@ def _cmp(word: str | None) -> str:
 
 # -- counters (wave 7C) -- "~ has twenty or more growth counters on it", "there are three or more brick counters on this
 # artifact", "~ has no charge counters on it": how many counters of a kind its source has now (122.1)
-_SELF_COUNTS = re.compile(r"(?:(?:~|this [a-z]+|(?P<host>enchanted creature)) has|there (?:are|is)) (?:(?P<n>\w+) or (?P<cmp>more|fewer)|(?P<no>no)) "
+_SELF_COUNTS = re.compile(r"(?:(?:~|this [a-z]+|(?P<host>enchanted creature)) has|there (?:are|is)) (?:(?P<n>\w+) or (?P<cmp>more|fewer)|(?P<no>no)|exactly (?P<ex>\w+)) "  # (wave 30L: exactly)
                           r"(?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?:it|~|this [a-z]+)")
 
 
@@ -195,10 +200,10 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         return found_extreme
     m = _SELF_COUNTS.fullmatch(t)
     if m and m["k"] not in ("any", "more", "fewer"):
-        n = 0 if m["no"] else _num(m["n"])
+        n = 0 if m["no"] else _num(m["ex"] or m["n"])
         if n is not None:
             # (-- attached events (wave 20A) -- "Then if enchanted creature has three or more +1/+1 counters on it": what it's attached to)
-            return {"value": {"counters": m["k"], "on": "host" if m["host"] else "self"}, "op": "==" if m["no"] else _cmp(m["cmp"]), "n": n}
+            return {"value": {"counters": m["k"], "on": "host" if m["host"] else "self"}, "op": "==" if m["no"] or m["ex"] else _cmp(m["cmp"]), "n": n}
     from app.rules import (
         coin_flips,  # -- coin flips (wave 7E) -- "If you win the flip" (705.2: app/rules/coin_flips.py)
     )
@@ -447,6 +452,11 @@ _HAND_N = re.compile(r"you have (?:(?P<a>a)|exactly (?P<e>\w+)|fewer than (?P<f>
 _BATTLEFIELD_N = re.compile(r"there (?:are|is) (?:(?P<n>\w+) or more|fewer than (?P<f>\w+)|exactly (?P<e>\w+)) (?P<sel>.+?) on the battlefield")
 _GRAVEYARD_FEWER = re.compile(r"there are fewer than (?P<f>\w+) (?P<sel>.+? in your graveyard)")
 _SELF_FEWER = re.compile(r"(?:~|this [a-z]+) has fewer than (?P<f>\w+) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?:it|~|this [a-z]+)")
+# -- counter counts (wave 30L) -- "there are four or more lore counters among Sagas you control" (Tom Bombadil), "there are thirty or more
+# counters among artifacts and creatures you control" (Lux Artillery), "… three or more different kinds of counters among creatures you
+# control" (Hundred-Battle Veteran): the counters on a group of permanents, read as it is checked (122.1; values: counters_among)
+_COUNTERS_AMONG_IF = re.compile(r"there (?:are|is) (?:(?P<n>\w+) or (?P<cmp>more|fewer)|exactly (?P<e>\w+)) "
+                                r"(?P<what>(?:different kinds of counters|(?:(?:\+1/\+1|-1/-1|[a-z]+) )?counters) among .+)")
 _TOTAL_STAT = re.compile(r"creatures you control have total (?P<stat>toughness) (?P<n>\w+) or greater")
 _DEVOTION = re.compile(r"your devotion to (?P<a>white|blue|black|red|green)(?: and (?P<b>white|blue|black|red|green))? "
                        r"is (?P<n>\w+) or greater")
@@ -488,6 +498,9 @@ def _more_ifs(t: str) -> Condition | None:
     m = _SELF_FEWER.fullmatch(t)
     if m and (n := _num(m["f"])) is not None and m["k"] not in ("any", "more", "fewer"):
         return {"value": {"counters": m["k"], "on": "self"}, "op": "<=", "n": n - 1}
+    m = _COUNTERS_AMONG_IF.fullmatch(t)  # -- counter counts (wave 30L) --
+    if m and (n := _num(m["n"] or m["e"])) is not None and (among := values.parse_count(m["what"])) is not None:
+        return {"value": among, "op": "==" if m["e"] else _cmp(m["cmp"]), "n": n}
     m = _TOTAL_STAT.fullmatch(t)
     key = _count("creatures", "you control")
     if m and _num(m["n"]) is not None and key is not None:
@@ -980,6 +993,10 @@ def _object(t: str) -> Condition | None:
     if m:
         out_c: Condition = {"object": _OBJECT_WORDS[m["who"]], "counters": m["k"] or "*"}
         return {"not": out_c} if m["neg"] else out_c
+    m = _COUNT_COUNTERS.fullmatch(t)  # -- counter counts (wave 30L) --
+    if m and m["k"] not in ("any", "more", "fewer") and (n := _num(m["n"] or m["f"] or m["e"])) is not None:
+        return {"object": _OBJECT_WORDS[m["who"]], "counters": m["k"], "op": "==" if m["e"] else "<=" if m["f"] or m["cmp"] == "fewer" else ">=",
+                "n": n - 1 if m["f"] else n}
     m = _CONTROLLED.fullmatch(t)
     if m:
         return {"object": "it", "controlled_by": "you", **({"negate": True} if m["neg"] else {})}
@@ -1286,6 +1303,9 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return any(a is not None and b is not None and a > b for a, b in pairs)
     if "counters" in cond:  # -- counters (wave 5H) -- as it is, or as it last existed (603.10a)
         kind = cond["counters"]
+        if "op" in cond:  # -- counter counts (wave 30L) -- how many (122.1)
+            have = card.counters.get(kind, 0)
+            return have >= cond["n"] if cond["op"] == ">=" else have <= cond["n"] if cond["op"] == "<=" else have == cond["n"]
         return any(v > 0 for v in card.counters.values()) if kind == "*" else card.counters.get(kind, 0) > 0
     if "has" in cond:  # -- refused modal/conditional (wave 3R1) --
         return cond["has"] in ch.keywords
