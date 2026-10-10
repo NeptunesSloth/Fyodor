@@ -583,8 +583,8 @@ def _parse(c: str) -> Condition | None:
             return {"event": event, "subject": "self_or", "sel": sel.key()}
         aggregate = False
         m3 = re.fullmatch(r"one or more (?P<rest>.+)", subject)
-        if m3:
-            aggregate, subject = True, m3["rest"]
+        if m3:  # -- triggers (wave 30J) -- "one or more creatures you control each with power greater than its base power" (Kutzil): the filter
+            aggregate, subject = True, m3["rest"].replace(" each with ", " with ")  # is every member's own, as "with …" says (603.2c)
         else:
             m4 = re.fullmatch(r"(?:a|an|another) (?P<rest>.+)", subject)
             if not m4:
@@ -759,18 +759,31 @@ def _cast(c: str) -> Condition | None:
         return None
     out: Condition = {"event": "cast", "subject": "player", "player": _PLAYERS[m["p"]]}
     spell = m["spell"]
-    t = re.fullmatch(r"(?P<rest>.+?) during (?:an|each) opponent's turn", spell)
-    if t:
-        out["turn"] = "opponent"
-        spell = t["rest"]
-    if spell == "a spell other than your first spell each turn":  # -- counters (wave 21D) -- 601.2i: the second or later (Arcbound Tracker)
+    t = re.fullmatch(r"(?P<rest>.+?) during (?P<w>an opponent's turn|each opponent's turn|your turn|each of your turns)(?P<tail> other than your first spell that turn)?", spell)
+    if t:  # (-- triggers (wave 30J) -- Geralf, Rashmi and Ragavan: "during your turn" is the generic qualifier ``_qualified`` reads, the turn of the one the
+        # ability is about; here it comes with the Nth-spell wording the qualifier alone can't read)
+        out["during" if "your" in t["w"] else "turn"] = "you" if "your" in t["w"] else "opponent"
+        spell = t["rest"] + (t["tail"] or "")  # (Geralf: "a spell during your turn other than your first spell that turn")
+    if spell in ("a spell other than your first spell each turn", "a spell other than your first spell that turn"):  # -- counters (wave 21D) -- 601.2i: the second or later (Arcbound Tracker)
         return {**out, "nth_min": 2, "spell": selectors.Selector(zones=("stack",)).key()}
-    nth = re.fullmatch(r"(?:your|their) (?P<nth>first|second|third|fourth|fifth) spell(?P<each> each turn)?", spell)
-    if nth and (nth["each"] or out.get("turn")):  # (the Nth spell of any kind: counted per player per turn)
+    nth = re.fullmatch(r"(?:your|their) (?P<nth>first|second|third|fourth|fifth) spell(?P<each> each turn| in a turn)?", spell)
+    if nth and (nth["each"] or out.get("turn") or out.get("during")):  # (the Nth spell of any kind: counted per player per turn)
         return {**out, "nth": _NTH[nth["nth"]], "spell": selectors.Selector(zones=("stack",)).key()}
+    # -- triggers (wave 30J) -- "your fourth noncreature spell each turn" (The Fantasticar), "your first instant or sorcery spell from your graveyard
+    # each turn" (Sevinne): the Nth of that kind (and place) among the spells the player cast this turn, as the turn's cast log recorded them
+    knth = re.fullmatch(r"(?:your|their) (?P<nth>first|second|third|fourth|fifth) (?P<phrase>[A-Za-z0-9 ,/-]+? spell)"
+                        r"(?: (?P<from>from your graveyard|from exile))? each turn", spell)
+    if knth and not out.get("turn") and not out.get("during") and (knth["nth"] != "first" or knth["from"]):
+        from app.rules import history
+
+        ksel = selectors.parse(knth["phrase"])
+        stacked = selectors.replace(ksel, zones=("stack",)) if ksel is not None and ksel.player is None else None
+        if stacked is None or not history.note_selector_ok(stacked, spell=True):
+            return None
+        return {**out, "nth_note": _NTH[knth["nth"]], "spell": stacked.key(), **({"note_from": _FROM[knth["from"]]} if knth["from"] else {})}
     # -- unless pays (wave 4C) -- "their first noncreature spell each turn" (app/rules/unless_pays.py: the kind's marks)
     kind = re.fullmatch(r"(?:your|their) first (?P<phrase>(?:[A-Za-z0-9 ,/-]+? spell|spell with [A-Za-z0-9 {}]+?)) each turn", spell)
-    if kind and not out.get("turn"):
+    if kind and not out.get("turn") and not out.get("during"):
         from app.rules import unless_pays
 
         ksel = selectors.parse(kind["phrase"])

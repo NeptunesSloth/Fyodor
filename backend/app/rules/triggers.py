@@ -110,6 +110,8 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
                             recipe.printing if recipe is not None and recipe.printing and not snap.face_down else None)
     if snap.power is not None and snap.toughness is not None:
         ch = replace(ch, pt=(snap.power, snap.toughness))  # as it last existed (608.2h)
+    if snap.base_power is not None and snap.base_toughness is not None:  # -- base power (wave 30J) -- 208.4b
+        ch = replace(ch, base_pt=(snap.base_power, snap.base_toughness))
     # -- quoted grants (wave 2D) -- the abilities and keywords it had (603.10a): granted ones too
     from app.rules import granted
 
@@ -811,6 +813,14 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             kind = selectors.from_key(cond["spell"])
             if sum(1 for n in history.log_for(plan).casts if n.player == player
                    and history.note_matches(kind, n.types, n.subtypes, n.supertypes, n.colors, n.mv, x_cost=n.x_cost)) != 1:
+                return False
+        if cond.get("nth_note"):  # -- triggers (wave 30J) -- 601.2i: this spell is the Nth of its kind (and place) this player cast this turn
+            from app.rules import history
+
+            kind = selectors.from_key(cond["spell"])
+            same = [n.object_id for n in history.log_for(plan).casts if n.player == player and (not cond.get("note_from") or n.cast_from == cond["note_from"])
+                    and history.note_matches(kind, n.types, n.subtypes, n.supertypes, n.colors, n.mv, x_cost=n.x_cost)]
+            if info.get("oid") not in same or same.index(info["oid"]) + 1 != cond["nth_note"]:
                 return False
         if cond.get("turn") == "opponent" and not info.get("opponent_turn"):
             return False

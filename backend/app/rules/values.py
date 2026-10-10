@@ -417,8 +417,8 @@ _TURN_LIFE = re.compile(r"^(?:the )?(?:amount of )?life you(?:'ve| have)? (?P<k>
 _TURN_SPELL = re.compile(r"^spell (?P<who>you|they)(?:'ve| have) cast this turn$")
 _TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
 _TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?|[A-Z][a-z-]+) that died(?P<mine> under your control)? this turn$")
-_OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? who (?:(?P<drew>drew (?P<n>\w+) or more cards)|"
-                            r"(?P<lost>lost life)|(?P<hurt>was dealt damage)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
+_OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? (?:who|that) (?:(?P<drew>drew (?P<n>\w+) or more cards)|"
+                            r"(?P<lost>lost life)|(?P<hurt>(?:was|were) dealt (?P<combat>combat )?damage)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
                             r"this turn$")
 
 
@@ -457,7 +457,7 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "sacrificed", **({} if m[1] else {"who": "any"})}
     if re.fullmatch(r"cards? you(?:'ve)? cycled or discarded this turn", what):  # (wave 21F: Hollow One; a cycled card is discarded, 702.29a)
         return {"turn_history": "discarded"}
-    if re.fullmatch(r"(?:the )?(?:total )?(?:amount of )?life (?:lost by your opponents|your opponents have lost) this turn", what):
+    if re.fullmatch(r"(?:the )?(?:total )?(?:amount of )?(?:1 )?life (?:lost by your opponents|your opponents (?:have )?lost) this turn", what):  # (wave 30J: "for each 1 life", Neheb; "the total amount of life your opponents lost", Florian)
         return {"turn_history": "opp_lost"}
     if re.fullmatch(r"(?:the )?(?:total )?damage dealt to your opponents this turn", what):
         return {"turn_history": "opp_damage"}
@@ -467,7 +467,8 @@ def _turn_amount(what: str) -> Value | None:
         n = 1 if word is None else int(word) if word.isdigit() else NUMBERS.get(word)
         if n is None:
             return None
-        return {"turn_history": "opponents_who", "what": "drew" if m["drew"] else "lost" if m["lost"] else "damaged" if m["hurt"] else "lands", "n": n}
+        return {"turn_history": "opponents_who", "what": "drew" if m["drew"] else "lost" if m["lost"] else "damaged" if m["hurt"] else "lands", "n": n,
+                **({"combat": True} if m["combat"] else {})}  # (-- triggers (wave 30J) -- Tymna the Weaver: "opponents that were dealt combat damage", 510.2)
     from app.rules import (
         player_filter,  # -- per-player filters (wave 23A) -- "for each opponent who controls fewer creatures than you"
     )
