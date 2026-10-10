@@ -59,8 +59,13 @@ def test_the_intents_and_the_parser_share_one_target_limit():
     A.parse_action({"type": "cast_spell", "card_id": "x", "targets": ok, "target_counts": [A.MAX_TARGETS], "division": [1] * A.MAX_TARGETS})
     A.parse_action({"type": "activate_ability", "card_id": "x", "ability": 0, "targets": ok, "target_counts": [A.MAX_TARGETS]})
     A.parse_action({"type": "choose", "decision_id": "d", "option_ids": ok, "amounts": [1] * A.MAX_TARGETS})
-    with pytest.raises(ValueError):
-        A.parse_action({"type": "cast_spell", "card_id": "x", "targets": [*ok, "one-too-many"]})
+    with pytest.raises(ValueError):  # (one group: at most MAX_TARGETS)
+        A.parse_action({"type": "cast_spell", "card_id": "x", "targets": [*ok, "one-too-many"], "target_counts": [A.MAX_TARGETS + 1]})
+    # (review 29C) the intent carries every group's targets: Spinning Wheel Kick's "target creature you control" and its X targets (X + 1 in
+    # all) — a cast paused for its payment or a division is re-read from the intent it saved, which a 250 limit on the whole list refused
+    both = {"targets": [*ok, "one-more"], "target_counts": [1, A.MAX_TARGETS]}
+    A.parse_action({"type": "cast_spell", "card_id": "x", **both})
+    A.parse_action({"type": "activate_ability", "card_id": "x", "ability": 0, **both})
     for text in ("Tap any number of target creatures.", "Tap one or more target creatures."):
         found = scripts.parse_effects(text)
         assert found is not None and found[1][0]["max"] == A.MAX_TARGETS, text

@@ -571,10 +571,24 @@ def reveal_drawn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     before = set((context.refs(ctx).get(e["since"]) or {}).get("hand") or [])
+    log = plan.rules.turn_log
+    new = [c for c in plan.state.zones.get(zone_key(pid, "hand"), []) if c not in before]
+    if any(plan.rules.object_id(c) in log.drawn_counted.get(pid, ()) for c in new):
+        # -- replaced draws (review 29C) -- a replacement effect changed the number of cards the instruction draws (121.2a: Quantum Riddler's
+        # "that many cards plus one", Alms Collector): 614.11b / 121.6c read literally keep "reveal them" off every card the changed
+        # instruction drew, while 121.2a speaks of the instruction being modified; no ruling settles which cards "them" are, so the players
+        # resolve the reveal and the cast by hand (none revealed or offered here)
+        context.bind_objects(plan, ctx, e["as"], [])
+        decide(plan, player=pid, kind="manual_resolution",
+               prompt=f"{ctx.get('name') or 'It'}: a replacement effect changed how many cards were drawn, and the rules don't settle which of "
+                      "them are revealed and may be cast (121.2a, 614.11b). Resolve the reveal and the cast by hand, then press Done",
+               options=[DecisionOption(id="done", label="Done")], resume={"step": "room_by_hand", "ctx": ctx})
+        return False
     # (review 28B: drawn ones only — 121.5 / 614.11b: a card a draw replacement put into the hand (Underrealm Lich) wasn't drawn, and stays hidden;
-    # wave 29C: nor is one a replacement drew — "draw two cards instead", "that many plus one": 121.6c, 614.11b)
-    was_drawn = set(plan.rules.turn_log.drawn.get(pid, ())) - set(plan.rules.turn_log.drawn_replaced.get(pid, ()))
-    drawn = [c for c in plan.state.zones.get(zone_key(pid, "hand"), []) if c not in before and plan.rules.object_id(c) in was_drawn]
+    # wave 29C: nor is one a replacement drew — "draw two cards instead" (Phial of Galadriel, Blood Scrivener): 121.6c, 614.11b, the Sindbad,
+    # Fa'adiyah Seer, Pact Weapon and Jace, Mirror Mage rulings: "even if the draw is replaced by another draw")
+    was_drawn = set(log.drawn.get(pid, ())) - set(log.drawn_replaced.get(pid, ()))
+    drawn = [c for c in new if plan.rules.object_id(c) in was_drawn]
     context.bind_objects(plan, ctx, e["as"], drawn)
     if drawn:
         plan.do({"type": "reveal", "card_ids": drawn}, actor=pid)

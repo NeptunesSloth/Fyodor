@@ -26,6 +26,7 @@ from app.rules.characteristics import CardInfo, Characteristics
 
 MAX_STEPS = 400  # a safety valve: no single intent may expand into more table actions
 ARROW_TARGETS = 20  # the most objects one arrow points at (A.CreateArrow.targets)
+ENGINE_ARROWS = 190  # the engine's target arrows stop here (the table takes 200: handlers/marks.py; the rest is the players')
 
 
 class Plan:
@@ -138,9 +139,13 @@ class Plan:
 
     def target_arrows(self, source: str, ids: Any, *, actor: str | None = None) -> None:
         """-- target limits (wave 29C) -- the arrows from a spell or ability to its targets: one arrow points at up to 20 objects
-        (``CreateArrow``), so a spell with more targets ("up to X target …", "any number of target …") gets several."""
+        (``CreateArrow``), so a spell with more targets ("up to X target …", "any number of target …") gets several. (review 29C: arrows only
+        show the targets: past ``ENGINE_ARROWS`` on the table none are added, as the table refuses more than 200 and that would refuse the
+        cast or the resolution itself)"""
         ids = list(dict.fromkeys(ids))
         for i in range(0, len(ids), ARROW_TARGETS):
+            if len(self.state.arrows) >= ENGINE_ARROWS:
+                return
             self.do({"type": "create_arrow", "source": source, "targets": ids[i:i + ARROW_TARGETS], "kind": "target"}, actor=actor)
 
     def _battlefield_types(self, payload: dict[str, Any]) -> dict[str, list[str]]:

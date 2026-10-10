@@ -1151,8 +1151,11 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
                 marks += [list(exclude)] * k
         if extra := [p for p in dict.fromkeys(slots) if p not in who]:  # (review 28B: Alms Collector's controller draws too: 702.52a dredge)
             planner.cands += dredge_candidates(plan, extra)
+        counters = {c.id for c in found if c.event == "draw_count"}  # (review 29C: a slot of an instruction whose number one of them changed)
         for i, pid in enumerate(slots):
             ev: Event = {"kind": "draw", "player": pid, "applied": list(marks[i])}  # (the same as ``exclude`` unless a count replacement applied)
+            if counters & set(marks[i]):
+                ev["counted"] = True
             out: list[Event] = []
             planner.settle(ev, sim, out.append)
             actions.append((ev, out))
@@ -1197,22 +1200,25 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[s
     table step (each card is still its own "drew" event, 121.2). True when a body (wave 28B) was run last: ``after`` goes on once it is
     done (the plan stops at a body, so nothing follows it)."""
     r = plan.rules
-    run: list[tuple[str, bool]] = []  # (player, drawn as a result of a replacement effect: 614.11b, wave 29C)
+    # (player, how: "replaced" — drawn as a result of a replacement effect, 614.11b, wave 29C; "counted" — by an instruction a replacement
+    # effect changed the number of, 121.2a, review 29C; "" — neither)
+    run: list[tuple[str, str]] = []
 
     def flush() -> None:
         if not run:
             return
         pid, k = run[0][0], len(run)
-        replaced = [r for _, r in run]
+        how = [h for _, h in run]
         run.clear()
         library = plan.state.zones.get(zone_key(pid, "library"), [])
         drawn = min(k, len(library))
         if drawn:
             top = list(library[:drawn])
             plan.do({"type": "draw", "player": pid, "count": drawn}, actor=pid)
-            if (log := turn_log_now(plan.state)) is not None and any(replaced[:drawn]):  # -- replaced draws (wave 29C) -- 121.6c, 614.11b:
-                log.drawn_replaced.setdefault(pid, []).extend(  # "reveal them" etc. isn't done to cards a replacement effect drew
-                    plan.rules.object_id(c) for c, was in zip(top, replaced, strict=False) if was)
+            if (log := turn_log_now(plan.state)) is not None and any(how[:drawn]):  # -- replaced draws (wave 29C) -- 121.6c, 614.11b:
+                for c, h in zip(top, how, strict=False):  # "reveal them" etc. isn't done to cards a replacement effect drew
+                    if h:
+                        (log.drawn_counted if h == "counted" else log.drawn_replaced).setdefault(pid, []).append(plan.rules.object_id(c))
             from app.rules import (
                 miracle,  # -- casting extras (wave 18E) -- 702.94a: the first card drawn this turn
             )
@@ -1236,7 +1242,8 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[s
             elif f["kind"] == "draw":
                 if run and run[0][0] != f["player"]:
                     flush()
-                run.append((f["player"], bool(f.get("applied"))))  # (a replaced draw's events carry the effects applied, 616.1)
+                # (a replaced draw's events carry the effects applied, 616.1; the slot of a changed instruction says so: ``draw_cards``)
+                run.append((f["player"], "counted" if before.get("counted") else "replaced" if f.get("applied") else ""))
             elif f["kind"] == "win":
                 flush()
                 _win(plan, f["player"])

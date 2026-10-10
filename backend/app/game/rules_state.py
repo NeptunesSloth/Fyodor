@@ -495,6 +495,10 @@ class TurnLog(BaseModel):
     # -- replaced draws (wave 29C) -- the part of ``drawn`` a replacement effect drew ("draw two cards instead", "that many plus one"): 614.11b,
     # 121.6c — an additional action on drawn cards ("… and reveal them") isn't done to them. PRIVATE like ``drawn``
     drawn_replaced: dict[str, list[str]] = Field(default_factory=dict)
+    # -- replaced draws (review 29C) -- the part of ``drawn`` drawn by an instruction a replacement effect changed the number of ("that many
+    # cards plus one", 121.2a / 616.1g: Quantum Riddler, Alms Collector): whether "… and reveal them" reaches those isn't settled (614.11b
+    # against 121.2a) — the players resolve it. PRIVATE like ``drawn``
+    drawn_counted: dict[str, list[str]] = Field(default_factory=dict)
     left: list[Departure] = Field(default_factory=list)
     left_graveyard: list[str] = Field(default_factory=list)  # the owner of each card that left a graveyard
     entered_graveyard: list[Arrival] = Field(default_factory=list)

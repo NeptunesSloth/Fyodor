@@ -285,13 +285,24 @@ def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         counts = this_way.by_controller(plan, ctx, e["n"])
         each = {p: max(0, counts.get(p, 0) + int(e["n"].get("delta", 0))) for p in players}
         players = [p for p in players if each[p] > 0]
+        if players:
+            _drawing(ctx, e)
         return not players or replace.draw_cards(plan, players, each, then=_then(ctx, e), ctx=ctx)
     want = _amount(plan, ctx, e["n"])
     if e.get("also"):  # -- triggers (wave 5D) -- "You and target opponent each draw a card": one instruction (121.2c)
         players = list(dict.fromkeys([*_players(plan, ctx, e["also"]), *players]))
     if want <= 0 or not players:
         return True
+    _drawing(ctx, e)
     return replace.draw_cards(plan, players, want, then=_then(ctx, e), ctx=ctx)
+
+
+def _drawing(ctx: Context, e: dict[str, Any]) -> None:
+    """-- if you do (review 29C) -- "You may draw a card. If you do, …": 118.12 — the draw is a cost paid as it resolves, and "if you do"
+    checks that the player chose to draw (or started a mandatory draw), "regardless of what events actually occurred": a draw a
+    replacement effect changed (118.11: Underrealm Lich, Notion Thief, dredge) or one from an empty library was still done."""
+    if e.get("did"):
+        context.bind_payment(ctx, e["did"], True)
 
 
 def gain_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -2926,24 +2937,19 @@ PRIMITIVES["optional_payment"] = optional_payment.optional_payment
 
 def _did(fn: Any, kind: str) -> Any:
     """An instruction whose "If you do" is judged by what it actually did ("did": a binding name,
-    ``{"succeeded": name}`` in the gate after it): a card drawn (121.2: not from an empty library,
-    not a replaced draw), an object that ended in the zone asked for (903.9b: a commander may go to the
-    command zone instead). Probed before the first run only: a paused primitive runs again (616.1)."""
+    ``{"succeeded": name}`` in the gate after it): an object that ended in the zone asked for (903.9b: a commander may go to the
+    command zone instead). Probed before the first run only: a paused primitive runs again (616.1). (A draw binds its own "did": ``draw``.)"""
     def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         name = e.get("did")
         if name and name not in context.refs(ctx):
-            if kind == "draw":  # -- replaced draws (wave 29C) -- 121.5: cards drawn, not cards that reached a hand (a replacement may put one there)
-                log = plan.rules.turn_log
-                context.refs(ctx)[name] = {"kind": "probe", "drew": {p: log.drew.get(p, 0) for p in _players(plan, ctx, e["who"])}}
-            else:
-                context.refs(ctx)[name] = {"kind": "probe", "to": kind, "cards": {
-                    c: plan.oid(plan.state.cards[c]) for c in _cards(plan, ctx, e["who"])}}
+            context.refs(ctx)[name] = {"kind": "probe", "to": kind, "cards": {
+                c: plan.oid(plan.state.cards[c]) for c in _cards(plan, ctx, e["who"])}}
         return bool(fn(plan, ctx, e))
     return run
 
 
-for _name in ("draw", "exile", "bounce"):
-    PRIMITIVES[_name] = _did(PRIMITIVES[_name], {"draw": "draw", "exile": "exile", "bounce": "hand"}[_name])
+for _name in ("exile", "bounce"):
+    PRIMITIVES[_name] = _did(PRIMITIVES[_name], {"exile": "exile", "bounce": "hand"}[_name])
 
 
 def _did_counters_up(fn: Any) -> Any:

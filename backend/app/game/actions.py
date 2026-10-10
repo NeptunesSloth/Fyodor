@@ -26,11 +26,14 @@ ZoneName = Literal[
 Coord = Annotated[float, Field(ge=-100000, le=100000)]
 # Target groups (601.2c): how many of ``targets`` belong to each group, in printed order; and the
 # division (601.2d) of each divided group with two or more targets, amount per target in order.
-# -- target limits (wave 29C) -- the most targets one spell or ability names in one intent: the limit of the Choose action's options (a
-# trigger's targets are chosen with one), so "up to X target …" / "any number of target …" aren't cut at 20 for casts and activations
+# -- target limits (wave 29C) -- the most targets one target group takes: the limit of the Choose action's options (a group's targets are
+# chosen with one), so "up to X target …" / "any number of target …" aren't cut at 20 for casts and activations. (review 29C) An intent
+# carries every group's targets: up to MAX_TARGETS for each of its MAX_GROUPS groups ("Target creature you control … each of X target
+# creatures": X + 1 in all)
 MAX_TARGETS = 250
-TargetCounts = Annotated[list[Annotated[int, Field(ge=0, le=MAX_TARGETS)]], Field(max_length=10)]
-Division = Annotated[list[Annotated[int, Field(ge=1, le=10000)]], Field(max_length=MAX_TARGETS)]
+MAX_GROUPS = 10
+TargetCounts = Annotated[list[Annotated[int, Field(ge=0, le=MAX_TARGETS)]], Field(max_length=MAX_GROUPS)]
+Division = Annotated[list[Annotated[int, Field(ge=1, le=10000)]], Field(max_length=MAX_TARGETS * MAX_GROUPS)]
 FaceDownKind = Literal["generic", "morph", "disguise", "manifest", "cloak", "exile"]
 assert set(PLAYER_ZONES) | {STACK} == set(ZoneName.__args__)  # type: ignore[attr-defined]
 
@@ -959,7 +962,7 @@ class CastSpell(_Intent):
     card_id: Id
     face: int | None = Field(default=None, ge=0, le=3)
     # Optional answers given up front; anything missing is asked for as a decision.
-    targets: list[Id] = Field(default_factory=list, max_length=MAX_TARGETS)
+    targets: list[Id] = Field(default_factory=list, max_length=MAX_TARGETS * MAX_GROUPS)
     target_counts: TargetCounts = Field(default_factory=list)  # for spells with target groups
     division: Division = Field(default_factory=list)
     x_value: int | None = Field(default=None, ge=0, le=1000)
@@ -1029,7 +1032,7 @@ class ActivateAbility(_Intent):
     # index into the card's abilities (app/rules/oracle.py): printed 0…99, granted by a static ability 100…, granted
     # by a resolved effect 10 000 + 16 × its timestamp + k (app/rules/granted.py ``index_of``, ``MAX_INDEX``)
     ability: int = Field(ge=0, le=10_000_000)  # (borrowed abilities, app/rules/abilities_of.py: 2 000 000 + 32 × the lender's object number + k)
-    targets: list[Id] = Field(default_factory=list, max_length=MAX_TARGETS)
+    targets: list[Id] = Field(default_factory=list, max_length=MAX_TARGETS * MAX_GROUPS)
     target_counts: TargetCounts = Field(default_factory=list)  # (see CastSpell)
     division: Division = Field(default_factory=list)
     x_value: int | None = Field(default=None, ge=0, le=1000)
