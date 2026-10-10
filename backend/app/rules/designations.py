@@ -566,7 +566,9 @@ def reveal_drawn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     before = set((context.refs(ctx).get(e["since"]) or {}).get("hand") or [])
-    drawn = [c for c in plan.state.zones.get(zone_key(pid, "hand"), []) if c not in before]
+    # (review 28B: drawn ones only — 121.5 / 614.11b: a card a draw replacement put into the hand (Underrealm Lich) wasn't drawn, and stays hidden)
+    was_drawn = set(plan.rules.turn_log.drawn.get(pid, ()))
+    drawn = [c for c in plan.state.zones.get(zone_key(pid, "hand"), []) if c not in before and plan.rules.object_id(c) in was_drawn]
     context.bind_objects(plan, ctx, e["as"], drawn)
     if drawn:
         plan.do({"type": "reveal", "card_ids": drawn}, actor=pid)

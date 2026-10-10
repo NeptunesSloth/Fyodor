@@ -1029,21 +1029,17 @@ def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.Ma
         plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n}, actor=card.controller)
     if extra is not None and extra.energy:  # (wave 3E: "{T}, Pay {E}: Add one mana of any color", 107.14)
         plan.do({"type": "resource", "player": card.controller, "key": "energy", "delta": -extra.energy}, actor=card.controller)
+    from app.rules import replace as _replace_rider
+
     for kind, n in ability.riders:
         if kind == "damage" and _player_protected(plan, card, who):  # -- player shields (wave 5E) -- 702.16e, 702.16j
             plan.note(f"Protection prevents the damage {plan.ch(card).name} would deal to {plan.name(who)}")
         elif kind == "damage":
-            plan.do({"type": "rules_damage", "creatures": {}, "players": {who: n}, "planeswalkers": {},
-                     "lifelink": {}, "combat": False,
+            plan.do({"type": "rules_damage", "creatures": {}, "players": {who: _replace_rider.damage_loss(plan, who, n, actor=who)},
+                     "planeswalkers": {}, "lifelink": {}, "combat": False,
                      "dealt": [{"source": plan.oid(card.id), "target": who, "amount": n}]}, actor=who)
-        elif kind == "draw":
-            from app.rules import (
-                miracle,  # (-- review (wave 18E) -- a draw like any other: "the first card you've drawn this turn")
-            )
-
-            top = list(plan.state.zones.get(zone_key(who, "library"), [])[:n])
-            plan.do({"type": "draw", "player": who, "count": n}, actor=who)
-            miracle.on_draw(plan, who, top)
+        elif kind == "draw":  # (review 28B: through the draw choke point like any other draw — a mana ability can't pause: then=None)
+            _replace_rider.draw_cards(plan, [who], n)
         else:  # -- mana riders (wave 5A) -- "You gain 2 life.", "Each opponent gains 1 life."
             from app.rules import mana_riders
 
