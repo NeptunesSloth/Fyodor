@@ -288,8 +288,9 @@ STATIC = re.compile(
 _EXCEPT = " except during its controller's turn"
 # "The first creature spell you cast each turn costs {2} less to cast." (Shadow in the Warp) / "The second spell you cast
 # each turn costs {1} less to cast." (Raging Battle Mouse): read against this turn's casts (history.py, 601.2i)
+# -- spell grants (wave 30T) -- "… costs {2} less to cast and can be cast as though it had flash." (Radagast of Rhosgobel): the first one's flash too
 ORDINAL = re.compile(rf"^the (?P<ord>first|second) (?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spell you cast each turn costs {_SYMBOL} "
-                     r"less to cast$")
+                     r"less to cast(?P<flash> and can be cast as though it had flash)?$")
 
 
 # -- casting costs (wave 22F) -- Damping Sphere: "Each spell a player casts costs {1} more to cast for each other spell that player has cast this
@@ -464,8 +465,13 @@ def _ordinal_definition(o: re.Match[str]) -> dict[str, Any] | None:
     if o["ord"] == "second" and key is not None:
         return None
     n = int(o["n"])
+    if o["flash"] and o["ord"] != "first":
+        return None
+    from app.rules import cast_limits
+
     return {"kind": "static", "static": "cost_modifier", "delta": -n, "caster": "you", "filter": key,
-            "change": {"dir": -1, "n": n}, "ordinal": 1 if o["ord"] == "first" else 2, "effects": []}
+            "change": {"dir": -1, "n": n}, "ordinal": 1 if o["ord"] == "first" else 2, "effects": [],
+            **({"flash_perm": cast_limits.flash_def(key, first=True)} if o["flash"] else {})}  # (read by permissions.grants: 601.3b)
 
 
 def _ordinal_ok(state: GameState, info: CardInfo, player: str, d: dict[str, Any]) -> bool:
@@ -477,6 +483,12 @@ def _ordinal_ok(state: GameState, info: CardInfo, player: str, d: dict[str, Any]
     before = sum(1 for note in log.casts if note.player == player
                  and (sel is None or history.note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv)))
     return before == d["ordinal"] - 1
+
+
+def first_ok(state: GameState, info: CardInfo, player: str, key: str | None) -> bool:
+    """-- spell grants (wave 30T) -- "the first <kind> spell you cast each turn": none of that kind (None: any spell) cast by ``player`` earlier
+    this turn — the whole turn's casts count, whenever the source arrived (Radagast of Rhosgobel's rulings, 2026-06-29), 601.2i."""
+    return _ordinal_ok(state, info, player, {"filter": key, "ordinal": 1})
 
 
 # -- review (Codex) -- the ``targets`` a castability hint passes for a spell that has targets: "spells that target …"
@@ -631,11 +643,18 @@ def optional_offers(state: GameState, player: str, card: CardInstance, ch: Chara
                                 and (d.get("filter") is None or permissions.spell_matches(state, player, card, ch, d["filter"], info))
                                 and cast_limits.from_ok(d, card) for src, d in cast_limits._statics(state, info, "spell_keyword")):
         out.append(Optional(f"{card.id}:conspire", "Conspire: tap two untapped creatures that share a color with it", 0, "", "conspire"))
+    # -- casting extras (wave 18E) -- 702.153a casualty (one instance: 702.153b's several are refused); -- spell grants (wave 30T) -- its own or one a
+    # static gives it as it is cast ("The first instant or sorcery spell you cast each turn has casualty 2.": the spell isn't counted yet, 601.2i)
+    casualty = [int(m[1]) for t in own if (m := re.fullmatch(r"Casualty (\d+)", t)) is not None]
+    if len(casualty) == sum(t.startswith("Casualty") for t in own):
+        if not casualty:  # (a spell with casualty of its own keeps that one: a second instance, 702.153b, isn't offered)
+            casualty = [int(d["n"]) for src, d in cast_limits._statics(state, info, "spell_keyword")
+                        if d.get("keyword") == "casualty" and src.controller == player and cast_limits.from_ok(d, card, state, info, player)
+                        and (d.get("filter") is None or permissions.spell_matches(state, player, card, ch, d["filter"], info))]
+        if len(casualty) == 1:
+            out.append(Optional(f"{card.id}:casualty", f"Casualty {casualty[0]}: sacrifice a creature with power {casualty[0]} or greater", 0, "",
+                                "casualty", casualty[0]))
     for text in own:
-        # -- casting extras (wave 18E) -- 702.153a casualty (one instance: 702.153b's several are refused)
-        if (m := re.fullmatch(r"Casualty (\d+)", text)) is not None and sum(t.startswith("Casualty") for t in own) == 1:
-            out.append(Optional(f"{card.id}:casualty", f"Casualty {m[1]}: sacrifice a creature with power {m[1]} or greater", 0, "",
-                                "casualty", int(m[1])))
         if text == "Bargain":  # -- keywords (wave 30E) -- 702.166a-b: an optional additional cost; "bargained" is the intent to pay it
             out.append(Optional(f"{card.id}:bargain", "Bargain: sacrifice an artifact, enchantment, or token", 0, "", "bargain"))
         if (m := re.fullmatch(r"Teamwork (\d+)", text)) is not None:

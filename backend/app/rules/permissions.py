@@ -1070,7 +1070,9 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
 
         if (label := cast_limits.self_flash(state, player, card, ch, info)) is not None:
             out.append(Grant("permission", label, zone_ok=False, flash=True))
-    for src, index, d in _table_statics(state, info, {"permission"}):
+    # (-- spell grants (wave 30T) -- a cost changer that also gives flash carries it as "flash_perm": Radagast of Rhosgobel)
+    for src, index, d in [*_table_statics(state, info, {"permission"}),
+                          *((s, i, x["flash_perm"]) for s, i, x in _table_statics(state, info, {"cost_modifier"}) if x.get("flash_perm"))]:
         # -- cast limits (wave 5E) -- "Any player may cast …" / "During each opponent's end step, you may cast …"
         if (src.controller != player and not d.get("any_player")) or d.get("self") or not d[verb]:
             continue
@@ -1093,6 +1095,12 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                              once_key=key if d["once"] else None))
             continue
         if d["zone"] != "any" and d["zone"] != where:
+            continue
+        # -- spell grants (wave 30T) -- 611.3a: "As long as ~ is tapped, you may cast spells as though they had flash" is read now, as its source's controller;
+        # "the first creature spell you cast each turn" (601.2i): none of that kind cast earlier this turn, whenever the source arrived
+        if d.get("if") is not None and not _linked_if(state, info, src.controller, src, d["if"]):
+            continue
+        if d.get("first") and not cost_changes.first_ok(state, info, player, d["filter"]):
             continue
         if d["filter"] and verb == "cast" and not spell_matches(state, player, card, ch, d["filter"], info, source=src.id):  # (wave 30Q: "quest counters on ~")
             continue

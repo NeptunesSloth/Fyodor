@@ -270,10 +270,11 @@ def _parse(c: str) -> Condition | None:
         return {**inner, "damaged_by_self": True}
     # -- trigger tail (wave 16C) -- "When this creature dies during combat" (Mongrel Pack): it dies while a combat phase is going
     # on (506.1: beginning of combat through end of combat); read as the event happens (triggers._details_ok)
-    m = re.fullmatch(r"(?P<s>.+?) dies during combat", c)
+    # (-- spell grants (wave 30T) -- "Whenever a nontoken creature you control enters during combat" (The Blue Spirit, Noctis): the same look at the phase)
+    m = re.fullmatch(r"(?P<s>.+?) (?P<v>dies|enters) during combat", c)
     if m:
-        inner = _parse(f"{m['s']} dies")
-        if inner is None or inner.get("event") != "die" or inner.get("aggregate"):
+        inner = _parse(f"{m['s']} {m['v']}")
+        if inner is None or inner.get("event") != ("die" if m["v"] == "dies" else "enter") or inner.get("aggregate"):
             return None
         return {**inner, "in_combat": True}
     # -- triggers (wave 17D) -- "Whenever one or more other creatures you control leave the battlefield without dying" (Dour Port-Mage):
