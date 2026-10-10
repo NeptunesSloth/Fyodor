@@ -2272,6 +2272,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if problem:
         raise ActionError(problem)
     grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free, slot=a.slot)
+    if grant is not None and grant.how == "permission" and a.x_value and "{X}" in ch.mana_cost:
+        # -- review 30c -- 202.3e, 601.2e: "with mana value 3 or less" reads the X announced (Lurrus ruling 2020-04-17: "{X}{W} … with X as 1 but not as 2")
+        grant = cast_grant(plan.state, plan.actor, card, replace(ch, mana_value=ch.mana_value + a.x_value * ch.mana_cost.count("{X}")), plan.info,
+                           free=a.free, slot=a.slot)
+        if grant is None:
+            raise ActionError(f"{ch.name} can't be cast this way with X = {a.x_value}: its mana value would be too high")
     if a.slot is not None and grant is None:
         raise ActionError(f"{ch.name or 'That card'} can't be cast as a {a.slot} spell now")
     if grant is not None and grant.slot and a.slot is None and len(left := permissions.slot_choices(plan.state, plan.actor, card, ch, plan.info)) > 1:

@@ -735,8 +735,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         # -- attached events (wave 30S) -- 608.2h: this object left the battlefield before it resolved (Valduk's ruling 2022-12-08): the
         # Auras and Equipment last attached to it, wherever they are now
         snap = plan.rules.lki.get(ctx.get("source_object") or "") if v.get("on", "self") == "self" and plan.state.cards.get(host) is not got[0] else None
-        if snap is not None:
-            return sum(1 for c in snap.attached if c in plan.state.cards and kinds & plan.ch(plan.state.cards[c]).subtypes)
+        if snap is not None:  # (-- review 30c -- a token Aura that ceased to exist, 704.5d, as it last existed too)
+            from app.rules.triggers import _snapshot_card
+
+            gone = {s.card: s for s in plan.rules.lki.values() if s.card in snap.attached and s.card not in plan.state.cards}
+            return sum(1 for c in snap.attached if (c in plan.state.cards or c in gone) and kinds & (
+                plan.ch(plan.state.cards[c]) if c in plan.state.cards else _snapshot_card(plan, gone[c])[1]).subtypes)
         return sum(1 for c in plan.state.cards.values() if c.attached_to == host and c.zone.endswith(":battlefield")
                    and plan.in_game(c) and kinds & plan.ch(c).subtypes)
     if "for_player" in v:  # -- value grammar (wave 23C) -- "the number of cards in that player's graveyard": the count as that one player's ("you" of the phrase)

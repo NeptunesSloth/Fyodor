@@ -1109,7 +1109,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
 
         if not top_library.static_ok(state, player, card, ch, info, d, src, verb):
             continue
-        key = f"{src.id}:permission:{index}"
+        key = f"{r.object_id(src.id)}:permission:{index}"  # (-- review 30c -- 400.7: a new Muldrotha / Lurrus has new uses, the rulings 2020-11-10)
         if d["once"] and (r.once_per_turn.get(key) == turn or (state.turn.active_player != player and not d.get("once_any"))):
             continue  # "once during each of your turns" ("once each turn": any turn, wave 5I)
         # -- cast permissions (wave 30Q) -- Muldrotha: a use for each permanent type, a card of several types counting as one of them as it is played or
@@ -1121,7 +1121,9 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                       slot=slot, enters=d.get("enters")) for slot in slots]
     # -- top of library (wave 5I) -- the player picks the permission they use (601.3): a once-each-turn one is offered
     # last, so a cast another permission also allows doesn't use it up
-    out.sort(key=lambda g: g.once_key is not None)
+    # (-- review 30c -- a stored one-spell permission too: Chainer's is kept while Liliana's covers the cast, the Chainer ruling 2019-08-23)
+    once = {p.id for p in r.permissions if p.once}
+    out.sort(key=lambda g: g.once_key is not None or g.permission in once)
     return out
 
 
