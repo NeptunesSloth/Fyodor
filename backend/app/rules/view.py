@@ -209,8 +209,13 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
                   if can_see(state, state.cards[cid], viewer)]  # (-- review (sys 18A) -- not a face-down exiled card nobody looked at, 406.3)
     # -- review 30 -- a card in another player's exile this viewer may cast or play (Hostage Taker, Valgavoth, Jeleva, Opposition Agent: the
     # card stays in its owner's exile, 400.3): the hints are this viewer's own, so listing it tells no one else anything
+    # Only cards a grant could name are checked (a permission for that object, a linked "exiled with" set: permissions.grants reads nothing
+    # else for another player's card), so a big exile costs nothing (wave 29A's hint speed)
+    r = state.rules
+    named = {o for objs in r.exiled_with.values() for o in objs} | {o for p in r.permissions if p.player == viewer for o in (p.object_id, r.object_id(p.card) if p.card else None) if o} \
+        if r is not None else set()
     candidates += [cid for pid in state.players if pid != viewer for cid in state.zones.get(zone_key(pid, "exile"), [])
-                   if can_see(state, state.cards[cid], viewer)]
+                   if r is not None and (r.object_id(cid) in named or cid in r.free_casts) and can_see(state, state.cards[cid], viewer)]
     library = state.zones.get(zone_key(viewer, "library"), [])
     if library and can_see(state, state.cards[library[0]], viewer):
         candidates.append(library[0])
