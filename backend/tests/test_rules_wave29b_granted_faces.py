@@ -244,8 +244,8 @@ def test_a_declined_cascade_card_joins_the_others_in_a_random_order(cards):
         library = s.state.zones["p1:library"]
         assert set(library[-3:]) == {bolt.id, *passed} and not s.state.zones.get("p1:exile")
         seen.add(library[-3:].index(bolt.id))
+        check(s)  # (every time: the replay and the save and load give the same order, though it was random)
     assert len(seen) > 1
-    check(s)
 
 
 def test_a_half_that_a_prohibition_stops_is_not_offered(cards):
@@ -354,6 +354,25 @@ def test_discover_x_reaches_the_higher_face(cards):
     check(s)
 
 
+def test_discover_casts_either_door_of_a_room(cards):
+    """709.5, 709.3: a Room is a split card with one type line, cast as one door; it enters with that door unlocked (709.5d). Underwater Tunnel //
+    Slimy Aquarium (1 and 4, 5 combined) is found by discover 8; the right door is cast."""
+    s = build(cards, ["Monstrous Vortex", "Craterhoof Behemoth", "Underwater Tunnel // Slimy Aquarium"])
+    put(s, "Monstrous Vortex")
+    room = top_of_library(s, "Underwater Tunnel // Slimy Aquarium")
+    to_hand(s, "Craterhoof Behemoth")
+    mana(s, G=8)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Craterhoof Behemoth").id)
+    to_question(s)
+    assert options(s) == [("yes", "Cast Underwater Tunnel"), ("yes@1", "Cast Slimy Aquarium"), ("no", "Put it into your hand")]
+    s = reloaded(s)
+    choose(s, "yes@1")
+    settle_all(s)
+    assert s.state.cards[room.id].zone == "p1:battlefield"
+    assert s.state.rules.unlocked.get(s.state.rules.object_id(room.id)) == [2]
+    check(s)
+
+
 # -- suspend ---------------------------------------------------------------------------------------------------------------------
 def test_suspend_lets_its_owner_cast_either_half(cards):
     """702.62a: when the last time counter is removed the owner may cast the card without paying its mana cost: Suspend exiled Bonecrusher Giant //
@@ -430,6 +449,34 @@ def test_a_suspended_modal_card_may_be_played_as_its_land_face(cards):
     assert card.zone == "p1:battlefield" and card.face == 1 and card.tapped
     assert s.state.rules.lands_this_turn("p1", s.state.turn.number) == 1 and both.id not in s.state.rules.suspended
     assert not s.state.rules.free_casts and s.state.rules.decision is None
+    check(s)
+
+
+def test_a_suspended_land_face_asks_for_its_entering_choice(cards):
+    """Kang Prime suspends the card at the top of the library: Agadeem's Awakening // Agadeem, the Undercrypt. Playing the land face asks the usual
+    "As this land enters, you may pay 3 life" first (614.12a), the ability going on once it is answered; the choice survives a save and a load."""
+    from tests.test_rules_suspend import until
+
+    s = build(cards, ["Kang Prime", "Agadeem's Awakening // Agadeem, the Undercrypt"])
+    both = top_of_library(s, "Agadeem's Awakening // Agadeem, the Undercrypt")
+    to_hand(s, "Kang Prime")
+    mana(s, U=1, B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Kang Prime").id)
+    settle_all(s)
+    assert s.state.cards[both.id].zone == "p1:exile" and s.state.cards[both.id].counters == {"time": 2} and both.id in s.state.rules.suspended
+    act(s, "p1", type="counter", card_ids=[both.id], kind="time", delta=-1)
+    until(s, asked, limit=3000)
+    assert options(s) == [("yes", "Cast Agadeem's Awakening"), ("yes@1", "Play Agadeem, the Undercrypt"), ("no", "Leave it exiled")]
+    life = s.state.players["p1"].life
+    choose(s, "yes@1")
+    d = decision(s)
+    assert "life" in d.prompt and s.state.cards[both.id].zone == "p1:exile"  # 614.12a: asked before it enters
+    s = reloaded(s)
+    choose(s, [o.id for o in decision(s).options if o.id == "pay"][0])
+    settle_all(s)
+    card = s.state.cards[both.id]
+    assert card.zone == "p1:battlefield" and card.face == 1 and not card.tapped and s.state.players["p1"].life == life - 3
+    assert s.state.rules.decision is None and both.id not in s.state.rules.suspended and not s.state.rules.free_casts
     check(s)
 
 

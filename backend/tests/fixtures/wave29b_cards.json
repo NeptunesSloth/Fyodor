@@ -739,6 +739,97 @@
   "keywords": []
  },
  {
+  "name": "Kang Prime",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{B}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Villain",
+  "oracle_text": "Flying\nWhenever Kang Prime enters or attacks, exile cards from the top of your library until you exile a nonland card. Put two time counters on that card. If it doesn't have suspend, it gains suspend. (At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. If it's a creature, it has haste.)",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "3",
+  "toughness": "5"
+ },
+ {
+  "name": "Agadeem's Awakening // Agadeem, the Undercrypt",
+  "layout": "modal_dfc",
+  "mana_cost": "{X}{B}{B}{B} // ",
+  "cmc": 3.0,
+  "type_line": "Sorcery // Land",
+  "oracle_text": "Return from your graveyard to the battlefield any number of target creature cards that each have a different mana value X or less.\n//\nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Agadeem's Awakening",
+    "mana_cost": "{X}{B}{B}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "Return from your graveyard to the battlefield any number of target creature cards that each have a different mana value X or less.",
+    "colors": [
+     "B"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Agadeem, the Undercrypt",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.",
+    "colors": []
+   }
+  ]
+ },
+ {
+  "name": "Underwater Tunnel // Slimy Aquarium",
+  "layout": "split",
+  "mana_cost": "{U} // {3}{U}",
+  "cmc": 5.0,
+  "type_line": "Enchantment — Room // Enchantment — Room",
+  "oracle_text": "When you unlock this door, surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)\n//\nWhen you unlock this door, manifest dread, then put a +1/+1 counter on that creature.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Surveil",
+   "Manifest",
+   "Manifest dread"
+  ],
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Underwater Tunnel",
+    "mana_cost": "{U}",
+    "type_line": "Enchantment — Room",
+    "oracle_text": "When you unlock this door, surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+   },
+   {
+    "object": "card_face",
+    "name": "Slimy Aquarium",
+    "mana_cost": "{3}{U}",
+    "type_line": "Enchantment — Room",
+    "oracle_text": "When you unlock this door, manifest dread, then put a +1/+1 counter on that creature.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+   }
+  ]
+ },
+ {
   "name": "Wibbly-wobbly, Timey-wimey",
   "layout": "normal",
   "mana_cost": "{1}{U}",
