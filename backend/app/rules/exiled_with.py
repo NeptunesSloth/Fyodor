@@ -12,8 +12,8 @@ only to cards in exile that the first put there. Researched against CR 2026-09-2
   well-known Oblivion Ring sequence, 607.2a + 603.10a). A copy of the object is a different object with its own record.
 * The referring ability's ``who: "exiled_with"`` finds those cards while each is still the object that was exiled
   (400.7: one that left exile and came back is a new object).
-* Read only when the object has exactly one other printed ability that exiles and both are understood: anything else
-  (two exiling abilities, an exiling ability the grammar doesn't read, "the exiled card's owner …") stays manual.
+* Read only when every other printed ability that exiles is understood (wave 30H: two exiling abilities feed one set, Rona's and Circu's
+  rulings): anything else (an exiling ability the grammar doesn't read, "the exiled card's owner …") stays manual.
 """
 
 from __future__ import annotations
@@ -117,13 +117,23 @@ def _copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy)]
 
+# -- linked casting (wave 30H) -- 607.2a, 608.2g: in an ability that only refers to what another exiled, "cast a spell from among cards exiled with ~
+# [without paying its mana cost]" casts from the linked cards (the ones ``linked_cards`` binds, as "them"), as this ability resolves
+_AMONG = re.compile(r"\bfrom among (?:the )?cards exiled with (?:it\b|~)")
+_ANY_CARDS = re.compile(r"\b([Cc]ast any number of) cards exiled with (?:it\b|~) (without paying their mana costs)")
+
+
+def among(body: str) -> str:
+    """The sentence(s) of a linked-referring ability with "cards exiled with ~" read as "them" (see the free-cast grammar, permissions.FREE_AMONG)."""
+    return _ANY_CARDS.sub(r"\1 spells from among them \2", _AMONG.sub("from among them", body))
+
 
 def _exiles(d: dict[str, Any] | None) -> bool:
     # (-- champion (wave 12B) -- also a payment: "sacrifice it unless you exile another Merfolk you control", recorded by
     # optional_payment._pay)
-    return d is not None and any(e.get("do") in ("exile", "exile_top", "exile_until") or e.get("exile") or _picks_to_exile(e)
-                                 or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile "))
-                                 for e in d.get("effects") or [])
+    return d is not None and (d.get("static") == "exile_instead" or any(  # (-- linked exile (wave 30H) -- 607.2b: a replacement effect that exiles)
+        e.get("do") in ("exile", "exile_top", "exile_until") or e.get("exile") or _picks_to_exile(e)
+        or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile ")) for e in d.get("effects") or []))
 
 
 def _picks_to_exile(e: dict[str, Any]) -> bool:
@@ -160,19 +170,23 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
         finally:
             _STATE.off = False
     if refers:
-        exiling = [ab for ab in others if re.search(r"\bexile\b", ab.text, re.IGNORECASE)]
+        exiling = [ab for ab in others if re.search(r"\bexiles?\b", ab.text, re.IGNORECASE)]  # (-- linked casting (wave 30H) -- "each player exiles the top X cards": Jeleva)
+        exiling += [ab for ab in ch.abilities if ab.index != ability.index and ab.kind == "static"  # (607.2b: a replacement effect that exiles)
+                    and (scripts.define(ab, ch) or {}).get("static") == "exile_instead"]
         from app.rules import hideaway
 
         if hideaway.exiles(ch):  # -- hideaway (wave 29D) -- 702.75a: the keyword is the exiling ability (and the only one: 607.2a)
             return None if exiling else hideaway.each(d)
-        if len(exiling) != 1 or not _exiles(scripts.define(exiling[0], ch)):
+        if not exiling or not all(_exiles(scripts.define(ab, ch)) for ab in exiling):  # (-- linked exile (wave 30H) -- every exiling ability feeds the set, and each must be read: Rona's ruling)
             return None
         return d
-    if ability.kind not in ("triggered", "activated") or not _exiles(d):
+    if ability.kind not in ("triggered", "activated", "static") or not _exiles(d):
         return d
     referring = [ab for ab in ch.abilities if ab.index != ability.index and _REFERS.search(scripts.self_text(ab.text, ch.name))]
     if not referring:
         return d
+    if d.get("static") == "exile_instead":  # -- linked exile (wave 30H) -- 607.2b: the replacement effect is the exiling half; replacements.py records what it exiles
+        return {**d, "link": True}
     return {**d, "effects": [{**e, "link": True} if e.get("do") in ("exile", "exile_top", "exile_until") or e.get("exile") or _picks_to_exile(e) else e
                                      for e in d["effects"]]}
 

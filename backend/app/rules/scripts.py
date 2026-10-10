@@ -3145,8 +3145,9 @@ def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     """-- refused look/cast-free (wave 3R5) -- A spell or activated ability that is all "You may cast …
     without paying its mana cost": the "may" is the cast's own choice (choosing no card), not a
     question about the whole ability (which spells and activated abilities don't have)."""
-    if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0].get("optional") \
-            and (parsed[0][0]["do"] == "free_cast" or (parsed[0][0]["do"] == "grant_play" and parsed[0][0].get("who") == "target")):  # (wave 25C)
+    core = [e for e in parsed[0] if e["do"] != "linked_cards"] if parsed is not None else []  # (-- linked casting (wave 30H) -- the bound linked cards aren't an instruction)
+    if parsed is not None and parsed[2] and len(core) == 1 and core[0].get("optional") \
+            and (core[0]["do"] == "free_cast" or (core[0]["do"] == "grant_play" and core[0].get("who") == "target")):  # (wave 25C)
         return parsed[0], parsed[1], False
     # -- token copies & attach on entry (wave 5J) -- "You may put a creature card from your hand onto the battlefield."
     # (Elvish Piper): the "may" is choosing no card
@@ -5214,6 +5215,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
             out["who"] = "any"
         elif m["subject"] == "a card":
             out["who"] = "card"
+        elif m["any"] and m["sel"] == "card you didn't control":  # -- linked exile (wave 30H) -- "…would be put into an opponent's graveyard from anywhere" (Valgavoth)
+            out["who"] = "card:uncontrolled"
         elif m["any"]:
             # -- instead (wave 20B) -- "an instant or sorcery card would be put into a graveyard from anywhere" (Dryad Militant): a card
             # of those types wherever it is (public once it moves: to the graveyard or to exile)

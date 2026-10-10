@@ -779,7 +779,10 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
             who = d.get("who", "any")
             if who == "card" and card.is_token:
                 continue  # "If a card would be put into …": tokens aren't cards (108.2a)
-            if who.startswith("types:"):  # -- instead (wave 20B) -- "an instant or sorcery card": a card (not a token) with one of the types
+            if who == "card:uncontrolled":  # -- linked exile (wave 30H) -- "a card you didn't control": one in a graveyard, a hand or a library has no controller
+                if card.is_token or (frm in ("battlefield", "stack") and card.controller == src.controller):
+                    continue
+            elif who.startswith("types:"):  # -- instead (wave 20B) -- "an instant or sorcery card": a card (not a token) with one of the types
                 if card.is_token or not set(who[6:].split("|")) & plan.ch(card).types:
                     continue
             elif who not in ("any", "card"):
@@ -827,13 +830,14 @@ class Cand(NamedTuple):
     outcome: str
     used: bool = False
     rider: dict[str, Any] | None = None
+    link: str = ""  # -- linked exile (wave 30H) -- 607.2b: the object whose linked replacement effect this is: the card it exiles is "exiled with" it
 
     @property
     def sig(self) -> str:
         """What the effect does, for the 616.1 question: the same result with the same rider needs no choice."""
-        if self.rider is None:
-            return self.outcome
-        key = json.dumps([self.rider["controller"], self.rider["effects"], self.rider["reflexive"]], sort_keys=True, default=str)
+        if self.rider is None:  # (-- linked exile (wave 30H) -- a linked replacement is another result: what it exiles is "exiled with" its object, so 616.1 asks)
+            return f"{self.outcome}+{self.link}" if self.link else self.outcome
+        key = json.dumps([self.rider["controller"], self.rider["effects"], self.rider["reflexive"], self.link], sort_keys=True, default=str)
         return f"{self.outcome}+{hashlib.sha1(key.encode()).hexdigest()[:8]}"
 
 
@@ -876,7 +880,7 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         out.append(Cand(card.name or "its own ability", "library:shuffle"))
     for src, d in _static_exile_all(plan, card):
         rider = {"source": src.id, "controller": src.controller, **d["rider"]} if d.get("rider") else None
-        out.append(Cand(src.name or "a static ability", "exile", False, rider))
+        out.append(Cand(src.name or "a static ability", "exile", False, rider, plan.oid(src) if d.get("link") else ""))
     if frm == "battlefield" and (why := _record_exile_instead(plan, card)) is not None:  # -- replacement effects stage 2 (wave 2E) --
         out.append(Cand(why, "exile"))
     return out
@@ -906,6 +910,7 @@ def move_instead(plan: Plan, cid: str, outcome: str | Cand, actor: str | None) -
     """Carry out a replacement's result for a card that was about to go to a graveyard (and what it adds: a token, life)."""
     if isinstance(outcome, Cand):
         move_instead(plan, cid, outcome.outcome, actor)
+        _record_link(plan, cid, outcome)
         if outcome.rider is not None:
             run_rider(plan, outcome.rider)
         return
@@ -921,6 +926,14 @@ def move_instead(plan: Plan, cid: str, outcome: str | Cand, actor: str | None) -
         plan.do({"type": "shuffle", "player": owner, "zone": "library"}, actor=owner)
         return
     plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": where}, actor=actor)
+
+
+def _record_link(plan: Plan, cid: str, cand: Cand) -> None:
+    """-- linked exile (wave 30H) -- 607.2b: what a linked replacement effect exiled is "exiled with" the object it belongs to (as it was: 608.2h)."""
+    if cand.link and cand.outcome == "exile":
+        from app.rules import exiled_with
+
+        exiled_with.record(plan, {"source_object": cand.link}, [cid])
 
 
 def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
@@ -1036,6 +1049,7 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
     riders: list[dict[str, Any]] = []  # -- zone replacements (wave 22C) -- what the replacements add (a token): after the moves
     held: list[str] = []  # -- zone replacements (wave 22C) -- cards waiting for their controller's 616.1 choice
     madness: list[tuple[str, str]] = []
+    links: dict[str, Cand] = {}  # -- linked exile (wave 30H) -- the linked replacement effects that apply (607.2b)
     for cid in payload.get("card_ids") or []:
         card = plan.state.cards.get(cid)
         if card is None:
@@ -1072,6 +1086,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             if frm == "battlefield":  # (it leaves: the object is gone, and a "leaves the battlefield" record with it)
                 r.exile_if_leaves = [o for o in r.exile_if_leaves if o != oid]
             replaced.append((cid, pick.outcome, pick.label))
+            if pick.link:
+                links[cid] = pick
             if pick.rider is not None:
                 riders.append(pick.rider)
             continue
@@ -1107,6 +1123,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             move_instead(plan, cid, zone, actor)
             continue
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": zone}, **also}, actor=actor)
+        if cid in links:
+            _record_link(plan, cid, links[cid])
     for rider in riders:  # -- zone replacements (wave 22C) -- "… instead exile it and create a token": part of the replacing event
         run_rider(plan, rider)
     for cid, cost in madness:

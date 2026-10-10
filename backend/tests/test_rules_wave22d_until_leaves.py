@@ -135,8 +135,10 @@ def test_phantom_steed_attacks_with_a_copy_of_the_creature_it_exiled(cards):
     assert d is not None and d.kind == "declare_attackers"
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": steed.id, "target": "p2"}])
     pass_until_stack_empty(s)
-    tokens = [c for c in s.state.cards.values() if c.is_token and c.name == "Probe Two" and c.zone == "p1:battlefield"]
-    assert len(tokens) == 1 and tokens[0].tapped  # a token copy of the exiled card, tapped
+    # (wave 30H) the copy attacked with it (Steed 4 + Probe Two 2) and was sacrificed at end of combat; the cards linked to the Steed are no longer
+    # offered to its combat damage as cipher encodings (this used to pause the game at a "copy the encoded card" question, which kept the token)
+    assert s.state.players["p2"].life == 40 - 6 and not [c for c in s.state.cards.values() if c.is_token and c.name == "Probe Two"]
+    assert not s.state.rules.decision
     roundtrip(s)
 
 
