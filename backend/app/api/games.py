@@ -317,7 +317,7 @@ def game_summary(game_id: str, services: ServicesDep) -> dict[str, Any]:
 
 
 @router.get("/games/{game_id}/view")
-def game_view(
+async def game_view(  # (review 29A: on the event loop, between actions — a threadpool view read tables half-way through one)
     game_id: str,
     request: Request,
     services: ServicesDep,
