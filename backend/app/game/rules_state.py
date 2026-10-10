@@ -492,6 +492,9 @@ class TurnLog(BaseModel):
     # -- drawn this turn (wave 18G) -- player -> the rules objects (as they are in that player's hand) they drew, in order. PRIVATE:
     # which cards in a hand were drawn this turn is the owner's information (never in a view, a log line or a prompt others see)
     drawn: dict[str, list[str]] = Field(default_factory=dict)
+    # -- replaced draws (wave 29C) -- the part of ``drawn`` a replacement effect drew ("draw two cards instead", "that many plus one"): 614.11b,
+    # 121.6c — an additional action on drawn cards ("… and reveal them") isn't done to them. PRIVATE like ``drawn``
+    drawn_replaced: dict[str, list[str]] = Field(default_factory=dict)
     left: list[Departure] = Field(default_factory=list)
     left_graveyard: list[str] = Field(default_factory=list)  # the owner of each card that left a graveyard
     entered_graveyard: list[Arrival] = Field(default_factory=list)

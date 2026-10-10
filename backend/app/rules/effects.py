@@ -2932,9 +2932,9 @@ def _did(fn: Any, kind: str) -> Any:
     def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         name = e.get("did")
         if name and name not in context.refs(ctx):
-            if kind == "draw":
-                context.refs(ctx)[name] = {"kind": "probe", "hands": {
-                    p: len(plan.state.zones.get(f"{p}:hand", [])) for p in _players(plan, ctx, e["who"])}}
+            if kind == "draw":  # -- replaced draws (wave 29C) -- 121.5: cards drawn, not cards that reached a hand (a replacement may put one there)
+                log = plan.rules.turn_log
+                context.refs(ctx)[name] = {"kind": "probe", "drew": {p: log.drew.get(p, 0) for p in _players(plan, ctx, e["who"])}}
             else:
                 context.refs(ctx)[name] = {"kind": "probe", "to": kind, "cards": {
                     c: plan.oid(plan.state.cards[c]) for c in _cards(plan, ctx, e["who"])}}

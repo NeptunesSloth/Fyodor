@@ -237,7 +237,9 @@ def probe_ok(plan: Any, ctx: Context, name: str) -> bool:
     b = (ctx.get("refs") or {}).get(name) or {}
     if b.get("kind") != "probe":
         return False
-    if "hands" in b:
+    if "drew" in b:  # -- replaced draws (wave 29C) -- a card was drawn (121.2: one "drew" event each; 121.5)
+        return any(plan.rules.turn_log.drew.get(p, 0) > n for p, n in b["drew"].items())
+    if "hands" in b:  # (a save from before wave 29C, paused mid-resolution)
         return any(len(plan.state.zones.get(f"{p}:hand", [])) > n for p, n in b["hands"].items())
     # -- refused modal/conditional (wave 3R1) -- sacrificed / a counter removed / a card discarded (effects._did_r1)
     if "left" in b:
