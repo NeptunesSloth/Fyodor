@@ -80,7 +80,7 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     items.push({ label: "Cast both halves (fuse)", disabled: !hints.castable?.includes(card.id),
       onClick: () => void send({ type: "cast_spell", card_id: card.id, fuse: true }) });
   }
-  const buyback = abilityLines(oracle).find((l) => /^buyback \{/i.test(l));
+  const buyback = abilityLines(oracle).find((l) => /^buyback(?: \{|—)/i.test(l));
   if (mine && zone === "hand" && buyback) {
     items.push({ label: `Cast with ${buyback}`, disabled: !hints.castable?.includes(card.id),
       onClick: () => void send({ type: "cast_spell", card_id: card.id, buyback: true }) });

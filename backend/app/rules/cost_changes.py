@@ -600,6 +600,9 @@ def keyword_component(o: Optional) -> Any:
     untapped = Selector(types=("Creature",), controller="you", tapped=False)
     if o.kind == "gift":  # -- gift (wave 23D) -- choosing the opponent costs nothing (702.174a)
         return None
+    if o.kind == "bargain":  # -- keywords (wave 30E) -- 702.166a: "you may sacrifice an artifact, enchantment, or token" (you control, 701.21a)
+        either = tuple(Selector(controller="you", **kw).key() for kw in ({"types": ("Artifact",)}, {"types": ("Enchantment",)}, {"token": True}))
+        return C.CostComponent(C.SACRIFICE, amount=1, selector=Selector(either=either).key(), text="Sacrifice an artifact, enchantment, or token")
     if o.kind in ("evidence", "behold"):  # -- casting costs (wave 22F) --
         return own_cost(o.text)
     if o.kind == "casualty":  # -- casting extras (wave 18E) -- 702.153a: "you may sacrifice a creature with power N or greater"
@@ -633,6 +636,8 @@ def optional_offers(state: GameState, player: str, card: CardInstance, ch: Chara
         if (m := re.fullmatch(r"Casualty (\d+)", text)) is not None and sum(t.startswith("Casualty") for t in own) == 1:
             out.append(Optional(f"{card.id}:casualty", f"Casualty {m[1]}: sacrifice a creature with power {m[1]} or greater", 0, "",
                                 "casualty", int(m[1])))
+        if text == "Bargain":  # -- keywords (wave 30E) -- 702.166a-b: an optional additional cost; "bargained" is the intent to pay it
+            out.append(Optional(f"{card.id}:bargain", "Bargain: sacrifice an artifact, enchantment, or token", 0, "", "bargain"))
         if (m := re.fullmatch(r"Teamwork (\d+)", text)) is not None:
             out.append(Optional(f"{card.id}:teamwork", f"Teamwork {m[1]}: tap creatures with total power {m[1]} or more", 0, "", "teamwork",
                                 int(m[1])))

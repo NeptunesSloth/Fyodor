@@ -408,6 +408,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"casualty \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "conspire":  # -- static_other sweep (wave 17C) -- cost_changes.optional_offers / casting._conspire_trigger
         return line.strip().rstrip(".").lower() == "conspire"
+    if kw == "bargain":  # -- keywords (wave 30E) -- cost_changes.optional_offers (702.166a); "was bargained" is read as kicked (scripts.self_text)
+        return line.strip().rstrip(".").lower() == "bargain"
     if kw == "teamwork":  # (702.194a: its optional cost, and "cast using teamwork" in the text)
         return re.fullmatch(r"teamwork \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "cipher":  # -- static_other sweep (wave 17C) -- recursion.cipher: an instant or sorcery's own line (spell_definition appends it)
@@ -503,6 +505,14 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         pieces = ward_pieces(line)
         return bool(pieces) and all(ward_piece_cost(p) is not None for p in pieces)
+    if kw == "evoke" and line.strip().lower().startswith("evoke—"):  # -- keywords (wave 30E) -- "Evoke—Exile a white card from your hand." (alt_costs)
+        from app.rules import alt_costs
+
+        return alt_costs.keyword_definition(line) is not None
+    if kw == "buyback" and line.strip().lower().startswith("buyback—"):  # -- keywords (wave 30E) -- casting.buyback_parts: "Buyback—Sacrifice a land."
+        from app.rules.casting import buyback_parts_line
+
+        return buyback_parts_line(line) is not None
     if kw in ("unearth", "dash", "buyback", "madness", "ward", "evoke"):  # casting.keyword_cost: a mana cost
         return re.fullmatch(rf"{kw} (?:\{{[^}}]+\}})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("squad", "offspring", "replicate"):  # -- keywords (wave 15E) -- the cost is paid as kicker's; squad / offspring's
@@ -603,6 +613,10 @@ def features_of(ch: Characteristics) -> list[Feature]:
                     from app.rules import splice
 
                     add("keyword:splice", "Splice", splice.spliceable(ch))
+                    continue
+                if kw in ("spree", "tiered"):  # -- keywords (wave 30E) -- 702.172a, 702.183a: every mode line read with its cost (scripts.spree_definition)
+                    whole = templates.spell_definition(ch)
+                    add(f"keyword:{kw}", kw.capitalize(), whole is not None and bool(whole.get("modes")) and definition_supported(whole))
                     continue
                 if kw == "overload":  # -- casting extras (wave 18E) -- the spell read with "each" for "target" (702.96a)
                     from app.rules import overload

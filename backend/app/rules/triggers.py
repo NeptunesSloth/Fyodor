@@ -403,7 +403,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         # caster cast this turn, the zone it was cast from, its targets (115.9b), whether it was kicked
         nth = e.amount or r.spells_this_turn(e.player or "", plan.state.turn.number)
         paid = r.payments.get(plan.oid(spell))  # (review 23D: a promised gift / awaken is read as "kicked" by the spell's own text only:
-        kicked = bool(entry is not None and entry.kicked and not (paid is not None and (paid.gift_to or paid.alternative == "awaken")))
+        kicked = bool(entry is not None and entry.kicked and not (paid is not None and (paid.gift_to or paid.alternative == "awaken" or any(  # (30E: bargain)
+            x.endswith(":bargain") for x in paid.additional))))
         info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),  # 702.33d, 702.174k)
                 "opponent_turn": plan.active != e.player, "kicked": kicked,
                 "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]}

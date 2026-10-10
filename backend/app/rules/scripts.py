@@ -304,6 +304,9 @@ def self_text(text: str, name: str) -> str:
     # opens a sentence of the spell, "When ~ enters, if the gift was promised, …" is the permanent's intervening "if"
     out = re.sub(r"(?:^|(?<=\. ))If the gift was promised, ", "If this spell was kicked, ", out)
     out = re.sub(r"\bif the gift was promised, ", "if it was kicked, ", out)
+    # -- keywords (wave 30E) -- 702.166b: a bargained spell is read the same way (a bargain card has no kicker): casting.py records it as kicked
+    out = re.sub(r"(?:^|(?<=\. ))If this spell was bargained, ", "If this spell was kicked, ", out)
+    out = re.sub(r"\bif it was bargained, ", "if it was kicked, ", out)
     # -- damage sized by a count (wave 20A) -- "Choose any target. Scry 3, then reveal the top card of your library. ~ deals damage equal to
     # that card's mana value to that permanent or player." (Riddle of Lightning): the target is declared as the spell is cast (115.1, 601.2c)
     # whatever the order of the text, so the damage sentence names "any target" itself
@@ -3766,7 +3769,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = self_text(merged.protect(ability.text), ch.name)
     if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
         return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
-    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A)
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E)
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(ability.text)
@@ -4563,6 +4566,28 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
             "modal": {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": condition}}
 
 
+# -- keywords (wave 30E) -- 702.172a spree: "Choose one or more modes. As an additional cost to cast this spell, pay the costs associated with
+# those modes."; 702.183a tiered: "Choose one. As an additional cost to cast this spell, pay the cost associated with that mode." Each mode line
+# is "+ {cost} — effect" / "• Name — {cost} — effect"; a mode's ``cost`` is paid with the total cost (casting.cast_spell, 601.2f)
+_SPREE_MODE = re.compile(r"^(?:\+ |• (?P<label>[^—{}]+) — )(?P<cost>(?:\{[^}]+\})+) — (?P<text>.+)$")
+
+
+def spree_definition(ch: Characteristics, lines: list[AbilityText]) -> Definition | None:
+    tiered = any(ab.keywords == ("tiered",) for ab in ch.abilities if ab.kind == "keywords")
+    found = [_SPREE_MODE.fullmatch(ab.text) for ab in lines]
+    if any(m is None or bool(m["label"]) != tiered for m in found) or len(lines) < 2:
+        return None
+    modal = modal_definition([replace(lines[0], text="Choose one —" if tiered else "Choose one or more —"),
+                              *(replace(ab, text=f"• {m['text']}") for ab, m in zip(lines, found, strict=True) if m)], ch.name)
+    if modal is None or not _event_refs_ok(modal):
+        return None
+    for mode, m in zip(modal["modes"], found, strict=True):
+        if m is not None:
+            mode["cost"] = m["cost"]
+            mode["text"] = f"{m['label'] + ' — ' if m['label'] else ''}{m['cost']} — {m['text']}"
+    return modal
+
+
 def _from_hand_ability(ab: AbilityText) -> bool:
     return ab.kind == "activated" and re.search(r"(?:^|, )(?:Discard|Reveal) (?:this (?:card|creature)|~)(?: from your hand)?(?:,|$)", ab.cost or "") is not None
 
@@ -4582,6 +4607,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     # (-- static_other sweep (wave 16B) -- a hand ability on the card — reinforce 702.77a, "{cost}, Discard this card: …" — is not
     # part of what the spell does)
     text_lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab)]
+    if text_lines and any(ab.kind == "keywords" and ab.keywords in (("spree",), ("tiered",)) for ab in ch.abilities):
+        return spree_definition(ch, text_lines)
     if text_lines and text_lines[0].text in _MODAL_HEADERS:
         from app.rules import gift
 
