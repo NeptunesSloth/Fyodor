@@ -351,6 +351,10 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(rf"{_P} draws a card except the first one they draw in each of their draw steps", c)
     if m:
         return {"event": "draw", "subject": "player", "player": _PLAYERS[m["p"]], "not_first_in_draw_step": True}
+    # -- hideaway (wave 29D) -- "you draw your first card during each of your draw steps" (Wiretapping): the draw step's own first draw (504.1)
+    m = re.fullmatch(rf"{_P} draws? (?:their|your) first card during each of (?:their|your) draw steps", c)
+    if m:
+        return {"event": "draw", "subject": "player", "player": _PLAYERS[m["p"]], "only_first_in_draw_step": True}
     found = _cast(c)
     if found is not None:
         return found

@@ -48,7 +48,8 @@ def _sees(state: GameState, card: CardInstance, viewer: str) -> bool:
     if shown_at_end(state, card, zone):
         return True
     if zone in PUBLIC_ZONES:
-        return not card.face_down or (viewer == card.controller and not card.unseen) or looks_at_face_down(state, card, viewer)
+        return (not card.face_down or (viewer == card.controller and not card.unseen) or looks_at_face_down(state, card, viewer)
+                or hideaway_looks(state, card, viewer))
     if zone in OWNER_VISIBLE_ZONES and viewer == card.owner:
         return True
     for view in state.views:
@@ -128,6 +129,21 @@ def looks_at_face_down(state: GameState, card: CardInstance, viewer: str) -> boo
                 and source.zone.endswith(":battlefield") and source.controller == viewer and rules.card_mode(source.id) != "manual":
             return True
     return False
+
+
+def hideaway_looks(state: GameState, card: CardInstance, viewer: str) -> bool:
+    """-- hideaway (wave 29D) -- 702.75a, 406.3: "The player who controls the permanent that exiled this card may look at this card in the
+    exile zone", and a player who was allowed to look may go on looking until it leaves exile (``RulesState.hideaway``, kept by the engine
+    from the table; the permanent's controller right now counts at once, whatever the engine last recorded)."""
+    r = state.rules
+    if r is None or not r.hideaway or not card.face_down or not card.zone.endswith(":exile"):
+        return False
+    entry = r.hideaway.get(r.object_id(card.id))
+    if entry is None:
+        return False
+    source = state.cards.get(entry.source.rsplit(".", 1)[0])
+    return viewer in entry.lookers or (source is not None and source.zone.endswith(":battlefield") and source.controller == viewer
+                                       and r.object_id(source.id) == entry.source)
 
 
 def publicly_visible(state: GameState, card: CardInstance) -> bool:

@@ -160,6 +160,10 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
             _OFF = False
     if refers:
         exiling = [ab for ab in others if re.search(r"\bexile\b", ab.text, re.IGNORECASE)]
+        from app.rules import hideaway
+
+        if hideaway.exiles(ch):  # -- hideaway (wave 29D) -- 702.75a: the keyword is the exiling ability (and the only one: 607.2a)
+            return None if exiling else d
         if len(exiling) != 1 or not _exiles(scripts.define(exiling[0], ch)):
             return None
         return d

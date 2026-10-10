@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import CostModifier, Permission, TopReveal
 from app.game.state import STACK, CardInstance, GameState, zone_key
+from app.game.visibility import can_see
 from app.rules import characteristics as chars
 from app.rules import cost_changes, costs, land_plays, selectors
 from app.rules import mana as M
@@ -227,10 +228,21 @@ PLAY_AMONG = re.compile(r"^you may play lands and cast spells from among (?:them
 PLAY_ONE = re.compile(r"^you may (?P<verb>play|cast) one of (?:those|the exiled) cards without paying its mana cost$")
 
 
+# -- hideaway (wave 29D) -- "…, you may play one of them without paying its mana cost." (Evercoat Ursine: the cards exiled with it, 607.2a) - read only
+# in an ability that refers to what another exiled (exiled_with.linked)
+_LINKED_ONE = re.compile(r"^you may (?P<verb>play|cast) one of them without paying its mana cost$")
+
+
+def _linked_one(text: str) -> re.Match[str] | None:
+    from app.rules import exiled_with
+
+    return _LINKED_ONE.fullmatch(text) if exiled_with.linked() else None
+
+
 def _free_among(text: str) -> list[dict[str, Any]] | None:
     if PLAY_AMONG.fullmatch(text):
         return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": None, "optional": True, "mv": None, "n": 99, "play": True}]
-    if (one := PLAY_ONE.fullmatch(text)) is not None:
+    if (one := PLAY_ONE.fullmatch(text) or _linked_one(text)) is not None:
         return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": None, "optional": True, "mv": None, "n": 1,
                  **({"play": True} if one["verb"] == "play" else {})}]
     m = FREE_AMONG.fullmatch(text)
@@ -708,7 +720,7 @@ def join_exile_play(body: str) -> str:
     body = re.sub(r"\b([Ee]xile it) face down\. (It becomes foretold\.)", r"\1. \2", body)  # (The Foretold Soldier: the foretell zone is face down)
     body = re.sub(r"\bIt becomes foretold\. Its foretell cost is its mana cost reduced by (\{\d+\})\.",
                   r"It becomes foretold with a foretell cost of its mana cost reduced by \1.", body)  # (Ethereal Valkyrie: 702.143d)
-    body = re.sub(r"(You may (?:look at and )?(?:play|cast) )the exiled (card|cards)\b",
+    body = re.sub(r"([Yy]ou may (?:look at and )?(?:play|cast) )the exiled (card|cards)\b",  # (-- hideaway (wave 29D) -- also mid-sentence: "Then if …, you may play the exiled card")
                   lambda m: m[1] + ("that card" if m[2] == "card" else "those cards"), body)
     body = _LOOK_AND_PLAY.sub(lambda m: f"You may look at {m['w']} for as long as {m['d']} {m['r']} exiled. You may {m['v']} {m['w']}"
                               f"{m['free'] or ''} for as long as {m['d']} {m['r']} exiled", body)
@@ -1362,6 +1374,8 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         card = plan.state.cards[cid]
         if plan.rules.card_mode(cid) == "manual" or cid in done or not plan.in_game(card):  # (review 28A: 800.4a, its owner left)
             continue
+        if card.face_down and card.zone.endswith(":exile") and not can_see(plan.state, card, pid):
+            continue  # -- hideaway (wave 29D) -- 406.3b: a face-down card may be cast only by a player who is allowed to look at it
         # (review 28A) a cast too is of one half / face, and only that one is evaluated (709.3a, 712.11c, 715.3a, 601.3e): a sorcery-only cast
         # never casts the instant half of Consecrate // Consume. "If its mana value is odd" (Yennett) tests the card (709.4b) as before, one way
         for face, ch in [(None, chars.of(card, plan.info))] if e.get("parity") else play_faces(plan, card):
@@ -1391,7 +1405,9 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                                           card_id=cid))
     # (cards in a hand or a library are hidden: whether a choice appears mustn't tell the other
     # players whether one was eligible, so the looker is asked whenever there were cards to look at)
-    hidden = e["zone"] in ("hand", "looked") and bool(pool)
+    # (-- hideaway (wave 29D) -- 406.3: a face-down exiled card is as hidden as one in a hand: "has nothing to cast" would tell the table it is a land
+    # with no land play left, or a spell that can't be cast)
+    hidden = (e["zone"] in ("hand", "looked") or any(plan.state.cards[c].face_down for c in pool)) and bool(pool)
     if not options and not hidden:
         plan.note(f"{plan.name(pid)} has nothing to cast" + ("" if e.get("paid") else " without paying its mana cost"))
         return _free_cast_over(ctx, e)

@@ -2674,6 +2674,10 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
             from app.rules import exiled_with
 
             exiled_with.record(plan, ctx, chosen)
+        if e.get("hideaway"):  # -- hideaway (wave 29D) -- 702.75a: whoever controls the permanent may look at the exiled card
+            from app.rules import hideaway
+
+            hideaway.record(plan, ctx, chosen)
     else:
         entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] in ("battlefield_tapped", "battlefield_attacking"),
                     **({"counter": e["counter"], "counter_n": e.get("counter_n", 1)} if e.get("counter") else {})}  # (wave 3E)
