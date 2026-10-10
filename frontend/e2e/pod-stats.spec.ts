@@ -26,7 +26,7 @@ test("four-player game: end game, record the winner, pod stats, correct the winn
   const row = (name: string) => page.getByTestId(`pod-row-${name}`);
   const cells = async (name: string) => (await row(name).locator("td").allTextContents()).slice(1);
   expect(statsBefore.filter((p) => names.includes(p.name))).toEqual([]); // other tests may have recorded games
-  expect(await cells("Mike")).toEqual(["1", "1", "0", "0", "100%"]);
+  await expect.poll(() => cells("Mike")).toEqual(["1", "1", "0", "0", "100%"]); // (the table renders after the page: poll, don't read once)
   for (const n of ["Jonathan", "Alex", "Chris"]) expect(await cells(n)).toEqual(["1", "0", "1", "0", "0%"]);
   const game = page.getByTestId("pod-game").filter({ hasText: "Jonathan" }); // other tests record games too
   await expect(game).toContainText("84 Goblins");
