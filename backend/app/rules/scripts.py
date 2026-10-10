@@ -2869,7 +2869,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 if after_may is None:
                     return None
                 added = _add_groups(groups, *after_may)  # (B's own target, if any: wave 4A)
-                # (A may be replaced or impossible: "If you do" reads what A actually did)
+                # (118.12: "If you do" reads whether A was started, whatever a replacement made of it; A impossible is "can't")
                 tracked = [e for e in effects if e["do"] in _PROBED]
                 probes = [f"did{k}" for k in range(len(tracked))]
                 for e, name in zip(tracked, probes, strict=True):
@@ -5978,7 +5978,7 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 # was) might not be there: "If you do" would then be false, which this reading can't tell.
 _CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token"})
 _CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce", "gain_control", "pump", "grant"})  # (wave 19E: gain control of a chosen target: it changes hands or the ability fizzles; wave 21C: "you may have target creature get +2/+0 and gain haste until end of turn. If you do, …")
-_PROBED = frozenset({"draw", "exile", "bounce", "add_counters", "put_from_hand"})  # (their "If you do" reads the result: effects._did; wave 26C: put_from_hand)
+_PROBED = frozenset({"draw", "exile", "bounce", "add_counters", "put_from_hand"})  # (their "If you do" reads whether the player started it, 118.12: effects._did; wave 26C: put_from_hand)
 
 
 def _probed_move(e: dict[str, Any]) -> bool:
@@ -6028,8 +6028,8 @@ def _if_you_do_after_may(if_do: re.Match[str], effects: list[dict[str, Any]], op
 def _may_then_if_you_do(text: str, following: list[str], effects: list[dict[str, Any]], probe: bool = True) -> tuple[list[dict[str, Any]], Any] | None:
     """-- if you do (wave 15C) -- "[A]. You may draw a card. If you do, discard a card." as the last two sentences of an ability
     that did something first (The Celestus, Gate to the Afterlife): the player is asked once as the resolution reaches it
-    (608.2d, unless_pays.may_rest: "no" ends the resolution), and "if you do" reads what the draw actually did (a draw
-    replaced or impossible is not "done", 608.2c) — the same certainty rule as the whole-ability form above."""
+    (608.2d, unless_pays.may_rest: "no" ends the resolution), and "if you do" reads whether the draw was started (a draw
+    replaced or impossible still was, 118.12) — the same certainty rule as the whole-ability form above."""
     m = _IF_YOU_DO.match(_lower_first(following[0].rstrip(".").strip())) if len(following) == 1 else None
     if m is None or m["neg"] or m["rest"].startswith("you may "):
         return None
@@ -6118,8 +6118,8 @@ def _gated_other_rewrite(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 # "If you do" after an instruction that isn't optional ("Sacrifice this enchantment. If you do, create …", "Remove a
 # +1/+1 counter from it. If you do, …", "Discard a card. If you do, draw a card.", "Return it to its owner's hand. If
-# you do, …"): whether that one instruction was actually carried out (608.2c), probed as it runs (effects._did_r1,
-# effects._did). The sentence before must be that one instruction (an intervening "if" of a trigger may gate it).
+# you do, …"): whether the player started that one instruction (118.12; an object gone is "can't", a count other than one is read
+# only if the whole of it could be paid, 118.3), probed as it runs (effects._did_r1, effects._did). The sentence before must be that one instruction (an intervening "if" of a trigger may gate it).
 _DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "remove_counters", "discard", "exile", "bounce", "add_counters"})
 
 
@@ -6142,7 +6142,7 @@ _REFLEX_DISCARD = re.compile(r"^when you discard (?P<w>a card|a nonland card|a c
 def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, optional: bool,
                it: str | None = None) -> dict[str, Any] | None:
     """"[A]. When you do, [B]." (603.12): a reflexive triggered ability that triggers if A was done — a "you may
-    [cost]" payment made (118.12), or an instruction that isn't optional actually carried out (probed as it runs) —
+    [cost]" payment made (118.12), or an instruction that isn't optional carried out (probed as it runs: started, or for counters put) —
     and whose B (everything to the end of the ability) is put on the stack afterwards with its own targets and
     "you may" (603.3c-d). B is read alone: a pronoun in it naming what A did ("that creature's power") isn't read."""
     base = effects[prev_start:]
@@ -6164,7 +6164,7 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
         return {**out_d, "lki": "cond_ref"} if card_stat else out_d
     if len(base) == 1 and base[0]["do"] == "optional_payment" and base[0].get("bind"):
         cond: dict[str, Any] = {"succeeded": base[0]["bind"]}
-    elif (name := _probe_previous(effects, prev_start)) is not None and (not optional or prev_start == 0):
+    elif (name := _probe_previous(effects, prev_start, reflex=True)) is not None and (not optional or prev_start == 0):
         # (-- death triggers (wave 20C) -- "When this creature dies, you may exile it. When you do, …": the "may" at the head of an
         # ability is asked as it resolves, then A runs and B follows only if A was done, 603.12)
         cond = {"succeeded": name}
@@ -6242,9 +6242,10 @@ def _reflexive_lki(base: list[dict[str, Any]], name: str, body: str) -> str | No
 # -- end reflexive LKI (wave 4J) ---------------------------------------------------------------------------------------
 
 
-def _probe_previous(effects: list[dict[str, Any]], prev_start: int) -> str | None:
+def _probe_previous(effects: list[dict[str, Any]], prev_start: int, reflex: bool = False) -> str | None:
     """A probe on the one instruction of the sentence before ("Sacrifice ~."), named for its "If you do" / "When
-    you do" (effects._did_r1 / effects._did); None if that sentence isn't one such instruction."""
+    you do" (effects._did_r1 / effects._did); None if that sentence isn't one such instruction. ``reflex``: a reflexive "When you do"
+    (603.12) reads counters put as an event, not as the cost of 118.12 (effects._did_counters_up)."""
     base = effects[prev_start:]
     if len(base) == 2 and base[0]["do"] == "only_if" and not base[0].get("bind") and base[0].get("skip") == 1:
         base = base[1:]  # (a trigger's intervening "if" in that sentence: it gates A, and so B)
@@ -6254,8 +6255,14 @@ def _probe_previous(effects: list[dict[str, Any]], prev_start: int) -> str | Non
         return None  # whether that was "done" isn't settled here (UNCERTAIN): not read
     if base[0]["do"] in ("exile", "bounce") and not isinstance(base[0].get("who"), str):
         return None
+    # -- if you do (wave 30C) -- 118.3: a mandatory "sacrifice / discard / remove N" with N other than one pays all or nothing (Egon's
+    # ruling of 2021-02-05), and "If you do" asks whether it was started: the engine would do part of it, so that's left to the players
+    if base[0]["do"] in ("sacrifice", "sacrifice_choice", "discard", "remove_counters") and base[0].get("n", 1) != 1:
+        return None
     name = f"mdid{sum(1 for e in effects if str(e.get('did') or '').startswith('mdid'))}"
     base[0]["did"] = name
+    if reflex and base[0]["do"] == "add_counters":
+        base[0]["reflex"] = True
     return name
 
 

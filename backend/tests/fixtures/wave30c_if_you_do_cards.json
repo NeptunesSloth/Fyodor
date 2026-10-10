@@ -1,0 +1,96 @@
+[
+ {
+  "name": "Thought Gorger",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Horror",
+  "oracle_text": "Trample\nWhen this creature enters, put a +1/+1 counter on it for each card in your hand. If you do, discard your hand.\nWhen this creature leaves the battlefield, draw a card for each +1/+1 counter on it.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Niambi, Esteemed Speaker",
+  "layout": "normal",
+  "mana_cost": "{W}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Cleric",
+  "oracle_text": "Flash\nWhen Niambi enters, you may return another target creature you control to its owner's hand. If you do, you gain life equal to that creature's mana value.\n{1}{W}{U}, {T}, Discard a legendary card: Draw two cards.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flash"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Mirkwood Nurturer",
+  "layout": "normal",
+  "mana_cost": "{2}{G/U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Elf Ranger",
+  "oracle_text": "When this creature enters, return up to one other target permanent you control to its owner's hand. If you do, put a +1/+1 counter on this creature.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Vorinclex, Monstrous Raider",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Phyrexian Praetor",
+  "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Haste",
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Wishing Well",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Put a coin counter on this artifact. When you do, you may cast target instant or sorcery card with mana value equal to the number of coin counters on this artifact from your graveyard without paying its mana cost. If that spell would be put into your graveyard, exile it instead. Activate only as a sorcery.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ }
+]
