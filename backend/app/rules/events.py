@@ -7,7 +7,7 @@ A condition is a dict:
 * ``event``: "enter" | "die" | "leave" | "attack" | "unblocked" | "block" | "blocked" | "tapped" |
   "untapped" | "dealt_damage" | "deal_combat_damage_player" | "deal_damage_opponent" | "deal_damage" |
   "gain_life" | "lose_life" | "cast" | "draw" | "you_attack" | "sacrifice" | "discard" | "cycle" |
-  "create_token" | "counters_put" | "leave_graveyard" | "targeted" | "multi";
+  "create_token" | "counters_put" | "leave_graveyard" | "targeted" | "attached" | "unattached" | "multi";
 * ``subject``: "self" (this object), "self_or" (this object or another matching ``sel``), "sel"
   (any object matching ``sel``), "host" (the permanent this Aura / Equipment is attached to:
   "enchanted creature", "equipped creature"), "self_or_host" ("~ or equipped creature"), or "player"
@@ -43,6 +43,8 @@ A condition is a dict:
   "player_or_pw" | "player_or_battle" | "enchanted_player"), ``combat`` (True: only combat damage, False: only noncombat
   damage, None: any); dealt_damage: ``combat`` likewise ("~ is dealt combat damage"), with a player
   subject for damage dealt to a player ("you're dealt combat damage");
+* attached / unattached (wave 30S, 603.2e, 701.3d): the Aura / Equipment is the subject; ``other`` the permanent it became attached to / let go of
+  (a selector key, the one "on the other side" for "that creature" / "that permanent"), ``to`` "self": it became attached to this object;
 * multi: ``events`` (each a trigger event of this object: "When ~ enters or dies", 603.2).
 
 :func:`parse_condition` reads the wording; anything it doesn't read returns None (the ability
@@ -957,6 +959,18 @@ def _object_event(c: str) -> Condition | None:
                 **({"during": "you"} if m["d"] else {})}  # (``other``: the Vehicle or Mount, for "that Mount or Vehicle")
     if c == "~ becomes crewed":
         return {"event": "crewed", "subject": "self"}
+    # -- attachment events (wave 30S) -- 603.2e, 701.3: "Whenever this Equipment becomes attached to a creature" (Enormous Energy Blade),
+    # "Whenever an Aura you control becomes attached to a creature you control" (Siona), "Whenever an Aura becomes attached to this
+    # creature" (Brood Keeper: ``to`` self); 701.3d, 603.10c: "Whenever this Equipment becomes unattached from a permanent" (Grafted
+    # Wargear: it looks back in time; the permanent it let go of is the one "on the other side" while it is still on the battlefield)
+    m = re.fullmatch(r"(?P<s>~|an? Aura(?: you control)?) becomes? (?:attached to (?P<h>~|an? .+)|(?P<u>unattached) from a permanent)", c)
+    if m:
+        base = _subject(m["s"])
+        if base is None or (m["u"] and base["subject"] != "self"):
+            raise _Refuse
+        if m["u"]:
+            return {**base, "event": "unattached", "other": selectors.Selector().key()}
+        return {**base, "event": "attached", **({"to": "self"} if m["h"] == "~" else {"other": _object_sel(m["h"])})}
     # -- keyword triggers (wave 23D) -- 702.110b: "When ~ exploits a creature", "Whenever a creature you control exploits a non-Human creature"
     m = re.fullmatch(r"(?P<s>~|an? .+?|another .+?) exploits (?P<o>an? .+)", c)
     if m:

@@ -944,7 +944,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
     return out
 
 
-_FOR_EACH_LEADING = re.compile(r"^for each (?P<what>[^,]+ this way), (?:you (?=create |draw |put ))?(?P<rest>[^,]+)$")
+_FOR_EACH_LEADING = re.compile(r"^for each (?P<what>[^,]+), (?:you (?=create |draw |put ))?(?P<rest>[^,]+)$")
+# -- attached events (wave 30S) -- "for each Aura and Equipment attached to ~, create a 3/1 … token" (Valduk): the count of what is attached
+_ATTACHED_WHAT = re.compile(r"(?:Auras?|Equipment|Curses?)(?: and (?:Auras?|Equipment))?(?: you control)? attached to (?:~|it|him|her|them)")
 _PER_OBJECT = re.compile(r"\b(?:its|it|their|that player|that card|that creature|that permanent|those|they|them)\b")
 
 
@@ -954,7 +956,7 @@ def _for_each_this_way(text: str) -> str:
     when the instruction is the same whatever object is counted: "For each permanent destroyed this way, its
     controller creates …" (one instruction per object) stays as written (not read)."""
     m = _FOR_EACH_LEADING.match(text)
-    if m is None or this_way.parse(m["what"]) is None or _PER_OBJECT.search(m["rest"]):
+    if m is None or (this_way.parse(m["what"]) is None and not _ATTACHED_WHAT.fullmatch(m["what"])) or _PER_OBJECT.search(m["rest"]):
         return text
     return f"{m['rest']} for each {m['what']}"
 
@@ -1092,6 +1094,12 @@ def _as_groups(sel: Any) -> list[dict[str, Any]]:
     return [dict(g) for g in ([sel] if isinstance(sel, dict) else sel)]
 
 
+def _attachment_group(g: dict[str, Any]) -> bool:
+    """-- attach all (wave 30S) -- a target group that is only Auras / Equipment (the thing a "target … attach" moves)."""
+    sel = selectors.from_key(str(g["what"])) if str(g.get("what", "")).startswith(selectors.PREFIX) else None
+    return sel is not None and not sel.types and bool(sel.subtypes) and set(sel.subtypes) <= {"Aura", "Equipment"}
+
+
 def _add_groups(groups: list[dict[str, Any]], found: list[dict[str, Any]], sel: Any) -> list[dict[str, Any]]:
     """Append a clause's target groups to the ability's: every word "target" is its own group
     (115.3, 601.2c). "another target …" after an earlier target of the ability can't be the same
@@ -1100,6 +1108,9 @@ def _add_groups(groups: list[dict[str, Any]], found: list[dict[str, Any]], sel: 
     for g in _as_groups(sel):
         if "another" in g:
             plain = g.pop("another")
+            if groups and all(_attachment_group(x) for x in groups):
+                raise _NoMatch  # -- attach all (wave 30S) -- "attach up to one target Equipment to her. Then up to one other target attacking creature": the
+                # "other" is other than her, not other than an Equipment (Amy Rose): not modelled, so manual
             if groups:
                 g = {**g, "what": plain, "distinct_from": list(range(len(groups)))}
             elif not g["what"]:

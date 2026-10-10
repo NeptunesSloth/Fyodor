@@ -712,6 +712,11 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             return 0
         host = got[0].id
         kinds = set(v["attached"])
+        # -- attached events (wave 30S) -- 608.2h: this object left the battlefield before it resolved (Valduk's ruling 2022-12-08): the
+        # Auras and Equipment last attached to it, wherever they are now
+        snap = plan.rules.lki.get(ctx.get("source_object") or "") if v.get("on", "self") == "self" and plan.state.cards.get(host) is not got[0] else None
+        if snap is not None:
+            return sum(1 for c in snap.attached if c in plan.state.cards and kinds & plan.ch(plan.state.cards[c]).subtypes)
         return sum(1 for c in plan.state.cards.values() if c.attached_to == host and c.zone.endswith(":battlefield")
                    and plan.in_game(c) and kinds & plan.ch(c).subtypes)
     if "for_player" in v:  # -- value grammar (wave 23C) -- "the number of cards in that player's graveyard": the count as that one player's ("you" of the phrase)
