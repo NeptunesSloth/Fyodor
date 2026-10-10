@@ -41,6 +41,9 @@ REAL = [
     card('Wiretapping', set_code='t29d', number='D13', mana_cost='{4}{U}', cmc=5.0, type_line='Enchantment', colors=['U'], color_identity=['U'], keywords=['Hideaway'], oracle_text='Hideaway 5 (When this enchantment enters, look at the top five cards of your library, exile one face down, then put the rest on the bottom in a random order.)\nWhenever you draw your first card during each of your draw steps, draw a card. Then if you have nine or more cards in hand, you may play the exiled card without paying its mana cost.'),
     card('Cemetery Tampering', set_code='t29d', number='D14', mana_cost='{2}{B}', cmc=3.0, type_line='Enchantment', colors=['B'], color_identity=['B'], keywords=['Mill', 'Hideaway'], oracle_text='Hideaway 5 (When this enchantment enters, look at the top five cards of your library, exile one face down, then put the rest on the bottom in a random order.)\nAt the beginning of your upkeep, you may mill three cards. Then if there are twenty or more cards in your graveyard, you may play the exiled card without paying its mana cost.'),
     card('Widespread Thieving', set_code='t29d', number='D15', mana_cost='{2}{R}', cmc=3.0, type_line='Enchantment', colors=['R'], color_identity=['B', 'G', 'R', 'U', 'W'], keywords=['Treasure', 'Hideaway'], oracle_text='Hideaway 5 (When this enchantment enters, look at the top five cards of your library, exile one face down, then put the rest on the bottom in a random order.)\nWhenever you cast a multicolored spell, create a Treasure token. Then you may pay {W}{U}{B}{R}{G}. If you do, you may play the exiled card without paying its mana cost.'),
+    # cards that read the same new wordings (a library with twenty or fewer cards; "the exiled card" in the middle of an ability)
+    card('Isleback Spawn', set_code='t29d', number='D16', mana_cost='{5}{U}{U}', cmc=7.0, type_line='Creature — Kraken', power='4', toughness='8', colors=['U'], color_identity=['U'], keywords=['Shroud'], oracle_text="Shroud (This creature can't be the target of spells or abilities.)\nThis creature gets +4/+8 as long as a library has twenty or fewer cards in it."),
+    card('Djeru and Hazoret', set_code='t29d', number='D17', mana_cost='{2}{R}{R}{W}', cmc=5.0, type_line='Legendary Creature — Human God', power='5', toughness='4', colors=['R', 'W'], color_identity=['R', 'W'], oracle_text='As long as you have one or fewer cards in hand, Djeru and Hazoret has vigilance and haste.\nWhenever Djeru and Hazoret attacks, look at the top six cards of your library. You may exile a legendary creature card from among them. Put the rest on the bottom of your library in a random order. Until end of turn, you may cast the exiled card without paying its mana cost.'),
     # what the hidden cards are
     card('Harmless Offering', set_code='t29d', number='F1', mana_cost='{2}{R}', cmc=3.0, type_line='Sorcery', colors=['R'], color_identity=['R'], oracle_text='Target opponent gains control of target permanent you control.'),
     card('Lightning Helix', set_code='t29d', number='F3', mana_cost='{R}{W}', cmc=2.0, type_line='Instant', colors=['R', 'W'], color_identity=['R', 'W'], oracle_text='Lightning Helix deals 3 damage to any target. You gain 3 life.'),
@@ -736,6 +739,56 @@ def test_widespread_thieving_without_paying_nothing_is_played(cards):
     assert drive(s) is None  # (she can't pay {W}{U}{B}{R}{G}: it isn't even offered)
     assert exiled.zone == "p1:exile" and exiled.face_down
     check(s)
+
+
+# -- cards that read the same new wordings ------------------------------------------------------------------------------------------------------------
+def test_isleback_spawn_grows_while_any_library_has_twenty_or_fewer_cards(cards):
+    from tests.wave9c_kit import pt
+
+    s = build(cards, ("Isleback Spawn",), forests=30, islands=30)
+    creatures(s, "Isleback Spawn", sick=True)
+    assert pt(s, "Isleback Spawn") == (4, 8)  # (Alice's library and Bob's both hold more than twenty)
+    bob = list(s.state.zones["p2:library"])
+    act(s, "p2", type="move", card_ids=bob[: len(bob) - 21], to={"zone": "graveyard"})
+    assert len(s.state.zones["p2:library"]) == 21 and pt(s, "Isleback Spawn") == (4, 8)
+    act(s, "p2", type="move", card_ids=s.state.zones["p2:library"][:1], to={"zone": "graveyard"})
+    assert len(s.state.zones["p2:library"]) == 20 and pt(s, "Isleback Spawn") == (8, 16)  # "a library": Bob's counts
+    check(s)
+
+
+def test_djeru_and_hazoret_casts_the_exiled_legend_this_turn_for_free(cards):
+    for take, asked in (("Legend Probe A", True), (None, False)):
+        s = build(cards, ("Djeru and Hazoret", "Legend Probe A", "Grizzly Probe", "Volcanic Probe", "Quiet Probe", "Trick Probe", "Colossus Probe"))
+        (djeru,) = creatures(s, "Djeru and Hazoret")
+        top = ("Grizzly Probe", "Volcanic Probe", "Legend Probe A", "Quiet Probe", "Trick Probe", "Colossus Probe")
+        stack_top(s, *top)
+        cs = [card_named(s, n) for n in top]
+        d = to_combat_damage(s, [djeru])  # the attack trigger: look at six, may exile a legendary creature card from among them
+        assert d is not None and d.player == "p1" and [o.label for o in d.options] == ["Legend Probe A"] and d.min_choices == 0
+        private(s, cs)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id] if take else [])
+        from tests.test_rules_conditionals import through_combat
+
+        through_combat(s)
+        legend = card_named(s, "Legend Probe A")
+        assert {c.name for c in s.state.cards.values() if c.zone == "p1:library"} >= {"Grizzly Probe", "Volcanic Probe", "Quiet Probe"}  # the rest went to the bottom
+        if take:
+            assert legend.zone == "p1:exile" and not legend.face_down  # (face up: nothing says "face down")
+            assert [p.card for p in s.state.rules.permissions] == [legend.id]
+            act(s, "p1", type="cast_spell", card_id=legend.id, free=True)  # main phase 2: free, this turn (118.9)
+            pass_until_stack_empty(s)
+            assert legend.zone == "p1:battlefield" and s.state.players["p1"].mana == {}
+        else:
+            assert legend.zone == "p1:library" and s.state.rules.permissions == []
+        check(s)
+
+
+def test_the_older_unnumbered_hideaway_line_is_not_read():
+    from app.rules import keyword_triggers
+
+    assert keyword_triggers.supported("hideaway", "Hideaway 4") and keyword_triggers.supported("hideaway", "Hideaway 3, hideaway 3")
+    assert not keyword_triggers.supported("hideaway", "Hideaway")  # 702.75b: the Oracle text of those cards is "Hideaway 4" plus "enters tapped"
+    assert not keyword_triggers.supported("hideaway", "Hideaway X")
 
 
 def test_a_hideaway_land_is_not_playable_from_exile_by_the_ordinary_land_play(cards):
