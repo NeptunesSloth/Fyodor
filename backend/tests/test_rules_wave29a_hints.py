@@ -160,6 +160,23 @@ def test_a_pass_serves_only_the_table_object_it_was_opened_on(cards):
     assert layers.derive(state, banner, chars.of(banner, cards), cards) == base  # (outside the pass: the same value, computed again)
 
 
+@pytest.mark.parametrize(("name", "part_way"), [("_DERIVE_MEMO", [None, None, None]), ("_depth", 1), ("_SOLVING", [[]]),
+                                                 ("_L4_VISITING", {"x"}), ("_CDA_VISITING", {"x"})])
+def test_nothing_is_kept_or_served_while_a_derivation_is_part_way(cards, monkeypatch, name, part_way):
+    """A derivation that is running (or the group layers being solved) reads a half-finished table: what a question has then is not what it has
+    when nothing is part-way, so the pass neither stores it nor answers from what it stored."""
+    s = BOARDS["top_of_library"](cards)
+    with read_pass.scope(s.state, cards) as sc:
+        assert read_pass.once(s.state, cards, "k", lambda: 1) == 1
+        assert read_pass.once(s.state, cards, "k", lambda: 2) == 1  # (settled: answered from the pass)
+        monkeypatch.setattr(layers, name, part_way)
+        assert not layers.settled()
+        assert read_pass.once(s.state, cards, "k", lambda: 3) == 3  # part-way: asked afresh
+        assert read_pass.once(s.state, cards, "j", lambda: 4) == 4 and "j" not in sc.once  # and not kept
+        monkeypatch.undo()
+        assert layers.settled() and read_pass.once(s.state, cards, "k", lambda: 5) == 1
+
+
 def test_a_pass_belongs_to_the_thread_that_opened_it(cards):
     s = BOARDS["top_of_library"](cards)
     seen = []

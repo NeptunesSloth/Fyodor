@@ -585,7 +585,7 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     if _DERIVE_MEMO is not None or info is None:
         return _derive(state, card, ch, info)
     sc = read_pass.current(state, info)
-    if sc is None or _depth or _SOLVING:  # (solving the group layers reads a half-finished table: never kept, never served)
+    if sc is None or not settled():  # (a derivation part-way reads a half-finished table: never kept, never served)
         _DERIVE_MEMO = [state, info, None]
         try:
             return _derive(state, card, ch, info)
@@ -606,6 +606,13 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     if state.cards.get(card.id) is card:  # (a probe's copy of a card is never kept)
         sc.derived[id(card)] = (card, ch, out)
     return out
+
+
+def settled() -> bool:
+    """-- hints speed (wave 29A) -- Is no derivation part-way (no ``derive`` running, no group layers being solved, no re-entrant layer 4
+    or characteristic-defining read)? Only then does a question about the table get the answer it has when nothing is half-finished,
+    so only then may a read-only pass keep it or serve it (app/rules/read_pass.py)."""
+    return _DERIVE_MEMO is None and not (_depth or _SOLVING or _L4_VISITING or _CDA_VISITING)
 # -- end review (wave 5R) --
 
 

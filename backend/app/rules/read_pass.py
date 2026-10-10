@@ -55,10 +55,13 @@ def for_info(info: CardInfo) -> ReadPass | None:
 
 
 def once(state: GameState, info: CardInfo | None, key: Any, compute: Callable[[], T]) -> T:
-    """``compute()`` — an answer that depends on this table and the arguments in ``key`` alone — read once per pass (outside a pass:
-    every time). ``compute`` must not change the table and must not be handed the answer back changed: it is shared."""
+    """``compute()`` — an answer that depends on this table and the arguments in ``key`` alone — read once per pass (outside a pass, and
+    while a derivation is part-way, every time). ``compute`` must not change the table and must not be handed the answer back changed:
+    it is shared."""
+    from app.rules.layers import settled  # (layers imports this module)
+
     sc = current(state, info)
-    if sc is None:
+    if sc is None or not settled():
         return compute()
     if key not in sc.once:
         sc.once[key] = compute()
