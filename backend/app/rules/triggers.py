@@ -836,10 +836,14 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             if spell is None or spell.ability is not None or not selectors.matches(
                     plan, selectors.from_key(cond["spell_sel"]), spell, plan.ch(spell), you, watcher.id):
                 return False
-    if event == "enter" and cond.get("entered_from"):  # -- history (wave 22E) -- "Whenever a creature enters from your graveyard"
+    if event in ("enter", "land_played") and cond.get("entered_from"):  # -- history (wave 22E) -- "Whenever a creature enters from your graveyard"
         from app.rules import history
 
-        if not history.entered_from(info.get("entered_from"), cond["entered_from"], you):
+        # (-- trigger from (wave 30F) -- 701.18a: "you play a land from exile" is the zone the land was put onto the battlefield from: the turn's
+        # entry log has it, recorded with the move before this event)
+        came = history.entered_from(info.get("entered_from"), cond["entered_from"], you) if event == "enter" \
+            else history.entry_came_from(plan, info.get("oid"), cond["entered_from"], you)
+        if not came:
             return False
     if event == "enter" and cond.get("entered_tapped") is not None:  # -- entry forms (wave 5F) --
         from app.rules import entry_forms

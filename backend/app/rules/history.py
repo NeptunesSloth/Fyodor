@@ -125,6 +125,8 @@ def entered_from(zone: str | None, want: str, you: str) -> bool:
     if not zone:
         return False
     owner, _, name = zone.rpartition(":")
+    if want == "not_hand":  # -- trigger from (wave 30F) -- "enters from anywhere other than your hand" (a token created enters from nowhere: ``zone`` None)
+        return name != "hand"
     if want.startswith("your "):
         return name == want[5:] and owner == you
     return name == want

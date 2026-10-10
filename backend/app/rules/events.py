@@ -36,6 +36,8 @@ A condition is a dict:
 * targeted only: ``by`` ("any" | "opponent" | "you": who controls the spell or ability), ``spell_only``
   (a spell, not an ability), ``spell_sel`` (the kind of spell: a selector key, wave 22E), ``first_each_turn`` ("for the first time
   each turn"); its subject may be a player ("you becomes the target": ``subject`` "player");
+* enter / land_played only: ``entered_from`` ("exile" | "graveyard" | "your graveyard" | "your hand" | "not_hand": the zone it was put onto
+  the battlefield from, 603.6a, 701.18a; wave 22E, 30F);
 * counters_put only: ``counter`` (the kind, or None for any);
 * deal_damage only: ``to`` ("any" | "player" | "opponent" | "creature" | "you" | "planeswalker" |
   "player_or_pw" | "player_or_battle" | "enchanted_player"), ``combat`` (True: only combat damage, False: only noncombat
@@ -215,10 +217,19 @@ def _count(word: str) -> int:
     return _COUNT[word]
 
 
+# -- trigger from (wave 30F) -- where a played land / an entering permanent came from (history.entered_from's names)
+_ENTERED_FROM = {"your graveyard": "your graveyard", "a graveyard": "graveyard", "exile": "exile", "your hand": "your hand",
+                 "anywhere other than your hand": "not_hand", "anywhere other than their hand": "not_hand"}
+_PLAY_FROM = r" from (?:exile|your graveyard|a graveyard|anywhere other than (?:your|their) hand)"
+
+
 def _parse(c: str) -> Condition | None:
     # -- trigger other (wave 25B) -- 701.18b: to play a card is to play it as a land or cast it as a spell, whichever is appropriate
-    if c in ("you play a card", "a player plays a card", "an opponent plays a card"):
-        return _parse(c.replace(" a card", " a land or cast a spell" if c.startswith("you") else " a land or casts a spell"))
+    # (-- trigger from (wave 30F) -- "Whenever you play a card from exile" (Prosper): a land played from there or a spell cast from there)
+    m = re.fullmatch(rf"(?P<p>you|a player|an opponent) plays? a card(?P<f>{_PLAY_FROM})?", c)
+    if m:
+        you, f = m["p"] == "you", m["f"] or ""
+        return _parse(f"{m['p']} {'play' if you else 'plays'} a land{f} or {'cast' if you else 'casts'} a spell{f}")
     # -- triggers (wave 19B) -- "your commander attacks / enters / deals combat damage to a player" is "a commander you control …"
     # (903.3: a commander its owner's deck names; the selector reads it on the battlefield), "you attack with your commander" /
     # "~ attacks an opponent" (the one of your opponents the attack is declared against, 508.3a)
@@ -234,15 +245,15 @@ def _parse(c: str) -> Condition | None:
         return _parse(c[: -len("an opponent")] + "one of your opponents")
     # -- history (wave 22E) -- "When ~ enters from a graveyard", "Whenever a creature enters from your graveyard": the zone it came from
     # is part of the event (603.2; the engine records it with the entry: rules_state.Entry.from_zone)
-    m = re.fullmatch(r"(?P<s>.+?) enters?(?: the battlefield)? from (?P<z>your graveyard|a graveyard|exile|your hand)", c)
-    if m:
-        inner = _parse(f"{m['s']} enters")
-        if inner is None or inner.get("event") not in ("enter", "either") or inner.get("aggregate") \
-                or (inner["event"] == "either" and any(x["event"] != "enter" for x in inner["conds"])):
+    m = re.fullmatch(r"(?P<s>.+?) enters?(?: the battlefield)? from (?P<z>your graveyard|a graveyard|exile|your hand|anywhere other than your hand)", c)
+    inner = _parse(f"{m['s']} enters") if m else None
+    # (wave 30F: a subject that is no one object but "A or B" — "you cast a spell from exile or a land you control enters from exile" — is read by the split below)
+    if m and inner is not None and not (inner["event"] == "either" and any(x["event"] != "enter" for x in inner["conds"])):
+        if inner.get("event") not in ("enter", "either") or inner.get("aggregate"):
             return None
         if inner["event"] == "either":
-            return {**inner, "conds": [{**x, "entered_from": m["z"].replace("a ", "")} for x in inner["conds"]]}
-        return {**inner, "entered_from": m["z"].replace("a ", "")}
+            return {**inner, "conds": [{**x, "entered_from": _ENTERED_FROM[m["z"]]} for x in inner["conds"]]}
+        return {**inner, "entered_from": _ENTERED_FROM[m["z"]]}
     # -- entry forms (wave 11F) -- "Whenever a creature enters [the battlefield] under your control" is "a creature you control
     # enters" (603.6a: an object entering the battlefield, under that player's control); "under an opponent's control":
     # "an opponent controls". (A permanent "an opponent owns" is another thing: not read.)
@@ -728,6 +739,8 @@ def _cast(c: str) -> Condition | None:
     """601.2i: "you cast a creature spell", "an opponent casts a spell", "you cast your second spell
     each turn", "you cast a spell that targets ~" (heroic), "you cast a spell from exile", "you
     cast a kicked spell", "you cast a spell during an opponent's turn"."""
+    # -- trigger from (wave 30F) -- 102.2: with no teams (Commander is free-for-all) every other player is an opponent
+    c = re.sub(r"^another player casts\b", "an opponent casts", c)
     # -- refused copy/mana (wave 3R3) -- magecraft: "Whenever you cast or copy an instant or sorcery
     # spell" / "Whenever you copy a spell". 707.10: copying a spell puts a copy onto the stack under the
     # control of the player who copies it; it isn't cast. "copy": "or" also triggers on a copy, "only"
@@ -814,11 +827,14 @@ def _player_action(c: str) -> Condition | None:
     # -- entry forms (wave 5F) -- "When you play another land" (City of Traitors), "Whenever a player plays a land": 305.1
     # (playing a land — not putting one onto the battlefield)
     # -- trigger tail (wave 15B) -- "Whenever you expend 4" (700.14: as you spend your fourth total mana to cast spells this turn)
-    m = re.fullmatch(r"(?P<p>you|a player|an opponent) plays? (?P<a>an? [\w ]*?land) or casts? (?P<b>an? [\w ]*?spell)", c)
+    m = re.fullmatch(rf"(?P<p>you|a player|an opponent) plays? (?P<a>an? [\w ]*?land)(?P<fa>{_PLAY_FROM})? or casts? (?P<b>an? [\w ]*?spell)(?P<fb>{_PLAY_FROM})?", c)
     if m:  # "Whenever you play a land or cast a spell" (305.1: playing a land is no cast): either event, each its own (603.2)
         p = m["p"]
         verb = "play" if p == "you" else "plays"
-        land, spell = _parse(f"{p} {verb} {m['a']}"), _parse(f"{p} {'cast' if p == 'you' else 'casts'} {m['b']}")
+        # -- trigger from (wave 30F) -- "… a land from exile or cast a spell from exile" (Pia Nalaar); "… a land or cast a spell from anywhere other
+        # than your hand" (Shadow of the Goblin): the one place goes with both halves. A land is played from the zone it's in (701.18a)
+        land = _parse(f"{p} {verb} {m['a']}{m['fa'] or m['fb'] or ''}")
+        spell = _parse(f"{p} {'cast' if p == 'you' else 'casts'} {m['b']}{m['fb'] or ''}")
         if land is None or spell is None or land.get("event") != "land_played" or spell.get("event") != "cast" \
                 or land.get("aggregate") or spell.get("aggregate"):
             return None
@@ -826,10 +842,10 @@ def _player_action(c: str) -> Condition | None:
     m = re.fullmatch(r"you expend (?P<n>\d+)", c)
     if m:
         return {"event": "expend", "subject": "player", "player": "you", "n": int(m["n"])}
-    m = re.fullmatch(rf"{_P} plays? (?P<o>another land|an? (?:[a-z]+ )?land)", c)
+    m = re.fullmatch(rf"{_P} plays? (?P<o>another land|an? (?:[a-z]+ )?land)(?P<f>{_PLAY_FROM})?", c)
     if m:
         return {"event": "land_played", "subject": "player", "player": _PLAYERS[m["p"]], "obj": _object_sel(m["o"]),
-                "aggregate": False}
+                "aggregate": False, **({"entered_from": _ENTERED_FROM[m["f"][len(" from "):]]} if m["f"] else {})}
     # -- discard causes (wave 23D) -- 701.9: "a spell or ability an opponent controls causes you to discard this card / a card / cards"
     m = re.fullmatch(r"a spell or ability an opponent controls causes you to discard (?P<o>this card|~|a card|one or more cards|cards)", c)
     if m:
