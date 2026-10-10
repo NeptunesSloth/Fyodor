@@ -24,7 +24,7 @@ Definition = dict[str, Any]
 
 _SENTENCES = re.compile(r"(?<=\.) (?=[A-Z~])")
 _SUBJECT = re.compile(r"^(?:As long as [^,]+, )?(?P<s>Enchanted creature|Equipped creature|~)(?= (?:gets|has|can't)\b)")
-_OTHERWISE = re.compile(r"^Otherwise, it (?P<pred>(?:gets|has) .+)\.$")
+_OTHERWISE = re.compile(r"^Otherwise, it (?P<pred>(?:gets|has|can't) .+)\.$")  # (wave 25A: "it can't attack or block", Bonds of Faith)
 _INSTEAD = re.compile(r"^(?:It|~) (?P<pred>(?:gets|has) .+?) instead as long as (?P<cond>.+)\.$")
 
 
@@ -35,6 +35,24 @@ def _not(conds: list[dict[str, Any]]) -> dict[str, Any]:
 def definition(text: str) -> Definition | None:
     from app.rules import statics
 
+    # -- as long as (wave 25A) -- "As long as you control enchanted creature, it gets +2/+2.": "it" is the creature the condition names
+    text = re.sub(r"^(As long as [^,]*\b(enchanted|equipped) creature\b[^,]*), it (?=(?:gets|has|can't)\b)",
+                  lambda m: f"{m[1]}, {m[2].capitalize()} creature ", text.strip())
+    from app.rules import abilities_of  # -- keyword inheritance (wave 25A) -- "The same is true for …"
+
+    if (inherited := abilities_of.inherit(text, statics._definition)) is not None:
+        return inherited
+    # -- as long as (wave 25A) -- "As long as C, this creature and other Vampire creatures you control get +2/+1 and have flying.": two statics of the
+    # same permanent under the same condition — itself, and the others (the single-sentence grammar reads a union subject only when it's plain)
+    union = re.match(r"^(?P<head>As long as [^,]+), (?:~|this creature) and (?P<other>other [A-Z][a-z]+ creatures you control) (?P<pred>(?:get|have) .+)\.$",
+                     text.strip())
+    if union is not None:
+        pred = re.sub(r"\bget\b", "gets", re.sub(r"\bhave\b", "has", union["pred"]))
+        mine = statics.parse(f"{union['head']}, ~ {pred}.")
+        others = statics.parse(f"{union['head']}, {union['other'].capitalize()} {union['pred']}.")
+        if mine is None or others is None or mine.get("also") or others["who"] == "self":
+            return None
+        return {**mine, "also": [others]}
     parts = _SENTENCES.split(text.strip())
     if not 2 <= len(parts) <= 3:
         return None
@@ -64,8 +82,9 @@ def definition(text: str) -> Definition | None:
             before = defs[-1]
             if not before["conditions"] or before.get("also"):
                 return None  # ("Otherwise" says what happens when the sentence before it doesn't)
-            d = statics.parse(f"{subject} {other['pred']}.")
-            if d is None or d["conditions"]:
+            # (-- as long as (wave 20B) -- "~ has hexproof." alone is a keyword line, not a static: a stand-in condition, replaced below)
+            d = statics.parse(f"{subject} {other['pred']}." if attached else f"As long as it's your turn, ~ {other['pred']}.")
+            if d is None or (attached and d["conditions"]):
                 return None
             d["conditions"] = [_not(before["conditions"])]
         elif instead:

@@ -182,7 +182,8 @@ def test_mana_costs_abilities_and_payment_solver():
     # twobrid {2/B} paid with two generic; phyrexian with life when there's no mana for it
     assert solve(parse_cost("{2/B}"), {}, [sol]).tapped == ["s"]
     assert solve(parse_cost("{G/P}"), {}, [mountain], life=10).life == 2
+    assert solve(parse_cost("{G/P}"), {}, [mountain], life=2).life == 2  # 119.4 (wave 29C): exactly the life it costs is enough
     with pytest.raises(ManaError):
-        solve(parse_cost("{G/P}"), {}, [mountain], life=2)  # not enough life either
+        solve(parse_cost("{G/P}"), {}, [mountain], life=1)  # not enough life either
     with pytest.raises(ManaError, match=r"\{G\}\{G\}"):
         solve(parse_cost("{G}{G}"), {}, [forest, mountain])

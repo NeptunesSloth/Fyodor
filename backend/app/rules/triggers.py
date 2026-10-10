@@ -219,6 +219,25 @@ def sacrificing(plan: Plan, card_ids: list[str]) -> None:
             emit(plan.state, "sacrificed", object_id=plan.oid(card), card=cid, player=card.controller)
 
 
+def exploiting(plan: Plan, card_ids: list[str], exploiter: str, player: str) -> None:
+    """-- keyword triggers (wave 23D) -- 702.110b: the creature with exploit ``exploiter`` "exploits" each of these creatures, sacrificed
+    as its exploit ability resolves (call just before moving them, as ``sacrificing``; the exploiter may be one of them)."""
+    src = plan.state.cards.get(exploiter)
+    if src is None:
+        return
+    for cid in card_ids:
+        card = plan.state.cards.get(cid)
+        if card is not None and card.zone.endswith(":battlefield"):
+            emit(plan.state, "exploited", object_id=plan.oid(card), card=cid, player=player, source=plan.oid(src), by_card=exploiter)
+
+
+def _discarded_instead(plan: Plan, e: Event) -> bool:
+    """-- review (wave 23D) -- 701.9a, 702.35a: a card discarded that a replacement put somewhere other than the graveyard (madness,
+    Rest in Peace, "put it onto the battlefield instead") was discarded all the same (``history.note_discards`` logged it)."""
+    log = plan.rules.turn_log
+    return log.turn == plan.state.turn.number and any(f.kind == "discard" and f.object_id == e.object_id for f in log.facts)
+
+
 def collect(plan: Plan) -> None:
     """Look at the events since the last look (603.2)."""
     r = plan.rules
@@ -228,6 +247,9 @@ def collect(plan: Plan) -> None:
     from app.rules import designations
 
     designations.day_night_sync(plan)
+    from app.rules import pairing  # -- soulbond (wave 24B) -- 702.95e: a pair ends, any time
+
+    pairing.sync(plan)
     if any(e.batch > r.batch for e in r.events):
         # An event recorded after the step's last table change (a spell becoming cast, 601.2i)
         # is its own batch: close it now, before anyone would receive priority (603.3), rather
@@ -254,6 +276,9 @@ def collect(plan: Plan) -> None:
     from app.rules import designations
 
     designations.on_events(plan, new)
+    from app.rules import speed  # -- speed (wave 24B) -- 702.179d: the inherent speed trigger
+
+    speed.on_events(plan, new)
     for e in new:
         if e.kind == "spell_cast" and not e.manual:
             _cast_triggers(plan, e.card or "", e.player or "", e.batch)
@@ -377,8 +402,10 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         # 601.2i: what the condition can ask about the spell as it became cast — the Nth spell its
         # caster cast this turn, the zone it was cast from, its targets (115.9b), whether it was kicked
         nth = e.amount or r.spells_this_turn(e.player or "", plan.state.turn.number)
-        info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),
-                "opponent_turn": plan.active != e.player, "kicked": bool(entry is not None and entry.kicked),
+        paid = r.payments.get(plan.oid(spell))  # (review 23D: a promised gift / awaken is read as "kicked" by the spell's own text only:
+        kicked = bool(entry is not None and entry.kicked and not (paid is not None and (paid.gift_to or paid.alternative == "awaken")))
+        info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),  # 702.33d, 702.174k)
+                "opponent_turn": plan.active != e.player, "kicked": kicked,
                 "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]}
         # -- unless pays (wave 4C) -- "their first noncreature spell each turn"
         from app.rules import unless_pays
@@ -423,8 +450,27 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         if got is None:
             return []
         live = _live(plan, got[0])
+        # (wave 19B: where it went, for "put that card onto the battlefield": the zone change that followed in this batch, 400.7e)
+        went = next((z for z in r.events if z.kind == "zone_change" and z.object_id == e.object_id and z.new_object_id), None)
         return [("sacrifice", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "amount": 1,
-                                                          "snap": None if live else r.lki.get(e.object_id or "")})]
+                                                          "snap": None if live else r.lki.get(e.object_id or ""),
+                                                          **({"new_oid": went.new_object_id, "to": went.to_zone} if went else {})})]
+    if e.kind in ("crew_tapped", "saddle_tapped"):  # -- crew & saddle (wave 23D) -- 702.122b / 702.171c: the creature tapped to pay the cost
+        got = _object_then(plan, e.card, e.object_id)  # (``other``: the Vehicle / Mount whose ability it is, the creature "on the other side")
+        if got is None:
+            return []
+        return [("crew" if e.kind == "crew_tapped" else "saddle", got[0], got[1], e.player,
+                 {"oid": e.object_id, "actor": e.player, "other": e.by_card, "other_oid": e.source})]
+    if e.kind in ("crewed", "saddled"):  # 702.122e: its crew ability resolved; 702.171b: it became saddled
+        got = _object_then(plan, e.card, e.object_id)
+        return [(e.kind, got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player})] if got is not None else []
+    if e.kind == "exploited":  # -- keyword triggers (wave 23D) -- 702.110b: the exploiter (it may have been sacrificed itself: its last known
+        by = _object_then(plan, e.by_card, e.source)  # information) and the creature it exploited, as it was
+        was = _object_then(plan, e.card, e.object_id)
+        if by is None or was is None:
+            return []
+        return [("exploit", by[0], by[1], e.player, {"oid": e.source, "actor": e.player, "exploited": was, "amount": 1,
+                                                    "snap": None if _live(plan, by[0]) else r.lki.get(e.source or "")})]
     if e.kind == "counters" and e.amount > 0:  # 122.6: counters put on a permanent
         got = _object_then(plan, e.card, e.object_id)
         if got is None:
@@ -451,6 +497,19 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
     return []
 
 
+def _discard_facts(plan: Plan, e: Event) -> list[Fact]:
+    # 701.9a: "To discard a card, move it from its owner's hand to that player's graveyard" — the rules engine moves a card that
+    # way only by discarding it (an effect, a cost, cycling); -- review (wave 23D) -- or a replacement put the discard elsewhere
+    if _zone(e.from_zone) != "hand" or not e.card or not (_zone(e.to_zone) == "graveyard" or _discarded_instead(plan, e)):
+        return []
+    got = _card_in(plan, e.card, e.to_zone if _zone(e.to_zone) != "battlefield" else e.from_zone)  # (a permanent now: the card it was)
+    if got is None or (e.from_zone or "").split(":")[0] != got[0].owner:
+        return []
+    return [("discard", got[0], got[1], got[0].owner, {"oid": e.new_object_id, "actor": got[0].owner, "amount": 1,
+                                                       "new_oid": e.new_object_id, "to": e.to_zone,
+                                                       "by": e.actor})]  # (wave 23D: ``by``: the player whose effect moved it)
+
+
 def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
     r = plan.rules
     frm, to = _zone(e.from_zone), _zone(e.to_zone)
@@ -460,12 +519,13 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
         got = _object_then(plan, e.card, e.new_object_id)
         if got is not None:
             live = _live(plan, got[0])
-            entered: dict[str, Any] = {"oid": e.new_object_id, "snap": None if live else r.lki.get(e.new_object_id or "")}
+            entered: dict[str, Any] = {"oid": e.new_object_id, "snap": None if live else r.lki.get(e.new_object_id or ""),
+                                       "entered_from": e.from_zone}  # (wave 22E: "enters from your graveyard")
             out.append(("enter", got[0], got[1], got[0].controller, entered))
             if e.from_zone is None and got[0].is_token:  # 111.2: a token was created
                 out.append(("create_token", got[0], got[1], got[0].controller,
                             {**entered, "actor": got[0].controller, "amount": 1}))
-        return out
+        return out + _discard_facts(plan, e)  # (review 23D: Obstinate Baloth, discarded onto the battlefield)
     if frm == "battlefield" and to != "battlefield":
         snap = r.lki.get(e.object_id or "")
         if snap is None:  # (-- review (wave 18D) -- a card of a merged permanent that left: put there, not a permanent leaving, 730.3)
@@ -476,16 +536,11 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
         if to == "graveyard" or (e.to_zone is None and snap.is_token):  # 700.4
             out.append(("die", card, ch, snap.controller, info))
         out += _to_graveyard(plan, e, frm)  # -- into a graveyard (wave 6D) --
+        out += _to_zone(plan, e, frm)  # -- counters (wave 21D) --
         return out
     out += _to_graveyard(plan, e, frm)  # -- into a graveyard (wave 6D) --
-    if frm == "hand" and to == "graveyard" and e.card:
-        # 701.9a: "To discard a card, move it from its owner's hand to that player's graveyard" —
-        # the rules engine moves a card that way only by discarding it (an effect, a cost, cycling)
-        got = _card_in(plan, e.card, e.to_zone)
-        if got is not None and (e.from_zone or "").split(":")[0] == got[0].owner:
-            out.append(("discard", got[0], got[1], got[0].owner,
-                        {"oid": e.new_object_id, "actor": got[0].owner, "amount": 1, "new_oid": e.new_object_id,
-                         "to": e.to_zone}))
+    out += _to_zone(plan, e, frm)  # -- counters (wave 21D) --
+    out += _discard_facts(plan, e)
     if frm == "graveyard" and to != "graveyard" and e.card:
         # "leaves your graveyard": the card as it was there (603.10a looks back in time)
         got = _card_in(plan, e.card, e.from_zone)
@@ -505,6 +560,19 @@ def _to_graveyard(plan: Plan, e: Event, frm: str) -> list[Fact]:
         return []
     return [("to_graveyard", got[0], got[1], got[0].owner,
              {"oid": e.new_object_id, "from": frm, "amount": 1, "to": e.to_zone})]
+
+
+def _to_zone(plan: Plan, e: Event, frm: str) -> list[Fact]:
+    """-- counters (wave 21D) -- a card put into exile or into a library from another zone: the new object there (603.6c: "from
+    anywhere" doesn't look back), with the zone and the owner of the zone it came from. (A token never is a card there: 111.7.)"""
+    to = _zone(e.to_zone)
+    if to not in ("exile", "library") or frm == to or not e.card or not e.new_object_id:
+        return []
+    got = _card_in(plan, e.card, e.to_zone)
+    if got is None or got[0].is_token or plan.oid(got[0]) != e.new_object_id:
+        return []
+    return [(f"to_{to}", got[0], got[1], got[0].owner,
+             {"oid": e.new_object_id, "from": frm, "from_owner": (e.from_zone or "").split(":")[0] or None, "amount": 1, "to": e.to_zone})]
 
 
 def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
@@ -580,8 +648,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         if player is None or (pw == "you" and player != you) or (pw == "opponent" and player == you) \
                 or (pw == "enchanted" and player != watcher.attached_player):
             return False
-        if event == "dealt_damage" and obj is not None:
-            return False  # ("you're dealt damage": a player, not a permanent that player controls)
+        if event in ("dealt_damage", "targeted") and obj is not None:
+            return False  # ("you're dealt damage": a player, not a permanent that player controls; wave 22E: "you become the target")
         if event == "cast":
             return obj is not None and och is not None and selectors.matches(
                 plan, selectors.from_key(cond["spell"]), obj, och, you, watcher.id)
@@ -608,7 +676,26 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     sel = selectors.from_key(cond["sel"])
     if event == "turned_face_up" and "face_down" in sel.extras:  # -- hidden exile (wave 18A) -- "a face-down permanent … is turned face up": it was
         sel = selectors.replace(sel, extras=tuple(x for x in sel.extras if x != "face_down"))  # face down; it is face up now
+    if event in ("die", "leave") and "modified" in sel.extras:  # -- trigger other (wave 25B) -- 603.10a, 700.9: modified as it last existed
+        snap = info.get("snap")
+        if snap is None or not _was_modified(plan, snap):
+            return False
+        sel = selectors.replace(sel, extras=tuple(x for x in sel.extras if x != "modified"))
     return selectors.matches(plan, sel, obj, och, you, watcher.id)
+
+
+def _was_modified(plan: Plan, snap: ObjectSnapshot) -> bool:
+    """-- trigger other (wave 25B) -- 700.9: a permanent is modified if it has a counter, is equipped, or is enchanted by an Aura its
+    controller controls; a permanent that left is read as it last existed (603.10a: the counters and attachments it had)."""
+    if any(n > 0 for n in snap.counters.values()):
+        return True
+    for cid in snap.attached:
+        att = plan.state.cards.get(cid)
+        if att is not None:
+            subs = plan.ch(att).subtypes
+            if "Equipment" in subs or ("Aura" in subs and att.controller == snap.controller):
+                return True
+    return False
 
 
 def _damaged_by(plan: Plan, watcher: CardInstance, victim: str | None) -> bool:
@@ -639,11 +726,23 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     """The parts of a condition beyond its subject and event."""
     from app.rules import selectors
 
-    event, obj, _, player, info = fact
+    event, obj, och, player, info = fact
     you = watcher.controller
     if not _other_ok(plan, cond, watcher, info):
         return False
+    if cond.get("cause") == "opponent" and not (  # -- discard causes (wave 23D) -- 701.9: "a spell or ability an opponent controls causes you to
+            info.get("by") and info["by"] != player):  # discard": the discard was moved by a resolving effect of another player
+        return False
+    if cond.get("main_phase") and plan.state.turn.phase not in ("main1", "main2"):  # -- crew & saddle (wave 23D) -- "during your main phase"
+        return False
+    if cond.get("exploited") and not (  # -- keyword triggers (wave 23D) -- "exploits a nontoken creature": the one sacrificed, as it was (702.110b)
+            info.get("exploited") and selectors.matches(plan, selectors.from_key(cond["exploited"]), info["exploited"][0],
+                                                        info["exploited"][1], you, watcher.id)):
+        return False
     if cond.get("into") and (info.get("face_name") or "").lower() != cond["into"].lower():  # -- transform (wave 16F) --
+        return False
+    if cond.get("into_sel") and not (obj is not None and och is not None and selectors.matches(  # -- transform (wave 26D) -- "transforms into a Phyrexian": its new face
+            plan, selectors.from_key(cond["into_sel"]), obj, och, you, watcher.id)):
         return False
     if cond.get("alone") and info.get("attackers") != 1:  # 506.5
         return False
@@ -651,9 +750,12 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         want = cond.get("defender")
         # "whenever you attack" is once per combat; "whenever a player attacks you" once per player
         # attacked (508.3d, 508.3e): each reads only its own fact
-        if event == "you_attack" and bool(want) != ("defended" in info):
+        if event == "you_attack" and want == "opponent_any":  # -- trigger sweep (wave 27B) -- "a player attacks one or more of your opponents": once per attack (508.3d)
+            if "defended" in info or not any(d != watcher.controller for d in info.get("defended_direct", [])):
+                return False
+        elif event == "you_attack" and bool(want) != ("defended" in info):
             return False
-        if want and not _defender_ok(want, watcher, info, plan):
+        if want and want != "opponent_any" and not _defender_ok(want, watcher, info, plan):
             return False
         if cond.get("first_each_turn") and not info.get("first"):
             return False
@@ -669,35 +771,45 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
             cond.get("own") and (obj is None or obj.controller != player))):  # -- activation (wave 11F) --
         return False
+    if event == "activate" and cond.get("ability_targets"):  # -- stack interaction (wave 23B) -- "an ability that targets a creature or player"
+        ref = info.get("source_ref")
+        ability = plan.state.cards.get(ref.card) if ref is not None else None
+        if ability is None or not any(selectors.targets_match(plan, ability, x, you, watcher.id) for x in cond["ability_targets"]):
+            return False
     if event == "become_level" and cond.get("level") != info.get("level"):  # -- Class (wave 16A) --
         return False
     if event == "unlock_door" and cond.get("door") != info.get("door"):  # -- Rooms (wave 18G) -- only the door that was unlocked
         return False
     if event in ("scry", "surveil") and cond.get("nth") and info.get("nth") != cond["nth"]:  # -- looks (wave 8B) --
         return False
+    if event == "roll_die":  # -- dice (wave 24B) -- the die's own result / size / place in the turn (app/rules/dice.py)
+        from app.rules import dice
+
+        if not dice.die_matches(cond, info):
+            return False
     if event == "die" and cond.get("damaged_by_self") and not _damaged_by(plan, watcher, info.get("oid")):  # (wave 7C)
         return False
     if event == "die" and cond.get("in_combat") and plan.state.turn.phase not in COMBAT_PHASES:  # (wave 16C: "dies during combat")
         return False
     n = cond.get("min_attackers")
-    if n:
-        direct = cond.get("defender") not in (None, "you_or_pw")  # (only the creatures attacking that player)
-        attackers = [plan.state.cards[c] for c in info.get("attacking_direct" if direct and "attacking_direct" in info
-                                                           else "attacking") or [] if c in plan.state.cards]
-        if cond.get("others_only"):  # (wave 11C) "~ and at least one other Warrior attack": not counting ~
-            attackers = [c for c in attackers if c.id != watcher.id]
-        if cond.get("sel"):
-            sel = selectors.from_key(cond["sel"])
-            attackers = [c for c in attackers if selectors.matches(plan, sel, c, plan.ch(c), you, watcher.id)]
-        if len(attackers) < n:
-            return False
+    if n and len(_counted_attackers(plan, cond, watcher, info)) < n:
+        return False
     if event == "cast":
         if cond.get("nth") and info.get("nth") != cond["nth"]:
+            return False
+        if cond.get("nth_min") and int(info.get("nth") or 0) < cond["nth_min"]:  # -- counters (wave 21D) --
             return False
         if cond.get("first_kind"):  # -- unless pays (wave 4C) --
             from app.rules import unless_pays
 
             if not unless_pays.first_of_kind(cond["spell"], info.get("kinds_before") or []):
+                return False
+        if cond.get("first_note"):  # -- history (wave 22E) -- 601.2i: no spell of that kind by this player earlier this turn (the turn's casts, as cast)
+            from app.rules import history
+
+            kind = selectors.from_key(cond["spell"])
+            if sum(1 for n in history.log_for(plan).casts if n.player == player
+                   and history.note_matches(kind, n.types, n.subtypes, n.supertypes, n.colors, n.mv, x_cost=n.x_cost)) != 1:
                 return False
         if cond.get("turn") == "opponent" and not info.get("opponent_turn"):
             return False
@@ -714,7 +826,20 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
         if cond.get("spell_only") and not info.get("spell"):
             return False
-        if cond.get("first_each_turn") and not info.get("first"):
+        if cond.get("ability_only") and info.get("spell"):  # -- stack interaction (wave 23B) -- "becomes the target of an ability"
+            return False
+        if cond.get("first_each_turn") and not (info.get("first") or {}).get({"you": "by", "opponent": "by_opp"}.get(by, "any")):
+            return False
+        if cond.get("spell_sel"):  # -- history (wave 22E) -- "an instant or sorcery spell": the spell as it is on the stack
+            ref = info.get("source_ref")
+            spell = plan.state.cards.get(ref.card) if ref is not None else None
+            if spell is None or spell.ability is not None or not selectors.matches(
+                    plan, selectors.from_key(cond["spell_sel"]), spell, plan.ch(spell), you, watcher.id):
+                return False
+    if event == "enter" and cond.get("entered_from"):  # -- history (wave 22E) -- "Whenever a creature enters from your graveyard"
+        from app.rules import history
+
+        if not history.entered_from(info.get("entered_from"), cond["entered_from"], you):
             return False
     if event == "enter" and cond.get("entered_tapped") is not None:  # -- entry forms (wave 5F) --
         from app.rules import entry_forms
@@ -736,6 +861,9 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event == "to_graveyard" and cond.get("from") and info.get("from") != cond["from"]:  # -- into a graveyard (wave 6D)
         return False
+    if event in ("to_exile", "to_library") and ((cond.get("froms") and info.get("from") not in cond["froms"])
+                                                 or (cond.get("from_owner") == "you" and info.get("from_owner") != you)):
+        return False  # -- counters (wave 21D) -- "put into exile from your graveyard"
     # -- graveyard owner (wave 6D) -- "put into your / an opponent's graveyard": its owner's graveyard (400.3)
     if event == "die" and cond.get("gy_owner") and (obj is None or (obj.owner == you) != (cond["gy_owner"] == "you")):
         return False
@@ -783,6 +911,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return defended == you
     if want == "opponent":  # "attacks one of your opponents"
         return defended != you
+    if want == "other_opponent":  # -- trigger sweep (wave 27B) -- "an opponent attacks another one of your opponents": neither you nor the attacker
+        return defended not in (you, info.get("attacker"))
     if want == "enchanted_player":
         return defended == watcher.attached_player
     if want == "most_life":  # -- keywords (wave 15E) -- 702.105a: the player attacked has the most life or is tied for it
@@ -837,6 +967,22 @@ def _source_ref(plan: Plan, oid: str | None) -> ObjectRef | None:
     return ObjectRef(card=snap.card, object_id=oid, zone=snap.zone, snapshot=snap) if snap is not None else None
 
 
+def _counted_attackers(plan: Plan, cond: dict[str, Any], watcher: CardInstance, info: dict[str, Any]) -> list[CardInstance]:
+    """The attackers a "you attack with N or more …" condition counts (508.1, 603.2c): those attacking that player when one is
+    named, not ~ for "other", and of the kind named. (Review 22E: "those creatures" / "that many" are these, not every attacker.)"""
+    from app.rules import selectors
+
+    direct = cond.get("defender") not in (None, "you_or_pw")  # (only the creatures attacking that player)
+    attackers = [plan.state.cards[c] for c in info.get("attacking_direct" if direct and "attacking_direct" in info
+                                                       else "attacking") or [] if c in plan.state.cards]
+    if cond.get("others_only"):  # (wave 11C) "~ and at least one other Warrior attack": not counting ~
+        attackers = [c for c in attackers if c.id != watcher.id]
+    if cond.get("sel"):
+        sel = selectors.from_key(cond["sel"])
+        attackers = [c for c in attackers if selectors.matches(plan, sel, c, plan.ch(c), watcher.controller, watcher.id)]
+    return attackers
+
+
 def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
     kind, obj, _, player, info = fact
     ref = _ref(obj, info, plan)
@@ -863,7 +1009,8 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         defended=info.get("defended") if kind == "you_attack" else _attack_defended(plan, kind, obj),
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
-                        if kind in _PAIRED.values() and info.get("other") in plan.state.cards else None)
+                        if kind in _PAIRED.values() and info.get("other") in plan.state.cards
+                        else _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None)  # (wave 19B: the Ring-bearer chosen)
 
 
 def _attack_defended(plan: Plan, kind: str, obj: CardInstance | None) -> str | None:
@@ -897,8 +1044,15 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 continue
             if cond.get("not_first_in_draw_step") and fact[4].get("first_in_draw_step"):  # -- triggers (wave 5D) --
                 continue
+            if cond.get("only_first_in_draw_step") and not fact[4].get("first_in_draw_step"):  # -- hideaway (wave 29D) -- Wiretapping
+                continue
             event = _event(plan, fact, batch)
             info = fact[4]
+            if cond["event"] == "you_attack" and cond.get("min_attackers"):  # -- history (wave 22E; review) -- "those creatures", "that many":
+                # the attackers the condition counted (508.1, 603.2c)
+                counted = _counted_attackers(plan, cond, watcher, info)
+                event.objects = [ObjectRef(card=c.id, object_id=plan.oid(c), zone=c.zone) for c in counted]
+                event.amount = len(counted)
             # -- other side (wave 6D) -- "that creature": the one on the other side (app/rules/other_side.py)
             from app.rules import other_side
 
@@ -972,6 +1126,13 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
                 ch = plan.ch(card)
                 watchers += [((card, ch, i, d), -big, big) for i, d in abilities(plan, ch, "event")
                              if d.get("cond", {}).get("event") == "cycle" and d["cond"].get("subject") == "self"]
+        if e.kind == "zone_change" and not e.manual and _zone(e.from_zone) == "hand" and e.card in plan.state.cards and (
+                _zone(e.to_zone) == "graveyard" or (_zone(e.to_zone) == "exile" and _discarded_instead(plan, e))):  # (review 23D: or exiled instead)
+            card = plan.state.cards[e.card]  # -- discard causes (wave 23D) -- "When a spell or ability an opponent controls causes you to
+            if not plan.manual(card) and card.owner in plan.live():  # discard this card": it is in the graveyard by now (701.9a)
+                ch = plan.ch(card)
+                watchers += [((card, ch, i, d), -big, big) for i, d in abilities(plan, ch, "event")
+                             if d.get("cond", {}).get("event") == "discard" and d["cond"].get("subject") == "self"]
         if e.kind != "zone_change":
             continue
         if _zone(e.to_zone) == "stack" and e.card:
@@ -987,8 +1148,10 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             card, ch = _snapshot_card(plan, snap)
             left[id(card)] = snap.object_id
             watchers += [((card, ch, i, d), entered.get(snap.object_id, -big), e.batch)
-                         for i, d in abilities(plan, ch, "event") if d.get("cond") and not arrives_in_graveyard(d)]
-    watchers += [(w, entered.get(plan.oid(w[0]), -big), big) for w in _event_watchers(plan)]
+                         for i, d in abilities(plan, ch, "event") if d.get("cond") and not arrives_in_graveyard(d) and not gy_sees_others(d)]
+    # (-- graveyard triggers (wave 19C) -- an ability of a card in the graveyard about another object's leaving sees the events after the
+    # card got there: not the one that put it there (603.10a: before it, it wasn't in the graveyard), nor its own death as a permanent)
+    watchers += [(w, entered.get(plan.oid(w[0]), -big) + (1 if gy_sees_others(w[3]) else 0), big) for w in _event_watchers(plan)]
     for e in events:
         if e.manual:
             continue
@@ -1033,7 +1196,8 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
             plan.rules.once_per_turn[key] = turn
         facts.append((event, c, plan.ch(c), c.controller, info))
     if event == "attack":  # 506.5 / 508.3d: how many creatures were declared as attackers
-        facts.append(("you_attack", None, None, cards[0].controller, {"attackers": len(cards), "attacking": attacking}))
+        facts.append(("you_attack", None, None, cards[0].controller, {"attackers": len(cards), "attacking": attacking,
+                                                                       "defended_direct": sorted({d for d, direct in (_defended(plan, c) for c in cards) if d and direct})}))  # (wave 27B: "one or more of your opponents")
         # 508.3e / 508.3b: once for each player attacked (directly, or through a planeswalker they
         # control), with the creatures attacking them
         groups: dict[str, dict[str, list[str]]] = {}
@@ -1047,7 +1211,7 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
                 g["direct"].append(c.id)
         for defended, g in groups.items():
             facts.append(("you_attack", None, None, cards[0].controller,
-                          {"defended": defended, "direct": bool(g["direct"]), "attackers": len(g["all"]),
+                          {"defended": defended, "attacker": cards[0].controller, "direct": bool(g["direct"]), "attackers": len(g["all"]),
                            "attacking": g["all"], "attacking_direct": g["direct"]}))
     facts += [(_PAIRED[event], c, plan.ch(c), c.controller, {"oid": plan.oid(c), "other": other.id,
                                                               "other_oid": plan.oid(other)})  # (other_oid: wave 6D)
@@ -1080,6 +1244,9 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
         if card.zone.endswith(":graveyard"):  # -- refused zones/sized (wave 3R4) --
             out += graveyard_abilities(plan, card, trigger)
             continue
+        if card.zone.endswith(":command") and not designations.emblem_card(card):  # (wave 25B: eminence; an emblem's own abilities are read below)
+            out += command_zone_abilities(plan, card, trigger)
+            continue
         if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or not plan.in_game(card) or plan.manual(card):
             continue  # (-- emblems (wave 13A) -- 114.4: an emblem's triggered abilities work from the command zone)
         ch = plan.ch(card)
@@ -1098,7 +1265,31 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
 def graveyard_ability(d: dict[str, Any]) -> bool:
     import json
 
-    return '"self_gy"' in json.dumps(d, default=str) or arrives_in_graveyard(d)
+    # (-- graveyard triggers (wave 19C) -- "At the beginning of your upkeep, if this card is in your graveyard, …": it works there only)
+    return '"self_gy"' in json.dumps(d, default=str) or arrives_in_graveyard(d) or d.get("if") == IN_GRAVEYARD
+
+
+IN_GRAVEYARD = {"object": "self", "test": "in_graveyard"}
+# -- trigger other (wave 25B) -- eminence: "if ~ is in the command zone or on the battlefield" names the zones it functions in (113.6b)
+COMMAND_OR_BATTLEFIELD = {"object": "self", "test": "command_or_battlefield"}
+
+
+def command_zone_abilities(plan: Plan, card: CardInstance, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
+    """The eminence abilities of a card in the command zone (not an emblem: 114.4) for this trigger."""
+    if not card.zone.endswith(":command") or designations.emblem_card(card) or not plan.in_game(card) or plan.manual(card):
+        return []
+    ch = plan.ch(card)
+    return [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if d.get("if") == COMMAND_OR_BATTLEFIELD]
+_GY_OTHERS = ("die", "leave", "sacrifice", "leave_graveyard")
+_SELFISH = ("self", "self_or", "host", "self_or_host")
+
+
+def gy_sees_others(d: dict[str, Any]) -> bool:
+    """-- graveyard triggers (wave 19C) -- a graveyard ability about *another* object leaving the battlefield or a graveyard ("Whenever a
+    creature you control dies while this card is in your graveyard", "Whenever another creature is put into your graveyard from the
+    battlefield, … return this card from your graveyard …"; recover): not the card's own leaving, and it works from the graveyard only."""
+    cond = d.get("cond") or {}
+    return bool(d.get("gy_watch")) or (graveyard_ability(d) and cond.get("event") in _GY_OTHERS and cond.get("subject") not in _SELFISH)
 
 
 def arrives_in_graveyard(d: dict[str, Any]) -> bool:
@@ -1128,8 +1319,8 @@ def graveyard_trigger_ok(d: dict[str, Any]) -> bool:
     event (603.10a: a card arriving in the graveyard with the event would have to be told apart),
     nor one about this object or the permanent it was attached to (they left the battlefield)."""
     trigger = str(d.get("trigger"))
-    if d.get("gy_watch"):  # -- casting extras (wave 18E) -- recover 702.59a: the card is already in the graveyard when the creature dies (no look-back)
-        return d.get("kind") == "triggered"
+    if gy_sees_others(d):  # -- casting extras (wave 18E) -- recover 702.59a: the card is already in the graveyard when the creature dies (no look-back)
+        return d.get("kind") == "triggered"  # (wave 19C: and the other graveyard abilities about another object's leaving)
     if d.get("kind") != "triggered" or not (trigger in _GY_TRIGGERS or trigger.startswith("step:")):
         return False
     cond = d.get("cond") or {}
@@ -1232,6 +1423,10 @@ def at_step(plan: Plan, trigger: str) -> None:
                 _add(plan, controller=card.owner, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
                      definition=d)
             continue
+        if card.zone.endswith(":command") and not designations.emblem_card(card) and card.controller == plan.active:  # (-- wave 25B -- eminence)
+            for _, ch, i, d in command_zone_abilities(plan, card, trigger):
+                _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=d)
+            continue
         if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or card.controller != plan.active or plan.manual(card):
             continue
         ch = plan.ch(card)
@@ -1250,7 +1445,8 @@ def at_step_generic(plan: Plan) -> None:
     ap = plan.active
     for card in list(plan.state.cards.values()):
         gy = card.zone.endswith(":graveyard")  # -- refused zones/sized (wave 3R4) -- (113.6m)
-        if gy and card.owner in plan.live() and not plan.manual(card) and "graveyard" in (plan.ch(card).oracle_text or ""):
+        cz = card.zone.endswith(":command") and not designations.emblem_card(card)  # (-- trigger other (wave 25B) -- eminence, 113.6b)
+        if gy and card.owner in plan.live() and not plan.manual(card) and "graveyard" in (plan.ch(card).oracle_text or "") or cz and plan.in_game(card) and not plan.manual(card) and card.controller in plan.live():
             pass
         elif not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or plan.manual(card) or card.controller not in plan.live():
             continue
@@ -1258,7 +1454,7 @@ def at_step_generic(plan: Plan) -> None:
         for i, d in scripts.definitions(ch).items():
             if d["kind"] != "triggered" or not str(d["trigger"]).startswith(prefix):
                 continue
-            if graveyard_ability(d) != gy:
+            if graveyard_ability(d) != gy or (cz and d.get("if") != COMMAND_OR_BATTLEFIELD):
                 continue
             if _whose_step(plan, card, d["trigger"][len(prefix):], ap):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
@@ -1377,6 +1573,9 @@ def _suspend(plan: Plan) -> None:
     from it." (A triggered ability of the exiled card itself.)"""
     for cid in list(plan.rules.suspended):
         card = plan.state.cards.get(cid)
+        if card is not None and (not card.zone.endswith(":exile") or card.counters.get("time", 0) <= 0):
+            plan.rules.suspended.remove(cid)  # -- suspend granted (wave 24C) -- 702.62b: no longer suspended (a card that left exile is a new object)
+            continue
         if card is None or card.zone != f"{plan.active}:exile" or card.owner != plan.active:
             continue
         _add(plan, controller=card.owner, source_card=card.id, source_object=plan.oid(card), name=card.name,
@@ -1487,6 +1686,7 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
         for i, d in abilities(plan, ch, "targeted_self"):
             event = TriggerEvent(kind="targeted", count=1,
                                  objects=[ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone)],
+                                 players=[controller],  # -- triggers (wave 21B) -- "that spell's controller" (115.1)
                                  source=ObjectRef(card=stack_id, object_id=plan.oid(spell), zone=spell.zone)
                                  if spell is not None else None)
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
@@ -1532,17 +1732,31 @@ def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[
     turn = plan.state.turn.number
     facts: list[Fact] = []
     for t in targets:
-        card = plan.state.cards.get(t.id if hasattr(t, "id") else t)
+        tid = t.id if hasattr(t, "id") else t
+        if tid in plan.state.players:  # -- history (wave 22E) -- 115.1: "whenever you become the target of a spell or ability"
+            if tid in plan.live():
+                facts.append(("targeted", None, None, tid, {"by": controller, "spell": is_spell, "source_ref": source,
+                                                            "actor": controller}))
+            continue
+        card = plan.state.cards.get(tid)
         if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):
             continue
         oid = plan.oid(card)
-        # "for the first time each turn": the first time this turn that player's spells and
-        # abilities targeted this object (kept per turn, like other once-each-turn marks)
-        key = f"targeted:{controller}:{oid}"
-        first = plan.rules.once_per_turn.get(key) != turn
-        plan.rules.once_per_turn[key] = turn
+        # "for the first time each turn" (603.2): the first time this turn that something targeted this object ("any"), or the
+        # first time a spell or ability its controller controls did / an opponent's did ("by": the ones the trigger asks about);
+        # kept per turn, like other once-each-turn marks
+        # (review 22E: a save from before this wave kept "targeted:<player>:<object>" marks - still read this turn)
+        before = {p for p in plan.state.players if plan.rules.once_per_turn.get(f"targeted:{p}:{oid}") == turn}
+        first = {}
+        for group, mine, legacy in (("any", True, before), ("by", controller == card.controller, before & {card.controller}),
+                                    ("by_opp", controller != card.controller, before - {card.controller})):
+            if mine:
+                key = f"targeted:{group}:{oid}"
+                first[group] = plan.rules.once_per_turn.get(key) != turn and not legacy
+                plan.rules.once_per_turn[key] = turn
         facts.append(("targeted", card, plan.ch(card), card.controller,
-                      {"oid": oid, "by": controller, "spell": is_spell, "first": first, "source_ref": source}))
+                      {"oid": oid, "by": controller, "spell": is_spell, "first": first, "source_ref": source,
+                       "actor": controller}))  # (wave 19B: "that player" is the one whose spell or ability targeted it)
     if facts:
         _fire_generic(plan, facts, -1, {})
 
@@ -1708,7 +1922,12 @@ def bind_that_player(t: PendingTrigger) -> None:
     stack and its targets are chosen (603.3d, 608.2k) — "player:<id>", kept for the 608.2b check. An event with no
     single player leaves it unbound (nothing matches: no legal target)."""
     raw = json.dumps(t.ability)
+    if t.event is not None and t.event.defended and '\\"defended_player\\"' in raw:  # -- triggers (wave 19B) -- 508.5: the player the attacker attacked
+        raw = raw.replace('\\"controller\\":\\"defended_player\\"', f'\\"controller\\":\\"player:{t.event.defended}\\"')
+        t.ability = json.loads(raw)
     players = list(t.event.players) if t.event is not None else []
+    if t.event is not None and t.event.kind == "you_attack" and t.event.defended and (t.ability.get("cond") or {}).get("player") == "you":
+        players = [t.event.defended]  # (review 27B) "Whenever you attack a player, tap target creature that player controls": the one attacked (508.3e)
     if len(players) != 1:
         return
     for key in ("controller", "zone_owner"):  # (zone_owner: wave 15C, "from that player's graveyard")
@@ -1736,6 +1955,8 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
         return
     for what in ("mv", "power", "toughness"):
         n = _stat(ch, what)
+        if n is not None and what == "mv" and card is not None and card.zone == "stack" and card.stack_info is not None and card.stack_info.x:
+            n += card.stack_info.x * ch.mana_cost.count("{X}")  # -- event spells (wave 28D) -- 202.3e: X on the stack is the value chosen
         if n is not None:
             raw = raw.replace(f'\\"{EVENT_STAT}{what}\\"', str(n))
     t.ability = json.loads(raw)
@@ -1747,6 +1968,11 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
     bind_that_player(t)  # -- damage wordings (wave 6B) --
     bind_event_stat(plan, t)  # -- reanimation (wave 16F) --
+    # -- bounds defined by text (wave 28D) -- "mana value X or less, where X is …" (603.3d; review 28D: settled values only)
+    from app.rules import where_bound
+
+    t.ability = where_bound.bind(plan, t.ability, t.controller, t.source_card, t.source_object,
+                                 t.event.model_dump(mode="json") if t.event is not None else None)
     from app.rules import (
         per_opponent,  # -- per-opponent targets (wave 12C) -- a group for each opponent, as it is put
     )
@@ -1768,12 +1994,13 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
         from app.rules.casting import ask_targets
         from app.rules.scripts import target_groups
 
-        specs = target_groups(t.ability)
+        specs = target_groups(t.ability)  # (review 28D / wave 29C: "up to X target …, where X is …": X is the only limit, 107.3c, 601.2c)
         picks = picks or {"targets": [], "counts": [], "division": []}
         try:
             found = choose_groups(plan, specs, t.controller, source_of(plan, t.source_card), t.source_card,
-                                  picks["targets"], picks["counts"], picks["division"], None, t.name or "It",
-                                  attacker=attacker)
+                                  picks["targets"], picks["counts"], picks["division"], cast_x(plan, t), t.name or "It",
+                                  attacker=attacker, source_object=t.source_object,  # (wave 19F: "up to X target …", X as 107.3m / 701.37c give it)
+                                  event=t.event.model_dump(mode="json") if t.event is not None else None)  # (wave 28D: "where X is" an event's amount)
         except ActionError:  # 603.3d: no legal choice for a required target: removed from the stack
             r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
             plan.note(f"{t.name}'s ability doesn't have enough legal targets and is removed")
@@ -1811,8 +2038,7 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
                                      targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")),
                                      event=t.event, x=cast_x(plan, t), **extra)  # (x: wave 4J, 107.3m)
     if targets:
-        plan.do({"type": "create_arrow", "source": ability_id, "targets": [x.id for x in targets], "kind": "target"},
-                actor=t.controller)
+        plan.target_arrows(ability_id, [x.id for x in targets], actor=t.controller)  # (review 28D: an arrow points at up to 20)
         targeted(plan, ability_id, t.controller, targets)
     return True
 
@@ -1822,6 +2048,8 @@ def cast_x(plan: Plan, t: PendingTrigger) -> int | None:
     """107.3m: an object's enters-the-battlefield triggered ability that refers to X uses the X of the spell that
     became that object as it resolved (its payment record, which follows it onto the battlefield); for any other
     triggered ability — or an object that wasn't cast with X — X is undefined here (0, 107.3i)."""
+    if t.event is not None and t.event.kind == "become_monstrous" and any(o.object_id == t.source_object for o in t.event.objects):
+        return plan.rules.monstrous_x.get(t.source_object)  # -- X sized by a count (wave 19F) -- 701.37c
     if t.event is None or t.event.kind != "enter" or not any(o.object_id == t.source_object for o in t.event.objects):
         return None
     record = plan.rules.payments.get(t.source_object)

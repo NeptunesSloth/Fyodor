@@ -133,7 +133,7 @@ def test_other_conditions_and_unknown_wordings_stay_manual():
     614.12) and "if you cast it" riders are not."""
     from tests.test_rules_scripts import ch as characteristics
 
-    for text in ("This creature enters with a +1/+1 counter on it if you control a Goblin.",
+    for text in ("This creature enters with a +1/+1 counter on it if you control no Goblin.",  # (wave 21D: "if you control a …" is read, as "another" 614.12)
                  "This creature enters with a +1/+1 counter on it if you attacked last turn."):
         assert coverage.of_characteristics(characteristics("Test", "Creature — Test", text)).level != "FULL", text
 

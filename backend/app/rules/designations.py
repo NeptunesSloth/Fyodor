@@ -68,6 +68,8 @@ def status(plan: Plan, you: str, kind: str) -> bool:
         return table.day_night == kind
     if kind == "neither_day_nor_night":
         return table.day_night is None
+    if kind in ("ring_bearer", "no_ring_bearer"):  # -- trigger other (wave 25B) -- 701.54e: a creature on the battlefield under their control
+        return (_bearer_card(plan, you) is not None) == (kind == "ring_bearer")
     return False
 
 
@@ -100,15 +102,19 @@ def rad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     n = plan.state.players[pid].resources.get("rad", 0) if pid in plan.live() else 0
     if n <= 0:
         return True  # 603.4: no rad counters any more — the ability does nothing
+    from app.rules import replace as _replace_mill  # (wave 28B: 701.17a)
+
+    to_mill = sum(k for _, k in _replace_mill.mill_counts(plan, [(pid, n)]) or [(pid, n)])
     library = plan.state.zones.get(zone_key(pid, "library"), [])
-    milled = list(library[:n])
+    milled = list(library[:to_mill])
     if not milled:
         return True
     plan.do({"type": "mill", "player": pid, "count": len(milled)}, actor=pid)
     nonland = sum(1 for cid in milled if cid in plan.state.cards and plan.state.cards[cid].zone == zone_key(pid, "graveyard")
                   and not plan.ch(plan.state.cards[cid]).is_land)
     if nonland:
-        plan.do({"type": "life", "player": pid, "delta": -nonland}, actor=pid)  # (728.1a: life lost "from radiation")
+        from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+        _replace_life.lose_life(plan, [(pid, nonland)], actor=pid)  # (728.1a: life lost "from radiation")
         plan.do({"type": "resource", "player": pid, "key": "rad", "delta": -min(nonland, n)}, actor=pid)
     return True
 
@@ -202,16 +208,19 @@ def facts(plan: Plan, e: Event) -> list[Any]:
     if e.counter == "initiative" and e.player:
         return [("take_initiative", None, None, e.player, {})]
     if e.counter == "ring" and e.player:
-        out: list[Any] = [("ring_tempts", None, None, e.player, {})]
+        out: list[Any] = [("ring_tempts", None, None, e.player, {"bearer": e.object_id} if e.object_id else {})]  # (wave 19B: for "if you chose …")
         if e.object_id:  # 701.54a: a creature was chosen as their Ring-bearer
             out.append(("ring_bearer", None, None, e.player, {"bearer": e.object_id}))
         return out
     if e.counter == "dungeon" and e.player:
         return [("complete_dungeon", None, None, e.player, {})]
     if e.counter in ("scry", "surveil") and e.player:  # -- looks (wave 8B) -- 701.22b, 701.25c (history.note_look)
-        return [(e.counter, None, None, e.player, {"nth": e.amount})]
+        return [(e.counter, None, None, e.player, {"nth": e.amount, "amount": e.looked})]  # (wave 19C: "cards looked at while scrying this way")
     if e.counter == "roll" and e.player:  # -- rolling dice (wave 13E) -- "Whenever you roll one or more dice" (app/rules/dice.py)
         return [("roll", None, None, e.player, {"high": e.amount})]
+    if e.counter == "roll_die" and e.player:  # -- dice (wave 24B) -- one die (706.2): its result, the natural result, the size, the turn's count
+        return [("roll_die", None, None, e.player, {"amount": e.amount, "natural": e.natural, "sides": e.sides, "nth": e.nth,
+                                                    "actor": e.player})]
     if e.counter == "crime" and e.player:  # -- crimes (wave 6D) -- 700.13
         return [("commit_crime", None, None, e.player, {})]
     if e.counter in ("monstrous", "renowned") and e.card in plan.state.cards:  # -- becomes monstrous (wave 6D) --
@@ -240,8 +249,14 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             return [("unlock_door", card, plan.ch(card), card.controller, {"oid": e.object_id, "door": e.amount})]
         return []
+    if e.counter == "fully_unlocked" and e.player:  # -- ability words (wave 20C) -- 709.5i: the player who got the Room's second designation
+        return [("fully_unlock", None, None, e.player, {})]
+    if e.counter == "counters_spell" and e.player:  # -- counter events (wave 19C) -- the controller of the spell or ability that countered it
+        return [("counters_spell", None, None, e.player, {})]
     if e.counter == "proliferate" and e.player:  # -- trigger tail (wave 15B) -- 701.34a
         return [("proliferate", None, None, e.player, {})]
+    if e.counter in ("forage", "collect_evidence") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)
+        return [(e.counter, None, None, e.player, {})]
     if e.counter == "connive" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.50a: the conniving permanent
         card = plan.state.cards[e.card]
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
@@ -503,6 +518,9 @@ def each_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
+MAX_ENERGY_OPTIONS = 250  # (the amounts a player can pick from at once)
+
+
 def pay_energy_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"You may pay any amount of {E}" (107.14): the controller chooses how many energy counters to
     remove (0 to all they have) as it resolves; the amount is bound for "that much" / "for each {E}
@@ -514,8 +532,10 @@ def pay_energy_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if have == 0:
         context.bind_amount(ctx, e["as"], 0)
         return True
-    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay how much {{E}}? (you have {have})",
-           options=[DecisionOption(id=str(n), label=f"Pay {n} {{E}}") for n in range(min(have, 60), -1, -1)],
+    top = min(have, MAX_ENERGY_OPTIONS)  # (wave 29C: the list is long; past this many it says so — it used to stop at 60 without a word)
+    decide(plan, player=pid, kind="choose_one",
+           prompt=f"{ctx.get('name') or 'It'}: pay how much {{E}}? (you have {have}" + (f"; at most {top} can be paid here)" if have > top else ")"),
+           options=[DecisionOption(id=str(n), label=f"Pay {n} {{E}}") for n in range(top, -1, -1)],
            resume={"step": "pay_energy_any", "ctx": ctx, "e": e})
     return False
 
@@ -551,7 +571,24 @@ def reveal_drawn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     before = set((context.refs(ctx).get(e["since"]) or {}).get("hand") or [])
-    drawn = [c for c in plan.state.zones.get(zone_key(pid, "hand"), []) if c not in before]
+    log = plan.rules.turn_log
+    new = [c for c in plan.state.zones.get(zone_key(pid, "hand"), []) if c not in before]
+    if any(plan.rules.object_id(c) in log.drawn_counted.get(pid, ()) for c in new):
+        # -- replaced draws (review 29C) -- a replacement effect changed the number of cards the instruction draws (121.2a: Quantum Riddler's
+        # "that many cards plus one", Alms Collector): 614.11b / 121.6c read literally keep "reveal them" off every card the changed
+        # instruction drew, while 121.2a speaks of the instruction being modified; no ruling settles which cards "them" are, so the players
+        # resolve the reveal and the cast by hand (none revealed or offered here)
+        context.bind_objects(plan, ctx, e["as"], [])
+        decide(plan, player=pid, kind="manual_resolution",
+               prompt=f"{ctx.get('name') or 'It'}: a replacement effect changed how many cards were drawn, and the rules don't settle which of "
+                      "them are revealed and may be cast (121.2a, 614.11b). Resolve the reveal and the cast by hand, then press Done",
+               options=[DecisionOption(id="done", label="Done")], resume={"step": "room_by_hand", "ctx": ctx})
+        return False
+    # (review 28B: drawn ones only — 121.5 / 614.11b: a card a draw replacement put into the hand (Underrealm Lich) wasn't drawn, and stays hidden;
+    # wave 29C: nor is one a replacement drew — "draw two cards instead" (Phial of Galadriel, Blood Scrivener): 121.6c, 614.11b, the Sindbad,
+    # Fa'adiyah Seer, Pact Weapon and Jace, Mirror Mage rulings: "even if the draw is replaced by another draw")
+    was_drawn = set(log.drawn.get(pid, ())) - set(log.drawn_replaced.get(pid, ()))
+    drawn = [c for c in new if plan.rules.object_id(c) in was_drawn]
     context.bind_objects(plan, ctx, e["as"], drawn)
     if drawn:
         plan.do({"type": "reveal", "card_ids": drawn}, actor=pid)
@@ -818,9 +855,10 @@ def untap_day_night(plan: Plan, prev_active: str, prev_turn: int) -> None:
 
 def become(plan: Plan, value: str) -> None:
     """"It becomes day / night" (731.1); then daybound / nightbound permanents transform (702.145b, e)."""
-    if plan.state.table.day_night != value:
+    became = plan.state.table.day_night != value
+    if became:
         plan.do({"type": "set_day_night", "value": value}, actor=plan.active)
-    day_night_sync(plan)
+    day_night_sync(plan, became)  # (became: what was there when night began transforms, even if it entered this resolution)
 
 
 def day_night(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -850,7 +888,7 @@ def _bound(plan: Plan) -> tuple[list[CardInstance], list[CardInstance], bool]:
     return day, night, as_enters
 
 
-def day_night_sync(plan: Plan) -> bool:
+def day_night_sync(plan: Plan, became: bool = False) -> bool:
     """702.145c-d, f-g ("any time", not state-based actions): with a daybound permanent and neither
     day nor night, it becomes day; with only nightbound ones, night; at night a daybound permanent
     front face up transforms, by day a nightbound one back face up does (701.27). True if anything
@@ -871,8 +909,20 @@ def day_night_sync(plan: Plan) -> bool:
     else:
         flip = [c for c in night if c.face == 1]
         to = 0
+    # -- review (wave 26D) -- 702.145b, 712.14a: a daybound permanent that entered while it was already night "enters transformed"
+    # (a replacement: it never transformed, so no "transforms" trigger; Howlpack Piper's "enters or transforms into" triggers once).
+    # Every sync right after night begins flips what was already there, so a front face found later at night is a newcomer whose
+    # entry triggers haven't been looked at yet.
+    r = plan.rules
+    entering = {e.new_object_id for e in r.events if e.kind == "zone_change" and e.batch > r.trigger_batch
+                and (e.to_zone or "").endswith(":battlefield")} if to == 1 and not (changed or became) else set()
     for c in flip:
         plan.do({"type": "set_face", "card_id": c.id, "face": to, "faces": 2}, actor=c.controller)
+        # -- transform (wave 26D) -- 701.27, 702.145c/f: the flip is a transformation like any other: "transforms into X" and "a permanent transforms" triggers
+        from app.game.rules_state import emit
+
+        if plan.oid(c.id) not in entering:
+            emit(plan.state, "designation", counter="transformed", card=c.id, object_id=plan.oid(c.id), player=c.controller)
         changed = True
     return changed
 
@@ -938,6 +988,8 @@ def emblem_text_ok(text: str) -> bool:
         return False
     for d in scripts.definitions(ch).values():
         if d.get("kind") == "static":
+            if d.get("static") == "no_max_hand":  # -- ability words (wave 20C) -- "You have no maximum hand size." (hand_size.maximum reads emblems)
+                continue
             if d.get("static") != "grant" or zone_static(d) or d.get("also"):
                 return False
         elif d.get("kind") != "triggered" or not (d.get("trigger") in _EMBLEM_TRIGGERS or str(d.get("trigger")).startswith("step:")):

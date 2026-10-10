@@ -332,6 +332,8 @@ export interface DecisionView {
   min_choices?: number;
   max_choices?: number;
   rememberable?: boolean;
+  /** A spell's or ability's mode / target choice (601.2): answering ["cancel"] takes the cast back, nothing paid. */
+  cancelable?: boolean;
   /** Presentation hints for the chooser (e.g. a payment's suggested sources). */
   display?: { kind: string; [key: string]: unknown };
   /** Other players' view of someone's decision: only who is choosing. */
@@ -362,7 +364,8 @@ export interface RulesHints {
   free_castable?: string[]; // a permission lets you cast these without paying their mana costs
   alt_castable?: Record<string, { id: string; label: string }[]>; // alternative costs (118.9): card id → costs it can be cast for now
   optional_costs?: Record<string, { id: string; label: string }[]>; // optional additional costs (Defiler of Vigor): card id → sources
-  activatable?: { card_id: string; ability: number }[];
+  x_cast?: string[]; // castable cards of yours that ask for X when cast (107.3a); the server validates the range (min 0)
+  activatable?: { card_id: string; ability: number; x?: boolean }[]; // x: the activation asks for X (107.3k)
   miracle?: string[]; // cards of yours you may reveal for miracle now (702.94a)
 }
 

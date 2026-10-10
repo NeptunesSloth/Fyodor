@@ -18,14 +18,15 @@ from typing import Any
 PREFIX = "graveyard_of:"
 _PLAYERS = {"target player's": ("target", "player"), "target opponent's": ("target", "opponent"),
             "each opponent's": ("each_opponent", None), "each player's": ("each_player", None),
-            "all": ("each_player", None)}
+            "all": ("each_player", None), "all opponents'": ("each_opponent", None)}  # (wave 20F: Phyrexian Scriptures)
 _EXILE = re.compile(r"^exile (?P<p>target player's|target opponent's|each opponent's|each player's) graveyard$|"
+                    r"^exile (?P<p3>all opponents') graveyards$|"
                     r"^exile (?P<all>all) graveyards$|"
                     r"^exile all (?P<sel>[a-z]+ cards) from (?P<p2>target player's|target opponent's) graveyard$")  # (wave 15C)
 
 
 def _effect(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    who, target = _PLAYERS[m["p"] or m["p2"] or m["all"]]
+    who, target = _PLAYERS[m["p"] or m["p2"] or m["all"] or m["p3"]]
     if m["sel"]:  # -- if you do (wave 15C) -- "Exile all creature cards from target player's graveyard": only the cards of that kind
         from app.rules import selectors
         from app.rules.scripts import _NoMatch  # (scripts imports this module)

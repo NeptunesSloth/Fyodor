@@ -23,18 +23,19 @@ from app.rules.plan import Plan
 WAS_DEALT = "was_dealt_damage"  # the object was dealt damage this turn
 DEALT = "dealt_damage"  # the object dealt damage this turn (to anything)
 DEALT_YOU = "dealt_damage_you"  # the object dealt damage to "you" this turn
-EXTRAS = (WAS_DEALT, DEALT, DEALT_YOU)
+BY_SOURCE = "dealt_damage_by_source"  # -- wave 19E -- the object was dealt damage this turn by the selector's source ("dealt damage by ~")
+EXTRAS = (WAS_DEALT, DEALT, DEALT_YOU, BY_SOURCE)
 
 
-def matches(plan: Plan, card: Any, extra: str, you: str | None) -> bool:
+def matches(plan: Plan, card: Any, extra: str, you: str | None, source: str | None = None) -> bool:
     """Whether ``card`` (as the object it is now) meets the history qualifier ``extra`` this turn."""
     from app.rules.history import log_for
 
     if plan.rules is None:
         return False
     oid = plan.oid(card)
-    # (recipient object, recipient player, source object) of each damage event this turn: the log's, and those not yet
-    # recorded in it — dealt earlier in the same resolution ("~ deals 1 damage to target creature. Then destroy each
+    # (recipient object, recipient player, source object) of each damage event this turn; log_for includes those not yet
+    # recorded — dealt earlier in the same resolution ("~ deals 1 damage to target creature. Then destroy each
     # creature … that was dealt damage this turn", Swift Demise; 608.2c: the instructions in order)
     dealt: list[tuple[str | None, str | None, str | None]] = []
     for f in log_for(plan, False).facts:
@@ -42,12 +43,11 @@ def matches(plan: Plan, card: Any, extra: str, you: str | None) -> bool:
             dealt.append((f.object_id, None, f.source))
         elif f.kind == "damage" and f.amount > 0:
             dealt.append((None, f.player, f.object_id))
-    r = plan.rules
-    for e in r.events:
-        if e.kind == "damage" and e.amount > 0 and e.batch > r.trigger_batch and e.turn == plan.state.turn.number:
-            dealt.append((None, e.player, e.source) if e.player is not None else (e.object_id, None, e.source))
     if extra == WAS_DEALT:
         return any(to == oid for to, _, _ in dealt)
+    if extra == BY_SOURCE:
+        src_card = plan.state.cards.get(source or "")
+        return src_card is not None and any(to == oid and src == plan.oid(src_card) for to, _, src in dealt)
     if extra == DEALT_YOU:
         return any(src == oid and player is not None and player == you for _, player, src in dealt)
     return any(src == oid for _, _, src in dealt)

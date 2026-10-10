@@ -28,6 +28,13 @@ def card_db(settings: Settings) -> Path:
 
 @pytest.fixture()
 def cards(settings: Settings, card_db: Path) -> Iterator[CardRepository]:
+    # Printed characteristics are cached per printing id for the process. Real printings never change, but two test files may give
+    # the same fixture id different data (wave 12A's "Test Giant" costs {6}, wave 16C's {5}; both get id "Test Giant|tst|12A-Test Gi"):
+    # each test's card database starts from an empty cache, so what a test sees never depends on which tests ran before it.
+    from app.rules import characteristics
+
+    characteristics._printed_cache.clear()
+    characteristics._fused_cache.clear()
     repo = CardRepository(card_db, ImageStore(settings.images_dir))
     yield repo
     repo.close()

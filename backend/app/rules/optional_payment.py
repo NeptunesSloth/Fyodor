@@ -50,7 +50,9 @@ STEP = "pay_or_sacrifice"
 PAY, DECLINE = "pay", "decline"
 SUPPORTED = frozenset({C.MANA, C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.DISCARD, C.EXILE, C.EXILE_FROM_GRAVEYARD,
                        C.REMOVE_COUNTER, C.RETURN_PERMANENT, C.TAP_OTHER, C.PUT_COUNTER, C.DISCARD_HAND,
-                       C.MILL, "EXILE_FROM_HAND", C.EXILE_TO_GY})  # (MILL, EXILE_FROM_HAND: wave 8C; EXILE_TO_GY: wave 15C)  # (PUT_COUNTER: wave 6F, blight)
+                       C.MILL, "EXILE_FROM_HAND", C.EXILE_TO_GY,  # (MILL, EXILE_FROM_HAND: wave 8C; EXILE_TO_GY: wave 15C)  # (PUT_COUNTER: wave 6F, blight)
+                       C.FORAGE, C.COLLECT_EVIDENCE, "SOURCE_DAMAGE"})  # (SOURCE_DAMAGE: wave 27A; wave 26C: "you may forage", "you may collect evidence 4": 701.61a, 701.59a)
+FLEXIBLE = (C.FORAGE, C.COLLECT_EVIDENCE)  # (wave 26C) the cards that pay are chosen as a whole (cost_payment._flexible_options)
 _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 
 
@@ -61,7 +63,7 @@ def _blight_like(comp: C.CostComponent) -> bool:
     """A "put N counters on a creature you control" part (blight): one chosen permanent of the payer's — or "discard
     your hand" (every card in it; ``paid_x`` records how many, for "draw that many cards"); -- champion (wave 12B) -- or one chosen
     permanent exiled (702.72a)."""
-    return (comp.kind == C.PUT_COUNTER and comp.selector is not None and comp.alt is None and not comp.x) \
+    return comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE) or (comp.kind == C.PUT_COUNTER and comp.selector is not None and comp.alt is None and not comp.x) \
         or comp.kind == C.DISCARD_HAND or comp.kind == C.MILL \
         or (comp.kind == C.EXILE and comp.selector is not None and comp.amount == 1) \
         or (comp.kind == C.SACRIFICE and comp.alt is not None and comp.selector is not None)  # (wave 8C: mill 701.17b; "another creature or an artifact")
@@ -135,8 +137,16 @@ REVEAL_FROM_HAND = "REVEAL_FROM_HAND"
 _REVEAL_FROM_HAND = re.compile(r"^Reveal (?:a|an) (?P<what>[A-Za-z]+ card) from your hand$")
 
 
+# -- unless damage (wave 27A) -- "… unless its controller has ~ deal 4 damage to them." (Lava Blister, Molten Influence, Skullscorch): the payer
+# has the source deal the damage to them as the cost (118.12a); it is damage dealt by the source (120.3: prevention, protection and lifelink
+# apply, 615), and the cost counts as paid even if the damage is prevented (118.12: what is chosen, not what happens).
+_SOURCE_DAMAGE = re.compile(r"^Have (?:~|this [a-z]+) deal (?P<n>\d+) damage to you$")
+
+
 def parse(text: str) -> AbilityCost | None:
     """The cost text as components, or None if any part isn't one the engine pays here."""
+    if (d := _SOURCE_DAMAGE.match(text)) is not None:  # (wave 27A)
+        return AbilityCost(components=(C.CostComponent("SOURCE_DAMAGE", amount=int(d["n"]), text=text),))
     if text == _HAND_TO_BOTTOM_TEXT:  # -- if you do (wave 6F) --
         return _hand_to_bottom()
     if (r := _REVEAL_FROM_HAND.match(text)) is not None:  # -- if you do (wave 15C) --
@@ -200,6 +210,22 @@ def _self_parts(cost: AbilityCost) -> list[C.CostComponent]:
 def problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dict[int, list[str]] | None = None) -> str | None:
     """Why ``payer`` can't pay ``cost`` in full right now, or None. With ``chosen`` (objects
     picked for the parts that need a choice) those picks are validated too."""
+    from app.rules import (
+        prohibitions,  # -- review 22B -- 614.17: Tamiyo / Sigarda: an opponent's "unless you sacrifice / discard" can't be taken
+    )
+    parts = {c.kind for c in cost.components}
+    if parts & {C.SACRIFICE, C.DISCARD, C.DISCARD_HAND} and (why := (
+            prohibitions.cant_cause_sacrifice(plan, payer, ctx["controller"]) if C.SACRIFICE in parts else None)
+            or (prohibitions.cant_cause_discard(plan, payer, ctx["controller"]) if parts & {C.DISCARD, C.DISCARD_HAND} else None)):
+        return f"{why}: {plan.name(payer)} can't be made to sacrifice or discard by it"
+    was, plan.resolution_cost = plan.resolution_cost, True  # (a cost paid as it resolves: Angel of Jubilation doesn't reach it)
+    try:
+        return _problem(plan, ctx, cost, payer, chosen)
+    finally:
+        plan.resolution_cost = was
+
+
+def _problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dict[int, list[str]] | None) -> str | None:
     from app.rules import casting  # casting imports cost_payment → (not this module)
 
     source = _source(plan, ctx)
@@ -214,12 +240,23 @@ def problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dic
             return f"{source.name or 'It'} doesn't have {comp.amount} {comp.counter} counters"
     if cost.life and plan.state.players[payer].life < cost.life:  # 119.4
         return f"{plan.name(payer)} can't pay {cost.life} life"
+    from app.rules import life_lock  # -- can't lose life (wave 29D) -- 119.8, 614.17b
+
+    if (lock := life_lock.pay_problem(plan.state, plan.info, payer, cost.life)) is not None:
+        return lock
     found = cost_payment.problem(plan, cost, source, payer)
     if found is not None:
         return found
     if chosen is not None:
         used: set[str] = set()
         for i, comp in cost.choices:
+            if comp.kind in FLEXIBLE:  # -- if you do (wave 26C) -- forage / collect evidence: validated as a whole (701.61a, 701.59a)
+                options, _ = cost_payment._flexible_options(plan, comp, source, payer, used)
+                picks = chosen.get(i, [])
+                if len(set(picks)) != len(picks) or any(c not in options for c in picks) or not cost_payment._flexible_ok(plan, comp, picks):
+                    return f"Those can't pay “{comp.text}”"
+                used |= set(picks)
+                continue
             usable = [c for c in cost_payment.candidates(plan, comp, payer, source)
                       if c not in cost_payment._reserved(cost, comp, source) and c not in used]
             picks = chosen.get(i, [])
@@ -249,6 +286,17 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             return bool(started)
     if e.get("alts"):  # -- if you do (wave 6F) -- one cost or the other
         return _offer_alternatives(plan, ctx, e)
+    if e.get("ask"):  # -- optional payments by another player (wave 25D) -- "That player may create a tapped Zombie token.": nothing to pay, the
+        # player the trigger event names chooses (608.2d), and "If they do" / the gated instructions read the answer like a payment's
+        who = payer_of(plan, ctx, e.get("who", "you"))
+        if who is None:
+            context.bind_payment(ctx, str(e.get("bind") or "pay0"), False)
+            return True
+        decide(plan, player=who, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: {e['ask']}?",
+               options=[DecisionOption(id=PAY, label="Yes"), DecisionOption(id=DECLINE, label="No")],
+               resume={"step": STEP, "ctx": ctx, "opt": {"cost": "", "bind": str(e.get("bind") or "pay0"), "payer": who, "chosen": {}},
+                       "cost": "{0}", "ask": True}, source=plan.state.cards.get(ctx.get("source_card") or ""))
+        return False
     text = unless_pays.concrete_cost(plan, ctx, e)
     cost = parse(text)
     # -- end unless pays (wave 4C) --
@@ -329,6 +377,10 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.resume_pay_or_sacrifice(plan, d, chosen)
         return
     ctx, opt = r["ctx"], r["opt"]
+    if r.get("ask"):  # -- optional payments by another player (wave 25D) -- the yes / no of "that player may …"
+        context.bind_payment(ctx, opt["bind"], chosen[0] == PAY)
+        effects.continue_effects(plan, ctx)
+        return
     cost = parse(opt["cost"])
     assert cost is not None
     if "component" in r:
@@ -337,7 +389,12 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
             context.bind_payment(ctx, opt["bind"], False)
             effects.continue_effects(plan, ctx)
             return
-        if len(chosen) != r["amount"]:
+        if r.get("flexible"):  # -- if you do (wave 26C) -- forage / collect evidence: the picks must pay the part as a whole
+            comp = cost.components[r["component"]]
+            options, _ = cost_payment._flexible_options(plan, comp, _source(plan, ctx), d.player, set())
+            if len(set(chosen)) != len(chosen) or any(c not in options for c in chosen) or not cost_payment._flexible_ok(plan, comp, chosen):
+                raise ActionError(f"Those cards don't pay “{comp.text}”")
+        elif len(chosen) != r["amount"]:
             raise ActionError(f"Choose {r['amount']}")
         opt = {**opt, "chosen": {**opt["chosen"], str(r["component"]): list(chosen)}}
     elif opt.get("alts") and chosen[0].startswith(f"{PAY}:"):  # -- if you do (wave 6F) -- the cost picked
@@ -432,8 +489,23 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
     for i, comp in cost.choices:
         if i in picked:
             continue
-        usable = [c for c in cost_payment.candidates(plan, comp, payer, source)
-                  if c not in cost_payment._reserved(cost, comp, source) and c not in used]
+        if comp.kind in FLEXIBLE:  # -- if you do (wave 26C) -- the payer picks the graveyard cards (or the Food) as a whole; none is a decline
+            options, payable = cost_payment._flexible_options(plan, comp, source, payer, used)
+            if not payable:
+                return True  # (validated again in _pay: it can't be paid any more)
+            decide(plan, player=payer, kind="choose_cards",
+                   prompt=f"{ctx.get('name') or 'It'}: choose the cards for “{comp.text}”, or none to decline",
+                   options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
+                   min_choices=0, max_choices=len(options) if comp.kind == C.COLLECT_EVIDENCE else 3,
+                   resume=_resume(ctx, opt, cost, component=i, amount=None, hand=True, flexible=True),
+                   source=plan.state.cards.get(ctx.get("source_card") or ""))
+            return False
+        was, plan.resolution_cost = plan.resolution_cost, True  # (review 22B)
+        try:
+            usable = [c for c in cost_payment.candidates(plan, comp, payer, source)
+                      if c not in cost_payment._reserved(cost, comp, source) and c not in used]
+        finally:
+            plan.resolution_cost = was
         hand = comp.kind == "EXILE_FROM_HAND"  # -- copied abilities (wave 18F) -- always asked, even with one card or none (101.4a): none = decline
         if len(usable) < comp.objects and not hand:  # (objects: one permanent for its counters, wave 6F)
             return True  # (validated again in _pay: it can't be paid any more)
@@ -481,7 +553,8 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
             casting.pay(plan, payer, mana_cost, f"paid {mana_cost.text()} for {label}",
                         exclude=cost_payment.excluded(cost, source, chosen))
     if cost.life:
-        plan.do({"type": "life", "player": payer, "delta": -cost.life}, actor=payer)
+        from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+        _replace_life.lose_life(plan, [(payer, cost.life)], actor=payer)
     for kind, n in cost.remove_counters:
         plan.do({"type": "counter", "card_ids": [source.id], "kind": kind, "delta": -n}, actor=payer)
     record = PaymentRecord(card=source.id, controller=payer, total_cost=_label(cost))
@@ -490,6 +563,12 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
         cost_payment.pay(plan, cost, source, chosen, record)
     finally:
         plan.actor = actor
+    # -- unless damage (wave 27A) -- the source deals the damage to the payer (120.3) as the next instruction (review 27A: a damage
+    # instruction of its own, so the payer's 616.1 choices among replacement / prevention effects can pause it)
+    hurt = [{"do": "damage", "who": f"player:{payer}", "n": comp.amount} for comp in cost.components if comp.kind == "SOURCE_DAMAGE"]
+    if hurt:
+        at = int(ctx.get("next") or 0)
+        ctx["effects"] = [*ctx["effects"][:at], *hurt, *ctx["effects"][at:]]
     for i, comp in enumerate(cost.components):  # -- if you do (wave 15C) -- shown to everyone, and it stays in the hand
         if comp.kind == REVEAL_FROM_HAND and chosen.get(i):
             plan.do({"type": "reveal", "card_ids": chosen[i]}, actor=payer)

@@ -504,8 +504,7 @@ def _on_the_stack(plan: Plan, t: PendingTrigger, chosen: list[int], picked: list
     plan.do({"type": "set_stack_info", "card_id": ability_id, "modes": _public_texts(plan, t.source_card, d, chosen)},
             actor=t.controller)
     if flat:
-        plan.do({"type": "create_arrow", "source": ability_id, "targets": [x.id for x in flat], "kind": "target"},
-                actor=t.controller)
+        plan.target_arrows(ability_id, [x.id for x in flat], actor=t.controller)
         targeted(plan, ability_id, t.controller, flat)
     return True
 

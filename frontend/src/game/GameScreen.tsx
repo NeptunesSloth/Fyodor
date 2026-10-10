@@ -19,7 +19,7 @@ import { ZoneBrowser } from "./ZoneBrowser";
 import { bookmarkSlot, matchHotkey } from "./hotkeys";
 import { recallBookmark, saveBookmark } from "./bookmarks";
 import { ResponseBar } from "./ResponseBar";
-import { AutomationErrorPanel, AutomationHud, DecisionPanel, PriorityBar, RulesStack } from "./rules/RulesHud";
+import { AutomationErrorPanel, AutomationHud, DecisionPanel, PriorityBar, RulesStack, XPrompt } from "./rules/RulesHud";
 import { passPriority } from "./rules/intents";
 import "./rules/rules.css";
 import { resolveRenderer } from "../table3d/renderer";
@@ -91,6 +91,7 @@ export function GameScreen() {
       <RulesStack />
       <PriorityBar />
       <DecisionPanel />
+      <XPrompt />
       <AutomationErrorPanel />
       <DragLayer />
       {!three && <CombatArrows />}

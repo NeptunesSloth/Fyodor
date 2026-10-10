@@ -46,9 +46,26 @@ event never happens (614.6), so nothing triggers on it (603.2g): only the final 
 table actions, which is also what history, replay and undo record.
 
 Refused (kept manual) in v1: 616.1b-d (control, copy, back face), redirection (614.9), skip
-(614.10) of steps, "can't" effects (614.17), "can't be prevented" (615.12), paying life (119.4:
-UNVERIFIED whether a payment is replaceable), life-loss replacements, "you would put" counter
+(614.10) of steps, "can't" effects (614.17), "can't be prevented" (615.12), "you would put" counter
 wordings, token replacements that add a different token.
+
+-- replacements: draws and life (wave 28B) --
+* Draw bodies (app/rules/draw_bodies.py): "If you would draw a card, instead <instructions>" runs the instructions (the effect grammar's own)
+  as a small resolution of its own once the draws before it have happened (121.6b / 614.11a); ``draw_cards`` plans one draw at a time, stops
+  at a body and plans the rest when it is done (continuation ``draw_rest``). 614.5: a draw the body makes isn't replaced by that effect
+  again (``exclude`` / the body context's ``repl_applied``); 614.6 / 121.5: a replaced draw never happens, cards a body puts into a hand aren't
+  drawn. "you may … instead" is an optional replacement (the affected player is asked, as for Dredge); a site that can't pause
+  (``then`` None) doesn't run a body: it logs it for the players. "The next time you would draw a card this turn, …" (Words of …) is a
+  record that is spent by the first draw it replaces (``Planner.used``).
+* Count-level draw replacements (121.2a, 616.1g: "If you would draw one or more cards, you draw that many plus one", "If an opponent would
+  draw two or more cards, instead you and that player each draw a card"): event ``draw_count``, applied to the instruction before its
+  individual draws are considered (``draw_cards``, ``counted``).
+* Life loss (119.3, 119.4, 118.11, 614.1a): ``lose_life`` is the choke point of every life loss that isn't damage's own result — effects, a
+  payment of life ("the player loses that much life", and a payment may be modified by effects) — and ``damage_outcome`` applies the same
+  replacements to the life damage causes (120.3a: the damage dealt stays what it was). Only "twice that much" exists on a Commander card
+  (Bloodletter of Aclazotz). Life gain may carry "while you have N or less life" (Phial of Galadriel), read as the gain would happen.
+* Mill counts (701.17a: "If an opponent would mill one or more cards, they mill twice that many / that many plus four"): ``mill_counts``
+  changes the number an instruction says; the caller mills what the library holds.
 
 -- refused grants/replacements (wave 3R2) -- Now automated: redirection statics (614.9, op
 "redirect"), skips (614.10: app/rules/skips.py), "can't gain life" (614.17: app/rules/cant_gain.py),
@@ -57,15 +74,9 @@ app/rules/source_shields.py), a different token added (op "extra": app/rules/ext
 Still refused, and why:
 * 616.1b-d: no replacement the engine applies changes who controls an entering object, makes it a
   copy as it enters through this loop, or has it enter transformed — nothing to order yet.
-* Paying life (119.4): UNVERIFIED whether a payment is a replaceable life-loss event; a cost is
-  paid as written.
-* Life-loss replacements ("If an opponent would lose life during your turn, they lose twice that
-  much life instead."): life loss has no choke point yet (seven direct sites).
 * "If you would put one or more counters" (Vorinclex, Lae'zel): who "puts" a counter is not
   recorded for every site, and whether a player "getting" counters or a source's controller
   "giving" poison counters (120.3b) is "putting" them is UNVERIFIED.
-* Count-level draw replacements ("If an opponent would draw two or more cards, instead …": Alms
-  Collector, 121.2a): draws are proposed one card at a time.
 * Kalitas-style "instead exile that card and create a token" (a zone replacement with an extra
   event): the move replacement runs inside a table step and can't ask the affected player to
   order it against another "exile instead" (616.1), which then matters.
@@ -83,7 +94,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from app.game.rules_state import DecisionOption
+from app.game.rules_state import DecisionOption, turn_log_now
 from app.game.state import CardInstance, zone_key
 from app.rules import scripts, selectors
 
@@ -175,8 +186,8 @@ def record_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
     for rec in plan.rules.replacements:
         if rec.get("kind") != "replace" or rec.get("turn") != turn or rec.get("event") not in events:
             continue
-        if rec.get("controller") not in plan.live():
-            continue  # 800.4a: effects of a player who left the game end
+        if rec.get("controller") not in plan.live() or rec.get("spent"):
+            continue  # 800.4a: effects of a player who left the game end (-- replacements: draws (wave 28B) -- "the next time": spent)
         out.append(Candidate(id=f"r:{rec['id']}", event=rec["event"], match=rec.get("match") or {}, op=rec["op"],
                              controller=rec["controller"], source_card=rec.get("source_card"), source_oid=rec.get("source"),
                              seq=(int(rec.get("seq") or 0), 1, 0), label=rec.get("label") or "an effect",
@@ -240,11 +251,14 @@ class Planner:
     answers: dict[str, str] = field(default_factory=dict)
     ask: bool = True  # False: a site that can't pause (remembered answers only)
     left: list[tuple[Event, list[str]]] = field(default_factory=list)  # (event, effects left to the players)
+    used: list[str] = field(default_factory=list)  # (-- replacements: draws (wave 28B) -- the effects applied to the events, for "the next time")
     opt_n: int = 0  # (optional replacements met so far in this pass: each is its own question, wave 16B)
 
     # -- kind-specific rules ------------------------------------------------------------------------
     def applies(self, c: Candidate, ev: Event, sim: Sim) -> bool:
-        if c.event != ev["kind"] or c.id in (ev.get("applied") or ()):
+        # (-- counter putters (wave 22C) -- "… on a permanent or player": one counters static also applies to player events)
+        if (c.event != ev["kind"] and not (c.event == "counters" and ev["kind"] == "player_counters" and c.match.get("players"))) \
+                or c.id in (ev.get("applied") or ()) or (c.op.get("once") and c.id in self.used):  # (review 28B: "the next time": one event)
             return False
         fn = _APPLIES.get(ev["kind"])
         return bool(fn and fn(self.plan, c, ev, sim))
@@ -273,6 +287,7 @@ class Planner:
         ``sim`` and handed to ``on_final`` in order (614.11a / 121.6b: a replacement's events
         complete before the sequence goes on)."""
         if (opt := self.optional(ev, sim)) is not None:  # -- static_other sweep (wave 16B) -- dredge: the player took it
+            self.used.append(opt.id)
             for nxt in self.apply(opt, ev, sim):
                 self.settle(nxt, sim, on_final)
             return
@@ -292,6 +307,7 @@ class Planner:
                     on_final(ev)
                     return
                 chosen = picked
+        self.used.append(chosen.id)
         for nxt in self.apply(chosen, ev, sim):
             self.settle(nxt, sim, on_final)
 
@@ -369,7 +385,7 @@ class Planner:
 def affected(plan: Plan, ev: Event) -> str | None:
     """616.1: the affected object's controller (its owner if it has none) or the affected player."""
     kind = ev["kind"]
-    if kind in ("tokens", "draw", "life", "player_counters"):
+    if kind in ("tokens", "draw", "draw_count", "life", "life_loss", "mill", "player_counters"):
         return ev.get("player")
     if kind == "counters":
         if ev.get("controller"):
@@ -418,14 +434,20 @@ def describe(plan: Plan, ev: Event) -> str:
         return f"{n} {ev['counter']} counter{'s' if n != 1 else ''} for {plan.name(ev['player'])}"
     if kind == "draw":
         return f"{plan.name(ev['player'])} draws a card"
+    if kind == "draw_count":
+        return f"{plan.name(ev['player'])} draws {ev['n']} card{'s' if ev['n'] != 1 else ''}"
     if kind == "dredge":
         return f"{plan.name(ev['player'])} dredges {ev['n']}"
+    if kind == "body":  # -- draw bodies (wave 28B) --
+        return f"{ev['label']}'s effect"
     if kind == "win":
         return f"{plan.name(ev['player'])} wins the game"
     if kind == "life":
         return f"{plan.name(ev['player'])} gains {ev['n']} life"
     if kind == "life_loss":
         return f"{plan.name(ev['player'])} loses {ev['n']} life"
+    if kind == "mill":
+        return f"{plan.name(ev['player'])} mills {ev['n']} card{'s' if ev['n'] != 1 else ''}"
     if kind == "damage":
         return f"{ev['amount']} damage"
     return kind
@@ -466,8 +488,10 @@ def ask(plan: Plan, q: Ask, answers: dict[str, str], resume: dict[str, Any]) -> 
         base["order"] = list(base["ctx"].pop(SHIELDS, None) or base.get("order") or [])
         base["ctx"].pop(ANSWERS, None)
     if isinstance(q, AskOptional):  # -- static_other sweep (wave 16B) -- 702.52a: "you may instead" (public: a card in a graveyard)
-        decide(plan, player=q.chooser, kind="choose_one", prompt=f"{what}: apply a replacement effect instead? (702.52)",
-               options=[*(DecisionOption(id=f"o{i}", label=f"{c.label}: mill {c.op['n']}, return it to your hand", card_id=c.source_card)
+        rule = "702.52" if any(c.op.get("do") == "dredge" for c in q.applicable) else "614.1a"  # (review 28B: "you may … instead" isn't only dredge)
+        decide(plan, player=q.chooser, kind="choose_one", prompt=f"{what}: apply a replacement effect instead? ({rule})",
+               options=[*(DecisionOption(id=f"o{i}", label=f"{c.label}: mill {c.op['n']}, return it to your hand" if c.op.get("do") == "dredge"
+                                     else f"{c.label}: apply it instead", card_id=c.source_card)
                           for i, c in enumerate(q.applicable)), DecisionOption(id="decline", label="Draw normally")],
                resume={**base, "map": {**{f"o{i}": c.id for i, c in enumerate(q.applicable)}, "decline": "decline"}})
         return
@@ -552,7 +576,7 @@ def run_then(plan: Plan, then: dict[str, Any] | None) -> None:
     fn(plan, then)
 
 
-THEN: dict[str, Any] = {}  # continuation name -> fn(plan, then): filled by the sites' modules
+THEN: dict[str, Any] = {"draw_rest": lambda plan, then: _then_draw_rest(plan, then)}  # continuation name -> fn(plan, then): filled by the sites' modules
 
 
 def _ctx_answers(ctx: dict[str, Any] | None) -> dict[str, str]:
@@ -769,6 +793,8 @@ def _counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     m = c.match
     if m.get("counter") and m["counter"] != ev["counter"]:
         return False
+    if not _putter_ok(c, ev):
+        return False
     if m.get("effect_only") and not ev.get("effect"):
         return False  # "If an effect would put …": not a cost (Doubling Season; 614.16)
     card, ch = _counter_object(plan, ev)
@@ -782,12 +808,31 @@ def _counters_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event
     if op.get("entering"):  # -- counters (wave 5H) --
         return [{**ev, "n": max(0, ev["n"] + int(op["n"]) * _entering_times(plan, c, ev))}]
     n = ev["n"] * int(op["n"]) if op["do"] == "mul" else ev["n"] + int(op["n"]) if op["do"] == "add" else ev["n"]
+    if op["do"] == "half":  # -- counter putters (wave 22C) -- "half that many … rounded down" (Vorinclex)
+        n = ev["n"] // 2
     return [{**ev, "n": max(0, n)}]
+
+
+def _putter_ok(c: Candidate, ev: Event) -> bool:
+    """-- counter putters (wave 22C) -- "If you / an opponent would put …": the player putting them (``by``) is the
+    static's controller or not (122.6a, 120.3d). (Review 22C: counters "given" are put — 122.6 calls an object
+    "given counters" as it enters counters being put on it, and proliferate (701.34a) "gives" them — so infect / toxic
+    poison is put by the source's controller, 120.3b/g, and "target opponent gets …" by the effect's controller, 608.2c.)"""
+    putter = c.match.get("putter")
+    if not putter:
+        return True
+    return bool(ev.get("by")) and (ev["by"] == c.controller) == (putter == "you")
 
 
 def _player_counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if ev["n"] <= 0:
         return False
+    if c.event == "counters":  # -- counter putters (wave 22C) -- "on a permanent or player" / "or on yourself"
+        if c.match["players"] == "you" and ev["player"] != c.controller:
+            return False
+        if c.match.get("counter") and c.match["counter"] != ev["counter"]:
+            return False
+        return _putter_ok(c, ev)
     who = c.match.get("who")
     return not (who == "you" and ev["player"] != c.controller)
 
@@ -847,6 +892,8 @@ class CounterPlan:
 def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effect: bool,
                   entering: dict[str, str] | None, answers: dict[str, str], ask: bool,
                   cands: list[Candidate] | None = None, newcomers: list[str] | None = None) -> CounterPlan | Ask:
+    from app.rules import prohibitions  # -- prohibitions (wave 22B) -- 614.17
+
     planner = Planner(plan, cands if cands is not None else candidates(plan, ("counters", "player_counters")), answers, ask=ask)
     finals: list[tuple[Event, list[Event]]] = []
     events: list[Event] = []
@@ -857,7 +904,7 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
                          if not any(p[0] == cid and p[1] == kind for p in puts)]
     for target, kind, n in puts:
         if target in plan.state.players:
-            events.append({"kind": "player_counters", "player": target, "counter": kind, "n": int(n), "applied": []})
+            events.append({"kind": "player_counters", "player": target, "counter": kind, "n": int(n), "by": by, "applied": []})
         elif target in plan.state.cards:
             ev: Event = {"kind": "counters", "card": target, "oid": plan.oid(target), "counter": kind, "n": int(n),
                          "by": by, "effect": bool(effect), "applied": []}
@@ -871,7 +918,12 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
     try:
         for ev in events:
             out: list[Event] = []
-            if ev["n"] > 0 or (ev.get("entering") and extra_kinds):  # (wave 5H: a zero entering event too)
+            if ev["kind"] == "counters" and ev["n"] > 0 and (
+                    barred := prohibitions.cant_counters(plan, ev["card"], ev.get("controller") if ev.get("entering") else None)):
+                ev["prohibited"] = barred  # -- prohibitions (wave 22B) -- 614.17: no event: nothing replaces or triggers on it
+            elif ev["kind"] == "player_counters" and ev["n"] > 0 and (barred := prohibitions.cant_get_counters(plan)):
+                ev["prohibited"] = barred
+            elif ev["n"] > 0 or (ev.get("entering") and extra_kinds):  # (wave 5H: a zero entering event too)
                 planner.settle(ev, {}, out.append)
             else:
                 out = [ev]  # (removing counters: nothing replaces it)
@@ -887,6 +939,10 @@ def do_counters(plan: Plan, planned: CounterPlan, *, by: str) -> None:
     left_to_players(plan, planned.planner)
     groups: dict[tuple[str, str, int], list[str]] = {}
     for before, out in planned.finals:
+        if before.get("prohibited"):  # -- prohibitions (wave 22B) -- 614.17
+            card_id = before.get("card")
+            who = plan.name(before["player"]) if card_id is None else plan.state.cards[card_id].name or "a permanent"
+            plan.note(f"{before['prohibited']}: counters can't be put on {who}", [card_id] if card_id else [], actor=by)
         note_applied(plan, before, out, actor=by)
         for ev in out:
             if ev["n"] == 0:
@@ -926,7 +982,8 @@ def draws_this_step(plan: Plan, pid: str) -> int:
 
 def _draw_sim(plan: Plan, players: list[str]) -> Sim:
     return {"library": {p: len(plan.state.zones.get(zone_key(p, "library"), [])) for p in plan.state.players},
-            "step": {p: draws_this_step(plan, p) for p in plan.state.players}, "dredged": []}
+            "step": {p: draws_this_step(plan, p) for p in plan.state.players}, "dredged": [],
+            "hand": {p: len(plan.state.zones.get(zone_key(p, "hand"), [])) for p in plan.state.players}}
 
 
 def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
@@ -943,12 +1000,42 @@ def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
         return False  # a record for one player ("if target player would draw a card")
     if m.get("library_empty") and sim["library"].get(pid, 0) > 0:
         return False
+    if m.get("hand_empty") and sim["hand"].get(pid, 0) > 0:
+        return False  # -- draw bodies (wave 28B) -- "while you have no cards in hand": as the draw would happen
+    if m.get("max_speed"):
+        from app.rules import speed
+
+        if speed.of(plan, pid) < speed.MAX:  # 702.178a: "as long as you have max speed"
+            return False
     if m.get("not_first_in_draw_step"):
         # 504.1: the first card they draw in each of their draw steps (the turn-based draw)
         in_their_draw_step = plan.state.turn.phase == "draw" and plan.active == pid
         if in_their_draw_step and sim["step"].get(pid, 0) == 0:
             return False
     return True
+
+
+def _dcount_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
+    """-- replacements: draws (wave 28B) -- "If you would draw one or more cards …" / "If an opponent would draw two or more cards …" (121.2a)."""
+    pid, m = ev["player"], c.match
+    if pid not in plan.live() or ev["n"] < int(m.get("min", 1)):
+        return False
+    who = m.get("who")
+    if who == "you" and pid != c.controller or who == "opponent" and pid == c.controller:
+        return False
+    return m.get("hand_max") is None or sim["hand"].get(pid, 0) <= int(m["hand_max"])  # ("as long as you have one or fewer cards in hand")
+
+
+def _dcount_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
+    if c.op["do"] == "add":
+        return [{**ev, "n": ev["n"] + int(c.op["n"])}]
+    if c.op["do"] == "each_one":  # "instead you and that player each draw a card" (121.7: the draws happen one at a time)
+        order = plan.apnap()  # (121.2c: when several players draw, the active player first)
+        # (review 28B: each is an instruction to draw one card, which another count replacement not yet applied may still change: 614.5,
+        # 616.1f — Quantum Riddler's "one or more cards")
+        return [{"kind": "draw_count", "player": p, "n": 1} for p in sorted(dict.fromkeys([c.controller, ev["player"]]),
+                                                                             key=lambda p: order.index(p) if p in order else len(order))]
+    return [ev]
 
 
 def _draw_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
@@ -963,6 +1050,9 @@ def _draw_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         return [{"kind": "dredge", "player": ev["player"], "card": c.op["card"], "n": int(c.op["n"])}]
     if op == "draw":
         return [{"kind": "draw", "player": ev["player"]} for _ in range(int(c.op["n"]))]
+    if op == "body":  # -- draw bodies (wave 28B) -- run by do_draws once everything before it has happened (app/rules/draw_bodies.py)
+        return [{"kind": "body", "player": ev["player"], "effects": c.op["effects"], "controller": c.controller,
+                 "source_card": c.source_card, "source_oid": c.source_oid, "label": c.label}]
     return [ev]
 
 
@@ -972,6 +1062,7 @@ def _draw_perform(plan: Plan, ev: Event, sim: Sim) -> None:
     if left > 0:
         sim["library"][pid] = left - 1
         sim["step"][pid] = sim["step"].get(pid, 0) + 1
+        sim["hand"][pid] = sim["hand"].get(pid, 0) + 1
 
 
 def _dredge_perform(plan: Plan, ev: Event, sim: Sim) -> None:
@@ -1003,66 +1094,131 @@ def dredge_candidates(plan: Plan, players: list[str]) -> list[Candidate]:
 def _dredge(plan: Plan, f: Event) -> None:
     """Mill N cards, then return the dredged card from the graveyard to its owner's hand (702.52a)."""
     pid, card = f["player"], plan.state.cards.get(f["card"])
-    plan.do({"type": "mill", "player": pid, "count": int(f["n"])}, actor=pid)
+    more = sum(k for _, k in mill_counts(plan, [(pid, int(f["n"]))]) or [(pid, int(f["n"]))])  # (-- mill counts (wave 28B) -- 701.17a)
+    plan.do({"type": "mill", "player": pid, "count": min(more, len(plan.state.zones.get(zone_key(pid, "library"), [])))}, actor=pid)
     if card is not None and card.zone == zone_key(pid, "graveyard"):
         plan.do({"type": "move", "card_ids": [card.id], "to": {"player": pid, "zone": "hand"}}, actor=pid)
 
 
 def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then: dict[str, Any] | None = None,
-               answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None) -> bool:
+               answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None, exclude: list[str] | None = None,
+               counted: bool = False) -> bool:
     """THE draw choke point (see the module docstring). 121.2: one card at a time; 121.2c: the
     active player draws all their cards first, then the others in turn order; 121.6a / 614.11:
     replacement effects apply even with an empty library; 704.5b: a draw from an empty library
-    that isn't replaced loses the game at the next check. False while a choice is open."""
+    that isn't replaced loses the game at the next check. False while a choice is open.
+    -- draw bodies (wave 28B) -- ``exclude``: replacement effects that already applied to the event these draws come from (614.5: a body's own
+    "draw a card" isn't replaced by that effect again; the context of a body says so, ``repl_applied``). 121.6b: a body is completed before
+    the draws after it; the plan stops at it and the rest is planned once it is done (the continuation ``draw_rest``), so False also
+    means "a replacement effect is running and goes on by itself". ``counted``: the instruction's replacements that refer to the number of
+    cards drawn (121.2a, 616.1g: "If you would draw one or more cards …") have already applied (the rest of a draw sequence after a body)."""
     answers = answers if answers is not None else _ctx_answers(ctx)
+    exclude = list(exclude if exclude is not None else (ctx or {}).get("repl_applied") or [])
     order = plan.apnap()
     who = sorted([p for p in players if p in plan.live()], key=lambda p: order.index(p) if p in order else len(order))
-    planner = Planner(plan, [*candidates(plan, "draw"), *dredge_candidates(plan, who)], answers, ask=then is not None)
+    found = candidates(plan, ("draw", "draw_count"))  # (one scan of the table)
+    cands = [*(c for c in found if c.event == "draw"), *dredge_candidates(plan, who)]
     sim = _draw_sim(plan, who)
+    if then is None:  # (a site that can't pause can't run a replacement effect's choices: the players do it, 616.1)
+        # (review 28B: only the effects that apply to one of these draws, the optional ones too; "the next time you would draw" is used up)
+        for c in [c for c in cands if (c.op.get("do") == "body" or c.op.get("optional")) and c.id not in exclude
+                  and any(_draw_applies(plan, c, {"kind": "draw", "player": p, "applied": exclude}, sim) for p in who)]:
+            plan.note(f"{c.label} {'may' if c.op.get('optional') else 'would'} replace a draw here, and the engine can't ask: "
+                      "apply it by hand (121.6)")
+            if c.op.get("once") and (rec := next((r for r in plan.rules.replacements if f"r:{r.get('id')}" == c.id), None)) is not None:
+                rec["spent"] = True
+        cands = [c for c in cands if c.op.get("do") != "body"]
+    planner = Planner(plan, cands, answers, ask=then is not None)
+    slots: list[str] = []
+    marks: list[list[str]] = []  # -- replaced draws (wave 29C) -- parallel to ``slots``: the effects that changed the instruction a slot came from (121.2a)
     actions: list[tuple[Event, list[Event]]] = []
+    cut: int | None = None
+    count_planner = Planner(plan, [] if counted else [c for c in found if c.event == "draw_count"], answers, ask=then is not None)
+    counts: list[tuple[Event, list[Event]]] = []  # (review 28B: the modified instructions, for the log)
     try:
-        for pid in who:
-            for _ in range(max(0, int(n[pid] if isinstance(n, dict) else n))):  # (a dict: each player's own count, wave 16B)
-                ev: Event = {"kind": "draw", "player": pid, "applied": []}
-                out: list[Event] = []
-                planner.settle(ev, sim, out.append)
-                actions.append((ev, out))
+        for pid in who:  # (a dict: each player's own count, wave 16B)
+            k = max(0, int(n[pid] if isinstance(n, dict) else n))
+            if k and count_planner.cands:  # -- replacements: draws (wave 28B) -- 121.2a: an instruction to draw N cards is modified first, 616.1g
+                cev: Event = {"kind": "draw_count", "player": pid, "n": k, "applied": list(exclude)}
+                counted_out: list[Event] = []
+                count_planner.settle(cev, sim, counted_out.append)
+                counts.append((cev, counted_out))
+                for f in counted_out:
+                    slots += [f["player"]] * f["n"] if f["kind"] == "draw_count" else [f["player"]] if f["kind"] == "draw" else []
+                    marks += [list(f.get("applied") or [])] * (f["n"] if f["kind"] == "draw_count" else 1 if f["kind"] == "draw" else 0)
+            else:
+                slots += [pid] * k
+                marks += [list(exclude)] * k
+        if extra := [p for p in dict.fromkeys(slots) if p not in who]:  # (review 28B: Alms Collector's controller draws too: 702.52a dredge)
+            planner.cands += dredge_candidates(plan, extra)
+        counters = {c.id for c in found if c.event == "draw_count"}  # (review 29C: a slot of an instruction whose number one of them changed)
+        for i, pid in enumerate(slots):
+            ev: Event = {"kind": "draw", "player": pid, "applied": list(marks[i])}  # (the same as ``exclude`` unless a count replacement applied)
+            if counters & set(marks[i]):
+                ev["counted"] = True
+            out: list[Event] = []
+            planner.settle(ev, sim, out.append)
+            actions.append((ev, out))
+            if any(f["kind"] in ("dredge", "body") for f in out):
+                cut = i  # (-- static_other sweep (wave 16B) -- a dredge mills cards that may be dredged for the next draw: the draws after it
+                break  # are planned again once it has happened; likewise after a body, 121.6b)
     except Ask as q:
-        request = {"players": who, "n": n}
+        request = {"players": who, "n": n, "exclude": exclude, "counted": counted}
         if _pause(plan, q, answers, _resume_for(then, "draw", request)):
             return False
         raise
     left_to_players(plan, planner)
-    # -- static_other sweep (wave 16B) -- a dredge mills cards that may be dredged for the next draw: those draws are planned again
-    # once it has happened (answers start over: the question for the next one is its own)
-    cut = next((k for k, (_, out) in enumerate(actions) if any(f["kind"] == "dredge" for f in out)), None)
+    left_to_players(plan, count_planner)
+    for before, finals in counts:
+        note_applied(plan, before, finals, actor=before["player"])
+    for rec in plan.rules.replacements:  # -- replacements: draws (wave 28B) -- "The next time you would draw a card this turn": one draw, then spent
+        if rec.get("kind") == "replace" and (rec.get("op") or {}).get("once") and f"r:{rec['id']}" in planner.used:
+            rec["spent"] = True
     rest: dict[str, int] = {}
-    if cut is not None:
-        for before, _ in actions[cut + 1:]:
-            rest[before["player"]] = rest.get(before["player"], 0) + 1
-        actions = actions[: cut + 1]
-    do_draws(plan, actions)
+    for pid in slots[cut + 1:] if cut is not None else ():
+        rest[pid] = rest.get(pid, 0) + 1
+    # (review 28B: the players of the slots left, not of the instruction — "you and that player each draw a card" adds Alms Collector's controller)
+    # (wave 29C: the draws left after a body / a dredge are still the result of the count replacement that applied to their instruction)
+    kept = list(dict.fromkeys([*exclude, *(m for ms in marks for m in ms)]))
+    after = {"do": "draw_rest", "players": list(rest), "n": rest, "then": then, "exclude": kept}  # (already counted)
+    if do_draws(plan, actions, after):
+        return False
     if rest:
-        return draw_cards(plan, [p for p in who if p in rest], rest, then=then, answers={})
+        return draw_cards(plan, list(rest), rest, then=then, answers={}, exclude=kept, counted=True)
     return True
 
 
-def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]]) -> None:
+def _then_draw_rest(plan: Plan, then: dict[str, Any]) -> None:
+    """-- draw bodies (wave 28B) -- a replacement effect is done: the draws that were left, then what the instruction goes on with."""
+    if not then["players"] or draw_cards(plan, list(then["players"]), dict(then["n"]), then=then["then"], answers={},
+                                         exclude=list(then.get("exclude") or []), counted=True):
+        run_then(plan, then["then"])
+
+
+def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[str, Any] | None = None) -> bool:
     """The final events of a draw sequence, in order: consecutive draws by one player are one
-    table step (each card is still its own "drew" event, 121.2)."""
+    table step (each card is still its own "drew" event, 121.2). True when a body (wave 28B) was run last: ``after`` goes on once it is
+    done (the plan stops at a body, so nothing follows it)."""
     r = plan.rules
-    run: list[str] = []
+    # (player, how: "replaced" — drawn as a result of a replacement effect, 614.11b, wave 29C; "counted" — by an instruction a replacement
+    # effect changed the number of, 121.2a, review 29C; "" — neither)
+    run: list[tuple[str, str]] = []
 
     def flush() -> None:
         if not run:
             return
-        pid, k = run[0], len(run)
+        pid, k = run[0][0], len(run)
+        how = [h for _, h in run]
         run.clear()
         library = plan.state.zones.get(zone_key(pid, "library"), [])
         drawn = min(k, len(library))
         if drawn:
             top = list(library[:drawn])
             plan.do({"type": "draw", "player": pid, "count": drawn}, actor=pid)
+            if (log := turn_log_now(plan.state)) is not None and any(how[:drawn]):  # -- replaced draws (wave 29C) -- 121.6c, 614.11b:
+                for c, h in zip(top, how, strict=False):  # "reveal them" etc. isn't done to cards a replacement effect drew
+                    if h:
+                        (log.drawn_counted if h == "counted" else log.drawn_replaced).setdefault(pid, []).append(plan.rules.object_id(c))
             from app.rules import (
                 miracle,  # -- casting extras (wave 18E) -- 702.94a: the first card drawn this turn
             )
@@ -1084,13 +1240,21 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]]) -> None:
                 flush()
                 _dredge(plan, f)
             elif f["kind"] == "draw":
-                if run and run[0] != f["player"]:
+                if run and run[0][0] != f["player"]:
                     flush()
-                run.append(f["player"])
+                # (a replaced draw's events carry the effects applied, 616.1; the slot of a changed instruction says so: ``draw_cards``)
+                run.append((f["player"], "counted" if before.get("counted") else "replaced" if f.get("applied") else ""))
             elif f["kind"] == "win":
                 flush()
                 _win(plan, f["player"])
+            elif f["kind"] == "body":  # -- draw bodies (wave 28B) -- 121.6b: completed before the draws after it (draw_bodies.py)
+                flush()
+                from app.rules import draw_bodies
+
+                draw_bodies.run(plan, f, after or {"do": "draw_rest", "players": [], "n": {}, "then": None})
+                return True
     flush()
+    return False
 
 
 def _win(plan: Plan, pid: str) -> None:
@@ -1117,7 +1281,8 @@ def _win(plan: Plan, pid: str) -> None:
 
 def _run_draw(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     n = request["n"]
-    if draw_cards(plan, list(request["players"]), n if isinstance(n, dict) else int(n), then=then, answers=answers):
+    if draw_cards(plan, list(request["players"]), n if isinstance(n, dict) else int(n), then=then, answers=answers,
+                  exclude=list(request.get("exclude") or []), counted=bool(request.get("counted"))):
         run_then(plan, then)
 
 
@@ -1126,7 +1291,27 @@ def _life_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if ev["n"] <= 0 or ev["player"] not in plan.live():
         return False  # 119.10: gaining 0 life isn't a life gain event
     who = c.match.get("who")
-    return not (who == "you" and ev["player"] != c.controller or who == "opponent" and ev["player"] == c.controller)
+    if who == "you" and ev["player"] != c.controller or who == "opponent" and ev["player"] == c.controller:
+        return False
+    cap = c.match.get("life_max")  # -- life modifiers (wave 28B) -- "while you have 5 or less life": as the gain would happen (119.10)
+    return cap is None or plan.state.players[ev["player"]].life <= int(cap)  # (review 28B: one call's gains are simultaneous, 702.15e)
+
+
+def _loss_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
+    """-- life modifiers (wave 28B) -- "If an opponent would lose life during your turn, they lose twice that much life instead" (119.3, 614.1a)."""
+    if ev["n"] <= 0 or ev["player"] not in plan.live():
+        return False  # (losing 0 life isn't a life loss event, as for 119.10)
+    who, mine = c.match.get("who"), ev["player"] == c.controller
+    if who == "you" and not mine or who == "opponent" and mine:
+        return False
+    return c.match.get("turn") != "yours" or plan.active == c.controller
+
+
+def _loss_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
+    op = c.op
+    if op["do"] == "mul":
+        return [{**ev, "n": ev["n"] * int(op["n"])}]
+    return [ev]
 
 
 def _life_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
@@ -1145,7 +1330,8 @@ def _life_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
 def plan_life(plan: Plan, gains: list[tuple[str, int, str]], *, answers: dict[str, str], ask: bool,
               cands: list[Candidate] | None = None) -> tuple[list[tuple[Event, list[Event]]], Planner] | Ask:
     """Life gain events ([(player, n, key)], each its own event: 702.15e) through 616.1."""
-    planner = Planner(plan, cands if cands is not None else candidates(plan, "life"), answers, ask=ask)
+    planner = Planner(plan, cands if cands is not None else candidates(plan, ("life", "life_loss")), answers, ask=ask)
+    sim: Sim = {}  # (review 28B: the gains of one call happen at the same time, 702.15e: a condition reads the life total before them)
     order = plan.apnap()
     evs: list[Event] = [{"kind": "life", "player": p, "n": int(n), "key": key, "applied": []} for p, n, key in gains]
     evs.sort(key=lambda e: order.index(e["player"]) if e["player"] in order else len(order))
@@ -1159,7 +1345,7 @@ def plan_life(plan: Plan, gains: list[tuple[str, int, str]], *, answers: dict[st
             if ev["n"] > 0 and (why := cant_gain.why_not(plan, ev["player"])) is not None:
                 finals.append((ev, [{"kind": "nothing", "why": [f"{why}: {plan.name(ev['player'])} can't gain life"]}]))
                 continue
-            planner.settle(ev, {}, out.append)
+            planner.settle(ev, sim, out.append)
             finals.append((ev, out))
     except Ask as q:
         return q
@@ -1184,12 +1370,123 @@ def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dic
             if ev["kind"] == "life" and ev["n"] > 0:
                 plan.do({"type": "life", "player": ev["player"], "delta": ev["n"]}, actor=actor)
             elif ev["kind"] == "life_loss" and ev["n"] > 0:
-                plan.do({"type": "life", "player": ev["player"], "delta": -ev["n"]}, actor=actor)
+                from app.rules import (
+                    life_lock,  # -- can't lose life (wave 29D) -- 614.17c: "loses that much life instead" of a player who can't
+                )
+
+                for pid, n in life_lock.keep(plan, [(ev["player"], ev["n"])], actor=actor):
+                    plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor)
     return True
 
 
 def _run_life(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     if gain_life(plan, [(g[0], int(g[1])) for g in request["gains"]], actor=request["actor"], then=then, answers=answers):
+        run_then(plan, then)
+
+
+# == life loss (119.3, 119.4, 118.11, 614.1a) ========================================================
+def plan_loss(plan: Plan, losses: list[tuple[str, int]], *, answers: dict[str, str], ask: bool,
+              cands: list[Candidate] | None = None) -> tuple[list[tuple[Event, list[Event]]], Planner] | Ask:
+    """-- life modifiers (wave 28B) -- life loss events ([(player, n)], each its own event) through 616.1."""
+    planner = Planner(plan, cands if cands is not None else candidates(plan, "life_loss"), answers, ask=ask)
+    order = plan.apnap()
+    evs: list[Event] = [{"kind": "life_loss", "player": p, "n": int(n), "applied": []} for p, n in losses if n > 0]
+    evs.sort(key=lambda e: order.index(e["player"]) if e["player"] in order else len(order))
+    sim: Sim = {}
+    finals: list[tuple[Event, list[Event]]] = []
+    try:
+        for ev in evs:
+            out: list[Event] = []
+            planner.settle(ev, sim, out.append)
+            finals.append((ev, out))
+    except Ask as q:
+        return q
+    return finals, planner
+
+
+def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = None, then: dict[str, Any] | None = None,
+              answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None) -> bool:
+    """THE life-loss choke point (wave 28B): every way a player loses life that isn't damage's own result (effects, a payment of life: 119.4
+    "the player loses that much life", 118.11 a payment may be modified by effects) goes through the "would lose life" replacements.
+    With none in force, each player just loses it. False while a choice is open."""
+    losses = [(p, int(n)) for p, n in losses if n > 0 and p in plan.state.players]
+    from app.rules import (
+        life_lock,  # -- can't lose life (wave 29D) -- 119.8, 614.17c: a loss that can't happen isn't an event, nothing replaces it
+    )
+
+    losses = life_lock.keep(plan, losses, actor=actor)
+    if not losses:
+        return True
+    if not candidates(plan, "life_loss"):
+        for pid, n in losses:
+            plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor or pid)
+        return True
+    answers = answers if answers is not None else _ctx_answers(ctx)
+    planned = plan_loss(plan, losses, answers=answers, ask=then is not None)
+    if isinstance(planned, Ask):
+        request = {"losses": [list(x) for x in losses], "actor": actor}
+        if _pause(plan, planned, answers, _resume_for(then, "loss", request)):
+            return False
+        raise planned
+    finals, planner = planned
+    left_to_players(plan, planner)
+    for before, out in finals:
+        note_applied(plan, before, out, actor=actor)
+        for ev in out:
+            if ev["kind"] == "life_loss" and ev["n"] > 0:
+                plan.do({"type": "life", "player": ev["player"], "delta": -ev["n"]}, actor=actor or ev["player"])
+    return True
+
+
+# == mill (701.17, 614.1a) ==========================================================================
+def _mill_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
+    """-- mill counts (wave 28B) -- "If an opponent would mill one or more cards, they mill twice that many cards instead." (Bruvac, The Water Crystal)"""
+    who, mine = c.match.get("who"), ev["player"] == c.controller
+    return ev["n"] > 0 and ev["player"] in plan.live() and not (who == "you" and not mine or who == "opponent" and mine)
+
+
+def _mill_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
+    if c.op["do"] == "mul":
+        return [{**ev, "n": ev["n"] * int(c.op["n"])}]
+    if c.op["do"] == "add":
+        return [{**ev, "n": ev["n"] + int(c.op["n"])}]
+    return [ev]
+
+
+def mill_counts(plan: Plan, wants: list[tuple[str, int]], *, then: dict[str, Any] | None = None, answers: dict[str, str] | None = None,
+                ctx: dict[str, Any] | None = None) -> list[tuple[str, int]] | None:
+    """THE mill choke point (wave 28B): how many cards each player mills once the "would mill" replacements have applied to the
+    number the instruction says (701.17a: the library may hold fewer — the caller mills what is there). The count is the event,
+    so the caller mills after this returns. None while a choice is open (``then`` continues the instruction)."""
+    wants = [(p, int(n)) for p, n in wants if n > 0 and p in plan.state.players]
+    cands = candidates(plan, "mill")
+    if not cands or not wants:
+        return wants
+    answers = answers if answers is not None else _ctx_answers(ctx)
+    planner = Planner(plan, cands, answers, ask=then is not None)  # (``then``: the instruction run again with the answers, replace.rerun_then)
+    order = plan.apnap()
+    evs: list[Event] = [{"kind": "mill", "player": p, "n": n, "applied": []} for p, n in wants]
+    evs.sort(key=lambda e: order.index(e["player"]) if e["player"] in order else len(order))
+    finals: list[tuple[Event, list[Event]]] = []
+    try:
+        for ev in evs:
+            out: list[Event] = []
+            planner.settle(ev, {}, out.append)
+            finals.append((ev, out))
+    except Ask as q:
+        if _pause(plan, q, answers, _resume_for(then, "mill", {"wants": [list(w) for w in wants]})):
+            return None
+        raise
+    left_to_players(plan, planner)
+    result: list[tuple[str, int]] = []
+    for before, out in finals:
+        note_applied(plan, before, out, actor=before["player"])
+        result.append((before["player"], sum(f["n"] for f in out if f["kind"] == "mill")))
+    return result
+
+
+def _run_loss(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
+    if lose_life(plan, [(x[0], int(x[1])) for x in request["losses"]], actor=request["actor"], then=then, answers=answers):
         run_then(plan, then)
 
 
@@ -1295,6 +1592,8 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
         return False
     if m.get("monarch") and plan.state.table.monarch != c.controller:  # (-- prevention riders (wave 17A) -- "while you're the monarch")
         return False
+    if m.get("at_least") and ev["amount"] < m["at_least"]:
+        return False  # -- instead (wave 20B) -- "If a source would deal 4 or more damage …": judged on the amount as it is now (614.6)
     if c.op["do"] == "redirect":  # -- refused grants/replacements (wave 3R2) -- 614.9: nowhere to redirect to: nothing
         from app.rules import source_shields
 
@@ -1340,6 +1639,8 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         n = max(0, n - int(op["n"]))
     elif kind == "half":
         n //= 2
+    elif kind == "cap":  # -- instead (wave 20B) -- "that source deals 3 damage instead" (the threshold was met: the amount is above the cap)
+        n = int(op["n"])
     elif kind == "prevent":
         n = max(0, n - int(op["n"]))
     elif kind == "prevent_half_up":  # -- damage wordings (wave 6B) -- prevent half, rounded up: half rounded down is left
@@ -1610,6 +1911,27 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
                     out.lifelink[before["key"]] = out.lifelink.get(before["key"], 0) + f["n"]
                 elif f["kind"] == "life_loss" and f["n"] > 0:
                     out.losses.append((f["player"], f["n"]))
+    from app.rules import (
+        life_lock,  # -- can't lose life (wave 29D) -- 120.3a: the damage is still dealt (its events stay); the life loss that can't happen is no event
+    )
+
+    for pid in list(out.players):
+        if (why := life_lock.why_not(plan, pid, "lose")) is not None:
+            out.notes.append(f"{why}: {plan.name(pid)} can't lose life, so {out.players.pop(pid)} damage dealt to them makes them lose none")
+    if out.players and (loss_cands := candidates(plan, "life_loss")):
+        # -- life modifiers (wave 28B) -- 120.3a: the life lost to damage is a life-loss event of its own (the damage dealt stays what it was):
+        # "would lose life" replacements change it (Bloodletter of Aclazotz: "Damage causes loss of life.")
+        planned_loss = plan_loss(plan, list(out.players.items()), answers=answers, ask=ask, cands=loss_cands)
+        if isinstance(planned_loss, Ask):
+            return planned_loss
+        loss_finals, loss_planner = planned_loss
+        out.left.append(loss_planner)
+        out.life_finals = [*out.life_finals, *loss_finals]
+        out.players = {}
+        for before, finals in loss_finals:
+            lost = sum(f["n"] for f in finals if f["kind"] == "life_loss" and f["n"] > 0)
+            if lost:
+                out.players[before["player"]] = lost
     return out
 
 
@@ -1633,7 +1955,8 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
         return
     dealt = [{"source": ev["source_oid"], "target": ev["target"], "amount": int(ev["amount"]),
               **({"target_object": plan.oid(ev["target"])} if ev["target"] in plan.state.cards else {})} for ev in out.events]
-    for pid in [*out.players, *out.poison]:
+    # (-- can't lose life (wave 29D) -- 120.3a: a player was dealt damage whether or not it made them lose life: bloodthirst reads the damage)
+    for pid in [*out.players, *out.poison, *(d["target"] for d in dealt)]:
         if pid in plan.state.players:
             plan.rules.damaged[pid] = plan.state.turn.number
     plan.do({"type": "rules_damage", "creatures": out.creatures, "players": out.players, "poison": out.poison,
@@ -1643,7 +1966,9 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
         have = plan.state.cards[key].counters.get("defense", 0) if key in plan.state.cards else 0
         if have:
             plan.do({"type": "counter", "card_ids": [key], "kind": "defense", "delta": -min(have, n)}, actor=actor)
-    for pid, n in out.losses:  # (after the damage: its own step, UNVERIFIED batching)
+    from app.rules import life_lock  # -- can't lose life (wave 29D) --
+
+    for pid, n in life_lock.keep(plan, out.losses, actor=actor):  # (after the damage: its own step, UNVERIFIED batching)
         plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor)
     plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *out.deathtouched]))
     _run_riders(plan, out.riders)
@@ -1705,8 +2030,10 @@ def ask_shield(plan: Plan, s: ShieldAsk, resume: dict[str, Any], order: list[str
 
 # -- the kinds' rules (the loop dispatches on the event's kind) ------------------------------------
 _APPLIES: dict[str, Any] = {"tokens": _tokens_applies, "counters": _counters_applies, "player_counters": _player_counters_applies,
-                            "draw": _draw_applies, "life": _life_applies, "damage": _damage_applies}
+                            "draw": _draw_applies, "draw_count": _dcount_applies, "life": _life_applies, "life_loss": _loss_applies, "mill": _mill_applies,
+                            "damage": _damage_applies}
 _APPLY: dict[str, Any] = {"tokens": _tokens_apply, "counters": _counters_apply, "player_counters": _counters_apply,
-                          "draw": _draw_apply, "life": _life_apply, "damage": _damage_apply}
+                          "draw": _draw_apply, "draw_count": _dcount_apply, "life": _life_apply, "life_loss": _loss_apply, "mill": _mill_apply,
+                          "damage": _damage_apply}
 _PERFORM: dict[str, Any] = {"draw": _draw_perform, "dredge": _dredge_perform}
-SITES: dict[str, Any] = {"tokens": _run_tokens, "counters": _run_counters, "draw": _run_draw, "life": _run_life}
+SITES: dict[str, Any] = {"tokens": _run_tokens, "counters": _run_counters, "draw": _run_draw, "life": _run_life, "loss": _run_loss}

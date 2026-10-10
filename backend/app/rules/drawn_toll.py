@@ -76,7 +76,9 @@ def _next(plan: Plan, ctx: Context, e: dict[str, Any], left: list[str]) -> None:
 
     me, life = ctx["controller"], int(e["life"])
     if left:
-        can_pay = plan.state.players[me].life >= life  # 119.4
+        from app.rules import life_lock  # -- can't lose life (wave 29D) -- 119.8
+
+        can_pay = plan.state.players[me].life >= life and life_lock.pay_problem(plan.state, plan.info, me, life) is None  # 119.4
         options = [o for c in left for o in ([DecisionOption(id=f"pay:{c}", label=f"Pay {life} life ({_label(plan, c)})", card_id=c)]
                                              if can_pay else []) + [DecisionOption(id=f"top:{c}", label=f"Put {_label(plan, c)} on top "
                                                                                     "of your library", card_id=c)]]
@@ -93,7 +95,8 @@ def _next(plan: Plan, ctx: Context, e: dict[str, Any], left: list[str]) -> None:
 def _apply(plan: Plan, me: str, option: str, life: int) -> None:
     how, _, cid = option.partition(":")
     if how == "pay":
-        plan.do({"type": "life", "player": me, "delta": -life}, actor=me)
+        from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+        _replace_life.lose_life(plan, [(me, life)], actor=me)
     else:
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
                  "position": "top"}, actor=me)
@@ -102,7 +105,10 @@ def _apply(plan: Plan, me: str, option: str, life: int) -> None:
 def resume_each(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e, left = d.resume["ctx"], d.resume["e"], list(d.resume["left"])
     how, _, cid = chosen[0].partition(":")
-    if cid in left and how in ("pay", "top") and (how == "top" or plan.state.players[d.player].life >= int(e["life"])):
+    from app.rules import life_lock  # -- can't lose life (wave 29D) --
+
+    if cid in left and how in ("pay", "top") and (how == "top" or (plan.state.players[d.player].life >= int(e["life"])
+                                                                   and life_lock.pay_problem(plan.state, plan.info, d.player, int(e["life"])) is None)):
         _apply(plan, d.player, chosen[0], int(e["life"]))
         left.remove(cid)
     _next(plan, ctx, e, left)

@@ -65,7 +65,7 @@ def test_attack_needs_an_island(cards):
     s = table(cards)
     armada = creature(s, "p1", "Armada", "5/5", "This creature can't attack unless defending player controls an Island.")
     automate(s)
-    with pytest.raises(ActionError, match="Island"):
+    with pytest.raises(ActionError, match="can.t attack"):
         attack(s, (armada, "p2"))
     act(s, "p2", type="create_token", player="p2", token={"name": "Isle", "type_line": "Token Land — Island"})
     attack(s, (armada, "p2"))

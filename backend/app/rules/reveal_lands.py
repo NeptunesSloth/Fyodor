@@ -30,7 +30,8 @@ if TYPE_CHECKING:
 KIND = "reveal_or_tapped"
 PREFIX = "reveal:"
 NONE = "none"
-_TEXT = re.compile(r"^As ~ enters, you may reveal an? (?P<what>.+?) card from your hand\. If you don't, (?:~|it) enters tapped\.$")
+_TEXT = re.compile(r"^As ~ enters, you may reveal an? (?P<what>.+?) card from your hand\. (?:If you don't, (?:~|it) enters tapped\.|"
+                   r"(?:~|This land) enters tapped unless you revealed an? (?P<w2>.+?) card this way or you control an? (?P<w3>.+?)\.)$")
 
 
 def definition(text: str) -> dict[str, Any] | None:
@@ -41,6 +42,11 @@ def definition(text: str) -> dict[str, Any] | None:
     sel = selectors.parse(f"{m['what']} card")
     if sel is None or not sel.card or sel.player is not None or sel.other or sel.controller or sel.owner:
         return None
+    if m["w2"]:  # -- if you do (wave 25C) -- "… tapped unless you revealed a Dragon card this way or you control a Dragon" (Temple of the Dragon Queen)
+        ctl = selectors.parse(f"{m['w3']} you control")
+        if m["w2"] != m["what"] or m["w3"] != m["what"] or ctl is None or ctl.card:
+            return None
+        return {"kind": "replacement", "replacement": KIND, "sel": sel.key(), "ctl": ctl.key(), "effects": []}
     return {"kind": "replacement", "replacement": KIND, "sel": sel.key(), "effects": []}
 
 
@@ -58,6 +64,8 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, defs: list[dict[
     for d in defs:
         if d.get("replacement") != KIND or out["tapped"]:
             continue
+        if d.get("ctl") and selectors.candidates(plan, selectors.from_key(d["ctl"]), controller):
+            continue  # (you control one: it enters untapped without revealing anything; public, so no question to leak)
         what = PREFIX + d["sel"]
         cards = _matching(plan, card, controller, d["sel"])
         given = answers.get(what)

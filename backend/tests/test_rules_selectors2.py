@@ -68,7 +68,6 @@ def test_keys_stay_compact():
 
 @pytest.mark.parametrize("phrase", [
     "nontoken token", "token card", "token spell", "spell or token", "commander card", "creature or token",
-    "creature with power X or less",  # (X isn't a value)
 ])
 def test_refused_phrases(phrase):
     assert S.parse(phrase) is None
@@ -91,8 +90,7 @@ def test_target_phrases():
 
 @pytest.mark.parametrize("text", [
     "Tap two target creatures defending player controls.",  # one specific defending player (508.5a): not modelled
-    "Creatures defending player controls get -1/-1 until end of turn.",  # not targeted: whose creatures? (508.5)
-    "Tap each creature defending player controls.",
+    # (wave 19B: the non-targeted "creatures defending player controls" now parse; scripts refuses them outside an attacker's own trigger)
     "Exile two target cards from an opponent's graveyard.",  # (unchanged: the same opponent's?)
 ])
 def test_refused_target_phrases(text):

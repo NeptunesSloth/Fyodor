@@ -27,7 +27,7 @@ effect began). An Aura, Equipment or Fortification gets a new timestamp as it be
 (613.7e), a permanent as it turns face up or down (613.7f) and a double-faced permanent as it
 transforms (613.7g): ``RulesState.restamped``, read by ``timestamp``. Not tracked: APNAP order
 among simultaneous entries (613.7m: creation order is used).
-Dependencies (613.8): a static's subject is read from the object after layer 4 and the resolved
+Group statics of layers 4-6 (app/rules/group_layers.py, wave 22A) are solved against each other: 613.6 (the objects an effect began with), 613.8 (dependencies, loops in timestamp order), 305.7. Otherwise: a static's subject is read from the object after layer 4 and the resolved
 layer-6 effects; a subject that asks about keywords ("creatures with flying …") is read again once
 layer 6 is applied, until nothing changes — other dependencies (types, power) aren't modelled.
 Layers 1–5 (copy, control, text, color) are next; the model already carries the layer number.
@@ -36,11 +36,13 @@ Layers 1–5 (copy, control, text, color) are next; the model already carries th
 from __future__ import annotations
 
 import re
+import threading
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.rules_state import ContinuousEffect
 from app.game.state import CardInstance, GameState
+from app.rules import read_pass
 from app.rules.characteristics import CardInfo, Characteristics
 
 if TYPE_CHECKING:
@@ -74,9 +76,27 @@ class Static:
     # object's if that is later.
     seq: int
     gate: tuple[str, dict[str, Any]] | None = None  # (granting permanent, its static) for a granted ability
+    # -- layers (wave 22A) -- 613.6: a layered group static ("layered" in its definition: app/rules/group_layers.py) applies to the
+    # objects it began applying to, in every layer; the objects (card ids) found when the table was solved. None: not solved.
+    members: frozenset[str] | None = None
+    order: float = 0  # the timestamp its layer 4-5 parts are applied at: its own, or just after what it depends on (613.8b)
 
 
-_STATIC_CACHE: dict[tuple, list[Static]] = {}
+class _Derivation(threading.local):
+    """-- review (wave 29A) -- Where this thread's derivation is (re-entrancy): per thread, as two games, or two viewers of one game, are
+    derived at once (GET /view runs on the server's threadpool while actions run on the event loop). Shared by the process, one thread's
+    derivation part-way made another's skip every static ability (``depth``) or read the other table's statics (``solving``)."""
+
+    def __init__(self) -> None:
+        self.depth = 0  # a static's subject or condition reading another object's characteristics
+        self.memo: list[Any] | None = None  # (wave 5R) [state, info, table]: the statics table one top-level ``derive`` reads
+        self.solving: list[list[Static]] = []  # (wave 22A) the table being solved: group_layers.solve
+        self.l4: set[str] = set()  # (wave 4B) the objects whose own layer-4/5 statics' conditions are being read
+        self.cda: set[str] = set()  # the objects whose characteristic-defining P/T is being read
+
+
+_T = _Derivation()
+_STATIC_CACHE: dict[tuple, tuple[list[Static], dict[str, tuple[int, int, int]], bool, dict[tuple, list[Static]], list[tuple[str, str]]]] = {}
 
 
 def timestamp(state: GameState, card_id: str) -> int:
@@ -95,7 +115,9 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     abilities and from abilities other statics grant; cached by what is on the battlefield, in
     timestamp order. Whether each applies to a given object, and its conditions, are evaluated
     by ``derive``."""
-    memo = _DERIVE_MEMO  # -- review (wave 5R) -- one derive reads the table up to four times: its key once
+    if _T.solving:  # -- layers (wave 22A) -- a condition read while the layered statics are being solved: the table as it is so far
+        return _T.solving[-1]
+    memo = _T.memo  # -- review (wave 5R) -- one derive reads the table up to four times: its key once
     if memo is not None and memo[0] is state and memo[1] is info and memo[2] is not None:
         return memo[2]
     r = state.rules
@@ -124,13 +146,22 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)),
                       # -- attached events (wave 4L) -- "loses all abilities" effects: their objects' statics are gone
                       tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else (),
+                      # -- layers (wave 22A) -- the resolved effects the group layers (4-6) are solved against (613.6, 613.8)
+                      tuple((e.id, tuple(e.affected)) for e in r.effects if e.layer in ("4", "5", "6")) if r else (),
                       tuple(sorted(r.levels.items())) if r else (),  # -- Class (wave 16A) -- 716.2a: the levels reached
                       tuple(sorted((o, tuple(d)) for o, d in r.unlocked.items())) if r else ())  # -- Rooms (wave 18G) -- the doors unlocked
     hit = _STATIC_CACHE.get(key_all)
     if hit is not None:
+        # -- layers (wave 22A) -- the layered group statics are solved against the table state (their conditions are read now)
+        tkey = _table_key(state) if hit[2] else ()
+        table = hit[3].get(tkey)
+        if table is None:
+            if len(hit[3]) > 8:
+                hit[3].clear()
+            table = hit[3][tkey] = _finish(state, info, hit[0], hit[1], hit[4], tkey)
         if memo is not None and memo[0] is state and memo[1] is info:
-            memo[2] = hit
-        return hit
+            memo[2] = table
+        return table
     from app.rules import scripts
     from app.rules import statics as grammar
 
@@ -172,6 +203,30 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     wiped = attached_types.wipes(state, out)
     if wiped:
         out = [st for st in out if st.source not in wiped]
+    if len(_STATIC_CACHE) > 256:
+        _STATIC_CACHE.clear()
+    layered = any(st.definition.get("layered") for st in out)
+    heads = [(cid, c.controller) for cid, c in field]
+    hit = _STATIC_CACHE[key_all] = (out, wiped, layered, {}, heads)
+    tkey = _table_key(state) if layered else ()
+    table = hit[3][tkey] = _finish(state, info, out, wiped, heads, tkey)
+    if memo is not None and memo[0] is state and memo[1] is info:
+        memo[2] = table
+    return table
+
+
+def _finish(state: GameState, info: CardInfo, out: list[Static], wiped: dict[str, tuple[int, int, int]],
+            field: list[tuple[str, str]], tkey: tuple) -> list[Static]:
+    """The statics table: the layered group statics solved (613.6, 613.8: app/rules/group_layers.py), then the statics other
+    statics grant, in timestamp order."""
+    # -- layers (wave 22A) -- statics of permanents that lost all abilities to a group static are gone too; a static that
+    # applies to some objects keeps the objects it began applying to (613.6)
+    from app.rules import group_layers, scripts
+    from app.rules import statics as grammar
+
+    out, lost = group_layers.solve(state, info, out, tkey)
+    out = list(out)  # -- review (wave 29A) -- (``solve`` may hand back the cached list itself: the grants below are this table's, not the cache's)
+    wiped = {cid: max(wiped.get(cid, k), lost.get(cid, k)) for cid, k in {**wiped, **lost}.items()}
     # An ability a static grants may itself be a static ("Commander creatures you own have
     # "Creature tokens you control get +2/+2.""): it works on whatever it's granted to, with the
     # later of the two timestamps (613.7a), while the granting static applies to that object.
@@ -182,17 +237,12 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
             inner = grammar.parse(scripts.self_text(text, ""))
             if inner is None:
                 continue
-            for cid, c in field:
+            for cid, controller in field:
                 seq = max(st.seq, timestamp(state, cid))
                 if cid in wiped and (seq, 0, 0) <= wiped[cid]:
                     continue  # -- attached events (wave 4L) -- granted before it lost all abilities (613.7)
-                out.append(Static(cid, c.controller, inner, seq, gate=(st.source, st.definition)))
+                out.append(Static(cid, controller, inner, seq, gate=(st.source, st.definition)))
     out.sort(key=lambda st: st.seq)
-    if len(_STATIC_CACHE) > 256:
-        _STATIC_CACHE.clear()
-    _STATIC_CACHE[key_all] = out
-    if memo is not None and memo[0] is state and memo[1] is info:
-        memo[2] = out
     return out
 
 
@@ -219,7 +269,6 @@ def _view(state: GameState, info: CardInfo) -> Plan:
     return view
 
 
-_depth = 0  # re-entrancy: a static's subject or condition reading another object's characteristics
 _COND_CACHE: dict[tuple, bool] = {}
 
 
@@ -241,6 +290,7 @@ def _table_key(state: GameState) -> tuple:
                len(log.entered_graveyard), len(log.entered),  # (wave 3R1: entered)
                # -- this-turn history (wave 4D) -- spells cast, facts, attackers, lands played
                len(log.casts), len(log.facts), tuple(sorted((p, len(a)) for p, a in log.attackers.items())),
+               len(r.events), r.trigger_batch,  # (wave 24A: facts of events not yet looked at are read too, history.log_for)
                tuple(sorted((p, (c.turn, c.count)) for p, c in r.lands_played.items()))) if log is not None and r else ()
     designations = (tuple(r.monstrous), tuple(r.renowned), tuple(r.suspected)) if r else ()  # -- conditional statics (wave 4B) --
     return (state.seq, state.turn.number, state.turn.active_player, players, field,
@@ -280,6 +330,13 @@ def _gate_open(view: Plan, st: Static, tkey: tuple) -> bool:
                             conditions=True) and _conditions(view, gate, tkey))
 
 
+def probing(state: GameState, card: CardInstance) -> bool:
+    """-- review (wave 22A) -- Is ``card`` the object as it would exist on the battlefield (614.12: entering, or under another
+    controller), not the permanent the statics table was solved with? Then a layered group static's subject is read from it."""
+    real = state.cards.get(card.id)
+    return real is None or real.zone != card.zone or real.controller != card.controller
+
+
 def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristics, tkey: tuple,
           only_keyword_subjects: bool = False) -> tuple[list[Static], set[str]]:
     """The statics that apply to ``card`` as it is (``ch``) and the rules attached ones impose."""
@@ -298,9 +355,13 @@ def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristi
             continue  # (a rules-only static is applied by _with_rules, after layer 7)
         if not _gate_open(view, st, tkey):
             continue
-        if not grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True):
+        solved = st.members is not None and not probing(view.state, card)
+        if solved:  # -- layers (wave 22A) -- 613.6: the objects it began applying to
+            if card.id not in (st.members or ()):
+                continue
+        elif not grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True):
             continue
-        if _conditions(view, st, tkey):
+        if solved or _conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
             hits.append(st)
     return hits, imposed
 
@@ -337,7 +398,7 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
         if st.definition.get("lose_all"):  # -- attached events (wave 4L) -- "Enchanted creature loses all abilities"
             from app.rules.attached_types import wipe_key
 
-            ordered.append((wipe_key(st), "wipe"))
+            ordered.append((wipe_key(st), "wipe-mana" if st.definition.get("keep_mana") else "wipe"))
     for e in effects:
         if e.layer == "6":
             ordered.append(((e.object_seq, 1, e.timestamp), e))
@@ -350,8 +411,8 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
     printed = tuple(a for a in ch.abilities if a.index < 100)
     abilities = printed
     for _, item in ordered:
-        if item == "wipe":  # -- attached events (wave 4L) -- a static "loses all abilities" (613.1f, 613.7)
-            abilities = ()
+        if item in ("wipe", "wipe-mana"):  # -- attached events (wave 4L) -- a static "loses all abilities" (613.1f, 613.7)
+            abilities = tuple(a for a in abilities if a.kind == "mana") if item == "wipe-mana" else ()  # (wave 22A: "except mana abilities", Blood Sun)
             lost |= {k for a in printed if a.kind == "keywords" for k in a.keywords} | granted
             granted = set()
         elif isinstance(item, str) and item.startswith("kw:"):  # -- counters (wave 5H) -- a keyword counter
@@ -417,7 +478,7 @@ def _subtype_fits(sub: str, types: frozenset[str]) -> bool:
 
 
 def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
-            own: list[tuple[int, dict[str, Any]]] | None = None) -> Characteristics:
+            own: list[tuple[float, dict[str, Any]]] | None = None) -> Characteristics:
     """613.1d in timestamp order: types set (205.1a: replacing) or added (205.1b: "in addition to
     its other types", "it's still a land", "artifact creature"; a crewed Vehicle, 702.122),
     supertypes gained (205.4b), creature types set (205.1b: the other subtypes stay) or added
@@ -428,7 +489,7 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
     from app.rules.creature_types import CREATURE_TYPES
 
     types, subtypes, supers = ch.types, ch.subtypes, ch.supertypes
-    ordered: list[tuple[tuple[int, int, int], Any]] = [((e.object_seq, 1, e.timestamp), e) for e in effects if e.layer == "4"]
+    ordered: list[tuple[tuple[float, int, int], Any]] = [((e.object_seq, 1, e.timestamp), e) for e in effects if e.layer == "4"]
     ordered += [((seq, 0, 0), d) for seq, d in own or ()]
     ordered.sort(key=lambda x: x[0])
     for _, e in ordered:
@@ -444,6 +505,8 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
                     subtypes = frozenset(s for s in subtypes if s in known) | frozenset(l4["set_creature_types"])
                 if l4.get("set_land_types") is not None:  # -- land types set (wave 12D) -- 305.7
                     subtypes = (subtypes - LAND_TYPES) | frozenset(l4["set_land_types"])
+                if l4.get("set_artifact_types") is not None:  # -- layers (wave 22A) -- 205.1a: an artifact type set
+                    subtypes = (subtypes - ARTIFACT_TYPES) | frozenset(l4["set_artifact_types"])
                 subtypes = subtypes | frozenset(l4.get("add_subtypes") or ())
                 if l4.get("all_creature_types"):
                     from app.rules.creature_types import CREATURE_TYPES as _ALL
@@ -451,7 +514,9 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
                     subtypes = subtypes | _ALL
                 subtypes = frozenset(s for s in subtypes if _subtype_fits(s, types))
                 continue
-            types = types - frozenset(e.get("remove_types") or ())
+            if e.get("set_types") is not None:  # -- as long as (wave 20B) -- 205.1a: "it's a land"
+                types = frozenset(e["set_types"]) | (types & frozenset({"Instant", "Sorcery"}))
+            types = (types - frozenset(e.get("remove_types") or ())) | frozenset(e.get("add_types") or ())  # (205.1b: "creature in addition …")
             subtypes = subtypes | frozenset(e.get("add_subtypes") or ())
             subtypes = frozenset(s for s in subtypes if _subtype_fits(s, types))
             continue
@@ -480,12 +545,12 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
 
 
 def _layer5(ch: Characteristics, effects: list[ContinuousEffect],
-            own: list[tuple[int, dict[str, Any]]] | None = None) -> Characteristics:
+            own: list[tuple[float, dict[str, Any]]] | None = None) -> Characteristics:
     """613.1e in timestamp order: "becomes a green creature" replaces its colors, "colorless"
     removes them, "in addition to its other colors" adds (105.3). -- attached events (wave 4L) -- ``own``: statics
     of what is attached to it that set its colors ("is a green Elk creature"), interleaved by timestamp (613.7)."""
     colors = ch.colors
-    ordered: list[tuple[tuple[int, int, int], Any]] = [((e.object_seq, 1, e.timestamp), e) for e in effects]
+    ordered: list[tuple[tuple[float, int, int], Any]] = [((e.object_seq, 1, e.timestamp), e) for e in effects]
     ordered += [((seq, 0, 0), d) for seq, d in own or () if "set_colors" in d or "add_colors" in d]
     ordered.sort(key=lambda x: x[0])
     for _, e in ordered:
@@ -523,29 +588,49 @@ def _granted_by_effects(ch: Characteristics, effects: list[ContinuousEffect],
     return granted.layer6(ch, effects, wipe)
 
 
-# -- review (wave 5R) -- [state, info, table]: the statics table of the table state one top-level ``derive`` reads
+# -- review (wave 5R) -- ``_T.memo``: [state, info, table], the statics table of the table state one top-level ``derive`` reads
 # (the table doesn't change while characteristics are derived; nested derives of other objects share it)
-_DERIVE_MEMO: list[Any] | None = None
 
 
 def derive(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> Characteristics:
     """Current characteristics (``_derive``), the statics table read once for the whole derivation."""
-    global _DERIVE_MEMO
-    if _DERIVE_MEMO is not None or info is None:
+    if _T.memo is not None or info is None:
         return _derive(state, card, ch, info)
-    _DERIVE_MEMO = [state, info, None]
+    sc = read_pass.current(state, info)
+    if sc is None or not settled():  # (a derivation part-way reads a half-finished table: never kept, never served)
+        _T.memo = [state, info, None]
+        try:
+            return _derive(state, card, ch, info)
+        finally:
+            _T.memo = None
+    # -- hints speed (wave 29A) -- in a read-only pass (app/rules/read_pass.py) the table does not change: the statics table, and what a
+    # permanent of the table came to from the same printed values, are read once. (Only top-level derives are kept: one nested in
+    # another derive reads the table as that one does.)
+    kept = sc.derived.get(id(card))
+    if kept is not None and kept[0] is card and (kept[1] is ch or kept[1] == ch):
+        return kept[2]
+    memo = _T.memo = [state, info, sc.table]
     try:
-        return _derive(state, card, ch, info)
+        out = _derive(state, card, ch, info)
     finally:
-        _DERIVE_MEMO = None
+        sc.table = memo[2]
+        _T.memo = None
+    if state.cards.get(card.id) is card:  # (a probe's copy of a card is never kept)
+        sc.derived[id(card)] = (card, ch, out)
+    return out
+
+
+def settled() -> bool:
+    """-- hints speed (wave 29A) -- Is no derivation part-way (no ``derive`` running, no group layers being solved, no re-entrant layer 4
+    or characteristic-defining read)? Only then does a question about the table get the answer it has when nothing is half-finished,
+    so only then may a read-only pass keep it or serve it (app/rules/read_pass.py)."""
+    return _T.memo is None and not (_T.depth or _T.solving or _T.l4 or _T.cda)
 # -- end review (wave 5R) --
 
 
-def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> Characteristics:
-    """Current characteristics: printed + continuous effects in layer order + counters. With
-    ``info``, static abilities of permanents apply too (layers 6, 7b, 7c and rules imposed on the
-    object it's attached to), and the object's own characteristic-defining P/T (7a, every zone)."""
-    global _depth
+def prepared(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> Characteristics:
+    """The characteristics layer 4 starts from: layer 1 — copy effects (613.2a), face-down status (613.2b), and the overlays that are
+    part of what the object is (a bestowed Aura, a prototyped permanent)."""
     # -- copy system (wave 2F): layer 1 — copy effects (613.2a), face-down status (613.2b) --
     from app.rules.copying import layer1
 
@@ -562,20 +647,30 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         # (review 18E: a copy effect on it gives it the copied object's values instead, 718.3b values being copiable: 707.2)
         if prototype.is_prototyped(state, card) and copy_recipe_of(state.rules, state.rules.object_id(card.id)) is None:
             ch = prototype.overlay(ch)
+    return ch
+
+
+def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> Characteristics:
+    """Current characteristics: printed + continuous effects in layer order + counters. With
+    ``info``, static abilities of permanents apply too (layers 6, 7b, 7c and rules imposed on the
+    object it's attached to), and the object's own characteristic-defining P/T (7a, every zone)."""
+    ch = prepared(state, card, ch, info)
+    start = ch  # (review 22A: the abilities it has before layers 4-6 take any away)
     effects = affecting(state, card)
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
-    # -- type statics (wave 5F) -- group statics adding types ("Each land is a Swamp in addition …", 613.1d, 305.7)
+    # -- layers (wave 22A) -- group statics of layers 4 and 5 ("Each land is a Swamp in addition …", "Nonbasic lands are Mountains.",
+    # "All permanents are colorless.": 613.1d-e, 305.7), the objects each began applying to found as the table was solved (613.6, 613.8)
     own4 = _own_layer4(state, card, info) + attached45
-    from app.rules import type_statics
+    from app.rules import group_layers, type_statics
 
     before4 = ch
-    group4 = type_statics.layer4_entries(state, card, ch, info, lambda extra: _layer4(before4, effects, own4 + extra))
+    group4, group5 = group_layers.entries(state, card, ch, info)
     ch = _layer4(ch, effects, own4 + group4)  # layer 4: type-changing (animation, agent A2: also layer 5 below)
     ch = type_statics.with_gained_mana(before4, ch, any(e.layer == "4" and e.set_land_types is not None for e in effects)
-                                       or any((d.get("layer4") or {}).get("set_land_types") for _, d in attached45))
-    # -- end type statics (wave 5F) --
-    ch = _layer5(ch, effects, attached45 + _own_layer5(state, card, info))  # -- ability words (wave 9C) --
+                                       or any((d.get("layer4") or {}).get("set_land_types") for _, d in attached45 + group4))
+    # -- end layers --
+    ch = _layer5(ch, effects, attached45 + _own_layer5(state, card, info) + group5)  # -- ability words (wave 9C) --
     imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …
     imposed |= _group_imposed(state, card, ch, info)
     hits: list[Static] = []
@@ -585,12 +680,12 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     if state.rules is not None and on_field and state.rules.object_id(card.id) in state.rules.suspected:  # -- suspect (wave 12A) -- 701.60c
         kwc = [*kwc, ((timestamp(state, card.id), 0, 0), "menace")]
         imposed.add("cant_block")
-    if info is not None and on_field and _depth == 0:
+    if info is not None and on_field and _T.depth == 0:
         view = _view(state, info)
         table = statics(state, info)
         tkey = _table_key(state) if any(st.definition.get("conditions") or st.gate or st.definition.get("each")
                                         for st in table) else ()
-        _depth += 1
+        _T.depth += 1
         try:
             # a static's subject is read from the object after layer 4 and the resolved layer-6 effects
             hits, rules = _hits(view, table, card, _layer6(ch, [], effects, kwc), tkey)
@@ -615,7 +710,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
 
                 borrowed = [(st.seq, ab) for st in hits if st.definition.get("abilities_of") for ab in abilities_of.collect(view, st, card)]
         finally:
-            _depth -= 1
+            _T.depth -= 1
     elif effects or kwc:
         ch = _layer6(ch, [], effects, kwc)
     wipe = _wipe_key(effects)  # (animation, agent A2: "loses all abilities" beats earlier grants, 613.7)
@@ -633,19 +728,40 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         for k, (st, text) in enumerate(grants):
             if "‹granter›" in text and state.rules is not None:  # -- granted from object (wave 18F) -- 607.1a: the granting object
                 text = text.replace("‹granter›", f"‹granter#{state.rules.object_id(st.source)}›")
+            if text == "Protection from the chosen color":  # -- attached events (wave 25D) -- the granting Aura's own recorded color
+                src = state.cards.get(st.source)
+                color = (src.choices.get("Chosen color") or "").strip().lower() if src is not None else ""
+                if color not in ("white", "blue", "black", "red", "green"):
+                    continue
+                text = f"Protection from {color}"
             ab = granted_ability(text)
             if ab is not None:
-                extra.append(replace(ab, index=100 + k))
+                keeps = st.definition.get("keeps")  # (702.16n: attachments.host_problem)
+                extra.append(replace(ab, index=100 + k, keeps=None if keeps is None else f"self:{st.source}" if keeps == "self" else keeps))
         ch = replace(ch, abilities=ch.abilities + tuple(extra))
     lent = tuple({ab.index: ab for seq, ab in borrowed if wipe is None or (seq, 0, 0) > wipe}.values())
     if lent:
         ch = replace(ch, abilities=ch.abilities + lent)
     ch = _granted_by_effects(ch, effects, wipe)
+    if info is not None and not on_field and _T.depth == 0 and state.rules is not None and card.zone.endswith((":hand", ":graveyard")):
+        from app.rules import (
+            zone_grants,  # -- zone keyword grants (wave 25A) -- "Each creature card in your hand has cycling {1}{U}."
+        )
+
+        ch = zone_grants.apply(state, card, ch, info)
+    if info is not None and _T.depth == 0 and state.rules is not None and card.zone == "stack" and card.ability is None:
+        from app.rules import (
+            spell_grants,  # -- spell grants (wave 28C) -- "Instant and sorcery spells you control have lifelink." (613.1f, 604.1)
+        )
+
+        ch = spell_grants.apply(state, card, ch, info)
     # layer 7
     setters: list[tuple[tuple[int, int, int], int | None, int | None]] = []
     for st in hits:  # 7b: static "has base power and toughness N/N" (613.4b), by its source's timestamp
         if st.definition.get("base"):
             setters.append(((st.seq, 0, 0), st.definition["base"][0], st.definition["base"][1]))
+        elif st.definition.get("base_mv"):  # -- layers (wave 22A) -- "base power and toughness each equal to its mana value" (Opalescence)
+            setters.append(((st.seq, 0, 0), int(ch.mana_value), int(ch.mana_value)))
     for e in effects:  # 7b: resolved setting effects, interleaved by timestamp (613.7)
         if e.layer == "7b":
             setters.append(((e.object_seq, 1, e.timestamp), e.power, e.toughness))
@@ -655,6 +771,9 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         cda_p, cda_t = _cda(state, card, ch, info)  # 7a: the object's own characteristic-defining ability (613.4a)
         power = cda_p if cda_p is not None else power
         toughness = cda_t if cda_t is not None else toughness
+        if (power is None or toughness is None) and _lost_cda(start, ch):  # -- review (wave 22A) -- its "*" CDA was taken away
+            power = power if power is not None else _star_zero(ch.power)  # (305.7, 613.1f; Dress Down, Blood Moon on Ashaya):
+            toughness = toughness if toughness is not None else _star_zero(ch.toughness)  # 208.5, "*" has no value: 0 ("1+*": 1)
     if (power is None or toughness is None) and not setters:
         return _with_rules(state, card, ch, info, imposed)  # 7a: a characteristic-defining "*" stays unknown
     p, t = power or 0, toughness or 0
@@ -676,6 +795,8 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         if m is not None:  # 122.1a / 613.4c: "+X/+Y" counters modify power and toughness
             p += int(m["p"]) * n
             t += int(m["t"]) * n
+    if on_field and info is not None:  # -- counters (wave 24C) -- 122.1j: a hone counter on an Equipment gives +1/+0 to the creature it's attached to
+        p += _hone(state, card, info)
     for e in effects:  # … and resolved ones
         if e.layer == "7c":
             p += e.power or 0
@@ -686,16 +807,25 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     return _with_rules(state, card, replace(ch, pt=(p, t)), info, imposed)
 
 
+def _hone(state: GameState, card: CardInstance, info: CardInfo) -> int:
+    """-- counters (wave 24C) -- 122.1j: the hone counters on the Equipment attached to this creature (613.4c: counters, layer 7c)."""
+    from app.rules import characteristics as chars
+
+    return sum(c.counters.get("hone", 0) for c in state.cards.values()
+               if c.attached_to == card.id and c.counters.get("hone", 0) > 0 and c.zone.endswith(":battlefield")
+               and "Equipment" in chars.of(c, info).subtypes)
+
+
 # -- conditional statics (wave 4B) ----------------------------------------------------------------------------
-_L4_VISITING: set[str] = set()
 
 
-def _own_layer4(state: GameState, card: CardInstance, info: CardInfo | None) -> list[tuple[int, dict[str, Any]]]:
+def _own_layer4(state: GameState, card: CardInstance, info: CardInfo | None,
+                table: list[Static] | None = None) -> list[tuple[float, dict[str, Any]]]:
     """The object's own layer-4 statics whose conditions hold now ("As long as your devotion to red is less than
     five, ~ isn't a creature."; app/rules/statics.py ``_layer4_parts``). Applied for every reader, also while
-    another static's condition reads this object (``_depth`` > 0): their conditions never read characteristics
+    another static's condition reads this object (``_T.depth`` > 0): their conditions never read characteristics
     (statics ``_layer4_safe``: counters on the source, devotion from copiable mana costs (700.5a), life)."""
-    if info is None or state.rules is None or not card.zone.endswith(":battlefield") or card.id in _L4_VISITING:
+    if info is None or state.rules is None or not card.zone.endswith(":battlefield") or card.id in _T.l4:
         return []
     # -- review (wave 4R) -- (cheap first: only an object whose own copiable abilities have such a static reads the
     # table's statics — whose cache key is a pass over the battlefield, once per derive otherwise)
@@ -704,57 +834,59 @@ def _own_layer4(state: GameState, card: CardInstance, info: CardInfo | None) -> 
     if not any(d["kind"] == "static" and ("remove_types" in d or "add_subtypes" in d)
                for d in scripts.definitions(copiable(state, card, info)).values()):
         return []
-    table = [st for st in statics(state, info) if st.source == card.id and st.gate is None
+    table = [st for st in (statics(state, info) if table is None else table) if st.source == card.id and st.gate is None
              and ("remove_types" in st.definition or "add_subtypes" in st.definition)]
     if not table:
         return []
     from app.rules import statics as grammar
 
     view = _view(state, info)
-    _L4_VISITING.add(card.id)
+    _T.l4.add(card.id)
     try:
         # (wave 11E: "is the chosen type in addition to its other types" adds the type chosen as it entered, 614.12a)
         return [(st.seq, {**st.definition, "add_subtypes": [t for t in [card.choices.get("Chosen creature type", "").strip()] if t]}
                  if st.definition.get("chosen_type") else st.definition) for st in table
                 if grammar.conditions_hold(view, st.definition, source=card, controller=st.controller)]
     finally:
-        _L4_VISITING.discard(card.id)
+        _T.l4.discard(card.id)
 
 
-def _own_layer5(state: GameState, card: CardInstance, info: CardInfo | None) -> list[tuple[int, dict[str, Any]]]:
+def _own_layer5(state: GameState, card: CardInstance, info: CardInfo | None,
+                table: list[Static] | None = None) -> list[tuple[float, dict[str, Any]]]:
     """-- ability words (wave 9C) -- the object's own color statics whose conditions hold now ("As long as there are seven or
     more cards in your graveyard, this creature gets +1/+1, is black, …"; statics ``_color_safe``: conditions that never
     read the colors being derived)."""
-    if info is None or state.rules is None or not card.zone.endswith(":battlefield") or card.id in _L4_VISITING:
+    if info is None or state.rules is None or not card.zone.endswith(":battlefield") or card.id in _T.l4:
         return []
     from app.rules import scripts
 
     if not any(d["kind"] == "static" and d.get("who") == "self" and "set_colors" in d
                for d in scripts.definitions(copiable(state, card, info)).values()):
         return []
-    table = [st for st in statics(state, info) if st.source == card.id and st.gate is None
+    table = [st for st in (statics(state, info) if table is None else table) if st.source == card.id and st.gate is None
              and st.definition.get("who") == "self" and "set_colors" in st.definition]
     if not table:
         return []
     from app.rules import statics as grammar
 
     view = _view(state, info)
-    _L4_VISITING.add(card.id)
+    _T.l4.add(card.id)
     try:
         return [(st.seq, st.definition) for st in table
                 if grammar.conditions_hold(view, st.definition, source=card, controller=st.controller)]
     finally:
-        _L4_VISITING.discard(card.id)
+        _T.l4.discard(card.id)
 
 
 def _grants(d: dict[str, Any]) -> bool:
     """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
     opponents control can't block.") is applied by ``_with_rules`` instead."""
-    return bool(d["p"] or d["t"] or d.get("base") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of")
+    return bool(d["p"] or d["t"] or d.get("base") or d.get("base_mv") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of")
                 or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords"))  # -- attached events (wave 4L) --
 
 
-def _attached45(state: GameState, card: CardInstance, info: CardInfo | None) -> list[tuple[int, dict[str, Any]]]:
+def _attached45(state: GameState, card: CardInstance, info: CardInfo | None,
+                table: list[Static] | None = None) -> list[tuple[float, dict[str, Any]]]:
     """-- attached events (wave 4L) -- the type/color statics of the Auras and Equipment attached to it."""
     if info is None or state.rules is None or not card.zone.endswith(":battlefield"):
         return []
@@ -762,13 +894,12 @@ def _attached45(state: GameState, card: CardInstance, info: CardInfo | None) -> 
         return []
     from app.rules.attached_types import layer45
 
-    return layer45(state, card, statics(state, info))
+    return layer45(state, card, statics(state, info) if table is None else table)
 
 
 # -- dynamic values (agent F): "for each …" modifications (7c) and characteristic-defining P/T (7a) --
 _EACH_CACHE: dict[tuple, int] = {}
 _CDA_CACHE: dict[tuple, tuple[int | None, int | None]] = {}
-_CDA_VISITING: set[str] = set()
 
 
 def _static_ctx(view: Plan, source: str, controller: str) -> dict[str, Any]:
@@ -798,6 +929,23 @@ def _each_amount(view: Plan, st: Static, tkey: tuple, card: CardInstance) -> int
     return hit
 
 
+def _lost_cda(start: Characteristics, now: Characteristics) -> bool:
+    """Did layers 4-6 take away the object's characteristic-defining P/T ability (it had one before them, it has none now)?"""
+    from app.rules import scripts
+
+    def has(ch: Characteristics) -> bool:
+        return any(d.get("static") == "cda" and (d.get("p") is not None or d.get("t") is not None) for d in scripts.definitions(ch).values())
+
+    return has(start) and not has(now)
+
+
+def _star_zero(value: str | None) -> int | None:
+    try:
+        return sum(int(x) for x in (value or "*").replace("*", "0").split("+"))
+    except ValueError:
+        return None
+
+
 def _cda(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo) -> tuple[int | None, int | None]:
     """Layer 7a (613.4a): the object's own characteristic-defining ability that defines its power
     and/or toughness ("~'s power and toughness are each equal to the number of lands you control",
@@ -807,7 +955,7 @@ def _cda(state: GameState, card: CardInstance, ch: Characteristics, info: CardIn
     reading each other's power) reads it as unknown rather than recursing (613.8: no dependency
     order is modelled beyond that)."""
     r = state.rules
-    if r is None or card.id in _CDA_VISITING or r.card_mode(card.id) == "manual":
+    if r is None or card.id in _T.cda or r.card_mode(card.id) == "manual":
         return None, None
     from app.rules import scripts, values
 
@@ -824,14 +972,14 @@ def _cda(state: GameState, card: CardInstance, ch: Characteristics, info: CardIn
         return hit
     view = _view(state, info)
     ctx = {"controller": controller, "source_card": card.id, "source_object": r.object_id(card.id), "unknown_choice_raises": True}
-    _CDA_VISITING.add(card.id)
+    _T.cda.add(card.id)
     try:
         p = values.evaluate(view, ctx, d["p"]) if d["p"] is not None else None
         t = values.evaluate(view, ctx, d["t"]) if d["t"] is not None else None
     except values.NoChosenPlayer:  # -- chosen type (wave 16F) -- before "As ~ enters, choose …" is answered: not known yet (not 0)
         return None, None
     finally:
-        _CDA_VISITING.discard(card.id)
+        _T.cda.discard(card.id)
     if len(_CDA_CACHE) > 4096:
         _CDA_CACHE.clear()
     _CDA_CACHE[key] = (p, t)
@@ -846,14 +994,13 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
     steps.", an Aura's "Enchanted creature … attacks each combat if able."). Statics are read after
     layer 7, so a subject like "creatures with power 4 or greater" sees the current power
     (613.8-style dependency, as far as this engine models it)."""
-    global _depth
-    if info is not None and card.zone.endswith(":battlefield") and state.rules is not None and _depth == 0:
+    if info is not None and card.zone.endswith(":battlefield") and state.rules is not None and _T.depth == 0:
         from app.rules import statics as grammar
 
         view = _view(state, info)
         table = [st for st in statics(state, info) if st.definition["static"] == "grant" and st.definition.get("rules")]
         tkey = _table_key(state) if any(st.definition.get("conditions") or st.gate for st in table) else ()
-        _depth += 1
+        _T.depth += 1
         try:
             for st in table:
                 d = st.definition
@@ -865,7 +1012,7 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
                         and _conditions(view, st, tkey):
                     imposed.update(rules)
         finally:
-            _depth -= 1
+            _T.depth -= 1
     if imposed:
         ch = replace(ch, imposed=ch.imposed | frozenset(imposed))
     return ch

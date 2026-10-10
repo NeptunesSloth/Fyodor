@@ -31,6 +31,8 @@ def real(name, cost, cmc, types, text, pt=None, colors=()):
 
 EXTRA = [
     real("Geosurge", "{R}{R}{R}{R}", 4, "Sorcery", "Add {R}{R}{R}{R}{R}{R}{R}. Spend this mana only to cast artifact or creature spells.", None, "R"),
+    real("Augury Raven", "{3}{U}", 4, "Creature — Bird", "Flying\nForetell {1}{U} (During your turn, you may pay {2} and exile this card from "
+         "your hand face down. Cast it on a later turn for its foretell cost.)", ("3", "1"), "U"),
     real("Grand Architect", "{1}{U}{U}", 3, "Creature — Vedalken Artificer",
          "Other blue creatures you control get +1/+1.\n{U}: Target artifact creature becomes blue until end of turn.\n"
          "Tap an untapped blue creature you control: Add {C}{C}. Spend this mana only to cast artifact spells or activate abilities of artifacts.",
@@ -154,6 +156,21 @@ def test_a_spell_adds_restricted_mana_that_pays_only_where_it_may(cards):
     act(s, "p1", type="cast_spell", card_id=next(c.id for c in s.state.cards.values() if c.name == "Monastery Swiftspear"))
     settle(s)
     assert len(units(s)) == 6 and any(c.name == "Monastery Swiftspear" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    roundtrip(s)
+
+
+def test_creature_spell_mana_does_not_pay_to_foretell_a_creature_card(cards):
+    # Review 19: foretelling is a special action (116.2h), not casting a spell: "Spend this mana only to cast … creature spells" can't pay it
+    s = build(cards, "Geosurge", "Augury Raven")
+    to_hand(s, "Geosurge")
+    raven = to_hand(s, "Augury Raven")
+    mana(s, "p1", R=4)
+    act(s, "p1", type="cast_spell", card_id=next(c.id for c in s.state.cards.values() if c.name == "Geosurge"))
+    settle(s)
+    assert len(units(s)) == 7
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=raven.id, ability=1)
+    assert s.state.cards[raven.id].zone == "p1:hand"
     roundtrip(s)
 
 

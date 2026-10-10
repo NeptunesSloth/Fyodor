@@ -89,18 +89,18 @@ def parse_cost(text: str | None) -> ManaCost:
 # -- as long as (wave 9B) -- 118.14 / 609.4b: "mana of any type can be spent" and "spend mana as though it were mana of any
 # color" change only how the cost may be paid. Any type: every symbol made of mana types is paid by one mana of any type
 # (a generic requirement; {S} still needs a snow source, a Phyrexian symbol keeps its own way: the choice is only wider
-# there). Any color: a colored or all-color hybrid symbol is paid by one mana of any color (colorless can't be spent as a
-# color); {C} and {2/B}-style symbols are untouched. (Any type: {2/B} becomes one generic.)
+# there). Any color: a colored or all-color hybrid symbol is paid by one mana of any kind (colorless mana is treated as the color,
+# wave 22F); {C} and {2/B}-style symbols are untouched. (Any type: {2/B} becomes one generic.)
 def spend_as(cost: ManaCost, mode: str) -> ManaCost:
     if mode == "type":
         return ManaCost(cost.generic + sum(1 for c in cost.colored if c != SNOW) + len(cost.hybrid),  # ({2/B}: one mana pays {B})
                         tuple(c for c in cost.colored if c == SNOW), (), cost.phyrexian, cost.x, cost.unsupported)
     if mode == "color":
-        any_color = tuple(COLORS)
-        hybrid = tuple(any_color if all(x in COLORS for x in h) else h for h in cost.hybrid)
-        return ManaCost(cost.generic, tuple(c for c in cost.colored if c not in COLORS),
-                        hybrid + tuple(any_color for c in cost.colored if c in COLORS),
-                        cost.phyrexian, cost.x, cost.unsupported)
+        # -- casting costs (wave 22F) -- 609.4: colorless mana spent "as though it were mana of any color" is treated as the color
+        # needed, so a colored (or all-color hybrid) symbol is paid by any one mana; {C} and {2/B}-style symbols are untouched
+        paid = sum(1 for c in cost.colored if c in COLORS) + sum(1 for h in cost.hybrid if all(x in COLORS for x in h))
+        return ManaCost(cost.generic + paid, tuple(c for c in cost.colored if c not in COLORS),
+                        tuple(h for h in cost.hybrid if not all(x in COLORS for x in h)), cost.phyrexian, cost.x, cost.unsupported)
     return cost
 
 
@@ -173,6 +173,10 @@ def _effect_options(effect: str, identity: tuple[str, ...]) -> tuple[tuple[str, 
         return ((m.group(2),) * _NUM[m.group(1)],)
     if effect == "Add one mana of any type that a land you control could produce":
         return (("LANDS",),)
+    # -- mana (wave 19E) -- "any color that a land / basic land / Gate you control could produce", "any type that a Gate …":
+    # ("LANDS:<color|type>:<land|basic|Gate>",) read by casting.mana_abilities
+    if m := re.fullmatch(r"Add one mana of any (?P<k>color|type) that an? (?P<f>land|basic land|Gate) you control could produce", effect):
+        return ((f"LANDS:{m['k']}:{m['f'].split()[0]}",),)
     if effect == "Add one mana of any color that a land an opponent controls could produce":
         return (("LANDS_OPP",),)
     body = effect[len("Add "):]
@@ -286,7 +290,7 @@ def _choice_part(part: str) -> bool:
     found = C.parse_ability_cost(part, card_name="~")
     # -- activated sweep (wave 17B) -- also exerting / untapping the source ({Q}, 107.6) and foraging (701.61a): paid by hand
     return not found.unsupported and bool(found.components) and all(
-        c.kind in (C.EXERT, C.UNTAP, C.FORAGE) or (
+        c.kind in (C.EXERT, C.UNTAP, C.FORAGE, C.DISCARD_HAND) or (  # (wave 26C: "Discard your hand", 701.9a: no choice, paid with the rest)
             (not c.activation_only or (c.x and c.kind == C.TAP_OTHER)) and c.selector is not None  # (X: Hazel, "Tap X untapped tokens")
             and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random)
         for c in found.components)
@@ -402,6 +406,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             riders.append(rd)
         elif s == "Activate only once each turn":
             once = True
+        elif s == "Activate only as an instant" and chooses:
+            pass  # -- activated sweep (wave 26C) -- 602.5d: when you have priority; a cost of objects is only ever paid by hand (never mid-payment)
         elif (t := _ACTIVATE_TURN.fullmatch(s)) and condition is None:  # -- activated sweep (wave 17B) -- 602.5d: whose turn it is
             condition = _general_condition("it's your turn" if t["w"] == "your turn" else "it's an opponent's turn")
             once = once or bool(t["once"])
@@ -582,7 +588,7 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
     by_life = {tuple(sorted(phy[i] for i in ix)): ix for k in range(len(phy) + 1) for ix in combinations(range(len(phy)), k)}
     attempts = [(base + [(c,) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
     for reqs, life_cost in attempts:
-        if life_cost and life_cost >= life:
+        if life_cost and life_cost > life:  # 119.4 (wave 29C): the life total only has to be at least the payment — all of it may be paid
             continue
         found = _solve(reqs, cost.generic, pool, ordered)
         if found is None:
@@ -750,11 +756,38 @@ def spend_kind(s: str) -> str | None:
     return parse_spend(s)
 
 
+# -- mana for special abilities (wave 19E) -- actions that aren't casting a spell or activating an ability of a source, with the
+# ``casting.Purpose.special`` that names them: "activate an equip ability", "turn permanents face up", "foretell a card",
+# "activate power-up abilities"
+_SPECIAL_SPEND = {r"activate (?:an equip ability|equip abilities)": "equip", r"turn (?:a )?(?:permanents?|creatures?) face up": "turn_up",
+                  r"foretell (?:a card|cards)(?: from your hand)?": "foretell", r"activate power-up abilities": "power_up"}
+
+
+def _special_split(s: str) -> tuple[str, list[str]]:
+    """The sentence without its special actions, and those (the list "cast X, turn permanents face up, or activate abilities")."""
+    found: list[str] = []
+    for pattern, name in _SPECIAL_SPEND.items():
+        for rx in (rf"(?:, or | or |, ){pattern}", rf"(?<=only to ){pattern}(?:, or | or |, )"):
+            s, n = re.subn(rx, "", s, count=1)
+            if n:
+                found.append(name)
+                break
+        else:
+            if re.fullmatch(rf"Spend this mana only to {pattern}", s):
+                return "Spend this mana only to", [name]
+    return s, found
+
+
 def parse_spend(sentence: str) -> str | None:
     """A general "Spend this mana only to …" restriction as "q:<json>" (None: not one the payer checks)."""
     import json
 
     s = sentence.strip().rstrip(".")
+    s, special = _special_split(s)
+    if special:
+        rest = None if s == "Spend this mana only to" else parse_spend(s)
+        base = json.loads(rest[2:]) if rest is not None else {"cast": None, "ability": None} if s == "Spend this mana only to" else None
+        return None if base is None else "q:" + json.dumps({**base, "special": sorted(special)}, sort_keys=True)
     if s == "Spend this mana only on costs that contain {X}":  # -- mana provenance (wave 18B) -- casting.Purpose.cost_x
         return "q:" + json.dumps({"cast": None, "ability": None, "cost_x": True}, sort_keys=True)
     if s == "This mana can't be spent to cast spells":

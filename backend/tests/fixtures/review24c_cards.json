@@ -1,0 +1,133 @@
+[
+{
+"name": "Brainstorm",
+"mana_cost": "{U}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "Draw three cards, then put two cards from your hand on top of your library in any order.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [],
+"layout": "normal"
+},
+{
+"name": "Clone",
+"mana_cost": "{3}{U}",
+"cmc": 4.0,
+"type_line": "Creature \u2014 Shapeshifter",
+"oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"power": "0",
+"toughness": "0",
+"keywords": [],
+"layout": "normal"
+},
+{
+"name": "Doubling Season",
+"mana_cost": "{4}{G}",
+"cmc": 5.0,
+"type_line": "Enchantment",
+"oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [],
+"layout": "normal"
+},
+{
+"name": "Chandra, Torch of Defiance",
+"mana_cost": "{2}{R}{R}",
+"cmc": 4.0,
+"type_line": "Legendary Planeswalker \u2014 Chandra",
+"oracle_text": "+1: Exile the top card of your library. You may cast that card. If you don't, Chandra deals 2 damage to each opponent.\n+1: Add {R}{R}.\n\u22123: Chandra deals 4 damage to target creature.\n\u22127: You get an emblem with \"Whenever you cast a spell, this emblem deals 5 damage to any target.\"",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"loyalty": "4",
+"keywords": [],
+"layout": "normal"
+},
+{
+"name": "Wishing Well",
+"mana_cost": "{3}{U}",
+"cmc": 4.0,
+"type_line": "Artifact",
+"oracle_text": "{T}: Put a coin counter on this artifact. When you do, you may cast target instant or sorcery card with mana value equal to the number of coin counters on this artifact from your graveyard without paying its mana cost. If that spell would be put into your graveyard, exile it instead. Activate only as a sorcery.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [],
+"layout": "normal"
+},
+{
+"name": "Systems Override",
+"mana_cost": "{2}{R}",
+"cmc": 3.0,
+"type_line": "Sorcery",
+"oracle_text": "Gain control of target artifact or creature until end of turn. Untap that permanent. It gains haste until end of turn. If it's a Spacecraft, put ten charge counters on it. If you do, remove ten charge counters from it at the beginning of the next end step.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [],
+"layout": "normal"
+},
+{
+"name": "Floodgate",
+"mana_cost": "{3}{U}",
+"cmc": 4.0,
+"type_line": "Creature \u2014 Wall",
+"oracle_text": "Defender\nWhen this creature has flying, sacrifice it.\nWhen this creature leaves the battlefield, it deals damage to each nonblue creature without flying equal to half the number of Islands you control, rounded down.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"power": "0",
+"toughness": "5",
+"keywords": [
+"Defender"
+],
+"layout": "normal"
+},
+{
+"name": "Thought Gorger",
+"mana_cost": "{2}{B}{B}",
+"cmc": 4.0,
+"type_line": "Creature \u2014 Horror",
+"oracle_text": "Trample\nWhen this creature enters, put a +1/+1 counter on it for each card in your hand. If you do, discard your hand.\nWhen this creature leaves the battlefield, draw a card for each +1/+1 counter on it.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"power": "2",
+"toughness": "2",
+"keywords": [
+"Trample"
+],
+"layout": "normal"
+}
+]

@@ -62,18 +62,39 @@ def _uses(node: Any, key: str = "") -> list[tuple[str, str]]:
 
 
 def _enters_choices(ch: Characteristics) -> list[str]:
+    from app.rules import (
+        card_names,  # -- card names (wave 22B) -- "As ~ enters, choose a card name." counts as a card name choice
+    )
     from app.rules.language import ENTERS_CHOICE
     from app.rules.scripts import self_text
 
-    return [m["what"] for ab in ch.abilities if (m := ENTERS_CHOICE.match(self_text(ab.text, ch.name))) is not None]
+    texts = [self_text(ab.text, ch.name) for ab in ch.abilities]
+    named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
+    return [m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None] + ["card name" for _ in named]
+
+
+def _kind(what: str | None) -> str | None:
+    from app.rules import (
+        card_names,  # -- card names (wave 22B) -- every "… card name" choice is the one "card name" value
+    )
+
+    return "card name" if card_names.is_choice(what) else what
 
 
 def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     """Whether every "of the chosen type / color" in this definition names a choice the engine knows (see above)."""
-    if d.get("chosen_type") and _enters_choices(ch).count("creature type") != 1:
+    if d.get("chosen_type") and _enters_choices(ch).count("basic land type" if d["chosen_type"] == "land" else "creature type") != 1:
         return False  # (wave 11E: "~ is the chosen type in addition to its other types" needs that one choice)
 
     dumped = json.dumps(d)
+    if "Protection from the chosen color" in dumped and d.get("static") == "grant":  # -- attached events (wave 25D) -- an Aura's static: its own enters choice
+        return _enters_choices(ch).count("color") == 1
+    if "Protection from the chosen color" in dumped:  # -- chosen type (wave 20E) -- only in the instructions after a "Choose a color." of this resolution
+        effects = d.get("effects") or []
+        picks = [i for i, e in enumerate(effects) if e.get("do") == "choose_value" and e.get("what") == "color" and not e.get("remember")]
+        if len(picks) != 1 or any("Protection from the chosen color" in json.dumps(e) for e in effects[: picks[0]]) \
+                or "Protection from the chosen color" in json.dumps({k: v for k, v in d.items() if k != "effects"}):
+            return False
     if ('"hand": "chosen"' in dumped or '\\"controller\\":\\"chosen\\"' in dumped or '\\"zone_owner\\":\\"chosen\\"' in dumped) \
             and not chooses_player(ch):
         return False  # (wave 16F: "the chosen player" needs the one "As ~ enters, choose an opponent / a player.")
@@ -86,7 +107,7 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     for what in {w for _, w in uses}:
         if what == "?":
             return False
-        inside = [i for i, e in enumerate(effects) if e.get("do") == "choose_value" and e.get("what") == what
+        inside = [i for i, e in enumerate(effects) if e.get("do") == "choose_value" and _kind(e.get("what")) == what
                   and not e.get("remember")]
         if inside:  # a choice made as it resolves: only in the instructions after it
             if len(inside) != 1 or what in _enters_choices(ch):
@@ -97,7 +118,7 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
             continue
         if d.get("kind") == "spell" or _enters_choices(ch).count(what) != 1:
             return False
-        if any(w == what and k not in _SOURCE_KEYS for k, w in uses):
+        if any(w == what and k not in _SOURCE_KEYS and not (k == "filter" and d.get("static") == "cast_limit") for k, w in uses):  # (wave 22B)
             return False
     return True
 
@@ -115,6 +136,8 @@ def bind_effects(effects: list[dict[str, Any]], what: str, value: str) -> list[d
             sel = selectors.from_key(node)
             if selectors.chosen_what(sel) == what and (bound := selectors.bind_chosen(sel, value)) is not None:
                 return bound.key()
+        if node == "Protection from the chosen color" and what == "color":  # (wave 20E: protection_grants.CHOSEN_LINE)
+            return f"Protection from {value.lower()}"
         return node
 
     return [walk(e) for e in effects]

@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.game.actions import MAX_TARGETS
 from app.game.rules_state import TargetRef
 from app.game.state import CardInstance
 from app.rules import protection, selectors
@@ -58,6 +59,7 @@ SELECTORS: dict[str, tuple[bool, Check | None]] = {
     # (a player, or any planeswalker: not only an opponent's)
     "player_or_planeswalker": (True, _types("Planeswalker")),
     "opponent_or_planeswalker": (True, _types("Planeswalker")),
+    "permanent_or_player": (True, lambda plan, who, card, ch: True),  # -- counter kinds (wave 24C) -- "target permanent or player"
 }
 OPPONENTS_ONLY = ("opponent", "opponent_or_planeswalker")
 
@@ -78,11 +80,23 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     if "hexproof" in ch.keywords and card.controller != chooser:
         return False
     for rule in ch.imposed:  # -- cant (wave 16F) -- "can't be the target of black spells or abilities from black sources"
+        if rule.startswith("untargetable_by_opponents_of:") and chooser != rule.split(":", 1)[1]:
+            return False  # (-- review 20A -- the Aura's controller's opponents; no teams: every other player, 102.2)
         if rule.startswith("untargetable:") and source is not None:
             _, opp, non, colors = rule.split(":")
             if (opp == "0" or card.controller != chooser) and bool(set(colors) & source.colors) != (non == "1"):
                 return False
     return not protection.protected_from(ch, source)
+
+
+def _more(plan: Plan, cond: str, pid: str) -> int:
+    """-- activated other (wave 21E) -- what "has more life / controls more creatures / has more cards in hand" compares."""
+    if cond == "life":
+        return plan.state.players[pid].life
+    if cond == "hand2":
+        return len(plan.state.zones.get(f"{pid}:hand", []))
+    return sum(1 for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c)
+               and c.controller == pid and plan.ch(c).is_creature)
 
 
 def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristics | None = None,
@@ -91,6 +105,11 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
     (``source``: the spell or the ability's source, for protection; ``source_card``: that
     object, for "another target …"; ``attacker``: the creature an "attacks" trigger is about,
     whose defending player "defending player" means, 508.5)."""
+    if selector.startswith("opponent_as:"):  # -- activated other (wave 21E) -- "target opponent who has more life than you do as you activate this ability" (601.2c)
+        cond = selector.split(":", 1)[1]
+        margin = 2 if cond == "hand2" else 1
+        return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker)
+                if _more(plan, cond, p) >= _more(plan, cond, chooser) + margin]
     if selector.startswith(selectors.PREFIX):  # a structured selector (app/rules/selectors.py)
         return _selector_targets(plan, selectors.from_key(selector), chooser, source, source_card, attacker)
     if selector.startswith("graveyard:"):  # "target Spirit card with mana value N or less from your graveyard"
@@ -160,6 +179,8 @@ def ref(plan: Plan, target: str) -> TargetRef:
 def still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, source: Characteristics | None = None,
                 source_card: str | None = None, attacker: str | None = None) -> bool:
     """608.2b: is a chosen target still legal? A card that changed zones is a new object: illegal."""
+    if selector.startswith("opponent_as:"):  # (wave 21E: "as you activate this ability" is only judged as it is chosen)
+        selector = "opponent"
     if target.object_id is None:
         return target.id in plan.live() and target.id in legal_targets(plan, selector, chooser, source, source_card, attacker)
     card = plan.state.cards.get(target.id)
@@ -178,6 +199,7 @@ class GroupChoice:
     division: list[list[int]] = field(default_factory=list)
     ask: tuple[Any, ...] | None = None
     counts: list[int] = field(default_factory=list)  # targets per group so far (groups with nothing to target: 0)
+    capped: int = 0  # -- target limits (wave 29C) -- with ``ask``: how many targets the rules allow when that is more than MAX_TARGETS
 
 
 def divide_total(spec: dict[str, Any], x: int | None) -> int | None:
@@ -189,12 +211,24 @@ def divide_total(spec: dict[str, Any], x: int | None) -> int | None:
     return int(total) if isinstance(total, int) else int(x or 0)
 
 
-def group_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
-    """(min, max) targets of a group; a divided group needs at most as many targets as there is
-    to divide, and at least one (601.2d: each gets at least one)."""
+def where_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | None, source_object: str | None,
+            event: dict[str, Any] | None = None) -> int:
+    """-- X target counts (wave 27C) -- "up to X target …, where X is <a count>" (107.3c: the text defines X; 601.2c: the number of
+    targets is what that count is as the targets are chosen, and doesn't change after)."""
+    from app.rules import values
+
+    card = plan.state.cards.get(source_card) if source_card else None
+    ctx: dict[str, Any] = {"controller": chooser, "source_card": source_card, "source_object": source_object or (plan.oid(card) if card else None),
+                           "targets": [], "event": event}  # (wave 28D: a trigger's event is known as it is put on the stack, 603.3d)
+    return values.evaluate(plan, ctx, spec["x_value"])
+
+
+def free_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
+    """(min, max) targets of a group as the rules give them, before the engine's own limit; a divided group needs at most as many
+    targets as there is to divide, and at least one (601.2d: each gets at least one)."""
     lo, hi = int(spec.get("min", 1)), int(spec.get("max", 1))
     if spec.get("x_count"):  # -- X sized by a count (wave 4K) -- "X target …" / "up to X target …" (601.2c: the number is
-        hi = min(hi, max(0, int(x or 0)))  # determined with X, 601.2b, and doesn't change after)
+        hi = max(0, int(x or 0))  # determined with X, 601.2b, and doesn't change after; wave 29C: X alone limits it)
         lo = hi if spec["x_count"] == "exact" else 0
         if hi == 0:
             return 0, 0  # (X is 0: no targets, nothing to divide among them)
@@ -204,9 +238,24 @@ def group_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
     return lo, hi
 
 
+def group_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
+    """(min, max) targets of a group the engine takes: ``free_limits`` cut at ``MAX_TARGETS`` (wave 29C: the most one choice carries; the
+    prompt says so when that is fewer than the rules allow). An exact "X target …" over it is refused, not shortened: fewer targets than
+    X would be another spell (601.2c, 107.3a)."""
+    lo, hi = free_limits(spec, x)
+    if hi > MAX_TARGETS:
+        if lo > MAX_TARGETS:
+            from app.game.errors import ActionError
+
+            raise ActionError(f"X is {lo}, but at most {MAX_TARGETS} targets can be chosen at once: choose a smaller X")
+        hi = MAX_TARGETS
+    return lo, hi
+
+
 def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
                   source_card: str | None, targets: list[str], counts: list[int], division: list[int],
-                  x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None) -> GroupChoice:
+                  x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
+                  source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
     """Check the choices made so far for each target group, in printed order (601.2c): the
     number of targets (``counts``: how many of ``targets`` are each group's), no object twice
     for one word "target" (115.3; the same object may be chosen for another group unless it says
@@ -224,7 +273,10 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         banned = {t for d in spec.get("distinct_from") or [] if d < len(out.groups) for t in out.groups[d]}
         options = [t for t in legal_targets(plan, spec["what"], chooser, source, source_card, attacker)
                    if t not in exclude and t not in banned]
-        lo, hi = group_limits(spec, x)
+        shaped = {**spec, "x_count": "upto"} if "x_value" in spec else spec
+        counted = where_x(plan, spec, chooser, source_card, source_object, event) if "x_value" in spec else x
+        lo, hi = group_limits(shaped, counted)
+        allowed = free_limits(shaped, counted)[1]
         if g >= len(out.counts) and hi == 0:  # -- kicked / instead (wave 4G) -- a group the spell doesn't require (601.2c)
             out.counts.append(0)
         if g >= len(out.counts):
@@ -234,6 +286,7 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
                 out.counts.append(0)  # "up to one target …" with nothing to target: zero targets (115.6)
             else:
                 out.ask = ("group", g, options, lo, min(hi, len(options)))
+                out.capped = allowed if allowed > hi and len(options) > hi else 0  # (said in the prompt: ask_targets)
                 return out
         count = out.counts[g]
         chosen = targets[pos:pos + count]

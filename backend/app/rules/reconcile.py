@@ -91,8 +91,14 @@ def _derive(plan: Plan) -> None:
     if state.turn.phase not in COMBAT_PHASES:
         r.blocked, r.blockers_pending, r.no_attackers, r.combat_round = [], [], False, ""
     d = r.decision
+    if d is not None and r.payment_outer is not None and _stale(plan, d):  # -- review 28D -- a stale nested choice: back to its payment,
+        from app.rules import casting  # which is checked in turn
+
+        casting.unnest(plan)
+        d = r.decision
     if d is not None and _stale(plan, d):
         r.decision = None
+        r.payment_outer = None
         r.priority = plan.active
         plan.note("A pending decision no longer matched the table and was cancelled")
 

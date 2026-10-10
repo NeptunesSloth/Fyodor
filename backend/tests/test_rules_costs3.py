@@ -117,7 +117,7 @@ def test_additional_costs_the_engine_pays(text):
 
 
 @pytest.mark.parametrize("text", [
-    "you may sacrifice a creature", "discard X cards",  # ("pay X life": wave 4K; "A or B": read since wave 6E)
+    "you may sacrifice a creature", "discard X cards and sacrifice X creatures",  # ("pay X life": wave 4K; "A or B": 6E; "discard X cards": 25D)
     "sacrifice this spell", "tap an untapped creature you control, discard a card",
 ])
 def test_additional_costs_it_refuses(text):
@@ -283,7 +283,8 @@ def test_modifier_wordings_of_real_cards(text):
 @pytest.mark.parametrize("text", [
     # (wave 4I: "Spells you cast from anywhere other than your hand cost {1} less" is read now: cost_changes.py)
     # (wave 4I: "The first creature spell you cast each turn costs {1} less" is read now: cost_changes.ORDINAL)
-    "Red creature spells and green creature spells cost {1} more to cast.",  # (one selector can't say "red creature or green creature")
+    # (wave 20E: "Red creature spells and green creature spells" is one color list on one type, read now; two different types are not)
+    "Red creature spells and green artifact spells cost {1} more to cast.",  # (one selector can't say "red creature or green artifact")
 ])
 def test_modifier_wordings_still_refused(text):
     assert define(text) is None

@@ -25,8 +25,8 @@ _SUBJECTS = ("self", "sel", "host", "self_or_host", "self_or")
 
 
 def allowed(d: dict[str, Any]) -> bool:
-    """Whether a definition that names the defending player is an attacking creature's trigger (above)."""
-    if WHO not in json.dumps(d, default=str):
+    """Whether a definition that names the defending player (or the attacked object) is an attacking creature's trigger (above)."""
+    if WHO not in (raw := json.dumps(d, default=str)) and "defended_player" not in raw:
         return True
     if d.get("kind") != "triggered":
         return False

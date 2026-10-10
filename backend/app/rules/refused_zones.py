@@ -113,6 +113,13 @@ def gifts(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     library = plan.state.zones.get(zone_key(pid, "library"), [])
+    from app.rules import (
+        prohibitions,  # -- prohibitions (wave 22B) -- 614.17: "Players can't search libraries." (nothing can be found)
+    )
+
+    if (why := prohibitions.cant_search(plan, pid, ctx["controller"])) is not None:
+        plan.note(f"{why}: {plan.name(pid)} can't search their library", actor=pid)
+        library = []
     sel = selectors.from_key(e["sel"])
     matching = [c for c in library
                 if selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]

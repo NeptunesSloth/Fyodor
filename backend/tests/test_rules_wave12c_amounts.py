@@ -77,7 +77,19 @@ def test_the_wording_is_exact():
     e = scripts.parse_effects("Each opponent loses X life and you scry X, where X is the number of Zombies you control.")[0]
     assert e[0]["n"] == e[1]["n"] and "x" not in e[0]["n"]
     # a target count or a selector bound is not an amount field: stays manual
-    assert scripts.parse_effects("Destroy up to X target artifacts, where X is the number of Vampires you control.") is None
+    # (wave 28D: a bound is read as the trigger is put on the stack, 603.3d: the wording parses to a marker (app/rules/where_bound.py), but only a
+    # triggered ability keeps it: a spell's stays manual)
+    got = scripts.parse_effects("Destroy target creature with toughness X or less, where X is the number of Vampires you control.")
+    assert got is not None and "wx:" in got[1]
+    from app.rules import coverage
+    from tests.fixtures.cards import card
+
+    spell = card("Vampire Bane", set_code="tst", number="X999", mana_cost="{B}", cmc=1.0, type_line="Sorcery", colors=["B"], color_identity=["B"],
+                 oracle_text="Destroy target creature with toughness X or less, where X is the number of Vampires you control.")
+    assert coverage.of_card_data(spell).level != "FULL"
+    # (27C: "up to X target" is no amount field either: it becomes the group's x_value, read as the targets are chosen, 601.2c)
+    got = scripts.parse_effects("Destroy up to X target artifacts, where X is the number of Vampires you control.")
+    assert got is not None and "n" not in got[0][0] and got[1][0]["x_value"] == {"count": 'sel:{"controller":"you","subtypes":["Vampire"]}'}
 
 
 # -- 107.3c: the text defines X ---------------------------------------------------------------------

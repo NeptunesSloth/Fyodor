@@ -18,13 +18,24 @@ automate, decisions, and conceding. Casting, abilities and combat arrive with mi
 
 from __future__ import annotations
 
+import re
+import secrets
 from collections.abc import Callable
 from typing import Any
 
 from app.game import actions as A
 from app.game.control import acting_as, controller_of, decider_of
 from app.game.errors import ActionError
-from app.game.rules_state import Decision, DecisionOption, PaymentRecord, PlayerPrefs, TurnCount, Yield
+from app.game.rules_state import (
+    Decision,
+    DecisionOption,
+    PaymentRecord,
+    Permission,
+    PlayerPrefs,
+    TurnCount,
+    Yield,
+    cancelable,
+)
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import (
     assist,  # -- casting extras (wave 18E) --
@@ -42,6 +53,8 @@ from app.rules import (
     enlist,  # -- casting extras (wave 18E) --
     exert,  # -- static wordings (wave 6E) --
     extra_turns,  # -- extra turns (wave 8A) --
+    gift,  # -- gift (wave 23D) --
+    hideaway,  # -- hideaway (wave 29D) --
     kinship,  # -- kinship (wave 9C) --
     layers,
     looking,
@@ -60,6 +73,7 @@ from app.rules import (
     rooms,  # -- Rooms (wave 18G) --
     sba,
     scripts,
+    spell_grants,  # -- spell grants (wave 28C) --
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
 )
@@ -129,6 +143,7 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
     if intent.type != "repeat_sequence":
         remember_intent(plan, intent)
     permissions.refresh_reveals(plan.state, plan.info)  # 401.5: which top library cards the table reveals now
+    hideaway.refresh(plan.state)  # -- hideaway (wave 29D) -- 406.3, 702.75a: who may look at the cards the permanents hid
     plan.rules.engine_version = RULES_ENGINE_VERSION
     plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
     return plan.steps
@@ -161,8 +176,10 @@ def begin(plan: Plan) -> None:
         prefs.yields = [y for y in prefs.yields if y.kind == "always_yield" or y.turn == turn]
     r = plan.rules
     r.loyalty_used = {k: t for k, t in r.loyalty_used.items() if t == turn}
+    r.loyalty_second = {k: t for k, t in r.loyalty_second.items() if t == turn}
     r.once_per_turn = {k: t for k, t in r.once_per_turn.items() if t == turn}
     permissions.refresh_reveals(plan.state, plan.info)  # (a permanent put onto the table by hand since)
+    hideaway.refresh(plan.state)  # (-- hideaway (wave 29D) -- a permanent whose control was taken by hand since)
 
 
 def absorb_manual_events(plan: Plan) -> None:
@@ -465,7 +482,7 @@ def empty_pools(plan: Plan) -> None:
     from app.rules import kept_mana  # -- refused copy/mana (wave 3R3): 106.4 "you don't lose this mana" --
 
     before = {pid: p.mana.get("R", 0) for pid, p in plan.state.players.items()}
-    if plan.rules.kept_mana and kept_mana.empty(plan):
+    if kept_mana.empty(plan):
         # (both kinds of kept mana: the firebending {R} on top of what the other effects kept, never more than was there)
         for pid, n in kept.items():
             add = min(n, before.get(pid, 0) - plan.state.players[pid].mana.get("R", 0))
@@ -512,7 +529,7 @@ def _keep_tapped(plan: Plan) -> list[str]:
     controllers' untap steps.", "Creatures with power 3 or greater don't untap …"), all of which
     app/rules/layers.py puts in ``Characteristics.imposed`` for whatever matches right now."""
     return [c.id for c in plan.state.cards.values() if c.tapped and c.zone.endswith(":battlefield")
-            and not plan.manual(c) and "doesnt_untap" in scripts.statics(plan.ch(c))][:250]
+            and not plan.manual(c) and "doesnt_untap" in scripts.statics(plan.ch(c))]  # (wave 29C: all of them — a cut list untapped the rest)
 
 
 def _exerted(plan: Plan, player: str) -> list[str]:
@@ -550,9 +567,9 @@ def start_next_turn(plan: Plan) -> None:
         phasing.untap_step(plan, skip_to or upcoming)
         keep += [c for c in _keep_tapped(plan) if c not in keep]  # (the ones that just phased in)
     if stay is not None:
-        keep = list(dict.fromkeys([*keep, *stay]))[:250]
-    keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or upcoming)]))[:250]  # (wave 4H)
-    keep = list(dict.fromkeys([*keep, *next_untap.kept(plan, skip_to or upcoming)]))[:250]  # (wave 6A)
+        keep = list(dict.fromkeys([*keep, *stay]))
+    keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or upcoming)]))  # (wave 4H)
+    keep = list(dict.fromkeys([*keep, *next_untap.kept(plan, skip_to or upcoming)]))  # (wave 6A)
     # -- untap choice (wave 7F) -- 502.3: "You may choose not to untap ~": asked below, after the turn changes
     asked = untap_choice.candidates(plan, skip_to or upcoming, keep) if stay is None else []
     # -- untap restrictions (wave 13E) -- 502.3: "Players can't untap more than one creature": held back until chosen below
@@ -693,6 +710,14 @@ def _resume_block_split(plan: Plan, d: Decision, chosen: list[str]) -> None:
         _after_resolution(plan)
 
 
+def _resume_assign_unblocked(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    assert d.resume is not None
+    plan.rules.assign_unblocked[d.resume["creature"]] = chosen[0] == "yes"
+    combat_damage(plan, d.resume["round"], d.resume["then"])
+    if plan.rules.decision is None:
+        _after_resolution(plan)
+
+
 def _resume_combat_damage(plan: Plan, d: Decision, chosen: list[str]) -> None:
     assert d.resume is not None
     if chosen[0] == "yes":
@@ -739,9 +764,11 @@ def turn_cleanup(plan: Plan) -> None:
     if plan.rules.effects:
         layers.end_of_turn(plan)
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
+    plan.rules.no_regen = []  # (wave 19E) and so does "can't be regenerated this turn"
     plan.rules.prevention = {}  # and so do prevention shields
     plan.rules.prevention_riders = {}
     permissions.expire(plan)  # "you may play that card this turn" and friends
+    spell_grants.expire(plan)  # -- spell grants (wave 28C) -- "the next spell you cast this turn" ends (514.2)
     delayed.cleanup(plan)  # "when … this turn" delayed triggers stop watching (514.2)
     for card in list(plan.state.cards.values()):
         for marker in [m for m in card.effects if m.text in ("until end of turn", "this combat")]:
@@ -797,7 +824,33 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         if plan.ch(card).is_instant_or_sorcery:  # (a permanent spell enters instead: not replaced, 614.1a)
             plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
             return
+    # -- instead (wave 20B) -- 614.1a: a resolved instant or sorcery card that "would be put into a graveyard" from the stack is exiled by
+    # a Rest in Peace-style effect ("an instant or sorcery card … from anywhere", "a card …"), like the one cast from a graveyard above
+    card = plan.state.cards[card_id]
+    if card_id in plan.state.zones.get(STACK, []) and not card.is_token and card.card_id is not None and plan.ch(card).is_instant_or_sorcery \
+            and replacements.leave_stack_instead(plan, card, controller):  # -- zone replacements (wave 22C) -- exile / shuffle / 616.1 choice
+        return
+    # -- review 25B -- 720.3d: an Omen spell is shuffled into its owner's library as it resolves; 715.3d: an Adventure is exiled (resolve_top)
+    # and its controller may play it for as long as it remains exiled, not as an Adventure
+    spell_types = plan.ch(card).subtypes & {"Adventure", "Omen"} if not countered and not card.is_token and card.card_id else set()
+    if "Omen" in spell_types and card_id in plan.state.zones.get(STACK, []):
+        plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "library"}}, actor=controller)
+        plan.do({"type": "shuffle", "player": card.owner}, actor=controller)
+        return
     stack = plan.state.zones.get(STACK, [])
+    if "Adventure" in spell_types and card_id in stack:
+        plan.do({"type": "resolve_top", "force": True, "tapped": tapped, **({"card_id": card_id} if stack[-1] != card_id else {})},
+                actor=controller)
+        plan.rules.payments.pop(oid, None)
+        gone = plan.state.cards.get(card_id)
+        if gone is not None and gone.zone.endswith(":exile"):
+            from app.rules import selectors
+
+            plan.rules.permissions.append(Permission(
+                id=secrets.token_hex(4), player=controller, play=True, cast=True, zone="exile", object_id=plan.oid(gone), card=card_id,
+                until="permanent", turn=plan.state.turn.number, filter=selectors.Selector(zones=(STACK,), not_subtypes=("Adventure",)).key(),
+                label=f"{gone.name}: cast it from exile (it went on an adventure)"))
+        return
     if card_id in stack:
         step: dict[str, Any] = {"type": "resolve_top", "force": True, "tapped": tapped}
         if stack[-1] != card_id:  # -- refused look/cast-free (wave 3R5) -- 608.2g: spells cast while it resolved are
@@ -806,6 +859,12 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
+            if (paid := [c for c in record.exiled if c != card_id and c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]) \
+                    and any(ab.index < 100 and ab.kind not in ("triggered", "activated") and re.search(r"\bexile\b", ab.text, re.IGNORECASE)
+                            and re.search(r"\bcost\b|^escape", ab.text, re.IGNORECASE) for ab in plan.ch(plan.state.cards[card_id]).abilities):
+                # -- resolution memory (wave 22D) -- 607.2q: the cards exiled to pay the permanent spell's cost are "exiled with" the permanent
+                # (review 22D: only through a cost an ability printed on it allows — not an escape cost Underworld Breach grants)
+                plan.rules.exiled_with[plan.oid(card_id)] = [*plan.rules.exiled_with.get(plan.oid(card_id), []), *(plan.oid(c) for c in paid)]
         if oid in plan.rules.bestowed:  # -- keywords (wave 15E) -- the bestowed Aura permanent is the spell it was (702.103b)
             plan.rules.bestowed = [o for o in plan.rules.bestowed if o != oid]
             if card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
@@ -868,7 +927,8 @@ def resolve_top_of_stack(plan: Plan) -> None:
     ep: dict[str, Any] = replacements.entry_plan(plan, top, controller, answers=answers) if entering else {"tapped": False}
     x = top.stack_info.x if top.stack_info else None
     if ep.get("life"):
-        plan.do({"type": "life", "player": controller, "delta": -int(ep["life"])}, actor=controller)
+        from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+        _replace_life.lose_life(plan, [(controller, int(ep["life"]))], actor=controller)
     # -- entering for a cost (wave 5G) -- paid as it would enter, or it goes to its owner's graveyard instead (614.6)
     from app.rules import enter_cost
 
@@ -1001,6 +1061,8 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     if card is None:
         raise ActionError("That card isn't here any more")
     probe = card.model_copy(update={"face": a.face}) if a.face is not None else card
+    if probe.face and (plan.info.get(card.card_id or "") or {}).get("layout") != "modal_dfc":
+        raise ActionError("Only a modal double-faced card can be played with its back face up (712.12)")
     problem = land_play_problem(plan.state, plan.actor, card, plan.ch(probe), info=plan.info)
     if problem:
         raise ActionError(problem)
@@ -1024,7 +1086,8 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     if a.face is not None and a.face != card.face:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     if ep.get("life"):
-        plan.do({"type": "life", "player": plan.actor, "delta": -int(ep["life"])})
+        from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+        _replace_life.lose_life(plan, [(plan.actor, int(ep["life"]))])
     # -- entering for a cost (wave 5G) -- the land was played (305.1); its entering is what the payment replaces
     from app.rules import enter_cost
 
@@ -1044,6 +1107,8 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"}, "tapped": bool(ep["tapped"])}
     if a.x is not None and a.y is not None:
         payload.update(x=a.x, y=a.y)
+    if probe.face:  # (review 25B) 712.12: a modal double-faced land played back face up enters that way (leaving the hand resets the face)
+        payload["back_ids"] = [card.id]
     from_where = card.zone.rsplit(":", 1)[-1]
     plan.do(payload)
     plan.rules.entry_choices.pop(card.id, None)
@@ -1080,6 +1145,16 @@ def choose(plan: Plan, a: A.Choose) -> None:
         raise ActionError(f"It's {plan.name(d.player)}'s decision")
     chosen = list(a.option_ids)
     valid = {o.id for o in d.options}
+    if cancelable(d):
+        valid.add("cancel")  # (-- cancelling a cast (wave 24D) --)
+    from app.rules import card_names  # -- card names (wave 22B) -- 201.4: a typed name answers it
+
+    if card_names.is_free_text(d):
+        if chosen or a.amounts:
+            raise ActionError("Type a card name")
+        chosen, valid = [card_names.answer(plan, d, a.name)], set()
+    elif a.name is not None:
+        raise ActionError("A name only answers a card-name choice")
     if d.kind == "divide":  # 601.2d: an amount per option (target), at least 1 each, adding up to the total
         total = int((d.resume or {}).get("total", 0))
         least = int((d.resume or {}).get("least", 1))  # (-- multiple blocks (wave 13B) -- 510.1d: a share may be 0)
@@ -1091,6 +1166,8 @@ def choose(plan: Plan, a: A.Choose) -> None:
         chosen = [str(n) for n in a.amounts]
     elif a.amounts:
         raise ActionError("Amounts only answer a division")
+    elif card_names.is_free_text(d):
+        pass
     elif len(set(chosen)) != len(chosen) or not set(chosen) <= valid:
         raise ActionError("Choose from the options offered")
     if d.kind == "reconcile":
@@ -1098,7 +1175,8 @@ def choose(plan: Plan, a: A.Choose) -> None:
         answered = [groups[c] for c in chosen]
         if len(set(answered)) != len(answered) or set(answered) != set(groups.values()):
             raise ActionError("Answer each question once")
-    if not d.min_choices <= len(chosen) <= d.max_choices:
+    cancelling = chosen == ["cancel"] and cancelable(d)  # (-- cancelling a cast (wave 24D) --)
+    if not cancelling and not d.min_choices <= len(chosen) <= d.max_choices:
         n = d.min_choices if d.min_choices == d.max_choices else f"{d.min_choices}–{d.max_choices}"
         raise ActionError(f"Choose {n}")
     if a.remember is not None:
@@ -1111,6 +1189,8 @@ def choose(plan: Plan, a: A.Choose) -> None:
     plan.rules.decision = None
     step = (d.resume or {}).get("step")
     RESUME[str(step)](plan, d, chosen)
+    if plan.rules.payment_outer is not None:  # -- nested payment choices (wave 28D) -- back to the payment the choice was nested in
+        casting.resume_outer(plan)
     if step != "reconcile":  # after reconciling, play picks up where the table is (like without questions)
         advance(plan)
 
@@ -1138,6 +1218,7 @@ def concede(plan: Plan, _: A.Action) -> None:
     _require_seated(plan)
     r.conceded.append(plan.actor)
     plan.note(f"{plan.name(plan.actor)} conceded")
+    casting.unnest(plan)  # (review 28D: a payment prompt a nested choice set aside is the decision settled)
     pending = r.decision
     leave_game(plan, plan.actor)
     left = plan.live()
@@ -1310,6 +1391,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "manual_done": _resume_manual_done,
     "combat_damage": _resume_combat_damage,
     "block_split": _resume_block_split,
+    "assign_unblocked": _resume_assign_unblocked,
     "cipher": recursion.resume_cipher,  # (wave 17C)
     "cleanup_manual": lambda plan, d, chosen: start_next_turn(plan),
     "untap_keep": untap_choice.resume,  # -- untap choice (wave 7F) --
@@ -1329,6 +1411,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     # step name also continues the older pay-or-sacrifice / counter-unless prompts
     "pay_or_sacrifice": optional_payment.resume,
     "return_yours": effects.resume_return_yours,
+    "return_any": effects.resume_return_any,  # (wave 26C)
     "explore": effects.resume_explore,
     "aura_enters": attachments.resume_aura_enters,
     "battle_protector": battles.resume_protector,  # 310.11
@@ -1378,6 +1461,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
+    "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
     **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)
@@ -1391,6 +1475,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "mutate_choice": merged.resume_choice,  # -- merged permanents (wave 18D) --
     "commander_first": replacements.resume_commander_first,  # 903.9b asked before the move
     "shield_order": replacements.resume_shield_order,
+    "zone_replace_order": replacements.resume_616,  # -- zone replacements (wave 22C) --
     # -- replacement effects stage 2 (wave 2E): which of several replacement / prevention effects
     # applies first (616.1), then the paused site runs again (app/rules/replace.py) --
     "replace_order": effects.replace.resume_order,

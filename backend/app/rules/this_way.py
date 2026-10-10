@@ -91,6 +91,44 @@ def parse(phrase: str) -> dict[str, Any] | None:
     return {"this_way": kind, "of": of}
 
 
+# -- resolution memory (wave 22D) -- the OBJECTS an earlier instruction moved: "Return each card put into a graveyard this way to the
+# battlefield under your control" (Sorin), "Put all creature cards milled this way onto the battlefield" (Cyber-Controller),
+# "returns all cards they exiled this way" — the new objects it made where they went (400.7j), only while each is still that object
+# there (400.7). The qualifier is read from the card where it is (a card in a graveyard or exile has its printed characteristics);
+# a controller / owner qualifier ("you controlled") is a last-known-information question and stays unread.
+_OBJECT_ZONE = {"exiled": "exile", "destroyed": "graveyard", "sacrificed": "graveyard", "milled": "graveyard", "discarded": "graveyard",
+                "graveyard": "graveyard", "your_graveyard": "graveyard", "died": "graveyard"}
+_DET = re.compile(r"^(?:each|all|every) (?P<rest>.+)$")
+_ONE = re.compile(r"^(?:an?|one) (?P<rest>.+)$")
+
+
+def choice_who(phrase: str) -> str | None:
+    """"a creature card put into a graveyard this way" (Necromantic Selection): ONE of those objects, chosen as it resolves (608.2d);
+    the ``who`` is the same as ``objects_who``'s (the pool the choice is from)."""
+    m = _ONE.match(phrase.strip())
+    return objects_who(f"each {m['rest']}") if m else None
+
+
+def objects_who(phrase: str) -> str | None:
+    """"each creature card put into a graveyard this way" → the ``who`` "them:<kind>|<selector key>" (resolve_it binds it to the
+    instruction that did <kind>, scripts.resolve_it), or None (not this wording / a form not read)."""
+    m = _DET.match(phrase.strip())
+    found = parse(m["rest"]) if m else None
+    if found is None or found.get("max_by") or found["this_way"] not in _OBJECT_ZONE:
+        return None
+    sel = selectors.from_key(found["of"]) if found.get("of") else selectors.Selector()
+    if sel.player is not None or sel.controller is not None or sel.owner is not None or sel.zone_owner is not None:
+        return None
+    return f"them:{found['this_way']}|{selectors.replace(sel, zones=(_OBJECT_ZONE[found['this_way']],), card=True).key()}"
+
+
+def filtered(plan: Plan, ctx: dict[str, Any], cards: list[str], key: str) -> list[str]:
+    """The bound cards that match the kind (and are in the zone) a "them:<kind>|<key>" names."""
+    sel = selectors.from_key(key)
+    return [c for c in cards if selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), ctx["controller"],
+                                                  ctx.get("source_card"))]
+
+
 _IF_PASSIVE = re.compile(r"^(?:a|an|at least one|one or more|any) (?P<what>.+?) (?:is|was|were|are) (?P<rest>.+ this way)$")
 _IF_THAT = re.compile(r"^that (?:creature|permanent) (?:(?:was|is) (?P<verb>destroyed|sacrificed|exiled)|(?P<dies>dies|died)) this way$")
 _IF_YOU = re.compile(r"^you (?P<verb>sacrificed|exiled|discarded|milled|destroyed) (?:a|an|one or more) (?P<what>.+?) this way$")
@@ -170,10 +208,11 @@ def condition(text: str) -> dict[str, Any] | None:
         # (you sacrifice only what you control, 701.21a: "Each player sacrifices a creature. If you sacrificed a
         # creature this way" counts yours; an exile or destruction of your ability is yours; a player mills and
         # discards their own cards, so "you milled / discarded" after "each player …" isn't read)
-        if m["verb"] in ("milled", "discarded"):
-            return None
+        # (wave 19C: counted by owner — "each player discards a card. If you discarded a card this way": 701.9a, the card is its owner's)
         ctl = " you controlled" if m["verb"] == "sacrificed" else ""
         phrase = f"{m['what']}{ctl} {m['verb']} this way"
+        if m["verb"] in ("milled", "discarded") and (v := parse(phrase)) is not None:
+            return {"value": {**v, "by": "you"}, "op": ">=", "n": 1}
     v = parse(phrase) if phrase is not None else None
     if v is None:
         return hit_condition(text)  # -- if you do (wave 10C) --
@@ -290,6 +329,8 @@ def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[d
     for new, was in zip(news, wases, strict=False):
         if not _happened(plan, v["this_way"], new, was, you):
             continue
+        if v.get("by") == "you" and getattr(plan.state.cards.get(new["card"]), "owner", None) != you:
+            continue  # (wave 19C: only the cards the controller discarded / milled)
         if v["this_way"] == "your_graveyard" and not (new.get("zone") or "").startswith(f"{you}:"):
             continue
         if sel is not None:

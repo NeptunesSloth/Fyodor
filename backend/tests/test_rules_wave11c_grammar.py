@@ -108,7 +108,7 @@ def test_definitions_of_the_full_cards():
 
 
 @pytest.mark.parametrize("text", [
-    "Whenever a modified creature you control dies, draw a card.",  # (its Auras and Equipment have let go of it by then)
+    "Whenever one or more modified creatures you control die, draw a card.",  # (wave 25B: a single dying creature is read as it last existed; a batch is not)
     "Whenever you discard one or more nonland cards for the first time each turn, draw a card.",  # (a filter on the count)
     "Whenever a player gains life for the first time each turn, draw a card.",  # (each player's, or the table's first?)
     "Whenever you gain life for the first time this turn, draw a card.",
@@ -140,7 +140,9 @@ def test_the_qualifiers_are_part_of_the_condition():
     assert first["first_each_turn"] and first["event"] == "gain_life" and "during" not in first
     assert events.parse_condition("you lose life for the first time during each of your turns")["during"] == "you"
     assert events.parse_condition("~ and at least one other Warrior attack")["others_only"]
-    assert events.parse_condition("a modified creature you control dies") is None
+    # (wave 25B: the creature as it last existed - its counters and what was attached to it, 603.10a - tests/test_rules_wave25b_triggers.py)
+    assert events.parse_condition("a modified creature you control dies")["sel"].count("modified") == 1
+    assert events.parse_condition("one or more modified creatures you control die") is None
 
 
 # -- shortened names, pronouns ----------------------------------------------------------------------------------------

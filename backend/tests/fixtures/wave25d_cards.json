@@ -1,0 +1,849 @@
+[
+ {
+  "name": "Black Ward",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature has protection from black. This effect doesn't remove this Aura.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Flickering Ward",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nAs this Aura enters, choose a color.\nEnchanted creature has protection from the chosen color. This effect doesn't remove this Aura.\n{W}: Return this Aura to its owner's hand.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Spectra Ward",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +2/+2 and has protection from each color. This effect doesn't remove Auras. (It can't be blocked, targeted, or dealt damage by anything that's white, blue, black, red, or green.)",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Tattoo Ward",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +1/+1 and has protection from enchantments. This effect doesn't remove this Aura.\nSacrifice this Aura: Destroy target enchantment.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Red Ward",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature has protection from red. This effect doesn't remove this Aura.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Iron Hills Blacksmith",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Dwarf Artificer",
+  "oracle_text": "Double strike\nWhen this creature enters, create a colorless Equipment artifact token named Axe with \"Equipped creature gets +1/+0\" and equip {2}.",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Double strike"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Mabel, Heir to Cragflame",
+  "mana_cost": "{1}{R}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature \u2014 Mouse Soldier",
+  "oracle_text": "Other Mice you control get +1/+1.\nWhen Mabel enters, create Cragflame, a legendary colorless Equipment artifact token with \"Equipped creature gets +1/+1 and has vigilance, trample, and haste\" and equip {2}.",
+  "power": "3",
+  "toughness": "3",
+  "loyalty": null,
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "U.S.Agent, John Walker",
+  "mana_cost": "{3}{W/B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature \u2014 Human Soldier Hero",
+  "oracle_text": "When U.S.Agent enters, create a colorless Equipment artifact token named Sturdy Shield with \"Equipped creature gets +1/+2\" and equip {2}. Attach it to U.S.Agent.",
+  "power": "3",
+  "toughness": "2",
+  "loyalty": null,
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Crown of Awe",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature has protection from black and from red.\nSacrifice this Aura: Enchanted creature and other creatures that share a creature type with it gain protection from black and from red until end of turn.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Crown of Suspicion",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +2/-1.\nSacrifice this Aura: Enchanted creature and other creatures that share a creature type with it get +2/-1 until end of turn.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Paralyze",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature doesn't untap during its controller's untap step.\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay {4}. If the player does, untap the creature.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Curse of Chaos",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment \u2014 Aura Curse",
+  "oracle_text": "Enchant player\nWhenever a player attacks enchanted player with one or more creatures, that attacking player may discard a card. If the player does, they draw a card.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Unifying Theory",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever a player casts a spell, that player may pay {2}. If the player does, they draw a card.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Apathy",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\nAt the beginning of the upkeep of enchanted creature's controller, that player may discard a card at random. If the player does, untap that creature.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Disturbing Conversion",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Flash\nEnchant creature\nWhen this Aura enters, each player mills two cards.\nEnchanted creature gets -X/-0, where X is the number of cards in its controller's graveyard.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant",
+   "Flash",
+   "Mill"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Death's Approach",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets -X/-X, where X is the number of creature cards in its controller's graveyard.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Righteous Authority",
+  "mana_cost": "{3}{W}{U}",
+  "cmc": 5.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +1/+1 for each card in its controller's hand.\nAt the beginning of the draw step of enchanted creature's controller, that player draws an additional card.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Lingering Death",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nAt the beginning of the end step of enchanted creature's controller, that player sacrifices that creature.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Roxanne, Starfall Savant",
+  "mana_cost": "{3}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature \u2014 Cat Druid",
+  "oracle_text": "Whenever Roxanne enters or attacks, create a tapped colorless artifact token named Meteorite with \"When this token enters, it deals 2 damage to any target\" and \"{T}: Add one mana of any color.\"\nWhenever you tap an artifact token for mana, add one mana of any type that artifact token produced.",
+  "power": "4",
+  "toughness": "3",
+  "loyalty": null,
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Ward Sliver",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature \u2014 Sliver",
+  "oracle_text": "As this creature enters, choose a color.\nAll Slivers have protection from the chosen color.",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Origin of Captain America",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment \u2014 Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 Put a +1/+1 counter on target creature you control. It gains first strike and vigilance until end of turn.\nII \u2014 Create a colorless Equipment artifact token named Sturdy Shield with \"Equipped creature gets +1/+2\" and equip {2}.\nIII \u2014 Tap up to one target creature and put a stun counter on it.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "layout": "saga"
+ },
+ {
+  "name": "Armed with Proof",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, investigate twice. (To investigate, create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nClues you control are Equipment in addition to their other types and have \"Equipped creature gets +2/+0\" and equip {2}.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Investigate"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Gemcutter Buccaneer",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature \u2014 Orc Pirate Artificer",
+  "oracle_text": "Whenever this creature or another Pirate you control enters, create a tapped Treasure token.\nTreasures you control are Equipment in addition to their other types and have \"Equipped creature gets +2/+0,\" equip Pirate {1}, and equip {3}.",
+  "power": "1",
+  "toughness": "3",
+  "loyalty": null,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Treasure"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Arterial Alchemy",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, create a Blood token for each opponent you have. (It's an artifact with \"{1}, {T}, Discard a card, Sacrifice this token: Draw a card.\")\nBlood tokens you control are Equipment in addition to their other types and have \"Equipped creature gets +2/+0\" and equip {2}.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Dan Lewis",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature \u2014 Human",
+  "oracle_text": "Noncreature, non-Equipment artifacts you control are Equipment in addition to their other types and have \"Equipped creature gets +1/+0\" and equip {1}.\nDoctor's companion (You can have two commanders if the other is the Doctor.)",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Doctor's companion"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Enchanted River's Grasp",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nWhen this Aura enters, tap enchanted creature and remove all counters from it.\nEnchanted creature loses all abilities and doesn't untap during its controller's untap step.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Vampire Hexmage",
+  "mana_cost": "{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Vampire Shaman",
+  "oracle_text": "First strike\nSacrifice this creature: Remove all counters from target permanent.",
+  "power": "2",
+  "toughness": "1",
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "First strike"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Blitz Leech",
+  "mana_cost": "{5}{B}",
+  "cmc": 6.0,
+  "type_line": "Creature \u2014 Leech",
+  "oracle_text": "Flash\nWhen this creature enters, target creature an opponent controls gets -2/-2 until end of turn. Remove all counters from that creature.",
+  "power": "5",
+  "toughness": "2",
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flash"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Gryff's Boon",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +1/+0 and has flying.\n{3}{W}: Return this card from your graveyard to the battlefield attached to target creature. Activate only as a sorcery.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Unfinished Business",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return target creature card from your graveyard to the battlefield, then return up to two target Aura and/or Equipment cards from your graveyard to the battlefield attached to that creature. (If the Auras can't enchant that creature, they remain in your graveyard.)",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Mantle of the Ancients",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature you control\nWhen this Aura enters, return any number of target Aura and/or Equipment cards from your graveyard to the battlefield attached to enchanted creature.\nEnchanted creature gets +1/+1 for each Aura and Equipment attached to it.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Eagle's Rescue",
+  "mana_cost": "{2}{W/U}{W/U}",
+  "cmc": 4.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +2/+2 and has flying.\n{2}{W/U}{W/U}: Return this card from your graveyard to the battlefield attached to target creature you control with power 1 or less. Activate only as a sorcery.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Reach of Branches",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Kindred Instant \u2014 Treefolk",
+  "oracle_text": "Create a 2/5 green Treefolk Shaman creature token.\nWhenever a Forest you control enters, you may return this card from your graveyard to your hand.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Sosuke's Summons",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Create two 1/1 green Snake creature tokens.\nWhenever a nontoken Snake you control enters, you may return this card from your graveyard to your hand.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Rekindled Flame",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Rekindled Flame deals 4 damage to any target.\nAt the beginning of your upkeep, if an opponent has no cards in hand, you may return this card from your graveyard to your hand.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Genju of the Cedars",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant Forest\n{2}: Enchanted Forest becomes a 4/4 green Spirit creature until end of turn. It's still a land.\nWhen enchanted Forest is put into a graveyard, you may return this card from your graveyard to your hand.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Screams from Within",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets -1/-1.\nWhen enchanted creature dies, return this card from your graveyard to the battlefield.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Doom Blade",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target nonblack creature.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Curse of Exhaustion",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Enchantment \u2014 Aura Curse",
+  "oracle_text": "Enchant player\nEnchanted player can't cast more than one spell each turn.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Brand of Ill Omen",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nCumulative upkeep {R} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nEnchanted creature's controller can't cast creature spells.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant",
+   "Cumulative upkeep"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Grievous Wound",
+  "mana_cost": "{3}{B}{B}",
+  "cmc": 5.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant player\nEnchanted player can't gain life.\nWhenever enchanted player is dealt damage, they lose half their life, rounded up.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Lightning Bolt",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Curse of Shallow Graves",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Enchantment \u2014 Aura Curse",
+  "oracle_text": "Enchant player\nWhenever a player attacks enchanted player with one or more creatures, that attacking player may create a tapped 2/2 black Zombie creature token.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ],
+  "layout": "normal"
+ }
+]

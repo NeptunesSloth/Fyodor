@@ -58,10 +58,14 @@ def parse_change(symbol: str, direction: str, rest: str) -> Change | None:
     """The change a cost-changing sentence makes, from its parts: ``symbol`` ("1", "X", "G"), ``direction``
     ("less" / "more") and the rest of the sentence after "to cast" / "to activate" ("" / " for each …" /
     " if …" / " as long as …" / " during your turn" / ", where X is …"). None when it isn't read."""
+    # -- cost self reduction (wave 21F) -- Valiant Changeling: "This effect can't reduce the amount of mana this spell costs by more than {5}."
+    capped = re.fullmatch(r"(?P<rest>.*?)\. [Tt]his effect can't reduce the amount of mana this spell costs by more than \{(?P<cap>\d+)\}\.?", rest)
+    if capped is not None:
+        rest = capped["rest"]
     m = _REST.fullmatch(rest.rstrip("."))
     if m is None:
         return None
-    out: Change = {"dir": -1 if direction == "less" else 1}
+    out: Change = {"dir": -1 if direction == "less" else 1, **({"cap": int(capped["cap"])} if capped and direction == "less" else {})}
     if symbol == "X":
         if not m["x"]:
             return None
@@ -82,9 +86,17 @@ def parse_change(symbol: str, direction: str, rest: str) -> Change | None:
             return None
         out["value"] = v
     cond_text = m["cond"] or m["cond2"]
+    if cond_text and cond_text.startswith("it targets "):  # -- casting costs (wave 22F) -- 601.2f: read once the targets are chosen
+        from app.rules import selectors
+
+        sel = selectors.parse(re.sub(r"^(?:a|an) ", "", cond_text[len("it targets "):]))
+        if sel is None or sel.player is not None or m["x"] or m["each"] or m["long"]:
+            return None
+        out["targets"] = sel.key()
+        return out
     if cond_text:
-        cond = conditions.parse(cond_text)
-        if cond is None or "succeeded" in cond:
+        cond = conditions.parse(cond_text, objects=True)  # (wave 20E: "as long as ~ is tapped": the source itself)
+        if cond is None or "succeeded" in cond or set(conditions.objects_in(cond)) - {"self"}:
             return None
         out["cond"] = cond
     if m["turn"]:
@@ -150,7 +162,8 @@ def ability_change(text: str) -> Change | None:
     m = ABILITY_SENTENCE.fullmatch(sentence.strip())
     if m is None or m["n"] in "WUBRG":
         return None  # (a colored change to an activation cost isn't printed on any card the grammar was checked with)
-    return parse_change(m["n"], m["dir"], m["rest"])
+    found = parse_change(m["n"], m["dir"], m["rest"])
+    return None if found and found.get("targets") else found  # (wave 22F: an ability's cost isn't read against its targets yet)
 
 
 def ability_delta(state: GameState, player: str, card: CardInstance, ch: Characteristics, text: str, info: CardInfo) -> int:
@@ -210,8 +223,18 @@ class Changes:
             self.reduction -= delta
 
 
+def targets_fit(view: Plan, card: CardInstance, player: str, key: str, targets: tuple[str, ...]) -> bool:
+    """-- casting costs (wave 22F) -- "if it targets a tapped creature": does one of the chosen targets fit (read relative to the
+    caster, 601.2f)? Before targets exist (ANY_TARGET, a castability hint) a reduction counts and an increase doesn't."""
+    from app.rules import selectors
+
+    sel = selectors.from_key(key)
+    return any((t := view.state.cards.get(tid)) is not None and selectors.matches(view, sel, t, view.ch(t), player, card.id)
+               for tid in targets)
+
+
 def own_changes(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo,
-                definitions: dict[int, dict[str, Any]]) -> Changes:
+                definitions: dict[int, dict[str, Any]], targets: tuple[str, ...] = ()) -> Changes:
     """The spell's own changes ("This spell costs {1} less to cast for each …"), read as its total cost is determined."""
     out = Changes()
     view = None
@@ -220,7 +243,11 @@ def own_changes(state: GameState, player: str, card: CardInstance, ch: Character
         if not change:
             continue
         view = view or view_of(on_stack(state, card), player, info)
+        if change.get("targets") and ((targets == ANY_TARGET and change["dir"] > 0) or (
+                targets != ANY_TARGET and not targets_fit(view, card, player, change["targets"], targets))):
+            continue  # "… if it targets …": the chosen targets (601.2c comes before 601.2f)
         n = amount(view, context(state, player, card), change)
+        n = min(n, change["cap"]) if "cap" in change else n
         if n:
             out.add(change["dir"] * n, change.get("mana"))
     return out
@@ -254,7 +281,7 @@ _FROM = {"from your graveyard": ("your_graveyard",), "from graveyards": ("gravey
          "from anywhere other than your hand": ("not_hand",)}
 STATIC = re.compile(
     r"^(?P<during>during your turn, |during turns other than yours, )?(?:each )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? "
-    r"(?:(?P<with>with (?:flying|flash)) )?(?P<who>you cast |your opponents cast )?(?P<chosen>of the chosen type )?"
+    r"(?:(?P<with>with (?:flying|flash)) )?(?P<who>you cast |your opponents cast )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
     r"(?:(?P<from>from (?:your graveyard or from exile|graveyards or from exile|your graveyard|graveyards|exile"
     r"|anywhere other than your hand)) )?"
     rf"costs? {_SYMBOL} (?P<dir>less|more) to cast(?P<rest>.*)$")
@@ -265,13 +292,18 @@ ORDINAL = re.compile(rf"^the (?P<ord>first|second) (?:(?P<sel>[A-Za-z][A-Za-z' -
                      r"less to cast$")
 
 
+# -- casting costs (wave 22F) -- Damping Sphere: "Each spell a player casts costs {1} more to cast for each other spell that player has cast this
+# turn." — the count is the caster's own (601.2f reads the turn's record, which doesn't include the spell being cast: 601.2i)
+PER_CASTER = re.compile(rf"^each spell a player casts costs {_SYMBOL} more to cast for each other spell that player has cast this turn$")
+
+
 def special(t: str) -> bool:
     """Is this a table cost changer with more than the plain "<spells> cost {N} less/more to cast" (which
     permissions.STATIC_COST reads)? Then :func:`static_definition` reads it or nothing does."""
-    if ORDINAL.fullmatch(t) or TARGETING.fullmatch(t):
+    if ORDINAL.fullmatch(t) or TARGETING.fullmatch(t) or TARGETING_LIFE.fullmatch(t) or PER_CASTER.fullmatch(t):
         return True
     m = STATIC.fullmatch(t)
-    return m is not None and bool(m["during"] or m["with"] or m["chosen"] or m["from"] or m["rest"] or not m["n"].isdigit())
+    return m is not None and bool(m["during"] or m["with"] or m["chosen"] or m["from"] or m["rest"] or m["own"] or not m["n"].isdigit())
 
 
 def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
@@ -282,7 +314,10 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     o = ORDINAL.fullmatch(t)
     if o:
         return _ordinal_definition(o)
-    tm = TARGETING.fullmatch(t)
+    if (pc := PER_CASTER.fullmatch(t)) is not None and pc["n"].isdigit():
+        return {"kind": "static", "static": "cost_modifier", "delta": int(pc["n"]), "caster": "any", "filter": None,
+                "change": {"dir": 1, "n": int(pc["n"]), "per_caster": True}, "effects": []}
+    tm = TARGETING.fullmatch(t) or TARGETING_LIFE.fullmatch(t)
     if tm:
         return _targeting_definition(tm)
     m = STATIC.fullmatch(t)
@@ -309,6 +344,17 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
     out: dict[str, Any] = {"kind": "static", "static": "cost_modifier", "delta": change["dir"] * int(change.get("n", 0)),
                            "caster": caster, "filter": key, "change": change, "effects": []}
+    if m["own"]:  # -- cost changers (wave 20E) -- "Spells you cast but don't own" (Gonti): the spell's owner is another player (108.3)
+        if m["who"] != "you cast ":
+            return None
+        from dataclasses import replace as _replace
+
+        from app.rules import selectors as _sel
+
+        base = _sel.from_key(key) if key is not None else _sel.parse("spell")
+        if base is None:
+            return None
+        out["filter"] = _replace(base, owner="opponent").key()
     if m["chosen"]:
         # "of the chosen type": wave 4J's selector extra, read from the source permanent's own enters choice (614.12a;
         # scripts checks the card has exactly that one choice: chosen.chosen_value_ok). Kept as "spell", not "filter",
@@ -337,12 +383,28 @@ TARGETING = re.compile(rf"^spells (?P<who>you cast |your opponents cast )?that t
                        r"(?P<dir>less|more) to cast$")
 
 
-def _targeting_definition(m: re.Match[str]) -> dict[str, Any] | None:
-    from app.rules import selectors
+# -- casting costs (wave 22F) -- "Spells your opponents cast that target this creature cost an additional 3 life to cast." (Terror of the Peaks):
+# an additional cost (118.8) chosen by the targets (601.2c), paid with the rest (601.2h) — life can be paid only up to the life total (119.4)
+TARGETING_LIFE = re.compile(r"^spells (?P<who>you cast |your opponents cast )?that target (?P<what>[^.]+?) cost an additional (?P<life>\d+) life to cast$")
 
+
+def _targeting_definition(m: re.Match[str]) -> dict[str, Any] | None:
+    if "life" in m.groupdict():
+        d = _targeting_definition_of(m["who"], m["what"])
+        return {**d, "delta": 0, "change": {"dir": 1, "n": 0}, "life": int(m["life"])} if d is not None else None
     if not m["n"].isdigit():
         return None
-    what = m["what"]
+    d = _targeting_definition_of(m["who"], m["what"])
+    if d is None:
+        return None
+    n = int(m["n"])
+    sign = -1 if m["dir"] == "less" else 1
+    return {**d, "delta": sign * n, "change": {"dir": sign, "n": n}}
+
+
+def _targeting_definition_of(who: str | None, what: str) -> dict[str, Any] | None:
+    from app.rules import selectors
+
     if what == "~":
         target = "self"
     else:
@@ -352,11 +414,22 @@ def _targeting_definition(m: re.Match[str]) -> dict[str, Any] | None:
                 or sel.attacking or sel.blocking or sel.other:
             return None
         target = sel.key()
-    n = int(m["n"])
-    sign = -1 if m["dir"] == "less" else 1
-    caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
-    return {"kind": "static", "static": "cost_modifier", "delta": sign * n, "caster": caster, "filter": None,
-            "change": {"dir": sign, "n": n}, "target": target, "effects": []}
+    caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[who]
+    return {"kind": "static", "static": "cost_modifier", "caster": caster, "filter": None, "target": target, "effects": []}
+
+
+def targeting_life(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo,
+                   targets: tuple[str, ...]) -> int:
+    """-- casting costs (wave 22F) -- the life the table adds to this spell's cost because of its targets (Terror of the Peaks)."""
+    from app.rules import permissions
+
+    total = 0
+    for src, _, d in permissions._table_statics(state, info, {"cost_modifier"}):
+        if not d.get("life") or (d["caster"] == "you" and src.controller != player) or (d["caster"] == "opponent" and src.controller == player):
+            continue
+        if targets != ANY_TARGET and _targets_match(state, info, src, d["target"], targets):
+            total += int(d["life"])
+    return total
 
 
 def _targets_match(state: GameState, info: CardInfo, src: CardInstance, target: str, targets: tuple[str, ...]) -> bool:
@@ -443,6 +516,12 @@ def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[st
         if not (where in zones or "your_graveyard" in zones and card.zone == f"{player}:graveyard"
                 or "not_hand" in zones and card.zone != f"{player}:hand"):
             return None
+    if d["change"].get("per_caster"):  # -- casting costs (wave 22F) -- the spells this caster has cast so far this turn
+        from app.rules import history
+
+        log = history.log_for(view_of(state, player, info))
+        n = int(d["change"]["n"]) * sum(1 for note in log.casts if note.player == player)
+        return d["change"]["dir"] * n if n else None
     n = amount(view_of(on_stack(state, card), src.controller, info), context(state, src.controller, src), d["change"])
     return d["change"]["dir"] * n if n else None
 
@@ -466,9 +545,30 @@ DEFILER = re.compile(
     r"this effect reduces only the amount of (?P<color2>white|blue|black|red|green) mana you pay$", re.IGNORECASE)
 
 
+# -- casting costs (wave 22F) -- 601.2b: "As an additional cost to cast this spell, you may collect evidence 6." (701.59a) / "… you may behold a
+# Dragon." (701.4a): the caster announces it with the other optional costs and pays it with the rest (601.2h); the spell's own "if evidence
+# was collected" / "if a Dragon was beheld" read the record of that choice (conditions._cast_how)
+OWN_OPTIONAL = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>collect evidence \d+|behold an? [A-Z][a-z]+)\.?(?: \(.*\))?$")
+
+
+def own_cost(text: str) -> Any:
+    """The one cost part "Collect evidence 6" / "Behold a Dragon" is (None when the grammar can't pay it)."""
+    from app.rules import costs as C
+
+    parsed = C.parse_ability_cost(text) if text.startswith("Collect") else C.parse_additional_cost(text)
+    return parsed.components[0] if parsed is not None and not parsed.unsupported and len(parsed.components) == 1 else None
+
+
 def optional_definition(t: str) -> dict[str, Any] | None:
     from app.rules.permissions import spell_filter
 
+    if (own := OWN_OPTIONAL.fullmatch(t)) is not None:
+        text = own["cost"][0].upper() + own["cost"][1:]
+        parsed = own_cost(text)
+        if parsed is None:
+            return None
+        kind = "evidence" if text.startswith("Collect") else "behold"
+        return {"kind": "static", "static": "own_optional", "optional": kind, "cost": text, "effects": []}
     m = DEFILER.fullmatch(t)
     if m is None or m["color"].lower() != m["color2"].lower() or _COLORS[m["color"].lower()] != m["sym"]:
         return None
@@ -487,6 +587,7 @@ class Optional:
     mana: str
     kind: str = ""  # -- static_other sweep (wave 17C) -- "conspire" / "teamwork": a cost of tapped creatures (``n``: teamwork's power)
     n: int = 0
+    text: str = ""  # -- casting costs (wave 22F) -- "evidence" / "behold": the cost part as the cost grammar reads it ("Collect evidence 6")
 
 
 def keyword_component(o: Optional) -> Any:
@@ -497,6 +598,10 @@ def keyword_component(o: Optional) -> Any:
     from app.rules.selectors import Selector
 
     untapped = Selector(types=("Creature",), controller="you", tapped=False)
+    if o.kind == "gift":  # -- gift (wave 23D) -- choosing the opponent costs nothing (702.174a)
+        return None
+    if o.kind in ("evidence", "behold"):  # -- casting costs (wave 22F) --
+        return own_cost(o.text)
     if o.kind == "casualty":  # -- casting extras (wave 18E) -- 702.153a: "you may sacrifice a creature with power N or greater"
         key = C._selector(f"creature you control with power {o.n} or greater", zone="battlefield")
         return C.CostComponent(C.SACRIFICE, amount=1, selector=key, text=f"Sacrifice a creature with power {o.n} or greater")
@@ -531,6 +636,13 @@ def optional_offers(state: GameState, player: str, card: CardInstance, ch: Chara
         if (m := re.fullmatch(r"Teamwork (\d+)", text)) is not None:
             out.append(Optional(f"{card.id}:teamwork", f"Teamwork {m[1]}: tap creatures with total power {m[1]} or more", 0, "", "teamwork",
                                 int(m[1])))
+    from app.rules import gift
+
+    if gift.offered(ch):  # -- gift (wave 23D) -- 702.174a: "As an additional cost to cast this spell, you may choose an opponent."
+        out.append(Optional(f"{card.id}:gift", "Gift: promise an opponent a gift", 0, "", "gift"))
+    for d in permissions._definitions(ch).values():  # -- casting costs (wave 22F) -- collect evidence / behold on the spell itself
+        if d.get("static") == "own_optional":
+            out.append(Optional(f"{card.id}:{d['optional']}", f"{d['cost']} (additional cost)", 0, "", d["optional"], text=d["cost"]))
     return out
 
 

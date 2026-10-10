@@ -48,13 +48,14 @@ def _sees(state: GameState, card: CardInstance, viewer: str) -> bool:
     if shown_at_end(state, card, zone):
         return True
     if zone in PUBLIC_ZONES:
-        return not card.face_down or (viewer == card.controller and not card.unseen) or looks_at_face_down(state, card, viewer)
+        return (not card.face_down or (viewer == card.controller and not card.unseen) or looks_at_face_down(state, card, viewer)
+                or hideaway_looks(state, card, viewer))
     if zone in OWNER_VISIBLE_ZONES and viewer == card.owner:
         return True
     for view in state.views:
         if view.viewer == viewer and view.zone == card.zone and (view.kind == "search" or card.id in view.card_ids):
             return True
-    return zone == "library" and top_revealed(state, card, viewer)
+    return (zone == "library" and top_revealed(state, card, viewer)) or (zone == "hand" and hand_revealed(state, card))
 
 
 def shown_at_end(state: GameState, card: CardInstance, zone: str) -> bool:
@@ -65,6 +66,25 @@ def shown_at_end(state: GameState, card: CardInstance, zone: str) -> bool:
     if r is None or not (card.face_down and zone in ("battlefield", "stack") or zone == "foretell"):
         return False
     return r.winner is not None or card.owner in r.lost or card.owner in r.conceded
+
+
+def hand_revealed(state: GameState, card: CardInstance) -> bool:
+    """-- revealed zones (wave 25A) -- "Your opponents play with their hands revealed." / "Players play with their hands revealed." (701.20a: shown to
+    every player, spectators too): while a source that has it is on a battlefield, face up and automated, the hands it names are open. The source's
+    controller is "you" / "your opponents" (``RulesState.top_reveals``, refreshed by the engine)."""
+    rules = state.rules
+    if rules is None or not rules.top_reveals:
+        return False
+    owner = card.owner
+    for reveal in rules.top_reveals:
+        source = state.cards.get(reveal.source)
+        if reveal.zone != "hand" or source is None or source.face_down or not source.zone.endswith(":battlefield") \
+                or rules.card_mode(source.id) == "manual":
+            continue
+        controller = source.controller
+        if reveal.whose == "players" or (reveal.whose == "you" and owner == controller) or (reveal.whose == "opponents" and owner != controller):
+            return True
+    return False
 
 
 def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
@@ -87,8 +107,10 @@ def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
                 or rules.card_mode(source.id) == "manual":
             continue
         controller = source.controller
-        if reveal.to == "none" or card.zone != f"{controller}:library" or (reveal.to == "owner" and viewer != controller):
+        if reveal.zone != "library":
             continue
+        if reveal.to == "none" or (card.zone != f"{controller}:library" and reveal.whose != "players") or (reveal.to == "owner" and viewer != controller):
+            continue  # (-- revealed zones (wave 25A) -- "Players play with the top card of their libraries revealed": whose "players": any library)
         return True
     return False
 
@@ -107,6 +129,21 @@ def looks_at_face_down(state: GameState, card: CardInstance, viewer: str) -> boo
                 and source.zone.endswith(":battlefield") and source.controller == viewer and rules.card_mode(source.id) != "manual":
             return True
     return False
+
+
+def hideaway_looks(state: GameState, card: CardInstance, viewer: str) -> bool:
+    """-- hideaway (wave 29D) -- 702.75a, 406.3: "The player who controls the permanent that exiled this card may look at this card in the
+    exile zone", and a player who was allowed to look may go on looking until it leaves exile (``RulesState.hideaway``, kept by the engine
+    from the table; the permanent's controller right now counts at once, whatever the engine last recorded)."""
+    r = state.rules
+    if r is None or not r.hideaway or not card.face_down or not card.zone.endswith(":exile"):
+        return False
+    entry = r.hideaway.get(r.object_id(card.id))
+    if entry is None:
+        return False
+    source = state.cards.get(entry.source.rsplit(".", 1)[0])
+    return viewer in entry.lookers or (source is not None and source.zone.endswith(":battlefield") and source.controller == viewer
+                                       and r.object_id(source.id) == entry.source)
 
 
 def publicly_visible(state: GameState, card: CardInstance) -> bool:

@@ -57,9 +57,11 @@ def test_the_tapped_duration_wording():
     assert scripts.parse_effects("Tap target land. It doesn't untap during its controller's untap step for as long as ~ remains tapped.") == (
         [{"do": "tap", "who": "target"}, {"do": "until", "duration": "source_tapped", "n": 1},
          {"do": "restrict", "who": "target", "rules": ["doesnt_untap"]}], "land", False)
-    for text in ("Lands you control don't untap during their controller's untap step for as long as ~ remains tapped.",
-                 "Tap target land. It doesn't untap during its controller's untap step for as long as ~ remains on the battlefield."):
-        assert scripts.parse_effects(text) is None, text
+    assert scripts.parse_effects("Lands you control don't untap during their controller's untap step for as long as ~ remains tapped.") is None
+    # (wave 25A: 611.2b "for as long as ~ remains on the battlefield" is a supported duration now)
+    assert scripts.parse_effects("Tap target land. It doesn't untap during its controller's untap step for as long as ~ remains on the battlefield.") == (
+        [{"do": "tap", "who": "target"}, {"do": "until", "duration": "source_on_battlefield", "n": 1},
+         {"do": "restrict", "who": "target", "rules": ["doesnt_untap"]}], "land", False)
 
 
 def play_to(s, number, keep=(), asked=None):

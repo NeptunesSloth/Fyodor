@@ -712,7 +712,6 @@ def test_a_choice_in_the_draw_step_then_the_step_goes_on(cards):
 _REPLACEABLE = {"counter", "resource", "create_token", "draw", "life", "rules_damage"}
 _ALLOWED = {
     # outside wave 2E's ownership, to be rerouted at integration (UNVERIFIED how the lead reroutes them):
-    ("casting.py", "after_mana_ability"): "mana ability riders: 'deals 1 damage to you', 'draw a card'",
     ("casting.py", "activate_to_stack"): "a loyalty ability's cost (606.4: a cost, not an effect; agent A's region)",
     ("casting.py", "suspend"): "time counters on a card in exile (not a permanent: no counter replacement applies)",
     ("recursion.py", "spell_self_move"): "wave 7C: a spell's time counters as it exiles itself (a card in exile, as above)",
@@ -796,22 +795,20 @@ def test_wordings_that_stay_manual():
     from tests.test_rules_scripts import ch
 
     for text in [
-        # "you would put": who puts the counters (Vorinclex, Monstrous Raider)
-        "If you would put one or more counters on a permanent or player, put twice that many of each of those kinds of "
-        "counters on that permanent or player instead.",
+        # ("you would put" is automated since wave 22C: tests/test_rules_wave22c_replacements.py)
         # "may instead" (Jinnie Fay) — (wave 3R2: a different token added, Chatterfang, and redirection, Pariah, are
         # automated: tests/test_rules_refused_grants.py)
         "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste "
         "or that many 3/1 green Dog creature tokens with vigilance.",
         # (a rider after prevention, 615.5, is automated since wave 17A: tests/test_rules_wave17a_prevention.py)
-        # "can't" and life-loss replacements (614.17, 119.8) / a draw replaced by looking (Abundance-like)
-        "If an opponent would lose life during your turn, they lose twice that much life instead.",
+        # ("would lose life" doubling is automated since wave 28B: tests/test_rules_wave28b_replace.py) / "can't" (614.17, 119.8) /
+        # a draw replaced by a choice of land or nonland (Abundance)
         "If you would draw a card, you may instead choose land or nonland and reveal cards from the top of your library "
         "until you reveal a card of the chosen kind. Put that card into your hand and put all other cards revealed this "
         "way on the bottom of your library in any order.",
-        # Kalitas: exile and a token (a zone replacement with an extra event)
+        # (Kalitas: exile and a token is automated since wave 22C: tests/test_rules_wave22c_zones.py)
         "If a nontoken creature an opponent controls would die, instead exile that card and create a 2/2 black Zombie "
-        "creature token.",
+        "creature token and draw a card.",
         # damage: a union that isn't one of the two properties ("a red or artifact source" is read since wave 9B:
         # tests/test_rules_wave9b_damage_plus.py)
         "If a red or artifact and white source you control would deal damage to an opponent or a permanent an opponent "

@@ -44,14 +44,16 @@ the player who may see it.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import secrets
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from app.game.rules_state import DecisionOption
 from app.game.state import CardInstance, TokenDef, zone_key
+from app.rules import card_names, conditions, scripts, selectors, values  # (card_names: wave 22B)
 from app.rules import characteristics as chars
-from app.rules import conditions, scripts, selectors, values
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -94,7 +96,9 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
 
     if copying.entering(plan, card, controller, answers, out):
         return out
-    defs = [d for d in _definitions(plan, card).values() if d["kind"] == "replacement"]
+    # -- review (wave 22A) -- 614.12: the permanent as it would exist on the battlefield (Blood Moon, Humility: it has no such abilities)
+    defs = [d for d in _definitions(plan, card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})).values()
+            if d["kind"] == "replacement"]
     answers = dict(answers or {})
     for d in defs:  # "As ~ enters, choose a color." (614.1c): the answer is recorded on the permanent
         if d["replacement"] != "enters_choice":
@@ -103,10 +107,12 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
             what = e.get("what")
             if e.get("do") != "choose_value" or not what:
                 continue
+            if what == card_names.LOOK and what not in answers and (only := card_names.sole_opponent(plan, controller)):
+                answers[what] = only  # -- card names (wave 22B) -- one opponent: no question
             if what in answers:
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
-                out["choice"] = {"what": what}
+                out["choice"] = {"what": what, **({"look": answers.get(card_names.LOOK)} if e.get("look") else {})}
     from app.rules import battles  # 310.9a: a battle's protector is chosen as it enters
 
     battles.entry_choice(plan, plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"),
@@ -129,7 +135,11 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
         if out["tapped"] or "choice" in out:
             continue  # it enters tapped anyway ("put it onto the battlefield tapped"), or another choice comes first
         player = plan.state.players.get(controller)
-        if player is None or player.life < life:
+        from app.rules import (
+            life_lock,  # -- can't lose life (wave 29D) -- 119.8: nor by a player who can't lose life
+        )
+
+        if player is None or player.life < life or life_lock.pay_problem(plan.state, plan.info, controller, life) is not None:
             out["tapped"] = True  # 119.4: life can be paid only from a life total of at least that much
             continue
         if pay_life is None:
@@ -210,7 +220,8 @@ def others_enter_tapped(plan: Plan, card: CardInstance, controller: str) -> bool
 
 
 def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, *, x: int | None = None,
-                      extra: dict[str, int] | None = None, choices: dict[str, str] | None = None) -> dict[str, int]:
+                      extra: dict[str, int] | None = None, choices: dict[str, str] | None = None,
+                      newcomers: list[str] | None = None) -> dict[str, int]:
     """The counters a permanent enters with (122.6): its "enters with" counters (614.1c; the X its
     spell was cast with, 107.3), a planeswalker's loyalty (306.5b), bloodthirst (702.54) and what
     the effect putting it there adds (persist / undying)."""
@@ -276,9 +287,19 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
             counters["+1/+1"] = counters.get("+1/+1", 0) + x
         for d in scripts.definitions(ch).values():
             if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
-                n = _counter_amount(plan, card.id, controller, d, x)
-                if n > 0:
-                    counters[d["counter"]] = counters.get(d["counter"], 0) + n
+                if d.get("self_in_group"):  # -- review (wave 26D) -- it is one of the group it counts: unsettled (scripts._enters_self_check)
+                    if card.zone.endswith(":battlefield"):  # (not while the counters are only being looked ahead at, before it moves)
+                        plan.note(f"{plan.ch(card).name or 'It'} is one of the permanents its \"enters with\" counters count: whether it counts "
+                                  "itself isn't settled — put its counters on by hand", [card.id])
+                    continue
+                for part in (d, *d.get("also", ())):  # (wave 26D: "enters with a +1/+1 counter, a flying counter, …": one event, 122.6)
+                    n = _counter_amount(plan, card.id, controller, part, x, newcomers)
+                    if n > 0:
+                        counters[part["counter"]] = counters.get(part["counter"], 0) + n
+        from app.rules import copying
+
+        for kind, n in copying.entry_counters(plan, card, controller, ch, choices, x).items():  # -- copy exceptions (wave 24A) -- 707.9e
+            counters[kind] = counters.get(kind, 0) + n
         # -- counters (wave 7C) -- the kind its controller chose as it enters
         from app.rules import counter_choice
 
@@ -329,6 +350,8 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
     """The choice a permanent's own "As ~ enters, you may …" asks for before it enters (614.12a)."""
     if not plan.state.players.get(entry["player"]):
         return None
+    if entry.get("modal_back"):  # -- play now (wave 28A) -- 712.12: the land face chosen enters face up, so its replacements apply
+        card = card.model_copy(update={"face": 1})
     return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
                       answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry),
                       reserved=set(entry.get("reserved") or ())).get("choice")  # (reserved: wave 5G)
@@ -351,6 +374,8 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     from app.rules.effects import _choice_options
 
     what = choice["what"]
+    if (named := card_names.prompt(plan, card, controller, choice)) is not None:  # -- card names (wave 22B) -- look at a hand, then name
+        return named
     from app.rules import battles, reveal_lands
 
     if reveal_lands.is_choice(what):  # -- "this way" outcomes (wave 4A) -- private: the cards in their hand
@@ -520,7 +545,7 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         if card is None or any(card.id == c.id for _, c, _ in planned):
             continue
         # (-- transform, wave 11A -- 712.14a: it enters with its back face up, so that face's replacement effects apply)
-        planned.append((entry, card, entry_plan(plan, card.model_copy(update={"face": 1}) if entry.get("transformed") else card,
+        planned.append((entry, card, entry_plan(plan, card.model_copy(update={"face": 1}) if entry.get("transformed") or entry.get("modal_back") else card,
                                                  entry["player"], pay_life=entry.get("pay_life"),
                                                  tapped=bool(entry.get("tapped")), answers=entry.get("choices"),
                                                  x=entry.get("x"), extra=_extra(entry),
@@ -550,14 +575,15 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         return
     for entry, _card, ep in planned:
         if ep.get("life"):
-            plan.do({"type": "life", "player": entry["player"], "delta": -int(ep["life"])}, actor=entry["actor"])
+            from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+            _replace_life.lose_life(plan, [(entry["player"], int(ep["life"]))], actor=entry["actor"])
     first = planned[0][0]
     payload: dict[str, Any] = {"type": "move", "card_ids": [c.id for _, c, _ in planned],
                                "to": {"player": first["player"], "zone": "battlefield"}}
     tapped = [c.id for _, c, ep in planned if ep["tapped"]]
     if tapped:
         payload["tapped_ids"] = tapped
-    back = [c.id for e, c, _ in planned if e.get("transformed")]
+    back = [c.id for e, c, _ in planned if e.get("transformed") or e.get("modal_back")]  # (modal_back: wave 28A, 712.12)
     if back:
         payload["back_ids"] = back
     if any(e["player"] != first["player"] for e, _, _ in planned):
@@ -575,6 +601,10 @@ def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any], toge
     entered = plan.state.cards.get(card_id)
     if entered is None or not entered.zone.endswith(":battlefield"):
         return
+    if entry.get("played"):  # -- play now (wave 28A) -- 305.1: a land played as an effect resolves ("When you play another land")
+        from app.game.rules_state import emit
+
+        emit(plan.state, "land_played", object_id=plan.oid(entered), card=card_id, player=controller)
     oid = plan.oid(entered)
     if entry.get("gain_haste"):
         from app.rules import layers
@@ -589,13 +619,17 @@ def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any], toge
         delayed.create_move(plan, controller, entered.id, oid, entry["delayed"], entered.name)
 
 
-def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any], x: int | None) -> int:
+def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any], x: int | None,
+                    newcomers: list[str] | None = None) -> int:
     n = d["n"]
     if n == "X":  # the X its spell was cast with (107.3); 0 when it wasn't cast (put onto the battlefield)
         amount = int(x or 0)
     elif isinstance(n, dict):  # "for each creature card in your graveyard": the values grammar
+        # (-- review (wave 26D) -- 614.12: read before it enters: it and what enters with it aren't on the battlefield yet, whatever
+        # type-changing effects would make them — Michelangelo under Ashaya isn't one of "each land you control")
         amount = values.evaluate(plan, {"controller": controller, "source_card": card_id,  # (wave 4F: converge's record)
-                                        "source_object": plan.oid(card_id), "x": x}, n)  # (x: "twice X", wave 4K)
+                                        "source_object": plan.oid(card_id), "x": x,  # (x: "twice X", wave 4K)
+                                        "not_yet_entered": [card_id, *(newcomers or ())]}, n)
     else:
         amount = int(n)
     # -- review (wave 4R) -- a spell cast by hand has no payment known (engine.absorb_manual_events): X, converge's
@@ -638,10 +672,10 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules.effects import CHOICE_LABELS
 
         for what, value in choices.items():
-            if not value or what not in CHOICE_LABELS:
+            if not value or (what not in CHOICE_LABELS and not card_names.is_choice(what)):
                 continue
             shown = plan.name(value) if what in ("opponent", "player") and value in plan.state.players else value
-            plan.do({"type": "set_choice", "card_id": card_id, "key": CHOICE_LABELS[what], "value": shown}, actor=controller)
+            plan.do({"type": "set_choice", "card_id": card_id, "key": card_names.LABEL if card_names.is_choice(what) else CHOICE_LABELS[what], "value": shown}, actor=controller)
             if what in ("opponent", "player") and value in plan.state.players:  # -- chosen player (wave 4J) --
                 from app.rules import chosen
 
@@ -662,7 +696,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     from app.rules import mana_units
 
     mana_units.entered(plan, card, controller)  # -- mana provenance (wave 18B) -- 106.6: "it gains haste"
-    counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices)
+    counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices, newcomers=newcomers)
     puts = [(card_id, kind, n) for kind, n in counters.items() if n > 0]
     from app.rules import replace
 
@@ -673,8 +707,8 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import layers
 
         for d in scripts.definitions(plan.ch(card)).values():
-            if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters" and d.get("grant") \
-                    and _counter_amount(plan, card.id, controller, d, x) > 0:
+            if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters" and d.get("grant") and not d.get("self_in_group") \
+                    and _counter_amount(plan, card.id, controller, d, x, newcomers) > 0:
                 layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
                                   add_keywords=tuple(d["grant"]), duration="permanent", label=f"Enters with {d['grant'][0]}")
             elif d["kind"] == "replacement" and d.get("replacement") == "enters_prepared":  # -- prepared (wave 13C) -- 722.3a
@@ -717,11 +751,20 @@ def _self_exile_instead(plan: Plan, card: CardInstance) -> bool:
                and (d.get("from") == "anywhere" or frm == "battlefield") for d in _definitions(plan, card).values())
 
 
-def _static_exile_instead(plan: Plan, card: CardInstance) -> CardInstance | None:
-    """A permanent on the battlefield whose static ability replaces this card's trip to the
+def _self_library_instead(plan: Plan, card: CardInstance) -> str | None:
+    """-- instead (wave 20B) -- "If ~ would die, put it on top of / on the bottom of its owner's library instead." (614.1a): where."""
+    if _from_zone(card) != "battlefield":
+        return None
+    return next((str(d["position"]) for d in _definitions(plan, card).values()
+                 if d["kind"] == "replacement" and d.get("replacement") == "library_instead"), None)
+
+
+def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance, dict[str, Any]]]:
+    """The permanents on the battlefield whose static abilities replace this card's trip to the
     graveyard ("If a creature an opponent controls would die, exile it instead.", "If a card or
-    token would be put into a graveyard from anywhere, exile it instead."): the first that applies."""
+    token would be put into a graveyard from anywhere, exile it instead."), with the definition that applies."""
     frm = _from_zone(card)
+    found: list[tuple[CardInstance, dict[str, Any]]] = []
     for src in plan.state.cards.values():
         if not src.zone.endswith(":battlefield") or src.face_down or not plan.in_game(src) or plan.manual(src):
             continue
@@ -736,13 +779,16 @@ def _static_exile_instead(plan: Plan, card: CardInstance) -> CardInstance | None
             who = d.get("who", "any")
             if who == "card" and card.is_token:
                 continue  # "If a card would be put into …": tokens aren't cards (108.2a)
-            if who not in ("any", "card"):
+            if who.startswith("types:"):  # -- instead (wave 20B) -- "an instant or sorcery card": a card (not a token) with one of the types
+                if card.is_token or not set(who[6:].split("|")) & plan.ch(card).types:
+                    continue
+            elif who not in ("any", "card"):
                 if frm != "battlefield":
                     continue
                 if not selectors.matches(plan, selectors.from_key(who), card, plan.ch(card), src.controller, src.id):
                     continue
-            return src
-    return None
+            found.append((src, d))
+    return found
 
 
 def _record_exile_instead(plan: Plan, card: CardInstance) -> str | None:
@@ -764,6 +810,194 @@ def _record_exile_instead(plan: Plan, card: CardInstance) -> str | None:
             continue
         return rec.get("label") or "a replacement effect"
     return None
+
+
+# -- zone replacements (wave 22C) -- 614.1a, 616.1: every replacement effect that would put a card into a graveyard.
+# They agree (all send it to exile: no choice), or their results differ (exile vs "reveal it and shuffle it into its owner's
+# library", top / bottom of the library) and the affected object's controller (its owner if it has none) chooses which
+# applies first (616.1); the others then no longer apply, the event being a different one (614.5). A table step can't pause
+# (like 903.9b): the card stays where it is, nothing has happened to it yet, and ``offer_616`` asks before anyone gets priority.
+class Cand(NamedTuple):
+    """One replacement effect that applies: its source's name, its result ("exile" | "library:top" | "library:bottom" |
+    "library:shuffle"), whether it is a spell's one-shot "exile it instead" (used up when it applies, 614.5), and the
+    effects its controller's replacement adds to the event (Kalitas's token: ``rider``: {"source", "controller",
+    "effects", "reflexive"})."""
+
+    label: str
+    outcome: str
+    used: bool = False
+    rider: dict[str, Any] | None = None
+
+    @property
+    def sig(self) -> str:
+        """What the effect does, for the 616.1 question: the same result with the same rider needs no choice."""
+        if self.rider is None:
+            return self.outcome
+        key = json.dumps([self.rider["controller"], self.rider["effects"], self.rider["reflexive"]], sort_keys=True, default=str)
+        return f"{self.outcome}+{hashlib.sha1(key.encode()).hexdigest()[:8]}"
+
+
+def _self_shuffle_instead(plan: Plan, card: CardInstance) -> bool:
+    """"If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead." (Blightsteel)"""
+    return any(d["kind"] == "replacement" and d.get("replacement") == "shuffle_instead" for d in _definitions(plan, card).values())
+
+
+def zone_candidates(plan: Plan, card: CardInstance, dest: str = "graveyard") -> list[Cand]:
+    """The replacement effects that apply to ``card`` going to ``dest`` now (a graveyard, or for a permanent anywhere but
+    exile: "if it would leave the battlefield, exile it instead"), in no particular order."""
+    frm = _from_zone(card)
+    out: list[Cand] = []
+    if frm == "battlefield" and dest not in ("exile", "battlefield"):
+        if plan.oid(card) in plan.rules.exile_if_leaves:  # 702.84a: "If it would leave the battlefield, exile it instead of putting it anywhere else."
+            out.append(Cand("unearth / \"exile it if it would leave the battlefield\"", "exile"))
+        if any(d["kind"] == "replacement" and d.get("replacement") == "exile_instead" and d.get("from") == "leaves"
+               for d in _definitions(plan, card).values()):
+            out.append(Cand(card.name or "its own ability", "exile"))
+    if dest != "graveyard":
+        return out
+    leaves = bool(out)
+    out += _graveyard_candidates(plan, card, frm)
+    if leaves:  # (review 22C) 616.1e: a library result still leaves the battlefield, so "exile it if it would leave" applies after it
+        out = [c for c in out if not c.outcome.startswith("library:")]  # anyway: no choice between them (a rider still is one)
+    return out
+
+
+def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand]:
+    out: list[Cand] = []
+    if frm == "stack" and plan.oid(card) in plan.rules.exile_if_graveyard:  # -- refused look/cast-free (wave 3R5) -- a spell cast
+        out.append(Cand("its own cast", "exile", True))  # "without paying …": "If that spell would be put into your graveyard, exile it instead"
+    if frm == "battlefield" and card.counters.get("finality", 0) > 0:  # 122.1h (-- refused zones/sized (wave 3R4) --)
+        out.append(Cand("finality counter", "exile"))
+    if _self_exile_instead(plan, card):
+        out.append(Cand(card.name or "its own ability", "exile"))
+    if (where := _self_library_instead(plan, card)) is not None:  # -- instead (wave 20B) --
+        out.append(Cand(card.name or "its own ability", f"library:{where}"))
+    if _self_shuffle_instead(plan, card):
+        out.append(Cand(card.name or "its own ability", "library:shuffle"))
+    for src, d in _static_exile_all(plan, card):
+        rider = {"source": src.id, "controller": src.controller, **d["rider"]} if d.get("rider") else None
+        out.append(Cand(src.name or "a static ability", "exile", False, rider))
+    if frm == "battlefield" and (why := _record_exile_instead(plan, card)) is not None:  # -- replacement effects stage 2 (wave 2E) --
+        out.append(Cand(why, "exile"))
+    return out
+
+
+def _pick(plan: Plan, card: CardInstance, cands: list[Cand], dest: str) -> Cand | None:
+    """The one result to apply, or None (the card is held and its controller asked: 616.1)."""
+    outcomes: dict[str, Cand] = {}
+    for c in cands:
+        outcomes.setdefault(c.sig, c)
+    if len(outcomes) == 1:
+        return cands[0]
+    plan.rules.pending_616[card.id] = {"oid": plan.oid(card), "dest": dest, "options": {o: c.label for o, c in outcomes.items()},
+                                       "cands": {o: c._asdict() for o, c in outcomes.items()},  # (review 22C: as they were when the event happened)
+                                       "texts": {o: _OUTCOME_TEXT.get(c.outcome, c.outcome) + (" and " + rider_text(c.rider) if c.rider else "")
+                                                 for o, c in outcomes.items()}}
+    return None
+
+
+def rider_text(rider: dict[str, Any]) -> str:
+    from app.rules.effects import describe
+
+    return ("later " if rider["reflexive"] else "") + describe(rider["effects"])
+
+
+def move_instead(plan: Plan, cid: str, outcome: str | Cand, actor: str | None) -> None:
+    """Carry out a replacement's result for a card that was about to go to a graveyard (and what it adds: a token, life)."""
+    if isinstance(outcome, Cand):
+        move_instead(plan, cid, outcome.outcome, actor)
+        if outcome.rider is not None:
+            run_rider(plan, outcome.rider)
+        return
+    card = plan.state.cards[cid]
+    owner = card.owner
+    if outcome in ("exile", "battlefield"):  # (review 23D: battlefield, a discard's "put it onto the battlefield instead")
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": outcome}}, actor=actor)
+        return
+    where = outcome.split(":", 1)[1]
+    if where == "shuffle":  # 701.24 (shuffle), "reveal": its name is public as it goes (a card from a hidden zone shows itself)
+        plan.note(f"{card.name or 'The card'} is revealed and shuffled into its owner's library instead", [cid])
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": "top"}, actor=actor)
+        plan.do({"type": "shuffle", "player": owner, "zone": "library"}, actor=owner)
+        return
+    plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": where}, actor=actor)
+
+
+def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
+    """The extra effects of a replacement ("… and create a 2/2 black Zombie creature token"): part of the replacing event, so
+    carried out now by the replacement's controller (614.6); "When you do, …" (603.12) is a reflexive triggered ability."""
+    src = plan.state.cards.get(rider["source"])
+    if src is None:
+        return
+    ctx = {"controller": rider["controller"], "source_card": src.id, "source_object": plan.oid(src), "name": src.name or "",
+           "targets": [], "stack_id": "", "kind": "replacement", "effects": rider["effects"], "next": len(rider["effects"]), "x": None,
+           "event": None}
+    if rider["reflexive"]:
+        from app.rules.triggers import _add
+
+        _add(plan, controller=rider["controller"], source_card=src.id, source_object=ctx["source_object"], name=ctx["name"], index=7300,
+             definition={"kind": "triggered", "trigger": "reflexive", "effects": rider["effects"], "optional": False})
+        return
+    from app.rules.effects import PRIMITIVES
+
+    for e in rider["effects"]:
+        if not PRIMITIVES[e["do"]](plan, ctx, e):
+            break
+
+
+_OUTCOME_TEXT = {"exile": "Exile it", "battlefield": "Put it onto the battlefield","library:top": "Put it on top of its owner's library", "library:bottom":
+                 "Put it on the bottom of its owner's library", "library:shuffle": "Reveal it and shuffle it into its owner's library"}
+
+
+def offer_616(plan: Plan) -> bool:
+    """Ask the controller (616.1) of a held card which replacement applies. True while a question is open."""
+    from app.rules.plan import decide
+
+    r = plan.rules
+    for cid, p in list(r.pending_616.items()):
+        card = plan.state.cards.get(cid)
+        if card is None or plan.oid(card) != p["oid"]:
+            r.pending_616.pop(cid, None)  # (it went on elsewhere: the moment has passed)
+            continue
+        chooser = card.controller if _from_zone(card) in ("battlefield", "stack") else card.owner  # (a spell has a controller too: 110.2, 616.1)
+        decide(plan, player=chooser, kind="choose_one",
+               prompt=f"{card.name or 'A card'} would be put into a graveyard: which replacement effect applies first? (616.1)",
+               options=[DecisionOption(id=o, label=f"{src}: {p['texts'][o]}") for o, src in p["options"].items()],
+               resume={"step": "zone_replace_order", "card": cid}, source=card)
+        return True
+    return False
+
+
+def resume_616(plan: Plan, d: Any, chosen: list[str]) -> None:
+    cid = d.resume["card"]
+    p = plan.rules.pending_616.pop(cid, None)
+    card = plan.state.cards.get(cid)
+    if p is None or card is None or plan.oid(card) != p["oid"] or chosen[0] not in p["options"]:
+        return
+    # (review 22C) the effects that applied when the event happened (614.1, 616.1): a source that left with it (Rest in Peace
+    # destroyed alongside Progenitus) still applies; recomputing them now could leave the card stranded where it was
+    cand = Cand(**p["cands"][chosen[0]]) if chosen[0] in (p.get("cands") or {}) else \
+        next((c for c in zone_candidates(plan, card, p["dest"]) if c.sig == chosen[0]), None)
+    if cand is None:  # (nothing applies any more: the event goes on as it was, its replacements looked at again)
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": p["dest"]}}, actor=card.controller)
+        return
+    if cand.used:  # (a spell cast "without paying …": its one-shot "exile it instead" is used up, 614.5)
+        plan.rules.exile_if_graveyard = [o for o in plan.rules.exile_if_graveyard if o != p["oid"]]
+    move_instead(plan, cid, cand, p.get("actor") or card.controller)
+
+
+def leave_stack_instead(plan: Plan, card: CardInstance, controller: str) -> bool:
+    """A spell leaving the stack for a graveyard (resolved or countered) that a replacement sends elsewhere. True: handled
+    (moved, or held for a 616.1 choice)."""
+    cands = zone_candidates(plan, card)
+    if not cands:
+        return False
+    pick = _pick(plan, card, cands, "graveyard")
+    if pick is not None:
+        if pick.used:
+            plan.rules.exile_if_graveyard = [o for o in plan.rules.exile_if_graveyard if o != plan.oid(card)]
+        move_instead(plan, card.id, pick, controller)
+    return True
 
 
 def _commander_instead(plan: Plan, card: CardInstance, dest: str) -> bool | None:
@@ -799,6 +1033,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
     dest = (payload.get("to") or {}).get("zone")
     r = plan.rules
     replaced: list[tuple[str, str, str]] = []  # (card, zone it goes to instead, why)
+    riders: list[dict[str, Any]] = []  # -- zone replacements (wave 22C) -- what the replacements add (a token): after the moves
+    held: list[str] = []  # -- zone replacements (wave 22C) -- cards waiting for their controller's 616.1 choice
     madness: list[tuple[str, str]] = []
     for cid in payload.get("card_ids") or []:
         card = plan.state.cards.get(cid)
@@ -806,45 +1042,55 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             continue
         frm = _from_zone(card)
         oid = plan.oid(card)
-        if frm == "battlefield" and dest not in ("exile", "battlefield") and oid in r.exile_if_leaves:
-            r.exile_if_leaves = [o for o in r.exile_if_leaves if o != oid]  # used up (614.5)
-            replaced.append((cid, "exile", "unearth"))
+        if dest == "graveyard" and frm == "hand" and actor not in (None, card.owner) and any(
+                d["kind"] == "replacement" and d.get("replacement") == "discard_battlefield" for d in _definitions(plan, card).values()):
+            # -- discard causes (wave 23D) -- 614.1a: "If a spell or ability an opponent controls causes you to discard this card, put it onto
+            # the battlefield instead": a static ability of the card, not a self-replacement effect (614.15), so with Rest in Peace its
+            # owner chooses which applies (616.1, review 23D)
+            pick = _pick(plan, card, [*zone_candidates(plan, card, dest), Cand(card.name or "its own ability", "battlefield")], dest)
+            if pick is None:
+                held.append(cid)
+            else:
+                replaced.append((cid, pick.outcome, pick.label))
+                riders += [pick.rider] if pick.rider is not None else []
             continue
-        if dest == "graveyard":
-            if frm == "hand":
-                # 616.1: madness and an "exile instead" static (Rest in Peace) would both replace a
-                # discard; the card's owner chooses. Only madness leads anywhere different (the
-                # card is exiled either way, and may then be cast), so it is applied first.
-                cost = _madness_cost(plan, card)
-                if cost is not None:
-                    madness.append((cid, cost))
-                    continue
-            if frm == "stack" and oid in r.exile_if_graveyard:  # -- refused look/cast-free (wave 3R5) -- a spell cast
-                r.exile_if_graveyard = [o for o in r.exile_if_graveyard if o != oid]  # "without paying …": "If that spell
-                replaced.append((cid, "exile", "its own cast"))  # would be put into your graveyard, exile it instead"
+        if dest == "graveyard" and frm == "hand":
+            # 616.1: madness and an "exile instead" static (Rest in Peace) would both replace a
+            # discard; the card's owner chooses. Only madness leads anywhere different (the
+            # card is exiled either way, and may then be cast), so it is applied first.
+            cost = _madness_cost(plan, card)
+            if cost is not None:
+                madness.append((cid, cost))
                 continue
-            if frm == "battlefield" and card.counters.get("finality", 0) > 0:  # -- refused zones/sized (wave 3R4) --
-                # 122.1h: "If this permanent would be put into a graveyard from the battlefield, exile it
-                # instead" (it agrees with every other "exile instead" here: no 616.1 choice)
-                replaced.append((cid, "exile", "finality counter"))
+        if cands := zone_candidates(plan, card, dest or ""):  # -- zone replacements (wave 22C) -- 616.1 among the candidates
+            pick = _pick(plan, card, cands, dest or "")
+            if pick is None:
+                held.append(cid)  # two different results: its controller chooses (asked before priority)
                 continue
-            if _self_exile_instead(plan, card):
-                replaced.append((cid, "exile", card.name or "its own ability"))
-                continue
-            src = _static_exile_instead(plan, card)
-            if src is not None:
-                replaced.append((cid, "exile", src.name or "a static ability"))
-                continue
-            why = _record_exile_instead(plan, card) if frm == "battlefield" else None  # -- replacement effects stage 2 (wave 2E) --
-            if why is not None:
-                replaced.append((cid, "exile", why))
-                continue
+            if pick.used:  # (a spell cast "without paying …": its one-shot "exile it instead" is used up, 614.5)
+                r.exile_if_graveyard = [o for o in r.exile_if_graveyard if o != oid]
+            if frm == "battlefield":  # (it leaves: the object is gone, and a "leaves the battlefield" record with it)
+                r.exile_if_leaves = [o for o in r.exile_if_leaves if o != oid]
+            replaced.append((cid, pick.outcome, pick.label))
+            if pick.rider is not None:
+                riders.append(pick.rider)
+            continue
         if dest in ("hand", "library"):
             answer = _commander_instead(plan, card, dest)
             if answer:
                 replaced.append((cid, "command", "903.9b"))
             elif answer is None:
                 r.pending_903_9b[cid] = dest  # asked right after the move (sba → offer_903_9b)
+    for cid in held:  # (review 23D: who moved it, for "a spell or ability an opponent controls causes you to discard", 701.9)
+        r.pending_616[cid]["actor"] = actor
+    if held:  # -- zone replacements (wave 22C) -- they stay put until chosen (616.1: offer_616, before anyone gets priority)
+        if dest == "graveyard":  # (review 22C: a held discard is discarded all the same, 701.9a, whichever replacement applies)
+            from app.rules import history
+
+            history.note_discards(plan, [cid for cid in held if _from_zone(plan.state.cards[cid]) == "hand"])
+        payload = {**payload, "card_ids": [c for c in payload["card_ids"] if c not in held]}
+        if not payload["card_ids"] and not replaced and not madness:
+            return {"type": "rules_log", "text": "Two replacement effects apply: the choice comes first (616.1)", "card_ids": held[:20]}
     if not replaced and not madness:
         return payload
     if dest == "graveyard":  # -- this-turn history (wave 4D) -- a discard put elsewhere instead is still a discard (701.9a)
@@ -857,7 +1103,12 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
         # (-- merged permanents (wave 18D) -- 903.9c: the cards of a merged / melded commander that aren't commanders go where it was headed)
         also = {"rest_zone": dest, **{k: payload[k] for k in ("position", "index") if payload.get(k) is not None}} \
             if zone == "command" and plan.state.cards[cid].merged and dest in ("hand", "library") else {}  # (review 18D: top / bottom too)
+        if zone.startswith("library:"):  # -- instead (wave 20B) -- on top of / on the bottom of its owner's library (22C: or shuffled in)
+            move_instead(plan, cid, zone, actor)
+            continue
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": zone}, **also}, actor=actor)
+    for rider in riders:  # -- zone replacements (wave 22C) -- "… instead exile it and create a token": part of the replacing event
+        run_rider(plan, rider)
     for cid, cost in madness:
         _discard_into_exile(plan, cid, cost, actor)
     taken = {cid for cid, _, _ in replaced} | {cid for cid, _ in madness}
@@ -866,6 +1117,10 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
         return {**payload, "card_ids": rest}
     whys = sorted({why for _, _, why in replaced})
     text = ("Exiled instead" + (f" ({', '.join(whys)})" if whys and whys != ["903.9b"] else "")) if replaced else "Discarded into exile (madness)"
+    if replaced and all(zone.startswith("library:") for _, zone, _ in replaced):
+        text = "Put into its owner's library instead"
+    if replaced and all(zone == "battlefield" for _, zone, _ in replaced):  # (review 23D: Obstinate Baloth)
+        text = "Put onto the battlefield instead"
     if replaced and all(zone == "command" for _, zone, _ in replaced):
         text = "Put into the command zone instead (903.9b)"
     ids = [cid for cid, _, _ in replaced] + [cid for cid, _ in madness]
@@ -880,13 +1135,21 @@ def _replace_mill(plan: Plan, payload: dict[str, Any], actor: str | None) -> dic
     pid = payload.get("player") or actor or plan.actor
     library = plan.state.zones.get(zone_key(pid, "library"), [])
     top = library[: int(payload.get("count", 1))]
-    exiled = [cid for cid in top if _self_exile_instead(plan, plan.state.cards[cid]) or _static_exile_instead(plan, plan.state.cards[cid]) is not None]
-    if not exiled:
+    picks = {cid: zone_candidates(plan, plan.state.cards[cid]) for cid in top}  # -- zone replacements (wave 22C) --
+    if not any(picks.values()):
         return payload
+    changed: list[str] = []
     for cid in top:
-        zone = "exile" if cid in exiled else "graveyard"
-        plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": zone}}, actor=actor)
-    return {"type": "rules_log", "text": f"{plan.name(pid)} milled {len(top)}: exiled instead", "card_ids": exiled[:20]}
+        card = plan.state.cards[cid]
+        pick = _pick(plan, card, picks[cid], "graveyard") if picks[cid] else ""
+        if pick is None:
+            continue  # (waits for its controller's 616.1 choice; it stays in the library meanwhile)
+        if not isinstance(pick, Cand):  # (no replacement: it is milled)
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "graveyard"}}, actor=actor)
+            continue
+        changed.append(cid)
+        move_instead(plan, cid, pick, actor)
+    return {"type": "rules_log", "text": f"{plan.name(pid)} milled {len(top)}: replaced by other effects", "card_ids": changed[:20]}
 
 
 def _madness_cost(plan: Plan, card: CardInstance) -> str | None:

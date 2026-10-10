@@ -31,8 +31,11 @@ def unlock(plan: Plan, card_id: str, door: int) -> None:
     so however it got the designation (709.5h)."""
     card = plan.state.cards[card_id]
     oid = plan.oid(card)
-    plan.rules.unlocked[oid] = sorted({*plan.rules.unlocked.get(oid, []), door})
+    had = plan.rules.unlocked.get(oid, [])
+    plan.rules.unlocked[oid] = sorted({*had, door})
     emit(plan.state, "designation", counter="unlocked", card=card_id, object_id=oid, amount=door, player=card.controller)
+    if len(had) < 2 and len(plan.rules.unlocked[oid]) == 2:  # 709.5i: "fully unlocks" — its second designation (or both at once)
+        emit(plan.state, "designation", counter="fully_unlocked", card=card_id, object_id=oid, amount=door, player=card.controller)
 
 
 def entered(plan: Plan, card_id: str) -> None:

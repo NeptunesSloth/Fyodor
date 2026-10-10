@@ -1,0 +1,514 @@
+[
+ {
+  "name": "Callow Jushi // Jaraku the Interloper",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Wizard // Legendary Creature — Spirit",
+  "oracle_text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\nAt the beginning of the end step, if there are two or more ki counters on this creature, you may flip it.\n//\nRemove a ki counter from Jaraku: Counter target spell unless its controller pays {2}.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "power": "2",
+  "toughness": "2",
+  "keywords": [],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Callow Jushi",
+    "mana_cost": "{1}{U}{U}",
+    "type_line": "Creature — Human Wizard",
+    "oracle_text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\nAt the beginning of the end step, if there are two or more ki counters on this creature, you may flip it.",
+    "power": "2",
+    "toughness": "2"
+   },
+   {
+    "name": "Jaraku the Interloper",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Spirit",
+    "oracle_text": "Remove a ki counter from Jaraku: Counter target spell unless its controller pays {2}.",
+    "power": "3",
+    "toughness": "4"
+   }
+  ]
+ },
+ {
+  "name": "Akki Lavarunner // Tok-Tok, Volcano Born",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Goblin Warrior // Legendary Creature — Goblin Shaman",
+  "oracle_text": "Haste\nWhenever this creature deals damage to an opponent, flip it.\n//\nProtection from red\nIf a red source would deal damage to a player, it deals that much damage plus 1 to that player instead.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "power": "1",
+  "toughness": "1",
+  "keywords": [
+   "Protection",
+   "Haste"
+  ],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Akki Lavarunner",
+    "mana_cost": "{3}{R}",
+    "type_line": "Creature — Goblin Warrior",
+    "oracle_text": "Haste\nWhenever this creature deals damage to an opponent, flip it.",
+    "power": "1",
+    "toughness": "1"
+   },
+   {
+    "name": "Tok-Tok, Volcano Born",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Goblin Shaman",
+    "oracle_text": "Protection from red\nIf a red source would deal damage to a player, it deals that much damage plus 1 to that player instead.",
+    "power": "2",
+    "toughness": "2"
+   }
+  ]
+ },
+ {
+  "name": "Rune-Tail, Kitsune Ascendant // Rune-Tail's Essence",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Fox Monk // Legendary Enchantment",
+  "oracle_text": "When you have 30 or more life, flip Rune-Tail.\n//\nPrevent all damage that would be dealt to creatures you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "power": "2",
+  "toughness": "2",
+  "keywords": [],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Rune-Tail, Kitsune Ascendant",
+    "mana_cost": "{2}{W}",
+    "type_line": "Legendary Creature — Fox Monk",
+    "oracle_text": "When you have 30 or more life, flip Rune-Tail.",
+    "power": "2",
+    "toughness": "2"
+   },
+   {
+    "name": "Rune-Tail's Essence",
+    "mana_cost": "",
+    "type_line": "Legendary Enchantment",
+    "oracle_text": "Prevent all damage that would be dealt to creatures you control."
+   }
+  ]
+ },
+ {
+  "name": "Initiate of Blood // Goka the Unjust",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Ogre Shaman // Legendary Creature — Ogre Shaman",
+  "oracle_text": "{T}: This creature deals 1 damage to target creature that was dealt damage this turn. When that creature dies this turn, flip this creature.\n//\n{T}: Goka deals 4 damage to target creature that was dealt damage this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "power": "2",
+  "toughness": "2",
+  "keywords": [],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Initiate of Blood",
+    "mana_cost": "{3}{R}",
+    "type_line": "Creature — Ogre Shaman",
+    "oracle_text": "{T}: This creature deals 1 damage to target creature that was dealt damage this turn. When that creature dies this turn, flip this creature.",
+    "power": "2",
+    "toughness": "2"
+   },
+   {
+    "name": "Goka the Unjust",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Ogre Shaman",
+    "oracle_text": "{T}: Goka deals 4 damage to target creature that was dealt damage this turn.",
+    "power": "4",
+    "toughness": "4"
+   }
+  ]
+ },
+ {
+  "name": "Budoka Pupil // Ichiga, Who Topples Oaks",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Monk // Legendary Creature — Spirit",
+  "oracle_text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\nAt the beginning of the end step, if there are two or more ki counters on this creature, you may flip it.\n//\nTrample\nRemove a ki counter from Ichiga: Target creature gets +2/+2 until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "power": "2",
+  "toughness": "2",
+  "keywords": [
+   "Trample"
+  ],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Budoka Pupil",
+    "mana_cost": "{1}{G}{G}",
+    "type_line": "Creature — Human Monk",
+    "oracle_text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\nAt the beginning of the end step, if there are two or more ki counters on this creature, you may flip it.",
+    "power": "2",
+    "toughness": "2"
+   },
+   {
+    "name": "Ichiga, Who Topples Oaks",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Spirit",
+    "oracle_text": "Trample\nRemove a ki counter from Ichiga: Target creature gets +2/+2 until end of turn.",
+    "power": "4",
+    "toughness": "3"
+   }
+  ]
+ },
+ {
+  "name": "Cunning Bandit // Azamuki, Treachery Incarnate",
+  "mana_cost": "{1}{R}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Warrior // Legendary Creature — Spirit",
+  "oracle_text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\nAt the beginning of the end step, if there are two or more ki counters on this creature, you may flip it.\n//\nRemove a ki counter from Azamuki: Gain control of target creature until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "power": "2",
+  "toughness": "2",
+  "keywords": [],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Cunning Bandit",
+    "mana_cost": "{1}{R}{R}",
+    "type_line": "Creature — Human Warrior",
+    "oracle_text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\nAt the beginning of the end step, if there are two or more ki counters on this creature, you may flip it.",
+    "power": "2",
+    "toughness": "2"
+   },
+   {
+    "name": "Azamuki, Treachery Incarnate",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Spirit",
+    "oracle_text": "Remove a ki counter from Azamuki: Gain control of target creature until end of turn.",
+    "power": "5",
+    "toughness": "2"
+   }
+  ]
+ },
+ {
+  "name": "Hired Muscle // Scarmaker",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Warrior // Legendary Creature — Spirit",
+  "oracle_text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\nAt the beginning of the end step, if there are two or more ki counters on this creature, you may flip it.\n//\nRemove a ki counter from Scarmaker: Target creature gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "power": "2",
+  "toughness": "2",
+  "keywords": [],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Hired Muscle",
+    "mana_cost": "{1}{B}{B}",
+    "type_line": "Creature — Human Warrior",
+    "oracle_text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\nAt the beginning of the end step, if there are two or more ki counters on this creature, you may flip it.",
+    "power": "2",
+    "toughness": "2"
+   },
+   {
+    "name": "Scarmaker",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Spirit",
+    "oracle_text": "Remove a ki counter from Scarmaker: Target creature gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
+    "power": "4",
+    "toughness": "4"
+   }
+  ]
+ },
+ {
+  "name": "Faithful Squire // Kaiso, Memory of Loyalty",
+  "mana_cost": "{1}{W}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Soldier // Legendary Creature — Spirit",
+  "oracle_text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\nAt the beginning of the end step, if there are two or more ki counters on this creature, you may flip it.\n//\nFlying\nRemove a ki counter from Kaiso: Prevent all damage that would be dealt to target creature this turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "power": "2",
+  "toughness": "2",
+  "keywords": [
+   "Flying"
+  ],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Faithful Squire",
+    "mana_cost": "{1}{W}{W}",
+    "type_line": "Creature — Human Soldier",
+    "oracle_text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\nAt the beginning of the end step, if there are two or more ki counters on this creature, you may flip it.",
+    "power": "2",
+    "toughness": "2"
+   },
+   {
+    "name": "Kaiso, Memory of Loyalty",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Spirit",
+    "oracle_text": "Flying\nRemove a ki counter from Kaiso: Prevent all damage that would be dealt to target creature this turn.",
+    "power": "3",
+    "toughness": "4"
+   }
+  ]
+ },
+ {
+  "name": "Jushi Apprentice // Tomoya the Revealer",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard // Legendary Creature — Human Wizard",
+  "oracle_text": "{2}{U}, {T}: Draw a card. If you have nine or more cards in hand, flip this creature.\n//\n{3}{U}{U}, {T}: Target player draws X cards, where X is the number of cards in your hand.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "power": "1",
+  "toughness": "2",
+  "keywords": [],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Jushi Apprentice",
+    "mana_cost": "{1}{U}",
+    "type_line": "Creature — Human Wizard",
+    "oracle_text": "{2}{U}, {T}: Draw a card. If you have nine or more cards in hand, flip this creature.",
+    "power": "1",
+    "toughness": "2"
+   },
+   {
+    "name": "Tomoya the Revealer",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Human Wizard",
+    "oracle_text": "{3}{U}{U}, {T}: Target player draws X cards, where X is the number of cards in your hand.",
+    "power": "2",
+    "toughness": "3"
+   }
+  ]
+ },
+ {
+  "name": "Kuon, Ogre Ascendant // Kuon's Essence",
+  "mana_cost": "{B}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Ogre Monk // Legendary Enchantment",
+  "oracle_text": "At the beginning of the end step, if three or more creatures died this turn, flip Kuon.\n//\nAt the beginning of each player's upkeep, that player sacrifices a creature of their choice.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "power": "2",
+  "toughness": "4",
+  "keywords": [],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Kuon, Ogre Ascendant",
+    "mana_cost": "{B}{B}{B}",
+    "type_line": "Legendary Creature — Ogre Monk",
+    "oracle_text": "At the beginning of the end step, if three or more creatures died this turn, flip Kuon.",
+    "power": "2",
+    "toughness": "4"
+   },
+   {
+    "name": "Kuon's Essence",
+    "mana_cost": "",
+    "type_line": "Legendary Enchantment",
+    "oracle_text": "At the beginning of each player's upkeep, that player sacrifices a creature of their choice."
+   }
+  ]
+ },
+ {
+  "name": "Budoka Gardener // Dokai, Weaver of Life",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Monk // Legendary Creature — Human Monk",
+  "oracle_text": "{T}: You may put a land card from your hand onto the battlefield. If you control ten or more lands, flip this creature.\n//\n{4}{G}{G}, {T}: Create an X/X green Elemental creature token, where X is the number of lands you control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "power": "2",
+  "toughness": "1",
+  "keywords": [],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Budoka Gardener",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature — Human Monk",
+    "oracle_text": "{T}: You may put a land card from your hand onto the battlefield. If you control ten or more lands, flip this creature.",
+    "power": "2",
+    "toughness": "1"
+   },
+   {
+    "name": "Dokai, Weaver of Life",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Human Monk",
+    "oracle_text": "{4}{G}{G}, {T}: Create an X/X green Elemental creature token, where X is the number of lands you control.",
+    "power": "3",
+    "toughness": "3"
+   }
+  ]
+ },
+ {
+  "name": "Orochi Eggwatcher // Shidako, Broodmistress",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Snake Shaman // Legendary Creature — Snake Shaman",
+  "oracle_text": "{2}{G}, {T}: Create a 1/1 green Snake creature token. If you control ten or more creatures, flip this creature.\n//\n{G}, Sacrifice a creature: Target creature gets +3/+3 until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "power": "1",
+  "toughness": "1",
+  "keywords": [],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Orochi Eggwatcher",
+    "mana_cost": "{2}{G}",
+    "type_line": "Creature — Snake Shaman",
+    "oracle_text": "{2}{G}, {T}: Create a 1/1 green Snake creature token. If you control ten or more creatures, flip this creature.",
+    "power": "1",
+    "toughness": "1"
+   },
+   {
+    "name": "Shidako, Broodmistress",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Snake Shaman",
+    "oracle_text": "{G}, Sacrifice a creature: Target creature gets +3/+3 until end of turn.",
+    "power": "3",
+    "toughness": "3"
+   }
+  ]
+ },
+ {
+  "name": "Student of Elements // Tobita, Master of Winds",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard // Legendary Creature — Human Wizard",
+  "oracle_text": "When this creature has flying, flip it.\n//\nCreatures you control have flying.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "power": "1",
+  "toughness": "1",
+  "keywords": [],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Student of Elements",
+    "mana_cost": "{1}{U}",
+    "type_line": "Creature — Human Wizard",
+    "oracle_text": "When this creature has flying, flip it.",
+    "power": "1",
+    "toughness": "1"
+   },
+   {
+    "name": "Tobita, Master of Winds",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Human Wizard",
+    "oracle_text": "Creatures you control have flying.",
+    "power": "3",
+    "toughness": "3"
+   }
+  ]
+ },
+ {
+  "name": "Bushi Tenderfoot // Kenzo the Hardhearted",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human Soldier // Legendary Creature — Human Samurai",
+  "oracle_text": "When a creature dealt damage by this creature this turn dies, flip this creature.\n//\nDouble strike; bushido 2 (Whenever this creature blocks or becomes blocked, it gets +2/+2 until end of turn.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "power": "1",
+  "toughness": "1",
+  "keywords": [
+   "Bushido",
+   "Double strike"
+  ],
+  "layout": "flip",
+  "card_faces": [
+   {
+    "name": "Bushi Tenderfoot",
+    "mana_cost": "{W}",
+    "type_line": "Creature — Human Soldier",
+    "oracle_text": "When a creature dealt damage by this creature this turn dies, flip this creature.",
+    "power": "1",
+    "toughness": "1"
+   },
+   {
+    "name": "Kenzo the Hardhearted",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Human Samurai",
+    "oracle_text": "Double strike; bushido 2 (Whenever this creature blocks or becomes blocked, it gets +2/+2 until end of turn.)",
+    "power": "3",
+    "toughness": "4"
+   }
+  ]
+ },
+ {
+  "name": "Jump",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Target creature gains flying until end of turn.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal",
+  "card_faces": []
+ }
+]

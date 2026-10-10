@@ -1,0 +1,35 @@
+[
+ {
+  "name": "Sting, Bilbo's Sword",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Legendary Artifact — Equipment",
+  "oracle_text": "Flash\nWhen Sting enters, put a hone counter on Sting for each creature target opponent controls. Attach Sting to up to one target creature you control. (Each hone counter on an Equipment grants +1/+0 to equipped creature.)\nEquip {3}",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip",
+   "Flash"
+  ]
+ },
+ {
+  "name": "Dwalin, Weaponmaster",
+  "mana_cost": "{1}{R/W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Dwarf Warrior",
+  "oracle_text": "First strike\nWhenever Dwalin enters or attacks, put a hone counter on each Equipment you control. (Each hone counter on an Equipment grants +1/+0 to equipped creature.)",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "power": "2",
+  "toughness": "1",
+  "keywords": [
+   "First strike"
+  ]
+ }
+]

@@ -1,0 +1,260 @@
+"""Wave 20A: attached events (Auras and Equipment), real Oracle text; every scenario checks the replay and a save/load round trip.
+
+* 613.1d-f / 613.4b: "Enchanted creature is a Citizen with base power and toughness 1/1. It has defender and loses all other abilities."
+* "Enchanted creature can't be the target of spells or abilities your opponents control.": the Aura controller's opponents (review 20A).
+* 613.4c: "+X/+X, where X is its mana value" (the equipped creature's); "+1/+0 for each instant and sorcery card in your graveyard".
+* 205.4a: "Enchanted land is snow."  702.116a: "Equipped creature has myriad."
+* 603.10a: "When enchanted permanent dies or is put into exile, return that card to the battlefield under your control." (Kaya's Ghostform)
+* 305.7 / 613.1d: "Enchanted land is a Mountain, Forest, and Plains." and "… is a 5/6 green Treefolk creature that's still a land."
+* 702.24a: "Enchanted creature has "Cumulative upkeep {1}."";  "Whenever this creature or equipped creature attacks, it gets +2/+0 until end of turn."
+* 608.2c / 122.1: "put a +1/+1 counter on it. Then if it has three or more +1/+1 counters on it, sacrifice this Aura." (the Ordeals)
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from app.rules import coverage
+from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act
+from tests.test_rules_conditionals import settle, token_of, until
+from tests.test_rules_wave6c_tokens_pumps import build, card_named, chars, mana, pt, put, to_hand
+from tests.test_rules_wave6e_statics import attack_with
+from tests.test_rules_wave15e_keywords import build3, check, next_own_turn
+
+EXTRA = [
+    card('Spider-Man No More', set_code='tst', number='20A01', mana_cost='{1}{U}', cmc=2.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature is a Citizen with base power and toughness 1/1. It has defender and loses all other abilities. (It also loses all other creature types.)', colors=['U'], color_identity=['U'], keywords=['Enchant']),  # noqa: E501
+    card('Retro-Mutation', set_code='tst', number='20A02', mana_cost='{2}{U}', cmc=3.0, type_line='Enchantment — Aura', oracle_text="Flash\nEnchant creature\nEnchanted creature is a Turtle with base power and toughness 0/1. It can't attack and loses all abilities. (It also loses all other creature types.)", colors=['U'], color_identity=['U'], keywords=['Flash', 'Enchant']),  # noqa: E501
+    card('Canopy Cover', set_code='tst', number='20A03', mana_cost='{1}{G}', cmc=2.0, type_line='Enchantment — Aura', oracle_text="Enchant creature\nEnchanted creature can't be blocked except by creatures with flying or reach.\nEnchanted creature can't be the target of spells or abilities your opponents control.", colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
+    card('Glamdring', set_code='tst', number='20A04', mana_cost='{2}', cmc=2.0, type_line='Legendary Artifact — Equipment', oracle_text='Equipped creature has first strike and gets +1/+0 for each instant and sorcery card in your graveyard.\nWhenever equipped creature deals combat damage to a player, you may cast an instant or sorcery spell from your hand with mana value less than or equal to that damage without paying its mana cost.\nEquip {3}', keywords=['Equip']),  # noqa: E501
+    card('Hedron Matrix', set_code='tst', number='20A05', mana_cost='{4}', cmc=4.0, type_line='Artifact — Equipment', oracle_text='Equipped creature gets +X/+X, where X is its mana value.\nEquip {4}', keywords=['Equip']),  # noqa: E501
+    card('Blade of Selves', set_code='tst', number='20A06', mana_cost='{2}', cmc=2.0, type_line='Artifact — Equipment', oracle_text="Equipped creature has myriad. (Whenever it attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)\nEquip {4}", keywords=['Equip']),  # noqa: E501
+    card('Glittering Frost', set_code='tst', number='20A07', mana_cost='{2}{G}', cmc=3.0, type_line='Snow Enchantment — Aura', oracle_text='Enchant land\nEnchanted land is snow.\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color.', colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
+    card('Ordeal of Thassa', set_code='tst', number='20A08', mana_cost='{1}{U}', cmc=2.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nWhenever enchanted creature attacks, put a +1/+1 counter on it. Then if it has three or more +1/+1 counters on it, sacrifice this Aura.\nWhen you sacrifice this Aura, draw two cards.', colors=['U'], color_identity=['U'], keywords=['Enchant']),  # noqa: E501
+    card('Chainflail Centipede', set_code='tst', number='20A12', mana_cost='{2}{B}', cmc=3.0, type_line='Artifact Creature — Equipment Insect', oracle_text="Whenever this creature or equipped creature attacks, it gets +2/+0 until end of turn.\nReconfigure {2} ({2}: Attach to target creature you control; or unattach from a creature. Reconfigure only as a sorcery. While attached, this isn't a creature.)", power='2', toughness='2', colors=['B'], color_identity=['B'], keywords=['Reconfigure']),  # noqa: E501
+    card("Kaya's Ghostform", set_code='tst', number='20A13', mana_cost='{B}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant creature or planeswalker you control\nWhen enchanted permanent dies or is put into exile, return that card to the battlefield under your control.', colors=['B'], color_identity=['B'], keywords=['Enchant']),  # noqa: E501
+    card('Lush Growth', set_code='tst', number='20A14', mana_cost='{G}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant land\nEnchanted land is a Mountain, Forest, and Plains.', colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
+    card('Living Terrain', set_code='tst', number='20A15', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Enchantment — Aura', oracle_text="Enchant land\nEnchanted land is a 5/6 green Treefolk creature that's still a land.", colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
+    card('Mana Chains', set_code='tst', number='20A16', mana_cost='{U}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature has "Cumulative upkeep {1}." (At the beginning of its controller\'s upkeep, that player puts an age counter on it, then sacrifices it unless they pay its upkeep cost for each age counter on it.)', colors=['U'], color_identity=['U'], keywords=['Enchant']),  # noqa: E501
+    card('Simian Sling', set_code='tst', number='20A21', mana_cost='{R}', cmc=1.0, type_line='Artifact Creature — Equipment Monkey', oracle_text="Equipped creature gets +1/+1.\nWhenever this creature or equipped creature becomes blocked, it deals 1 damage to defending player.\nReconfigure {2} ({2}: Attach to target creature you control; or unattach from a creature. Reconfigure only as a sorcery. While attached, this isn't a creature.)", power='1', toughness='1', colors=['R'], color_identity=['R'], keywords=['Reconfigure']),  # noqa: E501
+    card('Legion Loyalty', set_code='tst', number='20A22', mana_cost='{6}{W}{W}', cmc=8.0, type_line='Enchantment', oracle_text="Creatures you control have myriad. (Whenever a creature with myriad attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)", colors=['W'], color_identity=['W']),  # noqa: E501
+    card('Stub Giant', set_code='tst', number='20A09', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Giant', oracle_text='', power='2', toughness='2', colors=['G'], color_identity=['G']),  # noqa: E501
+    card('Stub Shock', set_code='tst', number='20A10', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Stub Shock deals 2 damage to any target.', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('Stub Exile', set_code='tst', number='20A17', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text='Exile target creature.', colors=['W'], color_identity=['W']),  # noqa: E501
+    card('Stub Murder', set_code='tst', number='20A18', mana_cost='{B}', cmc=1.0, type_line='Instant', oracle_text='Destroy target creature.', colors=['B'], color_identity=['B']),  # noqa: E501
+    card('Stub Rites', set_code='tst', number='20A11', mana_cost='{1}{U}', cmc=2.0, type_line='Sorcery', oracle_text='Draw a card.', colors=['U'], color_identity=['U']),  # noqa: E501
+]
+AURAS = ["Spider-Man No More", "Retro-Mutation", "Canopy Cover", "Glamdring", "Hedron Matrix", "Blade of Selves", "Glittering Frost",
+         "Ordeal of Thassa",
+         "Chainflail Centipede", "Kaya's Ghostform", "Lush Growth", "Living Terrain", "Mana Chains", "Simian Sling", "Legion Loyalty"]
+
+
+@pytest.fixture()
+def card_db(settings):
+    from app.cards.importer import build_database
+
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
+@pytest.mark.parametrize("name", AURAS)
+def test_coverage_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def attach(s, name, to):
+    aura = put(s, name)
+    act(s, "p1", type="attach", card_ids=[aura.id], to=to.id)
+    return aura
+
+
+def test_citizen_with_base_1_1_defender_and_no_other_abilities(cards):
+    s = build(cards, "Spider-Man No More", "Retro-Mutation")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear Warrior", "4/4", "Flying\nTrample")
+    attach(s, "Spider-Man No More", bear)
+    ch = chars(s, bear)
+    assert pt(s, bear) == (1, 1) and ch.subtypes == {"Citizen"}  # 613.4b; creature types replaced (205.3m)
+    assert "defender" in ch.keywords and not {"flying", "trample"} & ch.keywords  # 613.1f: its own grant stays
+    check(s)
+
+
+def test_turtle_0_1_loses_all_abilities(cards):
+    s = build(cards, "Retro-Mutation")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear Warrior", "4/4", "Flying")
+    attach(s, "Retro-Mutation", bear)
+    ch = chars(s, bear)
+    assert pt(s, bear) == (0, 1) and ch.subtypes == {"Turtle"} and "flying" not in ch.keywords
+    assert "cant_attack" in ch.imposed
+    check(s)
+
+
+@pytest.mark.parametrize("whose", ["p1", "p2"])
+def test_cant_be_the_target_of_spells_or_abilities_your_opponents_control(cards, whose):
+    """(review 20A) "your opponents" are the Aura controller's (Alice's), whoever controls the creature: on Bob's creature Alice may still
+    target it and Bob may not — not hexproof (702.11b), which would be the other way round."""
+    from app.rules import targets
+    from app.rules.plan import Plan
+
+    s = build(cards, "Canopy Cover")
+    bear = token_of(s, whose, "Bear", "Token Creature — Bear", "2/2")
+    attach(s, "Canopy Cover", bear)
+    plan = Plan(s.state, "p1", s.cards, None)
+    card = s.state.cards[bear.id]
+    assert "hexproof" not in chars(s, bear).keywords
+    assert targets.can_target(plan, "p1", card, plan.ch(card)) and not targets.can_target(plan, "p2", card, plan.ch(card))
+    check(s)
+
+
+def test_equipped_creature_gets_its_own_mana_value(cards):
+    s = build(cards, "Hedron Matrix", "Stub Giant")
+    giant = put(s, "Stub Giant")
+    token = token_of(s, "p1", "Squirrel", "Token Creature — Squirrel", "1/1")
+    eq = put(s, "Hedron Matrix")
+    act(s, "p1", type="attach", card_ids=[eq.id], to=giant.id)
+    assert pt(s, giant) == (5, 5)  # 202.3: mana value 3
+    act(s, "p1", type="attach", card_ids=[eq.id], to=token.id)
+    assert pt(s, token) == (1, 1) and pt(s, giant) == (2, 2)  # a token has no mana cost: mana value 0
+    check(s)
+
+
+def test_glamdring_counts_instants_and_sorceries_in_your_graveyard(cards):
+    s = build(cards, "Glamdring", "Stub Shock", "Stub Rites", "Stub Giant")
+    giant = put(s, "Stub Giant")
+    eq = put(s, "Glamdring")
+    act(s, "p1", type="attach", card_ids=[eq.id], to=giant.id)
+    assert pt(s, giant) == (2, 2) and "first strike" in chars(s, giant).keywords
+    for name in ("Stub Shock", "Stub Rites"):
+        c = next(c for c in s.state.cards.values() if c.name == name and c.zone == "p1:library")
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    assert pt(s, giant) == (4, 2)  # the two spells count (a creature card in the graveyard would not)
+    check(s)
+
+
+def test_enchanted_land_is_snow(cards):
+    s = build(cards, "Glittering Frost")
+    land = token_of(s, "p1", "Wood", "Token Land — Forest", "0/0", "{T}: Add {G}.")
+    assert "Snow" not in chars(s, land).supertypes
+    attach(s, "Glittering Frost", land)
+    assert "Snow" in chars(s, land).supertypes  # 205.4a
+    check(s)
+
+
+def test_equipped_creature_has_myriad(cards):
+    s = build3(cards, "Blade of Selves")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "3/3")
+    eq = put(s, "Blade of Selves")
+    act(s, "p1", type="attach", card_ids=[eq.id], to=bear.id)
+    next_own_turn(s)
+    attack_with(s, bear)  # attacks Bob; Cara is "an opponent other than defending player"
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "choose_one"
+          and "token copy" in s.state.rules.decision.prompt)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p3"])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 37  # 702.116a, 508.4
+    check(s)
+
+
+@pytest.mark.parametrize("start,sacrificed", [(0, False), (2, True)])
+def test_ordeal_counter_then_sacrifice_at_three(cards, start, sacrificed):
+    s = build(cards, "Ordeal of Thassa")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    aura = attach(s, "Ordeal of Thassa", bear)
+    if start:
+        act(s, "p1", type="counter", card_ids=[bear.id], kind="+1/+1", delta=start)
+    next_own_turn(s)
+    hand = len(s.state.zones.get("p1:hand", []))
+    attack_with(s, bear)
+    until(s, lambda s: s.state.turn.phase == "main2")
+    settle(s)
+    assert s.state.cards[bear.id].counters.get("+1/+1", 0) == start + 1
+    assert (s.state.cards[aura.id].zone == "p1:graveyard") is sacrificed  # 701.21a; "When you sacrifice this Aura, draw two cards."
+    assert len(s.state.zones.get("p1:hand", [])) == hand + (2 if sacrificed else 0)
+    check(s)
+
+
+def test_this_creature_or_equipped_creature_attacks_it_gets_pumped(cards):
+    s = build(cards, "Chainflail Centipede")
+    bug = put(s, "Chainflail Centipede")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    act(s, "p1", type="attach", card_ids=[bug.id], to=bear.id)  # reconfigured: equipped creature
+    next_own_turn(s)
+    attack_with(s, bear)
+    settle(s)
+    assert pt(s, bear) == (4, 2)  # 603.2: "it" is the attacking creature (the equipped one), until end of turn
+    check(s)
+
+
+@pytest.mark.parametrize("spell,mana_cost", [("Stub Exile", {"W": 1}), ("Stub Murder", {"B": 1})])
+def test_enchanted_creature_dies_or_is_put_into_exile_returns_under_your_control(cards, spell, mana_cost):
+    s = build(cards, "Kaya's Ghostform", "Stub Giant", spell)
+    giant = put(s, "Stub Giant")
+    attach(s, "Kaya's Ghostform", giant)
+    to_hand(s, spell)
+    mana(s, **mana_cost)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, spell).id, targets=[giant.id])
+    settle(s)
+    new = s.state.cards[giant.id]
+    assert new.zone == "p1:battlefield" and new.controller == "p1"  # 603.10a: dies (a graveyard) or exile: either event
+    check(s)
+
+
+def test_land_with_three_basic_land_types(cards):
+    s = build(cards, "Lush Growth")
+    land = token_of(s, "p1", "Wood", "Token Land — Forest", "0/0", "{T}: Add {G}.")
+    attach(s, "Lush Growth", land)
+    assert chars(s, land).subtypes == {"Mountain", "Forest", "Plains"}  # 305.7
+    check(s)
+
+
+def test_enchanted_land_is_a_5_6_treefolk_creature_and_still_a_land(cards):
+    s = build(cards, "Living Terrain")
+    land = token_of(s, "p1", "Wood", "Token Land — Forest", "0/0", "{T}: Add {G}.")
+    attach(s, "Living Terrain", land)
+    ch = chars(s, land)
+    assert {"Land", "Creature"} <= ch.types and "Treefolk" in ch.subtypes and "Forest" in ch.subtypes and ch.colors == {"G"}
+    assert pt(s, land) == (5, 6)
+    check(s)
+
+
+def test_granted_cumulative_upkeep_sacrifices_it_when_unpaid(cards):
+    s = build(cards, "Mana Chains", "Stub Giant")
+    giant = put(s, "Stub Giant")
+    attach(s, "Mana Chains", giant)
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.rules.decision is not None and s.state.rules.decision.player == "p1"
+          and "pay" in {o.id for o in s.state.rules.decision.options})
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["sacrifice"])
+    settle(s)
+    assert s.state.cards[giant.id].zone == "p1:graveyard"  # 702.24a: the creature has the ability, so it's sacrificed
+    check(s)
+
+
+def test_this_creature_or_equipped_creature_becomes_blocked_it_deals_damage_to_defending_player(cards):
+    s = build(cards, "Simian Sling")
+    sling = put(s, "Simian Sling")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    act(s, "p1", type="attach", card_ids=[sling.id], to=bear.id)
+    wall = token_of(s, "p2", "Wall", "Token Creature — Wall", "0/4")
+    next_own_turn(s)
+    attack_with(s, bear)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": bear.id}])
+    settle(s)
+    assert s.state.players["p2"].life == 39  # 509.3d: the equipped creature became blocked: 1 damage from it to the defending player
+    check(s)
+
+
+def test_a_static_myriad_grant_on_every_creature_you_control(cards):
+    s = build3(cards, "Legion Loyalty")
+    put(s, "Legion Loyalty")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "3/3")
+    next_own_turn(s)
+    attack_with(s, bear)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "choose_one"
+          and "token copy" in s.state.rules.decision.prompt)
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["p3"])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 37
+    check(s)

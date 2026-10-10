@@ -332,8 +332,8 @@ def test_krang_draw_cause(cards):
     ("Wurmcoil Engine", "FULL"), ("Brainstorm", "FULL"), ("Kederekt Parasite", "FULL"), ("Disciple of the Vault", "FULL"),
     ("Suture Priest", "FULL"), ("Conch Horn", "FULL"), ("Triplicate Titan", "FULL"), ("Orcish Bowmasters", "FULL"),
     ("Mirkwood Bats", "FULL"),
-    # refused: "that creature's controller may draw" (another player's "may" on someone else's trigger)
-    ("Fecundity", "PARTIAL"),
+    # (wave 19B: "that creature's controller may draw": that player is asked, 608.2d)
+    ("Fecundity", "FULL"),
 ])
 def test_death_and_draw_coverage(name, level):
     assert cov(name) == level

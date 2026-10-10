@@ -13,17 +13,30 @@ from typing import Any
 
 from app.game import ops
 from app.game.control import acting_as, controller_of, decider_of
-from app.game.rules_state import preset_name
+from app.game.rules_state import cancelable, preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
 from app.rules import characteristics as chars
-from app.rules.casting import activatable, alt_castable, castable, free_castable, optional_castable
+from app.rules import read_pass
+from app.rules.casting import (
+    activatable,
+    alt_castable,
+    announces_x,
+    castable,
+    free_castable,
+    optional_castable,
+)
 from app.rules.characteristics import CardInfo
 from app.rules.engine import land_play_problem
 from app.rules.plan import live_players
 
 
 def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] | None:
+    with read_pass.scope(state, info):  # (wave 29A) a view only reads the table: what every card shares is worked out once
+        return _rules_view(state, viewer, info)
+
+
+def _rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] | None:
     r = state.rules
     settings = state.settings
     if settings.automation == "off" or r is None:
@@ -113,7 +126,8 @@ def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
         full: dict[str, Any] = {"id": d.id, "player": d.player if viewer == OMNISCIENT else decider, "kind": d.kind, "prompt": mask_face_down(state, d.prompt, viewer, refs=[d.source_id, *(o.card_id for o in d.options)]),
                                 "source_id": d.source_id, "options": options,
                                 "min_choices": d.min_choices, "max_choices": d.max_choices,
-                                "rememberable": d.memory_key is not None}
+                                "rememberable": d.memory_key is not None,
+                                "cancelable": cancelable(d)}  # (wave 24D)
         if d.display is not None:
             full["display"] = d.display
         if decider != d.player:
@@ -175,6 +189,11 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
 
 def hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     """What the viewer could do right now, for highlighting. Only about the viewer's own cards."""
+    with read_pass.scope(state, info):  # (wave 29A) nothing here changes the table: the statics are read once, not once per card and kind
+        return _hints(state, viewer, info)
+
+
+def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     out: dict[str, Any] = {"has_priority": state.rules is not None and state.rules.priority == viewer}
     if state.rules is not None and state.rules.miracle:  # -- casting extras (wave 18E) -- only the owner's own windows (app/rules/miracle.py)
         mine = [c for c in state.rules.miracle if c in state.cards and state.cards[c].owner == viewer]
@@ -199,6 +218,9 @@ def hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     out["playable_lands"] = playable
     out["activatable"] = activatable(state, viewer, info)
     out["castable"] = [cid for cid in candidates if castable(state, viewer, state.cards[cid], info)]
+    # (wave 24D) 107.3a: castable cards that ask for X when cast (the server validates the range; min 0)
+    if x_cast := [cid for cid in out["castable"] if announces_x(state.cards[cid], info)]:
+        out["x_cast"] = x_cast
     # (wave 3C) cards a permission lets you cast without paying their mana costs
     out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info)]
     # -- cost changers (wave 4I) -- alternative costs written on cards (118.9): card id → [{"id", "label"}]

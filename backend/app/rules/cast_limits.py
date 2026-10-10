@@ -50,7 +50,7 @@ Context = dict[str, Any]
 Definition = dict[str, Any]
 
 # -- grammar ---------------------------------------------------------------------------------------
-_SPELLS = r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells"
+_SPELLS = r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<tail> with the chosen name)?"  # (wave 22B: card_names.py)
 _FROM = r"(?: from (?P<frm>anywhere other than their hands|graveyards or libraries|graveyards or exile|graveyards))?"
 _ACT = (r"(?: or (?P<act>activate abilities of artifacts, creatures, or enchantments|activate abilities that aren't mana abilities"
         r"|activate abilities of cards in graveyards|activate planeswalkers' loyalty abilities))?")
@@ -59,16 +59,24 @@ _FROMS = {"anywhere other than their hands": ("not_hand",), "graveyards": ("grav
 _ACTS = {"activate abilities of artifacts, creatures, or enchantments": "ace",
          "activate abilities that aren't mana abilities": "nonmana",
          "activate abilities of cards in graveyards": "graveyard", "activate planeswalkers' loyalty abilities": "loyalty"}
-_WHO = {"your opponents": "opponents", "players": "each", "each player": "each", "you": "you"}
+_WHO = {"your opponents": "opponents", "players": "each", "each player": "each", "you": "you",
+        "enchanted player": "enchanted", "enchanted creature's controller": "host_controller"}  # (wave 25D: an Aura's Curse, Brand of Ill Omen)
 _WHEN = {"during your turn": "your_turn", "during combat": "combat"}
 # "Your opponents can't cast spells during your turn." / "During your turn, your opponents can't cast spells or activate
 # abilities of artifacts, creatures, or enchantments." / "Your opponents can't cast spells from anywhere other than their
 # hands." / "Players can't cast spells from graveyards or activate abilities of cards in graveyards." / "During combat,
 # players can't cast spells or activate abilities that aren't mana abilities." / "You can't cast creature spells."
-STATIC_CAST = re.compile(rf"^(?:(?P<lead>during your turn|during combat), )?(?P<who>your opponents|players|each player|you) "
+STATIC_CAST = re.compile(rf"^(?:(?P<lead>during your turn|during combat), )?(?P<who>your opponents|players|each player|you|enchanted player|enchanted creature's controller) "
                          rf"can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>during your turn|during combat))?$")
 # "Each player can't cast more than one spell each turn." / "Each player can't cast more than one noncreature spell each turn."
-STATIC_ONE = re.compile(r"^(?P<who>each player|you) can't cast more than one (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell each turn$")
+# -- prohibitions (wave 22B) -- 601.3: "Spells with the chosen name can't be cast." (Meddling Mage, Nevermore), "Creature spells can't be cast."
+# (Aether Storm), "Noncreature spells with mana value 4 or greater can't be cast." (Gaddock Teeg): nobody may cast them
+STATIC_NOBODY = re.compile(r"^(?P<sel>[A-Za-z][A-Za-z' ,-]*?)? ?spells(?P<tail> with (?:the chosen name|mana value \d+ or (?:greater|less)"
+                           r"|\{X\} in their mana costs))? can't be cast$")
+# 602.5: "Activated abilities of sources with the chosen name can't be activated [unless they're mana abilities]." (Pithing Needle, Phyrexian
+# Revoker, Sorcerous Spyglass, Voidstone Gargoyle)
+STATIC_NAMED = re.compile(r"^activated abilities of sources with the chosen name can't be activated(?P<nm> unless they're mana abilities)?$")
+STATIC_ONE = re.compile(r"^(?P<who>each player|you|enchanted player) can't cast more than one (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell each turn$")
 # "Each player who has cast a nonartifact spell this turn can't cast additional nonartifact spells." (the same, read as one)
 STATIC_ADDITIONAL = re.compile(r"^each player who has cast (?:a|an) (?P<sel>[a-z][a-z' ,-]*?) spell this turn can't cast additional "
                                r"(?P<sel2>[a-z][a-z' ,-]*?) spells$")
@@ -95,6 +103,12 @@ STATIC_FLASH = re.compile(r"^(?P<during>during each opponent's end step, )?(?P<w
                           r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells as though they had flash$")
 EFFECT_FLASH = re.compile(r"^(?:until end of turn, )?you may cast (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<this> this turn)? "
                           r"as though they had flash$")
+# -- static_other sweep (wave 19A) -- 609.4b / 118.14: "You may spend mana as though it were mana of any color to cast planeswalker spells."
+# (Oath of Nissa), "You can spend mana of any type to cast creature spells." (Vizier of the Menagerie): how the cost of those spells may be paid
+# -- casting costs (wave 22F) -- Chromatic Orrery / Mycosynth Lattice: "You may spend mana as though it were mana of any color." / "Players may
+# …" (every spell and ability: any mana pays a colored symbol, 609.4b), Agatha's Soul Cauldron: "… to activate abilities of creatures you control."
+STATIC_SPEND = re.compile(r"^(?P<who>you|players) (?P<how>may spend mana as though it were mana of any color|can spend mana of any type)"
+                          r"(?: to (?:cast (?P<sel>[A-Za-z][A-Za-z' ,-]*?) spells|(?P<act>activate abilities of creatures you control)))?$")
 STATIC_HASTE = "you may activate abilities of creatures you control as though those creatures had haste"
 # 702.51 / 702.126 / 702.66: "Nonartifact spells you cast have improvise." / "Artifact spells you cast have convoke." / "Spells
 # you cast have delve." — the spell has it while it's being cast (601.2g-h: costs are paid with the spell on the stack)
@@ -146,19 +160,19 @@ def _lower_first(s: str) -> str:
     return s[:1].lower() + s[1:] if s[:1].isupper() else s
 
 
-def _filter(sel: str | None) -> tuple[bool, str | None]:
-    """(understood, the spell selector key) for "<sel> spells" (None: any spell)."""
-    if not sel:
+def _filter(sel: str | None, tail: str | None = None) -> tuple[bool, str | None]:
+    """(understood, the spell selector key) for "<sel> spells [<tail>]" (None: any spell)."""
+    if not sel and not tail:
         return True, None
     from app.rules.permissions import spell_filter
 
-    phrase = re.sub(r"^(\w+) spells and (\w+)$", r"\1 or \2", sel.strip())  # "Dragon spells and artifact" → "Dragon or artifact"
-    key = spell_filter(phrase)
+    phrase = re.sub(r"^(\w+) spells and (\w+)$", r"\1 or \2", (sel or "").strip())  # "Dragon spells and artifact" → "Dragon or artifact"
+    key = spell_filter(phrase or None, (tail or "").strip() or None)
     return key is not None, key
 
 
 def _cast_definition(m: re.Match[str]) -> Definition | None:
-    ok, key = _filter(m["sel"])
+    ok, key = _filter(m["sel"], m["tail"])
     if not ok:
         return None
     lead, when = m["lead"], m["when"]
@@ -175,6 +189,17 @@ def static_definition(text: str) -> Definition | None:
     m = STATIC_CAST.fullmatch(t)
     if m:
         return _cast_definition(m)
+    m = STATIC_NOBODY.fullmatch(t)
+    if m:  # -- prohibitions (wave 22B) --
+        ok, key = _filter(m["sel"], m["tail"])
+        if not ok or key is None:
+            return None
+        return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": key, "from": None,
+                "act": None, "max": None, "effects": []}
+    m = STATIC_NAMED.fullmatch(t)
+    if m:
+        return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": None, "from": None,
+                "act": "nonmana_named" if m["nm"] else "named", "max": None, "spells": False, "effects": []}
     m = STATIC_ONE.fullmatch(t)
     if m:
         ok, key = _filter(m["sel"])
@@ -232,6 +257,38 @@ def static_definition(text: str) -> Definition | None:
         return d
     if t == STATIC_HASTE:
         return {"kind": "static", "static": "activate_as_haste", "effects": []}
+    # -- static_other sweep (wave 19A) -- 606.3: "You may activate the loyalty abilities of planeswalkers you control twice each turn
+    # rather than only once." (Oath of Teferi), "You may activate loyalty abilities of ~ on any player's turn any time you could cast an
+    # instant." (Teferi, Master of Time): the once-a-turn and the sorcery timing of a loyalty ability, changed for those permanents
+    if t == "you may activate the loyalty abilities of planeswalkers you control twice each turn rather than only once":
+        return {"kind": "static", "static": "loyalty_rule", "who": "you", "twice": True, "effects": []}
+    if t == "you may activate loyalty abilities of ~ on any player's turn any time you could cast an instant":
+        return {"kind": "static", "static": "loyalty_rule", "who": "self", "instant": True, "effects": []}
+    # -- static_other sweep (wave 21A) -- 106.4 / 500.4: "You don't lose unspent red mana as steps and phases end." (app/rules/kept_mana.py)
+    m = re.fullmatch(r"you don't lose unspent (white|blue|black|red|green) mana as steps and phases end", t)
+    if m:
+        return {"kind": "static", "static": "keep_mana", "color": {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[m[1]], "effects": []}
+    # -- static_other sweep (wave 21A) -- 702.34a: "Each instant and sorcery card in your graveyard has flashback. The flashback cost is equal to that
+    # card's mana cost." (Lier, Disciple of the Drowned), "During your turn, each … has flashback. Its flashback cost is equal to its mana cost."
+    # -- casting costs (wave 22F) -- "During your turn, each Lesson card in your graveyard has flashback {1}." (Iroh, Grand Lotus): a fixed cost; a
+    # reminder after the sentence is read past
+    m = re.fullmatch(r"(?P<turn>during your turn, )?each (?P<sel>[a-z ,'-]+?) cards? in your graveyard has flashback(?:\. (?:the|its) flashback cost "
+                     r"is equal to (?:that card's|its) mana cost| (?P<fixed>\{\d+\}))(?: \(.*\))?", t, re.I)
+    if m:
+        sel = selectors.parse(m["sel"].replace(" and ", " or ") + " card in your graveyard")
+        if sel is None or sel.zones != ("graveyard",) or not sel.card or sel.player is not None:
+            return None
+        return {"kind": "static", "static": "gy_flashback", "sel": selectors.replace(sel, zone_owner="you").key(),
+                "your_turn": bool(m["turn"]), "effects": [], **({"cost": m["fixed"]} if m["fixed"] else {})}
+    m = STATIC_SPEND.fullmatch(t)
+    if m:
+        ok, key = _filter(m["sel"])
+        everything = not m["sel"] and not m["act"]  # (wave 22F: no "to …": every spell and every activated ability)
+        if not ok or (key is None and m["sel"]) or (m["who"] == "players" and (m["sel"] or m["act"] or m["how"].startswith("can"))):
+            return None
+        return {"kind": "static", "static": "spend_as", "mode": "type" if m["how"].startswith("can") else "color", "filter": key, "effects": [],
+                **({"abilities": "all" if everything else "creatures"} if everything or m["act"] else {}),
+                **({"players": True} if m["who"] == "players" else {}), **({"no_spells": True} if m["act"] else {})}
     m = STATIC_CASCADE.fullmatch(t)
     if m:  # -- static statics (wave 10B) --
         return _cascade_definition(m)
@@ -250,16 +307,20 @@ def static_definition(text: str) -> Definition | None:
         if not ok or affinity_pred(m["what"].lower()) is None:
             return None
         return {"kind": "static", "static": "spell_helper", "keyword": "affinity", "what": m["what"].lower(), "filter": key, "effects": []}
-    from app.rules import player_shields  # "You have hexproof." (app/rules/player_shields.py)
+    from app.rules import (  # "You have hexproof." (app/rules/player_shields.py); -- prohibitions (wave 22B) --
+        life_lock,  # -- can't lose life (wave 29D) -- "Your life total can't change." (app/rules/life_lock.py)
+        player_shields,
+        prohibitions,
+    )
 
-    return player_shields.static_definition(text)
+    return prohibitions.static_definition(text) or player_shields.static_definition(text) or life_lock.static_definition(text)
 
 
 def _effect_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     lead, when = m["lead"], m["when"]
     if bool(lead) == bool(when):
         raise ValueError("one duration")
-    ok, key = _filter(m["sel"])
+    ok, key = _filter(m["sel"], m["tail"])
     if not ok:
         raise ValueError("selector")
     act = _ACTS.get(m["act"] or "")
@@ -295,9 +356,9 @@ def _template(rx: re.Pattern[str], fn: Any) -> tuple[re.Pattern[str], Any]:
 
 
 def _player_templates() -> list[tuple[re.Pattern[str], Any]]:
-    from app.rules import player_shields
+    from app.rules import life_lock, player_shields
 
-    return player_shields.TEMPLATES
+    return [*player_shields.TEMPLATES, *life_lock.TEMPLATES]  # (-- can't lose life (wave 29D) --)
 
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [_template(EFFECT_CAST, _effect_cast), *_player_templates()]
@@ -356,7 +417,13 @@ def _player_primitives() -> tuple[dict[str, Any], dict[str, Any]]:
     return player_shields.PRIMITIVES, player_shields.RESUME
 
 
-PRIMITIVES = {"cast_limit": cast_limit, "flash_permission": flash_permission, **_player_primitives()[0]}
+def _life_primitives() -> dict[str, Any]:
+    from app.rules import life_lock
+
+    return life_lock.PRIMITIVES  # -- can't lose life (wave 29D) --
+
+
+PRIMITIVES = {"cast_limit": cast_limit, "flash_permission": flash_permission, **_player_primitives()[0], **_life_primitives()}
 RESUME = dict(_player_primitives()[1])
 
 
@@ -368,9 +435,10 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "turn" and x.get("turn") != turn)]
-    from app.rules import player_shields
+    from app.rules import life_lock, player_shields
 
     player_shields.turn_began(plan, ended)
+    life_lock.turn_began(plan, ended)  # -- can't lose life (wave 29D) --
 
 
 def _spells_words(key: str | None, frm: list[str] | None) -> str:
@@ -384,10 +452,19 @@ def _spells_words(key: str | None, frm: list[str] | None) -> str:
 
 # -- reading the table -----------------------------------------------------------------------------
 _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
-_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword")
+_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as", "keep_mana", "gy_flashback",
+          "cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search",  # (wave 22B: app/rules/prohibitions.py)
+          "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
+          "life_lock")  # (wave 29D: app/rules/life_lock.py)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
+    from app.rules import read_pass
+
+    return read_pass.once(state, info, "cast_limits.scan", lambda: _scan_table(state, info))  # (wave 29A: once per read-only pass)
+
+
+def _scan_table(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
     """(permanent, ability index, definition) of every limit / haste-permission static on the battlefield, read
     from copiable values (cheap, cached by what is there); ``_statics`` confirms each with the permanent's
     current characteristics (a "loses all abilities" effect removes it, 613.1f)."""
@@ -412,7 +489,7 @@ def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]
         if not c.zone.endswith(":battlefield") or c.face_down or c.controller not in live or r.card_mode(cid) == "manual":
             continue
         for index, d in scripts.definitions(copiable(state, c, info)).items():
-            if d.get("kind") == "static" and (d.get("static") in _KINDS or d.get("player_shield")):
+            if d.get("kind") == "static" and (d.get("static") in _KINDS or d.get("player_shield") or d.get("spell_grants")):  # (wave 28C: spell_grants.py)
                 out.append((cid, index, d))
     if len(_CACHE) > 256:
         _CACHE.clear()
@@ -439,7 +516,14 @@ def _statics(state: GameState, info: CardInfo | None, kind: str) -> list[tuple[C
     return out
 
 
-def _who_ok(who: str, player: str, controller: str) -> bool:
+def _who_ok(who: str, player: str, controller: str, src: CardInstance | None = None, state: GameState | None = None) -> bool:
+    if who in ("enchanted", "host_controller"):  # -- attached events (wave 25D) -- the player the Aura is attached to / the controller of the creature it is
+        if src is None or state is None:
+            return False
+        if who == "enchanted":
+            return src.attached_player == player
+        host = state.cards.get(src.attached_to or "")
+        return host is not None and host.zone.endswith(":battlefield") and host.controller == player
     return who == "each" or (who == "opponents" and player != controller) or (who == "you" and player == controller)
 
 
@@ -456,7 +540,7 @@ def _record_live(state: GameState, x: dict[str, Any]) -> bool:
 
 
 def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None,
-              d: dict[str, Any], resolving: bool = False) -> bool:
+              d: dict[str, Any], resolving: bool = False, source: str | None = None) -> bool:
     """Does this limit forbid ``player`` casting this card as this spell now (``resolving``: as something resolves)?"""
     if d.get("spells") is False:
         return False
@@ -476,7 +560,7 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
             return True  # (can't tell: forbid rather than allow a cast the rules may forbid)
         from app.rules.permissions import spell_matches
 
-        if not spell_matches(state, player, card, ch, key, info):
+        if not spell_matches(state, player, card, ch, key, info, source):  # (source: wave 22B, "with the chosen name")
             return False
     if d.get("max") is not None:
         return _cast_this_turn(state, player, key) >= int(d["max"])
@@ -509,8 +593,8 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
         if x.get("player") == player and _record_live(state, x) and _cast_hit(state, player, card, ch, info, x):
             return f"{x.get('label') or 'An effect'}: you can't cast {_spells_words(x.get('filter'), x.get('from'))} now"
     for src, d in _statics(state, info, "cast_limit"):
-        if _who_ok(d["who"], player, src.controller) and _when_ok(state, d.get("when"), src.controller) \
-                and _cast_hit(state, player, card, ch, info, d, resolving):
+        if _who_ok(d["who"], player, src.controller, src, state) and _when_ok(state, d.get("when"), src.controller) \
+                and _cast_hit(state, player, card, ch, info, d, resolving, src.id):
             more = " more than once this turn" if d.get("max") is not None else \
                 " except any time you could cast a sorcery" if d.get("sorcery") else ""
             return f"{src.name or 'A permanent'}: you can't cast {_spells_words(d.get('filter'), d.get('from'))}{more} now"
@@ -518,8 +602,15 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
 
 
 def _act_hit(state: GameState, player: str, card: CardInstance, ch: Characteristics, act: str | None, d: dict[str, Any],
-             src_controller: str, info: CardInfo | None, *, mana: bool, loyalty: bool) -> bool:
+             src_controller: str, info: CardInfo | None, *, mana: bool, loyalty: bool, source: str | None = None) -> bool:
     on_field = card.zone.endswith(":battlefield")
+    if act in ("named", "nonmana_named"):  # -- prohibitions (wave 22B) -- 602.5, 709.4a: sources with the chosen name
+        if info is None or (act == "nonmana_named" and mana):
+            return False
+        from app.rules import card_names
+        from app.rules.plan import Plan
+
+        return card_names.matches(Plan.view(state, src_controller, info), source, ch)
     if act == "ace":
         return on_field and bool({"Artifact", "Creature", "Enchantment"} & set(ch.types))
     if act == "nonmana":
@@ -554,8 +645,8 @@ def activation_problem(state: GameState, player: str, card: CardInstance, ch: Ch
                 and _act_hit(state, player, card, ch, x["act"], x, x.get("controller") or player, info, mana=mana, loyalty=loyalty):
             return f"{x.get('label') or 'An effect'}: that ability can't be activated now"
     for src, d in _statics(state, info, "cast_limit"):
-        if d.get("act") and _who_ok(d["who"], player, src.controller) and _when_ok(state, d.get("when"), src.controller) \
-                and _act_hit(state, player, card, ch, d["act"], d, src.controller, info, mana=mana, loyalty=loyalty):
+        if d.get("act") and _who_ok(d["who"], player, src.controller, src, state) and _when_ok(state, d.get("when"), src.controller) \
+                and _act_hit(state, player, card, ch, d["act"], d, src.controller, info, mana=mana, loyalty=loyalty, source=src.id):
             return f"{src.name or 'A permanent'}: that ability can't be activated now"
     return None
 
@@ -572,6 +663,33 @@ def any_activation_limits(state: GameState, info: CardInfo | None) -> bool:
     return info is not None and any(d["static"] == "cast_limit" and d.get("act") for _, _, d in _scan(state, info))
 
 
+def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, key: str) -> bool:
+    """-- static_other sweep (wave 19A) -- does a static let this planeswalker's loyalty abilities be activated ``key`` ("twice" each turn, at
+    "instant" speed on any player's turn)? Its controller's "planeswalkers you control", or its own."""
+    return info is not None and any(d.get(key) and (src.id == card.id if d["who"] == "self" else src.controller == card.controller)
+                                    for src, d in _statics(state, info, "loyalty_rule"))
+
+
+def spend_mode(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> str | None:
+    """-- static_other sweep (wave 19A) -- how ``player``'s statics let them spend mana on this spell ("type": any type, else "color")."""
+    if info is None:
+        return None
+    from app.rules.permissions import spell_matches
+
+    modes = {d["mode"] for src, d in _statics(state, info, "spend_as") if (src.controller == player or d.get("players")) and not d.get("no_spells")
+             and (d["filter"] is None or spell_matches(state, player, card, ch, d["filter"], info))}
+    return "type" if "type" in modes else "color" if modes else None
+
+
+def ability_spend_mode(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> str | None:
+    """-- casting costs (wave 22F) -- 609.4b: how ``player``'s statics let them spend mana on this activated ability."""
+    if info is None:
+        return None
+    modes = {d["mode"] for src, d in _statics(state, info, "spend_as") if (src.controller == player or d.get("players")) and d.get("abilities")
+             and (d["abilities"] == "all" or (ch.is_creature and card.controller == src.controller))}
+    return "type" if "type" in modes else "color" if modes else None
+
+
 def as_though_haste(state: GameState, card: CardInstance, info: CardInfo | None) -> bool:
     """302.6 / 602.5a: may this creature's {T} / {Q} abilities be activated as though it had haste?"""
     if info is None:
@@ -583,11 +701,16 @@ def granted_helpers(state: GameState, player: str, spell_card: str, spell: Chara
     """Convoke / improvise / delve that permanents ``player`` controls give this spell they're casting."""
     found = _statics(state, info, "spell_helper")
     card = state.cards.get(spell_card)
+    from app.rules import (
+        spell_grants,  # -- spell grants (wave 28C) -- "The next spell you cast this turn has improvise."
+    )
+
+    nxt = {kw for kw in ("convoke", "improvise") if card is not None and spell_grants.pending(state, player, card, spell, info, kw)}
     if not found or card is None:
-        return set()
+        return nxt
     from app.rules.permissions import spell_matches
 
-    return {d["keyword"] for src, d in found if src.controller == player and d["keyword"] != "affinity"
+    return nxt | {d["keyword"] for src, d in found if src.controller == player and d["keyword"] != "affinity"
             and (d.get("from") is None or card.zone.endswith(":exile")
                  or (card.stack_info is not None and "Cast from exile" in card.stack_info.tags))
             and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))}
@@ -595,10 +718,14 @@ def granted_helpers(state: GameState, player: str, spell_card: str, spell: Chara
 
 def granted_affinities(state: GameState, player: str, card: CardInstance, spell: Characteristics, info: CardInfo) -> list[str]:
     """-- static_other sweep (wave 17C) -- the "affinity for X" words that permanents ``player`` controls give this spell (702.41a)."""
+    from app.rules import (
+        spell_grants,  # -- spell grants (wave 28C) -- "The next spell you cast this turn has affinity for artifacts."
+    )
     from app.rules.permissions import spell_matches
 
     return [d["what"] for src, d in _statics(state, info, "spell_helper") if src.controller == player and d["keyword"] == "affinity"
-            and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))]
+            and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))] + [
+        g.what for g in spell_grants.pending(state, player, card, spell, info, "affinity")]
 
 
 def from_ok(d: Definition, card: CardInstance) -> bool:
@@ -621,14 +748,19 @@ def granted_instances(plan: Plan, spell_card: str, spell: Characteristics, cast_
     reads each one's N)."""
     found = _statics(plan.state, plan.info, "spell_keyword")
     card = plan.state.cards.get(spell_card)
-    if not found or card is None or plan.rules is None:
+    if card is None or plan.rules is None:
         return []
+    from app.rules import (
+        spell_grants,  # -- spell grants (wave 28C) -- "The next spell you cast this turn has cascade." (702.85a, 702.40a)
+    )
     from app.rules.permissions import spell_matches
 
     player, turn = plan.actor, plan.state.turn.number
     log = plan.rules.turn_log if plan.rules.turn_log.turn == turn else None
     earlier = [c for c in (log.casts if log else []) if c.player == player and c.object_id != plan.oid(card)]
-    total: list[Definition] = []
+    total: list[Definition] = [{"keyword": keyword, "count": 1} for _g in spell_grants.pending(plan.state, player, card, spell, plan.info, keyword)]
+    if not found:
+        return total
     for src, d in found:
         if src.controller != player or d.get("keyword") != keyword:
             continue
@@ -669,14 +801,15 @@ def self_flash(state: GameState, player: str, card: CardInstance, ch: Characteri
     return None
 
 
-def free_cast_blocked(plan: Plan, player: str, card_id: str) -> str | None:
+def free_cast_blocked(plan: Plan, player: str, card_id: str, face: int | None = None) -> str | None:
     """A card the engine offered ``player`` to cast as something resolves (608.2g): is that cast prohibited now (601.3)?
-    (A split card / adventure: prohibited only if every half it could be cast as is.)"""
+    (A split card / adventure: prohibited only if every half it could be cast as is; -- granted casts (wave 29B) -- ``face``: that half / face
+    only, 709.3a / 712.11c.)"""
     from app.rules import characteristics as chars
 
     card = plan.state.cards.get(card_id)
     if card is None:
         return None
-    faces = (0, 1) if chars.is_two_spell_card(card, plan.info) else (None,)
+    faces = (face,) if face is not None else (0, 1) if chars.is_two_spell_card(card, plan.info) else (None,)
     found = [cast_problem(plan.state, player, card, chars.as_cast(card, plan.info, f), plan.info, resolving=True) for f in faces]
     return found[0] if all(found) else None

@@ -162,7 +162,7 @@ def supported_keyword(kw: str, line: str) -> bool:
 
 
 # -- the legality predicate ------------------------------------------------------------
-def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | None = None) -> str | None:
+def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | None = None, sba: bool = False) -> str | None:
     """Why ``source`` can't be attached to ``host`` (a card id or a player id) right now, or None
     if it can. For an Aura with an enchant wording the engine doesn't map, "unknown" (never
     remove an Aura on a guess). Targeting rules (hexproof, shroud) don't apply here: being
@@ -198,7 +198,9 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     if card is None or not card.zone.endswith(":battlefield"):
         return "it's not on the battlefield"
     hch = plan.ch(card)
-    if protection.protected_from(hch, sch):
+    # -- attached events (wave 25D) -- 702.16n: a protection that "doesn't remove" this Aura / Auras isn't why an Aura falls off as a
+    # state-based action (``sba``); it still keeps an Aura from becoming attached (702.16c: review 25D)
+    if protection.protected_from(hch, sch, (lambda k: k == f"self:{source.id}" or (k == "auras" and kind == "aura")) if sba else None):
         return f"{hch.name} has protection from it"
     if kind == "aura":
         if sch.is_creature:
@@ -257,12 +259,22 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
     from app.rules import characteristics as chars
     from app.rules import copying, replacements
 
-    entries = [dict(e) for e in entries]
+    for back in (e for e in entries if e.get("to") == "hand"):  # -- resolution memory (wave 22D) -- 610.3: exiled from a hand, returns there
+        plan.do({"type": "move", "card_ids": [back["card"]], "to": {"player": back["player"], "zone": "hand"}}, actor=back["actor"])
+    entries = [dict(e) for e in entries if e.get("to") != "hand"]
     for i, entry in enumerate(entries):
         card = plan.state.cards.get(entry["card"])
         if card is not None and entry.get("transformed") and not chars.transformable(card, plan.info):
             entry["stays"] = True  # -- transform (wave 11A) -- 712.14a: a card that isn't a double-faced card stays where it is
         if card is None or entry.get("stays"):
+            continue
+        # -- prohibitions (wave 22B) -- 614.17: "Creature cards in graveyards and libraries can't enter the battlefield."
+        from app.rules import prohibitions
+
+        if (barred := prohibitions.cant_enter(plan, card, entry["player"])) is not None:
+            if barred[1]:  # (a card in a hidden zone stays silently: a note would show that one was found)
+                plan.note(f"{barred[0]}: a card can't enter the battlefield", [card.id])
+            entry["stays"] = True
             continue
         # -- entering for a cost (wave 5G) -- what it may pay with: not one entering with it, nor one another of them
         # chose (614.13a-b)

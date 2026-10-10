@@ -861,14 +861,11 @@ def test_copy_cards_are_fully_automated(name):
 
 
 @pytest.mark.parametrize("text", [
-    # 707.9e: "enters with an additional counter" is an additional effect (Spark Double)
-    "You may have this creature enter as a copy of a creature or planeswalker you control, except it enters with an "
-    "additional +1/+1 counter on it if it's a creature, it enters with an additional loyalty counter on it if it's a "
-    "planeswalker, and it isn't legendary.",
-    # "except its name is …" (Sakashima the Impostor)
-    "You may have Sakashima the Impostor enter as a copy of any creature on the battlefield, except its name is "
-    "Sakashima the Impostor, it's legendary in addition to its other types, and it has \"{2}{U}{U}: Return Sakashima "
-    "the Impostor to its owner's hand at the beginning of the next end step.\"",
+    # 707.9e: a shield counter's replacement isn't automated (Undercover Operative)
+    "You may have this creature enter as a copy of any creature on the battlefield, except it enters with a shield counter on it "
+    "if you control that creature.",
+    # a copy of a card in a graveyard that was put there this turn (Activated Sleeper): not read
+    "You may have this creature enter as a copy of any creature card in a graveyard that was put there from the battlefield this turn.",
 ])
 def test_unsupported_enter_as_a_copy_wordings_stay_manual(text):
     ch_ = characteristics("Probe", "Creature — Shapeshifter", text)

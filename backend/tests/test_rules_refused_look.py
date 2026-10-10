@@ -253,10 +253,13 @@ def test_wordings_read_and_refused():
     wealth = scripts.parse_effects("Target opponent exiles the top X cards of their library. You may cast any number of spells with "
                                    "mana value X or less from among them without paying their mana costs.")
     assert wealth is not None and wealth[0][1]["n"] == 99 and wealth[0][1]["zone"] == "that"
-    # "its power" with nothing to bind, and a target whose legality would move with a value read on resolution: refused
+    # "its power" with nothing to bind: refused. (Wave 25C: a target limited by the source's power ("~'s power") is read: the selector
+    # compares with the source's power as the ability resolves, 608.2b, as the reanimation targets do; any other value stays refused)
     assert scripts.parse_effects("You may cast an instant spell with mana value less than or equal to its power from among them "
                                  "without paying its mana cost.") is None
     assert scripts.parse_effects("You may cast target instant or sorcery card with mana value less than or equal to ~'s power from your "
+                                 "graveyard without paying its mana cost.") is not None
+    assert scripts.parse_effects("You may cast target instant or sorcery card with mana value less than or equal to that damage from your "
                                  "graveyard without paying its mana cost.") is None
     # "from among them" with nothing set aside before it, and several libraries ("each player's"): refused
     assert scripts.parse_effects("You may cast any number of spells from among them without paying their mana costs.") is None

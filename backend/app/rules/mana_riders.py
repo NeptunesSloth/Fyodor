@@ -71,7 +71,7 @@ _SAC_IF_NONE = re.compile(r"^If there are no (?P<k>[a-z]+) counters on (?:this (
 
 # value kinds a mana ability may be sized by (read for its controller, with the source as "this"/"other")
 _SAFE_KEYS = {"count", "distinct", "among", "devotion", "sum", "max", "of", "opponents", "spells_cast", "party",
-              "player_counters"}
+              "player_counters", "shared_type", "counters_among", "counter_kinds"}  # (wave 23C: value grammar)
 
 
 def _n(word: str) -> int:
@@ -183,6 +183,10 @@ def rider(sentence: str) -> tuple[str, int] | None:
         return f"counter:{m['k']}", 1
     if m := _SAC_IF_NONE.fullmatch(sentence):
         return f"sac_if_none:{m['k']}", 0
+    # -- delayed triggers (wave 23B) -- "Draw a card at the beginning of the next turn's upkeep." (Barbed Sextant, Astrolabe): a delayed
+    # triggered ability the mana ability creates as it resolves (603.7a; 605.3b: it resolves at once, so it is created then)
+    if _UPKEEP_DRAW.fullmatch(sentence):
+        return "upkeep_draw", 1
     # -- next untap step (wave 6A) -- "This land doesn't untap during your next untap step." (Cloudcrest Lake; 502.3,
     # app/rules/next_untap.py): weighed by the payer like a small cost
     if _STAYS_TAPPED.fullmatch(sentence):
@@ -190,6 +194,7 @@ def rider(sentence: str) -> tuple[str, int] | None:
     return None
 
 
+_UPKEEP_DRAW = re.compile(r"^Draw a card at the beginning of the next turn's upkeep\.?$")
 _STAYS_TAPPED = re.compile(r"^(?:This (?:land|artifact|creature|permanent)|~) doesn't untap during your next untap step\.?$")
 
 
@@ -235,10 +240,11 @@ def penalty(riders: tuple[tuple[str, int], ...]) -> int:
     return sum(n for kind, n in riders if kind in ("opp_gain", "stay_tapped"))  # (stay_tapped: wave 6A)
 
 
-def after(plan: Plan, card: CardInstance, kind: str, n: int) -> None:
+def after(plan: Plan, card: CardInstance, kind: str, n: int, who: str | None = None) -> None:
     """A rider of this module, right after the ability's mana was added (605.3b: the same resolution)."""
     from app.rules import replace
 
+    who = who or card.controller  # (wave 24D: the activating player; 603.7e-style, the card may have left)
     if kind.startswith("counter:"):  # (an effect of the ability: the counter choke point, 122.6 / 614)
         if card.zone.endswith(":battlefield"):
             replace.put_counters(plan, [(card.id, kind.split(":", 1)[1], n)], by=card.controller)
@@ -247,15 +253,21 @@ def after(plan: Plan, card: CardInstance, kind: str, n: int) -> None:
 
         if card.zone.endswith(":battlefield") and card.counters.get(kind.split(":", 1)[1], 0) == 0:
             _sacrifice_cards(plan, [card.id], card.controller)
+    elif kind == "upkeep_draw":  # -- delayed triggers (wave 23B) --
+        from app.rules import delayed
+
+        # (review 23B: 603.7e — whoever activated it; a card sacrificed as the cost is back under its owner's control by now)
+        delayed.create_plain(plan, who, card.id, plan.oid(card.id), plan.ch(card).name,
+                             {"kind": "step", "step": "upkeep", "whose": "next_turn"}, [{"do": "draw", "who": "you", "n": 1}])
     elif kind == "stay_tapped":  # -- next untap step (wave 6A) --
         if card.zone.endswith(":battlefield"):
-            plan.rules.stay_tapped.append({"oid": plan.oid(card.id), "player": card.controller})
+            plan.rules.stay_tapped.append({"oid": plan.oid(card.id), "player": who})
     elif kind == "gain":
-        replace.gain_life(plan, [(card.controller, n)], actor=card.controller)
+        replace.gain_life(plan, [(who, n)], actor=who)
     elif kind == "opp_gain":
-        gains = [(p, n) for p in plan.live() if p != card.controller]
+        gains = [(p, n) for p in plan.live() if p != who]
         if gains:
-            replace.gain_life(plan, gains, actor=card.controller)
+            replace.gain_life(plan, gains, actor=who)
 
 
 # -- "Exile this card from your hand: Add {R}." (Simian / Elvish Spirit Guide) ----------------------------------------------

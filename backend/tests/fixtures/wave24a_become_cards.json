@@ -1,0 +1,136 @@
+[
+ {
+  "name": "Cemetery Puca",
+  "mana_cost": "{1}{U/B}{U/B}",
+  "cmc": 3.0,
+  "type_line": "Creature \u2014 Shapeshifter",
+  "oracle_text": "Whenever a creature dies, you may pay {1}. If you do, this creature becomes a copy of that creature, except it has this ability.",
+  "power": "1",
+  "toughness": "2",
+  "loyalty": null,
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Impossible Man",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature \u2014 Alien Shapeshifter",
+  "oracle_text": "Flying\n{2}{U}: Impossible Man becomes a copy of another target permanent until end of turn, except his name is Impossible Man.",
+  "power": "1",
+  "toughness": "4",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Sarkhan, Soul Aflame",
+  "mana_cost": "{1}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature \u2014 Human Shaman",
+  "oracle_text": "Dragon spells you cast cost {1} less to cast.\nWhenever a Dragon you control enters, you may have Sarkhan become a copy of it until end of turn, except its name is Sarkhan, Soul Aflame and it's legendary in addition to its other types.",
+  "power": "2",
+  "toughness": "4",
+  "loyalty": null,
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Cryptoplasm",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature \u2014 Shapeshifter",
+  "oracle_text": "At the beginning of your upkeep, you may have this creature become a copy of another target creature, except it has this ability.",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Unstable Shapeshifter",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature \u2014 Shapeshifter",
+  "oracle_text": "Whenever another creature enters, this creature becomes a copy of that creature, except it has this ability.",
+  "power": "0",
+  "toughness": "1",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Hulkling, Young Avenger",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature \u2014 Kree Skrull Hero",
+  "oracle_text": "Flying\nWhenever you cast a noncreature spell, Hulkling becomes a copy of up to one other target creature until end of turn, except his name is Hulkling, Young Avenger, he's 4/4, and he has flying and this ability.",
+  "power": "4",
+  "toughness": "4",
+  "loyalty": null,
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Doom Blade",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target nonblack creature.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ }
+]

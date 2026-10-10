@@ -146,9 +146,8 @@ def test_type_static_wordings_are_covered():
     assert ok("Nontoken creatures you control are Forest lands in addition to their other types.", "Ashaya, Soul of the Wild")
     assert ok("Creatures you control are every creature type. The same is true for creature spells you control and creature "
               "cards you own that aren't on the battlefield.", "Maskwood Nexus", "Artifact")
-    # a land type SET (305.7: the land loses its other land types and rules-text abilities) is not read
-    assert not ok("Nonbasic lands are Mountains.", "Blood Moon", "Enchantment")
-    assert not ok("Each land is a Swamp.", "Card", "Enchantment")
+    # a land type SET (305.7: the land loses its other land types and rules-text abilities): wave 22A, tests/test_rules_wave22a_layers.py
+    assert ok("Nonbasic lands are Mountains.", "Blood Moon", "Enchantment")
     assert not ok("Each land is a Desert in addition to its other land types.", "Card", "Enchantment")
 
 
@@ -409,8 +408,10 @@ def test_clone_variant_wordings_are_covered():
     assert ok("You may have this creature enter as a copy of any creature on the battlefield with mana value less than or "
                   "equal to the amount of mana spent to cast this creature, except it's a Bird in addition to its other types "
                   "and it has flying.", "Mockingbird")
-    # still refused: a card in a graveyard (Body Double)
-    assert not ok("You may have this creature enter as a copy of any creature card in a graveyard.", "Body Double")
+    # (wave 24A: a card in a graveyard is read, Body Double; one put there this turn still isn't, Activated Sleeper)
+    assert ok("You may have this creature enter as a copy of any creature card in a graveyard.", "Body Double")
+    assert not ok("You may have this creature enter as a copy of any creature card in a graveyard that was put there from the battlefield "
+                  "this turn.", "Activated Sleeper")
 
 
 def test_vesuva_enters_tapped_as_a_copy_of_a_land(cards):

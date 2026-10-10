@@ -37,7 +37,7 @@ EXTRA = [
 ]
 FULL = ["Time Warp", "Time Stretch", "Temporal Manipulation", "Capture of Jingzhou", "Beacon of Tomorrows", "Temporal Trespass",
         "Mu Yanling", "Karn's Temporal Sundering", "Time Sieve", "Seedtime", "Stitch in Time"]
-MANUAL = ["Final Fortune", "Savor the Moment"]
+MANUAL = ["Savor the Moment"]  # (Final Fortune: wave 19A, tests/test_rules_wave19a_sweep.py)
 
 
 @pytest.fixture()
@@ -70,8 +70,7 @@ def test_the_wordings():
     assert scripts.parse_effects("Take an extra turn after this one.") == ([{"do": "extra_turn", "who": "you", "n": 1}], None, False)
     assert scripts.parse_effects("Target player takes two extra turns after this one.") == (
         [{"do": "extra_turn", "who": "target", "n": 2}], "player", False)
-    for text in ("Take an extra turn after this one. At the beginning of that turn's end step, you lose the game.",
-                 "Take an extra turn after this one. Skip the untap step of that turn.",
+    for text in ("Take an extra turn after this one. Skip the untap step of that turn.",
                  "Target opponent takes an extra turn after this one.",
                  "Take four extra turns after this one."):
         assert scripts.parse_effects(text) is None, text

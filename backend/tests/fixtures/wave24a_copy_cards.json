@@ -1,0 +1,241 @@
+[
+ {
+  "name": "Sakashima the Impostor",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature \u2014 Human Rogue",
+  "oracle_text": "You may have Sakashima the Impostor enter as a copy of any creature on the battlefield, except its name is Sakashima the Impostor, it's legendary in addition to its other types, and it has \"{2}{U}{U}: Return Sakashima the Impostor to its owner's hand at the beginning of the next end step.\"",
+  "power": "3",
+  "toughness": "1",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Spark Double",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature \u2014 Illusion",
+  "oracle_text": "You may have this creature enter as a copy of a creature or planeswalker you control, except it enters with an additional +1/+1 counter on it if it's a creature, it enters with an additional loyalty counter on it if it's a planeswalker, and it isn't legendary.",
+  "power": "0",
+  "toughness": "0",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Moritte of the Frost",
+  "mana_cost": "{2}{G}{U}{U}",
+  "cmc": 5.0,
+  "type_line": "Legendary Snow Creature \u2014 Shapeshifter",
+  "oracle_text": "Changeling (This card is every creature type.)\nYou may have Moritte enter as a copy of a permanent you control, except it's legendary and snow in addition to its other types and, if it's a creature, it enters with two additional +1/+1 counters on it and has changeling.",
+  "power": "0",
+  "toughness": "0",
+  "loyalty": null,
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Changeling"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Altered Ego",
+  "mana_cost": "{X}{2}{G}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature \u2014 Shapeshifter",
+  "oracle_text": "This spell can't be countered.\nYou may have this creature enter as a copy of any creature on the battlefield, except it enters with X additional +1/+1 counters on it.",
+  "power": "0",
+  "toughness": "0",
+  "loyalty": null,
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Imposter Mech",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Artifact \u2014 Vehicle",
+  "oracle_text": "You may have this Vehicle enter as a copy of a creature an opponent controls, except it's a Vehicle artifact with crew 3 and it loses all other card types.\nCrew 3",
+  "power": "3",
+  "toughness": "1",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Crew"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Machine God's Effigy",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact",
+  "oracle_text": "You may have this artifact enter as a copy of any creature on the battlefield, except it's an artifact and it has \"{T}: Add {U}.\" (It's not a creature.)\n{T}: Add {U}.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Vesuvan Doppelganger",
+  "mana_cost": "{3}{U}{U}",
+  "cmc": 5.0,
+  "type_line": "Creature \u2014 Shapeshifter",
+  "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield, except it doesn't copy that creature's color and it has \"At the beginning of your upkeep, you may have this creature become a copy of target creature, except it doesn't copy that creature's color and it has this ability.\"",
+  "power": "0",
+  "toughness": "0",
+  "loyalty": null,
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Dermotaxi",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact \u2014 Vehicle",
+  "oracle_text": "Imprint \u2014 As this Vehicle enters, exile a creature card from a graveyard.\nTap two untapped creatures you control: Until end of turn, this Vehicle becomes a copy of the exiled card, except it's a Vehicle artifact in addition to its other types.",
+  "power": "0",
+  "toughness": "0",
+  "loyalty": null,
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Imprint"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Grizzly Bears",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Bear",
+  "oracle_text": "",
+  "power": "2",
+  "toughness": "2",
+  "loyalty": null,
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Sol Ring",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add {C}{C}.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Jace, Mirror Mage",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker \u2014 Jace",
+  "oracle_text": "Kicker {2}\nWhen Jace enters, if Jace was kicked, create a token that's a copy of Jace, except it's not legendary and its starting loyalty is 1.\n+1: Scry 2.\n0: Draw a card and reveal it. Remove a number of loyalty counters equal to that card's mana value from Jace.",
+  "power": null,
+  "toughness": null,
+  "loyalty": "4",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Kicker",
+   "Scry"
+  ],
+  "layout": "normal"
+ },
+ {
+  "name": "Gideon, Ally of Zendikar",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker \u2014 Gideon",
+  "oracle_text": "+1: Until end of turn, Gideon becomes a 5/5 Human Soldier Ally creature with indestructible that's still a planeswalker. Prevent all damage that would be dealt to him this turn.\n0: Create a 2/2 white Knight Ally creature token.\n\u22124: You get an emblem with \"Creatures you control get +1/+1.\"",
+  "power": null,
+  "toughness": null,
+  "loyalty": "4",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "layout": "normal"
+ },
+ {
+  "name": "Changeling Outcast",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Creature \u2014 Shapeshifter",
+  "oracle_text": "Changeling (This card is every creature type.)\nThis creature can't block and can't be blocked.",
+  "power": "1",
+  "toughness": "1",
+  "loyalty": null,
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Changeling"
+  ],
+  "layout": "normal"
+ }
+]

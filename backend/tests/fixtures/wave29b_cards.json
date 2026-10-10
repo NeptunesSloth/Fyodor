@@ -1,0 +1,926 @@
+[
+ {
+  "name": "Shardless Agent",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{U}",
+  "cmc": 3.0,
+  "type_line": "Artifact Creature — Human Rogue",
+  "oracle_text": "Cascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Cascade"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Wear // Tear",
+  "layout": "split",
+  "mana_cost": "{1}{R} // {W}",
+  "cmc": 3.0,
+  "type_line": "Instant // Instant",
+  "oracle_text": "Destroy target artifact.\nFuse (You may cast one or both halves of this card from your hand.)\n//\nDestroy target enchantment.\nFuse (You may cast one or both halves of this card from your hand.)",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Fuse"
+  ],
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Wear",
+    "mana_cost": "{1}{R}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact.\nFuse (You may cast one or both halves of this card from your hand.)"
+   },
+   {
+    "object": "card_face",
+    "name": "Tear",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target enchantment.\nFuse (You may cast one or both halves of this card from your hand.)"
+   }
+  ]
+ },
+ {
+  "name": "Bonecrusher Giant // Stomp",
+  "layout": "adventure",
+  "mana_cost": "{2}{R} // {1}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Giant // Instant — Adventure",
+  "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.\n//\nDamage can't be prevented this turn. Stomp deals 2 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Bonecrusher Giant",
+    "mana_cost": "{2}{R}",
+    "type_line": "Creature — Giant",
+    "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.",
+    "power": "4",
+    "toughness": "3"
+   },
+   {
+    "object": "card_face",
+    "name": "Stomp",
+    "mana_cost": "{1}{R}",
+    "type_line": "Instant — Adventure",
+    "oracle_text": "Damage can't be prevented this turn. Stomp deals 2 damage to any target."
+   }
+  ]
+ },
+ {
+  "name": "Galvanic Giant // Storm Reading",
+  "layout": "adventure",
+  "mana_cost": "{3}{U} // {5}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant Wizard // Instant — Adventure",
+  "oracle_text": "Whenever you cast a spell with mana value 5 or greater, tap target creature an opponent controls and put a stun counter on it.\n//\nDraw four cards, then discard two cards. (Then exile this card. You may cast the creature later from exile.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Galvanic Giant",
+    "mana_cost": "{3}{U}",
+    "type_line": "Creature — Giant Wizard",
+    "oracle_text": "Whenever you cast a spell with mana value 5 or greater, tap target creature an opponent controls and put a stun counter on it.",
+    "power": "3",
+    "toughness": "3"
+   },
+   {
+    "object": "card_face",
+    "name": "Storm Reading",
+    "mana_cost": "{5}{U}{U}",
+    "type_line": "Instant — Adventure",
+    "oracle_text": "Draw four cards, then discard two cards. (Then exile this card. You may cast the creature later from exile.)"
+   }
+  ]
+ },
+ {
+  "name": "Giant Killer // Chop Down",
+  "layout": "adventure",
+  "mana_cost": "{W} // {2}{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human Peasant // Instant — Adventure",
+  "oracle_text": "{1}{W}, {T}: Tap target creature.\n//\nDestroy target creature with power 4 or greater. (Then exile this card. You may cast the creature later from exile.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "2",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Giant Killer",
+    "mana_cost": "{W}",
+    "type_line": "Creature — Human Peasant",
+    "oracle_text": "{1}{W}, {T}: Tap target creature.",
+    "power": "1",
+    "toughness": "2"
+   },
+   {
+    "object": "card_face",
+    "name": "Chop Down",
+    "mana_cost": "{2}{W}",
+    "type_line": "Instant — Adventure",
+    "oracle_text": "Destroy target creature with power 4 or greater. (Then exile this card. You may cast the creature later from exile.)"
+   }
+  ]
+ },
+ {
+  "name": "Flamescroll Celebrant // Revel in Silence",
+  "layout": "modal_dfc",
+  "mana_cost": "{1}{R} // {W}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Shaman // Instant",
+  "oracle_text": "Whenever an opponent activates an ability that isn't a mana ability, this creature deals 1 damage to that player.\n{1}{R}: This creature gets +2/+0 until end of turn.\n//\nYour opponents can't cast spells or activate planeswalkers' loyalty abilities this turn.\nExile Revel in Silence.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Flamescroll Celebrant",
+    "mana_cost": "{1}{R}",
+    "type_line": "Creature — Human Shaman",
+    "oracle_text": "Whenever an opponent activates an ability that isn't a mana ability, this creature deals 1 damage to that player.\n{1}{R}: This creature gets +2/+0 until end of turn.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+     "R"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Revel in Silence",
+    "mana_cost": "{W}{W}",
+    "type_line": "Instant",
+    "oracle_text": "Your opponents can't cast spells or activate planeswalkers' loyalty abilities this turn.\nExile Revel in Silence.",
+    "colors": [
+     "W"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Valki, God of Lies // Tibalt, Cosmic Impostor",
+  "layout": "modal_dfc",
+  "mana_cost": "{1}{B} // {5}{B}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — God // Legendary Planeswalker — Tibalt",
+  "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.\n//\nAs Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n−3: Exile target artifact or creature.\n−8: Exile all graveyards. Add {R}{R}{R}.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Valki, God of Lies",
+    "mana_cost": "{1}{B}",
+    "type_line": "Legendary Creature — God",
+    "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+     "B"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Tibalt, Cosmic Impostor",
+    "mana_cost": "{5}{B}{R}",
+    "type_line": "Legendary Planeswalker — Tibalt",
+    "oracle_text": "As Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n−3: Exile target artifact or creature.\n−8: Exile all graveyards. Add {R}{R}{R}.",
+    "loyalty": "5",
+    "colors": [
+     "B",
+     "R"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Valakut Awakening // Valakut Stoneforge",
+  "layout": "modal_dfc",
+  "mana_cost": "{2}{R} // ",
+  "cmc": 3.0,
+  "type_line": "Instant // Land",
+  "oracle_text": "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one.\n//\nThis land enters tapped.\n{T}: Add {R}.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Valakut Awakening",
+    "mana_cost": "{2}{R}",
+    "type_line": "Instant",
+    "oracle_text": "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one.",
+    "colors": [
+     "R"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Valakut Stoneforge",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "This land enters tapped.\n{T}: Add {R}.",
+    "colors": []
+   }
+  ]
+ },
+ {
+  "name": "Trumpeting Carnosaur",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Creature — Dinosaur",
+  "oracle_text": "Trample\nWhen this creature enters, discover 5.\n{2}{R}, Discard this card: It deals 3 damage to target creature or planeswalker.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Discover",
+   "Trample"
+  ],
+  "power": "7",
+  "toughness": "6"
+ },
+ {
+  "name": "Hit // Run",
+  "layout": "split",
+  "mana_cost": "{1}{B}{R} // {3}{R}{G}",
+  "cmc": 8.0,
+  "type_line": "Instant // Instant",
+  "oracle_text": "Target player sacrifices an artifact or creature of their choice. Hit deals damage to that player equal to that permanent's mana value.\n//\nAttacking creatures you control get +1/+0 until end of turn for each other attacking creature.",
+  "colors": [
+   "B",
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R"
+  ],
+  "keywords": [],
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Hit",
+    "mana_cost": "{1}{B}{R}",
+    "type_line": "Instant",
+    "oracle_text": "Target player sacrifices an artifact or creature of their choice. Hit deals damage to that player equal to that permanent's mana value."
+   },
+   {
+    "object": "card_face",
+    "name": "Run",
+    "mana_cost": "{3}{R}{G}",
+    "type_line": "Instant",
+    "oracle_text": "Attacking creatures you control get +1/+0 until end of turn for each other attacking creature."
+   }
+  ]
+ },
+ {
+  "name": "Thrumming Stone",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Legendary Artifact",
+  "oracle_text": "Spells you cast have ripple 4. (Whenever you cast a spell, you may reveal the top four cards of your library. You may cast spells with the same name as that spell from among the revealed cards without paying their mana costs. Put the rest on the bottom of your library.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Sloppity Bilepiper",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Demon",
+  "oracle_text": "Jolly Gutpipes — {2}, {T}, Sacrifice a creature: The next creature spell you cast this turn has cascade. (When you next cast a creature spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Jolly Gutpipes"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Maelstrom Nexus",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "The first spell you cast each turn has cascade. (When you cast your first spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Willbender",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "Morph {1}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, change the target of target spell or ability with a single target.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Morph"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Pyrotechnic Performer",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Lizard Assassin",
+  "oracle_text": "Disguise {R} (You may cast this card face down for {3} as a 2/2 creature with ward {2}. Turn it face up any time for its disguise cost.)\nWhenever this creature or another creature you control is turned face up, that creature deals damage equal to its power to each opponent.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Disguise"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Jhoira of the Ghitu",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "{2}, Exile a nonland card from your hand: Put four time counters on the exiled card. If it doesn't have suspend, it gains suspend. (At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. If it's a creature, it has haste.)",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Hurl into History",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{U}",
+  "cmc": 5.0,
+  "type_line": "Instant",
+  "oracle_text": "Counter target artifact or creature spell. Discover X, where X is that spell's mana value. (Exile cards from the top of your library until you exile a nonland card with that mana value or less. Cast it without paying its mana cost or put it into your hand. Put the rest on the bottom in a random order.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Discover"
+  ]
+ },
+ {
+  "name": "Bloodbraid Elf",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Elf Berserker",
+  "oracle_text": "Haste (This creature can attack and {T} as soon as it comes under your control.)\nCascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Haste",
+   "Cascade"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Imoti, Celebrant of Bounty",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{U}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Snake Druid",
+  "oracle_text": "Cascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)\nSpells you cast with mana value 6 or greater have cascade.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Cascade"
+  ],
+  "power": "3",
+  "toughness": "1"
+ },
+ {
+  "name": "Storm, Force of Nature",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{U}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Mutant Hero",
+  "oracle_text": "Flying, vigilance\nCeaseless Tempest — Whenever Storm deals combat damage to a player, the next instant or sorcery spell you cast this turn has storm. (When you cast it, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+  "colors": [
+   "G",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance",
+   "Ceaseless Tempest"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Rift Bolt",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Rift Bolt deals 3 damage to any target.\nSuspend 1—{R} (Rather than cast this card from your hand, you may pay {R} and exile it with a time counter on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Suspend"
+  ]
+ },
+ {
+  "name": "Staggershock",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Staggershock deals 2 damage to any target.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Rebound"
+  ]
+ },
+ {
+  "name": "Lightning Bolt",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Sol Ring",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add {C}{C}.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Tangled Florahedron // Tangled Vale",
+  "layout": "modal_dfc",
+  "mana_cost": "{1}{G} // ",
+  "cmc": 2.0,
+  "type_line": "Creature — Elemental // Land",
+  "oracle_text": "{T}: Add {G}.\n//\nThis land enters tapped.\n{T}: Add {G}.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Tangled Florahedron",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature — Elemental",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+     "G"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Tangled Vale",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "This land enters tapped.\n{T}: Add {G}.",
+    "colors": []
+   }
+  ]
+ },
+ {
+  "name": "Grizzly Bears",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Bear",
+  "oracle_text": "",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Wildsear, Scouring Maw",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Elemental Wolf",
+  "oracle_text": "Trample\nEnchantment spells you cast from your hand have cascade. (Whenever you cast an enchantment spell from your hand, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Monstrous Vortex",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever you cast a creature spell with power 5 or greater, discover X, where X is that spell's mana value. (Exile cards from the top of your library until you exile a nonland card with that mana value or less. Cast it without paying its mana cost or put it into your hand. Put the rest on the bottom in a random order.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Discover"
+  ]
+ },
+ {
+  "name": "Craterhoof Behemoth",
+  "layout": "normal",
+  "mana_cost": "{5}{G}{G}{G}",
+  "cmc": 8.0,
+  "type_line": "Creature — Beast",
+  "oracle_text": "Haste\nWhen this creature enters, creatures you control gain trample and get +X/+X until end of turn, where X is the number of creatures you control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Haste"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Surging Flame",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Ripple 4 (When you cast this spell, you may reveal the top four cards of your library. You may cast spells with the same name as this spell from among those cards without paying their mana costs. Put the rest on the bottom of your library.)\nSurging Flame deals 2 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Ripple"
+  ]
+ },
+ {
+  "name": "Suspend",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Exile target creature and put two time counters on it. If it doesn't have suspend, it gains suspend. (At the beginning of its owner's upkeep, they remove a time counter. When the last is removed, they may play it without paying its mana cost. If it's a creature, it has haste.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Kang Prime",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{B}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Villain",
+  "oracle_text": "Flying\nWhenever Kang Prime enters or attacks, exile cards from the top of your library until you exile a nonland card. Put two time counters on that card. If it doesn't have suspend, it gains suspend. (At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. If it's a creature, it has haste.)",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "3",
+  "toughness": "5"
+ },
+ {
+  "name": "Agadeem's Awakening // Agadeem, the Undercrypt",
+  "layout": "modal_dfc",
+  "mana_cost": "{X}{B}{B}{B} // ",
+  "cmc": 3.0,
+  "type_line": "Sorcery // Land",
+  "oracle_text": "Return from your graveyard to the battlefield any number of target creature cards that each have a different mana value X or less.\n//\nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Agadeem's Awakening",
+    "mana_cost": "{X}{B}{B}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "Return from your graveyard to the battlefield any number of target creature cards that each have a different mana value X or less.",
+    "colors": [
+     "B"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Agadeem, the Undercrypt",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.",
+    "colors": []
+   }
+  ]
+ },
+ {
+  "name": "Underwater Tunnel // Slimy Aquarium",
+  "layout": "split",
+  "mana_cost": "{U} // {3}{U}",
+  "cmc": 5.0,
+  "type_line": "Enchantment — Room // Enchantment — Room",
+  "oracle_text": "When you unlock this door, surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)\n//\nWhen you unlock this door, manifest dread, then put a +1/+1 counter on that creature.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Surveil",
+   "Manifest",
+   "Manifest dread"
+  ],
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Underwater Tunnel",
+    "mana_cost": "{U}",
+    "type_line": "Enchantment — Room",
+    "oracle_text": "When you unlock this door, surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+   },
+   {
+    "object": "card_face",
+    "name": "Slimy Aquarium",
+    "mana_cost": "{3}{U}",
+    "type_line": "Enchantment — Room",
+    "oracle_text": "When you unlock this door, manifest dread, then put a +1/+1 counter on that creature.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+   }
+  ]
+ },
+ {
+  "name": "Wibbly-wobbly, Timey-wimey",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Time travel. (For each suspended card you own and each permanent you control with a time counter on it, you may add or remove a time counter.)\nDraw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Time Travel"
+  ]
+ },
+ {
+  "name": "Steel Golem",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact Creature — Golem",
+  "oracle_text": "You can't cast creature spells.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Gaddock Teeg",
+  "layout": "normal",
+  "mana_cost": "{G}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Kithkin Advisor",
+  "oracle_text": "Noncreature spells with mana value 4 or greater can't be cast.\nNoncreature spells with {X} in their mana costs can't be cast.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Jadzi, Oracle of Arcavios // Journey to the Oracle",
+  "layout": "modal_dfc",
+  "mana_cost": "{6}{U}{U} // {2}{G}{G}",
+  "cmc": 8.0,
+  "type_line": "Legendary Creature — Human Wizard // Sorcery",
+  "oracle_text": "Discard a card: Return Jadzi to its owner's hand.\nMagecraft — Whenever you cast or copy an instant or sorcery spell, reveal the top card of your library. If it's a nonland card, you may cast it by paying {1} rather than paying its mana cost. If it's a land card, put it onto the battlefield.\n//\nYou may put any number of land cards from your hand onto the battlefield. Then if you control eight or more lands, you may discard a card. If you do, return Journey to the Oracle to its owner's hand.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Magecraft"
+  ],
+  "power": "5",
+  "toughness": "5",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Jadzi, Oracle of Arcavios",
+    "mana_cost": "{6}{U}{U}",
+    "type_line": "Legendary Creature — Human Wizard",
+    "oracle_text": "Discard a card: Return Jadzi to its owner's hand.\nMagecraft — Whenever you cast or copy an instant or sorcery spell, reveal the top card of your library. If it's a nonland card, you may cast it by paying {1} rather than paying its mana cost. If it's a land card, put it onto the battlefield.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+     "U"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Journey to the Oracle",
+    "mana_cost": "{2}{G}{G}",
+    "type_line": "Sorcery",
+    "oracle_text": "You may put any number of land cards from your hand onto the battlefield. Then if you control eight or more lands, you may discard a card. If you do, return Journey to the Oracle to its owner's hand.",
+    "colors": [
+     "G"
+    ]
+   }
+  ]
+ }
+]

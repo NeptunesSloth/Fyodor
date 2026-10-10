@@ -39,7 +39,15 @@ def log_for(plan: Plan, last: bool = False) -> TurnLog:
             if log is not None and log.turn == n - 1:
                 return log
         return TurnLog()
-    return rules.turn_log if rules.turn_log.turn == n else TurnLog()
+    log = rules.turn_log if rules.turn_log.turn == n else TurnLog(turn=n)
+    # -- review (wave 24A) -- 608.2h: a resolution that counts what it just did ("sacrifice any number of creatures, then draw a
+    # card for each that died this turn") reads the facts of events no trigger collection has noted yet, in a scratch copy
+    pending = [e for e in rules.events if e.batch > rules.trigger_batch]
+    if not pending:
+        return log
+    scratch = TurnLog(turn=n)
+    note_events(plan, pending, into=scratch)
+    return log.model_copy(update={"facts": [*log.facts, *scratch.facts]}) if scratch.facts else log
 
 
 def departed_types(plan: Plan, d: Departure) -> set[str]:
@@ -101,11 +109,31 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         return creatures_died(plan, controller=me if cond.get("who") == "you" else None, last=bool(cond.get("last"))) >= n
     if kind == "left":
         return sum(1 for d in log.left if cond.get("who") != "you" or d.controller == me) >= n
+    if kind == "warped":  # -- void (wave 19E) -- "a spell was warped this turn": cast for its warp cost (702.185a), by anyone
+        return any(c.alt == "warp" for c in log.casts)
     if kind == "entered":  # -- refused modal/conditional (wave 3R1) --
         return entered(plan, ctx, cond, log) >= n
     if kind == "entered_self":
         return any(e.object_id == _source_object(plan, ctx) for e in log.entered)
     raise ValueError(f"unknown history condition {cond!r}")
+
+
+# -- history (wave 22E) -- where a permanent entered from (Entry.from_zone, recorded as it entered: 603.2, 603.4)
+def entered_from(zone: str | None, want: str, you: str) -> bool:
+    """Did a permanent enter from this zone ("graveyard" | "your graveyard" | "exile" | "your hand" …)? ``zone`` is the zone key it left
+    ("<owner>:graveyard", "stack"); "your" is the ability controller's zone."""
+    if not zone:
+        return False
+    owner, _, name = zone.rpartition(":")
+    if want.startswith("your "):
+        return name == want[5:] and owner == you
+    return name == want
+
+
+def entry_came_from(plan: Plan, object_id: str | None, want: str, you: str) -> bool:
+    """"if it entered from your graveyard": the entry of the object this turn."""
+    return any(e.object_id == object_id and entered_from(e.from_zone, want, you) for e in reversed(log_for(plan).entered))
+# -- end history (wave 22E) --
 
 
 # -- refused modal/conditional (wave 3R1) --
@@ -161,7 +189,11 @@ def _source_object(plan: Plan, ctx: dict[str, Any]) -> str | None:
 def note_cast(plan: Plan, card: Any) -> None:
     """A spell became cast (601.2i): its characteristics on the stack — face-down ones for a face-down spell (708.2)."""
     from app.game.rules_state import CastNote, turn_log_now
+    from app.rules import (
+        spell_grants,  # -- spell grants (wave 28C) -- "the next spell you cast this turn": used up by this cast
+    )
 
+    spell_grants.consume(plan, card, plan.ch(card))
     log = turn_log_now(plan.state)
     if log is None:
         return
@@ -169,7 +201,8 @@ def note_cast(plan: Plan, card: Any) -> None:
     record = plan.rules.payments.get(plan.oid(card))
     log.casts.append(CastNote(player=card.controller, object_id=plan.oid(card), types=sorted(ch.types),
                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
-                              mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None))
+                              mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None,
+                              alt=record.alternative if record is not None else None, x_cost="{X}" in ch.mana_cost))
 
 
 def _stack_mv(card: Any, ch: Any) -> int:
@@ -180,12 +213,13 @@ def _stack_mv(card: Any, ch: Any) -> int:
     return mana_value(card, ch)
 
 
-def note_events(plan: Plan, events: list[Any]) -> None:
-    """The facts of a batch of events (app/rules/triggers.py reads the same events for triggers), kept for the turn."""
+def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> None:
+    """The facts of a batch of events (app/rules/triggers.py reads the same events for triggers), kept for the turn
+    (``into``: a scratch log instead, for events not yet looked at — review 23C)."""
     from app.game.rules_state import TurnFact, turn_log_now
     from app.rules.triggers import _facts
 
-    log = turn_log_now(plan.state)
+    log = into if into is not None else turn_log_now(plan.state)
     if log is None:
         return
     for e in events:
@@ -196,6 +230,8 @@ def note_events(plan: Plan, events: list[Any]) -> None:
                                     "supertypes": sorted(ch.supertypes)} if ch is not None else {}
             if kind == "create_token" and obj is not None:  # 111.2: the player who creates a token is its owner
                 log.facts.append(TurnFact(kind="token", player=obj.owner, object_id=info.get("oid"), token=True, **what))
+            elif kind == "discard" and not (info.get("to") or "").endswith(":graveyard"):
+                continue  # (review 23D: a discard put elsewhere instead was noted as it was replaced, note_discards)
             elif kind in ("discard", "sacrifice") and player is not None and obj is not None:
                 log.facts.append(TurnFact(kind=kind, player=player, object_id=info.get("oid"), token=obj.is_token, **what))
             elif kind == "dealt_damage" and obj is None and info.get("recipient"):  # a player was dealt damage (120.3)
@@ -233,7 +269,7 @@ def note_discards(plan: Plan, card_ids: list[str]) -> None:
                                   subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes)))
 
 
-def note_look(plan: Plan, player: str, kind: str) -> None:
+def note_look(plan: Plan, player: str, kind: str, looked: int = 0) -> None:
     """701.22b / 701.25c: ``player`` scried / surveilled N (N > 0), even with too few cards to look at (701.22d)."""
     from app.game.rules_state import TurnFact, emit, turn_log_now
 
@@ -242,7 +278,7 @@ def note_look(plan: Plan, player: str, kind: str) -> None:
         log.facts.append(TurnFact(kind=kind, player=player))
         # -- looks (wave 8B) -- "Whenever you scry / surveil": the event (603.2), numbered among this turn's of that kind
         emit(plan.state, "designation", counter=kind, player=player,
-             amount=sum(1 for f in log.facts if f.kind == kind and f.player == player))
+             amount=sum(1 for f in log.facts if f.kind == kind and f.player == player), looked=looked)
 
 
 def note_crime(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -> None:
@@ -291,6 +327,18 @@ def note_resolution(plan: Plan, key: str) -> int:
     return log.resolved[key]
 
 
+def counting_activations(effects: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
+    """-- activations (wave 19E) -- "If this ability has been activated four or more times this turn": the ability's own count
+    (``RulesState.ability_uses``, recorded as each activation is made, 602.2) is named in the condition, as the object and ability
+    index it is; a copy of the ability is no activation."""
+    import json
+
+    text = json.dumps(effects)
+    if '"history": "activations"' not in text:
+        return effects
+    return json.loads(text.replace('"history": "activations"', f'"history": "activations", "key": "{key}"'))
+
+
 def counting_resolutions(effects: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
     """An ability that asks how many times it has resolved this turn counts its resolution first: the effect that
     does it goes ahead of the others (copied with them, 707.10: a copy of the ability counts too; an ability that
@@ -317,7 +365,7 @@ _NOTE_FIELDS = {"types", "not_types", "subtypes", "not_subtypes", "supertypes", 
                 "colorless", "multicolored", "token", "compare", "extras", "union", "zones"}
 
 
-def note_selector_ok(sel: Any) -> bool:
+def note_selector_ok(sel: Any, spell: bool = False) -> bool:
     from dataclasses import fields
 
     from app.rules.selectors import Selector
@@ -326,11 +374,14 @@ def note_selector_ok(sel: Any) -> bool:
     for f in fields(sel):
         if f.name not in _NOTE_FIELDS and getattr(sel, f.name) != getattr(blank, f.name):
             return False
-    return set(sel.extras) <= {"all_types"} and all(c[0] == "mv" for c in sel.compare)
+    # (-- history (wave 22E) -- a spell's note also records whether its cost has {X}, and "outlaw"-style subtype lists answer from the subtypes)
+    extras_ok = {"all_types", *(("x_cost",) if spell else ())}
+    return all(e in extras_ok or e.startswith("subtype_any:") for e in sel.extras) \
+        and all(c[0] == "mv" and isinstance(c[2], int) for c in sel.compare)
 
 
 def note_matches(sel: Any, types: Any, subtypes: Any = (), supertypes: Any = (), colors: Any = (), mv: float = 0,
-                 token: bool | None = None) -> bool:
+                 token: bool | None = None, x_cost: bool | None = None) -> bool:
     """Does an object, as recorded then, match a selector ``note_selector_ok`` accepts?"""
     types, subtypes, supertypes, colors = set(types), set(subtypes), set(supertypes), set(colors)
     if sel.union:
@@ -355,6 +406,11 @@ def note_matches(sel: Any, types: Any, subtypes: Any = (), supertypes: Any = (),
         return False
     if sel.token is not None and token is not None and sel.token != token:
         return False
+    if "x_cost" in sel.extras and not x_cost:
+        return False
+    for extra in sel.extras:  # (wave 22E) "outlaw": any of these subtypes
+        if extra.startswith("subtype_any:") and not set(extra[12:].split("|")) & subtypes:
+            return False
     ops = {">=": float.__ge__, "<=": float.__le__, "==": float.__eq__}
     return all(ops[op](float(mv), float(n)) for _, op, n in sel.compare)
 
@@ -382,7 +438,7 @@ def _cast(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -
             continue
         if me_src is not None and me_src in (note.object_id, note.became):
             continue
-        if note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv):
+        if note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv, x_cost=note.x_cost):
             per[note.player] = per.get(note.player, 0) + 1
     return _per_player(plan, ctx, cond, per)
 
@@ -477,8 +533,12 @@ _WAVE_4D: dict[str, Any] = {
     "departed": _departed,
     "lands": lambda plan, ctx, cond, log: plan.rules.lands_this_turn(ctx["controller"], plan.state.turn.number) >= int(cond.get("n", 1)),
     "resolution": lambda plan, ctx, cond, log: resolution_holds(ctx, cond),
+    "activations": lambda plan, ctx, cond, log: bool(cond.get("key")) and plan.rules.ability_uses.get(
+        f"{cond['key']}:t{plan.state.turn.number}", 0) >= int(cond["n"]),
+    "attackers_power": lambda plan, ctx, cond, log: plan.rules.attack_power.get(ctx["controller"], 0) >= int(cond["n"]),
     "self_attacked": lambda plan, ctx, cond, log: _source_object(plan, ctx) in {a for v in log.attackers.values() for a in v},
     "graveyard_cards": lambda plan, ctx, cond, log: _graveyard_cards(plan, ctx, cond, log),
+    "rolled": lambda plan, ctx, cond, log: log.rolled.get(ctx["controller"], 0) >= int(cond["n"]),  # -- dice (wave 24B) --
 }
 
 
@@ -501,6 +561,14 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
                    and _departed_matches(plan, selectors.from_key(v["sel"]), d, snap))
     if kind == "attackers":  # -- cost self reduction (wave 16F) -- each creature declared as an attacker this turn, once (508.1)
         return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
+    if kind in ("tokens", "sacrificed", "discarded"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)
+        return sum(1 for f in log.facts if f.kind == {"tokens": "token", "sacrificed": "sacrifice", "discarded": "discard"}[kind]
+                   and (f.player == me or v.get("who") == "any"))  # (wave 21F: "who": "any" — each permanent sacrificed, whoever did it)
+    if kind in ("opp_lost", "opp_damage"):  # (the opponents still in the game: 800.4a)
+        opps = {p for p in plan.live() if p != me}
+        if kind == "opp_lost":
+            return sum(n for p, n in log.lost.items() if p in opps)
+        return sum(f.amount for f in log.facts if f.kind == "damage" and f.player in opps)
     if kind == "opponents_who":
         n = int(v.get("n", 1))
         opponents = [p for p in plan.state.players if p != me]  # (800.4a: a player who left still did it — but isn't counted)
@@ -509,6 +577,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
             return sum(1 for p in opponents if log.drew.get(p, 0) >= n)
         if v["what"] == "lost":
             return sum(1 for p in opponents if log.lost.get(p, 0) >= n)
+        if v["what"] == "damaged":  # (wave 21F: Gnoll War Band — damage dealt to the player, 120.3)
+            return sum(1 for p in opponents if any(f.kind == "damage" and f.player == p and f.amount > 0 for f in log.facts))
         land = selectors.parse("land")
         assert land is not None
         return sum(1 for p in opponents if entered(plan, {**ctx, "controller": p}, {"sel": land.key()}, log) >= n)

@@ -88,4 +88,4 @@ def bind(inner: tuple[list[dict[str, Any]], Any], pay: dict[str, Any]) -> tuple[
 def leftover(effects: Any) -> bool:
     """A placeholder no payment bound (the wording isn't after a payment): the ability isn't read."""
     raw = json.dumps(effects, default=str)
-    return PLACEHOLDER in raw or '"cost:exiled"' in raw
+    return PLACEHOLDER in raw  # (a "cost:exiled" no instruction bound is the ability's own cost's card: scripts.define checks it, wave 23C)

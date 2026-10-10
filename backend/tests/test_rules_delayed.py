@@ -112,7 +112,6 @@ def test_pronouns_inside_a_deferred_effect_bind_to_the_earlier_instruction():
     "Target creature gets +2/+2 until your next turn. Draw a card for as long as ~ remains tapped.",  # not a continuous effect
     "When a creature dealt damage this way dies this turn, create a 1/1 black Skeleton creature token.",  # Skeletonize: several objects
     "At the beginning of the next end step, sacrifice it.",  # nothing earlier for "it" to be
-    "Target opponent reveals their hand and you choose a nonland card from it. Exile that card until ~ leaves the battlefield.",  # Brain Maggot: 610.3 returns it to the hand
 ])
 def test_refusals(text):
     assert parsed(text) is None

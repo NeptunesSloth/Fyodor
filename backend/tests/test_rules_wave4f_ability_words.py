@@ -106,7 +106,9 @@ def test_coverage_of_the_lines():
     assert ok("Corrupted — As long as an opponent has three or more poison counters, this creature has deathtouch and lifelink.",
               "Bonepicker Skirge")
     assert ok("Exhaust — {3}{G}: Put three +1/+1 counters on this creature.")  # 702.177a: "… Activate only once."
-    assert not ok("Max speed — Whenever you draw a card, each opponent mills two cards.")
+    assert ok("Max speed — Whenever you draw a card, each opponent mills two cards.")  # (wave 24B: 702.178a, app/rules/speed.py)
+    # (wave 28B: the draw replacement applies while its controller's speed is 4 — 702.178a, replace._draw_applies; review 28B: Vnwxt)
+    assert ok("Max speed — If you would draw a card, draw two cards instead.")
 
 
 # -- mana abilities: 605.3a, 602.5 --------------------------------------------------------------------------------

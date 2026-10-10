@@ -170,7 +170,7 @@ def test_ward_with_a_life_cost_in_a_keyword_line():
     assert coverage._keyword_supported("ward", "Menace, ward—Pay 3 life")  # (wave 15E reads a life cost: triggers.WARD_COST)
     assert coverage._keyword_supported("ward", "Flying, ward {2}")
     assert coverage._keyword_supported("ward", "Flying, ward {2}, ward—Discard a card")
-    assert not coverage._keyword_supported("ward", "Flying, ward—Collect evidence 4")
+    assert coverage._keyword_supported("ward", "Flying, ward—Collect evidence 4")  # (wave 26C: collect evidence is an optional payment, 701.59a)
 
 
 # -- anthems granting triggered keywords (613.1f) ------------------------------------------------------------------

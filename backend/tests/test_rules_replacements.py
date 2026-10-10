@@ -155,7 +155,10 @@ def test_enters_with_a_counter_for_each_creature_card_in_your_graveyard(cards):
 
 def test_for_each_of_a_group_it_might_belong_to_stays_manual():
     # whether an entering creature counts itself among "creatures you control" isn't decided here
-    assert not scripts.definitions(ch("Hope", "Creature", "Hope enters with a hope counter on it for each creature you control."))
+    # (review 26D: kept as a definition marked ``self_in_group``, which coverage refuses and the engine leaves to its controller)
+    hope = ch("Hope", "Creature", "Hope enters with a hope counter on it for each creature you control.")
+    assert scripts.definitions(hope) and all(d.get("self_in_group") for d in scripts.definitions(hope).values())
+    assert not coverage.definition_supported(scripts.definitions(hope)[0])
     # ("for each color of mana spent to cast it", converge, is read since wave 4F: test_rules_wave4f_ability_words.py)
     assert scripts.definitions(ch("Sludge", "Creature", "Sludge enters with a +1/+1 counter on it for each other Ooze you control."))
 
@@ -752,7 +755,8 @@ def test_reaper_only_exiles_opponents_creatures(cards):
 @pytest.mark.parametrize("text", [
     "As ~ enters, you may reveal a Plains or Island card from your hand. If you don't, ~ enters tapped.",
     "~ enters tapped unless a player has 13 or less life.",
-    "If a creature an opponent controls would die, exile it instead. When you do, create a 2/2 green Wolf creature token.",
+    # ("… exile it instead. When you do, create a token" is read since wave 22C: tests/test_rules_wave22c_zones.py)
+    "If a creature an opponent controls would die, exile it instead. When you do, you may pay {2}. If you do, create a 2/2 green Wolf creature token.",
     "Prevent all damage that would be dealt to you and permanents you control this turn by sources you don't control.",
     "~ enters tapped unless you control a Plains or an Island or it's your turn.",
 ])

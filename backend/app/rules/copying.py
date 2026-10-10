@@ -39,8 +39,19 @@ Refused — the engine asks for the copy to be made by hand, never guesses: face
 (707.2, 708.2), melded or reversible sources of token copies and of permanent-spell copies
 (707.8a, 712.8g), Aura spells, "for each player or object it could target" (707.10d), a copy
 that specifies its new target (707.10e), casting a copy (707.12), Garth One-Eye and Magar of the
-Magic Strings (707.13-707.14), exceptions that are additional effects (707.9e) and copies of
+Magic Strings (707.13-707.14), exceptions that are additional effects of a token or a "becomes"
+copy (707.9e: only an object entering as a copy "enters with" more) and copies of
 linked abilities (707.7) — the grammar doesn't read those wordings, so the cards stay manual.
+
+-- copy exceptions (wave 24A) -- 707.9: ``CopyExcept`` also carries the card types an exception sets ("it's an artifact", "it loses all
+other card types", 707.9b), abilities gained only if the result is a creature / planeswalker (707.9f: Moritte), "it doesn't copy that
+creature's color" (707.9c: the object's own colors, ``keep_colors``) and — read only for an object entering as a copy — "it enters with
+an additional +1/+1 counter on it [if it's a creature]" (707.9e: an additional effect of the replacement, kept on the definition and
+applied by ``entry_counters`` through ``replacements.entering_counters``; never a copiable value; the engine applies no later copy effect
+as it enters, so they always happen). A character card's "he's / his name is" is read like "it". "Becomes a copy" accepts "another" / "up to one other"
+targets, the object a trigger or earlier instruction names ("it", "that creature": as it last existed when it left, 608.2h), a card in a
+graveyard (its printed values, 707.2) and a group ("each other creature [you control]", ``parse_become_group``: one effect on the group as
+it is as it begins, 611.2c). "Enter as a copy of a creature card in a graveyard" reads public cards only.
 
 -- refused copy/mana (wave 3R3) -- now automated: a token copy or a permanent spell's copy of a
 transforming or modal double-faced object is a double-faced token (707.8a, 707.10g:
@@ -172,15 +183,16 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
     from app.rules.layers import _subtype_fits
 
     kept = [a for a in ch.abilities if not a.intrinsic]
-    rewrite = bool(ex.add_text)
+    supertypes = (ch.supertypes | frozenset(ex.add_supertypes)) - frozenset(ex.remove_supertypes)
+    types = (frozenset(ex.set_types) if ex.set_types is not None else ch.types) | frozenset(ex.add_types)  # (wave 24A: 707.9b)
+    gained = [*ex.add_text, *(t for ty, ts in ex.text_if.items() if ty in types for t in ts)]  # (707.9f: as the copy would be)
+    rewrite = bool(gained)
     if ex.power is not None or ex.toughness is not None:
         # 707.9d: a characteristic-defining ability that defines the power and toughness isn't copied
         cda = {i for i, d in scripts.definitions(ch).items() if d.get("static") == "cda"}
         if cda:
             kept = [a for a in kept if a.index not in cda]
             rewrite = True
-    supertypes = (ch.supertypes | frozenset(ex.add_supertypes)) - frozenset(ex.remove_supertypes)
-    types = ch.types | frozenset(ex.add_types)
     subtypes = frozenset(s for s in ch.subtypes | frozenset(ex.add_subtypes) if _subtype_fits(s, types))
     if ex.set_creature_types is not None:  # -- token copies & attach on entry (wave 5J) -- 205.1a, 707.9d
         from app.rules.creature_types import CREATURE_TYPES
@@ -195,7 +207,7 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
         if any(a.kind == "static" and a.text.startswith(every[:-1]) for a in kept):
             kept = [a for a in kept if not (a.kind == "static" and a.text.startswith(every[:-1]))]
             rewrite = True
-    text = "\n".join([*(a.text for a in kept), *ex.add_text]) if rewrite else ch.oracle_text
+    text = "\n".join([*(a.text for a in kept), *gained]) if rewrite else ch.oracle_text
     if rewrite:
         abilities = chars.with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
     elif subtypes != ch.subtypes:
@@ -275,6 +287,9 @@ def _layer1(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     if recipe is not None and card.is_token and recipe.printing and recipe.printing == card.card_id \
             and card.face != recipe.face and (info.get(card.card_id) or {}).get("layout") in TWO_FACED_TOKENS:
         recipe = recipe.model_copy(update={"face": card.face})  # (wave 3R3: 707.8a, the face that is up)
+    if recipe is not None and recipe.printing and (info.get(recipe.printing) or {}).get("layout") == "flip":
+        # (review 24C) 707.3, 110.5c: a copy of a flip card takes both halves; which one applies is the copy's own flipped status
+        recipe = recipe.model_copy(update={"face": 1 if card.flipped and card.zone.endswith(":battlefield") else 0})
     return ch if recipe is None else characteristics(recipe, info)
 
 
@@ -415,6 +430,10 @@ def resume_mode(plan: Plan, d: Any, chosen: list[str]) -> None:
 def resume_manual(plan: Plan, d: Any, chosen: list[str]) -> None:
     job = d.resume["job"]
     plan.note(f"{plan.name(d.player)} finished the copy by hand", actor=d.player)
+    if job.get("did"):  # (-- review 25C -- a paid cast made by hand: "If you don't, …" reads the answer, permissions.free_cast)
+        from app.rules import context
+
+        context.refs(job["ctx"])[job["did"]] = {"kind": "payment", "ok": chosen == ["done"]}
     if run(plan, job):
         go_on(plan, job)
 
@@ -655,9 +674,7 @@ def finalize(plan: Plan, copy_id: str, controller: str) -> None:
     ids = [t.id for t in entry.targets
            if (t.id in plan.state.players and not plan.state.players[t.id].left)
            or (t.id in plan.state.cards and publicly_visible(plan.state, plan.state.cards[t.id]))]
-    ids = list(dict.fromkeys(ids))
-    if ids and len(plan.state.arrows) < 190:
-        plan.do({"type": "create_arrow", "source": copy_id, "targets": ids, "kind": "target"}, actor=controller)
+    plan.target_arrows(copy_id, ids, actor=controller)
     targeted(plan, copy_id, controller, entry.targets)
 
 
@@ -964,6 +981,10 @@ def token_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         _manual(plan, new_job(ctx, controller=ctx["controller"], objects=[], retarget=False, label=ctx.get("name") or "Copy"),
                 f"{ctx.get('name') or 'Copy'}: do this by hand — {'; '.join(refused)} — then press Done")
         return False
+    if e.get("attacking") and made:  # -- token copy (wave 20F) -- "tapped and attacking" (508.4): attacking, never "attacked"
+        from app.rules import token_grammar
+
+        return token_grammar.enter_attacking(plan, ctx, made)
     return True
 
 
@@ -1011,7 +1032,7 @@ def entry_candidates(plan: Plan, controller: str, what: str, card_id: str | None
     out = []
     for cid in selectors.candidates(plan, sel, controller):
         card = plan.state.cards[cid]
-        if card.zone.endswith(":battlefield") and supported_source(plan, card) is None \
+        if cid != card_id and card.zone.rsplit(":", 1)[-1] in sel.zones and supported_source(plan, card) is None \
                 and (limit is None or plan.ch(card).mana_value <= limit):
             out.append(cid)
     return out
@@ -1073,6 +1094,14 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     what = str(d["what"])
     answer = (answers or {}).get(what)
     _drop_entering(plan, card)
+    # -- review (wave 22A) -- 614.12: as it would exist on the battlefield (Vesuva under Blood Moon: its ability is gone before it
+    # applies, Magus of the Moon ruling)
+    from app.game.state import zone_key
+    from app.rules import scripts
+
+    probe = card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})
+    if not any(x.get("replacement") == "enter_as_copy" for x in scripts.definitions(plan.ch(probe)).values()):
+        return False
     if answer is None:
         if not entry_candidates(plan, controller, what, card.id):
             return False
@@ -1084,7 +1113,7 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     if source is None or answer not in entry_candidates(plan, controller, what, card.id):
         plan.note(f"{card.name or 'It'}: what it was to copy is gone, so it enters as itself", actor=controller)
         return False
-    excepts = [CopyExcept.model_validate(x) for x in d.get("excepts") or []]
+    excepts = [keep_colors(ex, _own(plan, card).colors) for ex in (CopyExcept.model_validate(x) for x in d.get("excepts") or [])]
     recipe = with_excepts(recipe_of(plan, source), excepts)
     # (on the object as it is now; it follows the card to the object it becomes as it enters,
     # whatever its number: rules_state._diff — never a predicted id, 400.7)
@@ -1093,6 +1122,36 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     if d.get("tapped"):  # -- enter as copy (wave 5F) -- "enter tapped as a copy" (Vesuva)
         out["tapped"] = True
     return False
+
+
+def keep_colors(ex: CopyExcept, own: frozenset[str]) -> CopyExcept:
+    """-- copy exceptions (wave 24A) -- 707.9c-d: "it doesn't copy that creature's color": the object keeps the colors it has (as its
+    copiable values are, before this copy effect), and a color-defining ability or indicator of the copied object isn't copied."""
+    return ex.model_copy(update={"keep_color": False, "set_colors": sorted(own)}) if ex.keep_color else ex
+
+
+def entry_counters(plan: Plan, card: CardInstance, controller: str, ch: Characteristics, choices: dict[str, str] | None,
+                   x: int | None) -> dict[str, int]:
+    """-- copy exceptions (wave 24A) -- 707.9e: "… except it enters with an additional +1/+1 counter on it [if it's a creature]" is an
+    additional effect of the replacement effect, so it happens only while the object enters as that copy, and isn't copied by a later
+    copy. 707.9f: "if it's a creature" is judged on what the copy is (``ch``); "if you control that creature" on the copied permanent.
+    (review 24A: the exception is lost only when another copy effect is applied after it; the engine applies only the entering card's
+    own "enter as a copy" — ``enter_definition`` — never a copied one, so the counters are always put, even when the copied object
+    has such a replacement and was itself not copying anything.)"""
+    d = enter_definition(plan, card)
+    if d is None or not d.get("enter_counters") or not entering_as_copy(plan, card):
+        return {}
+    source = plan.state.cards.get((choices or {}).get(str(d["what"]), ""))
+    out: dict[str, int] = {}
+    for c in d["enter_counters"]:
+        if c.get("if_type") and c["if_type"] not in ch.types:
+            continue
+        if c.get("if_control") and (source is None or source.controller != controller):
+            continue
+        n = int(x or 0) if c["n"] == "X" else int(c["n"])
+        if n > 0:
+            out[c["counter"]] = out.get(c["counter"], 0) + n
+    return out
 
 
 # -- becoming a copy (707.4) -------------------------------------------------------------------------
@@ -1104,17 +1163,35 @@ def become_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     who = [c for c in effects._cards(plan, ctx, e.get("who") or "self") if plan.state.cards[c].zone.endswith(":battlefield")]
     of = effects._cards(plan, ctx, e["with"])
-    if not who or len(of) != 1:
+    if e.get("others"):  # -- copy exceptions (wave 24A) -- "each other creature": other than the one copied
+        who = [c for c in who if c not in of]
+    base: CopyRecipe | None = None
+    if e.get("last_known") and not any(plan.state.cards[c].zone.endswith(":battlefield") for c in of):
+        # -- copy exceptions (wave 24A) -- "becomes a copy of that creature" when it died / left: its copiable values as it last existed
+        # (608.2h, 111.12; the same last known information a token copy reads)
+        from app.rules import populate
+
+        left = populate.left_battlefield(plan, ctx, "event", False)
+        if len(left) == 1 and isinstance(left[0][0], CopyRecipe):
+            base, of = left[0][0], []
+        elif left:
+            _manual(plan, new_job(ctx, controller=ctx["controller"], objects=[], retarget=False, label=ctx.get("name") or "Copy"),
+                    f"{ctx.get('name') or 'Copy'}: becoming a copy of {left[0][0]} isn't automated — do it by hand, then press Done")
+            return False
+    if not who or (base is None and len(of) != 1):
         plan.note(f"{ctx.get('name') or 'It'}: nothing becomes a copy (the permanent or what it would copy is gone)",
                   actor=ctx["controller"])
         return True
-    source = plan.state.cards[of[0]]
-    problem = supported_source(plan, source)
-    if problem is not None:
-        _manual(plan, new_job(ctx, controller=ctx["controller"], objects=[], retarget=False, label=ctx.get("name") or "Copy"),
-                f"{ctx.get('name') or 'Copy'}: becoming a copy of {problem} isn't automated — do it by hand, then press Done")
-        return False
-    recipe = with_excepts(recipe_of(plan, source), [CopyExcept.model_validate(x) for x in e.get("excepts") or []])
+    if base is None:
+        source = plan.state.cards[of[0]]
+        problem = supported_source(plan, source)
+        if problem is not None:
+            _manual(plan, new_job(ctx, controller=ctx["controller"], objects=[], retarget=False, label=ctx.get("name") or "Copy"),
+                    f"{ctx.get('name') or 'Copy'}: becoming a copy of {problem} isn't automated — do it by hand, then press Done")
+            return False
+        base = recipe_of(plan, source)
+    own = characteristics(recipe_of(plan, plan.state.cards[who[0]]), plan.info).colors if len(who) == 1 else frozenset()
+    recipe = with_excepts(base, [keep_colors(CopyExcept.model_validate(x), own) for x in e.get("excepts") or []])
     duration: Literal["end_of_turn", "permanent"] = "end_of_turn" if e.get("duration") == "end_of_turn" else "permanent"
     add_copy_effect(plan, [plan.oid(c) for c in who], recipe, ctx["controller"], duration=duration)
     plan.note(f"{', '.join(plan.state.cards[c].name for c in who)} becomes a copy of {recipe.source or 'it'}"
@@ -1153,39 +1230,77 @@ def ceases_to_exist(plan: Plan, card: CardInstance) -> bool:
 
 # -- grammar (the templates are registered in app/rules/scripts.py) ------------------------------------
 _COLOR_WORDS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
-_SUBJECT = r"(?:(?:that )?(?:it|the token|the tokens|the copy|the copies|they) )?"
+_SUBJECT = r"(?:(?:that )?(?:it|the token|the tokens|the copy|the copies|they|those creatures|those tokens) )?"
 _QUOTE = re.compile(r'"[^"]*"')
 
 
-def parse_excepts(text: str | None) -> CopyExcept | None:
+def parse_excepts(text: str | None, enters: bool = False) -> CopyExcept | None:
     """A copy effect's exceptions (707.9) in the closed wording the engine carries out: "it has
     haste [and "…"]" (707.9a), "it isn't legendary", "it's an artifact / a Spirit in addition to
     its other types" (707.9b; 707.9d: type-defining abilities stay), "it's 7/7" (707.9b; 707.9d:
     a P/T-defining ability isn't copied), "the copy is red" (707.9d), joined by commas and "and".
-    None for anything else (the ability stays manual)."""
+    None for anything else (the ability stays manual).
+    -- copy exceptions (wave 24A) -- also "it enters with [N] additional +1/+1 counters on it [if it's a creature]" (707.9e: an
+    additional effect, read only with ``enters``: an object entering as a copy), "if it's a creature, <exceptions>" (707.9f),
+    "it's an artifact … and it loses all other card types" (707.9b), "it has hexproof and this ability" (707.9a), "it doesn't copy
+    that creature's color" (707.9c)."""
     ex = CopyExcept()
     if not text:
         return ex
-    quotes = _QUOTE.findall(text)
+    cond = re.fullmatch(r"(?P<head>.*?),? and,? if it(?:'s| is) an? (?P<t>creature|planeswalker), (?P<tail>.+)", text)
+    if cond is not None:  # 707.9f: judged on what the copy would be without that exception (``_apply``)
+        head, tail = parse_excepts(cond["head"], enters), parse_excepts(cond["tail"], enters)
+        kind = cond["t"].capitalize()
+        if head is None or tail is None or tail.model_copy(update={"add_text": [], "enter_counters": []}) != CopyExcept():
+            return None
+        return head.model_copy(update={"text_if": {kind: tail.add_text} if tail.add_text else {},
+                                       "enter_counters": [{**c, "if_type": kind} for c in tail.enter_counters]}) \
+            if not head.text_if and not head.enter_counters else None
+    quotes = [q.replace("‹granter›", "~") for q in _QUOTE.findall(text)]  # (a quoted ability is the copy's own: its name is ~)
     masked = _QUOTE.sub("\x00", text)
-    parts = re.split(r",? and (?=(?:it|it's|it is|is|has|the token|the copy|they)\b)|, (?=(?:it|the token|the copy|they)\b)",
-                     masked)
+    # (wave 24A: "he's a legendary …", "her name is …" — a card that speaks of itself as a person; "is"/"has"/"loses" after a comma or "and")
+    masked = re.sub(r"(^|, | and )(?:he|she)(?=['\s])", r"\1it", masked)
+    masked = re.sub(r"(?:\b(?:his|her)|~'s) (name|power|other)\b", r"its \1", masked)
+    masked = re.sub(r"(^|, | and )~(?=['\s])", r"\1it", masked)  # (scripts._self_pronouns wrote a character's "he" as ~)
+    parts = re.split(r",? and (?=(?:it|it's|it is|is|has|loses|the token|the copy|they|those creatures)\b)"
+                     r"|, (?=(?:it|the token|the copy|they|is|has|those creatures)\b)", masked)
     for part in parts:
         restored = part
         while "\x00" in restored and quotes:
             restored = restored.replace("\x00", quotes.pop(0), 1)
         if "\x00" in restored or not _except_clause(restored.strip(), ex):
             return None
-    return ex
+    return ex if enters or not ex.enter_counters else None  # (707.9e: only an object entering as a copy "enters with" more)
 
 
 def _except_clause(clause: str, ex: CopyExcept) -> bool:
-    from app.rules import token_grammar
+    from app.rules import layers, token_grammar
     from app.rules.creature_types import CREATURE_TYPES
 
     c = re.sub(r"\bit's\b", "it is", clause)
     c = re.sub(r"\bthey're\b", "they are", c)
     c = c.replace("isn't", "is not").replace("aren't", "are not")
+    if re.fullmatch(r"(?:its|his|her) name is [^\"]+", c) and ex.name is None:  # -- enter as copy other (wave 20F) -- 707.9b: a modified name
+        ex.name = NAME_MARKER
+        return True
+    m = re.fullmatch(_SUBJECT + r"(?:is|are) (?P<s>(?:legendary|snow)(?: and (?:legendary|snow))?) in addition to (?:its|their) other types", c)
+    if m:  # (707.9b; wave 24A: "legendary and snow", Moritte of the Frost)
+        ex.add_supertypes = sorted({*ex.add_supertypes, *(w.capitalize() for w in m["s"].split(" and "))})
+        return True
+    m = re.fullmatch(_SUBJECT + r"enters? with (?P<n>an?|one|two|three|four|X|\d+) (?:additional )?(?P<k>\+1/\+1|loyalty) counters? on (?:it|them)"
+                                r"(?: if (?:it is an? (?P<t>creature|planeswalker)|(?P<own>you control that (?:creature|permanent))))?", c)
+    if m:  # -- copy exceptions (wave 24A) -- 707.9e: an additional effect of the replacement (``entry_counters``), not a copiable value
+        from app.rules import token_grammar
+
+        n: Any = "X" if m["n"] == "X" else int(m["n"]) if m["n"].isdigit() else token_grammar.NUMBERS[m["n"]]
+        ex.enter_counters = [*ex.enter_counters, {"counter": m["k"], "n": n, **({"if_type": m["t"].capitalize()} if m["t"] else {}),
+                                                    **({"if_control": True} if m["own"] else {})}]
+        return True
+    if re.fullmatch(_SUBJECT + r"loses all other card types", c):  # (707.9b; wave 24A) — with the types the exception names
+        return ex.set_types is not None
+    if re.fullmatch(_SUBJECT + r"doesn't copy that creature's color", c.replace("does not", "doesn't")) and not ex.keep_color:  # (707.9c)
+        ex.keep_color = True
+        return True
     if re.fullmatch(_SUBJECT + r"(?:is|are) not legendary(?: if (?:the|that) (?:spell|creature|permanent) is legendary)?", c):
         ex.remove_supertypes = sorted({*ex.remove_supertypes, "Legendary"})
         return True
@@ -1195,7 +1310,29 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     if re.fullmatch(_SUBJECT + r"(?:has|have) no mana cost", c):  # -- keywords (wave 15E) -- 707.9b
         ex.no_mana_cost = True
         return True
+    if re.fullmatch(_SUBJECT + r"(?:is|are) legendary", c):  # (707.9b; wave 24A: "except it's legendary", Adagia)
+        ex.add_supertypes = sorted({*ex.add_supertypes, "Legendary"})
+        return True
     m = re.fullmatch(_SUBJECT + r"(?:has|have) (?P<abil>.+)", c)
+    if m and ("this ability" in _QUOTE.sub("", m["abil"])):  # -- copy exceptions (wave 24A) -- "has flying and this ability [and "…"]" (707.9a)
+        quotes = _QUOTE.findall(m["abil"])
+        bits = [b for b in re.split(r",? and |, ", _QUOTE.sub("\x00", m["abil"])) if b]
+        kws: list[str] = []
+        added: list[str] = []
+        for b in bits:
+            if b == "this ability":
+                added.append(THIS_ABILITY)
+            elif b == "\x00" and quotes:
+                q = token_grammar._with(quotes.pop(0))
+                if q is None or q[0] or q[1] is None:
+                    return False
+                added.append(q[1])
+            elif (found := token_grammar._with(b)) is not None and found[0] and found[1] is None:
+                kws += found[0]
+            else:
+                return False
+        ex.add_text = [*ex.add_text, *(k.capitalize() for k in kws), *added]
+        return True
     if m:
         found = token_grammar._with(m["abil"])
         if found is None:
@@ -1209,12 +1346,12 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         return True
     # "it's a 1/1 red Balloon creature [with flying] in addition to its other [colors and] types" (707.9b):
     # P/T set, the creature type(s) and card types added, the colors set — or added with "colors and"
-    m = re.fullmatch(_SUBJECT + r"(?:is|are) (?:an? )?(?P<p>\d+)/(?P<t>\d+) (?P<colors>(?:white|blue|black|red|green)"
+    m = re.fullmatch(_SUBJECT + r"(?:is|are) (?:an? )?(?P<legend>legendary )?(?P<p>\d+)/(?P<t>\d+) (?P<colors>(?:white|blue|black|red|green)"
                                 r"(?:,? (?:and )?(?:white|blue|black|red|green))* )?(?P<subs>(?:[A-Z][A-Za-z'-]* )*)"
-                                r"(?P<types>(?:artifact )?creatures?)(?: with (?P<kws>[^\"]+?))? in addition to "
+                                r"(?P<types>(?:artifact )?creatures?)?(?: with (?P<kws>[^\"]+?))? ?in addition to "
                                 r"(?:its|their) other (?P<both>colors and )?types", c)
     if m:
-        artifact = m["types"].startswith("artifact")
+        artifact = (m["types"] or "").startswith("artifact")
         subs = [s[:-1] if s.endswith("s") and s[:-1] in CREATURE_TYPES and s not in CREATURE_TYPES else s
                 for s in m["subs"].split()]
         allowed = CREATURE_TYPES | (token_grammar.ARTIFACT_TYPES if artifact else frozenset())
@@ -1227,15 +1364,22 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         elif colors:
             ex.set_colors = colors
         ex.power, ex.toughness = m["p"], m["t"]
-        ex.add_types = sorted({*ex.add_types, "Creature", *(["Artifact"] if artifact else [])})
+        if m["legend"]:  # (wave 24A: "he's a legendary 4/4 Human Villain creature in addition to his other types", Absorbing Man)
+            ex.add_supertypes = sorted({*ex.add_supertypes, "Legendary"})
+        # (wave 20F: "a 2/2 black Zombie in addition to its other colors and types": the creature type alone, 707.9b)
+        ex.add_types = sorted({*ex.add_types, *(["Creature"] if m["types"] else []), *(["Artifact"] if artifact else [])})
         ex.add_subtypes = sorted({*ex.add_subtypes, *subs})
         ex.add_text = [*ex.add_text, *(k.capitalize() for k in with_kws[0])]
         return True
     # -- token copies & attach on entry (wave 5J) -- "it's a 1/1 green Frog" / "it's a 4/4 black Zombie" (707.9b):
     # P/T and colors set, the creature types set (205.1a: no "in addition": they replace the copied creature types)
     m = re.fullmatch(_SUBJECT + r"(?:is|are) an? (?P<p>\d+)/(?P<t>\d+) (?P<colors>(?:white|blue|black|red|green)"
-                                r"(?:,? (?:and )?(?:white|blue|black|red|green))* )?(?P<subs>[A-Z][A-Za-z'-]*(?: [A-Z][A-Za-z'-]*)*)", c)
-    if m and all(s in CREATURE_TYPES for s in m["subs"].split()) and ex.set_creature_types is None:
+                                r"(?:,? (?:and )?(?:white|blue|black|red|green))* )?(?P<subs>[A-Z][A-Za-z'-]*(?: [A-Z][A-Za-z'-]*)*)(?: creature)?"
+                                r"(?: with (?P<kws>[^\"]+))?", c)  # (wave 24A: "a 6/6 green Dinosaur creature with trample", "a 3/3 black Wraith with menace")
+    with_kws = token_grammar._with(m["kws"]) if m and m["kws"] else ([], None)
+    if m and with_kws is not None and with_kws[1] is None and all(s in CREATURE_TYPES for s in m["subs"].split()) \
+            and ex.set_creature_types is None:
+        ex.add_text = [*ex.add_text, *(k.capitalize() for k in with_kws[0])]
         ex.power, ex.toughness = m["p"], m["t"]
         if m["colors"]:
             ex.set_colors = [_COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", m["colors"])]
@@ -1244,7 +1388,7 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     # -- enter as copy (wave 5F) -- "it's a Synth artifact creature in addition to its other types" (707.9b, 707.9d)
     m = re.fullmatch(_SUBJECT + r"(?:is|are) an? (?P<subs>(?:[A-Z][A-Za-z'-]* )+)(?P<t>artifact creature|artifact|creature)s? "
                                 r"in addition to (?:its|their) other types", c)
-    if m and all(s in CREATURE_TYPES for s in m["subs"].split()):
+    if m and all(s in CREATURE_TYPES | layers.ARTIFACT_TYPES for s in m["subs"].split()):  # (wave 24A: "a Vehicle artifact", Dermotaxi)
         ex.add_types = sorted({*ex.add_types, *(w.capitalize() for w in m["t"].split())})
         ex.add_subtypes = sorted({*ex.add_subtypes, *m["subs"].split()})
         return True
@@ -1254,8 +1398,22 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         return True
     m = re.fullmatch(_SUBJECT + r"(?:is|are) (?:an? )?(?P<s>[A-Z][A-Za-z'-]*(?: [A-Z][A-Za-z'-]*)*?) in addition to "
                                 r"(?:its|their) other (?:creature )?types", c)
-    if m and all(s in CREATURE_TYPES for s in m["s"].split(" ")):
+    if m and all(s in CREATURE_TYPES | layers.LAND_TYPES | layers.ARTIFACT_TYPES for s in m["s"].split(" ")):  # (wave 24A: "a Cave")
         ex.add_subtypes = sorted({*ex.add_subtypes, *m["s"].split(" ")})
+        return True
+    # -- copy exceptions (wave 24A) -- 707.9b: "it's a Vehicle artifact with crew 3" / "it's an artifact": the card types are exactly these
+    # (no "in addition to its other types"; "and loses all other card types" says so, Imposter Mech, Machine God's Effigy)
+    m = re.fullmatch(_SUBJECT + r"(?:is|are) an? (?P<subs>(?:[A-Z][A-Za-z'-]* )*)(?P<t>artifact|enchantment)(?: with (?P<kws>.+))?", c)
+    if m and "in addition" not in _QUOTE.sub("", c) and ex.set_types is None:
+        allowed = layers.ARTIFACT_TYPES if m["t"] == "artifact" else layers.ENCHANTMENT_TYPES
+        crew = re.findall(r"\bcrew \d+", m["kws"] or "")
+        rest = re.sub(r",? ?(?:and )?\bcrew \d+", "", m["kws"] or "").strip()
+        found = token_grammar._with(rest) if rest else ([], None)
+        if found is None or not all(sub in allowed for sub in m["subs"].split()):
+            return False
+        ex.set_types = [m["t"].capitalize()]
+        ex.add_subtypes = sorted({*ex.add_subtypes, *m["subs"].split()})
+        ex.add_text = [*ex.add_text, *(k.capitalize() for k in found[0]), *(k.capitalize() for k in crew), *([found[1]] if found[1] else [])]
         return True
     m = re.fullmatch(_SUBJECT + r"(?:is|are) (?P<c>white|blue|black|red|green)", c)
     if m:
@@ -1267,6 +1425,7 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
 # -- enter as copy (wave 5F) -- "except it has this ability" (Thespian's Stage, Cryptoplasm, Dimir Doppelganger): the copy
 # gains the very ability that made it (707.9a) — its printed line, filled in from the ability being defined
 THIS_ABILITY = "\x00this ability"
+NAME_MARKER = "\x00name"  # -- enter as copy other (wave 20F) -- ``with_this_ability`` writes the printed name in
 
 
 def with_this_ability(d: dict[str, Any], text: str) -> dict[str, Any] | None:
@@ -1274,6 +1433,13 @@ def with_this_ability(d: dict[str, Any], text: str) -> dict[str, Any] | None:
     import json
 
     raw = json.dumps(d)
+    name_marker = json.dumps(NAME_MARKER)[1:-1]
+    if name_marker in raw:  # -- enter as copy other (wave 20F) -- "except its name is Sakashima the Impostor": the name as printed (not ~)
+        named = re.search(r"\b(?:its|his|her) name is (?P<n>.+?)(?=, (?:it|he|she|they)\b| and (?:it|he|she|they)\b|\.(?:\s|$)|$)", text)
+        if named is None or '"' in named["n"]:
+            return None
+        raw = raw.replace(name_marker, json.dumps(named["n"])[1:-1])
+        d = json.loads(raw)
     marker = json.dumps(THIS_ABILITY)
     if marker not in raw:
         return d
@@ -1326,7 +1492,7 @@ def parse_token_copy(n: str, tapped: bool, src: str, exc: str | None) -> tuple[l
     """"create [N] [tapped] token(s) that's a copy / are copies of <source> [, except …]": the source
     is a target, the source itself (~), what an earlier instruction or the trigger was about ("it",
     "that creature") or the permanent the source is attached to."""
-    from app.rules import token_grammar
+    from app.rules import exiled_with, token_grammar
 
     word = n.lower()
     if word not in token_grammar.NUMBERS and not word.isdigit() and word != "x":
@@ -1337,23 +1503,38 @@ def parse_token_copy(n: str, tapped: bool, src: str, exc: str | None) -> tuple[l
     effect: dict[str, Any] = {"do": "token_copy", "n": token_grammar._qty(word), **_dump(ex)}
     if tapped:
         effect["tapped"] = True
+    if src == "the exiled card" and exiled_with.linked():  # -- resolution memory (wave 22D) -- 607.2a: the card the linked ability exiled (imprint)
+        return [{**effect, "who": "it:exiled"}], None
     if src in _SOURCES:
         return [{**effect, "who": _SOURCES[src]}], None
-    group = _target_group(src)
-    if group is None or group["max"] != 1:
+    # -- resolution memory (wave 22D) -- "create a token that's a copy of each of up to two target creatures you control" (Twinflame): one token
+    # for each object chosen (115.1, 608.2b: each still the same object as it resolves)
+    each = re.fullmatch(r"each of ((?:up to \w+|any number of) target .+)", src)
+    group = _target_group(each[1] if each else src)
+    if group is None or (group["max"] != 1 and not each):
         return None
     return [{**effect, "who": "target"}], group
 
 
-def parse_become(what: str, until: bool, exc: str | None) -> tuple[list[dict[str, Any]], Any] | None:
-    """"~ becomes a copy of target <permanent> [until end of turn] [, except …]" (707.4)."""
+def parse_become(what: str | None, until: bool, exc: str | None, pre: str = "", src: str | None = None
+                 ) -> tuple[list[dict[str, Any]], Any] | None:
+    """"~ becomes a copy of [another / up to one other] target <permanent> [until end of turn] [, except …]" (707.4); -- copy exceptions
+    (wave 24A) -- "another" is any object but the source itself (201.5, the selector's ``other``), "up to one" may pick none (then
+    nothing becomes a copy, ``become_copy``)."""
     from app.rules import selectors
 
-    group = _target_group("target " + what)
-    if group is None or (group["min"], group["max"]) != (1, 1) or "another" in group:
+    if src is not None:  # -- copy exceptions (wave 24A) -- "~ becomes a copy of it / that creature": what the trigger or an earlier instruction named
+        ex = parse_excepts(exc)
+        if ex is None or src not in _SOURCES or what is not None:
+            return None
+        return [{"do": "become_copy", "who": "self", "with": _SOURCES[src], **({"last_known": True} if src != "that card" else {}),
+                 **_dump(ex), **({"duration": "end_of_turn"} if until else {})}], None
+    group = _target_group(pre + "target " + (what or ""))
+    if what is None or group is None or (group["min"], group["max"]) not in ((1, 1), (0, 1)) or (group["min"] == 0 and not pre.startswith("up to one")):
         return None
     sel = selectors.from_key(group["what"]) if group["what"].startswith(selectors.PREFIX) else None
-    if sel is None or sel.zones != ("battlefield",) or sel.player is not None:
+    # (wave 24A: or a card in a graveyard — public, its printed values are what is copied, 707.2: Lazav, the Multifarious)
+    if sel is None or sel.zones not in (("battlefield",), ("graveyard",)) or sel.player is not None or (sel.zones == ("graveyard",) and not sel.card):
         return None
     ex = parse_excepts(exc)
     if ex is None:
@@ -1361,6 +1542,39 @@ def parse_become(what: str, until: bool, exc: str | None) -> tuple[list[dict[str
     effect: dict[str, Any] = {"do": "become_copy", "who": "self", "with": "target", **_dump(ex)}
     if until:
         effect["duration"] = "end_of_turn"
+    # (review 24A: "up to one" keeps its group, min 0 — the ability goes on the stack with no target, 115.1/601.2c, and the rest of it
+    # still happens: Irma's "Then put a +1/+1 counter on her")
+    return [effect], group if group["min"] == 0 else group["what"]
+
+
+def parse_become_group(grp: str, ctl: bool, others: bool, src: str | None, what: str | None, until: bool, exc: str | None
+                       ) -> tuple[list[dict[str, Any]], Any] | None:
+    """-- copy exceptions (wave 24A) -- "Each other creature [you control] becomes a copy of that creature / target <permanent> [until end of
+    turn] [, except it isn't legendary]" (Nanogene Conversion, Mirrorweave, Hall of Mirrors) and "each creature you control other than
+    the chosen creature …" (Loki): one layer-1 effect on the group as it is as the effect begins (611.2c), each a copy of the same
+    object (707.2: its values as they are then). "Other" is other than the object copied. Exceptions that name one object (its name, "this
+    ability", the color it keeps) have no meaning for a group."""
+    from app.rules import selectors
+
+    sel = selectors.parse(f"{grp} you control" if ctl else grp)
+    if sel is None or sel.zones != ("battlefield",) or sel.player is not None or sel.card or sel.other:
+        return None
+    ex = parse_excepts(exc)
+    if ex is None or ex.name is not None or ex.keep_color or THIS_ABILITY in ex.add_text:
+        return None
+    effect: dict[str, Any] = {"do": "become_copy", "who": sel.key(), "with": "it" if src else "target", **_dump(ex)}
+    if others:
+        effect["others"] = True
+    if until:
+        effect["duration"] = "end_of_turn"
+    if src:
+        return [effect], None
+    group = _target_group("target " + (what or ""))
+    if group is None or (group["min"], group["max"]) != (1, 1) or "another" in group:
+        return None
+    sel2 = selectors.from_key(group["what"]) if group["what"].startswith(selectors.PREFIX) else None
+    if sel2 is None or sel2.zones != ("battlefield",) or sel2.player is not None:
+        return None
     return [effect], group["what"]
 
 
@@ -1395,16 +1609,19 @@ def define_static(text: str) -> dict[str, Any] | None:
     spent = what.endswith(" on the battlefield" + _MV_SPENT_TEXT)  # -- enter as copy (wave 5F) -- Mockingbird
     what = what.removesuffix(_MV_SPENT_TEXT).removesuffix(" on the battlefield")
     sel = selectors.parse(what)
-    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.other:
+    # (wave 24A: or a card in a graveyard — "any creature card in a graveyard", Body Double: public, its printed values, 707.2)
+    if sel is None or sel.player is not None or sel.other or sel.zones not in (("battlefield",), ("graveyard",)) \
+            or sel.card != (sel.zones == ("graveyard",)):
         return None
     # -- enter as copy (wave 5F) -- any permanent ("nonland permanent", "artifact or enchantment", "Equipment"): an Aura
     # would have to attach as it enters (303.4f) — not offered as something to copy (``entry_candidates`` / ``supported_source``);
     # a Room is (review 18G: the copy has its halves, 709.5b, and neither door unlocked, 709.5c/d)
-    ex = parse_excepts(exc or None)
+    ex = parse_excepts(exc or None, enters=True)
     if ex is None:
         return None
+    counters, ex = ex.enter_counters, ex.model_copy(update={"enter_counters": []})  # (707.9e: not copiable values)
     out = {"kind": "replacement", "replacement": "enter_as_copy", "optional": True,
-           "what": what + (MV_SPENT if spent else "") + TO_COPY, "effects": [], **_dump(ex)}
+           "what": what + (MV_SPENT if spent else "") + TO_COPY, "effects": [], **_dump(ex), **({"enter_counters": counters} if counters else {})}
     if not until_eot and m["tapped"]:
         out["tapped"] = True  # (Vesuva: tapped only if it enters as a copy)
     if until_eot:

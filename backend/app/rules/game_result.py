@@ -27,6 +27,8 @@ _TEXT = re.compile(r"^You can't (?P<a>lose|win) the game and your opponents can'
 
 
 def static_definition(text: str) -> dict[str, Any] | None:
+    if text.strip() == "You can't lose the game.":  # -- prohibitions (wave 22B) -- Lich's Mastery: only its controller
+        return {"kind": "static", "static": KIND, "you": "lose", "opponents": None, "effects": []}
     m = _TEXT.match(text.strip())
     if m is None or m["a"] == m["b"]:
         return None
@@ -47,7 +49,9 @@ def _stops(plan: Plan, player: str, what: str) -> bool:
                 continue
             if d["you" if c.controller == player else "opponents"] == what:
                 return True
-    return False
+    # -- prohibitions (wave 22B) -- 611.2a: a resolved "can't lose the game this turn" (a record of the turn it was made)
+    turn = plan.state.turn.number
+    return any(x["player"] == player and x["what"] == what and x["turn"] == turn for x in plan.rules.results)
 
 
 def cannot_lose(plan: Plan, player: str) -> bool:
@@ -56,3 +60,39 @@ def cannot_lose(plan: Plan, player: str) -> bool:
 
 def cannot_win(plan: Plan, player: str) -> bool:
     return _stops(plan, player, "win")
+
+
+# -- resolved effects (wave 22B) -- "You can't lose the game this turn and your opponents can't win the game this turn." (Angel's Grace),
+# "Players can't lose the game or win the game this turn." (Everybody Lives!): 611.2a: it affects the players it names as it resolves, until the
+# turn ends (the cleanup step's state-based check still sees it, 514.3a); 104.2a: the last player left wins anyway.
+_CLAUSE = r"(?:you|your opponents|players) can't (?:lose|win) the game(?: or (?:win|lose) the game)? this turn"
+_ONE = re.compile(r"(?P<who>you|your opponents|players) can't (?P<a>lose|win) the game(?: or (?P<b>win|lose) the game)? this turn")
+_SENTENCE = re.compile(rf"^(?P<c1>{_CLAUSE})(?:,? and (?P<c2>{_CLAUSE}))?$")
+_WHO = {"you": "you", "your opponents": "each_opponent", "players": "each_player"}
+
+
+def _build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    out: list[dict[str, Any]] = []
+    for clause in filter(None, (m["c1"], m["c2"])):
+        c = _ONE.fullmatch(clause)
+        assert c is not None
+        out += [{"do": "cant_result", "who": _WHO[c["who"]], "what": w} for w in (c["a"], c["b"]) if w]
+    return out, None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_SENTENCE, _build)]
+
+
+def cant_result(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules.effects import _players
+
+    r = plan.rules
+    turn = plan.state.turn.number
+    r.results = [x for x in r.results if x["turn"] == turn]
+    for pid in _players(plan, ctx, e["who"]):
+        r.results.append({"player": pid, "what": e["what"], "turn": turn})
+        plan.note(f"{plan.name(pid)} can't {e['what']} the game this turn", actor=ctx["controller"])
+    return True
+
+
+PRIMITIVES = {"cant_result": cant_result}

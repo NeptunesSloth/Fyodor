@@ -88,7 +88,7 @@ def test_parse_player_choice_wordings(text, effects_, target):
     "Each opponent reveals their hand. You choose a card from it. That player discards that card.",  # whose hand?
     "Target opponent chooses a creature.",  # any creature, not one they control: not read
     "Target opponent sacrifices a creature they control of their choice.",
-    "Choose a card name.",  # no card-name vocabulary
+    "Choose a card name that hasn't been chosen from among Disenchant, Braingeyser, Terror, Shivan Dragon, Regrowth, and Black Lotus.",  # (wave 22B reads card names, not this restriction)
     "Choose a number.",
 ])
 def test_unread_choice_wordings_stay_manual(text):

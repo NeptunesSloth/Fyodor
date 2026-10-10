@@ -147,6 +147,7 @@ def find(plan: Plan) -> Found:
     # -- token & pump wordings (wave 6C) -- 704.5z: of one player's Roles on a permanent, only the newest stays
     from app.rules import roles
 
+    out.dying = [(c, why) for c, why in out.dying if c.id not in plan.rules.pending_616]  # (-- zone replacements (wave 22C) -- held)
     dying = {c.id for c, _ in out.dying}
     out.dying += [(c, "a newer Role of its controller is attached to the same permanent (704.5z)")
                   for c in roles.stale_roles(plan) if c.id not in dying]
@@ -164,14 +165,14 @@ def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found)
         )
 
         if bestow.is_bestowed(plan.state, card):  # stops being bestowed (a creature again) instead of going to the graveyard
-            problem = "its host is gone" if host is None else attachments.host_problem(plan, card, host)
+            problem = "its host is gone" if host is None else attachments.host_problem(plan, card, host, sba=True)
             if problem is not None and problem != "unknown":
                 out.unbestow.append(card)
             return
         if host is None:
             out.dying.append((card, "an Aura attached to nothing"))
             return
-        problem = attachments.host_problem(plan, card, host)
+        problem = attachments.host_problem(plan, card, host, sba=True)
         if problem is not None and problem != "unknown":  # (an unmapped enchant wording: never on a guess)
             out.dying.append((card, f"an Aura attached illegally: {problem}"))
         return
@@ -191,6 +192,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
     """One simultaneous check. Returns True if anything happened."""
     state = plan.state
     r = plan.rules
+    if r.pending_616:  # -- zone replacements (wave 22C) -- 616.1: a held card's controller chooses before anything else
+        from app.rules.replacements import offer_616
+
+        if offer_616(plan):
+            return True
     found = find(plan)
     if found.vanishing:
         plan.do({"type": "delete_card", "card_ids": [c.id for c in found.vanishing], "force": True},
@@ -209,6 +215,9 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
     from app.rules import designations  # -- keywords (wave 15E) -- 702.131b: ascend, any time
 
     happened = designations.ascend_permanents(plan) or happened
+    from app.rules import speed  # -- speed (wave 24B) -- 704.5aa
+
+    happened = speed.start_engines(plan) or happened
     for pid, reason in found.losers:
         r.lost[pid] = reason
         plan.note(f"{state.players[pid].name} loses the game ({reason})")

@@ -1,42 +1,74 @@
 # Current state — handoff for the next session
 
-Written 2026-10-04 at the end of the session that built PR #13 (merged) and PR #14 (open): rules-engine
-waves 7R–17D, an independent review of 7R–14A, and eight new engine systems (18A–18H), each with an Opus
-head review. Every number here was checked against local runs at that time.
+Written 2026-10-10 at the end of the session that built PR #15: rules-engine waves 19–29 on top of PR #14
+(now merged). Every wave and engine track had an Opus head review before it was merged. Every number here was
+checked against local runs at that time.
 
 ## Current repository state
 
 | | |
 |---|---|
 | Repository | `NeptunesSloth/Fyodor` |
-| `main` | Has PRs #7–#13 (waves 1–14A). |
-| Open PR | **#14** (`claude/beautiful-ramanujan-l9pev4`, draft): the Fable review of 7R–14A, sweeps 15A–17D, Class cards (16A), prevention (17A), and systems 18A–18H with their Opus reviews. CI was green on every pushed head checked. |
-| Pending | `claude/review-facedown-ids`: an Opus review of a privacy fix (face-down cards get a new id after they were seen). Merge it into #14 once green. |
-| Agent branches | `claude/wip-*`, `claude/wave1[0-7]*`, `claude/sys18*`, `claude/review-*`: all merged into #14 (except the pending one above); safe to delete once #14 is merged. |
+| `main` | Has PRs #7–#14 (waves 1–18). |
+| Open PR | **#15** (`claude/beautiful-ramanujan-l9pev4`, draft): waves 19–29, each reviewed. |
+| GitHub CI | Since 2026-10-10 01:30 UTC every job fails within 2–3 s without a runner (`runner_id: 0`, no steps run), on every head. This is an Actions account or runner problem (minutes, spending limit or outage), not the code; a comment on PR #15 says so. Verify locally until it is fixed. |
+| Agent branches | `claude/wave19*`–`claude/wave29*`, `claude/review-wave*`, `claude/wip-*`: all merged into #15; safe to delete once #15 is merged. |
 
-## Last known test status (PR #14 head `db05477`, all eight systems merged)
+## Last known test status (PR #15, `78bbc15`: wave 29 merged; later commits are docs only)
 
 | Check | Status |
 |---|---|
-| Backend pytest (full, `-n 4`) | 6,686 passed. |
-| ruff / mypy (`app tools`, 276 files) | Clean. |
-| Frontend tsc / vitest | Clean; 64 tests passed. |
-| GitHub CI | Green on the pushed heads through 17D; check the newest head. |
+| Backend pytest (full, `-n 2`) | 9,203 passed on `78bbc15` (all of wave 29 merged). |
+| ruff / mypy (`app tools`) | Clean. |
+| Frontend tsc / vitest | Clean; 66 tests passed on `78bbc15`. |
+| Browser end-to-end (Playwright, production build) | 20 passed locally on `fef8b49` (wave 28); not rerun since (no frontend change in wave 29). |
 
 The repo's pytest `addopts` includes `-q`; pass no extra `-q` or the "N passed" summary line is suppressed.
-`test_rules_statics.py::test_full_board_derive_is_fast` can fail under heavy load; rerun it alone.
+Run the suite in the background with a long timeout: it takes about 10 minutes with `-n 2`.
 
 ## Current Commander coverage
 
-Data: Scryfall snapshot 2026-10-03, Comprehensive Rules 2026-09-25. Per-card diff tool: compare dumps of
-`coverage.of_card_data(...).level` for every Commander-legal card (this session kept one in its scratchpad).
+Data: Scryfall snapshot 2026-10-03, Comprehensive Rules 2026-09-25. Per-card diff: dump
+`coverage.of_card_data(...).level` for every Commander-legal card at two heads and compare. A dump taken
+from a worktree must put that worktree's `backend` first on `sys.path`, or it silently measures the main
+checkout.
 
-| | `main` before PR #13 | PR #13 (merged) | Now (PR #14 head) |
+| | `main` before PR #13 | PR #14 (merged) | Now (PR #15 head) |
 |---|---|---|---|
-| FULL | 19,506 (60.8%) | 20,653 | **22,896 (71.4%)** |
+| FULL | 19,506 (60.8%) | 22,896 (71.4%) | **24,902 (77.7%)** |
 
-Only two cards lost FULL in the whole session, both on purpose: Hatchery Spider ("where X is" read the cast
-X inside a selector) and Alpine Houndmaster ("a card named A and/or a card named B" was read as one name).
+No card that was FULL on `main` lost FULL in PR #15. Per wave: 19 +346, 20 +224, 21 +114, 22A–F +275,
+23 +231, 24 +170, 25 +325, 26 +217, 27 +32, 28 +52, 29 +20. Wording sweeps stopped paying off at wave 27;
+waves 28–29 built engine features and fixed what the reviews found.
+
+## What PR #15 added
+
+The PR description lists every wave. In short:
+
+- **Waves 19–21:** long-tail wording sweeps.
+- **22A–22F engine tracks:** layers (Blood Moon, Humility, Opalescence), prohibitions and card names,
+  replacements and the 616.1 order prompt, linked objects, event history, casting costs.
+  `tools/inventory.py` and `docs/AUTOMATION_INVENTORY.md` list every blocker per non-FULL card.
+- **Waves 23–26:** player filters, villainous choice, Pacts, value grammar, exploit, crew and saddle, gift,
+  copy exceptions, speed, soulbond, dice, loops, counter kinds, flip cards, airbend, Adventures and MDFC
+  faces from exile, join forces, eminence, "<group> target player controls", opponent-library searches,
+  paid X, forage, collect evidence, paired fights.
+- **Wave 27:** the last wording sweep (+32).
+- **Wave 28 (engine):**
+  - playing a card during resolution, lands included (608.2g);
+  - draw replacements and one life-loss choke point (`replace.lose_life`);
+  - abilities granted to spells, and hand-activated abilities named on the stack;
+  - chosen-cost mana abilities during payment prompts (`Rules.payment_outer`);
+  - "where X is" values read from the trigger event.
+- **Wave 29 (correctness):**
+  - priority hints 50× faster (`read_pass.py`);
+  - layer derivation state made thread-local; two games derived at once used to corrupt each other;
+  - face-aware cascade, discover and suspend;
+  - no 20-target caps;
+  - Mad Wizard's Lair reveals only cards actually drawn;
+  - hideaway (702.75) and "your life total can't change".
+
+The head reviews found and fixed about 130 real bugs across the PR, each with a regression test.
 
 ## What PRs #13 and #14 added
 
@@ -106,28 +138,27 @@ save/load checks.
 
 ## Top remaining rules gaps
 
-`python -m tools.gap_rank --db ../data/cards.sqlite --top 15` on the PR #14 head (FULL 22,896, PARTIAL
-9,172). "Sole" = non-FULL cards whose every unsupported line is in that family (an upper bound). Most of what
-remains is wordings that appear on one or two cards; the sweeps reached roughly the top 60–75% of each big
-family by EDHREC rank.
+`python -m tools.gap_rank --top 15` on the PR #15 head (FULL 24,902, PARTIAL 7,166; commanders FULL 2,143).
+"Sole" = non-FULL cards whose every unsupported line is in that family (an upper bound). What remains is
+mostly wordings that appear on one or two cards each; `tools/inventory.py` lists every blocker per card.
 
 | # | Family | Missing lines | Sole | Sole commanders | Examples (by EDHREC rank) |
 |---|---|---|---|---|---|
-| 1 | static_other | 3007 | 1404 | 150 | Chaos Warp, Rakdos Charm, Birgi, God of Storytelling // Harnfel, Horn of Bounty, Valakut Awakening // Valakut Stoneforge |
-| 2 | trigger_other | 1514 | 1034 | 274 | Guardian Project, Forgotten Ancient, Kutzil, Malamet Exemplar, Selvala, Heart of the Wilds |
-| 3 | if_you_do | 1001 | 744 | 167 | Saw in Half, Bloodchief Ascension, Etali, Primal Conqueror // Etali, Primal Sickness, Tainted Pact |
-| 4 | counters | 669 | 437 | 116 | Spark Double, Tezzeret, Cruel Captain, Laelia, the Blade Reforged, Unstoppable Slasher |
-| 5 | activated_other | 516 | 401 | 64 | Talon Gates of Madara, Emry, Lurker of the Loch, Haywire Mite, Field of Ruin |
-| 6 | this_turn_state | 411 | 320 | 60 | Veil of Summer, Conduit of Worlds, Combat Celebrant, Hunter's Insight |
-| 7 | x_value | 480 | 300 | 57 | Torment of Hailfire, Crackle with Power, Steel Hellkite, Skyclave Apparition |
-| 8 | attached_events | 343 | 277 | 10 | Commander's Plate, Kaya's Ghostform, Blade of Selves, Illusionist's Bracers |
-| 9 | damage_sized | 337 | 242 | 32 | Descent into Avernus, Myr Battlesphere, Combustible Gearhulk, Wheel of Misfortune |
-| 10 | as_long_as_static | 346 | 236 | 34 | Promise of Loyalty, The Reality Chip, Conqueror's Flail, Cloud, Midgar Mercenary |
-| 11 | instead | 342 | 228 | 44 | Academy Manufactor, Incubation Druid, Innkeeper's Talent, Whip of Erebos |
-| 12 | reanimation | 281 | 150 | 22 | Sevinne's Reclamation, Agadeem's Awakening // Agadeem, the Undercrypt, Haven of the Spirit Dragon, Mantle of the Ancients |
-| 13 | ability_word | 261 | 146 | 30 | Tireless Provisioner, Shifting Woodland, Springheart Nantuko, Augur of Autumn |
-| 14 | free_cast | 212 | 125 | 45 | Tibalt's Trickery, Urza, Lord High Artificer, Expressive Iteration, Muldrotha, the Gravetide |
-| 15 | tutor | 150 | 103 | 4 | Sword of Hearth and Home, Scapeshift, Defense of the Heart, Moonsilver Key |
+| 1 | static_other | 2360 | 1068 | 106 | Chaos Warp, Dawn's Truce, Birgi, God of Storytelling // Harnfel, Horn of Bounty, Valakut Awakening // Valakut Stoneforge |
+| 2 | trigger_other | 1214 | 843 | 220 | Guardian Project, Forgotten Ancient, Kutzil, Malamet Exemplar, Selvala, Heart of the Wilds |
+| 3 | if_you_do | 807 | 633 | 148 | Saw in Half, Bloodchief Ascension, Etali, Primal Conqueror // Etali, Primal Sickness, Tainted Pact |
+| 4 | counters | 481 | 316 | 92 | The Darkness Crystal, Tezzeret, Cruel Captain, Phelia, Exuberant Shepherd, Parting Gust |
+| 5 | activated_other | 398 | 315 | 49 | Arcane Lighthouse, The Black Gate, Mount Doom, Secret Tunnel |
+| 6 | this_turn_state | 359 | 283 | 55 | Veil of Summer, Conduit of Worlds, Combat Celebrant, Hunter's Insight |
+| 7 | damage_sized | 283 | 212 | 31 | Descent into Avernus, Myr Battlesphere, Combustible Gearhulk, Wheel of Misfortune |
+| 8 | attached_events | 254 | 206 | 7 | Commander's Plate, Gift of Immortality, Witness Protection, Ghoulish Impetus |
+| 9 | x_value | 336 | 199 | 44 | Torment of Hailfire, Crackle with Power, Steel Hellkite, Shark Typhoon |
+| 10 | instead | 263 | 181 | 30 | Academy Manufactor, Incubation Druid, Aven Mindcensor, Twinning Staff |
+| 11 | as_long_as_static | 254 | 176 | 29 | Promise of Loyalty, The Reality Chip, Conqueror's Flail, Cloud, Midgar Mercenary |
+| 12 | reanimation | 219 | 118 | 17 | Sevinne's Reclamation, Agadeem's Awakening // Agadeem, the Undercrypt, Haven of the Spirit Dragon, Tergrid, God of Fright // Tergrid's Lantern |
+| 13 | free_cast | 185 | 112 | 36 | Tibalt's Trickery, Urza, Lord High Artificer, Expressive Iteration, Muldrotha, the Gravetide |
+| 14 | ability_word | 160 | 92 | 20 | Springheart Nantuko, Augur of Autumn, Ob Nixilis, the Fallen, Thunderfoot Baloth |
+| 15 | activation_cost | 102 | 75 | 28 | Priest of Forgotten Gods, Kozilek, the Great Distortion, Chainer, Nightmare Adept, Jaxis, the Troublemaker |
 
 ## Known shipped limitations and open items
 
@@ -139,8 +170,24 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   forms (Tip the Scales).
 - **Chosen selectors**: Roaming Throne, Cloud Key's chosen card type, protection from the chosen color;
   a trigger whose source left the battlefield matches nothing for "the chosen type".
-- Lim-Dûl's Vault, Djinn of Wishes, Protean Hulk. (Sylvan Library: wave 18G, `drawn_toll.py`; the per-card "drawn this turn"
-  record is `TurnLog.drawn`, private. Jandor's Ring's "discard the last card you drew this turn" cost can use it, not done.)
+- Lim-Dûl's Vault, Protean Hulk. (Sylvan Library: wave 18G, `drawn_toll.py`; the per-card "drawn this turn"
+  record is `TurnLog.drawn`, private. Jandor's Ring's "discard the last card you drew this turn" cost can use it, not done.
+  Djinn of Wishes was manual only for want of playing a land mid-resolution, no unsettled ruling: wave 28A plays a card as an
+  effect resolves, `permissions.free_cast` "play", 608.2g / 305.2a-b / 305.3 / 712.12.)
+- Granted casts (wave 29B, `granted_casts.py`): the "cast it?" choice of cascade, discover, ripple, suspend and rebound offers every half / face
+  that is a spell ("yes" = first half / front, "yes@1" = Adventure / second half / back face; `RulesState.free_cast_faces` is the one
+  `casting.cast_free` takes). Each is checked on its own against the cascade ("resulting spell's mana value is less", 702.85a) / discover
+  ("N or less", 701.57a) value and the cast prohibitions (601.3); the card in exile keeps the combined / front / creature mana value that
+  stops cascade (709.4b, 712.8a, 715.4). With no way left to cast it the question is skipped and the declined outcome happens. Ripple's "same
+  name" is one name in common (201.2a, 709.4a). A declined cascade card lands at a random place among the cards put on the bottom before the
+  question (702.85a: all of them in a random order). A suspended modal double-faced card's land face is played ("play it", 702.62a; 305.2a-b,
+  305.3), the only one of these that plays rather than casts.
+  Review 29B: a half / face that can't be cast for a public reason (`casting.free_cast_problem`: no legal target 601.2c, no mode 700.2a,
+  205.4e, a mandatory additional cost that can't be paid) isn't offered (its answer was a dead end: the free cast's target choice couldn't be
+  cancelled); a cost part read from the hand and mana aren't checked ahead (hidden; hand-activated mana). A free cast begun as an effect
+  resolves is recorded (`RulesState.free_cast_then` with `granted`): cancelled at a target (now allowed, `casting._announcing`) or at its
+  payment, the card goes where a card not cast goes (bottom / hand / exile / graveyard) instead of staying in exile with its grant.
+  Known gap: the order of cards put on the bottom "in a random order" is readable from the log (one move line per card, as before 29B).
 - **Copies**: cast-a-copy only as "[exile a card and] copy it / that card [N times]. You may cast the copy without paying its
   mana cost" (wave 13C, 707.12: `copying.copy_cards` + `permissions.FREE_COPY`; the copy is made in the card's own zone;
   a non-free "You may cast the copy", "cast the copy by paying …" and copies of imprinted / "exiled with" cards stay manual),
@@ -154,9 +201,50 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   A mana ability whose cost a cost modifier changes (Gloom on a white enchantment) is left to the
   player. An enchanted land whose own {T} ability restricts spending is left to the player while
   enchanted.
-- **Replacements**: life-loss replacements (no choke point yet), "shuffle into its library instead"
-  (Blightsteel, Progenitus), Academy Manufactor, Vorinclex-style counter replacements, count-level
-  draw replacements (Alms Collector), Kalitas against another "exile instead".
+- **Replacements: draws, life, mill** (wave 28B): a draw replaced by its own instructions ("If you would draw a card, instead look at the top
+  three … / exile the top two … / you draw two cards and lose 1 life": `draw_bodies.py`, run once the draws before it have happened, 121.6b;
+  `then` None sites log it for the players), "you may … instead" (optional, like Dredge), "The next time you would draw a card this turn"
+  records (Words of Worship / Wilding / Waste; spent by the first draw they replace), count-level draws (121.2a: Quantum Riddler, Alms Collector),
+  "while you have no cards in hand / N or less life" conditions, and a life-loss choke point (`replace.lose_life`: effects, payments of life — 119.4,
+  118.11 — and the life damage causes, 120.3a: Bloodletter of Aclazotz) plus mill counts (`replace.mill_counts`: Bruvac, The Water Crystal).
+  Still manual: "first time you would draw each turn" (Reed Richards, Scion of Halaster), Island Sanctuary (skip + attack restriction), draws
+  that need a player choice from another player (Zur's Weirding, Breathstealer's Crypt, Chains of Mephistopheles), library-of-another-player
+  bodies (Shared Fate, Uba Mask), "put into a pile" bodies (Parallel Thoughts, Mangara's Tome), Abundance, Archmage Ascension, Words of War /
+  Wind (targets, "each player returns"), Aladdin's Lamp / Ring of Ma'rûf (X, outside the game), Plagiarize (a targeted record).
+  Review 28B: a mana ability's "Draw a card." and "deals 1 damage to you" go through the draw and life-loss replacements (a mana ability
+  can't pause: a body there is left to the players); Alms Collector's "each draw a card" are one-card instructions Quantum Riddler may still
+  change; one call's life gains are simultaneous for Phial (702.15e). Paying life under Bloodletter: no ruling names it — 119.4 (paying life is
+  losing it; affordability is the cost's amount), 118.11 (a cost's actions may be modified) and the Invigorate ruling (2020-08-07: a cost
+  whose action a replacement changes can still be paid) decide it: the payment is doubled. The two known gaps (a mana ability's damage not seen
+  by damage replacement / prevention; Mad Wizard's Lair revealing cards a "draw two instead" drew) are closed in wave 29C (below).
+- **Silent caps, leaks and restrictions** (wave 29C, the open items of the wave 27 / 28 reviews): casts and activations take up to
+  `actions.MAX_TARGETS` = 250 targets (601.2c; it was 20, so "up to X target …, where X is …" and "any number of target …" were clamped): one
+  limit shared by the intents, target counts, division (601.2d), Choose amounts and the parser; "up to X" over it says so in the prompt, an
+  exact "X target …" over it is refused; arrows come in chunks of 20 (`Plan.target_arrows`). A player may pay all their life (119.4: the Phyrexian
+  auto-payer stopped at life = payment); life other costs of the same spell pay is reserved first (`Plan.reserved_life`), and several "Pay 1
+  life" mana sources can't take more than the life total. "Draw N cards and reveal them" reveals only cards drawn without a replacement
+  (121.6c, 614.11b and the Sindbad / Fa'adiyah Seer / Pact Weapon / Jace, Mirror Mage rulings: "even if the draw is replaced by another
+  draw": Phial of Galadriel, Blood Scrivener, Thought Reflection — `TurnLog.drawn_replaced`). Review 29C: when a replacement changed the
+  NUMBER the instruction draws (121.2a / 616.1g: Quantum Riddler, Alms Collector — `TurnLog.drawn_counted`) it is UNSETTLED whether "them"
+  covers those cards (614.11b read literally: none; 121.2a's "the instruction is modified": all; no ruling) — Mad Wizard's Lair hands the
+  reveal and the free cast to the players (a manual_resolution decision), revealing and offering nothing. "If you do" after a draw (review
+  29C, 118.12 / 118.11: the player chose to draw "regardless of what events actually occurred"; the Psychic Vortex and Notion Thief rulings)
+  holds once the draw was started, whether a replacement took it (Underrealm Lich, Notion Thief) or the library was empty; a declined
+  "may draw" binds nothing. Intents carry MAX_TARGETS per target group (× `MAX_GROUPS` = 10 in all: "target creature … each of X target
+  creatures" has X + 1); the engine's target arrows stop at 190 on the table (it refuses the 201st). A mana ability's "deals 1 damage to you" is a damage
+  event of `replace.damage_outcome` (`casting.mana_ability_damage`): replacement / prevention / shields apply; two effects whose order matters
+  are logged for the players (a mana ability can't pause, 605.3a). Caps removed: convoke / improvise / delve lists in the tap-mana prompt
+  (the table clicks only listed helpers), "pay any amount of {E}" (60 → 250, said in the prompt), untap-lock lists (250 → all) and
+  may-stay-tapped candidates (50 → all). Still bounded, loudly: multikicker count ≤ 20, X ≤ 1000, one choice answers with ≤ 250 options.
+- **Replacements** (wave 22C): counter putters ("If you / an opponent would put …": Vorinclex, Lae'zel, Pir; the
+  putter is `by`, 122.6a; review 22C: counters "given" are put — 122.6, 701.34a — so infect/toxic poison is put by the
+  source's controller, 120.3b/g, and "target player gets N" by the effect's controller), "reveal ~ and shuffle it into its owner's library instead" (Blightsteel, Nexus of Fate),
+  "exile instead" with a rider (Kalitas token, Head of the Hunt reflexive trigger, life), "If it would leave the
+  battlefield, exile it instead" (Whip of Erebos family), and the 616.1 choice between differing graveyard
+  replacements (the card stays put and its controller is asked before priority: `pending_616`). Still manual:
+  Academy Manufactor and Divine Visitation (token replaced by another:
+  ordering with the "plus a Food" statics is unsettled), exile with
+  counters / linked exile (Dauthi, Valgavoth, Darkness Crystal), Loading Zone ("creature, Spacecraft, or Planet").
 - **Costs**: K'rrik and Dream Halls (per-mana payment), Suppression Field (crew and unearth skip the
   cost-modifier path), activation costs that depend on a target, "Remove X counters from among …",
   comma-listed sacrifice choices.
@@ -226,8 +314,18 @@ Known approximations (correct in normal play; listed so nobody is surprised):
   activation; the player is trusted.
 - **Conditions on an attached object** (wave 4B) read its characteristics without other statics'
   layer 4–6 grants.
-- **"Loses all abilities"** (wave 4L) now also removes static abilities (Lignify ruling). Its
-  interaction with Humility-style layer dependencies was not tested further.
+- **"Loses all abilities"** (wave 4L) now also removes static abilities (Lignify ruling).
+- **Group layers** (wave 22A, `group_layers.py`): group statics of layers 4-6 (Blood Moon, Humility, Opalescence,
+  March of the Machines, Lattice-style colors, legendary) are solved against the table: 613.6 members per effect,
+  613.8 dependencies (subject changes, 305.7 ability loss), loops in timestamp order. Not modelled: dependencies
+  between per-object effects (resolved spells, Auras) and these statics beyond timestamps, 613.8a(c) for CDAs;
+  conditions on a group static are read as it is solved (counts of types it leaves alone only). Manual: Titania's
+  Song (leaves-the-battlefield duration), Yixlid Jailer (graveyard), Planar Nexus, Ghostly Flame, named/renamed Auras.
+  Review 22A: layer-6 "lose all abilities" statics also wait for one that takes their source's ability (613.8, Dress Down +
+  Sludge Monster); a lost "*" CDA leaves 0 (208.5); entry replacements, enter-as-copy and group statics are read from the
+  permanent as it would exist on the battlefield (614.12: Blood Moon + shock lands / Vesuva, Humility + Walking Ballista).
+  Still not modelled: 614.12 for the entering permanent's own statics (Opalescence entering doesn't see itself — correct —
+  but e.g. its own layer-4 statics on itself as it enters).
 - **"Whenever you discard"** triggers don't see madness discards (the turn history counts them).
 - **Face-down masking** replaces a face-down card's name in log lines, prompts and option labels. It is
   tied to the cards each text refers to; `rules_view.stats` skips face-down creatures, so even their
@@ -265,22 +363,39 @@ Known approximations (correct in normal play; listed so nobody is surprised):
 
 ## Next session start instructions
 
-1. Start from PR #14 (`claude/beautiful-ramanujan-l9pev4`; the face-down id fix is merged, 6,698 tests); check CI.
+1. Start from PR #15 (`claude/beautiful-ramanujan-l9pev4`). GitHub CI has had no runners since 2026-10-10;
+   check whether that is fixed before trusting a red check, and verify locally (backend ruff, mypy, full
+   pytest; frontend `npm run typecheck`, `npx vitest run`; `npx playwright test` after `npm run build`).
 2. Set up: `cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]' 'mypy==2.3.1'
    pytest-xdist`; the card DB with `scripts/update-cards.sh --images none`; `cd frontend && npm ci`.
-3. Read this file and `.claude/skills/fyodor-game-development/SKILL.md`.
-4. Open items the reviews named (each small): the opening-hand step should not block game start on an
-   unexpected rules error (wrap `resolve._opening_steps`); squad/replicate/offspring still count as "kicked";
-   madness grants its cast before its trigger resolves (fixed for miracle only); borrowed abilities don't
-   include abilities the lender has only from other effects (613.8); the controller's own stops drive the
-   controlled player's priority; `RulesState.unlocked`/`foretold` keep stale entries. Face-down ids (18R review): an open decision whose
-   `source_id` was the old card shows the new id; turning an exiled face-up card face down in place keeps its id;
-   the older face-down `shuffle` renaming in `handlers/zones.py` rewrites only `copy_of`, not rules state.
-5. Still manual on purpose: unsettled rulings (a copied Room spell's door 709.5d, Hellrider-style damage
-   after leaving combat, "lands enter untapped"), Attractions (per-printing lights aren't in the data),
-   Bolas's Citadel, Garth One-Eye/Magar, Chrome Mox, Word of Command.
-6. Then continue the long-tail sweeps from a fresh `gap_rank` (mostly single-card wordings now), one family
-   per agent, each with a coverage diff, and an Opus head review for any new system.
+3. Read this file, `.claude/skills/fyodor-game-development/SKILL.md` and `docs/AUTOMATION_INVENTORY.md`.
+4. Follow-ups the wave 27–29 reviews named, most important first:
+   - **Hidden information:** "put the rest on the bottom in a random order" outside cascade and discover
+     (`rest_looked`, `rest_exiled`) still logs one move per card, so the new library order is readable.
+     Cascade and discover already use one batched move (`effects.bottom_at_random`); reuse it.
+   - **"If you do" (118.12):** the draw check now follows the player's choice. Exile, bounce and counter
+     checks still look at the result instead; research each against 118.12 and the rulings before changing.
+   - **Sacrificing the spell's own target while paying for it** (Ashnod's Altar mid-cast) is not offered;
+     the prompt explains it. Supporting it needs target re-checks after a replayed announcement.
+   - **Mana-ability damage with a prevention add-on** (Deflecting Palm) runs the add-on even though a mana
+     ability can't pause.
+   - **Hint and castable checks** (`can_pay`) don't know source or additional life costs; the cast is
+     refused with a message instead.
+   - **Sync endpoints** `game_summary` and `/rules/scenario` still read tables on the threadpool (derivation
+     state is now thread-local, so they no longer corrupt each other).
+   - **Free casts:** Ripple's "any order" puts the declined card last. In auto payment mode, a cost that
+     can't be paid is refused at the target answer (Cancel works).
+   - The older items from PR #14 below (opening-hand errors, squad/replicate as "kicked", madness timing,
+     613.8 borrowed abilities, stale `RulesState` entries, face-down id details).
+5. Still manual on purpose: unsettled rulings (Hellrider-style damage after leaving combat, a copied Room
+   spell's door, "lands enter untapped", "first time you would draw each turn", whether a permanent counts
+   itself for "enters with a counter for each <group>", Mad Wizard's Lair under a count-changing draw
+   replacement, Bloodletter's doubled life payments follow 119.4/118.11 with no ruling found), Attractions,
+   banding, outside-the-game, voting and piles, Phyrexian Unlife-style 704.5a statics.
+6. Coverage gains now come from engine features, not wording sweeps (wave 27 gained 32 cards in four
+   tracks). Pick features from a fresh `gap_rank` and `tools/inventory.py`, one per agent, each with a
+   coverage diff, a dump of every Commander-legal card's parsed definition at base and head (verify every
+   changed card), and an Opus head review.
 
 ## Usage control
 
@@ -301,3 +416,45 @@ card), and the Room cards with other blockers: Smoky Lounge // Misty Salon (rest
 Stairs, Dollmaker's Shop // Porcelain Gallery, Secret Arcade // Dusty Parlor, Charred Foyer, Cramped Vents, Greenhouse, Walk-In
 Closet, Polluted Cistern, Experimental Lab. Attractions (CR 717) are not built: the lit-up numbers are per printing and not in the
 card data, and the supplementary Attraction deck needs deck-building support.
+
+## Counter kinds, suspend granted, flip cards, hone counters (wave 24C)
+- `counter_kinds.py` (122.1, 608.2d): "for each kind of counter on target permanent [or player], give … another counter of that kind", "put another
+  … or remove one", "choose a counter on …, give …", "remove any number of counters" (the controller says how many of each kind, kind by kind;
+  `counter_moves` asks the same for "move any number of counters"). Gives are puts through the counter choke point. `target permanent or player`
+  is a target selector now. Not read: "each other creature" after "choose a kind of counter on a creature" (Contractual Safeguard: other than what),
+  "any number of counters" from a group of sources, "suspended card" targets (Clockspinning, Jhoira's Timebug).
+- `suspend_grants.py` (702.62b): "exile it with N time counters on it. If it doesn't have suspend, it gains suspend" is the exile, the counters and
+  joining `RulesState.suspended` (a card that left exile or lost its last time counter is dropped at the next upkeep, `triggers._suspend`).
+  Not read: counters equal to a mana value chosen from a hand (The Eleventh Doctor), a cost exiling a card from a hand (Jhoira of the Ghitu),
+  Soothsayer / Venture Forth ("the rest on the bottom in a random order").
+- Flip cards (CR 710): `keyword_actions.flip` turns a layout-flip card's permanent upside down (`CardInstance.flipped`, the Kamigawa rotation the manual Flip button toggles; one-way, forgotten off the battlefield: `ops` resets it);
+  `characteristics._of` reads the alternative face while it is flipped, and `_from_card_data` keeps the front's mana cost, mana value and colors (710.1c). Copying a flip card stays by hand
+  (`copying.supported_source`). Flip cards with other blockers: Nezumi Graverobber, Nezumi Shortfang, Kitsune Mystic, Homura, Sasaya, Erayo.
+- "enters with" under a negated cast condition ("if you didn't cast it from your hand", "unless you've cast another red spell this turn") reads
+  the same condition grammar; a negated mana test stays refused (a spell cast by hand has no known payment).
+- Hone counters (122.1j): +1/+0 to the creature the Equipment is attached to (`layers._hone`, layer 7c).
+- "[mandatory counters]. When you do, …" is a reflexive trigger (603.12) that waits for the counters really being put (Solemnity stops it).
+- Forecast (702.57a): "Forecast — {cost}, Reveal this card from your hand: …" is an activated ability from the hand (`costs.REVEAL_SELF`, `from_hand`),
+  your upkeep only and once each turn (`restrictions.parse`); the reveal is shown in the log and ends at once (`cost_payment.pay`). The hand menu offers it
+  (`rulesMenu.ts`). Not read: a forecast cost tapping creatures (Sky Hussar), Paladin of Prahv's "whenever target creature deals damage this turn".
+- Not built (left for later): the Adversary cycle ("pay … any number of
+  times"), cast-trigger riders ("that creature enters with an additional +1/+1 counter": Torgal, Kumano, Fenrir), enters-as-copy with counters (Spark Double).
+
+## Spell grants and hand abilities (wave 28C)
+- `spell_grants.py` (113.6, 604.1, 613.1f): a static "Instant and sorcery spells you control have lifelink / deathtouch / split second" (Radiant
+  Scrollwielder, Soulfire Grand Master, Heartflame Duelist, Firesong and Sunspeaker (red), Pestilent Spirit, Samut) gives the keyword to the spells
+  on the stack its controller controls, read afresh each time the spell is derived (`layers._derive`, like `zone_grants`): it ends when the source
+  leaves. "Noble creatures you control and Lesson spells you control have lifelink" (Lo and Li) is the ordinary creature grant plus `spell_grants`.
+  Lifelink and deathtouch apply to the damage the spell deals (`effects._ability_source` reads the spell's keywords on the stack, 702.15b / 702.2b);
+  `split_second.on_stack` reads the spell with its grants (702.61a). "Spells you cast have …" for other keywords stays in `cast_limits`.
+- "The next [noncreature] spell you cast this turn has improvise / convoke / affinity for artifacts / cascade / storm" (Archway of Innovation, Wand of
+  the Worldsoul, Flockchaser Phantom, Saheeli the Gifted, Don & Raph, Dark Apostle, Sloppity Bilepiper, Smoldering Stagecoach, Crackling Spellslinger,
+  Storm, Force of Nature) is `RulesState.next_spell_grants` (`NextSpellGrant`): read while the next matching spell is cast (`cast_limits.granted_helpers`
+  / `granted_affinities` / `granted_instances`), used up by `history.note_cast`, ended in cleanup. A grant naming a kind of spell waits for one.
+  Not read: Shadow the Hedgehog's split second "if mana from an artifact was spent" (a payment condition), TARDIS's "and you may planeswalk".
+- Hidden-zone abilities (602.2a, 701.20a): `casting._create_ability` reveals a card activated from the hand for the moment the ability is created,
+  so cycling, channel, transmute, ninjutsu and every other ability from the hand name their source on the stack; the rest of the hand stays hidden.
+  Review 28C: ninjutsu's card stays revealed from the announcement (`keep`, 702.49b) instead of being revealed, hidden and revealed again.
+  Wave 29B: a face-down creature spell given cascade or ripple by an effect (Sloppity Bilepiper, Maelstrom Nexus, Thrumming Stone) has it (708.2
+  limits only its own abilities; 613.1f, 601.2a): its mana value is 0 and it has no name (708.2a), so cascade exiles the whole library and finds
+  nothing and ripple matches no name (201.2a). A storm grant to a face-down spell is refused (no printed card gives a creature spell storm).

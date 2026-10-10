@@ -20,8 +20,10 @@ PREFIX = "radiance:"
 # -- same name (wave 11D) -- "Destroy target nonland permanent and all other permanents with the same name as that
 # permanent." (201.2: names in common; a nameless face-down object has none). The others are not targets: only the one
 # target is chosen and checked on resolution (608.2b), the rest are whatever bears that name as the instruction is carried out.
-_SAME_NAME = re.compile(r"\b(?P<t>[Tt]arget (?:[a-z]+ )*?(?P<tn>[a-z]+)) and (?:all|each) other (?P<noun>permanents|creatures|lands|artifacts|enchantments"
-                        r"|creature|land|artifact|enchantment) with the same name as that (?P=tn)(?P<verb> get| gain)?(?=[ .,\"])")
+# (wave 26B: "target nonland permanent an opponent controls and all other nonland permanents your opponents control with the same name": Banishment)
+_SAME_NAME = re.compile(r"\b(?P<t>[Tt]arget (?:[a-z]+ )*?(?P<tn>[a-z]+)(?: an opponent controls)?) and (?:all|each) other "
+                        r"(?P<noun>(?:nonland )?(?:permanents|creatures|lands|artifacts|enchantments"
+                        r"|creature|land|artifact|enchantment)(?: your opponents control)?) with the same name as that (?P=tn)(?P<verb> get| gain)?(?=[ .,\"])")
 SAME_NAME = "samename:"
 
 

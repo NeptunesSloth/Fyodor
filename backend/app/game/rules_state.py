@@ -39,6 +39,19 @@ class DecisionOption(BaseModel):
     group: str | None = Field(default=None, max_length=64)  # reconcile: the question this answers
 
 
+# -- cancelling a cast (wave 24D) -- 601.2: the announcement choices (modes, targets) of a spell or ability that can still be taken back:
+# the chooser's view says ``cancelable`` and the answer ["cancel"] is legal (app/rules/casting.py: ``cancelled``).
+CANCELLABLE_STEPS = ("cast_target", "cast_group", "cast_modes", "cast_slot_target")
+
+
+def cancelable(d: Any) -> bool:
+    """Can this decision be answered ["cancel"]? (-- review (wave 24D) -- not a free cast begun as an effect resolves (608.2g): the
+    resolution that offered it is over, so cancelling would strand the card and keep its grant; its own "no" is the way out.
+    -- review (wave 29B) -- unless its end is recorded, ``abandon``: casting._announcing, permissions.free_cast_abandoned.)"""
+    resume = getattr(d, "resume", None) or {}
+    return resume.get("step") in CANCELLABLE_STEPS and (not (resume.get("intent") or {}).get("free") or bool(resume.get("abandon")))
+
+
 class Decision(BaseModel):
     """One pending choice, addressed to one player. Everyone else only sees that they're waiting."""
 
@@ -218,6 +231,15 @@ class CopyExcept(BaseModel):
     # (205.1a: they replace the copied ones; other subtypes stay), changeling isn't copied (707.9d)
     set_creature_types: list[str] | None = None
     no_mana_cost: bool = False  # -- keywords (wave 15E) -- "it has no mana cost" (embalm 702.128a, eternalize 702.129a): a copiable value
+    # -- copy exceptions (wave 24A) -- 707.9b: "it's an artifact" / "it loses all other card types": the card types are exactly these;
+    # 707.9a/f: abilities gained only if the result is that type ("if it's a creature, … has changeling"); 707.9c-d: "it doesn't copy
+    # that creature's color" (``keep_color``: the object's own colors, filled in as the copy effect is made)
+    set_types: list[str] | None = None
+    text_if: dict[str, list[str]] = Field(default_factory=dict)
+    keep_color: bool = False
+    # 707.9e: "it enters with an additional +1/+1 counter on it": an additional effect of the replacement, NOT a copiable value — read
+    # only while parsing (``copying.define_static`` moves these onto the definition). {"counter", "n": int | "X", "if_type", "if_control"}
+    enter_counters: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class CopyRecipe(BaseModel):
@@ -310,6 +332,10 @@ EventKind = Literal[
     "mana_added",  # a mana ability produced mana (106.3, 106.12a); convoke/improvise/delve never do
     "drew",  # a player drew a card (121.2: one event per card)
     "crewed",
+    "crew_tapped",  # -- crew & saddle (wave 23D) -- 702.122b: a creature (``object_id``) tapped to pay the crew cost of ``by_card`` (``source``)
+    "saddle_tapped",  # 702.171c: likewise for a saddle ability
+    "saddled",  # 702.171b: ``card`` became saddled
+    "exploited",  # -- keyword triggers (wave 23D) -- 702.110b: ``card`` (object ``object_id``) was sacrificed to exploit ``by_card`` (``source``: its object)
     "turned_face_up",  # 702.37e (morph)  # a Vehicle became crewed (702.122)
     # 701.21a: a permanent was sacrificed (emitted just before it moves, in the same batch; the
     # object is the permanent as it was — "whenever you sacrifice …" looks back in time, 603.10a)
@@ -343,7 +369,14 @@ class Event(BaseModel):
     manual: bool = False  # caused by a sandbox action, not by the rules engine
     # -- counters (wave 5H) -- counters put on an object: the player who put them (the step's actor: 122.6, 122.6a)
     actor: str | None = None
+    looked: int = 0  # -- scry counts (wave 19C) -- a scry / surveil: how many cards it looked at (701.22d: fewer than N with a short library)
     group: int = 0  # -- counters (wave 7C) -- counters one instruction put in several steps share it (122.6); 0: alone
+    by_card: str | None = None  # -- keyword triggers (wave 23D) -- "exploited": the creature with exploit (a card id)
+    # -- dice (wave 24B) -- a ``designation`` event with counter "roll_die": one die rolled by ``player`` (706.2: ``amount`` its result after
+    # modifiers, ``natural`` the number on the die, ``sides`` the die's size, ``nth`` how many dice they have rolled this turn, this one included)
+    natural: int = 0
+    nth: int = 0
+    sides: int = 0
 
 
 MAX_EVENTS = 500  # unconsumed events kept (a trigger collector consumes them; M16)
@@ -391,6 +424,9 @@ class Entry(BaseModel):
     # -- entry forms (wave 5F) -- whether it entered tapped ("When this land enters untapped", "Whenever a permanent
     # you control enters tapped": part of the event, 603.2); None: not known (an older save)
     tapped: bool | None = None
+    # -- history (wave 22E) -- the zone it entered from (a zone key, "<owner>:graveyard" / "<owner>:stack" …): "enters from your
+    # graveyard", "if it entered from a graveyard" (603.2, 603.4); None: from nowhere (created) or an older save
+    from_zone: str | None = Field(default=None, max_length=40)
 # -- end refused modal/conditional (wave 3R1) --
 
 
@@ -408,7 +444,9 @@ class CastNote(BaseModel):
     colors: list[str] = Field(default_factory=list)
     mv: float = 0
     cast_from: str | None = Field(default=None, max_length=20)  # "hand", "graveyard", "exile", "command" …
+    alt: str | None = Field(default=None, max_length=20)  # -- void (wave 19E) -- the alternative cost it was cast for ("warp": 702.185a)
     became: str | None = Field(default=None, max_length=80)  # the permanent a permanent spell became (608.3)
+    x_cost: bool = False  # -- history (wave 22E) -- its mana cost has {X} ("a spell with {X} in its mana cost", 107.3); older saves: False
 
 
 class TurnFact(BaseModel):
@@ -455,6 +493,13 @@ class TurnLog(BaseModel):
     # -- drawn this turn (wave 18G) -- player -> the rules objects (as they are in that player's hand) they drew, in order. PRIVATE:
     # which cards in a hand were drawn this turn is the owner's information (never in a view, a log line or a prompt others see)
     drawn: dict[str, list[str]] = Field(default_factory=dict)
+    # -- replaced draws (wave 29C) -- the part of ``drawn`` a replacement effect drew ("draw two cards instead", "that many plus one"): 614.11b,
+    # 121.6c — an additional action on drawn cards ("… and reveal them") isn't done to them. PRIVATE like ``drawn``
+    drawn_replaced: dict[str, list[str]] = Field(default_factory=dict)
+    # -- replaced draws (review 29C) -- the part of ``drawn`` drawn by an instruction a replacement effect changed the number of ("that many
+    # cards plus one", 121.2a / 616.1g: Quantum Riddler, Alms Collector): whether "… and reveal them" reaches those isn't settled (614.11b
+    # against 121.2a) — the players resolve it. PRIVATE like ``drawn``
+    drawn_counted: dict[str, list[str]] = Field(default_factory=dict)
     left: list[Departure] = Field(default_factory=list)
     left_graveyard: list[str] = Field(default_factory=list)  # the owner of each card that left a graveyard
     entered_graveyard: list[Arrival] = Field(default_factory=list)
@@ -463,8 +508,11 @@ class TurnLog(BaseModel):
     casts: list[CastNote] = Field(default_factory=list)  # spells cast, as they became cast (601.2i)
     facts: list[TurnFact] = Field(default_factory=list)  # tokens created, discards, sacrifices, damage to players …
     attackers: dict[str, list[str]] = Field(default_factory=dict)  # player -> creatures (objects) declared as attackers
+    blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
+    attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
     # "<source object>:<ability index>" -> how many times that ability resolved this turn (copies included)
     resolved: dict[str, int] = Field(default_factory=dict)
+    rolled: dict[str, int] = Field(default_factory=dict)  # -- dice (wave 24B) -- player -> dice rolled this turn (706.6: an ignored roll never happened)
     # -- end this-turn history (wave 4D) --
 
 
@@ -626,6 +674,9 @@ class DelayedTrigger(BaseModel):
     step: str = ""
     once: bool = True  # 603.7b: it triggers only once (an "each" duration would say otherwise)
     until_turn: int | None = None  # "this turn": it stops watching at that turn's cleanup (514.2)
+    # -- if you do (wave 25C) -- a turn watch's deferred ability that has a target of its own ("Whenever you cast a spell this turn, put a +1/+1
+    # counter on target creature you control"): the selector its controller chooses a target for each time it triggers (603.3d)
+    target: dict[str, Any] | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -712,7 +763,9 @@ class PaymentRecord(BaseModel):
     # -- keywords (wave 15E) -- ninjutsu 702.49c: what each returned attacking creature was attacking (player or permanent id)
     returned_attacking: dict[str, str] = Field(default_factory=dict)
     tapped_for_cost: list[str] = Field(default_factory=list)  # "Tap an untapped creature you control" (not for mana)
+    tapped_objects: list[str] = Field(default_factory=list)  # (review 26C) the object ids they were: "the creature tapped this way" (608.2h)
     kicked: int = 0  # 702.33d: times its kicker cost was paid
+    gift_to: str | None = Field(default=None, max_length=64)  # -- gift (wave 23D) -- 702.174a: the opponent the gift was promised to
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
     prototyped: bool = False  # -- casting extras (wave 18E) -- 718.3: cast prototyped (the spell and the permanent have the alternative values)
     additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
@@ -758,7 +811,14 @@ class Permission(BaseModel):
     # -- keywords (wave 15E) -- warp 702.185a ("after the current turn has ended": not before turn ``after_turn`` is over) and plot
     # 702.170d ("during your main phase while the stack is empty", ``sorcery``, even for an instant)
     after_turn: int = 0
+    # -- if you do (wave 25C) -- 614.1a: "If that spell would be put into a graveyard, exile it instead." for the spell cast with this
+    # permission ("is": instants and sorceries only); ``exile_own``: "your graveyard" (a card another player owns goes to theirs)
+    exile_gy: Literal["", "all", "is"] = ""
+    exile_own: bool = False
     sorcery: bool = False
+    # -- trigger other (wave 25B) -- airbend 701.65a: the card may be cast only by paying this rather than its mana cost (an alternative
+    # cost, 118.9), for as long as it remains exiled (the permission follows the object, 400.7h)
+    alt_mana: str = ""
 
 
 class CostModifier(BaseModel):
@@ -780,6 +840,21 @@ class CostModifier(BaseModel):
     mana: str = Field(default="", max_length=1)  # -- cost changers (wave 4I) -- a colored change ("{W} more"): its color
 
 
+class NextSpellGrant(BaseModel):
+    """-- spell grants (wave 28C) -- "The next spell you cast this turn has improvise." / "The next noncreature spell you cast this turn has
+    cascade.": a keyword the next spell its caster casts this turn (that matches ``filter``) has as it is cast (601.2, 702.51, 702.126,
+    702.85), used up by that cast and ended in cleanup (514.2). One grant per instance (two grants of cascade: two cascades, 702.85c)."""
+
+    id: str
+    player: str
+    keyword: str  # "convoke" | "improvise" | "affinity" | "cascade" | "storm"
+    what: str = ""  # affinity: "artifacts"
+    filter: str | None = None  # a spell selector key ("noncreature"), or None: the next spell, whatever it is
+    turn: int = 0
+    source: str | None = None
+    label: str = Field(default="", max_length=120)
+
+
 class TopReveal(BaseModel):
     """"Play with the top card of your library revealed." / "You may look at the top card of your
     library any time." — while ``source`` is on the battlefield under ``player``'s control, that
@@ -790,6 +865,19 @@ class TopReveal(BaseModel):
     player: str
     to: Literal["all", "owner", "none"]  # (-- hidden exile (wave 18A) -- "none": only the face-down looking below)
     face_down: bool = False  # 708.5 exception: ``player`` may also look at the face-down creatures others control
+    # -- revealed zones (wave 25A) -- "Players play with the top card of their libraries revealed." (``whose`` "players"), "Your opponents play with
+    # their hands revealed." / "Players play with their hands revealed." / "Play with your hand revealed." (``zone`` "hand": shown to every player, 701.20a)
+    zone: Literal["library", "hand"] = "library"
+    whose: Literal["you", "opponents", "players"] = "you"
+
+
+class HideawayLook(BaseModel):
+    """-- hideaway (wave 29D) -- 702.75a / 406.3: the face-down exiled card (its object id is the key in ``RulesState.hideaway``) that the
+    controller of the permanent that exiled it (``source``, an object id) may look at, and the players who have been allowed to look and
+    may go on looking until it leaves exile (``lookers``). App/rules/hideaway.py."""
+
+    source: str
+    lookers: list[str] = Field(default_factory=list)
 
 
 class ReconcileItem(BaseModel):
@@ -818,6 +906,9 @@ class RulesState(BaseModel):
     # ability: consumed by engine.advance once the triggers that cast caused are on the stack (117.3c, 603.3)
     auto_pass: str | None = None
     decision: Decision | None = None
+    # -- nested payment choices (wave 28D) -- 605.3a: the "tap your mana" / pay-or-sacrifice prompt a mana ability's own chosen cost
+    # (Ashnod's Altar's creature, Phyrexian Altar's color) is nested in; it comes back once that choice is made or cancelled
+    payment_outer: Decision | None = None
     prefs: dict[str, PlayerPrefs] = Field(default_factory=dict)  # per-player automation preferences
     # Per-card automation override (right-click → Automation): "manual" cards are never automated;
     # the engine asks their controller to resolve them by hand and doesn't enforce their timing.
@@ -827,6 +918,7 @@ class RulesState(BaseModel):
     spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
     mana_cast: dict[str, TurnCount] = Field(default_factory=dict)  # -- wave 15B -- mana spent to cast spells this turn (700.14 expend)
     loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
+    loyalty_second: dict[str, int] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- planeswalker -> turn of its second use
     # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't
     # untap during that player's next untap step (app/rules/engine.start_next_turn)
     exerted: dict[str, str] = Field(default_factory=dict)
@@ -838,6 +930,8 @@ class RulesState(BaseModel):
     # object's ability was activated / triggered — "<object id>:<ability index>:t<turn>" -> count this
     # turn, "<object id>:<ability index>:game" -> count this game (602.5b, 400.7: per object).
     ability_uses: dict[str, int] = Field(default_factory=dict)
+    # -- soulbond (wave 24B) -- 702.95b: paired creatures, both directions: object id -> (partner's object id, the pairing's controller)
+    pairs: dict[str, tuple[str, str]] = Field(default_factory=dict)
     # -- modal triggered/activated abilities (wave 1A) --
     # "Choose one that hasn't been chosen [this turn]": the modes already chosen for that ability of
     # that object (app/rules/modal_abilities.py) — "<object id>:<ability index>:game" (the game) or
@@ -859,6 +953,9 @@ class RulesState(BaseModel):
     # (melee, 702.121a: the opponents each attacking player attacked directly — not through a planeswalker or battle, 506.3 — in the
     # latest declaration of attackers: "for each opponent you attacked with a creature this combat")
     attacked_players: dict[str, list[str]] = Field(default_factory=dict)
+    # -- trigger other (wave 25B) -- player -> the total power of the creatures declared as attackers in their latest declaration, as they
+    # were declared ("you attacked with creatures with total power 6 or greater this combat": pack tactics; review 25B: a snapshot)
+    attack_power: dict[str, int] = Field(default_factory=dict)
     miracle: list[str] = Field(default_factory=list)
     miracle_turn: dict[str, int] = Field(default_factory=dict)
     miracled: list[str] = Field(default_factory=list)
@@ -868,10 +965,18 @@ class RulesState(BaseModel):
     # (wave 17A) "<key>#<id>" -> a shield that has an additional effect (615.5): its rider and who made it
     prevention_riders: dict[str, dict[str, Any]] = Field(default_factory=dict)
     regen_shields: dict[str, int] = Field(default_factory=dict)  # object id -> regeneration shields this turn
+    no_regen: list[str] = Field(default_factory=list)  # -- can't regenerate (wave 19E) -- objects that can't be regenerated this turn
     linked_exile: dict[str, list[str]] = Field(default_factory=dict)  # source object -> cards exiled "until it leaves"
     # -- exiled with (wave 6D) -- source object -> the objects its abilities exiled (607.2a: "the exiled card",
     # "cards exiled with ~"; app/rules/exiled_with.py)
     exiled_with: dict[str, list[str]] = Field(default_factory=dict)
+    hideaway: dict[str, HideawayLook] = Field(default_factory=dict)  # -- hideaway (wave 29D) -- exiled object id -> who may look at it (702.75a)
+    # -- can't lose life (wave 29D) -- 119.7-119.8: resolved "your life total can't change" effects (app/rules/life_lock.py): {id, player, controller,
+    # gain, lose, until ("turn" | "next_turn"), turn, label}
+    life_locks: list[dict[str, Any]] = Field(default_factory=list)
+    # -- resolution memory (wave 22D) -- 610.3: an object exiled "until ~ leaves" from a hand returns there (its previous zone):
+    # exiled object id -> "hand" (absent: the battlefield)
+    linked_exile_from: dict[str, str] = Field(default_factory=dict)
     vote_control: list[list[Any]] = Field(default_factory=list)  # -- voting (wave 18C) -- [turn, chooser]: "You choose how each player votes this turn"
     opening_revealed: list[str] = Field(default_factory=list)  # -- opening hand (wave 18C) -- cards revealed until the first turn (103.6b)
     delayed: list[DelayedTrigger] = Field(default_factory=list)  # delayed triggered abilities (603.7; app/rules/delayed.py)
@@ -891,6 +996,11 @@ class RulesState(BaseModel):
     # … and "can't gain life this turn / for the rest of the game" (614.17; app/rules/cant_gain.py):
     # {"id", "player", "controller", "turn" (None: the rest of the game), "label"}
     cant_gain: list[dict[str, Any]] = Field(default_factory=list)
+    # -- prohibitions (wave 22B) -- "You can't lose the game this turn …" (104.2b, 104.3; app/rules/game_result.py):
+    # {"player", "what": "lose"|"win", "turn"}
+    results: list[dict[str, Any]] = Field(default_factory=list)
+    # -- ability words (wave 20C) -- "You have no maximum hand size for the rest of the game." (app/rules/hand_size.py): the players
+    no_max_hand: list[str] = Field(default_factory=list)
     # -- cast limits (wave 5E) -- "… can't cast spells this turn / until your next turn" (601.3, 602.5;
     # app/rules/cast_limits.py): {"id", "player", "controller", "until": "turn"|"next_turn", "turn", "filter", "from",
     # "act", "label"}
@@ -908,6 +1018,10 @@ class RulesState(BaseModel):
     # 903.9b: commanders just put into their owner's hand / library (card id -> "hand" | "library")
     # whose owner hasn't yet said whether it goes to the command zone instead (asked before priority)
     pending_903_9b: dict[str, str] = Field(default_factory=dict)
+    # -- zone replacements (wave 22C) -- 616.1: a card that would go to a graveyard where two replacement effects with
+    # different results apply (Blightsteel's shuffle vs Rest in Peace) stays where it is until its controller (owner if
+    # it has none) picks the one that applies: card id -> {"oid", "dest", "options": {outcome: source label}}
+    pending_616: dict[str, dict[str, Any]] = Field(default_factory=dict)
     # 903.9b asked *before* the move, as a resolving effect is about to put a commander into its
     # owner's hand or library: "<object id>><hand|library>" -> "yes" (command zone) / "no",
     # consumed by that move (app/rules/replacements.ask_903_9b_first)
@@ -932,6 +1046,7 @@ class RulesState(BaseModel):
     suspend_haste: list[str] = Field(default_factory=list)  # suspended creature spells: haste when they enter
     renowned: list[str] = Field(default_factory=list)  # rules objects that became renowned (702.112)
     monstrous: list[str] = Field(default_factory=list)  # rules objects that became monstrous (701.37b)
+    monstrous_x: dict[str, int] = Field(default_factory=dict)  # -- X sized by a count (wave 19F) -- 701.37c: its X "as that permanent became monstrous"
     levels: dict[str, int] = Field(default_factory=dict)  # -- Class (wave 16A) -- 716.2b: rules object -> class level (none: level 1, 716.2d)
     unlocked: dict[str, list[int]] = Field(default_factory=dict)  # -- Rooms (wave 18G) -- 709.5c: rules object -> its unlocked doors (1 left, 2 right)
     suspected: list[str] = Field(default_factory=list)  # rules objects that are suspected (701.60: -- suspect (wave 12A) --)
@@ -947,6 +1062,7 @@ class RulesState(BaseModel):
     # -- multiple blocks (wave 13B, 14A) -- 510.1c-d: how a creature divides its combat damage among the creatures it is
     # blocked by / blocks (creature card -> target card or player -> damage), answered before the round is dealt and dropped once it is
     block_split: dict[str, dict[str, int]] = Field(default_factory=dict)
+    assign_unblocked: dict[str, bool] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker -> "as though it weren't blocked"
     # -- combat (wave 5C) -- 500.8: the phases still to come after the current one when effects added some (the
     # last is the phase that would have come next), and how many combat phases began this turn
     extra_phases: list[str] = Field(default_factory=list)
@@ -1004,6 +1120,7 @@ class RulesState(BaseModel):
     # library cards are revealed by permanents on the table (app/rules/permissions.py).
     permissions: list[Permission] = Field(default_factory=list)
     cost_modifiers: list[CostModifier] = Field(default_factory=list)
+    next_spell_grants: list[NextSpellGrant] = Field(default_factory=list)  # -- spell grants (wave 28C) --
     top_reveals: list[TopReveal] = Field(default_factory=list)
     # -- conditional / instead clauses (wave 1B) --  this turn's and last turn's history (TurnLog)
     turn_log: TurnLog = Field(default_factory=TurnLog)
@@ -1034,6 +1151,8 @@ class RulesState(BaseModel):
     # (app/rules/permissions.free_cast_done); and the stack objects cast "without paying" whose
     # "If that spell would be put into your graveyard, exile it instead" applies (614.1a)
     free_cast_then: dict[str, Any] | None = None
+    # -- granted casts (wave 29B) -- card -> the half / face (1) its "cast it?" answer named ("yes@1"): the only one casting.cast_free accepts
+    free_cast_faces: dict[str, int] = Field(default_factory=dict)
     exile_if_graveyard: list[str] = Field(default_factory=list)
     # -- counters (wave 5H) -- keyword counters (122.1b) on permanents: card id -> kind -> [next_object, timestamp]
     # as the last counter of that kind was put on it (613.7c: all counters of a kind share the newest timestamp), so
@@ -1169,7 +1288,7 @@ def _note_player_fact(state: GameState, kind: str, player: str | None, amount: i
     book[player] = book.get(player, 0) + amount
 
 
-def note_attack(state: GameState, player: str, attackers: list[str] | None = None) -> None:
+def note_attack(state: GameState, player: str, attackers: list[str] | None = None, targets: list[str] | None = None) -> None:
     """508.1: ``player`` declared one or more attackers this turn ("if you attacked this turn"); ``attackers``: the
     objects declared (wave 4D: "if you attacked with two or more creatures this turn" — every combat of the turn)."""
     log = turn_log_now(state)
@@ -1178,6 +1297,16 @@ def note_attack(state: GameState, player: str, attackers: list[str] | None = Non
     if log is not None and attackers:  # -- this-turn history (wave 4D) --
         seen = log.attackers.setdefault(player, [])
         seen += [a for a in attackers if a not in seen]
+        for a, t in zip(attackers, targets or (), strict=True):  # -- static_other sweep (wave 19A) -- 508.1c: "a player it has already attacked"
+            if t in state.players and t not in log.attacked_who.setdefault(a, []):
+                log.attacked_who[a].append(t)
+
+
+def note_block(state: GameState, blockers: list[str]) -> None:
+    """509.1g: these objects were declared as blockers this turn ("creature that blocked this turn")."""
+    log = turn_log_now(state)
+    if log is not None:
+        log.blockers += [b for b in blockers if b not in log.blockers]
 
 
 def wither_put_by(action: Any) -> dict[tuple[str, str], dict[str, int]] | None:
@@ -1321,10 +1450,10 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         if new_name == "battlefield" and card is not None and new_oid is not None \
                 and (log := turn_log_now(state)) is not None:  # -- refused modal/conditional (wave 3R1) --
             log.entered.append(Entry(card=card_id, object_id=new_oid, controller=card.controller,
-                                     tapped=card.tapped))  # (-- entry forms (wave 5F) --)
+                                     tapped=card.tapped, from_zone=old_zone))  # (-- entry forms (wave 5F) --; wave 22E: from_zone)
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
-             from_zone=old_zone, to_zone=new_zone)
+             from_zone=old_zone, to_zone=new_zone, actor=actor)  # (wave 23D: who moved it: a discard an opponent's effect caused, 701.9)
     # -- review (wave 18D) -- 730.3 / 712.21: the cards of a merged permanent that left (other than the one its instance became) were
     # never objects of their own: each is put into the zone from the battlefield, a new object there (not one more permanent leaving)
     pile = {p["id"]: snap for snap in before.snaps.values() for p in snap.merged}

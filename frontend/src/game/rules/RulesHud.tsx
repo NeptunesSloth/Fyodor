@@ -7,7 +7,8 @@
 import { useState } from "react";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { PHASE_LABEL, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
-import { canConcede, choose, concede, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana } from "./intents";
+import { autocomplete } from "../../services/cards";
+import { canConcede, choose, chooseName, concede, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt } from "./intents";
 import { GameCardFace } from "../GameCardFace";
 import { ManaText } from "../../cards/ManaText";
 import { useCardCache } from "../../state/cardCache";
@@ -396,6 +397,55 @@ function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
   );
 }
 
+/** A "choose a card name" decision (CR 201.4) is one option with this id (its `group` says what may be named); the cards after it are
+ * what the chooser looked at (an opponent's hand) and are only shown. The name is typed; the server checks it against the Oracle list. */
+export const NAME_OPTION = "__name__";
+
+function CardNameChoice({ d, view }: { d: DecisionView; view: GameView }) {
+  const [name, setName] = useState("");
+  const [hint, setHint] = useState<string[]>([]);
+  const seen = (d.options ?? []).slice(1);
+  const type = (text: string) => {
+    setName(text);
+    if (text.trim().length >= 2) void autocomplete(text).then(setHint, () => setHint([]));
+    else setHint([]);
+  };
+  return (
+    <div className="decision-options" data-testid="card-name-choice">
+      {seen.length > 0 && (
+        <div className="decision-seen" data-testid="card-name-seen">
+          {seen.map((o) => <span key={o.id} className="tt-chip">{optionLabel(o, view)}</span>)}
+        </div>
+      )}
+      <input className="decision-name" data-testid="card-name-input" list="card-name-hints" value={name} placeholder="Card name"
+        onChange={(e) => type(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) void chooseName(d.id, name.trim()); }} />
+      <datalist id="card-name-hints">{hint.map((h) => <option key={h} value={h} />)}</datalist>
+      <button className="tt-btn brass" data-testid="card-name-done" disabled={!name.trim()} onClick={() => void chooseName(d.id, name.trim())}>Name it</button>
+    </div>
+  );
+}
+
+/** -- X announced (wave 24D) -- 107.3a: the number for X, asked before the cast / activation is sent (the server validates the range). */
+export function XPrompt() {
+  const action = useXPrompt((s) => s.action);
+  const [x, setX] = useState("0");
+  if (!action) return null;
+  const close = () => { useXPrompt.setState({ action: null }); setX("0"); };
+  const ok = /^\d{1,4}$/.test(x) && Number(x) <= 1000;
+  const go = () => { if (ok) { void send({ ...action, x_value: Number(x) }); close(); } };
+  return (
+    <div className="decision-panel frame" data-testid="x-prompt">
+      <div className="decision-prompt">Choose a value for X</div>
+      <div className="decision-options">
+        <input className="decision-name" data-testid="x-input" type="number" min={0} max={1000} autoFocus value={x}
+          onChange={(e) => setX(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") go(); if (e.key === "Escape") close(); }} />
+        <button className="tt-btn brass" data-testid="x-done" disabled={!ok} onClick={go}>Cast / activate with X</button>
+        <button className="tt-btn" data-testid="x-cancel" onClick={close}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [remember, setRemember] = useState<string>("");
@@ -407,6 +457,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
 
   if (d.kind === "declare_attackers") return <DeclareAttackers d={d} />;
   if (d.kind === "declare_blockers") return <DeclareBlockers d={d} />;
+  if (d.kind === "choose_one" && options[0]?.id === NAME_OPTION) return <CardNameChoice d={d} view={view} />;
   if (d.kind === "choose_one" || d.kind === "confirm" || d.kind === "manual_resolution") {
     return (
       <div className="decision-options">
@@ -420,6 +471,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
             <option value="always_yield">Always</option>
           </select>
         )}
+        {d.cancelable && <button className="tt-btn ghost" data-testid="option-cancel" onClick={() => done(["cancel"])}>Cancel</button>}
       </div>
     );
   }
@@ -447,6 +499,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
       <button className="tt-btn brass" data-testid="decision-done" disabled={!canSubmitChoice(picked.length, min, max)} onClick={() => done(picked)}>
         {doneLabel(picked.length, min, max)}
       </button>
+      {d.cancelable && <button className="tt-btn ghost" data-testid="option-cancel" onClick={() => done(["cancel"])}>Cancel</button>}
     </div>
   );
 }

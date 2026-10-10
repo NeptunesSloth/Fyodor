@@ -145,7 +145,6 @@ def test_definitions_of_the_full_cards():
     "At the beginning of your upkeep, draw a card if you control a creature with the greatest power among artifacts on the battlefield.",
     "Whenever you scry or surveil for the first time each turn, draw a card.",  # (the first of which?)
     "Whenever an opponent scries, draw a card.",
-    "At the beginning of your upkeep, investigate once for each opponent who has more cards in hand than you.",
 ])
 def test_wordings_that_stay_manual(text):
     assert not defined(text), text

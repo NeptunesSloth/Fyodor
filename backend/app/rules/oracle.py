@@ -47,9 +47,11 @@ KEYWORDS = frozenset({
     "cumulative upkeep", "buyback", "entwine", "splice", "retrace", "replicate", "soulbond", "unleash", "battle cry",
     "living weapon", "totem armor", "umbra armor", "fortify", "reconfigure", "for mirrodin!", "prototype",
     "read ahead", "ravenous", "squad", "enlist", "decayed", "cleave", "compleated", "demonstrate", "hideaway",
+    "exploit",  # (wave 23D)
     "myriad", "melee", "friends forever", "choose a background", "doctor's companion", "space sculptor", "gift",
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",
+    "mayhem", "web-slinging",  # -- Marvel keywords (wave 25A) -- 702.187, 702.188
     "recover", "amplify", "assist",  # -- casting extras (wave 18E) -- 702.59, 702.38, 702.132
     "phasing", "transmute",  # (wave 3R4: casting.transmute)
     "aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate", "increment",  # -- static_other sweep (wave 16B) -- 702.127 (casting.from_graveyard / cast_grant)
@@ -74,6 +76,8 @@ class AbilityText:
     cost: str | None = None  # for activated/loyalty abilities: the text before the colon
     intrinsic: bool = False  # granted by a basic land type rather than printed
     section: int = 1  # -- Class (wave 16A) -- 716.2a: the class level whose "as long as this Class is level N or greater" it is under
+    keeps: str | None = None  # -- attached events (wave 25D) -- 702.16n: a granted protection that "doesn't remove" "auras" / "self:<granting Aura's id>"
+    special: str | None = None  # -- mana for special abilities (wave 19E) -- "equip": an equip ability (702.6); a "Power-up — " line reads as "power_up"
 
 
 def strip_reminders(text: str) -> str:
@@ -118,6 +122,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("partner",)
     if re.fullmatch(r"flashback—.+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 16B) -- 702.34a: "Flashback—{1}{U}, Pay 3 life."
         return ("flashback",)  # (one keyword: the comma is inside its cost)
+    if re.fullmatch(r"enchant [^;]+", line.strip(), re.IGNORECASE):  # -- layers (wave 22A) -- 702.5a: "Enchant creature, land, or planeswalker" is one keyword
+        return ("enchant",)  # (the commas list what it may enchant)
     if re.fullmatch(r"ward—[^;]+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 17C) -- "Ward—{2}, Pay 2 life." (one cost of two parts)
         return ("ward",)
     pieces = [p for p in re.split(r"[,;]\s*", line) if p.strip()]
@@ -174,7 +180,8 @@ def word_prefix(line: str) -> tuple[str, str] | None:
 
 
 _WATCH_LINE = re.compile(r"^(?:Whenever .+? this turn, |When you next cast .+? this turn, "
-                         r"|When (?:target|that) [^,]+? (?:dies|leaves the battlefield) this turn, )")  # -- turn watches (wave 7D; 16D: "When target creature dies this turn,") --
+                         r"|When (?:target|that) [^,]+? (?:dies|leaves the battlefield) this turn, "
+                         r"|At the beginning of (?:the next|your next|the next turn's|that player's next|its owner's next|their next) [^,]+, )")  # (wave 23B: the Pacts' own paragraph, 603.7)  # -- turn watches (wave 7D; 16D: "When target creature dies this turn,") --
 
 
 CRAFT_FROM = " from among permanents you control and/or cards in your graveyard"  # -- casting extras (wave 18E) -- 702.167a
@@ -210,6 +217,8 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
         worded = ("Boast", line[len("Boast — "):])
     if line.startswith("Power-up — ") and ":" in line:  # -- counters (wave 7C) -- 702.193a (restrictions.parse, power_up.py)
         worded = ("Power-up", line[len("Power-up — "):])
+    if line.startswith("Forecast — ") and ":" in line:  # -- forecast (wave 24C) -- 702.57a (restrictions.parse; the cost is revealed from the hand)
+        worded = ("Forecast", line[len("Forecast — "):])
     if worded is not None:  # (wave 4F: channel is read, 113.6m)
         cost = worded[1].split(":", 1)[0]
         if _COST_START.match(cost) and len(cost) < 120:
@@ -331,6 +340,15 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         # target creature." (an activated ability that works only from the hand)
         if m := re.fullmatch(r"Reinforce (\d+)—((?:\{[^}]+\})+)", line):
             line = f"{m[2]}, Discard this card: Put {m[1]} +1/+1 counters on target creature."
+        # -- static_other sweep (wave 19A) -- "Traxos enters tapped and doesn't untap during your untap step.": two abilities, "enters tapped"
+        # (614.1d) and the static "doesn't untap" (502.3), the second one added after the printed lines as Reconfigure's are
+        if (um := re.fullmatch(r"(.+?) enters tapped and (doesn't untap during your untap step)\.", line)) and not spell:
+            line = f"{um[1]} enters tapped."
+            tail.append((f"{um[1]} {um[2]}.", sections[n]))
+        if line.startswith("Max speed — ") and not spell:  # -- speed (wave 24B) -- 702.178a: "As long as you have max speed, ~ has …"
+            from app.rules import speed
+
+            line = speed.rewrite(line)
         kind, kws, cost = classify(line, spell=spell)
         out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n]))
         # -- keyword meanings (wave 18E) -- 702.151a: "Reconfigure [cost]" is two activated abilities, "[Cost]: Attach this permanent to another

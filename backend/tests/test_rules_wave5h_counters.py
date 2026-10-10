@@ -131,7 +131,7 @@ def cov(name):
     ("Oran-Rief, the Vastwood", "FULL"), ("Brokers Ascendancy", "FULL"), ("Ratchet Bomb", "FULL"), ("Blast Zone", "FULL"),
     ("Myojin of Blooming Dawn", "FULL"), ("Inspiring Call", "FULL"), ("Stocking the Pantry", "FULL"), ("Terrasymbiosis", "FULL"),
     ("Hapatra, Vizier of Poisons", "FULL"),  # (wave 17D: the -1/-1 counters a damage step puts are put by the source's controller)
-    ("Boss's Chauffeur", "PARTIAL"),  # (its tokens "for each": not read)
+    ("Boss's Chauffeur", "FULL"),  # (its tokens "for each +1/+1 counter on it": read since wave 19D, test_rules_wave19d_counters.py)
     # refused: a type change with the counters (layer 4 as it enters); counters removed "from among" creatures as a cost
     ("Master Biomancer", "PARTIAL"), ("Tayam, Luminous Enigma", "PARTIAL"),
 ])

@@ -3,7 +3,7 @@ import { useCardCache } from "../../state/cardCache";
 import { useGame } from "../../state/gameStore";
 import type { CardData } from "../../types/cards";
 import type { GameView } from "../../types/game";
-import { abilityLines, automationOn, canConcede, choose, concede, divide, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, tapForMana } from "./intents";
+import { abilityLines, automationOn, canConcede, choose, concede, divide, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, send, tapForMana, useXPrompt } from "./intents";
 import { canSubmitChoice, doneLabel, legalClass, paidSymbol } from "./RulesHud";
 import { rulesMenu } from "./rulesMenu";
 
@@ -184,6 +184,22 @@ describe("rules card menu", () => {
     if (!cyc || cyc === "separator") throw new Error("expected a cycling item");
     cyc.onClick?.();
     expect(sent).toEqual([{ type: "activate_ability", card_id: "m1", ability: 2 }]);
+  });
+
+  it("offers a hand ability the server lists (Tetzimoc's reveal from the hand, 113.6m)", () => {
+    const base = view({ ...RULES, hints: { activatable: [{ card_id: "t1", ability: 1 }] } });
+    const v = { ...base, cards: { ...base.cards, t1: card("t1", "p1:hand", "tetz") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        tetz: { id: "tetz", name: "Tetzimoc, Primal Death", type_line: "Legendary Creature — Elder Dinosaur",
+          oracle_text: "Deathtouch\n{B}, Reveal this card from your hand: Put a prey counter on target creature. Activate only during your turn.\nWhen Tetzimoc enters, destroy each creature your opponents control with a prey counter on it." } as CardData,
+      },
+    });
+    expect(labels(rulesMenu(v.cards.t1!, v, "p1"))).toContain("{B}, Reveal this card from your hand: Put a prey counter on target creature. Activate only during your turn.");
+    const unlisted = view({ ...RULES, hints: {} });
+    const u = { ...unlisted, cards: { ...unlisted.cards, t1: card("t1", "p1:hand", "tetz") } } as unknown as GameView;
+    expect(labels(rulesMenu(u.cards.t1!, u, "p1")).some((l) => l.startsWith("{B}, Reveal"))).toBe(false);
   });
 
   it("offers casting and land plays from exile, the graveyard and the top of the library only when the server lists them", () => {
@@ -380,5 +396,20 @@ describe("decision answers", () => {
   it("answers a divide decision with amounts in the options' order and no option ids", () => {
     void divide("d2", [2, 1]);
     expect(sent).toEqual([{ type: "choose", decision_id: "d2", option_ids: [], amounts: [2, 1] }]);
+  });
+
+  it("holds a cast or activation that needs X for the prompt, then sends it with x_value (107.3a)", () => {
+    useGame.setState({ view: view({ ...RULES, hints: { castable: ["c2"], x_cast: ["c2"], activatable: [{ card_id: "c3", ability: 0, x: true }, { card_id: "c3", ability: 1 }] } }) });
+    void send({ type: "cast_spell", card_id: "c2" });
+    void send({ type: "activate_ability", card_id: "c3", ability: 1 }); // no X: goes straight through
+    void send({ type: "cast_spell", card_id: "c2", free: true }); // X is 0 when cast for free (107.3b)
+    void send({ type: "cast_spell", card_id: "c2", x_value: 4 });
+    expect(sent).toHaveLength(3);
+    expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c2" });
+    void send({ type: "activate_ability", card_id: "c3", ability: 0 });
+    expect(useXPrompt.getState().action).toMatchObject({ ability: 0 });
+    useXPrompt.setState({ action: null });
+    void dropAsIntent(["c2"], { zone: "stack" }); // the drag-to-cast path asks too
+    expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c2" });
   });
 });
