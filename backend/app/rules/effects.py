@@ -317,7 +317,7 @@ def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     each = {p: _amount(plan, {**ctx, "recipient": p}, e["n"]) for p in _players(plan, ctx, e["who"])} \
         if sized_damage.has_per_player(e["n"]) else None
     n = 0 if each is not None else _amount(plan, ctx, e["n"])
-    lost = 0
+    losses: list[tuple[str, int]] = []
     for pid in _players(plan, ctx, e["who"]):
         if each is not None:
             n = each[pid]
@@ -326,9 +326,12 @@ def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             div = e.get("of", 2)  # (wave 16C: "a third of their life")
             n = half_of // div + (1 if half_of % div and e["half"] == "up" else 0)
         if n:
-            before = plan.state.players[pid].life
-            plan.do({"type": "life", "player": pid, "delta": -n}, actor=ctx["controller"])
-            lost += max(0, before - plan.state.players[pid].life)
+            losses.append((pid, n))
+    before = {pid: plan.state.players[pid].life for pid, _ in losses}
+    # -- life modifiers (wave 28B) -- the life-loss choke point: "would lose life" replacements (Bloodletter of Aclazotz)
+    if not replace.lose_life(plan, losses, actor=ctx["controller"], then=_then(ctx, e), ctx=ctx):
+        return False
+    lost = sum(max(0, before[pid] - plan.state.players[pid].life) for pid, _ in losses)
     if e.get("bind"):  # -- refused zones/sized (wave 3R4) -- "the life lost this way": the total actually lost (119.3)
         context.bind_amount(ctx, e["bind"], lost)
     return True
@@ -344,7 +347,7 @@ def set_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         want = -(-start // 2) if e["n"] == "half_start" else _amount(plan, ctx, e["n"])  # (107.1a: rounded up)
         diff = want - plan.state.players[pid].life
         if diff < 0:
-            plan.do({"type": "life", "player": pid, "delta": -abs(diff)}, actor=ctx["controller"])
+            replace.lose_life(plan, [(pid, abs(diff))], actor=ctx["controller"])  # -- life modifiers (wave 28B) -- 119.5: a loss event
         elif diff > 0:
             if (why := cant_gain.why_not(plan, pid)) is not None:
                 plan.note(f"{why}: the life total doesn't change", actor=ctx["controller"])
@@ -369,7 +372,7 @@ def exchange_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if (why := cant_gain.why_not(plan, low)) is not None:
         plan.note(f"{why}: the life totals aren't exchanged", actor=ctx["controller"])
         return True
-    plan.do({"type": "life", "player": high, "delta": -diff}, actor=ctx["controller"])
+    replace.lose_life(plan, [(high, diff)], actor=ctx["controller"])  # -- life modifiers (wave 28B) -- 701.12c
     return replace.gain_life(plan, [(low, diff)], actor=ctx["controller"], then=_then(ctx, e), ctx=ctx)
 
 
@@ -1606,12 +1609,20 @@ def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     want = _amount(plan, ctx, e["n"])
     before: list[ObjectRef] = []
-    start = plan.rules.batch
+    wants: list[tuple[str, int]] = []
     for pid in _players(plan, ctx, e["who"]):
-        library = plan.state.zones.get(zone_key(pid, "library"), [])
         if e.get("half"):  # -- if you do (wave 15C) -- 107.1a: half the library as it is now, rounded as the text says
-            want = (len(library) + 1) // 2 if e["half"] == "up" else len(library) // 2
-        n = min(want, len(library))
+            size = len(plan.state.zones.get(zone_key(pid, "library"), []))
+            want = (size + 1) // 2 if e["half"] == "up" else size // 2
+        wants.append((pid, want))
+    # -- mill counts (wave 28B) -- "would mill" replacements change the number the instruction says (the library may hold fewer)
+    counts = replace.mill_counts(plan, wants, then=replace.rerun_then(ctx, e), ctx=ctx)  # (run again with the answers, not continued)
+    if counts is None:
+        return False
+    start = plan.rules.batch
+    for pid, count in counts:
+        library = plan.state.zones.get(zone_key(pid, "library"), [])
+        n = min(count, len(library))
         before += [r for r in (context.ref_of(plan, c) for c in library[:n]) if r is not None]
         if n:
             plan.do({"type": "mill", "player": pid, "count": n}, actor=pid)
@@ -3156,6 +3167,9 @@ def continue_effects(plan: Plan, ctx: Context) -> None:
             context.bind_objects(plan, ctx, e["note_group"]["as"], _cards(plan, ctx, e["note_group"]["who"]))
         if not PRIMITIVES[e["do"]](plan, ctx, e):
             return  # waiting for a choice; the decision's resume continues from ctx["next"]
+    if ctx.get("body_done") is not None:  # -- draw bodies (wave 28B) -- a replacement effect's own resolution: no stack object (draw_bodies.py)
+        replace.run_then(plan, ctx["body_done"])
+        return
     finish(plan, ctx)
 
 
@@ -3933,6 +3947,10 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return _return_cards(plan, ctx, e, picked)
     most = min(want, len(pool))
     least = 0 if e.get("upto") else most
+    if most == 0 and e.get("lose_if_none"):  # -- draw bodies (wave 28B) -- "If you can't, you lose the game." (104.3e; Forbidden Crypt)
+        from app.rules import win_game
+
+        return win_game.lose_game(plan, ctx, {"who": "you"})
     if most == 0 or (least == most == len(pool)):
         return _return_cards(plan, ctx, e, pool[:most])
     decide(plan, player=pid, kind="choose_cards",

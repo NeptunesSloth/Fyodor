@@ -102,15 +102,19 @@ def rad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     n = plan.state.players[pid].resources.get("rad", 0) if pid in plan.live() else 0
     if n <= 0:
         return True  # 603.4: no rad counters any more — the ability does nothing
+    from app.rules import replace as _replace_mill  # (wave 28B: 701.17a)
+
+    to_mill = sum(k for _, k in _replace_mill.mill_counts(plan, [(pid, n)]) or [(pid, n)])
     library = plan.state.zones.get(zone_key(pid, "library"), [])
-    milled = list(library[:n])
+    milled = list(library[:to_mill])
     if not milled:
         return True
     plan.do({"type": "mill", "player": pid, "count": len(milled)}, actor=pid)
     nonland = sum(1 for cid in milled if cid in plan.state.cards and plan.state.cards[cid].zone == zone_key(pid, "graveyard")
                   and not plan.ch(plan.state.cards[cid]).is_land)
     if nonland:
-        plan.do({"type": "life", "player": pid, "delta": -nonland}, actor=pid)  # (728.1a: life lost "from radiation")
+        from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+        _replace_life.lose_life(plan, [(pid, nonland)], actor=pid)  # (728.1a: life lost "from radiation")
         plan.do({"type": "resource", "player": pid, "key": "rad", "delta": -min(nonland, n)}, actor=pid)
     return True
 
@@ -562,7 +566,9 @@ def reveal_drawn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     before = set((context.refs(ctx).get(e["since"]) or {}).get("hand") or [])
-    drawn = [c for c in plan.state.zones.get(zone_key(pid, "hand"), []) if c not in before]
+    # (review 28B: drawn ones only — 121.5 / 614.11b: a card a draw replacement put into the hand (Underrealm Lich) wasn't drawn, and stays hidden)
+    was_drawn = set(plan.rules.turn_log.drawn.get(pid, ()))
+    drawn = [c for c in plan.state.zones.get(zone_key(pid, "hand"), []) if c not in before and plan.rules.object_id(c) in was_drawn]
     context.bind_objects(plan, ctx, e["as"], drawn)
     if drawn:
         plan.do({"type": "reveal", "card_ids": drawn}, actor=pid)

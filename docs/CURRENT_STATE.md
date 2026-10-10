@@ -159,14 +159,31 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   A mana ability whose cost a cost modifier changes (Gloom on a white enchantment) is left to the
   player. An enchanted land whose own {T} ability restricts spending is left to the player while
   enchanted.
+- **Replacements: draws, life, mill** (wave 28B): a draw replaced by its own instructions ("If you would draw a card, instead look at the top
+  three … / exile the top two … / you draw two cards and lose 1 life": `draw_bodies.py`, run once the draws before it have happened, 121.6b;
+  `then` None sites log it for the players), "you may … instead" (optional, like Dredge), "The next time you would draw a card this turn"
+  records (Words of Worship / Wilding / Waste; spent by the first draw they replace), count-level draws (121.2a: Quantum Riddler, Alms Collector),
+  "while you have no cards in hand / N or less life" conditions, and a life-loss choke point (`replace.lose_life`: effects, payments of life — 119.4,
+  118.11 — and the life damage causes, 120.3a: Bloodletter of Aclazotz) plus mill counts (`replace.mill_counts`: Bruvac, The Water Crystal).
+  Still manual: "first time you would draw each turn" (Reed Richards, Scion of Halaster), Island Sanctuary (skip + attack restriction), draws
+  that need a player choice from another player (Zur's Weirding, Breathstealer's Crypt, Chains of Mephistopheles), library-of-another-player
+  bodies (Shared Fate, Uba Mask), "put into a pile" bodies (Parallel Thoughts, Mangara's Tome), Abundance, Archmage Ascension, Words of War /
+  Wind (targets, "each player returns"), Aladdin's Lamp / Ring of Ma'rûf (X, outside the game), Plagiarize (a targeted record).
+  Review 28B: a mana ability's "Draw a card." and "deals 1 damage to you" go through the draw and life-loss replacements (a mana ability
+  can't pause: a body there is left to the players); Alms Collector's "each draw a card" are one-card instructions Quantum Riddler may still
+  change; one call's life gains are simultaneous for Phial (702.15e). Paying life under Bloodletter: no ruling names it — 119.4 (paying life is
+  losing it; affordability is the cost's amount), 118.11 (a cost's actions may be modified) and the Invigorate ruling (2020-08-07: a cost
+  whose action a replacement changes can still be paid) decide it: the payment is doubled. Known gaps (pre-existing): damage replacement /
+  prevention statics don't see a mana ability's damage; "Draw three cards and reveal them" (Mad Wizard's Lair) also reveals cards a "draw two
+  instead" drew (614.11b) — cards a body put into the hand are no longer revealed.
 - **Replacements** (wave 22C): counter putters ("If you / an opponent would put …": Vorinclex, Lae'zel, Pir; the
   putter is `by`, 122.6a; review 22C: counters "given" are put — 122.6, 701.34a — so infect/toxic poison is put by the
   source's controller, 120.3b/g, and "target player gets N" by the effect's controller), "reveal ~ and shuffle it into its owner's library instead" (Blightsteel, Nexus of Fate),
   "exile instead" with a rider (Kalitas token, Head of the Hunt reflexive trigger, life), "If it would leave the
   battlefield, exile it instead" (Whip of Erebos family), and the 616.1 choice between differing graveyard
   replacements (the card stays put and its controller is asked before priority: `pending_616`). Still manual:
-  life-loss replacements (no choke point yet), Academy Manufactor and Divine Visitation (token replaced by another:
-  ordering with the "plus a Food" statics is unsettled), count-level draw replacements (Alms Collector), exile with
+  Academy Manufactor and Divine Visitation (token replaced by another:
+  ordering with the "plus a Food" statics is unsettled), exile with
   counters / linked exile (Dauthi, Valgavoth, Darkness Crystal), Loading Zone ("creature, Spacecraft, or Planet").
 - **Costs**: K'rrik and Dream Halls (per-mana payment), Suppression Field (crew and unearth skip the
   cost-modifier path), activation costs that depend on a target, "Remove X counters from among …",

@@ -549,7 +549,8 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
             casting.pay(plan, payer, mana_cost, f"paid {mana_cost.text()} for {label}",
                         exclude=cost_payment.excluded(cost, source, chosen))
     if cost.life:
-        plan.do({"type": "life", "player": payer, "delta": -cost.life}, actor=payer)
+        from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+        _replace_life.lose_life(plan, [(payer, cost.life)], actor=payer)
     for kind, n in cost.remove_counters:
         plan.do({"type": "counter", "card_ids": [source.id], "kind": kind, "delta": -n}, actor=payer)
     record = PaymentRecord(card=source.id, controller=payer, total_cost=_label(cost))

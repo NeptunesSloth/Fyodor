@@ -120,7 +120,7 @@ _PLAYER_COUNTERS = re.compile(r"^If you would get one or more counters, you get 
 # controller is put by them too: review 22C, see replace._putter_ok).
 _PUTTER = re.compile(r"^If (?P<who>you|an opponent) would put one or more counters on (?P<on>.+?), (?:put|they put) "
                      r"(?P<how>twice that many|half that many|that many plus one) of each of those kinds of counters on "
-                     r"that permanent or player instead(?P<down>, rounded down)?\.$")
+                     r"that permanent(?P<orp> or player)? instead(?P<down>, rounded down)?\.$")
 _PUTTER_OPS: dict[str, dict[str, Any]] = {"twice that many": {"do": "mul", "n": 2}, "that many plus one": {"do": "add", "n": 1}, "half that many": {"do": "half"}}
 
 
@@ -132,6 +132,8 @@ def _putter(m: re.Match[str]) -> Definition | None:
         on, players = "a permanent", "any"
     elif on.endswith(" or on yourself") and m["who"] == "you":
         on, players = on[: -len(" or on yourself")], "you"
+    if bool(m["orp"]) != bool(players):  # (-- counter putters (wave 28B) -- "on a permanent you control, … on that permanent instead": Doc Samson)
+        return None
     obj = _object(on)
     if obj is None:
         return None
@@ -185,9 +187,25 @@ def _counters(text: str) -> Definition | None:
 _EXCEPT_FIRST = {"you": " except the first one you draw in each of your draw steps",
                  "opponent": " except the first one they draw in each of their draw steps",
                  "any": " except the first one they draw in each of their draw steps"}
-_DRAW = re.compile(r"^If (?P<who>you|an opponent|a player) would draw a card(?P<exc> except the first one (?:you|they) draw "
-                   r"in each of (?:your|their) draw steps)?(?P<empty> while your library has no cards in it)?, "
-                   r"(?P<rest>.+)\.$")
+# (-- draw bodies (wave 28B) -- "while you have no cards in hand": 614.11, checked as each draw would happen)
+_DRAW = re.compile(r"^(?P<ms>As long as you have max speed, if|If) (?P<who>you|an opponent|a player) would draw a card(?P<exc> except the first one (?:you|they) draw "
+                   r"in each of (?:your|their) draw steps)?(?P<empty> while your library has no cards in it)?"
+                   r"(?P<nohand> while you have no cards in hand)?, (?P<rest>.+)\.$")
+
+
+def _draw_body(rest: str) -> tuple[str, bool] | None:
+    """-- draw bodies (wave 28B) -- "instead <effects>", "<effects> instead[. <more>]" or "you may <effects> instead": the effects text
+    and whether the affected player may decline (616.1: a replacement the player isn't made to apply)."""
+    if rest.startswith("instead "):
+        body, optional = rest[len("instead "):], False
+    else:
+        first, dot, tail = rest.partition(". ")
+        if not first.endswith(" instead"):
+            return None
+        body, optional = first[: -len(" instead")] + (dot + tail if dot else ""), False
+    if body.startswith("you may ") and body.count("you may ") == 1:
+        body, optional = body[len("you may "):], True
+    return (body, optional) if "instead" not in body else None
 
 
 def _draw(text: str) -> Definition | None:
@@ -197,13 +215,17 @@ def _draw(text: str) -> Definition | None:
     who = {"you": "you", "an opponent": "opponent", "a player": "any"}[m["who"]]
     if m["exc"] and m["exc"] != _EXCEPT_FIRST[who]:
         return None
-    if m["empty"] and who != "you":
+    if (m["empty"] or m["nohand"] or m["ms"] != "If") and who != "you":
         return None
     match: dict[str, Any] = {"who": who}
+    if m["ms"] != "If":
+        match["max_speed"] = True  # (-- draw bodies (wave 28B) -- "Max speed — …" is "As long as you have max speed, …": 702.178a, speed.py)
     if m["exc"]:
         match["not_first_in_draw_step"] = True  # 504.1: the draw step's turn-based draw is the first
     if m["empty"]:
         match["library_empty"] = True  # 614.11 / 121.6a: applies even though no card could be drawn
+    if m["nohand"]:
+        match["hand_empty"] = True  # (Phial of Galadriel, Blood Scrivener: no cards in hand as the draw would happen)
     rest = m["rest"]
     if rest == "you win the game instead" and who == "you":
         return _static("draw", match, {"do": "win"})
@@ -211,16 +233,39 @@ def _draw(text: str) -> Definition | None:
         if (rest == "skip that draw instead") != (who == "you"):
             return None
         return _static("draw", match, {"do": "skip"})
+    if rest == "you may skip that draw instead" and who == "you":  # (Obstinate Familiar: its player chooses)
+        return _static("draw", match, {"do": "skip", "optional": True})
     if rest == "instead that player skips that draw and you draw a card" and who == "opponent":
         return _static("draw", match, {"do": "steal"})
     m2 = re.fullmatch(r"draw (?P<n>two|three) cards instead", rest)
     if m2 and who == "you" and not m["empty"]:
         return _static("draw", match, {"do": "draw", "n": _NUMBERS[m2["n"]]})
+    if who == "you" and (got := _draw_body(rest)) is not None:
+        from app.rules import draw_bodies  # (a leaf module over the effect grammar)
+
+        effects = draw_bodies.parse(got[0])
+        if effects is not None:
+            return _static("draw", match, {"do": "body", "effects": effects, **({"optional": True} if got[1] else {})})
+    return None
+
+
+# -- draw counts (wave 28B) -- 121.2a / 616.1g: replacements that refer to the number of cards an instruction draws are applied first
+_DCOUNT_PLUS = re.compile(r"^As long as you have one or fewer cards in hand, if you would draw one or more cards, you draw that many "
+                          r"cards plus one instead\.$")
+_DCOUNT_EACH = "If an opponent would draw two or more cards, instead you and that player each draw a card."
+
+
+def _draw_count(text: str) -> Definition | None:
+    if _DCOUNT_PLUS.match(text):
+        return _static("draw_count", {"who": "you", "min": 1, "hand_max": 1}, {"do": "add", "n": 1})
+    if text == _DCOUNT_EACH:
+        return _static("draw_count", {"who": "opponent", "min": 2}, {"do": "each_one"})
     return None
 
 
 # -- life gain (119.10) -----------------------------------------------------------------------------
-_LIFE = re.compile(r"^If (?P<who>you|an opponent|a player) would gain life, (?P<rest>.+) instead\.$")
+_LIFE = re.compile(r"^If (?P<who>you|an opponent|a player) would gain life(?P<cap> while you have (?P<n>\d+) or less life)?, "
+                   r"(?P<rest>.+) instead\.$")
 
 
 def _life(text: str) -> Definition | None:
@@ -229,21 +274,41 @@ def _life(text: str) -> Definition | None:
         return None
     who = {"you": "you", "an opponent": "opponent", "a player": "any"}[m["who"]]
     rest = m["rest"]
+    match: dict[str, Any] = {"who": who}
+    if m["cap"]:
+        if who != "you":
+            return None
+        match["life_max"] = int(m["n"])  # (-- life modifiers (wave 28B) -- Phial of Galadriel: as the gain would happen)
     if who == "you":
         if rest == "you gain twice that much life":
-            return _static("life", {"who": who}, {"do": "mul", "n": 2})
+            return _static("life", match, {"do": "mul", "n": 2})
         if rest == "you gain three times that much life":
-            return _static("life", {"who": who}, {"do": "mul", "n": 3})
+            return _static("life", match, {"do": "mul", "n": 3})
         m2 = re.fullmatch(r"you gain that much life plus (?P<n>\d+|one|two|three)", rest)
         if m2:
             n = _num(m2["n"])
-            return _static("life", {"who": who}, {"do": "add", "n": n}) if n else None
+            return _static("life", match, {"do": "add", "n": n}) if n else None
         return None
     if rest == "that player gains no life":
-        return _static("life", {"who": who}, {"do": "set", "n": 0})
+        return _static("life", match, {"do": "set", "n": 0})
     if rest == "that player loses that much life":
-        return _static("life", {"who": who}, {"do": "lose"})
+        return _static("life", match, {"do": "lose"})
     return None
+
+
+# -- life loss (wave 28B) -- "If an opponent would lose life during your turn, they lose twice that much life instead." (Bloodletter of Aclazotz)
+_LOSS = re.compile(r"^If (?P<who>an opponent|a player) would lose life(?P<turn> during your turn)?, "
+                   r"(?:they|that player) lose(?:s)? (?P<how>twice) that much life instead\.$")
+
+
+def _loss(text: str) -> Definition | None:
+    m = _LOSS.match(text)
+    if not m:
+        return None
+    match: dict[str, Any] = {"who": "opponent" if m["who"] == "an opponent" else "any"}
+    if m["turn"]:
+        match["turn"] = "yours"  # (the turn of the effect's controller)
+    return _static("life_loss", match, {"do": "mul", "n": 2})
 
 
 # -- damage (120.4b, 614.1a, 615.10) ----------------------------------------------------------------
@@ -539,7 +604,24 @@ def _enter_extra(text: str) -> Definition | None:
 # -- end counters (wave 5H) --
 
 
-PARSERS = (_tokens, _counters, _draw, _life, _damage, _enters_tapped, _enter_extra)
+# -- mill counts (wave 28B) -- "If an opponent would mill one or more cards, they mill twice that many cards instead." (Bruvac the
+# Grandiloquent), "… they mill that many cards plus four instead." (The Water Crystal): the count the instruction says (701.17a)
+_MILL = re.compile(r"^If (?P<who>you|an opponent|a player) would mill one or more cards, (?:you|they) mill "
+                   r"(?:(?P<mul>twice) that many cards|that many cards plus (?P<add>\d+|one|two|three|four|five)) instead\.$")
+
+
+def _mill(text: str) -> Definition | None:
+    m = _MILL.match(text)
+    if not m:
+        return None
+    who = {"you": "you", "an opponent": "opponent", "a player": "any"}[m["who"]]
+    if m["mul"]:
+        return _static("mill", {"who": who}, {"do": "mul", "n": 2})
+    n = _num(m["add"])
+    return _static("mill", {"who": who}, {"do": "add", "n": n}) if n else None
+
+
+PARSERS = (_tokens, _counters, _draw, _draw_count, _life, _loss, _mill, _damage, _enters_tapped, _enter_extra)
 
 
 def parse(text: str) -> Definition | None:

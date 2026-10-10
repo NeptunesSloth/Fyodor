@@ -1029,21 +1029,17 @@ def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.Ma
         plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n}, actor=card.controller)
     if extra is not None and extra.energy:  # (wave 3E: "{T}, Pay {E}: Add one mana of any color", 107.14)
         plan.do({"type": "resource", "player": card.controller, "key": "energy", "delta": -extra.energy}, actor=card.controller)
+    from app.rules import replace as _replace_rider
+
     for kind, n in ability.riders:
         if kind == "damage" and _player_protected(plan, card, who):  # -- player shields (wave 5E) -- 702.16e, 702.16j
             plan.note(f"Protection prevents the damage {plan.ch(card).name} would deal to {plan.name(who)}")
         elif kind == "damage":
-            plan.do({"type": "rules_damage", "creatures": {}, "players": {who: n}, "planeswalkers": {},
-                     "lifelink": {}, "combat": False,
+            plan.do({"type": "rules_damage", "creatures": {}, "players": {who: _replace_rider.damage_loss(plan, who, n, actor=who)},
+                     "planeswalkers": {}, "lifelink": {}, "combat": False,
                      "dealt": [{"source": plan.oid(card.id), "target": who, "amount": n}]}, actor=who)
-        elif kind == "draw":
-            from app.rules import (
-                miracle,  # (-- review (wave 18E) -- a draw like any other: "the first card you've drawn this turn")
-            )
-
-            top = list(plan.state.zones.get(zone_key(who, "library"), [])[:n])
-            plan.do({"type": "draw", "player": who, "count": n}, actor=who)
-            miracle.on_draw(plan, who, top)
+        elif kind == "draw":  # (review 28B: through the draw choke point like any other draw — a mana ability can't pause: then=None)
+            _replace_rider.draw_cards(plan, [who], n)
         else:  # -- mana riders (wave 5A) -- "You gain 2 life.", "Each opponent gains 1 life."
             from app.rules import mana_riders
 
@@ -1081,8 +1077,12 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[
     from app.rules import mana_units
 
     pool = mana_units.settle(plan, player, payment)  # -- mana provenance (wave 18B) -- units spent / left over, what the mana was
-    plan.do({"type": "rules_mana", "player": player, "tap": payment.tapped, "sacrifice": payment.sacrificed, "life": life,
+    plan.do({"type": "rules_mana", "player": player, "tap": payment.tapped, "sacrifice": payment.sacrificed, "life": 0,
              "label": label, **pool}, actor=player)
+    if life:  # -- life modifiers (wave 28B) -- 119.4 / 118.11: the life paid is a life loss the replacements may change
+        from app.rules import replace as _replace_life
+
+        _replace_life.lose_life(plan, [(player, life)], actor=player)
     for card, index, ability in extras:
         # -- mana riders (wave 5A) -- counter "tap": tapped for mana (106.12a: an ability with {T} in its cost)
         emit(plan.state, "mana_added", object_id=oids[card.id], card=card.id, player=player,
@@ -1648,7 +1648,8 @@ def pay_nonmana_cost(plan: Plan, a: A.TurnFaceUp, card: CardInstance, printed: C
     if chosen is None:
         return False
     if cost.life:
-        plan.do({"type": "life", "player": plan.actor, "delta": -cost.life})
+        from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+        _replace_life.lose_life(plan, [(plan.actor, cost.life)])
     cost_payment.pay(plan, cost, card, chosen, PaymentRecord(card=card.id, controller=plan.actor, total_cost=text))
     for i, comp in enumerate(cost.components):  # "Reveal a blue card in your hand": shown to everyone as the cost is paid (701.20a)
         if comp.kind == "REVEAL_FROM_HAND" and chosen.get(i):
@@ -2405,10 +2406,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
                        origin=origin)
     if add_cost is not None:
         if add_cost.life:
-            plan.do({"type": "life", "player": plan.actor, "delta": -add_cost.life})  # 119.4: paying life is losing it
+            from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+            _replace_life.lose_life(plan, [(plan.actor, add_cost.life)])  # 119.4: paying life is losing it
             record.life += add_cost.life
         if add_cost.life_x and a.x_value:  # -- X sized by a count (wave 4K) -- "pay X life" (119.4)
-            plan.do({"type": "life", "player": plan.actor, "delta": -a.x_value})
+            from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+            _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
             record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
     if a.splice:  # -- casting extras (wave 18E) -- 702.47a: the spliced cards are revealed (they stay in the hand)
@@ -3053,10 +3056,12 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     if add_cost is not None:  # (601.2h: with the rest of the total cost)
         if add_cost.life:
-            plan.do({"type": "life", "player": plan.actor, "delta": -add_cost.life})  # 119.4
+            from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+            _replace_life.lose_life(plan, [(plan.actor, add_cost.life)])  # 119.4
             record.life += add_cost.life
         if add_cost.life_x and a.x_value:  # -- X sized by a count (wave 4K) -- "pay X life" (119.4)
-            plan.do({"type": "life", "player": plan.actor, "delta": -a.x_value})
+            from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+            _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
             record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile …
     plan.do({"type": "set_stack_info", "card_id": card.id,
@@ -3576,7 +3581,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     for kind, n in cost.remove_counters:
         plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n})
     if cost.life:
-        plan.do({"type": "life", "player": plan.actor, "delta": -cost.life})
+        from app.rules import replace as _replace_life  # (wave 28B: 119.4)
+        _replace_life.lose_life(plan, [(plan.actor, cost.life)])
     paid = pay(plan, plan.actor, mana.with_x(a.x_value or 0), f"paid {mana.with_x(a.x_value or 0).text()} to activate {ch.name}",
                sources=a.sources, exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability)))
     record = PaymentRecord(card=ability_id or card.id, controller=plan.actor, total_cost=ability.cost or "",
@@ -3758,7 +3764,11 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
 
     plan.do({"type": "rules_mana", "player": who, "tap": [card.id] if ability.tap else [],
              "sacrifice": [card.id] if ability.sacrifice_self else [], **mana_units.added(plan, card, ability, mana),
-             "life": extra.life if extra else 0, "label": f"added {M.symbols(mana)}"}, actor=who)
+             "life": 0, "label": f"added {M.symbols(mana)}"}, actor=who)
+    if extra and extra.life:  # -- life modifiers (wave 28B) -- 119.4 / 118.11: the life paid is a life loss the replacements may change
+        from app.rules import replace as _replace_life
+
+        _replace_life.lose_life(plan, [(who, extra.life)], actor=who)
     emit(plan.state, "mana_added", object_id=oid, card=card.id, player=who, amount=sum(mana.values()),
          counter="tap" if ability.tap else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
     if index is not None:
@@ -3807,8 +3817,12 @@ def _activate_choosing(plan: Plan, card: CardInstance, ch: Characteristics, pars
     cost_payment.pay(plan, cost, card, objects, record)
     if parsed.tap or parsed.sacrifice_self or cost.life:
         plan.do({"type": "rules_mana", "player": card.controller, "tap": [card.id] if parsed.tap else [],
-                 "sacrifice": [card.id] if parsed.sacrifice_self else [], "delta": {}, "life": cost.life,
+                 "sacrifice": [card.id] if parsed.sacrifice_self else [], "delta": {}, "life": 0,
                  "label": f"paid to activate {ch.name}"}, actor=card.controller)
+        if cost.life:  # -- life modifiers (wave 28B) -- 119.4 / 118.11
+            from app.rules import replace as _replace_life
+
+            _replace_life.lose_life(plan, [(card.controller, cost.life)], actor=card.controller)
     if option is None:
         decide(plan, player=plan.actor, kind="choose_one", prompt=f"Which mana should {ch.name} add?",
                options=[DecisionOption(id=str(i), label=M.symbols(_count(o))) for i, o in enumerate(options)],
