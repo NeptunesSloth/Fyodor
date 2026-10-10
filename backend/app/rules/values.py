@@ -531,8 +531,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "times" in v:
         a, b = v["times"]
         return evaluate(plan, ctx, a) * evaluate(plan, ctx, b)
-    if "plus" in v:
-        return sum(evaluate(plan, ctx, x) for x in v["plus"])
+    if "plus" in v:  # (review 30b: 107.1b, a calculation uses a negative power as it is, only its result is at least 0: Phthisis's 2021 ruling)
+        return max(0, sum(_signed_stat(plan, ctx, x) for x in v["plus"]))
     if "half" in v:
         n = evaluate(plan, ctx, v["half"])
         return (n + 1) // 2 if v.get("round") == "up" else n // 2
@@ -740,6 +740,15 @@ def evaluate_signed(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if isinstance(v, dict) and "neg" in v:
         return -evaluate(plan, ctx, v["neg"])
     return evaluate(plan, ctx, v)
+
+
+def _signed_stat(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
+    """A power or toughness as it is, below 0 too (107.1b); any other value as ``evaluate`` reads it."""
+    stat = next((s for s in ("power", "toughness") if isinstance(v, dict) and s in v and set(v) <= {s, "target_sel"}), None)
+    if stat is None or not isinstance(v, dict):
+        return evaluate(plan, ctx, v)
+    got = _object(plan, ctx, v[stat])
+    return 0 if got is None else _stat_of(got[1], stat) or 0
 
 
 def _stat_of(ch: Any, stat: str) -> int | None:

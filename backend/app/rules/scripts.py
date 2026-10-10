@@ -6405,6 +6405,8 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     else:
         return None
     body = rest[len("When you do, "):] if rest.startswith("When you do, ") else rest[len("when you do, "):]
+    if body.lower().startswith("if "):
+        return None  # (review 30b: an intervening "if" gates the whole reflexive ability, as it would trigger and as it resolves, 603.4: not read)
     # -- reflexive LKI (wave 4J) -- "… sacrifice another creature. When you do, ~ deals damage equal to that creature's
     # power …": the sacrificed object, as it last existed (608.2h, 113.7a), is the reflexive trigger's event object
     lki = _reflexive_lki(base, cond["succeeded"], body)
