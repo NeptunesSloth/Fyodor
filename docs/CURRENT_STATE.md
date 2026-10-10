@@ -181,8 +181,15 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   exact "X target …" over it is refused; arrows come in chunks of 20 (`Plan.target_arrows`). A player may pay all their life (119.4: the Phyrexian
   auto-payer stopped at life = payment); life other costs of the same spell pay is reserved first (`Plan.reserved_life`), and several "Pay 1
   life" mana sources can't take more than the life total. "Draw N cards and reveal them" reveals only cards drawn without a replacement
-  (121.6c, 614.11b: `TurnLog.drawn_replaced`; a count replacement's draws all count as replaced — UNCERTAIN reading, the safe side for hidden
-  information); a draw probe ("If you do") counts "drew" events, not hand growth (121.5). A mana ability's "deals 1 damage to you" is a damage
+  (121.6c, 614.11b and the Sindbad / Fa'adiyah Seer / Pact Weapon / Jace, Mirror Mage rulings: "even if the draw is replaced by another
+  draw": Phial of Galadriel, Blood Scrivener, Thought Reflection — `TurnLog.drawn_replaced`). Review 29C: when a replacement changed the
+  NUMBER the instruction draws (121.2a / 616.1g: Quantum Riddler, Alms Collector — `TurnLog.drawn_counted`) it is UNSETTLED whether "them"
+  covers those cards (614.11b read literally: none; 121.2a's "the instruction is modified": all; no ruling) — Mad Wizard's Lair hands the
+  reveal and the free cast to the players (a manual_resolution decision), revealing and offering nothing. "If you do" after a draw (review
+  29C, 118.12 / 118.11: the player chose to draw "regardless of what events actually occurred"; the Psychic Vortex and Notion Thief rulings)
+  holds once the draw was started, whether a replacement took it (Underrealm Lich, Notion Thief) or the library was empty; a declined
+  "may draw" binds nothing. Intents carry MAX_TARGETS per target group (× `MAX_GROUPS` = 10 in all: "target creature … each of X target
+  creatures" has X + 1); the engine's target arrows stop at 190 on the table (it refuses the 201st). A mana ability's "deals 1 damage to you" is a damage
   event of `replace.damage_outcome` (`casting.mana_ability_damage`): replacement / prevention / shields apply; two effects whose order matters
   are logged for the players (a mana ability can't pause, 605.3a). Caps removed: convoke / improvise / delve lists in the tap-mana prompt
   (the table clicks only listed helpers), "pay any amount of {E}" (60 → 250, said in the prompt), untap-lock lists (250 → all) and
