@@ -137,9 +137,9 @@ _MANA_FROM = re.compile(r"(?:the amount of )?(?:\{S\}|mana from (?:an? )?(?P<wha
 _MANA_SPENT = re.compile(r"(?:the )?amount of mana spent to cast (?P<o>that spell|this spell|her|him|~|this creature)")
 
 
-_THAT_PLAYER = re.compile(r"\b(?:that player's|their|that player controls|they control|that player owns|they own)\b")
+_THAT_PLAYER = re.compile(r"\b(?:that player's|their|that player controls|they control|that player owns|they own|they have|that player has|that opponent controls)\b")
 _THAT_PLAYER_TO_YOU = {"that player's": "your", "their": "your", "that player controls": "you control", "they control": "you control",
-                       "that player owns": "you own", "they own": "you own"}
+                       "that player owns": "you own", "they own": "you own", "they have": "you have", "that player has": "you have", "that opponent controls": "you control"}  # (wave 30N: "poison counters they have")
 
 
 def player_relative(phrase: str) -> Value | None:

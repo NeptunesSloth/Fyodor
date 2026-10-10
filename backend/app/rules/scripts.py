@@ -2199,7 +2199,20 @@ def _plain_clause(text: str, it: str | None, event_player: bool) -> list[dict[st
     return found[0] if found is not None and found[1] is None and not found[2] else None
 
 
+# -- value grammar (wave 30N) -- Iymrith: "Then if you have fewer than three cards in hand, draw cards equal to the difference." The difference
+# between the quantity and the number it fell short of (107.1: a count of things, read as the instruction is carried out, 608.2h) is that
+# number minus the cards in hand, which the "if" guarantees is above 0. (The "more X than you" comparisons name another player: not read.)
+_DIFFERENCE = re.compile(r"\b(?P<head>[Ii]f you have fewer than (?P<n>\w+) cards in hand, [^.,]*? equal to) the difference\b")
+
+
+def _difference(body: str) -> str:
+    from app.rules import values
+
+    return _DIFFERENCE.sub(lambda m: f"{m['head']} {values.NUMBERS[m['n']]} minus the number of cards in your hand" if m["n"] in values.NUMBERS else m[0], body)
+
+
 def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    body = _difference(body)
     try:
         # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
         from app.rules import top_library
@@ -2378,8 +2391,9 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
         return found
     if (found[1] in ("player", "opponent") or str(found[1]).startswith("opponent_as:")) and '"event_player"' not in text:
         bound = "target"
-    elif found[1] is None and any(e.get("who") == "event_player" for e in found[0]) and (marker in text or relative in text):
-        bound = "event"
+    elif found[1] is None and (marker in text or relative in text) and (any(e.get("who") == "event_player" for e in found[0]) or all(
+            e.get("who", "you") == "you" for e in found[0] if marker in json.dumps(e) or relative in json.dumps(e))):
+        bound = "event"  # -- value grammar (wave 30N) -- ... or you: "you gain 1 life for each artifact that player controls" (the trigger's player; _event_refs_ok checks it has one)
     else:
         return None if marker in text or relative in text else found
     effects = json.loads(text.replace(marker, '{"hand": "' + bound + '"}').replace(relative, f'"for_player": "{bound}"'))
@@ -4067,7 +4081,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     return None
                 effects, target, optional = parsed
                 if cond is not None and cond.get("event") == "you_attack" and cond.get("player") == "you" and cond.get("defender") \
-                        and "event_player" in json.dumps(effects):
+                        and ("event_player" in json.dumps(effects) or '"for_player": "event"' in json.dumps(effects)):  # (wave 30N: its count too)
                     return None  # (review 27B) "Whenever you attack enchanted player, that player loses 2 life": the player attacked, not the event's (you)
                 if to_gy or any(e.get("who") == "self_gy" for e in effects):  # (-- casting extras (wave 18E) -- recover: "If you don't, exile ~" too)
                     effects = [{**e, "who": "self_gy"} if e.get("who") == "self" else e for e in effects]
@@ -4344,7 +4358,7 @@ def _event_refs_ok(d: Definition) -> bool:
     skip = watches.deferred_event_effects(effects)
     effects = [e for i, e in enumerate(effects) if i not in skip]
     wants_player = any(e.get("who") in ("event_player", "each_other_opponent")
-                       or str(e.get("who")).startswith("controlled:event_player|") for e in effects) \
+                       or str(e.get("who")).startswith("controlled:event_player|") for e in effects) or '"for_player": "event"' in raw \
         or any(e.get("player") == "event_player" or e.get("by") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E; 25D: "by")
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv", "max"))  # ("mv": a free cast's limit, wave 3R5; wave 26A "max": "search … for that many cards")
     if not wants_player and not wants_amount:

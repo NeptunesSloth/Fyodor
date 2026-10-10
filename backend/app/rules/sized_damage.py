@@ -34,7 +34,8 @@ PER_PLAYER = "per_player"
 # What the recipient's own possessions are called in the phrase ("that player controls", "they control",
 # "their hand", "that player's life total") → the words the value grammar reads for "you".
 _RELATIVE: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\b(?:that player|they) controls?\b"), "you control"),
+    (re.compile(r"\b(?:that (?:player|opponent)|they) controls?\b"), "you control"),
+    (re.compile(r"\b(?:that player|they) (?:has|have)\b"), "you have"),  # (wave 30N: "for each poison counter they have")
     (re.compile(r"\b(?:that player's|their) hand\b"), "your hand"),
     (re.compile(r"\b(?:that player's|their) life total\b"), "your life total"),
     (re.compile(r"\b(?:that player's|their) graveyard\b"), "your graveyard"),

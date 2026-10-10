@@ -376,7 +376,7 @@ def _you_own(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, owner="you")
 
 
-@_suffix(r"(?:an opponent owns|you don't own|(?:is |are )?owned by (?:another player|an opponent))")  # (wave 25B: owned by another player)
+@_suffix(r"(?:an opponent owns|your opponents own|you don't own|(?:is |are )?owned by (?:another player|an opponent))")  # (wave 25B: owned by another player; 30N: Umbris)
 def _opp_own(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, owner="opponent")
 
