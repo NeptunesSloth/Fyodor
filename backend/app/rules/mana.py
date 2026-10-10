@@ -588,7 +588,7 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
     by_life = {tuple(sorted(phy[i] for i in ix)): ix for k in range(len(phy) + 1) for ix in combinations(range(len(phy)), k)}
     attempts = [(base + [(c,) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
     for reqs, life_cost in attempts:
-        if life_cost and life_cost >= life:
+        if life_cost and life_cost > life:  # 119.4 (wave 29C): the life total only has to be at least the payment — all of it may be paid
             continue
         found = _solve(reqs, cost.generic, pool, ordered)
         if found is None:

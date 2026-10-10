@@ -929,12 +929,13 @@ def _solve_with_filters(cost: M.ManaCost, pool: dict[str, int], plain: list[M.So
 
 
 def find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
-                 sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> M.Payment:
+                 sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                 reserve: int = 0) -> M.Payment:
     """How to pay ``cost``: with exactly ``sources`` when given (MANUAL PAY), else automatically,
     PREFER sources first and SAVE sources only when there is no other way. Pool units that may pay for ``purpose`` (restricted or
     remembered mana, app/rules/mana_units.py) are spent like pool mana: ``Payment.slots`` names them ("unit:<id>"), ``tapped`` doesn't."""
     payment = _find_payment(state, player, life_for_mana(state, player, info, cost), info, sources=sources, exclude=exclude,
-                            purpose=purpose)
+                            purpose=purpose, reserve=reserve)
     payment.tapped = [c for c in payment.tapped if not c.startswith("unit:")]
     return payment
 
@@ -971,14 +972,15 @@ def life_for_mana(state: GameState, player: str, info: CardInfo, cost: M.ManaCos
 
 
 def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
-                  sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> M.Payment:
+                  sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                  reserve: int = 0) -> M.Payment:
     from app.rules import mana_units
 
     everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
     available = [s for s in everything if s.activation is None]
     filters = [s for s in everything if s.activation is not None]
     pool = dict(state.players[player].mana)
-    life = spendable_life(state, player, info)  # (wave 22B: 119.4)
+    life = max(0, spendable_life(state, player, info) - reserve)  # (wave 22B: 119.4; wave 29C: less the life other costs of it pay)
     units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
     if sources is not None:
         chosen = [s for s in available if s.card_id in set(sources)]
@@ -1063,7 +1065,8 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[
         exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> M.Payment | None:
     if cost.is_free and not sources:
         return None
-    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose)
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+                           reserve=plan.reserved_life)
     extras: list[tuple[CardInstance, int, M.ManaAbility]] = []
     life = payment.life
     for cid, index in payment.used:
@@ -1137,7 +1140,8 @@ def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristic
         if rest.is_free:
             return True
         try:
-            find_payment(plan.state, player, rest, plan.info, sources=a.sources, exclude=exclude, purpose=purpose)
+            find_payment(plan.state, player, rest, plan.info, sources=a.sources, exclude=exclude, purpose=purpose,
+                         reserve=plan.reserved_life)
         except ActionError:
             return False
         return True
@@ -1209,7 +1213,8 @@ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCos
         return True
     if mode == "auto":
         return False
-    payment = find_payment(plan.state, plan.actor, cost, plan.info, exclude=exclude, purpose=purpose)  # (can it be paid at all?)
+    payment = find_payment(plan.state, plan.actor, cost, plan.info, exclude=exclude, purpose=purpose,
+                           reserve=plan.reserved_life)  # (can it be paid at all?)
     resume: dict[str, Any] = {"step": "payment", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
                               "exclude": list(exclude), "cost": cost.text(), "what": what}
     if mode == "manual":
@@ -1290,7 +1295,7 @@ def _covered(plan: Plan, player: str, cost: M.ManaCost, helpers: list[P.Helper],
 
     p = plan.state.players[player]
     units = mana_units.unit_sources(plan.state, player, _prompt_purpose(plan, resume) if resume else None)
-    covers = P.pool_pays(dict(p.mana), spendable_life(plan.state, player, plan.info), units)
+    covers = P.pool_pays(dict(p.mana), max(0, spendable_life(plan.state, player, plan.info) - plan.reserved_life), units)
     return P.assign(cost, helpers, lambda rest: covers(life_for_mana(plan.state, player, plan.info, rest)))  # (review 18B: K'rrik)
 
 
@@ -2334,6 +2339,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
         if problem:
             raise ActionError(problem)
+        plan.reserved_life = add_cost.life + ((a.x_value or 0) if add_cost.life_x else 0)  # (wave 29C: 119.4, with Phyrexian mana's life)
         found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it")
         if found_objects is None:
             return  # waiting for the payer's choice; nothing has been paid
@@ -3017,6 +3023,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
         if problem:
             raise ActionError(problem)
+        plan.reserved_life = add_cost.life + ((a.x_value or 0) if add_cost.life_x else 0)  # (wave 29C: 119.4, with Phyrexian mana's life)
         found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it")
         if found_objects is None:
             return  # waiting for the payer's choice; nothing has been paid (the grant stays)
