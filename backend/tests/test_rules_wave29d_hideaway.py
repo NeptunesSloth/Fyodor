@@ -757,7 +757,7 @@ def test_isleback_spawn_grows_while_any_library_has_twenty_or_fewer_cards(cards)
 
 
 def test_djeru_and_hazoret_casts_the_exiled_legend_this_turn_for_free(cards):
-    for take, asked in (("Legend Probe A", True), (None, False)):
+    for take in ("Legend Probe A", None):
         s = build(cards, ("Djeru and Hazoret", "Legend Probe A", "Grizzly Probe", "Volcanic Probe", "Quiet Probe", "Trick Probe", "Colossus Probe"))
         (djeru,) = creatures(s, "Djeru and Hazoret")
         top = ("Grizzly Probe", "Volcanic Probe", "Legend Probe A", "Quiet Probe", "Trick Probe", "Colossus Probe")

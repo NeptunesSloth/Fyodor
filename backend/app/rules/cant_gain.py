@@ -87,7 +87,11 @@ def why_not(plan: Plan, player: str) -> str | None:
             if d.get("who") == "each" or (d.get("who") == "opponents" and player != c.controller) \
                     or (d.get("who") == "enchanted" and c.attached_player == player):
                 return ch.name or c.name or "a permanent"
-    return None
+    from app.rules import (
+        life_lock,  # -- can't lose life (wave 29D) -- "Your life total can't change." (119.7 is its other half)
+    )
+
+    return life_lock.why_not(plan, player, "gain")
 
 
 PRIMITIVES = {"cant_gain_life": cant_gain_life}

@@ -135,7 +135,11 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
         if out["tapped"] or "choice" in out:
             continue  # it enters tapped anyway ("put it onto the battlefield tapped"), or another choice comes first
         player = plan.state.players.get(controller)
-        if player is None or player.life < life:
+        from app.rules import (
+            life_lock,  # -- can't lose life (wave 29D) -- 119.8: nor by a player who can't lose life
+        )
+
+        if player is None or player.life < life or life_lock.pay_problem(plan.state, plan.info, controller, life) is not None:
             out["tapped"] = True  # 119.4: life can be paid only from a life total of at least that much
             continue
         if pay_life is None:

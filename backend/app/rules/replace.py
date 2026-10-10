@@ -1354,7 +1354,12 @@ def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dic
             if ev["kind"] == "life" and ev["n"] > 0:
                 plan.do({"type": "life", "player": ev["player"], "delta": ev["n"]}, actor=actor)
             elif ev["kind"] == "life_loss" and ev["n"] > 0:
-                plan.do({"type": "life", "player": ev["player"], "delta": -ev["n"]}, actor=actor)
+                from app.rules import (
+                    life_lock,  # -- can't lose life (wave 29D) -- 614.17c: "loses that much life instead" of a player who can't
+                )
+
+                for pid, n in life_lock.keep(plan, [(ev["player"], ev["n"])], actor=actor):
+                    plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor)
     return True
 
 
@@ -1389,6 +1394,11 @@ def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = 
     "the player loses that much life", 118.11 a payment may be modified by effects) goes through the "would lose life" replacements.
     With none in force, each player just loses it. False while a choice is open."""
     losses = [(p, int(n)) for p, n in losses if n > 0 and p in plan.state.players]
+    from app.rules import (
+        life_lock,  # -- can't lose life (wave 29D) -- 119.8, 614.17c: a loss that can't happen isn't an event, nothing replaces it
+    )
+
+    losses = life_lock.keep(plan, losses, actor=actor)
     if not losses:
         return True
     if not candidates(plan, "life_loss"):
@@ -1462,6 +1472,12 @@ def mill_counts(plan: Plan, wants: list[tuple[str, int]], *, then: dict[str, Any
 def damage_loss(plan: Plan, pid: str, n: int, *, actor: str) -> int:
     """-- review 28B -- 120.3a: the life that ``n`` damage dealt to a player makes them lose, through the "would lose life" replacements
     (Bloodletter of Aclazotz), where nothing can be asked (a mana ability's "This land deals 1 damage to you"; the damage stays ``n``)."""
+    from app.rules import (
+        life_lock,  # -- can't lose life (wave 29D) -- 120.3a: the damage is dealt, the life loss it causes can't happen
+    )
+
+    if not life_lock.keep(plan, [(pid, n)], actor=actor):
+        return 0
     cands = candidates(plan, "life_loss")
     planned = plan_loss(plan, [(pid, n)], answers={}, ask=False, cands=cands) if cands else None
     if planned is None or isinstance(planned, Ask):
@@ -1899,6 +1915,13 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
                     out.lifelink[before["key"]] = out.lifelink.get(before["key"], 0) + f["n"]
                 elif f["kind"] == "life_loss" and f["n"] > 0:
                     out.losses.append((f["player"], f["n"]))
+    from app.rules import (
+        life_lock,  # -- can't lose life (wave 29D) -- 120.3a: the damage is still dealt (its events stay); the life loss that can't happen is no event
+    )
+
+    for pid in list(out.players):
+        if (why := life_lock.why_not(plan, pid, "lose")) is not None:
+            out.notes.append(f"{why}: {plan.name(pid)} can't lose life, so {out.players.pop(pid)} damage dealt to them makes them lose none")
     if out.players and (loss_cands := candidates(plan, "life_loss")):
         # -- life modifiers (wave 28B) -- 120.3a: the life lost to damage is a life-loss event of its own (the damage dealt stays what it was):
         # "would lose life" replacements change it (Bloodletter of Aclazotz: "Damage causes loss of life.")
@@ -1936,7 +1959,8 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
         return
     dealt = [{"source": ev["source_oid"], "target": ev["target"], "amount": int(ev["amount"]),
               **({"target_object": plan.oid(ev["target"])} if ev["target"] in plan.state.cards else {})} for ev in out.events]
-    for pid in [*out.players, *out.poison]:
+    # (-- can't lose life (wave 29D) -- 120.3a: a player was dealt damage whether or not it made them lose life: bloodthirst reads the damage)
+    for pid in [*out.players, *out.poison, *(d["target"] for d in dealt)]:
         if pid in plan.state.players:
             plan.rules.damaged[pid] = plan.state.turn.number
     plan.do({"type": "rules_damage", "creatures": out.creatures, "players": out.players, "poison": out.poison,
@@ -1946,7 +1970,9 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
         have = plan.state.cards[key].counters.get("defense", 0) if key in plan.state.cards else 0
         if have:
             plan.do({"type": "counter", "card_ids": [key], "kind": "defense", "delta": -min(have, n)}, actor=actor)
-    for pid, n in out.losses:  # (after the damage: its own step, UNVERIFIED batching)
+    from app.rules import life_lock  # -- can't lose life (wave 29D) --
+
+    for pid, n in life_lock.keep(plan, out.losses, actor=actor):  # (after the damage: its own step, UNVERIFIED batching)
         plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor)
     plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *out.deathtouched]))
     _run_riders(plan, out.riders)

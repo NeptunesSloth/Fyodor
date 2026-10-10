@@ -308,11 +308,12 @@ def static_definition(text: str) -> Definition | None:
             return None
         return {"kind": "static", "static": "spell_helper", "keyword": "affinity", "what": m["what"].lower(), "filter": key, "effects": []}
     from app.rules import (  # "You have hexproof." (app/rules/player_shields.py); -- prohibitions (wave 22B) --
+        life_lock,  # -- can't lose life (wave 29D) -- "Your life total can't change." (app/rules/life_lock.py)
         player_shields,
         prohibitions,
     )
 
-    return prohibitions.static_definition(text) or player_shields.static_definition(text)
+    return prohibitions.static_definition(text) or player_shields.static_definition(text) or life_lock.static_definition(text)
 
 
 def _effect_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
@@ -355,9 +356,9 @@ def _template(rx: re.Pattern[str], fn: Any) -> tuple[re.Pattern[str], Any]:
 
 
 def _player_templates() -> list[tuple[re.Pattern[str], Any]]:
-    from app.rules import player_shields
+    from app.rules import life_lock, player_shields
 
-    return player_shields.TEMPLATES
+    return [*player_shields.TEMPLATES, *life_lock.TEMPLATES]  # (-- can't lose life (wave 29D) --)
 
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [_template(EFFECT_CAST, _effect_cast), *_player_templates()]
@@ -416,7 +417,13 @@ def _player_primitives() -> tuple[dict[str, Any], dict[str, Any]]:
     return player_shields.PRIMITIVES, player_shields.RESUME
 
 
-PRIMITIVES = {"cast_limit": cast_limit, "flash_permission": flash_permission, **_player_primitives()[0]}
+def _life_primitives() -> dict[str, Any]:
+    from app.rules import life_lock
+
+    return life_lock.PRIMITIVES  # -- can't lose life (wave 29D) --
+
+
+PRIMITIVES = {"cast_limit": cast_limit, "flash_permission": flash_permission, **_player_primitives()[0], **_life_primitives()}
 RESUME = dict(_player_primitives()[1])
 
 
@@ -428,9 +435,10 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "turn" and x.get("turn") != turn)]
-    from app.rules import player_shields
+    from app.rules import life_lock, player_shields
 
     player_shields.turn_began(plan, ended)
+    life_lock.turn_began(plan, ended)  # -- can't lose life (wave 29D) --
 
 
 def _spells_words(key: str | None, frm: list[str] | None) -> str:
@@ -446,7 +454,8 @@ def _spells_words(key: str | None, frm: list[str] | None) -> str:
 _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
 _KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as", "keep_mana", "gy_flashback",
           "cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search",  # (wave 22B: app/rules/prohibitions.py)
-          "zone_grant")  # (wave 25A: app/rules/zone_grants.py)
+          "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
+          "life_lock")  # (wave 29D: app/rules/life_lock.py)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:

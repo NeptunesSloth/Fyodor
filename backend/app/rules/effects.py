@@ -372,6 +372,13 @@ def exchange_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if (why := cant_gain.why_not(plan, low)) is not None:
         plan.note(f"{why}: the life totals aren't exchanged", actor=ctx["controller"])
         return True
+    from app.rules import (
+        life_lock,  # -- can't lose life (wave 29D) -- 119.8: a player who can't lose life can't be given a lower total either
+    )
+
+    if (why := life_lock.why_not(plan, high, "lose")) is not None:
+        plan.note(f"{why}: the life totals aren't exchanged", actor=ctx["controller"])
+        return True
     replace.lose_life(plan, [(high, diff)], actor=ctx["controller"])  # -- life modifiers (wave 28B) -- 701.12c
     return replace.gain_life(plan, [(low, diff)], actor=ctx["controller"], then=_then(ctx, e), ctx=ctx)
 
@@ -393,6 +400,11 @@ def exchange_life_stat(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     power = e["stat"] == "power"
     value, life = pt[0 if power else 1], plan.state.players[players[0]].life
     if value > life and (why := cant_gain.why_not(plan, players[0])) is not None:
+        plan.note(f"{why}: nothing is exchanged", actor=ctx["controller"])
+        return True
+    from app.rules import life_lock  # -- can't lose life (wave 29D) -- 119.8
+
+    if value < life and (why := life_lock.why_not(plan, players[0], "lose")) is not None:
         plan.note(f"{why}: nothing is exchanged", actor=ctx["controller"])
         return True
     layers.add_effect(plan, affected=[plan.oid(card)], layer="7b", source=ctx.get("source_object"), controller=ctx["controller"],

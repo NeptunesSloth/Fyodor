@@ -2579,6 +2579,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import suspend_grants as _suspend_grants  # -- suspend granted (wave 24C) --
 
     body = _suspend_grants.rewrite(body)
+    from app.rules import (
+        life_lock as _life_lock,  # -- can't lose life (wave 29D) -- "Until end of turn, your life total can't change, and …"
+    )
+
+    body = _life_lock.rewrite(body)
     from app.rules import name_search  # -- name search (wave 11D) --
 
     body = name_search.rewrite(body)

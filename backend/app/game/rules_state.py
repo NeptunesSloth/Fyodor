@@ -963,6 +963,9 @@ class RulesState(BaseModel):
     # "cards exiled with ~"; app/rules/exiled_with.py)
     exiled_with: dict[str, list[str]] = Field(default_factory=dict)
     hideaway: dict[str, HideawayLook] = Field(default_factory=dict)  # -- hideaway (wave 29D) -- exiled object id -> who may look at it (702.75a)
+    # -- can't lose life (wave 29D) -- 119.7-119.8: resolved "your life total can't change" effects (app/rules/life_lock.py): {id, player, controller,
+    # gain, lose, until ("turn" | "next_turn"), turn, label}
+    life_locks: list[dict[str, Any]] = Field(default_factory=list)
     # -- resolution memory (wave 22D) -- 610.3: an object exiled "until ~ leaves" from a hand returns there (its previous zone):
     # exiled object id -> "hand" (absent: the battlefield)
     linked_exile_from: dict[str, str] = Field(default_factory=dict)

@@ -240,6 +240,10 @@ def _problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: di
             return f"{source.name or 'It'} doesn't have {comp.amount} {comp.counter} counters"
     if cost.life and plan.state.players[payer].life < cost.life:  # 119.4
         return f"{plan.name(payer)} can't pay {cost.life} life"
+    from app.rules import life_lock  # -- can't lose life (wave 29D) -- 119.8, 614.17b
+
+    if (lock := life_lock.pay_problem(plan.state, plan.info, payer, cost.life)) is not None:
+        return lock
     found = cost_payment.problem(plan, cost, source, payer)
     if found is not None:
         return found
