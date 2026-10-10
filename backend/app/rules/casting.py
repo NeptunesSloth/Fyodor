@@ -1815,7 +1815,9 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
         ways = [g for g in ways if g.slot == slot]
     if not ways:
         return None
-    best = min(ways, key=lambda g: bool(g.extra))  # (a way with no extra cost to pay first: the cheaper of two permissions)
+    # (a way with no extra cost to pay first: the cheaper of two permissions; -- review 30c -- then one with no rider on what it becomes: Karador's
+    # before Serra Paragon's "it gains … exile it", Edgar's "enters tapped")
+    best = min(ways, key=lambda g: (bool(g.extra), bool(g.enters)))
     return replace(best, flash=flash or best.flash)
 
 
