@@ -1223,12 +1223,13 @@ def suspend_tick(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- granted casts (wave 29B) -- any half / face (709.3, 712.11b, 715.3)
     from app.rules import granted_casts
 
-    return granted_casts.ask(plan, ctx, player=card.owner, cid=cid, head="The last time counter was removed", no="Leave it exiled")
+    return granted_casts.ask(plan, ctx, player=card.owner, cid=cid, head="The last time counter was removed", no="Leave it exiled", play=True)
 
 
-def leave_uncast(plan: Plan, player: str, cid: str, how: str | None) -> None:
+def leave_uncast(plan: Plan, player: str, cid: str, how: str | None, group: Any = ()) -> None:
     """The card the engine offered to cast isn't cast (declined, or nothing can be cast: granted_casts.ask): the grant ends and ``how`` says where it
-    goes -- "bottom" (cascade, ripple), "hand" (discover, 701.57a), "graveyard" (madness), "miracle" (stays in the hand), else it stays exiled."""
+    goes -- "bottom" (cascade, ripple), "hand" (discover, 701.57a), "graveyard" (madness), "miracle" (stays in the hand), else it stays exiled.
+    ``group``: the cards put on the bottom before the question (cascade)."""
     r = plan.rules
     r.free_casts = [c for c in r.free_casts if c != cid]
     r.free_cast_faces.pop(cid, None)
@@ -1248,8 +1249,16 @@ def leave_uncast(plan: Plan, player: str, cid: str, how: str | None) -> None:
         plan.note(f"{plan.name(player)} puts it into their hand")
         return
     if how == "bottom" and cid in plan.state.cards:  # cascade: it joins the others
-        plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
-                 "position": "bottom"}, actor=player)
+        import secrets
+
+        owner = plan.state.cards[cid].owner
+        library = plan.state.zones.get(zone_key(owner, "library"), [])
+        k = len(group)
+        # -- granted casts (wave 29B) -- 702.85a: "put all cards exiled this way that weren't cast on the bottom of your library in a random order":
+        # the others were put there before the question, in a random order; this one lands anywhere among them (so all are in a random order)
+        at = len(library) - k + (plan.rng or secrets.SystemRandom()).randint(0, k) if k and set(library[-k:]) == set(group) else None
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": "bottom",
+                 **({"index": at} if at is not None else {})}, actor=player)
         plan.note(f"{plan.name(player)} puts it on the bottom of their library")
     else:
         plan.note(f"{plan.name(player)} leaves it exiled")
@@ -1260,21 +1269,28 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules.casting import cast_spell
 
     cid = d.resume["card"]
-    finish(plan, d.resume["ctx"])
     r = plan.rules
     # -- granted casts (wave 29B) -- "yes" casts the card as it is, "yes@1" its second half / back face (granted_casts.ask)
     answer, _, at = chosen[0].partition("@")
     face = int(at) if at else None
-    # -- cast limits (wave 5E) -- a prohibited cast (601.3) can't begin: as if declined (a pending choice of an older save wasn't checked)
     from app.rules import cast_limits, permissions
+    from app.rules import characteristics as chars
 
     card = plan.state.cards.get(cid)
+    if answer == "yes" and card is not None and chars.as_cast(card, plan.info, face).is_land:
+        # 702.62a: a suspended card is *played* ("you may play it without paying its mana cost"): a land face (712.12) is played as the ability resolves
+        r.free_casts = [c for c in r.free_casts if c != cid]
+        r.suspended = [c for c in r.suspended if c != cid]
+        permissions.play_land_now(plan, d.resume["ctx"], {"n": 1}, cid, face)
+        return
+    finish(plan, d.resume["ctx"])
+    # -- cast limits (wave 5E) -- a prohibited cast (601.3) can't begin: as if declined (a pending choice of an older save wasn't checked)
     one = face if face is not None else 0 if card is not None and len(permissions.play_faces(plan, card)) > 1 else None
     if answer == "yes" and (limited := cast_limits.free_cast_blocked(plan, d.player, cid, one)) is not None:
         plan.note(limited, actor=d.player)
         answer = "no"
     if answer != "yes":
-        leave_uncast(plan, d.player, cid, d.resume.get("decline"))
+        leave_uncast(plan, d.player, cid, d.resume.get("decline"), d.resume.get("group") or ())
         return
     if face:
         r.free_cast_faces[cid] = face  # casting.cast_free takes only this one
@@ -1319,7 +1335,8 @@ def cascade(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- granted casts (wave 29B) -- "if the resulting spell's mana value is less" (702.85a): each half / face
     from app.rules import granted_casts
 
-    return granted_casts.ask(plan, ctx, player=pid, cid=hit, head="Cascade", no="Put it on the bottom", decline="bottom", below=e["mv"])
+    return granted_casts.ask(plan, ctx, player=pid, cid=hit, head="Cascade", no="Put it on the bottom", decline="bottom", below=e["mv"],
+                             group=order)
 
 
 def ripple_split(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

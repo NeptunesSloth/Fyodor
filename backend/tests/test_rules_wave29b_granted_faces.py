@@ -229,6 +229,25 @@ def test_cascade_stops_at_the_card_not_at_a_cheaper_face(cards):
     check(s)
 
 
+def test_a_declined_cascade_card_joins_the_others_in_a_random_order(cards):
+    """702.85a: "put all cards exiled this way that weren't cast on the bottom of your library in a random order": the card that is not cast is
+    among them, not always last (the cards it went past were put there before the question)."""
+    seen = set()
+    for _ in range(16):
+        s = build(cards, ["Imoti, Celebrant of Bounty", "Craterhoof Behemoth", "Hit // Run", "Lightning Bolt"])
+        bolt = top_of_library(s, "Lightning Bolt")
+        passed = [top_of_library(s, "Craterhoof Behemoth").id, top_of_library(s, "Hit // Run").id]
+        to_hand(s, "Imoti, Celebrant of Bounty")
+        cascade_from(s, "Imoti, Celebrant of Bounty", G=1, U=1, C=3)
+        s = reloaded(s)
+        choose(s, "no")
+        library = s.state.zones["p1:library"]
+        assert set(library[-3:]) == {bolt.id, *passed} and not s.state.zones.get("p1:exile")
+        seen.add(library[-3:].index(bolt.id))
+    assert len(seen) > 1
+    check(s)
+
+
 def test_a_half_that_a_prohibition_stops_is_not_offered(cards):
     """601.3: Gaddock Teeg ("Noncreature spells with mana value 4 or greater can't be cast."). Discover 8 (Monstrous Vortex, for Craterhoof Behemoth)
     finds Hit // Run (3 + 5 = 8): Hit (3) can be cast, Run (5) can't, so only Hit is offered."""
@@ -380,6 +399,72 @@ def test_suspend_offers_only_the_face_a_prohibition_leaves(cards):
     choose(s, "yes@1")
     settle_all(s)
     assert s.state.cards[valki.id].zone == "p1:battlefield" and s.state.cards[valki.id].face == 1
+    check(s)
+
+
+def suspended_florahedron(cards, counters=1, extra=()):
+    """Suspend (the instant) on Tangled Florahedron // Tangled Vale (a creature // a land): exiled with two time counters, ``counters`` left."""
+    s = build(cards, ["Suspend", "Tangled Florahedron // Tangled Vale", *extra])
+    both = put(s, "Tangled Florahedron // Tangled Vale")
+    spell = to_hand(s, "Suspend")
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[both.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[both.id].zone == "p1:exile" and both.id in s.state.rules.suspended
+    act(s, "p1", type="counter", card_ids=[both.id], kind="time", delta=counters - 2)
+    return s, both
+
+
+def test_a_suspended_modal_card_may_be_played_as_its_land_face(cards):
+    """702.62a: when the last time counter is removed the owner "may play it without paying its mana cost": a land face is played (712.12), on the
+    owner's own turn with a land play left (305.2a-b, 305.3), and enters with that face up, tapped as the card says."""
+    from tests.test_rules_suspend import until
+
+    s, both = suspended_florahedron(cards)
+    until(s, asked, limit=3000)
+    assert options(s) == [("yes", "Cast Tangled Florahedron"), ("yes@1", "Play Tangled Vale"), ("no", "Leave it exiled")]
+    s = reloaded(s)
+    choose(s, "yes@1")
+    settle_all(s)
+    card = s.state.cards[both.id]
+    assert card.zone == "p1:battlefield" and card.face == 1 and card.tapped
+    assert s.state.rules.lands_this_turn("p1", s.state.turn.number) == 1 and both.id not in s.state.rules.suspended
+    assert not s.state.rules.free_casts and s.state.rules.decision is None
+    check(s)
+
+
+def test_a_suspended_land_face_is_not_offered_without_a_land_play(cards):
+    """305.2b: time travel (Wibbly-wobbly, Timey-wimey) takes the last counter off in the owner's main phase after a land was played: no land play is
+    left, so the land face can't be played, only the creature face cast."""
+    s, both = suspended_florahedron(cards, counters=1, extra=["Wibbly-wobbly, Timey-wimey"])
+    forest = to_hand(s, "Forest")
+    act(s, "p1", type="play_land", card_id=forest.id)
+    to_hand(s, "Wibbly-wobbly, Timey-wimey")
+    mana(s, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Wibbly-wobbly, Timey-wimey").id)
+    for _ in range(12):
+        if asked(s):
+            break
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "choose_cards":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.card_id == both.id])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["remove"])
+    assert options(s) == [("yes", "Cast Tangled Florahedron"), ("no", "Leave it exiled")]
+    check(s)
+
+
+def test_a_suspended_modal_card_is_cast_as_its_creature_face(cards):
+    from tests.test_rules_suspend import until
+
+    s, both = suspended_florahedron(cards)
+    until(s, asked, limit=3000)
+    choose(s, "yes")
+    settle_all(s)
+    card = s.state.cards[both.id]
+    assert card.zone == "p1:battlefield" and card.face == 0 and s.state.rules.lands_this_turn("p1", s.state.turn.number) == 0
     check(s)
 
 

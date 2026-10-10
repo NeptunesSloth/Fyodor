@@ -5,7 +5,8 @@ rulings of Bloodbraid Elf (cascade), Trumpeting Carnosaur (discover), Rift Bolt 
 * 608.2g: the cast follows 601.2a-i as the ability resolves. 709.3, 709.3a: a split card is cast as one half and only that half is evaluated;
   715.3, 715.3a: an adventurer card is cast as the creature or as its Adventure; 712.11b-c: a modal double-faced card as either face. Each way to
   cast the card is therefore its own option (``card@face``, as permissions.free_cast offers them: ``permissions.play_faces``), and a land face is
-  never cast (712.12; a land is played, not cast).
+  never cast (712.12; a land is played, not cast): only suspend, which says "play it" (702.62a), offers it, while its owner has a land play left
+  on their own turn (305.2a-b, 305.3), and plays it as the ability resolves (``permissions.play_land_now``).
 * 702.85a cascade: "… exile cards … until you exile a nonland card whose mana value is less than this spell's mana value. You may cast that card
   without paying its mana cost if the resulting spell's mana value is less than this spell's mana value." The card in exile has the characteristics
   of its front face / its combined halves / its creature (709.4b, 712.8a, 715.4), the *spell* those of the face being cast: each option is checked
@@ -35,15 +36,21 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 
-def faces(plan: Plan, player: str, cid: str, *, below: int | None = None, at_most: int | None = None) -> list[tuple[int | None, Characteristics]]:
+def faces(plan: Plan, player: str, cid: str, *, below: int | None = None, at_most: int | None = None,
+          play: bool = False) -> list[tuple[int | None, Characteristics]]:
     """Each way ``player`` could cast the card ``cid`` now: (face, the spell's characteristics) of every half / face that is a spell, whose mana
-    value is less than ``below`` (cascade) / at most ``at_most`` (discover) and that nothing prohibits casting (601.3)."""
-    from app.rules import cast_limits, permissions
+    value is less than ``below`` (cascade) / at most ``at_most`` (discover) and that nothing prohibits casting (601.3). ``play``: a land face is
+    one too while the player has a land play left (suspend: "play it", 702.62a; 305.2a-b, 305.3)."""
+    from app.rules import cast_limits, land_plays, permissions
 
     card = plan.state.cards[cid]
     out: list[tuple[int | None, Characteristics]] = []
     for face, ch in permissions.play_faces(plan, card):
-        if ch.is_land or not ch.types:
+        if ch.is_land:
+            if play and land_plays.open_for_effect(plan.state, player, plan.info):
+                out.append((face, ch))
+            continue
+        if not ch.types:
             continue
         if (below is not None and ch.mana_value >= below) or (at_most is not None and ch.mana_value > at_most):
             continue
@@ -53,23 +60,27 @@ def faces(plan: Plan, player: str, cid: str, *, below: int | None = None, at_mos
 
 
 def ask(plan: Plan, ctx: dict[str, Any], *, player: str, cid: str, head: str, no: str, decline: str | None = None,
-        below: int | None = None, at_most: int | None = None) -> bool:
+        below: int | None = None, at_most: int | None = None, group: list[str] | None = None, play: bool = False) -> bool:
     """Ask ``player`` whether to cast the card, offering every way to cast it (``faces``). True when nothing was asked because the card can't be
-    cast, its declined outcome (``decline``, effects.leave_uncast) already done; False while the question is pending (resume: "suspend_cast")."""
+    cast, its declined outcome (``decline``, effects.leave_uncast) already done; False while the question is pending (resume: "suspend_cast").
+    ``group``: the cards already put on the bottom of the library with it in mind (cascade: a declined card joins them in a random order)."""
     from app.rules import effects, permissions
 
     card = plan.state.cards[cid]
-    found = faces(plan, player, cid, below=below, at_most=at_most)
+    found = faces(plan, player, cid, below=below, at_most=at_most, play=play)
     if not found:
         plan.note(f"{card.name} can't be cast without paying its mana cost now", [cid])
-        effects.leave_uncast(plan, player, cid, decline)
+        effects.leave_uncast(plan, player, cid, decline, group or ())
         return True
     plan.rules.free_casts.append(cid)
     both = len(permissions.play_faces(plan, card)) > 1
-    options = [DecisionOption(id="yes" if not face else f"yes@{face}", label=f"Cast {ch.name}" if both else "Cast it") for face, ch in found]
+    options = [DecisionOption(id="yes" if not face else f"yes@{face}",
+                              label=f"{'Play' if ch.is_land else 'Cast'} {ch.name}" if both else "Play it" if ch.is_land else "Cast it")
+               for face, ch in found]
     decide(plan, player=player, kind="choose_one", prompt=f"{head}: cast {card.name} without paying its mana cost?",
            options=[*options, DecisionOption(id="no", label=no)],
-           resume={"step": "suspend_cast", "ctx": ctx, "card": cid, **({"decline": decline} if decline else {})}, source=card)
+           resume={"step": "suspend_cast", "ctx": ctx, "card": cid, **({"decline": decline} if decline else {}), **({"group": group} if group else {})},
+           source=card)
     return False
 
 

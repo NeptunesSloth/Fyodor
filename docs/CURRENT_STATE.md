@@ -143,9 +143,14 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   record is `TurnLog.drawn`, private. Jandor's Ring's "discard the last card you drew this turn" cost can use it, not done.
   Djinn of Wishes was manual only for want of playing a land mid-resolution, no unsettled ruling: wave 28A plays a card as an
   effect resolves, `permissions.free_cast` "play", 608.2g / 305.2a-b / 305.3 / 712.12.)
-- Free casts through the yes/no "cast it?" choice (cascade, discover, ripple, suspend, rebound) cast a split card's first half, an
-  Adventurer as its creature and a modal double-faced card's front face: the other half / face (legal by 709.3, 715.3, 712.11b and,
-  for cascade, 702.85a's "resulting spell") isn't offered. `permissions.free_cast` offers and checks each half / face (review 28A).
+- Granted casts (wave 29B, `granted_casts.py`): the "cast it?" choice of cascade, discover, ripple, suspend and rebound offers every half / face
+  that is a spell ("yes" = first half / front, "yes@1" = Adventure / second half / back face; `RulesState.free_cast_faces` is the one
+  `casting.cast_free` takes). Each is checked on its own against the cascade ("resulting spell's mana value is less", 702.85a) / discover
+  ("N or less", 701.57a) value and the cast prohibitions (601.3); the card in exile keeps the combined / front / creature mana value that
+  stops cascade (709.4b, 712.8a, 715.4). With no way left to cast it the question is skipped and the declined outcome happens. Ripple's "same
+  name" is one name in common (201.2a, 709.4a). A declined cascade card lands at a random place among the cards put on the bottom before the
+  question (702.85a: all of them in a random order). A suspended modal double-faced card's land face is played ("play it", 702.62a; 305.2a-b,
+  305.3), the only one of these that plays rather than casts.
 - **Copies**: cast-a-copy only as "[exile a card and] copy it / that card [N times]. You may cast the copy without paying its
   mana cost" (wave 13C, 707.12: `copying.copy_cards` + `permissions.FREE_COPY`; the copy is made in the card's own zone;
   a non-free "You may cast the copy", "cast the copy by paying …" and copies of imprinted / "exiled with" cards stay manual),
@@ -378,5 +383,6 @@ card data, and the supplementary Attraction deck needs deck-building support.
 - Hidden-zone abilities (602.2a, 701.20a): `casting._create_ability` reveals a card activated from the hand for the moment the ability is created,
   so cycling, channel, transmute, ninjutsu and every other ability from the hand name their source on the stack; the rest of the hand stays hidden.
   Review 28C: ninjutsu's card stays revealed from the announcement (`keep`, 702.49b) instead of being revealed, hidden and revealed again.
-  Known gap: a face-down creature spell uses up "the next creature spell has cascade" (Sloppity Bilepiper) without cascading (granted cascade is
-  never read on a face-down spell, as for the statics).
+  Wave 29B: a face-down creature spell given cascade or ripple by an effect (Sloppity Bilepiper, Maelstrom Nexus, Thrumming Stone) has it (708.2
+  limits only its own abilities; 613.1f, 601.2a): its mana value is 0 and it has no name (708.2a), so cascade exiles the whole library and finds
+  nothing and ripple matches no name (201.2a). A storm grant to a face-down spell is refused (no printed card gives a creature spell storm).

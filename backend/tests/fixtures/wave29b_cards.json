@@ -739,6 +739,23 @@
   "keywords": []
  },
  {
+  "name": "Wibbly-wobbly, Timey-wimey",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Time travel. (For each suspended card you own and each permanent you control with a time counter on it, you may add or remove a time counter.)\nDraw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Time Travel"
+  ]
+ },
+ {
   "name": "Steel Golem",
   "layout": "normal",
   "mana_cost": "{3}",
