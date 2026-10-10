@@ -39,7 +39,7 @@ from app.game.rules_state import CostModifier, Permission, TopReveal
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.game.visibility import can_see
 from app.rules import characteristics as chars
-from app.rules import cost_changes, costs, land_plays, selectors
+from app.rules import cost_changes, costs, delayed, land_plays, selectors
 from app.rules import mana as M
 from app.rules.characteristics import CardInfo, Characteristics
 
@@ -134,18 +134,22 @@ TOP_LOOK = "you may look at the top card of your library any time"
 # permanents). In Commander every other player is an opponent.
 FACE_DOWN_LOOK = re.compile(r"^you may look at (?P<top>the top card of your library and at )?face-down creatures "
                             r"(?:you don't control|your opponents control) any time$")
+# -- durations (wave 30M) -- 611.2a: "Until your next turn, you may play that card." (Three Wishes) / "Until the beginning of your next upkeep, …"
+# (Elkin Bottle, Grinning Totem): ends as that player's next turn begins (500.4; no player gets priority in the untap step, 502.4, so the two
+# wordings end the same way for a permission)
+_UNTILS = "until end of turn|until the end of your next turn|until your next end step|until your next turn|until the beginning of your next upkeep"
 # Effect sentences: "Exile the top card of your library. You may play that card this turn." — the
 # pronoun ("that card" / "it" / "those cards") is bound by scripts.resolve_it to what an earlier
 # instruction of the same ability moved (400.7j: found where it went); with no such instruction
 # the ability stays manual. A bare "You may cast that card." (no duration) means "cast it now, as
 # this resolves, ignoring timing" — not a permission that lasts: refused.
-GRANT_THAT = re.compile(r"^(?:(?P<until>until end of turn|until the end of your next turn|until your next end step), )?you may (?P<verb>play|cast) "
+GRANT_THAT = re.compile(rf"^(?:(?P<until>{_UNTILS}), )?you may (?P<verb>play|cast) "
                         r"(?P<what>that card|those cards|it)(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?"
                         r"(?:, and (?P<spend>mana of any type can be spent to cast (?:that spell|those spells))"  # (wave 25C: Dire Fleet Daredevil)
                         r"| and (?P<spend2>you may spend mana as though it were mana of any (?P<k2>color|type) to cast (?:that spell|those spells)))?$")  # (Hurl Through Hell)
 # -- refused grants/replacements (wave 3R2) -- "You may play that card until the end of your next turn."
 _TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|those cards|it|them)(?: without paying (?:its|their) mana costs?)?) "
-                             r"(?P<until>until end of turn|until the end of your next turn|until your next end step)$")
+                             rf"(?P<until>{_UNTILS})$")
 # -- end refused grants/replacements (wave 3R2) --
 # "Until end of turn, you may play lands and cast spells from your graveyard." (Yawgmoth's Will)
 GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>play lands and cast spells|play lands|cast spells)"
@@ -675,15 +679,16 @@ _RIDER = (r"(?:, and (?:mana of any type can be spent to cast (?P<t>that spell|i
 GRANT_EXILED = re.compile(
     r"^(?:for as long as (?P<d1>it|they|that card|those cards) remains? exiled, )?(?P<who>you|its owner|their owners) may (?P<verb>play|cast) "
     r"(?P<what>that card|those cards|it|them)(?P<free> without paying (?:its|their) mana costs?)?"
-    r"(?: for as long as (?P<d2>it|they|that card|those cards) remains? exiled)?" + _RIDER + r"?$")
+    # (-- durations (wave 30M) -- 611.2b: "You may play that card for as long as you control Lightning" (d3): while its source is controlled)
+    r"(?: for as long as (?:(?P<d2>it|they|that card|those cards) remains? exiled|(?P<d3>you control ~|~ remains on the battlefield)))?" + _RIDER + r"?$")
 
 
 def _grant_exiled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
-    if bool(m["d1"]) == bool(m["d2"]):
+    if sum(map(bool, (m["d1"], m["d2"], m["d3"]))) != 1:
         return None  # (exactly one duration)
     plural = m["what"] in ("those cards", "them")
     # the duration and the rider name the same card(s) the permission is for
-    if (m["d1"] or m["d2"]) not in (("they", "those cards") if plural else ("it", "that card")):
+    if (m["d1"] or m["d2"]) and (m["d1"] or m["d2"]) not in (("they", "those cards") if plural else ("it", "that card")):
         return None
     rider = m["t"] or m["t2"]
     if rider and rider not in (("them", "those spells") if plural else ("it", "that spell")):
@@ -692,10 +697,11 @@ def _grant_exiled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     if m["free"] and spend:
         return None  # (a free cast spends no mana: no card words it so)
     owner = m["who"] != "you"  # -- Marvel keywords (wave 25A) -- "For as long as that card remains exiled, its owner may cast it without paying its mana cost."
-    if owner and (m["verb"] == "play" or spend or bool(m["d2"]) or plural != (m["who"] == "their owners")):
+    if owner and (m["verb"] == "play" or spend or bool(m["d2"]) or m["d3"] or plural != (m["who"] == "their owners")):
         return None  # (read for casting only, the duration first, one rider-less permission)
+    until = "permanent" if not m["d3"] else "source_controlled" if m["d3"].startswith("you control") else "source_on_battlefield"
     return [{"do": "grant_play", "who": "them:card" if plural else "it:card", "play": m["verb"] == "play", "cast": True,
-             "until": "permanent", "optional": not owner, **({"free": True} if m["free"] else {}),
+             "until": until, "optional": not owner, **({"free": True} if m["free"] else {}),
              **({"spend": spend} if spend else {}), **({"owner": True} if owner else {})}], None
 
 
@@ -809,7 +815,7 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     # -- as long as (wave 9B) -- "You may cast that card for as long as it remains exiled, and mana of any type can be spent
     # to cast that spell." (Gonti, Hostage Taker, Thief of Sanity)
     m = GRANT_EXILED.fullmatch(text)
-    if m and (m["d1"] or m["d2"]):
+    if m and (m["d1"] or m["d2"] or m["d3"]):
         return _grant_exiled(m)
     m = GRANT_THAT.fullmatch(text)
     if m and m["free"] and not (m["until"] or m["this_turn"]):
@@ -831,7 +837,8 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         free = bool(m["free"])  # (wave 3C) "... without paying its mana cost" (118.9)
         if spend_kind and (free or m["verb"] != "cast" or (m["what"] == "those cards") != ("those spells" in (m["spend"] or m["spend2"]))):
             return None  # (-- if you do (wave 25C) -- 118.14: mana is spent only to cast, never for a free cast)
-        until = {"until the end of your next turn": "end_of_next_turn", "until your next end step": "next_end_step"}.get(m["until"], "end_of_turn")
+        until = {"until the end of your next turn": "end_of_next_turn", "until your next end step": "next_end_step",
+                 "until your next turn": "next_turn", "until the beginning of your next upkeep": "next_turn"}.get(m["until"], "end_of_turn")
         # "who": a pronoun for scripts.resolve_it — the object(s) the preceding instruction moved
         # ("that card": a card — never a token the same sentence created, 111.1: scripts.resolve_it)
         return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play",
@@ -962,6 +969,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
     for p in r.permissions:
         if p.player != player or not _wants(p, verb) or (p.once and p.used_turn == turn) or (p.after_turn and turn <= p.after_turn):
             continue
+        if p.until in SOURCE_UNTIL and not source_holds(state, p):
+            continue  # (-- durations (wave 30M) -- 611.2b: over, whenever the table was last looked at)
         if p.object_id is not None:
             if p.object_id != oid:
                 continue  # a new object since (400.7): the permission was for the one it was
@@ -1247,14 +1256,20 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         turn += 1  # (granted in its own end step or later: the next one is the following turn's)
     when = "until the end of their next turn" if e["until"] == "end_of_next_turn" else \
         "until their next end step" if e["until"] == "next_end_step" else \
+        "until their next turn" if e["until"] == "next_turn" else \
+        f"for as long as they {'control' if e['until'] == 'source_controlled' else 'have'} {ctx.get('name') or 'its source'}" \
+        if e["until"] in SOURCE_UNTIL else \
         "for as long as it remains there" if e["until"] == "permanent" else "this turn"  # (permanent: wave 3E, 611.2a)
+    if e["until"] in SOURCE_UNTIL and not delayed._source_ok(plan, e["until"], ctx.get("source_card"), ctx.get("source_object"), pid):
+        plan.note(f"{ctx.get('name') or 'The effect'} does nothing: its duration has already ended")  # 611.2b
+        return True
     verb = "play" if e["play"] else "cast"
     if e.get("who"):
         if not str(e["who"]).startswith(context.PREFIX) and e["who"] != "target":
             return True  # (an unbound pronoun never reaches here: resolve_it refuses the ability)
         for cid in context.objects(plan, ctx, e["who"][len(context.PREFIX):]) if e["who"] != "target" else _target_cards(plan, ctx):
             card = plan.state.cards[cid]
-            if e["until"] == "permanent" and not card.zone.endswith(":exile"):
+            if (e["until"] == "permanent" or e["until"] in SOURCE_UNTIL) and not card.zone.endswith(":exile"):
                 continue  # (-- Marvel keywords (wave 25A) -- "for as long as it remains exiled": a spell that wasn't countered, a card replaced elsewhere: no permission)
             holder = card.owner if e.get("owner") else pid  # ("its owner may cast it")
             r.permissions.append(Permission(id=secrets.token_hex(4), player=holder, play=e["play"], cast=e["cast"], zone="any",
@@ -1297,6 +1312,27 @@ def expire(plan: Plan) -> None:
     r.permissions = keep
     r.cost_modifiers = [m for m in r.cost_modifiers if m.until != "end_of_turn"
                         and not (m.until == "next_turn" and r.turn_started.get(m.controller, 0) > m.turn)]
+
+
+SOURCE_UNTIL = ("source_controlled", "source_on_battlefield")  # (-- durations (wave 30M) -- Permission.until: "for as long as you control ~")
+
+
+def source_holds(state: GameState, p: Permission) -> bool:
+    """-- durations (wave 30M) -- 611.2b: "for as long as you control ~ / ~ remains on the battlefield" is still true: the granting object is the one
+    that was on the battlefield (a new object, 400.7, is not), in the game (800.4a), and under the permission's player's control for "you control"."""
+    from app.rules.plan import live_players
+
+    card = state.cards.get((p.source or "").rsplit(".", 1)[0])
+    return (card is not None and state.rules is not None and card.zone.endswith(":battlefield") and state.rules.object_id(card.id) == p.source
+            and card.owner in (live := live_players(state)) and card.controller in live
+            and (p.until != "source_controlled" or card.controller == p.player))
+
+
+def expire_source(plan: Plan) -> None:
+    """-- durations (wave 30M) -- the stored permissions whose "for as long as …" is over are gone (called with the other checks: delayed.expire)."""
+    r = plan.rules
+    if any(p.until in SOURCE_UNTIL for p in r.permissions):
+        r.permissions = [p for p in r.permissions if p.until not in SOURCE_UNTIL or source_holds(plan.state, p)]
 
 
 def expire_end_step(plan: Plan) -> None:

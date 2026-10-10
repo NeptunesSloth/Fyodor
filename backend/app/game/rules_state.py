@@ -803,8 +803,12 @@ class Permission(BaseModel):
     flash: bool = False  # "as though it had flash" (601.3b)
     once: bool = False  # "once during each of your turns"
     used_turn: int = 0  # (once) the turn it was used
-    until: Literal["end_of_turn", "end_of_next_turn", "next_end_step", "permanent"] = "end_of_turn"
-    turn: int = 0  # the turn it was granted (for end_of_next_turn)
+    # (-- durations (wave 30M) -- "next_turn": "Until your next turn, you may …" ends as that player's next turn begins (500.4, delayed.turn_began);
+    # "source_controlled" / "source_on_battlefield": "for as long as you control ~ / ~ remains on the battlefield" ends the moment that stops
+    # being true, 611.2b (delayed.expire), the granting object being ``source``)
+    until: Literal["end_of_turn", "end_of_next_turn", "next_end_step", "permanent", "next_turn", "source_controlled",
+                   "source_on_battlefield"] = "end_of_turn"
+    turn: int = 0  # the turn it was granted (for end_of_next_turn, next_turn)
     source: str | None = None  # the granting object
     label: str = Field(default="", max_length=120)
     # -- as long as (wave 9B) -- "mana of any type can be spent to cast that spell" ("type") / "you may spend mana as though it

@@ -30,8 +30,14 @@ Context = dict[str, Any]
 # (-- other side (wave 6D) -- the object has no " and " in it: "tap that creature and it doesn't untap …" is two clauses)
 _PATTERN = re.compile(r"^(?P<o>(?:(?! and ).)+?) (?:doesn't|don't) untap during (?P<whose>its controller's|their controller's|"
                       r"their controllers'|your|that player's) next untap steps?$")
+# (-- durations (wave 30M) -- "Creatures target player controls don't untap during that player's next untap step." (Misstep): the same player's
+# untap step, 502.3)
 _MASS = re.compile(r"^(?P<k>Creatures and lands|Lands|Creatures) (?:(?P<you>you control)|(?P<t>target (?:player|opponent)) controls) "
-                   r"(?:doesn't|don't) untap during (?:your|their) next untap step$", re.I)
+                   r"(?:doesn't|don't) untap during (?:your|their|that player's) next untap step$", re.I)
+# -- durations (wave 30M) -- "Reveka deals 2 damage to any target and doesn't untap during your next untap step." (Reveka, Wizard Savant), "This
+# creature gains shroud until end of turn and doesn't untap during your next untap step." (Homarid Warrior): one subject doing both, in order
+# (608.2c); the source stays tapped as the exert cost's bookkeeping does (701.43a, 502.3)
+_AND_STAY = re.compile(r"^(?P<head>~ .+?) and doesn't untap during your next untap step$")
 _OBJECTS = ("it", "them", "target", "self")
 
 
@@ -60,7 +66,16 @@ def _mass(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "stay_tapped", "sel": keys, "who": "target" if m["t"] else "you"}], language._one(group)
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_MASS, _mass), (_PATTERN, _build)]
+def _and_stay(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules.scripts import _clause, _NoMatch
+
+    inner = _clause(m["head"])
+    if inner is None:
+        raise _NoMatch
+    return [*inner[0], {"do": "stay_tapped", "who": "self", "during": "you"}], inner[1]
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_MASS, _mass), (_AND_STAY, _and_stay), (_PATTERN, _build)]
 
 
 def stay_tapped(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

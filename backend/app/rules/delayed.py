@@ -488,6 +488,9 @@ def expire(plan: Plan) -> None:
                 _drop(plan, e, kept)
     if ended:
         _end(plan, ended)
+    from app.rules import permissions
+
+    permissions.expire_source(plan)  # -- durations (wave 30M) -- "You may play that card for as long as you control ~" (a stored permission)
 
 
 def _has_counter(plan: Plan, oid: str, kind: str) -> bool:

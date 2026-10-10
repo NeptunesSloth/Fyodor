@@ -105,7 +105,7 @@ EFFECT_CAST = re.compile(rf"^(?:(?P<lead>until your next turn|this turn), )?(?P<
 # step, you may cast spells as though they had flash." — and the effect "You may cast spells this turn as though they had flash."
 STATIC_FLASH = re.compile(r"^(?P<during>during each opponent's end step, )?(?P<who>you|any player) may cast "
                           r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells as though they had flash$")
-EFFECT_FLASH = re.compile(r"^(?:until end of turn, )?you may cast (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<this> this turn)? "
+EFFECT_FLASH = re.compile(r"^(?:(?P<lead>until end of turn|until your next turn), )?you may cast (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<this> this turn)? "
                           r"as though they had flash$")
 # -- static_other sweep (wave 19A) -- 609.4b / 118.14: "You may spend mana as though it were mana of any color to cast planeswalker spells."
 # (Oath of Nissa), "You can spend mana of any type to cast creature spells." (Vizier of the Menagerie): how the cost of those spells may be paid
@@ -343,12 +343,13 @@ def _effect_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 
 
 def _effect_flash(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    if not m["this"] and not m.string.startswith("until end of turn, "):
+    if not m["this"] and not m["lead"]:
         raise ValueError("a duration")  # ("you may cast spells as though they had flash" as an effect: no duration — refused)
     ok, key = _filter(m["sel"])
-    if not ok:
+    if not ok or (m["this"] and m["lead"]):
         raise ValueError("selector")
-    return [{"do": "flash_permission", "filter": key}], None
+    # (-- durations (wave 30M) -- Teferi, Time Raveler: "Until your next turn, you may cast sorcery spells as though they had flash.")
+    return [{"do": "flash_permission", "filter": key, **({"until": "next_turn"} if m["lead"] == "until your next turn" else {})}], None
 
 
 def _template(rx: re.Pattern[str], fn: Any) -> tuple[re.Pattern[str], Any]:
@@ -412,9 +413,10 @@ def flash_permission(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
     label = ctx.get("name") or "An effect"
     plan.rules.permissions.append(Permission(id=secrets.token_hex(4), player=pid, cast=True, zone="any", filter=e.get("filter"),
-                                             flash=True, until="end_of_turn", turn=plan.state.turn.number,
+                                             flash=True, until=e.get("until", "end_of_turn"), turn=plan.state.turn.number,
                                              source=ctx.get("source_object"), label=f"{label}: as though it had flash"))
-    plan.note(f"{plan.name(pid)} may cast {_spells_words(e.get('filter'), None)} this turn as though they had flash ({label})",
+    plan.note(f"{plan.name(pid)} may cast {_spells_words(e.get('filter'), None)} {'until their next turn' if e.get('until') else 'this turn'} "
+              f"as though they had flash ({label})",
               actor=pid)
     return True
 
@@ -443,6 +445,8 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "turn" and x.get("turn") != turn)]
+    # -- durations (wave 30M) -- "Until your next turn, you may play that card / cast … as though … had flash": a permission (500.4, 800.4m)
+    r.permissions = [p for p in r.permissions if not (p.until == "next_turn" and any(p.player == pl and n > p.turn for pl, n in ended))]
     from app.rules import life_lock, player_shields
 
     player_shields.turn_began(plan, ended)

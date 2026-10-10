@@ -2025,12 +2025,14 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
     # -- static_other sweep (wave 16B) -- "You draw two cards, lose 2 life, then mill two cards." is three instructions in order (608.2c)
     text = re.sub(r"^(?P<a>(?:you )?(?:gain|lose|draw|mill|scry|surveil)\b[^,.]*), (?P<b>(?:draw|lose|gain|mill|scry|surveil|investigate)\b[^,.]*), then ",
                   r"\g<a>, then \g<b>, then ", text)
-    for joiner in (r", then ", r" and (?=(?:~(?= )|(?:you|target|each|it|that player|draw|lose|gain|put|return|exile|"  # (wave 25B: "and ~ deals …": no \b after the ~)
+    for joiner in (r", then ", r" and (?=(?:~(?= )|(?:you|target|each|it|that player|that (?:creature|land|permanent|artifact)|draw|lose|gain|put|return|exile|"  # (wave 25B: "and ~ deals …": no \b after the ~)  (wave 30M: "Tap target creature, and that creature doesn't untap …")
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
                                  r"remove|add|investigate|prevent|amass|proliferate|manifest|transform|suspect)\b))"):  # (wave 25B: suspect)  # (wave 20F: transform)  # (remove: wave 6D, "untap it and remove it from combat")
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
+        if parts[0].endswith(",") and parts[1].startswith("that "):
+            parts[0] = parts[0][:-1]  # (wave 30M: "Tap target creature you don't control, and that creature doesn't untap …"; any other ", and …" as before)
         # "Target player draws a card, then discards a card": the right half's subject is the
         # left's (608.2c reads the whole text), not "you"
         subj = re.match(r"^(target player|target opponent|each player|each opponent|each of your opponents|"
@@ -5558,6 +5560,13 @@ def _watch_next_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 def _with_duration(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    # -- durations (wave 30M) -- a permission states its own duration (611.2a, 611.2b): "Until your next turn, you may play …", "… for as long as
+    # you control ~" (a stored permission, not an ``until`` over effects)
+    if re.search(r"\byou may (?:play|cast) ", m.string):
+        from app.rules import permissions
+
+        if (granted := permissions.parse_clause(m.string)) is not None:
+            return granted
     clause, duration = _delayed.duration_clause(m)
     inner = _clause(clause)
     if inner is None:
@@ -5726,11 +5735,13 @@ def _become_colored(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # (Rise from the Grave, Liliana, Death's Majesty), "It's a Phyrexian in addition to its other types." (Portal to
 # Phyrexia): the object an earlier instruction put onto the battlefield gets the types (and colors) for as long as
 # it exists (611.2a, 205.1b): the "becomes" effect above, said of a pronoun only
-@effect(r"(?P<o>it|that creature|each of them|each of those creatures)(?:'s| is) (?P<desc>an? [^.]+? in addition to its other "
-        r"(?:colors and )?types)")
+# -- durations (wave 30M) -- also "That land is an Island in addition to its other types for as long as it has a flood counter on it." (Xolatoyac,
+# Aquitect's Will): the duration wrapper reads the clause with "until end of turn" (delayed.duration_clause)
+@effect(r"(?P<o>it|that creature|that land|each of them|each of those creatures)(?:'s| is) (?P<desc>an? [^.]+? in addition to its other "
+        r"(?:colors and )?types)(?P<eot> until end of turn)?")
 def _is_in_addition(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     o = "each of them" if m["o"].startswith("each of") else "it"
-    found = _language.parse_become(f"{o} becomes {m['desc']}")
+    found = _language.parse_become(f"{o} becomes {m['desc']}{m['eot'] or ''}")
     if found is None or any(e["do"] != "become" or e.get("abilities") or e.get("lose_abilities") for e in found[0]):
         raise _NoMatch
     return found
