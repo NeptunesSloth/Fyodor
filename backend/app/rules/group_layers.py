@@ -77,13 +77,13 @@ def solve(state: GameState, info: CardInfo, table: list[Static], tkey: tuple) ->
         return table, {}
     from app.rules import layers as L
 
-    L._SOLVING.append(table)
-    L._depth += 1
+    L._T.solving.append(table)  # (review 29A: this thread's derivation)
+    L._T.depth += 1
     try:
         return _Solver(state, info, table, tkey, layered).run()
     finally:
-        L._depth -= 1
-        L._SOLVING.pop()
+        L._T.depth -= 1
+        L._T.solving.pop()
 
 
 class _Solver:
