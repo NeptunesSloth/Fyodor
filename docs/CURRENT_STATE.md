@@ -173,9 +173,20 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   can't pause: a body there is left to the players); Alms Collector's "each draw a card" are one-card instructions Quantum Riddler may still
   change; one call's life gains are simultaneous for Phial (702.15e). Paying life under Bloodletter: no ruling names it — 119.4 (paying life is
   losing it; affordability is the cost's amount), 118.11 (a cost's actions may be modified) and the Invigorate ruling (2020-08-07: a cost
-  whose action a replacement changes can still be paid) decide it: the payment is doubled. Known gaps (pre-existing): damage replacement /
-  prevention statics don't see a mana ability's damage; "Draw three cards and reveal them" (Mad Wizard's Lair) also reveals cards a "draw two
-  instead" drew (614.11b) — cards a body put into the hand are no longer revealed.
+  whose action a replacement changes can still be paid) decide it: the payment is doubled. The two known gaps (a mana ability's damage not seen
+  by damage replacement / prevention; Mad Wizard's Lair revealing cards a "draw two instead" drew) are closed in wave 29C (below).
+- **Silent caps, leaks and restrictions** (wave 29C, the open items of the wave 27 / 28 reviews): casts and activations take up to
+  `actions.MAX_TARGETS` = 250 targets (601.2c; it was 20, so "up to X target …, where X is …" and "any number of target …" were clamped): one
+  limit shared by the intents, target counts, division (601.2d), Choose amounts and the parser; "up to X" over it says so in the prompt, an
+  exact "X target …" over it is refused; arrows come in chunks of 20 (`Plan.target_arrows`). A player may pay all their life (119.4: the Phyrexian
+  auto-payer stopped at life = payment); life other costs of the same spell pay is reserved first (`Plan.reserved_life`), and several "Pay 1
+  life" mana sources can't take more than the life total. "Draw N cards and reveal them" reveals only cards drawn without a replacement
+  (121.6c, 614.11b: `TurnLog.drawn_replaced`; a count replacement's draws all count as replaced — UNCERTAIN reading, the safe side for hidden
+  information); a draw probe ("If you do") counts "drew" events, not hand growth (121.5). A mana ability's "deals 1 damage to you" is a damage
+  event of `replace.damage_outcome` (`casting.mana_ability_damage`): replacement / prevention / shields apply; two effects whose order matters
+  are logged for the players (a mana ability can't pause, 605.3a). Caps removed: convoke / improvise / delve lists in the tap-mana prompt
+  (the table clicks only listed helpers), "pay any amount of {E}" (60 → 250, said in the prompt), untap-lock lists (250 → all) and
+  may-stay-tapped candidates (50 → all). Still bounded, loudly: multikicker count ≤ 20, X ≤ 1000, one choice answers with ≤ 250 options.
 - **Replacements** (wave 22C): counter putters ("If you / an opponent would put …": Vorinclex, Lae'zel, Pir; the
   putter is `by`, 122.6a; review 22C: counters "given" are put — 122.6, 701.34a — so infect/toxic poison is put by the
   source's controller, 120.3b/g, and "target player gets N" by the effect's controller), "reveal ~ and shuffle it into its owner's library instead" (Blightsteel, Nexus of Fate),

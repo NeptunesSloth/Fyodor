@@ -88,6 +88,26 @@ def test_recantation_asks_for_all_the_targets_its_counters_allow(cards):
     check(s)
 
 
+def test_a_big_target_choice_survives_save_and_load_and_goes_on_identically(cards):
+    from tests.wave9c_kit import reloaded
+
+    s = build(cards, ["Recantation"])
+    put(s, "Recantation")
+    rec = card_named(s, "Recantation").id
+    bears = foes(s, 30)
+    act(s, "p1", type="counter", card_ids=[rec], kind="verse", delta=30)
+    mana(s, U=1)
+    act(s, "p1", type="activate_ability", card_id=rec, ability=1)
+    d = s.state.rules.decision
+    assert d is not None and d.max_choices == 30
+    s2 = reloaded(s)  # (saved while the 30-target choice is open)
+    for session in (s, s2):
+        act(session, "p1", type="choose", decision_id=d.id, option_ids=[b.id for b in bears])
+        answer(session)
+    assert s2.state.zones == s.state.zones and {k: v.zone for k, v in s2.state.cards.items()} == {k: v.zone for k, v in s.state.cards.items()}
+    check(s2)
+
+
 def test_arrows_to_many_targets_come_in_chunks_of_twenty(cards):
     s = build(cards, ["Recantation"])
     put(s, "Recantation")
