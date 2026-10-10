@@ -2834,7 +2834,7 @@ _BECOME = re.compile(
     r"(?:a|an) (?P<desc>.+?)"
     r"(?P<addition> in addition to its other (?P<addcolors>colors and )?(?:creature )?types)?"
     r"(?P<still> that(?:'s| are) still (?:an? )?(?:land|artifact|enchantment|planeswalker|creature)s?)?"  # (wave 19A: "that are still lands")
-    r"(?: and gains? (?:(?P<gain>[a-z ]+)|(?P<gainq>\"[^\"]*\"(?:,? and \"[^\"]*\")*)))?"
+    r"(?: and gains? (?:(?P<gain>[a-z ,]+)|(?P<gainq>\"[^\"]*\"(?:,? and \"[^\"]*\")*)))?"
     r"(?:(?P<trail> until end of turn)|(?P<ntrail> until your next turn))?"
     r"(?P<cbb> and can't be blocked this turn)?$")  # (cbb: wave 7E, Dimir Keyrune)
 _DESC = re.compile(  # (each part optional, space-separated: "legendary 8/12 green Spirit artifact creature with …")
@@ -2886,6 +2886,11 @@ def _with_list(text: str, out: dict[str, Any]) -> None:
         out["all_creature_types"] = True
         rest = re.sub(r"(?:,? and |, )?all creature types$", "", rest)
     rest = re.sub(r"(?:,? and |, )\s*$", "", rest.strip())
+    # -- become (wave 30O) -- "becomes a blue Dragon with base power and toughness 4/4, loses all abilities, and gains flying" (Dragonshift):
+    # the loss rides in the same layer-6 effect as the keywords (the effect's own grants apply after it, 613.7: Kenrith's Transformation)
+    if (lose := re.search(r"(?:^|,? and |, )loses all abilities(?:,? and |, |,?$)", rest)) is not None and "lose_abilities" not in out:
+        out["lose_abilities"] = True
+        rest = (rest[: lose.start()] + (", " if rest[lose.end():] else "") + rest[lose.end():]).strip(", ")
     # -- animation keywords (wave 7E) -- "with ward {3}": a parameterised keyword is granted as its keyword line
     # (statics.keyword_line; the engine checks it as a quoted grant, scripts._become)
     for w in re.findall(r"(?:^|,? and |, )(ward \{[^}]+\})", rest):
@@ -2960,8 +2965,8 @@ def _become_forms(text: str) -> str:
     "… loses all abilities, becomes a Coward in addition to its other types, and has base power and toughness 1/1." (Curious Colossus)"""
     text = re.sub(r"^(?P<pre>.+? becomes?) (?P<k>(?:artifact |enchantment )?)creatures with (?=base power and toughness \d+/\d+)",
                   r"\g<pre> a \g<k>creature with ", text)
-    text = re.sub(r"^(?P<lead>until end of turn, )?(?P<o>.+?) has base power and toughness (?P<p>\d+)/(?P<t>\d+) and becomes an? "
-                  r"(?P<s>[A-Z][a-z]+) in addition to its other creature types$", r"\g<lead>\g<o> becomes a \g<p>/\g<t> \g<s> in addition to its "
+    text = re.sub(r"^(?P<lead>until end of turn, )?(?P<o>.+?) has base power and toughness (?P<p>\d+|X)/(?P<t>\d+|X) and becomes an? "
+                  r"(?P<s>[A-Z][a-z]+) in addition to its other (?:creature )?types$", r"\g<lead>\g<o> becomes a \g<p>/\g<t> \g<s> in addition to its "
                   r"other creature types", text)
     text = re.sub(r"^(?P<o>.+?) becomes? a creature in addition to its other types and has base power and base toughness each equal to "
                   r"its mana value$", r"\g<o> becomes a creature with power and toughness each equal to its mana value in addition to its other "
@@ -2969,6 +2974,26 @@ def _become_forms(text: str) -> str:
     return re.sub(r"^(?P<o>.+?) loses all abilities, becomes an? (?P<s>[A-Z][a-z]+) in addition to its other types, and has base power and "
                   r"toughness (?P<p>\d+)/(?P<t>\d+)$", r"\g<o> loses all abilities and becomes a \g<p>/\g<t> \g<s> in addition to its other types",
                   text)
+
+
+# -- layers (wave 30O) -- "This creature's base power and toughness become 4/2 until end of turn." (Mirkwood Meditator), "You may have the base
+# power and toughness of target Human you control become equal to this creature's power and toughness until end of turn." (Exuberant Wolfbear),
+# "Its base power and toughness become equal to Galion's power and toughness until end of turn.": the same layer 7b setting (613.4b, 208.4a) as
+# "<object> has base power and toughness …", which ``BASE_PT`` / ``BASE_EQ`` read. Outside quotes only (a granted ability keeps its words).
+_BASE_OF = re.compile(r"(?:\bhave )?\bthe base power( and toughness)? of (?P<o>[^.,\"]+?) becomes? (?=\S)")
+_BASE_OWN = re.compile(r"(?<![\w'])(?:have )?(?:(?P<o>~|that creature|that permanent)'s|(?P<it>[Ii]ts)) base power( and toughness)? becomes? (?=\S)")
+
+
+def base_become(text: str) -> str:
+    """The wordings above as "<object> has base power [and toughness] <value>" (unchanged when it isn't one of them)."""
+    def of(m: re.Match[str]) -> str:
+        return f"{m['o']} has base power{m[1] or ''} "
+
+    def own(m: re.Match[str]) -> str:
+        return f"{m['o'] or ('It' if m['it'] == 'Its' else 'it')} has base power{m[3] or ''} "
+
+    parts = text.split('"')
+    return '"'.join(_BASE_OWN.sub(own, _BASE_OF.sub(of, p)) if i % 2 == 0 else p for i, p in enumerate(parts))
 
 
 def _become(text: str) -> tuple[Effects, Any]:
@@ -3059,7 +3084,7 @@ def _become(text: str) -> tuple[Effects, Any]:
 # color-changing effect (layer 5, 613.1e) whose colors replace the object's (105.3), locked in to the objects (611.2c)
 # -- activated other (wave 21E) -- "Target creature gains flying and becomes blue until end of turn." (Disciple of Kangee), "Target
 # permanent becomes blue in addition to its other colors until end of turn." (Indigo Faerie: the color is added, 105.3, 613.1e)
-_BECOME_COLOR = re.compile(r"^(?:(?P<lead>until end of turn, ))?(?P<o>.+?)(?: gains? (?P<pre>[a-z ]+?) and)? becomes? (?P<colors>colorless|"
+_BECOME_COLOR = re.compile(r"^(?:(?P<lead>until end of turn, ))?(?P<o>.+?)(?: gains? (?P<pre>[a-z ]+?) and)? becomes? (?P<colors>colorless|all colors|"
                            + _COLOR_LIST + r")(?P<add> in addition to its other colors)?"
                            r"(?: and gets (?P<pp>[+−-]\d+)/(?P<tt>[+−-]\d+))?"  # (wave 26A: Viridescent Wisps)
                            r"(?: and gains? (?P<gain>[a-z ]+?))?(?P<trail> until end of turn)?$")
@@ -3070,7 +3095,8 @@ def _become_color(m: re.Match[str]) -> tuple[Effects, Any]:
     if kind == "players" or not (m["lead"] or m["trail"]):
         raise _Fail  # (no duration: a color for the rest of the game, not read)
     who = _who(kind, key)
-    colors = [] if m["colors"] == "colorless" else [_COLOR_LETTERS[c] for c in re.split(r",? and |, ", m["colors"])]
+    colors = [] if m["colors"] == "colorless" else list(_COLOR_LETTERS.values()) if m["colors"] == "all colors" \
+        else [_COLOR_LETTERS[c] for c in re.split(r",? and |, ", m["colors"])]
     if m["add"] and not colors:
         raise _Fail
     out: Effects = [{"do": "become", "who": who, "types": [], **({"add_colors": colors} if m["add"] else {"colors": colors}),
@@ -3090,7 +3116,7 @@ def _become_color(m: re.Match[str]) -> tuple[Effects, Any]:
 
 
 BASE_PT = (r"(?:(?P<lead>until end of turn|until your next turn), )?(?P<o>.+?)(?: (?P<lose>loses? all abilities and))? (?:has|have) base "
-           r"(?:power and toughness (?P<p>\d+|X)/(?P<t>\d+|X)(?P<all> and gain all creature types)?(?:, where X is (?P<xdef>[^\"]+?))?"  # (X: wave 4K)
+           r"(?:power and toughness (?P<p>\d+|X)/(?P<t>\d+|X)(?P<more>(?:,? and |, )gains? [a-z0-9 ,]+?)?(?:, where X is (?P<xdef>[^\"]+?))?"  # (X: wave 4K)
            # -- activated sweep (wave 17B) -- "has base power 4 and gains trample" (Turtle-Duck): one of the two, layer 7b (613.4b)
            rf"|(?P<one>power|toughness) (?P<n>\d+)(?: and gains? (?P<gk>{_KW_ONLY}))?)"
            r"(?: (?P<trail>until end of turn|until your next turn))?")
@@ -3124,15 +3150,57 @@ def parse_base_pt(m: re.Match[str]) -> tuple[Effects, Any]:
         if m["gk"]:
             one.append({"do": "grant", "who": who, "keywords": _keyword_list(m["gk"])})
         return one, _one(group)
-    if (m["all"] or m["xdef"]) and duration == "permanent":
+    if (m["more"] or m["xdef"]) and duration == "permanent":
         raise _Fail
     out: dict[str, Any] = {"do": "become", "who": _who(kind, key), "types": [],
                            "p": x if m["p"] == "X" else int(m["p"]), "t": x if m["t"] == "X" else int(m["t"]), "duration": duration}
-    if m["all"]:
-        out["all_creature_types"] = True
+    more: Effects = []
+    for part in re.split(r"(?:,? and |, )(?=gains? )", re.sub(r"^(?:,? and |, )", "", m["more"] or "")) if m["more"] else ():
+        # -- layers (wave 30O) -- "has base power and toughness 4/4, gains all creature types, and gains flying" (Wings of Velis Vel), "…
+        # 10/10 and gains trample" (Oko): the grants of the same sentence, each its own layer-6 effect on the objects locked in now (611.2c, 613.6)
+        what = re.sub(r"^gains? ", "", part)
+        if what == "all creature types":
+            out["all_creature_types"] = True
+        elif duration == "end_of_turn":
+            more.append({"do": "grant", "who": out["who"], "keywords": _animation_keywords(what)})
+        else:
+            raise _Fail
     if m["lose"]:  # -- static_other sweep (wave 19A) -- "loses all abilities and has base power and toughness 0/1" (Ovinize): layers 6 and 7b
         out["lose_abilities"] = True
-    return [out], _one(group)
+    return [out, *more], _one(group)
+
+
+# -- layers (wave 30O) -- "has base power and toughness equal to that creature's power and toughness" / "base power equal to the number of Towns you
+# control": a base power and/or toughness set to a value (613.4b), read once as the effect begins (611.2d, 608.2h: a specific object's
+# characteristic is used as it is then, or as it last existed). "that creature's" names another object (``ante``, bound like a pump's "it":
+# scripts.resolve_it); "its" would be the object being set, which nothing reads here.
+BASE_EQ = (r"(?:(?P<lead>until end of turn|until your next turn), )?(?P<o>.+?) (?:has|have) base (?P<what>power and toughness|power|toughness) (?:equal to |(?=\d+ plus ))"
+           r"(?P<v>.+?)(?: (?P<trail>until end of turn|until your next turn))?")
+
+
+def parse_base_eq(m: re.Match[str]) -> tuple[Effects, Any]:
+    import json
+
+    if m["lead"] and m["trail"] or re.search(r"\bits\b", m["v"]):
+        raise _Fail
+    kind, key, group = ref(m["o"])
+    if kind == "players":
+        raise _Fail
+    when = m["lead"] or m["trail"] or ""
+    duration = {"until end of turn": "end_of_turn", "until your next turn": "next_turn"}.get(when, "permanent")
+    both = re.fullmatch(r"(?P<s>.+?)'s power and toughness", m["v"]) if m["what"] == "power and toughness" else None
+    if both is not None:
+        p, t = _stat(f"{both['s']}'s power"), _stat(f"{both['s']}'s toughness")
+    else:
+        p = t = _stat(m["v"])
+    e: dict[str, Any] = {"do": "become", "who": _who(kind, key), "types": [], "duration": duration}
+    if m["what"] != "toughness":
+        e["p"] = p
+    if m["what"] != "power":
+        e["t"] = t
+    if '"it"' in json.dumps([p, t]):
+        e["ante"] = True  # (scripts.resolve_it binds "that creature's power" to the object an earlier instruction or the trigger named)
+    return [e], _value_target([p, t], _one(group))  # ("… equal to target creature's power": the sentence's one target, 115.1)
 
 
 def parse_still(m: re.Match[str]) -> tuple[Effects, Any]:

@@ -1,0 +1,273 @@
+[
+ {
+  "name": "Eldrazi Mimic",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Creature — Eldrazi",
+  "oracle_text": "Whenever another colorless creature you control enters, you may have this creature's base power and toughness become equal to that creature's power and toughness until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Riptide Mangler",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Beast",
+  "oracle_text": "{1}{U}: This creature's base power becomes equal to target creature's power. (This effect lasts indefinitely.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "3"
+ },
+ {
+  "name": "Galion, Elvenking's Butler",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Elf Advisor",
+  "oracle_text": "Whenever Galion attacks, choose up to one other target creature you control. Its base power and toughness become equal to Galion's power and toughness until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Tanazir Quandrix",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{U}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Elder Dragon",
+  "oracle_text": "Flying, trample\nWhen Tanazir Quandrix enters, double the number of +1/+1 counters on target creature you control.\nWhenever Tanazir Quandrix attacks, you may have the base power and toughness of other creatures you control become equal to Tanazir Quandrix's power and toughness until end of turn.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Trample",
+   "Double"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Mirkwood Meditator",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Elf Druid",
+  "oracle_text": "Landfall — Whenever a land you control enters, you may have this creature's base power and toughness become 4/2 until end of turn.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Landfall"
+  ],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Minsc, Beloved Ranger",
+  "layout": "normal",
+  "mana_cost": "{R}{G}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Ranger",
+  "oracle_text": "When Minsc enters, create Boo, a legendary 1/1 red Hamster creature token with trample and haste.\n{X}: Until end of turn, target creature you control has base power and toughness X/X and becomes a Giant in addition to its other types. Activate only as a sorcery.",
+  "colors": [
+   "G",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Wings of Velis Vel",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Kindred Instant — Shapeshifter",
+  "oracle_text": "Changeling (This card is every creature type.)\nUntil end of turn, target creature has base power and toughness 4/4, gains all creature types, and gains flying.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Changeling"
+  ]
+ },
+ {
+  "name": "Dragonshift",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Until end of turn, target creature you control becomes a blue and red Dragon with base power and toughness 4/4, loses all abilities, and gains flying.\nOverload {3}{U}{U}{R}{R} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Overload"
+  ]
+ },
+ {
+  "name": "Glamer Gifter",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Faerie Wizard",
+  "oracle_text": "Flash\nFlying\nWhen this creature enters, choose up to one other target creature. Until end of turn, that creature has base power and toughness 4/4 and gains all creature types.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Flash"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Enter the Avatar State",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Instant — Lesson",
+  "oracle_text": "Until end of turn, target creature you control becomes an Avatar in addition to its other types and gains flying, first strike, lifelink, and hexproof. (A creature with hexproof can't be the target of spells or abilities your opponents control.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Scrapbasket",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact Creature — Scarecrow",
+  "oracle_text": "{1}: This creature becomes all colors until end of turn.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Humility",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "All creatures lose all abilities and have base power and toughness 1/1.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Opalescence",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Each other non-Aura enchantment is a creature in addition to its other types and has base power and base toughness each equal to its mana value.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Juggernaut",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact Creature — Juggernaut",
+  "oracle_text": "This creature attacks each combat if able.\nThis creature can't be blocked by Walls.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "5",
+  "toughness": "3"
+ },
+ {
+  "name": "Exuberant Wolfbear",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Wolf Bear",
+  "oracle_text": "Whenever this creature attacks, you may have the base power and toughness of target Human you control become equal to this creature's power and toughness until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Shape Stealer",
+  "layout": "normal",
+  "mana_cost": "{U}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Shapeshifter Spirit",
+  "oracle_text": "Whenever this creature blocks or becomes blocked by a creature, this creature's base power and toughness become equal to that creature's power and toughness until end of turn.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ }
+]
