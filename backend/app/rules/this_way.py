@@ -42,7 +42,8 @@ _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled",), "sacrificed": ("sa
           "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned",), "your_hand": ("returned",),
           "graveyard": ("destroyed", "sacrificed", "milled", "discarded"), "your_graveyard": ("milled", "discarded"),
           "died": ("destroyed", "sacrificed"), "tapped": ("tapped",),
-          "revealed": ("revealed",), "shuffled": ("shuffled",)}  # (wave 10C: reveal_hand.py)
+          "revealed": ("revealed",), "shuffled": ("shuffled",),  # (wave 10C: reveal_hand.py)
+          "created": ("created",)}  # -- reflexive this way (wave 30G) -- 603.12: "create a token. When you do, …" (the tokens it made)
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
     r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?"
@@ -250,7 +251,7 @@ def unbound(v: Any) -> bool:
 
 
 def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], you: str) -> bool:
-    if kind in ("tapped", "revealed"):  # (tap_choice binds exactly the permanents it tapped; reveal_hand: the cards it showed, which stay put)
+    if kind in ("tapped", "revealed", "created"):  # (tap_choice binds exactly the permanents it tapped; reveal_hand: the cards it showed, which stay put; create_token: the tokens it made)
         return True
     old_card = plan.state.cards.get(was["card"])
     if kind == "shuffled":  # (-- static_other sweep (wave 16B) -- a library shuffle gives its cards new ids: gone from where it was, or in a library)

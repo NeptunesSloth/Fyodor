@@ -474,7 +474,7 @@ _RECORDING: dict[str, str | None] = {
     "destroy": "destroyed", "destroy_all": "destroyed", "exile": "exiled", "exile_until": "exiled",
     "bounce": "returned", "return_card": "returned", "blink": "returned", "sacrifice": "sacrificed",
     "sacrifice_choice": "sacrificed", "discard": "discarded", "mill": "milled", "search": None, "pick_looked": None,
-    "create_token": None, "tap": None, "untap": None, "phase_out": None, "pump": None, "grant": None, "restrict": None,
+    "create_token": "created", "tap": None, "untap": None, "phase_out": None, "pump": None, "grant": None, "restrict": None,
     "add_counters": None, "remove_counters": None, "regenerate": None, "damage": None,
     "edict": "sacrificed",  # -- "this way" outcomes (wave 4A) -- "each opponent sacrifices a creature …" (effects._choose_next)
     "tap_choice": "tapped",  # (wave 4A) "tap any number of untapped creatures you control" (this_way.tap_choice)
@@ -523,9 +523,7 @@ class _Introducer:
 
         self.index = index
         self.do = e.get("do")
-        self.verb = _RECORDING.get(self.do or "")
-        if self.do == "sacrifice_choice" and e.get("exile"):
-            self.verb = "exiled"  # (-- resolution memory (wave 22D) -- "Exile a creature you control": what it exiled, not sacrificed)
+        self.verb = _verb_of(e)  # (-- resolution memory (wave 22D) -- "Exile a creature you control": what it exiled, not sacrificed)
         self.recording = self.do in _RECORDING  # (can carry a binding: "its controller", "its power")
         self.objects = self.recording
         self.player = False
@@ -2150,9 +2148,12 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # this way (701.9a), not a trigger event's amount; "plus one" would be a different (single) draw: not read
     # -- if you do (wave 21C) -- "You may discard up to two cards. If you do, draw that many cards." (Fable of the Mirror-Breaker): "up to" /
     # "any number" already let the player choose none, and none discarded draws none, so it reads as "discard …, then draw that many"
-    body = re.sub(r"(?i)\byou may (discard (?:up to \w+|any number of) cards?)\. If you do, draw that many cards\b(?! plus)",
-                  r"\1, then draw that many cards", body)
-    body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus)",
+    body = re.sub(r"(?i)\byou may (discard (?:up to \w+|any number of) cards?)\. If you do, draw that many cards(?=\.|$)",
+                  r"\1, then draw that many cards", body)  # (wave 30G: and nothing else after it — "… and gain 3 life" isn't "that many")
+    # -- reflexive this way (wave 30G) -- "you may discard one or more land cards" is "any number" to a player who may choose none (Loamcrafter Faun)
+    body = re.sub(r"(?i)(?<!spell, )\byou may (discard|sacrifice) one or more ", r"you may \1 any number of ", body)
+    body = _COUNTED_IF_YOU_DO.sub(_counted_if_you_do, body)  # -- reflexive this way (wave 30G) -- Neheb: "… draw that many cards and add that much {R}."
+    body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus| and )",
                   r"\1, then draw a card for each card discarded this way", body)
     # 701.70a: "Recruit" means "Draw a card, then discard a card. If you discarded a nonland card this way, create a 1/1 white
     # Human Soldier creature token." (one card is discarded, so the token is made once for it or not at all)
@@ -2792,8 +2793,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:
             effects.append(paid)
             continue
-        if text.startswith("when you do, ") or _REFLEX_DISCARD.match(text):  # -- refused modal/conditional (wave 3R1) -- a reflexive trigger (603.12)
-            reflex = _reflexive(" ".join(texts[i:]), effects, prev_start, optional, it)
+        if text.startswith("when you do, ") or _REFLEX_THIS_WAY.match(text):  # -- refused modal/conditional (wave 3R1) -- a reflexive trigger (603.12)
+            reflex = _reflexive(" ".join(texts[i:]), effects, prev_start, optional, it, groups)
             if reflex is None:
                 return None
             effects.append(reflex)
@@ -2928,6 +2929,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 and not last_look.get("until") and last_look.get("player") == "you":
             text = f"if it's a {revealed['w']}, {revealed['r']}"
         cond_m = re.match(r"^if (?P<c>[^,]+), (?P<rest>.+)$", text)
+        if (way_m := re.match(r"^if (?P<c>[^.]+? this way), (?P<rest>.+)$", text)) is not None and this_way.condition(way_m["c"]) is not None:
+            cond_m = way_m  # -- reflexive this way (wave 30G) -- "If a noncreature, nonland card is milled this way, …": commas inside the kind (Old Rutstein)
         if cond_m:  # "If you control a Forest, draw a card." (608.2c): a condition on this sentence
             from app.rules import conditions
 
@@ -3015,11 +3018,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += _add_groups(groups, found, sel)
     if _x_now():
         effects = _swap_x(effects)
+    effects = _that_many_of_counted(effects)  # -- reflexive this way (wave 30G) --
     if optional and len(sentences) == len(texts) > 1 and (first := _may_first_only(texts, effects, sentences)):
         effects, sentences, optional = [{"do": "may_rest", "skip": first}, *effects], [k + 1 for k in sentences], False
     if any(e.get("do") == "may_rest" and not e.get("skip") for e in effects[:sentences[-1]]) and not (
-            effects[sentences[-1]].get("do") == "reflexive" and '"discarded"' in json.dumps(effects[sentences[-1]].get("cond"))):
-        # (-- resolution memory (wave 22D) -- but a reflexive "When you discard a card this way" ends with it anyway: no discard, no trigger)
+            effects[sentences[-1]].get("do") == "reflexive" and effects[sentences[-1]].get("lki") == "cond_ref"):
+        # (-- resolution memory (wave 22D; wave 30G) -- but a reflexive "When you discard a card this way" ends with it anyway: no discard, no trigger)
         return None  # -- reanimation (wave 20C) -- may_rest ends the resolution on "no": nothing may follow its sentence
     resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
     if resolved is not None:  # -- refused modal/conditional (wave 3R1) -- an "instead" pronoun naming the target
@@ -3044,7 +3048,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # -- "this way" outcomes (wave 4A) -- "discard your hand, then draw that many cards": "that many" is the
     # cards discarded, not a trigger event's amount (not read)
     for k, e in enumerate(resolved):
-        if e["do"] == "discard" and (e.get("all") or e.get("upto")) and '"event_amount"' in json.dumps(resolved[k + 1:]):
+        if e["do"] == "discard" and (e.get("all") or e.get("upto")) and _reads_event_amount(resolved[k + 1:]):
             return None
     # -- kicked / instead (wave 4G) -- targets tied to the kicker (702.33g)
     from app.rules import kicked_instead
@@ -3072,7 +3076,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         if e["do"] == "mill":
             mill_k = k
-        if k and any(x.get("upto") and x["do"] == "sacrifice_choice" for x in resolved[:k]) and "event_amount" in json.dumps(e):
+        if k and any(x.get("upto") and x["do"] == "sacrifice_choice" for x in resolved[:k]) and _reads_event_amount([e]):
             return None  # -- triggers (wave 19B) -- "up to that many" after "sacrifice any number of": the sacrificed count, not the event's
         if e.get("put") and not str(e.get("who")).startswith("event"):
             return None  # -- triggers (wave 19B) -- "put it onto the battlefield" is read only for the trigger event's card (a graveyard card)
@@ -6135,33 +6139,176 @@ def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any
     return (name, found) if name is not None else None
 
 
-# -- reflexive discards (wave 19C) -- "Draw a card, then discard a card. When you discard a creature card this way, …" (603.12)
-_REFLEX_DISCARD = re.compile(r"^when you discard (?P<w>a card|a nonland card|a creature card) this way, ", re.I)
+# -- reflexive discards (wave 19C; wave 30G: any "this way" verb) -- "Draw a card, then discard a card. When you discard a creature card this
+# way, …" (603.12) / "Exile the top card of your library. When you exile a nonland card this way, …" / "… When one or more nonland cards are
+# exiled this way, put that many +1/+1 counters …": the one instruction counted "this way", its objects and its number read by the reflexive ability
+_REFLEX_THIS_WAY = re.compile(r"^when (?:you (?P<v>discard|exile|sacrifice) (?P<w>(?:an?|one or more) [^,]+?)|"
+                              r"(?P<w2>(?:an?|one or more) [^,]+?) (?P<cop>is|are) (?P<v2>discarded|exiled|sacrificed)) this way, ", re.I)
+_REFLEX_PAST = {"discard": "discarded", "exile": "exiled", "sacrifice": "sacrificed"}
+_MANY_WORD, _MANY_N = "ten", 10  # (a stand-in for "that many" in "up to that many target …")
+_REFLEX_STAT = re.compile(r"\b(?:that card's|its|the (?:exiled|discarded) card's) (?=mana value\b)", re.I)
+
+
+_COUNTED_IF_YOU_DO = re.compile(r"(?i)\byou may ((?:discard|sacrifice) (?:up to \w+|any number of) [^.,]+?)\. If you do, ([^.]*\bthat (?:many|much)\b[^.]*)(?=\.)")
+
+
+def _counted_if_you_do(m: re.Match[str]) -> str:
+    """-- reflexive this way (wave 30G) -- 118.12: "You may discard / sacrifice any number of …. If you do, [B]" where everything B does is "that
+    many" / "that much" of it: choosing none does none of it (118.12: nothing to pay), and none of anything scales to nothing, so it reads as
+    "… , then [B]" — B's amounts being the instruction's count (_that_many_of_counted). A B that does anything else (or "plus one") isn't read."""
+    clauses = re.split(r", and | and ", m[2])
+    if all(re.search(r"\bthat (?:many|much)\b", c) and not re.search(r"\b(?:plus|minus|more|fewer|additional|another)\b", c) for c in clauses):
+        return f"{m[1]}, then {m[2]}"
+    return m[0]
+
+
+def _counted(e: dict[str, Any]) -> bool:
+    """A counted instruction: "discard / sacrifice any number of …" (the player picks how many, even none)."""
+    return e["do"] in ("discard", "sacrifice_choice") and bool(e.get("upto") or e.get("all")) and not e.get("to") and not e.get("exile") \
+        and e.get("who") == "you"
+
+
+def _that_many_of_counted(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """-- reflexive this way (wave 30G) -- "Discard / sacrifice any number of …, then draw that many cards and add that much {R}" (Neheb): after
+    a counted instruction ("any number", "up to", all of them), "that many" / "that much" is how many it did this to (608.2c, 608.2h; the Neheb
+    ruling of 2019-05-03: the mana is the cards discarded, not the cards drawn), never the trigger event's amount (combat damage). It is the
+    instruction's "this way" count (this_way.py), bound by resolve_it. A reflexive ability keeps its own event's amount (effects.reflexive)."""
+    out, verb = [], None
+    for e in effects:
+        if _counted(e):
+            verb = _verb_of(e)
+        elif verb is not None and e["do"] != "reflexive" and "event_amount" in json.dumps(e):
+            e = json.loads(json.dumps(e).replace('{"event_amount": 1}', json.dumps({"this_way": verb, "of": None})))
+        out.append(e)
+    return out
+
+
+def _reads_event_amount(effects: list[dict[str, Any]]) -> bool:
+    """Does an instruction read the trigger event's "that much" / "that many"? (Not a reflexive ability's: it has an event of its own, whose
+    amount effects.reflexive sets, wave 30G.)"""
+    return any("event_amount" in json.dumps({k: v for k, v in e.items() if k != "ability"} if e["do"] == "reflexive" else e) for e in effects)
+
+
+def _verb_of(e: dict[str, Any]) -> str | None:
+    """The verb "… <verb> this way" names for an instruction (_RECORDING; a move to exile by another name is an exile)."""
+    if (e["do"] == "sacrifice_choice" and e.get("exile")) or (e["do"] == "discard" and e.get("to") == "exile"):
+        return "exiled"
+    return _RECORDING.get(e["do"])
+
+
+def _one_object(e: dict[str, Any], groups: list[dict[str, Any]] | None) -> bool:
+    """Does the instruction act on exactly one object, for its controller or one chosen target ("a card", not a batch)?"""
+    if e.get("n", 1) != 1 or any(e.get(k) for k in ("all", "upto")):
+        return False
+    if (g := _group_of(e)) is not None:
+        return groups is not None and g < len(groups) and {"max": 1, **groups[g]}["max"] == 1 and not _is_player_group(groups[g])
+    return e.get("who") in (None, "you") and e.get("player", "you") == "you"
+
+
+def _reflex_this_way(m: re.Match[str], rest: str, effects: list[dict[str, Any]], it: str | None,
+                     groups: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+    """-- reflexive discards (wave 19C; wave 30G) -- the reflexive ability (603.12) of "[A]. When you [discard / exile / sacrifice] [a | one or
+    more] [kind] this way, [B]": it triggers if A did that to at least one such object (the "this way" count of the one instruction of the
+    ability that did it, 608.2c), and B reads how many ("that many", "that much": effects.reflexive, 608.2h) and, for the one object a
+    singular wording names, the object itself ("that card's mana value": a card in exile or a graveyard is the new object there, 400.7j).
+    Several instructions that could be "this way", a singular wording for a batch, or a stat of several objects: not read."""
+    said = f"you {_REFLEX_PAST[m['v'].lower()]} {m['w']} this way" if m["v"] else f"{m['w2']} {m['cop'].lower()} {m['v2'].lower()} this way"
+    cond = this_way.condition(said)
+    if cond is None:
+        return None
+    made = [e for e in effects if _verb_of(e) in this_way.verbs(cond["value"]["this_way"])]
+    if len(made) != 1:
+        return None
+    last = made[0]
+    plural = (m["w"] or m["w2"]).lower().startswith("one or more")
+    one = _one_object(last, groups)
+    if not (plural or one) or (m["v"] and _group_of(last) is None and last.get("who") not in (None, "you")):
+        return None  # ("When you discard / sacrifice …": the controller's own, never a target player's or each player's)
+    return _this_way_reflexive(cond, plural, one, rest[m.end():], it)
+
+
+def _this_way_reflexive(cond: dict[str, Any], plural: bool, one: bool, tail: str, it: str | None) -> dict[str, Any] | None:
+    """The reflexive ability whose body is ``tail``, triggering on the count ``cond`` (a "this way" condition): ``plural`` — a batch wording
+    ("one or more"), ``one`` — the instruction acted on one object (its stat can be read)."""
+    stat = _REFLEX_STAT.search(tail) is not None  # -- resolution memory (wave 22D) -- the card discarded / exiled, as the event object (608.2h)
+    if stat and not one:
+        return None
+    tail = re.sub(r"\bthe (?:exiled|discarded) card's\b", "that card's", tail)
+    # "tap up to that many target creatures" (Nyssa of Traken): how many targets is the count, known as the reflexive ability goes on the stack
+    # (603.3d; targets.where_x reads the event's amount, wave 27C "x_value"): read with a stand-in number, then made the group's X
+    many = re.search(r"\bup to that many target\b", tail) is not None
+    if many and (not plural or re.search(rf"\bup to (?!{_MANY_WORD}\b)\w+ target\b", tail)):
+        return None
+    tail = tail.replace("up to that many target", f"up to {_MANY_WORD} target")
+    parsed = parse_effects(tail[:1].upper() + tail[1:], "event" if stat else "self" if it == "self" else None)
+    if parsed is None or not parsed[0] or (not plural and "event_amount" in json.dumps(parsed, default=str)):
+        return None  # ("that many" of the one object a singular wording names: nothing to count)
+    if many:
+        if not isinstance(parsed[1], list) or not any(g.get("max") == _MANY_N for g in parsed[1]):
+            return None
+        parsed = (parsed[0], [({k: v for k, v in g.items() if k != "max"} | {"x_value": {"event_amount": 1}}) if g.get("max") == _MANY_N else g
+                              for g in parsed[1]], parsed[2])
+    return {"do": "reflexive", "cond": cond, "lki": "cond_ref",
+            "ability": {"kind": "triggered", "trigger": "reflexive", "effects": parsed[0], "optional": parsed[2], **target_fields(parsed[1])}}
+
+
+def _reflex_sacrificed(rest: str, it: str | None) -> dict[str, Any] | None:
+    """-- reflexive this way (wave 30G) -- 603.12 / 608.2h: "Sacrifice a creature. When you do, [B]", B reading a stat of it ("all creatures get
+    -X/-X, where X is the sacrificed creature's toughness": Tip the Scales ruling of 2025-04-04, "as it last existed on the battlefield"): the
+    same reflexive ability as after "you may sacrifice a creature" (_reflexive_lki), its event object the sacrificed creature with its last
+    known information. A mandatory sacrifice that is not done (no creature) is no event: nothing triggers. Any other mention of it: not read."""
+    body = re.sub(r"^when you do, ", "", rest, flags=re.I)
+    out = _LKI_STAT.sub(lambda m: f"that permanent's {m[1]}", body)
+    if body.lower().startswith("if ") or _LKI_OTHER.search(_LKI_STAT.sub("", out)):
+        return None
+    parsed = parse_effects(out[:1].upper() + out[1:], "event")
+    if parsed is None or not parsed[0] or "event_amount" in json.dumps(parsed, default=str):
+        return None
+    return {"do": "reflexive", "cond": {"value": {"this_way": "sacrificed", "of": None}, "op": ">=", "n": 1}, "lki": "cond_ref",
+            "ability": {"kind": "triggered", "trigger": "reflexive", "effects": parsed[0], "optional": parsed[2], **target_fields(parsed[1])}}
+
+
+def _makes_one_token(e: dict[str, Any]) -> bool:
+    """The creation of one token for its controller ("Create a 2/1 … token."): not several (whether "When you do" triggers once for them or once
+    for each is not settled by the rulings: Faebloom Trick says once, Ajani's says once for each token a Doubling Season makes)."""
+    return e["do"] == "create_token" and e.get("n") == 1 and e.get("who") == "you" and not e.get("more") and not e.get("per_controller")
+
+
+def _reflex_created(rest: str, made: dict[str, Any]) -> dict[str, Any] | None:
+    """-- reflexive this way (wave 30G) -- 603.12: "Create a token. When you do, [B]." The reflexive ability triggers on the creation of the token
+    (the rulings of Ajani, Nacatl Avenger, Ratonhnhaké꞉ton, Eastfarthing Farmer: "when you create a … token this way"), once for each token
+    created (Ajani: a Doubling Season makes two Cat Warriors, so two triggers), and "that token" / "it" in B is that token — the trigger's
+    event object, a new object on the battlefield (400.7)."""
+    body = re.sub(r"^when you do, ", "", rest, flags=re.I)
+    if body.lower().startswith("if "):
+        return None  # (an intervening "if" is checked as the reflexive ability would trigger, 603.4, before any target is chosen: not read here)
+    parsed = parse_effects(body[:1].upper() + body[1:], "event")
+    if parsed is None or not parsed[0] or "event_amount" in json.dumps(parsed, default=str):
+        return None  # ("that many" of one token each: nothing to count)
+    return {"do": "reflexive", "cond": {"value": {"this_way": "created", "of": None}, "op": ">=", "n": 1}, "lki": "cond_ref", "each": True,
+            "ability": {"kind": "triggered", "trigger": "reflexive", "effects": parsed[0], "optional": parsed[2], **target_fields(parsed[1])}}
 
 
 def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, optional: bool,
-               it: str | None = None) -> dict[str, Any] | None:
+               it: str | None = None, groups: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
     """"[A]. When you do, [B]." (603.12): a reflexive triggered ability that triggers if A was done — a "you may
     [cost]" payment made (118.12), or an instruction that isn't optional carried out (probed as it runs: started, or for counters put) —
     and whose B (everything to the end of the ability) is put on the stack afterwards with its own targets and
     "you may" (603.3c-d). B is read alone: a pronoun in it naming what A did ("that creature's power") isn't read."""
     base = effects[prev_start:]
-    if (disc := _REFLEX_DISCARD.match(rest)) is not None:  # -- reflexive discards (wave 19C) -- the discard just before, counted "this way"
-        di = max((i for i, b in enumerate(base) if b["do"] == "discard"), default=None)  # (-- wave 22D -- draws may follow it: "Discard a card, then draw two cards.")
-        last = base[di] if di is not None and all(b["do"] == "draw" for b in base[di + 1:]) else None
-        cond_d = this_way.condition(f"{disc['w']} was discarded this way")
-        tail = rest[disc.end():]
-        if last is None or last["do"] != "discard" or last.get("who") not in (None, "you") or last.get("n") != 1 \
-                or any(last.get(k) for k in ("all", "random", "upto", "to", "zone")) or cond_d is None:
-            return None
-        # -- resolution memory (wave 22D) -- "… deals damage equal to that card's mana value": the card discarded, as the event object (608.2h)
-        card_stat = re.search(r"\b(?:that card's|its) mana value\b", tail) is not None and last.get("n") == 1
-        parsed_d = parse_effects(tail[:1].upper() + tail[1:], "event" if card_stat else "self" if it == "self" else None)
-        if parsed_d is None or not parsed_d[0]:
-            return None
-        out_d = {"do": "reflexive", "cond": cond_d, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": parsed_d[0],
-                                                              "optional": parsed_d[2], **target_fields(parsed_d[1])}}
-        return {**out_d, "lki": "cond_ref"} if card_stat else out_d
+    if (this := _REFLEX_THIS_WAY.match(rest)) is not None:  # -- reflexive discards (wave 19C; wave 30G) -- the instruction counted "this way"
+        return _reflex_this_way(this, rest, effects, it, groups)
+    if len(base) == 1 and _makes_one_token(base[0]) and (not optional or prev_start == 0):  # -- reflexive this way (wave 30G) --
+        return _reflex_created(rest, base[0])
+    if len(base) == 1 and _counted(base[0]) and (not optional or prev_start == 0) and rest.lower().startswith("when you do, "):
+        # -- reflexive this way (wave 30G) -- "You may discard any number of cards. When you do, up to that many target creatures …" (Miasma Demon):
+        # "When you do" is that it did this to at least one (603.12: you chose some; 118.12), "that many" how many (608.2c)
+        kind = _verb_of(base[0])
+        said = this_way.condition(f"you {kind} one or more {'cards' if kind == 'discarded' else 'permanents'} this way")
+        return _this_way_reflexive(said, True, False, rest[len("when you do, "):], it) if said is not None and kind in ("discarded", "sacrificed") else None
+    if len(base) == 1 and not optional and base[0]["do"] == "sacrifice_choice" and not base[0].get("exile") and _one_object(base[0], groups) \
+            and _LKI_STAT.search(rest) and (said := _reflex_sacrificed(rest, it)) is not None:
+        return said  # -- reflexive this way (wave 30G) -- "Sacrifice a creature. When you do, … that creature's power" (Tip the Scales)
     if len(base) == 1 and base[0]["do"] == "optional_payment" and base[0].get("bind"):
         cond: dict[str, Any] = {"succeeded": base[0]["bind"]}
     elif (name := _probe_previous(effects, prev_start, reflex=True)) is not None and (not optional or prev_start == 0):
@@ -6194,6 +6341,8 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
             return None
         b_effects = _x_to_event(b_effects)
         x_bind = base[0]["bind"]
+    if x_bind is None and "event_amount" in json.dumps([b_effects, b_target], default=str):
+        return None  # -- reflexive this way (wave 30G) -- "that much" here has no amount behind it (the reflexive ability's event carries none): reads 0, not read
     out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
                                                         "optional": b_optional, **target_fields(b_target)},
            **({"x_from": x_bind} if x_bind else {})}

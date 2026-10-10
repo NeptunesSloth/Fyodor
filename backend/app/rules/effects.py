@@ -3079,6 +3079,8 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # this way, … that card's mana value")
         name = e["cond"]["value"]["ref_count"] if e.get("lki") == "cond_ref" else e.get("lki")
         event = _reflexive_event(plan, ctx, name) if name else None  # -- reflexive LKI (wave 4J) --
+        if event is not None and e.get("lki") == "cond_ref":  # -- reflexive this way (wave 30G) -- "that many" / "that much": how many it did this to (608.2c, 608.2h)
+            event = event.model_copy(update={"amount": _this_way.count(plan, ctx, e["cond"]["value"])})
         if e.get("x_from"):  # -- if you do (wave 25C) -- "you may pay {X}. When you do, …": the X paid is the reflexive ability's amount
             from app.game.rules_state import TriggerEvent
             from app.rules import paid_x
@@ -3086,8 +3088,12 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             paid = paid_x.amount(ctx, e["x_from"])
             outer = TriggerEvent.model_validate(ctx["event"]) if ctx.get("event") else None
             event = outer.model_copy(update={"amount": paid}) if outer is not None else TriggerEvent(kind="reflexive", amount=paid)
-        _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
-             name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=event)
+        # (-- reflexive this way (wave 30G) -- "each": one reflexive ability for each object the event happened to, each about its own object:
+        # the rulings of Ajani, Nacatl Avenger (a Doubling Season makes two Cat Warriors: two triggers), 603.12a)
+        for ev in ([event.model_copy(update={"objects": [o], "count": 1, "amount": 1}) for o in event.objects]
+                   if e.get("each") and event is not None else [event]):
+            _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
+                 name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=ev)
     return True
 
 
@@ -3100,6 +3106,11 @@ def _reflexive_event(plan: Plan, ctx: Context, name: str) -> Any:
 
     b = context.refs(ctx).get(name) or {}
     before = [ObjectRef.model_validate(r) for r in b.get("objects") or []] if b.get("kind") in ("payment", "objects") else []
+    if b.get("kind") == "objects" and b.get("was"):
+        # -- reflexive this way (wave 30G) -- an instruction that moved its objects ("Sacrifice a creature. When you do, … that creature's
+        # power"): an object that left the battlefield is read as it last existed there (608.2h), not as the new object it became (400.7)
+        was = [ObjectRef.model_validate(r) for r in b["was"]]
+        before = [w if context.snapshot(plan, w) is not None and w.object_id != n.object_id else n for n, w in zip(before, was, strict=False)]
     objects = [r.model_copy(update={"snapshot": context.snapshot(plan, r)}) for r in before]
     return TriggerEvent(kind="reflexive", objects=objects, count=len(objects))
 # -- end reflexive LKI (wave 4J) --
