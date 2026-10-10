@@ -817,6 +817,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         if cond.get("kicked") and not info.get("kicked"):
             return False
         frm = _zone(info.get("from"))
+        frm = "exile" if frm == "foretell" else frm  # (-- review 30 -- the foretell zone is exile, 702.143a, as casting.cast_spell records it)
         if cond.get("from") and not (frm == cond["from"] or (cond["from"] == "not_hand" and frm and frm != "hand")):
             return False
         if cond.get("targets") and not _targets_ok(plan, cond["targets"], watcher, info.get("targets") or []):
