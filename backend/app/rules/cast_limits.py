@@ -450,6 +450,12 @@ _KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "s
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
+    from app.rules import read_pass
+
+    return read_pass.once(state, info, "cast_limits.scan", lambda: _scan_table(state, info))  # (wave 29A: once per read-only pass)
+
+
+def _scan_table(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
     """(permanent, ability index, definition) of every limit / haste-permission static on the battlefield, read
     from copiable values (cheap, cached by what is there); ``_statics`` confirms each with the permanent's
     current characteristics (a "loses all abilities" effect removes it, 613.1f)."""

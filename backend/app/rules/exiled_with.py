@@ -45,12 +45,14 @@ _REFERS = re.compile(r"\bthe exiled cards?\b|\bcards? exiled with (?:it\b|~)")  
 # -- review (wave 6R) -- "Exile target creature. Return the exiled card to the battlefield under its owner's control at the
 # beginning of the next end step." (Voyager Staff, Hide on the Ceiling): "the exiled card" there is what the same
 # ability's own instruction exiled (608.2c), not a linked ability's (607.2a). Such an ability is read again without
-# these templates (the pronoun reading it had before wave 6).
-_OFF = False
+# these templates (the pronoun reading it had before wave 6): ``_off_now()`` while that happens (per thread, review 29A: one thread's re-reading
+# changed what another thread read, and the parse cache kept it).
+def _off_now() -> bool:
+    return getattr(_STATE, "off", False)
 
 
 def _off(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
-    if not _OFF:
+    if not _off_now():
         return None
     from app.rules import language
     from app.rules.scripts import _NoMatch
@@ -135,7 +137,7 @@ def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | No
         return None
     active = _STATE.__dict__.setdefault("active", set())
     key = (ch.name, ability.index)
-    if key in active and not _OFF:  # (the _OFF re-reading of the same ability is deliberate: _link)
+    if key in active and not _off_now():  # (the _off_now() re-reading of the same ability is deliberate: _link)
         return None  # (two abilities that each refer to the other's exile: no single linked ability, 607.2a)
     active.add(key)
     try:
@@ -149,15 +151,14 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
 
     refers = WHO in json.dumps(d, default=str) or "linked_cards" in json.dumps(d, default=str)
     others = [ab for ab in ch.abilities if ab.index != ability.index and ab.kind in ("triggered", "activated")]
-    if refers and _exiles(d):  # -- review (wave 6R) -- its own exiled card (see _OFF)
-        global _OFF
-        if _OFF:
+    if refers and _exiles(d):  # -- review (wave 6R) -- its own exiled card (see _off_now)
+        if _off_now():
             return None  # (-- wave 22D -- read again without the templates and it still refers to a linked card: not read)
-        _OFF = True
+        _STATE.off = True
         try:
             return scripts.define(ability, ch)
         finally:
-            _OFF = False
+            _STATE.off = False
     if refers:
         exiling = [ab for ab in others if re.search(r"\bexile\b", ab.text, re.IGNORECASE)]
         if len(exiling) != 1 or not _exiles(scripts.define(exiling[0], ch)):

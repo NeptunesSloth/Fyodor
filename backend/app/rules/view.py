@@ -17,6 +17,7 @@ from app.game.rules_state import cancelable, preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
 from app.rules import characteristics as chars
+from app.rules import read_pass
 from app.rules.casting import (
     activatable,
     alt_castable,
@@ -31,6 +32,11 @@ from app.rules.plan import live_players
 
 
 def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] | None:
+    with read_pass.scope(state, info):  # (wave 29A) a view only reads the table: what every card shares is worked out once
+        return _rules_view(state, viewer, info)
+
+
+def _rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] | None:
     r = state.rules
     settings = state.settings
     if settings.automation == "off" or r is None:
@@ -183,6 +189,11 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
 
 def hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     """What the viewer could do right now, for highlighting. Only about the viewer's own cards."""
+    with read_pass.scope(state, info):  # (wave 29A) nothing here changes the table: the statics are read once, not once per card and kind
+        return _hints(state, viewer, info)
+
+
+def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     out: dict[str, Any] = {"has_priority": state.rules is not None and state.rules.priority == viewer}
     if state.rules is not None and state.rules.miracle:  # -- casting extras (wave 18E) -- only the owner's own windows (app/rules/miracle.py)
         mine = [c for c in state.rules.miracle if c in state.cards and state.cards[c].owner == viewer]

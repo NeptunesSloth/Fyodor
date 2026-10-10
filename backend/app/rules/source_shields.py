@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
@@ -642,7 +643,7 @@ PREVENTIONS = frozenset({"source_shield", "prevent", "prevent_all"})
 _RIDER_IF = re.compile(r"^if damage(?: from (?P<col>an? (?:white|blue|black|red|green) source))? is prevented this way, (?P<body>.+)$")
 _ANAPHORS = (("that source's controller", "target player", "from_ctrl"), ("the source's controller", "target player", "from_ctrl"),
              ("that creature", "target creature", "to"))
-_READING: list[int] = []
+_READING = threading.local()  # (review 29A: per thread, ``n``: riders being read — one thread's changed what another read, and the parse cache kept it)
 _WHO_OK = frozenset({"you", "self", "each_opponent", "each_player"})
 _COLORS_BY_WORD = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 
@@ -667,11 +668,11 @@ def rider_body(body: str, it: str | None = None) -> list[dict[str, Any]] | None:
     text = re.sub(r"\bthat many\b", "X", text)
     if re.search(r"\bX\b", text):
         text += ", where X is the damage prevented this way"
-    _READING.append(1)  # (the rider is read as a sentence of its own: rider() must not look for a prevention before it)
+    _READING.n = getattr(_READING, "n", 0) + 1  # (the rider is read as a sentence of its own: rider() must not look for a prevention before it)
     try:
         found = scripts.parse_effects(text[:1].upper() + text[1:] + ".")
     finally:
-        _READING.pop()
+        _READING.n -= 1
     if found is None:
         return None
     effects, spec, optional = found
@@ -693,7 +694,7 @@ def rider_body(body: str, it: str | None = None) -> list[dict[str, Any]] | None:
 def rider(text: str, effects: list[dict[str, Any]]) -> bool | None:
     """Scripts' sentence hook: a sentence about "the damage prevented this way" after a prevention effect: attach it to that
     effect. None: not such a sentence. False: such a sentence that isn't read (the whole text stays manual)."""
-    if _READING or "prevented this way" not in text and not text.startswith("when damage"):
+    if getattr(_READING, "n", 0) or "prevented this way" not in text and not text.startswith("when damage"):
         return None
     if text.startswith("when damage"):
         return False

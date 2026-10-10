@@ -38,6 +38,7 @@ from app.rules import (
     ninjutsu,
     per_opponent,  # -- per-opponent targets (wave 23A) --
     permissions,
+    read_pass,
     restrictions,
     scripts,
 )
@@ -59,8 +60,11 @@ MAIN_PHASES = ("main1", "main2")
 
 # -- facts about permanents -------------------------------------------------------------
 def commander_identity(state: GameState, player: str, info: CardInfo) -> tuple[str, ...]:
-    commanders = [info.get(c.card_id) for c in state.cards.values() if c.owner == player and c.commander_key and c.card_id]
-    return cmdr.deck_identity([d for d in commanders if d])  # the same identity the deck checks use
+    def work() -> tuple[str, ...]:
+        commanders = [info.get(c.card_id) for c in state.cards.values() if c.owner == player and c.commander_key and c.card_id]
+        return cmdr.deck_identity([d for d in commanders if d])  # the same identity the deck checks use
+
+    return read_pass.once(state, info, ("commander_identity", player), work)  # (wave 29A: once per read-only pass)
 
 
 def summoning_sick(state: GameState, card: CardInstance) -> bool:

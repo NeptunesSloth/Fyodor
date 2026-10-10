@@ -14,7 +14,7 @@ object left is gone, a card that enters the graveyard brings its own).
 * **Linked abilities (607.5).** A lender's ability that refers to a choice or to cards exiled with it (its linked half may be elsewhere),
   or to a card by name (201.5b vs "a card named …"), is lent but never automated (``manual``): it would link to the wrong thing. A modal
   ability is lent with its modes (shown) and is manual too. Characteristics are read as the lender has them without other statics (a lender's own
-  borrowed abilities, an Aura's grants: ``layers._depth``), so a lender's abilities from other statics aren't lent either.
+  borrowed abilities, an Aura's grants: ``layers._T.depth``), so a lender's abilities from other statics aren't lent either.
 * **Refused** (never guessed): sources the selector grammar doesn't read, "the top card of your library" (Skill Borrower: it isn't an
   object that stays), cards in exile with counters ("Mairsil": each once a turn), planeswalkers' loyalty abilities.
 """
