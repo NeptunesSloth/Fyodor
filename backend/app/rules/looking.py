@@ -312,6 +312,8 @@ def attack_with_entered(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> bo
         return True
     from app.rules.effects import decide
 
-    decide(plan, player=pid, kind="choose_one", prompt=f"{plan.state.cards[new[0]].name} enters attacking: attacking whom?",
-           options=options, resume={"step": "token_attack", "ctx": ctx, "cards": new})
+    # -- falsification (wave 30D) -- 508.4: one question per creature (token_grammar.enter_attacking), the rest follow in ``more``
+    decide(plan, player=pid, kind="choose_one", prompt=f"{plan.state.cards[new[0]].name} enters attacking: attacking whom?"
+           + (f" ({len(new) - 1} more to place)" if len(new) > 1 else ""),
+           options=options, resume={"step": "token_attack", "ctx": ctx, "cards": new[:1], "more": new[1:], "look": True})
     return False

@@ -14,9 +14,9 @@ import pytest
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
+from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
-from app.game.errors import ActionError
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
@@ -797,4 +797,38 @@ def test_metamorph_copy_is_an_artifact_in_addition_and_sees_an_opponents_creatur
     ch = chars(s, meta)
     assert meta.zone == "p1:battlefield" and ch.name == "Grizzly Bears" and {"Artifact", "Creature"} <= set(ch.types), (meta.zone, ch.name, ch.types)
     assert life(s) == 40  # (paid with {U})
+    check(s)
+
+
+def test_anim_pakal_makes_its_gnomes_attack_whom_alice_chooses_even_if_it_left(cards):
+    """Anim Pakal, Thousandth Moon (its rulings): the controller chooses which player each Gnome token enters attacking (508.4, 3-player), and
+    if Anim Pakal has left when the ability resolves you still create Gnomes — as many as the +1/+1 counters it had when it was last on the
+    battlefield (608.2h), with no new counter put on it. BUG fixed in wave 30D: one question covered every token (token_grammar /
+    refused_zones / looking ``enter_attacking``), so the Gnomes could not be split between Bob and Carol; now one question per token."""
+    s = three(cards, ["Anim Pakal, Thousandth Moon", "Grizzly Bears"], ["Murder"])
+    respond_on(s)
+    pakal, bears = put(s, "Anim Pakal, Thousandth Moon"), put(s, "Grizzly Bears")
+    act(s, "p1", type="counter", card_ids=[pakal.id], kind="+1/+1", delta=2)
+    to_phase(s, "declare_attackers", turn=4)
+    to_hand(s, "Murder", "p2")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    mana(s, "p2", B=2, C=1)
+    while s.state.rules.priority != "p2":
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Murder", "p2").id, targets=[pakal.id])
+    picks = ["p3", "p2"]
+    for _ in range(12):  # (the Murder resolves first; then the trigger asks whom each Gnome attacks: Alice picks Carol, then Bob)
+        d = s.state.rules.decision
+        if d is not None:
+            assert d.player == "p1" and d.kind == "choose_one", (d.player, d.kind)
+            pick = picks.pop(0)
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[pick])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[pakal.id].zone == "p1:graveyard"
+    gnomes = [c for c in s.state.cards.values() if c.name == "Gnome" and c.zone == "p1:battlefield"]
+    assert len(gnomes) == 2 and all(g.tapped for g in gnomes), len(gnomes)
+    assert sorted(g.attacking.id for g in gnomes) == ["p2", "p3"], [g.attacking for g in gnomes]
     check(s)

@@ -60,9 +60,11 @@ def enter_attacking(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> bool:
     if len(options) == 1:
         _attack_with(plan, attackers, options[0].id, pid)
         return True
+    # -- falsification (wave 30D) -- 508.4: one question per creature (token_grammar.enter_attacking), the rest follow in ``more``
     decide(plan, player=pid, kind="choose_one",
-           prompt=f"{', '.join(plan.state.cards[c].name or 'Creature' for c in attackers)} enter attacking: attacking whom?",
-           options=options, resume={"step": "enter_attacking", "ctx": ctx, "cards": attackers})
+           prompt=f"{plan.state.cards[attackers[0]].name or 'Creature'} enters attacking: attacking whom?"
+           + (f" ({len(attackers) - 1} more to place)" if len(attackers) > 1 else ""),
+           options=options, resume={"step": "enter_attacking", "ctx": ctx, "cards": attackers[:1], "more": attackers[1:]})
     return False
 
 
@@ -82,6 +84,8 @@ def resume_enter_attacking(plan: Plan, d: Any, chosen: list[str]) -> None:
 
     if chosen:
         _attack_with(plan, d.resume["cards"], chosen[0], d.player)
+    if d.resume.get("more") and not enter_attacking(plan, d.resume["ctx"], d.resume["more"]):  # (wave 30D: the next creature)
+        return
     effects.continue_effects(plan, d.resume["ctx"])
 
 
