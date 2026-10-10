@@ -313,7 +313,7 @@ def self_text(text: str, name: str) -> str:
     # whatever the order of the text, so the damage sentence names "any target" itself
     if out.startswith("Choose any target. ") and out.count("that permanent or player") == 1 and out.count("\n") == 0:
         out = out[len("Choose any target. "):].replace("that permanent or player", "any target")
-    return _counter_threshold(out)
+    return _counter_threshold(_language.base_become(out))  # (-- layers (wave 30O) -- "~'s base power and toughness become …")
 
 
 # -- counters sweep (wave 19D) -- "Put a ribbon counter on ~. Then if it has three or more ribbon counters on it, remove those counters
@@ -869,8 +869,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 e["life_x"] = _bind_stats(e["life_x"], lambda verb=None, at=index: stat_ref(at, verb),
                                           (lambda: "event") if antecedent == "event_spell" else None)
             for pk in ("p", "t"):  # -- as long as (wave 9B) -- "gets +X/+X …, where X is the discarded card's mana value" (a pump / become)
-                # (wave 20A: a pump's plain "it" is "that card's mana value", language._Ante; a "become" reads its own "it")
-                placeholder = r'"(?:it:[a-z]+|cost:exiled)"|"(?:power|toughness|mana_value|colors)": "it"' if e.get("do") == "pump" else r'"(?:it:[a-z]+|cost:exiled)"'
+                # (wave 20A: a pump's plain "it" is "that card's mana value", language._Ante; a "become" reads its own "it";
+                # -- layers (wave 30O) -- except "base power … equal to that creature's power", whose "it" is another object, ``ante``)
+                placeholder = r'"(?:it:[a-z]+|cost:exiled)"|"(?:power|toughness|mana_value|colors)": "it"' if e.get("do") == "pump" or e.get("ante") else r'"(?:it:[a-z]+|cost:exiled)"'
                 if e.get("do") in ("pump", "become") and re.search(placeholder, json.dumps(e.get(pk), default=str)):
                     e[pk] = _bind_stats(e[pk], lambda verb=None, at=index: stat_ref(at, verb), None)
             # -- X sized by a count (wave 4K) -- an "X/X" token's P/T: the same placeholders as an amount
@@ -5713,7 +5714,7 @@ def _loses_all_abilities(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return found
 
 
-@effect(r"(?P<text>(?:until end of turn, )?.+? becomes? (?:colorless|white|blue|black|red|green)\b.*)")
+@effect(r"(?P<text>(?:until end of turn, )?.+? becomes? (?:colorless|all colors|white|blue|black|red|green)\b.*)")
 def _become_colored(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     found = _language.parse_become(m["text"])
     if found is None or any(e["do"] == "become" and (e.get("types") or e.get("p") is not None) for e in found[0]):
@@ -5756,6 +5757,15 @@ def _become_next_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 def _base_pt(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     try:
         return _language.parse_base_pt(m)
+    except _language._Fail:
+        raise _NoMatch from None
+
+
+@_first
+@effect(_language.BASE_EQ)
+def _base_eq(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:  # -- layers (wave 30O) -- "… has base power and toughness equal to …"
+    try:
+        return _language.parse_base_eq(m)
     except _language._Fail:
         raise _NoMatch from None
 
