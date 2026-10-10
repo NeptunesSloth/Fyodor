@@ -2657,6 +2657,75 @@ def player_chooses(m: re.Match[str]) -> tuple[Effects, Any]:
     return [out], _one(group)
 
 
+# -- per-player choices (wave 30K) -- one choice for each kind of permanent, the rest sacrificed: "Each player chooses an artifact, a
+# creature, an enchantment, and a planeswalker from among the nonland permanents they control, then sacrifices the rest." (Cataclysmic
+# Gearhulk, Ajani), "… chooses from among the permanents they control an artifact, a creature, an enchantment, and a land, then sacrifices
+# the rest." (Cataclysm), "… chooses a permanent they control of each permanent type and sacrifices the rest." (Liliana, Dreadhorde General),
+# "… chooses from the lands they control a land of each basic land type, then sacrifices the rest." (Global Ruin) and, the ability's controller
+# choosing for every player, "For each player, you choose from among the permanents that player controls an artifact, a creature, an
+# enchantment, and a planeswalker. Then each player sacrifices all other nonland permanents they control." (Tragic Arrogance).
+# CR 2026-09-25: 101.4 — each player makes all their choices (one per kind, in the order written, 101.4c) in APNAP order, each knowing the
+# earlier ones (101.4b); 608.2d; then everything not chosen is sacrificed at once (701.21a). The kinds are separate choices: one permanent
+# can be chosen for several (the rulings of Cataclysm, Cataclysmic Gearhulk, Tragic Arrogance, Liliana and Global Ruin) and a kind a player
+# controls nothing of is skipped. The six permanent types are 110.4, the five basic land types 205.3i.
+_KIND_LIST = r"an? [a-z]+(?:,? (?:and )?an? [a-z]+)*"
+CHOOSE_KINDS = (rf"(?P<s>{CHOOSER}) chooses (?:(?P<kinds>{_KIND_LIST}) from among the (?P<scope>nonland permanents|permanents) they control"
+                 rf"|from among the (?P<scope2>permanents) they control (?P<kinds2>{_KIND_LIST})), then sacrifices the rest"
+                 r"(?:, you choosing them for each player when (?P<spent>(?:\{{[WUBRG]\}})+) was spent to cast this spell)?")  # (Mythos of Snapdax)
+CHOOSE_FOR_EACH = (rf"for each player, you choose from among the permanents that player controls (?P<kinds>{_KIND_LIST}), "
+                   r"then each player sacrifices all other (?P<scope>nonland permanents) they control")
+# "Each player chooses any number of creatures they control with total power 4 or less, then sacrifices all other creatures they control."
+# (Slaughter the Strong, Destined Confrontation): the answer is checked against the total (effects.check_total_power); a power below 0 subtracts
+CHOOSE_POWER_CAP = (rf"(?P<s>{CHOOSER}) chooses any number of creatures they control with total power (?P<cap>\d+) or less, "
+                    r"then sacrifices all other creatures they control")
+CHOOSE_EACH_TYPE = rf"(?P<s>{CHOOSER}) chooses a permanent they control of each permanent type and sacrifices the rest"
+CHOOSE_EACH_LAND = rf"(?P<s>{CHOOSER}) chooses from the lands they control a land of each basic land type, then sacrifices the rest"
+
+
+def _kinds_effect(s: str | None, names: list[str], scope_phrase: str, spent: str | None = None) -> tuple[Effects, Any]:
+    """A choice per kind among ``scope_phrase`` ("permanents" …), made by the player whose permanents they are (``s``) or, with no ``s``, by
+    the ability's controller for each player; what the kinds left out is sacrificed."""
+    from app.rules import conditions
+
+    who, group = _chooser(s) if s else ("each_player", None)
+    scope = selectors.parse(scope_phrase)
+    if scope is None or replace(scope, types=(), not_types=()) != selectors.Selector() or len(scope.types) > 1:
+        raise _Fail
+    keys = []
+    for name in names:
+        kind = selectors.parse(name)
+        if (kind is None or replace(kind, types=(), subtypes=()) != selectors.Selector() or bool(kind.types) == bool(kind.subtypes)
+                or set(kind.types) & set(scope.not_types) or not set(kind.types) <= {"Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"}):
+            raise _Fail  # (110.4: only a permanent type is a kind of permanent)
+        keys.append(replace(kind, types=kind.types or scope.types, not_types=scope.not_types).key())
+    if len(set(keys)) != len(keys):
+        raise _Fail
+    return [{"do": "player_chooses", "who": who, "sel": scope.key(), "sels": keys, "labels": names, "n": 1, "label": "permanent",
+             "rest": "sacrifice", **({} if s else {"by": "you"}),
+             # "If {B}{R} was spent to cast this spell, you choose the permanents for each player instead." (Mythos of Snapdax)
+             **({"by_if": conditions.parse(f"{spent} was spent to cast this spell", objects=True)} if spent else {})}], _one(group)
+
+
+def choose_kinds(m: re.Match[str]) -> tuple[Effects, Any]:
+    g = m.groupdict()
+    names = [re.sub(r"^an? ", "", x) for x in re.split(r", and |, | and ", g.get("kinds") or g.get("kinds2") or "")]
+    return _kinds_effect(g.get("s"), names, g.get("scope") or g.get("scope2") or "permanents", g.get("spent"))
+
+
+def choose_power_cap(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"])
+    return [{"do": "player_chooses", "who": who, "sel": _permanent_sel("creature"), "n": 1, "label": "creatures", "rest": "sacrifice",
+             "power_cap": int(m["cap"])}], _one(group)
+
+
+def choose_each_type(m: re.Match[str]) -> tuple[Effects, Any]:
+    return _kinds_effect(m["s"], ["artifact", "battle", "creature", "enchantment", "land", "planeswalker"], "permanents")  # (110.4)
+
+
+def choose_each_land(m: re.Match[str]) -> tuple[Effects, Any]:
+    return _kinds_effect(m["s"], ["Plains", "Island", "Swamp", "Mountain", "Forest"], "lands")  # (205.3i)
+
+
 def reveal_hand(m: re.Match[str]) -> tuple[Effects, Any]:
     who, group = _chooser(m["s"])
     if who in ("each_player", "each_opponent"):

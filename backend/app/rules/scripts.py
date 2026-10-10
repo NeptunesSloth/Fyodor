@@ -2603,6 +2603,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = re.sub(r"Choose a creature type( other than [A-Z][a-z]+)?\. ([^.]+?) becomes? that type until end of turn\.",
                   r"\2 becomes the creature type\1 of your choice until end of turn.", body)
     body = re.sub(r"(chooses [^.]*? they control)\. Destroy the rest\.", r"\1, then the rest are destroyed.", body)  # (wave 11D)
+    # -- per-player choices (wave 30K) -- "For each player, you choose … an artifact, a creature, … Then each player sacrifices all other nonland
+    # permanents they control." (Tragic Arrogance): one instruction (language.CHOOSE_FOR_EACH)
+    body = re.sub(r"(For each player, you choose from among the permanents that player controls [^.]+)\. Then (each player sacrifices all other)",
+                  r"\1, then \2", body)
+    body = re.sub(r"(Each player chooses [^.]+, then sacrifices the rest)\. If ((?:\{[WUBRG]\})+) was spent to cast this spell, you choose the "
+                  r"permanents for each player instead\.", r"\1, you choosing them for each player when \2 was spent to cast this spell.", body)
     # -- reveal until (wave 13E) -- 701.20b: the revealed cards stay in the library, so "shuffle the rest into your library" is a
     # shuffle of it ("…, then shuffle"); "you may reveal … until … If you do, put that card …": the reveal is the optional action
     body = _loops.plain(body)  # -- loops and repeats (wave 24B) -- "draw a card and repeat this process"
@@ -5607,6 +5613,9 @@ from app.rules import language as _language  # noqa: E402  (a leaf module)
 
 for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OTHERS, _language.edict),
                          (_language.EDICT_EXILE, _language.edict),
+                         (_language.CHOOSE_KINDS, _language.choose_kinds), (_language.CHOOSE_FOR_EACH, _language.choose_kinds),  # (wave 30K: before
+                         (_language.CHOOSE_EACH_TYPE, _language.choose_each_type), (_language.CHOOSE_EACH_LAND, _language.choose_each_land),
+                         (_language.CHOOSE_POWER_CAP, _language.choose_power_cap),  # PLAYER_CHOOSES)
                          (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.REVEAL_HAND, _language.reveal_hand),
                          (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
                          (_language.CHOOSE_VALUE, _language.choose_value),
