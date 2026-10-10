@@ -573,10 +573,9 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
         if comp.kind == REVEAL_FROM_HAND and chosen.get(i):
             plan.do({"type": "reveal", "card_ids": chosen[i]}, actor=payer)
     for i, comp in enumerate(cost.components):  # -- if you do (wave 6F) -- to the bottom of the payer's library
-        if comp.kind == HAND_TO_BOTTOM:
-            for cid in chosen.get(i, []):
-                plan.do({"type": "move", "card_ids": [cid], "to": {"player": payer, "zone": "library"}, "position": "bottom"},
-                        actor=payer)
+        if comp.kind == HAND_TO_BOTTOM and chosen.get(i):  # (-- review 30 -- at once, one move: 401.4)
+            plan.do({"type": "move", "card_ids": list(chosen[i]), "to": {"player": payer, "zone": "library"}, "position": "bottom"},
+                    actor=payer)
     if any(c.kind == C.DISCARD_HAND for c in cost.components):  # -- if you do (wave 6F) -- "draw that many cards"
         ctx.setdefault("paid_x", {})[name] = len(record.discarded)
     if any(c.kind in (C.EXILE, "EXILE_FROM_HAND") and c.selector is not None for c in cost.components):  # -- champion (wave 12B) -- 607.2a (wave 18F: imprint)

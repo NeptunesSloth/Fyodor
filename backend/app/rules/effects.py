@@ -1338,16 +1338,18 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
         plan.actor = prev
 
 
-def bottom_at_random(plan: Plan, pid: str, cards: list[str]) -> list[str]:
+def bottom_at_random(plan: Plan, pid: str, cards: list[str], actor: str | None = None) -> list[str]:
     """-- review (wave 29B) -- "put … on the bottom of your library in a random order" (702.85a, 701.57a): the table's randomness, recorded in
     the move (replay is deterministic); one move, whose log line lists the cards by name, so the order isn't readable (401.4: a face-down spell's
-    cascade puts the whole library back). Returns the order they went in (top to bottom)."""
+    cascade puts the whole library back). Returns the order they went in (top to bottom). ``pid``: whose library; ``actor``: who puts them
+    there (the library's owner unless given). (-- review 30 -- every "in a random order" goes through here: `rest_looked`, `rest_exiled`.)"""
     import secrets
 
     order = list(cards)
     (plan.rng or secrets.SystemRandom()).shuffle(order)
     for at in range(0, len(order), 250):  # (a move names at most 250 cards)
-        plan.do({"type": "move", "card_ids": order[at:at + 250], "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+        plan.do({"type": "move", "card_ids": order[at:at + 250], "to": {"player": pid, "zone": "library"}, "position": "bottom"},
+                actor=actor or pid)
     return order
 
 
@@ -2539,13 +2541,12 @@ def resume_order_library(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
     pid = d.player
     owner = r.get("owner") or pid
-    if r["place"] == "top":
-        # The first chosen card goes on top: put them on top in reverse.
-        for cid in reversed(chosen):
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": "top"}, actor=pid)
-    else:
-        for cid in reversed(chosen):  # the first chosen ends at the very bottom
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": "bottom"}, actor=pid)
+    # -- review 30 -- one move (401.4: the cards go in at the same time and their order isn't revealed; one move per card logged it)
+    if r["place"] == "top":  # the first chosen card goes on top (a move to the top puts its cards in their order)
+        plan.do({"type": "move", "card_ids": list(chosen), "to": {"player": owner, "zone": "library"}, "position": "top"}, actor=pid)
+    elif chosen:  # the first chosen ends at the very bottom
+        plan.do({"type": "move", "card_ids": list(reversed(chosen)), "to": {"player": owner, "zone": "library"}, "position": "bottom"},
+                actor=pid)
     if r.get("then_bottom"):
         bottom = r["then_bottom"]
         decide(plan, player=pid, kind="order", prompt="Order the cards for the bottom of your library (first chosen ends up at the very bottom)",
@@ -2765,8 +2766,6 @@ def rest_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     random order", "put them back in any order" (``to``: "top_any"), "exile the rest". "In any
     order" is the player's private choice (401.4: the order isn't revealed); "in a random order"
     is the table's randomness, recorded as moves (replay is deterministic)."""
-    import secrets
-
     pid = ctx["controller"]
     owner, rest = _looked(plan, ctx)
     ctx["looked"] = []
@@ -2785,11 +2784,7 @@ def rest_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     else:
         place = "bottom"
         if e["to"] == "bottom_random" or len(rest) == 1:
-            order = list(rest)
-            (plan.rng or secrets.SystemRandom()).shuffle(order)  # (recorded as moves: replay is deterministic)
-            for cid in order:
-                plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": "bottom"},
-                        actor=pid)
+            bottom_at_random(plan, owner, rest, actor=pid)  # (-- review 30 -- one move: one move per card made the order readable, 401.4)
             return True
     _ask_order(plan, ctx, pid, owner, rest, place)
     return False

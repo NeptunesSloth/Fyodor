@@ -106,9 +106,10 @@ def move(state: GameState, a: A.Move) -> None:
     for (src, dest), group_cards in by_route.items():
         if src == dest and ops.zone_name(dest) != "library":
             continue  # reordering within hand / battlefield is not worth a log line
-        if ops.zone_name(dest) == "library" and len(group_cards) > 1 and all(who_saw.get(c.id) == {ALL} for c in group_cards):
+        if ops.zone_name(dest) == "library" and len(group_cards) > 1:
             # -- review (wave 29B) -- 401.4: the order of cards put into a library together isn't revealed ("in a random order", "in any
-            # order"): public cards are listed by name, not in the order they went in
+            # order"): the cards are listed by name, not in the order they went in (-- review 30 -- to the players who looked at them too:
+            # a random order is no one's; a hidden card is only counted, so its place in the list says nothing)
             group_cards = sorted(group_cards, key=lambda c: (c.name or "", c.id))
         verb = _verb(src, dest, a.position)
         parts = [pname(state, a.actor), text(f" {verb} "), group(state, group_cards, who_saw)]

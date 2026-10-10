@@ -1626,12 +1626,14 @@ def rest_exiled(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     cards = [c for c in context.objects(plan, ctx, who[len(context.PREFIX):]) if plan.state.cards[c].zone.endswith(":exile")]
     if not cards:
         return True
-    if e["to"] == "bottom_random":
-        order = list(cards)
-        (plan.rng or secrets.SystemRandom()).shuffle(order)
-        for cid in order:
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
-                     "position": "bottom"}, actor=pid)
+    if e["to"] == "bottom_random":  # (-- review 30 -- one move per library: one move per card made the order readable, 401.4)
+        from app.rules import effects
+
+        by_owner: dict[str, list[str]] = {}
+        for cid in cards:
+            by_owner.setdefault(plan.state.cards[cid].owner, []).append(cid)
+        for owner, group in by_owner.items():
+            effects.bottom_at_random(plan, owner, group, actor=pid)
         return True
     for cid in cards:
         to = pid if e["to"] == "hand" else plan.state.cards[cid].owner
