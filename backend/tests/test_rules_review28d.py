@@ -33,6 +33,7 @@ REAL = [
      "Flying\nWhenever The Wise Mothman enters or attacks, each player gets a rad counter.\nWhenever one or more nonland cards are milled, put a "
      "+1/+1 counter on each of up to X target creatures, where X is the number of nonland cards milled this way."),
     ("Traumatize", "{3}{U}{U}", "Sorcery", None, None, "Target player mills half their library, rounded down."),
+    ("Ghoulcaller's Bell", "{1}", "Artifact", None, None, "{T}: Each player mills a card."),
     ("Jodah, the Unifier", "{W}{U}{B}{R}{G}", "Legendary Creature — Human Wizard", "5", "5",
      "Legendary creatures you control get +X/+X, where X is the number of legendary creatures you control.\nWhenever you cast a legendary spell "
      "from your hand, exile cards from the top of your library until you exile a legendary nonland card with lesser mana value. You may cast "
@@ -46,6 +47,11 @@ REAL = [
     ("Hill Giant", "{3}{R}", "Creature — Giant", "3", "3", ""),
     ("Ashnod's Altar", "{3}", "Artifact", None, None, "Sacrifice a creature: Add {C}{C}."),
     ("Doom Blade", "{1}{B}", "Instant", None, None, "Destroy target nonblack creature."),
+    ("Blood Artist", "{1}{B}", "Creature — Vampire", "0", "1",
+     "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life."),
+    ("Giant Opportunity", "{2}{G}", "Sorcery", None, None,
+     "You may sacrifice two Foods. If you do, create a 7/7 green Giant creature token. Otherwise, create three Food tokens. "
+     "(They're artifacts with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")"),
 ]
 EXTRA = [card(n, set_code="r28d", number=f"R{i:02d}", mana_cost=mc, cmc=float(sum(int(p) if p.isdigit() else 1 for p in mc[1:-1].split("}{"))),
               type_line=tl, colors=["B"] if "{B}" in mc else ["U"], color_identity=[], oracle_text=text,
@@ -237,6 +243,26 @@ def test_the_wise_mothman_can_target_more_than_twenty(cards):
     check(s)
 
 
+def test_the_wise_mothman_triggers_once_for_cards_milled_from_several_libraries_at_once(cards):
+    """Ghoulcaller's Bell: "Each player mills a card." — one event (603.2c: "one or more" triggers once), X = both nonland cards."""
+    s = build(cards, ["The Wise Mothman", "Ghoulcaller's Bell", "Grizzly Bears"], ["Hill Giant"])
+    put(s, "The Wise Mothman")
+    resolve_all(s)
+    bell = put(s, "Ghoulcaller's Bell")
+    for pid, name in (("p1", "Grizzly Bears"), ("p2", "Hill Giant")):
+        act(s, pid, type="move", card_ids=[card_named(s, name, pid).id], to={"zone": "library"}, position="top")
+    mine = [creature(s, "p1", f"Soldier {i}", "1/1") for i in range(3)]
+    act(s, "p1", type="activate_ability", card_id=bell.id, ability=0)
+    d = until_decision(s)
+    assert target_step(s) and d.max_choices == 2, d.prompt
+    pick(s, mine[0].id, mine[1].id)
+    assert not target_step(s)  # (no second trigger)
+    resolve_all(s)
+    assert not target_step(s)
+    assert [s.state.cards[c.id].counters.get("+1/+1", 0) for c in mine] == [1, 1, 0]
+    check(s)
+
+
 # -- Jodah, the Unifier (real Oracle text): "a legendary nonland card with lesser mana value" -------------------------------------
 @pytest.mark.parametrize("cast_it", [True, False])
 def test_jodah_finds_a_legendary_card_with_lesser_mana_value(cards, cast_it):
@@ -293,6 +319,58 @@ def test_the_altar_names_the_creature_the_payment_already_uses(cards):
     act(s, "p1", type="move", card_ids=[cub.id], to={"player": "p1", "zone": "graveyard"})
     with pytest.raises(ActionError, match="not offered: Bear"):
         act(s, "p1", type="activate_ability", card_id=card_named(s, "Ashnod's Altar").id, ability=0)
+    check(s)
+
+
+def test_a_death_trigger_from_the_nested_sacrifice_waits_until_the_spell_is_cast(cards):
+    """605.4a-style timing: the creature sacrificed mid-payment dies now, but Blood Artist's ability waits until a player would receive
+    priority (117.5, 603.3): after the spell is cast (601.2i), so it goes on the stack above the spell and the payment isn't interrupted."""
+    s = build(cards, ["Giant Opportunity", "Ashnod's Altar", "Blood Artist"])
+    self_payment(s)
+    respond_on(s)
+    put(s, "Ashnod's Altar")
+    put(s, "Blood Artist")
+    bear, cub = creature(s, "p1", "Bear"), creature(s, "p1", "Cub")
+    spell = to_hand(s, "Giant Opportunity")
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    act(s, "p1", type="activate_ability", card_id=card_named(s, "Ashnod's Altar").id, ability=0)
+    pick(s, bear.id)
+    d = s.state.rules.decision
+    assert d is not None and d.resume["step"] == "pay_mana" and s.state.rules.payment_outer is None  # (back in the payment, not a trigger)
+    assert not s.state.zones.get("stack") and s.state.cards[spell.id].zone == "p1:hand"
+    check(s)
+    mana(s, G=1)
+    d = s.state.rules.decision
+    if d is not None and d.resume.get("step") == "pay_mana":
+        pick(s, "pay")
+    d = s.state.rules.decision
+    assert target_step(s) and s.state.cards[spell.id].zone == "stack", (d and d.prompt)  # (the spell is cast; then the trigger is put)
+    pick(s, "p2")
+    assert stack_names(s)[0] == "Giant Opportunity" and len(s.state.zones["stack"]) == 2
+    assert cub.id in s.state.cards
+    check(s)
+
+
+def test_a_controlled_player_s_altar_is_used_by_the_controller(cards):
+    """723.5: Bob controls Alice's turn: he casts her spell and, mid-payment, sacrifices her creature to her Altar — the nested choice is
+    his to make; Alice can't answer it."""
+    from app.game.rules_state import PlayerControl
+
+    s = build(cards, ["Giant Opportunity", "Ashnod's Altar"])
+    self_payment(s)
+    put(s, "Ashnod's Altar")
+    bear, cub = creature(s, "p1", "Bear"), creature(s, "p1", "Cub")
+    spell = to_hand(s, "Giant Opportunity")
+    s.state.rules.player_control = [PlayerControl(controlled="p1", controller="p2", status="active", turn=s.state.turn.number)]
+    act(s, "p2", type="cast_spell", card_id=spell.id)
+    act(s, "p2", type="activate_ability", card_id=card_named(s, "Ashnod's Altar").id, ability=0)
+    d = s.state.rules.decision
+    assert d.kind == "choose_cards" and d.player == "p1" and s.state.rules.payment_outer is not None
+    with pytest.raises(Exception):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[cub.id])
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[bear.id])
+    assert bear.id not in s.state.cards and s.state.players["p1"].mana.get("C") == 2
+    assert s.state.rules.decision.resume["step"] == "pay_mana" and s.state.rules.payment_outer is None
     check(s)
 
 

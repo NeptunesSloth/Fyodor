@@ -1605,6 +1605,7 @@ def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     want = _amount(plan, ctx, e["n"])
     before: list[ObjectRef] = []
+    start = plan.rules.batch
     for pid in _players(plan, ctx, e["who"]):
         library = plan.state.zones.get(zone_key(pid, "library"), [])
         if e.get("half"):  # -- if you do (wave 15C) -- 107.1a: half the library as it is now, rounded as the text says
@@ -1613,6 +1614,8 @@ def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         before += [r for r in (context.ref_of(plan, c) for c in library[:n]) if r is not None]
         if n:
             plan.do({"type": "mill", "player": pid, "count": n}, actor=pid)
+    from app.rules.replace import _one_batch  # -- review 28D -- "each player mills …" is one event: a "whenever one or more cards are
+    _one_batch(plan, start)  # milled" ability triggers once for all of them (603.2c; The Wise Mothman ruling 2024-03-08)
     _moved(plan, ctx, e, before)  # "cards milled this way": the new objects in the graveyards (400.7j)
     if e.get("look"):  # -- if you do (wave 10C) -- "Mill three cards. You may put a land card from among them into your hand."
         # (701.17a: the cards are put into the graveyard; "them" are the ones this mill put there — a card a replacement sent
