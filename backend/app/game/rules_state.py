@@ -282,6 +282,8 @@ class ObjectSnapshot(BaseModel):
     # the rules engine as it moves the object (608.2h), None for moves made by hand
     power: int | None = None
     toughness: int | None = None
+    base_power: int | None = None  # -- base power (wave 30J) -- 208.4b, as it last existed (608.2h): "with base power 0", "power greater than its base power"
+    base_toughness: int | None = None
     token_colors: list[str] = Field(default_factory=list)
     commander_key: str | None = None
     counters: dict[str, int] = Field(default_factory=dict)

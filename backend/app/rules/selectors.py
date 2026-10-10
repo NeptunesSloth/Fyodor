@@ -310,6 +310,19 @@ def _has_x_cost(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "x_cost"))
 
 
+# -- base power (wave 30J) -- 208.4b: a creature's base power and/or toughness are what its characteristic-defining ability (613.4a) and the effects
+# that set them (613.4b) leave, ignoring effects and counters that modify without setting (Primo: "with base power 0"; Bess, Duskana: "with base
+# power and toughness 1/1"; Kutzil, Ms. Marvel: "with power greater than its base power")
+@_suffix(r"with base power(?: and toughness)? (?P<p>\d+)(?:/(?P<t>\d+))?")
+def _base_pt(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, compare=(*s.compare, ("base_power", "==", int(m["p"])), *((("base_toughness", "==", int(m["t"])),) if m["t"] else ())))
+
+
+@_suffix(r"with power greater than (?:its|their) base power")
+def _power_over_base(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "power_gt_base"))
+
+
 @_suffix(r"with toughness greater than (?:its|their) power")  # (Ghalta the Immovable, Bedrock Tortoise)
 def _toughness_over_power(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "toughness_gt_power"))
@@ -1150,10 +1163,10 @@ def _parse(phrase: str) -> Selector | None:
         if base is None or base.types or base.subtypes or base.card:
             return None
         return replace(s, zones=base.zones, token=base.token, extras=(*s.extras, "historic"))
-    alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker)s?(?: cards?| spells?)?)",
-                            text.strip())  # (wave 15B: also "Beast or Bird creature", "Beast or Bird creature spell")
+    alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:(?:,? or |, )[A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker)s?(?: cards?| spells?)?)",
+                            text.strip())  # (wave 15B: also "Beast or Bird creature", "Beast or Bird creature spell"; wave 30J: "Pegasus, Unicorn, or Horse creature spell")
     if alt_subs is not None:
-        subs = [_core(w) for w in re.split(r",? or ", alt_subs["subs"])]
+        subs = [_core(w) for w in re.split(r",? or |, ", alt_subs["subs"])]
         base = _parse(alt_subs["rest"]) if all(c is not None and c[0] == "sub" for c in subs) else None
         if base is None or base.subtypes or base.union or len(base.types) != 1 or base.player is not None:
             return None
@@ -1618,6 +1631,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 return False
         if extra == "x_cost" and "{X}" not in ch.mana_cost:  # -- activated wordings (wave 15D) -- (107.3: printed in its mana cost)
             return False
+        if extra == "power_gt_base" and (ch.base_pt is None or (_stat(ch, "power") or 0) <= ch.base_pt[0]):  # (wave 30J) as it is now, a * is no number
+            return False
         if extra == "toughness_gt_power":  # -- damage wordings (wave 6B) -- as it is now (611.3a for a static)
             p, t = _stat(ch, "power"), _stat(ch, "toughness")
             if p is None or t is None or t <= p:
@@ -1671,6 +1686,8 @@ def _ability_kind(plan: Plan, card: CardInstance, kind: str) -> bool:
 def _stat(ch: Characteristics, what: str) -> int | None:
     if what == "mv":
         return int(ch.mana_value)
+    if what.startswith("base_"):  # (wave 30J) none known (a * or a card not on the battlefield): no number
+        return None if ch.base_pt is None else ch.base_pt[0 if what == "base_power" else 1]
     if ch.pt is not None:
         return ch.pt[0] if what == "power" else ch.pt[1]
     raw = ch.power if what == "power" else ch.toughness

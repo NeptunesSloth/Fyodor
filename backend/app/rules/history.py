@@ -580,7 +580,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         if v["what"] == "lost":
             return sum(1 for p in opponents if log.lost.get(p, 0) >= n)
         if v["what"] == "damaged":  # (wave 21F: Gnoll War Band — damage dealt to the player, 120.3)
-            return sum(1 for p in opponents if any(f.kind == "damage" and f.player == p and f.amount > 0 for f in log.facts))
+            return sum(1 for p in opponents if any(f.kind == "damage" and f.player == p and f.amount > 0 and (f.combat or not v.get("combat"))
+                                                   for f in log.facts))
         land = selectors.parse("land")
         assert land is not None
         return sum(1 for p in opponents if entered(plan, {**ctx, "controller": p}, {"sel": land.key()}, log) >= n)

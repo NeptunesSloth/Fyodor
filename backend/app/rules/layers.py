@@ -780,6 +780,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     for _, sp, stt in setters:
         p = sp if sp is not None else p
         t = stt if stt is not None else t
+    base = (p, t)  # -- base power (wave 30J) -- 208.4b, 613.4b: what a CDA (7a) and the setting effects (7b) left, before any modification (7c, counters)
     for st in hits:  # 7c: static modifications (613.4c) …
         p += st.definition["p"]
         t += st.definition["t"]
@@ -804,7 +805,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     for e in effects:
         if e.layer == "7d":
             p, t = t, p
-    return _with_rules(state, card, replace(ch, pt=(p, t)), info, imposed)
+    return _with_rules(state, card, replace(ch, pt=(p, t), base_pt=base), info, imposed)
 
 
 def _hone(state: GameState, card: CardInstance, info: CardInfo) -> int:
