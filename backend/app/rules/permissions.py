@@ -864,6 +864,15 @@ def spell_uncounterable(state: GameState, info: CardInfo, card: CardInstance, ch
 def _table_statics(state: GameState, info: CardInfo, kinds: set[str]) -> list[tuple[CardInstance, int, Definition]]:
     """(permanent, ability index, definition) for the static abilities of the named kinds on the
     battlefield (manual cards and face-down permanents excepted)."""
+    from app.rules import read_pass
+
+    # -- hints speed (wave 29A) -- a pass that only reads the table derives each permanent once, not once per call and kind
+    found = read_pass.once(state, info, "table_statics", lambda: _all_table_statics(state, info))
+    return [t for t in found if t[2].get("static") in kinds]
+
+
+def _all_table_statics(state: GameState, info: CardInfo) -> list[tuple[CardInstance, int, Definition]]:
+    """``_table_statics`` for every kind: the static abilities of the permanents (and eminence cards), in table order."""
     from app.rules import scripts
     from app.rules.layers import derive
     from app.rules.plan import live_players
@@ -883,7 +892,7 @@ def _table_statics(state: GameState, info: CardInfo, kinds: set[str]) -> list[tu
             continue
         ch = derive(state, card, chars.of(card, info), info)
         for index, d in scripts.definitions(ch).items():
-            if d.get("kind") == "static" and d.get("static") in kinds:
+            if d.get("kind") == "static":
                 if eminent and (d.get("change") or {}).get("cond") != triggers.COMMAND_OR_BATTLEFIELD:
                     continue
                 out.append((card, index, d))

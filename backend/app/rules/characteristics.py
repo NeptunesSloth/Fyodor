@@ -13,6 +13,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
 from app.game.state import CardInstance
+from app.rules import read_pass
 from app.rules.oracle import AbilityText, parse_abilities
 
 SUPERTYPES = frozenset({"Basic", "Legendary", "Snow", "World", "Ongoing", "Elite", "Host"})
@@ -384,6 +385,15 @@ def as_cast(card: CardInstance, info: CardInfo, face: int | None, fused: bool = 
 
 def of(card: CardInstance, info: CardInfo) -> Characteristics:
     """Current characteristics of a card instance (printed layer; see module docstring)."""
+    sc = read_pass.for_info(info)
+    if sc is not None and sc.state.cards.get(card.id) is card:  # -- hints speed (wave 29A) -- a card of the table a read-only pass is over: looked up once
+        kept = sc.printed.get(id(card))
+        if kept is not None and kept[0] is card:
+            return kept[1]
+        ch = _of(card, info)
+        ch = merged_of(card, info, ch) if card.merged and not ch.face_down else ch
+        sc.printed[id(card)] = (card, ch)
+        return ch
     ch = _of(card, info)
     return merged_of(card, info, ch) if card.merged and not ch.face_down else ch
 

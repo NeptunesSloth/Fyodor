@@ -41,6 +41,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.rules_state import ContinuousEffect
 from app.game.state import CardInstance, GameState
+from app.rules import read_pass
 from app.rules.characteristics import CardInfo, Characteristics
 
 if TYPE_CHECKING:
@@ -583,11 +584,28 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     global _DERIVE_MEMO
     if _DERIVE_MEMO is not None or info is None:
         return _derive(state, card, ch, info)
-    _DERIVE_MEMO = [state, info, None]
+    sc = read_pass.current(state, info)
+    if sc is None or _depth or _SOLVING:  # (solving the group layers reads a half-finished table: never kept, never served)
+        _DERIVE_MEMO = [state, info, None]
+        try:
+            return _derive(state, card, ch, info)
+        finally:
+            _DERIVE_MEMO = None
+    # -- hints speed (wave 29A) -- in a read-only pass (app/rules/read_pass.py) the table does not change: the statics table, and what a
+    # permanent of the table came to from the same printed values, are read once. (Only top-level derives are kept: one nested in
+    # another derive reads the table as that one does.)
+    kept = sc.derived.get(id(card))
+    if kept is not None and kept[0] is card and (kept[1] is ch or kept[1] == ch):
+        return kept[2]
+    memo = _DERIVE_MEMO = [state, info, sc.table]
     try:
-        return _derive(state, card, ch, info)
+        out = _derive(state, card, ch, info)
     finally:
+        sc.table = memo[2]
         _DERIVE_MEMO = None
+    if state.cards.get(card.id) is card:  # (a probe's copy of a card is never kept)
+        sc.derived[id(card)] = (card, ch, out)
+    return out
 # -- end review (wave 5R) --
 
 
