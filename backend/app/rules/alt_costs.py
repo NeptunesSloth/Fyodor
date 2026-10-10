@@ -216,8 +216,17 @@ def grant_web_slinging(t: str) -> dict[str, Any] | None:
             "zone": None, "mv": None, "cond": None, "tag": "web-slinging", "effects": []} if key is not None else None
 
 
+# -- keywords (wave 30E) -- 702.74a: "Evoke—Exile a white card from your hand." (Solitude, Fury, Grief, Endurance, Subtlety) is an alternative cost
+# of non-mana parts ("You may cast this card by paying [cost] rather than its mana cost"); a mana "Evoke {cost}" is casting.EVOKE's
+_EVOKE_COST = re.compile(r"^evoke—(?P<cost>[^{}]+)$", re.IGNORECASE)
+
+
 def keyword_definition(line: str) -> dict[str, Any] | None:
-    m = _KEYWORD_LINE.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
+    line = re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")
+    if (ev := _EVOKE_COST.fullmatch(line)) is not None:
+        found = define(f"you may {ev['cost'][:1].lower()}{ev['cost'][1:]} rather than pay ~'s mana cost")
+        return {**found, "tag": "evoke"} if found is not None else None
+    m = _KEYWORD_LINE.fullmatch(line)
     if m is None:
         return None
     kw = m["kw"].lower()
@@ -281,7 +290,7 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 continue
         alt = parse_cost(d["cost"])
         if alt is not None:
-            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}" + (" (mutate)" if d.get("tag") == "mutate" else ""), alt, tag=d.get("tag")))
+            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}" + (f" ({d['tag']})" if d.get("tag") in ("mutate", "evoke") else ""), alt, tag=d.get("tag")))
     given = r.foretell_costs.get(card.id)  # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave it
     if given and card.zone == f"{player}:foretell" and card.owner == player and r.foretold.get(card.id, 0) < state.turn.number \
             and (alt := parse_cost(f"pay {given}")) is not None:
