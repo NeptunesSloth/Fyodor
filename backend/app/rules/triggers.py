@@ -1816,7 +1816,7 @@ def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> No
                  index=i, definition=d)
         # -- static_other sweep (wave 17C) -- cipher 702.99a: "Whenever this creature deals combat damage to a player, you may copy the
         # encoded card and you may cast the copy without paying its mana cost." — one ability for each card encoded on it
-        for k, oid in enumerate(plan.rules.exiled_with.get(plan.oid(card), [])):
+        for k, oid in enumerate(plan.rules.exiled_with.get("cipher:" + plan.oid(card), [])):  # (recursion.CIPHER)
             enc = plan.state.cards.get(oid.rsplit(".", 1)[0])
             if enc is not None and enc.zone.endswith(":exile") and plan.oid(enc) == oid and not enc.face_down:
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=7000 + k,

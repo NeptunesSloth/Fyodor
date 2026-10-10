@@ -103,9 +103,12 @@ def check_found(plan: Plan, e: dict[str, Any], chosen: list[str]) -> None:
 
 # -- static_other sweep (wave 17C) -- cipher (702.99): "If this spell is represented by a card, you may exile this card encoded on a creature
 # you control." The last thing the spell does (its other text first, 608.2c); the card goes to exile (as a spell moving itself does:
-# ``spell_self_move``) and is linked to the creature (``RulesState.exiled_with``, the creature's object id: 607.2a-style, so a creature
+# ``spell_self_move``) and is linked to the creature (``RulesState.exiled_with`` under ``CIPHER`` + the creature's object id, so a creature
 # that leaves, or comes back as a new object, no longer has it encoded: 702.99c). The trigger it gives the creature:
 # triggers.dealt_combat_damage_to_player.
+# -- linked exile (wave 30H) -- encoded is not "exiled with" (607.2a): the key is apart from the creature's own, which holds the cards its
+# linked exiling abilities put in exile (a creature with Nightveil Specter's ability must not copy those cards when it connects).
+CIPHER = "cipher:"
 def cipher(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.game.rules_state import DecisionOption
     from app.game.state import zone_key
@@ -135,7 +138,7 @@ def resume_cipher(plan: Plan, d: Any, chosen: list[str]) -> None:
     if creature is not None and creature.zone.endswith(":battlefield") and sid in plan.state.cards and plan.state.cards[sid].zone == "stack":
         spell_self_move(plan, ctx, {"to": "exile"})
         if plan.state.cards[sid].zone.endswith(":exile"):
-            plan.rules.exiled_with.setdefault(plan.oid(creature), []).append(plan.oid(sid))
+            plan.rules.exiled_with.setdefault(CIPHER + plan.oid(creature), []).append(plan.oid(sid))
             plan.note(f"{plan.state.cards[sid].name} is encoded on {creature.name}")
     effects.continue_effects(plan, ctx)
 

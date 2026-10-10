@@ -39,6 +39,7 @@ import re
 import secrets
 from typing import TYPE_CHECKING, Any
 
+from app.cards.names import normalize_name
 from app.game.state import COMBAT_PHASES, CardInstance, GameState, zone_key
 from app.rules import selectors
 from app.rules.characteristics import CardInfo, Characteristics
@@ -76,6 +77,9 @@ STATIC_NOBODY = re.compile(r"^(?P<sel>[A-Za-z][A-Za-z' ,-]*?)? ?spells(?P<tail> 
 # 602.5: "Activated abilities of sources with the chosen name can't be activated [unless they're mana abilities]." (Pithing Needle, Phyrexian
 # Revoker, Sorcerous Spyglass, Voidstone Gargoyle)
 STATIC_NAMED = re.compile(r"^activated abilities of sources with the chosen name can't be activated(?P<nm> unless they're mana abilities)?$")
+# -- linked exile (wave 30H) -- 201.2a, 607.2a: "Your opponents can't cast spells with the same name as the exiled card." (Ixalan's Binding, Ashiok's Erasure),
+# "Players can't cast …" (Exclusion Ritual), "… as a card exiled with ~." (Circu, Godsend): a name in common with a card still exiled with the source
+STATIC_EXILED_NAME = re.compile(r"^(?P<who>your opponents|players) can't cast spells with the same name as (?:the exiled card|a card exiled with ~)$")
 STATIC_ONE = re.compile(r"^(?P<who>each player|you|enchanted player) can't cast more than one (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell each turn$")
 # "Each player who has cast a nonartifact spell this turn can't cast additional nonartifact spells." (the same, read as one)
 STATIC_ADDITIONAL = re.compile(r"^each player who has cast (?:a|an) (?P<sel>[a-z][a-z' ,-]*?) spell this turn can't cast additional "
@@ -200,6 +204,10 @@ def static_definition(text: str) -> Definition | None:
     if m:
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": None, "from": None,
                 "act": "nonmana_named" if m["nm"] else "named", "max": None, "spells": False, "effects": []}
+    m = STATIC_EXILED_NAME.fullmatch(t)
+    if m:  # (-- linked exile (wave 30H) -- the key names the link: exiled_with.link reads it as a reference to the cards exiled with the source)
+        return {"kind": "static", "static": "cast_limit", "who": _WHO[m["who"]], "when": None, "filter": None, "from": None, "act": None,
+                "max": None, "exiled_with_name": True, "effects": []}
     m = STATIC_ONE.fullmatch(t)
     if m:
         ok, key = _filter(m["sel"])
@@ -544,6 +552,8 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
     """Does this limit forbid ``player`` casting this card as this spell now (``resolving``: as something resolves)?"""
     if d.get("spells") is False:
         return False
+    if d.get("exiled_with_name"):  # -- linked exile (wave 30H) --
+        return source is not None and info is not None and _same_name_as_exiled(state, info, source, ch)
     if d.get("sorcery"):  # 307.1
         return resolving or not (state.turn.active_player == player and state.turn.phase in ("main1", "main2")
                                  and not state.zones.get("stack"))
@@ -565,6 +575,19 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
     if d.get("max") is not None:
         return _cast_this_turn(state, player, key) >= int(d["max"])
     return True
+
+
+def _same_name_as_exiled(state: GameState, info: CardInfo, source: str, ch: Characteristics) -> bool:
+    """-- linked exile (wave 30H) -- 201.2a: does the spell share a name with a face-up card still exiled with the source (607.2a)? (a face-down one
+    has no name; the card exiled with it is only its name for those who may look, so it never makes a spell uncastable here)"""
+    from app.rules import card_names, exiled_with
+    from app.rules.plan import Plan
+
+    src = state.cards[source]
+    plan = Plan.view(state, src.controller, info)
+    ctx = {"controller": src.controller, "source_card": source, "source_object": plan.oid(src)}
+    names = {normalize_name(n) for c in exiled_with.cards(plan, ctx) if not state.cards[c].face_down for n in card_names.names_of(plan.ch(state.cards[c]))}
+    return bool(names & {normalize_name(n) for n in card_names.names_of(ch)})
 
 
 def _cast_this_turn(state: GameState, player: str, key: str | None) -> int:
