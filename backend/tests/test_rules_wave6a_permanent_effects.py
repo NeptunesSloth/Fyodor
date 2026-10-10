@@ -303,9 +303,10 @@ def test_turn_grants_parse():
         [{"do": "restrict", "who": "target", "rules": [f"cant_be_blocked_by:{walls}"]}], "sel:{\"types\":[\"Creature\"]}", False)
     assert scripts.parse_effects("Target creature can't be blocked this turn.")[0] == [
         {"do": "restrict", "who": "target", "rules": ["cant_be_blocked"]}]  # (as before)
-    for text in ("Target creature gains flying and can't be blocked this turn.",  # (a grant with no duration)
-                 "Target creature can't be blocked this combat."):
-        assert scripts.parse_effects(text) is None, text
+    assert scripts.parse_effects("Target creature gains flying and can't be blocked this turn.") is None  # (a grant with no duration)
+    # (wave 30P: "this combat" is read since, ending with the combat: tests/test_rules_wave30p_combat.py)
+    assert scripts.parse_effects("Target creature can't be blocked this combat.")[0] == [
+        {"do": "restrict", "who": "target", "rules": ["cant_be_blocked"], "duration": "end_of_combat"}]
 
 
 def test_gingerbrute_can_be_blocked_only_by_creatures_with_haste(cards):
