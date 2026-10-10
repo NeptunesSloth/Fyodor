@@ -2927,7 +2927,7 @@ def parse_become(text: str) -> tuple[Effects, Any] | None:
 # them (205.1b). Only a target land is read (a group's choice, "Choose a basic land type. Each land … that type", is not).
 _BASICS = "Plains|Island|Swamp|Mountain|Forest"
 _BECOME_LAND = re.compile(
-    rf"^(?:(?P<lead>until end of turn, ))?(?P<o>target .+?) becomes? (?:(?:an? )?(?P<a>{_BASICS})(?: or an? (?P<b>{_BASICS}))?|"
+    rf"^(?:(?P<lead>until end of turn, ))?(?P<o>target .+?|it|that land) becomes? (?:(?:an? )?(?P<a>{_BASICS})(?: or an? (?P<b>{_BASICS}))?|"
     rf"(?P<pick>the basic land type of your choice))(?P<add> in addition to its other types)?(?P<trail> until end of turn)?$")
 
 
@@ -2940,9 +2940,12 @@ _BECOME_PICK = re.compile(r"^(?:until end of turn, )?(?P<o>.+?) becomes? the (?P
 
 def _become_land(m: re.Match[str]) -> tuple[Effects, Any]:
     kind, key, group = ref(m["o"])
-    if kind != "target" or group is None or '"types":["Land"]' not in key or (m["lead"] and m["trail"]):
+    # (-- durations (wave 30M) -- a pronoun too: "Put a flood counter on target land. That land becomes an Island in addition to its other types
+    # for as long as it has a flood counter on it." — the land an earlier instruction named, resolved by scripts.resolve_it)
+    if (kind != "it" and (kind != "target" or group is None or '"types":["Land"]' not in key)) or (m["lead"] and m["trail"]):
         raise _Fail
-    e: dict[str, Any] = {"do": "become", "who": "target", "types": [], "duration": "end_of_turn" if m["lead"] or m["trail"] else "permanent"}
+    e: dict[str, Any] = {"do": "become", "who": "target" if kind == "target" else "it", "types": [],
+                         "duration": "end_of_turn" if m["lead"] or m["trail"] else "permanent"}
     if m["pick"] or m["b"]:
         e["land_pick"] = list(_BASICS.split("|")) if m["pick"] else [m["a"], m["b"]]
     else:

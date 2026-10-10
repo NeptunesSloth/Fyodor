@@ -1,0 +1,421 @@
+[
+ {
+  "name": "Teferi, Time Raveler",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker — Teferi",
+  "oracle_text": "Each opponent can cast spells only any time they could cast a sorcery.\n+1: Until your next turn, you may cast sorcery spells as though they had flash.\n−3: Return up to one target artifact, creature, or enchantment to its owner's hand. Draw a card.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "4"
+ },
+ {
+  "name": "Lightning, Security Sergeant",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Soldier",
+  "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhenever Lightning deals combat damage to a player, exile the top card of your library. You may play that card for as long as you control Lightning.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Victor Mancha, Runaway",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Legendary Artifact Creature — Human Hero",
+  "oracle_text": "When Victor Mancha enters, exile target card from your graveyard. You may play it for as long as you control Victor Mancha.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Elkin Bottle",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{3}, {T}: Exile the top card of your library. Until the beginning of your next upkeep, you may play that card.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Minas Morgul, Dark Fortress",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Legendary Land",
+  "oracle_text": "Minas Morgul enters tapped.\n{T}: Add {B}.\n{3}{B}, {T}: Put a shadow counter on target creature. For as long as that creature has a shadow counter on it, it's a Wraith in addition to its other types. (A creature with shadow can block or be blocked by only creatures with shadow.)",
+  "colors": [],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Xolatoyac, the Smiling Flood",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{U}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Salamander Serpent",
+  "oracle_text": "Whenever Xolatoyac enters or attacks, put a flood counter on target land. That land is an Island in addition to its other types for as long as it has a flood counter on it.\nAt the beginning of your end step, untap each permanent you control with a counter on it.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Aquitect's Will",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Kindred Sorcery — Merfolk",
+  "oracle_text": "Put a flood counter on target land. That land is an Island in addition to its other types for as long as it has a flood counter on it. If you control a Merfolk, draw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Reveka, Wizard Savant",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Dwarf Wizard",
+  "oracle_text": "{T}: Reveka deals 2 damage to any target and doesn't untap during your next untap step.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "1"
+ },
+ {
+  "name": "Misstep",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Creatures target player controls don't untap during that player's next untap step.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Homarid Warrior",
+  "layout": "normal",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Creature — Homarid Warrior",
+  "oracle_text": "{U}: This creature gains shroud until end of turn and doesn't untap during your next untap step. Tap it. (A creature with shroud can't be the target of spells or abilities.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Winterthorn Blessing",
+  "layout": "normal",
+  "mana_cost": "{G}{U}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Put a +1/+1 counter on up to one target creature you control. Tap up to one target creature you don't control, and that creature doesn't untap during its controller's next untap step.\nFlashback {1}{G}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Flashback"
+  ]
+ },
+ {
+  "name": "Intet, the Dreamer",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{U}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Dragon",
+  "oracle_text": "Flying\nWhenever Intet deals combat damage to a player, you may pay {2}{U}. If you do, exile the top card of your library face down. You may look at that card for as long as it remains exiled. You may play that card without paying its mana cost for as long as Intet remains on the battlefield.",
+  "colors": [
+   "G",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Gwen Stacy // Ghost-Spider",
+  "layout": "modal_dfc",
+  "mana_cost": "{1}{R} // {2}{U}{R}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Performer Hero // Legendary Creature — Spider Human Hero",
+  "oracle_text": "When Gwen Stacy enters, exile the top card of your library. You may play that card for as long as you control this creature.\n{2}{U}{R}{W}: Transform Gwen Stacy. Activate only as a sorcery.\n//\nFlying, vigilance, haste\nWhenever you play a land from exile or cast a spell from exile, put a +1/+1 counter on Ghost-Spider.\nRemove two counters from Ghost-Spider: Exile the top card of your library. You may play that card this turn.",
+  "colors": [
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance",
+   "Transform",
+   "Haste"
+  ],
+  "power": "2",
+  "toughness": "1",
+  "card_faces": [
+   {
+    "name": "Gwen Stacy",
+    "mana_cost": "{1}{R}",
+    "type_line": "Legendary Creature — Human Performer Hero",
+    "oracle_text": "When Gwen Stacy enters, exile the top card of your library. You may play that card for as long as you control this creature.\n{2}{U}{R}{W}: Transform Gwen Stacy. Activate only as a sorcery.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/b/0/b0f1597f-1dc7-465e-8fcb-0afe61bcca46.jpg?1783905342",
+     "normal": "https://cards.scryfall.io/normal/front/b/0/b0f1597f-1dc7-465e-8fcb-0afe61bcca46.jpg?1783905342",
+     "large": "https://cards.scryfall.io/large/front/b/0/b0f1597f-1dc7-465e-8fcb-0afe61bcca46.jpg?1783905342",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/b/0/b0f1597f-1dc7-465e-8fcb-0afe61bcca46.jpg?1783905342"
+    }
+   },
+   {
+    "name": "Ghost-Spider",
+    "mana_cost": "{2}{U}{R}{W}",
+    "type_line": "Legendary Creature — Spider Human Hero",
+    "oracle_text": "Flying, vigilance, haste\nWhenever you play a land from exile or cast a spell from exile, put a +1/+1 counter on Ghost-Spider.\nRemove two counters from Ghost-Spider: Exile the top card of your library. You may play that card this turn.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "R",
+     "U",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/b/0/b0f1597f-1dc7-465e-8fcb-0afe61bcca46.jpg?1783905342",
+     "normal": "https://cards.scryfall.io/normal/back/b/0/b0f1597f-1dc7-465e-8fcb-0afe61bcca46.jpg?1783905342",
+     "large": "https://cards.scryfall.io/large/back/b/0/b0f1597f-1dc7-465e-8fcb-0afe61bcca46.jpg?1783905342",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/b/0/b0f1597f-1dc7-465e-8fcb-0afe61bcca46.jpg?1783905342"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Rakdos Ickspitter",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Thrull",
+  "oracle_text": "{T}: This creature deals 1 damage to target creature and that creature's controller loses 1 life.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Burning Palm Efreet",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Efreet",
+  "oracle_text": "{1}{R}{R}: This creature deals 2 damage to target creature with flying and that creature loses flying until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Tolsimir, Friend to Wolves",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{G}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Elf Scout",
+  "oracle_text": "When Tolsimir enters, create Voja, Friend to Elves, a legendary 3/3 green and white Wolf creature token.\nWhenever a Wolf you control enters, you gain 3 life and that creature fights up to one target creature you don't control.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Fight"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Skyrider Patrol",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Elf Scout",
+  "oracle_text": "Flying\nAt the beginning of combat on your turn, you may pay {G}{U}. When you do, put a +1/+1 counter on another target creature you control, and that creature gains flying until end of turn.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Life Matrix",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact",
+  "oracle_text": "{4}, {T}: Put a matrix counter on target creature and that creature gains \"Remove a matrix counter from this creature: Regenerate this creature.\" Activate only during your upkeep.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Regenerate"
+  ]
+ },
+ {
+  "name": "Form of the Dinosaur",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, your life total becomes 15.\nAt the beginning of your upkeep, this enchantment deals 15 damage to target creature an opponent controls and that creature deals damage equal to its power to you.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "The Legend of Kyoshi // Avatar Kyoshi",
+  "layout": "transform",
+  "mana_cost": "{4}{G}{G} // ",
+  "cmc": 6.0,
+  "type_line": "Enchantment — Saga // Legendary Creature — Avatar",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — Draw cards equal to the greatest power among creatures you control.\nII — Earthbend X, where X is the number of cards in your hand. That land becomes an Island in addition to its other types.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.\n//\nLands you control have trample and hexproof.\n{T}: Add X mana of any one color, where X is the greatest power among creatures you control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Transform",
+   "Earthbend"
+  ],
+  "card_faces": [
+   {
+    "name": "The Legend of Kyoshi",
+    "mana_cost": "{4}{G}{G}",
+    "type_line": "Enchantment — Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — Draw cards equal to the greatest power among creatures you control.\nII — Earthbend X, where X is the number of cards in your hand. That land becomes an Island in addition to its other types.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/4/8/4887ce64-7c98-4bd7-95db-0c43ab71cc6e.jpg?1783904946",
+     "normal": "https://cards.scryfall.io/normal/front/4/8/4887ce64-7c98-4bd7-95db-0c43ab71cc6e.jpg?1783904946",
+     "large": "https://cards.scryfall.io/large/front/4/8/4887ce64-7c98-4bd7-95db-0c43ab71cc6e.jpg?1783904946",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/4/8/4887ce64-7c98-4bd7-95db-0c43ab71cc6e.jpg?1783904946"
+    }
+   },
+   {
+    "name": "Avatar Kyoshi",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Avatar",
+    "oracle_text": "Lands you control have trample and hexproof.\n{T}: Add X mana of any one color, where X is the greatest power among creatures you control.",
+    "power": "5",
+    "toughness": "4",
+    "colors": [],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/4/8/4887ce64-7c98-4bd7-95db-0c43ab71cc6e.jpg?1783904946",
+     "normal": "https://cards.scryfall.io/normal/back/4/8/4887ce64-7c98-4bd7-95db-0c43ab71cc6e.jpg?1783904946",
+     "large": "https://cards.scryfall.io/large/back/4/8/4887ce64-7c98-4bd7-95db-0c43ab71cc6e.jpg?1783904946",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/4/8/4887ce64-7c98-4bd7-95db-0c43ab71cc6e.jpg?1783904946"
+    }
+   }
+  ]
+ }
+]
