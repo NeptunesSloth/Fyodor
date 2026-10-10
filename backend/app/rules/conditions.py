@@ -43,7 +43,8 @@ if TYPE_CHECKING:
 Condition = dict[str, Any]
 _N = values.NUMBERS | {"no": 0}
 _OPS = {">=": lambda a, b: a >= b, "<=": lambda a, b: a <= b, "==": lambda a, b: a == b,
-        ">": lambda a, b: a > b, "<": lambda a, b: a < b}
+        ">": lambda a, b: a > b, "<": lambda a, b: a < b,
+        "parity": lambda a, b: a % 2 == b}  # (-- spell grants (wave 30T) -- "~'s power is even / odd" (Kianne): b 0 even, 1 odd; 0 is even, a negative odd)
 
 
 def _num(word: str) -> int | None:
@@ -116,6 +117,7 @@ _GRAVEYARD_TYPES = re.compile(r"there are (?P<n>\w+) or more (?P<what>card types
 _NONE_ON_BATTLEFIELD = re.compile(r"(?:there are )?no (?P<sel>[\w' -]+?)(?: are)? on the battlefield")
 _OBJECT_STAT = re.compile(r"(?P<who>its|that creature's|that permanent's|that card's|the card's|that spell's|~'s|the sacrificed (?:creature|permanent|artifact)'s) (?P<stat>power|toughness|mana value) "
                           r"(?:is|was) (?:(?P<n>\w+) or (?P<cmp>less|greater|more|fewer)|(?P<cmp2>less|greater|more|fewer) than (?P<n2>\w+))")  # (17D: "than")
+_OBJECT_PARITY = re.compile(r"~'s (?P<stat>power|toughness) is (?P<p>even|odd)")
 _OBJECT_VS_REVEALED = re.compile(r"(?:its|that creature's|that permanent's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|less than|"
                                  r"greater than or equal to|greater than|equal to) the revealed card's (?P<ref>power|toughness|mana value)")
 # -- trigger other (wave 25B) -- converge: "if its mana value is less than or equal to the number of colors of mana spent to cast this spell"
@@ -985,6 +987,9 @@ def _object(t: str) -> Condition | None:
     m = _OBJECT_VS_COUNT.fullmatch(t)
     if m and (count := values.parse_count(m["v"])) is not None:
         return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]], "n": {"count_value": count}}
+    m = _OBJECT_PARITY.fullmatch(t)
+    if m:  # -- spell grants (wave 30T) -- "~'s power is even" (the source itself)
+        return {"object": "self", "stat": m["stat"], "op": "parity", "n": int(m["p"] == "odd")}
     m = _OBJECT_STAT.fullmatch(t)
     if m:  # "its mana value was 3 or less", "its power is 4 or greater"
         n = _num(m["n"] or m["n2"])

@@ -377,7 +377,7 @@ def note_selector_ok(sel: Any, spell: bool = False) -> bool:
         if f.name not in _NOTE_FIELDS and getattr(sel, f.name) != getattr(blank, f.name):
             return False
     # (-- history (wave 22E) -- a spell's note also records whether its cost has {X}, and "outlaw"-style subtype lists answer from the subtypes)
-    extras_ok = {"all_types", *(("x_cost",) if spell else ())}
+    extras_ok = {"all_types", "historic", *(("x_cost",) if spell else ())}  # (wave 30T: 700.6 historic is answered from the recorded types)
     return all(e in extras_ok or e.startswith("subtype_any:") for e in sel.extras) \
         and all(c[0] == "mv" and isinstance(c[2], int) for c in sel.compare)
 
@@ -413,6 +413,8 @@ def note_matches(sel: Any, types: Any, subtypes: Any = (), supertypes: Any = (),
     for extra in sel.extras:  # (wave 22E) "outlaw": any of these subtypes
         if extra.startswith("subtype_any:") and not set(extra[12:].split("|")) & subtypes:
             return False
+    if "historic" in sel.extras and not ("Artifact" in types or "Legendary" in supertypes or "Saga" in subtypes):
+        return False  # -- spell grants (wave 30T) -- 700.6: "the first historic spell you cast each turn" (Peri Brown)
     ops = {">=": float.__ge__, "<=": float.__le__, "==": float.__eq__}
     return all(ops[op](float(mv), float(n)) for _, op, n in sel.compare)
 

@@ -26,8 +26,13 @@
   activate abilities of creatures you control as though those creatures had haste" lifts the summoning
   sickness rule for their {T} / {Q} abilities only (the creatures don't gain haste: they still can't
   attack, 508.1a).
+* -- spell grants (wave 30T) -- "the first <kind> spell you cast each turn" (601.2i): the spell is the first of that kind the player cast this turn, the
+  whole turn's casts counting whenever the source arrived (Radagast of Rhosgobel's rulings, 2026-06-29; cost_changes.first_ok). It gives convoke /
+  improvise (Peri Brown, The Fifteenth Doctor), casualty N (Anhelo, Ashad; Silverquill's "each … has casualty 1") or flash (The Blue Spirit, Radagast).
+  "As long as <condition>, you may cast … as though they had flash" (Quicksilver, Captain Mar-Vell, Kianne) is a flash permission read afresh, as its
+  source's controller (611.3a, 601.3d).
 
-The grammar is a closed list of wordings; anything else stays manual. Refused: conditional statics
+The grammar is a closed list of wordings; anything else stays manual. Refused: other conditional statics
 ("As long as this Equipment is attached …"), prohibitions on a chosen name or "the same name as …",
 "with even mana values", per-player conditions ("each opponent who attacked …"), "Hope of Ghirapur"'s
 "target player who was dealt combat damage by ~", Auras on players ("Enchanted player can't …").
@@ -116,7 +121,12 @@ STATIC_SPEND = re.compile(r"^(?P<who>you|players) (?P<how>may spend mana as thou
 STATIC_HASTE = "you may activate abilities of creatures you control as though those creatures had haste"
 # 702.51 / 702.126 / 702.66: "Nonartifact spells you cast have improvise." / "Artifact spells you cast have convoke." / "Spells
 # you cast have delve." — the spell has it while it's being cast (601.2g-h: costs are paid with the spell on the stack)
-STATIC_HELPER = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells you cast(?P<frm> from exile)? have (?P<kw>convoke|improvise|delve)$")
+# -- spell grants (wave 30T) -- "The first historic spell you cast each turn has convoke." (Peri Brown), "The first nonartifact spell you cast each turn
+# has improvise." (The Fifteenth Doctor): the same grant to the first spell of a kind the turn's casts record (601.2i), counted from the whole turn
+STATIC_HELPER = re.compile(r"^(?:(?P<first>the first) )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? you cast(?P<frm> from exile)?(?P<each> each turn)? "
+                           r"(?:has|have) (?P<kw>convoke|improvise|delve)$")
+# 601.3b: "You may cast the first creature spell you cast each turn as though it had flash." (The Blue Spirit)
+STATIC_FIRST_FLASH = re.compile(r"^you may cast the first (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell you cast each turn as though it had flash$")
 
 
 # -- static_other sweep (wave 17C) -- 702.41a: "Artifact spells you cast have affinity for artifacts." / "Spells you cast have affinity for
@@ -134,16 +144,19 @@ STATIC_CASCADE = re.compile(
     r"^(?:each |(?P<first>the first) )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? you cast"
     r"(?: from (?P<frm>your hand|exile|anywhere other than your hand))?"
     r"(?: (?P<tail>with mana value \d+ or (?:greater|less)))?(?P<each> each turn)? "
-    r"(?:has|have) (?P<kw>cascade|storm|conspire|ripple \d+|\"[Cc]ascade, cascade\.?\")$")  # (wave 17C: storm 702.40a, ripple 702.60a, conspire 702.78a)
+    r"(?:has|have) (?P<kw>cascade|storm|conspire|ripple \d+|casualty \d+|\"[Cc]ascade, cascade\.?\")$")  # (wave 17C: storm 702.40a, ripple 702.60a, conspire 702.78a; 30T: casualty 702.153a)
 
 
 def _cascade_definition(m: re.Match[str]) -> Definition | None:
     if m["first"]:
         # "The first spell you cast each turn" / "… from exile each turn": no spell filter, one condition
-        if m["sel"] or m["tail"] or not m["each"] or m["frm"] == "your hand":
+        # (-- spell grants (wave 30T) -- "The first instant or sorcery spell you cast each turn has casualty 2." (Anhelo): the first of a kind)
+        if m["tail"] or not m["each"] or m["frm"] == "your hand" or (m["sel"] and (m["frm"] or not m["kw"].startswith("casualty"))):
             return None
-        first = "from" if m["frm"] else "turn"
-        key = None
+        first = "from" if m["frm"] else "kind" if m["sel"] else "turn"
+        ok, key = _first_filter(m["sel"])
+        if not ok:
+            return None
     elif m["each"]:
         return None
     else:
@@ -154,14 +167,24 @@ def _cascade_definition(m: re.Match[str]) -> Definition | None:
         if key is None and (phrase or m["tail"]):
             return None  # (a wording the spell selector doesn't read)
         first = None
-    return {"kind": "static", "static": "spell_keyword", "keyword": m["kw"] if m["kw"] in ("storm", "conspire") else "ripple"
-            if m["kw"].startswith("ripple") else "cascade", **({"n": int(m["kw"].split()[1])} if m["kw"].startswith("ripple") else {}),
+    word = m["kw"].split()[0]
+    return {"kind": "static", "static": "spell_keyword", "keyword": word if word in ("storm", "conspire", "casualty") else "ripple"
+            if word == "ripple" else "cascade", **({"n": int(m["kw"].split()[1])} if word in ("ripple", "casualty") else {}),
             "count": 2 if m["kw"].startswith('"') else 1, "filter": key,
             "from": _FROM_ZONES[m["frm"]] if m["frm"] else None, "first": first, "effects": []}
 
 
 def _lower_first(s: str) -> str:
     return s[:1].lower() + s[1:] if s[:1].isupper() else s
+
+
+def _first_filter(sel: str | None) -> tuple[bool, str | None]:
+    """-- spell grants (wave 30T) -- (understood, key) for the kind of "the first <sel> spell you cast each turn": one the turn's cast records answer
+    (history.note_selector_ok: a kicked or face-down spell isn't recorded, so it isn't read)."""
+    from app.rules import history, selectors
+
+    ok, key = _filter(sel)
+    return ok and (key is None or history.note_selector_ok(selectors.from_key(key))), key
 
 
 def _filter(sel: str | None, tail: str | None = None) -> tuple[bool, str | None]:
@@ -187,9 +210,36 @@ def _cast_definition(m: re.Match[str]) -> Definition | None:
             "max": None, "effects": []}
 
 
+def flash_def(key: str | None, **extra: Any) -> Definition:
+    """A flash-only permission (601.3b): no zone, nothing played; ``extra``: "any_player", "during", "first" (-- spell grants (wave 30T) --), "if"."""
+    return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": False, "play": False, "cast": True,
+            "filter": key, "effects": [], **extra}
+
+
+# -- spell grants (wave 30T) -- 601.3d, 611.3a: "As long as ~ is tapped, you may cast spells as though they had flash." (Quicksilver), "As long as an
+# opponent has cast a spell this turn, …" (Captain Mar-Vell), "As long as ~'s power is even, you may cast noncreature spells as though they had
+# flash." (Kianne), "As long as you control a green or blue permanent, you may cast this spell as though it had flash." (Hungering Yeti = "… if …")
+AS_LONG_FLASH = re.compile(r"^as long as (?P<c>.+?), (?P<r>you may cast .+ as though (?:they|it) had flash)$")
+
+
+def _conditional_flash(cond_text: str, rest: str) -> Definition | None:
+    """The permission of "<rest>" that works only while the condition holds (read afresh each time, as its source's controller: 611.3a)."""
+    from app.rules import conditions
+
+    cond = conditions.parse(cond_text, objects=True)  # ("~ is tapped": the source itself)
+    inner = static_definition(rest)
+    if cond is None or "succeeded" in cond or set(conditions.objects_in(cond)) - {"self"} or inner is None or inner.get("static") != "permission":
+        return None
+    return {**inner, "if": cond}
+
+
 def static_definition(text: str) -> Definition | None:
     """The definition of a static line of this grammar (``permissions.define_static`` asks), or None."""
     t = _lower_first(text.strip().rstrip("."))
+    if (lead := AS_LONG_FLASH.fullmatch(t)) is not None:
+        if lead["r"] not in ("you may cast this spell as though it had flash", "you may cast ~ as though it had flash"):
+            return _conditional_flash(lead["c"], lead["r"])
+        t = f"{lead['r']} if {lead['c']}"  # (a spell's own: "… if …", SELF_FLASH_IF)
     m = STATIC_CAST.fullmatch(t)
     if m:
         return _cast_definition(m)
@@ -256,13 +306,15 @@ def static_definition(text: str) -> Definition | None:
         ok, key = _filter(m["sel"])
         if not ok:
             return None
-        d: Definition = {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": False,
-                         "play": False, "cast": True, "filter": key, "effects": []}
+        d: Definition = flash_def(key)
         if m["who"] == "any player":
             d["any_player"] = True
         if m["during"]:
             d["during"] = "opponents_end_step"
         return d
+    if (m := STATIC_FIRST_FLASH.fullmatch(t)) is not None:  # -- spell grants (wave 30T) -- The Blue Spirit
+        ok, key = _first_filter(m["sel"])
+        return flash_def(key, first=True) if ok else None
     if t == STATIC_HASTE:
         return {"kind": "static", "static": "activate_as_haste", "effects": []}
     # -- static_other sweep (wave 19A) -- 606.3: "You may activate the loyalty abilities of planeswalkers you control twice each turn
@@ -302,11 +354,13 @@ def static_definition(text: str) -> Definition | None:
         return _cascade_definition(m)
     m = STATIC_HELPER.fullmatch(t)
     if m:
-        ok, key = _filter(m["sel"])
+        if bool(m["first"]) != bool(m["each"]) or (m["first"] and m["frm"]):
+            return None
+        ok, key = _first_filter(m["sel"]) if m["first"] else _filter(m["sel"])
         if not ok:
             return None
         return {"kind": "static", "static": "spell_helper", "keyword": m["kw"], "filter": key, "effects": [],
-                **({"from": "exile"} if m["frm"] else {})}  # (wave 17C: "Spells you cast from exile have convoke.")
+                **({"from": "exile"} if m["frm"] else {}), **({"first": True} if m["first"] else {})}  # (wave 17C: "Spells you cast from exile have convoke.")
     m = STATIC_AFFINITY.fullmatch(t)
     if m:
         from app.rules.casting import affinity_pred
@@ -735,12 +789,14 @@ def granted_helpers(state: GameState, player: str, spell_card: str, spell: Chara
     nxt = {kw for kw in ("convoke", "improvise") if card is not None and spell_grants.pending(state, player, card, spell, info, kw)}
     if not found or card is None:
         return nxt
+    from app.rules.cost_changes import first_ok
     from app.rules.permissions import spell_matches
 
     return nxt | {d["keyword"] for src, d in found if src.controller == player and d["keyword"] != "affinity"
             and (d.get("from") is None or card.zone.endswith(":exile")
                  or (card.stack_info is not None and "Cast from exile" in card.stack_info.tags))
-            and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))}
+            and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))
+            and (not d.get("first") or first_ok(state, info, player, d.get("filter")))}  # (wave 30T: "the first … spell you cast each turn")
 
 
 def granted_affinities(state: GameState, player: str, card: CardInstance, spell: Characteristics, info: CardInfo) -> list[str]:
@@ -755,12 +811,20 @@ def granted_affinities(state: GameState, player: str, card: CardInstance, spell:
         g.what for g in spell_grants.pending(state, player, card, spell, info, "affinity")]
 
 
-def from_ok(d: Definition, card: CardInstance) -> bool:
+def from_ok(d: Definition, card: CardInstance, state: GameState | None = None, info: CardInfo | None = None, player: str = "") -> bool:
     """-- static_other sweep (wave 17C) -- a granted keyword's "from exile" / "from your hand" zone, for a spell not yet cast (the card is
-    where it is cast from) — "first … each turn" statics are not offered ahead (conspire reads none)."""
+    where it is cast from) — "first … each turn" statics are not offered ahead (conspire reads none); -- spell grants (wave 30T) -- with the table
+    (casualty): the first spell / first of a kind this turn, none cast before it (601.2i)."""
+    from app.rules.cost_changes import first_ok
+
     zone = d.get("from")
     where = card.zone.rsplit(":", 1)[-1]
-    return d.get("first") is None and (zone is None or (where != "hand" if zone == "not_hand" else where == zone))
+    first = d.get("first")
+    if first is not None and (state is None or info is None or state.rules is None or first == "from"
+                              or (first == "turn" and state.rules.spells_this_turn(player, state.turn.number) > 0)
+                              or (first == "kind" and not first_ok(state, info, player, d["filter"]))):
+        return False
+    return zone is None or (where != "hand" if zone == "not_hand" else where == zone)
 
 
 def granted_cascade(plan: Plan, spell_card: str, spell: Characteristics, cast_from: str | None, keyword: str = "cascade") -> int:
@@ -780,6 +844,7 @@ def granted_instances(plan: Plan, spell_card: str, spell: Characteristics, cast_
     from app.rules import (
         spell_grants,  # -- spell grants (wave 28C) -- "The next spell you cast this turn has cascade." (702.85a, 702.40a)
     )
+    from app.rules.cost_changes import first_ok
     from app.rules.permissions import spell_matches
 
     player, turn = plan.actor, plan.state.turn.number
@@ -801,6 +866,8 @@ def granted_instances(plan: Plan, spell_card: str, spell: Characteristics, cast_
             continue
         if d.get("filter") is not None and not spell_matches(plan.state, player, card, spell, d["filter"], plan.info):
             continue
+        if d.get("first") == "kind" and not first_ok(plan.state, plan.info, player, d["filter"]):
+            continue  # -- spell grants (wave 30T) -- "The first instant or sorcery spell you cast each turn has casualty 2." (601.2i: this one isn't counted yet)
         total += [d] * int(d.get("count", 1))
     return total
 

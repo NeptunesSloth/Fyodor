@@ -803,7 +803,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
     if event == "die" and cond.get("damaged_by_self") and not _damaged_by(plan, watcher, info.get("oid")):  # (wave 7C)
         return False
-    if event == "die" and cond.get("in_combat") and plan.state.turn.phase not in COMBAT_PHASES:  # (wave 16C: "dies during combat")
+    if event in ("die", "enter") and cond.get("in_combat") and plan.state.turn.phase not in COMBAT_PHASES:  # (wave 16C: "dies during combat"; 30T: "enters")
         return False
     n = cond.get("min_attackers")
     if n and len(_counted_attackers(plan, cond, watcher, info)) < n:
