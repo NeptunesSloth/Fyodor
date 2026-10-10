@@ -1573,8 +1573,10 @@ def free_cast_done(plan: Plan, card_id: str, *, cast: bool) -> None:
     if (e.get("exile_gy") and (e["exile_gy"] is True or plan.ch(plan.state.cards[card_id]).is_instant_or_sorcery)
             and (not e.get("exile_own") or plan.state.cards[card_id].owner == ctx["controller"])):  # (wave 25C: "your graveyard")
         r.exile_if_graveyard.append(plan.oid(card_id))  # "If that spell would be put into your graveyard, exile it instead" (614.1a; wave 19C: "an instant or sorcery spell" only)
-    if int(e.get("n", 1)) > 1 and not free_cast(plan, ctx, e):
-        return  # the next one is being chosen
+    if int(e.get("n", 1)) > 1:
+        if free_cast(plan, ctx, e):  # (-- review 29D -- over: free_cast has said so once, _free_cast_over; a second call would read "If you
+            effects.continue_effects(plan, ctx)  # do" as nothing cast, Smuggler's Buggy)
+        return  # (else the next one is being chosen)
     _free_cast_over(ctx, e)
     effects.continue_effects(plan, ctx)
 
