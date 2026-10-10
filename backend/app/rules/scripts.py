@@ -1868,7 +1868,9 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if had is not None:
         rest = re.sub(r" and (get|gain) ", r" and \1s ", had["rest"])
         return _one_clause(f"{had['o']} {had['v']}s {rest}")
-    from app.rules import spell_grants  # -- spell grants (wave 28C) -- "The next spell you cast this turn has improvise."
+    from app.rules import (
+        spell_grants,  # -- spell grants (wave 28C) -- "The next spell you cast this turn has improvise."
+    )
 
     if (spelled := spell_grants.clause(text)) is not None:
         return spelled

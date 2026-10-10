@@ -73,10 +73,9 @@ def static_definition(text: str) -> dict[str, Any] | None:
     """The static of a grant line to spells ("Instant and sorcery spells you control have lifelink."), or None."""
     t = text.strip().rstrip(".")
     both = _BOTH.fullmatch(t)
-    m = _SPELLS.fullmatch(t) if both is None else None
-    if m is None and both is None:
+    mm = both or _SPELLS.fullmatch(t)
+    if mm is None:
         return None
-    mm = both or m
     ok, key = _filter(mm["sel"])
     if not ok:
         return None
@@ -93,9 +92,8 @@ def static_definition(text: str) -> dict[str, Any] | None:
 
 def _sources(state: GameState, info: CardInfo) -> list[tuple[CardInstance, dict[str, Any]]]:
     """(permanent, grant) for every spell grant of a permanent on the battlefield, confirmed with its current abilities (613.1f)."""
-    from app.rules import cast_limits
+    from app.rules import cast_limits, scripts
     from app.rules import characteristics as chars
-    from app.rules import scripts
     from app.rules.layers import derive
 
     out: list[tuple[CardInstance, dict[str, Any]]] = []

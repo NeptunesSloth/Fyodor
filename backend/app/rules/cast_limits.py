@@ -686,7 +686,9 @@ def granted_helpers(state: GameState, player: str, spell_card: str, spell: Chara
     """Convoke / improvise / delve that permanents ``player`` controls give this spell they're casting."""
     found = _statics(state, info, "spell_helper")
     card = state.cards.get(spell_card)
-    from app.rules import spell_grants  # -- spell grants (wave 28C) -- "The next spell you cast this turn has improvise."
+    from app.rules import (
+        spell_grants,  # -- spell grants (wave 28C) -- "The next spell you cast this turn has improvise."
+    )
 
     nxt = {kw for kw in ("convoke", "improvise") if card is not None and spell_grants.pending(state, player, card, spell, info, kw)}
     if not found or card is None:
@@ -701,7 +703,9 @@ def granted_helpers(state: GameState, player: str, spell_card: str, spell: Chara
 
 def granted_affinities(state: GameState, player: str, card: CardInstance, spell: Characteristics, info: CardInfo) -> list[str]:
     """-- static_other sweep (wave 17C) -- the "affinity for X" words that permanents ``player`` controls give this spell (702.41a)."""
-    from app.rules import spell_grants  # -- spell grants (wave 28C) -- "The next spell you cast this turn has affinity for artifacts."
+    from app.rules import (
+        spell_grants,  # -- spell grants (wave 28C) -- "The next spell you cast this turn has affinity for artifacts."
+    )
     from app.rules.permissions import spell_matches
 
     return [d["what"] for src, d in _statics(state, info, "spell_helper") if src.controller == player and d["keyword"] == "affinity"
@@ -731,7 +735,9 @@ def granted_instances(plan: Plan, spell_card: str, spell: Characteristics, cast_
     card = plan.state.cards.get(spell_card)
     if card is None or plan.rules is None:
         return []
-    from app.rules import spell_grants  # -- spell grants (wave 28C) -- "The next spell you cast this turn has cascade." (702.85a, 702.40a)
+    from app.rules import (
+        spell_grants,  # -- spell grants (wave 28C) -- "The next spell you cast this turn has cascade." (702.85a, 702.40a)
+    )
     from app.rules.permissions import spell_matches
 
     player, turn = plan.actor, plan.state.turn.number

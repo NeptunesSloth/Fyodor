@@ -13,7 +13,6 @@ import json
 
 import pytest
 
-from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle, token_of, until

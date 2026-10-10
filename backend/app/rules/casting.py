@@ -27,7 +27,7 @@ from app.game.rules_state import (
     cancelable,
     emit,
 )
-from app.game.state import STACK, CardInstance, GameState, zone_key
+from app.game.state import ALL, STACK, CardInstance, GameState, zone_key
 from app.rules import (
     attachments,
     cost_payment,
@@ -2609,15 +2609,15 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
     _stacked(plan, card, oid, ch, ability_id, effects)
 
 
-def _create_ability(plan: Plan, card: CardInstance, text: str) -> Any:
+def _create_ability(plan: Plan, card: CardInstance, text: str, keep: bool = False) -> Any:
     """-- hidden-zone abilities (wave 28C) -- 602.2a / 701.20a: an ability activated from a hidden zone (the hand) reveals its card, so
     the ability on the stack names it for everyone (cycling, channel, ninjutsu, "put this card from your hand …"); the card is hidden
-    again at once if it stays there, and the rest of the hand is never shown."""
+    again at once if it stays there (``keep``: it stays revealed, ninjutsu 702.49b), and the rest of the hand is never shown."""
     shown = card.zone == zone_key(plan.actor, "hand") and not card.revealed_to
     if shown:
         plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
     created = plan.do({"type": "create_ability", "text": text, "source_id": card.id, "kind": "activated"})
-    if shown:
+    if shown and not keep:  # (review 28C: ninjutsu's card was revealed, hidden and revealed again)
         plan.do({"type": "hide", "card_ids": [card.id]}, actor=plan.actor)
     return created
 
@@ -3145,8 +3145,9 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
             foretell(plan, card, ch, a)
         elif (ninja := ninjutsu.cost_of(ch, a.ability)) is not None and not plan.manual(card):
             on_stack = len(plan.state.zones.get(STACK, []))
-            activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION)
-            if len(plan.state.zones.get(STACK, [])) > on_stack and card.zone == zone_key(plan.actor, "hand"):  # -- keywords
+            activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION, keep_revealed=True)
+            if len(plan.state.zones.get(STACK, [])) > on_stack and card.zone == zone_key(plan.actor, "hand") \
+                    and ALL not in card.revealed_to:  # -- keywords
                 # (wave 15E) -- 702.49b: revealed until the ability leaves the stack (ninjutsu.enter hides it again)
                 plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
         else:
@@ -3464,7 +3465,7 @@ def equip_ability(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Acti
 
 def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, ability: AbilityText,
                       a: A.ActivateAbility, *, definition: dict[str, Any] | None = None,
-                      exclude_targets: tuple[str, ...] = ()) -> None:
+                      exclude_targets: tuple[str, ...] = (), keep_revealed: bool = False) -> None:
     from app.rules import modal_abilities  # (a leaf module over this one)
     from app.rules.engine import advance  # the engine imports this module
 
@@ -3514,7 +3515,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     effect = ability.text.split(":", 1)[1].strip() if ":" in ability.text else ability.text
     # -- review (wave 27D) -- 602.2a / 701.20a: a card whose ability is activated from the hand is revealed, so the ability on the stack
     # names it for everyone; the card stays in the hand, anonymous again once the stack object carries its name
-    created = _create_ability(plan, card, effect[:500])
+    created = _create_ability(plan, card, effect[:500], keep=keep_revealed)
     new_ids = getattr(created, "r", None)
     ability_id = new_ids.ids[0] if new_ids is not None else None
     # Pay the costs (602.2): tap first so the source can't also pay for its own mana cost.

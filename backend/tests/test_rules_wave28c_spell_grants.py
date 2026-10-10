@@ -349,7 +349,7 @@ def test_crackling_spellslinger_gives_storm_to_the_next_instant(cards):
     act(s, "p1", type="cast_spell", card_id=slinger.id)
     run(s)
     assert [g.keyword for g in s.state.rules.next_spell_grants] == ["storm"]  # "if you cast it": the trigger put the grant
-    b = bolt(s)
+    bolt(s)
     storms = [e for e in s.state.rules.stack.values() if e.kind == "trigger" and any(x.get("do") == "storm" for x in e.effects)]
     assert len(storms) == 1 and s.state.rules.next_spell_grants == []  # 702.40a: one copy for the Spellslinger cast before it
     for _ in range(6):

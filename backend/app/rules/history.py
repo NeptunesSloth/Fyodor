@@ -189,7 +189,9 @@ def _source_object(plan: Plan, ctx: dict[str, Any]) -> str | None:
 def note_cast(plan: Plan, card: Any) -> None:
     """A spell became cast (601.2i): its characteristics on the stack — face-down ones for a face-down spell (708.2)."""
     from app.game.rules_state import CastNote, turn_log_now
-    from app.rules import spell_grants  # -- spell grants (wave 28C) -- "the next spell you cast this turn": used up by this cast
+    from app.rules import (
+        spell_grants,  # -- spell grants (wave 28C) -- "the next spell you cast this turn": used up by this cast
+    )
 
     spell_grants.consume(plan, card, plan.ch(card))
     log = turn_log_now(plan.state)
