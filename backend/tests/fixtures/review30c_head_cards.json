@@ -45,5 +45,24 @@
   "keywords": [
    "Enchant"
   ]
+ },
+ {
+  "name": "Soaring Lightbringer",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Enchantment Creature — Bird Glimmer",
+  "oracle_text": "Flying\nOther enchantment creatures you control have flying.\nWhenever you attack a player, create a 1/1 white Glimmer enchantment creature token that's tapped and attacking that player.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "5"
  }
 ]

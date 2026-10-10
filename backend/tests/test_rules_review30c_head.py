@@ -34,7 +34,7 @@ _KNOWN = {c["name"] for c in fixture_cards()}
 _SEEN: set[str] = set()
 EXTRA = []
 for _file, _set in (("wave30q_cast_permissions_cards.json", "q"), ("wave30s_cards.json", "s"), ("wave30s_effects_cards.json", "e"),
-                      ("review30c_head_cards.json", "h")):
+                     ("wave30p_cards.json", "p"), ("review30c_head_cards.json", "h")):
     for _i, _c in enumerate(json.loads((_DIR / _file).read_text("utf-8"))):
         if _c["name"] not in _KNOWN and _c["name"] not in _SEEN:
             _SEEN.add(_c["name"])
@@ -183,4 +183,69 @@ def test_valduk_that_left_counts_a_role_token_that_ceased_to_exist(cards):
     settle(s)
     assert not any(c.name == "Royal Role" for c in s.state.cards.values())  # (the token is gone)
     assert len(on_table(s, "Elemental")) == 2
+    check(s)
+
+
+# ---- 30P: 508.4 "… attacking that player" read from each trigger's event; put-from-hand limits read with last known information ------------------
+def _p30():
+    from tests import test_rules_wave30p_combat as p30
+
+    return p30
+
+
+def test_soaring_lightbringer_makes_a_glimmer_attacking_each_player_attacked(cards):
+    """"Whenever you attack a player, create a 1/1 white Glimmer enchantment creature token that's tapped and attacking that player." (508.3e: once for
+    each player attacked; 508.4: the effect says whom) — one Glimmer attacks Bob, one Carol, and nobody is asked."""
+    p30 = _p30()
+    s = p30.three(cards, ["Soaring Lightbringer", "Grizzly Bears", "Llanowar Elves"], ["Grizzly Bears"], ["Grizzly Bears"])
+    put(s, "Soaring Lightbringer")
+    put(s, "Grizzly Bears", "p2"), put(s, "Grizzly Bears", "p3")  # (a possible blocker: the combat waits at declare blockers)
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    p30.to_phase(s, "declare_attackers", turn=4)
+    p30.attack(s, (bears, "p2"), (elves, "p3"))
+    p30.drive(s, stop_at=("declare_blockers",))
+    glimmers = sorted(c.attacking.id for c in s.state.cards.values() if c.name == "Glimmer" and c.attacking is not None)
+    assert glimmers == ["p2", "p3"], glimmers
+    assert all(k != "choose_one" for _, k, _ in s.asked), s.asked
+    check(s)
+
+
+def test_seraphic_greatswords_angel_attacks_the_player_the_equipped_creature_attacked(cards):
+    p30 = _p30()
+    s = p30.three(cards, ["Seraphic Greatsword", "Grizzly Bears"], ["Grizzly Bears"], ["Grizzly Bears"])
+    gear, bears = put(s, "Seraphic Greatsword"), put(s, "Grizzly Bears")
+    put(s, "Grizzly Bears", "p2"), put(s, "Grizzly Bears", "p3")
+    act(s, "p1", type="attach", card_ids=[gear.id], to=bears.id)
+    p30.to_phase(s, "declare_attackers", turn=4)
+    p30.attack(s, (bears, "p3"))  # (40 life each: Carol is tied for the most)
+    p30.drive(s, stop_at=("declare_blockers",))
+    angel = next(c for c in s.state.cards.values() if c.name == "Angel")
+    assert angel.tapped and angel.attacking is not None and angel.attacking.id == "p3", angel.attacking
+    check(s)
+
+
+def test_aether_vial_that_left_uses_its_last_known_charge_counters(cards):
+    """Aether Vial ruling 2017-11-17: "If Aether Vial leaves the battlefield while its second ability is on the stack, use its last known number of
+    charge counters"; "equal to": a mana value 2 creature, not a 1."""
+    s = build(cards, ["Aether Vial", "Grizzly Bears", "Llanowar Elves"])
+    vial = put(s, "Aether Vial")
+    act(s, "p1", type="counter", card_ids=[vial.id], kind="charge", delta=2)
+    bears, elves = to_hand(s, "Grizzly Bears"), to_hand(s, "Llanowar Elves")
+    for prefs in s.state.rules.prefs.values():
+        prefs.response = "on"
+    act(s, "p1", type="activate_ability", card_id=vial.id, ability=1)
+    act(s, "p1", type="move", card_ids=[vial.id], to={"zone": "graveyard"})
+    d = None
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_cards":
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((o.id for o in d.options if o.id == "yes"), d.options[0].id)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and [o.card_id for o in d.options] == [bears.id], d
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[elves.id].zone == "p1:hand"
     check(s)
