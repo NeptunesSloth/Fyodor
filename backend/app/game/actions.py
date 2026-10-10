@@ -26,8 +26,11 @@ ZoneName = Literal[
 Coord = Annotated[float, Field(ge=-100000, le=100000)]
 # Target groups (601.2c): how many of ``targets`` belong to each group, in printed order; and the
 # division (601.2d) of each divided group with two or more targets, amount per target in order.
-TargetCounts = Annotated[list[Annotated[int, Field(ge=0, le=20)]], Field(max_length=10)]
-Division = Annotated[list[Annotated[int, Field(ge=1, le=10000)]], Field(max_length=20)]
+# -- target limits (wave 29C) -- the most targets one spell or ability names in one intent: the limit of the Choose action's options (a
+# trigger's targets are chosen with one), so "up to X target …" / "any number of target …" aren't cut at 20 for casts and activations
+MAX_TARGETS = 250
+TargetCounts = Annotated[list[Annotated[int, Field(ge=0, le=MAX_TARGETS)]], Field(max_length=10)]
+Division = Annotated[list[Annotated[int, Field(ge=1, le=10000)]], Field(max_length=MAX_TARGETS)]
 FaceDownKind = Literal["generic", "morph", "disguise", "manifest", "cloak", "exile"]
 assert set(PLAYER_ZONES) | {STACK} == set(ZoneName.__args__)  # type: ignore[attr-defined]
 
@@ -956,7 +959,7 @@ class CastSpell(_Intent):
     card_id: Id
     face: int | None = Field(default=None, ge=0, le=3)
     # Optional answers given up front; anything missing is asked for as a decision.
-    targets: list[Id] = Field(default_factory=list, max_length=20)
+    targets: list[Id] = Field(default_factory=list, max_length=MAX_TARGETS)
     target_counts: TargetCounts = Field(default_factory=list)  # for spells with target groups
     division: Division = Field(default_factory=list)
     x_value: int | None = Field(default=None, ge=0, le=1000)
@@ -1026,7 +1029,7 @@ class ActivateAbility(_Intent):
     # index into the card's abilities (app/rules/oracle.py): printed 0…99, granted by a static ability 100…, granted
     # by a resolved effect 10 000 + 16 × its timestamp + k (app/rules/granted.py ``index_of``, ``MAX_INDEX``)
     ability: int = Field(ge=0, le=10_000_000)  # (borrowed abilities, app/rules/abilities_of.py: 2 000 000 + 32 × the lender's object number + k)
-    targets: list[Id] = Field(default_factory=list, max_length=20)
+    targets: list[Id] = Field(default_factory=list, max_length=MAX_TARGETS)
     target_counts: TargetCounts = Field(default_factory=list)  # (see CastSpell)
     division: Division = Field(default_factory=list)
     x_value: int | None = Field(default=None, ge=0, le=1000)
@@ -1087,7 +1090,7 @@ class Choose(_Intent):
     decision_id: Id
     option_ids: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=250)
     # A "divide" decision (601.2d): the amount for each option, in the options' order.
-    amounts: list[Annotated[int, Field(ge=0, le=10000)]] = Field(default_factory=list, max_length=20)
+    amounts: list[Annotated[int, Field(ge=0, le=10000)]] = Field(default_factory=list, max_length=MAX_TARGETS)
     # -- card names (wave 22B) -- 201.4: the typed card name that answers a "choose a card name" decision
     name: Annotated[str, Field(max_length=200)] | None = None
     # Remember this answer (for prompts that allow it): ALWAYS YES / NO THIS TURN, ALWAYS YIELD.

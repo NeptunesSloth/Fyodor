@@ -23,6 +23,7 @@ import re
 from dataclasses import replace
 from typing import Any
 
+from app.game import actions as A
 from app.rules import characteristics as chars
 from app.rules import selectors, sized_damage, this_way, values  # (this_way: wave 4A; sized_damage: wave 4E)
 from app.rules.card_names import (
@@ -77,7 +78,7 @@ class _Fail(Exception):
     pass
 
 
-MAX_TARGETS = 20  # "any number of target …": at most this many (the intents' limit)
+MAX_TARGETS = A.MAX_TARGETS  # "any number of target …": at most this many (the intents' limit; wave 29C: 250, as a trigger's, not 20)
 _QTY = r"one|two|three|four|five|six|seven|eight|nine|ten|\d+"
 # -- target forms (agent T) --  "up to one other target creature", "each of up to two other targets",
 # "any number of other target nonland permanents you control": "other" inside a counted group

@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.game.actions import MAX_TARGETS
 from app.game.rules_state import TargetRef
 from app.game.state import CardInstance
 from app.rules import protection, selectors
@@ -198,6 +199,7 @@ class GroupChoice:
     division: list[list[int]] = field(default_factory=list)
     ask: tuple[Any, ...] | None = None
     counts: list[int] = field(default_factory=list)  # targets per group so far (groups with nothing to target: 0)
+    capped: int = 0  # -- target limits (wave 29C) -- with ``ask``: how many targets the rules allow when that is more than MAX_TARGETS
 
 
 def divide_total(spec: dict[str, Any], x: int | None) -> int | None:
@@ -221,18 +223,32 @@ def where_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | N
     return values.evaluate(plan, ctx, spec["x_value"])
 
 
-def group_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
-    """(min, max) targets of a group; a divided group needs at most as many targets as there is
-    to divide, and at least one (601.2d: each gets at least one)."""
+def free_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
+    """(min, max) targets of a group as the rules give them, before the engine's own limit; a divided group needs at most as many
+    targets as there is to divide, and at least one (601.2d: each gets at least one)."""
     lo, hi = int(spec.get("min", 1)), int(spec.get("max", 1))
     if spec.get("x_count"):  # -- X sized by a count (wave 4K) -- "X target …" / "up to X target …" (601.2c: the number is
-        hi = min(hi, max(0, int(x or 0)))  # determined with X, 601.2b, and doesn't change after)
+        hi = max(0, int(x or 0))  # determined with X, 601.2b, and doesn't change after; wave 29C: X alone limits it)
         lo = hi if spec["x_count"] == "exact" else 0
         if hi == 0:
             return 0, 0  # (X is 0: no targets, nothing to divide among them)
     total = divide_total(spec, x)
     if total is not None:
         lo, hi = max(lo, 1), min(hi, total)
+    return lo, hi
+
+
+def group_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
+    """(min, max) targets of a group the engine takes: ``free_limits`` cut at ``MAX_TARGETS`` (wave 29C: the most one choice carries; the
+    prompt says so when that is fewer than the rules allow). An exact "X target …" over it is refused, not shortened: fewer targets than
+    X would be another spell (601.2c, 107.3a)."""
+    lo, hi = free_limits(spec, x)
+    if hi > MAX_TARGETS:
+        if lo > MAX_TARGETS:
+            from app.game.errors import ActionError
+
+            raise ActionError(f"X is {lo}, but at most {MAX_TARGETS} targets can be chosen at once: choose a smaller X")
+        hi = MAX_TARGETS
     return lo, hi
 
 
@@ -257,8 +273,10 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         banned = {t for d in spec.get("distinct_from") or [] if d < len(out.groups) for t in out.groups[d]}
         options = [t for t in legal_targets(plan, spec["what"], chooser, source, source_card, attacker)
                    if t not in exclude and t not in banned]
-        lo, hi = group_limits({**spec, "x_count": "upto"} if "x_value" in spec else spec,
-                              where_x(plan, spec, chooser, source_card, source_object, event) if "x_value" in spec else x)
+        shaped = {**spec, "x_count": "upto"} if "x_value" in spec else spec
+        counted = where_x(plan, spec, chooser, source_card, source_object, event) if "x_value" in spec else x
+        lo, hi = group_limits(shaped, counted)
+        allowed = free_limits(shaped, counted)[1]
         if g >= len(out.counts) and hi == 0:  # -- kicked / instead (wave 4G) -- a group the spell doesn't require (601.2c)
             out.counts.append(0)
         if g >= len(out.counts):
@@ -268,6 +286,7 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
                 out.counts.append(0)  # "up to one target …" with nothing to target: zero targets (115.6)
             else:
                 out.ask = ("group", g, options, lo, min(hi, len(options)))
+                out.capped = allowed if allowed > hi and len(options) > hi else 0  # (said in the prompt: ask_targets)
                 return out
         count = out.counts[g]
         chosen = targets[pos:pos + count]

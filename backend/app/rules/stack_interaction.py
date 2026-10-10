@@ -270,7 +270,7 @@ def _apply(plan: Plan, sid: str, new: StackEntry | None) -> None:
            or (t.id in plan.state.cards and publicly_visible(plan.state, plan.state.cards[t.id]))]
     ids = list(dict.fromkeys(ids))
     if ids and len(plan.state.arrows) < 190:
-        plan.do({"type": "create_arrow", "source": sid, "targets": ids, "kind": "target"}, actor=new.controller)
+        plan.target_arrows(sid, ids, actor=new.controller)
     plan.note(f"{_label(plan, sid) or 'It'} now targets {', '.join(_label(plan, t.id) for t in new.targets)}")
     targeted(plan, sid, new.controller, added, crime=False)
 

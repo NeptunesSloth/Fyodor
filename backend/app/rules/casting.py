@@ -683,8 +683,9 @@ def ask_targets(plan: Plan, player: str, found: Any, specs: list[dict[str, Any]]
     if found.ask[0] == "group":
         _, g, options, lo, hi = found.ask
         count = str(lo) if lo == hi else f"up to {hi}" if lo == 0 else f"{lo} to {hi}"
+        cut = f" (the rules allow up to {found.capped}, but at most {hi} targets can be chosen at once)" if found.capped else ""  # (wave 29C)
         decide(plan, player=player, kind="choose_cards",
-               prompt=f"Choose {count} target{'s' if hi != 1 else ''} for {what}" + (f" (group {g + 1} of {len(specs)})" if many else ""),
+               prompt=f"Choose {count} target{'s' if hi != 1 else ''} for {what}" + (f" (group {g + 1} of {len(specs)})" if many else "") + cut,
                options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None)
                         for x in options],
                min_choices=lo, max_choices=hi, resume=resume)
@@ -2478,7 +2479,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             info["tags"] = tags
         plan.do(info)
     if a.targets:
-        plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
+        plan.target_arrows(card.id, a.targets)
     r = plan.rules
     # for "whenever you cast"; amount: the Nth spell its caster cast this turn ("your second spell each turn")
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
@@ -3070,7 +3071,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     record.x = a.x_value
     record_payment(plan, card.id, record)
     if a.targets:
-        plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
+        plan.target_arrows(card.id, a.targets)
     if ch.is_creature and was_suspended:
         r.suspend_haste.append(card.id)  # 702.62e: it gains haste
     if "rebound" in ch.keywords and from_hand:
@@ -3594,7 +3595,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if a.x_value is not None and ability_id:
         plan.do({"type": "set_stack_info", "card_id": ability_id, "x": a.x_value})
     if a.targets and ability_id:
-        plan.do({"type": "create_arrow", "source": ability_id, "targets": list(a.targets), "kind": "target"})
+        plan.target_arrows(ability_id, a.targets)
     r = plan.rules
     if modal is not None and ability_id:  # (wave 1A) each chosen mode's effects, with its own target slot
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,

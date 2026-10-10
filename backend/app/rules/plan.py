@@ -25,6 +25,7 @@ from app.rules import characteristics as chars
 from app.rules.characteristics import CardInfo, Characteristics
 
 MAX_STEPS = 400  # a safety valve: no single intent may expand into more table actions
+ARROW_TARGETS = 20  # the most objects one arrow points at (A.CreateArrow.targets)
 
 
 class Plan:
@@ -131,6 +132,13 @@ class Plan:
 
             clamp(self.state)
         return resolved
+
+    def target_arrows(self, source: str, ids: Any, *, actor: str | None = None) -> None:
+        """-- target limits (wave 29C) -- the arrows from a spell or ability to its targets: one arrow points at up to 20 objects
+        (``CreateArrow``), so a spell with more targets ("up to X target …", "any number of target …") gets several."""
+        ids = list(dict.fromkeys(ids))
+        for i in range(0, len(ids), ARROW_TARGETS):
+            self.do({"type": "create_arrow", "source": source, "targets": ids[i:i + ARROW_TARGETS], "kind": "target"}, actor=actor)
 
     def _battlefield_types(self, payload: dict[str, Any]) -> dict[str, list[str]]:
         """Card types (layers applied) of the permanents a step may move off the battlefield: "a

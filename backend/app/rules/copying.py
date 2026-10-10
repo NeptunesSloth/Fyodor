@@ -676,7 +676,7 @@ def finalize(plan: Plan, copy_id: str, controller: str) -> None:
            or (t.id in plan.state.cards and publicly_visible(plan.state, plan.state.cards[t.id]))]
     ids = list(dict.fromkeys(ids))
     if ids and len(plan.state.arrows) < 190:
-        plan.do({"type": "create_arrow", "source": copy_id, "targets": ids, "kind": "target"}, actor=controller)
+        plan.target_arrows(copy_id, ids, actor=controller)
     targeted(plan, copy_id, controller, entry.targets)
 
 

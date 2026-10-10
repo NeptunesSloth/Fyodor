@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.actions import MAX_TARGETS
 from app.game.errors import ActionError
 from app.rules import coverage
 from app.rules.characteristics import printed_from_data
@@ -48,7 +49,7 @@ CREATURE = 'sel:{"types":["Creature"]}'
     ("Tap up to two target creatures.", [{"what": CREATURE, "min": 0, "max": 2}]),
     ("Destroy two target creatures.", [{"what": CREATURE, "min": 2, "max": 2}]),
     ("Return one or two target creatures to their owners' hands.", [{"what": CREATURE, "min": 1, "max": 2}]),
-    ("Tap any number of target creatures.", [{"what": CREATURE, "min": 0, "max": 20}]),
+    ("Tap any number of target creatures.", [{"what": CREATURE, "min": 0, "max": MAX_TARGETS}]),  # (wave 29C: the intents' limit, 250)
     ("~ deals 2 damage to each of up to three targets.", [{"what": "any", "min": 0, "max": 3}]),
     ("Destroy target artifact and target enchantment.", [{"what": 'sel:{"types":["Artifact"]}', "min": 1, "max": 1},
                                                          {"what": 'sel:{"types":["Enchantment"]}', "min": 1, "max": 1}]),
