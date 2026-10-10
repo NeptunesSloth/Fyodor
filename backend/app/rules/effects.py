@@ -3321,31 +3321,44 @@ def _controlled(plan: Plan, key: str, pid: str, source: str | None) -> list[str]
             if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
 
 
-def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str], picked: list[str], step: str) -> bool:
+def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any], picked: list[str], step: str) -> bool:
     """Each player in ``players`` (APNAP order) chooses ``n`` of the matching permanents they
     control. A player with at most that many has no choice to make (they're all chosen); one
     with none is skipped. Choices already made are announced, so the next chooser knows them
     (101.4b). False while waiting for a choice."""
+    from app.rules import conditions
+
     want = _amount(plan, ctx, e["n"])
     exiling = e.get("action") == "exile"  # -- modal spells (wave 24D) -- "Target opponent exiles a creature they control."
     verb = ("exiles" if exiling else "sacrifices") if step == "edict" else "chooses"
-    for i, pid in enumerate(players):
-        mine = _controlled(plan, e["sel"], pid, ctx.get("source_card"))
+    for i, turn in enumerate(players):
+        # -- per-player choices (wave 30K) -- a turn is a player and the kind of permanent chosen (an old save: just the player); "you choose …
+        # for each player" (Tragic Arrogance): the ability's controller decides what each player's permanents are
+        pid, key = (turn, e["sel"]) if isinstance(turn, str) else turn
+        mine = _controlled(plan, key, pid, ctx.get("source_card"))
         if step == "edict" and not exiling and mine and _sacrifice_barred(plan, ctx, pid):
             mine = []  # -- prohibitions (wave 22B) -- nothing for them to sacrifice
-        n = min(want, len(mine))
+        cap = e.get("power_cap")  # "any number of creatures they control with total power 4 or less" (Slaughter the Strong): always a choice
+        n = len(mine) if cap is not None else min(want, len(mine))
         if n == 0:
             continue
-        if n == len(mine):
+        by = ctx["controller"] if e.get("by") == "you" or (e.get("by_if") and conditions.holds(plan, ctx, e["by_if"])) else pid
+        label = dict(zip(e.get("sels") or [], e.get("labels") or [], strict=False)).get(key, e.get("label", "permanent"))
+        if n == len(mine) and cap is None:
             picked = [*picked, *mine]
-            plan.note(f"{plan.name(pid)} {verb} {_labels(plan, mine)} (no choice: all of them)", mine, actor=pid)
+            plan.note(f"{plan.name(by)} {verb} {_labels(plan, mine)} (no choice: all of them)", mine, actor=by)
             continue
-        prompt = f"{ctx.get('name', '') or 'Choose'}: {verb[:-1] if step == 'edict' else 'choose'} {n} ({e.get('label', 'permanent')})"
+        prompt = f"{ctx.get('name', '') or 'Choose'}: {verb[:-1] if step == 'edict' else 'choose'} {n} ({label})"
+        if cap is not None:
+            prompt = f"{ctx.get('name', '') or 'Choose'}: choose any number of {label} with total power {cap} or less"
+        if by != pid:
+            prompt += f" for {plan.name(pid)}"
         if picked:
             prompt += f" — already chosen: {_labels(plan, picked)}"  # 101.4b: the earlier choices are known
-        decide(plan, player=pid, kind="choose_cards", prompt=prompt,
-               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
-               min_choices=0 if e.get("upto") else n, max_choices=n,  # (wave 11D: "chooses up to two creatures they control")
+        decide(plan, player=by, kind="choose_cards", prompt=prompt,
+               options=[DecisionOption(id=c, label=(plan.state.cards[c].name or "Permanent") + (f" ({_power_of(plan, c)})" if cap is not None else ""),
+                                       card_id=c) for c in mine],
+               min_choices=0 if e.get("upto") or cap is not None else n, max_choices=n,  # (wave 11D: "chooses up to two creatures they control")
                resume={"step": step, "ctx": ctx, "e": e, "rest": players[i + 1:], "picked": picked})
         return False
     if step == "edict" and exiling:  # (-- modal spells (wave 24D) --) all exiled at once
@@ -3363,6 +3376,24 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str]
     else:
         _remember(plan, ctx, e, picked)  # "that creature", "it": the chosen objects (they stay where they are)
     return True
+
+
+def _power_of(plan: Plan, card_id: str) -> int:
+    from app.rules import sba  # (a leaf over this module)
+
+    c = plan.state.cards[card_id]
+    return sba.power(c, plan.ch(c)) or 0
+
+
+def check_total_power(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """-- per-player choices (wave 30K) -- "any number of creatures they control with total power 4 or less" (Slaughter the Strong): the
+    answer is checked as it is given (608.2d: an illegal choice can't be made); a power below 0 subtracts (107.1b, its rulings)."""
+    from app.game.errors import ActionError
+
+    e = (d.resume or {}).get("e")
+    cap = e.get("power_cap") if isinstance(e, dict) else None
+    if cap is not None and sum(_power_of(plan, c) for c in chosen) > cap:
+        raise ActionError(f"Those creatures have more than {cap} total power")
 
 
 def edict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -3384,7 +3415,10 @@ def player_chooses(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"[Target opponent / each player] chooses N [selector] they control": that player's choice,
     bound as the sentence's objects for what follows ("that creature", "it")."""
     who = _players(plan, ctx, e["who"])
-    return _choose_next(plan, ctx, e, [p for p in plan.apnap() if p in who], [], "player_chooses")
+    turns: list[Any] = [p for p in plan.apnap() if p in who]
+    if e.get("sels"):  # -- per-player choices (wave 30K) -- 101.4: one player makes all their choices (one per kind), then the next
+        turns = [(p, k) for p in turns for k in e["sels"]]
+    return _choose_next(plan, ctx, e, turns, [], "player_chooses")
 
 
 def resume_player_chooses(plan: Plan, d: Any, chosen: list[str]) -> None:
