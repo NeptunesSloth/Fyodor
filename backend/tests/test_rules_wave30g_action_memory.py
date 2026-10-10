@@ -426,6 +426,24 @@ def test_scapeshift_searches_for_up_to_as_many_lands_as_it_sacrificed(cards, sac
     check(s)
 
 
+def test_rites_of_spring_searches_for_up_to_as_many_basic_lands_as_it_discarded(cards):
+    """Rites of Spring: "Discard any number of cards. Search your library for up to that many basic land cards, reveal them, put them into
+    your hand, then shuffle." (review 30: was pinned as manual before this wave read the count; 608.2c: "that many" is the cards discarded)"""
+    s = build(cards, ["Rites of Spring", "Grizzly Bears", "Llanowar Elves"])
+    spell = to_hand(s, "Rites of Spring")
+    fodder = [to_hand(s, "Grizzly Bears"), to_hand(s, "Llanowar Elves")]
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    pick(s, "choose_cards", *[c.id for c in fodder])
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards" and d.max_choices == 2
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:2])
+    answer(s)
+    assert all(s.state.cards[c.id].zone == "p1:graveyard" for c in fodder)
+    assert sum(c.name == "Forest" and c.zone == "p1:hand" for c in s.state.cards.values()) == 2
+    check(s)
+
+
 @pytest.mark.parametrize("sacrificed", [2, 0])
 def test_last_ditch_effort_deals_as_much_damage_as_creatures_sacrificed(cards, sacrificed):
     s = build(cards, ["Last-Ditch Effort", "Grizzly Bears", "Llanowar Elves", "Probe Three"])

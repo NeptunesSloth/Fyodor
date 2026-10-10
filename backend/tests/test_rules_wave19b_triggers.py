@@ -91,13 +91,7 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-def test_that_many_after_sacrificing_any_number_stays_manual(cards):
-    # Scapeshift: "up to that many" is the number of lands sacrificed, not an event's amount - not read (wrong automation otherwise)
-    from tests.fixtures.cards import card
-
-    scape = card("Scapeshift", set_code="tst", number="19B1", mana_cost="{2}{G}{G}", cmc=4.0, type_line="Sorcery", colors=["G"],
-                 color_identity=["G"], keywords=[], oracle_text="Sacrifice any number of lands. Search your library for up to that many land cards, put them onto the battlefield tapped, then shuffle.")
-    assert coverage.of_card_data(scape).level != "FULL"
+# (Scapeshift's "up to that many" — the lands sacrificed — is read since wave 30G: tests/test_rules_wave30g_action_memory.py)
 
 
 def test_damage_to_what_it_is_attacking_stays_manual(cards):
