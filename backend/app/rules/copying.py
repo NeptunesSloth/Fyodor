@@ -984,7 +984,7 @@ def token_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("attacking") and made:  # -- token copy (wave 20F) -- "tapped and attacking" (508.4): attacking, never "attacked"
         from app.rules import token_grammar
 
-        return token_grammar.enter_attacking(plan, ctx, made)
+        return token_grammar.enter_attacking(plan, ctx, made, e.get("at"))
     return True
 
 

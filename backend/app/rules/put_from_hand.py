@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
 from app.rules import context
+from app.rules.token_grammar import AT, at_spec
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -31,8 +32,11 @@ _PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Pl
 # (-- triggers (wave 19B) -- "any number of creature cards", "a permanent card with mana value less than or equal to the number of lands you
 # control / that damage": the count is read as the card is chosen, 608.2h)
 PATTERN = (r"put (?P<cnt>an?|any number of) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater))?"
-           r"(?: with mana value (?P<op>less than or equal to|less than) (?P<v>that damage|the number of [^.]+?))? from your hand "
-           r"onto the battlefield(?P<tapped> tapped(?P<atk> and attacking)?)?")
+           # -- put from hand (wave 30P) -- "with mana value 3 or less" / "X or less, where X is the number of attacking creatures you control"
+           # (Kinscaer Sentry), "less than that creature's mana value" (Arni Metalbrow), "with lesser power" (Shadowfax): the limit is read as the card is chosen
+           r"(?: with (?:mana value (?:(?P<op>less than or equal to|less than|equal to) (?P<v>that damage|the number of [^.]+?|that creature's mana value)"
+           r"|(?P<n>\d+|X) or less)|(?P<lp>lesser power)))? from your hand "
+           rf"onto the battlefield(?P<tapped> tapped(?P<atk> and attacking{AT})?)?(?:, where X is (?P<xdef>[^.]+))?")
 
 
 def _selector(what: str, q: str) -> Any:
@@ -57,18 +61,31 @@ def parse(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     if len(sels) > 1:
         effect["alt"] = [x.key() for x in sels[1:]]
     if m["op"]:
-        from app.rules import values
+        from app.rules import language, values
 
-        value = {"event_amount": 1} if m["v"] == "that damage" else values.parse_count(m["v"])
+        value = {"event_amount": 1} if m["v"] == "that damage" else values.parse_count(m["v"]) or language.x_definition(m["v"])
         if value is None:
             return None
-        effect["mv"] = ["<=" if m["op"].endswith("equal to") else "<", value]
+        effect["mv"] = ["==" if m["op"] == "equal to" else "<=" if m["op"].endswith("equal to") else "<", value]
+    if m["n"]:  # (a number, or X: "where X is …", defined once and read as the card is chosen)
+        from app.rules import language
+
+        value = int(m["n"]) if m["n"].isdigit() else language.x_definition(m["xdef"] or "") if m["xdef"] else None
+        if value is None:
+            return None
+        effect["mv"] = ["<=", value]
+    elif m["xdef"]:
+        return None  # (a "where X is" nothing here uses)
+    if m["lp"]:  # "a creature card with lesser power" (Shadowfax): less than the source creature's power
+        effect["pw"] = ["<", {"power": "self"}]
     if m["cnt"] == "any number of":
         effect["many"] = True
     if m["tapped"]:
         effect["tapped"] = True
     if m["atk"]:  # -- trigger tail (wave 15B) -- 508.4: its controller chooses whom it attacks (looking.attack_with_entered)
         effect["attacking"] = True
+        if (at := at_spec(m)) is not None:  # -- enter attacking (wave 30P) -- "… attacking that player": the effect says whom (508.4)
+            effect["at"] = at
     return [effect], None
 
 
@@ -106,15 +123,21 @@ def put_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def _mv_ok(plan: Plan, ctx: Context, e: dict[str, Any], cid: str) -> bool:
-    """-- triggers (wave 19B) -- the mana value limit of "with mana value less than or equal to …" (read now, 608.2h)."""
-    if not e.get("mv"):
-        return True
+    """-- triggers (wave 19B) -- the mana value limit of "with mana value less than or equal to …" (read now, 608.2h); wave 30P: "N or less",
+    "equal to …", and "with lesser power" (less than the source's)."""
     from app.rules import characteristics as chars
     from app.rules import effects
 
+    ch = chars.of(plan.state.cards[cid], plan.info)
+    if e.get("pw"):  # -- put from hand (wave 30P) -- "with lesser power": the card's power is less than the source's
+        pt = plan.ch(plan.state.cards[cid]).pt
+        if pt is None or pt[0] >= effects._amount(plan, ctx, e["pw"][1]):
+            return False
+    if not e.get("mv"):
+        return True
     op, value = e["mv"]
-    mv, limit = chars.of(plan.state.cards[cid], plan.info).mana_value, effects._amount(plan, ctx, value)
-    return mv <= limit if op == "<=" else mv < limit
+    mv, limit = ch.mana_value, effects._amount(plan, ctx, value)
+    return mv == limit if op == "==" else mv <= limit if op == "<=" else mv < limit
 
 
 def _permanent_card(plan: Plan, cid: str) -> bool:
@@ -148,7 +171,7 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     if e.get("attacking"):  # -- trigger tail (wave 15B) -- 508.4 (the choice of whom, if any, goes on from token_attack)
         from app.rules import looking
 
-        if not looking.attack_with_entered(plan, ctx, cards):
+        if not looking.attack_with_entered(plan, ctx, cards, e.get("at")):
             return
     effects.continue_effects(plan, ctx)
 

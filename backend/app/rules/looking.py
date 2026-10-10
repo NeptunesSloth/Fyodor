@@ -283,37 +283,11 @@ def win_if_library(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 # -- "put it onto the battlefield tapped and attacking" (508.4) ------------------------------------------------
-def attack_with_entered(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> bool:
-    """The creatures a look-and-distribute just put onto the battlefield tapped are attacking (508.4): during
-    the declare attackers step or later of their controller's combat, the controller chooses which defending
-    player, planeswalker a defending player controls, or battle a defending player protects each one attacks
-    (in Commander every opponent is a defending player: 802.2). They never "attacked" (no attack triggers);
-    outside combat, or for a player who isn't the attacking player, they're simply not attacking (506.3b).
-    False while that choice waits (token_grammar's "token_attack" resume carries on)."""
-    from app.rules import battles
-    from app.rules.token_grammar import _ATTACKING_PHASES, _attack_with
+def attack_with_entered(plan: Plan, ctx: dict[str, Any], cards: list[str], at: dict[str, Any] | None = None) -> bool:
+    """The creatures a look-and-distribute just put onto the battlefield tapped are attacking (508.4): the controller chooses which defending
+    player, planeswalker a defending player controls, or battle a defending player protects each one attacks (in Commander every opponent is a
+    defending player: 802.2) — token_grammar.enter_attacking, the one reading of it. They never "attacked" (no attack triggers); outside combat,
+    or for a player who isn't the attacking player, they're simply not attacking (506.3b). False while that choice waits."""
+    from app.rules import token_grammar
 
-    pid = ctx["controller"]
-    new = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")
-           and plan.state.cards[c].controller == pid]
-    if not new or plan.state.turn.phase not in _ATTACKING_PHASES or pid != plan.active:
-        return True
-    defenders = [p for p in plan.live() if p != pid]
-    options = [DecisionOption(id=p, label=plan.name(p)) for p in defenders]
-    options += [DecisionOption(id=c.id, label=f"{c.name} ({plan.name(c.controller)})", card_id=c.id)
-                for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in defenders
-                and plan.in_game(c) and "Planeswalker" in plan.ch(c).types]
-    options += [DecisionOption(id=b, label=plan.state.cards[b].name or "Battle", card_id=b)
-                for b in battles.attackable(plan.state, pid, defenders, plan.ch)]
-    if not options:
-        return True
-    if len(options) == 1:
-        _attack_with(plan, new, options[0].id, pid)
-        return True
-    from app.rules.effects import decide
-
-    # -- falsification (wave 30D) -- 508.4: one question per creature (token_grammar.enter_attacking), the rest follow in ``more``
-    decide(plan, player=pid, kind="choose_one", prompt=f"{plan.state.cards[new[0]].name} enters attacking: attacking whom?"
-           + (f" ({len(new) - 1} more to place)" if len(new) > 1 else ""),
-           options=options, resume={"step": "token_attack", "ctx": ctx, "cards": new[:1], "more": new[1:], "look": True})
-    return False
+    return token_grammar.enter_attacking(plan, ctx, cards, at)

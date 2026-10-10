@@ -185,7 +185,8 @@ def _half_trigger(text: str) -> tuple[str, dict[str, Any] | None] | None:
     return (legacy, None) if legacy else ("event", found)
 
 
-_HAVE_VERBS = {"fight": "fights", "deal": "deals", "lose": "loses", "become": "becomes", "connive": "connives"}
+_HAVE_VERBS = {"fight": "fights", "deal": "deals", "lose": "loses", "become": "becomes", "connive": "connives",
+               "block": "blocks"}  # (wave 30P: "you may have target creature block it this turn if able", Grappling Hook)
 
 
 def _may_have(body: str, ante: str | None) -> str:
@@ -1753,11 +1754,12 @@ def _first(fn):  # type: ignore[no-untyped-def]
 
 
 @_first
-@effect(r"create (?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|twice X|half X) (?:tapped )?"  # (half/twice, X/X: wave 4K)
+@effect(r"create (?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|twice X|half X) (?:tapped (?:and attacking )?)?"  # (half/twice, X/X: wave 4K; wave 30P: "tapped and attacking 1/1 …")
         r"(?:(?:(?:\d+|X)/(?:\d+|X) )?(?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) "
         r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)* (?:enchantment )?(?:artifact )?(?:land )?creature tokens?|[A-Z][a-z]+ tokens?)"
         r"(?: named [A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*)?(?: with (?:(?!, then )[^\"])*(?:\"[^\"]+\")?)?"
-        r"(?: that(?:'s| are) (?:tapped and )?attacking)?(?: for each [^\"]+|, where [xX] is [^\"]+|, rounded (?:up|down))?")
+        r"(?: that(?:'s| are) (?:tapped and )?attacking(?: (?:that player|that opponent|defending player))?)?"  # (wave 30P)
+        r"(?: for each [^\"]+|, where [xX] is [^\"]+|, rounded (?:up|down))?")
 def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """"Create [N] [tapped] [P/T colors Subtypes [artifact] creature | Predefined] token(s) [named …]
     [with …] [that's tapped and attacking] [for each … | , where X is …]" (701.7, 111.10, 508.4).
@@ -2086,6 +2088,14 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # instructions of one sentence about the same object
     body = re.sub(r"\b(That token|That creature|It) (gains haste until end of turn) and (attacks this (?:combat|turn) if able)",
                   r"\1 \2. \1 \3", body)
+    # -- enter attacking (wave 30P) -- 508.4: "Create Ragavan, a legendary 2/1 red Monkey creature token. Ragavan enters tapped and attacking." (Kari
+    # Zev), "Put … from that player's graveyard onto the battlefield under your control. It enters tapped and attacking that player." (Shark
+    # Shredder): the second sentence only says that what the first made or put enters attacking — one instruction, worded as the grammar has it
+    body = re.sub(r"(^|, |\. )((?i:create) [^.\"]+? token)\. (It|That token|The token|[A-Z][\w',-]*(?: [A-Z][\w',-]*)*) enters tapped and attacking"
+                  r"( that (?:player|opponent))?\.", lambda m: m[0] if m[3] not in ("It", "That token", "The token")
+                  and not m[2].lower().startswith(f"create {m[3].lower()},") else f"{m[1]}{m[2]} that's tapped and attacking{m[4] or ''}.", body)
+    body = re.sub(r"(^|, |\. )((?i:(?:you may )?(?:put|return)) [^.]+? (?:onto|to) the battlefield(?: under your control)?)\. (?:It|That creature) enters "
+                  r"tapped and attacking( that (?:player|opponent))?\.", r"\1\2 tapped and attacking\3.", body)
     # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
     # opponent, the token grammar's "… for each opponent"
     body = re.sub(r"(^|\. )For each opponent, you (create (?![^.,]* with )[^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
@@ -3720,6 +3730,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     from app.rules import defending
 
     if d is not None and not defending.allowed(d):
+        return None
+    if d is not None and not _block_effects.allowed(d):  # -- block effects (wave 30P) -- "blocks it this combat if able": only where "it" is certain
+        return None
+    from app.rules import token_grammar
+
+    if d is not None and not token_grammar.allowed(d):  # -- enter attacking (wave 30P) -- "tapped and attacking that player": a trigger that has one
         return None
     # -- blocking it (wave 6D) -- "each creature blocking it": "it" must be the source (a trigger about this object)
     # -- activated sweep (wave 17B) -- or an activated ability of the source: "{R}: This creature deals 1 damage to target creature blocking it."
@@ -6755,7 +6771,8 @@ def _for_each_of_them_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]
 
 
 @_first
-@effect(r"(?P<may>you may )?put (?:a|an|any number of) [^.]+? from your hand onto the battlefield(?: tapped(?: and attacking)?)?")
+@effect(r"(?P<may>you may )?put (?:a|an|any number of) [^.]+? from your hand onto the battlefield(?: tapped(?: and attacking"
+        r"(?: (?:that player|that opponent|defending player))?)?)?(?:, where X is [^.]+)?")
 def _put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     """"You may put an Equipment card from your hand onto the battlefield." (Stoneforge Mystic): app/rules/put_from_hand.py.
     "You may" after another instruction ("Draw a card. You may put a land card …"): choosing no card."""

@@ -25,7 +25,13 @@ from typing import Any
 
 from app.game import actions as A
 from app.rules import characteristics as chars
-from app.rules import selectors, sized_damage, this_way, values  # (this_way: wave 4A; sized_damage: wave 4E)
+from app.rules import (  # (this_way: wave 4A; sized_damage: wave 4E; token_grammar: wave 30P)
+    selectors,
+    sized_damage,
+    this_way,
+    token_grammar,
+    values,
+)
 from app.rules.card_names import (
     WHAT_RX as _NAME_WHAT,  # -- card names (wave 22B) -- "Choose a nonland card name."
 )
@@ -1689,7 +1695,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
             return [{"do": "destroy", "who": key}], None
         return [{"do": m["v"], "who": _who(kind, key)}], _one(group)
     # -- static wordings (wave 6E) -- "It must be blocked this turn if able." (Enlarge): a requirement (509.1c)
-    m = re.fullmatch(r"(?P<o>.+?) must be blocked this turn if able", text)
+    m = re.fullmatch(r"(?P<o>.+?) must be blocked (?:each combat )?this turn if able", text)  # (-- block effects (wave 30P) -- Anzrag: "each combat this turn" is this turn's every combat)
     if m and not _PUMP.fullmatch(text):
         kind, key, group = ref(m["o"])
         if kind == "players":
@@ -1702,12 +1708,20 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": ["lure"]}], _one(group)
-    m = re.fullmatch(r"(?P<o>.+?) can't (?P<r>attack or block|block|attack|be blocked) this turn", text)
-    if m and not _PUMP.fullmatch(text):  # (agent G: "… gets +2/+2 until end of turn and can't be blocked …" is a pump's rider)
+    # -- evasion (wave 30P) -- "… can't be blocked this combat" (Ma Chao, Yuan Shao's Infantry): the requirement or restriction ends with the combat
+    # (a turn may have several, 500.8); "~ and up to one other target creature can't be blocked this turn" (Martha Jones, Lockjaw): one effect each
+    m = re.fullmatch(r"(?P<o>.+?) can't (?P<r>attack or block|block|attack|be blocked) this (?P<d>turn|combat)", text)
+    if m and not _PUMP.fullmatch(text) and (m["d"] == "turn" or m["r"] in ("block", "be blocked")):  # (agent G: "… gets +2/+2 until end of turn and can't be blocked …" is a pump's rider)
+        for_combat = {"duration": "end_of_combat"} if m["d"] == "combat" else {}
+        whos, groups = _objects(m["o"])
+        if len(whos) > 1:
+            if not all(w == "self" or w.startswith("target") for w in whos):
+                raise _Fail
+            return [{"do": "restrict", "who": w, "rules": RESTRICTIONS[m["r"]], **for_combat} for w in whos], _out(groups)
         kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
-        return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], _one(group)
+        return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]], **for_combat}], _one(group)
     # -- prohibitions (wave 22B) -- 602.5: "Its activated abilities can't be activated this turn." (Koma, Deadlock Trap): the rule "cant_activate"
     # (mana abilities too, as for detain), on the object the sentence is about, until end of turn
     m = re.fullmatch(r"(?P<o>it|that creature|that permanent)'s activated abilities can't be activated this turn|"
@@ -3264,9 +3278,13 @@ _RA_WITH = (r"(?: with (?:(?:an?|one) (?P<add1>additional )?(?P<ck>[+-]\d+/[+-]\
 # -- attached events (wave 25D) -- also "attached to enchanted creature" (Mantle of the Ancients) and "attached to target creature [you control]"
 # (Gryff's Boon: a target of the ability, chosen with it, 115.1)
 _RA_HOST = r"(?: attached to (?P<host>this creature|~|that creature|enchanted creature|target creature(?: you control)?(?: with power \d+ or less)?))?"
+# -- enter attacking (wave 30P) -- "… tapped and attacking [that player]" before "under your control" or after it
+# ("put target creature card from that player's graveyard onto the battlefield under your control tapped and attacking that player")
+_RA_TAPPED = rf"(?P<t> tapped(?P<atk> and attacking{token_grammar.AT})?)?"
+_RA_TAPPED2 = rf"(?P<t2> tapped(?P<atk2> and attacking{token_grammar.at_re('2')})?)?"
 _RA_RETURN = re.compile(rf"return (?P<o>.+?) to (?:(?P<h>your hand|its owner's hand|their owner's hand|their owners' hands|their hand)|"
-                        rf"the battlefield(?P<t> tapped(?P<atk> and attacking)?)?(?P<fd> face down)?{_RA_UNDER}{_RA_WITH}{_RA_HOST})")  # (face down: wave 18A, 708.4)
-_RA_PUT = re.compile(rf"put (?P<o>.+?) onto the battlefield(?P<t> tapped(?P<atk> and attacking)?)?{_RA_UNDER}{_RA_WITH}{_RA_HOST}")
+                        rf"the battlefield{_RA_TAPPED}(?P<fd> face down)?{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST})")  # (face down: wave 18A, 708.4)
+_RA_PUT = re.compile(rf"put (?P<o>.+?) onto the battlefield{_RA_TAPPED}{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST}")
 _RA_ZONE = r"(?:your graveyard|a graveyard|an opponent's graveyard)"
 _RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any number of )|(?P<n>{AMT}) )(?P<what>[^,]+?)(?P<rand> at random)?"
                         rf" from (?P<z>{_RA_ZONE})")
@@ -3390,7 +3408,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     effect: dict[str, Any] = {"do": "return_card", "to": "hand" if hand else "battlefield"}
     host_group: dict[str, Any] | None = None
     if not hand:  # (110.2a: the one instructed controls it unless the text says "its owner's")
-        effect.update(tapped=bool(m["t"]), under="owner" if m["u"] and m["u"] != "your" else "you")
+        atk = m["atk"] or m["atk2"]
+        effect.update(tapped=bool(m["t"] or m["t2"]), under="owner" if m["u"] and m["u"] != "your" else "you")
         if m.groupdict().get("fd"):  # -- hidden exile (wave 18A) -- "return it to the battlefield face down" (708.4: a 2/2 face-down creature)
             effect["face_down"] = True
         if m["ck"]:  # -- refused zones/sized (wave 3R4) --
@@ -3399,10 +3418,12 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
             effect["counter"] = m["ck"]
         if m["ck2"]:  # -- recursion & tutors (wave 4M) --
             effect.update(counter=m["ck2"], counter_n=values.NUMBERS[m["cn"]])
-        if m["atk"]:  # -- refused zones/sized (wave 3R4) -- 508.4 (effects._return_cards → refused_zones.enter_attacking)
+        if atk:  # -- refused zones/sized (wave 3R4) -- 508.4 (effects._return_cards → refused_zones.enter_attacking)
             if m["u"] and m["u"] != "your":
                 return None  # (under its owner's control: 506.3b, not read)
             effect["attacking"] = True
+            if (at := token_grammar.at_spec(m) or token_grammar.at_spec(m, "2")) is not None:  # -- enter attacking (wave 30P) -- "… attacking that player"
+                effect["at"] = at
         if m["host"]:  # -- refused zones/sized (wave 3R4) -- "that creature": a trigger's object only (scripts._attached_host)
             effect["host"] = {"that creature": "that_creature", "enchanted creature": "host"}.get(m["host"], "self")
             if m["host"].startswith("target "):  # -- attached events (wave 25D) -- a target group of its own, after the card's (fixed below)
@@ -3445,7 +3466,7 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         return [{**effect, "do": "return_choice", "sel": sel.key(), "n": n, "upto": bool(c["upto"] or c["any"] or may),
                  "random": bool(c["rand"]), "label": words, **({"optional": True} if may else {}),
                  **({"different": different} if different else {})}], _one(host_group)
-    if not put and not (not hand and (m["atk"] or m["host"] or m["ck2"] or m["add1"])):  # (ck2/add1: wave 4M)  # (wave 3R4: "… tapped and attacking", "… attached to" read here)
+    if not put and not (not hand and (m["atk"] or m["atk2"] or m["host"] or m["ck2"] or m["add1"])):  # (ck2/add1: wave 4M)  # (wave 3R4: "… tapped and attacking", "… attached to" read here)
         return None  # ("return target …" / "return all …": the grammar below)
     try:
         kind, key, group = ref(obj)
