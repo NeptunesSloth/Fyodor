@@ -19,7 +19,17 @@ from tests.game_helpers import act
 from tests.test_rules_conditionals import attack, through_combat
 from tests.test_rules_effects import pass_until_stack_empty
 from tests.test_rules_wave9b_exile_permission import put as put9
-from tests.test_rules_wave29d_hideaway import BIG, PROBES, activate, creatures, decision, hideaway, play_land, private, stack_top
+from tests.test_rules_wave29d_hideaway import (
+    BIG,
+    PROBES,
+    activate,
+    creatures,
+    decision,
+    hideaway,
+    play_land,
+    private,
+    stack_top,
+)
 from tests.test_rules_wave29d_hideaway import REAL as HIDEAWAY
 from tests.test_rules_wave29d_life_lock import REAL as LOCK
 from tests.test_rules_wave29d_life_lock import check, lock, table
