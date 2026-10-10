@@ -1184,6 +1184,8 @@ def choose(plan: Plan, a: A.Choose) -> None:
     plan.rules.decision = None
     step = (d.resume or {}).get("step")
     RESUME[str(step)](plan, d, chosen)
+    if plan.rules.payment_outer is not None:  # -- nested payment choices (wave 28D) -- back to the payment the choice was nested in
+        casting.resume_outer(plan)
     if step != "reconcile":  # after reconciling, play picks up where the table is (like without questions)
         advance(plan)
 
@@ -1211,6 +1213,7 @@ def concede(plan: Plan, _: A.Action) -> None:
     _require_seated(plan)
     r.conceded.append(plan.actor)
     plan.note(f"{plan.name(plan.actor)} conceded")
+    casting.unnest(plan)  # (review 28D: a payment prompt a nested choice set aside is the decision settled)
     pending = r.decision
     leave_game(plan, plan.actor)
     left = plan.live()

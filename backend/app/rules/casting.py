@@ -3275,6 +3275,52 @@ def _commit_helper(plan: Plan, card: CardInstance | None, kind: P.Kind) -> None:
     after_tapping(plan)
 
 
+def _activate_choosing_nested(plan: Plan, card: CardInstance, ch: Characteristics, ability: AbilityText, parsed: M.ManaAbility,
+                              a: A.ActivateAbility) -> None:
+    """-- nested payment choices (wave 28D) -- a mana ability whose cost chooses objects ("Sacrifice a creature") activated while a
+    payment prompt is open. 605.3a: a mana ability may be activated while paying a cost; 601.2g-h: its own costs are chosen as it's
+    paid, so the choice (and a color to add, 605.3a) is nested in the payment prompt, which is set aside (``payment_outer``) and comes
+    back once the ability is done (``resume_outer``) or its choice is cancelled. "Activate only as an instant" (Lion's Eye Diamond)
+    needs priority, which a player paying a cost doesn't have (602.5d, 304.5): refused."""
+    if "Activate only as an instant" in ability.text:
+        raise ActionError(f"{ch.name} can only be activated when you have priority (not while paying a cost)")
+    cost = parse_ability_cost(parsed.extra_cost, card_name=ch.name)
+    if cost.mana:
+        raise ActionError(f"Activate {ch.name}’s mana ability before you start paying (it has a mana cost of its own)")
+    r = plan.rules
+    outer = r.decision
+    assert outer is not None
+    r.payment_outer, r.decision = outer, None
+    r.priority = plan.actor
+    try:
+        _activate_choosing(plan, card, ch, parsed, a)
+    finally:
+        r.priority = None
+    resume_outer(plan)
+
+
+def unnest(plan: Plan) -> None:
+    """-- review 28D -- the nested choice is abandoned (its player left the game, or it no longer matches the table): the payment
+    prompt it was nested in is the pending decision again, to be settled like any other (800.4a; nothing of the nested cost was paid
+    while it was being chosen)."""
+    r = plan.rules
+    if r.payment_outer is not None:
+        r.decision, r.payment_outer = r.payment_outer, None
+
+
+def resume_outer(plan: Plan) -> None:
+    """The payment prompt a nested mana ability's choice was made in comes back (once no further choice is pending): the mana added
+    may cover it now."""
+    r = plan.rules
+    if r.payment_outer is None or r.decision is not None:
+        return
+    r.decision, r.payment_outer = r.payment_outer, None
+    r.priority = None
+    r.passed = []
+    plan.hold = None
+    after_tapping(plan)
+
+
 def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     card = plan.state.cards.get(a.card_id)
     if a.convoke or a.improvise or a.delve:
@@ -3299,15 +3345,13 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     parsed = dict(mana_abilities(plan.state, card, plan.info)).get(a.ability) if ability.kind == "mana" else None
     if parsed is None:
         raise ActionError("While paying you can only tap for mana")
-    if parsed.chooses:  # -- review 26C -- produce() doesn't pay a cost that chooses objects ("Sacrifice a creature", "Discard your hand"):
-        # it's paid only through _activate_choosing, whose own decision can't run inside this one. Activated before paying (with
-        # priority) instead; "Activate only as an instant" (Lion's Eye Diamond) needs priority anyway (304.5, 602.5e), which a
-        # player paying a cost (601.2g-h) or a resolving payment (608.2) doesn't have.
-        raise ActionError(f"Activate {ch.name}’s mana ability before you start paying (its cost is chosen as it's paid)")
     if ability_taxes(plan.state, plan.info) and mana_ability_taxed(plan.state, card, ch, parsed, plan.info):  # (review 4R)
         raise ActionError(f"Another effect changes the cost of {ch.name}’s mana ability: activate it by hand with the table tools")
     if parsed.tap and not can_use_tap_abilities(plan.state, card, ch, plan.info):
         raise ActionError(f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness")
+    if parsed.chooses:  # -- nested payment choices (wave 28D) -- 605.3a, 601.2g-h: the costs it chooses are paid in a prompt nested in this one
+        _activate_choosing_nested(plan, card, ch, ability, parsed, a)
+        return
     options = parsed.options
     chosen = next((o for o in options if o == (a.mana_choice,)), None) if a.mana_choice else None
     produce(plan, card, parsed, chosen or (options[0] if len(options) == 1 else _best_option(plan, options)), a.ability)

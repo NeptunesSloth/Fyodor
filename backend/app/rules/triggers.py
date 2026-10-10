@@ -1953,6 +1953,8 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
         return
     for what in ("mv", "power", "toughness"):
         n = _stat(ch, what)
+        if n is not None and what == "mv" and card is not None and card.zone == "stack" and card.stack_info is not None and card.stack_info.x:
+            n += card.stack_info.x * ch.mana_cost.count("{X}")  # -- event spells (wave 28D) -- 202.3e: X on the stack is the value chosen
         if n is not None:
             raw = raw.replace(f'\\"{EVENT_STAT}{what}\\"', str(n))
     t.ability = json.loads(raw)
@@ -1964,6 +1966,11 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
     bind_that_player(t)  # -- damage wordings (wave 6B) --
     bind_event_stat(plan, t)  # -- reanimation (wave 16F) --
+    # -- bounds defined by text (wave 28D) -- "mana value X or less, where X is …" (603.3d; review 28D: settled values only)
+    from app.rules import where_bound
+
+    t.ability = where_bound.bind(plan, t.ability, t.controller, t.source_card, t.source_object,
+                                 t.event.model_dump(mode="json") if t.event is not None else None)
     from app.rules import (
         per_opponent,  # -- per-opponent targets (wave 12C) -- a group for each opponent, as it is put
     )
@@ -1985,12 +1992,15 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
         from app.rules.casting import ask_targets
         from app.rules.scripts import target_groups
 
-        specs = target_groups(t.ability)
+        # -- review 28D -- "up to X target …, where X is …": X is the only limit (107.3c, 601.2c); the parser's 20 is the cast intents'
+        # field limit, which a trigger's choice (a decision, answered with up to 250 options) doesn't have
+        specs = [{**g, "max": 250} if "x_value" in g else g for g in target_groups(t.ability)]
         picks = picks or {"targets": [], "counts": [], "division": []}
         try:
             found = choose_groups(plan, specs, t.controller, source_of(plan, t.source_card), t.source_card,
                                   picks["targets"], picks["counts"], picks["division"], cast_x(plan, t), t.name or "It",
-                                  attacker=attacker, source_object=t.source_object)  # (wave 19F: "up to X target …", X as 107.3m / 701.37c give it)
+                                  attacker=attacker, source_object=t.source_object,  # (wave 19F: "up to X target …", X as 107.3m / 701.37c give it)
+                                  event=t.event.model_dump(mode="json") if t.event is not None else None)  # (wave 28D: "where X is" an event's amount)
         except ActionError:  # 603.3d: no legal choice for a required target: removed from the stack
             r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
             plan.note(f"{t.name}'s ability doesn't have enough legal targets and is removed")
@@ -2028,8 +2038,9 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
                                      targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")),
                                      event=t.event, x=cast_x(plan, t), **extra)  # (x: wave 4J, 107.3m)
     if targets:
-        plan.do({"type": "create_arrow", "source": ability_id, "targets": [x.id for x in targets], "kind": "target"},
-                actor=t.controller)
+        for i in range(0, len(targets), 20):  # (review 28D: an arrow points at up to 20; "up to X" may have more)
+            plan.do({"type": "create_arrow", "source": ability_id, "targets": [x.id for x in targets[i:i + 20]], "kind": "target"},
+                    actor=t.controller)
         targeted(plan, ability_id, t.controller, targets)
     return True
 

@@ -209,14 +209,15 @@ def divide_total(spec: dict[str, Any], x: int | None) -> int | None:
     return int(total) if isinstance(total, int) else int(x or 0)
 
 
-def where_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | None, source_object: str | None) -> int:
+def where_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | None, source_object: str | None,
+            event: dict[str, Any] | None = None) -> int:
     """-- X target counts (wave 27C) -- "up to X target …, where X is <a count>" (107.3c: the text defines X; 601.2c: the number of
     targets is what that count is as the targets are chosen, and doesn't change after)."""
     from app.rules import values
 
     card = plan.state.cards.get(source_card) if source_card else None
     ctx: dict[str, Any] = {"controller": chooser, "source_card": source_card, "source_object": source_object or (plan.oid(card) if card else None),
-                           "targets": []}
+                           "targets": [], "event": event}  # (wave 28D: a trigger's event is known as it is put on the stack, 603.3d)
     return values.evaluate(plan, ctx, spec["x_value"])
 
 
@@ -238,7 +239,7 @@ def group_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
 def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
                   source_card: str | None, targets: list[str], counts: list[int], division: list[int],
                   x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
-                  source_object: str | None = None) -> GroupChoice:
+                  source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
     """Check the choices made so far for each target group, in printed order (601.2c): the
     number of targets (``counts``: how many of ``targets`` are each group's), no object twice
     for one word "target" (115.3; the same object may be chosen for another group unless it says
@@ -257,7 +258,7 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         options = [t for t in legal_targets(plan, spec["what"], chooser, source, source_card, attacker)
                    if t not in exclude and t not in banned]
         lo, hi = group_limits({**spec, "x_count": "upto"} if "x_value" in spec else spec,
-                              where_x(plan, spec, chooser, source_card, source_object) if "x_value" in spec else x)
+                              where_x(plan, spec, chooser, source_card, source_object, event) if "x_value" in spec else x)
         if g >= len(out.counts) and hi == 0:  # -- kicked / instead (wave 4G) -- a group the spell doesn't require (601.2c)
             out.counts.append(0)
         if g >= len(out.counts):

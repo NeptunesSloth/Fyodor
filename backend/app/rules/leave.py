@@ -58,6 +58,8 @@ def leave_game(plan: Plan, player: str) -> None:
         plan.do({"type": "attack", "card_ids": stop, "target": None}, actor=state.cards[stop[0]].controller)
     r.blockers_pending = [p for p in r.blockers_pending if p != player]
     r.passed = [p for p in r.passed if p != player]
+    if r.payment_outer is not None and r.payment_outer.player == player:  # (review 28D: a payment a nested choice set aside: theirs too)
+        r.payment_outer = None
     if r.decision is not None and r.decision.player == player:
         r.decision = None
     if r.priority == player:

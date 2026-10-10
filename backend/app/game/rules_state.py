@@ -889,6 +889,9 @@ class RulesState(BaseModel):
     # ability: consumed by engine.advance once the triggers that cast caused are on the stack (117.3c, 603.3)
     auto_pass: str | None = None
     decision: Decision | None = None
+    # -- nested payment choices (wave 28D) -- 605.3a: the "tap your mana" / pay-or-sacrifice prompt a mana ability's own chosen cost
+    # (Ashnod's Altar's creature, Phyrexian Altar's color) is nested in; it comes back once that choice is made or cancelled
+    payment_outer: Decision | None = None
     prefs: dict[str, PlayerPrefs] = Field(default_factory=dict)  # per-player automation preferences
     # Per-card automation override (right-click → Automation): "manual" cards are never automated;
     # the engine asks their controller to resolve them by hand and doesn't enforce their timing.

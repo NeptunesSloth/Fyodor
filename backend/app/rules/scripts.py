@@ -40,7 +40,12 @@ from app.rules import (
 )
 from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
-from app.rules import restrictions, selectors, this_way  # (this_way: wave 4A)
+from app.rules import (  # (this_way: wave 4A)
+    restrictions,
+    selectors,
+    this_way,
+    where_bound,  # -- bounds defined by text (wave 28D) --
+)
 from app.rules.characteristics import Characteristics
 from app.rules.costs import (
     DISCARD,
@@ -2240,7 +2245,11 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
     head, rest = body[start: m.start()], body[:start] + "\0" + tail + body[m.end():]
     # (what the wrappers around the sentence grammar bind afterwards — "this way" counts, the target player's hand — is not read)
-    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"' + (''),
+    # -- event batches (wave 28D) -- "up to X target …, where X is the number of nonland cards milled this way" (The Wise Mothman): a
+    # "this way" count in a target count is the trigger's own batch (event_batch.bind, in define); anywhere else it stays refused
+    this_way_x = value is not None and '"this_way"' in json.dumps(value) and "ref_count" not in json.dumps(value) \
+        and bool(re.search(r"(?i)\bup to X (?:other )?targets?\b", head))
+    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"' + ('' if this_way_x else '|"this_way"'),
                                   json.dumps(value).replace('"for_player": "that_player"', "")) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):  # (22D: the linked card)
         return None
     now = _x_now()
@@ -2253,6 +2262,8 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
         hit = now[1]
     finally:
         now[:] = outer
+    if got is not None and (tagged := where_bound.tag(got[1], value, _X_SENTINEL)) is not None:
+        got, hit = (got[0], tagged, got[2]), True  # -- bounds defined by text (wave 28D) -- "mana value X or less, where X is …": read as it is put on the stack
     if got is not None and isinstance(got[1], list) and any(g.get("x_count") for g in got[1]):
         got = _x_target_counts(got, value)
         hit = got is not None
@@ -2261,7 +2272,7 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     return got
 
 
-_X_TARGET_VALUES = frozenset({"count", "counters", "on", "devotion", "kicked", "mutated", "hand", "plus", "times"})
+_X_TARGET_VALUES = where_bound.ALLOWED | {"this_way"}  # (wave 28D: known as a trigger is put on the stack, 603.3d)
 
 
 def _x_target_counts(found: tuple[list[dict[str, Any]], Any, bool], value: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -3632,6 +3643,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     if d is not None and d.get("kind") != "spell" and '"spell_self_move"' in json.dumps(d, default=str):
         return None  # -- counters (wave 7C) -- only a spell moves itself off the stack
+    if d is not None and where_bound.has_marker(d) and d.get("kind") != "triggered":
+        return None  # -- bounds defined by text (wave 28D) -- only a triggered ability's targets are chosen with an event to read
+    # -- event batches (wave 28D) -- "milled this way" in a "one or more … are milled" trigger
+    from app.rules import event_batch
+
+    d = event_batch.bind(d)
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
         return None
     from app.rules import (
@@ -4261,7 +4278,8 @@ def _event_refs_ok(d: Definition) -> bool:
             ev is not None and ev["event"] != "multi" and _has_player(ev)))):
         return False
     if '\\"evt:' in raw and not (ev is not None and ev["event"] != "multi" and not ev.get("aggregate") and (
-            ev.get("subject") in ("sel", "self", "self_or", "self_or_host", "host") or (ev.get("subject") == "player" and ev.get("obj")))):
+            ev.get("subject") in ("sel", "self", "self_or", "self_or_host", "host") or (ev.get("subject") == "player" and ev.get("obj"))
+            or (ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")))):  # (wave 28D: the spell a cast trigger is about)
         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
     if "not_event" in raw and not (ev is not None and ev["event"] == "targeted"):  # -- stack interaction (wave 23B) -- "other than that creature":
         return False  # the object a "becomes the target" event is about (selectors.attacker_of); nothing else names one here
