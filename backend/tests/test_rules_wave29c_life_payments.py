@@ -20,6 +20,9 @@ EXTRA = [
     real("Toxic Deluge", "{2}{B}", 3, "Sorcery", "As an additional cost to cast this spell, pay X life.\nAll creatures get -X/-X until end of turn.", None, "B"),
     real("K'rrik, Son of Yawgmoth", "{4}{B}{B}", 6, "Legendary Creature — Phyrexian Vampire Noble",
          "Lifelink\nFor each {B} in a cost, you may pay 2 life rather than pay that mana.\nWhenever you cast a black spell, put a +1/+1 counter on K'rrik.", ("3", "3"), "B"),
+    real("Mana Confluence", "", 0, "Land", "{T}, Pay 1 life: Add one mana of any color."),
+    real("City of Pain", "", 0, "Land", "{T}, Pay 1 life: Add one mana of any color."),  # (a second land of the same kind, Mana Confluence's text)
+    real("Probe Draw", "{1}{1}", 2, "Sorcery", "Draw two cards.", None, "U"),
 ]
 
 
@@ -95,5 +98,23 @@ def test_life_paid_by_phyrexian_mana_and_by_an_additional_cost_adds_up(cards):
         act(s, "p1", type="cast_spell", card_id=deluge.id, x_value=3)
     assert life(s, "p1") == 4 and s.state.players["p1"].mana == {"C": 2}
     act(s, "p1", type="cast_spell", card_id=deluge.id, x_value=2)  # 2 + 2 = 4 life: all of it
+    assert life(s, "p1") == 0
+    check(s)
+
+
+def test_two_mana_abilities_that_pay_life_cannot_take_more_life_than_the_player_has(cards):
+    # 119.4: each "Pay 1 life" land was judged on its own when listed; together they take 2 life: with 1 life the cast is refused (it used to go to -1)
+    from tests.wave9c_kit import put
+
+    s = build(cards, ["Mana Confluence", "City of Pain", "Probe Draw"])
+    spell = to_hand(s, "Probe Draw")
+    put(s, "Mana Confluence")
+    put(s, "City of Pain")
+    act(s, "p1", type="set_life", player="p1", value=1)
+    with pytest.raises(ActionError, match="119.4"):
+        act(s, "p1", type="cast_spell", card_id=spell.id)
+    assert life(s, "p1") == 1 and not s.state.cards[spell.id].zone.endswith("stack")
+    act(s, "p1", type="set_life", player="p1", value=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id)  # exactly 2 life for the two payments: 119.4 allows it
     assert life(s, "p1") == 0
     check(s)

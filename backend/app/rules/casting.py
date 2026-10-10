@@ -1093,6 +1093,11 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[
         extras.append((card, index, ability))
         if ability.extra_cost:
             life += parse_ability_cost(ability.extra_cost, card_name=plan.ch(card).name).life
+    # -- life payments (wave 29C) -- 119.4: all the life this payment takes (Phyrexian mana, "Pay 1 life" mana abilities) and the spell's other
+    # life costs together can't be more than the life total (each source was checked on its own when it was listed): refused, not carried out
+    if life > max(0, plan.state.players[player].life - plan.reserved_life) and life > payment.life:  # (the true total: Karn's Sylex bans only spells')
+        raise ActionError(f"Those sources would take {life} life to pay {cost.text()}, and you can't pay more life than you have (119.4): "
+                          "tap other sources")
     oids = {card.id: plan.oid(card) for card, _, _ in extras}  # (wave 5A: the objects as they were tapped)
     from app.rules import mana_units
 
