@@ -3,7 +3,8 @@
 * 107.3c: "the value of X may change while that spell or ability is on the stack"; 608.2b: a target is checked again as the ability
   resolves. "Counter target spell with mana value X or less, where X is the number of Faeries you control" (Spellstutter Sprite) counts
   the Faeries as the target is chosen and again as it resolves: a Faerie that died meanwhile can make the spell an illegal target. A
-  value settled when the ability triggers (an event's amount, the mana spent to cast the source) is read once.
+  value settled when the ability triggers (an event's amount, the mana spent to cast the source) is read once — for a reflexive ability
+  ("When you do, …", 603.12), as that ability is put on the stack.
 * 601.2c: "up to X target creatures, where X is the number of nonland cards milled this way" (The Wise Mothman) has X as its only limit.
 * 605.3a: a mana ability's chosen cost nested in a payment never silently hides an object: what the payment already uses is named.
 """
@@ -47,6 +48,11 @@ REAL = [
     ("Hill Giant", "{3}{R}", "Creature — Giant", "3", "3", ""),
     ("Ashnod's Altar", "{3}", "Artifact", None, None, "Sacrifice a creature: Add {C}{C}."),
     ("Doom Blade", "{1}{B}", "Instant", None, None, "Destroy target nonblack creature."),
+    ("Rodolf Duskbringer", "{5}{B}", "Legendary Creature — Vampire Angel", "4", "4",
+     "Flying, deathtouch, lifelink\nWhenever you gain life, Rodolf Duskbringer gains indestructible until end of turn.\nAt the beginning of "
+     "your end step, you may pay {1}{W/B}. When you do, return target creature card with mana value X or less from your graveyard to the "
+     "battlefield, where X is the amount of life you gained this turn."),
+    ("Revitalize", "{1}{W}", "Instant", None, None, "You gain 3 life.\nDraw a card."),
     ("Blood Artist", "{1}{B}", "Creature — Vampire", "0", "1",
      "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life."),
     ("Giant Opportunity", "{2}{G}", "Sorcery", None, None,
@@ -181,6 +187,44 @@ def test_go_shintai_counts_its_shrines_as_the_target_is_chosen_and_as_it_resolve
     resolve_all(s)
     assert (bear.id in s.state.cards and s.state.cards[bear.id].zone == "p2:battlefield") is shrine_leaves
     assert s.state.cards[ogre.id].zone == "p2:battlefield"
+    check(s)
+
+
+def test_rodolf_reads_the_life_gained_as_the_reflexive_ability_is_put(cards):
+    """603.12: "When you do, return target … with mana value X or less, where X is the amount of life you gained this turn": the reflexive
+    ability is put on the stack (its target chosen) once the payment is made as the end-step ability resolves — life Alice gains in
+    response to that end-step ability counts (3, then 3 more: X = 6, so Hill Giant, mana value 4, can return)."""
+    s = build(cards, ["Rodolf Duskbringer", "Revitalize", "Hill Giant", "Sol Ring"])
+    put(s, "Rodolf Duskbringer")
+    put(s, "Sol Ring")
+    giant = card_named(s, "Hill Giant")
+    act(s, "p1", type="move", card_ids=[giant.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Revitalize").id)
+    resolve_all(s)
+    respond_on(s)
+    for _ in range(80):  # (to Alice's end step: Rodolf's ability on the stack)
+        if s.state.zones.get("stack") and s.state.rules.priority == "p1":
+            break
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.turn.phase == "end" and s.state.players["p1"].life == 43
+    revitalize = next(c for c in s.state.cards.values() if c.name == "Revitalize" and c.zone == "p1:graveyard")
+    act(s, "p1", type="move", card_ids=[revitalize.id], to={"zone": "hand"})
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=revitalize.id)  # (in response: 6 life gained this turn)
+    mana(s, B=1)  # (with Sol Ring: {1}{W/B})
+    d = until_decision(s)
+    assert [o.id for o in d.options] == ["pay", "decline"] and s.state.players["p1"].life == 46
+    pick(s, "pay")
+    d = until_decision(s)
+    assert target_step(s) and {o.id for o in d.options} == {giant.id}
+    pick(s, giant.id)
+    resolve_all(s)
+    assert s.state.cards[giant.id].zone == "p1:battlefield"
     check(s)
 
 

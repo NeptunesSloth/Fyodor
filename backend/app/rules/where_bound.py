@@ -118,9 +118,10 @@ def has_marker(d: Any) -> bool:
 def bind(plan: Plan, ability: dict[str, Any], controller: str, source_card: str, source_object: str,
          event: dict[str, Any] | None) -> dict[str, Any]:
     """The ability with each settled marker replaced by the number it stands for now (as the ability is put on the stack); a live one
-    stays, read by ``selectors.matches`` each time."""
-    raw = json.dumps(ability)
-    if MARK not in raw:
+    stays, read by ``selectors.matches`` each time. Only the ability's own targets: a reflexive ability's ("When you do, … target …")
+    is bound when it is put on the stack in turn (603.12; review 28D: life gained in response to the first counts)."""
+    own = {k: ability[k] for k in ("target", "targets", "modes") if ability.get(k)}
+    if MARK not in json.dumps(own):
         return ability
     from app.rules import values
 
@@ -131,4 +132,4 @@ def bind(plan: Plan, ability: dict[str, Any], controller: str, source_card: str,
         value = json.loads(base64.urlsafe_b64decode(m.group(1)).decode())
         return m.group(0) if live(value) else str(values.evaluate(plan, ctx, value))
 
-    return json.loads(_MARKED.sub(number, raw))
+    return {**ability, **json.loads(_MARKED.sub(number, json.dumps(own)))}
