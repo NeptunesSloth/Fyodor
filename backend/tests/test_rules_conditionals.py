@@ -2289,17 +2289,19 @@ def test_if_you_do_after_a_bounced_commander_goes_to_the_command_zone_does_nothi
     replay_matches(s)
 
 
-def test_if_you_do_after_a_draw_from_an_empty_library_discards_nothing(cards):
-    """Riddlesmith with an empty library: no card was drawn, so nothing is discarded."""
+def test_if_you_do_after_a_draw_from_an_empty_library_still_discards(cards):
+    """Riddlesmith with an empty library: no card was drawn, but the player chose to draw (review 29C, 118.12: "if you do" checks the
+    choice to pay the cost "regardless of what events actually occurred"; the Psychic Vortex ruling of 2008-04-01: drawing from an
+    empty library may be chosen), so a card is discarded — and the player loses at the next check (704.5b)."""
     s = build(cards, "Sol Ring")
     creature(s, "p1", "Riddlesmith", "2/1", "Token Creature — Human Artificer", text=RIDDLESMITH)
     ring = to_hand(s, "Sol Ring")
-    to_hand(s, "Forest")  # (a card to discard, were one drawn)
+    forest = to_hand(s, "Forest")  # (the card to discard)
     for c in list(zone(s.state, "p1", "library")):
         act(s, "p1", type="move", card_ids=[c], to={"zone": "exile"})
     mana(s, C=1)
     act(s, "p1", type="cast_spell", card_id=ring.id)
     answer_may(s, "yes")
     text = " ".join((part.t or "") for entry in s.state.log for part in entry.parts).lower()
-    assert "loses the game (drew from an empty library)" in text and "discard" not in text  # (no card drawn, none discarded)
+    assert "loses the game (drew from an empty library)" in text and s.state.cards[forest.id].zone == "p1:graveyard"
     replay_matches(s)

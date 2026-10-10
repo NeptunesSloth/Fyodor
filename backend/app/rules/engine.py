@@ -526,7 +526,7 @@ def _keep_tapped(plan: Plan) -> list[str]:
     controllers' untap steps.", "Creatures with power 3 or greater don't untap …"), all of which
     app/rules/layers.py puts in ``Characteristics.imposed`` for whatever matches right now."""
     return [c.id for c in plan.state.cards.values() if c.tapped and c.zone.endswith(":battlefield")
-            and not plan.manual(c) and "doesnt_untap" in scripts.statics(plan.ch(c))][:250]
+            and not plan.manual(c) and "doesnt_untap" in scripts.statics(plan.ch(c))]  # (wave 29C: all of them — a cut list untapped the rest)
 
 
 def _exerted(plan: Plan, player: str) -> list[str]:
@@ -564,9 +564,9 @@ def start_next_turn(plan: Plan) -> None:
         phasing.untap_step(plan, skip_to or upcoming)
         keep += [c for c in _keep_tapped(plan) if c not in keep]  # (the ones that just phased in)
     if stay is not None:
-        keep = list(dict.fromkeys([*keep, *stay]))[:250]
-    keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or upcoming)]))[:250]  # (wave 4H)
-    keep = list(dict.fromkeys([*keep, *next_untap.kept(plan, skip_to or upcoming)]))[:250]  # (wave 6A)
+        keep = list(dict.fromkeys([*keep, *stay]))
+    keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or upcoming)]))  # (wave 4H)
+    keep = list(dict.fromkeys([*keep, *next_untap.kept(plan, skip_to or upcoming)]))  # (wave 6A)
     # -- untap choice (wave 7F) -- 502.3: "You may choose not to untap ~": asked below, after the turn changes
     asked = untap_choice.candidates(plan, skip_to or upcoming, keep) if stay is None else []
     # -- untap restrictions (wave 13E) -- 502.3: "Players can't untap more than one creature": held back until chosen below

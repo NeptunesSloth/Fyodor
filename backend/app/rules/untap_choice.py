@@ -77,7 +77,7 @@ def limited(plan: Plan, player: str, keep: list[str]) -> list[list[Any]]:
         sel = selectors.from_key(key)
         ids = [c.id for c in plan.state.cards.values()
                if c.tapped and c.controller == player and c.zone.endswith(":battlefield") and c.id not in keep
-               and not plan.manual(c) and selectors.matches(plan, sel, c, plan.ch(c), player)][:250]
+               and not plan.manual(c) and selectors.matches(plan, sel, c, plan.ch(c), player)]
         if len(ids) > n:
             out.append([ids, n])
     return out
@@ -118,7 +118,7 @@ def candidates(plan: Plan, player: str, keep: list[str]) -> list[str]:
     """Tapped permanents ``player`` controls that they may choose not to untap and that would untap otherwise."""
     return [c.id for c in plan.state.cards.values()
             if c.tapped and c.controller == player and c.zone.endswith(":battlefield") and c.id not in keep
-            and not plan.manual(c) and "may_stay_tapped" in scripts.statics(plan.ch(c))][:50]
+            and not plan.manual(c) and "may_stay_tapped" in scripts.statics(plan.ch(c))]  # (wave 29C: not just the first 50)
 
 
 def ask(plan: Plan, asked: list[str], then: dict[str, Any], groups: list[list[Any]] | None = None) -> bool:

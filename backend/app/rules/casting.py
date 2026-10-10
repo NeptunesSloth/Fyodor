@@ -693,8 +693,9 @@ def ask_targets(plan: Plan, player: str, found: Any, specs: list[dict[str, Any]]
     if found.ask[0] == "group":
         _, g, options, lo, hi = found.ask
         count = str(lo) if lo == hi else f"up to {hi}" if lo == 0 else f"{lo} to {hi}"
+        cut = f" (the rules allow up to {found.capped}, but at most {hi} targets can be chosen at once)" if found.capped else ""  # (wave 29C)
         decide(plan, player=player, kind="choose_cards",
-               prompt=f"Choose {count} target{'s' if hi != 1 else ''} for {what}" + (f" (group {g + 1} of {len(specs)})" if many else ""),
+               prompt=f"Choose {count} target{'s' if hi != 1 else ''} for {what}" + (f" (group {g + 1} of {len(specs)})" if many else "") + cut,
                options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None)
                         for x in options],
                min_choices=lo, max_choices=hi, resume=resume)
@@ -942,12 +943,13 @@ def _solve_with_filters(cost: M.ManaCost, pool: dict[str, int], plain: list[M.So
 
 
 def find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
-                 sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> M.Payment:
+                 sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                 reserve: int = 0) -> M.Payment:
     """How to pay ``cost``: with exactly ``sources`` when given (MANUAL PAY), else automatically,
     PREFER sources first and SAVE sources only when there is no other way. Pool units that may pay for ``purpose`` (restricted or
     remembered mana, app/rules/mana_units.py) are spent like pool mana: ``Payment.slots`` names them ("unit:<id>"), ``tapped`` doesn't."""
     payment = _find_payment(state, player, life_for_mana(state, player, info, cost), info, sources=sources, exclude=exclude,
-                            purpose=purpose)
+                            purpose=purpose, reserve=reserve)
     payment.tapped = [c for c in payment.tapped if not c.startswith("unit:")]
     return payment
 
@@ -984,14 +986,15 @@ def life_for_mana(state: GameState, player: str, info: CardInfo, cost: M.ManaCos
 
 
 def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
-                  sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> M.Payment:
+                  sources: list[str] | None = None, exclude: tuple[str, ...] = (), purpose: Purpose | None = None,
+                  reserve: int = 0) -> M.Payment:
     from app.rules import mana_units
 
     everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
     available = [s for s in everything if s.activation is None]
     filters = [s for s in everything if s.activation is not None]
     pool = dict(state.players[player].mana)
-    life = spendable_life(state, player, info)  # (wave 22B: 119.4)
+    life = max(0, spendable_life(state, player, info) - reserve)  # (wave 22B: 119.4; wave 29C: less the life other costs of it pay)
     units = mana_units.unit_sources(state, player, purpose)  # -- mana provenance (wave 18B) -- pool mana that remembers its source
     if sources is not None:
         chosen = [s for s in available if s.card_id in set(sources)]
@@ -1049,15 +1052,31 @@ def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.Ma
         if kind == "damage" and _player_protected(plan, card, who):  # -- player shields (wave 5E) -- 702.16e, 702.16j
             plan.note(f"Protection prevents the damage {plan.ch(card).name} would deal to {plan.name(who)}")
         elif kind == "damage":
-            plan.do({"type": "rules_damage", "creatures": {}, "players": {who: _replace_rider.damage_loss(plan, who, n, actor=who)},
-                     "planeswalkers": {}, "lifelink": {}, "combat": False,
-                     "dealt": [{"source": plan.oid(card.id), "target": who, "amount": n}]}, actor=who)
+            mana_ability_damage(plan, card, who, n)
         elif kind == "draw":  # (review 28B: through the draw choke point like any other draw — a mana ability can't pause: then=None)
             _replace_rider.draw_cards(plan, [who], n)
         else:  # -- mana riders (wave 5A) -- "You gain 2 life.", "Each opponent gains 1 life."
             from app.rules import mana_riders
 
             mana_riders.after(plan, card, kind, n, who)
+
+
+def mana_ability_damage(plan: Plan, card: CardInstance, who: str, n: int) -> None:
+    """-- replacements: damage (wave 29C) -- "This land deals 1 damage to you." is damage like any other (120.3): the replacement and
+    prevention effects on it (614, 615: Furnace of Rath, Urza's Armor, a "next N damage" shield), then the life that damage makes the player
+    lose (120.3a, the life-loss replacements: Bloodletter of Aclazotz) — the damage choke point (``replace.damage_outcome``). A mana ability
+    resolves as it is activated and can't pause (605.3a, 605.3b): when two effects both apply and their order matters (616.1) the damage is
+    dealt as it is and the log names the effects the players must apply by hand (``left_to_players``) — never skipped without saying."""
+    from app.rules import effects as _effects
+    from app.rules import replace as _replace
+
+    ch = plan.ch(card)
+    oid = plan.oid(card.id)
+    ev = {"source_card": card.id, "source_oid": oid, "target": who, "amount": n, "combat": False,
+          "src": _replace.source_info(plan, card.id, oid, ch, who), "kw": sorted(ch.keywords & _effects._DAMAGE_KEYWORDS), "lkey": card.id}
+    out = _replace.damage_outcome(plan, [ev], answers={}, order=None, ask=False)
+    if isinstance(out, _replace.DamageOutcome):
+        _replace.do_damage(plan, out, actor=who, combat=False)
 
 
 def _player_protected(plan: Plan, card: CardInstance, who: str) -> bool:
@@ -1076,7 +1095,8 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[
         exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> M.Payment | None:
     if cost.is_free and not sources:
         return None
-    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose)
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+                           reserve=plan.reserved_life)
     extras: list[tuple[CardInstance, int, M.ManaAbility]] = []
     life = payment.life
     for cid, index in payment.used:
@@ -1087,6 +1107,11 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[
         extras.append((card, index, ability))
         if ability.extra_cost:
             life += parse_ability_cost(ability.extra_cost, card_name=plan.ch(card).name).life
+    # -- life payments (wave 29C) -- 119.4: all the life this payment takes (Phyrexian mana, "Pay 1 life" mana abilities) and the spell's other
+    # life costs together can't be more than the life total (each source was checked on its own when it was listed): refused, not carried out
+    if life > max(0, plan.state.players[player].life - plan.reserved_life) and life > payment.life:  # (the true total: Karn's Sylex bans only spells')
+        raise ActionError(f"Those sources would take {life} life to pay {cost.text()}, and you can't pay more life than you have (119.4): "
+                          "tap other sources")
     oids = {card.id: plan.oid(card) for card, _, _ in extras}  # (wave 5A: the objects as they were tapped)
     from app.rules import mana_units
 
@@ -1150,7 +1175,8 @@ def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristic
         if rest.is_free:
             return True
         try:
-            find_payment(plan.state, player, rest, plan.info, sources=a.sources, exclude=exclude, purpose=purpose)
+            find_payment(plan.state, player, rest, plan.info, sources=a.sources, exclude=exclude, purpose=purpose,
+                         reserve=plan.reserved_life)
         except ActionError:
             return False
         return True
@@ -1222,7 +1248,8 @@ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCos
         return True
     if mode == "auto":
         return False
-    payment = find_payment(plan.state, plan.actor, cost, plan.info, exclude=exclude, purpose=purpose)  # (can it be paid at all?)
+    payment = find_payment(plan.state, plan.actor, cost, plan.info, exclude=exclude, purpose=purpose,
+                           reserve=plan.reserved_life)  # (can it be paid at all?)
     resume: dict[str, Any] = {"step": "payment", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
                               "exclude": list(exclude), "cost": cost.text(), "what": what}
     if mode == "manual":
@@ -1303,7 +1330,7 @@ def _covered(plan: Plan, player: str, cost: M.ManaCost, helpers: list[P.Helper],
 
     p = plan.state.players[player]
     units = mana_units.unit_sources(plan.state, player, _prompt_purpose(plan, resume) if resume else None)
-    covers = P.pool_pays(dict(p.mana), spendable_life(plan.state, player, plan.info), units)
+    covers = P.pool_pays(dict(p.mana), max(0, spendable_life(plan.state, player, plan.info) - plan.reserved_life), units)
     return P.assign(cost, helpers, lambda rest: covers(life_for_mana(plan.state, player, plan.info, rest)))  # (review 18B: K'rrik)
 
 
@@ -1327,8 +1354,9 @@ def _tap_display(plan: Plan, player: str, cost: M.ManaCost, what: str, resume: d
     paid = [{"card": h.card, "name": plan.state.cards[h.card].name or "a card", "kind": h.kind, "pays": sym}
             for h, sym in zip(helpers, assignment, strict=False)]
     rest = P.remaining(cost, assignment) if len(assignment) == len(helpers) else cost
-    return {"kind": "tap_mana", "cost": cost.text(), "what": what, "sources": sources[:40],
-            "convoke": by_kind["convoke"][:40], "improvise": by_kind["improvise"][:40], "delve": by_kind["delve"][:60],
+    # (wave 29C: every helper is listed — the table clicks a creature / artifact / card only if it is on its list, so a cut list hid some)
+    return {"kind": "tap_mana", "cost": cost.text(), "what": what, "sources": sources,
+            "convoke": by_kind["convoke"], "improvise": by_kind["improvise"], "delve": by_kind["delve"],
             "committed": sorted(committed), "paid": paid, "mana_due": rest.text() if not rest.is_free else "",
             "remaining": _left_text(P.after_pool(rest, dict(plan.state.players[player].mana))),
             "pool": dict(plan.state.players[player].mana)}
@@ -2392,6 +2420,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
         if problem:
             raise ActionError(problem)
+        plan.reserved_life = add_cost.life + ((a.x_value or 0) if add_cost.life_x else 0)  # (wave 29C: 119.4, with Phyrexian mana's life)
         found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it")
         if found_objects is None:
             return  # waiting for the payer's choice; nothing has been paid
@@ -2473,6 +2502,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
             record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
+        plan.reserved_life = 0  # (wave 29C: paid now; later payments of this intent are their own)
     if a.splice:  # -- casting extras (wave 18E) -- 702.47a: the spliced cards are revealed (they stay in the hand)
         plan.do({"type": "reveal", "card_ids": list(a.splice)}, actor=plan.actor)
         plan.do({"type": "hide", "card_ids": list(a.splice)}, actor=plan.actor)  # (701.20a: shown, then hidden again in the hand: review 18E)
@@ -2537,7 +2567,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             info["tags"] = tags
         plan.do(info)
     if a.targets:
-        plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
+        plan.target_arrows(card.id, a.targets)
     r = plan.rules
     # for "whenever you cast"; amount: the Nth spell its caster cast this turn ("your second spell each turn")
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
@@ -3085,6 +3115,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
         if problem:
             raise ActionError(problem)
+        plan.reserved_life = add_cost.life + ((a.x_value or 0) if add_cost.life_x else 0)  # (wave 29C: 119.4, with Phyrexian mana's life)
         found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it")
         if found_objects is None:
             return  # waiting for the payer's choice; nothing has been paid (the grant stays)
@@ -3134,13 +3165,14 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
             _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
             record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile …
+        plan.reserved_life = 0  # (wave 29C)
     plan.do({"type": "set_stack_info", "card_id": card.id,
              "tags": ([] if paid else [f"Cast for its {kind} cost" if alt is not None else "Cast without paying its mana cost"])
              + (["Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}"] if a.kicker else [])})
     record.x = a.x_value
     record_payment(plan, card.id, record)
     if a.targets:
-        plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
+        plan.target_arrows(card.id, a.targets)
     if ch.is_creature and was_suspended:
         r.suspend_haste.append(card.id)  # 702.62e: it gains haste
     if "rebound" in ch.keywords and from_hand:
@@ -3664,7 +3696,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if a.x_value is not None and ability_id:
         plan.do({"type": "set_stack_info", "card_id": ability_id, "x": a.x_value})
     if a.targets and ability_id:
-        plan.do({"type": "create_arrow", "source": ability_id, "targets": list(a.targets), "kind": "target"})
+        plan.target_arrows(ability_id, a.targets)
     r = plan.rules
     if modal is not None and ability_id:  # (wave 1A) each chosen mode's effects, with its own target slot
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,

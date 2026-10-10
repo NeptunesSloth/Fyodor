@@ -712,7 +712,6 @@ def test_a_choice_in_the_draw_step_then_the_step_goes_on(cards):
 _REPLACEABLE = {"counter", "resource", "create_token", "draw", "life", "rules_damage"}
 _ALLOWED = {
     # outside wave 2E's ownership, to be rerouted at integration (UNVERIFIED how the lead reroutes them):
-    ("casting.py", "after_mana_ability"): "mana ability riders: 'deals 1 damage to you', 'draw a card'",
     ("casting.py", "activate_to_stack"): "a loyalty ability's cost (606.4: a cost, not an effect; agent A's region)",
     ("casting.py", "suspend"): "time counters on a card in exile (not a permanent: no counter replacement applies)",
     ("recursion.py", "spell_self_move"): "wave 7C: a spell's time counters as it exiles itself (a card in exile, as above)",
