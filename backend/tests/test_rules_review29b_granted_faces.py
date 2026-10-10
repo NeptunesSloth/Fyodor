@@ -153,17 +153,41 @@ def test_a_legendary_sorcery_needs_a_legendary_creature(cards):
     check(s)
 
 
-def test_a_cost_increase_that_cant_be_paid(cards):
+def test_a_cast_whose_cost_cant_be_paid_can_be_cancelled_at_its_target(cards):
     """Thalia, Guardian of Thraben (an opponent's): "Noncreature spells cost {1} more to cast." A Lightning Bolt cast without paying its mana
-    cost costs {1} (118.9d, 601.2f): with no mana to pay it, it can't be cast and isn't offered; with an untapped Forest it is."""
-    s, bolt, _ = cascade_into(cards, "Lightning Bolt", theirs=["Thalia, Guardian of Thraben"],
-                              setup=lambda s: put(s, "Thalia, Guardian of Thraben", "p2"))
-    not_cast(s, bolt)
-    check(s)
-    s, bolt, _ = cascade_into(cards, "Lightning Bolt", theirs=["Thalia, Guardian of Thraben"],
-                              setup=lambda s: (put(s, "Thalia, Guardian of Thraben", "p2"), put(s, "Forest")))
+    cost costs {1} (118.9d, 601.2f). Mana isn't checked before the question (mana abilities activated by hand aren't counted), so "yes" is
+    offered; with no mana the answer to Bolt's target is refused (601.2h), and the target choice of this free cast can now be cancelled
+    (601.2: rewound, the card not cast goes to the bottom, 702.85a). Before the review it couldn't: the game was stuck."""
+    from app.game.errors import ActionError
+
+    s, bolt, went_past = cascade_into(cards, "Lightning Bolt", theirs=["Thalia, Guardian of Thraben"], passed=["Craterhoof Behemoth"],
+                                      setup=lambda s: put(s, "Thalia, Guardian of Thraben", "p2"))
     assert options(s) == [("yes", "Cast it"), ("no", "Put it on the bottom")]
+    choose(s, "yes")
+    with pytest.raises(ActionError):
+        choose(s, "p2")
+    d = s.state.rules.decision
+    assert d.resume["step"] == "cast_target" and s.view("p1")["rules"]["decision"]["cancelable"]
+    s = reloaded(s)
+    choose(s, "cancel")
+    library = s.state.zones["p1:library"]
+    assert s.state.cards[bolt.id].zone == "p1:library" and set(library[-2:]) == {bolt.id, *went_past}
+    assert bolt.id not in s.state.rules.free_casts and s.state.rules.free_cast_then is None and s.state.rules.decision is None
+    pass_until_stack_empty(s)
+    assert s.state.cards[card_named(s, "Bloodbraid Elf").id].zone == "p1:battlefield" and s.state.players["p2"].life == 40
     check(s)
+
+
+def test_a_normal_free_cast_target_choice_without_a_record_is_not_cancelable(cards):
+    """Only a free cast whose end is recorded may be cancelled: the wave 24D rule stands for any other (an old save's)."""
+    from app.game.rules_state import cancelable
+
+    s, bolt, _ = cascade_into(cards, "Lightning Bolt")
+    choose(s, "yes")
+    d = s.state.rules.decision
+    assert d.resume["step"] == "cast_target" and d.resume.get("abandon") and cancelable(d)
+    old = d.model_copy(update={"resume": {k: v for k, v in d.resume.items() if k != "abandon"}})
+    assert not cancelable(old)
 
 
 def test_discover_puts_a_card_it_cant_cast_into_the_hand(cards):

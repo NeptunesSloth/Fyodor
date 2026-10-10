@@ -1389,8 +1389,7 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 continue
             from app.rules import casting  # (review 29B: no choice may be a dead end, 601.2c / 601.5)
 
-            if casting.free_cast_problem(plan, pid, card, chars.as_cast(card, plan.info, face),  # (the half cast_spell casts)
-                                         pay=ch.mana_cost if e.get("paid") else None) is not None:
+            if casting.free_cast_problem(plan, pid, card, chars.as_cast(card, plan.info, face)) is not None:  # (the half cast_spell casts)
                 continue
             options.append(DecisionOption(id=_option_id(cid, face), label=(ch.name if face is not None else card.name) or "Card",
                                           card_id=cid))

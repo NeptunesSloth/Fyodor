@@ -1,6 +1,7 @@
 """Review of wave 24D. Cancelling a cast (601.2 rewind) is the caster's take-back of an announcement; a spell cast for free as an
 effect resolves (cascade, suspend, rebound, madness, discover, ripple: 608.2g) can't be cancelled — that resolution is already over,
-so a cancel stranded the card in exile with its free-cast grant kept for later. Also: a cancel after a save/load, a flashback cast
+so a cancel stranded the card in exile with its free-cast grant kept for later (review 29B: unless the cast's end is recorded, which
+sends a cancelled card where a card not cast goes). Also: a cancel after a save/load, a flashback cast
 from the graveyard and an activated ability with a sacrifice cost (nothing moved, nothing paid); "You may X. Y." (Sephiroth,
 Fallen Hero) still does Y when X is declined. Real Oracle text; replay and save/load."""
 
@@ -9,7 +10,6 @@ from __future__ import annotations
 import pytest
 
 from app.cards.importer import build_database
-from app.game.errors import ActionError
 from app.game.session import GameSession
 from app.game.state import GameState
 from tests.fixtures.cards import card, fixture_cards
@@ -38,7 +38,10 @@ def reloaded(s):
     assert loaded.state.model_dump(mode="json") == s.state.model_dump(mode="json")
     return loaded
 
-def test_a_free_cast_during_cascade_cant_be_cancelled(cards):
+def test_a_free_cast_during_cascade_cancelled_is_a_card_not_cast(cards):
+    """-- review (wave 29B) -- the cascade cast's end is recorded now (RulesState.free_cast_then): a cancel no longer strands the card, it
+    goes to the bottom of the library as a card not cast (702.85a), with no grant left; so the target choice may be cancelled (the way out of
+    a cast whose cost turns out not to be payable)."""
     alice = deck(cards, "Krenko, Mob Boss", [(1, "Bloodbraid Elf"), (1, "Lightning Bolt"), (8, "Forest")])
     bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
     s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
@@ -52,13 +55,15 @@ def test_a_free_cast_during_cascade_cant_be_cancelled(cards):
     until(s, lambda s: s.state.rules.decision is not None and "Cascade" in s.state.rules.decision.prompt)
     pick(s, "yes")
     assert s.state.rules.decision.resume["step"] == "cast_target"
-    assert s.view("p1")["rules"]["decision"]["cancelable"] is False
-    with pytest.raises(ActionError):
-        pick(s, "cancel")  # (before: Bolt stayed in exile, castable for free whenever)
+    assert s.view("p1")["rules"]["decision"]["cancelable"] is True
+    cast = reloaded(s)
+    pick(cast, "p2")
+    until(cast, lambda s: not s.state.zones.get("stack"))
+    assert cast.state.cards[bolt.id].zone == "p1:graveyard" and not cast.state.rules.free_casts
     s = reloaded(s)
-    pick(s, "p2")
-    until(s, lambda s: not s.state.zones.get("stack"))
-    assert s.state.cards[bolt.id].zone == "p1:graveyard" and not s.state.rules.free_casts
+    pick(s, "cancel")  # (before wave 29B's review: Bolt would have stayed in exile, castable for free whenever)
+    assert s.state.cards[bolt.id].zone == "p1:library" and s.state.zones["p1:library"][-1] == bolt.id
+    assert not s.state.rules.free_casts and s.state.rules.free_cast_then is None and s.state.rules.decision is None
     replay_matches(s)
 
 def test_cancel_a_flashback_cast_after_a_reload(cards):

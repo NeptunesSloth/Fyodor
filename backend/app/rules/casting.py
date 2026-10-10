@@ -613,6 +613,18 @@ def cancelled(plan: Plan, d: Any, chosen: list[str]) -> bool:
     return True
 
 
+def _announcing(plan: Plan, step: str, a: A.CastSpell | A.ActivateAbility, **extra: Any) -> dict[str, Any]:
+    """The resume of an announcement choice. -- review (wave 29B) -- ``abandon``: a free cast begun as an effect resolves whose end is
+    recorded (``RulesState.free_cast_then``: permissions.free_cast_abandoned carries on, or sends the card where a card not cast goes) may be
+    cancelled too (rules_state.cancelable): the way out of a cast that turns out not to be possible once its targets are chosen (601.2: its
+    total cost can't be paid), which is otherwise a dead end."""
+    out = {"step": step, "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}), **extra}
+    pending = plan.rules.free_cast_then
+    if getattr(a, "free", False) and pending is not None and pending["card"] == a.card_id:
+        out["abandon"] = True
+    return out
+
+
 def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any] | None,
                   what: str, *, exclude: tuple[str, ...] = ()) -> list[TargetRef] | None:
     """The target of an automated spell or ability: validated if given, else asked (privately).
@@ -629,7 +641,7 @@ def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: di
         raise ActionError(f"{what} has no legal target")
     decide(plan, player=plan.actor, kind="choose_one", prompt=f"Choose a target for {what}",
            options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
-           resume={"step": "cast_target", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
+           resume=_announcing(plan, "cast_target", a))
     return None
 
 
@@ -668,9 +680,7 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
     found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id), a.card_id, list(a.targets),
                           list(a.target_counts), list(a.division), a.x_value, what, exclude)
     if found.ask is not None:
-        ask_targets(plan, plan.actor, found, specs, what,
-                    {"step": "cast_group", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
-                     "counts": found.counts})
+        ask_targets(plan, plan.actor, found, specs, what, _announcing(plan, "cast_group", a, counts=found.counts))
         return None
     groups = [[target_ref(plan, t) for t in g] for g in found.groups]
     return ChosenTargets(flat=[t for g in groups for t in g], groups=groups, specs=specs, division=found.division)
@@ -779,8 +789,7 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     decide(plan, player=plan.actor, kind="choose_cards",
            prompt=f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}",
            options=[DecisionOption(id=f"{i}:{k}", label=modes[i]["text"][:120]) for i in allowed for k in range(per)],
-           min_choices=lo, max_choices=hi,
-           resume={"step": "cast_modes", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
+           min_choices=lo, max_choices=hi, resume=_announcing(plan, "cast_modes", a))
     return None
 
 
@@ -828,7 +837,7 @@ def choose_slot_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, specs: l
         decide(plan, player=plan.actor, kind="choose_one", prompt=f"Choose a target for {what} (mode {n + 1})",
                options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None)
                         for x in legal],
-               resume={"step": "cast_slot_target", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
+               resume=_announcing(plan, "cast_slot_target", a))
         return None
     return out
 
@@ -2090,13 +2099,13 @@ def free_castable(state: GameState, player: str, card: CardInstance, info: CardI
     return False
 
 
-def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Characteristics, *, pay: str | None = None) -> str | None:
+def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Characteristics) -> str | None:
     """-- review (wave 29B) -- why ``player`` can't cast this half / face (``ch``) of a card the engine lets them cast as an effect resolves
     (``cast_free``), checked before the choice is offered, so that no answer is a dead end: 205.4e (a legendary instant or sorcery), 700.2a (no
-    mode can be chosen), 601.2c (a required target group can't get enough legal targets: the proposal is illegal, 601.5), 601.2h / 118.9d (a
-    mandatory additional cost, "sacrifice a creature", can't be paid) and 601.2f-h (the total cost — {0}, or ``pay``, plus increases such as
-    "Noncreature spells cost {1} more" — can't be paid, the best case for "spells that target …"). The same checks as ``cast_free``, in the
-    same order; cast_limits' prohibitions (601.3) are the caller's."""
+    mode can be chosen), 601.2c (a required target group can't get enough legal targets: the proposal is illegal, 601.5) and 601.2h / 118.9d (a
+    mandatory additional cost, "sacrifice a creature", can't be paid). The same checks as ``cast_free``, in the same order; cast_limits'
+    prohibitions (601.3) are the caller's. Mana is not checked here: ``can_pay`` doesn't count the mana abilities activated by hand (a Spirit
+    Guide, Ashnod's Altar), so a cost increase that can't be paid is met in the payment, where the cast can be cancelled (``_announcing``)."""
     if "Legendary" in ch.supertypes and ch.is_instant_or_sorcery and not _controls_legendary(plan.state, player, plan.info):
         return f"{ch.name} needs you to control a legendary creature or planeswalker"
     prev, plan.actor = plan.actor, player
@@ -2119,17 +2128,7 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
                 if hi < lo or len(legal_targets(plan, spec["what"], player, src, card.id)) < lo:
                     return f"{ch.name or 'It'} has no legal target"
         extra = None if manual else costs.spell_additional_cost(ch.abilities)
-        if extra is not None and (why := additional_problem(plan, extra, card, player)):
-            return why
-        try:
-            cost = spell_cost(plan.state, card, ch, 0, plan.info, player=player, free=pay is None,
-                              alternative=M.parse_cost(pay) if pay is not None else None, targets=_hint_targets(ch))
-        except ActionError as exc:
-            return str(exc)
-        if not cost.is_free and not can_pay(plan.state, player, cost, plan.info,
-                                            purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player)):
-            return f"You can't pay {cost.text()} for {ch.name or 'it'}"
-        return None
+        return additional_problem(plan, extra, card, player) if extra is not None else None
     finally:
         plan.actor = prev
 # -- end cast without paying (wave 3C) --

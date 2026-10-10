@@ -46,9 +46,10 @@ CANCELLABLE_STEPS = ("cast_target", "cast_group", "cast_modes", "cast_slot_targe
 
 def cancelable(d: Any) -> bool:
     """Can this decision be answered ["cancel"]? (-- review (wave 24D) -- not a free cast begun as an effect resolves (608.2g): the
-    resolution that offered it is over, so cancelling would strand the card and keep its grant; its own "no" is the way out.)"""
+    resolution that offered it is over, so cancelling would strand the card and keep its grant; its own "no" is the way out.
+    -- review (wave 29B) -- unless its end is recorded, ``abandon``: casting._announcing, permissions.free_cast_abandoned.)"""
     resume = getattr(d, "resume", None) or {}
-    return resume.get("step") in CANCELLABLE_STEPS and not (resume.get("intent") or {}).get("free")
+    return resume.get("step") in CANCELLABLE_STEPS and (not (resume.get("intent") or {}).get("free") or bool(resume.get("abandon")))
 
 
 class Decision(BaseModel):
