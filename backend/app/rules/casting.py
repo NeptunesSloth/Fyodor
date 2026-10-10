@@ -1829,8 +1829,9 @@ def _escape_offers(state: GameState, player: str, card: CardInstance, ch: Charac
 
 
 def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, *,
-                 check_priority: bool = True, info: CardInfo | None = None, free: bool = False) -> str | None:
-    """Why ``player`` can't cast ``card`` right now (costs aside), or None."""
+                 check_priority: bool = True, info: CardInfo | None = None, free: bool = False, sneak: bool = False) -> str | None:
+    """Why ``player`` can't cast ``card`` right now (costs aside), or None. ``sneak``: cast for its sneak cost (702.190a), which
+    is cast at instant timing (the offer itself exists only in your declare blockers step: alt_costs.sneak_timing)."""
     r = state.rules
     if r is None:
         return "Rules automation is off"
@@ -1862,7 +1863,7 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
         if state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
             return f"{ch.name} can only be cast in your main phase while the stack is empty (plot)"
         return None
-    timing = timing_problem(state, player, ch, grant)
+    timing = None if sneak else timing_problem(state, player, ch, grant)  # -- keywords (wave 30I) -- 702.190a
     fl = flash_if(ch) if timing else None  # (wave 22F: 601.3b-c, decided once its targets / cost / X are chosen)
     if fl is not None and ("targets" not in fl or (info is not None and _flash_target_exists(state, player, card, fl["targets"], info))):
         return None  # (review 22F: "if it targets a commander" with no such object to target isn't offered: the target choice would be a dead end)
@@ -2094,7 +2095,8 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
     if chars.is_two_spell_card(card, info) or state.rules is None or state.rules.card_mode(card.id) == "manual":
         return out  # (a split card / adventure: which half isn't part of the hint)
     ch = chars.as_cast(card, info, None)
-    if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None:
+    blocked = cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None
+    if blocked and cast_problem(state, player, card, ch, check_priority=check_priority, info=info, sneak=True) is not None:
         return out
     grant = cast_grant(state, player, card, ch, info)
     in_graveyard = card.zone == zone_key(player, "graveyard")  # -- escape (wave 5I) -- from there: escape costs only
@@ -2102,6 +2104,8 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
         return out  # (flashback is an alternative cost already: 118.9a)
     view = permissions._view(state, player, info)
     for offer in alt_costs.offers(state, player, card, ch, info):
+        if blocked and offer.tag != "sneak":
+            continue  # -- keywords (wave 30I) -- timing stops a plain cast; only a sneak cost (702.190a) is cast at instant speed
         if in_graveyard and not offer.escape and grant is not None and grant.how in ("escape", "flashback"):
             continue  # (escape and flashback are the cast's own alternative costs: 118.9a)
         extra = alt_costs.merged(costs.spell_additional_cost(ch.abilities), offer.alt.cost)
@@ -2234,11 +2238,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
 
             ch = overload.overlay(ch)
         bestowed_cast = "bestow" in kinds
+        sneaking = "sneak" in kinds  # -- keywords (wave 30I) -- 702.190a
         mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature
         if bestowed_cast:
             ch = bestow.overlay(ch)
     else:
-        bestowed_cast = mutating_cast = False
+        bestowed_cast = mutating_cast = sneaking = False
     if a.prototype:  # -- casting extras (wave 18E) -- 702.160a / 718.3a: only the alternative cost, power and toughness are used to cast it
         from app.rules import prototype
 
@@ -2255,7 +2260,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
 
         if not plan.manual(card) and _limits.granted_cascade(plan, card.id, ch, "hand", "storm"):
             raise ActionError("A face-down spell that is given storm isn't automated (its copies are face-up 2/2 creature spells): cast it face up")
-    problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free)
+    problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking)
     if problem:
         raise ActionError(problem)
     grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free)
@@ -4055,7 +4060,8 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
                 return True
             # -- cost changers (wave 4I) -- an instant castable only for an alternative cost (Force of Will with no mana
             # open) is a response too: never auto-passed over
-            if ("Instant" in ch.types or ch.has_flash) and alt_castable(state, player, card, info, check_priority=False):
+            if ("Instant" in ch.types or ch.has_flash or "sneak" in ch.keywords) \
+                    and alt_castable(state, player, card, info, check_priority=False):  # (-- keywords (wave 30I) -- sneak: 702.190a)
                 return True
     return bool(activatable(state, player, info, check_priority=False))
 
