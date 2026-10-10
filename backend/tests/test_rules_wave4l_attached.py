@@ -69,11 +69,10 @@ FULL = ["Sword of Feast and Famine", "Spirit Mantle", "Lavaspur Boots", "Kenrith
         "Lignify", "Colossus Hammer", "Wild Growth", "Fertile Ground", "Shiny Impetus", "Sword of Body and Mind",
         "Prosthetic Injector", "Curse of Opulence", "Curse of Verbosity", "Vow of Duty", "Carapace", "Sinister Possession",
         "Amorphous Axe", "Ghoulflesh", "Sinister Strength", "Viridian Longbow", "Paradise Mantle",
-        "Song of the Dryads", "Flickering Ward"]  # (wave 25D: the chosen color is the Aura's own recorded choice; wave 22A: a basic land type set, 305.7: tests/test_rules_wave22a_layers.py)
+        "Song of the Dryads", "Flickering Ward", "Super-Soldier Serum"]  # (wave 30S: its attach trigger, tests/test_rules_wave30s_attach_effects.py; wave 25D: the chosen color is the Aura's own recorded choice; wave 22A: a basic land type set, 305.7: tests/test_rules_wave22a_layers.py)
 STILL_MANUAL = {
     "Elvish Guidance": "for each Elf",  # a counted extra
     "Witness Protection": "named",  # a name change, two colors
-    "Super-Soldier Serum": "attach any number of target Equipment",
     "Curse of Bounty": "untaps all nonland permanents they control",  # (not "does the same")
 }
 

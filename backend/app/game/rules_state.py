@@ -348,6 +348,10 @@ EventKind = Literal[
     # -- counters & designations (wave 3E): ``counter`` = "monarch" | "initiative" | "day" | "night" |
     # "ring" (701.54d: the Ring tempted ``player``) | "dungeon" (309.7: ``player`` completed a dungeon)
     "designation",
+    # -- attachment events (wave 30S) -- 603.2e, 701.3d: ``card`` (object ``object_id``) became attached to / unattached from the permanent
+    # ``by_card`` (``source``: its object as it was; a player: ``player``); an attachment that left the battlefield was unattached (603.10c)
+    "attached",
+    "unattached",
 ]
 
 
@@ -1392,6 +1396,17 @@ KEYWORD_COUNTERS = frozenset({"flying", "first strike", "double strike", "deatht
                               "indestructible", "lifelink", "menace", "reach", "shadow", "trample", "vigilance"})
 
 
+def _attach_event(state: GameState, kind: EventKind, card_id: str, oid: str, host: str | None, player: str | None,
+                  snaps: dict[str, ObjectSnapshot]) -> None:
+    """-- attachment events (wave 30S) -- ``card_id`` became attached to / unattached from the permanent ``host`` (its object as it was in
+    the step's capture: it may have left too) or the player (the event's ``by_card`` / ``source`` / ``player``)."""
+    rules = state.rules
+    assert rules is not None
+    was = snaps.get(host or "")
+    emit(state, kind, object_id=oid, card=card_id, by_card=host, player=player,
+         source=(was.object_id if was is not None else rules.object_id(host)) if host else None)
+
+
 def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, actor: str | None = None,
           group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None) -> None:
     departures = state.departures()
@@ -1461,6 +1476,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                 and (log := turn_log_now(state)) is not None:  # -- refused modal/conditional (wave 3R1) --
             log.entered.append(Entry(card=card_id, object_id=new_oid, controller=card.controller,
                                      tapped=card.tapped, from_zone=old_zone))  # (-- entry forms (wave 5F) --; wave 22E: from_zone)
+        if old_name == "battlefield" and snap is not None and (snap.attached_to or snap.attached_player):
+            _attach_event(state, "unattached", card_id, old_oid, snap.attached_to, snap.attached_player, before.snaps)  # -- attachment events (wave 30S) -- 701.3d
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
              from_zone=old_zone, to_zone=new_zone, actor=actor)  # (wave 23D: who moved it: a discard an opponent's effect caused, 701.9)
@@ -1502,6 +1519,13 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                     rules.counter_stamps.setdefault(card_id, {})[kind] = [rules.next_object, rules.timestamp]
         if card.tapped != snap.tapped:
             emit(state, "tapped" if card.tapped else "untapped", object_id=oid, card=card_id)
+        # -- attachment events (wave 30S) -- 603.2e, 701.3d: it became attached to a (different) object or player, and let go of the one it was
+        # attached to (a host that left cleared it, ops.move; an Aura attached to another host lets go of the first)
+        if _zone_name(card.zone) == "battlefield" and (card.attached_to, card.attached_player) != (snap.attached_to, snap.attached_player):
+            if snap.attached_to or snap.attached_player:
+                _attach_event(state, "unattached", card_id, oid, snap.attached_to, snap.attached_player, before.snaps)
+            if card.attached_to or card.attached_player:
+                _attach_event(state, "attached", card_id, oid, card.attached_to, card.attached_player, before.snaps)
         # 613.7e: an attachment gets a new timestamp each time it becomes attached; 613.7f: a
         # permanent each time it turns face up or down; 613.7g: a double-faced permanent each
         # time it transforms (a face change on the battlefield)

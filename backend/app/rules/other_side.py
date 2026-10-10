@@ -21,7 +21,7 @@ from typing import Any
 
 from app.game.rules_state import ObjectRef, TriggerEvent
 
-_THAT = re.compile(r"\bthat creature(?:'s)?\b")
+_THAT = re.compile(r"\bthat (?:creature|permanent)(?:'s)?\b")  # (wave 30S: "becomes unattached from a permanent, sacrifice that permanent")
 _IT = re.compile(r"\b(?:it|its|itself)\b", re.IGNORECASE)
 
 

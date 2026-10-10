@@ -1,0 +1,386 @@
+[
+ {
+  "name": "Barret, Avalanche Leader",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Rebel",
+  "oracle_text": "Reach\nAvalanche! — Whenever an Equipment you control enters, create a 2/2 red Rebel creature token.\nAt the beginning of combat on your turn, attach up to one target Equipment you control to target Rebel you control.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Reach",
+   "Avalanche!"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Sokka, Swordmaster",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Warrior Ally",
+  "oracle_text": "Vigilance\nEquipment spells you cast cost {1} less to cast for each Ally you control.\nAt the beginning of combat on your turn, attach up to one target Equipment you control to Sokka.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Beatrix, Loyal General",
+  "layout": "normal",
+  "mana_cost": "{4}{W}{W}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Human Soldier",
+  "oracle_text": "Vigilance (Attacking doesn't cause this creature to tap.)\nAt the beginning of combat on your turn, you may attach any number of Equipment you control to target creature you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Swordsman, Sharp Scoundrel",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Hero Villain",
+  "oracle_text": "Whenever another Villain you control enters, attach up to one target Equipment you control to target creature you control.\nWhenever an equipped creature you control attacks, it connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on that creature.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Connive"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Heavenly Blademaster",
+  "layout": "normal",
+  "mana_cost": "{5}{W}",
+  "cmc": 6.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying, double strike\nWhen this creature enters, you may attach any number of Auras and Equipment you control to it.\nOther creatures you control get +1/+1 for each Aura and Equipment attached to this creature.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Double strike"
+  ],
+  "power": "3",
+  "toughness": "6"
+ },
+ {
+  "name": "Vulshok Battlemaster",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Human Warrior",
+  "oracle_text": "Haste\nWhen this creature enters, attach all Equipment on the battlefield to it. (Control of the Equipment doesn't change.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Haste"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Halvar, God of Battle // Sword of the Realms",
+  "layout": "modal_dfc",
+  "mana_cost": "{2}{W}{W} // {1}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — God // Legendary Artifact — Equipment",
+  "oracle_text": "Creatures you control that are enchanted or equipped have double strike.\nAt the beginning of each combat, you may attach target Aura or Equipment attached to a creature you control to target creature you control.\n//\nEquipped creature gets +2/+0 and has vigilance.\nWhenever equipped creature dies, return it to its owner's hand.\nEquip {1}{W}",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Equip"
+  ],
+  "power": "4",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "name": "Halvar, God of Battle",
+    "mana_cost": "{2}{W}{W}",
+    "type_line": "Legendary Creature — God",
+    "oracle_text": "Creatures you control that are enchanted or equipped have double strike.\nAt the beginning of each combat, you may attach target Aura or Equipment attached to a creature you control to target creature you control.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291",
+     "normal": "https://cards.scryfall.io/normal/front/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291",
+     "large": "https://cards.scryfall.io/large/front/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291"
+    }
+   },
+   {
+    "name": "Sword of the Realms",
+    "mana_cost": "{1}{W}",
+    "type_line": "Legendary Artifact — Equipment",
+    "oracle_text": "Equipped creature gets +2/+0 and has vigilance.\nWhenever equipped creature dies, return it to its owner's hand.\nEquip {1}{W}",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291",
+     "normal": "https://cards.scryfall.io/normal/back/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291",
+     "large": "https://cards.scryfall.io/large/back/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Ardenn, Intrepid Archaeologist",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Kor Scout",
+  "oracle_text": "At the beginning of combat on your turn, you may attach any number of Auras and Equipment you control to target permanent or player.\nPartner (You can have two commanders if both have partner.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Partner"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Armory Automaton",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact Creature — Construct",
+  "oracle_text": "Whenever this creature enters or attacks, you may attach any number of target Equipment to it. (Control of the Equipment doesn't change.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Super-Soldier Serum",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +2/+2, has first strike and vigilance, and is a legendary Soldier in addition to its other types.\nWhenever enchanted creature attacks or blocks, attach any number of target Equipment you control to it.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Disarm",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Unattach all Equipment from target creature.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Fulgent Distraction",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose two target creatures. Tap those creatures, then unattach all Equipment from them.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Valduk, Keeper of the Flame",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Shaman",
+  "oracle_text": "At the beginning of combat on your turn, for each Aura and Equipment attached to Valduk, create a 3/1 red Elemental creature token with trample and haste. Exile those tokens at the beginning of the next end step.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Captain America, Liberator",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Soldier Hero",
+  "oracle_text": "When Captain America enters, you may search your library for an Equipment card with mana value 3 or less, put it onto the battlefield, then shuffle.\nWhenever Captain America attacks, for each Equipment attached to him, create a 1/1 white Soldier creature token.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Curse of Opulence",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Enchantment — Aura Curse",
+  "oracle_text": "Enchant player\nWhenever enchanted player is attacked, create a Gold token. Each opponent attacking that player does the same. (A Gold token is an artifact with \"Sacrifice this token: Add one mana of any color.\")",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Devout Harpist",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human",
+  "oracle_text": "{T}: Destroy target Aura attached to a creature.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Sage's Reverie",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nWhen this Aura enters, draw a card for each Aura you control that's attached to a creature.\nEnchanted creature gets +1/+1 for each Aura you control that's attached to a creature.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Miracle Worker",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human Cleric",
+  "oracle_text": "{T}: Destroy target Aura attached to a creature you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Seedling Charm",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose one —\n• Return target Aura attached to a creature to its owner's hand.\n• Regenerate target green creature.\n• Target creature gains trample until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Regenerate"
+  ]
+ },
+ {
+  "name": "Piety Charm",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose one —\n• Destroy target Aura attached to a creature.\n• Target Soldier creature gets +2/+2 until end of turn.\n• Creatures you control gain vigilance until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ }
+]

@@ -174,6 +174,13 @@ def _suffix(pattern: str):  # type: ignore[no-untyped-def]
     return register
 
 
+# -- attached events (wave 30S) -- "target Aura or Equipment attached to a creature you control" (Halvar): what it is attached to (301.5, 303.4);
+# before the controller suffix, whose "you control" is the host's
+@_suffix(r"(?:that(?:'s| is) )?attached to a creature(?P<you> you control)?")
+def _attached_to_creature(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "attached_creature_you" if m["you"] else "attached_creature"))
+
+
 @_suffix(r"(?:that )?you control")
 def _you_control(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="you")
@@ -1555,6 +1562,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra.startswith("entered_this_turn") and not _entered_now(plan, card, you if extra.endswith("_you") else None):
             return False  # (wave 5H)
+        if extra.startswith("attached_creature"):  # -- attached events (wave 30S) -- attached to a creature (of yours)
+            host = plan.state.cards.get(card.attached_to or "")
+            if host is None or not host.zone.endswith(":battlefield") or not plan.ch(host).is_creature \
+                    or (extra.endswith("_you") and host.controller != you):
+                return False
         if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
             return False
         if extra == "shares_color_source" and ((src := plan.state.cards.get(source or "")) is None or not plan.ch(src).colors & ch.colors):

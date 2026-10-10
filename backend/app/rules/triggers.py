@@ -467,6 +467,15 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
     if e.kind in ("crewed", "saddled"):  # 702.122e: its crew ability resolved; 702.171b: it became saddled
         got = _object_then(plan, e.card, e.object_id)
         return [(e.kind, got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player})] if got is not None else []
+    if e.kind in ("attached", "unattached"):  # -- attachment events (wave 30S) -- 603.2e, 701.3d, 603.10c: the Aura / Equipment (as it last existed
+        got = _object_then(plan, e.card, e.object_id)  # if it left), and the permanent on the other side (``other``) while it still is that object
+        host = plan.state.cards.get(e.by_card or "")
+        if got is None:
+            return []
+        live = host is not None and host.zone.endswith(":battlefield") and plan.oid(host) == e.source
+        return [(e.kind, got[0], got[1], got[0].controller,
+                 {"oid": e.object_id, "other": host.id if live and host is not None else None, "other_oid": e.source,
+                  "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or "")})]
     if e.kind == "exploited":  # -- keyword triggers (wave 23D) -- 702.110b: the exploiter (it may have been sacrificed itself: its last known
         by = _object_then(plan, e.by_card, e.source)  # information) and the creature it exploited, as it was
         was = _object_then(plan, e.card, e.object_id)
@@ -732,6 +741,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     event, obj, och, player, info = fact
     you = watcher.controller
     if not _other_ok(plan, cond, watcher, info):
+        return False
+    if cond.get("to") == "self" and info.get("other") != watcher.id:  # -- attachment events (wave 30S) -- "an Aura becomes attached to this creature"
         return False
     if cond.get("cause") == "opponent" and not (  # -- discard causes (wave 23D) -- 701.9: "a spell or ability an opponent controls causes you to
             info.get("by") and info["by"] != player):  # discard": the discard was moved by a resolving effect of another player
