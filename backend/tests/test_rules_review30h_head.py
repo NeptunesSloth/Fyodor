@@ -40,6 +40,20 @@ def cards(settings):
     repo.close()
 
 
+@pytest.fixture()
+def k_cards(settings):
+    from app.cards.images import ImageStore
+    from app.cards.importer import build_database
+    from app.cards.repository import CardRepository
+    from tests.test_rules_wave30k_player_choices import EXTRA as K_EXTRA
+
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), *K_EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
+    yield repo
+    repo.close()
+
+
 def choose(s, *options):
     d = s.state.rules.decision
     act(s, d.player, type="choose", decision_id=d.id, option_ids=list(options))
@@ -87,12 +101,33 @@ def test_a_foretold_card_is_cast_from_exile(cards):
     check(s)
 
 
+def test_cataclysm_never_names_a_face_down_choice_to_the_next_chooser(k_cards):
+    """101.4b / 708.5: the earlier choices are known, but a face-down permanent Alice keeps is a 2/2 with no name to the others: Bob's question
+    ("— already chosen: …") and the table's log don't say what it is."""
+    from tests.test_rules_wave30k_player_choices import build3, cast, perm, pick
+
+    s = build3(k_cards, ["Cataclysm"])
+    pool = next(c for c in s.state.cards.values() if c.name == "Breeding Pool" and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[pool.id], to={"zone": "battlefield"}, face_down=True, face_down_kind="manifest")
+    perm(s, "p1", "Cub", "Token Creature — Cat", "1/1")
+    perm(s, "p2", "Bear", "Token Creature — Bear", "2/2")
+    perm(s, "p2", "Wolf", "Token Creature — Wolf", "2/2")
+    cast(s, "Cataclysm", W=2, C=2)
+    assert s.state.rules.decision.player == "p1"
+    pick(s, pool.id)
+    while s.state.rules.decision is not None and s.state.rules.decision.player == "p1":
+        pick(s, s.state.rules.decision.options[0].id)
+    assert s.state.rules.decision is not None and s.state.rules.decision.player == "p2"
+    for viewer in ("p2", "p3"):
+        assert "Breeding Pool" not in json.dumps(s.view(viewer)), viewer
+    check(s)
+
+
 def test_an_evoked_spell_returned_to_hand_and_cast_again_is_not_sacrificed(cards):
     """702.74a: "When this permanent enters, if its evoke cost was paid, its controller sacrifices it." Solitude evoked (Swords to Plowshares
     pitched) is returned to its owner's hand by Unsubstantiate (a new object, 400.7); cast again for its mana cost, its evoke cost wasn't paid: it stays."""
-    from tests.test_rules_wave30e_keywords import hints
-
     from tests.test_rules_review28d import respond_on
+    from tests.test_rules_wave30e_keywords import hints
 
     s = build(cards, ["Solitude", "Swords to Plowshares"], ["Unsubstantiate"])
     respond_on(s)
