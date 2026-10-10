@@ -232,8 +232,10 @@ def succeeded(ctx: Context, name: str) -> bool:
 
 
 def probe_ok(plan: Any, ctx: Context, name: str) -> bool:
-    """Did the probed instruction ("did": name, app/rules/effects.py) do something? A move: an object (a new one, 400.7) is in the
-    zone asked for. (A draw binds "did" as a payment when it is done, 118.12: effects._drawing.)"""
+    """Did the player do the probed instruction ("did": name, app/rules/effects.py)? 118.12: "If you do" checks that they chose to pay
+    or started to pay it, "regardless of what events actually occurred", so a move counts when it took an object (one still there,
+    400.7), wherever it ended up: a token that is gone, a commander sent to the command zone (903.9b, 118.11). (A draw binds "did" as a
+    payment when it is done, 118.12: effects._drawing.)"""
     b = (ctx.get("refs") or {}).get(name) or {}
     if b.get("kind") != "probe":
         return False
@@ -246,16 +248,12 @@ def probe_ok(plan: Any, ctx: Context, name: str) -> bool:
     if "counters" in b:
         return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid
                    and card.counters.get(b["counter"], 0) < n for cid, (oid, n) in b["counters"].items())
-    if "counters_up" in b:  # -- if you do (wave 15C) -- counters were put on it
+    if "counters_up" in b:  # -- if you do (wave 15C) -- a reflexive "When you do" (603.12): counters were put on it (effects._did_counters_up)
         return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid
                    and card.counters.get(b["counter"], 0) > n for cid, (oid, n) in b["counters_up"].items())
     if "hands_down" in b:
         return any(len(plan.state.zones.get(f"{p}:hand", [])) < n for p, n in b["hands_down"].items())
-    for cid, oid in b["cards"].items():
-        card = plan.state.cards.get(cid)
-        if card is not None and card.zone.split(":")[-1] == b["to"] and plan.oid(card) != oid:
-            return True
-    return False
+    return bool(b["cards"])  # (the objects taken before the move, effects._did / _picked: "to", the zone asked for, is not read)
 
 
 def flag(ctx: Context, name: str) -> bool:

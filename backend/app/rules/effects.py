@@ -2999,9 +2999,10 @@ PRIMITIVES["optional_payment"] = optional_payment.optional_payment
 
 
 def _did(fn: Any, kind: str) -> Any:
-    """An instruction whose "If you do" is judged by what it actually did ("did": a binding name,
-    ``{"succeeded": name}`` in the gate after it): an object that ended in the zone asked for (903.9b: a commander may go to the
-    command zone instead). Probed before the first run only: a paused primitive runs again (616.1). (A draw binds its own "did": ``draw``.)"""
+    """An instruction whose "If you do" is judged by whether the player started it ("did": a binding name, ``{"succeeded": name}``
+    in the gate after it, 118.12): an object was there to take, wherever it ends up (a token is gone as it arrives, a commander may go
+    to the command zone instead, 903.9b); an object already gone can't be (400.7). Probed before the first run only: a paused
+    primitive runs again (616.1). (A draw binds its own "did": ``draw``.)"""
     def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         name = e.get("did")
         if name and name not in context.refs(ctx):
@@ -3016,13 +3017,22 @@ for _name in ("exile", "bounce"):
 
 
 def _did_counters_up(fn: Any) -> Any:
-    """-- if you do (wave 15C) -- "You may put three +1/+1 counters on target land you control. If you do, …": counters really
-    reached the object (122.6; a replacement or prevention — Solemnity — may stop them, so "if you do" is false then, 608.2c)."""
+    """-- if you do (wave 15C) -- "You may put three +1/+1 counters on target land you control. If you do, …": the put was allowed
+    (118.12; Solemnity — "can't", 614.17b — makes it false, a reduction to none — Vizier of Remedies, Vorinclex — doesn't: the
+    Devoted Druid ruling of 2018-12-07, 118.11). A reflexive "When you do" ("reflex", scripts._probe_previous, 603.12) reads the
+    event instead: the counters really reached the object (the Auron ruling of 2025-06-06)."""
     def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        from app.rules import prohibitions
+
         name = e.get("did")
         if name and name not in context.refs(ctx):
-            context.refs(ctx)[name] = {"kind": "probe", "counter": e["kind"], "counters_up": {
-                c: [plan.oid(plan.state.cards[c]), plan.state.cards[c].counters.get(e["kind"], 0)] for c in _cards(plan, ctx, e["who"])}}
+            cards = _cards(plan, ctx, e["who"])
+            if e.get("reflex"):
+                context.refs(ctx)[name] = {"kind": "probe", "counter": e["kind"], "counters_up": {
+                    c: [plan.oid(plan.state.cards[c]), plan.state.cards[c].counters.get(e["kind"], 0)] for c in cards}}
+            else:  # (the "cards" record of a move, context.probe_ok: the objects the put was allowed on)
+                context.refs(ctx)[name] = {"kind": "probe", "to": "battlefield", "cards": {
+                    c: plan.oid(plan.state.cards[c]) for c in cards if prohibitions.cant_counters(plan, c, None) is None}}
         return bool(fn(plan, ctx, e))
     return run
 
@@ -3032,7 +3042,7 @@ PRIMITIVES["add_counters"] = _did_counters_up(PRIMITIVES["add_counters"])
 
 # -- refused modal/conditional (wave 3R1) -- "Sacrifice this enchantment. If you do, …", "Remove a +1/+1 counter
 # from it. If you do, …", "Discard a card. If you do, …": "If you do" after an instruction that isn't optional asks
-# whether it was actually done (608.2c; a permanent that is already gone can't be sacrificed, 701.21a; a counter
+# whether it was started (118.12; a permanent that is already gone can't be sacrificed, 701.21a; a counter
 # that isn't there can't be removed, 122.8; an empty hand discards nothing, 701.9b). Probed like draw's above.
 def _did_r1(fn: Any, kind: str) -> Any:
     def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
