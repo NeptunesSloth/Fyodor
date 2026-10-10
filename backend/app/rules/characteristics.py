@@ -322,11 +322,12 @@ def printed_from_data(data: dict[str, Any], face: int = 0) -> Characteristics:
 
 
 def transformable(card: CardInstance, info: CardInfo) -> bool:
-    """-- transform (wave 11A) -- 701.27a, 712.9: a card that can transform or convert: a nonmodal double-faced card
-    (modal and meld cards, 712.4c, and the other layouts are left out), whose other face is a permanent face (712.10)."""
+    """-- transform (wave 11A) -- 701.27a, 712.9: a card that can transform or convert: a double-faced card that isn't a meld card
+    (712.4c; review 30b: a modal one too, 712.9 of CR 2026-09-25 — Gwen Stacy's ruling of 2025-09-19, "This is a change from previous
+    rules"), whose other face is a permanent face (712.10)."""
     data = info.get(card.card_id) if card.card_id and card.token is None and not card.is_token else None
     faces = (data or {}).get("faces") or []
-    if data is None or data.get("layout") != "transform" or len(faces) < 2:
+    if data is None or data.get("layout") not in ("transform", "modal_dfc") or len(faces) < 2:
         return False
     return not {"Instant", "Sorcery"} & set(parse_type_line(str(faces[0 if card.face else 1].get("type_line") or ""))[1])
 
