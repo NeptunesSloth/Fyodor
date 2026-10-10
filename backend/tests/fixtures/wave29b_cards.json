@@ -44,18 +44,14 @@
     "name": "Wear",
     "mana_cost": "{1}{R}",
     "type_line": "Instant",
-    "oracle_text": "Destroy target artifact.\nFuse (You may cast one or both halves of this card from your hand.)",
-    "power": null,
-    "toughness": null
+    "oracle_text": "Destroy target artifact.\nFuse (You may cast one or both halves of this card from your hand.)"
    },
    {
     "object": "card_face",
     "name": "Tear",
     "mana_cost": "{W}",
     "type_line": "Instant",
-    "oracle_text": "Destroy target enchantment.\nFuse (You may cast one or both halves of this card from your hand.)",
-    "power": null,
-    "toughness": null
+    "oracle_text": "Destroy target enchantment.\nFuse (You may cast one or both halves of this card from your hand.)"
    }
   ]
  },
@@ -90,9 +86,7 @@
     "name": "Stomp",
     "mana_cost": "{1}{R}",
     "type_line": "Instant — Adventure",
-    "oracle_text": "Damage can't be prevented this turn. Stomp deals 2 damage to any target.",
-    "power": null,
-    "toughness": null
+    "oracle_text": "Damage can't be prevented this turn. Stomp deals 2 damage to any target."
    }
   ]
  },
@@ -127,9 +121,7 @@
     "name": "Storm Reading",
     "mana_cost": "{5}{U}{U}",
     "type_line": "Instant — Adventure",
-    "oracle_text": "Draw four cards, then discard two cards. (Then exile this card. You may cast the creature later from exile.)",
-    "power": null,
-    "toughness": null
+    "oracle_text": "Draw four cards, then discard two cards. (Then exile this card. You may cast the creature later from exile.)"
    }
   ]
  },
@@ -164,9 +156,7 @@
     "name": "Chop Down",
     "mana_cost": "{2}{W}",
     "type_line": "Instant — Adventure",
-    "oracle_text": "Destroy target creature with power 4 or greater. (Then exile this card. You may cast the creature later from exile.)",
-    "power": null,
-    "toughness": null
+    "oracle_text": "Destroy target creature with power 4 or greater. (Then exile this card. You may cast the creature later from exile.)"
    }
   ]
  },
@@ -196,7 +186,10 @@
     "type_line": "Creature — Human Shaman",
     "oracle_text": "Whenever an opponent activates an ability that isn't a mana ability, this creature deals 1 damage to that player.\n{1}{R}: This creature gets +2/+0 until end of turn.",
     "power": "2",
-    "toughness": "1"
+    "toughness": "1",
+    "colors": [
+     "R"
+    ]
    },
    {
     "object": "card_face",
@@ -204,8 +197,9 @@
     "mana_cost": "{W}{W}",
     "type_line": "Instant",
     "oracle_text": "Your opponents can't cast spells or activate planeswalkers' loyalty abilities this turn.\nExile Revel in Silence.",
-    "power": null,
-    "toughness": null
+    "colors": [
+     "W"
+    ]
    }
   ]
  },
@@ -235,7 +229,10 @@
     "type_line": "Legendary Creature — God",
     "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.",
     "power": "2",
-    "toughness": "1"
+    "toughness": "1",
+    "colors": [
+     "B"
+    ]
    },
    {
     "object": "card_face",
@@ -243,8 +240,11 @@
     "mana_cost": "{5}{B}{R}",
     "type_line": "Legendary Planeswalker — Tibalt",
     "oracle_text": "As Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n−3: Exile target artifact or creature.\n−8: Exile all graveyards. Add {R}{R}{R}.",
-    "power": null,
-    "toughness": null
+    "loyalty": "5",
+    "colors": [
+     "B",
+     "R"
+    ]
    }
   ]
  },
@@ -269,8 +269,9 @@
     "mana_cost": "{2}{R}",
     "type_line": "Instant",
     "oracle_text": "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one.",
-    "power": null,
-    "toughness": null
+    "colors": [
+     "R"
+    ]
    },
    {
     "object": "card_face",
@@ -278,8 +279,7 @@
     "mana_cost": "",
     "type_line": "Land",
     "oracle_text": "This land enters tapped.\n{T}: Add {R}.",
-    "power": null,
-    "toughness": null
+    "colors": []
    }
   ]
  },
@@ -327,18 +327,14 @@
     "name": "Hit",
     "mana_cost": "{1}{B}{R}",
     "type_line": "Instant",
-    "oracle_text": "Target player sacrifices an artifact or creature of their choice. Hit deals damage to that player equal to that permanent's mana value.",
-    "power": null,
-    "toughness": null
+    "oracle_text": "Target player sacrifices an artifact or creature of their choice. Hit deals damage to that player equal to that permanent's mana value."
    },
    {
     "object": "card_face",
     "name": "Run",
     "mana_cost": "{3}{R}{G}",
     "type_line": "Instant",
-    "oracle_text": "Attacking creatures you control get +1/+0 until end of turn for each other attacking creature.",
-    "power": null,
-    "toughness": null
+    "oracle_text": "Attacking creatures you control get +1/+0 until end of turn for each other attacking creature."
    }
   ]
  },
@@ -621,7 +617,10 @@
     "type_line": "Creature — Elemental",
     "oracle_text": "{T}: Add {G}.",
     "power": "1",
-    "toughness": "1"
+    "toughness": "1",
+    "colors": [
+     "G"
+    ]
    },
    {
     "object": "card_face",
@@ -629,8 +628,7 @@
     "mana_cost": "",
     "type_line": "Land",
     "oracle_text": "This land enters tapped.\n{T}: Add {G}.",
-    "power": null,
-    "toughness": null
+    "colors": []
    }
   ]
  },
@@ -739,5 +737,82 @@
    "U"
   ],
   "keywords": []
+ },
+ {
+  "name": "Steel Golem",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact Creature — Golem",
+  "oracle_text": "You can't cast creature spells.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Gaddock Teeg",
+  "layout": "normal",
+  "mana_cost": "{G}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Kithkin Advisor",
+  "oracle_text": "Noncreature spells with mana value 4 or greater can't be cast.\nNoncreature spells with {X} in their mana costs can't be cast.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Jadzi, Oracle of Arcavios // Journey to the Oracle",
+  "layout": "modal_dfc",
+  "mana_cost": "{6}{U}{U} // {2}{G}{G}",
+  "cmc": 8.0,
+  "type_line": "Legendary Creature — Human Wizard // Sorcery",
+  "oracle_text": "Discard a card: Return Jadzi to its owner's hand.\nMagecraft — Whenever you cast or copy an instant or sorcery spell, reveal the top card of your library. If it's a nonland card, you may cast it by paying {1} rather than paying its mana cost. If it's a land card, put it onto the battlefield.\n//\nYou may put any number of land cards from your hand onto the battlefield. Then if you control eight or more lands, you may discard a card. If you do, return Journey to the Oracle to its owner's hand.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Magecraft"
+  ],
+  "power": "5",
+  "toughness": "5",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Jadzi, Oracle of Arcavios",
+    "mana_cost": "{6}{U}{U}",
+    "type_line": "Legendary Creature — Human Wizard",
+    "oracle_text": "Discard a card: Return Jadzi to its owner's hand.\nMagecraft — Whenever you cast or copy an instant or sorcery spell, reveal the top card of your library. If it's a nonland card, you may cast it by paying {1} rather than paying its mana cost. If it's a land card, put it onto the battlefield.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+     "U"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Journey to the Oracle",
+    "mana_cost": "{2}{G}{G}",
+    "type_line": "Sorcery",
+    "oracle_text": "You may put any number of land cards from your hand onto the battlefield. Then if you control eight or more lands, you may discard a card. If you do, return Journey to the Oracle to its owner's hand.",
+    "colors": [
+     "G"
+    ]
+   }
+  ]
  }
 ]

@@ -216,6 +216,54 @@ def test_cascade_never_offers_a_land_face(cards):
     check(s)
 
 
+def test_cascade_stops_at_the_card_not_at_a_cheaper_face(cards):
+    """709.4b, 712.8a: the card in exile has its halves' mana costs combined / only its front face. Imoti (5) goes past Hit // Run (3 + 5 = 8, though Hit
+    alone is 3) and Jadzi // Journey to the Oracle (front 8, though the back is 4) and stops at Lightning Bolt."""
+    s = build(cards, ["Imoti, Celebrant of Bounty", "Hit // Run", "Jadzi, Oracle of Arcavios // Journey to the Oracle", "Lightning Bolt"])
+    bolt = top_of_library(s, "Lightning Bolt")
+    top_of_library(s, "Jadzi, Oracle of Arcavios // Journey to the Oracle")
+    top_of_library(s, "Hit // Run")
+    to_hand(s, "Imoti, Celebrant of Bounty")
+    d = cascade_from(s, "Imoti, Celebrant of Bounty", G=1, U=1, C=3)
+    assert d.resume["card"] == bolt.id and options(s) == [("yes", "Cast it"), ("no", "Put it on the bottom")]
+    check(s)
+
+
+def test_a_half_that_a_prohibition_stops_is_not_offered(cards):
+    """601.3: Gaddock Teeg ("Noncreature spells with mana value 4 or greater can't be cast."). Discover 8 (Monstrous Vortex, for Craterhoof Behemoth)
+    finds Hit // Run (3 + 5 = 8): Hit (3) can be cast, Run (5) can't, so only Hit is offered."""
+    s = build(cards, ["Monstrous Vortex", "Craterhoof Behemoth", "Hit // Run", "Gaddock Teeg"])
+    put(s, "Monstrous Vortex")
+    put(s, "Gaddock Teeg")
+    split = top_of_library(s, "Hit // Run")
+    to_hand(s, "Craterhoof Behemoth")
+    mana(s, G=8)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Craterhoof Behemoth").id)
+    to_question(s)
+    assert options(s) == [("yes", "Cast Hit"), ("no", "Put it into your hand")]
+    s = reloaded(s)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=split.id, free=True, face=1)  # (nor can Run be sent with the cast)
+    assert asked(s)
+    check(s)
+
+
+def test_a_card_nothing_lets_you_cast_goes_to_the_bottom_without_asking(cards):
+    """Gaddock Teeg again: the Monstrous Vortex cascade found (4, an enchantment) can't be cast, so it joins the others on the bottom and nothing is
+    asked (the card is public, so skipping the question tells nobody anything)."""
+    s = build(cards, ["Imoti, Celebrant of Bounty", "Monstrous Vortex", "Gaddock Teeg"])
+    put(s, "Gaddock Teeg")
+    vortex = top_of_library(s, "Monstrous Vortex")
+    to_hand(s, "Imoti, Celebrant of Bounty")
+    mana(s, G=1, U=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Imoti, Celebrant of Bounty").id)
+    s = reloaded(s)
+    settle_all(s)
+    assert s.state.cards[vortex.id].zone == "p1:library" and s.state.zones["p1:library"][-1] == vortex.id and not s.state.zones.get("p1:exile")
+    assert "can't be cast" in json.dumps(s.view("p2")["log"]) and not s.state.rules.free_casts
+    check(s)
+
+
 def test_a_face_the_card_wasnt_offered_cant_be_cast_by_hand(cards):
     """cast_free takes only the face the choice named (28A review): "yes" can't be turned into the Adventure by sending face 1 with the cast."""
     s = build(cards, ["Shardless Agent", "Giant Killer // Chop Down"])
@@ -313,6 +361,28 @@ def test_suspend_lets_its_owner_cast_either_half(cards):
     check(s)
 
 
+def test_suspend_offers_only_the_face_a_prohibition_leaves(cards):
+    """Suspend exiled Valki, God of Lies // Tibalt, Cosmic Impostor (a creature, a planeswalker). Steel Golem ("You can't cast creature spells."):
+    Valki can't be cast, Tibalt can, so the choice is Tibalt or nothing (712.11b-c: only the face that would be up is evaluated)."""
+    from tests.test_rules_suspend import until
+
+    s = build(cards, ["Suspend", "Valki, God of Lies // Tibalt, Cosmic Impostor", "Steel Golem"])
+    put(s, "Steel Golem")
+    valki = put(s, "Valki, God of Lies // Tibalt, Cosmic Impostor")
+    spell = to_hand(s, "Suspend")
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[valki.id])
+    pass_until_stack_empty(s)
+    act(s, "p1", type="counter", card_ids=[valki.id], kind="time", delta=-1)
+    until(s, asked, limit=3000)
+    assert options(s) == [("yes@1", "Cast Tibalt, Cosmic Impostor"), ("no", "Leave it exiled")]
+    s = reloaded(s)
+    choose(s, "yes@1")
+    settle_all(s)
+    assert s.state.cards[valki.id].zone == "p1:battlefield" and s.state.cards[valki.id].face == 1
+    check(s)
+
+
 # -- ripple ----------------------------------------------------------------------------------------------------------------------
 def test_ripple_casts_either_half_of_a_revealed_split_card(cards):
     """Thrumming Stone gives Hit (half of Hit // Run) ripple 4. The revealed Hit // Run has the same name (201.2a, 709.4a: a split card has two
@@ -365,9 +435,15 @@ def test_a_face_down_creature_spell_with_granted_cascade_cascades(cards):
     s = reloaded(s)  # (a save and a load with the grant waiting for the next creature spell)
     willbender = card_named(s, "Willbender")
     before = library_ids(s)
+    act(s, "p1", type="set_prefs", hold_priority=True)  # (so the trigger waits on the stack)
     mana(s, C=3)
     act(s, "p1", type="cast_spell", card_id=willbender.id, face_down=True)
     assert not s.state.rules.next_spell_grants  # (used up by the cast)
+    assert len(s.state.rules.stack) == 1 and len(s.state.zones["stack"]) == 2  # the face-down spell, and the cascade ability it was given
+    assert s.state.rules.stack[next(iter(s.state.rules.stack))].source_card == willbender.id
+    seen = s.view("p2")
+    assert "Willbender" not in json.dumps(seen) and "name" not in seen["cards"][willbender.id]  # 708.5: only its controller may look at it
+    s = reloaded(s)
     settle_all(s)
     log = json.dumps(s.view("p1")["log"])
     assert "Cascade found nothing" in log  # 702.85a: the cascade ability triggered and resolved, finding no card with a mana value less than 0
@@ -377,6 +453,40 @@ def test_a_face_down_creature_spell_with_granted_cascade_cascades(cards):
     assert s.state.cards[willbender.id].zone == "p1:battlefield" and s.state.cards[willbender.id].face_down
     assert "Willbender" not in json.dumps(s.view("p2"))  # 708.5: only its controller may look at it; neither the trigger nor the log name it
     check(s)
+
+
+def test_a_face_down_spell_given_ripple_reveals_but_matches_no_name(cards):
+    """Thrumming Stone: "Spells you cast have ripple 4." A face-down spell has it as it is cast, but has no name (708.2a) and an object with no name
+    has the same name as no other object (201.2a): the four cards revealed are put on the bottom and none is cast."""
+    s = build(cards, ["Thrumming Stone", "Willbender", "Willbender"])
+    put(s, "Thrumming Stone")
+    first, second = [c for c in s.state.cards.values() if c.name == "Willbender" and c.owner == "p1"]
+    act(s, "p1", type="move", card_ids=[first.id], to={"zone": "hand"})
+    act(s, "p1", type="move", card_ids=[second.id], to={"player": "p1", "zone": "library"}, position="top")
+    top4 = library_ids(s)[:4]
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=first.id, face_down=True)
+    s = reloaded(s)
+    settle_all(s)
+    assert set(library_ids(s)[-4:]) == set(top4) and second.id in top4  # (the other Willbender was revealed, and is not "the same name")
+    assert s.state.cards[second.id].zone == "p1:library" and s.state.cards[first.id].zone == "p1:battlefield"
+    assert "Willbender" not in json.dumps(s.view("p2")["cards"][first.id])
+    check(s)
+
+
+def test_storm_given_to_a_face_down_spell_is_refused(cards):
+    """No printed card gives a creature spell storm ("the next instant or sorcery spell", "instant and sorcery spells you cast"); one that did
+    would copy a face-down spell, whose copies are face-up 2/2 creature spells (707.2), which isn't automated: the cast is refused, not read
+    as if the grant weren't there. (The grant is put in the table directly: there is no card to give it.)"""
+    from app.game.rules_state import NextSpellGrant
+
+    s = build(cards, ["Willbender"])
+    willbender = to_hand(s, "Willbender")
+    s.state.rules.next_spell_grants.append(NextSpellGrant(id="g1", player="p1", keyword="storm", turn=s.state.turn.number, label="Test"))
+    mana(s, C=3)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=willbender.id, face_down=True)
+    assert s.state.cards[willbender.id].zone == "p1:hand" and len(s.state.rules.next_spell_grants) == 1
 
 
 def test_a_static_cascade_works_on_a_face_down_spell_too(cards):
