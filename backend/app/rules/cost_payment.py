@@ -242,6 +242,11 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
         if comp.kind == C.PAY_LIFE and (comp.amount or comp.life_rule) and not plan.resolution_cost \
                 and (why := prohibitions.life_banned(plan.state, plan.info)):
             return f"{why}: players can't pay life to cast spells or activate abilities"
+        if comp.kind == C.PAY_LIFE and (comp.amount or comp.life_rule):  # -- can't lose life (wave 29D) -- 119.8, 614.17b: any payment, a resolving one too
+            from app.rules import life_lock
+
+            if (why := life_lock.pay_problem(plan.state, plan.info, player, life_amount(plan, comp, player))):
+                return why
         if comp.kind == C.SACRIFICE and comp.selector is None and not plan.resolution_cost \
                 and (why := prohibitions.sacrifice_banned(plan.state, plan.info, card)):
             return f"{why}: {name} can't be sacrificed to pay a cost"

@@ -1044,6 +1044,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 continue
             if cond.get("not_first_in_draw_step") and fact[4].get("first_in_draw_step"):  # -- triggers (wave 5D) --
                 continue
+            if cond.get("only_first_in_draw_step") and not fact[4].get("first_in_draw_step"):  # -- hideaway (wave 29D) -- Wiretapping
+                continue
             event = _event(plan, fact, batch)
             info = fact[4]
             if cond["event"] == "you_attack" and cond.get("min_attackers"):  # -- history (wave 22E; review) -- "those creatures", "that many":

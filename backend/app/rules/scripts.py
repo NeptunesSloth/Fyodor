@@ -685,6 +685,12 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                    for g_i, g in enumerate(out[:index]))
 
     def objects(index: int, number: int | None, verb: str | None, skip_gated: bool = False) -> _Introducer | None:
+        if verb == "card" and _exiled_with.linked() and effects and effects[0].get("do") == "linked_cards":
+            # -- hideaway (wave 29D) -- 607.2a: in an ability that only refers to what another exiled, "the exiled card" ("that card" once the
+            # permission grammar reads it) is the linked card, whatever else the ability moved or targeted before ("put a +1/+1 counter on
+            # target creature. Then … you may play the exiled card")
+            return find(lambda i: i.do == "linked_cards", index)
+
         def ok(i: _Introducer) -> bool:
             if not i.objects or (skip_gated and closed_gate(i.index, index) and _group_of(out[i.index]) is None):  # (a targeted instruction names its target whichever branch ran)
                 return False
@@ -2573,6 +2579,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import suspend_grants as _suspend_grants  # -- suspend granted (wave 24C) --
 
     body = _suspend_grants.rewrite(body)
+    from app.rules import (
+        life_lock as _life_lock,  # -- can't lose life (wave 29D) -- "Until end of turn, your life total can't change, and …"
+    )
+
+    body = _life_lock.rewrite(body)
     from app.rules import name_search  # -- name search (wave 11D) --
 
     body = name_search.rewrite(body)
@@ -2889,7 +2900,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             # ("that creature" is the paid object only when nothing else in the ability could be what it names)
             others = bool(groups) or any(x["do"] in _MOVERS for x in effects if x is not pay_e)
             rest_text = pay_objects.rewrite(rest_text, pay_e, "event" if others else it)  # -- if you do (wave 8C) -- "that creature's mana value"
-            inner = _clause(rest_text) if not rest_text.startswith("you may ") else None
+            inner = _clause(rest_text) if not rest_text.startswith("you may ") or _FREE_PLAY_LEAD.fullmatch(rest_text) else None  # (wave 29D: a free cast models its own choice)
             if inner is not None and pay_e.get("cost") == "Exile ~" and rest_text.startswith("return it to the battlefield"):
                 # -- if you do (wave 21C) -- "you may exile Hikari. If you do, return it …": "it" is the exiled source, never a cast spell
                 # (review (wave 21): the card the payment moved, a new object in exile, 400.7 — never "self", the permanent that left)
@@ -2972,6 +2983,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 if own is None or not any(x.get("optional") or x.get("do") == "may_rest" for x in own[0]):
                     return None  # "…. You may …" mid-ability: not a simple optional trigger
                 effects += _add_groups(groups, own[0], own[1])
+                continue
+            if _FREE_PLAY.fullmatch(text) and (own := _trailing_conditional(text) or _clause(text, True)) is not None \
+                    and any(x.get("do") == "free_cast" for x in own[0]):
+                effects += _add_groups(groups, own[0], own[1])  # -- hideaway (wave 29D) -- the free cast models its own choice (a card it may play, or none)
                 continue
             optional, text = True, text[len("you may "):]
             # -- triggers (wave 5D) -- "you may have ~ deal 1 damage …" (603.5)
@@ -4050,12 +4065,13 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # triggers (triggers._add) and again as it resolves (the only_if effect)
                 intervening = None
                 if body.lower().startswith("if "):
-                    if not effects or effects[0]["do"] != "only_if" or effects[0].get("bind"):
+                    lead = 1 if effects and effects[0]["do"] == "linked_cards" else 0  # (-- hideaway (wave 29D) -- 607.2a: the linked cards are bound first)
+                    if len(effects) <= lead or effects[lead]["do"] != "only_if" or effects[lead].get("bind"):
                         return None  # (with "Otherwise, …" the condition isn't the whole ability's: wave 1B)
                     # the whole ability, however many sentences follow: if it doesn't hold, the
                     # ability doesn't trigger, or does nothing as it resolves
-                    intervening = effects[0]["cond"]
-                    effects = [{**effects[0], "skip": len(effects) - 1}, *effects[1:]]
+                    intervening = effects[lead]["cond"]
+                    effects = [*effects[:lead], {**effects[lead], "skip": len(effects) - 1 - lead}, *effects[lead + 1:]]
                     if intervening == {"object": "self", "test": "in_graveyard"}:  # -- graveyard triggers (wave 19C) -- "it" is the card there
                         effects = [{**e, "who": "self_gy"} if e.get("who") == "self" else e for e in effects]
                 # (-- intervening ifs (wave 11F) -- a step, or an event about a player, has no other object: "another" is
@@ -5923,6 +5939,13 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
     return None
 
 
+# -- hideaway (wave 29D) -- "You may play the exiled card without paying its mana cost if you attacked with three or more creatures this
+# turn." (702.75: the land abilities of the hideaway lands): the condition is judged as the instruction is carried out (608.2c), the free
+# cast's own "you may" is the player's choice after it
+_FREE_PLAY_LEAD = re.compile(r"you may (?:play|cast) (?:that card|it|one of them) without paying its mana cost")
+_FREE_PLAY = re.compile(_FREE_PLAY_LEAD.pattern + r"(?: if .+)?")
+
+
 def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """"[One instruction] if [condition]." / "… unless [condition].": the instruction gated by the
     condition as it's carried out. "It" in the condition is the instruction's own target (a plain target
@@ -5930,7 +5953,7 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     from app.rules import conditions
 
     m = _TRAILING.match(text)
-    if m is None or m["lead"].startswith(("if ", "unless ", "you may ")):
+    if m is None or m["lead"].startswith(("if ", "unless ")) or (m["lead"].startswith("you may ") and not _FREE_PLAY_LEAD.fullmatch(m["lead"])):
         return None
     cond = conditions.parse(m["c"], objects=True)
     found = _bind_subject(cond, _clause(m["lead"])) if cond is not None else None

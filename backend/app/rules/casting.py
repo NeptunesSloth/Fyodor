@@ -377,6 +377,7 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
             energy = extra.energy  # (wave 3E: "{T}, Pay {E}: Add …", 107.14)
             if not (extra.basic or (parsed.chooses and _choice_cost_ok(extra))) or extra.energy_x or \
                     (extra.life and state.players[card.controller].life < extra.life) or \
+                    _life_locked(state, info, card.controller, extra.life) or \
                     any(card.counters.get(k, 0) < n for k, n in extra.remove_counters) or \
                     state.players[card.controller].resources.get("energy", 0) < energy:
                 continue
@@ -961,11 +962,19 @@ def find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo
 LIFE_FOR_MANA = "For each {B} in a cost, you may pay 2 life rather than pay that mana."
 
 
+def _life_locked(state: GameState, info: CardInfo | None, player: str, amount: int) -> bool:
+    """-- can't lose life (wave 29D) -- 119.8, 614.17b: ``amount`` life (more than 0) can't be paid by a player who can't lose life."""
+    from app.rules import life_lock
+
+    return life_lock.pay_problem(state, info, player, amount) is not None
+
+
 def spendable_life(state: GameState, player: str, info: CardInfo | None) -> int:
     """-- prohibitions (wave 22B) -- the life that may pay Phyrexian mana: none while "players can't pay life" (119.4, 614.17)."""
-    from app.rules import prohibitions
+    from app.rules import life_lock, prohibitions
 
-    return 0 if prohibitions.life_banned(state, info) else state.players[player].life
+    # (-- can't lose life (wave 29D) -- 119.8, 614.17b: nor while this player can't lose life)
+    return 0 if prohibitions.life_banned(state, info) or life_lock.why_not_state(state, info, player, "lose") else state.players[player].life
 
 
 def life_for_mana(state: GameState, player: str, info: CardInfo, cost: M.ManaCost) -> M.ManaCost:
@@ -1690,6 +1699,10 @@ def pay_nonmana_cost(plan: Plan, a: A.TurnFaceUp, card: CardInstance, printed: C
         raise ActionError(why)
     if cost.life and plan.state.players[plan.actor].life < cost.life:
         raise ActionError(f"You don't have {cost.life} life to pay")  # 119.4
+    from app.rules import life_lock  # -- can't lose life (wave 29D) -- 119.8
+
+    if (why := life_lock.pay_problem(plan.state, plan.info, plan.actor, cost.life)) is not None:
+        raise ActionError(why)
     chosen = cost_payment.choose(plan, a, cost, card, f"Turn {printed.name} face up")
     if chosen is None:
         return False
@@ -1986,6 +1999,10 @@ def additional_problem(plan: Plan, extra: AbilityCost, card: CardInstance, playe
         return either_costs.problem(plan, extra, card, player)
     if extra.life and plan.state.players[player].life < extra.life:
         return f"You can't pay {extra.life} life"
+    from app.rules import life_lock  # -- can't lose life (wave 29D) -- 119.8, 614.17b
+
+    if (why := life_lock.pay_problem(plan.state, plan.info, player, extra.life)) is not None:
+        return why
     return cost_payment.problem(plan, extra, card, player)
 
 
@@ -2000,6 +2017,10 @@ def life_x_problem(plan: Plan, extra: AbilityCost, a: Any, player: str) -> str |
         return "Choose a value for X (the life to pay)"
     if a.x_value > 0 and plan.state.players[player].life < extra.life + a.x_value:
         return f"You can't pay {a.x_value} life"
+    from app.rules import life_lock  # -- can't lose life (wave 29D) -- 119.8, 119.4b: only 0 life can be paid
+
+    if (why := life_lock.pay_problem(plan.state, plan.info, player, a.x_value)) is not None:
+        return why
     from app.rules import prohibitions
 
     if a.x_value > 0 and (why := prohibitions.life_banned(plan.state, plan.info)):  # -- review 22B -- 119.4b: only 0 life can be paid
@@ -2022,6 +2043,10 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
             if alt_castable(state, player, card, info, check_priority=check_priority):
                 return True
             continue
+        if grant is not None and grant.how == "flashback" and not manual and card.zone == zone_key(player, "graveyard") \
+                and (fb_more := flashback_extra(ch)) is not None \
+                and additional_problem(permissions._view(state, player, info), fb_more, card, player):
+            continue  # -- can't lose life (wave 29D) -- the flashback cost's other parts ("Pay 3 life") can't be paid (118.3, 119.4b): not offered, as the cast refuses
         cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free,
                           alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None,  # (wave 25B: airbend)
                           targets=_hint_targets(ch))  # -- review (Codex) --
@@ -3586,6 +3611,10 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
             return f"{ch.name} doesn't have {n} {kind} counter{'s' if n != 1 else ''}"
     if cost.life and state.players[player].life < cost.life:
         return f"You don't have {cost.life} life to pay"
+    from app.rules import life_lock  # -- can't lose life (wave 29D) -- 119.8, 614.17b
+
+    if (why := life_lock.pay_problem(state, info, player, cost.life)) is not None:
+        return why
     if info is not None and cost.components:  # 118.3: untap, sacrifice, discard, exile … (cost_payment)
         found = cost_payment.problem(Plan.view(state, player, info), cost, card, player)
         if found:

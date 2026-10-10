@@ -293,6 +293,15 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         if n_cards is None:
             return None
         return {"value": {"hand": "that_player"}, "op": ">=" if m["cmp"] == "more" else "<=", "n": n_cards}
+    # -- hideaway (wave 29D) -- "each player has no cards in hand" (Howltooth Hollow: every player still in the game), "a library has twenty or fewer
+    # cards in it" (Shelldock Isle: some library, whoever's; the counts are public), "there are cards exiled with it" (Evercoat Ursine, 607.2a)
+    if t == "each player has no cards in hand":
+        return {"as": "any", "every": True, "cond": {"value": {"hand": "you"}, "op": "==", "n": 0}}
+    m = re.fullmatch(r"a library has (?P<n>\w+) or (?P<cmp>more|fewer) cards in it", t)
+    if m and (n_cards := _num(m["n"])) is not None:
+        return {"as": "any", "cond": {"value": {"library": "you"}, "op": ">=" if m["cmp"] == "more" else "<=", "n": n_cards}}
+    if t in ("there are cards exiled with it", "there are cards exiled with ~"):
+        return {"value": {"exiled_with": 1}, "op": ">=", "n": 1}
     # "you have no cards in hand", "you have N or more cards in hand"
     m = _HAND.fullmatch(t)
     if m:
@@ -1211,7 +1220,8 @@ def _as_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     players = _as_players(plan, ctx, cond["as"])
     if cond["as"] not in ("any", "opponent") and len(players) != 1:
         return False
-    return any(holds(plan, {**ctx, "controller": p}, cond["cond"]) for p in players)
+    every = all if cond.get("every") else any  # (-- hideaway (wave 29D) -- "each player has no cards in hand")
+    return every(holds(plan, {**ctx, "controller": p}, cond["cond"]) for p in players)
 
 
 def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:

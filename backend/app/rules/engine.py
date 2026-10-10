@@ -54,6 +54,7 @@ from app.rules import (
     exert,  # -- static wordings (wave 6E) --
     extra_turns,  # -- extra turns (wave 8A) --
     gift,  # -- gift (wave 23D) --
+    hideaway,  # -- hideaway (wave 29D) --
     kinship,  # -- kinship (wave 9C) --
     layers,
     looking,
@@ -142,6 +143,7 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
     if intent.type != "repeat_sequence":
         remember_intent(plan, intent)
     permissions.refresh_reveals(plan.state, plan.info)  # 401.5: which top library cards the table reveals now
+    hideaway.refresh(plan.state)  # -- hideaway (wave 29D) -- 406.3, 702.75a: who may look at the cards the permanents hid
     plan.rules.engine_version = RULES_ENGINE_VERSION
     plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
     return plan.steps
@@ -177,6 +179,7 @@ def begin(plan: Plan) -> None:
     r.loyalty_second = {k: t for k, t in r.loyalty_second.items() if t == turn}
     r.once_per_turn = {k: t for k, t in r.once_per_turn.items() if t == turn}
     permissions.refresh_reveals(plan.state, plan.info)  # (a permanent put onto the table by hand since)
+    hideaway.refresh(plan.state)  # (-- hideaway (wave 29D) -- a permanent whose control was taken by hand since)
 
 
 def absorb_manual_events(plan: Plan) -> None:
