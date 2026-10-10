@@ -419,8 +419,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
 
 
 # -- intervening ifs (wave 11F) -- 603.4, researched against CR 2026-09-25 ------------------------------------------------
-_WHO = re.compile(r"(?P<who>that player|defending player|a player) (?P<verb>has|controls|cast) (?P<rest>.+)")
-_VERBS = {"has": "have", "controls": "control", "cast": "cast"}
+_WHO = re.compile(r"(?P<who>that player|defending player|a player) (?P<verb>has|controls|cast|(?:didn't|did not|hasn't) cast) (?P<rest>.+)")
+_VERBS = {"has": "have", "controls": "control", "cast": "cast", "didn't cast": "didn't cast", "did not cast": "did not cast",
+          "hasn't cast": "haven't cast"}  # -- event-player history (wave 30U) -- "if that player didn't cast a spell this turn" (Impatience): "you didn't cast …" read as them
 _MOST = re.compile(r"(?P<who>a player|that player) (?:(?P<controls>controls)|has) more (?P<what>.+?) than each other player")
 
 
@@ -630,10 +631,10 @@ def _gained(m: re.Match[str]) -> Condition | None:
     return None if n is None else {"history": "gained", "n": n}
 
 
-@_history_pattern(rf"(?P<who>you(?:'ve)?|an opponent(?: has)?|a player(?: has)?) lost (?:life|(?P<n>\w+) or more life) {_THIS_TURN}")
+@_history_pattern(rf"(?P<who>you(?:'ve)?|an opponent(?: has)?|a player other than you(?: has)?|a player(?: has)?) lost (?:life|(?P<n>\w+) or more life) {_THIS_TURN}")
 def _lost(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"]) if m["n"] else 1
-    who = "you" if m["who"].startswith("you") else "opponent" if m["who"].startswith("an opponent") else "any"
+    who = "you" if m["who"].startswith("you") else "opponent" if m["who"].startswith(("an opponent", "a player other")) else "any"  # (wave 30U: Ludevic)
     return None if n is None else {"history": "lost", "who": who, "n": n, **_when(m)}
 
 

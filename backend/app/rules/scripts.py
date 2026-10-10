@@ -4452,8 +4452,9 @@ def _merge_instead_lines(ch: Characteristics, out: dict[int, Definition]) -> Non
         if ab.index in out or out.get(prev.index, {}).get("kind") != "spell" or ab.index != prev.index + 1:
             continue
         own = _ABILITY_WORD.sub("", ab.text, count=1)
-        if own == ab.text or not re.search(r"\binstead\b", own) or " would " in own:
-            continue  # (only an ability-word line, as printed: "<ability word> — … instead if …")
+        if own == ab.text or not (own.startswith("If ") or re.search(r"\binstead\b", own)) or " would " in own:
+            continue  # (only an ability-word line, as printed: "<ability word> — … instead if …"; -- ability-word riders (wave 30U) -- or a rider
+            # "Infusion — If you gained life this turn, that creature's controller loses 3 life.": its "that creature" is the line above's)
         merged = define(replace(prev, text=f"{prev.text} {own}"), ch)
         if merged is None or merged.get("kind") != "spell" or not _event_refs_ok(merged):
             continue
