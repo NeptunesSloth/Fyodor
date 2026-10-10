@@ -339,8 +339,11 @@ def enter_attacking(plan: Plan, ctx: dict[str, Any], made: list[str]) -> bool:
     if len(options) == 1:
         _attack_with(plan, new, options[0].id, pid)
         return True
-    decide(plan, player=pid, kind="choose_one", prompt=f"{len(new)} token{'s' if len(new) != 1 else ''} enter attacking: attacking whom?",
-           options=options, resume={"step": "token_attack", "ctx": ctx, "cards": new})
+    # -- falsification (wave 30D) -- 508.4: its controller chooses what *each* creature put onto the battlefield attacking attacks (Anim Pakal's
+    # ruling: each Gnome can attack a different player): one question per token, the rest follow in ``more``
+    decide(plan, player=pid, kind="choose_one", prompt=f"{plan.state.cards[new[0]].name or 'A token'} enters attacking: attacking whom?"
+           + (f" ({len(new) - 1} more to place)" if len(new) > 1 else ""),
+           options=options, resume={"step": "token_attack", "ctx": ctx, "cards": new[:1], "more": new[1:]})
     return False
 
 
@@ -359,6 +362,11 @@ def resume_token_attack(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
     if chosen:
         _attack_with(plan, r["cards"], chosen[0], d.player)
+    if r.get("more"):  # -- falsification (wave 30D) -- the next token (old saves have no "more": their one answer covered every token)
+        from app.rules import looking
+
+        if not (looking.attack_with_entered if r.get("look") else enter_attacking)(plan, r["ctx"], r["more"]):
+            return
     effects.continue_effects(plan, r["ctx"])
 
 
