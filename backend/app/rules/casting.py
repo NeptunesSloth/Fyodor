@@ -762,11 +762,7 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     lo, hi, repeat = modal["min"], modal["max"], modal["repeat"]
     if modal.get("condition") == "commander" and _controls_commander(plan, plan.actor):
         hi = 2  # "If you control a commander as you cast this spell, you may choose both instead."
-    src = source_of(plan, a.card_id)
-    allowed = [i for i, m in enumerate(modes) if i not in exclude
-               and (not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, a.card_id))
-               and all(len(legal_targets(plan, g["what"], plan.actor, src, a.card_id)) >= g.get("min", 1)  # (several groups: wave 16B)
-                       for g in m.get("groups") or ())]
+    allowed = choosable_modes(plan, definition, a.card_id, exclude)
     if a.modes:
         if not lo <= len(a.modes) <= hi:
             raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}")
@@ -786,6 +782,15 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
            min_choices=lo, max_choices=hi,
            resume={"step": "cast_modes", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
     return None
+
+
+def choosable_modes(plan: Plan, definition: dict[str, Any], card_id: str | None, exclude: tuple[int, ...] = ()) -> list[int]:
+    """700.2a: the modes ``plan.actor`` can choose for this spell / ability now (each target it requires can be chosen)."""
+    src = source_of(plan, card_id)
+    return [i for i, m in enumerate(definition["modes"]) if i not in exclude
+            and (not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, card_id))
+            and all(len(legal_targets(plan, g["what"], plan.actor, src, card_id)) >= g.get("min", 1)  # (several groups: wave 16B)
+                    for g in m.get("groups") or ())]
 
 
 def resume_cast_modes(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -2083,6 +2088,50 @@ def free_castable(state: GameState, player: str, card: CardInstance, info: CardI
             continue  # (118.9d: its additional cost still has to be paid, and can't be now)
         return True
     return False
+
+
+def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Characteristics, *, pay: str | None = None) -> str | None:
+    """-- review (wave 29B) -- why ``player`` can't cast this half / face (``ch``) of a card the engine lets them cast as an effect resolves
+    (``cast_free``), checked before the choice is offered, so that no answer is a dead end: 205.4e (a legendary instant or sorcery), 700.2a (no
+    mode can be chosen), 601.2c (a required target group can't get enough legal targets: the proposal is illegal, 601.5), 601.2h / 118.9d (a
+    mandatory additional cost, "sacrifice a creature", can't be paid) and 601.2f-h (the total cost — {0}, or ``pay``, plus increases such as
+    "Noncreature spells cost {1} more" — can't be paid, the best case for "spells that target …"). The same checks as ``cast_free``, in the
+    same order; cast_limits' prohibitions (601.3) are the caller's."""
+    if "Legendary" in ch.supertypes and ch.is_instant_or_sorcery and not _controls_legendary(plan.state, player, plan.info):
+        return f"{ch.name} needs you to control a legendary creature or planeswalker"
+    prev, plan.actor = plan.actor, player
+    try:
+        manual = plan.manual(card)  # (cast by hand: no targets, modes or additional costs read, as in cast_free)
+        definition = None if manual else per_opponent.for_cast(plan, card.id, scripts.spell_definition(ch))
+        if definition is not None and definition.get("modes"):
+            modal = definition["modal"]
+            allowed = choosable_modes(plan, definition, card.id)
+            if not allowed or (not modal["repeat"] and len(allowed) < modal["min"]):
+                return f"{ch.name or 'It'} has no mode you can choose"
+        elif not manual:
+            aura = attachments.enchant_selector(ch)
+            src = source_of(plan, card.id)
+            from app.rules import kicked_instead
+            from app.rules.targets import group_limits
+
+            for spec in kicked_instead.applicable(scripts.target_groups(definition if aura is None else {"target": {"what": aura}}), 0):
+                lo, hi = (0, 0) if "x_value" in spec else group_limits(spec, None)  # (X is 0: 107.3b; "up to X" may be none)
+                if hi < lo or len(legal_targets(plan, spec["what"], player, src, card.id)) < lo:
+                    return f"{ch.name or 'It'} has no legal target"
+        extra = None if manual else costs.spell_additional_cost(ch.abilities)
+        if extra is not None and (why := additional_problem(plan, extra, card, player)):
+            return why
+        try:
+            cost = spell_cost(plan.state, card, ch, 0, plan.info, player=player, free=pay is None,
+                              alternative=M.parse_cost(pay) if pay is not None else None, targets=_hint_targets(ch))
+        except ActionError as exc:
+            return str(exc)
+        if not cost.is_free and not can_pay(plan.state, player, cost, plan.info,
+                                            purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player)):
+            return f"You can't pay {cost.text()} for {ch.name or 'it'}"
+        return None
+    finally:
+        plan.actor = prev
 # -- end cast without paying (wave 3C) --
 
 

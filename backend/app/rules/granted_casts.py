@@ -41,7 +41,7 @@ def faces(plan: Plan, player: str, cid: str, *, below: int | None = None, at_mos
     """Each way ``player`` could cast the card ``cid`` now: (face, the spell's characteristics) of every half / face that is a spell, whose mana
     value is less than ``below`` (cascade) / at most ``at_most`` (discover) and that nothing prohibits casting (601.3). ``play``: a land face is
     one too while the player has a land play left (suspend: "play it", 702.62a; 305.2a-b, 305.3)."""
-    from app.rules import cast_limits, land_plays, permissions
+    from app.rules import cast_limits, casting, land_plays, permissions
 
     card = plan.state.cards[cid]
     out: list[tuple[int | None, Characteristics]] = []
@@ -54,7 +54,8 @@ def faces(plan: Plan, player: str, cid: str, *, below: int | None = None, at_mos
             continue
         if (below is not None and ch.mana_value >= below) or (at_most is not None and ch.mana_value > at_most):
             continue
-        if cast_limits.cast_problem(plan.state, player, card, ch, plan.info, resolving=True) is None:
+        if cast_limits.cast_problem(plan.state, player, card, ch, plan.info, resolving=True) is None \
+                and casting.free_cast_problem(plan, player, card, ch) is None:  # (review 29B: no answer may be a dead end, 601.2c / 601.5)
             out.append((face, ch))
     return out
 

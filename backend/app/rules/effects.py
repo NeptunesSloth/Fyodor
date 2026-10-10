@@ -1273,7 +1273,7 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     # -- granted casts (wave 29B) -- "yes" casts the card as it is, "yes@1" its second half / back face (granted_casts.ask)
     answer, _, at = chosen[0].partition("@")
     face = int(at) if at else None
-    from app.rules import cast_limits, permissions
+    from app.rules import cast_limits, land_plays, permissions
     from app.rules import characteristics as chars
 
     card = plan.state.cards.get(cid)
@@ -1281,11 +1281,16 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
         # 702.62a: a suspended card is *played* ("you may play it without paying its mana cost"): a land face (712.12) is played as the ability resolves
         r.free_casts = [c for c in r.free_casts if c != cid]
         r.suspended = [c for c in r.suspended if c != cid]
-        permissions.play_land_now(plan, d.resume["ctx"], {"n": 1}, cid, face)
-        return
+        if land_plays.open_for_effect(plan.state, d.player, plan.info):  # (review 29B: 305.2b / 305.3, an older save's plain "yes" wasn't checked)
+            permissions.play_land_now(plan, d.resume["ctx"], {"n": 1}, cid, face)
+            return
+        plan.note(f"{plan.name(d.player)} can't play a land now (305.2b, 305.3)", actor=d.player)
+        answer = "no"
     finish(plan, d.resume["ctx"])
     # -- cast limits (wave 5E) -- a prohibited cast (601.3) can't begin: as if declined (a pending choice of an older save wasn't checked)
-    one = face if face is not None else 0 if card is not None and len(permissions.play_faces(plan, card)) > 1 else None
+    # (review 29B: a plain "yes" casts a split card's / an adventurer's first half too, chars.as_cast)
+    one = face if face is not None else 0 if card is not None and (chars.is_two_spell_card(card, plan.info)
+                                                                  or len(permissions.play_faces(plan, card)) > 1) else None
     if answer == "yes" and (limited := cast_limits.free_cast_blocked(plan, d.player, cid, one)) is not None:
         plan.note(limited, actor=d.player)
         answer = "no"
@@ -1297,6 +1302,10 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     if r.decision is not None:
         plan.note("Cast it without paying its mana cost when the pending choice is done")
         return
+    if r.free_cast_then is None:  # (review 29B) a cast abandoned on the way (its payment cancelled: 601.2, nothing was paid) is a card not cast:
+        # it goes where the declined card goes (permissions.free_cast_abandoned), never left in exile with its grant
+        r.free_cast_then = {"card": cid, "ctx": None, "e": {}, **({"face": face} if face else {}),
+                            "granted": {"player": d.player, "decline": d.resume.get("decline"), "group": list(d.resume.get("group") or ())}}
     r.priority = d.player
     prev = plan.actor
     plan.actor = d.player

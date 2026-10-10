@@ -1387,6 +1387,11 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
             if cast_limits.free_cast_blocked(plan, pid, cid, face) is not None:  # (wave 29B: the half / face being offered)
                 continue
+            from app.rules import casting  # (review 29B: no choice may be a dead end, 601.2c / 601.5)
+
+            if casting.free_cast_problem(plan, pid, card, chars.as_cast(card, plan.info, face),  # (the half cast_spell casts)
+                                         pay=ch.mana_cost if e.get("paid") else None) is not None:
+                continue
             options.append(DecisionOption(id=_option_id(cid, face), label=(ch.name if face is not None else card.name) or "Card",
                                           card_id=cid))
     # (cards in a hand or a library are hidden: whether a choice appears mustn't tell the other
@@ -1545,6 +1550,10 @@ def free_cast_done(plan: Plan, card_id: str, *, cast: bool) -> None:
     if pending is None or pending["card"] != card_id:
         return
     r.free_cast_then = None
+    if (granted := pending.get("granted")) is not None:  # -- review (wave 29B) -- a cascade, discover, ripple, suspend, rebound, madness or
+        if not cast:  # miracle cast (effects.resume_suspend_cast): its ability is over; a card not cast goes where the declined one goes
+            effects.leave_uncast(plan, granted["player"], card_id, granted.get("decline"), granted.get("group") or ())
+        return
     ctx, e = pending["ctx"], pending["e"]
     if not cast:
         r.free_casts = [c for c in r.free_casts if c != card_id]
@@ -1572,7 +1581,7 @@ def free_cast_abandoned(plan: Plan) -> None:
     if card is not None and card.zone == STACK:
         free_cast_done(plan, pending["card"], cast=True)  # (defensive: it did reach the stack)
         return
-    plan.note(f"{plan.name(pending['ctx']['controller'])} doesn't cast it")
+    plan.note(f"{plan.name(pending['granted']['player'] if pending.get('granted') else pending['ctx']['controller'])} doesn't cast it")
     free_cast_done(plan, pending["card"], cast=False)
 
 

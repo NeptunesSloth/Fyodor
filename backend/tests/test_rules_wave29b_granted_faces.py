@@ -122,8 +122,9 @@ def cascade_from(s, source, **pool):
 def test_cascade_into_a_split_card_offers_each_half(cards):
     """Wear // Tear (mana value 1 + 2 = 3, 709.4b) under Bloodbraid Elf (4): either half is a spell with a lesser mana value, and the Ruling of
     2021-06-18: "you may cast either half but not both halves"."""
-    s = build(cards, ["Bloodbraid Elf", "Wear // Tear"], theirs=["Maelstrom Nexus"])
+    s = build(cards, ["Bloodbraid Elf", "Wear // Tear"], theirs=["Maelstrom Nexus", "Sol Ring"])
     nexus = put(s, "Maelstrom Nexus", "p2")
+    put(s, "Sol Ring", "p2")  # (review 29B: a half with no legal target isn't offered, 601.2c: Wear needs an artifact)
     wear = top_of_library(s, "Wear // Tear")
     to_hand(s, "Bloodbraid Elf")
     d = cascade_from(s, "Bloodbraid Elf", R=2, G=2)
@@ -131,9 +132,6 @@ def test_cascade_into_a_split_card_offers_each_half(cards):
     assert options(s) == [("yes", "Cast Wear"), ("yes@1", "Cast Tear"), ("no", "Put it on the bottom")]
     s = reloaded(s)  # a save and a load in the middle of the choice
     assert options(s)[1] == ("yes@1", "Cast Tear")
-    with pytest.raises(ActionError):
-        choose(s, "yes")  # Wear needs an artifact to destroy: that half is evaluated on its own (709.3a), and can't be cast
-    assert asked(s)
     choose(s, "yes@1")
     answer(s, nexus.id)
     check(s)
