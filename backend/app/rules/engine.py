@@ -1189,6 +1189,8 @@ def choose(plan: Plan, a: A.Choose) -> None:
     plan.rules.decision = None
     step = (d.resume or {}).get("step")
     RESUME[str(step)](plan, d, chosen)
+    permissions.free_cast_abandoned(plan)  # -- free-cast cleanup (wave 30A) -- a cancelled free cast ends before play goes on: advance would resolve the
+    # ability it belongs to (still on the stack, ripple) again from its start
     if plan.rules.payment_outer is not None:  # -- nested payment choices (wave 28D) -- back to the payment the choice was nested in
         casting.resume_outer(plan)
     if step != "reconcile":  # after reconciling, play picks up where the table is (like without questions)

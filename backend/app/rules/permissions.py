@@ -1579,6 +1579,8 @@ def free_cast_done(plan: Plan, card_id: str, *, cast: bool) -> None:
     if (granted := pending.get("granted")) is not None:  # -- review (wave 29B) -- a cascade, discover, ripple, suspend, rebound, madness or
         if not cast:  # miracle cast (effects.resume_suspend_cast): its ability is over; a card not cast goes where the declined one goes
             effects.leave_uncast(plan, granted["player"], card_id, granted.get("decline"), granted.get("group") or ())
+        if granted.get("ctx") is not None:  # -- free-cast cleanup (wave 30A) -- ripple (702.60a): the ability puts the revealed cards not cast on the bottom
+            effects.continue_effects(plan, granted["ctx"])
         return
     ctx, e = pending["ctx"], pending["e"]
     if not cast:

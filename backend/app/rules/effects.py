@@ -1251,13 +1251,15 @@ def suspend_tick(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def leave_uncast(plan: Plan, player: str, cid: str, how: str | None, group: Any = ()) -> None:
     """The card the engine offered to cast isn't cast (declined, or nothing can be cast: granted_casts.ask): the grant ends and ``how`` says where it
-    goes -- "bottom" (cascade, ripple), "hand" (discover, 701.57a), "graveyard" (madness), "miracle" (stays in the hand), else it stays exiled.
+    goes -- "bottom" (cascade), "ripple" (stays with the revealed cards, which the ability puts on the bottom in one order), "hand" (discover, 701.57a), "graveyard" (madness), "miracle" (stays in the hand), else it stays exiled.
     ``group``: the cards put on the bottom before the question (cascade)."""
     r = plan.rules
     r.free_casts = [c for c in r.free_casts if c != cid]
     r.free_cast_faces.pop(cid, None)
     r.suspended = [c for c in r.suspended if c != cid]
     r.alt_costs.pop(cid, None)
+    if how == "ripple":  # -- free-cast cleanup (wave 30A) -- 702.60a: it stays on top with the revealed cards, which the ability goes on to put on the bottom
+        return
     if how == "miracle":  # -- casting extras (wave 18E) -- 702.94a: it stays in the hand (and is hidden again)
         from app.rules import miracle
 
@@ -1309,7 +1311,9 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
             return
         plan.note(f"{plan.name(d.player)} can't play a land now (305.2b, 305.3)", actor=d.player)
         answer = "no"
-    finish(plan, d.resume["ctx"])
+    ripple = d.resume.get("decline") == "ripple"  # -- free-cast cleanup (wave 30A) -- 702.60a: the ability isn't over, it puts the rest on the bottom
+    if not ripple:
+        finish(plan, d.resume["ctx"])
     # -- cast limits (wave 5E) -- a prohibited cast (601.3) can't begin: as if declined (a pending choice of an older save wasn't checked)
     # (review 29B: a plain "yes" casts a split card's / an adventurer's first half too, chars.as_cast)
     one = face if face is not None else 0 if card is not None and (chars.is_two_spell_card(card, plan.info)
@@ -1319,6 +1323,8 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
         answer = "no"
     if answer != "yes":
         leave_uncast(plan, d.player, cid, d.resume.get("decline"), d.resume.get("group") or ())
+        if ripple:
+            continue_effects(plan, d.resume["ctx"])
         return
     if face:
         r.free_cast_faces[cid] = face  # casting.cast_free takes only this one
@@ -1328,7 +1334,8 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     if r.free_cast_then is None:  # (review 29B) a cast abandoned on the way (its payment cancelled: 601.2, nothing was paid) is a card not cast:
         # it goes where the declined card goes (permissions.free_cast_abandoned), never left in exile with its grant
         r.free_cast_then = {"card": cid, "ctx": None, "e": {}, **({"face": face} if face else {}),
-                            "granted": {"player": d.player, "decline": d.resume.get("decline"), "group": list(d.resume.get("group") or ())}}
+                            "granted": {"player": d.player, "decline": d.resume.get("decline"), "group": list(d.resume.get("group") or ()),
+                                **({"ctx": d.resume["ctx"]} if ripple else {})}}  # (ctx: permissions.free_cast_done goes on with the ability)
     r.priority = d.player
     prev = plan.actor
     plan.actor = d.player
@@ -1396,19 +1403,19 @@ def ripple_split(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         plan.note(f"Ripple: several cards named {e['name']} were revealed; cast them by hand and put the others on the bottom")
         ctx["looked"] = []
         return True
-    ctx["ripple_same"] = same
-    ctx["looked"] = [c for c in looked if c not in same]
+    ctx["ripple_same"] = same  # (-- free-cast cleanup (wave 30A) -- it stays among the looked cards: "all revealed cards not cast this way")
     return True
 
 
 def ripple_cast(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """702.60a: the revealed card with the spell's name may be cast without paying its mana cost; if not, it goes on the bottom."""
+    """702.60a: the revealed card with the spell's name may be cast without paying its mana cost. -- free-cast cleanup (wave 30A) -- A card not cast
+    (declined, can't be cast, cast cancelled) stays among the revealed cards, which ``rest_looked`` then puts on the bottom in the player's order."""
     same = ctx.pop("ripple_same", None) or []
     if not same:
         return True
     from app.rules import granted_casts  # -- granted casts (wave 29B) --
 
-    return granted_casts.ask(plan, ctx, player=ctx["controller"], cid=same[0], head="Ripple", no="Put it on the bottom", decline="bottom")
+    return granted_casts.ask(plan, ctx, player=ctx["controller"], cid=same[0], head="Ripple", no="Put it on the bottom", decline="ripple")
 
 
 def unearth(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
