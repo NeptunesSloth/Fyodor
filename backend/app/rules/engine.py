@@ -924,10 +924,12 @@ def resolve_top_of_stack(plan: Plan) -> None:
     # spell asks a question as it enters today (the pay-life wording is printed on lands only).
     entering = ch.is_permanent_card and not manual
     answers = plan.rules.entry_choices.pop(top_id, None)
-    ep: dict[str, Any] = replacements.entry_plan(plan, top, controller, answers=answers) if entering else {"tapped": False}
+    # -- cast permissions (wave 30Q) -- "If you cast a spell this way, that artifact enters tapped / with a finality counter on it" (122.6, 614.1c)
+    rider = plan.rules.cast_enters.pop(plan.oid(top_id), None) or {}
+    ep: dict[str, Any] = replacements.entry_plan(plan, top, controller, answers=answers, extra=rider.get("counters")) if entering else {"tapped": False}
     paid_for = plan.rules.payments.get(plan.oid(top_id))
     sneaked = entering and paid_for is not None and paid_for.alternative == "sneak"
-    if sneaked:
+    if sneaked or (entering and rider.get("tapped")):
         ep["tapped"] = True  # -- keywords (wave 30I) -- 702.190b: a permanent spell whose sneak cost was paid enters tapped (and attacking, below)
     x = top.stack_info.x if top.stack_info else None
     if ep.get("life"):
@@ -957,7 +959,8 @@ def resolve_top_of_stack(plan: Plan) -> None:
     if aura_target is not None and not manual and plan.state.cards[top_id].zone.endswith(":battlefield"):
         attachments.attach(plan, top_id, aura_target.id, controller)  # 303.4f: it enters attached to its target
     if entering:
-        replacements.after_entry(plan, top_id, controller, x=x, choices=ep.get("choices"))
+        replacements.after_entry(plan, top_id, controller, x=x, choices=ep.get("choices"), extra_counters=rider.get("counters"))
+        permissions.gain_on_entry(plan, top_id, controller, rider)
     if top_id in plan.rules.evoked:  # 702.74a: "When this permanent enters, if its evoke cost was paid, its controller sacrifices it."
         plan.rules.evoked = [c for c in plan.rules.evoked if c != top_id]
         entered_now = plan.state.cards.get(top_id)
@@ -1124,6 +1127,7 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         permissions.consume(plan, grant)  # ("once during each of your turns")
         plan.note(f"{plan.name(plan.actor)} plays {card.name} from their {from_where} ({grant.label})", [card.id])
     replacements.after_entry(plan, card.id, plan.actor, choices=ep.get("choices"))
+    permissions.gain_on_entry(plan, card.id, plan.actor, grant.enters if grant is not None else None)  # (-- cast permissions (wave 30Q) -- "If you do, it gains …")
     # -- entry forms (wave 5F) -- 305.1: the land was played ("When you play another land", City of Traitors)
     from app.game.rules_state import emit
 
@@ -1473,6 +1477,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
+    "slot": permissions.resume_slot,  # -- cast permissions (wave 30Q) -- Muldrotha: which permanent type a cast uses up
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
     **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)

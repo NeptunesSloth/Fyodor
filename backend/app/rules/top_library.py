@@ -153,8 +153,9 @@ def static_ok(state: Any, player: str, card: Any, ch: Any, info: Any, d: Definit
     source's chosen type, historic lands."""
     from app.rules.permissions import spell_matches
 
-    if verb == "play":
-        return not (d.get("land_filter") == "historic" and not historic_land(ch))
+    if verb == "play":  # (-- cast permissions (wave 30Q) -- also a land's own kind, a selector key: "Forests", "Desert lands")
+        lf = d.get("land_filter")
+        return lf is None or (historic_land(ch) if lf == "historic" else spell_matches(state, player, card, ch, lf, info))
     if d.get("any_of") and not any(spell_matches(state, player, card, ch, k, info) for k in d["any_of"]):
         return False
     return not (d.get("spell") and not spell_matches(state, player, card, ch, d["spell"], info, source=src.id))

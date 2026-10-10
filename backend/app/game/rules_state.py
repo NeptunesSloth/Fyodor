@@ -1160,6 +1160,10 @@ class RulesState(BaseModel):
     # -- granted casts (wave 29B) -- card -> the half / face (1) its "cast it?" answer named ("yes@1"): the only one casting.cast_free accepts
     free_cast_faces: dict[str, int] = Field(default_factory=dict)
     exile_if_graveyard: list[str] = Field(default_factory=list)
+    # -- cast permissions (wave 30Q) -- stack object -> what a permission's "If you cast a spell this way, that artifact enters tapped / with a finality
+    # counter on it / it gains "…"" does as it enters ({"tapped": True, "counters": {"finality": 1}, "abilities": [text]}); the new object a card becomes
+    # when it leaves the stack (400.7) never matches a stale entry
+    cast_enters: dict[str, dict[str, Any]] = Field(default_factory=dict)
     # -- counters (wave 5H) -- keyword counters (122.1b) on permanents: card id -> kind -> [next_object, timestamp]
     # as the last counter of that kind was put on it (613.7c: all counters of a kind share the newest timestamp), so
     # layer 6 orders them against effects that add or remove abilities (613.1f, 613.7; app/rules/layers.py)
