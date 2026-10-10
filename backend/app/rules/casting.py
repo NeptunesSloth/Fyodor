@@ -1335,8 +1335,9 @@ def _tap_display(plan: Plan, player: str, cost: M.ManaCost, what: str, resume: d
     paid = [{"card": h.card, "name": plan.state.cards[h.card].name or "a card", "kind": h.kind, "pays": sym}
             for h, sym in zip(helpers, assignment, strict=False)]
     rest = P.remaining(cost, assignment) if len(assignment) == len(helpers) else cost
-    return {"kind": "tap_mana", "cost": cost.text(), "what": what, "sources": sources[:40],
-            "convoke": by_kind["convoke"][:40], "improvise": by_kind["improvise"][:40], "delve": by_kind["delve"][:60],
+    # (wave 29C: every helper is listed — the table clicks a creature / artifact / card only if it is on its list, so a cut list hid some)
+    return {"kind": "tap_mana", "cost": cost.text(), "what": what, "sources": sources,
+            "convoke": by_kind["convoke"], "improvise": by_kind["improvise"], "delve": by_kind["delve"],
             "committed": sorted(committed), "paid": paid, "mana_due": rest.text() if not rest.is_free else "",
             "remaining": _left_text(P.after_pool(rest, dict(plan.state.players[player].mana))),
             "pool": dict(plan.state.players[player].mana)}

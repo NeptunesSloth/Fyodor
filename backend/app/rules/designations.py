@@ -518,6 +518,9 @@ def each_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
+MAX_ENERGY_OPTIONS = 250  # (the amounts a player can pick from at once)
+
+
 def pay_energy_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"You may pay any amount of {E}" (107.14): the controller chooses how many energy counters to
     remove (0 to all they have) as it resolves; the amount is bound for "that much" / "for each {E}
@@ -529,8 +532,10 @@ def pay_energy_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if have == 0:
         context.bind_amount(ctx, e["as"], 0)
         return True
-    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay how much {{E}}? (you have {have})",
-           options=[DecisionOption(id=str(n), label=f"Pay {n} {{E}}") for n in range(min(have, 60), -1, -1)],
+    top = min(have, MAX_ENERGY_OPTIONS)  # (wave 29C: the list is long; past this many it says so — it used to stop at 60 without a word)
+    decide(plan, player=pid, kind="choose_one",
+           prompt=f"{ctx.get('name') or 'It'}: pay how much {{E}}? (you have {have}" + (f"; at most {top} can be paid here)" if have > top else ")"),
+           options=[DecisionOption(id=str(n), label=f"Pay {n} {{E}}") for n in range(top, -1, -1)],
            resume={"step": "pay_energy_any", "ctx": ctx, "e": e})
     return False
 

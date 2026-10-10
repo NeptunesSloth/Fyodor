@@ -237,7 +237,7 @@ class Tap(Base):
 class UntapAll(Base):
     type: Literal["untap_all"] = "untap_all"
     player: Id | None = None
-    keep_tapped: list[Id] = Field(default_factory=list, max_length=250)  # see NextTurn
+    keep_tapped: list[Id] = Field(default_factory=list, max_length=5000)  # see NextTurn
 
 
 class PhaseShift(Base):
@@ -723,7 +723,7 @@ class NextTurn(Base):
     player: Id | None = None  # explicit next active player (default: next in seat order)
     force: bool = False
     # Permanents that don't untap in this untap step (502.3: "doesn't untap during …"; set by the rules engine).
-    keep_tapped: list[Id] = Field(default_factory=list, max_length=250)
+    keep_tapped: list[Id] = Field(default_factory=list, max_length=5000)  # (wave 29C: all of them; 250 was cut silently by the engine)
 
 
 class Attack(Base):
