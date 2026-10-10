@@ -393,6 +393,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
         if sel is None or sel.player is not None or sel.zones not in ((), ("battlefield",)) or sel.other:
             raise _Fail
         return {_STATS[m["stat"] or m["stat2"]]: "target", "target_sel": sel.key()}
+    if (m := re.fullmatch(r"(?P<a>(?:its|that creature's) (?:power|toughness|mana value)) plus (?P<b>its (?:power|toughness|mana value))", phrase)) is not None:
+        return {"plus": [_stat(m["a"], its), _stat(m["b"], its)]}  # -- value grammar (wave 30N) -- Phthisis: "its power plus its toughness" (608.2h: both as the object last existed)
     m = re.fullmatch(r"(?:twice|(?P<k>two|three|four) times) (?P<v>.+)", phrase)  # (wave 23C: "three times this creature's power")
     if m:
         return {"times": [values.NUMBERS[m["k"]] if m["k"] else 2, _stat(m["v"], its)]}
@@ -401,6 +403,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
     # -- damage sized by a count (wave 4E) -- "the number of charge counters on it": "it" is the sentence's subject when it
     # has one (``its``: "~ deals damage equal to the number of … counters on it"), else a placeholder bound by resolve_it
     v = values.parse_count(phrase, it=its)
+    if v is None:  # -- value grammar (wave 30N) -- the count of what a named player controls: "creatures they control" / "artifacts target opponent controls"
+        v = values.target_relative(phrase) or values.player_relative(phrase)  # (scripts._value_targets / _that_players_hand bind the player or refuse)
     if v is None:
         raise _Fail
     return v
@@ -1322,8 +1326,28 @@ def parse_sentence(text: str) -> tuple[Effects, Any] | None:
     # -- damage sized by a count (wave 4E) -- an amount read per recipient player is a damage instruction's only
     # ("each player creates X tokens, where X is the number of lands they control": not read)
     if any(e.get("do") not in ("damage", "lose_life") and sized_damage.has_per_player(e) for e in found[0]):
-        return None
+        # -- value grammar (wave 30N) -- ... unless the recipient is one player ("You gain 1 life for each artifact that player controls",
+        # "that player discards a card for each artifact they control"): the count is that player's, bound by scripts._that_players_hand
+        if any(sized_damage.has_per_player(e) and not _one_recipient(e) for e in found[0]):
+            return None
+        return [_one_player(e) for e in found[0]], found[1]
     return found
+
+
+def _one_recipient(e: dict[str, Any]) -> bool:
+    who = str(e.get("who") or "you")
+    return who in ("you", "event_player", "that_player") or who == "target" or who.startswith("target:")  # (that_player: scripts.resolve_it binds it)
+
+
+def _one_player(v: Any) -> Any:
+    """A per-recipient amount as the count of ONE named player (the marker scripts._that_players_hand binds or refuses)."""
+    if isinstance(v, list):
+        return [_one_player(x) for x in v]
+    if not isinstance(v, dict):
+        return v
+    if sized_damage.PER_PLAYER in v:
+        return {"for_player": "that_player", "of": v[sized_damage.PER_PLAYER]}
+    return {k: _one_player(x) for k, x in v.items()}
 
 
 def _one(group: dict[str, Any] | None) -> Any:
