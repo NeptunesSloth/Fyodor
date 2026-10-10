@@ -35,6 +35,9 @@ MORE = [
          color_identity=["B"], oracle_text="Whenever an opponent loses life, you gain that much life."),
     card("Test Mill Cost", set_code="tst", number="V03", mana_cost="{1}", cmc=1.0, type_line="Artifact",
          oracle_text="Mill a card: You gain 1 life."),
+    card("Darkblast", set_code="tst", number="V05", mana_cost="{B}", cmc=1.0, type_line="Instant", colors=["B"], color_identity=["B"],
+         oracle_text="Target creature gets -1/-1 until end of turn.\nDredge 3 (If you would draw a card, you may instead mill three "
+         "cards and return this card from your graveyard to your hand.)"),
     card("Secret Door", set_code="tst", number="V04", mana_cost="{U}", cmc=1.0, type_line="Artifact Creature — Wall", colors=["U"],
          color_identity=["U"], power="0", toughness="4", keywords=["Defender", "Venture into the dungeon"],
          oracle_text="Defender\n{4}{U}: Venture into the dungeon. Activate only as a sorcery. (Enter the first room or advance to the next "
@@ -61,6 +64,21 @@ def test_alms_collectors_controller_still_draws_when_the_drawing_players_first_d
     settle(s)
     assert len(zone(s, "hand", "p2")) == theirs + 1  # "instead you and that player each draw a card": Bob's draw isn't dropped
     assert len(zone(s, "library")) == lib - 3  # Alice's one draw, replaced by Underrealm Lich's look at three
+    roundtrip(s)
+
+
+def test_alms_collectors_controller_may_dredge_instead_of_the_draw_it_gets(cards):
+    s = build(cards, p1=("Divination",), p2=("Alms Collector", "Darkblast"))
+    put(s, "Alms Collector", "battlefield", "p2")
+    blast = put(s, "Darkblast", "graveyard", "p2")
+    c = put(s, "Divination", "hand")
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and {o.id for o in d.options} == {"o0", "decline"}  # 702.52a: Bob's own draw
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["o0"])
+    settle(s)
+    assert s.state.cards[blast.id].zone == "p2:hand" and len(zone(s, "graveyard", "p2")) == 3
     roundtrip(s)
 
 

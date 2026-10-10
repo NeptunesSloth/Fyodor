@@ -1146,6 +1146,8 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
                     slots += [f["player"]] * f["n"] if f["kind"] == "draw_count" else [f["player"]] if f["kind"] == "draw" else []
             else:
                 slots += [pid] * k
+        if extra := [p for p in dict.fromkeys(slots) if p not in who]:  # (review 28B: Alms Collector's controller draws too: 702.52a dredge)
+            planner.cands += dredge_candidates(plan, extra)
         for i, pid in enumerate(slots):
             ev: Event = {"kind": "draw", "player": pid, "applied": list(exclude)}
             out: list[Event] = []
