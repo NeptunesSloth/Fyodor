@@ -3285,6 +3285,15 @@ def _activate_choosing_nested(plan: Plan, card: CardInstance, ch: Characteristic
     resume_outer(plan)
 
 
+def unnest(plan: Plan) -> None:
+    """-- review 28D -- the nested choice is abandoned (its player left the game, or it no longer matches the table): the payment
+    prompt it was nested in is the pending decision again, to be settled like any other (800.4a; nothing of the nested cost was paid
+    while it was being chosen)."""
+    r = plan.rules
+    if r.payment_outer is not None:
+        r.decision, r.payment_outer = r.payment_outer, None
+
+
 def resume_outer(plan: Plan) -> None:
     """The payment prompt a nested mana ability's choice was made in comes back (once no further choice is pending): the mana added
     may cover it now."""

@@ -16,7 +16,7 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_conditionals import creature, pick, until_asked
+from tests.test_rules_conditionals import creature, pick
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 
 REAL = [
@@ -366,11 +366,59 @@ def test_a_controlled_player_s_altar_is_used_by_the_controller(cards):
     act(s, "p2", type="activate_ability", card_id=card_named(s, "Ashnod's Altar").id, ability=0)
     d = s.state.rules.decision
     assert d.kind == "choose_cards" and d.player == "p1" and s.state.rules.payment_outer is not None
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):  # (ActionError or the 723.5 refusal)
         act(s, "p1", type="choose", decision_id=d.id, option_ids=[cub.id])
     act(s, "p2", type="choose", decision_id=d.id, option_ids=[bear.id])
     assert bear.id not in s.state.cards and s.state.players["p1"].mana.get("C") == 2
     assert s.state.rules.decision.resume["step"] == "pay_mana" and s.state.rules.payment_outer is None
+    check(s)
+
+
+def test_conceding_during_the_nested_choice_leaves_no_payment_behind(cards):
+    """800.4a: Alice concedes while choosing the Altar's creature mid-payment: her spell isn't cast and her set-aside payment prompt
+    leaves with her (it never comes back on someone else's next choice)."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    decks = [deck(cards, c, [(1, n) for n in extra] + [(9, "Forest")]) for c, extra in (
+        ("Krenko, Mob Boss", ["Giant Opportunity", "Ashnod's Altar"]), ("Atraxa, Praetors' Voice", []), ("Lim-Dûl the Necromancer", []))]
+    s = GameSession(enable(new_game([PlayerSetup(n, cards=d) for n, d in zip(("Alice", "Bob", "Carol"), decks, strict=True)],
+                                    shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    self_payment(s)
+    put(s, "Ashnod's Altar")
+    for n in ("Bear", "Cub"):
+        creature(s, "p1", n)
+    spell = to_hand(s, "Giant Opportunity")
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    act(s, "p1", type="activate_ability", card_id=card_named(s, "Ashnod's Altar").id, ability=0)
+    assert s.state.rules.payment_outer is not None
+    act(s, "p1", type="concede")
+    r = s.state.rules
+    assert r.payment_outer is None and (r.decision is None or r.decision.player != "p1") and r.priority in ("p2", "p3")
+    act(s, r.priority, type="pass_priority")
+    assert s.state.rules.payment_outer is None and (s.state.rules.decision is None or s.state.rules.decision.player != "p1")
+    check(s)
+
+
+def test_a_nested_choice_the_table_overtook_goes_back_to_the_payment(cards):
+    """A creature offered is moved away by hand (a table tool): it can't be chosen any more; the other one still pays, and the payment
+    prompt comes back."""
+    s = build(cards, ["Giant Opportunity", "Ashnod's Altar"])
+    self_payment(s)
+    put(s, "Ashnod's Altar")
+    bear, cub = creature(s, "p1", "Bear"), creature(s, "p1", "Cub")
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Giant Opportunity").id)
+    act(s, "p1", type="activate_ability", card_id=card_named(s, "Ashnod's Altar").id, ability=0)
+    act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "exile"})
+    d = s.state.rules.decision
+    with pytest.raises(ActionError):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[bear.id])
+    pick(s, cub.id)
+    d = s.state.rules.decision
+    assert d is not None and s.state.rules.payment_outer is None and d.resume["step"] == "pay_mana", d and d.prompt
+    assert cub.id not in s.state.cards and s.state.players["p1"].mana.get("C", 0) == 2
     check(s)
 
 

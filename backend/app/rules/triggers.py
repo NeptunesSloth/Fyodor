@@ -1966,7 +1966,8 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
     bind_that_player(t)  # -- damage wordings (wave 6B) --
     bind_event_stat(plan, t)  # -- reanimation (wave 16F) --
-    from app.rules import where_bound  # -- bounds defined by text (wave 28D) -- "mana value X or less, where X is …" (603.3d)
+    # -- bounds defined by text (wave 28D) -- "mana value X or less, where X is …" (603.3d; review 28D: settled values only)
+    from app.rules import where_bound
 
     t.ability = where_bound.bind(plan, t.ability, t.controller, t.source_card, t.source_object,
                                  t.event.model_dump(mode="json") if t.event is not None else None)

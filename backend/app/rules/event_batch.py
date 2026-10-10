@@ -23,11 +23,10 @@ def bind(d: dict[str, Any] | None) -> dict[str, Any] | None:
     if d is None or d.get("kind") != "triggered" or '"this_way"' not in json.dumps(d, default=str):
         return d
     cond = d.get("cond") or {}
-    verb = _VERBS.get(cond.get("event"))
+    verb = _VERBS.get(str(cond.get("event")))
     if verb is None or not cond.get("aggregate"):
         return d
-    obj = cond.get("obj")
-    obj_key = obj if isinstance(obj, str) else (obj.key() if hasattr(obj, "key") else None)
+    obj_key = cond.get("obj")  # (a selector key: definitions are JSON)
 
     def swap(v: Any) -> Any:
         if isinstance(v, list):

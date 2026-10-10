@@ -1211,6 +1211,7 @@ def concede(plan: Plan, _: A.Action) -> None:
     _require_seated(plan)
     r.conceded.append(plan.actor)
     plan.note(f"{plan.name(plan.actor)} conceded")
+    casting.unnest(plan)  # (review 28D: a payment prompt a nested choice set aside is the decision settled)
     pending = r.decision
     leave_game(plan, plan.actor)
     left = plan.live()

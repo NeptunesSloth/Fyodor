@@ -40,7 +40,12 @@ from app.rules import (
 )
 from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
-from app.rules import restrictions, selectors, this_way, where_bound  # (this_way: wave 4A; where_bound: wave 28D)
+from app.rules import (  # (this_way: wave 4A)
+    restrictions,
+    selectors,
+    this_way,
+    where_bound,  # -- bounds defined by text (wave 28D) --
+)
 from app.rules.characteristics import Characteristics
 from app.rules.costs import (
     DISCARD,
@@ -3634,7 +3639,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None  # -- counters (wave 7C) -- only a spell moves itself off the stack
     if d is not None and where_bound.has_marker(d) and d.get("kind") != "triggered":
         return None  # -- bounds defined by text (wave 28D) -- only a triggered ability's targets are chosen with an event to read
-    from app.rules import event_batch  # -- event batches (wave 28D) -- "milled this way" in a "one or more … are milled" trigger
+    # -- event batches (wave 28D) -- "milled this way" in a "one or more … are milled" trigger
+    from app.rules import event_batch
 
     d = event_batch.bind(d)
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound

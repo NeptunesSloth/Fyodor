@@ -171,7 +171,8 @@ def test_the_wise_mothman_counts_the_nonland_cards_milled(cards):
 def test_the_wise_mothman_lands_are_not_counted(cards):
     s = build(cards, ["The Wise Mothman", "Thought Scour", "Preordain"])
     put(s, "The Wise Mothman")
-    mine = [creature(s, "p1", n) for n in ("Bear", "Cub")]
+    for n in ("Bear", "Cub"):
+        creature(s, "p1", n)
     act(s, "p1", type="move", card_ids=[card_named(s, "Preordain").id], to={"zone": "library"}, position="top")
     mana(s, U=1)
     cast(s, "Thought Scour")  # (one nonland and one Forest milled)
@@ -238,10 +239,7 @@ def test_celestine_returns_a_creature_up_to_the_life_gained(cards):
     s = build(cards, ["Celestine, the Living Saint", "Revitalize", "Llanowar Elves", "Grizzly Bears", "Hill Giant"])
     put(s, "Celestine, the Living Saint")
     elves, bears, giant = graveyard(s, "Llanowar Elves", "Grizzly Bears", "Hill Giant")
-    for n in range(1):
-        mana(s, W=1, C=1)
-        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Revitalize").id)
-        settle_all(s)
+    gain(s)
     assert s.state.players["p1"].life == 43
     d = until_target_choice(s)
     assert {o.id for o in d.options} == {elves.id, bears.id}  # (X = 3: Hill Giant has mana value 4)
