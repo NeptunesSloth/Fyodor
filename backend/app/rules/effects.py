@@ -3116,6 +3116,10 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         event = _reflexive_event(plan, ctx, name) if name else None  # -- reflexive LKI (wave 4J) --
         if event is not None and e.get("lki") == "cond_ref":  # -- reflexive this way (wave 30G) -- "that many" / "that much": how many it did this to (608.2c, 608.2h)
             event = event.model_copy(update={"amount": _this_way.count(plan, ctx, e["cond"]["value"])})
+        if e.get("keep_event") and event is None and ctx.get("event"):  # -- reflexive this way (wave 30G) -- "that player" is still the trigger's
+            from app.game.rules_state import TriggerEvent
+
+            event = TriggerEvent.model_validate(ctx["event"])
         if e.get("x_from"):  # -- if you do (wave 25C) -- "you may pay {X}. When you do, …": the X paid is the reflexive ability's amount
             from app.game.rules_state import TriggerEvent
             from app.rules import paid_x

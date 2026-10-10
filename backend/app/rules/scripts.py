@@ -6228,6 +6228,8 @@ def _reflex_this_way(m: re.Match[str], rest: str, effects: list[dict[str, Any]],
     if len(made) != 1:
         return None
     last = made[0]
+    if last.get("face_down"):
+        return None  # (a card exiled face down: what its reflexive ability may read of it is not settled)
     plural = (m["w"] or m["w2"]).lower().startswith("one or more")
     one = _one_object(last, groups)
     if not (plural or one) or (m["v"] and _group_of(last) is None and last.get("who") not in (None, "you")):
@@ -6338,10 +6340,15 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     sized_x = len(base) == 1 and base[0]["do"] == "optional_payment" and "choose_x" in base[0] and lki is None
     # (-- if you do (wave 25C) -- a sized payment's reflexive ability carries the trigger's own event along with the X: "that creature" is
     # still the object the trigger was about, effects.reflexive)
-    parsed = parse_effects(body[:1].upper() + body[1:], "event" if lki is not None or (sized_x and it == "event") else ("self" if it == "self" else None))
+    # -- reflexive this way (wave 30G) -- 603.12 / 603.7c: "that player" / "that creature" in the reflexive ability is still what the original
+    # trigger was about ("Whenever this deals combat damage to a player, you may remove a counter from it. When you do, destroy target artifact
+    # that player controls"): it carries the trigger's own event along (effects.reflexive "keep_event"), as a sized payment's does
+    keep = it == "event" and lki is None and not sized_x
+    parsed = parse_effects(body[:1].upper() + body[1:], "event" if lki is not None or (sized_x and it == "event") or keep else ("self" if it == "self" else None))
     if parsed is None or not parsed[0]:
         return None
     b_effects, b_target, b_optional = parsed
+    keep = keep and '"event"' in json.dumps([b_effects, b_target], default=str)  # (only when the body actually reads the trigger's event)
     x_bind = None
     if sized_x:
         # -- if you do (wave 25C) -- "you may pay {X}. When you do, ~ deals X damage to target player.": the X paid (107.3f, paid_x) is the
@@ -6354,7 +6361,7 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
         return None  # -- reflexive this way (wave 30G) -- "that much" here has no amount behind it (the reflexive ability's event carries none): reads 0, not read
     out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
                                                         "optional": b_optional, **target_fields(b_target)},
-           **({"x_from": x_bind} if x_bind else {})}
+           **({"x_from": x_bind} if x_bind else {}), **({"keep_event": True} if keep else {})}
     if lki is not None:
         out["lki"] = cond["succeeded"]  # -- reflexive LKI (wave 4J) --
     return out

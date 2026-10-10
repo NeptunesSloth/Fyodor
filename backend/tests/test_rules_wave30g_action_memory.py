@@ -1,10 +1,22 @@
 """Wave 30G: optional actions and resolution memory (CR 2026-09-25). Real Oracle text (tests/fixtures/wave30g_action_memory_cards.json, from
 data/cards.sqlite); every scenario checks the replay and a save and a load.
 
-* 603.12: a reflexive triggered ability "when [something happens] this way" triggers on whether the event occurred earlier in the resolution
-  of the spell or ability that created it, and is put on the stack (with its own targets, 603.3d) after it. It reads what the instruction did:
-  how many ("that many", the Augusta ruling of 2026-03-20) and the object itself ("the exiled card's mana value", the Hidetsugu and Cait Sith
-  rulings; a card in exile is a new object there, 400.7j; X in a mana cost is 0 anywhere but on the stack, 202.3e / 107.3b).
+What the action before the connector did is bound for what comes after it:
+
+* 603.12: a reflexive triggered ability "when [something happens] this way" triggers on whether the event occurred earlier in the resolution of
+  the spell or ability that created it, and is put on the stack (with its own targets, 603.3d) after it. It reads how many ("that many", "twice
+  that much", "up to that many target …": the Augusta, Borborygmos and Fblthp, Nyssa of Traken rulings) and the object itself ("the exiled
+  card's mana value": the Hidetsugu and Cait Sith rulings; a card in exile is a new object there, 400.7j; X in a mana cost is 0 anywhere but on
+  the stack, 202.3e) — also after "you may discard / sacrifice any number of …. When you do, …" (Miasma Demon, Swashbuckler Extraordinaire).
+* 118.12 + 608.2c/h: "If you do" after a counted action ("any number of …") and its "that many / that much" are what was done — the Neheb
+  ruling of 2019-05-03: the cards discarded, not the combat damage; "You may draw cards equal to X. If you do, discard that many cards": the
+  number the draw was worked out to (Horrid Shadowspinner's ruling), chosen even when X is 0 (Champion of Wits's ruling).
+* 603.12 after "Create a token.": once for each token made (the Ajani, Nacatl Avenger ruling), about that very token (Dáin Ironfoot attaches
+  the Axe it made); 608.2h after "Sacrifice a creature.": its last known information (Tip the Scales ruling of 2025-04-04), a token or a
+  commander sent to the command zone (903.9a) included.
+* 118.12 with a probe: "you may have target player lose 3 life. If you do, …" (Ob Nixilis) and "you may tap it. When you do, …" (The Fire
+  Nation Drill): chosen, unless it can't be paid (119.8, 614.17b: a life total that can't change; 701.26a, 118.3: only an untapped permanent
+  can be tapped).
 """
 
 from __future__ import annotations
@@ -287,13 +299,15 @@ def test_dain_attaches_the_axe_he_just_made_not_another_one(cards):
 
 def test_dain_the_axe_gone_before_the_reflexive_ability_resolves_attaches_nothing(cards):
     """400.7: a token that left the battlefield is not the object the ability knows; the other Axe stays where it is."""
-    s = build(cards, ["Dáin Ironfoot", "Grizzly Bears"])
+    s = build(cards, ["Dáin Ironfoot", "Grizzly Bears", "Lightning Bolt"])
     bears = put(s, "Grizzly Bears")
     old = token_of(s, "p1", "Axe", "Token Artifact — Equipment", "0/0", 'Equipped creature gets +1/+0.\nEquip {2}')
+    to_hand(s, "Lightning Bolt")  # (an instant to cast keeps priority with its controller while the reflexive ability waits)
     dain = to_hand(s, "Dáin Ironfoot")
-    mana(s, R=1, C=2)
+    mana(s, R=2, C=2)
     act(s, "p1", type="cast_spell", card_id=dain.id)
     pick(s, "choose_one", bears.id)  # the reflexive ability is on the stack, targeting the Bears
+    assert s.state.zones.get("stack")
     new = next(c for c in axes(s) if c.id != old.id)
     act(s, "p1", type="move", card_ids=[new.id], to={"player": "p1", "zone": "graveyard"})  # (the new Axe is gone)
     answer(s)
@@ -361,6 +375,8 @@ def test_tip_the_scales_a_token_or_a_commander_sent_to_the_command_zone_is_still
     answer(s)
     assert zone_of(s, "Probe Three", "p2") == ("p2:graveyard" if x == 3 else "p2:battlefield")
     assert not any(c.name in ("Goblin", "Krenko, Mob Boss") and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    if fodder == "commander":
+        assert zone_of(s, "Krenko, Mob Boss") == "p1:command"  # (903.9a: it went to the command zone; the ability still read it on the battlefield)
     check(s)
 
 
@@ -658,3 +674,91 @@ def test_fire_nation_drill_destroys_only_if_it_was_tapped_for_it(cards, taps):
     assert s.state.cards[card_named(s, "The Fire Nation Drill").id].tapped is taps
     assert s.state.cards[three.id].zone == ("p2:graveyard" if taps else "p2:battlefield") and s.state.cards[big.id].zone == "p2:battlefield"
     check(s)
+
+
+# -- "{T}: Exile target card from a graveyard. When a creature card is exiled this way, put a +1/+1 counter on target creature you control" ---
+@pytest.mark.parametrize(("exiled", "counter"), [("Llanowar Elves", 1), ("Lightning Bolt", 0)])
+def test_agatha_soul_cauldron_grows_a_creature_only_for_a_creature_card_exiled(cards, exiled, counter):
+    """603.12: the singular "a creature card is exiled this way" is the one card this target named, judged where it went (a card in exile)."""
+    s = build(cards, ["Agatha's Soul Cauldron", "Grizzly Bears"], [exiled])
+    bears = put(s, "Grizzly Bears")
+    cauldron = put(s, "Agatha's Soul Cauldron")
+    target = card_named(s, exiled, "p2")
+    act(s, "p2", type="move", card_ids=[target.id], to={"player": "p2", "zone": "graveyard"})
+    act(s, "p1", type="activate_ability", card_id=cauldron.id, ability=ability_index(s, cauldron, "Exile target card"), targets=[target.id])
+    answer(s, bears.id)
+    assert s.state.cards[target.id].zone == "p2:exile" and counters(s, bears) == counter
+    check(s)
+
+
+# -- "you may pay {2}. When you do, that creature deals damage equal to its power to target creature" (Halana, Kessig Ranger) ------------
+def halana(cards, creature="Grizzly Bears", counters_first=0):
+    """Halana's trigger for ``creature`` entering; p1 and p2 each hold a Lightning Bolt (so the reflexive ability waits on the stack for them)."""
+    s = build(cards, ["Halana, Kessig Ranger", creature, "Lightning Bolt"], ["Probe Three", "Lightning Bolt"])
+    put(s, "Halana, Kessig Ranger")
+    three = put(s, "Probe Three", "p2")
+    to_hand(s, "Lightning Bolt")
+    bolt = to_hand(s, "Lightning Bolt", "p2")
+    spell = to_hand(s, creature) if creature != "Krenko, Mob Boss" else card_named(s, creature)
+    mana(s, R=3, G=1, C=4)
+    mana(s, "p2", R=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    if counters_first:  # (it is a 3/3 before it can be paid for: the trigger has resolved as far as the question)
+        while s.state.rules.decision is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        act(s, "p1", type="counter", card_ids=[spell.id], kind="+1/+1", delta=counters_first)
+    return s, spell, three, bolt
+
+
+@pytest.mark.parametrize(("pay", "counter", "dies"), [("yes", 0, False), ("yes", 1, True), ("no", 0, False)])
+def test_halana_the_creature_that_entered_deals_damage_equal_to_its_power(cards, pay, counter, dies):
+    """603.12 / 603.7c: "that creature" in the reflexive ability is the one the trigger was about, read as it resolves: the 2/2 Bears hurts
+    the 1/3 for 2 (it lives), but a +1/+1 counter put on it with the ability on the stack makes it 3 (it dies); not paying: no reflexive ability."""
+    s, bears, three, _ = halana(cards)
+    pick(s, "choose_one", "pay" if pay == "yes" else "decline")
+    if pay == "yes":
+        pick(s, "choose_one", three.id)
+        assert s.state.zones.get("stack")
+    if counter:
+        act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=counter)
+    answer(s)
+    assert s.state.cards[three.id].zone == ("p2:graveyard" if dies else "p2:battlefield")
+    assert dies or s.state.cards[three.id].damage == (2 if pay == "yes" else 0)
+    check(s)
+
+
+@pytest.mark.parametrize("creature", ["Grizzly Bears", "Krenko, Mob Boss"])
+def test_halana_a_creature_gone_before_the_ability_resolves_still_deals_its_last_known_power(cards, creature):
+    """608.2h + 903.9a: the creature died (a commander to the command zone) with the reflexive ability on the stack: the damage is its last
+    known power (the Bears with a counter, 3 — its printed 2 would not kill; Krenko, 3), so the 1/3 dies."""
+    s, spell, three, bolt = halana(cards, creature, counters_first=1 if creature == "Grizzly Bears" else 0)
+    pick(s, "choose_one", "pay")
+    pick(s, "choose_one", three.id)
+    act(s, "p1", type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[spell.id])
+    answer(s)
+    assert s.state.cards[three.id].zone == "p2:graveyard"
+    assert s.state.cards[spell.id].zone == ("p1:command" if creature == "Krenko, Mob Boss" else "p1:graveyard")
+    check(s)
+
+
+@pytest.mark.parametrize("pay", ["pay", "decline"])
+def test_anointer_of_valor_puts_the_counter_on_the_attacker_not_on_itself(cards, pay):
+    """603.12 / 603.7c: "that creature" is the attacking Bears the trigger is about (the Anointer, which stays home, gets nothing)."""
+    s = build(cards, ["Anointer of Valor", "Grizzly Bears"])
+    anointer, bears = put(s, "Anointer of Valor"), put(s, "Grizzly Bears")
+    ready(s, "Grizzly Bears")
+    act(s, "p1", type="pass_priority")  # -> declare attackers (mana left over from the main phase would be gone)
+    mana(s, C=3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    pick(s, "choose_one", pay)
+    answer(s)
+    assert counters(s, bears) == (1 if pay == "pay" else 0) and counters(s, anointer) == 0
+    check(s)
+
+
+@pytest.mark.parametrize("name", ["Halana, Kessig Ranger", "Anointer of Valor", "Ancestral Katana"])
+def test_coverage_full_trigger_event_kept(cards, name):
+    """The same memory in "Whenever a creature attacks, you may pay {3}. When you do, put a +1/+1 counter on that creature" and "… attach this
+    Equipment to it": the creature the trigger is about."""
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
