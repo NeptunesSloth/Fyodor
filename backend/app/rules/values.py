@@ -417,8 +417,14 @@ def _sized(what: str, it: str | None) -> Value | None:
 # "cards you've drawn this turn", "creatures that died this turn", "opponent who drew two or more cards this turn".
 _TURN_LIFE = re.compile(r"^(?:the )?(?:amount of )?life you(?:'ve| have)? (?P<k>gained|lost) this turn$")
 _TURN_SPELL = re.compile(r"^spell (?P<who>you|they)(?:'ve| have) cast this turn$")
+_TURN_CAST = re.compile(r"^(?:the number of )?(?P<other>other )?(?:(?P<sel>[a-z]+(?: (?:and|or) [a-z]+)?) )?spells?"
+                        r"(?: (?P<who>you|they)(?:'ve| have))? cast this turn(?P<first> other than the first)?$")
 _TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
-_TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?|[A-Z][a-z-]+) that died(?P<mine> under your control)? this turn$")
+# -- this-turn history (wave 30R) -- also "creature you controlled that died", "creature put into your graveyard from the battlefield" (dies, 700.4,
+# into its owner's graveyard, 400.3) and "permanent that left the battlefield under your control" (to any zone): history.amount "died"
+_TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?|permanents?|[A-Z][a-z-]+)(?P<ctl> you controlled)?"
+                        r"(?: that (?P<verb>died|left the battlefield)|(?: that (?:was|were))? (?P<gy>put into your graveyard from the battlefield))"
+                        r"(?P<mine> under your control)? this turn$")
 _OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? (?:who|that) (?:(?P<drew>drew (?P<n>\w+) or more cards)|"
                             r"(?P<lost>lost life)|(?P<hurt>(?:was|were) dealt (?P<combat>combat )?damage)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
                             r"this turn$")
@@ -437,6 +443,15 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
     if (m := _TURN_SPELL.match(what)):
         return {"spells_cast": "you" if m["who"] == "you" else "event_player"}
+    if (m := _TURN_CAST.match(what)):  # -- this-turn history (wave 30R) -- "instant and sorcery spells you've cast", "other spells", "spells cast"
+        from app.rules import conditions  # (conditions imports this module)
+
+        kind = re.sub(r"^(instant|sorcery) and (instant|sorcery)$", r"\1 or \2", m["sel"] or "")
+        key = conditions._history_sel(f"{kind} spell" if kind else "spell", "stack")
+        if key is not None:  # (a kind the recorded notes can't answer — keywords, a creature type with a capital … — isn't read)
+            found: Value = {"spells_cast": {"you": "you", "they": "event_player", None: "all"}[m["who"]], "sel": key,
+                            **({"other": True} if m["other"] else {})}
+            return {"minus": [found, 1]} if m["first"] else found  # ("other than the first": one fewer, 601.2i)
     if re.fullmatch(r"cards? you(?:'ve)? discarded this turn", what):  # -- value grammar (wave 23C) -- a cycled card is discarded too (702.29a)
         return {"turn_history": "discarded"}
     m = re.fullmatch(r"creature (?:(?P<any>that attacked)|(?P<mine>you attacked with)) this turn", what)
@@ -448,10 +463,11 @@ def _turn_amount(what: str) -> Value | None:
     if m:  # 700.4; as they last existed on the battlefield (608.2i)
         # -- trigger tail (wave 15B) -- "for each Zubera that died this turn": a creature type counts creatures (700.4)
         sel = selectors.parse(m["sel"] + (" creature" if m["sel"][0].isupper() else ""))
-        if sel is None:
-            return None
+        if sel is None or (m["mine"] and m["ctl"]) or (m["verb"] == "left the battlefield" and not (m["mine"] or m["ctl"])):
+            return None  # (leaving is read only for what was yours: no card counts anyone's)
         # -- X actions (wave 9A) -- "that died under your control this turn": the ones you controlled as they died (700.4)
-        return {"turn_history": "died", "sel": sel.key(), **({"who": "you"} if m["mine"] else {})}
+        return {"turn_history": "died", "sel": sel.key(), **({"who": "you"} if m["mine"] or m["ctl"] else {}),
+                **({"owner": "you"} if m["gy"] else {}), **({"left": True} if m["verb"] == "left the battlefield" else {})}
     # -- X sized by a count (wave 19F) -- this turn's log: tokens you created, permanents you sacrificed, what your opponents lost
     if re.fullmatch(r"tokens? you(?:'ve)? created this turn", what):
         return {"turn_history": "tokens"}
@@ -594,6 +610,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
         from app.rules import context
 
+        if "sel" in v:  # -- this-turn history (wave 30R) -- of a kind ("instant and sorcery"), "other" than this one (history.cast_amount)
+            from app.rules import history
+
+            return history.cast_amount(plan, ctx, v)
         return sum(plan.rules.spells_this_turn(p, plan.state.turn.number) for p in (
             [you] if v["spells_cast"] == "you" else plan.state.seat_order if v["spells_cast"] == "all"
             else context.players(plan, ctx, context.EVENT)))

@@ -428,8 +428,8 @@ def _cmp(got: int, cond: dict[str, Any]) -> bool:
     return got == n if cond.get("op") == "==" else got >= n
 
 
-def _cast(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
-    """Spells cast this turn (601.2i), as they were cast — resolved, countered or still on the stack (608.2i)."""
+def _cast_counts(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> dict[str, int]:
+    """Spells cast this turn (601.2i) of a kind, per caster, as they were cast — resolved, countered or still on the stack (608.2i)."""
     from app.rules import selectors
 
     sel = selectors.from_key(cond["sel"])
@@ -442,7 +442,22 @@ def _cast(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -
             continue
         if note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv, x_cost=note.x_cost):
             per[note.player] = per.get(note.player, 0) + 1
-    return _per_player(plan, ctx, cond, per)
+    return per
+
+
+def _cast(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
+    return _per_player(plan, ctx, cond, _cast_counts(plan, ctx, cond, log))
+
+
+def cast_amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
+    """-- this-turn history (wave 30R) -- "the number of instant and sorcery spells you've cast this turn" / "noncreature spells they've cast"
+    (the trigger's player) / "spells cast this turn" (anyone's) / "other" than the spell or permanent counting them: the same notes the
+    conditions read (601.2i), counted as the effect is carried out (608.2h)."""
+    from app.rules import context
+
+    per = _cast_counts(plan, ctx, v, log_for(plan))
+    who = v["spells_cast"]
+    return sum(per.values()) if who == "all" else sum(per.get(p, 0) for p in ([ctx["controller"]] if who == "you" else context.players(plan, ctx, context.EVENT)))
 
 
 def _per_player(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], per: dict[str, int]) -> bool:
@@ -511,8 +526,8 @@ def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLo
     src = _source_object(plan, ctx) if cond.get("other") else None
     n = 0
     for d in log.left:
-        if (cond.get("died") and d.to != "graveyard") or d.object_id == src:
-            continue
+        if (cond.get("died") and d.to != "graveyard") or (cond.get("to") and d.to != cond["to"]) or d.object_id == src:
+            continue  # (-- this-turn history (wave 30R) -- "to": a permanent put into a hand from the battlefield)
         if cond.get("who") and (d.controller == me) != (cond["who"] == "you"):
             continue
         snap = plan.rules.lki.get(d.object_id)
@@ -558,8 +573,9 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     if kind == "drew":
         return log.drew.get(me, 0)
     if kind == "died":
-        return sum(1 for d in log.left if d.to == "graveyard" and (snap := plan.rules.lki.get(d.object_id)) is not None
+        return sum(1 for d in log.left if (v.get("left") or d.to == "graveyard") and (snap := plan.rules.lki.get(d.object_id)) is not None
                    and (v.get("who") != "you" or d.controller == me)  # (-- X actions (wave 9A) -- "under your control")
+                   and (v.get("owner") != "you" or snap.owner == me)  # (-- this-turn history (wave 30R) -- "your graveyard": 400.3)
                    and _departed_matches(plan, selectors.from_key(v["sel"]), d, snap))
     if kind == "attackers":  # -- cost self reduction (wave 16F) -- each creature declared as an attacker this turn, once (508.1)
         return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
