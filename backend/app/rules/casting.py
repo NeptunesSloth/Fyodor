@@ -2128,9 +2128,15 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
                 if hi < lo or len(legal_targets(plan, spec["what"], player, src, card.id)) < lo:
                     return f"{ch.name or 'It'} has no legal target"
         extra = None if manual else costs.spell_additional_cost(ch.abilities)
-        return additional_problem(plan, extra, card, player) if extra is not None else None
+        if extra is None or any(c.kind in _HAND_PARTS for side in (extra, *extra.either) for c in side.components):
+            return None  # (a part read from the hand — "reveal a creature card from your hand", "discard a land card" — is hidden: whether
+            # the question is skipped mustn't tell the others what the hand holds; that cast is refused in the cast, where it can be cancelled)
+        return additional_problem(plan, extra, card, player)
     finally:
         plan.actor = prev
+
+
+_HAND_PARTS = frozenset({costs.DISCARD, "EXILE_FROM_HAND", "HAND_TO_BOTTOM", "REVEAL_FROM_HAND", costs.BEHOLD})  # (cost_payment._candidates)
 # -- end cast without paying (wave 3C) --
 
 

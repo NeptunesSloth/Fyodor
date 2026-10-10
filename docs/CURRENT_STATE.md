@@ -151,6 +151,12 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   name" is one name in common (201.2a, 709.4a). A declined cascade card lands at a random place among the cards put on the bottom before the
   question (702.85a: all of them in a random order). A suspended modal double-faced card's land face is played ("play it", 702.62a; 305.2a-b,
   305.3), the only one of these that plays rather than casts.
+  Review 29B: a half / face that can't be cast for a public reason (`casting.free_cast_problem`: no legal target 601.2c, no mode 700.2a,
+  205.4e, a mandatory additional cost that can't be paid) isn't offered (its answer was a dead end: the free cast's target choice couldn't be
+  cancelled); a cost part read from the hand and mana aren't checked ahead (hidden; hand-activated mana). A free cast begun as an effect
+  resolves is recorded (`RulesState.free_cast_then` with `granted`): cancelled at a target (now allowed, `casting._announcing`) or at its
+  payment, the card goes where a card not cast goes (bottom / hand / exile / graveyard) instead of staying in exile with its grant.
+  Known gap: the order of cards put on the bottom "in a random order" is readable from the log (one move line per card, as before 29B).
 - **Copies**: cast-a-copy only as "[exile a card and] copy it / that card [N times]. You may cast the copy without paying its
   mana cost" (wave 13C, 707.12: `copying.copy_cards` + `permissions.FREE_COPY`; the copy is made in the card's own zone;
   a non-free "You may cast the copy", "cast the copy by paying …" and copies of imprinted / "exiled with" cards stay manual),

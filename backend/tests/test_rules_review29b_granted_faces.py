@@ -3,13 +3,14 @@ really be cast now, and a cast that is begun and then abandoned ends like a decl
 (tests/fixtures/wave29b_cards.json, review29b_cards.json, from data/cards.sqlite); each scenario checks the replay and a save and a load.
 
 * 601.2c / 601.5: a spell whose required target can't be chosen can't be cast (the proposal is illegal and rewound); 700.2a: nor a modal spell
-  with no mode that can be chosen; 205.4e: a legendary instant or sorcery without a legendary creature or planeswalker; 601.2f-h / 118.9d: a
-  mandatory additional cost ("sacrifice a creature") or a cost increase ("Noncreature spells cost {1} more") that can't be paid. Such a half /
-  face is not offered: otherwise the answer is a dead end (the free cast's target choice can't be cancelled, and every target is refused). With
-  none left nothing is asked and the card goes where the mechanic puts a card not cast (702.85a cascade: the bottom, in a random order with the
-  others). The card and everything checked are public.
-* 601.2: a cast cancelled while its cost is paid (nothing was paid) is a card not cast: 702.85a puts it on the bottom with the others; it is not
-  left in exile with a grant to cast it later.
+  with no mode that can be chosen; 205.4e: a legendary instant or sorcery without a legendary creature or planeswalker; 601.2h / 118.9d: a
+  mandatory additional cost ("sacrifice a creature") that can't be paid. Such a half / face is not offered: otherwise the answer was a dead end
+  (the free cast's target choice couldn't be cancelled, and every target was refused). With none left nothing is asked and the card goes where
+  the mechanic puts a card not cast (702.85a cascade: the bottom, in a random order with the others). Everything checked is public: a cost part
+  read from the hand ("discard a land card") is not checked ahead, nor is mana (can_pay doesn't count mana abilities activated by hand).
+* 601.2: a free cast begun as the ability resolves and then cancelled — at its target choice, which a cost that can't be paid makes the only
+  way out, or at its payment — is a card not cast: 702.85a puts it on the bottom with the others; it is not left in exile with a grant to cast
+  it later (``RulesState.free_cast_then`` records it: permissions.free_cast_abandoned).
 * Saves from before wave 29B asked a plain yes / no (no ``group`` in the resume, no ``free_cast_faces``): they still resolve.
 """
 
@@ -116,6 +117,22 @@ def test_a_spell_whose_additional_cost_cant_be_paid_is_not_offered(cards):
 def test_a_spell_whose_additional_cost_can_be_paid_is_offered(cards):
     s, fling, _ = cascade_into(cards, "Fling", mine=["Grizzly Bears"], setup=lambda s: put(s, "Grizzly Bears"))
     assert options(s) == [("yes", "Cast it"), ("no", "Put it on the bottom")]
+    check(s)
+
+
+def test_an_additional_cost_read_from_the_hand_is_still_asked(cards):
+    """Magmatic Insight ("As an additional cost to cast this spell, discard a land card.") with no land card in hand: whether the hand holds
+    one is hidden, so skipping the question would tell the other players; it is asked, and "yes" is refused (601.2h) in the cast itself, by
+    a message only its caster sees. "no" puts it on the bottom."""
+    from app.game.errors import ActionError
+
+    s, insight, _ = cascade_into(cards, "Magmatic Insight")
+    assert not [c for c in s.state.zones["p1:hand"] if s.state.cards[c].name == "Forest"]
+    assert options(s) == [("yes", "Cast it"), ("no", "Put it on the bottom")]
+    with pytest.raises(ActionError):
+        choose(s, "yes")
+    choose(s, "no")
+    assert s.state.zones["p1:library"][-1] == insight.id and not s.state.rules.free_casts
     check(s)
 
 

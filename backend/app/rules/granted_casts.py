@@ -18,6 +18,10 @@ rulings of Bloodbraid Elf (cascade), Trumpeting Carnosaur (discover), Rift Bolt 
   201.2a, 709.4a: one name in common is enough, a split card having two).
 * 601.3: a half / face that a rule or effect prohibits casting (cast_limits) is not offered; with none left the card is not cast and the declined
   outcome (to the bottom, into the hand, left exiled) happens at once.
+* -- review (wave 29B) -- nor is one that can't be cast for another public reason (``casting.free_cast_problem``: 601.2c no legal target,
+  700.2a no mode, 205.4e, a mandatory additional cost that can't be paid): its answer was a dead end (the target choice of a free cast couldn't
+  be cancelled). A cast begun and then cancelled (at a target, or its payment) is a card not cast: ``RulesState.free_cast_then`` records the
+  declined outcome for permissions.free_cast_abandoned (effects.resume_suspend_cast).
 
 The answer is "yes" (the card as it is, its first half / front face), "yes@1" (its second half / back face) or "no"; the face an answer names is
 the only one ``casting.cast_free`` accepts (``RulesState.free_cast_faces``). Old saves asked a plain yes / no, which still resolves.
