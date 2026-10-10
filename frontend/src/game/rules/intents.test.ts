@@ -186,6 +186,14 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "activate_ability", card_id: "m1", ability: 2 }]);
   });
 
+  it("offers a card in an opponent's exile only when the server lists it for you (Hostage Taker, Valgavoth)", () => {
+    const listed = view({ ...RULES, hints: { castable: ["x1"] } });
+    const v = { ...listed, cards: { ...listed.cards, x1: card("x1", "p2:exile", "firebolt") } } as unknown as GameView;
+    expect(labels(rulesMenu(v.cards.x1!, v, "p1"))[0]).toBe("Cast from exile");
+    const unlisted = { ...v, rules: { ...v.rules, hints: {} } } as unknown as GameView;
+    expect(labels(rulesMenu(unlisted.cards.x1!, unlisted, "p1"))).not.toContain("Cast from exile");
+  });
+
   it("offers a hand ability the server lists (Tetzimoc's reveal from the hand, 113.6m)", () => {
     const base = view({ ...RULES, hints: { activatable: [{ card_id: "t1", ability: 1 }] } });
     const v = { ...base, cards: { ...base.cards, t1: card("t1", "p1:hand", "tetz") } } as unknown as GameView;

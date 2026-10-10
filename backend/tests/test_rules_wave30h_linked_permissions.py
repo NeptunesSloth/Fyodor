@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+from app.rules import view
+
 import pytest
 
 from app.game.errors import ActionError
@@ -168,6 +170,9 @@ def test_valgavoth_exiles_what_would_go_to_an_opponents_graveyard_and_lets_you_p
     to_turn(s, 3)
     bears = card_named(s, "Grizzly Bears", "p2")
     assert free_castable(s.state, "p1", bears, cards) and not castable(s.state, "p1", bears, cards)  # (never for its mana cost)
+    # (review 30: the hints of the player allowed to cast it list it, though it is in Bob's exile; Bob's don't)
+    assert bears.id in view.hints(s.state, "p1", cards).get("free_castable", []) and "Island" in [
+        s.state.cards[c].name for c in view.hints(s.state, "p1", cards).get("playable_lands", [])]
     life = s.state.players["p1"].life
     check(s)
     act(s, "p1", type="cast_spell", card_id=bears.id, free=True)

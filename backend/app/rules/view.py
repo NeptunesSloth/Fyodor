@@ -207,6 +207,10 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     candidates = [cid for key in (zone_key(viewer, "hand"), zone_key(viewer, "command"), zone_key(viewer, "graveyard"),
                                   zone_key(viewer, "exile"), zone_key(viewer, "foretell")) for cid in state.zones.get(key, [])
                   if can_see(state, state.cards[cid], viewer)]  # (-- review (sys 18A) -- not a face-down exiled card nobody looked at, 406.3)
+    # -- review 30 -- a card in another player's exile this viewer may cast or play (Hostage Taker, Valgavoth, Jeleva, Opposition Agent: the
+    # card stays in its owner's exile, 400.3): the hints are this viewer's own, so listing it tells no one else anything
+    candidates += [cid for pid in state.players if pid != viewer for cid in state.zones.get(zone_key(pid, "exile"), [])
+                   if can_see(state, state.cards[cid], viewer)]
     library = state.zones.get(zone_key(viewer, "library"), [])
     if library and can_see(state, state.cards[library[0]], viewer):
         candidates.append(library[0])
