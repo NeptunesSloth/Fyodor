@@ -14,13 +14,13 @@ checked against local runs at that time.
 | GitHub CI | Since 2026-10-10 01:30 UTC every job fails within 2–3 s without a runner (`runner_id: 0`, no steps run), on every head. This is an Actions account or runner problem (minutes, spending limit or outage), not the code; a comment on PR #15 says so. Verify locally until it is fixed. |
 | Agent branches | `claude/wave19*`–`claude/wave29*`, `claude/review-wave*`, `claude/wip-*`: all merged into #15; safe to delete once #15 is merged. |
 
-## Last known test status (PR #15 head, wave 29 merged)
+## Last known test status (PR #15, `78bbc15`: wave 29 merged; later commits are docs only)
 
 | Check | Status |
 |---|---|
-| Backend pytest (full, `-n 2`) | Final run on the wave 29 head in progress at the time of writing; the run before 29D merged had 9,119 passed and 2 failing tests, both fixed since. |
+| Backend pytest (full, `-n 2`) | 9,203 passed on `78bbc15` (all of wave 29 merged). |
 | ruff / mypy (`app tools`) | Clean. |
-| Frontend tsc / vitest | Clean on wave 29B (no frontend change in wave 29). |
+| Frontend tsc / vitest | Clean; 66 tests passed on `78bbc15`. |
 | Browser end-to-end (Playwright, production build) | 20 passed locally on `fef8b49` (wave 28); not rerun since (no frontend change in wave 29). |
 
 The repo's pytest `addopts` includes `-q`; pass no extra `-q` or the "N passed" summary line is suppressed.
