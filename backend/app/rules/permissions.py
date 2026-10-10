@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, Any
 from app.game.rules_state import CostModifier, Permission, TopReveal
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
-from app.rules import cost_changes, costs, selectors
+from app.rules import cost_changes, costs, land_plays, selectors
 from app.rules import mana as M
 from app.rules.characteristics import CardInfo, Characteristics
 
@@ -153,6 +153,10 @@ FREE_COPY = re.compile(r"^(?:if you do, )?you may cast (?P<w>the copy|the copies
 FREE_HAND = re.compile(r"^(?:you may )?cast (?:a|an) (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?(?:spell|card)(?P<h1> from your hand)?"
                        r"(?: with mana value (?:(?P<n>\d+|X) or less|less than or equal to (?P<x2>[^,]+?)))?(?P<h2> from your hand)?"
                        r" without paying its mana cost$")
+# -- play now (wave 28A) -- "You may play a land from the top of your library or cast a spell with mana value less than or equal to the damage dealt
+# from the top of your library without paying its mana cost." (Ziatora's Envoy): the card looked at, a land played (305.2a) or a spell cast within the limit
+PLAY_OR_CAST_TOP = re.compile(r"^you may play a land from the top of your library or cast a spell with mana value (?:(?P<n>\d+|X) or less|"
+                              r"less than or equal to (?P<v>[^,]+?)) from the top of your library without paying its mana cost$")
 # "You may cast spells from your hand without paying their mana costs." (Omniscience) / "You may cast
 # Dragon spells without paying their mana costs."
 STATIC_FREE = re.compile(r"^you may cast (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<hand> from your hand)? without paying their mana costs$")
@@ -213,7 +217,22 @@ def free_mv(n: str | None, v: str | None) -> Any:
     return value
 
 
+# -- play now (wave 28A) -- "You may play lands and cast spells from among cards exiled this way without paying their mana costs." (Gix, Yawgmoth
+# Praetor): any number of them, one at a time (608.2g); a land only while a land play is left (305.2a-b)
+PLAY_AMONG = re.compile(r"^you may play lands and cast spells from among (?:them|those cards|cards exiled this way|the exiled cards|the cards exiled this way)"
+                        r" without paying their mana costs$")
+
+
+# "You may play one of those cards without paying its mana cost." (Vault 112: Sadistic Simulation): one card of those an earlier instruction exiled
+PLAY_ONE = re.compile(r"^you may (?P<verb>play|cast) one of (?:those|the exiled) cards without paying its mana cost$")
+
+
 def _free_among(text: str) -> list[dict[str, Any]] | None:
+    if PLAY_AMONG.fullmatch(text):
+        return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": None, "optional": True, "mv": None, "n": 99, "play": True}]
+    if (one := PLAY_ONE.fullmatch(text)) is not None:
+        return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": None, "optional": True, "mv": None, "n": 1,
+                 **({"play": True} if one["verb"] == "play" else {})}]
     m = FREE_AMONG.fullmatch(text)
     if m is None:
         return None
@@ -305,8 +324,10 @@ def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     # a land among them only with a land play left on your turn (305.2a/305.3: Tangled Florahedron's back face): not modelled, stays manual
     play = m["verb"] == "play"
     timed = bool(m["until"] or m["this_turn"])
-    if (m["until"] and m["this_turn"]) or (m["spend"] and (m["free"] or not timed)) or (play and not timed):
+    if (m["until"] and m["this_turn"]) or (m["spend"] and (m["free"] or not timed)):
         return None  # (mana spent is only for a permission; a free cast spends none)
+    # -- play now (wave 28A) -- the bare "play target … card from your graveyard [without paying its mana cost]" (Horde of Notions) is played as it
+    # resolves (608.2g; a land with a land play left on its controller's turn, 305.2a-b, 305.3: ``free_cast`` "play")
     phrase = m["what"][len("target "):]
     mv = re.search(rf" {_FREE_MV}(?= from )", phrase)
     sel = selectors.parse(phrase)
@@ -318,7 +339,7 @@ def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         return [{"do": "grant_play", "who": "target", "play": play, "cast": True, "until": "end_of_turn", "optional": True,
                  **({"free": True} if m["free"] else {}), **({"spend": "type"} if m["spend"] else {})}], sel.key()
     return [{"do": "free_cast", "zone": "target", "filter": None, "optional": True, "mv": None, "n": 1,
-             **({} if m["free"] else {"paid": True})}], sel.key()
+             **({} if m["free"] else {"paid": True}), **({"play": True} if play else {})}], sel.key()
 # -- end refused look/cast-free (wave 3R5) --
 
 
@@ -741,6 +762,13 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         except ValueError:
             return None
         return [{"do": "free_cast", "zone": "hand", "filter": key, "optional": True, "mv": mv}], None
+    m = PLAY_OR_CAST_TOP.fullmatch(text)  # -- play now (wave 28A) --
+    if m:
+        try:
+            mv = free_mv(m["n"], m["v"])
+        except ValueError:
+            return None
+        return [{"do": "free_cast", "zone": "that", "who": "it:card", "filter": None, "mv": mv, "optional": True, "play": True}], None
     # -- refused grants/replacements (wave 3R2) -- the same permission with its duration at the end ("You may play it
     # until the end of your next turn.": 611.2a, the duration is the one stated, wherever the sentence states it) and
     # "them" for "those cards" ("You may play them until the end of your next turn.")
@@ -756,15 +784,19 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         return _grant_exiled(m)
     m = GRANT_THAT.fullmatch(text)
     if m and m["free"] and not (m["until"] or m["this_turn"]):
-        if m["verb"] != "cast" or m["what"] == "those cards":
-            return None  # (several cards at once, or playing a land as this resolves: not modelled)
-        return [{"do": "free_cast", "zone": "that", "who": "it:card", "filter": None, "mv": None, "optional": True}], None
+        if m["what"] == "those cards":
+            return None  # (several cards at once: not modelled)
+        # -- play now (wave 28A) -- "You may play that card without paying its mana cost." as this resolves (608.2g): a land too, with a land play left
+        return [{"do": "free_cast", "zone": "that", "who": "it:card", "filter": None, "mv": None, "optional": True,
+                 **({"play": True} if m["verb"] == "play" else {})}], None
     if m:
         spend_kind = "type" if m["spend"] else (m["k2"] if m["spend2"] else "")
-        if not (m["until"] or m["this_turn"]) and m["verb"] == "cast" and m["what"] != "those cards" and not spend_kind:
+        if not (m["until"] or m["this_turn"]) and m["what"] != "those cards" and not spend_kind:
             # -- if you do (wave 25C) -- a bare "You may cast that card." (Chandra, Torch of Defiance): cast as this resolves (608.2g), its mana cost
             # paid — the paid free cast of the copy wording; "If you don't, …" after it reads whether a spell was cast
-            return [{"do": "free_cast", "zone": "that", "who": "it:card", "filter": None, "mv": None, "optional": True, "paid": True}], None
+            # (-- play now (wave 28A) -- "You may play that card.": the same, or a land played with a land play left)
+            return [{"do": "free_cast", "zone": "that", "who": "it:card", "filter": None, "mv": None, "optional": True, "paid": True,
+                     **({"play": True} if m["verb"] == "play" else {})}], None
         if (m["until"] and m["this_turn"]) or not (m["until"] or m["this_turn"]):
             return None  # (a bare "you may play that card" / several cards: cast as this resolves, not modelled)
         free = bool(m["free"])  # (wave 3C) "... without paying its mana cost" (118.9)
@@ -1324,27 +1356,39 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         limit = values.evaluate(plan, ctx, {"x": 1} if e["mv"] == "x" else e["mv"])
     below = values.evaluate(plan, ctx, e["mv_lt"]) if e.get("mv_lt") is not None else None  # (wave 3R5: "lesser")
     options = []
+    play = bool(e.get("play"))  # -- play now (wave 28A) -- "you may play that card": a land too, and each face of a card with two (712.12, 709.3)
+    land_open = play and land_plays.open_for_effect(plan.state, pid, plan.info)  # 305.2a-b, 305.3
     for cid in pool:
         card = plan.state.cards[cid]
-        ch = chars.of(card, plan.info)
-        if not ch.types or ch.is_land or plan.rules.card_mode(cid) == "manual" or cid in done:
+        if plan.rules.card_mode(cid) == "manual" or cid in done or not plan.in_game(card):  # (review 28A: 800.4a, its owner left)
             continue
-        if limit is not None and ch.mana_value > limit:
-            continue
-        if e.get("paid") and not ch.mana_cost:
-            continue  # (review 18F) 118.6: no mana cost is an unpayable cost (Living End's copy can't be cast by paying it)
-        if below is not None and ch.mana_value >= below:
-            continue
-        if e.get("parity") and ch.mana_value % 2 != (1 if e["parity"] == "odd" else 0):
-            continue
-        if e.get("filter") and not spell_matches(plan.state, pid, card, ch, e["filter"], plan.info):
-            continue
-        # -- cast limits (wave 5E) -- a cast no rule or effect prohibits (601.3)
-        from app.rules import cast_limits
+        # (review 28A) a cast too is of one half / face, and only that one is evaluated (709.3a, 712.11c, 715.3a, 601.3e): a sorcery-only cast
+        # never casts the instant half of Consecrate // Consume. "If its mana value is odd" (Yennett) tests the card (709.4b) as before, one way
+        for face, ch in [(None, chars.of(card, plan.info))] if e.get("parity") else play_faces(plan, card):
+            if not ch.types:
+                continue
+            if ch.is_land:
+                if land_open:  # (never reached without ``play``: land_open is False then)
+                    options.append(DecisionOption(id=_option_id(cid, face), label=f"{ch.name or card.name or 'Card'} (play as a land)",
+                                                  card_id=cid))
+                continue
+            if limit is not None and ch.mana_value > limit:
+                continue
+            if e.get("paid") and not ch.mana_cost:
+                continue  # (review 18F) 118.6: no mana cost is an unpayable cost (Living End's copy can't be cast by paying it)
+            if below is not None and ch.mana_value >= below:
+                continue
+            if e.get("parity") and ch.mana_value % 2 != (1 if e["parity"] == "odd" else 0):
+                continue
+            if e.get("filter") and not spell_matches(plan.state, pid, card, ch, e["filter"], plan.info):
+                continue
+            # -- cast limits (wave 5E) -- a cast no rule or effect prohibits (601.3)
+            from app.rules import cast_limits
 
-        if cast_limits.free_cast_blocked(plan, pid, cid) is not None:
-            continue
-        options.append(DecisionOption(id=cid, label=card.name or "Card", card_id=cid))
+            if cast_limits.free_cast_blocked(plan, pid, cid) is not None:
+                continue
+            options.append(DecisionOption(id=_option_id(cid, face), label=(ch.name if face is not None else card.name) or "Card",
+                                          card_id=cid))
     # (cards in a hand or a library are hidden: whether a choice appears mustn't tell the other
     # players whether one was eligible, so the looker is asked whenever there were cards to look at)
     hidden = e["zone"] in ("hand", "looked") and bool(pool)
@@ -1357,6 +1401,52 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                   + " (or none)",
            options=options, min_choices=0, max_choices=1, resume={"step": "free_cast_pick", "ctx": ctx, "e": e})
     return False
+
+
+# -- play now (wave 28A) --
+def _option_id(cid: str, face: int | None) -> str:
+    return cid if face is None else f"{cid}@{face}"
+
+
+def play_faces(plan: Plan, card: CardInstance) -> list[tuple[int | None, Characteristics]]:
+    """Each way a card can be played or cast: one face of a modal double-faced card (712.12: a land face is played, a spell face cast), one
+    half of a split card or an Adventure (709.3, 715.3; an Aftermath half only from a graveyard, 702.127a), else the card as it is."""
+    data = plan.info.get(card.card_id or "") if card.card_id and card.token is None and not card.is_token else None
+    layout = (data or {}).get("layout")
+    if data is None or len(data.get("faces") or []) < 2 or layout not in (*chars.HALVES, "modal_dfc"):
+        return [(None, chars.of(card, plan.info))]
+    out: list[tuple[int | None, Characteristics]] = []
+    for face in (0, 1):
+        if layout == "aftermath" and face == 1 and not card.zone.endswith(":graveyard"):
+            continue
+        out.append((face, chars.as_cast(card, plan.info, face)))
+    return out
+
+
+def play_land_now(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], cid: str, face: int | None) -> None:
+    """305.1 / 608.2g: the card is played as a land by the effect (not cast: it never uses the stack). It counts against the land plays of the
+    turn (305.2a) from the moment it is played; the entering choices (a shock land's life, "as it enters, choose …": 614.12a) are asked as
+    for any permanent put onto the battlefield, then the resolution goes on (replacements.resume_entry_choice)."""
+    from app.game.rules_state import TurnCount
+    from app.rules import attachments, effects
+
+    pid = ctx["controller"]
+    card = plan.state.cards[cid]
+    r, turn = plan.rules, plan.state.turn.number
+    r.lands_played[pid] = TurnCount(turn=turn, count=r.lands_this_turn(pid, turn) + 1)
+    ctx.setdefault("free_cast_done", []).append(cid)
+    if int(e.get("n", 1)) > 1:
+        ctx["next"] -= 1  # "any number of them": the same instruction is carried out again for the next card once this one has entered
+    else:
+        _free_cast_over(ctx, e)
+    plan.note(f"{plan.name(pid)} plays {chars.as_cast(card, plan.info, face).name or card.name} from their "
+              f"{card.zone.rsplit(':', 1)[-1]} ({ctx.get('name') or 'an effect'})", [cid])
+    entry: dict[str, Any] = {"card": cid, "player": pid, "actor": pid, "played": True}
+    if face:
+        entry["modal_back"] = True  # 712.12: it enters with the land face up
+    if attachments.enter(plan, [entry], ctx):
+        effects.continue_effects(plan, ctx)
+# -- end play now (wave 28A) --
 
 
 def _free_cast_over(ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -1381,7 +1471,8 @@ def found_to(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     card = plan.state.cards.get(cid or "")
     if card is None or not card.zone.endswith((":exile", ":library")):
         return True
-    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": pid, "zone": e["to"]}}, actor=pid)
+    # (review 28A) its owner's hand or exile (400.3: "your hand" is its owner's when the card came from another library)
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": e["to"]}}, actor=pid)
     return True
 
 
@@ -1426,12 +1517,21 @@ def resume_free_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
         return
     r = plan.rules
-    r.free_casts.append(chosen[0])
-    r.free_cast_then = {"card": chosen[0], "ctx": ctx, "e": e}
+    cid, _, at = chosen[0].partition("@")  # -- play now (wave 28A) -- "<card>@<face>": the face of a card with two
+    face = int(at) if at else None
+    if not plan.in_game(plan.state.cards[cid]):  # (review 28A) its owner left the game while this was asked (800.4a): asked again without it
+        if free_cast(plan, ctx, e):
+            effects.continue_effects(plan, ctx)
+        return
+    if e.get("play") and chars.as_cast(plan.state.cards[cid], plan.info, face).is_land:
+        play_land_now(plan, ctx, e, cid, face)
+        return
+    r.free_casts.append(cid)
+    r.free_cast_then = {"card": cid, "ctx": ctx, "e": e, **({"face": face} if face else {})}  # (face: review 28A, casting.cast_free checks it)
     prev = plan.actor
     plan.actor = d.player
     try:
-        cast_spell(plan, A.CastSpell(card_id=chosen[0], free=True))
+        cast_spell(plan, A.CastSpell(card_id=cid, free=True, face=face))
     finally:
         plan.actor = prev
 

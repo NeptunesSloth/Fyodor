@@ -139,8 +139,13 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   forms (Tip the Scales).
 - **Chosen selectors**: Roaming Throne, Cloud Key's chosen card type, protection from the chosen color;
   a trigger whose source left the battlefield matches nothing for "the chosen type".
-- Lim-Dûl's Vault, Djinn of Wishes, Protean Hulk. (Sylvan Library: wave 18G, `drawn_toll.py`; the per-card "drawn this turn"
-  record is `TurnLog.drawn`, private. Jandor's Ring's "discard the last card you drew this turn" cost can use it, not done.)
+- Lim-Dûl's Vault, Protean Hulk. (Sylvan Library: wave 18G, `drawn_toll.py`; the per-card "drawn this turn"
+  record is `TurnLog.drawn`, private. Jandor's Ring's "discard the last card you drew this turn" cost can use it, not done.
+  Djinn of Wishes was manual only for want of playing a land mid-resolution, no unsettled ruling: wave 28A plays a card as an
+  effect resolves, `permissions.free_cast` "play", 608.2g / 305.2a-b / 305.3 / 712.12.)
+- Free casts through the yes/no "cast it?" choice (cascade, discover, ripple, suspend, rebound) cast a split card's first half, an
+  Adventurer as its creature and a modal double-faced card's front face: the other half / face (legal by 709.3, 715.3, 712.11b and,
+  for cascade, 702.85a's "resulting spell") isn't offered. `permissions.free_cast` offers and checks each half / face (review 28A).
 - **Copies**: cast-a-copy only as "[exile a card and] copy it / that card [N times]. You may cast the copy without paying its
   mana cost" (wave 13C, 707.12: `copying.copy_cards` + `permissions.FREE_COPY`; the copy is made in the card's own zone;
   a non-free "You may cast the copy", "cast the copy by paying …" and copies of imprinted / "exiled with" cards stay manual),

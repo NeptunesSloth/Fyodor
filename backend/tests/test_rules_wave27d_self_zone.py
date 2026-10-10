@@ -51,7 +51,7 @@ def card_db(settings):
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", [r[0] for r in REAL if r[0] not in ("Probe Elemental", "Horde of Notions")])
+@pytest.mark.parametrize("name", [r[0] for r in REAL if r[0] not in ("Probe Elemental",)])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -302,7 +302,8 @@ def test_emry_target_gone_at_resolution_grants_nothing(cards):
     check(s)
 
 
-def test_horde_of_notions_stays_manual(cards):
-    # 608.2g: "You may play target … card … without paying its mana cost." is played as the ability resolves (a land among them
-    # only with a land play left, 305.2a/305.3 — Tangled Florahedron's back face): not modelled, so it isn't a permission for the turn
-    assert coverage.of_card_data(cards.resolve("Horde of Notions")).level != "FULL"
+def test_horde_of_notions_is_played_as_it_resolves(cards):
+    # 608.2g: "You may play target … card … without paying its mana cost." is played as the ability resolves (a land among them only with a
+    # land play left, 305.2a/305.3 — Tangled Florahedron's back face): wave 28A models it (tests/test_rules_wave28a_play_now.py), so it is no
+    # permission for the turn
+    assert coverage.of_card_data(cards.resolve("Horde of Notions")).level == "FULL"
