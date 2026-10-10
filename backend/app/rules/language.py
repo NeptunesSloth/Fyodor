@@ -542,6 +542,8 @@ def _rider_value(phrase: str) -> Any:
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
     if phrase == "the total amount of mana paid this way":  # -- trigger other (wave 25B) -- join forces (app/rules/join_forces.py)
         return {"paid_x": "jf"}
+    if phrase == "the damage dealt":  # -- triggers (wave 30J) -- Primo: "a number of +1/+1 counters on it equal to the damage dealt": the trigger event's amount
+        return {"event_amount": 1}
     if re.fullmatch(r"(?:(?:\d+|one|two|three) plus )?the sacrificed (?:creature|artifact|permanent|land|enchantment)'s "
                     r"(?:power|toughness|mana value)", phrase):  # -- amounts (wave 12C) --
         return _stat(phrase)

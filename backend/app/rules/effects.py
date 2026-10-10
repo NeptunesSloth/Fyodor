@@ -1027,7 +1027,10 @@ def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if shares is not None:  # "distribute N counters among …" (601.2d): each target its share
         puts = [(cid, e["kind"], shares[cid]) for cid in cards if shares.get(cid)]
     else:
-        n = _amount(plan, ctx, e["n"])
+        # -- triggers (wave 30J) -- "put a +1/+1 counter on it for each other Zombie that entered the battlefield under your control this turn"
+        # (Geralf): "other" is than IT, the object the counters go on, not than the ability's source
+        counted = e["who"] == "event" and len(cards) == 1 and isinstance(e["n"], dict) and "count" in e["n"]
+        n = _amount(plan, {**ctx, "other_than": cards[0]} if counted else ctx, e["n"])
         puts = [(cid, e["kind"], n) for cid in cards] if n else []
         for more in e.get("also") or ():  # -- counters (wave 5H) -- several kinds at once (one event, 122.6)
             k = _amount(plan, ctx, more["n"])

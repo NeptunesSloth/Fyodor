@@ -122,11 +122,13 @@ class Plan:
                 if entry.types is None and card is not None and self.oid(card) == entry.object_id:
                     now = self.ch(card)
                     entry.types, entry.subtypes = sorted(now.types), sorted(now.subtypes)
-        for oid, (pt, abilities, keywords, traits) in leaving.items():  # last known information (608.2h)
+        for oid, (pt, abilities, keywords, traits, base) in leaving.items():  # last known information (608.2h)
             snap = self.rules.lki.get(oid)
             if snap is not None:
                 if pt is not None:  # power / toughness
                     snap.power, snap.toughness = pt
+                if base is not None:  # (wave 30J) and the base ones, 208.4b
+                    snap.base_power, snap.base_toughness = base
                 # -- quoted grants (wave 2D) -- its abilities, keywords and types as they last existed (603.10a)
                 snap.abilities, snap.keywords, snap.traits = abilities, keywords, traits
         self.state.renames().clear()
@@ -159,7 +161,7 @@ class Plan:
                 out[cid] = sorted(self.ch(card).types)
         return out
 
-    def _battlefield_lki(self, payload: dict[str, Any]) -> dict[str, tuple[Any, Any, Any, Any]]:
+    def _battlefield_lki(self, payload: dict[str, Any]) -> dict[str, tuple[Any, Any, Any, Any, Any]]:
         """What a step may move off the battlefield looks like right now: the current power /
         toughness of the creatures (608.2h) and — quoted grants, wave 2D — the abilities, keywords
         and types of any permanent when they differ from the printed ones (603.10a: abilities that
@@ -167,14 +169,14 @@ class Plan:
         creature)."""
         from app.rules import granted  # (granted → plan for type hints only)
 
-        out: dict[str, tuple[Any, Any, Any, Any]] = {}
+        out: dict[str, tuple[Any, Any, Any, Any, Any]] = {}
         for cid in payload.get("card_ids") or []:
             card = self.state.cards.get(cid) if isinstance(cid, str) else None
             if card is not None and card.zone.endswith(":battlefield"):
                 now = self.ch(card)
                 abilities, keywords, traits = granted.last_existed(chars.of(card, self.info), now)
                 if now.pt is not None or abilities is not None or keywords is not None or traits is not None:
-                    out[self.oid(card)] = (now.pt, abilities, keywords, traits)
+                    out[self.oid(card)] = (now.pt, abilities, keywords, traits, now.base_pt)
         return out
 
     def note(self, message: str, card_ids: list[str] | tuple[str, ...] = (), *, actor: str | None = None) -> None:

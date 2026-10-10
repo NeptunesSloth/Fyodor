@@ -50,6 +50,7 @@ class Characteristics:
     is_ability: bool = False  # an ability object on the stack
     # Derived by app.rules.layers (never printed): current power/toughness, keywords gained/lost.
     pt: tuple[int, int] | None = None
+    base_pt: tuple[int, int] | None = None  # -- base power (wave 30J) -- 208.4b: after layers 7a and 7b, before counters and 7c's modifications
     granted: frozenset[str] = frozenset()
     lost: frozenset[str] = frozenset()
     # Rules imposed on it: by resolved effects ("can't block this turn"), by other objects (an
