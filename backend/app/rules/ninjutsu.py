@@ -68,7 +68,6 @@ def problem(state: GameState, player: str, card: CardInstance) -> str | None:
 def enter(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """The ability's effect: the card from the hand onto the battlefield tapped and attacking what the returned creature attacked."""
     from app.rules import attachments
-    from app.rules.token_grammar import _attack_with
 
     pid = ctx["controller"]
     cid = ctx.get("source_card") or ""
@@ -77,12 +76,20 @@ def enter(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         return True  # 400.7: it isn't in the hand any more (or is a new object): nothing to put
     sid = ctx.get("stack_id")
     record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
-    target = next(iter((record.returned_attacking if record is not None else {}).values()), None)
     plan.do({"type": "hide", "card_ids": [cid]}, actor=pid)
     if not attachments.enter(plan, [{"card": cid, "player": pid, "actor": pid, "tapped": True}], ctx):
         return False
-    entered = plan.state.cards.get(cid)
-    if entered is not None and entered.zone.endswith(":battlefield") and target is not None and (
-            target in plan.live() or (target in plan.state.cards and plan.state.cards[target].zone.endswith(":battlefield"))):
-        _attack_with(plan, [cid], target, pid)  # 702.49c
+    attack_returned(plan, cid, record, pid)  # 702.49c
     return True
+
+
+def attack_returned(plan: Any, cid: str, record: Any, pid: str) -> None:
+    """The creature ``cid`` just entered: attacking what the creature returned to pay for it was attacking (702.49c, sneak 702.190b);
+    if that is gone by now it isn't attacking (508.4a), and a noncreature permanent never is (506.3a)."""
+    from app.rules.token_grammar import _attack_with
+
+    target = next(iter((record.returned_attacking if record is not None else {}).values()), None)
+    entered = plan.state.cards.get(cid)
+    if entered is not None and entered.zone.endswith(":battlefield") and plan.ch(entered).is_creature and target is not None and (
+            target in plan.live() or (target in plan.state.cards and plan.state.cards[target].zone.endswith(":battlefield"))):
+        _attack_with(plan, [cid], target, pid)

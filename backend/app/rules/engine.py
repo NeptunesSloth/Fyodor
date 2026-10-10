@@ -925,6 +925,10 @@ def resolve_top_of_stack(plan: Plan) -> None:
     entering = ch.is_permanent_card and not manual
     answers = plan.rules.entry_choices.pop(top_id, None)
     ep: dict[str, Any] = replacements.entry_plan(plan, top, controller, answers=answers) if entering else {"tapped": False}
+    paid_for = plan.rules.payments.get(plan.oid(top_id))
+    sneaked = entering and paid_for is not None and paid_for.alternative == "sneak"
+    if sneaked:
+        ep["tapped"] = True  # -- keywords (wave 30I) -- 702.190b: a permanent spell whose sneak cost was paid enters tapped (and attacking, below)
     x = top.stack_info.x if top.stack_info else None
     if ep.get("life"):
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
@@ -987,6 +991,10 @@ def resolve_top_of_stack(plan: Plan) -> None:
                               duration="permanent", label="Haste (blitz)",
                               add_abilities=["When this permanent is put into a graveyard from the battlefield, draw a card."])
             delayed.create_move(plan, controller, top_id, oid, "graveyard", entered_now.name, sacrifice=True)
+    if sneaked and not manual:  # -- keywords (wave 30I) -- 702.190b, 506.3d: attacking what the returned creature attacked, unblocked
+        from app.rules import ninjutsu
+
+        ninjutsu.attack_returned(plan, top_id, rec, controller)
     if top_id in plan.rules.suspend_haste:  # 702.62e: a suspended creature has haste
         plan.rules.suspend_haste = [c for c in plan.rules.suspend_haste if c != top_id]
         entered_now = plan.state.cards.get(top_id)

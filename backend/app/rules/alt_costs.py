@@ -177,9 +177,9 @@ def define(t: str) -> dict[str, Any] | None:
 PROWL_COND = "a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell"  # 702.76a
 KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None,
                  "prowl": PROWL_COND, "overload": None, "emerge": None, "foretell": None, "mutate": None,
-                 "web-slinging": None}  # (wave 17C: prowl; wave 18D: mutate, 702.140a)
+                 "web-slinging": None, "sneak": None}  # (wave 17C: prowl; wave 18D: mutate, 702.140a)
 # (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate|web-slinging)(?: from (?P<q>[A-Za-z]+))? "
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate|web-slinging|sneak)(?: from (?P<q>[A-Za-z]+))? "
                            r"(?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
 # when the prowl condition holds for that spell
@@ -203,6 +203,7 @@ def grant_prowl(t: str) -> dict[str, Any] | None:
 GRANT_WEB = re.compile(r"^each (?P<sel>[A-Za-z][A-Za-z' -]*?) spell you cast(?: (?P<tail>that['’]s one or more colors))? has web-slinging "
                        r"(?P<cost>(?:\{[^}X]+\})+)$")
 WEB_RETURN = " and return a tapped creature you control to its owner's hand"  # 702.188a
+SNEAK_RETURN = " and return an unblocked creature you control to its owner's hand"  # -- keywords (wave 30I) -- 702.190a
 
 
 def grant_web_slinging(t: str) -> dict[str, Any] | None:
@@ -241,6 +242,8 @@ def keyword_definition(line: str) -> dict[str, Any] | None:
         pay += f" and sacrifice {'an' if what[0] in 'aeiou' else 'a'} {what}"
     if kw == "web-slinging":  # -- Marvel keywords (wave 25A) -- 702.188a: "paying [cost] and returning a tapped creature you control to its owner's hand"
         pay += WEB_RETURN
+    if kw == "sneak":  # -- keywords (wave 30I) -- 702.190a: "paying [cost] and returning an unblocked creature you control to its owner's hand"
+        pay += SNEAK_RETURN
     found = define(f"you may {pay} rather than pay ~'s mana cost" + (f" if {cond}" if cond else ""))
     # ("tag": what the cast record says it was cast for; warp: only "from your hand", 702.185a)
     return {**found, "tag": kw, **({"hand_only": True} if kw == "warp" else {})} if found is not None else None  # (foretell 702.143a: only from the foretell zone, see offers())
@@ -254,6 +257,11 @@ class Offer:
     once_key: str | None = None
     escape: bool = False  # -- escape (wave 5I) -- 702.138a: a cast from the graveyard (app/rules/escape.py)
     tag: str | None = None  # -- keywords (wave 15E) -- "blitz": cast for its blitz cost (702.152a)
+
+
+def sneak_timing(state: GameState, player: str) -> bool:
+    """-- keywords (wave 30I) -- 702.190a: "Any time you could cast an instant during your declare blockers step" (priority is the caller's)."""
+    return state.turn.phase == "declare_blockers" and state.turn.active_player == player
 
 
 def _ctx(state: GameState, player: str, source: CardInstance) -> dict[str, Any]:
@@ -283,6 +291,8 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue  # 702.143a/d: its owner, "after the current turn has ended" (a card put there by hand has no record: any turn)
         if d.get("cond") is not None and not conditions.holds(view, _ctx(state, player, card), d["cond"]):
             continue
+        if d.get("tag") == "sneak" and not sneak_timing(state, player):
+            continue  # -- keywords (wave 30I) -- 702.190a: only where you could cast an instant during your declare blockers step
         if d.get("tag") == "mutate":  # -- merged permanents (wave 18D) -- 702.140a: only with a creature to merge with
             from app.rules import merged
 
