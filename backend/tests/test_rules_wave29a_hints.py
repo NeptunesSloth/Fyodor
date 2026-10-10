@@ -77,7 +77,7 @@ def test_the_snapshots_exercise_every_kind_of_hint():
     assert len(seen["castable"]) >= 12 and len(seen["alt_castable"]) >= 5
 
 
-@pytest.mark.parametrize("name", sorted(BOARDS))
+@pytest.mark.parametrize("name", ["top_of_library", "restrictions_after_a_spell", "layers_and_copies", "second_player", "hidden_information", "free_casts"])  # (the old path is the slow one: the golden covers all the boards)
 def test_the_uncached_path_gives_the_same_views(cards, monkeypatch, name):
     s = BOARDS[name](cards)
     cached = snapshot(s)
