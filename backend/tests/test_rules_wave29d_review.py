@@ -79,9 +79,10 @@ def test_combat_damage_to_a_monarch_who_cant_lose_life_still_takes_the_crown(car
     if locked:
         lock(s, "p2")
     s.state.table.monarch = "p2"
-    swing(s, put(s, "White Probe"))
+    swing(s, put(s, "Vampire Nighthawk"))
     through_combat(s)
-    assert life(s, "p2") == (40 if locked else 39)
+    assert life(s, "p2") == (40 if locked else 38)
+    assert life(s, "p1") == 42  # (Platinum Emperion ruling: a lifelink source dealing damage to the locked player still gains its controller life)
     assert s.state.table.monarch == "p1"  # 725.2: "Whenever a creature deals combat damage to the monarch, its controller becomes the monarch."
     check(s)
 
@@ -199,4 +200,30 @@ def test_the_land_left_with_its_ability_on_the_stack_and_the_card_is_still_playe
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
     pass_until_stack_empty(s)
     assert card_named(s, "Quiet Probe").zone == "p1:graveyard"
+    check(s)
+
+
+def test_a_flickered_watcher_is_a_new_object_with_its_own_hidden_card(hidden):
+    from tests.test_rules_wave29d_hideaway import cast_artifact, resolve_all, to_hand_card
+
+    s = build(hidden, ("Watcher for Tomorrow", *PROBES, "Cloudshift", "Lightning Bolt", "Trick Probe", "Cub Probe", "Exploration", "Beast Probe"))
+    watcher, first = hideaway(s, "Watcher for Tomorrow", PROBES, "Colossus Probe", ahead=lambda t: cast_artifact(t, "Watcher for Tomorrow", U=1, C=1))
+    resolve_all(s)
+    old = s.state.rules.object_id(watcher.id)
+    stack_top(s, "Trick Probe", "Cub Probe", "Exploration", "Beast Probe")
+    shift = to_hand_card(s, "Cloudshift")
+    mana(s, W=1)
+    act(s, "p1", type="cast_spell", card_id=shift.id, targets=[watcher.id])
+    resolve_all(s, picks=("Trick Probe",))  # 400.7: it returns as a new object; its leaving returns the first card, its hideaway hides another
+    new = s.state.rules.object_id(watcher.id)
+    trick = card_named(s, "Trick Probe")
+    assert new != old and card_named(s, "Colossus Probe").zone == "p1:hand" and trick.zone == "p1:exile" and trick.face_down
+    assert s.state.rules.exiled_with.get(new) == [s.state.rules.object_id(trick.id)]
+    assert not [o for o in s.state.rules.exiled_with.get(old, []) if s.state.rules.object_id(o.rsplit(".", 1)[0]) == o]  # (nothing of the old one's)
+    private(s, [trick, card_named(s, "Colossus Probe")])
+    bolt = to_hand_card(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[watcher.id])
+    resolve_all(s)
+    assert card_named(s, "Trick Probe").zone == "p1:hand" and s.state.rules.hideaway == {}  # the new object's linked card (607.2a)
     check(s)
