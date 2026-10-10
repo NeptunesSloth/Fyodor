@@ -355,3 +355,6 @@ card data, and the supplementary Attraction deck needs deck-building support.
   Not read: Shadow the Hedgehog's split second "if mana from an artifact was spent" (a payment condition), TARDIS's "and you may planeswalk".
 - Hidden-zone abilities (602.2a, 701.20a): `casting._create_ability` reveals a card activated from the hand for the moment the ability is created,
   so cycling, channel, transmute, ninjutsu and every other ability from the hand name their source on the stack; the rest of the hand stays hidden.
+  Review 28C: ninjutsu's card stays revealed from the announcement (`keep`, 702.49b) instead of being revealed, hidden and revealed again.
+  Known gap: a face-down creature spell uses up "the next creature spell has cascade" (Sloppity Bilepiper) without cascading (granted cascade is
+  never read on a face-down spell, as for the statics).
