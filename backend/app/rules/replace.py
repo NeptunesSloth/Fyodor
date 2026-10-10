@@ -1468,20 +1468,6 @@ def mill_counts(plan: Plan, wants: list[tuple[str, int]], *, then: dict[str, Any
     return result
 
 
-def damage_loss(plan: Plan, pid: str, n: int, *, actor: str) -> int:
-    """-- review 28B -- 120.3a: the life that ``n`` damage dealt to a player makes them lose, through the "would lose life" replacements
-    (Bloodletter of Aclazotz), where nothing can be asked (a mana ability's "This land deals 1 damage to you"; the damage stays ``n``)."""
-    cands = candidates(plan, "life_loss")
-    planned = plan_loss(plan, [(pid, n)], answers={}, ask=False, cands=cands) if cands else None
-    if planned is None or isinstance(planned, Ask):
-        return n
-    finals, planner = planned
-    left_to_players(plan, planner)
-    for before, out in finals:
-        note_applied(plan, before, out, actor=actor)
-    return sum(f["n"] for _, out in finals for f in out if f["kind"] == "life_loss" and f["n"] > 0)
-
-
 def _run_loss(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     if lose_life(plan, [(x[0], int(x[1])) for x in request["losses"]], actor=request["actor"], then=then, answers=answers):
         run_then(plan, then)

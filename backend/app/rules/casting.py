@@ -1038,15 +1038,31 @@ def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.Ma
         if kind == "damage" and _player_protected(plan, card, who):  # -- player shields (wave 5E) -- 702.16e, 702.16j
             plan.note(f"Protection prevents the damage {plan.ch(card).name} would deal to {plan.name(who)}")
         elif kind == "damage":
-            plan.do({"type": "rules_damage", "creatures": {}, "players": {who: _replace_rider.damage_loss(plan, who, n, actor=who)},
-                     "planeswalkers": {}, "lifelink": {}, "combat": False,
-                     "dealt": [{"source": plan.oid(card.id), "target": who, "amount": n}]}, actor=who)
+            mana_ability_damage(plan, card, who, n)
         elif kind == "draw":  # (review 28B: through the draw choke point like any other draw — a mana ability can't pause: then=None)
             _replace_rider.draw_cards(plan, [who], n)
         else:  # -- mana riders (wave 5A) -- "You gain 2 life.", "Each opponent gains 1 life."
             from app.rules import mana_riders
 
             mana_riders.after(plan, card, kind, n, who)
+
+
+def mana_ability_damage(plan: Plan, card: CardInstance, who: str, n: int) -> None:
+    """-- replacements: damage (wave 29C) -- "This land deals 1 damage to you." is damage like any other (120.3): the replacement and
+    prevention effects on it (614, 615: Furnace of Rath, Urza's Armor, a "next N damage" shield), then the life that damage makes the player
+    lose (120.3a, the life-loss replacements: Bloodletter of Aclazotz) — the damage choke point (``replace.damage_outcome``). A mana ability
+    resolves as it is activated and can't pause (605.3a, 605.3b): when two effects both apply and their order matters (616.1) the damage is
+    dealt as it is and the log names the effects the players must apply by hand (``left_to_players``) — never skipped without saying."""
+    from app.rules import effects as _effects
+    from app.rules import replace as _replace
+
+    ch = plan.ch(card)
+    oid = plan.oid(card.id)
+    ev = {"source_card": card.id, "source_oid": oid, "target": who, "amount": n, "combat": False,
+          "src": _replace.source_info(plan, card.id, oid, ch, who), "kw": sorted(ch.keywords & _effects._DAMAGE_KEYWORDS), "lkey": card.id}
+    out = _replace.damage_outcome(plan, [ev], answers={}, order=None, ask=False)
+    if isinstance(out, _replace.DamageOutcome):
+        _replace.do_damage(plan, out, actor=who, combat=False)
 
 
 def _player_protected(plan: Plan, card: CardInstance, who: str) -> bool:
