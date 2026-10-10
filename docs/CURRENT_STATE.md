@@ -1,42 +1,74 @@
 # Current state — handoff for the next session
 
-Written 2026-10-04 at the end of the session that built PR #13 (merged) and PR #14 (open): rules-engine
-waves 7R–17D, an independent review of 7R–14A, and eight new engine systems (18A–18H), each with an Opus
-head review. Every number here was checked against local runs at that time.
+Written 2026-10-10 at the end of the session that built PR #15: rules-engine waves 19–29 on top of PR #14
+(now merged). Every wave and engine track had an Opus head review before it was merged. Every number here was
+checked against local runs at that time.
 
 ## Current repository state
 
 | | |
 |---|---|
 | Repository | `NeptunesSloth/Fyodor` |
-| `main` | Has PRs #7–#13 (waves 1–14A). |
-| Open PR | **#14** (`claude/beautiful-ramanujan-l9pev4`, draft): the Fable review of 7R–14A, sweeps 15A–17D, Class cards (16A), prevention (17A), and systems 18A–18H with their Opus reviews. CI was green on every pushed head checked. |
-| Pending | `claude/review-facedown-ids`: an Opus review of a privacy fix (face-down cards get a new id after they were seen). Merge it into #14 once green. |
-| Agent branches | `claude/wip-*`, `claude/wave1[0-7]*`, `claude/sys18*`, `claude/review-*`: all merged into #14 (except the pending one above); safe to delete once #14 is merged. |
+| `main` | Has PRs #7–#14 (waves 1–18). |
+| Open PR | **#15** (`claude/beautiful-ramanujan-l9pev4`, draft): waves 19–29, each reviewed. |
+| GitHub CI | Since 2026-10-10 01:30 UTC every job fails within 2–3 s without a runner (`runner_id: 0`, no steps run), on every head. This is an Actions account or runner problem (minutes, spending limit or outage), not the code; a comment on PR #15 says so. Verify locally until it is fixed. |
+| Agent branches | `claude/wave19*`–`claude/wave29*`, `claude/review-wave*`, `claude/wip-*`: all merged into #15; safe to delete once #15 is merged. |
 
-## Last known test status (PR #14 head `db05477`, all eight systems merged)
+## Last known test status (PR #15 head, wave 29 merged)
 
 | Check | Status |
 |---|---|
-| Backend pytest (full, `-n 4`) | 6,686 passed. |
-| ruff / mypy (`app tools`, 276 files) | Clean. |
-| Frontend tsc / vitest | Clean; 64 tests passed. |
-| GitHub CI | Green on the pushed heads through 17D; check the newest head. |
+| Backend pytest (full, `-n 2`) | Final run on the wave 29 head in progress at the time of writing; the run before 29D merged had 9,119 passed and 2 failing tests, both fixed since. |
+| ruff / mypy (`app tools`) | Clean. |
+| Frontend tsc / vitest | Clean on wave 29B (no frontend change in wave 29). |
+| Browser end-to-end (Playwright, production build) | 20 passed locally on `fef8b49` (wave 28); not rerun since (no frontend change in wave 29). |
 
 The repo's pytest `addopts` includes `-q`; pass no extra `-q` or the "N passed" summary line is suppressed.
-`test_rules_statics.py::test_full_board_derive_is_fast` can fail under heavy load; rerun it alone.
+Run the suite in the background with a long timeout: it takes about 10 minutes with `-n 2`.
 
 ## Current Commander coverage
 
-Data: Scryfall snapshot 2026-10-03, Comprehensive Rules 2026-09-25. Per-card diff tool: compare dumps of
-`coverage.of_card_data(...).level` for every Commander-legal card (this session kept one in its scratchpad).
+Data: Scryfall snapshot 2026-10-03, Comprehensive Rules 2026-09-25. Per-card diff: dump
+`coverage.of_card_data(...).level` for every Commander-legal card at two heads and compare. A dump taken
+from a worktree must put that worktree's `backend` first on `sys.path`, or it silently measures the main
+checkout.
 
-| | `main` before PR #13 | PR #13 (merged) | Now (PR #14 head) |
+| | `main` before PR #13 | PR #14 (merged) | Now (PR #15 head) |
 |---|---|---|---|
-| FULL | 19,506 (60.8%) | 20,653 | **22,896 (71.4%)** |
+| FULL | 19,506 (60.8%) | 22,896 (71.4%) | **24,902 (77.7%)** |
 
-Only two cards lost FULL in the whole session, both on purpose: Hatchery Spider ("where X is" read the cast
-X inside a selector) and Alpine Houndmaster ("a card named A and/or a card named B" was read as one name).
+No card that was FULL on `main` lost FULL in PR #15. Per wave: 19 +346, 20 +224, 21 +114, 22A–F +275,
+23 +231, 24 +170, 25 +325, 26 +217, 27 +32, 28 +52, 29 +20. Wording sweeps stopped paying off at wave 27;
+waves 28–29 built engine features and fixed what the reviews found.
+
+## What PR #15 added
+
+The PR description lists every wave. In short:
+
+- **Waves 19–21:** long-tail wording sweeps.
+- **22A–22F engine tracks:** layers (Blood Moon, Humility, Opalescence), prohibitions and card names,
+  replacements and the 616.1 order prompt, linked objects, event history, casting costs.
+  `tools/inventory.py` and `docs/AUTOMATION_INVENTORY.md` list every blocker per non-FULL card.
+- **Waves 23–26:** player filters, villainous choice, Pacts, value grammar, exploit, crew and saddle, gift,
+  copy exceptions, speed, soulbond, dice, loops, counter kinds, flip cards, airbend, Adventures and MDFC
+  faces from exile, join forces, eminence, "<group> target player controls", opponent-library searches,
+  paid X, forage, collect evidence, paired fights.
+- **Wave 27:** the last wording sweep (+32).
+- **Wave 28 (engine):**
+  - playing a card during resolution, lands included (608.2g);
+  - draw replacements and one life-loss choke point (`replace.lose_life`);
+  - abilities granted to spells, and hand-activated abilities named on the stack;
+  - chosen-cost mana abilities during payment prompts (`Rules.payment_outer`);
+  - "where X is" values read from the trigger event.
+- **Wave 29 (correctness):**
+  - priority hints 50× faster (`read_pass.py`);
+  - layer derivation state made thread-local; two games derived at once used to corrupt each other;
+  - face-aware cascade, discover and suspend;
+  - no 20-target caps;
+  - Mad Wizard's Lair reveals only cards actually drawn;
+  - hideaway (702.75) and "your life total can't change".
+
+The head reviews found and fixed about 130 real bugs across the PR, each with a regression test.
 
 ## What PRs #13 and #14 added
 
@@ -106,28 +138,27 @@ save/load checks.
 
 ## Top remaining rules gaps
 
-`python -m tools.gap_rank --db ../data/cards.sqlite --top 15` on the PR #14 head (FULL 22,896, PARTIAL
-9,172). "Sole" = non-FULL cards whose every unsupported line is in that family (an upper bound). Most of what
-remains is wordings that appear on one or two cards; the sweeps reached roughly the top 60–75% of each big
-family by EDHREC rank.
+`python -m tools.gap_rank --top 15` on the PR #15 head (FULL 24,902, PARTIAL 7,166; commanders FULL 2,143).
+"Sole" = non-FULL cards whose every unsupported line is in that family (an upper bound). What remains is
+mostly wordings that appear on one or two cards each; `tools/inventory.py` lists every blocker per card.
 
 | # | Family | Missing lines | Sole | Sole commanders | Examples (by EDHREC rank) |
 |---|---|---|---|---|---|
-| 1 | static_other | 3007 | 1404 | 150 | Chaos Warp, Rakdos Charm, Birgi, God of Storytelling // Harnfel, Horn of Bounty, Valakut Awakening // Valakut Stoneforge |
-| 2 | trigger_other | 1514 | 1034 | 274 | Guardian Project, Forgotten Ancient, Kutzil, Malamet Exemplar, Selvala, Heart of the Wilds |
-| 3 | if_you_do | 1001 | 744 | 167 | Saw in Half, Bloodchief Ascension, Etali, Primal Conqueror // Etali, Primal Sickness, Tainted Pact |
-| 4 | counters | 669 | 437 | 116 | Spark Double, Tezzeret, Cruel Captain, Laelia, the Blade Reforged, Unstoppable Slasher |
-| 5 | activated_other | 516 | 401 | 64 | Talon Gates of Madara, Emry, Lurker of the Loch, Haywire Mite, Field of Ruin |
-| 6 | this_turn_state | 411 | 320 | 60 | Veil of Summer, Conduit of Worlds, Combat Celebrant, Hunter's Insight |
-| 7 | x_value | 480 | 300 | 57 | Torment of Hailfire, Crackle with Power, Steel Hellkite, Skyclave Apparition |
-| 8 | attached_events | 343 | 277 | 10 | Commander's Plate, Kaya's Ghostform, Blade of Selves, Illusionist's Bracers |
-| 9 | damage_sized | 337 | 242 | 32 | Descent into Avernus, Myr Battlesphere, Combustible Gearhulk, Wheel of Misfortune |
-| 10 | as_long_as_static | 346 | 236 | 34 | Promise of Loyalty, The Reality Chip, Conqueror's Flail, Cloud, Midgar Mercenary |
-| 11 | instead | 342 | 228 | 44 | Academy Manufactor, Incubation Druid, Innkeeper's Talent, Whip of Erebos |
-| 12 | reanimation | 281 | 150 | 22 | Sevinne's Reclamation, Agadeem's Awakening // Agadeem, the Undercrypt, Haven of the Spirit Dragon, Mantle of the Ancients |
-| 13 | ability_word | 261 | 146 | 30 | Tireless Provisioner, Shifting Woodland, Springheart Nantuko, Augur of Autumn |
-| 14 | free_cast | 212 | 125 | 45 | Tibalt's Trickery, Urza, Lord High Artificer, Expressive Iteration, Muldrotha, the Gravetide |
-| 15 | tutor | 150 | 103 | 4 | Sword of Hearth and Home, Scapeshift, Defense of the Heart, Moonsilver Key |
+| 1 | static_other | 2360 | 1068 | 106 | Chaos Warp, Dawn's Truce, Birgi, God of Storytelling // Harnfel, Horn of Bounty, Valakut Awakening // Valakut Stoneforge |
+| 2 | trigger_other | 1214 | 843 | 220 | Guardian Project, Forgotten Ancient, Kutzil, Malamet Exemplar, Selvala, Heart of the Wilds |
+| 3 | if_you_do | 807 | 633 | 148 | Saw in Half, Bloodchief Ascension, Etali, Primal Conqueror // Etali, Primal Sickness, Tainted Pact |
+| 4 | counters | 481 | 316 | 92 | The Darkness Crystal, Tezzeret, Cruel Captain, Phelia, Exuberant Shepherd, Parting Gust |
+| 5 | activated_other | 398 | 315 | 49 | Arcane Lighthouse, The Black Gate, Mount Doom, Secret Tunnel |
+| 6 | this_turn_state | 359 | 283 | 55 | Veil of Summer, Conduit of Worlds, Combat Celebrant, Hunter's Insight |
+| 7 | damage_sized | 283 | 212 | 31 | Descent into Avernus, Myr Battlesphere, Combustible Gearhulk, Wheel of Misfortune |
+| 8 | attached_events | 254 | 206 | 7 | Commander's Plate, Gift of Immortality, Witness Protection, Ghoulish Impetus |
+| 9 | x_value | 336 | 199 | 44 | Torment of Hailfire, Crackle with Power, Steel Hellkite, Shark Typhoon |
+| 10 | instead | 263 | 181 | 30 | Academy Manufactor, Incubation Druid, Aven Mindcensor, Twinning Staff |
+| 11 | as_long_as_static | 254 | 176 | 29 | Promise of Loyalty, The Reality Chip, Conqueror's Flail, Cloud, Midgar Mercenary |
+| 12 | reanimation | 219 | 118 | 17 | Sevinne's Reclamation, Agadeem's Awakening // Agadeem, the Undercrypt, Haven of the Spirit Dragon, Tergrid, God of Fright // Tergrid's Lantern |
+| 13 | free_cast | 185 | 112 | 36 | Tibalt's Trickery, Urza, Lord High Artificer, Expressive Iteration, Muldrotha, the Gravetide |
+| 14 | ability_word | 160 | 92 | 20 | Springheart Nantuko, Augur of Autumn, Ob Nixilis, the Fallen, Thunderfoot Baloth |
+| 15 | activation_cost | 102 | 75 | 28 | Priest of Forgotten Gods, Kozilek, the Great Distortion, Chainer, Nightmare Adept, Jaxis, the Troublemaker |
 
 ## Known shipped limitations and open items
 
@@ -332,22 +363,39 @@ Known approximations (correct in normal play; listed so nobody is surprised):
 
 ## Next session start instructions
 
-1. Start from PR #14 (`claude/beautiful-ramanujan-l9pev4`; the face-down id fix is merged, 6,698 tests); check CI.
+1. Start from PR #15 (`claude/beautiful-ramanujan-l9pev4`). GitHub CI has had no runners since 2026-10-10;
+   check whether that is fixed before trusting a red check, and verify locally (backend ruff, mypy, full
+   pytest; frontend `npm run typecheck`, `npx vitest run`; `npx playwright test` after `npm run build`).
 2. Set up: `cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]' 'mypy==2.3.1'
    pytest-xdist`; the card DB with `scripts/update-cards.sh --images none`; `cd frontend && npm ci`.
-3. Read this file and `.claude/skills/fyodor-game-development/SKILL.md`.
-4. Open items the reviews named (each small): the opening-hand step should not block game start on an
-   unexpected rules error (wrap `resolve._opening_steps`); squad/replicate/offspring still count as "kicked";
-   madness grants its cast before its trigger resolves (fixed for miracle only); borrowed abilities don't
-   include abilities the lender has only from other effects (613.8); the controller's own stops drive the
-   controlled player's priority; `RulesState.unlocked`/`foretold` keep stale entries. Face-down ids (18R review): an open decision whose
-   `source_id` was the old card shows the new id; turning an exiled face-up card face down in place keeps its id;
-   the older face-down `shuffle` renaming in `handlers/zones.py` rewrites only `copy_of`, not rules state.
-5. Still manual on purpose: unsettled rulings (a copied Room spell's door 709.5d, Hellrider-style damage
-   after leaving combat, "lands enter untapped"), Attractions (per-printing lights aren't in the data),
-   Bolas's Citadel, Garth One-Eye/Magar, Chrome Mox, Word of Command.
-6. Then continue the long-tail sweeps from a fresh `gap_rank` (mostly single-card wordings now), one family
-   per agent, each with a coverage diff, and an Opus head review for any new system.
+3. Read this file, `.claude/skills/fyodor-game-development/SKILL.md` and `docs/AUTOMATION_INVENTORY.md`.
+4. Follow-ups the wave 27–29 reviews named, most important first:
+   - **Hidden information:** "put the rest on the bottom in a random order" outside cascade and discover
+     (`rest_looked`, `rest_exiled`) still logs one move per card, so the new library order is readable.
+     Cascade and discover already use one batched move (`effects.bottom_at_random`); reuse it.
+   - **"If you do" (118.12):** the draw check now follows the player's choice. Exile, bounce and counter
+     checks still look at the result instead; research each against 118.12 and the rulings before changing.
+   - **Sacrificing the spell's own target while paying for it** (Ashnod's Altar mid-cast) is not offered;
+     the prompt explains it. Supporting it needs target re-checks after a replayed announcement.
+   - **Mana-ability damage with a prevention add-on** (Deflecting Palm) runs the add-on even though a mana
+     ability can't pause.
+   - **Hint and castable checks** (`can_pay`) don't know source or additional life costs; the cast is
+     refused with a message instead.
+   - **Sync endpoints** `game_summary` and `/rules/scenario` still read tables on the threadpool (derivation
+     state is now thread-local, so they no longer corrupt each other).
+   - **Free casts:** Ripple's "any order" puts the declined card last. In auto payment mode, a cost that
+     can't be paid is refused at the target answer (Cancel works).
+   - The older items from PR #14 below (opening-hand errors, squad/replicate as "kicked", madness timing,
+     613.8 borrowed abilities, stale `RulesState` entries, face-down id details).
+5. Still manual on purpose: unsettled rulings (Hellrider-style damage after leaving combat, a copied Room
+   spell's door, "lands enter untapped", "first time you would draw each turn", whether a permanent counts
+   itself for "enters with a counter for each <group>", Mad Wizard's Lair under a count-changing draw
+   replacement, Bloodletter's doubled life payments follow 119.4/118.11 with no ruling found), Attractions,
+   banding, outside-the-game, voting and piles, Phyrexian Unlife-style 704.5a statics.
+6. Coverage gains now come from engine features, not wording sweeps (wave 27 gained 32 cards in four
+   tracks). Pick features from a fresh `gap_rank` and `tools/inventory.py`, one per agent, each with a
+   coverage diff, a dump of every Commander-legal card's parsed definition at base and head (verify every
+   changed card), and an Opus head review.
 
 ## Usage control
 
