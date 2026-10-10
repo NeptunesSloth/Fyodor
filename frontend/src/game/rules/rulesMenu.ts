@@ -20,7 +20,10 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   const items: MenuItem[] = [];
   const hints = rules.hints;
   const data = card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
-  const mine = card.controller === me
+  // A card in another player's exile is yours to cast or play when the server lists it in your hints (Hostage Taker, Valgavoth).
+  const offered = zone === "exile" && player !== me && !!(hints.castable?.includes(card.id) || hints.free_castable?.includes(card.id)
+    || hints.playable_lands?.includes(card.id) || hints.alt_castable?.[card.id]);
+  const mine = card.controller === me || offered
     || (player === me && (zone === "hand" || zone === "command" || zone === "graveyard" || zone === "exile" || zone === "library"));
   const oracle = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
   // Other zones (your graveyard, exile, the top of your library): only when the server says a

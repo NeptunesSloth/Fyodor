@@ -94,8 +94,14 @@ PERMISSION = re.compile(
 # -- resolution memory (wave 22D) -- "You may play lands and cast spells from among cards exiled with this creature." (Nightveil Specter),
 # "During your turn, if an opponent lost life this turn, you may play lands and cast spells from among cards exiled with this enchantment."
 # (Theater of Horrors): a static permission (611.3a) over the cards the object's linked exiling ability exiled (607.2a)
+# -- linked permissions (wave 30H) -- also "You may cast spells from among cards exiled with ~." (Rona), "You may play lands from among …" (Hedonist's
+# Trove), "You may play cards exiled with ~ as long as you attacked this turn." (Pick Up the Pace), "You can't cast more than one spell this way each
+# turn." (Hedonist's Trove: once a turn, any turn) and "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+# (Valgavoth: the alternative cost of 118.9, 119.4, always paid when the permission is used)
 LINKED_PLAY = re.compile(r"^(?:(?P<during>during your turn), )?(?:(?:if|as long as) (?P<cond>[^,]+), )?you may "
-                         r"(?:play lands and cast spells from among|play) cards exiled with ~$")
+                         r"(?P<what>play lands and cast spells from among|cast spells from among|play lands from among|play) cards exiled with ~"
+                         r"(?: as long as (?P<cond2>[^,.]+))?(?:\. (?:(?P<once>[Yy]ou can't cast more than one spell this way each turn)"
+                         r"|(?P<life>[Ii]f you cast a spell this way, pay life equal to its mana value rather than pay its mana cost)))?$")
 
 
 def exiled_with_exiles(line: str) -> bool:
@@ -174,6 +180,7 @@ _FREE_MV = r"with mana value (?:(?P<n>\d+|X) or less|less than or equal to (?P<v
 FREE_AMONG = re.compile(
     r"^(?:you may )?cast (?:(?P<q>a|an|up to (?P<k>one|two|three)|any number of) )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?(?P<sp>spells?)"
     rf"(?: {_FREE_MV.replace('?P<n>', '?P<n1>').replace('?P<v>', '?P<v1>')})?"
+    r"(?: with mana value (?P<eq>X))?"  # -- linked casting (wave 30H) -- exactly X: "a spell with mana value X from among cards exiled with ~" (Kaho)
     r" from among (?P<src>them|those cards|those nonland cards|cards revealed this way|the revealed cards|the exiled cards"
     r"|cards exiled this way|the cards exiled this way)"
     rf"(?: {_FREE_MV.replace('?P<n>', '?P<n2>').replace('?P<v>', '?P<v2>')})?"
@@ -248,7 +255,7 @@ def _free_among(text: str) -> list[dict[str, Any]] | None:
     m = FREE_AMONG.fullmatch(text)
     if m is None:
         return None
-    if (m["n1"] or m["v1"]) and (m["n2"] or m["v2"]):
+    if (m["n1"] or m["v1"]) and (m["n2"] or m["v2"]) or (m["eq"] and (m["n1"] or m["v1"] or m["n2"] or m["v2"])):
         return None
     if m["q"] is None and m["sp"] != "spells":
         return None  # ("cast instant and sorcery spells … from among them": any number of them; "cast spell": not English)
@@ -261,8 +268,8 @@ def _free_among(text: str) -> list[dict[str, Any]] | None:
         return None
     # "zone": "among" — resolved to the cards looked at (still in the library: "looked") or to the
     # cards an earlier instruction moved ("that", a binding) by scripts.resolve_it
-    return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": key, "optional": True, "mv": mv,
-             "n": _FREE_COUNT[m["q"] or "any number of"]}]
+    return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": key, "optional": True, "mv": "x" if m["eq"] else mv,
+             "n": _FREE_COUNT[m["q"] or "any number of"], **({"mv_eq": True} if m["eq"] else {})}]
 
 
 # "You may cast it without paying its mana cost if it's a spell with lesser mana value." (Rashmi, Eternities
@@ -602,18 +609,21 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     # -- end top of library (wave 5I) --
     if (m := LINKED_PLAY.fullmatch(t)) is not None:  # -- resolution memory (wave 22D) -- 607.2a: "cards exiled with ~" (app/rules/exiled_with.py)
         cond = None
-        if m["cond"]:
+        if m["cond"] and m["cond2"] or (m["once"] and m["what"] != "cast spells from among") or (m["life"] and m["what"] != "play"):
+            return None
+        if m["cond"] or m["cond2"]:
             from app.rules import conditions
 
-            cond = conditions.parse(m["cond"])
+            cond = conditions.parse(m["cond"] or m["cond2"])
             if cond is None or "succeeded" in cond or "flag" in cond:
                 return None
         exiling = [x for x in lines if x.strip().rstrip(".") and exiled_with_exiles(x)]
         if not exiling or any("face down" in x.lower() for x in exiling):
             return None  # (the linked ability must be one that exiles: otherwise the permission has nothing to read; review 22D: a card
             # exiled face down is hidden even from its exiler unless the text lets them look, 406.3 — not read)
-        return {"kind": "static", "static": "permission", "zone": "exile", "linked": True, "once": False, "flash": False, "self": False,
-                "play": True, "cast": True, "filter": None, "effects": [],
+        return {"kind": "static", "static": "permission", "zone": "exile", "linked": True, "once": bool(m["once"]), "flash": False, "self": False,
+                "play": m["what"] != "cast spells from among", "cast": m["what"] != "play lands from among", "filter": None, "effects": [],
+                **({"once_any": True} if m["once"] else {}), **({"free": True, "life_mv": True} if m["life"] else {}),
                 **({"during": "your_turn"} if m["during"] else {}), **({"if": cond} if cond is not None else {})}
     m = PERMISSION.fullmatch(t)
     if m:
@@ -651,7 +661,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     # they had flash.", "You may activate abilities of creatures you control as though those creatures had haste."
     from app.rules import cast_limits
 
-    return cast_limits.static_definition(text)
+    found_limit = cast_limits.static_definition(text)
+    if found_limit is not None and found_limit.get("exiled_with_name") and any("face down" in x.lower() for x in lines):
+        return None  # -- linked exile (wave 30H) -- 406.3: a card exiled face down has no name to share (nor may the table learn it from what can't be cast)
+    return found_limit
 
 
 # -- as long as (wave 9B) -- 611.2b: the permission lasts for as long as the card (the object an earlier instruction exiled,
@@ -702,6 +715,10 @@ _PLAY_RIDER = re.compile(r"(?P<g>You may (?:play|cast) (?P<w>that card|those car
 
 def join_exile_play(body: str) -> str:
     """The wordings above as the sentences the permission grammar reads (permissions.GRANT_EXILED, LOOK_EXILED)."""
+    from app.rules import exiled_with
+
+    if exiled_with.linked():  # -- linked casting (wave 30H) -- 607.2a
+        body = exiled_with.among(body)
     # (Ugin, the Ineffable: "Exile the top card of your library face down and look at it." — 406.3: whoever looked may go on looking;
     # "put the exiled card into your hand" is the return of that card, 400.3)
     body = re.sub(r"([Ee]xile the top card of your library face down) and look at it\b", r"\1. You may look at it for as long as it remains exiled",
@@ -997,7 +1014,11 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 continue
             if d.get("if") is not None and not _linked_if(state, info, player, src, d["if"]):
                 continue
-            out.append(Grant("permission", src.name, zone_ok=True))
+            key = f"{src.id}:permission:{index}"  # -- linked permissions (wave 30H) -- "You can't cast more than one spell this way each turn."
+            if d["once"] and r.once_per_turn.get(key) == turn:
+                continue
+            out.append(Grant("permission", src.name, zone_ok=True, free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
+                             once_key=key if d["once"] else None))
             continue
         if d["zone"] != "any" and d["zone"] != where:
             continue
@@ -1397,7 +1418,7 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                     options.append(DecisionOption(id=_option_id(cid, face), label=f"{ch.name or card.name or 'Card'} (play as a land)",
                                                   card_id=cid))
                 continue
-            if limit is not None and ch.mana_value > limit:
+            if limit is not None and (ch.mana_value > limit or (e.get("mv_eq") and ch.mana_value != limit)):
                 continue
             if e.get("paid") and not ch.mana_cost:
                 continue  # (review 18F) 118.6: no mana cost is an unpayable cost (Living End's copy can't be cast by paying it)

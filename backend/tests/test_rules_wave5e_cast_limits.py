@@ -103,6 +103,8 @@ def can_cast(s, pid, c):
     ("Each player can't cast more than one spell each turn.", {"who": "each", "max": 1, "filter": None}),
     ("You can't cast creature spells.", {"who": "you"}),
     ("Activated abilities of artifacts your opponents control can't be activated.", {"act": "of", "spells": False}),
+    # (wave 30H) read since the cards exiled with the source are known (607.2a): the name test is made against them when the cast is judged
+    ("Your opponents can't cast spells with the same name as a card exiled with ~.", {"who": "opponents", "exiled_with_name": True}),
 ])
 def test_static_wordings(text, expected):
     d = cast_limits.static_definition(text)
@@ -127,7 +129,6 @@ def test_flash_and_haste_wordings():
     "Your opponents can't cast spells with even mana values.",
     "As long as this Equipment is attached to a creature, your opponents can't cast spells during your turn.",
     "Your opponents can't cast spells with mana value 3 or less.",
-    "Your opponents can't cast spells with the same name as a card exiled with ~.",
     "Each opponent who attacked with a creature this turn can't cast spells.",
 ])
 def test_refused_statics(text):
