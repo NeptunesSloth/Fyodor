@@ -1173,5 +1173,101 @@
   ],
   "power": "2",
   "toughness": "2"
+ },
+ {
+  "name": "Grenzo, Havoc Raiser",
+  "layout": "normal",
+  "mana_cost": "{R}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Goblin Rogue",
+  "oracle_text": "Whenever a creature you control deals combat damage to a player, choose one —\n• Goad target creature that player controls.\n• Exile the top card of that player's library. Until end of turn, you may cast that card and you may spend mana as though it were mana of any color to cast that spell.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Goad"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Rankle, Master of Pranks",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Faerie Rogue",
+  "oracle_text": "Flying, haste\nWhenever Rankle deals combat damage to a player, choose any number —\n• Each player discards a card.\n• Each player loses 1 life and draws a card.\n• Each player sacrifices a creature of their choice.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying",
+   "Haste"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Thassa, Deep-Dwelling",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Enchantment Creature — God",
+  "oracle_text": "Indestructible\nAs long as your devotion to blue is less than five, Thassa isn't a creature.\nAt the beginning of your end step, exile up to one other target creature you control, then return that card to the battlefield under your control.\n{3}{U}: Tap another target creature.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Indestructible"
+  ],
+  "power": "6",
+  "toughness": "5"
+ },
+ {
+  "name": "Enduring Innocence",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment Creature — Sheep Glimmer",
+  "oracle_text": "Lifelink\nWhenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn.\nWhen Enduring Innocence dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment. (It's not a creature.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Lifelink"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Welcoming Vampire",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Vampire",
+  "oracle_text": "Flying\nWhenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "3"
  }
 ]

@@ -17,6 +17,7 @@ from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
+from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
@@ -832,3 +833,383 @@ def test_anim_pakal_makes_its_gnomes_attack_whom_alice_chooses_even_if_it_left(c
     assert len(gnomes) == 2 and all(g.tapped for g in gnomes), len(gnomes)
     assert sorted(g.attacking.id for g in gnomes) == ["p2", "p3"], [g.attacking for g in gnomes]
     check(s)
+
+
+def bolt_from(s, c, target):
+    """``c`` (a Lightning Bolt in its owner's hand) is cast at ``target`` once its owner has priority (the other players pass), paid from the pool."""
+    mana(s, c.owner, R=1)
+    while s.state.rules.priority != c.owner:
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, c.owner, type="cast_spell", card_id=c.id, targets=[target])
+
+
+def all_bolts(s):
+    out = {}
+    for c in s.state.cards.values():
+        if c.name == "Lightning Bolt":
+            out.setdefault(c.owner, []).append(c)
+    for owner, cs in out.items():
+        for c in cs:
+            act(s, owner, type="move", card_ids=[c.id], to={"zone": "hand"})
+    return out
+
+
+def test_gisela_doubles_damage_to_my_opponents_and_halves_damage_to_me(cards):
+    """Gisela, Blade of Goldnight: "If a source would deal damage to an opponent or a permanent an opponent controls, that source deals double
+    that damage … If a source would deal damage to you or a permanent you control, prevent half that damage, rounded up." (614.1, 615.1)
+    Any source — Bob's own Bolt at Alice does 3 - 2 = 1; Alice's Bolt at Bob or at Carol does 6; a Bolt at Alice's Bears does 1 (they live)."""
+    s = three(cards, ["Gisela, Blade of Goldnight", "Grizzly Bears", "Lightning Bolt"], ["Lightning Bolt", "Lightning Bolt"], ["Lightning Bolt"])
+    respond_on(s)
+    put(s, "Gisela, Blade of Goldnight")
+    mine = put(s, "Grizzly Bears")
+    bolts = all_bolts(s)
+    bolt_from(s, bolts["p1"][0], "p2")
+    settle(s)
+    assert life(s, "p2") == 34, life(s, "p2")
+    bolt_from(s, bolts["p3"][0], "p3")  # Carol bolts herself: she is Alice's opponent too
+    settle(s)
+    assert life(s, "p3") == 34, life(s, "p3")
+    bolt_from(s, bolts["p2"][0], "p1")
+    settle(s)
+    assert life(s, "p1") == 39, life(s, "p1")
+    bolt_from(s, bolts["p2"][1], mine.id)
+    settle(s)
+    assert s.state.cards[mine.id].zone == "p1:battlefield" and s.state.cards[mine.id].damage == 1, (s.state.cards[mine.id].zone, s.state.cards[mine.id].damage)
+    check(s)
+
+
+@pytest.mark.parametrize(("answer", "dealt"), [("yes", 2), ("no", 3)])  # ("yes": Gisela first)
+def test_solphim_against_gisela_lets_the_damaged_player_order_double_and_prevent(cards, answer, dealt):
+    """Alice's Solphim (double noncombat damage to an opponent) against Bob's Gisela (prevent half of the damage to him, rounded up): both
+    change the damage to Bob, so Bob chooses the order (616.1, Gisela's ruling): double first 3 → 6 → 3 left after preventing half;
+    prevent first 3 → 1 left (half, rounded up, is 2) → doubled to 2."""
+    s = build(cards, ["Solphim, Mayhem Dominus", "Lightning Bolt"], ["Gisela, Blade of Goldnight"], forests=20)
+    respond_on(s)
+    put(s, "Solphim, Mayhem Dominus")
+    put(s, "Gisela, Blade of Goldnight", "p2")
+    bolt = all_bolts(s)["p1"][0]
+    bolt_from(s, bolt, "p2")
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is not None:
+            assert d.player == "p2", (d.player, d.kind, d.prompt)  # (the damaged player orders them)
+            act(s, "p2", type="choose", decision_id=d.id, option_ids=[answer])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert life(s, "p2") == 40 - dealt, life(s, "p2")
+    check(s)
+
+
+def test_ulamog_countered_still_destroys_and_then_shuffles_the_graveyard_in(cards):
+    """Ulamog, the Infinite Gyre: "When you cast this spell, destroy target permanent." is independent of the spell (113.7a, 603.3); "When
+    Ulamog is put into a graveyard from anywhere, its owner shuffles their graveyard into their library." — a countered spell goes from the
+    stack to the graveyard, and the shuffle takes the cards already there too."""
+    s = build(cards, ["Ulamog, the Infinite Gyre", "Sol Ring"], ["Grizzly Bears", "Counterspell"], forests=20)
+    respond_on(s)
+    bears = put(s, "Grizzly Bears", "p2")
+    ring = put(s, "Sol Ring")
+    act(s, "p1", type="move", card_ids=[ring.id], to={"player": "p1", "zone": "graveyard"})
+    ulamog = to_hand(s, "Ulamog, the Infinite Gyre")
+    counter = to_hand(s, "Counterspell", "p2")
+    mana(s, C=11)
+    act(s, "p1", type="cast_spell", card_id=ulamog.id, targets=[bears.id])
+    d = s.state.rules.decision
+    if d is not None:  # (the trigger's target, if it is asked)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.card_id == bears.id)])
+    mana(s, "p2", U=2)
+    while s.state.rules.priority != "p2":
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=counter.id, targets=[ulamog.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:graveyard"
+    assert s.state.cards[ulamog.id].zone == "p1:library" and ring.id in s.state.zones["p1:library"] and not s.state.zones["p1:graveyard"], (
+        s.state.cards[ulamog.id].zone, names(s, "graveyard"))
+    check(s)
+
+
+@pytest.mark.parametrize(("division", "expected"), [([1, 1], (2, 2)), ([2, 0], (4, None))])
+def test_earth_crystal_doubles_each_part_of_a_distribution(cards, division, expected):
+    """The Earth Crystal: "{4}{G}{G}, {T}: Distribute two +1/+1 counters among one or two target creatures you control." and "If one or more
+    +1/+1 counters would be put on a creature you control, twice that many … instead." (601.2d, 614.1) The two are divided first (1 and 1, or
+    both on one creature), and each creature's share is doubled: 2 and 2, or 4 on one."""
+    s = build(cards, ["The Earth Crystal", "Grizzly Bears", "Llanowar Elves"], forests=20)
+    crystal, bears, elves = put(s, "The Earth Crystal"), put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    mana(s, G=2, C=4)
+    targets = [bears.id, elves.id] if division[1] else [bears.id]
+    act(s, "p1", type="activate_ability", card_id=crystal.id, ability=2, targets=targets, target_counts=[len(targets)], division=division if division[1] else [])  # (one target gets both without a division)
+    settle(s)
+    got = (s.state.cards[bears.id].counters.get("+1/+1", 0), s.state.cards[elves.id].counters.get("+1/+1", 0) if division[1] else None)
+    assert got == expected, got
+    check(s)
+
+
+def test_elas_il_kor_sees_the_others_die_with_it_and_drains_every_opponent(cards):
+    """Elas il-Kor, Sadistic Pilgrim: "Whenever another creature you control dies, each opponent loses 1 life." A sweeper kills Elas and two
+    other creatures at once: she sees them die (603.10a leaves-the-battlefield look-back), so each opponent loses 2 — not for herself, nor
+    for Bob's creature — and with three players both opponents lose it."""
+    s = three(cards, ["Elas il-Kor, Sadistic Pilgrim", "Grizzly Bears", "Llanowar Elves", "Day of Judgment"], ["Grizzly Bears"])
+    put(s, "Elas il-Kor, Sadistic Pilgrim")
+    put(s, "Grizzly Bears")
+    put(s, "Llanowar Elves")
+    put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Day of Judgment")
+    mana(s, W=2, C=2)
+    cast(s, "Day of Judgment")
+    assert [c for c in names(s, "battlefield") if c != "Forest"] == []
+    assert (life(s, "p2"), life(s, "p3"), life(s, "p1")) == (38, 38, 40), (life(s, "p2"), life(s, "p3"), life(s, "p1"))
+    check(s)
+
+
+def test_marionette_apprentice_counts_an_artifact_creature_once(cards):
+    """Marionette Apprentice: "Whenever another creature or artifact you control is put into a graveyard from the battlefield, each opponent
+    loses 1 life." A Servo (an artifact creature, 205.1b) is one object: one trigger, not two; Bob's artifact doesn't count."""
+    s = build(cards, ["Marionette Apprentice", "Lightning Bolt"], ["Sol Ring"], forests=20)
+    put(s, "Marionette Apprentice")
+    servo = make_token(s, "p1", "Servo", "Token Artifact Creature — Servo", "1/1")
+    ring = put(s, "Sol Ring", "p2")
+    to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    cast(s, "Lightning Bolt", targets=[servo])
+    assert life(s, "p2") == 39, life(s, "p2")
+    act(s, "p2", type="move", card_ids=[ring.id], to={"player": "p2", "zone": "graveyard"})
+    assert life(s, "p2") == 39
+    check(s)
+
+
+def test_zopandrel_doubles_the_current_power_and_toughness_at_every_combat(cards):
+    """Zopandrel, Hunger Dominus: "At the beginning of each combat, double the power and toughness of each creature you control until end of
+    turn." (701.10: +X/+X where X is each creature's own value as the effect resolves, Giant Growth's +3/+3 included, 613.4c.) Each combat —
+    Bob's too — and each creature separately."""
+    s = build(cards, ["Zopandrel, Hunger Dominus", "Grizzly Bears", "Giant Growth"], forests=20)
+    respond_on(s)
+    put(s, "Zopandrel, Hunger Dominus")
+    bears = put(s, "Grizzly Bears")
+    zbase = pt(s, "Zopandrel, Hunger Dominus")
+    to_hand(s, "Giant Growth")
+    mana(s, G=1)
+    cast(s, "Giant Growth", targets=[bears.id])
+    assert pt(s, "Grizzly Bears") == (5, 5)
+    to_phase(s, "declare_attackers", turn=1)  # (the beginning-of-combat trigger has resolved by then)
+    assert pt(s, "Grizzly Bears") == (10, 10) and pt(s, "Zopandrel, Hunger Dominus") == (zbase[0] * 2, zbase[1] * 2), (
+        pt(s, "Grizzly Bears"), pt(s, "Zopandrel, Hunger Dominus"))
+    check(s)
+
+
+def test_sheoldred_makes_each_opponent_sacrifice_their_own_choice_in_their_own_upkeep(cards):
+    """Sheoldred, Whispering One: "At the beginning of each opponent's upkeep, that player sacrifices a creature of their choice." With three
+    players: Bob chooses in his upkeep and Carol in hers (701.21a: their creatures, their choice — never Alice's), and Alice's own upkeep
+    trigger returns a creature card from her graveyard."""
+    s = three(cards, ["Sheoldred, Whispering One", "Grizzly Bears"], ["Grizzly Bears", "Twisted Abomination"], ["Grizzly Bears", "Twisted Abomination"])
+    respond_on(s)
+    put(s, "Sheoldred, Whispering One")
+    mine = card_named(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[mine.id], to={"player": "p1", "zone": "graveyard"})
+    for pid in ("p2", "p3"):
+        put(s, "Grizzly Bears", pid)
+        put(s, "Twisted Abomination", pid)
+    asked = []
+    for _ in range(150):
+        if s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None:
+            break
+        d = s.state.rules.decision
+        if d is not None:
+            asked.append((s.state.turn.number, d.player, d.kind))
+            if d.kind in ("declare_attackers", "declare_blockers"):
+                act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+            else:
+                pick = [o.id for o in d.options if o.card_id and s.state.cards[o.card_id].name == "Twisted Abomination"] or [o.id for o in d.options]
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=pick[:1])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert [(t, p) for t, p, k in asked if k == "choose_cards"] == [(2, "p2"), (3, "p3")], asked  # (each opponent picks, in their own turn)
+    assert names(s, "battlefield", "p2").count("Grizzly Bears") == 1 and "Twisted Abomination" not in names(s, "battlefield", "p2"), names(s, "battlefield", "p2")
+    assert names(s, "battlefield", "p3").count("Grizzly Bears") == 1 and "Twisted Abomination" not in names(s, "battlefield", "p3"), names(s, "battlefield", "p3")
+    assert names(s, "battlefield").count("Grizzly Bears") == 1  # (Alice's own upkeep: the Bears from her graveyard)
+    check(s)
+
+
+@pytest.mark.parametrize("with_land", [True, False])
+def test_gitrog_monster_upkeep_sacrifice_a_land_draws_or_it_is_sacrificed(cards, with_land):
+    """The Gitrog Monster: "At the beginning of your upkeep, sacrifice The Gitrog Monster unless you sacrifice a land." and "Whenever one or
+    more land cards are put into your graveyard from anywhere, draw a card." (118.12) The land sacrificed to keep it is a land card going to the
+    graveyard, so it draws one more card than the draw step; with no land to sacrifice the Gitrog Monster itself is sacrificed."""
+    s = build(cards, ["The Gitrog Monster"], forests=20)
+    respond_on(s)
+    gitrog = put(s, "The Gitrog Monster")
+    if with_land:
+        land = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")
+        act(s, "p1", type="move", card_ids=[land.id], to={"player": "p1", "zone": "battlefield"})
+    to_phase(s, "upkeep", turn=3)
+    hand = len(s.state.zones["p1:hand"])
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is not None and s.state.turn.phase == "upkeep":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((o.id for o in d.options if o.card_id and s.state.cards[o.card_id].name == "Forest"), d.options[0].id)])
+        elif s.state.zones.get("stack") or s.state.turn.phase == "upkeep":
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    to_phase(s, "main1", turn=3)
+    settle(s)
+    if with_land:
+        assert s.state.cards[gitrog.id].zone == "p1:battlefield" and land.id in s.state.zones["p1:graveyard"]
+        assert len(s.state.zones["p1:hand"]) == hand + 2, (hand, len(s.state.zones["p1:hand"]))  # draw step + the Gitrog Monster
+    else:
+        assert s.state.cards[gitrog.id].zone == "p1:graveyard" and len(s.state.zones["p1:hand"]) == hand + 1
+    check(s)
+
+
+def test_grenzo_only_offers_the_goad_mode_when_that_player_has_a_creature_and_any_color_covers_one_card(cards):
+    """Grenzo, Havoc Raiser: "choose one — Goad target creature that player controls; or exile the top card of that player's library. Until
+    end of turn, you may cast that card and you may spend mana as though it were mana of any color to cast that spell." Bob has no creature, so
+    the first mode has no legal target and can't be chosen (601.2b, 700.2a); the exiled Bolt may be paid with green mana (609.4b), and
+    only that spell is."""
+    s = build(cards, ["Grenzo, Havoc Raiser", "Lightning Bolt"], ["Lightning Bolt"], forests=20)
+    grenzo = put(s, "Grenzo, Havoc Raiser")
+    to_phase(s, "declare_attackers", turn=3)
+    theirs = card_named(s, "Lightning Bolt", "p2")
+    act(s, "p2", type="move", card_ids=[theirs.id], to={"player": "p2", "zone": "library"}, position="top")
+    to_hand(s, "Lightning Bolt")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": grenzo.id, "target": "p2"}])
+    modes_seen = []
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None:
+            if s.state.turn.phase == "main2":
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        else:
+            modes_seen.append([o.label for o in d.options])
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[-1].id])
+    settle(s)
+    assert not any("Goad" in label for labels in modes_seen for label in labels), modes_seen
+    assert s.state.cards[theirs.id].zone == "p2:exile", s.state.cards[theirs.id].zone
+    mana(s, G=1)
+    mine = card_named(s, "Lightning Bolt")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=mine.id, targets=["p2"])  # (Alice's own Bolt still needs red)
+    act(s, "p1", type="cast_spell", card_id=theirs.id, targets=["p2"])
+    settle(s)
+    assert s.state.cards[theirs.id].zone == "p2:graveyard" and life(s, "p2") == 40 - 2 - 3, (s.state.cards[theirs.id].zone, life(s, "p2"))
+    check(s)
+
+
+def test_thassa_deep_dwelling_flickers_under_your_control_not_the_owners(cards):
+    """Thassa, Deep-Dwelling: "At the beginning of your end step, exile up to one other target creature you control, then return that card to
+    the battlefield under your control." — unlike Displacer Kitten it says "your control": Bob's Bears that Alice controls come back to Alice
+    (the owner is still Bob, 110.2), as a new untapped object (400.7); a token doesn't come back at all (111.7)."""
+    s = build(cards, ["Thassa, Deep-Dwelling"], ["Grizzly Bears"], forests=20)
+    respond_on(s)
+    put(s, "Thassa, Deep-Dwelling")
+    bears = put(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="set_controller", card_ids=[bears.id], player="p1")
+    act(s, "p1", type="tap", card_ids=[bears.id], tapped=True)  # (the flicker brings it back untapped: a new object)
+    to_phase(s, "end", turn=1)
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options if o.card_id == bears.id] or [d.options[0].id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids[:1])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    got = s.state.cards[bears.id]
+    assert (got.zone, got.owner, got.controller, got.tapped) == ("p1:battlefield", "p2", "p1", False), (got.zone, got.owner, got.controller, got.tapped)
+    check(s)
+
+
+@pytest.mark.parametrize(("when", "back_on_turn"), [("main1", 1), ("end", 2)])
+def test_nezahal_returns_at_the_next_end_step_not_the_one_already_begun(cards, when, back_on_turn):
+    """Nezahal, Primal Tide: "Discard three cards: Exile Nezahal. Return it to the battlefield tapped under its owner's control at the beginning
+    of the next end step." (603.7: a delayed trigger waits for the next time the step begins — activated in the end step itself it
+    waits for the following turn's.) It comes back as a new object, tapped."""
+    s = build(cards, ["Nezahal, Primal Tide"], forests=20)
+    respond_on(s)
+    nez = put(s, "Nezahal, Primal Tide")
+    for c in [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library"][:4]:
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+    hand = len(s.state.zones["p1:hand"])
+    to_phase(s, when, turn=1)
+    act(s, "p1", type="activate_ability", card_id=nez.id, ability=3)
+    for _ in range(4):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices) if d.min_choices else 3])
+    if s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+        while s.state.zones.get("stack") and s.state.rules.decision is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[nez.id].zone == "p1:exile" and len(s.state.zones["p1:hand"]) == hand - 3, (s.state.cards[nez.id].zone, len(s.state.zones["p1:hand"]))
+    seen_back = None
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            if s.state.cards[nez.id].zone == "p1:battlefield":
+                seen_back = s.state.turn.number
+                break
+            if s.state.turn.number == 3:
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert seen_back == back_on_turn, seen_back
+    assert s.state.cards[nez.id].tapped and s.state.cards[nez.id].controller == "p1"
+    check(s)
+
+
+def test_annihilator_hits_the_controller_of_the_attacked_planeswalker_not_the_first_opponent(cards):
+    """Ulamog, the Infinite Gyre: "Annihilator 4 (Whenever this creature attacks, defending player sacrifices four permanents of their
+    choice.)" Attacking Carol's planeswalker makes Carol the defending player (506.3d, 702.86a): she sacrifices, and Bob doesn't."""
+    s = three(cards, ["Ulamog, the Infinite Gyre"], ["Island"], ["Jace Beleren", "Island"])
+    ulamog = put(s, "Ulamog, the Infinite Gyre")
+    jace = put(s, "Jace Beleren", "p3")
+    act(s, "p3", type="counter", card_ids=[jace.id], kind="loyalty", delta=3)
+    for pid in ("p2", "p3"):
+        for c in [c for c in s.state.cards.values() if c.name == "Island" and c.owner == pid and c.zone == f"{pid}:library"][:6]:
+            act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "battlefield"})
+    before = {pid: len(s.state.zones[f"{pid}:battlefield"]) for pid in ("p2", "p3")}
+    to_phase(s, "declare_attackers", turn=4)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": ulamog.id, "target": jace.id}])
+    asked = []
+    for _ in range(14):
+        d = s.state.rules.decision
+        if d is None:
+            if s.state.zones.get("stack"):
+                act(s, s.state.rules.priority, type="pass_priority")
+                continue
+            break
+        asked.append((d.player, d.kind))
+        if d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    assert [p for p, k in asked if k == "choose_cards"] == ["p3"], asked  # (Bob only gets to declare no blockers)
+    assert len(s.state.zones["p2:battlefield"]) == before["p2"]
+    assert len(s.state.zones["p3:battlefield"]) <= before["p3"] - 4, (before, len(s.state.zones["p3:battlefield"]))
+    check(s)
+
+
+FULL_AFTER_FALSIFICATION = [
+    "Displacer Kitten", "Helm of the Host", "Mondrak, Glory Dominus", "Elspeth, Storm Slayer", "Ephemerate", "Whip of Erebos",
+    "Wishclaw Talisman", "Malakir Rebirth // Malakir Mire", "Enduring Vitality", "Sundering Eruption // Volcanic Fissure",
+    "Vorinclex, Monstrous Raider", "Ozolith, the Shattered Spire", "The Earth Crystal", "Delayed Blast Fireball", "Lathril, Blade of the Elves",
+    "Alchemist's Talent", "Ragavan, Nimble Pilferer", "Professional Face-Breaker", "Lotho, Corrupt Shirriff", "Crypt Ghast", "Scute Swarm",
+    "Plaguebearer", "Greater Good", "Nasty End", "Dina, Soul Steeper", "Phyrexian Metamorph", "Anim Pakal, Thousandth Moon",
+    "Gisela, Blade of Goldnight", "Solphim, Mayhem Dominus", "Ulamog, the Infinite Gyre", "Elas il-Kor, Sadistic Pilgrim", "Marionette Apprentice",
+    "Zopandrel, Hunger Dominus", "Sheoldred, Whispering One", "The Gitrog Monster", "Grenzo, Havoc Raiser", "Thassa, Deep-Dwelling",
+    "Nezahal, Primal Tide", "Tireless Tracker",
+]
+
+
+@pytest.mark.parametrize("name", FULL_AFTER_FALSIFICATION)
+def test_falsified_cards_are_still_full(cards, name):
+    """Every card above survived its adversarial scenario (or was fixed) and stays FULL: the scenarios are the proof."""
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
