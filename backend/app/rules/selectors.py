@@ -181,6 +181,13 @@ def _attached_to_creature(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "attached_creature_you" if m["you"] else "attached_creature"))
 
 
+# -- attack restrictions (wave 32B) -- "Each creature that's enchanted by an Aura you control can't attack you" (Eriette): an Aura on it that the effect's controller
+# controls (303.4; unlike "modified", 700.9, the Aura's controller is "you", not the creature's); before the controller suffix, whose "you control" is the Aura's
+@_suffix(r"that(?:['’]s| is| are) enchanted by an Aura you control")
+def _enchanted_by_your_aura(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "enchanted_by_yours"))
+
+
 @_suffix(r"(?:that )?you control")
 def _you_control(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="you")
@@ -1601,6 +1608,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "equipped" and not _has_attached(plan, card, "Equipment"):
             return False
+        if extra == "enchanted_by_yours" and not any(c.attached_to == card.id and "Aura" in plan.ch(c).subtypes and c.controller == you
+                                                     for c in plan.state.cards.values()):
+            return False  # (wave 32B)
         if extra == "enchanted_or_equipped" and not (_has_attached(plan, card, "Aura") or _has_attached(plan, card, "Equipment")):
             return False
         # -- grammar (wave 11C) -- 700.9:a counter on it, equipped, or enchanted by an Aura its own controller controls

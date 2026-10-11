@@ -112,7 +112,7 @@ def test_planetary_annihilation_keeps_six_lands_then_deals_damage(cards):
     ("Divine Reckoning", "Sorcery", DIVINE_RECKONING, "FULL"),
     ("Razia's Purification", "Sorcery", PURIFICATION, "FULL"),
     ("Single Combat", "Sorcery", "Each player chooses a creature or planeswalker they control, then sacrifices the rest. Players can't "
-                                  "cast creature or planeswalker spells until the end of your next turn.", "PARTIAL"),
+                                  "cast creature or planeswalker spells until the end of your next turn.", "FULL"),  # (wave 32C)
     ("Duneblast", "Instant", "Choose up to one creature. Destroy the rest.", "PARTIAL"),
 ])
 def test_coverage_levels(name, type_line, text, level):
