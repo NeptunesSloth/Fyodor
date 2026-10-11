@@ -10,6 +10,12 @@ a time (header, amount, source, recipients, a sibling sentence). Three reasons w
 * "… unless its controller has ~ deal damage to them equal to his power" / "… deal that much damage to them" (Combustion Man, Craig Boone): the amount is read
   as the payment is offered (608.2h); the damage is the source's (120.3), so a prevention shield stops it, and the cost still counts as chosen (118.12a).
 * "deals that much damage to any other target" (Black Panther): any target but the creature that deals it (115.4); its lifelink and deathtouch count (120.3).
+
+The same total also unlocked "damage equal to its power divided as you choose" (Orca: its power as it last existed, 608.2h), "distribute X +1/+1 counters
+… where X is the number of +1/+1 counters on this creature" (Quirion Beastcaller) and Serra's Hymn's divided prevention. Smaller pieces: "Max speed —
+If a source you control would deal damage …, it deals that much damage plus 1 instead" (Far Fortune, 702.178a), "Whenever you cast a spell, if that spell
+was kicked" (Hallar, Bloodstone Goblin), "creatures that player controls that didn't attack this turn" (Kratos). Kept manual: the tap-all count "creatures
+tapped this way" (Angel's Trumpet, Monsoon), Iron Fist (a granted ability naming the granter), Ian the Reckless ("if it's modified, you may …").
 """
 
 from __future__ import annotations
@@ -42,7 +48,7 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave34d_damage_cards.js
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w34d", number=f"D{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-FULL = ["Far Fortune, End Boss", "Hallar, the Firefletcher", "Bloodstone Goblin", "Kratos, God of War", "Ureni, the Song Unending", "Jaws of Stone", "Volcanic Wind", "Monstrous Onslaught", "Magmatic Core", "Combustion Man",
+FULL = ["Orca, Siege Demon", "Quirion Beastcaller", "Red Hulk", "Serra's Hymn", "Far Fortune, End Boss", "Hallar, the Firefletcher", "Bloodstone Goblin", "Kratos, God of War", "Ureni, the Song Unending", "Jaws of Stone", "Volcanic Wind", "Monstrous Onslaught", "Magmatic Core", "Combustion Man",
         "Craig Boone, Novac Guard", "Black Panther, Most Dangerous"]
 
 
@@ -398,6 +404,91 @@ def test_kratos_deals_damage_for_the_creatures_that_did_not_attack(cards):
     answer(s)
     until(s, lambda s: s.state.turn.number == 2)  # (Alice's end step: Kratos's trigger resolved with the rest of her turn)
     assert life(s, "p1") == 40 - 2
+    check(s)
+
+
+def bolt(s, target, pid="p1"):
+    """A Lightning Bolt from the library into the hand, cast at ``target`` with red mana."""
+    c = next(c for c in s.state.cards.values() if c.name == "Lightning Bolt" and c.owner == pid and c.zone == f"{pid}:library")
+    act(s, pid, type="move", card_ids=[c.id], to={"zone": "hand"})
+    mana(s, pid, R=1)
+    act(s, pid, type="cast_spell", card_id=c.id, targets=[target])
+
+
+# -- the same total elsewhere: Quirion Beastcaller (counters), Serra's Hymn (prevention), Red Hulk ("any other target") -----------
+def test_quirion_beastcaller_divides_the_counters_it_had_when_it_died(cards):
+    """608.2h, 608.2d: its +1/+1 counters as it last existed (3) are what the dies trigger distributes, announced as it goes on the stack."""
+    s = sandbox(cards, "Quirion Beastcaller", "Lightning Bolt", "Lightning Bolt")
+    caller = on_field(s, "Quirion Beastcaller")
+    a = creature(s, "p1", "Alice's Bear", "2/2")
+    b = creature(s, "p1", "Alice's Wolf", "2/2")
+    main_phase(s)
+    act(s, "p1", type="counter", card_ids=[caller.id], kind="+1/+1", delta=3)  # a 5/5
+    bolt(s, caller.id)
+    answer(s)  # (3 damage on a 5/5)
+    bolt(s, caller.id)  # (6: it dies, with its three counters)
+    d = pick_targets(s, "Bear", "Wolf")
+    assert d.kind == "divide" and d.display["total"] == 3
+    act(s, "p1", type="choose", decision_id=d.id, amounts=[2, 1])
+    answer(s)
+    assert sorted((counters(s, a), counters(s, b))) == [1, 2]
+    check(s)
+
+
+def test_orca_divides_the_power_it_last_had(cards):
+    """608.2h: "damage equal to its power divided as you choose" is Orca's power as it last existed (5 and the counter it grew: 6), announced when the dies
+    trigger goes on the stack (601.2d)."""
+    s = sandbox(cards, "Orca, Siege Demon", "Lightning Bolt", "Lightning Bolt")
+    orca = on_field(s, "Orca, Siege Demon")
+    wall = creature(s, "p2", "Bob's Wall", "0/10")
+    tower = creature(s, "p2", "Bob's Tower", "0/10")
+    main_phase(s)
+    act(s, "p1", type="counter", card_ids=[orca.id], kind="+1/+1", delta=1)  # a 6/6
+    bolt(s, orca.id)
+    answer(s)
+    bolt(s, orca.id)
+    d = pick_targets(s, "Wall", "Tower")
+    assert d.kind == "divide" and d.display["total"] == 6
+    act(s, "p1", type="choose", decision_id=d.id, amounts=[4, 2])
+    answer(s)
+    assert (damage(s, wall), damage(s, tower)) == (4, 2)
+    check(s)
+
+
+def test_serras_hymn_prevents_the_damage_as_divided_when_it_was_activated(cards):
+    """601.2d, 601.2h: the division is announced before the cost (sacrificing the Hymn) is paid, so X is its verse counters then (2): 1 for each Bear."""
+    s = sandbox(cards, "Serra's Hymn", "Lightning Bolt")
+    hymn = on_field(s, "Serra's Hymn")
+    a = creature(s, "p1", "Alice's Bear", "3/3")
+    creature(s, "p1", "Alice's Wolf", "3/3")
+    main_phase(s)
+    act(s, "p1", type="counter", card_ids=[hymn.id], kind="verse", delta=2)
+    act(s, "p1", type="activate_ability", card_id=hymn.id, ability=1)
+    d = pick_targets(s, "Bear", "Wolf")
+    assert d.kind == "divide" and d.display["total"] == 2
+    act(s, "p1", type="choose", decision_id=d.id, amounts=[1, 1])
+    answer(s)
+    assert s.state.cards[hymn.id].zone == "p1:graveyard"
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[a.id])
+    answer(s)
+    assert damage(s, a) == 2 and s.state.cards[a.id].zone == "p1:battlefield"  # 3 - 1 prevented: a 3/3 survives
+    check(s)
+
+
+def test_red_hulks_reflexive_damage_goes_to_any_other_target(cards):
+    """115.4: "he deals damage equal to the number of +1/+1 counters on him to any other target" never offers Red Hulk himself."""
+    s = sandbox(cards, "Red Hulk", "Lightning Bolt")
+    hulk = on_field(s, "Red Hulk")
+    wurm = creature(s, "p2", "Bob's Wurm", "5/5")
+    main_phase(s)
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[hulk.id])
+    d = until_asked(s)
+    assert d.player == "p1" and "target" in d.prompt.lower() and not any("Red Hulk" in o.label for o in d.options)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if "Wurm" in o.label)])
+    answer(s)
+    assert counters(s, hulk) == 1 and damage(s, wurm) == 1
     check(s)
 
 

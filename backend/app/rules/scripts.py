@@ -4002,6 +4002,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # -- damage sized by a count (wave 34D) -- 603.4, 702.33: "Whenever you cast a spell, if that spell was kicked, …" (Hallar) is "Whenever you cast a kicked
     # spell, …": being kicked is a fact about the spell as it is cast and stays true as it resolves or is countered, so the intervening "if" has nothing to re-check
     text = re.sub(r"^(Whenever you cast) a spell, if that spell was kicked, ", r"\1 a kicked spell, ", text)
+    # "When ~ dies, it deals damage equal to its power divided as you choose …" (Orca, Siege Demon): "it" is the creature that died, ~ (language.py reads ~'s)
+    text = re.sub(r"^(When ~ dies, )it deals (damage equal to its power divided as you choose among )", r"\1~ deals \2", text)
     if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
         return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
     if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I)

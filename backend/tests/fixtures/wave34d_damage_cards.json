@@ -384,5 +384,79 @@
   "keywords": [],
   "power": "2",
   "toughness": "2"
+ },
+ {
+  "name": "Quirion Beastcaller",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Dryad Warrior",
+  "oracle_text": "Whenever you cast a creature spell, put a +1/+1 counter on this creature.\nWhen this creature dies, distribute X +1/+1 counters among any number of target creatures you control, where X is the number of +1/+1 counters on this creature.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Red Hulk",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Gamma Berserker Villain",
+  "oracle_text": "Reach, trample\nEnrage — Whenever Red Hulk is dealt damage, put a +1/+1 counter on him. When you do, he deals damage equal to the number of +1/+1 counters on him to any other target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Reach",
+   "Enrage",
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "7"
+ },
+ {
+  "name": "Serra's Hymn",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of your upkeep, you may put a verse counter on this enchantment.\nSacrifice this enchantment: Prevent the next X damage that would be dealt this turn to any number of targets, divided as you choose, where X is the number of verse counters on this enchantment.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Orca, Siege Demon",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{R}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Demon",
+  "oracle_text": "Trample\nWhenever another creature dies, put a +1/+1 counter on Orca.\nWhen Orca dies, it deals damage equal to its power divided as you choose among any number of targets.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "5",
+  "toughness": "5"
  }
 ]

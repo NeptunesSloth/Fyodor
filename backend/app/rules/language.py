@@ -1624,6 +1624,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return found
     # -- end damage sized by a count (wave 4E) --
     src: dict[str, Any] = {"src": "it"} if text.startswith("it ") else {}
+    m = re.fullmatch(r"~ deals damage equal to (?:its|~'s) power divided as you choose among (?P<o>.+)", text)
+    if m:  # -- damage sized by a count (wave 34D) -- 601.2d, 608.2d: its power as it is when the ability goes on the stack, or as it last existed (Orca)
+        if rider is not None:
+            raise _Fail
+        return [{"do": "damage", "who": "target", "n": {"divided": 0}}], _divided(m["o"], "damage", {"power": "self"})
     m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage divided as you choose among (?P<o>.+)", text)
     if m:  # 601.2d: the division is announced as the spell is cast (each target gets at least 1)
         if rider is not None:
