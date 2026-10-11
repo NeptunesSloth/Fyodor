@@ -3392,6 +3392,9 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         # for each player" (Tragic Arrogance): the ability's controller decides what each player's permanents are
         pid, key = (turn, e["sel"]) if isinstance(turn, str) else turn
         mine = _controlled(plan, key, pid, ctx.get("source_card"))
+        if e.get("any"):  # -- per-player choices (wave 31B) -- any permanent the ability's words allow ("a creature you don't control"), whoever controls it
+            mine = [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
+                    if plan.state.cards[c].zone.endswith(":battlefield")]
         if step == "edict" and not exiling and mine and _sacrifice_barred(plan, ctx, pid):
             mine = []  # -- prohibitions (wave 22B) -- nothing for them to sacrifice
         cap = e.get("power_cap")  # "any number of creatures they control with total power 4 or less" (Slaughter the Strong): always a choice
@@ -3400,7 +3403,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
             continue
         by = ctx["controller"] if e.get("by") == "you" or (e.get("by_if") and conditions.holds(plan, ctx, e["by_if"])) else pid
         label = dict(zip(e.get("sels") or [], e.get("labels") or [], strict=False)).get(key, e.get("label", "permanent"))
-        if n == len(mine) and cap is None:
+        if n == len(mine) and cap is None and not (e.get("any") and e.get("upto")):  # (an "up to one" / "may choose" always asks)
             picked = [*picked, *mine]
             plan.note(f"{plan.name(by)} {verb} {_labels(plan, mine)} (no choice: all of them)", mine, actor=by)
             continue
@@ -3412,8 +3415,8 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         if picked:
             prompt += f" — already chosen: {_labels(plan, picked)}"  # 101.4b: the earlier choices are known
         decide(plan, player=by, kind="choose_cards", prompt=prompt,
-               options=[DecisionOption(id=c, label=(plan.state.cards[c].name or "Permanent") + (f" ({_power_of(plan, c)})" if cap is not None else ""),
-                                       card_id=c) for c in mine],
+               options=[DecisionOption(id=c, label=(plan.state.cards[c].name or "Permanent") + (f" ({_power_of(plan, c)})" if cap is not None else "")
+                        + (f" — {plan.name(plan.state.cards[c].controller)}" if e.get("any") else ""), card_id=c) for c in mine],
                min_choices=0 if e.get("upto") or cap is not None else n, max_choices=n,  # (wave 11D: "chooses up to two creatures they control")
                resume={"step": step, "ctx": ctx, "e": e, "rest": players[i + 1:], "picked": picked})
         return False
@@ -3430,7 +3433,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         else:  # "Destroy the rest" (701.8): indestructible ones stay, regeneration may save the others
             _destroy_cards(plan, ctx, e, rest)
     else:
-        _remember(plan, ctx, e, picked)  # "that creature", "it": the chosen objects (they stay where they are)
+        _remember(plan, ctx, e, list(dict.fromkeys(picked)))  # "that creature", "it": the chosen objects (they stay where they are; one chosen twice is one object)
     return True
 
 
@@ -3472,6 +3475,10 @@ def player_chooses(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     bound as the sentence's objects for what follows ("that creature", "it")."""
     who = _players(plan, ctx, e["who"])
     turns: list[Any] = [p for p in plan.apnap() if p in who]
+    if e.get("start"):  # -- per-player choices (wave 31B) -- 101.4: "starting with you" / "with the next opponent in turn order", then turn order
+        first = ctx["controller"] if e["start"] == "you" else plan.after(ctx["controller"])
+        at = turns.index(first) if first in turns else 0
+        turns = turns[at:] + turns[:at]
     if e.get("sels"):  # -- per-player choices (wave 30K) -- 101.4: one player makes all their choices (one per kind), then the next
         turns = [(p, k) for p in turns for k in e["sels"]]
     return _choose_next(plan, ctx, e, turns, [], "player_chooses")

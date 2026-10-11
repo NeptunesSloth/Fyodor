@@ -2624,6 +2624,13 @@ EDICT_EXILE = (rf"(?P<s>{CHOOSER}) exiles (?P<n>{AMT}) (?P<sel>.+?) they control
                r"(?P<great> with the greatest (?:power|toughness|mana value) among .+? they control)?")  # (wave 26A: Blot Out)
 PLAYER_CHOOSES = (rf"(?P<s>{CHOOSER}) chooses (?:(?P<upto>up to )?(?P<n>{AMT})) (?P<sel>.+?) they control"
                   r"(?:, then (?:(?P<sac>sacrifices the rest)|(?P<des>the rest are destroyed)))?")  # (wave 11D: "… then sacrifices the rest")
+# -- per-player choices (wave 31B) -- "Starting with you, each player chooses a creature." (The Horus Heresy), "Starting with the next opponent in turn order,
+# each player chooses a creature you don't control." (Sadistic Shell Game), "… chooses up to one permanent with mana value 3 or greater from among
+# permanents your opponents control." (The Legend of Yangchen), "… each player may choose an artifact or enchantment you don't control." (Druid of
+# Purification): a choice among the permanents anyone controls that the ability's controller's words allow, made in turn order from the named player
+# (101.4: "starting with" a player is that player first, then turn order), then what the next sentence does to all that were chosen
+CHOOSE_ANY = (rf"(?:starting with (?P<start>you|the next opponent in turn order), )?each player (?:(?P<may>may) choose|chooses) (?P<upto>up to )?"
+              rf"(?P<n>{AMT}) (?P<sel>(?!.*\bthey control)[^,]+?)(?: from among (?P<among>permanents your opponents control))?")
 REVEAL_HAND = rf"(?P<s>{CHOOSER}) reveals their hand"
 CHOOSE_FROM_HAND = (rf"you (?P<may>may )?choose (?:(?P<upto>up to )?(?P<n>{AMT})|(?P<any>any number of)) (?P<sel>.+?) "
                     r"from (?:it|among them|that hand)(?P<tail> with mana value \d+ or (?:less|greater))?")
@@ -2706,6 +2713,18 @@ def player_chooses(m: re.Match[str]) -> tuple[Effects, Any]:
     if m["sac"] or m["des"]:  # -- choose the rest (wave 11D) -- the choice is simultaneous (101.4); what wasn't chosen is sacrificed / destroyed
         out["rest"] = "sacrifice" if m["sac"] else "destroy"
     return [out], _one(group)
+
+
+def choose_any(m: re.Match[str]) -> tuple[Effects, Any]:
+    sel = selectors.parse(m["sel"] + (" your opponents control" if m["among"] else ""))
+    if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or (m["among"] and sel.controller != "opponent"):
+        raise _Fail
+    out: dict[str, Any] = {"do": "player_chooses", "who": "each_player", "sel": sel.key(), "n": _amount(m["n"]), "label": m["sel"], "any": True}
+    if m["upto"] or m["may"]:
+        out["upto"] = True
+    if m["start"]:
+        out["start"] = "next" if m["start"].startswith("the next") else "you"
+    return [out], None
 
 
 # -- per-player choices (wave 30K) -- one choice for each kind of permanent, the rest sacrificed: "Each player chooses an artifact, a
