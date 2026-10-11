@@ -3827,7 +3827,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if ability_id:  # -- activation (wave 11F) -- 602.2: "Whenever a player activates an ability …"
         from app.rules.triggers import activated
 
-        activated(plan, card, oid, loyalty=ability.kind == "loyalty", ability_id=ability_id)
+        activated(plan, card, oid, loyalty=ability.kind == "loyalty", ability_id=ability_id, text=ability.text)
     if ability.kind == "loyalty":
         if r.loyalty_used.get(oid) == plan.state.turn.number:
             r.loyalty_second[oid] = plan.state.turn.number  # -- static_other sweep (wave 19A) -- the second use (Oath of Teferi)
