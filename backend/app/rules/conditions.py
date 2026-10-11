@@ -63,6 +63,7 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     trigger, which has those objects (statics and restrictions don't)."""
     t = text.strip().rstrip(",").replace("’", "'")
     t = re.sub(r"^(defending player|that player|an opponent) is poisoned$", r"\1 has a poison counter", t)  # -- player counters (wave 20F) -- 122.1f
+    t = re.sub(r"^your library has no cards in it$", "there are no cards in your library", t)  # -- activated other (wave 34B) -- Doctor Doom, Unrivaled: "your library has no cards in it" is the condition "there are no cards in your library" read as the effect resolves (608.2c)
     found = _parse_one(t, objects)
     if found is None:
         found = _as_cond(t) if objects else None  # -- intervening ifs (wave 11F) -- (an ability's own event: not statics)
@@ -424,9 +425,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
 
 
 # -- intervening ifs (wave 11F) -- 603.4, researched against CR 2026-09-25 ------------------------------------------------
-_WHO = re.compile(r"(?P<who>that player|defending player|a player) (?P<verb>has|controls|cast|(?:didn't|did not|hasn't) cast) (?P<rest>.+)")
+_WHO = re.compile(r"(?P<who>that player|defending player|a player) (?P<verb>has|controls|cast|had|(?:didn't|did not|hasn't) cast) (?P<rest>.+)")
 _VERBS = {"has": "have", "controls": "control", "cast": "cast", "didn't cast": "didn't cast", "did not cast": "did not cast",
-          "hasn't cast": "haven't cast"}  # -- event-player history (wave 30U) -- "if that player didn't cast a spell this turn" (Impatience): "you didn't cast …" read as them
+          "hasn't cast": "haven't cast", "had": "had"}  # -- event-player history (wave 30U) -- "if that player didn't cast a spell this turn" (Impatience): "you didn't cast …" read as them
 _MOST = re.compile(r"(?P<who>a player|that player) (?:(?P<controls>controls)|has) more (?P<what>.+?) than each other player")
 
 
@@ -449,7 +450,9 @@ def _as_cond(t: str) -> Condition | None:
     m = _WHO.fullmatch(t)
     if m is None or " than " in m["rest"]:
         return None
-    inner = parse(f"you {_VERBS[m['verb']]} {m['rest']}", objects=True)
+    inner = parse(f"you {_VERBS[m['verb']]} {m['rest'].replace('under their control', 'under your control')}", objects=True)
+    if inner is not None and inner.get("history") == "entered" and inner.get("other"):
+        inner = {**inner, "other": "event"}  # -- this-turn state (wave 33D) -- "if that player had another land enter …": other than the one the event is about
     return {"as": _AS[m["who"]], "cond": inner} if inner is not None else None
 
 
@@ -960,6 +963,102 @@ def _departed(m: re.Match[str]) -> Condition | None:
     if m["gy"] == "your":
         out["owner"] = "you"  # (a permanent goes to its owner's graveyard, 400.3)
     return out
+
+
+# -- this-turn state (wave 33D) -- what happened to or by ONE object, or to a player, this turn (TurnLog, 608.2i; app/rules/history.py reads
+# it by the object's rules object id, so a creature that has died is still found, 400.7 / 603.10a). "it" / "that creature" are bound
+# like any pronoun in a condition (bind_objects); "~" is the source.
+_HO = r"(?P<o>~|it|that (?:creature|permanent|token))"
+
+
+def _obj(m: re.Match[str], what: str, **kw: Any) -> Condition:
+    return {"history": "object", "object": _OBJECT_WORDS[m["o"]], "what": what, **kw}
+
+
+def _damage_kind(m: re.Match[str]) -> dict[str, Any]:
+    return {"combat": m["kind"].strip() == "combat"} if m["kind"] else {}  # 120.2: combat or noncombat damage
+
+
+@_history_pattern(rf"{_HO} (?P<neg>wasn't|was not|was) dealt (?:(?P<n>\w+) or more )?(?P<kind>combat |noncombat )?damage this turn")
+def _object_dealt(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"]) if m["n"] else 1  # (the damage dealt, after prevention: 120.3; a creature that left and came back is a new object)
+    if n is None:
+        return None
+    return _obj(m, "damaged", n=n, **_damage_kind(m), **({"negate": True} if m["neg"] != "was" else {}))
+
+
+@_history_pattern(rf"(?P<n>\w+) or more (?P<kind>combat |noncombat )?damage was dealt to {_HO} this turn")
+def _damage_dealt_to_object(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])
+    return None if n is None else _obj(m, "damaged", n=n, **_damage_kind(m))
+
+
+@_history_pattern(rf"{_HO} (?P<neg>wasn't|was not|was) blocked this turn")
+def _object_blocked(m: re.Match[str]) -> Condition:
+    return _obj(m, "blocked", **({"negate": True} if m["neg"] != "was" else {}))  # 509.1g: declared as blocked by a blocker
+
+
+@_history_pattern(rf"{_HO} attacked or blocked this turn")
+def _object_attacked_or_blocked(m: re.Match[str]) -> Condition:
+    return _obj(m, "attacked_or_blocked")  # 508.1 / 509.1g
+
+
+@_history_pattern(r"(?P<o>it|that (?:creature|permanent|token)) entered this turn")  # (~: entered_self)
+def _object_entered(m: re.Match[str]) -> Condition:
+    return _obj(m, "entered")
+
+
+@_history_pattern(rf"{_HO} (?:dealt|has dealt) (?:(?P<n>\w+) or more )?(?P<kind>combat )?damage to (?P<p>a player|that player) this turn")
+def _object_dealt_player(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"]) if m["n"] else 1
+    if n is None:
+        return None
+    return _obj(m, "dealt_player", n=n, **_damage_kind(m), **({"to": "event"} if m["p"] == "that player" else {}))
+
+
+@_history_pattern(r"(?P<who>you|a player) (?:was|were|has been|have been) dealt (?:(?P<n>\w+) or more )?(?P<kind>combat |noncombat )?damage"
+                  r"(?: by an? (?P<sub>[A-Z][a-z]+))? this turn")
+def _player_dealt(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"]) if m["n"] else 1  # 120.3: "you were dealt 4 or more damage" (Boarded Window), "a player was dealt combat damage by a Zombie"
+    if n is None:
+        return None
+    out: Condition = {"history": "damage", "who": "you" if m["who"] == "you" else "any", "n": n}
+    if m["kind"]:
+        out["combat"] = m["kind"] == "combat "
+    if m["sub"]:  # (the source's creature types as it dealt the damage, 608.2i)
+        out["source"] = {"types": [], "supertypes": [], "subtypes": [m["sub"]]}
+    return out
+
+
+@_history_pattern(r"it(?:'s| was| is) the (?P<ord>second|third|fourth|fifth) (?P<sel>.+? )?spell you(?:'ve)? cast this turn")
+def _cast_nth(m: re.Match[str]) -> Condition | None:
+    key = _history_sel(f"{m['sel'] or ''}spell", "stack")
+    n = ["first", "second", "third", "fourth", "fifth"].index(m["ord"]) + 1
+    return None if key is None else {"history": "cast_nth", "object": "it", "who": "you", "sel": key, "n": n}  # 601.2i
+
+
+@_history_pattern(r"you(?:'ve| have)? drawn more than one card this turn")
+def _drew_two(m: re.Match[str]) -> Condition:
+    return {"history": "drew", "n": 2}
+
+
+@_history_pattern(r"(?:a|one or more) cards? (?:was|were) put into exile this turn")
+def _put_into_exile(m: re.Match[str]) -> Condition:
+    return {"history": "facts", "kind": "exile", "who": "any", "n": 1}  # 400.1: a card (never a token or a copy) put into exile from another zone
+
+
+@_history_pattern(r"(?:a|an) (?P<sel>.+?) (?P<k>crewed|saddled) (?:it|~) this turn")
+def _crewed_by(m: re.Match[str]) -> Condition | None:
+    key = _history_sel(m["sel"], "battlefield")  # (702.122c: the creatures tapped to pay its crew cost, as they were then — Adrestia's ruling)
+    return None if key is None else {"history": "facts", "kind": "crew" if m["k"] == "crewed" else "saddle", "who": "any", "sel": key, "of_self": True, "n": 1}
+
+
+@_history_pattern(r"you(?:'ve| have)? put (?:a|an|one or more) (?:(?P<k>\S+) )?counters? on ~ this turn")
+def _put_counters_on_self(m: re.Match[str]) -> Condition | None:
+    if m["k"] is not None and m["k"] not in _COUNTER_KINDS:
+        return None  # (122.6: the player who put them — the event's actor — against any other)
+    return {"history": "facts", "kind": "counters", "who": "any", "self": True, "by": "you", "n": 1, **({"counter": m["k"]} if m["k"] else {})}
+# -- end this-turn state (wave 33D) --
 # -- end this-turn history (wave 4D) --
 
 

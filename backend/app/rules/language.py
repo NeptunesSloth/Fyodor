@@ -1734,7 +1734,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m and not (m["v"] == "airbend" and re.search(r"\bspells?\b", m["o"])):
         whos, groups = _objects(m["o"])
         if len(whos) > 1:  # "destroy target artifact and target enchantment": one group each (115.3)
-            if len(groups) != len(whos):
+            # -- activated other (wave 34B) -- "Exile ~ and target creature without flying that's attacking you." (Hunting Kavu), "Exile Mangara and target
+            # permanent": the source is no target (115.1), so it has no group of its own; one instruction names both (608.2c: carried out in the order given)
+            if len(groups) != len(whos) and not (whos[0] == "self" and len(groups) == len(whos) - 1 and all(w.startswith("target") for w in whos[1:])):
                 raise _Fail
             return [{"do": m["v"], "who": w} for w in whos], _out(groups)
         kind, key, group = ref(m["o"])

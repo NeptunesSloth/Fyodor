@@ -45,7 +45,9 @@ def tapped_to_pay(plan: Plan, kind: str, creatures: list[str], source: CardInsta
     for cid in creatures:
         c = plan.state.cards[cid]
         if log is not None:
-            log.facts.append(TurnFact(kind=kind, player=plan.actor, object_id=plan.oid(c), source=plan.oid(source)))
+            ch = plan.ch(c)  # -- this-turn state (wave 33D) -- what it was as it was tapped: "if an Assassin crewed it this turn" (Adrestia, 702.122c)
+            log.facts.append(TurnFact(kind=kind, player=plan.actor, object_id=plan.oid(c), source=plan.oid(source), types=sorted(ch.types),
+                                      subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes)))
         emit(plan.state, "crew_tapped" if kind == "crew" else "saddle_tapped", object_id=plan.oid(c), card=cid, player=plan.actor,
              source=plan.oid(source), by_card=source.id)
 

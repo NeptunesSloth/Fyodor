@@ -181,6 +181,13 @@ def _attached_to_creature(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "attached_creature_you" if m["you"] else "attached_creature"))
 
 
+# -- activated other (wave 34B) -- "Destroy all Auras attached to ~." (Hakim), "Sacrifice an Equipment attached to ~" (Ronin): what is attached to the source
+# itself (301.5, 303.4), read against the ability's source as it is now (``source``); before the controller suffix, whose "you control" would be the host's
+@_suffix(r"(?:that(?:'s| is| are) )?attached to ~")
+def _attached_to_source(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "attached_source"))
+
+
 # -- attack restrictions (wave 32B) -- "Each creature that's enchanted by an Aura you control can't attack you" (Eriette): an Aura on it that the effect's controller
 # controls (303.4; unlike "modified", 700.9, the Aura's controller is "you", not the creature's); before the controller suffix, whose "you control" is the Aura's
 @_suffix(r"that(?:['’]s| is| are) enchanted by an Aura you control")
@@ -1660,6 +1667,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra.startswith("entered_this_turn") and not _entered_now(plan, card, you if extra.endswith("_you") else None):
             return False  # (wave 5H)
+        if extra == "attached_source" and (source is None or card.attached_to != source):  # -- activated other (wave 34B) -- attached to the source itself
+            return False
         if extra.startswith("attached_creature"):  # -- attached events (wave 30S) -- attached to a creature (of yours)
             host = plan.state.cards.get(card.attached_to or "")
             if host is None or not host.zone.endswith(":battlefield") or not plan.ch(host).is_creature \
