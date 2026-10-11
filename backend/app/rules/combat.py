@@ -676,7 +676,8 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         plan.do({"type": "block", "card_id": decl.blocker_id, "attacker_id": decl.attacker_id, "also": decl.blocker_id in done})
         done.add(decl.blocker_id)
     r.blocked = list(dict.fromkeys([*r.blocked, *per_attacker]))
-    note_block(plan.state, [plan.oid(plan.state.cards[b]) for b in dict.fromkeys(x.blocker_id for x in a.blocks)])  # (wave 27A)
+    note_block(plan.state, [plan.oid(plan.state.cards[b]) for b in dict.fromkeys(x.blocker_id for x in a.blocks)],  # (wave 27A)
+               [(plan.oid(plan.state.cards[x.blocker_id]), plan.oid(plan.state.cards[x.attacker_id])) for x in a.blocks])  # (wave 31D)
     if a.blocks:
         from app.rules import triggers  # triggers → plan; imported late
 

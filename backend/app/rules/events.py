@@ -810,6 +810,15 @@ def _cast(c: str) -> Condition | None:
     if only:
         out["targets"] = "self_only"
         spell = only["rest"]
+    # -- spell copies (wave 31D) -- 115.9c: "… that targets only a single creature you control" (Leyline of Resonance): one object chosen, however
+    # many times, and it is one of those (triggers._targets_ok "only_one:")
+    one = re.fullmatch(r"(?P<rest>.+?) that targets only a single (?P<t>.+)", spell)
+    if one:
+        sel = selectors.parse(one["t"])
+        if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",):
+            return None
+        out["targets"] = "only_one:" + sel.key()
+        spell = one["rest"]
     tg = re.fullmatch(r"(?P<rest>.+?) that targets (?P<t>~|an? .+|one or more .+)", spell)
     if tg:
         if tg["t"] == "~":

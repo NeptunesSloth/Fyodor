@@ -214,6 +214,8 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "event":  # "it" / "that creature": the object(s) the trigger event happened to — only while
         # each is still that object where it was (400.7: after a zone change it's a new object)
         return context.objects(plan, ctx, context.EVENT)
+    if who == "event_spell":  # -- spell copies (wave 31D) -- the spell a cast trigger is about, while it is still that object on the stack (400.7)
+        return [c for c in context.objects(plan, ctx, context.EVENT) if plan.state.cards[c].zone == "stack"]
     if who == context.EVENT_NEW:  # after "dies" / "leaves": the new object where it went — only while
         # it's still there (400.7e, 603.6c)
         return context.objects(plan, ctx, context.EVENT_NEW)
