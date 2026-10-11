@@ -224,7 +224,7 @@ _ABILITY_WORD = re.compile(r"^(?:" + "|".join(re.escape(w).replace("'", "['’]"
                            re.IGNORECASE)
 
 
-_SELF_VERBS = r"(?:enters|attacks|dies|deals|becomes|is|gets|gains|can't|has|blocks|leaves|fights|isn't|doesn't)\b"
+_SELF_VERBS = r"(?:enters|entered|attacks|dies|deals|becomes|is|gets|gains|can't|has|blocks|leaves|fights|isn't|doesn't)\b"  # (wave 33D: "Kaito entered this turn")
 
 
 def _short_name(name: str, text: str = "") -> str | None:
@@ -620,7 +620,8 @@ def _cast_trigger_spell_cond(cond: dict[str, Any]) -> bool:
     """-- ability words (wave 9C) -- is a condition (or a part of one, under "not" / "all" / "any" as an "instead" clause
     makes it) about the mana spent to cast a cast trigger's spell ("if no mana was spent to cast it", opus)?"""
     cast = cond.get("cast") or {}
-    return bool(cast.get("no_mana") or cast.get("event_spell")) or (cond.get("stat") == "mana_value" and cond.get("object") == "it") or any(
+    return bool(cast.get("no_mana") or cast.get("event_spell")) or (cond.get("stat") == "mana_value" and cond.get("object") == "it") \
+        or cond.get("history") == "cast_nth" or any(  # (-- this-turn state (wave 33D) -- "if it's the second creature spell you cast this turn")
         _cast_trigger_spell_cond(c) for k in ("all", "any") for c in cond.get(k, ())) or (
         "not" in cond and _cast_trigger_spell_cond(cond["not"]))
 
@@ -746,11 +747,15 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 return "target" if groups is None else f"target:{g}"
         return None
 
-    def cond_ref(index: int) -> Any:
+    def cond_ref(index: int, cond: Any = None) -> Any:
         """The object "it" names in a condition (conditional / instead clauses, wave 1B): what an earlier
         instruction moved, chose or created (its recorded object, 400.7j), a plain target of one
         (the target itself), the source, or the trigger event's object."""
         intro = objects(index, 1, None, skip_gated=True)
+        if intro is not None and out[intro.index].get("who") == "self" and "beats_self" in json.dumps(cond):
+            # -- counters (wave 33C) -- "put a +1/+1 counter on Yorvo. Then if that creature's power is greater than Yorvo's power, …": "that creature"
+            # is compared with the source, so it is not the source the sentence before put a counter on, but the creature the trigger is about
+            return "event" if antecedent in ("event", "event_gone") else None
         if intro is None:
             return None if antecedent == "event_spell" else stat_ref(index)
         if intro.do in _MOVERS or _group_of(out[intro.index]) is None:
@@ -872,12 +877,14 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 e["who"] = "controlled:" + player + "|" + who.partition("|")[2]
             # -- conditional / instead clauses (wave 1B) --  "If it's a land card, …": the object the pronoun
             # names, read as it is (or as it last existed, 608.2h): a plain target stays "target"
+            if e.get("do") == "only_if" and _cond_has_event(e["cond"]) and antecedent not in ("event", "event_gone", "event_spell", "event_all"):
+                return None  # -- counters (wave 33C) -- "that spell" is the spell a cast trigger is about: a targeted spell ("Counter target spell. If that spell is …") isn't read
             if e.get("do") == "only_if" and _cond_has_it(e["cond"]) and antecedent == "event_spell" \
                     and _cast_trigger_spell_cond(e["cond"]):
                 # (-- if you do (wave 5G) -- the cast spell; -- ability words (wave 9C) -- opus: "five or more mana was spent")
                 e["cond"] = _bind_cond(e["cond"], "event")
             if e.get("do") == "only_if" and _cond_has_it(e["cond"]):
-                ref = cond_ref(index)
+                ref = cond_ref(index, e["cond"])
                 if ref is None:
                     return None
                 e["cond"] = _bind_cond(e["cond"], ref)
@@ -2658,6 +2665,13 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = re.sub(r"(\b[Pp]ut [^.,]+? counters? on) each of those (?:creatures|permanents|cards|artifacts|lands|enchantments)\b", r"\1 each of them", body)
     body = re.sub(r"(^|\. )Each of those (creatures|permanents|cards|artifacts|lands|enchantments) (gains|gets|loses) ",
                   lambda m: f"{m[1]}Those {m[2]} {m[3][:-1]} ", body)
+    # -- counters (wave 33C) -- "Draw a card if that creature has a +1/+1 counter on it. If it doesn't, put a +1/+1 counter on it." (Marcus, Mutant Mayor):
+    # "If it doesn't" is the other case of the condition just read, as "Otherwise" is (the sentence before is a trailing "if it has …")
+    body = re.sub(r"(\bif (?:it|that creature) has [^.,]+?\.) If it doesn't, ", r"\1 Otherwise, ", body)
+    # -- counters (wave 33C) -- "Put a +1/+1 counter on each creature you control and those creatures gain deathtouch until end of turn." (Nalia
+    # de'Arnise, Overseer of Vault 76): two instructions about the same group, in order (608.2c): read as "…. Those creatures gain …"
+    body = re.sub(r"(\b[Pp]ut [^.,]+? counters? on each [^.,]+?) and (those creatures|they) (gain [^.]+? until end of turn)\.",
+                  lambda m: f"{m[1]}. {m[2].capitalize()} {m[3]}.", body)
     from app.rules import combat_rules as _combat_rules  # -- keywords (wave 15E) -- myriad's two sentences
 
     body = _combat_rules.merge_myriad(body)
@@ -4169,6 +4183,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if cond is not None and cond.get("event") == "you_attack":  # -- trigger sweep (wave 27B; review: an attack's own event only) --
                     body = re.sub(r"\b([Tt]hat|[Tt]he) attacking player\b", "that player", body)  # the event's player: the attacker (508.1)
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
+                if ante == "event" and cond is not None and not other_side.wanted(cond):  # -- this-turn state (wave 33D) -- Hixus: with no creature on
+                    body = re.sub(r"\bexile that creature until ~ leaves the battlefield", "exile it until ~ leaves the battlefield", body)  # the other side,
+                    # "that creature" is the event's own (610.3: exiled from the battlefield, so the linked return puts it back there)
                 if ante == "self_gone":  # -- trigger tail (wave 15B) -- "put her into her owner's library third from the top"
                     # (a gendered pronoun is written ~): the card after it left, found where it went (400.7e), like "it"
                     body = re.sub(r"\bput ~ into ~'s owner's library\b", "put it into its owner's library", body)
@@ -6081,6 +6098,12 @@ def _cond_has_it(cond: dict[str, Any]) -> bool:
     from app.rules import conditions
 
     return conditions._has_objects(cond)
+
+
+def _cond_has_event(cond: dict[str, Any]) -> bool:
+    from app.rules import conditions
+
+    return "event" in conditions.objects_in(cond)
 
 
 def _bind_cond(cond: dict[str, Any], ref: str) -> dict[str, Any]:
