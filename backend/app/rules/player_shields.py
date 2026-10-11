@@ -193,8 +193,10 @@ def _shields(plan: Plan, player: str) -> list[tuple[str, str | None, str]]:
     for src, d in cast_limits._statics(plan.state, plan.info, "player_shield"):
         if src.controller == player:
             out.append((d["shield"], None, src.name or "a permanent"))
+    from app.rules import statics
+
     for src, d in cast_limits._statics(plan.state, plan.info, "grant"):
-        if d.get("player_shield") and src.controller == player:
+        if d.get("player_shield") and src.controller == player and statics.conditions_hold(plan, d, source=src, controller=src.controller):  # (wave 35D)
             out.append((d["player_shield"], None, src.name or "a permanent"))
     return out
 

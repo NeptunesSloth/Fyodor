@@ -224,6 +224,10 @@ _X_COUNT = re.compile(r"^Add X mana of any one color, where X is the number of (
                       r"you control$")
 _URZA = re.compile(r"^If you control an? (?P<what>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*(?: and an? [A-Z][\w'-]*(?: [A-Z][\w'-]*)*)*), "
                    r"add (?P<add>(?:\{[WUBRGC]\})+) instead$")  # (wave 3R3: the Urza lands)
+# -- named permanents (wave 35C) -- "If you control creatures named Mine Worker and Power Plant Worker, add {C}{C}{C} instead." (Tower Worker): a
+# creature with each name (the ruling: at least one of each); ``instead_if`` holds ("@named", <name>) for each
+_NAMED_INSTEAD = re.compile(r"^If you control creatures named (?P<a>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*) and (?P<b>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*), "
+                            r"add (?P<add>(?:\{[WUBRGC]\})+) instead$")
 # -- this-turn history (wave 4D) -- "If you played a land this turn, add {B} instead." (River of Tears; 305.1, 701.18a:
 # played, not put onto the battlefield): ``instead_if`` holds this marker instead of permanents to control
 _PLAYED_LAND = re.compile(r"^If you played a land this turn, add (?P<add>(?:\{[WUBRGC]\})+) instead$")
@@ -428,6 +432,11 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             if more is None or len(more) != 1 or not all(needs):
                 return None
             instead_if, instead = needs, more
+        elif (nm := _NAMED_INSTEAD.fullmatch(s)) and not instead and len(options) == 1:  # -- named permanents (wave 35C) --
+            more = _effect_options("Add " + nm.group("add"), identity)
+            if more is None or len(more) != 1:
+                return None
+            instead_if, instead = (("@named", nm.group("a")), ("@named", nm.group("b"))), more
         elif (ci := _CONTROL_INSTEAD.fullmatch(s)) and not instead and count is None:  # -- kicked / instead (wave 4G) --
             more = _effect_options("A" + ci.group("add")[1:], identity)
             if more is None or not all(more) or any(x not in ALL_MANA for opt in (*options, *more) for x in opt):

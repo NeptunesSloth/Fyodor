@@ -596,6 +596,9 @@ def _parse(c: str) -> Condition | None:
     if m:
         return {"event": "either", "subject": "player", "player": _PLAYERS[m["p"]],
                 "conds": [{"event": e, "subject": "player", "player": _PLAYERS[m["p"]]} for e in ("gain_life", "lose_life")]}
+    if (m := re.fullmatch(r"one or more (?P<p>opponents|players) lose life", c)) is not None:
+        # -- life floor (wave 35C) -- 603.2c "one or more … lose life" (Emet-Selch of the Third Seat): once for everything that happened at the same time
+        return {"event": "lose_life", "subject": "player", "player": "opponent" if m["p"] == "opponents" else "any", "aggregate": True}
     for pattern, event in _PLAYER_VERBS:
         m = re.fullmatch(rf"(?P<p>you|an opponent|a player|each opponent|enchanted player) (?:{pattern})", c)
         if m:

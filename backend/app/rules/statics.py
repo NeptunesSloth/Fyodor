@@ -216,6 +216,13 @@ def parse(text: str) -> Definition | None:
     # land that is a creature at that moment (611.3a), as "Each land creature gets +2/+2"
     body = re.sub(r"^Each (?P<n>[A-Za-z]+)(?P<c> you control)? (?P<v>gets? [+−-]\d+/[+−-]\d+) as long as it's a creature$",
                   r"Each \g<n> creature\g<c> \g<v>", body)
+    # -- as long as (wave 35D) -- 611.3a: "Each untapped creature you control gets +0/+2 as long as it's not attacking." (Arcades Sabboth): each one
+    # that isn't attacking at that moment, as "Each untapped creature you control that isn't attacking gets +0/+2"
+    body = re.sub(r"^(?P<s>Each|All) (?P<g>[a-z ]+? you control) (?P<v>get|gets|have|has) (?P<r>.+?) as long as (?:it's|they're|it is|they are) not attacking$",
+                  r"\g<s> \g<g> that isn't attacking \g<v> \g<r>", body)
+    # "As long as you control exactly one creature, that creature gets +3/+1 and has lifelink." (Homicidal Seclusion, Deadly Wanderings): the one creature
+    # you control is whichever it is at that moment (611.3a), so "each creature you control" while there is exactly one
+    body = re.sub(r"^(?P<c>As long as you control exactly one creature), that creature (?=gets? |has |have )", r"\g<c>, each creature you control ", body)
     conds: list[dict[str, Any]] = []
     names_source = False  # -- conditional statics (wave 4B) -- the condition names the source as "~", not "it"
     defender_sel: str | None = None  # "… as long as defending player controls an artifact"
@@ -252,12 +259,20 @@ def parse(text: str) -> Definition | None:
                     cond_text, rest_text = body[m.start("cond"):m.end("cond")], body[m.start("rest"):m.end("rest")]
                     # -- attached events (wave 16F) -- "Enchanted creature gets +1/+2 as long as it's white": "it" is the creature the
                     # static modifies (the object attached to), as in "As long as enchanted creature is white, it gets +1/+2"
-                    host = re.match(r"(?P<w>Enchanted|Equipped) (?P<n>creature|permanent|land|artifact) (?:gets?|ha(?:s|ve)) ", rest_text)
+                    host = re.match(r"(?P<w>Enchanted|Equipped) (?P<n>creature|permanent|land|artifact) (?:gets?|ha(?:s|ve)|can't|attacks|blocks|must|doesn't|assigns) ", rest_text)  # (wave 35D: verbs of a rule)
                     it_is = re.fullmatch(r"it(?:'s| is) (?P<d>.+)", cond_text)
                     if host and it_is:
                         cond_text = f"{host['w'].lower()} {host['n']} is {it_is['d']}"
                     if cond_text == "it attacked this turn" and rest_text.startswith("~ "):  # -- as long as (wave 20B) -- "it" is the source
                         cond_text = "~ attacked this turn"
+                    # -- as long as (wave 35D) -- "it" / "they" in the condition is the object the sentence is about: the source ("~ has double
+                    # strike as long as two or more Equipment are attached to it", "~ has hexproof as long as it hasn't dealt damage yet") or the
+                    # object the source is attached to ("Equipped creature has double strike as long as two or more Equipment are attached to it")
+                    if rest_text.startswith("~ "):
+                        cond_text = re.sub(r"^(?:it|they) (?=ha(?:sn't|ven't) dealt |was cast$|is your Ring-bearer$)", "~ ", cond_text)
+                        cond_text = re.sub(r"( attached to | blocking )it$", r"\1~", cond_text)
+                    elif host:
+                        cond_text = re.sub(r"(?<= attached to )it$", f"{host['w'].lower()} {host['n']}", cond_text)
                     cond = _condition(cond_text)
                     if cond is None:
                         return None
@@ -292,9 +307,11 @@ def parse(text: str) -> Definition | None:
         if not body:
             return {**_definition("self", None, conds), **type_parts}
     attached_cond = next((a for c in conds if (a := _attached_of(c)) is not None), None)
+    it_bound = False  # (wave 35D) the sentence's "it" is the object the condition names; any other subject is its own (Goblin Caves)
     if attached_cond is not None and re.match(r"it (?:gets?|has|can't|attacks|blocks|must|doesn't|assigns)\b", body):
         # "As long as equipped creature is legendary, it has hexproof.": "it" is the object the condition names
         body = f"{attached_cond['who'].capitalize()} {attached_cond['noun']}{body[2:]}"
+        it_bound = True
     subject, predicate = _split_subject(body)
     # -- attached events (wave 4L) -- "Enchanted creature loses all abilities and is a …" (verbs the split doesn't know)
     # (-- ability words (wave 20C) -- "As long as there are seven or more cards in your graveyard, ~ is white and has "…"" (Repentant
@@ -318,9 +335,10 @@ def parse(text: str) -> Definition | None:
         return None  # -- static wordings (wave 6E) -- (a union subject: only plain grants)
     if layer4 is not None and who != "self":
         return None
-    if attached_cond is not None and (who != "attached" or (kind or attached_cond["noun"]) != attached_cond["noun"]):
+    if attached_cond is not None and (who == "attached" or it_bound) and (who != "attached" or (kind or attached_cond["noun"]) != attached_cond["noun"]):
         return None  # (the condition and the subject name the same attached object)
-    if who != "self" and not names_source and any(_mentions(c, ("self", "self_counter", "designation", "self_is")) for c in conds):
+    if who != "self" and not names_source and any(_mentions(c, ("self", "self_counter", "designation", "self_is", "ring_bearer", "self_attached",
+                                                                 "dealt_damage", "was_cast", "blocked_by")) for c in conds):  # (wave 35D)
         return None  # "it's attacking" means the source; a group subject would need "each … that's attacking"
     # "counters on it": "it" is the source only when the source is the subject ("~ gets …"); for
     # "Equipped creature gets +1/+1 for each counter on it" it's the equipped creature (not read)
@@ -390,7 +408,9 @@ def _attached_of(cond: dict[str, Any]) -> dict[str, Any] | None:
     "you control enchanted creature" (-- as long as (wave 25A) --): what "it" names in the rest of the sentence."""
     if cond.get("static") == "not":
         return _attached_of(cond["cond"])
-    return cond if cond.get("static") in ("attached_is", "attached_ctrl_is") else None
+    if cond.get("static") == "all":  # (wave 35D) "enchanted creature is blocking and you control a snow land": the half that names it
+        return next((a for c in cond["conds"] if (a := _attached_of(c)) is not None), None)
+    return cond if cond.get("static") in ("attached_is", "attached_ctrl_is", "host_attached", "host_test") else None  # (wave 35D: host_attached, host_test)
 
 
 def _names_source(cond: str) -> bool:
@@ -1072,7 +1092,7 @@ def _condition(text: str) -> dict[str, Any] | None:
     if found is not None:
         return found
     found = conditions.parse(c)
-    return found if found is not None else static_conditions.compound(c)
+    return found if found is not None else static_conditions.compound(c) or static_conditions.either(c)  # (wave 35D: either)
 
 
 def _mentions(cond: Any, kinds: tuple[str, ...]) -> bool:
@@ -1137,6 +1157,12 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
 
 
 # -- applying -----------------------------------------------------------------------------------
+def static_if_holds(plan: Plan, d: Definition, source: CardInstance) -> bool:
+    """-- as long as (wave 35D) -- 611.3a: a replacement, prevention or limit static that has ``static_if`` conditions ("As long as ~ is untapped, prevent …",
+    scripts._conditional_static) applies only while they hold, read now as its source's controller has them."""
+    return all(holds(plan, c, source=source, controller=source.controller) for c in d.get("static_if") or ())
+
+
 def conditions_hold(plan: Plan, d: Definition, *, source: CardInstance, controller: str) -> bool:
     """All the static's conditions hold right now. They read the source and the table, never the
     affected object, so one verdict serves every object the static may apply to."""

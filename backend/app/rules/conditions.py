@@ -140,6 +140,13 @@ _VERSUS_WHO = re.compile(r"(?P<who>that player|defending player) (?:(?P<controls
 _NO_MORE_LIFE = re.compile(r"no opponent has more life than (?P<who>that player|defending player)")
 _VERSUS_REV = re.compile(r"you (?:(?P<controls>control)|have) more (?P<what>.+?) than an opponent")
 _COMMANDER = re.compile(r"you control (?P<which>your commander|a commander)")
+# -- named permanents (wave 35C) -- 201.2: "if you control creatures named Mine Worker and Power Plant Worker" (Tower Worker, Mine Worker, Power Plant
+# Worker), "artifacts named Crown of Empires and Scepter of Empires" (Throne / Scepter / Crown of Empires), "a creature named Bogbrew Witch" (Festering
+# Newt): a permanent with each name (the selector's ``name:`` test, 709.4a: a face-down permanent has no name, 708.2a). The plural wording names two cards,
+# the singular one: "a creature named A and B" would be one card named "A and B" and is not read.
+_CARD_NAME = r"[A-Z][\w'’-]*(?: (?:(?:of|the|in|on|for|to) )*[A-Z][\w'’-]*)*"  # (words that start with a capital, a small word between: no comma, no "and")
+_NAMED = re.compile(rf"you control (?:(?:an?) (?P<t1>creature|artifact|enchantment|land|permanent) named (?P<a1>{_CARD_NAME})"
+                    rf"|(?P<t2>creature|artifact|enchantment|land|permanent)s named (?P<a2>{_CARD_NAME}) and (?P<b2>{_CARD_NAME}))")
 # "it's a land card", "that creature is a Human", "~ is an enchantment", "it was a creature card"
 _OBJECT_WORDS = {"it": "it", "~": "self", "the sacrificed creature": "cost:sacrificed", "the sacrificed permanent": "cost:sacrificed",
                  "the sacrificed artifact": "cost:sacrificed",  # (wave 16D: what a cost sacrificed, values._object)
@@ -254,6 +261,14 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     if m:  # "you control your commander" (Lieutenant): a commander you own (903.3), on the battlefield under your control
         commanders = selectors.Selector(commander=True, controller="you", owner="you" if m["which"] == "your commander" else None)
         return {"value": {"count": commanders.key()}, "op": ">=", "n": 1}
+    m = _NAMED.fullmatch(t)  # -- named permanents (wave 35C) -- one permanent with each name
+    if m:
+        base = selectors.parse(f"{m['t1'] or m['t2']} you control")
+        if base is None:
+            return None
+        names = [n for n in (m["a1"], m["a2"], m["b2"]) if n]
+        parts: list[Condition] = [{"value": {"count": replace(base, extras=(*base.extras, "name:" + n)).key()}, "op": ">=", "n": 1} for n in names]
+        return parts[0] if len(parts) == 1 else {"all": parts}
     m = re.fullmatch(r"an opponent controls at least (?P<n>\w+) more (?P<what>.+) than you", t)
     if m and _num(m["n"]) is not None:  # -- cost alt (wave 16F) -- Avatar of Might: some opponent's count is at least n above yours
         key = _count(m["what"], "you control")
@@ -1077,6 +1092,7 @@ def _object(t: str) -> Condition | None:
     it last existed); physical state (tapped, attacking) only of the source itself."""
     t = re.sub(r"^(it|~|that (?:creature|permanent)) has (power|toughness|mana value) (?=\w+ or (?:less|greater|more|fewer)|exactly \w+)",  # (wave 26D; 36A: ~, "exactly")
                lambda m: f"{'its' if m[1] == 'it' else m[1] + chr(39) + 's'} {m[2]} is ", t)  # "it has power 4 or greater" = "its power is 4 or greater"
+    t = re.sub(r"^the creature had (?=(?:power|toughness|mana value) \w+ or )", "that creature had ", t)  # -- named permanents (wave 35C) -- Anax: the creature that died
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)'s (?:power|toughness|mana value)) (\w+ or )", r"\1 was \2", t)
     m = _OBJECT_VS_COLORS.fullmatch(t)
@@ -1568,6 +1584,10 @@ def _cast_how(t: str) -> Condition | None:
         if m["b"]:
             parts.append({"object": "event", "each": "any", "cast": {"from": "graveyard"}})
         return {"any": parts} if m["b"] else parts[0]
+    if (m := re.fullmatch(r"(?P<w>it|~) entered from your library or was cast from your library", t)) is not None:
+        # -- named permanents (wave 35C) -- Fblthp: put onto the battlefield from the library, or cast from it (it enters from the stack then: 400.7, 601.2a)
+        who = _cast_who(m["w"])
+        return {"any": [{"object": who, "cast": {"entered_from": "your library"}}, {"object": who, "cast": {"by_you": False, "from": "library"}}]}
     m = re.fullmatch(r"(?P<who>it|~|this creature|that creature) entered from (?P<z>your graveyard|a graveyard|exile|your hand)", t)
     if m:  # -- history (wave 22E) -- Archfiend's Vessel: "if it entered from your graveyard or you cast it from your graveyard"
         return {"object": "it" if m["who"] in ("it", "that creature") else "self", "cast": {"entered_from": m["z"].replace("a ", "")}}

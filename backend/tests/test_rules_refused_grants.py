@@ -431,7 +431,7 @@ def test_peregrin_took_adds_a_food_and_two_add_two(cards):
     activate(s, maker)
     assert count(s, "Treasure") == 1 and count(s, "Food") == 1
     food = next(c for c in s.state.cards.values() if c.name == "Food")
-    assert not food.tapped  # (only the Treasure is created tapped)
+    assert food.tapped  # (tapped like the Treasure: "Anything else specified in the effect creating the token (such as tapped …) applies to both", Peregrin Took ruling, review 35)
     token(s, "p1", "Peregrin Took Two", "2/3", PEREGRIN)
     activate(s, maker)
     assert decision(s) is None  # (the two commute: no question)
