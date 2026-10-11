@@ -144,8 +144,9 @@ _COMMANDER = re.compile(r"you control (?P<which>your commander|a commander)")
 # Worker), "artifacts named Crown of Empires and Scepter of Empires" (Throne / Scepter / Crown of Empires), "a creature named Bogbrew Witch" (Festering
 # Newt): a permanent with each name (the selector's ``name:`` test, 709.4a: a face-down permanent has no name, 708.2a). The plural wording names two cards,
 # the singular one: "a creature named A and B" would be one card named "A and B" and is not read.
-_NAMED = re.compile(r"you control (?:(?:an?) (?P<t1>creature|artifact|enchantment|land|permanent) named (?P<a1>[A-Z][^,]+?)"
-                    r"|(?P<t2>creature|artifact|enchantment|land|permanent)s named (?P<a2>[A-Z][^,]+?) and (?P<b2>[A-Z][^,]+?))")
+_CARD_NAME = r"[A-Z][\w'’-]*(?: (?:(?:of|the|in|on|for|to) )*[A-Z][\w'’-]*)*"  # (words that start with a capital, a small word between: no comma, no "and")
+_NAMED = re.compile(rf"you control (?:(?:an?) (?P<t1>creature|artifact|enchantment|land|permanent) named (?P<a1>{_CARD_NAME})"
+                    rf"|(?P<t2>creature|artifact|enchantment|land|permanent)s named (?P<a2>{_CARD_NAME}) and (?P<b2>{_CARD_NAME}))")
 # "it's a land card", "that creature is a Human", "~ is an enchantment", "it was a creature card"
 _OBJECT_WORDS = {"it": "it", "~": "self", "the sacrificed creature": "cost:sacrificed", "the sacrificed permanent": "cost:sacrificed",
                  "the sacrificed artifact": "cost:sacrificed",  # (wave 16D: what a cost sacrificed, values._object)

@@ -84,8 +84,14 @@ def test_twists_and_turns_scries_first(cards):
     before = hand(s)
     mana(s, "p1", G=2)
     act(s, "p1", type="cast_spell", card_id=next(c.id for c in s.state.cards.values() if c.name == "Merfolk Branchwalker"))
+    for _ in range(8):  # up to the scry (a decision inside the replacement's own resolution)
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.rules.decision is not None and s.state.rules.decision.prompt.startswith("Scry")
+    s = reloaded(s)  # the scry waits inside the replacement's resolution, which waits inside the ability's: both survive a save and a load
     asked = play_on(s)
-    assert sum(p.startswith("Scry") for p in asked) == 1 and hand(s) == before - 1 + 1
+    assert len(asked) == 1 and hand(s) == before - 1 + 1
     s = reloaded(s)
     check(s)
 

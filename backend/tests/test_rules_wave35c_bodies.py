@@ -151,3 +151,28 @@ def test_two_replacements_of_one_bolt_ask_the_creatures_controller_which_applies
     settle(s)
     assert counters(s, "Phytohydra", "+1/+1") == counters_made and marked(s, "Phytohydra") == 0
     check(s)
+
+
+# -- cards the wording newly reads that stay PARTIAL for another line: the line they now automate is right too ---------------------------------
+def test_delaying_shield_takes_the_damage_as_delay_counters(cards):
+    """Delaying Shield (its upkeep line stays manual): "If damage would be dealt to you, put that many delay counters on this enchantment instead."."""
+    s = build(cards, ["Delaying Shield", "Lightning Bolt"], [])
+    put(s, "Delaying Shield")
+    bolt(s, "p1")
+    assert life(s) == 40 and counters(s, "Delaying Shield", "delay") == 3
+    s = reloaded(s)
+    check(s)
+
+
+def test_undead_alchemist_mills_instead_of_dealing_combat_damage_with_any_zombie(cards):
+    """Undead Alchemist (its second line stays manual): "If a Zombie you control would deal combat damage to a player, instead that player mills that many cards."
+    (a 4/1 Zombie itself): Bob's life is as it was and the top four cards of his library are in his graveyard."""
+    s = build(cards, ["Undead Alchemist"], [])
+    alchemist = put(s, "Undead Alchemist")
+    s.state.rules.controlled_since[alchemist.id].turn = 0
+    library = len(s.state.zones["p2:library"])
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": alchemist.id, "target": "p2"}])
+    through_combat(s)
+    assert life(s, "p2") == 40 and len(s.state.zones["p2:library"]) == library - 4 and len(s.state.zones["p2:graveyard"]) == 4
+    check(s)

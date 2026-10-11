@@ -5,6 +5,8 @@ scenario checks the replay and a save and a load.
   before it died (the Gatherer ruling; last known information, 608.2h) — nothing is targeted, so "the creature" is the trigger's.
 * "If it entered from your library or was cast from your library, draw two cards instead." (Fblthp, the Lost): where it came from (400.7: a permanent spell
   enters from the stack, so a cast from the library is the other half).
+* "Whenever one or more opponents lose life, you may cast target instant or sorcery card from your graveyard. If that spell would be put into your graveyard,
+  exile it instead. Do this only once each turn." (Emet-Selch of the Third Seat): the trigger is once per batch of life lost at the same time (603.2c).
 """
 
 from __future__ import annotations
