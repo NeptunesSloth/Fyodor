@@ -1118,7 +1118,7 @@ def _object(t: str) -> Condition | None:
     if t == "that opponent has more life than another of your opponents":  # -- counters (wave 33C) -- Breena: the player the attack was declared against
         return {"defended_more_life": True}
     if t == "it entered under your control":  # -- counters (wave 33C) -- Phelia, Hallowed Respite: the object a "return it to the battlefield under its owner's control" made, now
-        return {"object": "it", "controlled_by": "you"}
+        return {"object": "it", "controlled_by": "you", "entered": True}  # (review 33: "entered" marks the move it asks about: scripts._entered_after_delayed)
     if re.fullmatch(r"(?:this card|~) is in your graveyard", t):  # -- graveyard triggers (wave 19C) -- the source, still the object that triggered
         return {"object": "self", "test": "in_graveyard"}
     if re.fullmatch(r"(?:this card|~) is in the command zone or on the battlefield", t):  # -- trigger other (wave 25B) -- eminence, 113.6b

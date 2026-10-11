@@ -2316,11 +2316,51 @@ def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tup
         # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
         from app.rules import top_library
 
-        return _no_regen_scope(top_library.private_gate(_excess_redirect(_value_targets(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(
-            this_way.dealt_to(this_way.excess_dealt(this_way.damage_dealt(_energy_paid(_parse_effects(body, it, event_player))))))),
-            it))))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
+        return _source_owner_draws(_entered_after_delayed(_no_regen_scope(top_library.private_gate(_excess_redirect(_value_targets(
+            _that_players_hand(_attached_host(_gy_shuffle(_life_lost(this_way.dealt_to(this_way.excess_dealt(this_way.damage_dealt(_energy_paid(
+                _parse_effects(body, it, event_player))))))), it))))))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
     except _NoMatch:
         return None
+
+
+def _source_owner_draws(got: Any) -> Any:
+    """-- review 33 -- "Gandalf's owner shuffles him into their library and draws three cards." (read as "Shuffle ~ into its owner's library. Its
+    owner draws three cards."): the owner of the source card (108.3: it never changes), who still draws if the source left first (609.3; the
+    rulings of Elixir of Immortality), not the owner of what the shuffle moved (nothing, then)."""
+    if got is not None:
+        effects = got[0]
+        for i, e in enumerate(effects[1:], 1):
+            prev = effects[i - 1]
+            if e.get("do") == "draw" and prev.get("do") == "to_library" and prev.get("who") == "self" and e.get("who") == f"ref:{prev.get('as')}.owner":
+                effects[i] = {**e, "who": "source_owner"}
+    return got
+
+
+def _entered_after_delayed(got: Any) -> Any:
+    """-- review 33 -- "At the beginning of the next end step, return that card to the battlefield under its owner's control. If it entered
+    under your control, put a +1/+1 counter on Phelia." (Phelia, Exuberant Shepherd): "if it entered" asks about the move the delayed trigger
+    makes, so that sentence is part of the delayed triggered ability (603.7a) and is read as it resolves, not when the attack trigger does
+    (the counter came at once, before combat damage). The move rebinds the card to the new object it became (400.7: a token exiled has
+    ceased to exist and enters nowhere), whose controller the test reads. Any other shape stays manual."""
+    if got is None:
+        return got
+    effects = got[0]
+    for i, e in enumerate(effects):
+        cond = e.get("cond") or {}
+        if e.get("do") != "only_if" or not cond.get("entered"):
+            continue
+        head = next((j for j in range(i - 1, -1, -1) if effects[j].get("do") == "delayed"), None)
+        if head is None:
+            continue  # (an immediate move: Hallowed Respite)
+        move, skip = effects[i - 1], int(e.get("skip", 1))
+        if head + int(effects[head].get("n", 0)) != i - 1 or i + 1 + skip != len(effects) or move.get("who") != cond.get("object") \
+                or move.get("do") != _delayed.DEFERRED + "return_card" or not str(move.get("who")).startswith("ref:"):
+            raise _NoMatch
+        effects[i - 1] = {**move, "as": move["who"][4:]}
+        effects[i:] = [{**x, "do": _delayed.DEFERRED + x["do"]} for x in effects[i:]]
+        effects[head] = {**effects[head], "n": int(effects[head]["n"]) + 1 + skip}
+        break
+    return got
 
 
 def _no_regen_scope(got: Any) -> Any:
