@@ -4066,6 +4066,14 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # -- trigger other (wave 36A) -- 702.29c: "When you cycle this card, it deals 1 damage to each opponent" (Magmakin Artillerist, Resounding Thunder), "you may
     # have it deal 1 damage to each creature" (Slice and Dice): "it" is the cycled card itself, the ability's source, whichever zone it went to
     text = re.sub(r"^(When you cycle (?:this card|~), (?:you may have )?)it (deals?)\b", r"\1~ \2", text)
+    # -- exile from the top (wave 36A) -- the same instruction worded from the other end: "exile that many cards from the top of your library" (Thor, Feldon),
+    # "exile cards equal to its mana value from the top of target player's library" (Rakdos, the Muscle), "exile a number of cards from the top of your library
+    # equal to …" (Neriv) are "exile the top that many / X cards of …" (701.? the top cards, in order)
+    text = re.sub(r"\bexile (?P<n>that many|X|\w+) cards from the top of (?P<lib>your library|their library|target player's library|that player's library|"
+                  r"each opponent's library)\b", r"exile the top \g<n> cards of \g<lib>", text)
+    text = re.sub(r"\bexile (?:cards equal to (?P<v>[^.]+?) from the top of (?P<lib>your library|their library|target player's library|that player's library)|"
+                  r"a number of cards from the top of (?P<lib2>your library|their library|target player's library|that player's library) equal to (?P<v2>[^.]+?))(?=\.)",
+                  lambda m: f"exile the top X cards of {m['lib'] or m['lib2']}, where X is {m['v'] or m['v2']}", text)
     # -- graveyard history (wave 36A) -- "Choose target creature card in a graveyard that was put there from the battlefield this turn. Put that card onto the
     # battlefield under your control." (Grim Return, Captain N'ghathrod), "… Put that card into its owner's hand." (Ghost of Ramirez DePietro): after a chosen
     # graveyard card, "put it" moves that card as "Return it to …" does (only here: elsewhere "put it onto the battlefield" can name a card from any zone)
