@@ -17,7 +17,9 @@ controller", "its toughness" (608.2h: as they were), "return it" (400.7j: where 
 
 from __future__ import annotations
 
+import contextlib
 import itertools
+from collections.abc import Iterator
 from typing import Any
 
 from app.game.rules_state import DecisionOption, ObjectRef, StackEntry, remember_stack
@@ -1009,7 +1011,7 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
     resolver goes on after a paused choice (the resolver itself: its effects continue)."""
     t = e["token"]
     count = _amount(plan, ctx, e["n"])
-    if count <= 0:
+    if count <= 0 and not e.get("more"):  # (wave 34C: a list of kinds is judged kind by kind below: "create X A tokens and two B tokens", X = 0)
         _remember(plan, ctx, e, [])
         return True
     requests: list[tuple[str, dict[str, Any], int, str | None, bool]] = []
@@ -1040,6 +1042,9 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
             tapped = bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)
             requests.append((pid, spec, count * each[pid] if each is not None else count, source, tapped))
     # (the tokens are recorded as binding "as", the new objects they are: "they gain haste")
+    if not requests:  # (every kind counted 0)
+        _remember(plan, ctx, e, [])
+        return True
     made = replace.create_token_batch(plan, requests, ctx=ctx, bind=e.get("as"), then=then or _then(ctx, e))
     return made is not None  # (None: the creating player chooses an order first, 616.1)
 
@@ -3243,7 +3248,25 @@ PRIMITIVES["kicked_gate"] = kicked_gate
 
 
 # -- resolving a definition -----------------------------------------------------------------
+@contextlib.contextmanager
+def reading_x(plan: Plan, x: int | None) -> Iterator[None]:
+    """-- X from the triggering object (wave 34C) -- while an ability resolves, a selector comparing with X ("mana value X": selectors.X_VALUE)
+    reads the X it was put on the stack with (107.3a, 107.3e), as it reads a spell's own (its stack_info) or the one announced while casting."""
+    before = plan.x_choice
+    if x is not None:
+        plan.x_choice = x
+    try:
+        yield
+    finally:
+        plan.x_choice = before
+
+
 def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
+    with reading_x(plan, entry.x):
+        _begin_resolution(plan, stack_id, entry)
+
+
+def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     """608.2: check targets, ask "you may", then carry out the effects in order."""
     ctx: Context = {"controller": entry.controller, "source_card": entry.source_card, "source_object": entry.source_object,
                     "name": entry.name, "targets": [t.model_dump() for t in entry.targets], "stack_id": stack_id,
@@ -3349,6 +3372,11 @@ def resume_may(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def continue_effects(plan: Plan, ctx: Context) -> None:
+    with reading_x(plan, ctx.get("x")):
+        _continue_effects(plan, ctx)
+
+
+def _continue_effects(plan: Plan, ctx: Context) -> None:
     while ctx["next"] < len(ctx["effects"]):  # (wave 19F: re-read each time: effects.repeat replaces the list)
         e = ctx["effects"][ctx["next"]]
         if replacements.ask_903_9b_first(plan, ctx, e):

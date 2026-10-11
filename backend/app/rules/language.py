@@ -206,7 +206,8 @@ def _divided(phrase: str, what: str, total: Any) -> dict[str, Any]:
     group = target_group(phrase)
     # (-- distribute (wave 12A) -- "any number of other target creatures you control": other than the source, 115.3)
     if group is None or group.get("another") == "any" or group["max"] < 2 and "another" in group \
-            or not (isinstance(total, int) or total == {"x": 1}):
+            or not (isinstance(total, int) or total == {"x": 1} or (isinstance(total, dict) and set(total) == {"plus"} and total["plus"][0] == {"x": 1}
+                                                                     and isinstance(total["plus"][1], int))):  # (wave 34C: "X plus 1")
         raise _Fail
     group = {**group, "min": max(1, group["min"]), "divide": {"what": what, "total": total}}
     if isinstance(total, int):
@@ -2905,7 +2906,7 @@ def choose_from_hand(m: re.Match[str]) -> tuple[Effects, Any]:
     if sel is None or sel.player is not None or not sel.card or sel.zones:
         raise _Fail  # (a card in the hand: "a nonland card", "an instant or sorcery card" — nothing else)
     n = 99 if m["any"] else _amount(m["n"])
-    if not isinstance(n, int):
+    if not isinstance(n, int) and n != {"x": 1}:  # (wave 34C: "choose X cards from it" — the X announced, 107.3a; Mind Warp, Abandon Hope)
         raise _Fail
     return [{"do": "choose_from_hand", "who": "you", "sel": sel.key(), "n": n, "label": m["sel"],
              "optional": bool(m["may"] or m["upto"] or m["any"])}], None

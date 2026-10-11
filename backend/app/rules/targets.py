@@ -208,6 +208,8 @@ def divide_total(spec: dict[str, Any], x: int | None) -> int | None:
     if not divide:
         return None
     total = divide["total"]
+    if isinstance(total, dict) and "plus" in total:  # -- X arithmetic (wave 34C) -- "X plus 1 damage divided as you choose" (Meteor Shower): the X announced, plus 1 (601.2d)
+        return int(x or 0) + int(total["plus"][1])
     return int(total) if isinstance(total, int) else int(x or 0)
 
 

@@ -50,7 +50,7 @@ if TYPE_CHECKING:
 Value = int | dict[str, Any]
 NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
            "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "twenty": 20}
-AMOUNT = r"(?:twice [xX]|(?:two|three|four) times [xX]|twice that (?:much|many)|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x|X|that much|that many)"
+AMOUNT = r"(?:twice [xX]|half [xX] rounded (?:up|down)|(?:two|three|four|five|six|seven|eight|nine|ten) times [xX]|[xX] (?:plus|minus) (?:\d+|one|two|three|four|five)|twice that (?:much|many)|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x|X|that much|that many)"  # (wave 34C: "five times X", "X plus 3", "X minus one")
 
 # Counters that carry rules the engine doesn't model yet (122.1b keyword counters, 122.1c shield,
 # 122.1d stun, 122.1h finality, 122.1i rad, 714 lore): an effect putting one of these
@@ -76,13 +76,30 @@ def parse_amount(word: str) -> Value | None:
         return NUMBERS[w]
     if w == "x":
         return {"x": 1}
-    if (m := re.fullmatch(r"(?:twice|(two|three|four) times) x", w)) is not None:  # (wave 16D) "twice X", "three times X"
+    if (m := re.fullmatch(r"(?:twice|(two|three|four|five|six|seven|eight|nine|ten) times) x", w)) is not None:  # (wave 16D) "twice X", "three times X"
         return {"times": [NUMBERS[m[1]] if m[1] else 2, {"x": 1}]}
+    if (m := re.fullmatch(r"half x rounded (up|down)", w)) is not None:  # -- X arithmetic (wave 34C) -- 107.1a: rounded as the text says (half_x)
+        return {"half": {"x": 1}, "round": m[1]}
+    if (m := re.fullmatch(r"x (plus|minus) (\d+|one|two|three|four|five)", w)) is not None:  # -- X arithmetic (wave 34C) -- "X plus 3", "X minus one" (107.1b: never below 0)
+        return {m[1]: [{"x": 1}, int(m[2]) if m[2].isdigit() else NUMBERS[m[2]]]}
     if w in ("that much", "that many"):
         return {"event_amount": 1}  # the trigger event's amount (TriggerEvent.amount)
     if w in ("twice that much", "twice that many"):  # -- reflexive this way (wave 30G) -- "deals twice that much damage"
         return {"times": [2, {"event_amount": 1}]}
     return None
+
+
+_HALF_X_NOUN = re.compile(r"\bhalf X ([a-z]+(?: counters)?),? rounded (up|down)(?:,(?= ))?")
+_ROUND_EACH = re.compile(r"^(?P<pre>.*?)\s*\bRound (?P<dir>up|down) each time\.", re.S)
+
+
+def half_x(text: str) -> str:
+    """-- X arithmetic (wave 34C) -- 107.1a: "half X" is rounded the way the text says, wherever it says so ("draw half X cards, rounded down",
+    "half X damage, rounded up, to you", "…half X life and draw half X cards. Round down each time."): the rounding moves next to the
+    quantity ("half X rounded down cards"), where the amount grammar reads it (``AMOUNT``)."""
+    if (each := _ROUND_EACH.match(text)) is not None:
+        text = re.sub(r"\bhalf X\b(?! rounded)", f"half X rounded {each['dir']}", each["pre"]) + text[each.end():]
+    return _HALF_X_NOUN.sub(lambda m: f"half X rounded {m[2]} {m[1]}", text)
 
 
 # -- dynamic values (agent F): "the number of …" and friends --------------------------------------
@@ -116,6 +133,8 @@ _COUNTERS_AMONG = re.compile(r"^(?:(?P<kinds>different kinds of counters)|(?:(?P
 _DAMAGE_EVENT = re.compile(r"^the amount of (?:combat )?damage (?:(?:it|he|she|they|~|this creature|that creature|those creatures) dealt"
                            r"(?: to (?:that player|that opponent|them))?|dealt)$")
 _HALF = re.compile(r"^half (?P<v>.+?), rounded (?P<round>up|down)$")
+_EVENT_GROUP = re.compile(r"^(?:(?P<max>the (?:greatest|highest) (?P<s1>power|toughness|mana value) among (?:them|those creatures))"
+                          r"|their total (?P<s2>power|toughness|mana value)|(?:the )?total (?P<s3>power|toughness|mana value) of (?:them|those creatures))$")
 _PLUS = re.compile(r"^(?P<v>.+?) plus (?P<n>\d+|one|two|three|four|five)$")
 _TYPE_WORDS = "|".join(selectors.CARD_TYPES)
 
@@ -229,6 +248,10 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if m:
         inner = parse_count(m["v"], it=it)
         return {"times": [2, inner]} if inner is not None else None
+    m = _EVENT_GROUP.match(what)  # -- event batches (wave 34C) -- scripts._event_refs_ok: only a trigger whose event holds the batch
+    if m:
+        stat = (m["s1"] or m["s2"] or m["s3"]).replace(" ", "_")
+        return {"max" if m["max"] else "sum": stat, "of": "event"}
     m = _HALF.match(what)
     if m:
         inner = parse_count(m["v"], it=it)
@@ -708,6 +731,14 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return _distinct(plan, ctx, v["distinct"], v["among"])
     if "devotion" in v:
         return _devotion(plan, you, v["devotion"])
+    if ("sum" in v or "max" in v) and v.get("of") == "event":  # -- event batches (wave 34C) -- "their total power" / "the greatest power among them": the
+        from app.rules import (
+            context,  # objects a "one or more" trigger's event holds (603.2c), as they were (608.2h)
+        )
+
+        stat = v.get("sum") or v["max"]
+        nums = [stat_n for _, ch in context.infos(plan, ctx, context.EVENT) if (stat_n := _stat_of(ch, stat)) is not None]
+        return max(0, sum(nums) if "sum" in v else max(nums or [0]))
     if "sum" in v or "max" in v:
         stat = v.get("sum") or v["max"]
         found = [_stat_of(plan.ch(plan.state.cards[c]), stat)

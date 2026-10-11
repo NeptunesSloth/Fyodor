@@ -173,22 +173,32 @@ def snapshot(plan: Plan, ref: ObjectRef) -> ObjectSnapshot | None:
     return plan.rules.lki.get(ref.object_id) or ref.snapshot
 
 
-def info(plan: Plan, ctx: Context, name: str) -> tuple[CardInstance, Characteristics] | None:
-    """The first object a binding names, for reading its characteristics: as it is while it's
-    still that object where it was, else as it last existed (608.2h)."""
+def infos(plan: Plan, ctx: Context, name: str) -> list[tuple[CardInstance, Characteristics]]:
+    """Every object a binding names, for reading its characteristics: each as it is while it's still that object where it was, else as it
+    last existed (608.2h). -- event batches (wave 34C) -- "the greatest power among them": a "one or more" trigger's whole batch."""
     from app.rules.triggers import _snapshot_card  # (triggers imports effects, which imports this)
 
+    out: list[tuple[CardInstance, Characteristics]] = []
     for ref in _object_refs(ctx, name, was=True):
         card = _same(plan, ref)
         if card is not None:
-            return card, plan.ch(card)
+            out.append((card, plan.ch(card)))
+            continue
         snap = snapshot(plan, ref)
         if snap is not None:
-            return _snapshot_card(plan, snap)
+            out.append(_snapshot_card(plan, snap))
+            continue
         card = plan.state.cards.get(ref.card)
         if card is not None:  # no last known information is kept for a card that was in a graveyard
-            return card, plan.ch(card)  # or exile: it had its printed characteristics there, as now
-    return None
+            out.append((card, plan.ch(card)))  # or exile: it had its printed characteristics there, as now
+    return out
+
+
+def info(plan: Plan, ctx: Context, name: str) -> tuple[CardInstance, Characteristics] | None:
+    """The first object a binding names, for reading its characteristics: as it is while it's
+    still that object where it was, else as it last existed (608.2h)."""
+    found = infos(plan, ctx, name)
+    return found[0] if found else None
 
 
 def players(plan: Plan, ctx: Context, name: str) -> list[str]:

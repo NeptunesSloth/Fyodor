@@ -57,7 +57,7 @@ from app.rules.costs import (
     spell_additional_cost,
 )
 from app.rules.oracle import AbilityText, parse_abilities, split_sentences, word_prefix
-from app.rules.values import UNMODELED_COUNTERS
+from app.rules.values import UNMODELED_COUNTERS, half_x
 
 Definition = dict[str, Any]
 
@@ -2313,13 +2313,17 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
         value, tail = defined_as(defined), ", then " + tail
     start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
     head, rest = body[start: m.start()], body[:start] + "\0" + tail + body[m.end():]
+    arith = re.search(r"\bX (plus|minus) (\d+|one|two|three|four|five)\b", head)
+    if arith is not None and value is not None and len(re.findall(r"\bX\b", head)) == 1:  # -- X arithmetic (wave 34C) -- "You gain X plus 1 life, where X is …" (An-Havva Inn)
+        head = head.replace(arith[0], "X")
+        value = {arith[1]: [value, int(arith[2]) if arith[2].isdigit() else NUMBERS[arith[2]]]}
     # (what the wrappers around the sentence grammar bind afterwards — "this way" counts, the target player's hand — is not read)
     # -- event batches (wave 28D) -- "up to X target …, where X is the number of nonland cards milled this way" (The Wise Mothman): a
     # "this way" count in a target count is the trigger's own batch (event_batch.bind, in define); anywhere else it stays refused
     this_way_x = value is not None and '"this_way"' in json.dumps(value) and "ref_count" not in json.dumps(value) \
         and bool(re.search(r"(?i)\bup to X (?:other )?targets?\b", head))
     if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"' + ('' if this_way_x else '|"this_way"'),
-                                  json.dumps(value).replace('"for_player": "that_player"', "")) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):  # (22D: the linked card)
+                                  json.dumps(value).replace('"for_player": "that_player"', "")) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", _X_IF.sub("", rest)):  # (22D: the linked card)
         return None
     now = _x_now()
     outer = list(now)
@@ -2331,6 +2335,8 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
         hit = now[1]
     finally:
         now[:] = outer
+    if got is not None:  # -- X conditions (wave 34C) -- "…, where X is …. If X is 4 or more, draw a card.": the condition reads the X the text defines
+        got = (_bind_x_conditions(got[0], value), got[1], got[2])
     if got is not None and (tagged := where_bound.tag(got[1], value, _X_SENTINEL)) is not None:
         got, hit = (got[0], tagged, got[2]), True  # -- bounds defined by text (wave 28D) -- "mana value X or less, where X is …": read as it is put on the stack
     if got is not None and isinstance(got[1], list) and any(g.get("x_count") for g in got[1]):
@@ -2339,6 +2345,16 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     if got is None or str(_X_SENTINEL) in json.dumps(got[1]) or not hit:
         return None
     return got
+
+
+_X_IF = re.compile(r"\bIf X is \w+ or (?:more|less|greater|fewer),")
+
+
+def _bind_x_conditions(effects: list[dict[str, Any]], value: Any) -> list[dict[str, Any]]:
+    """-- X conditions (wave 34C) -- the "If X is N or more" gates (``only_if``) of a sentence list whose X a "where X is …" defines read that
+    value (107.3c); an X left anywhere else in them is the cast X, which this ability doesn't have."""
+    return [{**e, "cond": {**e["cond"], "value": value}} if e.get("do") == "only_if" and (e.get("cond") or {}).get("value") == {"x": 1} else e
+            for e in effects]
 
 
 _X_TARGET_VALUES = where_bound.ALLOWED | {"this_way"}  # (wave 28D: known as a trigger is put on the stack, 603.3d)
@@ -3853,11 +3869,13 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     from app.rules import (
         removed_all,  # -- activated sweep (wave 26C) -- its "where X is the number of … counters removed this way" was read as the cost's X
     )
+    from app.rules import triggers as _triggers
 
+    x_given = d is not None and _triggers.x_source(d, ch) is not None and "where X is" not in ability.text  # -- X from the triggering object (wave 34C) -- 107.3a/e/i
     where_text = removed_all.WHERE.sub("", ability.text) if ability.kind == "activated" else ability.text
     if d is not None and '{"x": 1}' in json.dumps(d.get("effects") or [], default=str) and (
             re.search(r"\bwhere X is\b", where_text)
-            or (d.get("kind") == "triggered" and d.get("trigger") != "enters_self" and not monstrous_x)):
+            or (d.get("kind") == "triggered" and d.get("trigger") != "enters_self" and not monstrous_x and not x_given)):
         return None
     # -- review (wave 12C) -- the X a selector compares with ("with mana value X or less": selectors.X_VALUE, the cast X) or
     # the stand-in number of _where_x, left in any field: that X isn't what "where X is" defines — manual
@@ -3867,7 +3885,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             rf'(?<![\d-]){_X_SENTINEL}(?!\d)|,{selectors.X_VALUE}\]', json.dumps(d, default=str)):
         return None
     if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str) and not (
-            monstrous_x or (d.get("trigger") == "enters_self" and "{X}" in (ch.mana_cost or "") and "where X is" not in ability.text)):
+            monstrous_x or x_given or (d.get("trigger") == "enters_self" and "{X}" in (ch.mana_cost or "") and "where X is" not in ability.text)):
         return None  # ("up to X target …" in a trigger: its targets are chosen before any X is known to it; wave 19F: but the X an
         # enters trigger of a spell cast with X, or a becomes-monstrous trigger, is given: triggers.cast_x)
     # -- entry forms (wave 5F) -- "It's an enchantment." only right after a return
@@ -3893,6 +3911,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = self_text(merged.protect(ability.text), ch.name)
     # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")
     text = re.sub(r"^(When ~ enter, if )they're( not a token, create [^.]+? cop(?:y|ies) of )them\b", r"\1it's\2it", text)
+    text = half_x(text) if "half X" in text else text  # -- X arithmetic (wave 34C) -- 107.1a
     if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
         return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
     if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I)
@@ -4430,6 +4449,8 @@ def _event_refs_ok(d: Definition) -> bool:
         return False  # -- spell copies (wave 31D) -- "cast before it this turn": the spell a cast trigger is about
     if '"of": "roll"' in raw and not (ev is not None and ev["event"] == "roll_die"):
         return False  # -- dice (wave 24B) -- "if the roll was 4 or higher": the one die a roll trigger is about
+    if '"of": "event"' in raw and not (ev is not None and (ev["event"] == "you_attack" and ev.get("min_attackers") or ev["event"] == "attack" and ev.get("aggregate"))):
+        return False  # -- event batches (wave 34C) -- "the greatest power among them": the attackers a "one or more" attack trigger counted
     if '"died": 1' in raw and not (ev is not None and ev["event"] == "die" and not ev.get("aggregate")):
         return False  # -- value grammar (wave 23C) -- "the power of the creature that died": the one creature a "dies" trigger is about
     if '"of": "damage"' in raw and not (ev is not None and ev["event"] in ("dealt_damage", "deal_damage", "deal_damage_opponent", "deal_combat_damage_player")):
@@ -7413,10 +7434,12 @@ def _event_spell_ok(d: Definition) -> bool:
 # artifact creature token with lifelink" (Wurmcoil Engine), "create A, B, and C" (Triplicate Titan): one instruction
 # creating several kinds of token (701.7a), carried out as one create_token effect (effects.create_token's "more").
 # Each kind must read on its own as a plain "create …" with a fixed number; anything else stays manual.
-_TOKEN_LIST_SPLIT = re.compile(r"(?:, and |, | and )(?=an? [^,]*?\btokens?\b)")
+# (wave 34C: a number or X leads a kind too — "create X 1/1 white Halfling creature tokens and X Food tokens", Farmer Cotton; 701.7a)
+_TOKEN_Q = r"(?:an?|[xX]|\d+|two|three|four|five|six|seven|eight|nine|ten)"
+_TOKEN_LIST_SPLIT = re.compile(rf"(?:, and |, | and )(?={_TOKEN_Q} [^,]*?\btokens?\b)")
 
 
-@effect(r"create (?P<list>(?=[^\"]*$)an? [^.]*?\btokens?\b[^.]*?(?:, and |, | and )an? [^.]*?\btokens?\b[^.]*)")
+@effect(rf"create (?P<list>(?=[^\"]*$){_TOKEN_Q} [^.]*?\btokens?\b[^.]*?(?:, and |, | and ){_TOKEN_Q} [^.]*?\btokens?\b[^.]*)")
 def _create_several_kinds(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     pieces = _TOKEN_LIST_SPLIT.split(m["list"])
     made: list[dict[str, Any]] = []
@@ -7425,7 +7448,7 @@ def _create_several_kinds(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         if found is None or found[1] is not None or len(found[0]) != 1:
             raise _NoMatch
         e = found[0][0]
-        if e.get("do") != "create_token" or e.get("who") != "you" or not isinstance(e.get("n"), int) \
+        if e.get("do") != "create_token" or e.get("who") != "you" or not (isinstance(e.get("n"), int) or (e.get("n") == {"x": 1} and "where X" not in m["list"])) \
                 or set(e) - {"do", "who", "n", "token", "tapped"}:
             raise _NoMatch
         made.append(e)

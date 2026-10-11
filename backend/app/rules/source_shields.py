@@ -196,8 +196,6 @@ def _next_n(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
             return [{"do": "prevent", "who": "target", "n": {"divided": 0}}], language._divided("any number of targets", "damage", n)
         except language._Fail:
             raise scripts._NoMatch from None
-    if isinstance(n, dict):
-        raise scripts._NoMatch  # (X only divided: elsewhere the amount is not read yet)
     if to in ("you", "enchanted creature", "~", "this creature"):
         return [{"do": "prevent", "who": {"you": "you", "enchanted creature": "host"}.get(to, "self"), "n": n}], None
     if to == "any target":
