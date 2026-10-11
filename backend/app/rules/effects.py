@@ -897,7 +897,13 @@ def _destroy_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]
 
 
 def exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    return exile_cards(plan, ctx, e, _cards(plan, ctx, e["who"]))
+    return exile_cards(plan, ctx, e, _from_zone(plan, e, _cards(plan, ctx, e["who"])))
+
+
+def _from_zone(plan: Plan, e: dict[str, Any], cards: list[str]) -> list[str]:
+    """-- review 32 -- "exile that card from your graveyard": only the cards still in that zone (language: "from_zone")."""
+    z = e.get("from_zone")
+    return [c for c in cards if plan.state.cards[c].zone.endswith(":" + z)] if z else cards
 
 
 def exile_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
@@ -3016,7 +3022,7 @@ def _did(fn: Any, kind: str) -> Any:
         name = e.get("did")
         if name and name not in context.refs(ctx):
             context.refs(ctx)[name] = {"kind": "probe", "to": kind, "cards": {
-                c: plan.oid(plan.state.cards[c]) for c in _cards(plan, ctx, e["who"])}}
+                c: plan.oid(plan.state.cards[c]) for c in _from_zone(plan, e, _cards(plan, ctx, e["who"]))}}
         return bool(fn(plan, ctx, e))
     return run
 

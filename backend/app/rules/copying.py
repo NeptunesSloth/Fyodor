@@ -1018,7 +1018,14 @@ def token_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     requests: list[tuple[str, dict[str, Any], int, str | None, bool]] = []
     notes: list[str] = []
     refused: list[str] = []
+    from app.rules import populate
+
+    # -- review 32 -- an object an earlier instruction moved off the battlefield is copied as it last existed there (below), not as the card it
+    # became (Kaya, Intangible Slayer's rulings: a copy of a copy, a token)
+    gone = {r.card for r in populate.gone_refs(plan, ctx, e["who"])} if e["who"].startswith("ref:") else set()
     for cid in effects._cards(plan, ctx, e["who"]):
+        if cid in gone:
+            continue
         card = plan.state.cards[cid]
         zone = card.zone.rsplit(":", 1)[-1]
         if zone in ("hand", "library", "stack"):
@@ -1038,8 +1045,6 @@ def token_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             requests.append(req)
     # -- token copies & attach on entry (wave 5J) -- 608.2h, 111.12: the object the trigger (or the source) was about
     # left the battlefield: the copy uses its copiable values as it last existed there
-    from app.rules import populate
-
     for recipe_or_why, maker in populate.left_battlefield(plan, ctx, e["who"], bool(e.get("their"))):
         if isinstance(recipe_or_why, str):
             refused.append(recipe_or_why)
@@ -1264,7 +1269,7 @@ def become_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # (608.2h, 111.12; the same last known information a token copy reads)
         from app.rules import populate
 
-        left = populate.left_battlefield(plan, ctx, "event", False)
+        left = populate.left_battlefield(plan, ctx, e["with"] if e["with"].startswith("ref:") else "event", False)  # (review 32: Identity Thief's exiled target)
         if len(left) == 1 and isinstance(left[0][0], CopyRecipe):
             base, of = left[0][0], []
         elif left:
