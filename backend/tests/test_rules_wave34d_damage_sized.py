@@ -145,7 +145,7 @@ def test_combustion_man_asks_for_the_power_it_has_when_the_trigger_resolves(card
     s, man, ogre = combustion(cards)
     respond_with_growth(s, man)
     d = s.state.rules.decision
-    assert d.player == "p2" and [o.label for o in d.options] == ["Pay Have ~ deal 7 damage to you", "Don't pay"]
+    assert d.player == "p2" and [o.label for o in d.options] == ["Have Combustion Man deal 7 damage to you", "Don't pay"]
     act(s, "p2", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
     answer(s)
     assert life(s, "p2") == 40 - 7 and s.state.cards[ogre.id].zone == "p2:battlefield"
@@ -156,7 +156,7 @@ def test_combustion_man_destroys_the_permanent_if_its_controller_declines(cards)
     s, man, ogre = combustion(cards)
     until_asked(s)
     d = s.state.rules.decision
-    assert [o.label for o in d.options] == ["Pay Have ~ deal 4 damage to you", "Don't pay"]
+    assert [o.label for o in d.options] == ["Have Combustion Man deal 4 damage to you", "Don't pay"]
     act(s, "p2", type="choose", decision_id=d.id, option_ids=[d.options[1].id])
     answer(s)
     assert life(s, "p2") == 40 and ogre.id not in s.state.cards  # (destroyed: a token ceases to exist, 111.7)
@@ -176,7 +176,7 @@ def test_a_prevention_shield_stops_the_damage_but_the_payment_still_counts(cards
     assert d.player == "p2"
     act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
     d = until_asked(s)
-    assert d.player == "p2" and d.options[0].label == "Pay Have ~ deal 4 damage to you"
+    assert d.player == "p2" and d.options[0].label == "Have Combustion Man deal 4 damage to you"
     act(s, "p2", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
     answer(s)
     assert life(s, "p2") == 40 and s.state.cards[ogre.id].zone == "p2:battlefield"
@@ -201,7 +201,7 @@ def craig(cards):
 def test_craig_boone_lets_the_creatures_controller_take_the_damage_instead(cards):
     s, boone, giant, d = craig(cards)
     assert counters(s, boone, "quest") == 2 and d.player == "p2"
-    assert [o.label for o in d.options] == ["Pay Have ~ deal 2 damage to you", "Don't pay"]
+    assert [o.label for o in d.options] == ["Have Craig Boone, Novac Guard deal 2 damage to you", "Don't pay"]
     act(s, "p2", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
     answer(s)
     assert life(s, "p2") == 40 - 2 - 4 and damage(s, giant) == 0  # (2 from the payment, 3 + 1 combat damage: nobody blocked)
