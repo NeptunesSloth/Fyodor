@@ -103,8 +103,8 @@ STATIC_OWN_FLASH = re.compile(r"^(?P<sel>[a-z]+) cards you own that aren't on th
 SELF_FLASH_IF = re.compile(r"^you may cast (?:this spell|~) as though it had flash if (?P<cond>.+)$")
 # Effects: "Your opponents can't cast spells this turn." / "Target player can't cast spells this turn." / "Players can't cast
 # noncreature spells this turn." / "Until your next turn, your opponents can't cast spells from anywhere other than their hands."
-EFFECT_CAST = re.compile(rf"^(?:(?P<lead>until your next turn|this turn), )?(?P<who>your opponents|players|each player|each opponent|"
-                         rf"target player|target opponent) can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>this turn|until your next turn))?$")
+EFFECT_CAST = re.compile(rf"^(?:(?P<lead>until your next turn|until the end of your next turn|this turn), )?(?P<who>your opponents|players|each player|each opponent|"
+                         rf"target player|target opponent) can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>this turn|until your next turn|until the end of your next turn))?$")  # (wave 32C: Single Combat)
 # Flash permissions (601.3b): "You may cast Spirit spells as though they had flash." / "You may cast Dragon spells and artifact
 # spells as though they had flash." / "Any player may cast spells as though they had flash." / "During each opponent's end
 # step, you may cast spells as though they had flash." — and the effect "You may cast spells this turn as though they had flash."
@@ -391,7 +391,7 @@ def _effect_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     who = {"your opponents": "each_opponent", "each opponent": "each_opponent", "players": "each_player", "each player": "each_player",
            "target player": "target", "target opponent": "target"}[m["who"]]
     sel = {"target player": "player", "target opponent": "opponent"}.get(m["who"])
-    until = "next_turn" if "next turn" in (lead or when or "") else "turn"
+    until = "end_of_next_turn" if "end of your next turn" in (lead or when or "") else "next_turn" if "next turn" in (lead or when or "") else "turn"
     return [{"do": "cast_limit", "who": who, "until": until, "filter": key, "from": list(_FROMS[m["frm"]]) if m["frm"] else None,
              "act": act}], sel
 
@@ -455,7 +455,7 @@ def cast_limit(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         what = _spells_words(e.get("filter"), e.get("from"))
         if e.get("act") == "loyalty":
             what += " or activate loyalty abilities"
-        plan.note(f"{plan.name(pid)} can't cast {what} {'this turn' if e['until'] == 'turn' else 'until ' + plan.name(ctx['controller']) + '’s next turn'} ({label})",
+        plan.note(f"{plan.name(pid)} can't cast {what} {'this turn' if e['until'] == 'turn' else ('until the end of ' if e['until'] == 'end_of_next_turn' else 'until ') + plan.name(ctx['controller']) + '’s next turn'} ({label})",
                   actor=ctx["controller"])
     return True
 
@@ -498,6 +498,7 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     ended = {(active, turn), *(skipped or ())}
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
+        and not (x.get("until") == "end_of_next_turn" and any(x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in skipped or ()))  # (wave 32C)
         and not (x.get("until") == "turn" and x.get("turn") != turn)]
     # -- durations (wave 30M) -- "Until your next turn, you may play that card / cast … as though … had flash": a permission (500.4, 800.4m)
     r.permissions = [p for p in r.permissions if not (p.until == "next_turn" and any(p.player == pl and n > p.turn for pl, n in ended))]

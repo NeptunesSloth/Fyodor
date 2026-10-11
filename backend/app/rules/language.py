@@ -3508,7 +3508,7 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
 # "Target opponent gains control of target permanent you control", "Exchange control of two target
 # creatures / of ~ and target creature an opponent controls". Effects: ``gain_control`` (who, to, duration)
 # and ``exchange_control`` (701.12; who, with). Other durations ("for as long as …") wrap these (delayed.py);
-# "until the end of your next turn" and the rest are not read (the sentence stays manual).
+# "until the end of your next turn" is wrapped like "until your next turn" (wave 32C, delayed.DURATIONS); the rest are not read (the sentence stays manual).
 _CT_END = r"(?P<d> until end of turn)?"
 _CT_PRONOUN = r"(?:it|them|that creature|those creatures|that permanent|those permanents)"
 _CT_GAIN = re.compile(rf"(?:you )?gain control of (?P<o>.+?){_CT_END}")

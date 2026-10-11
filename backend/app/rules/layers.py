@@ -1093,6 +1093,9 @@ def end_of_turn(plan: Plan) -> None:
     """514.2: "until end of turn" effects end in the cleanup step."""
     r = plan.rules
     r.effects = [e for e in r.effects if e.duration not in ("end_of_turn", "end_of_combat")]  # (a combat a turn ended in, 18E review)
+    from app.rules import delayed
+
+    delayed.end_of_next_turn(plan)  # -- end of next turn (wave 32C) -- "until the end of your next turn" ends in the cleanup of that turn
     control_sync(plan)  # -- control (wave 3K) -- a Threaten effect ends: the creature goes back (613.1b)
 
 

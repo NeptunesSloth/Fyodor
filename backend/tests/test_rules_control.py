@@ -158,7 +158,6 @@ def test_the_grammar_reads_control_changes(text, do):
 
 
 @pytest.mark.parametrize("text", [
-    "Gain control of target creature until the end of your next turn.",  # (a duration the engine doesn't model)
     "Each opponent gains control of a creature of their choice.",  # (a choice on resolution)
     "Exchange control of target creature and another target creature you control and two target lands.",
 ])

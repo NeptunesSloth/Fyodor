@@ -772,9 +772,9 @@ LOOK_EXILED = re.compile(r"^you may look at (?P<what>it|that card|those cards|th
                          r"remains? exiled$")
 _LOOK_AND_PLAY = re.compile(r"You may look at and (?P<v>play|cast) (?P<w>that card|those cards|it|them)(?P<free> without paying "
                             r"(?:its|their) mana costs?)? for as long as (?P<d>it|they) (?P<r>remains?) exiled")
-_PLAY_RIDER = re.compile(r"(?P<g>You may (?:play|cast) (?P<w>that card|those cards|it|them)[^.]*?)\. (?:(?P<a>Mana of any type can be "
-                         r"spent to cast (?:a spell|spells) this way)|(?P<b>If you cast a spell this way, you may spend mana as though it "
-                         r"were mana of any type to cast it))\.")
+_PLAY_RIDER = re.compile(r"(?P<g>[Yy]ou may (?:play|cast) (?P<w>that card|those cards|it|them)[^.]*?)\. (?:(?P<a>Mana of any type can be "
+                         r"spent to cast (?:a spell|spells) this way|If you cast a spell this way, mana of any type can be spent to cast it)"
+                         r"|(?P<b>If you cast a spell this way, you may spend mana as though it were mana of any type to cast it))\.")  # (wave 32C: Bloodsoaked Insight, after "Until …, you may play …")
 
 
 def join_exile_play(body: str) -> str:
@@ -803,6 +803,10 @@ def join_exile_play(body: str) -> str:
                   r"It becomes foretold with a foretell cost of its mana cost reduced by \1.", body)  # (Ethereal Valkyrie: 702.143d)
     body = re.sub(r"([Yy]ou may (?:look at and )?(?:play|cast) )the exiled (card|cards)\b",  # (-- hideaway (wave 29D) -- also mid-sentence: "Then if …, you may play the exiled card")
                   lambda m: m[1] + ("that card" if m[2] == "card" else "those cards"), body)
+    # -- end of next turn (wave 32C) -- "Until the end of your next turn, you may play those cards. If this spell was cast from a graveyard, you may play
+    # cards this way without paying their mana costs." (Ignite the Future): "this way" is the same permission's duration, said again
+    body = re.sub(r"(Until [a-z ]+?), you may (play|cast) those cards\. (If [^,.]+), you may \2 cards this way without paying their mana costs\.",
+                  lambda m: f"{m[1]}, you may {m[2]} those cards. {m[3]}, {m[1][0].lower()}{m[1][1:]}, you may {m[2]} those cards without paying their mana costs.", body)
     body = _LOOK_AND_PLAY.sub(lambda m: f"You may look at {m['w']} for as long as {m['d']} {m['r']} exiled. You may {m['v']} {m['w']}"
                               f"{m['free'] or ''} for as long as {m['d']} {m['r']} exiled", body)
 
@@ -865,10 +869,10 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     # -- refused grants/replacements (wave 3R2) -- the same permission with its duration at the end ("You may play it
     # until the end of your next turn.": 611.2a, the duration is the one stated, wherever the sentence states it) and
     # "them" for "those cards" ("You may play them until the end of your next turn.")
+    text = re.sub(r"^((?:until [a-z ]+, )?you may (?:play|cast)) (?:them|cards exiled this way|the exiled cards)\b", r"\1 those cards", text)  # (wave 32C: Escape to the Wilds)
     trailing = _TRAILING_UNTIL.fullmatch(text)
     if trailing:
         text = f"{trailing['until']}, {trailing['rest']}"
-    text = re.sub(r"^((?:until [a-z ]+, )?you may (?:play|cast)) them\b", r"\1 those cards", text)
     # -- end refused grants/replacements (wave 3R2) --
     # -- as long as (wave 9B) -- "You may cast that card for as long as it remains exiled, and mana of any type can be spent
     # to cast that spell." (Gonti, Hostage Taker, Thief of Sanity)
@@ -893,7 +897,7 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         if (m["until"] and m["this_turn"]) or not (m["until"] or m["this_turn"]):
             return None  # (a bare "you may play that card" / several cards: cast as this resolves, not modelled)
         free = bool(m["free"])  # (wave 3C) "... without paying its mana cost" (118.9)
-        if spend_kind and (free or m["verb"] != "cast" or (m["what"] == "those cards") != ("those spells" in (m["spend"] or m["spend2"]))):
+        if spend_kind and (free or (m["what"] == "those cards") != ("those spells" in (m["spend"] or m["spend2"]))):
             return None  # (-- if you do (wave 25C) -- 118.14: mana is spent only to cast, never for a free cast)
         until = {"until the end of your next turn": "end_of_next_turn", "until your next end step": "next_end_step",
                  "until your next turn": "next_turn", "until the beginning of your next upkeep": "next_turn"}.get(m["until"], "end_of_turn")

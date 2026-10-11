@@ -1,0 +1,169 @@
+[
+ {
+  "name": "Treasure Nabber",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Goblin Rogue",
+  "oracle_text": "Whenever an opponent taps an artifact for mana, gain control of that artifact until the end of your next turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Single Combat",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player chooses a creature or planeswalker they control, then sacrifices the rest. Players can't cast creature or planeswalker spells until the end of your next turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Escape to the Wilds",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile the top five cards of your library. You may play cards exiled this way until the end of your next turn.\nYou may play an additional land this turn.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Ignite the Future",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile the top three cards of your library. Until the end of your next turn, you may play those cards. If this spell was cast from a graveyard, you may play cards this way without paying their mana costs.\nFlashback {7}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flashback"
+  ]
+ },
+ {
+  "name": "Lidless Gaze",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile the top card of each player's library. Until the end of your next turn, you may play those cards, and mana of any type can be spent to cast those spells.\nFlashback {2}{B}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Flashback"
+  ]
+ },
+ {
+  "name": "Bloodsoaked Insight // Sanguine Morass",
+  "layout": "modal_dfc",
+  "mana_cost": "{5}{B/R}{B/R} // ",
+  "cmc": 7.0,
+  "type_line": "Sorcery // Land",
+  "oracle_text": "This spell costs {1} less to cast for each 1 life your opponents have lost this turn.\nTarget opponent exiles the top three cards of their library. Until the end of your next turn, you may play those cards. If you cast a spell this way, mana of any type can be spent to cast it.\n//\nThis land enters tapped.\n{T}: Add {B} or {R}.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "card_faces": [
+   {
+    "name": "Bloodsoaked Insight",
+    "mana_cost": "{5}{B/R}{B/R}",
+    "type_line": "Sorcery",
+    "oracle_text": "This spell costs {1} less to cast for each 1 life your opponents have lost this turn.\nTarget opponent exiles the top three cards of their library. Until the end of your next turn, you may play those cards. If you cast a spell this way, mana of any type can be spent to cast it.",
+    "colors": [
+     "B",
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/0/a/0a08e0d2-1e60-47f5-9228-4c11a127089d.jpg?1783911225",
+     "normal": "https://cards.scryfall.io/normal/front/0/a/0a08e0d2-1e60-47f5-9228-4c11a127089d.jpg?1783911225",
+     "large": "https://cards.scryfall.io/large/front/0/a/0a08e0d2-1e60-47f5-9228-4c11a127089d.jpg?1783911225",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/0/a/0a08e0d2-1e60-47f5-9228-4c11a127089d.jpg?1783911225"
+    }
+   },
+   {
+    "name": "Sanguine Morass",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "This land enters tapped.\n{T}: Add {B} or {R}.",
+    "colors": [],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/0/a/0a08e0d2-1e60-47f5-9228-4c11a127089d.jpg?1783911225",
+     "normal": "https://cards.scryfall.io/normal/back/0/a/0a08e0d2-1e60-47f5-9228-4c11a127089d.jpg?1783911225",
+     "large": "https://cards.scryfall.io/large/back/0/a/0a08e0d2-1e60-47f5-9228-4c11a127089d.jpg?1783911225",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/0/a/0a08e0d2-1e60-47f5-9228-4c11a127089d.jpg?1783911225"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Rooting Moloch",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Lizard",
+  "oracle_text": "When this creature enters, exile target card with a cycling ability from your graveyard. Until the end of your next turn, you may play that card.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Cycling"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Lonely Sandbar",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\n{T}: Add {U}.\nCycling {U} ({U}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Cycling"
+  ]
+ }
+]
