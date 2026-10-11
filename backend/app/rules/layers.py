@@ -282,7 +282,7 @@ def _table_key(state: GameState) -> tuple:
                      tuple(state.zones.get(f"{pid}:graveyard", ())), tuple(state.zones.get(f"{pid}:exile", ())),
                      tuple(sorted(state.players[pid].resources.items()))) for pid in state.seat_order)
     field = tuple((cid, c.controller, c.tapped, c.attacking is not None, bool(c.blocking), c.attached_to, c.face_down,
-                   tuple(sorted(c.counters.items())))
+                   tuple(sorted(c.counters.items())), c.face, c.blocking, tuple(c.blocking_more))  # (wave 35D: face, whom it blocks)
                   for cid, c in state.cards.items() if c.zone.endswith(":battlefield"))
     log = r.turn_log if r else None  # (conditions read this turn's history: "a creature died this turn")
     history = (log.turn, tuple(log.attacked), tuple(sorted(log.gained.items())), tuple(sorted(log.lost.items())),
@@ -292,7 +292,10 @@ def _table_key(state: GameState) -> tuple:
                len(log.casts), len(log.facts), tuple(sorted((p, len(a)) for p, a in log.attackers.items())),
                len(r.events), r.trigger_batch,  # (wave 24A: facts of events not yet looked at are read too, history.log_for)
                tuple(sorted((p, (c.turn, c.count)) for p, c in r.lands_played.items()))) if log is not None and r else ()
-    designations = (tuple(r.monstrous), tuple(r.renowned), tuple(r.suspected)) if r else ()  # -- conditional statics (wave 4B) --
+    designations = (tuple(r.monstrous), tuple(r.renowned), tuple(r.suspected),  # -- conditional statics (wave 4B) --
+                    # -- as long as (wave 35D) -- what a static's condition reads of an object's past, the Ring-bearer, the unlocked doors
+                    tuple(r.dealt_damage), tuple(sorted(r.ring_bearers.items())), tuple(r.payments),
+                    tuple(sorted((k, tuple(v)) for k, v in r.unlocked.items()))) if r else ()
     return (state.seq, state.turn.number, state.turn.active_player, players, field,
             r.timestamp if r else 0, len(r.effects) if r else 0, history, designations)
 

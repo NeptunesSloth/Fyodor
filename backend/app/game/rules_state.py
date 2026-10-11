@@ -1078,6 +1078,9 @@ class RulesState(BaseModel):
     levels: dict[str, int] = Field(default_factory=dict)  # -- Class (wave 16A) -- 716.2b: rules object -> class level (none: level 1, 716.2d)
     unlocked: dict[str, list[int]] = Field(default_factory=dict)  # -- Rooms (wave 18G) -- 709.5c: rules object -> its unlocked doors (1 left, 2 right)
     suspected: list[str] = Field(default_factory=list)  # rules objects that are suspected (701.60: -- suspect (wave 12A) --)
+    # -- as long as (wave 35D) -- what an object has done since it became that object (400.7), dropped as it leaves the battlefield:
+    # "hasn't dealt damage yet" (120.3: a source that dealt more than 0 damage: its oid, and "<oid>+combat" for combat damage)
+    dealt_damage: list[str] = Field(default_factory=list)
     prepared: dict[str, str] = Field(default_factory=dict)  # -- prepared (wave 13C, 722.3) -- permanent's rules object -> its copy in exile
     damaged: dict[str, int] = Field(default_factory=dict)  # player -> last turn they were dealt damage (bloodthirst)
     echo_done: list[str] = Field(default_factory=list)  # "<object>:<controller>" whose echo upkeep came
@@ -1512,6 +1515,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             log.drawn.setdefault(card.owner, []).append(new_oid)
         if old_name in ("library", "hand") and new_name in ("library", "hand", None) and snap is None:
             continue  # private shuffling around: new objects, but nothing public happened
+        if old_name == "battlefield":  # -- as long as (wave 35D) -- 400.7: what the old object did or was is no part of the new one
+            rules.dealt_damage = [x for x in rules.dealt_damage if x.removesuffix("+combat") != old_oid]
         if old_name == "battlefield" and snap is not None:  # -- conditional / instead clauses (wave 1B) --
             log = turn_log_now(state)
             if log is not None:

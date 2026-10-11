@@ -4051,6 +4051,33 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     return d
 
 
+# -- as long as (wave 35D) -- 604.2, 611.3a: "As long as ~ is untapped, if a creature would deal combat damage to you, prevent 1 of that damage."
+# (Thunderstaff), "As long as ~ is attached to a creature, your opponents can't cast spells during your turn." (Conqueror's Flail), "As long as ~ has a
+# shield counter on ~, you and other Heroes you control have hexproof." (Captain America): the static ability the rest of the sentence is, applying only
+# while the condition holds. Tried last, so it never reads what a grammar above it reads; for the statics whose readers check ``static_if`` (replacement and
+# prevention effects: replace.static_candidates, replacements._static_records; the limits: cast_limits._statics; a player's hexproof: player_shields).
+_WHEN_KINDS = frozenset({"replace", "prevent", "cast_limit"})
+
+
+def _conditional_static(ability: AbilityText, ch: Characteristics, text: str) -> Definition | None:
+    m = re.fullmatch(r"As long as (?P<c>[^,]+), (?P<r>.+)", text)
+    if m is None:
+        return None
+    from app.rules import statics
+
+    cond = statics.condition(m["c"])
+    if cond is None or "succeeded" in cond or "flag" in cond or "object" in cond:
+        return None
+    inner = _define(replace(ability, text=m["r"][:1].upper() + m["r"][1:]), ch)
+    if inner is None or inner.get("kind") != "static":
+        return None
+    if inner.get("static") in _WHEN_KINDS:
+        return {**inner, "static_if": [cond]}
+    if inner.get("static") == "grant" and inner.get("player_shield") and not inner.get("conditions"):
+        return {**inner, "conditions": [cond]}
+    return None
+
+
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     from app.rules import (
@@ -4170,6 +4197,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return None  # -- cost changers (wave 4I) -- a Room door's ability works only while it's unlocked: not modelled
         if granted is not None:
             return granted
+    if ability.kind == "static" and (gated := _conditional_static(ability, ch, text)) is not None:  # -- as long as (wave 35D) --
+        return gated
     if ability.kind == "triggered":
         text = re.sub(r"^((?:When|Whenever) [^,]+?) while this card is in your graveyard, ", r"\1, if this card is in your graveyard, ", text)  # (wave 19C)
         # -- spell copies (wave 31D) -- "Whenever you cast a spell while ~ is attacking, …" (Fire Lord Azula): a condition of the cast event (603.2),

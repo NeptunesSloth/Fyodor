@@ -52,7 +52,7 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 
 from app.game.rules_state import CopyRecipe, DecisionOption
 from app.game.state import CardInstance, TokenDef, zone_key
-from app.rules import card_names, conditions, scripts, selectors, values  # (card_names: wave 22B)
+from app.rules import card_names, conditions, scripts, selectors, statics, values  # (card_names: wave 22B)
 from app.rules import characteristics as chars
 
 if TYPE_CHECKING:
@@ -1377,7 +1377,7 @@ def _static_records(plan: Plan) -> list[dict[str, Any]]:
         if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         for d in scripts.definitions(plan.ch(c)).values():
-            if d["kind"] == "static" and d.get("static") == "prevent":
+            if d["kind"] == "static" and d.get("static") == "prevent" and statics.static_if_holds(plan, d, c):  # (wave 35D: "As long as …", 611.3a)
                 out.append({"kind": "prevent", "controller": c.controller, "source": plan.oid(c), "source_card": c.id,
                             "scope": d["scope"]})
     return out
