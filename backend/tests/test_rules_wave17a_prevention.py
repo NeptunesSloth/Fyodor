@@ -352,7 +352,6 @@ def test_the_chosen_color_needs_the_permanents_own_choice():
     "{1}: The next 1 damage that would be dealt to target creature this turn is dealt to another target creature instead.",
     "{3}, {T}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature "
     "of an opponent's choice instead.",
-    "{1}: The next time a source of your choice would deal damage this turn, that damage is dealt to that source's controller instead.",
 ])
 def test_redirections_left_manual(text):
     assert not all(supported(text)), text

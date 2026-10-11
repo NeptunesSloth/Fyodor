@@ -260,7 +260,8 @@ class Planner:
     def applies(self, c: Candidate, ev: Event, sim: Sim) -> bool:
         # (-- counter putters (wave 22C) -- "… on a permanent or player": one counters static also applies to player events)
         if (c.event != ev["kind"] and not (c.event == "counters" and ev["kind"] == "player_counters" and c.match.get("players"))) \
-                or c.id in (ev.get("applied") or ()) or (c.op.get("once") and c.id in self.used):  # (review 28B: "the next time": one event)
+                or c.id in (ev.get("applied") or ()) or (c.op.get("once") and not c.op.get("batch") and c.id in self.used):
+            # (review 28B: "the next time": one event; wave 35A, ``batch``: damage's "next time" is one TIME — every event of the batch)
             return False
         fn = _APPLIES.get(ev["kind"])
         return bool(fn and fn(self.plan, c, ev, sim))
@@ -1562,6 +1563,12 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
         color = selectors.COLORS.get((selectors.source_choice(plan, c.source_card, "color") or "").lower())
         if color is None or color not in (src.get("colors") or ()):
             return False
+    if spec.get("chosen_type"):  # -- one-shot shields (wave 35A) -- "a creature of the chosen type" (Circle of Solace): its permanent's choice, 614.12a
+        from app.rules import selectors
+
+        kind = (selectors.source_choice(plan, c.source_card, "creature type") or "").strip()
+        if not kind or kind not in (src.get("subtypes") or ()):
+            return False
     if spec.get("colorless") and src.get("colors"):  # (-- prevention riders (wave 17A) -- "colorless sources", "non-Human sources")
         return False
     if spec.get("not_subtypes") and set(spec["not_subtypes"]) & set(src.get("subtypes") or ()):
@@ -1602,7 +1609,7 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if (c.prevention or c.legacy is not None) and ev.get("unpreventable") and not (
             c.op.get("rider") and c.id.startswith("s:")):  # (-- prevention riders (wave 17A) -- a static's additional effect
         return False  # still takes place, 615.12; a record's or shield's riders all count the damage prevented: none)
-    if c.op.get("once") and f"once:{c.id}" in sim.get("shields", {}):
+    if c.op.get("once") and not c.op.get("batch") and f"once:{c.id}" in sim.get("shields", {}):  # (wave 35A: ``batch``, see Planner.applies)
         return False
     # -- end refused grants/replacements (wave 3R2) --
     if c.legacy is not None:  # a stage-1 "prevent all …" static or this turn's record
@@ -1675,6 +1682,8 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         n = max(0, n - int(op["n"]))
     elif kind == "prevent_half_up":  # -- damage wordings (wave 6B) -- prevent half, rounded up: half rounded down is left
         n //= 2
+    elif kind == "prevent_half_down":  # -- one-shot shields (wave 35A) -- Dark Sphere: prevent half, rounded down: the rest is dealt
+        n -= n // 2
     elif kind == "prevent_all_but":
         n = min(n, int(op["n"]))
     elif kind == "prevent_all":
@@ -1692,7 +1701,8 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         out["prevented"] = int(ev.get("prevented") or 0) + (int(ev["amount"]) - n)
         if op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
             out["riders"] = [*(ev.get("riders") or []), {"rider": op["rider"], "n": int(ev["amount"]) - n, "by": c.controller,
-                                                         "card": c.source_card, "oid": c.source_oid, "name": c.label}]
+                                                         "card": c.source_card, "oid": c.source_oid, "name": c.label,
+                                                         **({"batch": c.id} if op.get("batch") else {})}]
     return [out]
 
 
@@ -1857,6 +1867,20 @@ class DamageOutcome:
     riders: list[dict[str, Any]] = field(default_factory=list)  # (wave 17A) the additional effects of prevention effects, 615.5
 
 
+def _merged_riders(riders: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """-- one-shot shields (wave 35A) -- 615.5, 615.8: a "next time" shield applies once to the damage dealt at that time (every chunk of it):
+    its additional effect counts all the damage it prevented ("You gain life equal to the damage prevented this way"), so the chunks of
+    one shield add up — unless the effect names the recipient or the source's controller of one chunk."""
+    out: list[dict[str, Any]] = []
+    for r in riders:
+        mine = next((m for m in out if r.get("batch") and m.get("batch") == r["batch"]), None)
+        if mine is not None and not re.search(r"ref:to|from_ctrl", json.dumps(r["rider"])):
+            mine["n"] += r["n"]
+        else:
+            out.append(dict(r))
+    return out
+
+
 def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], order: list[str] | None,
                    ask: bool) -> DamageOutcome | Ask | ShieldAsk:
     """The whole of one damage batch: the damage events through ``plan_damage``, then what the
@@ -1872,8 +1896,8 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
     out = DamageOutcome(events=[ev for ev in planned.events if ev["amount"] > 0], notes=list(planned.notes),
                         shields=planned.shields, left=[planned.planner],
                         shield_counters=planned.shield_counters,
-                        riders=[{**r, "ev": {k: ev.get(k) for k in ("src", "source_card", "source_oid", "target", "target_oid", "combat")}}
-                                for ev in planned.events for r in ev.get("riders") or []])
+                        riders=_merged_riders([{**r, "ev": {k: ev.get(k) for k in ("src", "source_card", "source_oid", "target", "target_oid", "combat")}}
+                                               for ev in planned.events for r in ev.get("riders") or []]))
     counters: list[tuple[str, str, int, str]] = []  # (target, kind, n, by)
     gains: dict[str, int] = {}
     for ev in out.events:
