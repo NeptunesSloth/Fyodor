@@ -399,6 +399,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
 
     if what == battles.PROTECTOR:  # 310.9a / 310.12a
         return f"{card.name}: as it enters, choose its protector", battles.choice_options(plan, controller, card)
+    from app.rules import chosen
+
+    if (picks := chosen.words(what)) is not None:  # -- linked words (wave 33B) -- 607.2f
+        return f"{card.name}: as it enters, choose {' or '.join(picks)}", _choice_options(plan, {"controller": controller, "source_card": card.id}, what)
     article = "an" if what[:1] in "aeiou" else "a"
     return (f"{card.name}: as it enters, choose {article} {what}",  # (-- enter as copy (wave 5F) --: the entering card)
             _choice_options(plan, {"controller": controller, "source_card": card.id}, what))
@@ -669,9 +673,14 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
 
     reveal_lands.after_entry(plan, controller, choices)
     if choices:
+        from app.rules import chosen as _chosen
         from app.rules.effects import CHOICE_LABELS
 
         for what, value in choices.items():
+            if value and value in (_chosen.words(what) or ()):  # -- linked words (wave 33B) -- 607.2f: the word, public, kept for this object (400.7)
+                plan.do({"type": "set_choice", "card_id": card_id, "key": _chosen.WORD_LABEL, "value": value}, actor=controller)
+                _chosen.record_word(plan, card_id, value)
+                continue
             if not value or (what not in CHOICE_LABELS and not card_names.is_choice(what)):
                 continue
             shown = plan.name(value) if what in ("opponent", "player") and value in plan.state.players else value

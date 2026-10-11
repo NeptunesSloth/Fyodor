@@ -296,6 +296,9 @@ def with_level(state: GameState, card: CardInstance, ch: Characteristics, info: 
         return chars.with_doors(ch, data, doors)
     if ch.doors is None and any(a.section > 1 for a in ch.abilities):
         ch = replace(ch, level=r.levels.get(oid, 1))
+    if any(a.linked for a in ch.abilities):  # -- linked words (wave 33B) -- 607.2f: the word it chose as it entered (none: no linked ability)
+        ch = replace(ch, word=r.chosen_words.get(oid) or (card.choices.get("Chosen word", "") if card.zone.endswith(":battlefield") else ""))
+        # (a permanent put onto the battlefield by hand made no choice the rules recorded: the table's "Chosen word" entry stands in, as for a color)
     return ch
 
 

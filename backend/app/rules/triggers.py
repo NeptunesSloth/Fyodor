@@ -2071,6 +2071,8 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
                                      source_object=t.source_object, name=t.name, effects=list(t.ability["effects"]),
                                      targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")),
                                      event=t.event, x=cast_x(plan, t), **extra)  # (x: wave 4J, 107.3m)
+    if t.ability.get("chosen_modes"):  # -- modal frames (wave 33B) -- 603.3c: the modes chosen are announced (a modal ability whose modes have target groups)
+        plan.do({"type": "set_stack_info", "card_id": ability_id, "modes": t.ability["chosen_modes"]}, actor=t.controller)
     if targets:
         plan.target_arrows(ability_id, [x.id for x in targets], actor=t.controller)  # (review 28D: an arrow points at up to 20)
         targeted(plan, ability_id, t.controller, targets)

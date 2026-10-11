@@ -62,6 +62,7 @@ class Characteristics:
     imposed: frozenset[str] = frozenset()
     level: int | None = None  # -- Class (wave 16A) -- 716.2b: the permanent's class level (None: not read for a permanent, all sections)
     doors: frozenset[int] | None = None  # -- Rooms (wave 18G) -- 709.5: the halves (1 left, 2 right) that count; a Room's abilities are sectioned by door
+    word: str | None = None  # -- linked words (wave 33B) -- 607.2f: the word the object chose as it entered ("" none; None: not read, every linked ability)
 
     @property
     def is_land(self) -> bool:

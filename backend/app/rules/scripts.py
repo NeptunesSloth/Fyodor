@@ -3704,6 +3704,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if abilities_of.manual(ability):  # (review 18F: a borrowed linked or modal ability, 607.5)
         return None
+    if ability.kind == "static" and (words := _chosen.words_header(self_text(ability.text, ch.name), ch)) is not None:
+        return words  # -- linked words (wave 33B) -- 607.2f: "As this enchantment enters, choose Khans or Dragons."
     view = _granter_view(ability) if "‹granter" in ability.text else None
     with _exiled_with.reading(ability, self_text(ability.text, ch.name)):  # -- resolution memory (wave 22D) -- 607.2a: "the exiled card's owner …"
         d = _enters_self_check(_define(view[0] if view else ability, ch), ch)
@@ -4490,6 +4492,8 @@ def _cached(ch: Characteristics) -> dict[int, Definition]:
             continue  # -- Class (wave 16A) -- 716.2a: an ability under a level bar the permanent hasn't reached
         if ch.doors is not None and ab.section not in ch.doors:
             continue  # -- Rooms (wave 18G) -- 709.5: the rules text of a locked door isn't there
+        if ab.linked is not None and ch.word is not None and ab.linked != ch.word:
+            continue  # -- linked words (wave 33B) -- 607.2f: an ability linked to a word the object didn't choose (or never chose one) isn't there
         if out.get(ab.index, {}).get("kind") == "mode":
             continue  # (a mode line of the modal ability above it)
         d = define(ab, ch)
@@ -4663,24 +4667,48 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
     return out
 
 
-# 700.2: "Choose …" followed by bulleted modes. (n_min, n_max, same mode more than once?, condition)
+# 700.2: "Choose …" followed by bulleted modes. (n_min, n_max, same mode more than once?)
 _MODAL_HEADERS = {
-    "Choose one —": (1, 1, False, None),
-    "Choose two —": (2, 2, False, None),
-    "Choose one or both —": (1, 2, False, None),
-    "Choose one or more —": (1, 99, False, None),
-    "Choose three. You may choose the same mode more than once.": (3, 3, True, None),
-    "Choose one. If you control a commander as you cast this spell, you may choose both instead.": (1, 1, False, "commander"),
+    "Choose one —": (1, 1, False),
+    "Choose two —": (2, 2, False),
+    "Choose one or both —": (1, 2, False),
+    "Choose one or more —": (1, 99, False),
 }
+# -- modal frames (wave 33B) -- 700.2d: "Choose four. You may choose the same mode more than once."; 700.2a / 601.2b: "Choose one. If [condition]
+# [as you cast this spell], [you may] choose both / two / one or more instead." (an ability word may lead: "Delirium — "), the condition checked
+# as the spell is cast (casting.choose_modes). Read: the two announced facts of a cast (kicked, teamwork 702.194b) and conditions about the table.
+_NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
+_REPEAT_HEADER = re.compile(r"^Choose (?P<n>three|four|five)\. You may choose the same mode more than once\.$")
+_INSTEAD_HEADER = re.compile(r"^(?:[A-Z][a-z]+(?: \d+)? — )?Choose one\. If (?P<c>.+?)(?: as you cast this spell)?, (?P<may>you may )?"
+                             r"choose (?P<k>both|two|one or more) instead\.$")
+
+
+def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | None:
+    """(fewest, most, same mode more than once?, the "instead" rule {cond, min, max}) of a modal spell's header line, or None."""
+    if text in _MODAL_HEADERS:
+        return (*_MODAL_HEADERS[text], None)
+    if (m := _REPEAT_HEADER.match(text)) is not None:
+        return _NUMBERS[m["n"]], _NUMBERS[m["n"]], True, None
+    if (m := _INSTEAD_HEADER.match(text)) is None:
+        return None
+    from app.rules import conditions
+
+    cond = conditions.parse(m["c"], objects=True)
+    if cond is None or set(conditions.objects_in(cond)) - {"self"} or ('"cast"' in json.dumps(cond) and cond not in (
+            {"object": "self", "cast": {"kicked": True}}, {"object": "self", "cast": {"optional": "teamwork"}})):
+        return None
+    both = m["k"] != "one or more"
+    return 1, 1, False, {"cond": cond, "min": 1 if m["may"] or not both else 2, "max": 2 if both else 99}
 
 
 def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | None:
     """A modal spell (700.2): the header line, then one bulleted line per mode, each an effect
     sentence the engine reads with at most one target. None if any part isn't understood (the
     whole spell is then resolved by hand)."""
-    if len(lines) < 3 or lines[0].text not in _MODAL_HEADERS:
+    header = modal_header(lines[0].text) if lines else None
+    if len(lines) < 3 or header is None:
         return None
-    lo, hi, repeat, condition = _MODAL_HEADERS[lines[0].text]
+    lo, hi, repeat, instead = header
     modes: list[dict[str, Any]] = []
     for ab in lines[1:]:
         if not ab.text.startswith("• "):
@@ -4699,10 +4727,10 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
                       "target": {"what": target} if target else None})
     if not repeat and lo > len(modes):
         return None
-    if condition == "commander":  # "… you may choose both instead" (while you control a commander)
-        hi = 1
-    return {"kind": "spell", "effects": [], "target": None, "modes": modes,
-            "modal": {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": condition}}
+    modal: dict[str, Any] = {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": None}
+    if instead is not None:  # -- modal frames (wave 33B) --
+        modal["instead"] = {**instead, "max": min(instead["max"], len(modes))}
+    return {"kind": "spell", "effects": [], "target": None, "modes": modes, "modal": modal}
 
 
 # -- keywords (wave 30E) -- 702.172a spree: "Choose one or more modes. As an additional cost to cast this spell, pay the costs associated with
@@ -4748,14 +4776,6 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     text_lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab)]
     if text_lines and any(ab.kind == "keywords" and ab.keywords in (("spree",), ("tiered",)) for ab in ch.abilities):
         return spree_definition(ch, text_lines)
-    if text_lines and text_lines[0].text in _MODAL_HEADERS:
-        from app.rules import gift
-
-        if gift.has_line(ch):
-            return None  # -- gift (wave 23D) -- the gift effect of a modal spell isn't added to its modes: not read
-        modal = modal_definition(text_lines, ch.name)
-        # (a spell has no trigger event: "that player" / "that much" can't be bound)
-        return modal if modal is not None and _event_refs_ok(modal) else None
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
@@ -4765,6 +4785,14 @@ def spell_definition(ch: Characteristics) -> Definition | None:
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
                            or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)
+    if lines and modal_header(lines[0].text) is not None:  # (-- modal frames (wave 33B) -- after the lines about casting it: "Cast this spell only during combat.")
+        from app.rules import gift
+
+        if gift.has_line(ch):
+            return None  # -- gift (wave 23D) -- the gift effect of a modal spell isn't added to its modes: not read
+        modal = modal_definition(lines, ch.name)
+        # (a spell has no trigger event: "that player" / "that much" can't be bound)
+        return modal if modal is not None and _event_refs_ok(modal) else None
     if (not lines and not any(defs.get(ab.index, {}).get("zone") in ("graveyard", "exile") for ab in ch.abilities)) \
             or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):
         return None  # (wave 17C: a retrace spell with nothing else on it, Throes of Chaos: cascade does it all)
