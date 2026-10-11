@@ -554,7 +554,9 @@ class ContinuousEffect(BaseModel):
     # -- quoted grants (wave 2D) -- "while_counter": "for as long as that creature has a bounty counter on
     # it" (``counter`` names the kind; an affected object that has none left drops out, and the effect
     # ends with the last one: 611.2b, app/rules/delayed.expire).
-    duration: Literal["end_of_turn", "permanent", "next_turn", "source_on_battlefield", "source_controlled",
+    # -- end of next turn (wave 32C) -- "end_of_next_turn": "until the end of your next turn" ends in the cleanup step (514.2) of
+    # ``until_player``'s next turn (a later turn than ``turn``, even when it began in one of their own turns: delayed.end_of_next_turn)
+    duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
                       "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat"] = "end_of_turn"
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source

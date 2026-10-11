@@ -597,7 +597,7 @@ def _with_kw(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, with_keywords=(*s.with_keywords, m["kw"]))
 
 
-@_suffix(r"with (?:cycling|cycling abilities)")  # -- reanimation (wave 20C) -- 702.29f: typecycling abilities are cycling abilities
+@_suffix(r"with (?:a )?(?:cycling|cycling abilit(?:y|ies))")  # -- reanimation (wave 20C) -- 702.29f: typecycling abilities are cycling abilities (wave 32C: "a cycling ability", Rooting Moloch)
 def _with_cycling(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "cycling_ability"))
 

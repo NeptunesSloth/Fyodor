@@ -566,6 +566,8 @@ class _Introducer:
             self.number = None  # (one card or several: whichever the referring wording says)
         if self.do == "edict" and g is None and who != "you":  # (wave 4A: one each, from several players)
             self.number = 2
+        if self.do == "exile_top" and e.get("player") in ("each_player", "each_opponent"):
+            self.number = None  # -- end of next turn (wave 32C) -- "Exile the top card of each player's library. … you may play those cards" (Lidless Gaze): one from each library
         if self.do == "player_chooses" and who in ("each_player", "each_opponent"):
             self.number = None  # -- per-player choices (wave 31B) -- one each from several players: "Each opponent chooses a creature they control. … those creatures" (and Curfew's "it")
 
@@ -7082,7 +7084,7 @@ _RECORDING.update({"gain_control": None, "exchange_control": None})
 
 
 @_first
-@effect(r"(?P<t>(?!.* (?:for as long as|until your next turn)\b)(?!.* at end of combat$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
+@effect(r"(?P<t>(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
 def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
