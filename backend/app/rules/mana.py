@@ -737,7 +737,7 @@ def _alts(phrase: str, *, source: bool) -> list[dict[str, object]] | None:
 
 
 _GENERIC_SPEND = re.compile(
-    r"^Spend this mana only to (?:(?P<cast>cast (?P<spells>.+?))(?: (?:or|and) (?:to )?(?P<act>activate (?:an ability|abilities)"
+    r"^Spend this mana only to (?:(?P<cast>cast (?P<spells>.+?))(?:,? (?:or|and) (?:to )?(?P<act>activate (?:an ability|abilities)"  # (wave 34B: ", or to activate" — Brotherhood Headquarters)
     r"(?: of (?P<src>.+))?))?|(?P<act2>activate (?:an ability|abilities)(?: of (?P<src2>.+?))?)(?: or (?:to )?cast (?P<spells2>.+))?)$")
 
 

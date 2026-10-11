@@ -194,6 +194,10 @@ def _clause(clause: str) -> Restriction | None:
 def _condition(text: str) -> dict[str, Any] | None:
     from app.rules import conditions, selectors
 
+    # -- activated other (wave 34B) -- "Activate only if this artifact or another artifact entered the battlefield under your control this turn." (Master's
+    # Guide-Mural): the source is one of those artifacts too, so it is "an artifact entered …" (the turn's history reads every permanent that entered)
+    text = re.sub(r"^~ or another (\w+) (entered the battlefield under your control this turn)$",
+                  lambda m: f"{'an' if m[1][0] in 'aeiou' else 'a'} {m[1]} {m[2]}", text)
     cond = conditions.parse(text) or activation_words.condition(text)  # (wave 7B)
     if cond is not None:
         return cond
