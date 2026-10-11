@@ -76,8 +76,8 @@ def at_spec(m: re.Match[str], n: str = "") -> dict[str, Any] | None:
 # -- token & pump wordings (wave 6C) -- numbers past ten ("Create thirteen tapped 2/2 black Zombie creature tokens.")
 NUMBERS.update({"eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
                 "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20})
-_QTY = r"\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|" \
-       r"seventeen|eighteen|nineteen|twenty|x|X"
+_QTY = r"[xX] (?:plus|minus) (?:\d+|one|two|three|four|five)|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|" \
+       r"fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|x|X"  # (wave 34C: "X minus one 2/2 … tokens")
 _COLORS = r"colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*"
 _CAPS = r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*"
 # -- token & pump wordings (wave 6C) -- a token's name (111.4: the ability sets it): capitalized words, with the small
@@ -103,6 +103,8 @@ _RIDER = re.compile(r"^(?P<head>.+?)(?: for each (?P<each>[^\"]+)|, where [xX] i
 def _qty(word: str) -> Any:
     if word in ("x", "X"):
         return {"x": 1}
+    if " " in word:  # -- X arithmetic (wave 34C) -- "X minus one": values.parse_amount
+        return values.parse_amount(word)
     return int(word) if word.isdigit() else NUMBERS[word]
 
 

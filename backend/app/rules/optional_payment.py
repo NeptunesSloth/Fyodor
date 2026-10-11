@@ -319,8 +319,9 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("defer"):  # -- review (wave 6R) -- paid with the other players' choices (pay_deferred)
         opt["defer"] = True
     hint = " (tap your mana first)" if cost.mana and _self_pays(plan, payer) else ""
+    shown = _label(cost).replace("~", ctx.get("name") or "it")  # ("Have ~ deal 7 damage to you": the source by name, 34D's sized unless-damage)
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {_label(cost)}?{hint}",
-           options=[DecisionOption(id=PAY, label=f"Pay {_label(cost)}"), DecisionOption(id=DECLINE, label="Don't pay")],
+           options=[DecisionOption(id=PAY, label=shown if shown.startswith("Have ") else f"Pay {shown}"), DecisionOption(id=DECLINE, label="Don't pay")],
            resume=_resume(ctx, opt, cost), source=source,
            display={"kind": "optional_cost", "cost": _label(cost), "pool": dict(plan.state.players[payer].mana)} if cost.mana else None)
     return False

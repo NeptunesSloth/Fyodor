@@ -771,7 +771,9 @@ def _same_name_now(plan: Plan, extra: str, card: CardInstance, ch: Characteristi
             if not plan.state.cards[c].face_down)  # (406.3a: a card exiled face down has no name to compare, and nobody learns it from a trigger)
     else:
         who, _, key = kind.partition(":")
-        same = any(c != card.id and card_names.share(ch, plan.ch(plan.state.cards[c]))
+        # (review 33: only the object itself is left out, 400.7: read as it last existed (Guardian Project's entering creature, gone by the
+        # time its ability resolves), the card is a new object: in the graveyard, or back on the battlefield, it shares that name, per its rulings)
+        same = any(not (c == card.id and plan.state.cards[c] in (card,)) and card_names.share(ch, plan.ch(plan.state.cards[c]))
                    for c in candidates(plan, from_key(key), card.controller if who == "their" else you, source))
     return same == pos
 

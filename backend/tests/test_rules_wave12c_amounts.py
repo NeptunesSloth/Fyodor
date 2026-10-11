@@ -350,10 +350,20 @@ def test_judgment_bolt_hits_the_creature_and_its_controller(cards):
 @pytest.mark.parametrize("text", [
     # an X a selector compares with (selectors.X_VALUE, the cast X) isn't the X the text defines: manual, not "mana value 0 or less"
     "Destroy each creature with mana value X or less and you gain X life, where X is the number of Zombies you control.",
-    "Draw X cards and each creature with mana value X or less gains flying until end of turn, where X is the number of Zombies you control.",
-    "Destroy each creature with mana value X or less, where X is the number of Zombies you control.",
 ])
 def test_an_x_left_inside_a_selector_stays_manual(text):
     from tests.test_rules_scripts import ch
 
     assert coverage.of_characteristics(ch("Test", "Sorcery", text)).level != "FULL"
+
+
+@pytest.mark.parametrize("text", [
+    # wave 34C: the X the text defines, in the selector of an effect that has no target, is a live count read as the effect is carried
+    # out (where_bound.tag_effects; 107.3c, 608.2h) — not the cast X
+    "Draw X cards and each creature with mana value X or less gains flying until end of turn, where X is the number of Zombies you control.",
+    "Destroy each creature with mana value X or less, where X is the number of Zombies you control.",
+])
+def test_the_x_the_text_defines_in_an_effects_own_selector_is_read_live(text):
+    from tests.test_rules_scripts import ch
+
+    assert coverage.of_characteristics(ch("Test", "Sorcery", text)).level == "FULL"

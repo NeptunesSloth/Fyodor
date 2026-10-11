@@ -2790,8 +2790,11 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
     # 702.29a: cycling is an activated ability — "Abilities you activate that aren't mana abilities cost {1} less"
     # applies to it (602.2b -> 601.2f; app/rules/permissions.py ability_mana)
     mana = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, mana_text, plan.info))
-    mana = _locked(plan, mana)  # -- review (wave 4R) -- 602.2b → 601.2f: locked in, as for other activations
-    if payment_step(plan, a, mana, f"cycling {ch.name}", purpose=Purpose(ability_of=ch)):
+    if mana.x and a.x_value is None:  # -- X from the triggering object (wave 34C) -- 107.3a: "Cycling {X}{1}{U}": X is announced as it is activated
+        raise ActionError("Choose a value for X")
+    cycling_x = a.x_value or 0 if mana.x else None
+    mana = _locked(plan, mana).with_x(cycling_x or 0)  # -- review (wave 4R) -- 602.2b → 601.2f: locked in, as for other activations
+    if payment_step(plan, a, mana, f"cycling {ch.name}", purpose=Purpose(ability_of=ch, cost_x=cycling_x is not None)):
         return
     if kind:
         filt = "basic_land" if kind == "basic land" else f"type:{kind[0].upper()}{kind[1:].lower()}"
@@ -2802,9 +2805,9 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
         text = "Draw a card."
     oid = plan.oid(card)
     ability_id = _new_ability(plan, card, text)
-    pay(plan, plan.actor, mana, f"paid {mana.text()} to cycle {ch.name}", sources=a.sources, purpose=Purpose(ability_of=ch))
+    pay(plan, plan.actor, mana, f"paid {mana.text()} to cycle {ch.name}", sources=a.sources, purpose=Purpose(ability_of=ch, cost_x=cycling_x is not None))
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "graveyard"}})
-    emit(plan.state, "cycled", object_id=oid, card=card.id, player=plan.actor)
+    emit(plan.state, "cycled", object_id=oid, card=card.id, player=plan.actor, amount=cycling_x or 0)  # (wave 34C: amount: the X, for triggers.x_source)
     _stacked(plan, card, oid, ch, ability_id, effects)
 
 
@@ -3909,6 +3912,12 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                 if ability_problem(state, player, card, ch, made, ability_cost(ch, made, state=state, card=card, info=info),
                                    check_priority=check_priority, info=info) is None:
                     out.append({"card_id": cid, "ability": ab.index})
+    for cid in state.zones.get(zone_key(player, "hand"), []):  # -- X from the triggering object (wave 34C) -- 107.3a: "Cycling {X}{1}{U}" asks for X
+        r = state.rules
+        if r is not None and (not check_priority or (r.priority == player and r.decision is None)):
+            ch = chars.of(state.cards[cid], info)
+            out += [{"card_id": cid, "ability": ab.index, "x": True} for ab in ch.abilities
+                    if (found := hand_ability(ch, ab.index)) is not None and M.parse_cost(found[1]).x]
     for cid in state.zones.get(zone_key(player, "graveyard"), []):  # 113.6m: "Exile this card from your graveyard: …"
         card = state.cards[cid]
         ch = chars.of(card, info)

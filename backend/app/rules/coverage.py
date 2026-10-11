@@ -714,4 +714,8 @@ def x_selector_ok(ch: Characteristics, d: dict[str, Any]) -> bool:
         return True
     if d.get("kind") == "activated":
         return "{X}" in str(d.get("cost") or "")
+    if d.get("kind") == "triggered":  # -- X from the triggering object (wave 34C) -- the X of the spell cast / the cycling cost (triggers.x_source)
+        from app.rules import triggers
+
+        return triggers.x_source(d, ch) is not None
     return d.get("kind") == "spell" and "{X}" in (ch.mana_cost or "")

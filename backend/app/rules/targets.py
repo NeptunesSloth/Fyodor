@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.game.actions import MAX_TARGETS
+from app.game.errors import ActionError
 from app.game.rules_state import TargetRef
 from app.game.state import CardInstance
 from app.rules import protection, selectors
@@ -191,6 +192,12 @@ def still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, sour
     return target.id in legal_targets(plan, selector, chooser, source, source_card, attacker)
 
 
+class BadPick(ActionError):
+    """-- X from the triggering object (wave 34C) -- a choice of targets that breaks a rule of the group (the wrong number, one twice, not legal,
+    over a total): an ActionError for whoever chose it. For a trigger that is a bad choice to make again, not "no legal target" (603.3d: that
+    removes the ability)."""
+
+
 @dataclass
 class GroupChoice:
     """Where choosing the targets of a spell or ability with target groups stands (601.2c-d):
@@ -210,6 +217,8 @@ def divide_total(spec: dict[str, Any], x: int | None) -> int | None:
     if not divide:
         return None
     total = divide["total"]
+    if isinstance(total, dict) and "plus" in total:  # -- X arithmetic (wave 34C) -- "X plus 1 damage divided as you choose" (Meteor Shower): the X announced, plus 1 (601.2d)
+        return int(x or 0) + int(total["plus"][1])
     return int(total) if isinstance(total, int) else int(x or 0)
 
 
@@ -306,20 +315,21 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         chosen = targets[pos:pos + count]
         pos += count
         if not lo <= len(chosen) <= hi:
-            raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} target{'s' if hi != 1 else ''} for {what}")
+            raise BadPick(f"Choose {lo if lo == hi else f'{lo} to {hi}'} target{'s' if hi != 1 else ''} for {what}")
         if len(set(chosen)) != len(chosen):
-            raise ActionError("The same target can't be chosen twice for one “target”")  # 115.3
+            raise BadPick("The same target can't be chosen twice for one “target”")  # 115.3
         if any(t in banned for t in chosen):
-            raise ActionError("“Another target” can't be one you already chose")
+            raise BadPick("“Another target” can't be one you already chose")
         if any(t not in options for t in chosen):
-            raise ActionError("That isn't a legal target")
+            raise BadPick("That isn't a legal target")
         if spec.get("same_graveyard") and len({plan.state.cards[t].owner for t in chosen if t in plan.state.cards}) > 1:
-            raise ActionError("Those targets must all be from a single graveyard")  # (400.1: one player's graveyard)
-        if spec.get("total") and _total(plan, chosen, spec["total"][0]) > spec["total"][1]:  # -- refused zones/sized (wave 3R4)
+            raise BadPick("Those targets must all be from a single graveyard")  # (400.1: one player's graveyard)
+        limit = int(x or 0) if spec.get("total") and spec["total"][1] == "X" else spec.get("total", [0, 0])[1]  # (wave 34C: "total mana value X or less": the X announced)
+        if spec.get("total") and _total(plan, chosen, spec["total"][0]) > limit:  # -- refused zones/sized (wave 3R4)
             stat = spec["total"][0].replace("_", " ")  # -- "with total mana value 3 or less": checked as they're chosen (601.2c)
-            raise ActionError(f"Those targets have a total {stat} over {spec['total'][1]}")
+            raise BadPick(f"Those targets have a total {stat} over {limit}")
         if spec.get("different") and not _different(plan, chosen, spec["different"]):  # -- refused zones/sized (wave 3R4)
-            raise ActionError(f"Those targets must have different {'names' if spec['different'] == 'name' else 'mana values'}")
+            raise BadPick(f"Those targets must have different {'names' if spec['different'] == 'name' else 'mana values'}")
         out.groups.append(chosen)
     given = list(division)
     for g, spec in enumerate(specs):
@@ -336,10 +346,10 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
             return out
         amounts, given = given[:n], given[n:]
         if len(amounts) != n or any(a < 1 for a in amounts) or sum(amounts) != total:
-            raise ActionError(f"Divide {total} among the {n} targets: at least 1 each, {total} in all")
+            raise BadPick(f"Divide {total} among the {n} targets: at least 1 each, {total} in all")
         out.division.append(amounts)
     if given:
-        raise ActionError("That division doesn't match the targets")
+        raise BadPick("That division doesn't match the targets")
     return out
 
 

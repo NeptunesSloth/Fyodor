@@ -111,6 +111,30 @@ def tag(found: Any, value: Any, sentinel: int) -> Any:
     return out if swapped[0] else None
 
 
+def tag_effects(effects: Any, value: Any, sentinel: int) -> Any:
+    """-- X from the triggering object (wave 34C) -- the selectors an effect itself holds ("return each creature your opponents control with
+    toughness X or less to its owner's hand, where X is the number of Islands you control": no target): a live value (a count read as the
+    effect is carried out, 608.2h) stands in the comparison as a marker ``selectors.matches`` reads each time. None when there is no such
+    selector, or the value isn't live (a settled one is bound only for an ability's targets: ``bind``)."""
+    if not plain(value) or _kind(value) != "live":
+        return None
+    pattern = re.compile(rf'(?<![\d.-]){sentinel}(?!\d)')
+    swapped = [False]
+
+    def walk(v: Any) -> Any:
+        if isinstance(v, str) and v.startswith("sel:") and pattern.search(v):
+            swapped[0] = True
+            return pattern.sub(lambda _m: json.dumps(marker(value)), v)
+        if isinstance(v, list):
+            return [walk(x) for x in v]
+        if isinstance(v, dict):
+            return {k: walk(x) for k, x in v.items()}
+        return v
+
+    out = walk(effects)
+    return out if swapped[0] else None
+
+
 def has_marker(d: Any) -> bool:
     return MARK in json.dumps(d, default=str)
 

@@ -15,6 +15,9 @@ Comprehensive Rules of 2026-09-25.
   this turn" is bound as it is created to the rules object it names (603.7c: the target as chosen, or the source); a new object
   (it left and came back, 400.7) is not it, so the watch no longer matches. Only damage-to-player, attack and block events.
   "Until end of turn, whenever …" / "This turn, whenever …" lead with the same duration (611.2a).
+* Dies / leaves-the-battlefield watches (wave 35B, below ``bound_sentence``): "When the creature an opponent controls dies this turn, …" and
+  "Whenever a creature dealt damage this way dies this turn, …" are delayed triggers of app/rules/delayed.py (kind "event"), read as they
+  are created from the spell's targets or from the objects its one damage instruction was actually dealt to (603.7c, 603.10a, 700.4).
 * Refused (the sentence stays manual): a watch on what its source is attached to, "one or more …" and damage events that join
   several recipients, a target of the deferred ability (chosen as it triggers: not modelled), a watch with its own delayed
   trigger or duration inside.
@@ -160,6 +163,95 @@ _CHOOSE_WATCH = re.compile(r"(?<![^ ])[Cc]hoose (?P<t>target [^.,]+)\. [Ww]henev
 
 def join_choose(body: str) -> str:
     return _CHOOSE_WATCH.sub(lambda m: f"Whenever {m['t']} {m['rest']}", body)
+
+
+# -- turn-long triggers (wave 35B) -- "When that creature dies / leaves the battlefield this turn, …" on the objects the spell itself named (603.7c)
+# "When the creature an opponent controls dies this turn, if you control your commander, you become the monarch." (Fight for the Throne;
+# Devouring Tendrils): the target of an earlier part, described again rather than "that creature" (which of two targets would that be?);
+# "Whenever a creature [you control] dealt damage this way dies this turn, …" (Ghired's Belligerence, Reckless Blaze, Skeletonize): each
+# permanent the one damage instruction before it actually dealt damage to (after prevention), a trigger for each of them (603.7b: "this
+# turn" is a stated duration). 603.10a / 700.4: a dies trigger looks back in time; the object is the one bound, not a new one (400.7).
+_DIES_WATCH = re.compile(r"^(?:when|whenever) (?P<subj>.+?) (?P<verb>dies|leaves the battlefield) this turn, (?P<clause>.+)$")
+_DEALT_SUBJ = re.compile(r"^an? (?P<what>creature|permanent|creature or planeswalker)(?P<ctl> you control)? dealt damage this way$")
+_LATER_SUBJ = re.compile(r"^the (?P<noun>(?:creature|permanent|planeswalker|creature or planeswalker) (?:an opponent controls|you don't control|you control))$")
+
+
+def deferred(clause: str) -> tuple[list[dict[str, Any]], dict[str, Any] | None, dict[str, Any] | None] | None:
+    """The deferred part of "When <object> dies / leaves the battlefield this turn, [if <cond>,] <clause>": its effects as they read the
+    event (delayed.inner_for_event: "it" is the object, its new object where it went), its own target (chosen as it triggers, 603.3d; not
+    one of the creating ability's groups) and an intervening "if" (603.4: checked as it triggers, and again as it resolves). None: manual."""
+    from app.rules import conditions, scripts
+
+    cond = None
+    if (iff := re.match(r"if (?P<c>[^,]+), (?P<rest>.+)$", clause)) is not None:
+        if (cond := conditions.parse(iff["c"])) is None:
+            return None
+        clause = iff["rest"]
+    inner = scripts._clause(clause)
+    if inner is None:
+        return None
+    own = None
+    if inner[1] is not None:
+        own = scripts.target_fields(inner[1]).get("target")
+        if not (isinstance(own, dict) and set(own) == {"what"}):
+            return None
+    effects = delayed.inner_for_event(inner[0])
+    if effects is None or any(e.get("do") in delayed.UNDEFERRABLE for e in effects):
+        return None
+    if own is not None:
+        effects = delayed.mark_target(effects)
+    if cond is not None:
+        effects = [{"do": "only_if", "cond": cond, "skip": len(effects)}, *effects]
+    return effects, own, cond
+
+
+def _names_group(group: dict[str, Any], noun: str) -> bool:
+    """Does the described object ("creature an opponent controls", "permanent you don't control") cover everything the target group allows?"""
+    from dataclasses import replace
+
+    from app.rules import selectors
+
+    legacy = {"creature": "creature", "creature_you_control": "creature you control", "creature_opponent_controls": "creature an opponent controls"}
+    what = str(group.get("what"))
+    ours = selectors.from_key(what) if what.startswith(selectors.PREFIX) else selectors.parse(legacy[what]) if what in legacy else None
+    said = selectors.parse(noun)
+    if ours is None or said is None or ours.player is not None:
+        return False
+    return set(ours.types) <= set(said.types or ours.types) and replace(said, types=ours.types) == ours  # (all else the same: whose, what kind)
+
+
+def bound_sentence(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+    """The sentence as a delayed trigger bound to a target of the spell named again, or to the objects the damage before it was dealt to."""
+    from app.rules import scripts
+
+    m = _DIES_WATCH.match(text)
+    if m is None or (got := deferred(m["clause"])) is None:
+        return None
+    deferred_effects, own, cond = got
+    when: dict[str, Any] = {"kind": "event", "event": "die" if m["verb"] == "dies" else "leave", **({"if": cond} if cond is not None else {})}
+    extra: dict[str, Any] = {}
+    who = None
+    if (dealt := _DEALT_SUBJ.match(m["subj"])) is not None:
+        hits = [(i, e) for i, e in enumerate(effects) if e.get("do") in ("damage", "fight")]
+        if len(hits) != 1 or hits[0][1].get("do") != "damage":  # ("this way": the one damage instruction; two would not say which)
+            return None
+        i, e = hits[0]
+        e["dealt_as"] = e.get("dealt_as") or f"ref:d{i}"
+        extra = {"dealt": e["dealt_as"], "types": scripts._DIES_THAT[dealt["what"]], "once": False}
+        if dealt["ctl"]:
+            when["ctl"] = "you"  # (603.10a: who controlled it as it died)
+    elif (later := _LATER_SUBJ.match(m["subj"])) is not None:
+        found = [g for g, group in enumerate(groups) if group.get("max") == 1 and _names_group(group, later["noun"])]
+        if len(found) != 1:
+            return None  # (none, or which of two?)
+        who = f"target:{found[0]}"
+    else:
+        return None
+    wrapped = delayed.wrap_when(deferred_effects, when, who=who, this_turn=True)
+    wrapped[0].update(extra)
+    if own is not None:
+        wrapped[0]["target"] = own
+    return wrapped
 
 
 def deferred_event_effects(effects: list[dict[str, Any]]) -> set[int]:
