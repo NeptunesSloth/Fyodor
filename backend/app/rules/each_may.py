@@ -67,6 +67,18 @@ _SHARES = "sacrifice a permanent that shares a card type with it"
 _TYPES = ("Artifact", "Battle", "Creature", "Enchantment", "Kindred", "Land", "Planeswalker")
 
 
+# -- attack restrictions (wave 32B) -- "… and that player may draw a card. If they do, that player can't attack you …": the one player of the trigger
+_ONE_MAY = re.compile(r"^that player may (?P<act>.+)$")
+_ONE_DID = re.compile(r"^[Ii]f (?:they|that player|the player) do(?:es)?, (?:they|that player) (?P<rest>.+)$")
+_AND_ONE = re.compile(r" and (that player may [^.]+\.) (?=[Ii]f (?:they|that player|the player) do(?:es)?, (?:they|that player) )")
+
+
+def split_one(body: str) -> str:
+    """"You draw a card and that player may draw a card. If they do, …" → "You draw a card. That player may draw a card. If they do, …"
+    (608.2c: two instructions in order; ``pair`` reads the second and the sentence after it)."""
+    return _AND_ONE.sub(lambda m: f". {m[1][:1].upper()}{m[1][1:]} ", body)
+
+
 def _third_person(rest: str) -> str:
     """"loses 3 life" → "That player loses 3 life" (the player who didn't pay)."""
     return f"That player {rest}"
@@ -113,6 +125,11 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
     number of sentences they read (1 or 2), or None (not this grammar, or a form that isn't read)."""
     from app.rules import optional_payment, scripts
 
+    one = False
+    if (o := _ONE_MAY.match(text)) is not None and following is not None and (d1 := _ONE_DID.match(following.rstrip(".").strip())) is not None:
+        # "That player may draw a card. If they do, that player can't attack you …" (Willie Lumpkin): the one player the trigger is about is the
+        # group of one, read as "Each player may …. Each player who does …" for them alone
+        text, following, one = f"each player may {o['act']}", f"Each player who does {d1['rest']}", True
     m = _MAY.match(text)
     if m is None:
         return None
@@ -124,7 +141,7 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
         cost_phrase = "discard your hand"  # (the payer's own: each_may asks every player for theirs)
         then_texts.append(f"That player draws {inline['rest']}")
     nxt = re.sub(r"^then ", "", scripts._lower_first((following or "").rstrip(".").strip()))  # (wave 23A: "Then ~ deals 5 damage to each …")
-    entry: dict[str, Any] = {"do": "each_may", "who": _WHO[m["who"]]}
+    entry: dict[str, Any] = {"do": "each_may", "who": "event_player" if one else _WHO[m["who"]]}
     if cost_phrase == _SHARES:
         if last_payment is None or not m["if"]:
             return None
@@ -138,7 +155,7 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
         entry["alts"] = alts
     else:
         sp = _SPLIT_THEN.match(cost_phrase)  # -- each player may (wave 31B) -- "may draw a card, then each player who drew a card this way …"
-        if (act := _act(sp["act"] if sp else cost_phrase)) is None or _read_alone(text):
+        if (act := _act(sp["act"] if sp else cost_phrase)) is None or (_read_alone(text) and not one):
             return None  # (a wording the sentence grammar already reads on its own — "each opponent may search their library for a basic land card, …" — stays as it was)
         entry["act"], entry["text"] = act
         if sp:
@@ -146,6 +163,8 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
     body: str | None = None
     used = 1 if tail else 2
     acting = "act" in entry
+    if one and not acting:
+        return None  # (a cost the one player pays — "That player may discard a card. If they do, …" — is the optional payment's: scripts._that_player_does)
     if acting and "drew a card" in nxt and not any(x["do"] == "draw" for x in entry["act"]):
         return None
     shuffled = acting and _SHUFFLES.match(nxt) is not None and any(x["do"] == "search" for x in entry["act"])
@@ -155,6 +174,8 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
         opp_texts.append(fd["rest"][:1].upper() + fd["rest"][1:])  # ("For each opponent who does, you create a Treasure token.": the controller's own, once each)
     elif (d := _WHO_DID.match(nxt)) is not None and d["who"] == m["who"] and (entry.get("cost", "").startswith("Discard") or acting):
         then_texts.append(_third_person(d["rest"]))
+    elif (d := _WHO_DID.match(nxt)) is not None and d["who"] == "opponent" and m["who"] == "player" and acting:
+        opp_texts.append(_third_person(d["rest"]))  # -- attack restrictions (wave 32B) -- "Each player may draw a card. Each opponent who does …": not the controller
     elif (td := _TO_EACH_DID.match(nxt)) is not None and td["who"] in (m["who"], "opponent") and entry.get("cost", "").startswith("Discard"):
         opp_texts.append(f"{td['lead']} to that player")  # ("each opponent who …" among each player: not the controller)
     elif then_texts and not opp_texts:
@@ -256,6 +277,8 @@ def _for(value: Any, pid: str) -> Any:
     """The effects with "that player" (event_player) as ``pid``."""
     if value == "event_player":
         return f"player:{pid}"
+    if isinstance(value, str) and value.startswith("controlled:event_player|"):  # -- attack restrictions (wave 32B) -- "creatures that player controls"
+        return f"controlled:player:{pid}|{value.partition('|')[2]}"
     if isinstance(value, list):
         return [_for(v, pid) for v in value]
     if isinstance(value, dict):

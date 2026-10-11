@@ -168,7 +168,7 @@ def test_choose_targets_grammar_now_has_its_primitive():
     assert parse_effects("Choose two target creatures. Untap them. Put two +1/+1 counters on each of them.") == (
         [{"do": "choose_targets", "who": "target:0"}, {"do": "untap", "who": "target:0"},
          {"do": "add_counters", "who": "target:0", "kind": "+1/+1", "n": 2}], [{"what": CREATURE, "min": 2, "max": 2}], False)
-    assert parse_effects("Choose a creature you control.") is None  # (not a target: the player-choices grammar)
+    assert parse_effects("Choose a creature you control.")[0][0]["do"] == "player_chooses"  # (not a target: the player-choices grammar, wave 32A)
 
 
 def test_choose_targets_binds_a_later_pronoun_end_to_end(cards):
