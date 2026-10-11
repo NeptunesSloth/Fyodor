@@ -104,6 +104,12 @@ def names_of(ch: Characteristics) -> list[str]:
     return [n.strip() for n in ch.name.split(" // ")] if ch.name and not ch.face_down else []
 
 
+def share(a: Characteristics, b: Characteristics) -> bool:
+    """201.2a: two objects have the same name if they have at least one name in common; an object with no name (face down, 708.2a) has the
+    same name as no other object, another nameless one included."""
+    return bool({normalize_name(n) for n in names_of(a)} & {normalize_name(n) for n in names_of(b)})
+
+
 def chosen(plan: Plan, source: str | None) -> str | None:
     """The name the source permanent recorded as it entered (its public ``choices`` entry), or None."""
     card = plan.state.cards.get(source or "")

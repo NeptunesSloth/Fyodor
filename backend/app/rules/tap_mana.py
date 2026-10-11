@@ -99,8 +99,8 @@ def until_eot(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-def _triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any]]]:
-    """(controller, definition) of every such trigger in play right now."""
+def _triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any], str | None]]:
+    """(controller, definition, source card) of every such trigger in play right now (wave 32A: the source, for "the exiled card" / "~")."""
     from app.rules import characteristics as chars
     from app.rules import scripts
     from app.rules.copying import copy_index
@@ -108,7 +108,7 @@ def _triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any
 
     r = state.rules
     copies = copy_index(r)
-    out: list[tuple[str, dict[str, Any]]] = []
+    out: list[tuple[str, dict[str, Any], str | None]] = []
     for key, ids in state.zones.items():
         if not key.endswith(":battlefield"):
             continue
@@ -123,13 +123,13 @@ def _triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any
             ch = derive(state, c, copiable(state, c, info), info)
             for d in scripts.definitions(ch).values():
                 if d.get("trigger") == "tap_for_mana":
-                    out.append((c.controller, d))
+                    out.append((c.controller, d, c.id))
     if r is not None and state.turn.phase != "cleanup":  # (514.2: "until end of turn" ends in the cleanup step)
-        out += [(str(x["controller"]), x["def"]) for x in r.tap_mana if x.get("turn") == state.turn.number]
+        out += [(str(x["controller"]), x["def"], None) for x in r.tap_mana if x.get("turn") == state.turn.number]
     return out
 
 
-def _applies(state: GameState, info: CardInfo, card: CardInstance, owner: str, d: dict[str, Any]) -> bool:
+def _applies(state: GameState, info: CardInfo, card: CardInstance, owner: str, d: dict[str, Any], source: str | None = None) -> bool:
     from app.rules import selectors
     from app.rules.plan import Plan
 
@@ -138,7 +138,7 @@ def _applies(state: GameState, info: CardInfo, card: CardInstance, owner: str, d
     if d.get("monarch") and state.table.monarch != owner:
         return False
     plan = Plan.view(state, owner, info)
-    return selectors.matches(plan, selectors.from_key(d["sel"]), card, plan.ch(card), owner)
+    return selectors.matches(plan, selectors.from_key(d["sel"]), card, plan.ch(card), owner, source)
 
 
 def _extra(d: dict[str, Any], option: tuple[str, ...]) -> list[tuple[str, ...]]:
@@ -155,7 +155,7 @@ def extend(state: GameState, card: CardInstance, info: CardInfo,
     apply to it (605.4a: added right after, with the ability's own)."""
     if not any(ab.tap for _, ab in found):
         return found
-    triggers = [d for owner, d in _triggers(state, info) if _applies(state, info, card, owner, d)]
+    triggers = [d for owner, d, src in _triggers(state, info) if _applies(state, info, card, owner, d, src)]
     if not triggers:
         return found
     from dataclasses import replace

@@ -606,7 +606,11 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if sel.player is not None:
             return sum(1 for p in plan.live() if selectors.matches_player(plan, sel, p, you))
         away = ctx.get("not_yet_entered") or ()  # -- review (wave 26D) -- an "enters with" count, read before they enter (replacements._counter_amount)
-        return sum(1 for c in selectors.candidates(plan, sel, you, _other_than(ctx)) if c not in away)
+        # (wave 32A: "for each land with the same name as the exiled card" (Strata Scythe) compares with the ability's own source, not with the
+        # object a static's "other" is about — the equipped creature)
+        where = ctx.get("source_card") if not sel.other and any(x.startswith(("samename_src", "nosamename_src", "samename_exiled_with")) for x in sel.extras) \
+            else _other_than(ctx)
+        return sum(1 for c in selectors.candidates(plan, sel, you, where) if c not in away)
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
         from app.rules import context
 

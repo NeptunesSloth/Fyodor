@@ -700,6 +700,58 @@ def _named_self(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "named_self"))
 
 
+# -- same name (wave 32A) -- "creature with the same name as ~" (Evil Twin, Callidus Assassin, Mocking Doppelganger), "creatures you control that
+# don't have the same name as ~" (Marvin), "enchantment you control that doesn't have the same name as another permanent you control" (Yenna),
+# "creature that doesn't have the same name as a token you control" (The Apprentice's Folly). 201.2a: two objects have the same name if they
+# have a name in common; an object with no name (face down, 708.2a) has the same name as nothing, so "doesn't have the same name" holds of it
+# (201.2c's "different name" would not: that wording isn't read). Names are the objects' own, layers applied (a copy has the copied name).
+_SN_REF = r"(?:(?:another|a) (?:permanent|creature|token) you control|a (?:creature )?card in (?:your|their) graveyard)"
+
+
+@_suffix(r"(?:with|(?:that |which )?(?:(?P<no>doesn't|don't|does not|do not) have|has|have)) the same name as "
+         rf"(?P<ref>~|(?:the exiled card|a card exiled with ~)|{_SN_REF}(?: or {_SN_REF})?)")
+def _same_name(s: Selector, m: re.Match[str]) -> Selector:
+    if m["ref"] == "~":
+        return replace(s, extras=(*s.extras, "nosamename_src" if m["no"] else "samename_src"))
+    if m["ref"] in ("the exiled card", "a card exiled with ~"):  # (607.2a: the cards the linked ability exiled; "exiled_with" in the extra marks the
+        if m["no"]:  # definition as referring to them, exiled_with.link)
+            raise ValueError("not the exiled card's name")
+        return replace(s, extras=(*s.extras, "samename_exiled_with"))
+    refs = m["ref"].split(" or ")
+    if len(refs) > 1 and not m["no"]:
+        raise ValueError("same name as either")  # (a name shared with one of two sets: not read; "doesn't" is both sets' none)
+    extras = []
+    for r in refs:  # "another permanent you control": any other such object (the object itself never counts); "their graveyard": its controller's
+        x = _parse(r.split(" ", 1)[1].replace("their graveyard", "your graveyard"))
+        if x is None:
+            raise ValueError("same name reference")
+        extras.append(("no" if m["no"] else "") + ("samename_their:" if "their" in r else "samename_among:") + x.key())
+    return replace(s, extras=(*s.extras, *extras))
+
+
+_SUFFIXES.insert(0, _SUFFIXES.pop())  # (first: its "… you control" is also the controller suffix)
+
+
+def _same_name_now(plan: Plan, extra: str, card: CardInstance, ch: Characteristics, you: str, source: str | None) -> bool:
+    """The test of ``_same_name``'s extras (201.2a)."""
+    from app.rules import card_names, exiled_with
+
+    pos = extra.startswith("samename")
+    kind = extra.removeprefix("no").removeprefix("samename_")
+    src = plan.state.cards.get(source or "")
+    if kind == "src":
+        same = src is not None and card_names.share(ch, plan.ch(src))
+    elif kind == "exiled_with":  # (the linked ability's cards, as they are in exile: of the source that is still on the battlefield)
+        same = src is not None and src.zone.endswith(":battlefield") and any(
+            card_names.share(ch, plan.ch(plan.state.cards[c])) for c in exiled_with.cards(plan, {"source_object": plan.oid(src)})
+            if not plan.state.cards[c].face_down)  # (406.3a: a card exiled face down has no name to compare, and nobody learns it from a trigger)
+    else:
+        who, _, key = kind.partition(":")
+        same = any(c != card.id and card_names.share(ch, plan.ch(plan.state.cards[c]))
+                   for c in candidates(plan, from_key(key), card.controller if who == "their" else you, source))
+    return same == pos
+
+
 # -- history (wave 22E) -- "a creature spell that shares a creature type with your commander" (Path of Ancestry): one of the creature types
 # of one of the matcher's commanders (903.3: the cards its owner's deck names, wherever they are), read as the cards are
 @_suffix(r"that shares a creature type with your commander")
@@ -1620,6 +1672,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 return False
         if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
             return False  # (wave 12C)
+        if extra.startswith(("samename", "nosamename")) and not _same_name_now(plan, extra, card, ch, you, source):
+            return False  # (wave 32A)
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
