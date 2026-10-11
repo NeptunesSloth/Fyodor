@@ -597,5 +597,196 @@
    "W"
   ],
   "keywords": []
+ },
+ {
+  "name": "Hurska Sweet-Tooth",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Bear",
+  "oracle_text": "Whenever Hurska attacks, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nWhenever you gain life, you may pay {G/W}. When you do, target creature gets +X/+X until end of turn, where X is the amount of life you gained.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Food"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Felisa, Fang of Silverquill",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Vampire Wizard",
+  "oracle_text": "Flying\nMentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)\nWhenever a nontoken creature you control dies, if it had counters on it, create X tapped 2/1 white and black Inkling creature tokens with flying, where X is the number of counters it had on it.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Mentor"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Flesh // Blood",
+  "layout": "split",
+  "mana_cost": "{3}{B}{G} // {R}{G}",
+  "cmc": 7.0,
+  "type_line": "Sorcery // Sorcery",
+  "oracle_text": "Exile target creature card from a graveyard. Put X +1/+1 counters on target creature, where X is the power of the card you exiled.\nFuse (You may cast one or both halves of this card from your hand.)\n//\nTarget creature you control deals damage equal to its power to any target.\nFuse (You may cast one or both halves of this card from your hand.)",
+  "colors": [
+   "B",
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Fuse"
+  ],
+  "card_faces": [
+   {
+    "name": "Flesh",
+    "mana_cost": "{3}{B}{G}",
+    "type_line": "Sorcery",
+    "oracle_text": "Exile target creature card from a graveyard. Put X +1/+1 counters on target creature, where X is the power of the card you exiled.\nFuse (You may cast one or both halves of this card from your hand.)"
+   },
+   {
+    "name": "Blood",
+    "mana_cost": "{R}{G}",
+    "type_line": "Sorcery",
+    "oracle_text": "Target creature you control deals damage equal to its power to any target.\nFuse (You may cast one or both halves of this card from your hand.)"
+   }
+  ]
+ },
+ {
+  "name": "Bishop of Binding",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Creature — Vampire Cleric",
+  "oracle_text": "When this creature enters, exile target creature an opponent controls until this creature leaves the battlefield.\nWhenever this creature attacks, target Vampire gets +X/+X until end of turn, where X is the power of the exiled card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Orcus, Prince of Undeath",
+  "layout": "normal",
+  "mana_cost": "{X}{2}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Demon",
+  "oracle_text": "Flying, trample\nWhen Orcus enters, choose one —\n• Each other creature gets -X/-X until end of turn. You lose X life.\n• Return up to X target creature cards with total mana value X or less from your graveyard to the battlefield. They gain haste until end of turn.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Trample"
+  ],
+  "power": "5",
+  "toughness": "3"
+ },
+ {
+  "name": "Rampaging Yao Guai",
+  "layout": "normal",
+  "mana_cost": "{X}{G}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Bear Mutant",
+  "oracle_text": "Vigilance, trample\nThis creature enters with X +1/+1 counters on it.\nWhen this creature enters, destroy any number of target artifacts and/or enchantments with total mana value X or less.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Vigilance",
+   "Trample"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Spectral Deluge",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return each creature your opponents control with toughness X or less to its owner's hand, where X is the number of Islands you control.\nForetell {1}{U}{U} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Foretell"
+  ]
+ },
+ {
+  "name": "Scourge of Fleets",
+  "layout": "normal",
+  "mana_cost": "{5}{U}{U}",
+  "cmc": 7.0,
+  "type_line": "Creature — Kraken",
+  "oracle_text": "When this creature enters, return each creature your opponents control with toughness X or less to its owner's hand, where X is the number of Islands you control.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Kairi, the Swirling Sky",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Dragon Spirit",
+  "oracle_text": "Flying, ward {3}\nWhen Kairi dies, choose one —\n• Return any number of target nonland permanents with total mana value 6 or less to their owners' hands.\n• Mill six cards, then return up to two instant and/or sorcery cards from your graveyard to your hand.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Ward",
+   "Mill"
+  ],
+  "power": "6",
+  "toughness": "6"
  }
 ]

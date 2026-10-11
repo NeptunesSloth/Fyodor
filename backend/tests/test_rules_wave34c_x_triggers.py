@@ -434,6 +434,152 @@ def test_temper_prevents_x_and_counts_what_was_prevented(cards):
     check(s)
 
 
+def orcus_with_x(cards, x):
+    s = build(cards, ["Orcus, Prince of Undeath", "Grizzly Bears", "Llanowar Elves", "Mind Stone"])
+    for n in ("Grizzly Bears", "Llanowar Elves", "Mind Stone"):
+        act(s, "p1", type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == n and c.owner == "p1")], to={"zone": "graveyard"})
+    orcus = to_hand(s, "Orcus, Prince of Undeath")
+    mana(s, B=1, R=1, C=2 + x)
+    act(s, "p1", type="cast_spell", card_id=orcus.id, x_value=x)  # {X}{2}{B}{R}
+    return s
+
+
+def test_orcus_returns_creatures_with_total_mana_value_up_to_x(cards):
+    s = orcus_with_x(cards, 3)
+    d = until_decision(s)
+    assert d is not None and d.kind == "choose_cards" and d.resume["step"] == "trigger_modes"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["1:0"])  # the second mode
+    d = until_decision(s)
+    assert d is not None and d.max_choices == 2 and {s.state.cards[o.id].name for o in d.options} == {"Grizzly Bears", "Llanowar Elves"}  # (up to X = 3: both)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])  # total mana value 2 + 1 = 3 ≤ X
+    settle_stack(s)
+    assert {c.name for c in on_battlefield_all(s)} >= {"Grizzly Bears", "Llanowar Elves", "Orcus, Prince of Undeath"}  # total mana value 3 ≤ X
+    check(s)
+
+
+def test_orcus_with_a_small_x_cannot_take_more_mana_value_than_x(cards):
+    s = orcus_with_x(cards, 2)
+    d = until_decision(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["1:0"])
+    d = until_decision(s)
+    assert d is not None and d.max_choices == 2  # up to X = 2 cards …
+    with pytest.raises(ActionError):  # … whose total mana value (2 + 1) is over X = 2
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if s.state.cards[o.id].name == "Grizzly Bears")])
+    settle_stack(s)
+    assert {c.name for c in on_battlefield_all(s)} >= {"Grizzly Bears"} and not on_battlefield(s, "Llanowar Elves")
+    check(s)
+
+
+def test_rampaging_yao_guai_destroys_artifacts_with_total_mana_value_up_to_x(cards):
+    s = build(cards, ["Rampaging Yao Guai"], theirs=["Sol Ring", "Mind Stone", "Arcane Signet"])
+    ring, stone, signet = (put(s, n, "p2") for n in ("Sol Ring", "Mind Stone", "Arcane Signet"))
+    guai = to_hand(s, "Rampaging Yao Guai")
+    mana(s, G=6)
+    act(s, "p1", type="cast_spell", card_id=guai.id, x_value=3)  # {X}{G}{G}{G}
+    d = until_decision(s)
+    assert d is not None and d.resume["step"] == "trigger_group"
+    with pytest.raises(ActionError):  # 601.2c: 2 + 2 is over X = 3 — asked again, the ability is not lost
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[stone.id, signet.id])
+    assert s.state.rules.decision is not None and s.state.rules.decision.id == d.id
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ring.id, stone.id])  # 1 + 2 = 3
+    settle_stack(s)
+    assert [s.state.cards[c.id].zone for c in (ring, stone, signet)] == ["p2:graveyard", "p2:graveyard", "p2:battlefield"]
+    assert s.state.cards[guai.id].counters == {"+1/+1": 3}
+    check(s)
+
+
+def island(s, name):
+    act(s, "p1", type="create_token", player="p1", token={"name": name, "type_line": "Token Land — Island", "text": ""})
+
+
+def test_spectral_deluge_reads_the_islands_as_it_resolves(cards):
+    s = build(cards, ["Spectral Deluge"], theirs=["Grizzly Bears", "Llanowar Elves"])
+    bears, elves = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+    wall, brute = creature(s, "p2", "Wall", "0/3"), creature(s, "p2", "Brute", "4/4")
+    island(s, "Isle A")
+    island(s, "Isle B")
+    deluge = to_hand(s, "Spectral Deluge")
+    mana(s, U=6)
+    for prefs in s.state.rules.prefs.values():
+        prefs.response = "on"
+    act(s, "p1", type="cast_spell", card_id=deluge.id)  # two Islands now …
+    island(s, "Isle C")  # … three when it resolves (107.3c: the value of X may change while it is on the stack)
+    settle_stack(s)
+    assert s.state.cards[bears.id].zone == s.state.cards[elves.id].zone == "p2:hand"
+    assert wall.id not in s.state.cards or s.state.cards[wall.id].zone != "p2:battlefield"  # toughness 3 ≤ X = 3 (a token that left ceases to exist)
+    assert s.state.cards[brute.id].zone == "p2:battlefield"
+    check(s)
+
+
+def test_scourge_of_fleets_returns_creatures_with_toughness_up_to_the_islands(cards):
+    s = build(cards, ["Scourge of Fleets"], theirs=["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    brute = creature(s, "p2", "Brute", "4/4")
+    island(s, "Isle A")
+    island(s, "Isle B")
+    kraken = to_hand(s, "Scourge of Fleets")
+    mana(s, U=7)
+    act(s, "p1", type="cast_spell", card_id=kraken.id)
+    settle_stack(s)
+    assert s.state.cards[bears.id].zone == "p2:hand" and s.state.cards[brute.id].zone == "p2:battlefield"  # X = 2: the 2/2 only
+    check(s)
+
+
+def test_abandon_hope_discards_x_then_takes_x_cards_from_their_hand(cards):
+    s = build(cards, ["Abandon Hope", "Llanowar Elves", "Grizzly Bears"], theirs=["Sol Ring", "Mind Stone"])
+    for n in ("Sol Ring", "Mind Stone"):
+        to_hand(s, n, "p2")
+    spell = to_hand(s, "Abandon Hope")
+    to_hand(s, "Llanowar Elves")
+    mana(s, B=1, C=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"], x_value=1, cost_choices=[])  # {X}{1}{B}; discard X cards
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    assert len(hand_names(s, "p2")) == 1 and len(s.state.zones["p2:graveyard"]) == 1  # X = 1 card taken
+    assert "Llanowar Elves" in [s.state.cards[c].name for c in s.state.zones["p1:graveyard"]]  # the additional cost: X cards discarded
+    check(s)
+
+
+def test_alabaster_potion_gains_x_life_in_its_first_mode(cards):
+    s = build(cards, ["Alabaster Potion"])
+    potion = to_hand(s, "Alabaster Potion")
+    mana(s, W=5)
+    act(s, "p1", type="cast_spell", card_id=potion.id, modes=[0], targets=["p1"], x_value=3)
+    settle_stack(s)
+    assert life(s) == 43
+    check(s)
+
+
+def test_kairi_returns_nonland_permanents_with_total_mana_value_six_or_less(cards):
+    s = build(cards, ["Kairi, the Swirling Sky"], theirs=["Sol Ring", "Mind Stone", "Solemn Simulacrum"])
+    kairi = put(s, "Kairi, the Swirling Sky")
+    ring, stone, solemn = (put(s, n, "p2") for n in ("Sol Ring", "Mind Stone", "Solemn Simulacrum"))
+    pinger = creature(s, "p1", "Pinger", "1/1", text="{0}: This creature deals 9 damage to target creature.")
+    act(s, "p1", type="activate_ability", card_id=pinger.id, ability=0, targets=[kairi.id])
+    d = until_decision(s)
+    assert d is not None and d.resume["step"] == "trigger_modes"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["0:0"])
+    d = until_decision(s)
+    assert d is not None and d.resume["step"] == "trigger_group"
+    with pytest.raises(ActionError):  # 1 + 2 + 4 = 7 is over 6: chosen again, the ability stays (601.2c)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[ring.id, stone.id, solemn.id])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[stone.id, solemn.id])  # 2 + 4 = 6
+    settle_stack(s)
+    assert s.state.cards[stone.id].zone == "p2:hand" and s.state.cards[solemn.id].zone == "p2:hand" and s.state.cards[ring.id].zone == "p2:battlefield"
+    check(s)
+
+
+def on_battlefield_all(s, pid="p1"):
+    return [c for c in s.state.cards.values() if c.zone == f"{pid}:battlefield"]
+
+
 @pytest.mark.parametrize("text", [
     "Create two Treasure tokens and a Food token.",
     "Create X 1/1 white Halfling creature tokens and X Food tokens.",

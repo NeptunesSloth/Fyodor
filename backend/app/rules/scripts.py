@@ -2339,6 +2339,8 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
         got = (_bind_x_conditions(got[0], value), got[1], got[2])
     if got is not None and (tagged := where_bound.tag(got[1], value, _X_SENTINEL)) is not None:
         got, hit = (got[0], tagged, got[2]), True  # -- bounds defined by text (wave 28D) -- "mana value X or less, where X is …": read as it is put on the stack
+    if got is not None and (fx := where_bound.tag_effects(got[0], value, _X_SENTINEL)) is not None:
+        got, hit = (fx, got[1], got[2]), True  # -- X from the triggering object (wave 34C) -- "toughness X or less, where X is …" in an effect's own selector
     if got is not None and isinstance(got[1], list) and any(g.get("x_count") for g in got[1]):
         got = _x_target_counts(got, value)
         hit = got is not None
@@ -3790,8 +3792,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     if d is not None and d.get("kind") != "spell" and '"spell_self_move"' in json.dumps(d, default=str):
         return None  # -- counters (wave 7C) -- only a spell moves itself off the stack
-    if d is not None and where_bound.has_marker(d) and d.get("kind") != "triggered":
-        return None  # -- bounds defined by text (wave 28D) -- only a triggered ability's targets are chosen with an event to read
+    if d is not None and where_bound.has_marker({k: d[k] for k in ("target", "targets", "modes") if d.get(k)}) and d.get("kind") != "triggered":
+        return None  # -- bounds defined by text (wave 28D) -- only a triggered ability's targets are chosen with an event to read (wave 34C: an effect's own selector is read as it resolves)
     # -- event batches (wave 28D) -- "milled this way" in a "one or more … are milled" trigger
     from app.rules import event_batch
 
@@ -6628,7 +6630,9 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     if parsed is None or not parsed[0]:
         return None
     b_effects, b_target, b_optional = parsed
-    keep = keep and '"event"' in json.dumps([b_effects, b_target], default=str)  # (only when the body actually reads the trigger's event)
+    body_json = json.dumps([b_effects, b_target], default=str)
+    stand_in = bool(_x_now()) and "event_amount" in json.dumps(_x_now()[0]) and "event_amount" in body_json  # (wave 34C: "where X is the amount of life you gained", read in _where_x)
+    keep = (keep and '"event"' in body_json) or (stand_in and lki is None and not sized_x)  # (only when the body actually reads the trigger's event; wave 34C: or its amount, explicitly)
     x_bind = None
     if sized_x:
         # -- if you do (wave 25C) -- "you may pay {X}. When you do, ~ deals X damage to target player.": the X paid (107.3f, paid_x) is the
@@ -6637,7 +6641,7 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
             return None
         b_effects = _x_to_event(b_effects)
         x_bind = base[0]["bind"]
-    if x_bind is None and "event_amount" in json.dumps([b_effects, b_target], default=str):
+    if x_bind is None and not keep and "event_amount" in json.dumps([b_effects, b_target], default=str):
         return None  # -- reflexive this way (wave 30G) -- "that much" here has no amount behind it (the reflexive ability's event carries none): reads 0, not read
     out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
                                                         "optional": b_optional, **target_fields(b_target)},

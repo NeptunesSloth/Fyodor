@@ -214,6 +214,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return None if inner is None else {"minus": [inner, 1]}
     # -- cost self reduction (wave 16F) -- "for each 1 life you gained this turn" (a count of life)
     p = re.sub(r"^1 (life you (?:gained|lost) this turn)$", r"\1", p)
+    if p == "the amount of life you gained":  # -- event batches (wave 34C) -- "Whenever you gain life, …": the event's amount (scripts._event_refs_ok: only a life-gain trigger has one)
+        return {"event_amount": 1}
+    p = re.sub(r"\b(counters?) (?:it|he|she|they) had on (it|them)$", r"\1 on \2", p)  # -- event batches (wave 34C) -- "the number of counters it had on it" (Felisa): as it last existed (608.2h)
     m = _COUNT.match(p)
     what = m["what"] if m else p
     if what.lower() == "x":

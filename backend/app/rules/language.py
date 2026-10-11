@@ -129,7 +129,7 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     rest, total = m["rest"], None
     tm = _TOTAL.fullmatch(rest)  # -- refused zones/sized (wave 3R4) -- "… with total mana value 3 or less …" (601.2c)
     if tm is not None:
-        rest, total = tm["a"] + (tm["b"] or ""), [_TOTAL_STATS[tm["stat"]], int(tm["n"])]
+        rest, total = tm["a"] + (tm["b"] or ""), [_TOTAL_STATS[tm["stat"]], "X" if tm["n"] == "X" else int(tm["n"])]
     dm = _DIFFERENT.fullmatch(rest)  # (wave 3R4) "… target creature cards with different names …" (201.2, 202.3)
     if dm is not None:
         rest = dm["a"] + (dm["b"] or "")
@@ -171,7 +171,7 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     return {"what": what, "min": lo, "max": hi, **constraints}
 
 
-_TOTAL = re.compile(r"(?P<a>.+?) with total (?P<stat>mana value|power) (?P<n>\d+) or less(?P<b> .+)?")  # (wave 3R4)
+_TOTAL = re.compile(r"(?P<a>.+?) with total (?P<stat>mana value|power) (?P<n>\d+|X) or less(?P<b> .+)?")  # (wave 3R4; 34C: X, the one announced)
 _TOTAL_STATS = {"mana value": "mana_value", "power": "power"}
 _DIFFERENT = re.compile(r"(?P<a>.+?) with different (?P<k>names|mana values)(?P<b> .+)?")  # (wave 3R4)
 
@@ -367,7 +367,7 @@ def _stat(phrase: str, its: str = "it") -> Any:
     if (m := re.fullmatch(r"(?P<n>\d+|one|two|three) plus (?P<v>the (?:discarded card's|sacrificed (?:creature|artifact|permanent|land|enchantment)'s) "
                           r"(?:power|toughness|mana value))", phrase)) is not None:  # "2 plus the sacrificed permanent's mana value"
         return {"plus": [_stat(m["v"], its), values.parse_amount(m["n"])]}
-    if (m := re.fullmatch(r"the (?:exiled (?:creature )?card's|exiled creature's) (?P<stat>power|toughness|mana value)|the (?P<stat2>mana value) of the exiled card",
+    if (m := re.fullmatch(r"the (?:exiled (?:creature )?card's|exiled creature's) (?P<stat>power|toughness|mana value)|the (?P<stat2>power|toughness|mana value) of (?:the exiled card|the card you exiled)",
                           phrase)) is not None:  # (wave 19F: also after an exile instruction of this ability, scripts._bind_stats)
         return {_STATS[m["stat"] or m["stat2"]]: "cost:exiled"}  # -- if you do (wave 8C) -- bound to the payment (pay_objects.bind)
     if (m := re.fullmatch(r"the milled card's (?P<stat>power|toughness|mana value)|the (?P<stat2>mana value) of the milled card", phrase)) is not None:
@@ -597,7 +597,7 @@ def _rider_value(phrase: str) -> Any:
     if re.fullmatch(r"(?:its|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|that spell's|~'s|this creature's|"
                     r"the sacrificed (?:creature|artifact|permanent|land)'s|the discarded card's|the milled card's|the spell's|"
                     r"the exiled (?:creature )?card's|the exiled creature's) (?:power|toughness|mana value)", phrase) or re.fullmatch(
-                        r"the mana value of (?:that spell|the spell|the exiled card|the milled card)", phrase):  # (wave 19F)
+                        r"the mana value of (?:that spell|the spell|the milled card)|the (?:power|toughness|mana value) of (?:the exiled card|the card you exiled)", phrase):  # (wave 19F; 34C: "the power of the exiled card")
         return _stat(phrase)
     if phrase in ("of its colors", "of that spell's colors"):  # -- value grammar (wave 23C) -- "for each of its colors": how many colors the object is (105.1)
         return {"colors": "that_spell" if "spell" in phrase else "it"}

@@ -23,7 +23,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import creature, through_combat, until
 from tests.test_rules_conditionals import settle as settle_stack
-from tests.wave9c_kit import build, card_named, check, put
+from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave34c_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -119,6 +119,85 @@ def test_obsessive_pursuit_gives_lifelink_from_three_sacrifices(cards):
 
     assert "lifelink" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[runner.id]).keywords  # X is three or more
     through_combat(s)
+    check(s)
+
+
+def test_hurska_pumps_by_the_life_that_was_gained(cards):
+    s = build(cards, ["Hurska Sweet-Tooth"])
+    put(s, "Hurska Sweet-Tooth")
+    bear = creature(s, "p1", "Bear", "2/2")
+    mana(s, G=1)
+    healer = creature(s, "p1", "Healer", "1/1", text="{0}: You gain 4 life.")
+    act(s, "p1", type="activate_ability", card_id=healer.id, ability=0)
+    for _ in range(30):  # (the trigger asks whether to pay {G/W}, then for the target)
+        d = s.state.rules.decision
+        if d is not None:
+            pick = ["yes"] if "yes" in [o.id for o in d.options] else [bear.id] if bear.id in [o.id for o in d.options] else [o.id for o in d.options][:1]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert pt(s, "Bear") == (6, 6)  # X = the 4 life gained (the reflexive ability still has the trigger's event: 603.12)
+    check(s)
+
+
+def test_felisa_makes_a_token_for_each_counter_the_creature_had(cards):
+    s = build(cards, ["Felisa, Fang of Silverquill", "Grizzly Bears", "Llanowar Elves"])
+    put(s, "Felisa, Fang of Silverquill")
+    grown, plain = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    act(s, "p1", type="counter", card_ids=[grown.id], kind="+1/+1", delta=3)
+    pinger = creature(s, "p1", "Pinger", "1/1", text="{0}: This creature deals 9 damage to target creature.")
+    for victim, tokens in ((plain, 0), (grown, 3)):  # (no counters on it: the trigger doesn't happen)
+        before = len(on_battlefield(s, "Inkling"))
+        act(s, "p1", type="activate_ability", card_id=pinger.id, ability=0, targets=[victim.id])
+        settle_stack(s)
+        assert s.state.cards[victim.id].zone == "p1:graveyard"
+        assert len(on_battlefield(s, "Inkling")) - before == tokens  # X = the counters it had on it, as it last existed (608.2h)
+    check(s)
+
+
+def on_battlefield(s, name, pid="p1"):
+    return [c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone == f"{pid}:battlefield"]
+
+
+def pt(s, name, pid="p1"):
+    from app.rules import sba
+    from app.rules.plan import Plan
+
+    c = next(c for c in s.state.cards.values() if c.name == name and c.owner == pid)
+    ch = Plan(s.state, "p1", s.cards, None).ch(c)
+    return sba.power(c, ch), sba.toughness(c, ch)
+
+
+def test_flesh_puts_counters_equal_to_the_power_of_the_card_it_exiled(cards):
+    s = build(cards, ["Flesh // Blood", "Grizzly Bears", "Llanowar Elves"], theirs=["Grizzly Bears"])
+    act(s, "p2", type="move", card_ids=[card_named(s, "Grizzly Bears", "p2").id], to={"zone": "graveyard"})
+    elf = put(s, "Llanowar Elves")
+    spell = to_hand(s, "Flesh // Blood")
+    mana(s, B=1, G=4)
+    bears = card_named(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="cast_spell", card_id=spell.id, face=0, targets=[bears.id, elf.id], target_counts=[1, 1])
+    settle_stack(s)
+    assert s.state.cards[bears.id].zone == "p2:exile"
+    assert s.state.cards[elf.id].counters == {"+1/+1": 2}  # X = the power of the card it exiled (a 2/2 Bears): 608.2h
+    check(s)
+
+
+def test_bishop_of_binding_pumps_by_the_power_of_the_creature_it_exiled(cards):
+    s = build(cards, ["Bishop of Binding"], theirs=["Grizzly Bears"])
+    put(s, "Grizzly Bears", "p2")
+    bishop = to_hand(s, "Bishop of Binding")
+    mana(s, W=4)
+    act(s, "p1", type="cast_spell", card_id=bishop.id, targets=[card_named(s, "Grizzly Bears", "p2").id])
+    settle_stack(s)
+    assert card_named(s, "Grizzly Bears", "p2").zone == "p2:exile"
+    before = pt(s, "Bishop of Binding")
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bishop.id, "target": "p2"}])
+    settle_stack(s)
+    after = pt(s, "Bishop of Binding")
+    assert (after[0] - before[0], after[1] - before[1]) == (2, 2)  # X = the power of the exiled Bears, 2
     check(s)
 
 

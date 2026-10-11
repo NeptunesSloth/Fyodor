@@ -2039,6 +2039,7 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
         from app.game.errors import ActionError
         from app.rules.casting import ask_targets
         from app.rules.scripts import target_groups
+        from app.rules.targets import BadPick
 
         specs = target_groups(t.ability)  # (review 28D / wave 29C: "up to X target …, where X is …": X is the only limit, 107.3c, 601.2c)
         picks = picks or {"targets": [], "counts": [], "division": []}
@@ -2047,6 +2048,8 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
                                   picks["targets"], picks["counts"], picks["division"], cast_x(plan, t), t.name or "It",
                                   attacker=attacker, source_object=t.source_object,  # (wave 19F: "up to X target …", X as 107.3m / 701.37c give it)
                                   event=t.event.model_dump(mode="json") if t.event is not None else None)  # (wave 28D: "where X is" an event's amount)
+        except BadPick:  # -- X from the triggering object (wave 34C) -- a choice that breaks a rule of the group (over a total, 601.2c) is asked again
+            raise
         except ActionError:  # 603.3d: no legal choice for a required target: removed from the stack
             r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
             plan.note(f"{t.name}'s ability doesn't have enough legal targets and is removed")
@@ -2117,6 +2120,9 @@ def x_source(d: dict[str, Any], ch: Characteristics) -> str | None:
 def event_x(plan: Plan, t: PendingTrigger) -> int | None:
     """The X of the object a triggered ability triggered on (x_source): the spell cast (its payment record: 601.2h, 107.3e) or the cycling
     cost's announced X (107.3a). None when this trigger doesn't take its X from its event."""
+    cond = t.ability.get("cond") or {}
+    if t.ability.get("trigger") != "cast_self" and cond.get("event") not in ("cast", "cycle"):
+        return None  # (cheap: only these triggers read their event's X; the characteristics are derived below)
     kind = x_source(t.ability, plan.ch(plan.state.cards[t.source_card])) if t.source_card in plan.state.cards else None
     if kind == "cycle":
         return t.event.x if t.event is not None and t.event.kind == "cycle" else None
