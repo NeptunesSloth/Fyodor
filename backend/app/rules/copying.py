@@ -53,6 +53,12 @@ targets, the object a trigger or earlier instruction names ("it", "that creature
 graveyard (its printed values, 707.2) and a group ("each other creature [you control]", ``parse_become_group``: one effect on the group as
 it is as it begins, 611.2c). "Enter as a copy of a creature card in a graveyard" reads public cards only.
 
+-- becomes a copy (wave 31C) -- the duration may be "until your next turn" (500.4: ``ContinuousEffect.duration == "next_turn"``) and may lead the
+sentence; the subject may be "it" or a target ("Target artifact you control becomes a copy of a second / another target artifact …", two target
+groups: ``parse_become_targets``; the second may be a card in a graveyard or exile, its printed values, 707.2); "this ability" is written into the
+copy with the card's name as "this permanent" (a copy has another name, so "Volrath becomes …" would name a stranger) and "its other abilities"
+(Sakashima of a Thousand Faces) as the card's other lines that don't name it (707.9a).
+
 -- refused copy/mana (wave 3R3) -- now automated: a token copy or a permanent spell's copy of a
 transforming or modal double-faced object is a double-faced token (707.8a, 707.10g:
 ``TWO_FACED_TOKENS``); "copy that spell" / "copy it" in a cast trigger (the event's spell); the
@@ -85,7 +91,7 @@ from app.game.rules_state import (
 from app.game.state import CardInstance, TokenDef
 from app.rules import characteristics as chars
 from app.rules.characteristics import CardInfo, Characteristics
-from app.rules.oracle import parse_abilities
+from app.rules.oracle import parse_abilities, strip_reminders
 
 if TYPE_CHECKING:
     from app.game.rules_state import RulesState
@@ -318,12 +324,14 @@ def lki(plan: Plan, snap: Any, ch: Characteristics) -> Characteristics:
 
 
 def add_copy_effect(plan: Plan, affected: list[str], recipe: CopyRecipe, controller: str, *,
-                    duration: Literal["end_of_turn", "permanent"] = "permanent", source: str | None = None) -> None:
+                    duration: Literal["end_of_turn", "permanent", "next_turn"] = "permanent", source: str | None = None) -> None:
     """A layer-1 copy effect (613.2a) on these objects, timestamped now (613.7)."""
     from app.rules import layers
 
-    layers.add_effect(plan, affected=affected, layer="1", source=source, controller=controller, duration=duration,
-                      label=f"Copy of {recipe.source}" if recipe.source else "Copy", copy_recipe=recipe)
+    made = layers.add_effect(plan, affected=affected, layer="1", source=source, controller=controller, duration=duration,
+                             label=f"Copy of {recipe.source}" if recipe.source else "Copy", copy_recipe=recipe)
+    if duration == "next_turn":  # -- becomes a copy (wave 31C) -- 500.4: "until your next turn" ends as the controller's next turn begins (delayed.turn_began)
+        made.until_player, made.turn = controller, plan.state.turn.number
 
 
 def supported_source(plan: Plan, card: CardInstance, *, token: bool = False) -> str | None:
@@ -1192,10 +1200,11 @@ def become_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         base = recipe_of(plan, source)
     own = characteristics(recipe_of(plan, plan.state.cards[who[0]]), plan.info).colors if len(who) == 1 else frozenset()
     recipe = with_excepts(base, [keep_colors(CopyExcept.model_validate(x), own) for x in e.get("excepts") or []])
-    duration: Literal["end_of_turn", "permanent"] = "end_of_turn" if e.get("duration") == "end_of_turn" else "permanent"
+    duration: Literal["end_of_turn", "permanent", "next_turn"] = "end_of_turn" if e.get("duration") == "end_of_turn" \
+        else "next_turn" if e.get("duration") == "next_turn" else "permanent"  # (wave 31C: 500.4 "until your next turn")
     add_copy_effect(plan, [plan.oid(c) for c in who], recipe, ctx["controller"], duration=duration)
     plan.note(f"{', '.join(plan.state.cards[c].name for c in who)} becomes a copy of {recipe.source or 'it'}"
-              + (" until end of turn" if duration == "end_of_turn" else ""), who, actor=ctx["controller"])
+              + {"end_of_turn": " until end of turn", "next_turn": " until your next turn"}.get(duration, ""), who, actor=ctx["controller"])
     return True
 
 
@@ -1306,6 +1315,9 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         return True
     if re.fullmatch(_SUBJECT + r"(?:has|have) this ability", c):  # -- enter as copy (wave 5F) -- 707.9a: the ability's own
         ex.add_text = [*ex.add_text, THIS_ABILITY]  # text, written in by ``scripts.define`` (``with_this_ability``)
+        return True
+    if re.fullmatch(_SUBJECT + r"(?:has|have) its other abilities", c):  # -- copy exceptions (wave 31C) -- 707.9a: "except it has Sakashima's other
+        ex.add_text = [*ex.add_text, OTHER_ABILITIES]  # abilities": the card's printed lines but this one, written in by ``with_this_ability``
         return True
     if re.fullmatch(_SUBJECT + r"(?:has|have) no mana cost", c):  # -- keywords (wave 15E) -- 707.9b
         ex.no_mana_cost = True
@@ -1426,13 +1438,34 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
 # gains the very ability that made it (707.9a) — its printed line, filled in from the ability being defined
 THIS_ABILITY = "\x00this ability"
 NAME_MARKER = "\x00name"  # -- enter as copy other (wave 20F) -- ``with_this_ability`` writes the printed name in
+OTHER_ABILITIES = "\x00other abilities"  # -- copy exceptions (wave 31C) -- "except it has ~'s other abilities" (Sakashima of a Thousand Faces)
 
 
-def with_this_ability(d: dict[str, Any], text: str) -> dict[str, Any] | None:
-    """The definition with "this ability" written as the ability's own line (None: the marker is somewhere it can't be)."""
+def _spread(x: Any, others: list[str]) -> Any:
+    """-- copy exceptions (wave 31C) -- every ``add_text`` marker ``OTHER_ABILITIES`` replaced by the card's other lines."""
+    if isinstance(x, dict):
+        return {k: [t for v in val for t in (others if v == OTHER_ABILITIES else [v])] if k == "add_text" and isinstance(val, list)
+                else _spread(val, others) for k, val in x.items()}
+    return [_spread(i, others) for i in x] if isinstance(x, list) else x
+
+
+def with_this_ability(d: dict[str, Any], ability: Any, ch: Characteristics) -> dict[str, Any] | None:
+    """The definition with "this ability" written as the ability's own line (None: the marker is somewhere it can't be).
+    -- copy exceptions (wave 31C) -- the line has the card's own name as "this permanent" (a copy has another name, so "Volrath becomes …"
+    would name a stranger there; the Exhaust / Boast / Power-up / Forecast words stay as printed), "its other abilities" (707.9a) are the card's
+    other lines that don't name it (Sakashima of a Thousand Faces: Partner and the legend-rule line)."""
     import json
 
+    from app.rules import scripts
+
+    text = ability.text
     raw = json.dumps(d)
+    if json.dumps(OTHER_ABILITIES)[1:-1] in raw:
+        rest = [a for a in ch.abilities if a.index != ability.index and not a.intrinsic]
+        if any("~" in scripts.self_text(a.text, ch.name) for a in rest):
+            return None
+        d = _spread(d, [strip_reminders(a.text).strip() for a in rest])
+        raw = json.dumps(d)
     name_marker = json.dumps(NAME_MARKER)[1:-1]
     if name_marker in raw:  # -- enter as copy other (wave 20F) -- "except its name is Sakashima the Impostor": the name as printed (not ~)
         named = re.search(r"\b(?:its|his|her) name is (?P<n>.+?)(?=, (?:it|he|she|they)\b| and (?:it|he|she|they)\b|\.(?:\s|$)|$)", text)
@@ -1445,7 +1478,8 @@ def with_this_ability(d: dict[str, Any], text: str) -> dict[str, Any] | None:
         return d
     if d.get("kind") not in ("activated", "triggered") or "\\u0000" in text or '"' in text:
         return None
-    return json.loads(raw.replace(marker, json.dumps(text)))
+    own = text if text.startswith(("Exhaust — ", "Boast — ", "Power-up — ", "Forecast — ")) else scripts.self_text(text, ch.name).replace("~", "this permanent")
+    return json.loads(raw.replace(marker, json.dumps(own)))
 
 
 def _dump(ex: CopyExcept) -> dict[str, Any]:
@@ -1516,7 +1550,13 @@ def parse_token_copy(n: str, tapped: bool, src: str, exc: str | None) -> tuple[l
     return [{**effect, "who": "target"}], group
 
 
-def parse_become(what: str | None, until: bool, exc: str | None, pre: str = "", src: str | None = None
+def _dur(until: bool | str) -> dict[str, str]:
+    """-- becomes a copy (wave 31C) -- the duration of a "becomes a copy" effect (611.2a): "until end of turn" (True / "end of turn")
+    or "until your next turn" (500.4)."""
+    return {"duration": "next_turn" if until == "your next turn" else "end_of_turn"} if until else {}
+
+
+def parse_become(what: str | None, until: bool | str, exc: str | None, pre: str = "", src: str | None = None
                  ) -> tuple[list[dict[str, Any]], Any] | None:
     """"~ becomes a copy of [another / up to one other] target <permanent> [until end of turn] [, except …]" (707.4); -- copy exceptions
     (wave 24A) -- "another" is any object but the source itself (201.5, the selector's ``other``), "up to one" may pick none (then
@@ -1528,7 +1568,7 @@ def parse_become(what: str | None, until: bool, exc: str | None, pre: str = "", 
         if ex is None or src not in _SOURCES or what is not None:
             return None
         return [{"do": "become_copy", "who": "self", "with": _SOURCES[src], **({"last_known": True} if src != "that card" else {}),
-                 **_dump(ex), **({"duration": "end_of_turn"} if until else {})}], None
+                 **_dump(ex), **_dur(until)}], None
     group = _target_group(pre + "target " + (what or ""))
     if what is None or group is None or (group["min"], group["max"]) not in ((1, 1), (0, 1)) or (group["min"] == 0 and not pre.startswith("up to one")):
         return None
@@ -1539,12 +1579,30 @@ def parse_become(what: str | None, until: bool, exc: str | None, pre: str = "", 
     ex = parse_excepts(exc)
     if ex is None:
         return None
-    effect: dict[str, Any] = {"do": "become_copy", "who": "self", "with": "target", **_dump(ex)}
-    if until:
-        effect["duration"] = "end_of_turn"
+    effect: dict[str, Any] = {"do": "become_copy", "who": "self", "with": "target", **_dump(ex), **_dur(until)}
     # (review 24A: "up to one" keeps its group, min 0 — the ability goes on the stack with no target, 115.1/601.2c, and the rest of it
     # still happens: Irma's "Then put a +1/+1 counter on her")
     return [effect], group if group["min"] == 0 else group["what"]
+
+
+def parse_become_targets(a: str, b: str, until: str, exc: str | None) -> tuple[list[dict[str, Any]], Any] | None:
+    """-- becomes a copy (wave 31C) -- "Target artifact you control becomes a copy of a second / another target artifact you control [until end of
+    turn] [, except it isn't legendary]" (Shuri, Saheeli, The Animus): both are targets of the ability (115.1), the first becomes a copy of the
+    second (707.4) as it is when the effect begins (707.2b; a card in a graveyard or exile: its printed values); "another" is a different
+    object (115.3, `_add_groups`), "a second" or a plain "target" may be the same."""
+    from app.rules import selectors
+
+    first, second = _target_group(a), _target_group(b if b.startswith("another ") else b.removeprefix("a second "))
+    ex = parse_excepts(exc)
+    if ex is None or ex.name is not None or THIS_ABILITY in ex.add_text or OTHER_ABILITIES in ex.add_text or first is None or second is None:
+        return None  # (a name, "this ability", "its other abilities" speak of the ability's own source, not of a target)
+    if "another" in first or any((g["min"], g["max"]) != (1, 1) for g in (first, second)):
+        return None
+    s1, s2 = (selectors.from_key(g["what"]) if g["what"].startswith(selectors.PREFIX) else None for g in (first, second))
+    if s1 is None or s1.zones != ("battlefield",) or s1.player is not None or s2 is None or s2.player is not None \
+            or s2.zones not in (("battlefield",), ("graveyard",), ("exile",)) or s2.card != (s2.zones != ("battlefield",)):
+        return None
+    return [{"do": "become_copy", "who": "target:0", "with": "target:1", **_dump(ex), **_dur(until)}], [first, second]
 
 
 def parse_become_group(grp: str, ctl: bool, others: bool, src: str | None, what: str | None, until: bool, exc: str | None
@@ -1578,7 +1636,8 @@ def parse_become_group(grp: str, ctl: bool, others: bool, src: str | None, what:
     return [effect], group["what"]
 
 
-_CLONE = re.compile(r"^You may have ~ enter (?P<tapped>tapped )?as a copy of (?:any|a|an) (?P<rest>.+)$")
+# (wave 31C: "another creature you control" — the entering card isn't on the battlefield, so "another" excludes nothing: Sakashima of a Thousand Faces)
+_CLONE = re.compile(r"^You may have ~ enter (?P<tapped>tapped )?as a copy of (?:any|a|an|another) (?P<rest>.+)$")
 # -- enter as copy (wave 5F) -- "As ~ enters, you may have it become a copy of any creature on the battlefield until end
 # of turn, except it has haste." (Cursed Mirror): an "as enters" replacement (614.1c) — it enters as the copy (707.5),
 # and the copy effect ends at the cleanup step (514.2)
