@@ -2122,9 +2122,6 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
                   and not m[2].lower().startswith(f"create {m[3].lower()},") else f"{m[1]}{m[2]} that's tapped and attacking{m[4] or ''}.", body)
     body = re.sub(r"(^|, |\. )((?i:(?:you may )?(?:put|return)) [^.]+? (?:onto|to) the battlefield(?: under your control)?)\. (?:It|That creature) enters "
                   r"tapped and attacking( that (?:player|opponent))?\.", r"\1\2 tapped and attacking\3.", body)
-    # -- becomes a copy (wave 31C) -- "Search your library for a Dragon permanent card and put it into your graveyard. If you do, ~ becomes a copy of that card
-    # until end of turn." (Scion of the Ur-Dragon): with nothing found there is nothing to be a copy of (become_copy notes it), so "if you do" adds nothing
-    body = re.sub(r"(\bput it into your graveyard\.) (?i:if you do), (~ becomes a copy of that card\b)", r"\1 \2", body)
     # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
     # opponent, the token grammar's "… for each opponent"
     body = re.sub(r"(^|\. )For each opponent, you (create (?![^.,]* with )[^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
