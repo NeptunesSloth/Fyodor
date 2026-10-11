@@ -6266,8 +6266,11 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
         rest = kicked_instead.plain_pronoun(rest)
         restated = kicked_instead.restate(rest, base)
         spell_cond = _cast_trigger_spell_cond(cond)  # -- ability words (wave 9C) -- opus: the cast trigger's spell, never a target
-        if restated is not None and it is not None and _cond_has_it(cond) and not spell_cond:
-            return False  # ("If that land is a Mountain, ~ deals 2 damage instead": the trigger's land, not the target)
+        if restated is not None and it is not None and _cond_has_it(cond) and not spell_cond and any(
+                str(e.get("who") or "").startswith("target") or e.get("src") for e in base):
+            return False  # ("If that land is a Mountain, ~ deals 2 damage instead": the trigger's land, not the target; -- named permanents (wave 35C) --
+            # with nothing targeted or sourced in the replaced sentence "it" is the trigger's object: "create a 1/1 Satyr. If the creature had power 4 or greater,
+            # create two of those tokens instead." (Anax))
         if rest.startswith("it deals ") and base[0]["do"] == "damage" and not base[0].get("src"):
             rest = "~ deals " + rest[len("it deals "):]  # (the source of the damage the sentence before it dealt)
         alt = (restated, None) if restated is not None else _bind_subject(cond, _clause(rest))

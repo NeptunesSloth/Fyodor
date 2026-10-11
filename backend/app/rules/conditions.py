@@ -1091,6 +1091,7 @@ def _object(t: str) -> Condition | None:
     it last existed); physical state (tapped, attacking) only of the source itself."""
     t = re.sub(r"^(it|that (?:creature|permanent)) has (power|toughness|mana value) (?=\w+ or (?:less|greater|more|fewer))",  # (wave 26D)
                lambda m: f"{'its' if m[1] == 'it' else m[1] + chr(39) + 's'} {m[2]} is ", t)  # "it has power 4 or greater" = "its power is 4 or greater"
+    t = re.sub(r"^the creature had (?=(?:power|toughness|mana value) \w+ or )", "that creature had ", t)  # -- named permanents (wave 35C) -- Anax: the creature that died
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)'s (?:power|toughness|mana value)) (\w+ or )", r"\1 was \2", t)
     m = _OBJECT_VS_COLORS.fullmatch(t)
@@ -1578,6 +1579,10 @@ def _cast_how(t: str) -> Condition | None:
         if m["b"]:
             parts.append({"object": "event", "each": "any", "cast": {"from": "graveyard"}})
         return {"any": parts} if m["b"] else parts[0]
+    if (m := re.fullmatch(r"(?P<w>it|~) entered from your library or was cast from your library", t)) is not None:
+        # -- named permanents (wave 35C) -- Fblthp: put onto the battlefield from the library, or cast from it (it enters from the stack then: 400.7, 601.2a)
+        who = _cast_who(m["w"])
+        return {"any": [{"object": who, "cast": {"entered_from": "your library"}}, {"object": who, "cast": {"by_you": False, "from": "library"}}]}
     m = re.fullmatch(r"(?P<who>it|~|this creature|that creature) entered from (?P<z>your graveyard|a graveyard|exile|your hand)", t)
     if m:  # -- history (wave 22E) -- Archfiend's Vessel: "if it entered from your graveyard or you cast it from your graveyard"
         return {"object": "it" if m["who"] in ("it", "that creature") else "self", "cast": {"entered_from": m["z"].replace("a ", "")}}
