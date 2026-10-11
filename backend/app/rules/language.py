@@ -3055,9 +3055,9 @@ def parse_loses_all(text: str) -> tuple[Effects, Any] | None:
         kind, key, group = ref(m["o"])
     except _Fail:
         return None
-    if kind in ("players", "them"):
+    if kind in ("players", "them") or (kind == "it" and m["o"].lower() != "it"):  # (wave 35D: a bare "it" is the target of the sentence before; "that creature" is read by the event grammar)
         return None
-    return [{"do": "become", "who": _who(kind, key), "types": [], "lose_abilities": True, "duration": "end_of_turn"}], _one(group)  # (wave 35D: "it")
+    return [{"do": "become", "who": _who(kind, key), "types": [], "lose_abilities": True, "duration": "end_of_turn"}], _one(group)
 
 
 def parse_become(text: str) -> tuple[Effects, Any] | None:

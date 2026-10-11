@@ -42,7 +42,7 @@ FULL = ["Frodo Baggins", "Balan, Wandering Knight", "Brass Knuckles", "Timber Pa
         "Rampaging Soulrager", "Security Bypass", "Snow Devil", "Goblin Caves", "Arcades Sabboth", "Homicidal Seclusion", "Verge Rangers",
         "The Reality Chip", "Crashing Tide", "Supernatural Rescue", "The Wondrous Wasp", "Hobble", "Augur of Autumn",
         "Summoning Materia", "Scarring Memories", "Captain America, Super-Soldier", "Conqueror's Flail", "Thunderstaff", "Hedron-Field Purists",
-        "Spirit of Resistance", "Gutter Skulker // Gutter Shortcut", "Goblin Shrine", "Deadly Wanderings"]
+        "Spirit of Resistance", "Aether Revolt", "Anthem of Rakdos", "Vampire Socialite", "Merfolk Trickster", "Gutter Skulker // Gutter Shortcut", "Goblin Shrine", "Deadly Wanderings"]
 
 
 # Refused, not guessed: each stays manual until its rule is modelled.
@@ -754,4 +754,79 @@ def test_captain_america_gives_you_and_the_other_heroes_hexproof_while_he_has_a_
     assert not targetable() and "hexproof" in kw(s, hero) and "hexproof" not in kw(s, cap)  # you, and the others (not Captain America himself)
     act(s, "p1", type="counter", card_ids=[cap.id], kind="shield", delta=-1)
     assert targetable() and "hexproof" not in kw(s, hero)
+    check(s)
+
+
+# -- 611.3a: "As long as C, <replacement effect>" read by the replacement machinery ----------------------------------------------
+def bolt_player(s, target="p2", pid="p1"):
+    bolt = to_hand(s, "Lightning Bolt", pid)
+    mana(s, pid, R=1)
+    act(s, pid, type="cast_spell", card_id=bolt.id, targets=[target])
+    settle(s)
+
+
+def empty_hand(s, pid="p1"):
+    ids = list(s.state.zones[f"{pid}:hand"])
+    if ids:
+        act(s, pid, type="move", card_ids=ids, to={"player": pid, "zone": "graveyard"})
+
+
+def test_anthem_of_rakdos_doubles_your_damage_only_while_you_have_no_cards_in_hand(cards):
+    s = build(cards, mine=("Anthem of Rakdos", "Lightning Bolt"))
+    put(s, "Anthem of Rakdos")
+    empty_hand(s)
+    spare = next(c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Forest" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[spare.id], to={"player": "p1", "zone": "hand"})
+    bolt_player(s)
+    assert s.state.players["p2"].life == 37  # a Forest in hand: Hellbent is off, 3 damage
+    act(s, "p1", type="move", card_ids=[spare.id], to={"player": "p1", "zone": "graveyard"})
+    bolt_player(s)
+    assert s.state.players["p2"].life == 31  # no cards in hand (the Bolt is on the stack): double (6)
+    check(s)
+
+
+def test_aether_revolt_adds_two_noncombat_damage_only_after_a_permanent_left(cards):
+    s = build(cards, mine=("Aether Revolt", "Lightning Bolt"))
+    put(s, "Aether Revolt")
+    bolt_player(s)
+    assert s.state.players["p2"].life == 37  # no permanent has left the battlefield under your control this turn
+    gone = token(s, "p1", "Gone")
+    act(s, "p1", type="move", card_ids=[gone.id], to={"player": "p1", "zone": "graveyard"})  # (a token leaves, then ceases to exist)
+    bolt_player(s)
+    assert s.state.players["p2"].life == 32  # revolt: that much plus 2
+    check(s)
+
+
+def test_vampire_socialite_adds_a_counter_to_vampires_entering_after_an_opponent_lost_life(cards):
+    s = build(cards, mine=("Vampire Socialite", "Bloodthrone Vampire", "Lightning Bolt"))
+    put(s, "Vampire Socialite")
+    first = to_hand(s, "Bloodthrone Vampire")
+    mana(s, B=2)
+    act(s, "p1", type="cast_spell", card_id=first.id)
+    settle(s)
+    assert s.state.cards[first.id].zone == "p1:battlefield" and not s.state.cards[first.id].counters  # nobody has lost life yet
+    bolt_player(s)
+    act(s, "p1", type="move", card_ids=[first.id], to={"player": "p1", "zone": "hand"})
+    mana(s, B=2)
+    act(s, "p1", type="cast_spell", card_id=first.id)
+    settle(s)
+    assert s.state.cards[first.id].counters.get("+1/+1") == 1  # an opponent lost life this turn
+    check(s)
+
+
+def test_merfolk_trickster_taps_the_creature_and_it_loses_its_abilities_for_the_turn(cards):
+    s = build(cards, mine=("Merfolk Trickster",), theirs=("Serra Angel",))
+    angel = put(s, "Serra Angel", "p2")
+    trickster = to_hand(s, "Merfolk Trickster")
+    mana(s, U=2)
+    act(s, "p1", type="cast_spell", card_id=trickster.id)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.card_id == angel.id][:1] or [d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[angel.id].tapped and not kw(s, angel)  # "It loses all abilities until end of turn" (613.1f)
     check(s)

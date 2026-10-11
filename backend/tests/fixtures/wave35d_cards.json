@@ -1286,5 +1286,99 @@
   ],
   "power": "4",
   "toughness": "4"
+ },
+ {
+  "name": "Aether Revolt",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Revolt — As long as a permanent left the battlefield under your control this turn, if a source you control would deal noncombat damage to an opponent or a permanent an opponent controls, it deals that much damage plus 2 instead.\nWhenever you get one or more {E}, this enchantment deals that much damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Revolt"
+  ]
+ },
+ {
+  "name": "Anthem of Rakdos",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever a creature you control attacks, it gets +2/+0 until end of turn and this enchantment deals 1 damage to you.\nHellbent — As long as you have no cards in hand, if a source you control would deal damage to a permanent or player, it deals double that damage to that permanent or player instead.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Double",
+   "Hellbent"
+  ]
+ },
+ {
+  "name": "Merfolk Trickster",
+  "layout": "normal",
+  "mana_cost": "{U}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Merfolk Wizard",
+  "oracle_text": "Flash\nWhen this creature enters, tap target creature an opponent controls. It loses all abilities until end of turn.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flash"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Vampire Socialite",
+  "layout": "normal",
+  "mana_cost": "{B}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Vampire Noble",
+  "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhen this creature enters, if an opponent lost life this turn, put a +1/+1 counter on each other Vampire you control.\nAs long as an opponent lost life this turn, each other Vampire you control enters with an additional +1/+1 counter on it.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Bloodthrone Vampire",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Vampire",
+  "oracle_text": "Sacrifice a creature: This creature gets +2/+2 until end of turn.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
  }
 ]
