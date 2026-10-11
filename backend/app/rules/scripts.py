@@ -3831,6 +3831,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import copying
 
         d = copying.with_this_ability(d, ability, ch)
+    if d is not None and d.get("kind") == "spell" and any(e.get("do") == "token_copy" and '"other":true' in str(e.get("who")) for e in d.get("effects") or []):
+        return None  # -- token copies (wave 31C) -- "for each other …": other than the permanent whose ability it is — a spell has none on the battlefield (kept refused)
     return d
 
 

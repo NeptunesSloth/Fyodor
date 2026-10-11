@@ -1470,8 +1470,8 @@ def _spread(x: Any, others: list[str]) -> Any:
 
 def with_this_ability(d: dict[str, Any], ability: Any, ch: Characteristics) -> dict[str, Any] | None:
     """The definition with "this ability" written as the ability's own line (None: the marker is somewhere it can't be).
-    -- copy exceptions (wave 31C) -- the line has the card's own name as "this permanent" (a copy has another name, so "Volrath becomes …"
-    would name a stranger there; the Exhaust / Boast / Power-up / Forecast words stay as printed), "its other abilities" (707.9a) are the card's
+    -- copy exceptions (wave 31C) -- a line that names the card has the name as "this permanent" (a copy has another name, so "Volrath
+    becomes …" would name a stranger there; not when the copy is given the name again, nor the Exhaust / Boast / Power-up / Forecast words), "its other abilities" (707.9a) are the card's
     other lines that don't name it (Sakashima of a Thousand Faces: Partner and the legend-rule line)."""
     import json
 
@@ -1499,7 +1499,7 @@ def with_this_ability(d: dict[str, Any], ability: Any, ch: Characteristics) -> d
     if d.get("kind") not in ("activated", "triggered") or "\\u0000" in text or '"' in text:
         return None
     own = text if named or text.startswith(("Exhaust — ", "Boast — ", "Power-up — ", "Forecast — ")) \
-        else re.sub(r"(^|: |\. )~", r"\1This permanent", scripts.self_text(text, ch.name)).replace("~", "this permanent")
+        else re.sub(r"(^|: |\. )this permanent", r"\1This permanent", renamed(text, ch.name, "this permanent"))  # (unchanged if it names no one)
     return json.loads(raw.replace(marker, json.dumps(own)))
 
 
