@@ -459,6 +459,28 @@ def test_opal_eye_takes_the_damage_of_the_chosen_source_once(cards):
     check(s)
 
 
+def test_awe_strike_covers_every_chunk_the_creature_deals_at_that_time_and_gains_the_total(cards):
+    """615.8 and the Glarecaster / Mirrorwood Treefolk rulings ("the next time" is one time damage is dealt: every chunk of it): Bob's Hill Giant
+    is blocked by two Grizzly Bears; Awe Strike on it prevents the damage it would assign to both, and Alice gains 3 in all (615.5)."""
+    s = build(cards, ["Awe Strike", "Grizzly Bears", "Grizzly Bears"], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    first, second = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    for bear in (first, second):
+        act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "battlefield"})
+    stops(s)
+    bobs_turn(s)
+    attack(s, (giant, "p1"))
+    block(s, (first, giant), (second, giant))
+    cast_now(s, "Awe Strike", targets=[giant.id], W=1)
+    s = reloaded(s)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "divide")  # 510.1c: Bob divides the Giant's 3
+    act(s, "p2", type="choose", decision_id=s.state.rules.decision.id, amounts=[2, 1])
+    to_main2(s)
+    assert s.state.cards[first.id].damage == 0 and s.state.cards[second.id].damage == 0
+    assert s.state.cards[giant.id].zone == "p2:graveyard" and life(s, "p1") == 43
+    check(s)
+
+
 # -- Glarecaster: damage to the creature AND to you, at the same time, is one "next time" ----------------------------------------
 def test_glarecaster_redirects_both_chunks_dealt_at_the_same_time(cards):
     """The Gatherer ruling: "If both you and this card would be dealt damage at the same time … the redirection will apply to both chunks of

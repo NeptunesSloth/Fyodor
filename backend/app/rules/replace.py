@@ -1696,7 +1696,8 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         out["prevented"] = int(ev.get("prevented") or 0) + (int(ev["amount"]) - n)
         if op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
             out["riders"] = [*(ev.get("riders") or []), {"rider": op["rider"], "n": int(ev["amount"]) - n, "by": c.controller,
-                                                         "card": c.source_card, "oid": c.source_oid, "name": c.label}]
+                                                         "card": c.source_card, "oid": c.source_oid, "name": c.label,
+                                                         **({"batch": c.id} if op.get("batch") else {})}]
     return [out]
 
 
@@ -1861,6 +1862,20 @@ class DamageOutcome:
     riders: list[dict[str, Any]] = field(default_factory=list)  # (wave 17A) the additional effects of prevention effects, 615.5
 
 
+def _merged_riders(riders: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """-- one-shot shields (wave 35A) -- 615.5, 615.8: a "next time" shield applies once to the damage dealt at that time (every chunk of it):
+    its additional effect counts all the damage it prevented ("You gain life equal to the damage prevented this way"), so the chunks of
+    one shield add up — unless the effect names the recipient or the source's controller of one chunk."""
+    out: list[dict[str, Any]] = []
+    for r in riders:
+        mine = next((m for m in out if r.get("batch") and m.get("batch") == r["batch"]), None)
+        if mine is not None and not re.search(r"ref:to|from_ctrl", json.dumps(r["rider"])):
+            mine["n"] += r["n"]
+        else:
+            out.append(dict(r))
+    return out
+
+
 def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], order: list[str] | None,
                    ask: bool) -> DamageOutcome | Ask | ShieldAsk:
     """The whole of one damage batch: the damage events through ``plan_damage``, then what the
@@ -1876,8 +1891,8 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
     out = DamageOutcome(events=[ev for ev in planned.events if ev["amount"] > 0], notes=list(planned.notes),
                         shields=planned.shields, left=[planned.planner],
                         shield_counters=planned.shield_counters,
-                        riders=[{**r, "ev": {k: ev.get(k) for k in ("src", "source_card", "source_oid", "target", "target_oid", "combat")}}
-                                for ev in planned.events for r in ev.get("riders") or []])
+                        riders=_merged_riders([{**r, "ev": {k: ev.get(k) for k in ("src", "source_card", "source_oid", "target", "target_oid", "combat")}}
+                                               for ev in planned.events for r in ev.get("riders") or []]))
     counters: list[tuple[str, str, int, str]] = []  # (target, kind, n, by)
     gains: dict[str, int] = {}
     for ev in out.events:
