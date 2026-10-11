@@ -937,6 +937,8 @@ class Grant:
     alt_mana: str = ""  # -- trigger other (wave 25B) -- airbend 701.65a: an alternative cost the permission requires ("{2}")
     slot: str = ""  # -- cast permissions (wave 30Q) -- the permanent type this use of "each permanent type" is for (Muldrotha); its ``once_key`` is that type's
     enters: dict[str, Any] | None = None  # -- cast permissions (wave 30Q) -- "If you cast a spell this way, that artifact enters tapped / with a finality counter" / "it gains …"
+    use: str = ""  # -- cast permissions (wave 32D) -- what this way uses up (a once-a-turn permission's key, Muldrotha's type: the action's ``via``); "" = unlimited
+    among: tuple[Grant, ...] = ()  # -- cast permissions (wave 32D) -- on the way taken by default: one way per different use up, when there is more than one (``with_choices``)
 
 
 def _view(state: GameState, player: str, info: CardInfo) -> Plan:
@@ -1123,8 +1125,17 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
     # last, so a cast another permission also allows doesn't use it up
     # (-- review 30c -- a stored one-spell permission too: Chainer's is kept while Liliana's covers the cast, the Chainer ruling 2019-08-23)
     once = {p.id for p in r.permissions if p.once}
-    out.sort(key=lambda g: g.once_key is not None or g.permission in once)
+    out = [replace(g, use=g.once_key or ((g.permission or "") if g.permission in once else "")) for g in out]  # (-- wave 32D -- what each use of it uses up)
+    out.sort(key=lambda g: bool(g.use))
     return out
+
+
+def with_choices(best: Grant, ways: list[Grant]) -> Grant:
+    """-- cast permissions (wave 32D) -- 601.2: the player announces the permission a cast or play uses (the Muldrotha ruling 2020-11-10: "you choose which
+    permission you're using"). ``best`` is the way taken by default; when it is a limited one (a once-a-turn permission, a Muldrotha type) and ``ways`` holds
+    others that use up something else, it carries them in ``among`` and the caster is asked. An unlimited way as the default uses nothing up: no question."""
+    uses = {g.use: g for g in ways if g.use}
+    return replace(best, among=tuple(uses.values())) if best.use and len(uses) > 1 else best
 
 
 def _linked_if(state: GameState, info: CardInfo, player: str, src: CardInstance, cond: dict[str, Any]) -> bool:
@@ -1157,19 +1168,18 @@ def _definitions(ch: Characteristics) -> dict[int, Definition]:
     return scripts.definitions(ch)
 
 
-def slot_choices(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[str]:
-    """-- cast permissions (wave 30Q) -- the permanent types this cast could use up (Muldrotha, "choose one as you play it"): each still-unused type the
-    spell has. More than one means the caster is asked which (the Muldrotha rulings, 2020-11-10: an artifact creature spell may be the artifact or the creature)."""
-    return sorted({g.slot for g in grants(state, player, card, ch, info, verb="cast") if g.slot and g.zone_ok and not g.free}, key=SLOT_TYPES.index)
-
-
-def ask_slot(plan: Plan, a: Any, card: CardInstance, ch: Characteristics, slots: list[str]) -> None:
+def ask_use(plan: Plan, a: Any, card: CardInstance, ch: Characteristics, among: tuple[Grant, ...], verb: str) -> None:
+    """-- cast permissions (wave 32D) -- which of several limited permissions this cast ("cast") or land play ("play") uses up (601.2; Muldrotha's types are
+    one source's uses: the rulings 2020-11-10, an artifact creature spell may be the artifact or the creature). The answer is the action's ``via``,
+    asked before anything is paid (wave 30Q asked the types only; an answer saved then, with no ``field``, sets ``slot``)."""
     from app.game.rules_state import DecisionOption
     from app.rules.plan import decide
 
-    decide(plan, player=plan.actor, kind="choose_one", prompt=f"{ch.name or 'This card'}: cast it as which permanent type?",
-           options=[DecisionOption(id=t, label=t) for t in slots],
-           resume={"step": "slot", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
+    types = len({g.label for g in among}) == 1 and all(g.slot for g in among)  # (one permission's types)
+    decide(plan, player=plan.actor, kind="choose_one", prompt=f"{ch.name or 'This card'}: {verb} it as which permanent type?" if types
+           else f"{ch.name or 'This card'}: {verb} it using which permission?",
+           options=[DecisionOption(id=g.use, label=g.slot if types else f"{g.label} ({g.slot})" if g.slot else g.label) for g in among],
+           resume={"step": "slot", "field": "via", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
 
 
 def resume_slot(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -1177,7 +1187,7 @@ def resume_slot(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules.engine import INTENTS
 
     intent = A.parse_action(d.resume["intent"])
-    intent.slot = chosen[0]  # type: ignore[union-attr]
+    setattr(intent, d.resume.get("field", "slot"), chosen[0])
     plan.rules.priority = d.player
     plan.rules.passed = []
     INTENTS[intent.type](plan, intent)

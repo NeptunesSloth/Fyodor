@@ -939,6 +939,7 @@ class PlayLand(_Intent):
     x: Coord | None = None
     y: Coord | None = None
     pay_life: bool | None = None  # shock lands: the answer to "pay 2 life or enter tapped" (asked if missing)
+    via: str | None = Field(default=None, max_length=64)  # -- cast permissions (wave 32D) -- the limited permission the play uses up (see CastSpell.via)
 
 
 class Contribution(BaseModel):
@@ -1001,6 +1002,9 @@ class CastSpell(_Intent):
     optional_costs: list[Id] = Field(default_factory=list, max_length=10)
     # -- cast permissions (wave 30Q) -- "each permanent type" (Muldrotha): the type of this card the cast uses up (asked when it has more than one unused)
     slot: str | None = Field(default=None, max_length=20)
+    # -- cast permissions (wave 32D) -- 601.2: the limited permission the cast uses up when several fit (a once-a-turn permission, one of Muldrotha's types:
+    # a Grant's ``use``); absent: the default way, or a question when the ways use up different things
+    via: str | None = Field(default=None, max_length=64)
 
 
 class MiracleReveal(_Intent):
