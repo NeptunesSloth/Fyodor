@@ -122,3 +122,16 @@ def test_serras_emblem_floors_life_while_you_control_a_creature(cards):
     bolt(s, "p1")
     assert life(s) <= 0 and not alive(s)
     check(s)
+
+
+@pytest.mark.parametrize("name", ["Ali from Cairo", "Sustaining Spirit"])
+def test_the_other_permanents_with_the_same_line_floor_life_too(cards, name):
+    """Ali from Cairo and Sustaining Spirit (cumulative upkeep: its trigger is not in play here) carry Fortune Thief's line."""
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+    s = build(cards, [name, "Lightning Bolt"], [])
+    put(s, name)
+    act(s, "p1", type="set_life", value=3)
+    bolt(s, "p1")
+    assert life(s) == 1 and alive(s)
+    s = reloaded(s)
+    check(s)

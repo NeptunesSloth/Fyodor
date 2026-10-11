@@ -976,5 +976,41 @@
    "W"
   ],
   "keywords": []
+ },
+ {
+  "name": "Ali from Cairo",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human",
+  "oracle_text": "Damage that would reduce your life total to less than 1 reduces it to 1 instead.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "1"
+ },
+ {
+  "name": "Sustaining Spirit",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Angel Spirit",
+  "oracle_text": "Cumulative upkeep {1}{W} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nDamage that would reduce your life total to less than 1 reduces it to 1 instead.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Cumulative upkeep"
+  ],
+  "power": "0",
+  "toughness": "3"
  }
 ]
