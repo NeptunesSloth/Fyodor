@@ -442,7 +442,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         card = plan.state.cards.get(e.card or "")
         if card is None:
             return []
-        return [("cycle", card, plan.ch(card), e.player, {"oid": plan.oid(card), "actor": e.player, "amount": 1})]
+        return [("cycle", card, plan.ch(card), e.player, {"oid": plan.oid(card), "actor": e.player, "amount": 1,
+                                                          "x": e.amount})]  # (wave 34C: the X the cycling cost was announced with)
     if e.kind == "milled":  # -- triggers (wave 17D) -- 701.17a: the card, as it is in its owner's graveyard now
         card = plan.state.cards.get(e.card or "")
         if card is None or not card.zone.endswith(":graveyard"):
@@ -1043,7 +1044,7 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
     return TriggerEvent(kind=kind, batch=batch, objects=[ref] if ref else [], new_objects=new, players=players,
                         source=info.get("source_ref") or (
                             _source_ref(plan, info.get("source_oid")) if kind == "dealt_damage" else None),
-                        amount=int(info.get("amount") or 0), count=1,
+                        amount=int(info.get("amount") or 0), count=1, x=info.get("x") if kind == "cycle" else None,
                         defended=info.get("defended") if kind == "you_attack" else _attack_defended(plan, kind, obj),
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
@@ -2007,6 +2008,17 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
 def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
     """Put one trigger on the stack. False if it waits for its controller's target choice.
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
+    x = event_x(plan, t)  # -- X from the triggering object (wave 34C) -- its targets are chosen knowing that X: "with mana value X" (601.2c)
+    if x is None:
+        return _put(plan, t, target, picks)
+    before, plan.x_choice = plan.x_choice, x
+    try:
+        return _put(plan, t, target, picks)
+    finally:
+        plan.x_choice = before
+
+
+def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
     bind_that_player(t)  # -- damage wordings (wave 6B) --
     bind_event_stat(plan, t)  # -- reanimation (wave 16F) --
     # -- bounds defined by text (wave 28D) -- "mana value X or less, where X is …" (603.3d; review 28D: settled values only)
@@ -2034,6 +2046,7 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
         from app.game.errors import ActionError
         from app.rules.casting import ask_targets
         from app.rules.scripts import target_groups
+        from app.rules.targets import BadPick
 
         specs = target_groups(t.ability)  # (review 28D / wave 29C: "up to X target …, where X is …": X is the only limit, 107.3c, 601.2c)
         picks = picks or {"targets": [], "counts": [], "division": []}
@@ -2042,6 +2055,8 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
                                   picks["targets"], picks["counts"], picks["division"], cast_x(plan, t), t.name or "It",
                                   attacker=attacker, source_object=t.source_object,  # (wave 19F: "up to X target …", X as 107.3m / 701.37c give it)
                                   event=t.event.model_dump(mode="json") if t.event is not None else None)  # (wave 28D: "where X is" an event's amount)
+        except BadPick:  # -- X from the triggering object (wave 34C) -- a choice that breaks a rule of the group (over a total, 601.2c) is asked again
+            raise
         except ActionError:  # 603.3d: no legal choice for a required target: removed from the stack
             r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
             plan.note(f"{t.name}'s ability doesn't have enough legal targets and is removed")
@@ -2086,6 +2101,45 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
     return True
 
 
+# -- X from the triggering object (wave 34C) --
+def x_source(d: dict[str, Any], ch: Characteristics) -> str | None:
+    """Whose X a triggered ability's bare X is when it isn't an enters trigger's (107.3m): "cast" — the spell it triggered on, 107.3e
+    ("Whenever you cast a spell with {X} in its mana cost, put X +1/+1 counters …": Zaxara, Nev) or the spell it is an ability of,
+    107.3i ("When you cast this spell, copy it X times": its own X); "cycle" — the X "Cycling {X}" was announced with, 107.3a ("When you cycle
+    this card, create an X/X …": Shark Typhoon). None for any other trigger: its X stays undefined, so the ability stays manual."""
+    from app.rules import selectors
+
+    if d.get("kind") != "triggered":
+        return None
+    cond = d.get("cond") or {}
+    if d.get("trigger") == "cast_self":
+        return "cast" if "{X}" in (ch.mana_cost or "") else None
+    if cond.get("event") == "cast" and isinstance(cond.get("spell"), str):
+        sel = selectors.from_key(cond["spell"])
+        return "cast" if sel is not None and "x_cost" in sel.extras else None
+    if cond.get("event") == "cycle" and cond.get("subject") == "self":
+        from app.rules import casting
+
+        return "cycle" if any((found := casting.hand_ability(ch, a.index)) is not None and "{X}" in found[1] for a in ch.abilities) else None
+    return None
+
+
+def event_x(plan: Plan, t: PendingTrigger) -> int | None:
+    """The X of the object a triggered ability triggered on (x_source): the spell cast (its payment record: 601.2h, 107.3e) or the cycling
+    cost's announced X (107.3a). None when this trigger doesn't take its X from its event."""
+    cond = t.ability.get("cond") or {}
+    if t.ability.get("trigger") != "cast_self" and cond.get("event") not in ("cast", "cycle"):
+        return None  # (cheap: only these triggers read their event's X; the characteristics are derived below)
+    kind = x_source(t.ability, plan.ch(plan.state.cards[t.source_card])) if t.source_card in plan.state.cards else None
+    if kind == "cycle":
+        return t.event.x if t.event is not None and t.event.kind == "cycle" else None
+    if kind == "cast" and t.event is not None and t.event.kind == "cast" and t.event.objects:
+        record = plan.rules.payments.get(t.event.objects[0].object_id)
+        return record.x if record is not None else None
+    return None
+# -- end X from the triggering object --
+
+
 # -- cast X (wave 4J) --
 def cast_x(plan: Plan, t: PendingTrigger) -> int | None:
     """107.3m: an object's enters-the-battlefield triggered ability that refers to X uses the X of the spell that
@@ -2093,6 +2147,8 @@ def cast_x(plan: Plan, t: PendingTrigger) -> int | None:
     triggered ability — or an object that wasn't cast with X — X is undefined here (0, 107.3i)."""
     if t.event is not None and t.event.kind == "become_monstrous" and any(o.object_id == t.source_object for o in t.event.objects):
         return plan.rules.monstrous_x.get(t.source_object)  # -- X sized by a count (wave 19F) -- 701.37c
+    if (from_event := event_x(plan, t)) is not None:  # -- X from the triggering object (wave 34C) --
+        return from_event
     if t.event is None or t.event.kind != "enter" or not any(o.object_id == t.source_object for o in t.event.objects):
         return None
     record = plan.rules.payments.get(t.source_object)

@@ -189,9 +189,10 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
 
 def _plain_groups(ab: AbilityText, groups: list[Definition]) -> bool:
     """-- modal frames (wave 33B) -- a triggered ability's mode may have target groups ("up to two target creatures"): each a selector with
-    whole-number limits, no division or X (601.2c). An activated ability's mode keeps one target slot."""
-    return ab.kind == "triggered" and all(set(g) <= {"what", "min", "max"} and isinstance(g.get("min", 1), int) and isinstance(g.get("max", 1), int)
-                                          for g in groups)
+    whole-number limits, no division (601.2c); -- X from the triggering object (wave 34C) -- or X targets / a total ("up to X target creature cards
+    with total mana value X or less", Orcus: the X of its enters trigger, triggers.cast_x). An activated ability's mode keeps one target slot."""
+    return ab.kind == "triggered" and all(set(g) <= {"what", "min", "max", "x_count", "total"} and isinstance(g.get("min", 1), int)
+                                          and isinstance(g.get("max", 1), int) for g in groups)
 
 
 # -- refused modal/conditional (wave 3R1) --
