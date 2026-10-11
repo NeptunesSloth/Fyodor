@@ -22,7 +22,8 @@ triggers only for the object it was bound to, not for the new object it becomes 
 already left when the trigger would be created never triggers it (603.7a).
 
 **Durations.** "Until end of turn" effects end at cleanup (514.2, app/rules/layers.py). "Until
-your next turn" ends as that player's next turn begins (500.4; ``turn_began``). "For as long as ~
+your next turn" ends as that player's next turn begins (500.4; ``turn_began``); "until the end of your next turn" (``end_of_next_turn``, wave 32C)
+in the cleanup step of that player's next turn, a later turn than the one it began in (514.2; ``end_of_next_turn``). "For as long as ~
 remains on the battlefield / you control ~ / ~ remains tapped" (611.2b) ends the moment that stops
 being true (``expire``, checked after every table change); if it isn't true as the effect would
 begin, the effect does nothing at all. "For as long as that creature has a bounty counter on it"
@@ -79,6 +80,7 @@ EVENT_RE = "|".join(re.escape(k) for k in sorted(EVENT_VERBS, key=len, reverse=T
 # text → (duration, what replaces it so the ordinary "until end of turn" grammar reads the clause)
 DURATIONS: dict[str, str] = {
     "until your next turn": "next_turn",
+    "until the end of your next turn": "end_of_next_turn",  # -- end of next turn (wave 32C) -- 611.2a, 514.2
     "for as long as ~ remains on the battlefield": "source_on_battlefield",
     "for as long as you control ~": "source_controlled",
     "for as long as ~ remains tapped": "source_tapped",
@@ -90,7 +92,7 @@ DURATIONS: dict[str, str] = {
 # has one (611.2b), and does nothing if it has none as the effect would begin
 COUNTER_DURATION = r"for as long as (?:that \w+|it|~) has an? (?P<kind>[\w+/-]+) counters? on it"
 DURATION_RE = "|".join([*(re.escape(k) for k in sorted(DURATIONS, key=len, reverse=True)), COUNTER_DURATION])
-LABELS = {"next_turn": "until your next turn", "source_on_battlefield": "for as long as ~ remains on the battlefield",
+LABELS = {"next_turn": "until your next turn", "end_of_next_turn": "until the end of your next turn", "source_on_battlefield": "for as long as ~ remains on the battlefield",
           "source_controlled": "for as long as you control ~", "source_tapped": "for as long as ~ remains tapped",
           "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
           "while_counter": "for as long as it has a counter on it"}
@@ -352,6 +354,9 @@ def cleanup(plan: Plan) -> None:
     """514.2: "this turn" delayed triggers stop watching."""
     turn = plan.state.turn.number
     plan.rules.delayed = [t for t in plan.rules.delayed if t.until_turn is None or t.until_turn > turn]
+    # -- end of next turn (wave 32C) -- "Players can't cast … until the end of your next turn" ends in that turn's cleanup (611.2a, 514.2)
+    plan.rules.cast_limits = [x for x in plan.rules.cast_limits if not (
+        x.get("until") == "end_of_next_turn" and x.get("controller") == plan.active and turn > int(x.get("turn") or 0))]
 
 
 # -- durations (611.2) -------------------------------------------------------------------------------
@@ -463,14 +468,23 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     from app.rules import cast_limits  # -- cast limits (wave 5E) -- "until your next turn, … can't cast …"
 
     cast_limits.turn_began(plan, skipped)
-    ended = [e for e in r.effects if e.duration == "next_turn" and (
-        (e.until_player == active and turn > e.turn)
-        or any(e.until_player == p and n > e.turn for p, n in skipped or ()))]
+    ended = [e for e in r.effects if (e.duration == "next_turn" and e.until_player == active and turn > e.turn)
+             or (e.duration in ("next_turn", "end_of_next_turn")  # (-- end of next turn (wave 32C) -- a departed player's turn never gets a cleanup, 800.4m)
+                 and any(e.until_player == p and n > e.turn for p, n in skipped or ()))]
     if ended:
         _end(plan, ended)
         from app.rules import layers
 
         layers.control_sync(plan)  # -- control (wave 3K) -- "until your next turn" ended: control reverts (613.1b)
+
+
+def end_of_next_turn(plan: Plan) -> None:
+    """-- end of next turn (wave 32C) -- 611.2a / 514.2: "until the end of your next turn" ends in the cleanup step of that player's next turn: a
+    later turn than the one it began in, so one made in their own turn lasts through the next one (and one made in an opponent's, through theirs)."""
+    r, turn = plan.rules, plan.state.turn.number
+    due = [e for e in r.effects if e.duration == "end_of_next_turn" and e.until_player == plan.active and turn > e.turn]
+    if due:
+        _end(plan, due)
 
 
 def expire(plan: Plan) -> None:

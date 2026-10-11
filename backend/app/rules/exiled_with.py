@@ -160,6 +160,9 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     refers = WHO in json.dumps(d, default=str) or "linked_cards" in json.dumps(d, default=str)
+    if "samename_exiled_with" in json.dumps(d, default=str) and ability.kind == "activated":
+        return None  # -- same name (wave 32A) -- "Counter target spell with the same name as a card exiled with this creature" (Mindreaver) sacrifices the source
+        # as a cost: its target is judged on resolution against the cards of an object that is gone (selectors._same_name_now reads a source that stays)
     others = [ab for ab in ch.abilities if ab.index != ability.index and ab.kind in ("triggered", "activated")]
     if refers and _exiles(d):  # -- review (wave 6R) -- its own exiled card (see _off_now)
         if _off_now():

@@ -772,9 +772,9 @@ LOOK_EXILED = re.compile(r"^you may look at (?P<what>it|that card|those cards|th
                          r"remains? exiled$")
 _LOOK_AND_PLAY = re.compile(r"You may look at and (?P<v>play|cast) (?P<w>that card|those cards|it|them)(?P<free> without paying "
                             r"(?:its|their) mana costs?)? for as long as (?P<d>it|they) (?P<r>remains?) exiled")
-_PLAY_RIDER = re.compile(r"(?P<g>You may (?:play|cast) (?P<w>that card|those cards|it|them)[^.]*?)\. (?:(?P<a>Mana of any type can be "
-                         r"spent to cast (?:a spell|spells) this way)|(?P<b>If you cast a spell this way, you may spend mana as though it "
-                         r"were mana of any type to cast it))\.")
+_PLAY_RIDER = re.compile(r"(?P<g>[Yy]ou may (?:play|cast) (?P<w>that card|those cards|it|them)[^.]*?)\. (?:(?P<a>Mana of any type can be "
+                         r"spent to cast (?:a spell|spells) this way|If you cast a spell this way, mana of any type can be spent to cast it)"
+                         r"|(?P<b>If you cast a spell this way, you may spend mana as though it were mana of any type to cast it))\.")  # (wave 32C: Bloodsoaked Insight, after "Until …, you may play …")
 
 
 def join_exile_play(body: str) -> str:
@@ -803,6 +803,10 @@ def join_exile_play(body: str) -> str:
                   r"It becomes foretold with a foretell cost of its mana cost reduced by \1.", body)  # (Ethereal Valkyrie: 702.143d)
     body = re.sub(r"([Yy]ou may (?:look at and )?(?:play|cast) )the exiled (card|cards)\b",  # (-- hideaway (wave 29D) -- also mid-sentence: "Then if …, you may play the exiled card")
                   lambda m: m[1] + ("that card" if m[2] == "card" else "those cards"), body)
+    # -- end of next turn (wave 32C) -- "Until the end of your next turn, you may play those cards. If this spell was cast from a graveyard, you may play
+    # cards this way without paying their mana costs." (Ignite the Future): "this way" is the same permission's duration, said again
+    body = re.sub(r"(Until [a-z ]+?), you may (play|cast) those cards\. (If [^,.]+), you may \2 cards this way without paying their mana costs\.",
+                  lambda m: f"{m[1]}, you may {m[2]} those cards. {m[3]}, {m[1][0].lower()}{m[1][1:]}, you may {m[2]} those cards without paying their mana costs.", body)
     body = _LOOK_AND_PLAY.sub(lambda m: f"You may look at {m['w']} for as long as {m['d']} {m['r']} exiled. You may {m['v']} {m['w']}"
                               f"{m['free'] or ''} for as long as {m['d']} {m['r']} exiled", body)
 
@@ -865,10 +869,10 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     # -- refused grants/replacements (wave 3R2) -- the same permission with its duration at the end ("You may play it
     # until the end of your next turn.": 611.2a, the duration is the one stated, wherever the sentence states it) and
     # "them" for "those cards" ("You may play them until the end of your next turn.")
+    text = re.sub(r"^((?:until [a-z ]+, )?you may (?:play|cast)) (?:them|cards exiled this way|the exiled cards)\b", r"\1 those cards", text)  # (wave 32C: Escape to the Wilds)
     trailing = _TRAILING_UNTIL.fullmatch(text)
     if trailing:
         text = f"{trailing['until']}, {trailing['rest']}"
-    text = re.sub(r"^((?:until [a-z ]+, )?you may (?:play|cast)) them\b", r"\1 those cards", text)
     # -- end refused grants/replacements (wave 3R2) --
     # -- as long as (wave 9B) -- "You may cast that card for as long as it remains exiled, and mana of any type can be spent
     # to cast that spell." (Gonti, Hostage Taker, Thief of Sanity)
@@ -893,7 +897,7 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         if (m["until"] and m["this_turn"]) or not (m["until"] or m["this_turn"]):
             return None  # (a bare "you may play that card" / several cards: cast as this resolves, not modelled)
         free = bool(m["free"])  # (wave 3C) "... without paying its mana cost" (118.9)
-        if spend_kind and (free or m["verb"] != "cast" or (m["what"] == "those cards") != ("those spells" in (m["spend"] or m["spend2"]))):
+        if spend_kind and (free or (m["what"] == "those cards") != ("those spells" in (m["spend"] or m["spend2"]))):
             return None  # (-- if you do (wave 25C) -- 118.14: mana is spent only to cast, never for a free cast)
         until = {"until the end of your next turn": "end_of_next_turn", "until your next end step": "next_end_step",
                  "until your next turn": "next_turn", "until the beginning of your next upkeep": "next_turn"}.get(m["until"], "end_of_turn")
@@ -937,6 +941,8 @@ class Grant:
     alt_mana: str = ""  # -- trigger other (wave 25B) -- airbend 701.65a: an alternative cost the permission requires ("{2}")
     slot: str = ""  # -- cast permissions (wave 30Q) -- the permanent type this use of "each permanent type" is for (Muldrotha); its ``once_key`` is that type's
     enters: dict[str, Any] | None = None  # -- cast permissions (wave 30Q) -- "If you cast a spell this way, that artifact enters tapped / with a finality counter" / "it gains …"
+    use: str = ""  # -- cast permissions (wave 32D) -- what this way uses up (a once-a-turn permission's key, Muldrotha's type: the action's ``via``); "" = unlimited
+    among: tuple[Grant, ...] = ()  # -- cast permissions (wave 32D) -- on the way taken by default: one way per different use up, when there is more than one (``with_choices``)
 
 
 def _view(state: GameState, player: str, info: CardInfo) -> Plan:
@@ -1123,8 +1129,17 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
     # last, so a cast another permission also allows doesn't use it up
     # (-- review 30c -- a stored one-spell permission too: Chainer's is kept while Liliana's covers the cast, the Chainer ruling 2019-08-23)
     once = {p.id for p in r.permissions if p.once}
-    out.sort(key=lambda g: g.once_key is not None or g.permission in once)
+    out = [replace(g, use=g.once_key or ((g.permission or "") if g.permission in once else "")) for g in out]  # (-- wave 32D -- what each use of it uses up)
+    out.sort(key=lambda g: bool(g.use))
     return out
+
+
+def with_choices(best: Grant, ways: list[Grant]) -> Grant:
+    """-- cast permissions (wave 32D) -- 601.2: the player announces the permission a cast or play uses (the Muldrotha ruling 2020-11-10: "you choose which
+    permission you're using"). ``best`` is the way taken by default; when it is a limited one (a once-a-turn permission, a Muldrotha type) and ``ways`` holds
+    others that use up something else, it carries them in ``among`` and the caster is asked. An unlimited way as the default uses nothing up: no question."""
+    uses = {g.use: g for g in ways if g.use}
+    return replace(best, among=tuple(uses.values())) if best.use and len(uses) > 1 else best
 
 
 def _linked_if(state: GameState, info: CardInfo, player: str, src: CardInstance, cond: dict[str, Any]) -> bool:
@@ -1157,19 +1172,18 @@ def _definitions(ch: Characteristics) -> dict[int, Definition]:
     return scripts.definitions(ch)
 
 
-def slot_choices(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[str]:
-    """-- cast permissions (wave 30Q) -- the permanent types this cast could use up (Muldrotha, "choose one as you play it"): each still-unused type the
-    spell has. More than one means the caster is asked which (the Muldrotha rulings, 2020-11-10: an artifact creature spell may be the artifact or the creature)."""
-    return sorted({g.slot for g in grants(state, player, card, ch, info, verb="cast") if g.slot and g.zone_ok and not g.free}, key=SLOT_TYPES.index)
-
-
-def ask_slot(plan: Plan, a: Any, card: CardInstance, ch: Characteristics, slots: list[str]) -> None:
+def ask_use(plan: Plan, a: Any, card: CardInstance, ch: Characteristics, among: tuple[Grant, ...], verb: str) -> None:
+    """-- cast permissions (wave 32D) -- which of several limited permissions this cast ("cast") or land play ("play") uses up (601.2; Muldrotha's types are
+    one source's uses: the rulings 2020-11-10, an artifact creature spell may be the artifact or the creature). The answer is the action's ``via``,
+    asked before anything is paid (wave 30Q asked the types only; an answer saved then, with no ``field``, sets ``slot``)."""
     from app.game.rules_state import DecisionOption
     from app.rules.plan import decide
 
-    decide(plan, player=plan.actor, kind="choose_one", prompt=f"{ch.name or 'This card'}: cast it as which permanent type?",
-           options=[DecisionOption(id=t, label=t) for t in slots],
-           resume={"step": "slot", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
+    types = len({g.label for g in among}) == 1 and all(g.slot for g in among)  # (one permission's types)
+    decide(plan, player=plan.actor, kind="choose_one", prompt=f"{ch.name or 'This card'}: {verb} it as which permanent type?" if types
+           else f"{ch.name or 'This card'}: {verb} it using which permission?",
+           options=[DecisionOption(id=g.use, label=g.slot if types else f"{g.label} ({g.slot})" if g.slot else g.label) for g in among],
+           resume={"step": "slot", "field": "via", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
 
 
 def resume_slot(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -1177,7 +1191,7 @@ def resume_slot(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules.engine import INTENTS
 
     intent = A.parse_action(d.resume["intent"])
-    intent.slot = chosen[0]  # type: ignore[union-attr]
+    setattr(intent, d.resume.get("field", "slot"), chosen[0])
     plan.rules.priority = d.player
     plan.rules.passed = []
     INTENTS[intent.type](plan, intent)

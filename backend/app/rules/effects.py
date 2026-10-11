@@ -3446,7 +3446,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
             continue
         by = ctx["controller"] if e.get("by") == "you" or (e.get("by_if") and conditions.holds(plan, ctx, e["by_if"])) else pid
         label = dict(zip(e.get("sels") or [], e.get("labels") or [], strict=False)).get(key, e.get("label", "permanent"))
-        if n == len(mine) and cap is None and not (e.get("any") and e.get("upto")):  # (an "up to one" / "may choose" always asks)
+        if n == len(mine) and cap is None and not (e.get("upto") and (e.get("any") or e.get("optional"))):  # (an "up to one" / "may choose" always asks; wave 32A: "optional")
             picked = [*picked, *mine]
             plan.note(f"{plan.name(by)} {verb} {_labels(plan, mine)} (no choice: all of them)", mine, actor=by)
             continue
@@ -3477,6 +3477,8 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
             _destroy_cards(plan, ctx, e, rest)
     else:
         _remember(plan, ctx, e, list(dict.fromkeys(picked)))  # "that creature", "it": the chosen objects (they stay where they are; one chosen twice is one object)
+        if e.get("did"):  # -- choose own (wave 32A) -- "You may choose a token you control. If you do, …": something was chosen (608.2c)
+            context.bind_payment(ctx, e["did"], bool(picked))
     return True
 
 

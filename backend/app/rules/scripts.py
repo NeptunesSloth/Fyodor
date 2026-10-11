@@ -566,6 +566,8 @@ class _Introducer:
             self.number = None  # (one card or several: whichever the referring wording says)
         if self.do == "edict" and g is None and who != "you":  # (wave 4A: one each, from several players)
             self.number = 2
+        if self.do == "exile_top" and e.get("player") in ("each_player", "each_opponent"):
+            self.number = None  # -- end of next turn (wave 32C) -- "Exile the top card of each player's library. … you may play those cards" (Lidless Gaze): one from each library
         if self.do == "player_chooses" and who in ("each_player", "each_opponent"):
             self.number = None  # -- per-player choices (wave 31B) -- one each from several players: "Each opponent chooses a creature they control. … those creatures" (and Curfew's "it")
 
@@ -2918,6 +2920,17 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 added = _add_groups(groups, *inner)
                 pick_gate: dict[str, Any] = {"succeeded": name, **({"negate": True} if if_do["neg"] else {})}
                 effects += [{"do": "only_if", "cond": pick_gate, "skip": len(added)}, *added]
+                continue
+            chose_own = next((e for e in reversed(effects) if e["do"] == "player_chooses"), None)
+            if bind is None and chose_own is not None and chose_own.get("optional") and effects[-1] is chose_own and chose_own.get("who") == "you":
+                # -- choose own (wave 32A) -- "Then you may choose a token you control. If you do, each other token you control becomes a copy of
+                # that token." (Brudiclad): a permanent was chosen (608.2c, effects._choose_next records it); declining skips what follows
+                inner = _clause(if_do["rest"]) if not if_do["rest"].startswith("you may ") and not if_do["neg"] else None
+                if inner is None:
+                    return None
+                name = chose_own.setdefault("did", f"cdid{sum(1 for x in effects if x.get('did'))}")
+                added = _add_groups(groups, *inner)
+                effects += [{"do": "only_if", "cond": {"succeeded": name}, "skip": len(added)}, *added]
                 continue
             chooser = next((e for e in reversed(effects) if e["do"] == "choose_from_hand"), None)
             if bind is None and chooser is not None and chooser.get("optional") and (chooser.get("did") or effects[-1] is chooser):
@@ -5748,6 +5761,7 @@ for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OT
                          (_language.CHOOSE_EACH_TYPE, _language.choose_each_type), (_language.CHOOSE_EACH_LAND, _language.choose_each_land),
                          (_language.CHOOSE_POWER_CAP, _language.choose_power_cap),  # PLAYER_CHOOSES)
                          (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.CHOOSE_ANY, _language.choose_any),  # (wave 31B)
+                         (_language.CHOOSE_OWN, _language.choose_own),  # (wave 32A)
                          (_language.REVEAL_HAND, _language.reveal_hand), (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
                          (_language.CHOOSE_VALUE, _language.choose_value),
                          (_language.CHOOSE_FROM_HAND_GY, _language.choose_from_hand_gy), (_language.LOOK_HAND, _language.look_hand),  # (wave 11D)
@@ -6832,7 +6846,7 @@ def _become_copy_targets(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # -- copy exceptions (wave 24A) -- "Each other creature you control becomes a copy of that creature until end of turn, except it isn't legendary."
 @_first
 @effect(r"each (?P<other>other )?(?P<grp>[a-z -]+?)(?P<ctl> you control)?(?P<oth> other than the chosen creature)? becomes a copy of "
-        r"(?:(?P<src>it|that creature)|target (?P<what>.+?))(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")
+        r"(?:(?P<src>it|that creature|that token)|target (?P<what>.+?))(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")  # (wave 32A: "that token", Brudiclad)
 def _become_copy_group(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import copying
 
@@ -7082,7 +7096,7 @@ _RECORDING.update({"gain_control": None, "exchange_control": None})
 
 
 @_first
-@effect(r"(?P<t>(?!.* (?:for as long as|until your next turn)\b)(?!.* at end of combat$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
+@effect(r"(?P<t>(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
 def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
