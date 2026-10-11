@@ -990,6 +990,8 @@ def emblem_text_ok(text: str) -> bool:
         if d.get("kind") == "static":
             if d.get("static") == "no_max_hand":  # -- ability words (wave 20C) -- "You have no maximum hand size." (hand_size.maximum reads emblems)
                 continue
+            if d.get("static") == "replace" and d.get("event") == "life_loss":  # -- life floor (wave 35C) -- Serra the Benevolent's emblem (replace.static_candidates)
+                continue
             if d.get("static") != "grant" or zone_static(d) or d.get("also"):
                 return False
         elif d.get("kind") != "triggered" or not (d.get("trigger") in _EMBLEM_TRIGGERS or str(d.get("trigger")).startswith("step:")):

@@ -33,6 +33,8 @@ _TIMES = {"once": 1, "twice": 2, "three times": 3, "four times": 4, "five times"
 _DEALS = re.compile(r"^(?:it|~) deals (?P<n>\d+|[a-z]+) damage$")
 # "create four of those tokens" (the replaced instruction's tokens: the same token, another number)
 _THOSE_TOKENS = re.compile(r"^create (?P<n>\d+|[a-z]+) of those tokens$")
+# "that creature gets -4/-4" (no duration: the replaced pump's)
+_GETS = re.compile(r"^(?:that creature|it) gets (?P<p>[+-]\d+)/(?P<t>[+-]\d+)$")
 # "investigate twice"
 _INVESTIGATE = re.compile(r"^investigate (?P<t>twice|three times|four times|five times)$")
 
@@ -66,6 +68,11 @@ def _amount(word: str) -> int | None:
 def restate(rest: str, base: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
     """The alternative instruction(s) of "[X]. If C, [rest] instead." when ``rest`` repeats X with another
     amount, else None (not such a restatement: the caller reads ``rest`` as a full instruction)."""
+    if len(base) == 1 and base[0].get("do") == "pump" and (g := _GETS.fullmatch(rest)) is not None \
+            and isinstance(base[0].get("p"), int) and isinstance(base[0].get("t"), int):
+        # -- named permanents (wave 35C) -- "target creature gets -1/-1 until end of turn. That creature gets -4/-4 instead if …" (Festering Newt, 608.2c):
+        # the replaced instruction's pump with other numbers, for the same duration (the alternative states none: it takes the place of the sentence's)
+        return [{**base[0], "p": int(g["p"]), "t": int(g["t"])}]
     if len(base) != 1 or not isinstance(base[0].get("n"), int):
         return None
     e = base[0]

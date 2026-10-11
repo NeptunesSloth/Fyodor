@@ -162,15 +162,22 @@ SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
 SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"redirect"}
 # -- damage wordings (wave 6B) -- "prevent half that damage, rounded up" (Gisela, Blade of Goldnight; 615)
 SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"prevent_half_up"}
+# -- keyword actions (wave 35C) -- the action as the event: scry → draw (Eligeth), explore twice / after a scry (Topography Tracker, Twists and Turns),
+# connive after a draw (Leader, Super-Genius): app/rules/replace.py ``keyword_replace``
+SUPPORTED_REPLACE_OPS["scry"] = frozenset({"draw"})
+SUPPORTED_REPLACE_OPS["explore"] = frozenset({"again", "before"})
+SUPPORTED_REPLACE_OPS["connive"] = frozenset({"before"})
+# -- damage bodies (wave 35C) -- "put that many counters on it instead" (Phytohydra, Szadek, Soul-Scar Mage: app/rules/replace_grammar.py _damage_body)
+SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"body"}
 # … and token creation adding a different token (Peregrin Took, Chatterfang: app/rules/extra_tokens.py)
-SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra"}
+SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra", "replace", "each_of"}  # (wave 35C: token swaps)
 # -- replacements & prevention (wave 22C) -- "put half that many … rounded down" (Vorinclex) on counters
 SUPPORTED_REPLACE_OPS["counters"] = SUPPORTED_REPLACE_OPS["counters"] | {"half"}
 # -- replacements: draws and life (wave 28B) -- a draw replaced by its own instructions (app/rules/draw_bodies.py)
 SUPPORTED_REPLACE_OPS["draw"] = SUPPORTED_REPLACE_OPS["draw"] | {"body"}
 SUPPORTED_REPLACE_OPS["mill"] = frozenset({"mul", "add"})  # 701.17a: Bruvac the Grandiloquent, The Water Crystal (replace.mill_counts)
 SUPPORTED_REPLACE_OPS["draw_count"] = frozenset({"add", "each_one"})  # 121.2a: Quantum Riddler, Alms Collector (replace.draw_cards)
-SUPPORTED_REPLACE_OPS["life_loss"] = frozenset({"mul"})  # 119.3: Bloodletter of Aclazotz (app/rules/replace.py lose_life)
+SUPPORTED_REPLACE_OPS["life_loss"] = frozenset({"mul", "floor"})  # 119.3: Bloodletter of Aclazotz (app/rules/replace.py lose_life); floor: wave 35C
 SUPPORTED_REPLACEMENTS |= {
     "enters_tapped_others",  # 614.1d, 614.12: "Creatures your opponents control enter tapped."
     "exile_if_dies",  # "If that creature / a creature dealt damage this way would die this turn, exile it instead." (611.2a)
