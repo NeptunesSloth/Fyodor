@@ -39,6 +39,7 @@ from __future__ import annotations
 import copy
 import json
 import re
+import threading
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -90,21 +91,20 @@ def _act(phrase: str) -> tuple[list[dict[str, Any]], str] | None:
     return list(parsed[0]), you
 
 
-_reading = False
+_reading = threading.local()  # (per thread: deck imports and jobs parse cards on other threads, so a shared flag could change a parse)
 
 
 def _read_alone(text: str) -> bool:
     """-- each player may (wave 31B) -- does the rest of the grammar read this sentence by itself? (``pair`` stands back inside the probe)"""
-    global _reading
     from app.rules import scripts
 
-    if _reading:
+    if getattr(_reading, "on", False):
         return True
-    _reading = True
+    _reading.on = True
     try:
         return scripts.parse_effects(text[:1].upper() + text[1:] + ".", "self", event_player=True) is not None
     finally:
-        _reading = False
+        _reading.on = False
 
 
 def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_payment: str | None
