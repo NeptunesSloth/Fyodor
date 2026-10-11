@@ -130,7 +130,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     # (the face and flip state are part of the key: a transformed permanent has only its back
     # face's characteristics, 712.8e — its front face's statics are gone, 611.3a)
     key = tuple(sorted((cid, c.controller, c.face_down, c.face, c.flipped, c.card_id or c.name, c.token.text if c.token else "",
-                        r.card_mode(cid) if r else "", timestamp(state, cid),
+                        r.card_mode(cid) if r else "", timestamp(state, cid), c.choices.get("Chosen word", ""),  # (wave 33B: linked words, 607.2f)
                         copies.get(r.object_id(cid), (0, "")) if r else (0, ""))
                        for cid, c in state.cards.items() if c.zone.endswith(":battlefield")))
     # -- conditional statics (wave 4B) -- statics that function from a graveyard (113.6b): which cards are there
@@ -1064,7 +1064,7 @@ def _group_imposed(state: GameState, card: CardInstance, ch: Characteristics, in
 
 
 Layer = Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
-Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
+Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
 
 
 def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | None, controller: str,

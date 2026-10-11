@@ -423,16 +423,16 @@ def test_silent_hallcreeper_third_mode_becomes_a_copy(cards):
     roundtrip(s)
 
 
-def test_cemetery_puca_leaves_a_token_whose_text_isnt_recorded_to_the_players(cards):
-    """608.2h/111.12: a token with no recorded copiable values (made by hand) can't be copied from last known information: the copy
-    is handed to the players, never guessed."""
+def test_cemetery_puca_copies_a_dead_token_as_the_effect_that_made_it_defined_it(cards):
+    """608.2h/111.12: a token that died is copied from last known information; 111.3: its copiable values are what its creating effect
+    defined (recorded with it: name, types, power and toughness, colors, text). -- review 32 -- (it was handed to the players before)"""
     s = build(cards, "Cemetery Puca", "Probe Shock")
     puca = on_battlefield(s, "Cemetery Puca")
     bear = token(s, "p2", "Opposing Bear", "2/2", "Vigilance")
     cast(s, "Probe Shock", targets=[bear.id], R=1, C=1)
     settle(s)
-    assert now(s, puca).name == "Cemetery Puca"
-    assert any("by hand" in " ".join((p.t or "") for p in e.parts) for e in s.state.log)
+    assert now(s, puca).name == "Opposing Bear" and "vigilance" in now(s, puca).keywords
+    assert not any("by hand" in " ".join((p.t or "") for p in e.parts) for e in s.state.log)
     roundtrip(s)
 
 

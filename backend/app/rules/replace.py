@@ -10,7 +10,9 @@ tests/test_rules_replacements2.py fails if a table action in app/rules bypasses 
     "enters" replacements (614.1c-d, 616.1g: creating comes before entering). Returns the new card
     ids, or None while the creating player chooses the order of two replacements (then the tokens
     are created when they answer, their ids are recorded in ``ctx`` as binding ``bind`` and the
-    continuation ``then`` runs). Copies (agent F) go through here too.
+    continuation ``then`` runs). Copies (agent F) go through here too. -- token entering choices (wave 34A) -- 614.12a: each token's
+    own "As ~ enters, choose …" (a token copy's copied one) is asked of its controller before any token is created, one question per
+    token in creation order (``replacements.token_choices``; the answers are ``enter:<n>:<what>`` in the same resume data).
 ``put_counters(plan, puts, *, by, effect=True, then=None, entering=None)``
     ``puts``: [(card id or player id, counter kind, n), …] put at once by player ``by``;
     ``effect``: put by an effect (614.16: "If an effect would put …" statics apply) rather than as
@@ -477,16 +479,22 @@ def option_label(c: Candidate, outcomes: dict[str, str]) -> str:
     return label if len(label) <= 200 else label[:199] + "…"
 
 
+def _resume_base(resume: dict[str, Any], answers: dict[str, str]) -> dict[str, Any]:
+    """A paused site's resume data: the site with the answers so far (and its shield picks, kept out of the context it is saved with)."""
+    base = {**copy.deepcopy(resume), "answers": dict(answers)}
+    if base.get("ctx") is not None:
+        base["order"] = list(base["ctx"].pop(SHIELDS, None) or base.get("order") or [])
+        base["ctx"].pop(ANSWERS, None)
+    return base
+
+
 def ask(plan: Plan, q: Ask, answers: dict[str, str], resume: dict[str, Any]) -> None:
     """Open the affected player's choice (616.1e) with the answers so far and how to go on."""
     from app.rules.plan import decide
 
     what = describe(plan, q.ev)
     names = " and ".join(c.label for c in q.applicable)
-    base = {**copy.deepcopy(resume), "step": "replace_order", "fp": q.fp, "answers": dict(answers)}
-    if base.get("ctx") is not None:
-        base["order"] = list(base["ctx"].pop(SHIELDS, None) or base.get("order") or [])
-        base["ctx"].pop(ANSWERS, None)
+    base = {**_resume_base(resume, answers), "step": "replace_order", "fp": q.fp}
     if isinstance(q, AskOptional):  # -- static_other sweep (wave 16B) -- 702.52a: "you may instead" (public: a card in a graveyard)
         rule = "702.52" if any(c.op.get("do") == "dredge" for c in q.applicable) else "614.1a"  # (review 28B: "you may … instead" isn't only dredge)
         decide(plan, player=q.chooser, kind="choose_one", prompt=f"{what}: apply a replacement effect instead? ({rule})",
@@ -531,7 +539,7 @@ def note_applied(plan: Plan, before: Event, finals: list[Event], actor: str | No
 def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
     """The affected player chose which effect applies first: the site runs again with the answer."""
     r = d.resume
-    answers = {**(r.get("answers") or {}), r["fp"]: r["map"][chosen[0]]}
+    answers = {**(r.get("answers") or {}), r["fp"]: r["map"][chosen[0]] if "map" in r else chosen[0]}  # (no map: a token's entering choice, wave 34A)
     resume_site(plan, r, answers, r.get("order"))
 
 
@@ -675,13 +683,29 @@ def create_token_batch(plan: Plan, requests: list[tuple[str, dict[str, Any], int
             return None
         raise
     left_to_players(plan, planner)
+    # -- token entering choices (wave 34A) -- 614.12a: "As this enters, choose …" of each token (a token copy's copied ability), asked before any is created
+    from app.rules import replacements
+
+    picks, question = replacements.token_choices(plan, [ev for _, out in finals for ev in out], answers)
+    if question is not None:
+        resume = _resume_for(then, "tokens", {"requests": [list(r) for r in requests], "bind": bind})
+        if resume is not None:  # (a site that can't pause leaves a copied choice to the players: copying.token_copy)
+            from app.rules.plan import decide
+
+            decide(plan, player=question["player"], kind="choose_one", prompt=question["prompt"], options=question["options"],
+                   resume={**_resume_base(resume, answers), "step": "replace_order", "fp": question["key"]},
+                   source=plan.state.cards.get(question["source"] or ""))
+            return None
+        picks = []
     made: list[str] = []
     started: dict[str, int] = {}  # -- review (wave 5R) -- each player's first batch
+    i = 0
     for before, out in finals:
         note_applied(plan, before, out, actor=before["player"])
         start = started.setdefault(before["player"], plan.rules.batch)
         for ev in out:
-            made += _make_tokens(plan, ev)
+            made += _make_tokens(plan, ev, picks[i] if i < len(picks) else [])
+            i += 1
         _one_batch(plan, start)
     if bind and ctx is not None:
         from app.rules import context
@@ -706,7 +730,7 @@ def _one_batch(plan: Plan, start: int) -> None:
 # -- end review (wave 5R) --
 
 
-def _make_tokens(plan: Plan, ev: Event) -> list[str]:
+def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str]:
     from app.rules import replacements
 
     pid, left = ev["player"], int(ev["count"])
@@ -721,12 +745,13 @@ def _make_tokens(plan: Plan, ev: Event) -> list[str]:
                            "token": spec}, actor=pid)
         new_ids = getattr(created, "r", None)
         made += list(new_ids.ids) if new_ids is not None else []
-    for tid in made:
+    for i, tid in enumerate(made):
         if recipe is not None:  # the copy effect applies before anything looks at it, then it enters (707.5)
             from app.rules import copying
 
             copying.add_copy_effect(plan, [plan.oid(tid)], copying.CopyRecipe.model_validate(recipe), pid)
-        replacements.after_entry(plan, tid, pid, newcomers=made)  # 616.1g: created first, then it enters (its "enters with" counters)
+        # 616.1g: created first, then it enters (its "enters with" counters; -- wave 34A -- what it chose as it entered, 614.12a)
+        replacements.after_entry(plan, tid, pid, newcomers=made, choices=(picks[i] if i < len(picks) else None) or None)
     return made
 
 

@@ -36,8 +36,11 @@ can be chosen as it goes on the stack, public — the Umaro ruling), "Each mode 
 player." (every mode targets a player of one kind), "Choose one. If [condition], [you may] choose both
 instead." (checked as it goes on the stack — the Prophetic Titan ruling), reflexive "When you do, choose …"
 (603.12: the modes belong to the reflexive ability, announced as IT goes on the stack). Refused (never
-guessed): "choose X" / "up to X", "choose two at random", a mode with "you may", several targets or a
-division (a mode has one target slot), a triggered ability's mode starting with "If" (Venser, Corpse Puppet
+guessed): "choose X" / "up to X", "choose two at random", a mode with "you may", a division or an X-sized
+target group (an activated ability's mode has one target slot; wave 33B: a *triggered* ability's mode may
+have target groups — "up to two target creatures" — which join into one list once the modes are chosen,
+601.2c, and the ability then goes on the stack as an ordinary one with those groups, 603.3d; with the plain
+"choose one —" header only), a triggered ability's mode starting with "If" (Venser, Corpse Puppet
 and Rankle and Torbran, the only such cards, need other grammar too), a header with anything else after it,
 a limit or restriction line after the modes, and "up to" / "any number" on an activated ability (choosing
 no mode isn't modelled there).
@@ -145,15 +148,16 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
             return {}
         one = AbilityText(index=ab.index, kind=ab.kind, cost=ab.cost, text=f"{prefix}{body}" + (f" {rest}" if rest else ""))
         d = scripts.define(one, ch)  # the mode as a non-modal ability with this header
-        if d is None or d["kind"] not in ("triggered", "activated") or d.get("optional") or d.get("targets") \
+        if d is None or d["kind"] not in ("triggered", "activated") or d.get("optional") or (d.get("targets") and not _plain_groups(ab, d["targets"])) \
                 or d.get("limit") == "do_once" or d.get("if") is not None or not d["effects"]:
-            return {}  # ("you may", several targets or a division, "Do this only once each turn": not in a mode)
-        found = {key: value for key, value in d.items() if key not in ("effects", "target")}
+            return {}  # ("you may", a division, "Do this only once each turn": not in a mode)
+        found = {key: value for key, value in d.items() if key not in ("effects", "target", "targets")}
         if shape is None:
             shape = found
         elif found != shape:
             return {}  # (the header says the same to every mode)
-        modes.append({"text": text, "effects": scripts.rename_bindings(d["effects"], f"m{k}_"), "target": d["target"]})
+        modes.append({"text": text, "effects": scripts.rename_bindings(d["effects"], f"m{k}_"), "target": d["target"],
+                      **({"groups": d["targets"]} if d.get("targets") else {})})  # (-- modal frames (wave 33B) -- several or "up to N" targets)
     assert shape is not None
     if intervening is not None:
         if scripts._trigger_antecedent(shape["trigger"], shape.get("cond")) != "self" \
@@ -162,6 +166,8 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         shape = {**shape, "if": intervening}
     modal = {"min": lo, "max": hi, "repeat": False, "condition": None, "memory": memory, "index": ab.index,
              "form": ab.kind}
+    if any(x.get("groups") for x in modes) and (memory or m["random"] or extra is not None):
+        return {}  # -- modal frames (wave 33B) -- a mode's target groups are read only with the plain "choose one —" header
     if m["random"]:
         modal["random"] = True  # -- refused modal/conditional (wave 3R1) --
     if extra is not None:  # -- refused modal/conditional (wave 3R1) --
@@ -181,8 +187,15 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     return out
 
 
+def _plain_groups(ab: AbilityText, groups: list[Definition]) -> bool:
+    """-- modal frames (wave 33B) -- a triggered ability's mode may have target groups ("up to two target creatures"): each a selector with
+    whole-number limits, no division or X (601.2c). An activated ability's mode keeps one target slot."""
+    return ab.kind == "triggered" and all(set(g) <= {"what", "min", "max"} and isinstance(g.get("min", 1), int) and isinstance(g.get("max", 1), int)
+                                          for g in groups)
+
+
 # -- refused modal/conditional (wave 3R1) --
-_BOTH_INSTEAD = re.compile(r"^If (?P<c>.+), (?P<may>you may )?choose both instead\.$")
+_BOTH_INSTEAD =re.compile(r"^If (?P<c>.+), (?P<may>you may )?choose both instead\.$")
 _KICKED_CONDITION = re.compile(r"^(?:it|this spell|~) was kicked$")
 
 
@@ -431,10 +444,14 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
         spec = modes[i]["target"]
         return legal_targets(plan, spec["what"], t.controller, src, t.source_card, attacker) if spec else []
 
+    def choosable(i: int) -> bool:  # 700.2b: a mode with no legal target can't be chosen ("up to" groups need none: -- modal frames (wave 33B) --)
+        return all(len(legal_targets(plan, g["what"], t.controller, src, t.source_card, attacker)) >= g.get("min", 1)
+                   for g in modes[i].get("groups") or ()) and (not modes[i]["target"] or bool(legal(i)))
+
     chosen: list[int] | None = picks.get("modes")
     if chosen is None:
         done = chosen_before(r, t.source_object, modal["index"], modal["memory"], plan.state.turn.number, _face(plan, t))
-        allowed = [i for i, m in enumerate(modes) if i not in done and (not m["target"] or legal(i))]
+        allowed = [i for i in range(len(modes)) if i not in done and choosable(i)]
         lo, hi = modal["min"], min(modal["max"], len(allowed))
         # -- refused modal/conditional (wave 3R1) --
         if modal.get("instead") is not None and _instead_holds(plan, t, modal["instead"]["cond"]):
@@ -461,6 +478,15 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
         return True
     if len(set(chosen)) != len(chosen) or any(not 0 <= i < len(modes) for i in chosen):
         raise ActionError("Choose each mode at most once")
+    if any(modes[i].get("groups") for i in chosen):  # -- modal frames (wave 33B) -- 601.2c: one list of target groups, the chosen modes' in order
+        from app.rules import casting, triggers
+
+        text = _public_texts(plan, t.source_card, d, chosen)
+        effects = casting.modal_effects(d, chosen, True)
+        t.ability = {**{k: v for k, v in d.items() if k not in ("modes", "modal")}, "target": None, "targets": casting.modal_groups(d, chosen),
+                     "effects": [{"do": "only_if", "cond": d["if"], "skip": len(effects)}, *effects] if d.get("if") is not None else effects,
+                     "chosen_modes": text}  # (the pending trigger is now an ordinary one with target groups: triggers.put chooses them, 603.3d)
+        return triggers.put(plan, t)
     targets: list[str] = list(picks.get("targets") or [])
     need = [i for i in chosen if modes[i]["target"]]
     if len(targets) < len(need):  # 601.2c: the next chosen mode's target

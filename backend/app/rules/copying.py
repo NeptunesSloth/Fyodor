@@ -296,6 +296,9 @@ def with_level(state: GameState, card: CardInstance, ch: Characteristics, info: 
         return chars.with_doors(ch, data, doors)
     if ch.doors is None and any(a.section > 1 for a in ch.abilities):
         ch = replace(ch, level=r.levels.get(oid, 1))
+    if any(a.linked for a in ch.abilities):  # -- linked words (wave 33B) -- 607.2f: the word it chose as it entered (none: no linked ability)
+        ch = replace(ch, word=r.chosen_words.get(oid) or (card.choices.get("Chosen word", "") if card.zone.endswith(":battlefield") else ""))
+        # (a permanent put onto the battlefield by hand made no choice the rules recorded: the table's "Chosen word" entry stands in, as for a color)
     return ch
 
 
@@ -989,12 +992,13 @@ def token_copy_request(plan: Plan, ctx: Context, controller: str, recipe: CopyRe
 
 
 def _entry_choice(plan: Plan, card_id: str) -> str | None:
-    """An "As ~ enters, choose …" of a token copy's copied text (707.6: made anew): today's token
-    path doesn't ask it, so it is left to the player."""
+    """An "As ~ enters, choose …" of a token copy's copied text (707.6: made anew) that the token path
+    couldn't ask (a site that can't pause: replace.create_token_batch asks it otherwise, wave 34A, and
+    the token then holds its choice), so it is left to the player."""
     from app.rules import scripts
 
     card = plan.state.cards.get(card_id)
-    if card is None:
+    if card is None or card.choices:
         return None
     for d in scripts.definitions(plan.ch(card)).values():
         if d.get("kind") == "replacement" and d.get("replacement") == "enters_choice":
@@ -1018,7 +1022,14 @@ def token_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     requests: list[tuple[str, dict[str, Any], int, str | None, bool]] = []
     notes: list[str] = []
     refused: list[str] = []
+    from app.rules import populate
+
+    # -- review 32 -- an object an earlier instruction moved off the battlefield is copied as it last existed there (below), not as the card it
+    # became (Kaya, Intangible Slayer's rulings: a copy of a copy, a token)
+    gone = {r.card for r in populate.gone_refs(plan, ctx, e["who"])} if e["who"].startswith("ref:") else set()
     for cid in effects._cards(plan, ctx, e["who"]):
+        if cid in gone:
+            continue
         card = plan.state.cards[cid]
         zone = card.zone.rsplit(":", 1)[-1]
         if zone in ("hand", "library", "stack"):
@@ -1038,8 +1049,6 @@ def token_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             requests.append(req)
     # -- token copies & attach on entry (wave 5J) -- 608.2h, 111.12: the object the trigger (or the source) was about
     # left the battlefield: the copy uses its copiable values as it last existed there
-    from app.rules import populate
-
     for recipe_or_why, maker in populate.left_battlefield(plan, ctx, e["who"], bool(e.get("their"))):
         if isinstance(recipe_or_why, str):
             refused.append(recipe_or_why)
@@ -1264,7 +1273,7 @@ def become_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # (608.2h, 111.12; the same last known information a token copy reads)
         from app.rules import populate
 
-        left = populate.left_battlefield(plan, ctx, "event", False)
+        left = populate.left_battlefield(plan, ctx, e["with"] if e["with"].startswith("ref:") else "event", False)  # (review 32: Identity Thief's exiled target)
         if len(left) == 1 and isinstance(left[0][0], CopyRecipe):
             base, of = left[0][0], []
         elif left:

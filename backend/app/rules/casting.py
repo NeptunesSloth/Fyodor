@@ -738,9 +738,14 @@ def resume_cast_divide(plan: Plan, d: Any, chosen: list[str]) -> None:
     INTENTS[intent.type](plan, intent)
 
 
-def _controls_commander(plan: Plan, player: str) -> bool:
-    return any(c.commander_key is not None and c.controller == player and c.zone.endswith(":battlefield")
-               for c in plan.state.cards.values())
+def _instead_holds(plan: Plan, a: A.CastSpell | A.ActivateAbility, cond: dict[str, Any]) -> bool:
+    """-- modal frames (wave 33B) -- the condition of "Choose one. If …, choose both instead.", as the spell is cast (601.2b): whether it was
+    kicked (702.33d) or cast using teamwork (702.194b) is what is announced now, anything else is read off the table."""
+    if (how := cond.get("cast")) is not None:
+        return isinstance(a, A.CastSpell) and (bool(a.kicker) if "kicked" in how else f"{a.card_id}:{how['optional']}" in a.optional_costs)
+    from app.rules import conditions
+
+    return conditions.holds(plan, {"controller": plan.actor, "source_card": a.card_id, "source_object": plan.oid(a.card_id)}, cond)
 
 
 def modal_groups(definition: dict[str, Any], picked: list[int]) -> list[dict[str, Any]] | None:
@@ -776,9 +781,13 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     can't be chosen either ("choose one that hasn't been chosen"). Returns None while waiting."""
     modal, modes = definition["modal"], definition["modes"]
     lo, hi, repeat = modal["min"], modal["max"], modal["repeat"]
-    if modal.get("condition") == "commander" and _controls_commander(plan, plan.actor):
-        hi = 2  # "If you control a commander as you cast this spell, you may choose both instead."
     allowed = choosable_modes(plan, definition, a.card_id, exclude)
+    if (inst := modal.get("instead")) is not None and _instead_holds(plan, a, inst["cond"]):
+        # -- modal frames (wave 33B) -- 700.2a, 601.2b: "If [condition] as you cast this spell, [you may] choose both instead." — judged as the
+        # modes are chosen; a "both" the table can't give (a mode with no legal target, 700.2a) is not cast that way
+        lo, hi = inst["min"], inst["max"]
+        if len(allowed) < lo:
+            raise ActionError(f"{what} can't have {lo} modes chosen (a mode has no legal target)")
     if a.modes:
         if not lo <= len(a.modes) <= hi:
             raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}")
@@ -2407,7 +2416,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if a.kicker and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine:  # -- casting extras (wave 18E) --
             # 702.42a: entwined, the spell's controller chooses all its modes (each must be choosable, 700.2a)
             a.modes = list(range(len(definition["modes"])))
-            definition = {**definition, "modal": {**definition["modal"], "min": len(a.modes), "max": len(a.modes), "repeat": False}}
+            definition = {**definition, "modal": {**definition["modal"], "min": len(a.modes), "max": len(a.modes), "repeat": False, "instead": None}}
         a.modes, a.targets = printed_order(definition, a.modes, a.targets)  # (wave 1A) 608.2c: carried out as printed
         modes = choose_modes(plan, a, definition, ch.name or "it")  # 601.2b: modes first …
         if modes is None:

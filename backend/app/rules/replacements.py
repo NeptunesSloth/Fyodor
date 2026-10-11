@@ -50,7 +50,7 @@ import re
 import secrets
 from typing import TYPE_CHECKING, Any, NamedTuple
 
-from app.game.rules_state import DecisionOption
+from app.game.rules_state import CopyRecipe, DecisionOption
 from app.game.state import CardInstance, TokenDef, zone_key
 from app.rules import card_names, conditions, scripts, selectors, values  # (card_names: wave 22B)
 from app.rules import characteristics as chars
@@ -100,19 +100,7 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
     defs = [d for d in _definitions(plan, card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})).values()
             if d["kind"] == "replacement"]
     answers = dict(answers or {})
-    for d in defs:  # "As ~ enters, choose a color." (614.1c): the answer is recorded on the permanent
-        if d["replacement"] != "enters_choice":
-            continue
-        for e in d.get("effects") or []:
-            what = e.get("what")
-            if e.get("do") != "choose_value" or not what:
-                continue
-            if what == card_names.LOOK and what not in answers and (only := card_names.sole_opponent(plan, controller)):
-                answers[what] = only  # -- card names (wave 22B) -- one opponent: no question
-            if what in answers:
-                out.setdefault("choices", {})[what] = answers[what]
-            elif "choice" not in out:
-                out["choice"] = {"what": what, **({"look": answers.get(card_names.LOOK)} if e.get("look") else {})}
+    named_choices(plan, controller, defs, answers, out)
     from app.rules import battles  # 310.9a: a battle's protector is chosen as it enters
 
     battles.entry_choice(plan, plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"),
@@ -188,6 +176,24 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
         if order is not None:
             out["choice"] = order
     return out
+
+
+def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answers: dict[str, str], out: dict[str, Any]) -> None:
+    """"As ~ enters, choose a color." (614.1c): the answers so far go to ``out["choices"]``, the first question still open to ``out["choice"]``;
+    the answer is recorded on the permanent (``after_entry``). -- token entering choices (wave 34A) -- shared with the tokens' own (``token_choices``)."""
+    for d in defs:
+        if d["replacement"] != "enters_choice":
+            continue
+        for e in d.get("effects") or []:
+            what = e.get("what")
+            if e.get("do") != "choose_value" or not what:
+                continue
+            if what == card_names.LOOK and what not in answers and (only := card_names.sole_opponent(plan, controller)):
+                answers[what] = only  # -- card names (wave 22B) -- one opponent: no question
+            if what in answers:
+                out.setdefault("choices", {})[what] = answers[what]
+            elif "choice" not in out:
+                out["choice"] = {"what": what, **({"look": answers.get(card_names.LOOK)} if e.get("look") else {})}
 
 
 # -- replacement effects stage 2 (wave 2E) -----------------------------------------------------------
@@ -399,6 +405,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
 
     if what == battles.PROTECTOR:  # 310.9a / 310.12a
         return f"{card.name}: as it enters, choose its protector", battles.choice_options(plan, controller, card)
+    from app.rules import chosen
+
+    if (picks := chosen.words(what)) is not None:  # -- linked words (wave 33B) -- 607.2f
+        return f"{card.name}: as it enters, choose {' or '.join(picks)}", _choice_options(plan, {"controller": controller, "source_card": card.id}, what)
     article = "an" if what[:1] in "aeiou" else "a"
     return (f"{card.name}: as it enters, choose {article} {what}",  # (-- enter as copy (wave 5F) --: the entering card)
             _choice_options(plan, {"controller": controller, "source_card": card.id}, what))
@@ -669,9 +679,14 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
 
     reveal_lands.after_entry(plan, controller, choices)
     if choices:
+        from app.rules import chosen as _chosen
         from app.rules.effects import CHOICE_LABELS
 
         for what, value in choices.items():
+            if value and value in (_chosen.words(what) or ()):  # -- linked words (wave 33B) -- 607.2f: the word, public, kept for this object (400.7)
+                plan.do({"type": "set_choice", "card_id": card_id, "key": _chosen.WORD_LABEL, "value": value}, actor=controller)
+                _chosen.record_word(plan, card_id, value)
+                continue
             if not value or (what not in CHOICE_LABELS and not card_names.is_choice(what)):
                 continue
             shown = plan.name(value) if what in ("opponent", "player") and value in plan.state.players else value
@@ -721,13 +736,74 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
                              newcomers=newcomers)
 
 
+def _token_probe(controller: str, spec: dict[str, Any]) -> CardInstance:
+    return CardInstance(id="token-probe", name=spec["name"], owner=controller, controller=controller,
+                        zone=zone_key(controller, "battlefield"), is_token=True,
+                        token=TokenDef(name=spec["name"], power=spec.get("power"), toughness=spec.get("toughness"),
+                                       colors=list(spec.get("colors") or []), type_line=spec.get("type_line") or "Token Creature",
+                                       text=spec.get("text") or ""))
+
+
+# -- token entering choices (wave 34A) ----------------------------------------------------------------------
+# 614.12 / 614.12a: "As this enters, choose …" applies as ANY permanent enters, a token included: a token copy of Metallic Mimic, a Siege or
+# Pithing Needle (707.2: it has the copiable ability, 707.6: it makes its own choice) is asked, by its controller, before it is created (the
+# questions come first and the creation instruction then runs once with the answers: replace.create_token_batch).
+ENTER = "enter:"  # an answer of a token's entering choice: "enter:<n-th token of the call>:<what>"
+
+
+def token_entering(plan: Plan, controller: str, spec: dict[str, Any]) -> tuple[CardInstance, list[dict[str, Any]]] | None:
+    """The token about to be created as an object (a token copy: its copiable values, 707.2; else its own text) and its "As ~ enters, choose …"
+    definitions as it would exist on the battlefield (614.12), or None when it has none."""
+    t = spec
+    if spec.get("_copy") is not None:
+        from app.rules import copying
+
+        ch = copying.characteristics(CopyRecipe.model_validate(spec["_copy"]), plan.info)
+        t = {"name": ch.name, "power": ch.power, "toughness": ch.toughness, "colors": sorted(ch.colors), "type_line": copying.type_line(ch),
+             "text": ch.oracle_text}
+    if "choose" not in (t.get("text") or "").lower():
+        return None
+    probe = _token_probe(controller, t)
+    defs = [d for d in scripts.definitions(plan.ch(probe)).values() if d["kind"] == "replacement" and d["replacement"] == "enters_choice"]
+    return (probe, defs) if defs else None
+
+
+def token_choices(plan: Plan, evs: list[dict[str, Any]], answers: dict[str, str]) -> tuple[list[list[dict[str, str]]], dict[str, Any] | None]:
+    """The entering choices of the tokens these final creation events make, in creation order (APNAP between players, 616.1; each token its own
+    question): per event, per token, {"creature type": "Elf", …}; and the first question still open ({"key", "player", "prompt", "options",
+    "source"}) or None. A question with no option (no opponent left, 800.4) is skipped."""
+    rows: list[list[dict[str, str]]] = []
+    n = 0
+    for ev in evs:
+        pid, row = ev["player"], []
+        if (one := token_entering(plan, pid, ev["token"])) is not None:
+            probe, defs = one
+            for k in range(ev["count"]):
+                got: dict[str, str] = {}
+                while True:
+                    out: dict[str, Any] = {}
+                    named_choices(plan, pid, defs, got, out)
+                    if (choice := out.get("choice")) is None:
+                        break
+                    what, key = choice["what"], f"{ENTER}{n + k}:{choice['what']}"
+                    if key in answers:
+                        got[what] = answers[key]
+                        continue
+                    prompt, options = choice_prompt(plan, probe, pid, choice)
+                    if not options:
+                        got[what] = ""
+                        continue
+                    return rows, {"key": key, "player": pid, "prompt": prompt, "options": options, "source": ev.get("source")}
+                row.append(out.get("choices") or {})
+        n += ev["count"]
+        rows.append(row)
+    return rows, None
+
+
 def token_enters_tapped(plan: Plan, controller: str, spec: dict[str, Any]) -> bool:
     """A token about to be created: does its own text say it enters tapped? (Its creator saying
     "create … tapped" is the effect's own business; both count.)"""
-    probe = CardInstance(id="token-probe", name=spec["name"], owner=controller, controller=controller,
-                         zone=zone_key(controller, "battlefield"), is_token=True,
-                         token=TokenDef(name=spec["name"], power=spec.get("power"), toughness=spec.get("toughness"),
-                                        colors=list(spec.get("colors") or []), type_line=spec["type_line"], text=spec.get("text") or ""))
+    probe = _token_probe(controller, spec)
     for d in scripts.definitions(chars.of(probe, plan.info)).values():
         if d["kind"] != "replacement":
             continue

@@ -521,6 +521,42 @@ def _objects(o: str) -> tuple[list[str], list[dict[str, Any]]]:
 RESTRICTIONS = {"block": ["cant_block"], "attack": ["cant_attack"], "attack or block": ["cant_attack_or_block"],
                 "be blocked": ["cant_be_blocked"]}
 
+# -- attack restrictions (wave 32B) -- 508.1c-d: restrictions on whom a creature may attack, aimed at the controller of the effect ("you"), as a one-shot
+# effect with a duration (611.2a): this turn / this combat / "during their next turn" (a player's, ``their_turn``) -- or, with "unless their controller pays
+# {2} for each of those creatures", an attack cost (508.1d, 508.1h-j: app/rules/combat_rules.py)
+_CANT_ATTACK_YOU = re.compile(r"(?P<o>.+?) can't attack (?P<t>you|you or planeswalkers you control|you or permanents you control)"
+                              r"(?: unless their controller pays (?P<cost>(?:\{[^}]+\})+) for each of those creatures)?"
+                              r" (?P<d>this turn|this combat|during their next turn)")
+_ATTACK_YOU = {"you": "cant_attack_player", "you or planeswalkers you control": "cant_attack_player_pw",
+               "you or permanents you control": "cant_attack_player_perm"}
+_TAX_YOU = {"you": "attack_tax", "you or planeswalkers you control": "attack_tax_pw"}
+_DURATION_YOU = {"this turn": {}, "this combat": {"duration": "end_of_combat"}, "during their next turn": {"duration": "their_turn"}}
+_THAT_PLAYERS_CREATURES = re.compile(r"(?:each )?creatures? (?:that player|they) controls?")
+
+
+def _cant_attack_you(m: re.Match[str]) -> tuple[Effects, Any]:
+    """"[Creatures / that player / creatures that player controls] can't attack you [or planeswalkers / permanents you control] [this turn / this
+    combat / during their next turn]": a rule-modifying effect on the creatures the subject names (effects.restrict). A player ("that player";
+    a bare "they" is the objects just named, ``ref``) is the creatures they control, read when the attack is declared: a creature that changes hands is restricted
+    by its new controller."""
+    if m["cost"]:  # (508.1d: nobody has to pay, so this never forces an attack; one rule per source, so two of them cost twice)
+        from app.rules import mana as M
+
+        cost = M.parse_cost(m["cost"])
+        if m["t"] not in _TAX_YOU or cost.unsupported or cost.is_free or cost.x:
+            raise _Fail
+        rules = [f"{_TAX_YOU[m['t']]}:@you:{m['cost']}:@src"]
+    else:
+        rules = [f"{_ATTACK_YOU[m['t']]}:@you"]
+    extra = _DURATION_YOU[m["d"]]
+    if m["o"] == "that player" or _THAT_PLAYERS_CREATURES.fullmatch(m["o"]):
+        who = f"controlled:that_player|{selectors.Selector(types=('Creature',)).key()}"
+        return [{"do": "restrict", "who": who, "rules": rules, **extra}], None
+    whos, groups = _objects(m["o"])
+    if len(whos) != 1 or whos[0] in PLAYER_GROUPS.values() or (m["d"] == "during their next turn" and not whos[0].startswith("controlled:")):
+        raise _Fail
+    return [{"do": "restrict", "who": whos[0], "rules": rules, **extra}], _out(groups)
+
 
 def _amount(word: str) -> Any:
     v = values.parse_amount(word)
@@ -1369,6 +1405,10 @@ _ALL_AND_ALL = re.compile(r"^(?P<v>destroy|exile) (?P<q>all|each) (?P<a>creature
 def _parse(text: str) -> tuple[Effects, Any]:
     if (emblem := _emblem(text)) is not None:  # -- emblems (wave 13A) --
         return emblem
+    m = _CANT_ATTACK_YOU.fullmatch(text)  # (before the "for each …" rider is split off: the attack cost's)
+    if m:  # -- attack restrictions (wave 32B) -- 508.1c: "Creatures can't attack you [or planeswalkers you control] this turn" ("until your next turn" is
+        # the duration wrapper's: delayed.duration_clause)
+        return _cant_attack_you(m)
     # -- static grants & selectors (wave 15A) -- "Destroy all creatures you don't control and all planeswalkers you don't control":
     # one group of the two kinds under one qualifier (the "or" the selectors already read), all at once (701.8)
     text = _ALL_AND_ALL.sub(lambda m: f"{m['v']} {m['q']} {m['a']}s or {m['b']}s{m['c']}", text)
@@ -1567,7 +1607,10 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # -- damage ---------------------------------------------------------------------------------
     # -- sized amounts (wave 3D) -- "that creature deals damage equal to its power": the pronoun's creature (as "it")
     text = re.sub(r"^that creature deals ", "it deals ", text)
-    text = re.sub(r"^exile that card from (?:your|their) graveyard$", "exile it", text)  # (wave 17D: the discarded card, Necropotence)
+    if text in ("exile that card from your graveyard", "exile that card from their graveyard") and rider is None:  # (wave 17D: Necropotence)
+        # -- review 32 -- the discarded card, only while it is in the graveyard: one a replacement put elsewhere (madness 702.35a, Rest in
+        # Peace 614.1a) can't be exiled from there, so nothing is exiled, linked or "done" (118.12: Containment Construct, Bag of Holding)
+        return [{"do": "exile", "who": "it", "from_zone": "graveyard"}], None
     # -- damage sized by a count (wave 4E) -- "Whenever Smaug attacks, he deals …": a named character's pronoun is the
     # card itself (its power: "his power"); "this enchantment deals … equal to the number of verse counters on it"
     text = re.sub(r"^(?:he|she) deals ", "~ deals ", text)

@@ -14,6 +14,7 @@ and the effect subject "the chosen player" (``who: "chosen_player"``, effects._p
 from __future__ import annotations
 
 import json
+import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -174,3 +175,36 @@ def player_of(plan: Plan, card_id: str, object_id: str | None = None) -> str | N
         return pid if pid in plan.state.players and plan.state.players[pid].name == shown else None
     named = [p for p, player in plan.state.players.items() if player.name == shown]  # (an older save: a name only)
     return named[0] if len(named) == 1 else None
+
+
+# -- linked words (wave 33B) --------------------------------------------------------------------------------------------
+# 607.2f: "As this enchantment enters, choose Khans or Dragons." is a choice between words that have no rules meaning; the abilities
+# printed after it ("• Khans — …", ``AbilityText.linked``, app/rules/oracle.py) are linked to it and each refers only to a choice involving
+# its own word. The choice is made as it enters (614.12a), by its controller, and belongs to that object (400.7): ``RulesState.chosen_words``
+# (object id -> word, what the rules read; ``copying.with_level`` puts it in ``Characteristics.word``) and the permanent's public ``choices``
+# entry ("Chosen word: Khans", the display). An object with no recorded word has none of the linked abilities (a token copy is asked as it enters, wave 34A:
+# replacements.token_choices; one made by a site that can't pause is left to the players, copying.token_copy).
+WORDS = "word: "  # the entering choice's name: "word: Khans or Dragons"
+WORD_LABEL = "Chosen word"
+ENTERS_WORDS = re.compile(r"^As ~ enters, choose (?P<a>[A-Z][\w'’-]*) or (?P<b>[A-Z][\w'’-]*)\.$")
+
+
+def words_header(text: str, ch: Characteristics) -> dict[str, Any] | None:
+    """The entering choice of "As ~ enters, choose A or B." when the object has exactly one linked ability for each word."""
+    m = ENTERS_WORDS.match(text)
+    if m is None or sorted(a.linked for a in ch.abilities if a.linked) != sorted((m["a"], m["b"])):
+        return None
+    return {"kind": "replacement", "replacement": "enters_choice",
+            "effects": [{"do": "choose_value", "who": "you", "what": f"{WORDS}{m['a']} or {m['b']}", "remember": True}]}
+
+
+def words(what: str) -> list[str] | None:
+    return what[len(WORDS):].split(" or ") if what.startswith(WORDS) else None
+
+
+def record_word(plan: Plan, card_id: str, word: str) -> None:
+    """Remember the word this object chose (its object id now)."""
+    r = plan.rules
+    on_field = {plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")}
+    r.chosen_words = {oid: w for oid, w in r.chosen_words.items() if oid in on_field or oid in r.lki}  # (400.7)
+    r.chosen_words[plan.oid(card_id)] = word

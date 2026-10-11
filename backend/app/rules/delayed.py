@@ -48,7 +48,7 @@ from app.game.rules_state import DelayedTrigger, ObjectRef, TriggerEvent
 from app.game.state import PHASES
 
 if TYPE_CHECKING:
-    from app.game.rules_state import ContinuousEffect, Event
+    from app.game.rules_state import ContinuousEffect, Event, PendingTrigger
     from app.rules.plan import Plan
 
 Context = dict[str, Any]
@@ -179,7 +179,7 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     ctx["next"] = start + n
     refs = {k: v for k, v in (ctx.get("refs") or {}).items()}
     when = dict(e["when"])
-    if when["kind"] == "event":
+    if when["kind"] == "event" or (when["kind"] == "watch" and when.get("bound")):  # (-- turn-long triggers (wave 33A) -- a watch on one object)
         from app.rules import context
         from app.rules.effects import _cards
 
@@ -268,15 +268,15 @@ def mark_target(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return _swap_who(effects, "target", WATCH_TARGET)
 
 
-def _fire(plan: Plan, t: DelayedTrigger, event: TriggerEvent | None) -> None:
+def _fire(plan: Plan, t: DelayedTrigger, event: TriggerEvent | None) -> PendingTrigger | None:
     from app.rules.triggers import _add
 
     if t.controller not in plan.live():
-        return
+        return None
     definition = {"kind": "triggered", "trigger": "delayed", "optional": False, "target": t.target,  # (target: wave 25C, a turn watch's own)
                   "effects": [{"do": "bind_refs", "refs": t.refs}, *(_swap_who(t.effects, WATCH_TARGET, "target") if t.target else t.effects)]}
-    _add(plan, controller=t.controller, source_card=t.source_card or "", source_object=t.source_object or "",
-         name=t.name, index=7000, definition=definition, event=event)
+    return _add(plan, controller=t.controller, source_card=t.source_card or "", source_object=t.source_object or "",
+                name=t.name, index=7000, definition=definition, event=event)
 
 
 def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
@@ -400,7 +400,9 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                 effect.source_card = ctx.get("source_card")
             # each effect of the clause ("gets +2/+2 and gains flying") owns the markers on the
             # objects it affects; ``_end`` keeps a marker another effect still owns
-            effect.markers = [m for cid, ids in written.items() if plan.oid(cid) in effect.affected for m in ids]
+            # (-- attack restrictions (wave 32B) -- a group effect, "Until your next turn, creatures can't attack you", has no objects of its own: it owns the markers
+            # the clause wrote on the creatures it matched, so they go when it ends)
+            effect.markers = [m for cid, ids in written.items() if effect.who or plan.oid(cid) in effect.affected for m in ids]
     if counter:
         expire(plan)  # 611.2b: a counter the objects don't have as the effect begins — it does nothing
     return True
@@ -536,7 +538,7 @@ EVENT = re.compile(rf"^when (?P<subject>{'|'.join(re.escape(s) for s in EVENT_SU
 UNTIL_LEADING = re.compile(rf"^(?P<duration>{DURATION_RE}), (?P<clause>.+)$")
 UNTIL_TRAILING = re.compile(rf"^(?P<clause>.+?) (?P<duration>{DURATION_RE})$")
 _EOT = re.compile(r"^(?P<clause>.+?)(?: until end of turn)$")
-_RESTRICT = re.compile(r"^(?P<o>.+?) can't (?P<r>attack or block|block|attack|be blocked)$")
+_RESTRICT = re.compile(r"^(?P<o>.+?) can't (?P<r>attack or block|block|attack you\b.*|attack|be blocked)$")  # (-- attack restrictions (wave 32B) -- "creatures can't attack you")
 
 
 def duration_clause(m: re.Match[str]) -> tuple[str, str]:
