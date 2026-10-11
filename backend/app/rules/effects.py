@@ -3079,6 +3079,38 @@ def _did_tap(fn: Any) -> Any:
 PRIMITIVES["tap"] = _did_tap(PRIMITIVES["tap"])
 
 
+def _did_look(fn: Any) -> Any:
+    """-- if you do (wave 31A) -- "You may reveal the top card of your library. If you do, each opponent loses life equal to that card's mana value." (Baneful
+    Omen), "You may look at the top card of target opponent's library. If you do, …" (Precognition): 118.12 — the player chose to; a library with no card in it
+    has none to reveal or look at (701.20a), so that can't be chosen. Probed before the first run only."""
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        if name and name not in context.refs(ctx):
+            context.bind_payment(ctx, name, all(_library(plan, p) for p in _library_owner(plan, ctx, e)))
+        return bool(fn(plan, ctx, e))
+    return run
+
+
+PRIMITIVES["look_top"] = _did_look(PRIMITIVES["look_top"])
+
+
+def _did_search(fn: Any) -> Any:
+    """-- if you do (wave 31A) -- 118.12b: "Search your library for a Dragon permanent card and put it into your graveyard. If you do, …" (Scion of the Ur-Dragon)
+    checks whether the player chose to search, not whether they found or took anything: true unless a prohibition stops the search (614.17: "Players can't
+    search libraries"). Probed before the first run only."""
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        if name and name not in context.refs(ctx):
+            from app.rules import prohibitions
+
+            context.bind_payment(ctx, name, prohibitions.cant_search(plan, ctx["controller"], ctx["controller"]) is None)
+        return bool(fn(plan, ctx, e))
+    return run
+
+
+PRIMITIVES["search"] = _did_search(PRIMITIVES["search"])
+
+
 # -- refused modal/conditional (wave 3R1) -- "Sacrifice this enchantment. If you do, …", "Remove a +1/+1 counter
 # from it. If you do, …", "Discard a card. If you do, …": "If you do" after an instruction that isn't optional asks
 # whether it was started (118.12; a permanent that is already gone can't be sacrificed, 701.21a; a counter
