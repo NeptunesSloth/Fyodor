@@ -1185,8 +1185,9 @@ def test_the_lines_of_the_modes_belong_to_the_ability():
     "Whenever another nontoken permanent you control leaves the battlefield, choose one that hasn't been chosen this turn. "
     "Create a creature token with those characteristics.\n• Draw a card.\n• You gain 1 life.",  # Genku, Future Shaper
     "When this creature enters, choose one —\n• You may draw a card.\n• You gain 1 life.",  # (a mode with "you may")
-    "When this creature enters, choose one —\n• Put a +1/+1 counter on each of up to two target creatures.\n• You gain 1 life.",  # Daily Bugle Reporters: a target group
-    "When this creature enters, choose one —\n• Destroy up to one target artifact.\n• You gain 1 life.",  # (an "up to" target)
+    # (wave 33B reads a triggered ability's mode with "up to N target …" groups, tests/test_rules_wave33b_modal.py; an activated ability's keeps one slot)
+    "{T}: Choose one —\n• Put a +1/+1 counter on each of up to two target creatures.\n• You gain 1 life.",  # (a target group in an activated ability)
+    "When this creature enters, choose one —\n• Put a +1/+1 counter on each of up to X target creatures.\n• You gain 1 life.",  # (X: not a plain group)
     "When this creature enters, choose one —\n• If you control a Forest, draw a card.\n• You gain 1 life.",  # (would read as a trigger condition)
     "When this creature enters, choose one —\n• Draw a card.\n• You gain 1 life.\nThis ability triggers only once each turn.",  # (a limit that'd go unenforced)
     "{T}: Choose one —\n• Draw a card.\n• You gain 1 life.\nActivate only as a sorcery.",  # (a restriction that'd go unenforced)

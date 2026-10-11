@@ -3682,6 +3682,10 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
         return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
         return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
+    from app.rules import chosen as _picked
+
+    if (named := _picked.words(what)) is not None:  # -- linked words (wave 33B) -- 607.2f: "choose Khans or Dragons"
+        return [DecisionOption(id=w, label=w) for w in named]
     if (others := entry_forms.color_options(what)) is not None:  # -- entry forms (wave 5F) --
         return [DecisionOption(id=v, label=v) for v in others]
     if what in ("opponent", "player"):
