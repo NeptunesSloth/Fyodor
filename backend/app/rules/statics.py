@@ -104,6 +104,7 @@ ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "cre
                      "enchanted creatures": None}  # (plural: not a template)
 _PT = re.compile(r"^(?P<p>[+−-]\d+)/(?P<t>[+−-]\d+)$")
 _BASE = re.compile(r"^base power and toughness (?P<p>\d+)/(?P<t>\d+)$")
+_BASE_ONE = re.compile(r"^base (?P<w>power|toughness) (?P<n>\d+)$")  # (wave 36B: 613.4b sets one of them, the other stays: "Creatures your opponents control have base toughness 1.", Maha)
 _QUOTED = re.compile(r'^"(?P<q>[^"]+)"$')
 _DEF_ATTACK = re.compile(r"^~ can't attack (?P<k>unless|if) (?:defending player (?:controls an? (?P<sel>.+)|(?P<pois>is poisoned)|(?P<mon>is the monarch)"
                          r"|has (?P<n>\w+) or more cards in their graveyard)|you control more (?P<more>creatures|lands) than defending player)$")
@@ -223,7 +224,13 @@ def parse(text: str) -> Definition | None:
     # "During your turn, …" / "As long as <condition>, …" / "… as long as <condition>"
     m = re.match(r"^(?:During your turn|As long as it's your turn), (?P<rest>.+)$", body)
     m = m or re.match(r"^(?P<rest>.+? (?:has|have|gets?) .+) during your turn$", body)  # (wave 15A: "~ has first strike during your turn")
-    if m:
+    # -- static_other (wave 36B) -- "During turns other than yours, this creature gets +0/+2." (Mesa Lynx, Glory of Warfare, Oak Street Innkeeper): any turn but the
+    # controller's own (500.1: each turn has one active player), the opposite of "during your turn"
+    other_turn = None if m else re.match(r"^During turns other than yours, (?P<rest>.+)$", body)
+    if other_turn:
+        conds.append({"static": "not", "cond": {"static": "your_turn"}})
+        body = other_turn["rest"]
+    elif m:
         conds.append({"static": "your_turn"})
         body = m["rest"]
     else:
@@ -314,8 +321,8 @@ def parse(text: str) -> Definition | None:
         return None  # -- soulbond (wave 24B) -- the pair subject and the "is paired" condition go together
     if who != "attached" and any(_mentions(c, ("attached_stat", "attached_ctrl")) for c in conds):
         return None  # -- attached events (wave 16F) -- "its power / its controller" names the object an Aura or Equipment is on
-    if who.startswith(UNION) and (conds or x_phrase is not None or defender_sel or rule_cond):
-        return None  # -- static wordings (wave 6E) -- (a union subject: only plain grants)
+    if who.startswith(UNION) and (x_phrase is not None or defender_sel or rule_cond):
+        return None  # -- static wordings (wave 6E) -- (a union subject: only plain grants; wave 36B: under a condition too — one verdict for every object, 611.3a)
     if layer4 is not None and who != "self":
         return None
     if attached_cond is not None and (who != "attached" or (kind or attached_cond["noun"]) != attached_cond["noun"]):
@@ -335,8 +342,8 @@ def parse(text: str) -> Definition | None:
     parts = _predicate(predicate, x_value, it, group=who not in ("self", "attached") and not who.startswith(UNION))
     if parts is None:
         return None
-    if who.startswith(UNION) and (parts["rules"] or parts["each"] or parts["extra"]):
-        return None  # -- static wordings (wave 6E) -- (a union subject: only P/T, keyword and ability grants)
+    if who.startswith(UNION) and (parts["rules"] or parts["extra"] or (parts["each"] and "relative" in json.dumps(parts["each"]))):
+        return None  # -- static wordings (wave 6E) -- (a union subject: only P/T, keyword and ability grants; wave 36B: also a count of its own (Cid), not one relative to each object)
     # -- attached events (wave 4L) --
     from app.rules import attached_types
 
@@ -430,6 +437,8 @@ def _layer4_safe(cond: dict[str, Any]) -> bool:
     (700.5a: mana costs after copy effects only), life totals, whose turn it is."""
     if cond.get("static") in ("self_counter", "your_turn", "life_vs_start", "opp_life", "graveyard"):  # (wave 20B: graveyard sizes)
         return True
+    if cond.get("static") == "not":  # (wave 36B: "during turns other than yours")
+        return _layer4_safe(cond["cond"])
     if cond == {"static": "self", "test": "attached_to_a_creature"}:  # -- casting extras (wave 18E) -- reconfigure 702.151b
         return True
     value = cond.get("value")
@@ -461,7 +470,7 @@ def zone_static(d: Definition) -> bool:
 
 
 def _definition(who: str, kind: str | None, conds: list[dict[str, Any]], *, p: int = 0, t: int = 0,
-                base: list[int] | None = None, keywords: list[str] | None = None, grants: list[str] | None = None,
+                base: list[Any] | None = None, keywords: list[str] | None = None, grants: list[str] | None = None,
                 rules: list[str] | None = None, each: dict[str, Any] | None = None,
                 abilities_of: dict[str, Any] | None = None) -> Definition:
     out: Definition = {"kind": "static", "static": "grant", "effects": [], "who": who, "attached_kind": kind,
@@ -624,6 +633,32 @@ _UNION_SHARED = re.compile(r"^(?P<pre>[Oo]ther )?(?P<a>[A-Z][a-z'\-]+) and (?P<b
 _EACH_TWO = re.compile(r"^(?P<d>Each|All) (?P<a>[A-Za-z][\w'-]*(?: [a-z][\w'-]*)?) and (?P<b>[A-Za-z][\w'-]*(?: [a-z][\w'-]*)?) you control$")
 
 
+# -- static_other (wave 36B) -- more groups joined by "and" (each its own selector, the static applying to an object of either, once): "Dion and other Knights you
+# control", "Yuna and enchantment creatures you control" (the source itself and a group: ``UNION_SELF``), "Other snow and Zombie creatures you control" (Narfi: the
+# noun is shared), "Artifact creatures and Heroes you control" (Cid: so is "you control"), "White creatures and blue creatures", "Saproling creatures and other
+# Treefolk creatures". Only where no single selector reads the whole phrase ("creatures and lands you control" is one selector: a list of types, 205.2a).
+UNION_SELF = "self"
+_UNION_SELF = re.compile(r"^(?:~|it) and (?P<g>[a-z][\w' -]*? (?:you control|your opponents control))$", re.IGNORECASE)
+_UNION_NOUN = re.compile(r"^(?P<pre>[Oo]ther )?(?P<a>[A-Z][a-z'\-]+|snow) and (?P<b>[A-Z][a-z'\-]+|snow) (?P<n>creatures|permanents)(?P<s> you control| your opponents control)?$")
+_UNION_NP = re.compile(r"^(?P<a>[A-Za-z][\w' -]*?) and (?P<b>(?:other )?[A-Za-z][\w' -]*?)(?P<s> you control| your opponents control)?$")
+
+
+def _union_more(subject: str) -> list[str] | None:
+    if (m := _UNION_SELF.match(subject)) is not None:
+        return [UNION_SELF, m["g"]]
+    whole = re.sub(r"^(?:All|Each) ", "", subject)
+    if selectors.parse("other " + whole[6:] if whole.startswith("Other ") else whole) is not None:
+        return None
+    if (m := _UNION_NOUN.match(subject)) is not None:
+        s = m["s"] or ""
+        return [f"{m['pre'] or ''}{m['a']} {m['n']}{s}", f"{m['pre'] or ''}{m['b']} {m['n']}{s}"]
+    m = _UNION_NP.match(subject)
+    if m is not None and " control" not in m["a"] and " control" not in m["b"] and " and " not in m["a"]:
+        s = m["s"] or ""
+        return [m["a"] + s, m["b"] + s]
+    return None
+
+
 def _union_subject(subject: str) -> str | None:
     m = _UNION_TWO.match(subject)
     parts = [m["a"], m["b"]] if m else None
@@ -632,9 +667,14 @@ def _union_subject(subject: str) -> str | None:
     if parts is None and (m := _UNION_SHARED.match(subject)) is not None and _type_list(subject) == subject:
         parts = [f"{m['pre'] or ''}{m['a']} you control", f"{m['pre'] or ''}{m['b']} you control"]
     if parts is None:
+        parts = _union_more(subject)
+    if parts is None:
         return None
     keys = []
     for part in parts:
+        if part == UNION_SELF:
+            keys.append(part)
+            continue
         if " and " in part:
             return None
         key, _ = _subject(part[0].upper() + part[1:], plural=True)
@@ -697,6 +737,10 @@ def _pieces(predicate: str) -> list[str]:
     predicate = re.sub(r"(for each [^,\"]*?) and each ", r"\1 and_each ", predicate)  # (wave 15A: one sum, values._parse_count)
     # -- X sized by a count (wave 19F) -- "for each Dwarf, Equipment, and/or Vehicle you control": one count of a list of kinds
     predicate = re.sub(r"for each [\w'-]+(?:, [\w'-]+)*,? (?:and/or|and|or) [\w'-]+ you control", lambda m: m.group(0).replace(" ", "\x00"), predicate)
+    # -- static_other (wave 36B) -- the same for the other lists a count names: "for each noncreature, nonland card in your graveyard" (Xande), "for each creature and
+    # planeswalker card in your graveyard" (Winter): a separator inside the count is no new piece unless a verb of the predicate follows it ("… you control and has trample")
+    predicate = re.sub(rf"for each (?:(?!(?:, and |, | and )(?:{_PIECE_VERB})\b)[^\"])+",
+                       lambda m: m.group(0).replace(" ", "\x00") if re.search(r", | and ", m.group(0)) else m.group(0), predicate)
     while i < len(predicate):
         c = predicate[i]
         if c == '"':
@@ -727,7 +771,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
     from app.rules.scripts import granted_ability  # (scripts imports this module)
 
     p = t = 0
-    base: list[int] | None = None
+    base: list[Any] | None = None  # (wave 36B: a base power or toughness alone leaves the other None)
     keywords: list[str] = []
     grants: list[str] = []
     rules: list[str] = []
@@ -787,6 +831,12 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
                 return None
             base = [int(b["p"]), int(b["t"])]
             continue
+        b1 = _BASE_ONE.match(rest)
+        if b1:
+            if base is not None or verb != "have":
+                return None
+            base = [int(b1["n"]) if b1["w"] == "power" else None, int(b1["n"]) if b1["w"] == "toughness" else None]
+            continue
         if rest.startswith("all activated abilities of "):  # -- borrowed abilities (wave 18F) -- app/rules/abilities_of.py
             from app.rules import abilities_of
 
@@ -831,6 +881,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
 # targeting, blocking, damage, attachments), ward (702.21a: each instance triggers, triggers.ward_costs), toxic
 # (702.164: combat.py). Only qualities and costs the engine enforces (coverage._keyword_supported).
 _FROM_JOIN = "\u0001from "
+_PIECE_VERB = r"gets?|ha(?:s|ve)|gains?|loses?|is|are|can't|can|attacks?|blocks?|must|doesn't|don't|becomes?|enters?|assigns?"  # (the verbs a predicate piece starts with)
 _PARAM_KEYWORDS = ("protection", "ward", "toxic", "annihilator", "afflict", "poisonous", "bushido", "mobilize", "frenzy",
                    "soulshift", "afterlife", "crew", "equip")  # (wave 15E: keywords whose line is carried out wherever it is: keyword_triggers; 17C: crew, equip)
 
@@ -1171,7 +1222,8 @@ def applies(plan: Plan, d: Definition, *, source: CardInstance, controller: str,
         if kind == "artifact" and "Artifact" not in ch.types:
             return False
     elif who.startswith(UNION):  # -- static wordings (wave 6E) -- either group
-        if not any(selectors.matches(plan, selectors.from_key(k), card, ch, controller, source.id) for k in _union_keys(who)):
+        if not any(card.id == source.id if k == UNION_SELF else selectors.matches(plan, selectors.from_key(k), card, ch, controller, source.id)
+                   for k in _union_keys(who)):  # (wave 36B: "self" — the source itself, "Dion and other Knights you control")
             return False
     elif not selectors.matches(plan, selectors.from_key(who), card, ch, controller, source.id):
         return False

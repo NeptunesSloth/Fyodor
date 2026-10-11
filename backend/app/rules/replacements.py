@@ -1378,6 +1378,11 @@ def _static_records(plan: Plan) -> list[dict[str, Any]]:
             continue
         for d in scripts.definitions(plan.ch(c)).values():
             if d["kind"] == "static" and d.get("static") == "prevent":
+                if d.get("conditions"):  # -- static_other (wave 36B) -- "During your turn, prevent all damage that would be dealt to ~." (611.3a)
+                    from app.rules import statics
+
+                    if not statics.conditions_hold(plan, d, source=c, controller=c.controller):
+                        continue
                 out.append({"kind": "prevent", "controller": c.controller, "source": plan.oid(c), "source_card": c.id,
                             "scope": d["scope"]})
     return out

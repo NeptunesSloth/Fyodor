@@ -289,7 +289,10 @@ def self_text(text: str, name: str) -> str:
     def _own(part: str) -> str:
         for n in names:
             # (wave 20C: the short name before "the/of Capital" starts another name: "create Tuktuk the Returned, a legendary …")
-            part = re.sub(rf"(?<![\w-]){re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else ""), "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
+            # (-- static_other (wave 36B) -- a shortened name that is also a creature type is that type before "creature(s)": "becomes a green Lizard creature" on
+            # Lizard, Connors's Curse is no self-reference ("a green ~ creature" is nothing a card says)
+            part = re.sub(rf"(?<![\w-]){re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else "") + (r"(?! (?:creature|token)s?\b)" if n != name else ""),
+                          "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
         return part
 
     # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the
@@ -4074,6 +4077,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return alt_costs.keyword_definition(ability.text)
     if ability.kind == "keywords" and ability.keywords == ("unleash",):  # -- keywords (wave 15E) -- 702.98a's second static
         return parse_anthem("~ can't block as long as it has a +1/+1 counter on it.")
+    # -- static_other (wave 36B) -- 601.3, 101.2: "You can't cast Rakdos unless an opponent lost life this turn." (Rakdos, Lord of Riots), "Threshold — You can't cast
+    # this spell unless there are seven or more cards in your graveyard." (Proft) says what "Cast this spell only if …" says: the card is cast only while the
+    # condition holds (the same clause grammar, app/rules/cast_timing.py); an "if …" form would need the clause negated: not read
+    if ability.kind == "static" and (unless := re.fullmatch(r"You can't cast (?:~|this spell) unless (?P<c>[^.]+)\.", text)) is not None:
+        text = f"Cast this spell only if {unless['c']}."
     if text.startswith("Cast this spell only "):  # -- cast timing (wave 7A) -- 601.3 (app/rules/cast_timing.py)
         from app.rules import cast_timing
 
@@ -5581,6 +5589,12 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
                 return None
             out["who"] = key
         return out
+    # -- static_other (wave 36B) -- "During your turn, prevent all damage that would be dealt to ~." (Frodo, Guardian Naga, Personal Sanctuary), "Prevent all damage
+    # that would be dealt to ~ during your turn." (Gideon Blackblade): the prevention works during its controller's turn only (615.1, 611.3a: read when the damage
+    # would be dealt, replacements._static_records)
+    during = re.fullmatch(r"During your turn, (?P<rest>[Pp]revent all .+)", text) or re.fullmatch(r"(?P<rest>[Pp]revent all .+?) during your turn\.", text)
+    if during is not None:
+        text = during["rest"] if during["rest"].endswith(".") else during["rest"] + "."
     low = _lower_first(text.rstrip("."))
     if low.startswith("prevent all ") and text.endswith(".") and text.count(". ") == 0:
         got = parse_prevent_all(low)
@@ -5589,7 +5603,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         scope, this_turn, target, _role = got
         if this_turn or target is not None:
             return None  # a static ability doesn't last "this turn" and doesn't target
-        return {"kind": "static", "static": "prevent", "scope": scope, "effects": []}
+        return {"kind": "static", "static": "prevent", "scope": scope, "effects": [],
+                **({"conditions": [{"static": "your_turn"}]} if during is not None else {})}
     # -- replacement effects stage 2 (wave 2E): token / counter / draw / life / damage statics and
     # "[Objects] enter tapped" (app/rules/replace_grammar.py, applied by app/rules/replace.py) --
     from app.rules import replace_grammar  # (a leaf module)
