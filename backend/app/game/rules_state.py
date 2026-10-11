@@ -515,6 +515,7 @@ class TurnLog(BaseModel):
     facts: list[TurnFact] = Field(default_factory=list)  # tokens created, discards, sacrifices, damage to players …
     attackers: dict[str, list[str]] = Field(default_factory=dict)  # player -> creatures (objects) declared as attackers
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
+    blocks: dict[str, list[str]] = Field(default_factory=dict)  # -- combat history (wave 31D) -- blocker (object) -> the attackers (objects) it blocked this turn
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
     # "<source object>:<ability index>" -> how many times that ability resolved this turn (copies included)
     resolved: dict[str, int] = Field(default_factory=dict)
@@ -731,6 +732,18 @@ class StackEntry(BaseModel):
     # -- copy system (wave 2F): a copy of a spell or ability (707.10): the object id of what it
     # copies. A copy isn't cast (or activated); its cost-paying objects are the original's.
     copy_of: str | None = None
+
+
+class StackMemory(BaseModel):
+    """-- spell copies (wave 31D) -- a spell as it last existed on the stack (608.2h): what a copy of it needs once it has left (countered, returned
+    to its owner's hand …). "Copy it" in a cast trigger copies the spell even if it is gone by then (707.10, the Storm cycle / Krark rulings)."""
+
+    card: str = Field(max_length=64)
+    turn: int = 0
+    entry: StackEntry
+    info: dict[str, Any] = Field(default_factory=dict)  # its StackInfo (X, modes, tags: Kicked, Evoked …)
+    evoked: bool = False
+    dashed: bool = False
 
 
 class CostContribution(BaseModel):
@@ -1100,6 +1113,7 @@ class RulesState(BaseModel):
     # lower) no longer transforms it. Cleared when it becomes a new object (400.7).
     transformed: dict[str, int] = Field(default_factory=dict)
     lki: dict[str, ObjectSnapshot] = Field(default_factory=dict)  # object id -> last known information
+    stack_lki: dict[str, StackMemory] = Field(default_factory=dict)  # -- spell copies (wave 31D) -- object id of a spell that left the stack -> how it was there
     batch: int = 0  # last event batch number
     events: list[Event] = Field(default_factory=list)  # events since the engine last acted (this intent's, or manual ones)
     events_dropped: bool = False  # manual play produced more events than are kept
@@ -1243,12 +1257,30 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
     )
 
 
+def remember_stack(state: GameState, card_id: str, info: Any = None) -> None:
+    """-- spell copies (wave 31D) -- a spell is leaving the stack: keep how it was there (its entry — targets, modes, X, kicker — and its
+    annotations) under its object id, for a copy of it made after it left (608.2h, 707.10). Copies and abilities cease to exist / don't
+    return, so only a spell card is kept; one remembered already (by whoever removed its entry first) stays."""
+    rules = state.rules
+    card = state.cards.get(card_id)
+    entry = rules.stack.get(card_id) if rules is not None else None
+    if rules is None or card is None or entry is None or entry.kind != "spell" or card.ability is not None or card.is_token:
+        return
+    oid = rules.object_id(card_id)
+    if oid in rules.stack_lki:
+        return
+    info = info if info is not None else card.stack_info
+    rules.stack_lki[oid] = StackMemory(card=card_id, turn=state.turn.number, entry=entry.model_copy(deep=True),
+                                       info=info.model_dump() if info is not None else {},
+                                       evoked=card_id in rules.evoked, dashed=card_id in rules.dashed)
+
+
 class Capture:
     """The table just before one step is applied (in memory only, never saved): what ``track``
     compares against to find zone changes, counters and taps, and the objects' last known
     information for anything that leaves the battlefield or the stack."""
 
-    __slots__ = ("zones", "snaps", "resources", "types", "designations")
+    __slots__ = ("zones", "snaps", "resources", "types", "designations", "stack_info")
 
     def __init__(self, state: GameState) -> None:
         self.zones = {cid: c.zone for cid, c in state.cards.items()}
@@ -1256,6 +1288,8 @@ class Capture:
             cid: snapshot(state, cid) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES
         }
         self.resources = {pid: dict(p.resources) for pid, p in state.players.items()}
+        # -- spell copies (wave 31D) -- the annotations of the spells on the stack (X, modes, kicker), reset when one leaves it
+        self.stack_info = {cid: c.stack_info.model_copy(deep=True) for cid, c in state.cards.items() if c.zone == "stack" and c.stack_info is not None}
         # -- counters & designations (wave 3E) -- the monarch (725), the initiative (726), day / night (731)
         self.designations = (state.table.monarch, state.table.initiative, state.table.day_night)
         # card id -> card types as they are now (layers applied) for the permanents the rules engine
@@ -1316,11 +1350,16 @@ def note_attack(state: GameState, player: str, attackers: list[str] | None = Non
                 log.attacked_who[a].append(t)
 
 
-def note_block(state: GameState, blockers: list[str]) -> None:
-    """509.1g: these objects were declared as blockers this turn ("creature that blocked this turn")."""
+def note_block(state: GameState, blockers: list[str], pairs: list[tuple[str, str]] | None = None) -> None:
+    """509.1g: these objects were declared as blockers this turn ("creature that blocked this turn"); ``pairs``: (wave 31D) which attacker
+    (object) each blocked ("creatures it blocked this turn", "creature that was blocked this turn")."""
     log = turn_log_now(state)
     if log is not None:
         log.blockers += [b for b in blockers if b not in log.blockers]
+        for blocker, attacker in pairs or ():
+            seen = log.blocks.setdefault(blocker, [])
+            if attacker not in seen:
+                seen.append(attacker)
 
 
 def wither_put_by(action: Any) -> dict[tuple[str, str], dict[str, int]] | None:
@@ -1366,6 +1405,8 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
     oldest = state.turn.number - LKI_TURNS
     for oid in [o for o, snap in rules.lki.items() if snap.turn < oldest]:
         del rules.lki[oid]
+    for oid in [o for o, mem in rules.stack_lki.items() if mem.turn < oldest]:
+        del rules.stack_lki[oid]
 
 
 def _entry_order(state: GameState, before: Capture) -> list[tuple[str, str]]:
@@ -1431,6 +1472,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         if old_name == new_name == "battlefield":
             continue  # a control change is not a zone change: same object (rule 400.7 doesn't apply)
         old_oid = rules.object_id(card_id)
+        if old_name == "stack":  # -- spell copies (wave 31D) -- a spell leaving with its entry still there (returned to hand, exiled …)
+            remember_stack(state, card_id, before.stack_info.get(card_id))
         snap = before.snaps.get(card_id)
         if snap is not None:
             rules.lki[old_oid] = snap.model_copy(update={"turn": state.turn.number})

@@ -436,8 +436,15 @@ def _cast_counts(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: Tur
 
     sel = selectors.from_key(cond["sel"])
     me_src = _source_object(plan, ctx) if cond.get("other") else None
+    # -- spell copies (wave 31D) -- "for each other instant and sorcery spell you've cast before it this turn" (Thousand-Year Storm): the
+    # spells cast before the one a cast trigger is about (601.2i, in the order they were cast), not those cast after it
+    from app.rules import context
+
+    stop = {r.object_id for r in context._object_refs(ctx, context.EVENT)} if cond.get("before") else set()
     per: dict[str, int] = {}
     for note in log.casts:
+        if note.object_id in stop:
+            break
         if cond.get("from") and note.cast_from != cond["from"]:
             continue
         if me_src is not None and me_src in (note.object_id, note.became):

@@ -325,6 +325,9 @@ class CopyCard(Base):
     zone: Literal["exile", "graveyard"] | None = None
     face: int | None = None
     printing: str | None = Field(default=None, max_length=64)  # the copied card's printing when the source is itself a copy (722.2b)
+    # -- spell copies (wave 31D) -- 707.10, 608.2h: a copy of a spell that has left the stack is made from how it last existed there (the object id
+    # it had): its name, printing and face are the snapshot's (public: it was a spell), whatever zone the card is in now
+    last_known: str | None = Field(default=None, max_length=80)
     x: Coord | None = None
     y: Coord | None = None
     r: NewIds | None = None

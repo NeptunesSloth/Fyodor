@@ -688,6 +688,9 @@ def ability_supported(ch: Characteristics, index: int) -> bool:
         return "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None
     if ch.is_instant_or_sorcery:
         whole = templates.spell_definition(ch)
+        own = templates.definitions(ch).get(index)
+        if own is not None and own.get("trigger") == "cast_self":  # -- spell copies (wave 31D) -- its own trigger (601.2i), apart from what the spell does
+            return whole is not None and definition_supported(own) and x_selector_ok(ch, own)
         return whole is not None and definition_supported(whole) and x_selector_ok(ch, whole)
     d = templates.definitions(ch).get(index)
     return d is not None and definition_supported(d) and x_selector_ok(ch, d)

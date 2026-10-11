@@ -418,7 +418,7 @@ def _sized(what: str, it: str | None) -> Value | None:
 _TURN_LIFE = re.compile(r"^(?:the )?(?:amount of )?life you(?:'ve| have)? (?P<k>gained|lost) this turn$")
 _TURN_SPELL = re.compile(r"^spell (?P<who>you|they)(?:'ve| have) cast this turn$")
 _TURN_CAST = re.compile(r"^(?:the number of )?(?P<other>other )?(?:(?P<sel>[a-z]+(?: (?:and|or) [a-z]+)?) )?spells?"
-                        r"(?: (?P<who>you|they)(?:'ve| have))? cast this turn(?P<first> other than the first)?$")
+                        r"(?: (?P<who>you|they)(?:'ve| have))? cast(?P<before> before it)? this turn(?P<first> other than the first)?$")
 _TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
 # -- this-turn history (wave 30R) -- also "creature you controlled that died", "creature put into your graveyard from the battlefield" (dies, 700.4,
 # into its owner's graveyard, 400.3) and "permanent that left the battlefield under your control" (to any zone): history.amount "died"
@@ -450,7 +450,7 @@ def _turn_amount(what: str) -> Value | None:
         key = conditions._history_sel(f"{kind} spell" if kind else "spell", "stack")
         if key is not None:  # (a kind the recorded notes can't answer — keywords, a creature type with a capital … — isn't read)
             found: Value = {"spells_cast": {"you": "you", "they": "event_player", None: "all"}[m["who"]], "sel": key,
-                            **({"other": True} if m["other"] else {})}
+                            **({"other": True} if m["other"] else {}), **({"before": True} if m["before"] else {})}
             return {"minus": [found, 1]} if m["first"] else found  # ("other than the first": one fewer, 601.2i)
     if re.fullmatch(r"cards? you(?:'ve)? discarded this turn", what):  # -- value grammar (wave 23C) -- a cycled card is discarded too (702.29a)
         return {"turn_history": "discarded"}

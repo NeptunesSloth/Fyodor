@@ -84,6 +84,7 @@ from app.game.rules_state import (
     CopyRecipe,
     DecisionOption,
     StackEntry,
+    StackMemory,
     TargetRef,
     copy_recipe_of,
     emit,
@@ -381,6 +382,17 @@ def new_job(ctx: Context | None, *, controller: str, objects: list[tuple[str, st
             "queue": [{"object": c, "oid": oid, "left": n} for c, oid, n in objects if n > 0]}
 
 
+def lki_spell(plan: Plan, card_id: str, oid: str) -> StackMemory | None:
+    """-- spell copies (wave 31D) -- a spell that was this object on the stack and has left it (countered, returned to a hand …), as it last
+    existed there (608.2h): copying it still makes a copy (707.10; the rulings of the Storm cycle, Krark, Thousand-Year Storm, Azula)."""
+    r = plan.rules
+    mem = r.stack_lki.get(oid)
+    card = plan.state.cards.get(card_id)
+    if mem is None or mem.card != card_id or card is None or oid not in r.lki or plan.oid(card) == oid:
+        return None
+    return mem
+
+
 def run(plan: Plan, job: Job) -> bool:
     """Put the job's copies on the stack, one after another (each on top, 707.10). True when
     they're all there (the caller goes on); False while a decision is pending — its resume goes on
@@ -388,10 +400,17 @@ def run(plan: Plan, job: Job) -> bool:
     while job["queue"]:
         cur = job["queue"][0]
         card = plan.state.cards.get(cur["object"])
+        mem = None
         if card is None or card.zone != "stack" or plan.oid(card) != cur["oid"]:
-            plan.note(f"{job['label']}: the spell or ability to copy is no longer on the stack", actor=job["controller"])
-            _next(job)
-            continue
+            # -- spell copies (wave 31D) -- it left the stack: a spell is copied as it last existed there; anything else (an ability that was
+            # countered, a spell we kept nothing of) is copied by hand — never silently not at all
+            mem = lki_spell(plan, cur["object"], cur["oid"]) if card is not None else None
+            snap = plan.rules.lki.get(cur["oid"])
+            if mem is None or card is None or (snap is not None and snap.face_down):
+                name = card.name if card is not None and card.name else "it"
+                _next(job)
+                _manual(plan, job, f"{job['label']}: {name} left the stack, so its copy isn't automated: make the copy by hand, then press Done")
+                return False
         refused = uncopyable(plan, card)
         if refused is not None:
             _next(job)
@@ -399,7 +418,7 @@ def run(plan: Plan, job: Job) -> bool:
                 _manual(plan, job, refused)
                 return False
             continue
-        entry = plan.rules.stack.get(card.id)
+        entry = mem.entry if mem is not None else plan.rules.stack.get(card.id)
         choosing = job["retarget"] and entry is not None and bool(positions(entry))
         if choosing and job["mode"] is None and cur["left"] > 1:
             name = entry.name if entry is not None and entry.name else card.name or "it"
@@ -408,7 +427,7 @@ def run(plan: Plan, job: Job) -> bool:
                                  DecisionOption(id="choose", label="Choose new targets for each copy")],
                         resume={"step": "copy_mode", "job": job})
             return False
-        copy_id = make_copy(plan, card, job["controller"], [CopyExcept.model_validate(x) for x in job["excepts"]])
+        copy_id = make_copy(plan, card, job["controller"], [CopyExcept.model_validate(x) for x in job["excepts"]], cur["oid"])
         same = job["mode"] == "same"
         cur["left"] -= 1
         if cur["left"] <= 0:
@@ -490,19 +509,32 @@ def uncopyable(plan: Plan, card: CardInstance) -> str | None:
     return None
 
 
-def make_copy(plan: Plan, card: CardInstance, controller: str, excepts: list[CopyExcept]) -> str | None:
-    """Put one copy of this spell or ability onto the stack under ``controller``'s control (707.10)."""
+def make_copy(plan: Plan, card: CardInstance, controller: str, excepts: list[CopyExcept], oid: str | None = None) -> str | None:
+    """Put one copy of this spell or ability onto the stack under ``controller``'s control (707.10). ``oid``: the object the spell was
+    (wave 31D: when it is no longer that object on the stack, the copy is made from how it last existed there, 608.2h)."""
     if card.ability is not None:
         return _copy_ability(plan, card, controller)
-    return _copy_spell(plan, card, controller, excepts)
+    return _copy_spell(plan, card, controller, excepts, oid)
 
 
-def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[CopyExcept]) -> str | None:
+def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[CopyExcept], oid: str | None = None) -> str | None:
+    from app.game.state import StackInfo
+
     r = plan.rules
-    orig_oid = plan.oid(card)
-    entry = r.stack.get(card.id)
-    recipe = with_excepts(recipe_of(plan, card), excepts)
-    created = plan.do({"type": "copy_card", "card_id": card.id, "player": controller, "count": 1}, actor=controller)
+    orig_oid = oid or plan.oid(card)
+    mem = lki_spell(plan, card.id, orig_oid) if orig_oid != plan.oid(card) else None  # it has left the stack: -- spell copies (wave 31D) --
+    entry = mem.entry if mem is not None else r.stack.get(card.id)
+    info = (StackInfo.model_validate(mem.info) if mem.info else None) if mem is not None else card.stack_info
+    if mem is not None:  # (its copiable values as it was: a copy effect on it then, else its printing and face — 707.2)
+        snap = r.lki[orig_oid]
+        base = snap.copy_recipe.model_copy(deep=True) if snap.copy_recipe is not None else CopyRecipe(printing=snap.printing, face=snap.face,
+                                                                                                      source=snap.name[:200])
+        record = r.payments.get(orig_oid)
+        recipe = with_excepts(base.model_copy(update={"prototyped": True}) if record is not None and record.prototyped else base, excepts)
+    else:
+        recipe = with_excepts(recipe_of(plan, card), excepts)
+    created = plan.do({"type": "copy_card", "card_id": card.id, "player": controller, "count": 1, **({"last_known": orig_oid} if mem else {})},
+                      actor=controller)
     new_ids = getattr(created, "r", None)
     if new_ids is None or not new_ids.ids:
         return None
@@ -512,7 +544,6 @@ def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[C
     if entry is not None:
         r.stack[copy_id] = _entry_copy(entry, controller=controller, source=(copy_id, oid), orig=orig_oid)
     _payment_alias(plan, orig_oid, oid, copy_id, controller)
-    info = card.stack_info
     payload: dict[str, Any] = {"type": "set_stack_info", "card_id": copy_id,
                                "tags": ["Copy", *(t for t in (info.tags if info else []) if t.startswith(("Kicked", "Evoked")))]}
     if info is not None and info.x is not None:
@@ -522,8 +553,8 @@ def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[C
     plan.do(payload, actor=controller)
     # 707.10: the copy has the original's alternative costs: an evoked or dashed permanent spell's
     # copy is too (702.74a, 702.109a)
-    for marks in (r.evoked, r.dashed):
-        if card.id in marks:
+    for marks, kept in ((r.evoked, mem is not None and mem.evoked), (r.dashed, mem is not None and mem.dashed)):
+        if card.id in marks or kept:
             marks.append(copy_id)
     emit(plan.state, "spell_copied", object_id=oid, card=copy_id, player=controller, source=orig_oid)
     return copy_id
@@ -711,6 +742,8 @@ def _retarget_follows(ctx: Context) -> bool:
     effect the grammar leaves there)."""
     effects = ctx.get("effects") or []
     k = int(ctx.get("next") or 0)
+    while k < len(effects) and effects[k].get("do") in ("only_if", "copy_spell", "copy_ability"):  # -- spell copies (wave 31D) -- "If …, copy that
+        k += 1  # spell twice instead. You may choose new targets for the copies": the sentence is about the copies of every branch (707.10c)
     return k < len(effects) and effects[k].get("do") == "copy_new_targets"
 
 
@@ -738,10 +771,37 @@ def copy_stack_object(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     n = values.evaluate(plan, ctx, e.get("n", 1))
     excepts = [CopyExcept.model_validate(x) for x in e.get("excepts") or []]
-    objects = [(sid, plan.oid(sid), n) for sid in _stack_objects(plan, ctx, e.get("who") or "target")]
+    who = e.get("who") or "target"
+    objects = [(sid, oid, n) for sid, oid in _copy_sources(plan, ctx, who)]
     job = new_job(ctx, controller=ctx["controller"], objects=objects, retarget=_retarget_follows(ctx),
                   label=ctx.get("name") or "Copy", excepts=excepts)
+    if not objects and who in ("event_spell", "event_ability") and _event_object_left(ctx, who):
+        # -- spell copies (wave 31D) -- the spell or ability a trigger is about has left the stack and nothing is kept of it: never silently
+        # no copy (707.10; the trigger copies it even if it was countered)
+        _manual(plan, job, f"{ctx.get('name') or 'Copy'}: the {'spell' if who == 'event_spell' else 'ability'} to copy left the stack, so its copy "
+                           "isn't automated: make the copy by hand, then press Done")
+        return False
     return run(plan, job)
+
+
+def _copy_sources(plan: Plan, ctx: Context, who: str) -> list[tuple[str, str]]:
+    """-- spell copies (wave 31D) -- (card, object id) of what a copy instruction copies: what is on the stack, else the spell a cast trigger
+    is about that left it, as it last existed there (``lki_spell``)."""
+    on = _stack_objects(plan, ctx, who)
+    if on or who != "event_spell":
+        return [(sid, plan.oid(sid)) for sid in on]
+    from app.rules import context
+
+    return [(r.card, r.object_id) for r in context._object_refs(ctx, context.EVENT) if r.zone == "stack" and lki_spell(plan, r.card, r.object_id)]
+
+
+def _event_object_left(ctx: Context, who: str) -> bool:
+    """Was there a spell (a cast trigger's event) or an ability (an activation trigger's) that is no longer there to copy?"""
+    if who == "event_ability":
+        return bool(((ctx.get("event") or {}).get("source") or {}).get("card"))
+    from app.rules import context
+
+    return any(r.zone == "stack" for r in context._object_refs(ctx, context.EVENT))
 
 
 # -- cast a copy (wave 13C) -- 707.12: "Copy it. You may cast the copy without paying its mana cost."
@@ -786,12 +846,16 @@ def copy_cards(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def copy_each(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import effects, targets
 
-    spell = next(iter(_stack_objects(plan, ctx, "event_spell")), None)
-    entry = plan.rules.stack.get(spell or "")
-    if spell is None or entry is None:
-        return True  # (the spell is gone: nothing to copy)
+    found = next(iter(_copy_sources(plan, ctx, "event_spell")), None)  # (wave 31D: a spell that left the stack is copied as it last was there)
     pid = ctx["controller"] if e["by"] == "you" else next(iter(effects._players(plan, ctx, "event_player")), ctx["controller"])
+    if found is None:
+        return _manual_each(plan, ctx, pid, None) if _event_object_left(ctx, "event_spell") else True  # (never silently no copy)
+    spell, oid = found
     card = plan.state.cards[spell]
+    mem = lki_spell(plan, spell, oid) if plan.oid(card) != oid else None
+    entry = mem.entry if mem is not None else plan.rules.stack.get(spell)
+    if entry is None:
+        return True
     pos = positions(entry)
     if not pos or uncopyable(plan, card) is not None:
         return True if not pos else _manual_each(plan, ctx, pid, card)
@@ -799,13 +863,13 @@ def copy_each(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     legal = [set(targets.legal_targets(plan, _spec(entry, p).get("what", "any"), pid, source, entry.source_card, None)) for p in pos]
     victims = [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if c != ctx.get("source_card") and plan.state.cards[c].controller == pid
                and plan.ch(plan.state.cards[c]).is_creature and all(c in ok for ok in legal)]
-    job = {"ctx": ctx, "spell": spell, "oid": plan.oid(card), "controller": pid, "victims": victims}
+    job = {"ctx": ctx, "spell": spell, "oid": oid, "controller": pid, "victims": victims}
     return _each_run(plan, job)
 
 
-def _manual_each(plan: Plan, ctx: Context, pid: str, card: CardInstance) -> bool:
+def _manual_each(plan: Plan, ctx: Context, pid: str, card: CardInstance | None) -> bool:
     _manual(plan, new_job(ctx, controller=pid, objects=[], retarget=False, label=ctx.get("name") or "Copy"),
-            f"Copying {plan.ch(card).name or 'that spell'} isn't automated: make the copies by hand, then press Done")
+            f"Copying {(plan.ch(card).name if card is not None else '') or 'that spell'} isn't automated: make the copies by hand, then press Done")
     return False
 
 
@@ -822,10 +886,11 @@ def _each_run(plan: Plan, job: dict[str, Any]) -> bool:
         victim = job.pop("next", None) or job["victims"][0]
         job["victims"].remove(victim)
         card = plan.state.cards.get(job["spell"])
-        entry = plan.rules.stack.get(job["spell"])
-        if card is None or entry is None or card.zone != "stack" or plan.oid(card) != job["oid"]:
+        mem = lki_spell(plan, job["spell"], job["oid"]) if card is not None else None  # (wave 31D: a spell that left the stack, as it last was there)
+        entry = mem.entry if mem is not None else plan.rules.stack.get(job["spell"])
+        if card is None or entry is None or (mem is None and (card.zone != "stack" or plan.oid(card) != job["oid"])):
             break
-        copy_id = make_copy(plan, card, pid, [])
+        copy_id = make_copy(plan, card, pid, [], job["oid"])
         if copy_id is None:
             continue
         pos = positions(entry)
@@ -848,15 +913,16 @@ def new_targets_marker(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def storm(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """702.40a: "copy it for each other spell that was cast before it this turn. If the spell has
     any targets, you may choose new targets for any of the copies." The spell must still be the
-    object it was when it was cast (UNVERIFIED: whether storm copies a spell that has left the
-    stack isn't in the CR; the engine doesn't)."""
+    object it was when it was cast, or — wave 31D — a spell that has left the stack (countered …)
+    is copied as it last existed there (608.2h; Grapeshot's and the Storm cycle's rulings: the copies are
+    created even if the spell was countered before the trigger resolves)."""
     sid = e["spell"]
     card = plan.state.cards.get(sid)
-    if card is None or card.zone != "stack" or plan.oid(sid) != e["object"] or plan.manual(card):
-        plan.note("Storm: the spell is gone (or handled by hand), so there is nothing to copy")
+    if card is not None and plan.manual(card):
+        plan.note("Storm: the spell is handled by hand, so there is nothing to copy")
         return True
     job = new_job(ctx, controller=ctx["controller"], objects=[(sid, e["object"], int(e["n"]))], retarget=True, label="Storm")
-    return run(plan, job)
+    return run(plan, job)  # (run copies it as it was, or asks for the copy by hand: never silently none)
 
 
 def resume_storm(plan: Plan, d: Any, chosen: list[str]) -> None:

@@ -252,6 +252,22 @@ def _blocked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "blocked_this_turn"))
 
 
+# -- combat history (wave 31D) -- 509.1g: which creature blocked which this turn (TurnLog.blocks, objects): "each creature that blocked or was
+# blocked this turn" (Heat Stroke), "all creatures it blocked this turn" (Defiant Vanguard: those the source blocked)
+@_suffix(r"that blocked or was blocked this turn")
+def _involved_in_blocks(s: Selector, m: re.Match[str]) -> Selector:
+    if not m.string[: m.start()].endswith(("creature", "creatures")):
+        raise ValueError("only \"creature(s) that blocked or was blocked this turn\"")
+    return replace(s, extras=(*s.extras, "block_involved_this_turn"))
+
+
+@_suffix(r"(?:it|this creature|~) blocked this turn")
+def _blocked_by_source_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    if not m.string[: m.start()].endswith(("creature", "creatures")):
+        raise ValueError("only \"creature(s) it blocked this turn\"")
+    return replace(s, extras=(*s.extras, "blocked_by_source_this_turn"))
+
+
 @_suffix(r"drawn this turn")  # -- drawn this turn (wave 18G) -- "cards in your hand drawn this turn" (Sylvan Library): TurnLog.drawn
 def _drawn_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "drawn_this_turn"))
@@ -305,6 +321,13 @@ def _that_player_controls(s: Selector, m: re.Match[str]) -> Selector:  # to it a
 @_suffix(r"(?P<b>blocking (?:it|this creature|~)|(?:it['’]s|this creature is|~ is) blocking)")  # "target creature blocking it" / "… it's blocking": the source's
 def _blocking_source(s: Selector, m: re.Match[str]) -> Selector:  # blocks (509.1; scripts._event_refs_ok: "it" is ~)
     return replace(s, extras=(*s.extras, "blocking_source" if m["b"].startswith("blocking") else "blocked_by_source"))
+
+
+# -- combat history (wave 31D) -- "each creature blocking or blocked by this creature" (Kjeldoran Frostbeast, Greater Werewolf), "all creatures
+# blocked by this creature" (Wall of Nets): the source's blocks as they stand (509.1; they still stand as the end of combat step begins)
+@_suffix(r"(?P<b>blocking or blocked by|blocked by) (?:this creature|~)")  # (named: "it" would need an antecedent, scripts._event_refs_ok)
+def _block_pair_source(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "block_pair_this" if m["b"].startswith("blocking") else "blocked_by_this"))
 
 
 @_suffix(r"that has an Adventure")  # -- trigger other (wave 25B) -- 715.1: the card is an adventurer card ("It doesn't need to have gone on the adventure first")
@@ -1611,6 +1634,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "blocked_this_turn" and not _blocked_this_turn_now(plan, card):  # -- combat state (wave 27A) --
             return False
+        if extra in ("block_involved_this_turn", "blocked_by_source_this_turn") and not _block_history(plan, card, extra, source):  # -- wave 31D --
+            return False
         if extra == "drawn_this_turn" and not drawn_now(plan, card):  # -- drawn this turn (wave 18G) --
             return False
         if extra in ("was_dealt_damage", "dealt_damage", "dealt_damage_you", "dealt_damage_by_source"):  # -- damage history (wave 6B) --
@@ -1618,11 +1643,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             if not damage_history.matches(plan, card, extra, you, source):
                 return False
-        if extra in ("blocking_source", "blocked_by_source"):  # -- damage wordings (wave 6B) -- the source's block now
+        if extra in ("blocking_source", "blocked_by_source", "block_pair_this", "blocked_by_this"):  # -- damage wordings (wave 6B) -- the source's block now
             src = plan.state.cards.get(source or "")
             if src is None or not src.zone.endswith(":battlefield") or not card.zone.endswith(":battlefield"):
                 return False
-            if (not card.blocks(src.id)) if extra == "blocking_source" else (not src.blocks(card.id)):
+            if (not card.blocks(src.id)) if extra == "blocking_source" else (not src.blocks(card.id)) if extra in ("blocked_by_source", "blocked_by_this") \
+                    else not (card.blocks(src.id) or src.blocks(card.id)):  # (wave 31D: "blocking or blocked by this creature")
                 return False
         if extra == "has_adventure":  # (wave 25B) the printing is an adventurer card, whichever half it is as it is cast
             data = plan.info.get(card.card_id) if card.card_id else None
@@ -1687,6 +1713,19 @@ def _blocked_this_turn_now(plan: Plan, card: CardInstance) -> bool:
     """-- combat state (wave 27A) -- the object (400.7) was declared as a blocker this turn (TurnLog.blockers)."""
     r = plan.state.rules
     return r is not None and r.turn_log.turn == plan.state.turn.number and r.object_id(card.id) in r.turn_log.blockers
+
+
+def _block_history(plan: Plan, card: CardInstance, extra: str, source: str | None) -> bool:
+    """-- combat history (wave 31D) -- this object (400.7) blocked or was blocked this turn / was blocked by the source (TurnLog.blocks, 509.1g)."""
+    r = plan.state.rules
+    if r is None or r.turn_log.turn != plan.state.turn.number:
+        return False
+    me = r.object_id(card.id)
+    log = r.turn_log
+    if extra == "block_involved_this_turn":
+        return me in log.blockers or any(me in attackers for attackers in log.blocks.values())
+    # (by the source as it blocked: the card is what the delayed trigger remembers — it may be dead by then, "destroy it and all creatures it blocked")
+    return any(blocker.rsplit(".", 1)[0] == source and me in attackers for blocker, attackers in log.blocks.items())
 
 
 def _ability_kind(plan: Plan, card: CardInstance, kind: str) -> bool:

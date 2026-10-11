@@ -20,7 +20,7 @@ from __future__ import annotations
 import itertools
 from typing import Any
 
-from app.game.rules_state import DecisionOption, ObjectRef, StackEntry
+from app.game.rules_state import DecisionOption, ObjectRef, StackEntry, remember_stack
 from app.game.state import ALL, STACK, zone_key
 from app.rules import (
     block_effects,  # -- block effects (wave 30P) -- the object arguments of a block rule (a leaf module)
@@ -214,6 +214,8 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "event":  # "it" / "that creature": the object(s) the trigger event happened to — only while
         # each is still that object where it was (400.7: after a zone change it's a new object)
         return context.objects(plan, ctx, context.EVENT)
+    if who == "event_spell":  # -- spell copies (wave 31D) -- the spell a cast trigger is about, while it is still that object on the stack (400.7)
+        return [c for c in context.objects(plan, ctx, context.EVENT) if plan.state.cards[c].zone == "stack"]
     if who == context.EVENT_NEW:  # after "dies" / "leaves": the new object where it went — only while
         # it's still there (400.7e, 603.6c)
         return context.objects(plan, ctx, context.EVENT_NEW)
@@ -1504,6 +1506,7 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         plan.note(f"{card.name} can't be countered", [stack_id])
         return
     r = plan.rules
+    remember_stack(plan.state, stack_id)  # -- spell copies (wave 31D) -- a copy of it can still be made (608.2h, 707.10)
     r.stack.pop(stack_id, None)
     oid = plan.oid(stack_id)
     r.buyback = [o for o in r.buyback if o != oid]
@@ -3079,6 +3082,38 @@ def _did_tap(fn: Any) -> Any:
 PRIMITIVES["tap"] = _did_tap(PRIMITIVES["tap"])
 
 
+def _did_look(fn: Any) -> Any:
+    """-- if you do (wave 31A) -- "You may reveal the top card of your library. If you do, each opponent loses life equal to that card's mana value." (Baneful
+    Omen), "You may look at the top card of target opponent's library. If you do, …" (Precognition): 118.12 — the player chose to; a library with no card in it
+    has none to reveal or look at (701.20a), so that can't be chosen. Probed before the first run only."""
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        if name and name not in context.refs(ctx):
+            context.bind_payment(ctx, name, all(_library(plan, p) for p in _library_owner(plan, ctx, e)))
+        return bool(fn(plan, ctx, e))
+    return run
+
+
+PRIMITIVES["look_top"] = _did_look(PRIMITIVES["look_top"])
+
+
+def _did_search(fn: Any) -> Any:
+    """-- if you do (wave 31A) -- 118.12b: "Search your library for a Dragon permanent card and put it into your graveyard. If you do, …" (Scion of the Ur-Dragon)
+    checks whether the player chose to search, not whether they found or took anything: true unless a prohibition stops the search (614.17: "Players can't
+    search libraries"). Probed before the first run only."""
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        if name and name not in context.refs(ctx):
+            from app.rules import prohibitions
+
+            context.bind_payment(ctx, name, prohibitions.cant_search(plan, ctx["controller"], ctx["controller"]) is None)
+        return bool(fn(plan, ctx, e))
+    return run
+
+
+PRIMITIVES["search"] = _did_search(PRIMITIVES["search"])
+
+
 # -- refused modal/conditional (wave 3R1) -- "Sacrifice this enchantment. If you do, …", "Remove a +1/+1 counter
 # from it. If you do, …", "Discard a card. If you do, …": "If you do" after an instruction that isn't optional asks
 # whether it was started (118.12; a permanent that is already gone can't be sacrificed, 701.21a; a counter
@@ -3323,6 +3358,8 @@ def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
 
     stack_id = ctx["stack_id"]
     stack = plan.state.zones.get("stack", [])
+    if countered:  # -- spell copies (wave 31D) -- a spell with no legal target leaves the stack: a copy of it can still be made (608.2h)
+        remember_stack(plan.state, stack_id)
     plan.rules.stack.pop(stack_id, None)
     plan.rules.answers_903_9b = {}  # (answers for moves that didn't happen after all)
     if stack_id in stack:

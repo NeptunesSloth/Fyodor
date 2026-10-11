@@ -3735,6 +3735,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if definition is not None and definition["kind"] != "activated":
         definition = None
     definition = per_opponent.for_cast(plan, card.id, definition)  # -- per-opponent targets (wave 23A) --
+    if definition is not None and (a.x_value or 0) < definition.get("x_min", 0):  # -- spell copies (wave 31D) -- 107.1b: "X can't be 0"
+        raise ActionError(f"{ch.name}: X can't be {a.x_value or 0}")
     if exclude_targets and set(a.targets) & set(exclude_targets):
         raise ActionError(f"{ch.name} can't target itself")
     modal: modal_abilities.Announced | None = None
