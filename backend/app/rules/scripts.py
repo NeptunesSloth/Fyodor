@@ -5003,6 +5003,13 @@ def graveyard_only_ability(d: Definition | None) -> bool:
     return d is not None and d.get("kind") == "triggered" and graveyard_ability(d) and graveyard_trigger_ok(d)
 
 
+def own_card_event_ability(d: Definition | None) -> bool:
+    """-- trigger other (wave 36A) -- 702.29d, 701.9a: "When you cycle this card, …" / "When you discard this card, …" is a trigger of the card itself as it
+    goes from the hand to the graveyard, not part of what the spell does as it resolves (Slice and Dice, Resounding Thunder, Edgar's Awakening)."""
+    cond = (d or {}).get("cond") or {}
+    return d is not None and d.get("kind") == "triggered" and d.get("trigger") == "event" and cond.get("subject") == "self" and cond.get("event") in ("cycle", "discard")
+
+
 def spell_definition(ch: Characteristics) -> Definition | None:
     """A whole instant/sorcery as one definition, if every line is automated (else None)."""
     if not ch.is_instant_or_sorcery:
@@ -5016,6 +5023,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
     lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab) and not graveyard_only_ability(defs.get(ab.index))
+             and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
              and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional")  # (own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")

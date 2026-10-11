@@ -511,3 +511,159 @@ def test_rakdos_the_muscle_ignores_its_own_sacrifice(cards):
     settle(s)
     assert zone(s, "Rakdos, the Muscle") == "p1:graveyard" and len(s.state.zones["p2:library"]) == library
     check(s)
+
+
+# -- instants and sorceries with a cycling / discard trigger of their own: Slice and Dice, Edgar's Awakening, Decree of Justice, Resounding Wave ---------
+# 702.29d, 701.9a: "When you cycle this card, …" / "When you discard this card, …" is not part of what the spell does as it resolves.
+SPELLS = ["Slice and Dice", "Edgar's Awakening", "Decree of Justice", "Resounding Wave", "Deem Worthy", "Resounding Thunder", "Solar Blast", "Choking Tethers",
+          "Complicate", "Death Pulse", "Decree of Pain", "Decree of Savagery", "Dirge of Dread", "Dismantling Wave", "Primal Boost", "Renewed Faith",
+          "Resounding Roar", "Resounding Scream", "Resounding Silence", "Stir the Sands", "Sunfire Balm"]
+
+
+@pytest.mark.parametrize("name", SPELLS)
+def test_the_spells_with_a_cycling_or_discard_trigger_are_full(name):
+    from tests.test_rules_scripts import ch as characteristics
+
+    c = next(c for c in DATA if c["name"] == name)
+    chs = characteristics(c["name"], c["type_line"], c["oracle_text"])
+    assert coverage.of_characteristics(chs).level == "FULL", (name, coverage.of_characteristics(chs).manual_parts)
+
+
+def test_a_cycling_trigger_that_is_not_read_keeps_the_whole_spell_manual():
+    """(Decree of Annihilation: "exile all cards from all graveyards", cycling the card: not a line the engine reads.)"""
+    from tests.test_rules_scripts import ch as characteristics
+
+    text = "Draw a card.\nCycling {1}{U}\nWhen you cycle this card, you may foretell the moon and the stars."
+    assert coverage.of_characteristics(characteristics("Probe", "Instant", text)).level != "FULL"
+
+
+def answer(s, option):
+    """Pass priority until a choice comes up, then give ``option`` ("yes" / "no")."""
+    offered(s)
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=[option])
+
+
+def dice_table(cards):
+    s = build(cards, ["Slice and Dice", "Grizzly Bears"], theirs=["Llanowar Elves"], forests=20)
+    put(s, "Grizzly Bears")
+    put(s, "Llanowar Elves", "p2")
+    return s, to_hand(s, "Slice and Dice")
+
+
+def test_cast_slice_and_dice_deals_four_damage_to_each_creature(cards):
+    s, dice = dice_table(cards)
+    mana(s, R=2, G=4)
+    cast(s, "Slice and Dice")
+    assert zone(s, "Llanowar Elves", "p2") == "p2:graveyard" and zone(s, "Grizzly Bears") == "p1:graveyard" and zone(s, "Slice and Dice") == "p1:graveyard"
+    check(s)
+
+
+def test_cycling_slice_and_dice_may_deal_one_damage_to_each_creature(cards):
+    s, dice = dice_table(cards)
+    mana(s, R=2, G=4)
+    act(s, "p1", type="activate_ability", card_id=dice.id, ability=1)
+    answer(s, "yes")
+    settle(s)
+    assert zone(s, "Llanowar Elves", "p2") == "p2:graveyard" and zone(s, "Grizzly Bears") == "p1:battlefield"  # (1 damage: the Elves die, the Bears live)
+    assert zone(s, "Slice and Dice") == "p1:graveyard"
+    check(s)
+
+
+def test_cycling_slice_and_dice_and_declining_deals_no_damage(cards):
+    s, dice = dice_table(cards)
+    mana(s, R=2, G=4)
+    act(s, "p1", type="activate_ability", card_id=dice.id, ability=1)
+    answer(s, "no")
+    settle(s)
+    assert zone(s, "Llanowar Elves", "p2") == "p2:battlefield" and zone(s, "Slice and Dice") == "p1:graveyard"
+    check(s)
+
+
+def edgar_table(cards):
+    s = build(cards, ["Edgar's Awakening", "Faithless Looting", "Grizzly Bears"], forests=20)
+    die(s, "Grizzly Bears")
+    to_hand(s, "Edgar's Awakening")
+    to_hand(s, "Faithless Looting")
+    mana(s, R=1, B=1)  # (the {B} to pay for the trigger is already in the pool: with none, the payment is skipped)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Faithless Looting").id)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label.startswith("Edgar")), next(o.id for o in d.options if o.label == "Forest")])
+    return s
+
+
+def test_edgars_awakening_discarded_and_paid_returns_a_creature_card_to_hand(cards):
+    s = edgar_table(cards)
+    answer(s, "pay")
+    settle(s)
+    assert zone(s, "Grizzly Bears") == "p1:hand" and zone(s, "Edgar's Awakening") == "p1:graveyard"
+    check(s)
+
+
+def test_edgars_awakening_discarded_and_not_paid_returns_nothing(cards):
+    s = edgar_table(cards)
+    answer(s, "decline")
+    settle(s)
+    assert zone(s, "Grizzly Bears") == "p1:graveyard"
+    check(s)
+
+
+def test_edgars_awakening_cast_returns_the_creature_card_to_the_battlefield_and_asks_for_no_payment(cards):
+    """The discard trigger is "when you discard this card": casting it only does what the spell does."""
+    s = build(cards, ["Edgar's Awakening", "Grizzly Bears"], forests=20)
+    die(s, "Grizzly Bears")
+    to_hand(s, "Edgar's Awakening")
+    mana(s, B=2, G=3)
+    cast(s, "Edgar's Awakening")
+    assert s.state.rules.decision is None
+    assert zone(s, "Grizzly Bears") == "p1:battlefield" and zone(s, "Edgar's Awakening") == "p1:graveyard"
+    check(s)
+
+
+def test_cycling_resounding_wave_returns_two_target_permanents(cards):
+    s = build(cards, ["Resounding Wave", "Grizzly Bears"], theirs=["Llanowar Elves"], forests=20)
+    put(s, "Grizzly Bears")
+    put(s, "Llanowar Elves", "p2")
+    wave = to_hand(s, "Resounding Wave")
+    mana(s, W=1, U=1, B=1, G=5)
+    act(s, "p1", type="activate_ability", card_id=wave.id, ability=1)
+    assert offered(s) == ["Grizzly Bears", "Llanowar Elves"]  # (two target permanents: any permanents, 115.1)
+    pick(s, "Grizzly Bears", "Llanowar Elves")
+    settle(s)
+    assert zone(s, "Grizzly Bears") == "p1:hand" and zone(s, "Llanowar Elves", "p2") == "p2:hand"
+    check(s)
+
+
+def tokens(s, name):
+    return [c for c in s.state.cards.values() if c.name == name and c.zone == "p1:battlefield"]
+
+
+def test_cast_decree_of_justice_makes_x_angels(cards):
+    s = build(cards, ["Decree of Justice"], forests=20)
+    decree = to_hand(s, "Decree of Justice")
+    mana(s, W=2, G=4)
+    act(s, "p1", type="cast_spell", card_id=decree.id, x_value=1)
+    settle(s)
+    assert len(tokens(s, "Angel")) == 1 and tokens(s, "Soldier") == []  # ({X}{X}{2}{W}{W}: the cycling trigger isn't part of the spell)
+    check(s)
+
+
+def test_cycling_decree_of_justice_and_paying_x_makes_x_soldiers(cards):
+    s = build(cards, ["Decree of Justice"], forests=20)
+    decree = to_hand(s, "Decree of Justice")
+    mana(s, W=1, G=4)
+    act(s, "p1", type="activate_ability", card_id=decree.id, ability=1)
+    answer(s, "x:2")
+    settle(s)
+    assert len(tokens(s, "Soldier")) == 2 and tokens(s, "Angel") == []
+    check(s)
+
+
+def test_cycling_decree_of_justice_and_declining_makes_no_soldiers(cards):
+    s = build(cards, ["Decree of Justice"], forests=20)
+    decree = to_hand(s, "Decree of Justice")
+    mana(s, W=1, G=4)
+    act(s, "p1", type="activate_ability", card_id=decree.id, ability=1)
+    answer(s, "decline")
+    settle(s)
+    assert tokens(s, "Soldier") == []
+    check(s)
