@@ -44,6 +44,7 @@ _DISCARD_SELF = re.compile(r"^Discard (?:this card|~)$")  # -- ability words (wa
 _REVEAL_SELF = re.compile(r"^Reveal (?:this (?:card|creature)|~) from your hand$")  # -- forecast (wave 24C) -- 702.57a (113.6m: from the hand)
 REVEAL_SELF = "REVEAL_SELF"
 _EXILE_SELF_GY = re.compile(rf"^Exile {_SELF} from your graveyard$")
+_EXILE_SELF_HAND = re.compile(r"^Exile (?:this card|~) from your hand$")  # -- as long as (wave 37A) -- "{2}, Exile this card from your hand: …" (113.6m: works only from the hand)
 _EXILE_SELF = re.compile(rf"^Exile {_SELF}$")
 _EXILE_GY = re.compile(rf"^Exile {_N} (?P<what>(?:[\w\-]+ )*cards? from your graveyard)$")
 _RETURN_SELF = re.compile(rf"^Return {_SELF} to its owner's hand$")
@@ -182,7 +183,8 @@ class AbilityCost:
     def from_hand(self) -> bool:
         """-- ability words (wave 4F) -- 113.6m: "Discard this card" (channel: "{1}{R}, Discard this card: …") moves
         the card out of its owner's hand, so the ability works only there."""
-        return self.hand_only or any((c.kind == DISCARD and c.selector is None) or c.kind == REVEAL_SELF for c in self.components)
+        return self.hand_only or any((c.kind in (DISCARD, "EXILE_FROM_HAND") and c.selector is None) or c.kind == REVEAL_SELF  # (EXILE_FROM_HAND: wave 37A)
+                                     for c in self.components)
 
     @property
     def from_graveyard(self) -> bool:
@@ -255,6 +257,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(REMOVE_COUNTER, amount=_n(m["n"]), counter=m["kind"], text=part)
     if _EXILE_SELF_GY.match(part):
         return CostComponent(EXILE_FROM_GRAVEYARD, text=part)
+    if _EXILE_SELF_HAND.match(part):  # -- as long as (wave 37A) -- the source itself, exiled from the hand as the cost is paid (cost_payment: no selector = the source)
+        return CostComponent("EXILE_FROM_HAND", text=part)
     if _DISCARD_SELF.match(part):  # -- ability words (wave 4F) -- "Discard this card" (701.9a; 113.6m: from the hand)
         return CostComponent(DISCARD, text=part)
     if _REVEAL_SELF.match(part):  # -- forecast (wave 24C) -- revealed to everyone (701.20a), the card stays in the hand

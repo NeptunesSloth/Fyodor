@@ -3919,6 +3919,13 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if cost is None or cost.either or len(exiling) != 1 or exiling[0].kind not in (EXILE_FROM_GRAVEYARD, "EXILE_FROM_HAND") \
                 or exiling[0].selector is None or exiling[0].amount != 1:
             return None
+    if d is not None and ('"duration": "until_cast"' in json.dumps(d, default=str) or any(
+            e.get("do") == "grant_play" and e.get("who") == "cost_exiled_self" for e in d.get("effects") or [])):
+        # -- as long as (wave 37A) -- 400.7j: "this card" there is the one the ability's own cost exiled from the hand ("{2}, Exile this card from your hand: …")
+        cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
+        if cost is None or [c.kind for c in cost.components].count("EXILE_FROM_HAND") != 1 or not any(
+                c.kind == "EXILE_FROM_HAND" and c.selector is None for c in cost.components):
+            return None
     if d is not None and "cost:sacrificed" in json.dumps(d, default=str):
         cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
         if cost is None and d.get("kind") == "spell":  # -- costs (wave 3$) -- a spell's additional cost ("sacrifice a creature")
@@ -5961,6 +5968,10 @@ def _with_duration(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
             return granted
     clause, duration = _delayed.duration_clause(m)
     inner = _clause(clause)
+    if inner is None and (pieces := _delayed.duration_pieces(m)) is not None:  # -- as long as (wave 37A) -- a list of effects under one duration (611.2b)
+        found = [_clause(piece) for piece in pieces]
+        if all(f is not None for f in found) and all(f[1] is None for f in found[1:]):  # type: ignore[index]
+            inner = ([e for f in found for e in f[0]], found[0][1])  # type: ignore[index]
     if inner is None:
         raise _NoMatch
     wrapped = _delayed.wrap_duration(inner[0], duration)

@@ -88,6 +88,7 @@ DURATIONS: dict[str, str] = {
     "for as long as ~ remains on the battlefield": "source_on_battlefield",
     "for as long as you control ~": "source_controlled",
     "for as long as ~ remains tapped": "source_tapped",
+    "until this card is cast from exile": "until_cast",  # -- as long as (wave 37A) -- 611.2a: ends as that card (the object its cost exiled) is cast
     # -- untap choice (wave 7F) -- Rubinia Soulsinger: both must stay true (611.2b: it ends the moment either stops)
     "for as long as you control ~ and ~ remains tapped": "source_controlled_tapped",
 }
@@ -98,6 +99,7 @@ COUNTER_DURATION = r"for as long as (?:that \w+|it|~) has an? (?P<kind>[\w+/-]+)
 DURATION_RE = "|".join([*(re.escape(k) for k in sorted(DURATIONS, key=len, reverse=True)), COUNTER_DURATION])
 LABELS = {"next_turn": "until your next turn", "end_of_next_turn": "until the end of your next turn", "source_on_battlefield": "for as long as ~ remains on the battlefield",
           "source_controlled": "for as long as you control ~", "source_tapped": "for as long as ~ remains tapped",
+          "until_cast": "until this card is cast from exile",
           "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
           "while_counter": "for as long as it has a counter on it"}
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
@@ -412,12 +414,22 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not PRIMITIVES[x["do"]](plan, ctx, x):
             raise AssertionError("a duration wraps only effects that never pause")  # (the grammar only wraps pumps and grants)
     label = LABELS[duration].replace("~", ctx.get("name") or "it")
+    until_object = None
+    if duration == "until_cast":  # -- as long as (wave 37A) -- 611.2a, 400.7j: the object the cost exiled; one that already left exile can never be cast from
+        # there as that object, so the effect lasts (the ruling for Rakish Revelers)
+        from app.rules import effects as _effects
+
+        found = _effects._cards(plan, ctx, "cost_exiled_self")
+        until_object = plan.oid(found[0]) if found else None
+        if until_object is None:
+            duration = "permanent"
     if counter:
         label = f"for as long as it has a {counter} counter on it"
     written = _relabel(plan, before, label)
     for effect in r.effects:
         if effect.timestamp > mark:
             effect.duration = duration
+            effect.until_object = until_object
             effect.until_player = ctx["controller"]
             effect.turn = plan.state.turn.number
             if counter:
@@ -433,6 +445,14 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if counter:
         expire(plan)  # 611.2b: a counter the objects don't have as the effect begins — it does nothing
     return True
+
+
+def spell_cast(plan: Plan, from_object: str | None) -> None:
+    """-- as long as (wave 37A) -- 611.2a: "until this card is cast from exile" ends as that card is cast (601.2i): the effects naming the object it was
+    in exile (``from_object``, before it became the spell). A mana ability they gave was usable while it was paid for (601.2g)."""
+    ended = [e for e in plan.rules.effects if e.duration == "until_cast" and from_object is not None and e.until_object == from_object]
+    if ended:
+        _end(plan, ended)
 
 
 def _relabel(plan: Plan, before: dict[str, set[str]], label: str) -> dict[str, list[str]]:
@@ -576,6 +596,24 @@ def duration_clause(m: re.Match[str]) -> tuple[str, str]:
     if _RESTRICT.fullmatch(clause):
         return clause + " this turn", duration
     return clause + " until end of turn", duration
+
+
+# -- as long as (wave 37A) -- 611.2b: one duration over a list of effects of one sentence: "For as long as ~ remains on the battlefield, gain
+# control of that permanent, it loses all abilities, and it can't attack or block." (Opportunistic Dragon), "… another target permanent loses all
+# abilities and can't attack or block" (Immovable Rod): when the whole clause isn't one the grammar reads, each piece is read as a clause of its own
+# (a piece with no subject is about "it", the object the first names) and they all last as long as the duration. No quote is split.
+_PIECE_SEP = re.compile(r",? and |, ")
+_PREDICATE = re.compile(r"^(?:can't|loses|gains|gets|has|doesn't) ")
+
+
+def duration_pieces(m: re.Match[str]) -> list[str] | None:
+    """The clauses a compound "for as long as …" clause is made of, each as the ordinary grammar reads it (``duration_clause``), or None."""
+    raw = m["clause"].strip()
+    parts = [p.strip() for p in _PIECE_SEP.split(raw) if p.strip()]
+    if '"' in raw or not 2 <= len(parts) <= 4:
+        return None
+    return [(f"it {p}" if i and _PREDICATE.match(p) else p) + (" this turn" if _RESTRICT.fullmatch(f"it {p}" if i and _PREDICATE.match(p) else p)
+                                                                else " until end of turn") for i, p in enumerate(parts)]
 
 
 def wrap_duration(effects: list[dict[str, Any]], duration: str) -> list[dict[str, Any]] | None:

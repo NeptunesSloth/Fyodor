@@ -550,6 +550,7 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             if ids:  # (wave 25D: "exile X cards from your graveyard" with X = 0)
                 plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})
             record.exiled += ids
+            record.exiled_objects += [plan.oid(c) for c in ids]  # (-- as long as (wave 37A) -- 400.7j: the new objects)
         elif comp.kind == C.RETURN_PERMANENT:
             ids = ids if comp.selector is not None else [card.id]
             for rid in ids:  # (wave 15E) ninjutsu 702.49c: what the creature attacked, before it leaves combat

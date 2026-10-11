@@ -750,7 +750,7 @@ _RIDER = (r"(?:, and (?:mana of any type can be spent to cast (?P<t>that spell|i
           r"it were mana of any (?P<k>color|type) to cast (?P<t2>that spell|it|them|those spells)))")
 GRANT_EXILED = re.compile(
     r"^(?:for as long as (?P<d1>it|they|that card|those cards) remains? exiled, )?(?P<who>you|its owner|their owners) may (?P<verb>play|cast) "
-    r"(?P<what>that card|those cards|it|them)(?P<free> without paying (?:its|their) mana costs?)?"
+    r"(?P<what>that card|those cards|it|them|this card)(?P<free> without paying (?:its|their) mana costs?)?"  # (this card: wave 37A)
     # (-- durations (wave 30M) -- 611.2b: "You may play that card for as long as you control Lightning" (d3): while its source is controlled)
     r"(?: for as long as (?:(?P<d2>it|they|that card|those cards) remains? exiled|(?P<d3>you control ~|~ remains on the battlefield)))?" + _RIDER + r"?$")
 
@@ -772,8 +772,12 @@ def _grant_exiled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     if owner and (m["verb"] == "play" or spend or bool(m["d2"]) or m["d3"] or plural != (m["who"] == "their owners")):
         return None  # (read for casting only, the duration first, one rider-less permission)
     until = "permanent" if not m["d3"] else "source_controlled" if m["d3"].startswith("you control") else "source_on_battlefield"
-    return [{"do": "grant_play", "who": "them:card" if plural else "it:card", "play": m["verb"] == "play", "cast": True,
-             "until": until, "optional": not owner, **({"free": True} if m["free"] else {}),
+    if m["what"] == "this card" and (owner or spend or m["free"] or not m["d2"] or m["verb"] != "cast"):
+        return None  # (wave 37A: only "You may cast this card for as long as it remains exiled.")
+    # -- as long as (wave 37A) -- "{2}, Exile this card from your hand: … You may cast this card for as long as it remains exiled." (400.7j: the
+    # card the cost exiled; scripts.define reads it only after that cost)
+    return [{"do": "grant_play", "who": "cost_exiled_self" if m["what"] == "this card" else "them:card" if plural else "it:card",
+             "play": m["verb"] == "play", "cast": True, "until": until, "optional": not owner, **({"free": True} if m["free"] else {}),
              **({"spend": spend} if spend else {}), **({"owner": True} if owner else {})}], None
 
 
@@ -1412,9 +1416,12 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         return True
     verb = "play" if e["play"] else "cast"
     if e.get("who"):
-        if not str(e["who"]).startswith(context.PREFIX) and e["who"] != "target":
+        if not str(e["who"]).startswith(context.PREFIX) and e["who"] not in ("target", "cost_exiled_self"):
             return True  # (an unbound pronoun never reaches here: resolve_it refuses the ability)
-        for cid in context.objects(plan, ctx, e["who"][len(context.PREFIX):]) if e["who"] != "target" else _target_cards(plan, ctx):
+        from app.rules import effects as _effects  # -- as long as (wave 37A) -- "You may cast this card for as long as it remains exiled": the card its cost exiled
+
+        for cid in _effects._cards(plan, ctx, "cost_exiled_self") if e["who"] == "cost_exiled_self" else \
+                context.objects(plan, ctx, e["who"][len(context.PREFIX):]) if e["who"] != "target" else _target_cards(plan, ctx):
             card = plan.state.cards[cid]
             if (e["until"] == "permanent" or e["until"] in SOURCE_UNTIL) and not card.zone.endswith(":exile"):
                 continue  # (-- Marvel keywords (wave 25A) -- "for as long as it remains exiled": a spell that wasn't countered, a card replaced elsewhere: no permission)

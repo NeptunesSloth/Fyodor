@@ -94,6 +94,7 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
 _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
+              "you and/or one or more planeswalkers you control": "you_or_pw",  # (-- as long as (wave 37A) -- 508.3e: Cunning Rhetoric; once per player attacked)
               "one of your opponents": "opponent", "one or more of your opponents": "opponent_any",
               "another one of your opponents": "other_opponent", "enchanted player": "enchanted_player",
               "the player with the most life or tied for most life": "most_life"}  # (wave 15E: dethrone, 702.105a)
