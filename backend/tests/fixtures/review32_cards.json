@@ -542,5 +542,20 @@
   ],
   "power": "2",
   "toughness": "1"
+ },
+ {
+  "name": "Supplant Form",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Instant",
+  "oracle_text": "Return target creature to its owner's hand. You create a token that's a copy of that creature.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
  }
 ]

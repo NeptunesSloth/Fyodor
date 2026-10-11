@@ -144,6 +144,23 @@ def test_kaya_copies_an_exiled_token_as_its_creating_effect_made_it(cards):
     check(s)
 
 
+@pytest.mark.parametrize("copied", ["Grizzly Bears", "Clone"])
+def test_supplant_form_makes_a_copy_of_the_creature_it_returned_to_a_hand(cards, copied):
+    """"Return target creature to its owner's hand. You create a token that's a copy of that creature.": the creature is in a hidden zone
+    now, so only its last known information is left (608.2h) — the copy was silently skipped. A Clone that was a Serra Angel gives a Serra
+    Angel."""
+    s = build(cards, ["Supplant Form", "Clone", "Serra Angel"], ["Grizzly Bears"])
+    target = put(s, "Grizzly Bears", "p2") if copied == "Grizzly Bears" else clone_of_angel(s)
+    supplant = to_hand(s, "Supplant Form")
+    mana(s, U=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=supplant.id, targets=[target.id])
+    settle(s)
+    [token] = [c for c in s.state.cards.values() if c.is_token and c.controller == "p1" and c.zone.endswith(":battlefield")]
+    assert s.state.cards[target.id].zone.endswith(":hand")
+    assert chars(s, token.id).name == ("Grizzly Bears" if copied == "Grizzly Bears" else "Serra Angel")
+    check(s)
+
+
 def test_identity_thief_becomes_what_the_exiled_creature_was_copying(cards):
     s = build(cards, ["Identity Thief", "Clone", "Serra Angel"])
     clone = clone_of_angel(s)
