@@ -684,6 +684,8 @@ def _retarget_follows(ctx: Context) -> bool:
     effect the grammar leaves there)."""
     effects = ctx.get("effects") or []
     k = int(ctx.get("next") or 0)
+    while k < len(effects) and effects[k].get("do") in ("only_if", "copy_spell", "copy_ability"):  # -- spell copies (wave 31D) -- "If …, copy that
+        k += 1  # spell twice instead. You may choose new targets for the copies": the sentence is about the copies of every branch (707.10c)
     return k < len(effects) and effects[k].get("do") == "copy_new_targets"
 
 

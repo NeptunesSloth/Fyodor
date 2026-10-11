@@ -953,6 +953,13 @@ def _targets_ok(plan: Plan, want: str, watcher: CardInstance, targets: list[tupl
 
     if want == "self_only":  # -- copied abilities (wave 18F) -- "that targets only ~": every target, and at least one, is the watcher (115.9b)
         return bool(targets) and all(c == watcher.id and (o is None or plan.oid(watcher) == o) for c, o in targets)
+    if want.startswith("only_one:"):  # -- spell copies (wave 31D) -- 115.9c: exactly one different object or player chosen, and 115.9b: it matches now
+        if len({c for c, _ in targets}) != 1:
+            return False
+        card_id, oid = targets[0]
+        card = plan.state.cards.get(card_id)
+        return card is not None and (oid is None or plan.oid(card) == oid) and selectors.matches(
+            plan, selectors.from_key(want[len("only_one:"):]), card, plan.ch(card), watcher.controller, watcher.id)
     for card_id, oid in targets:
         card = plan.state.cards.get(card_id)
         if card is None or (oid is not None and plan.oid(card) != oid):
@@ -1521,7 +1528,7 @@ def _step_event(plan: Plan, card: CardInstance, d: dict[str, Any]) -> TriggerEve
 def _whose_step(plan: Plan, card: CardInstance, whose: str, ap: str) -> bool:
     if whose == "you":
         return card.controller == ap
-    if whose == "each":
+    if whose in ("each", "any"):  # (wave 31D: "any": "At end of combat", every turn's, no player is named)
         return True
     if whose == "opponent":
         return card.controller != ap

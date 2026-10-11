@@ -515,6 +515,7 @@ class TurnLog(BaseModel):
     facts: list[TurnFact] = Field(default_factory=list)  # tokens created, discards, sacrifices, damage to players …
     attackers: dict[str, list[str]] = Field(default_factory=dict)  # player -> creatures (objects) declared as attackers
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
+    blocks: dict[str, list[str]] = Field(default_factory=dict)  # -- combat history (wave 31D) -- blocker (object) -> the attackers (objects) it blocked this turn
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
     # "<source object>:<ability index>" -> how many times that ability resolved this turn (copies included)
     resolved: dict[str, int] = Field(default_factory=dict)
@@ -1316,11 +1317,16 @@ def note_attack(state: GameState, player: str, attackers: list[str] | None = Non
                 log.attacked_who[a].append(t)
 
 
-def note_block(state: GameState, blockers: list[str]) -> None:
-    """509.1g: these objects were declared as blockers this turn ("creature that blocked this turn")."""
+def note_block(state: GameState, blockers: list[str], pairs: list[tuple[str, str]] | None = None) -> None:
+    """509.1g: these objects were declared as blockers this turn ("creature that blocked this turn"); ``pairs``: (wave 31D) which attacker
+    (object) each blocked ("creatures it blocked this turn", "creature that was blocked this turn")."""
     log = turn_log_now(state)
     if log is not None:
         log.blockers += [b for b in blockers if b not in log.blockers]
+        for blocker, attacker in pairs or ():
+            seen = log.blocks.setdefault(blocker, [])
+            if attacker not in seen:
+                seen.append(attacker)
 
 
 def wither_put_by(action: Any) -> dict[tuple[str, str], dict[str, int]] | None:
