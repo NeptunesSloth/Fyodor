@@ -2213,7 +2213,8 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
             from app.rules.targets import group_limits
 
             for spec in kicked_instead.applicable(scripts.target_groups(definition if aura is None else {"target": {"what": aura}}), 0):
-                lo, hi = (0, 0) if "x_value" in spec else group_limits(spec, None)  # (X is 0: 107.3b; "up to X" may be none)
+                lo, hi = (0, 0) if "x_value" in spec or (spec.get("divide") or {}).get("value") is not None \
+                    else group_limits(spec, None)  # (X is 0: 107.3b; "up to X" may be none; wave 34D: nor a total counted as it's cast, that may be 0)
                 if hi < lo or len(legal_targets(plan, spec["what"], player, src, card.id)) < lo:
                     return f"{ch.name or 'It'} has no legal target"
         extra = None if manual else costs.spell_additional_cost(ch.abilities)

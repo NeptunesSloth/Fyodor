@@ -93,6 +93,8 @@ def concrete_cost(plan: Plan, ctx: Context, e: dict[str, Any]) -> str:
         from app.rules import conditions  # (conditions → effects → this module)
 
         return str(e["alt"]["cost"] if conditions.holds(plan, ctx, e["alt"]["cond"]) else e["cost"])
+    if "dmg" in e:  # -- unless damage (wave 34D) -- "has ~ deal damage to them equal to his power": the amount as the payment is offered (608.2h)
+        return re.sub(r"deal \d+ damage", f"deal {max(0, int(values.evaluate(plan, ctx, e['dmg'])))} damage", str(e["cost"]))
     if "per" not in e:
         return str(e["cost"])
     n = values.evaluate(plan, ctx, e["n"])

@@ -1134,13 +1134,17 @@ def _add_groups(groups: list[dict[str, Any]], found: list[dict[str, Any]], sel: 
     for g in _as_groups(sel):
         if "another" in g:
             plain = g.pop("another")
+            any_other = g.pop("any_other", False)  # (wave 34D: "any other target", not "another target")
             if groups and all(_attachment_group(x) for x in groups):
                 raise _NoMatch  # -- attach all (wave 30S) -- "attach up to one target Equipment to her. Then up to one other target attacking creature": the
                 # "other" is other than her, not other than an Equipment (Amy Rose): not modelled, so manual
             if groups:
                 g = {**g, "what": plain, "distinct_from": list(range(len(groups)))}
             elif not g["what"]:
-                raise _NoMatch  # "another target" with nothing before it
+                if plain != "any" or not any_other:
+                    raise _NoMatch  # "another target" with nothing before it
+                g = {**g, "what": "any_other"}  # -- damage sized by a count (wave 34D) -- "any other target" with nothing before it: any target but the
+                # source (targets.legal_targets); language.py lets only a damage sentence of the source itself ("~ deals … to any other target") say it
         index.append(len(groups))
         groups.append(g)
     return _renumber(found, index)
@@ -2353,7 +2357,7 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
 
     text_def = m["def"]
     if re.search(r" as you (?:activate this ability|cast this spell)$", text_def) and len(re.findall(r"\bX\b", body[: m.start()])) == 1 \
-            and re.search(r"(?i)\bup to X (?:other )?targets?\b", body[: m.start()]):
+            and re.search(r"(?i)\bup to X (?:other )?targets?\b|\bX damage divided as you choose among\b", body[: m.start()]):  # (wave 34D: divided)
         text_def = text_def.rsplit(" as you ", 1)[0]  # -- X target counts (wave 27C) -- "…, where X is the number of Bobbleheads you control as you activate this
         # ability": X only counts the targets, which are chosen at that moment (601.2c)
     value, tail = defined_as(text_def), ""
@@ -2393,6 +2397,9 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     if got is not None and isinstance(got[1], list) and any(g.get("x_count") for g in got[1]):
         got = _x_target_counts(got, value)
         hit = got is not None
+    elif got is not None:
+        got, divided = _x_divide_totals(got, value)  # -- damage sized by a count (wave 34D) -- the total of "X damage divided as you choose …"
+        hit = hit or divided
     if got is None or str(_X_SENTINEL) in json.dumps(got[1]) or not hit:
         return None
     return got
@@ -2428,6 +2435,31 @@ def _x_target_counts(found: tuple[list[dict[str, Any]], Any, bool], value: Any) 
         return None
     out = [{k: v for k, v in g.items() if k != "x_count"} | {"x_value": value} if g.get("x_count") else g for g in groups]
     return found[0], out, found[2]
+
+
+_DIVIDE_VALUES = frozenset({"count", "counters", "on", "devotion", "hand", "plus", "times", "max", "of", "event_amount", "mana_spent", "kicked"})
+
+
+def _x_divide_totals(found: tuple[list[dict[str, Any]], Any, bool], value: Any) -> tuple[tuple[list[dict[str, Any]], Any, bool] | None, bool]:
+    """-- damage sized by a count (wave 34D) -- "~ deals X damage divided as you choose among …, where X is <a count>" (Ureni, Jaws of Stone, Magmatic Core):
+    the group's total is that count as the spell is cast or the ability put on the stack (601.2d, 608.2d: ``divide.value``, targets.divide_x).
+    (found, False): no divided group here; (None, False): a value that can't be read then (an object a target or the resolution names)."""
+    groups = found[1]
+    many = groups if isinstance(groups, list) else [groups]
+    if not any(isinstance(g, dict) and (g.get("divide") or {}).get("total") == _X_SENTINEL for g in many):
+        return found, False
+    value = json.loads(json.dumps(value).replace('"on": "it"', '"on": "self"'))  # (the sentence's subject: "the number of age counters on it")
+
+    def plain(v: Any) -> bool:
+        if isinstance(v, int):
+            return True
+        return isinstance(v, dict) and set(v) <= _DIVIDE_VALUES and all(plain(x) for k, x in v.items() if k in ("plus", "times") for x in (x if isinstance(x, list) else [x]))
+
+    if value is None or not plain(value) or re.search(r'"(?:that_player|it|target|event|player:[^"]*)"', json.dumps(value).replace('\\"', '"')):
+        return None, False
+    out = [({**g, "divide": {**g["divide"], "total": {"x": 1}, "value": value}} if (g.get("divide") or {}).get("total") == _X_SENTINEL else g)
+           if isinstance(g, dict) else g for g in many]
+    return (found[0], out if isinstance(groups, list) else out[0], found[2]), True
 
 
 _X_LOCAL = threading.local()  # (review 19: per thread — games may parse cards concurrently)
@@ -3419,7 +3451,8 @@ _PICK_NEG = re.compile(r"^if you (don't|do) put (?:the card|that card|it|them) (
 _PICK_DIDNT = re.compile(r"^if you didn't put (?:a|the|that) card into your hand this way, ")
 _IF_YOU_DO = re.compile(r"^if you (?:(?P<neg>don't)|do), (?P<rest>.+)$")
 _UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller) "
-                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?|removes?|taps?) .+|has (?:~|this [a-z]+) deal \d+ damage to (?:them|you))$")  # (wave 27A: "has ~ deal 4 damage to them"; wave 1B: any cost the engine pays)
+                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?|removes?|taps?) .+|has (?:~|this [a-z]+) deal \d+ damage to (?:them|you)"
+                     r"|has (?:~|this [a-z]+) deal (?:damage to (?:them|you) equal to .+|that much damage to (?:them|you)))$")  # (wave 27A: "has ~ deal 4 damage to them"; wave 1B: any cost the engine pays; wave 34D: sized)
 
 
 def _last_payment(effects: list[dict[str, Any]]) -> str | None:
@@ -3522,8 +3555,19 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         return None
     verb, _, rest = m["act"].partition(" ")
     phrase = rest if verb.startswith("pay") else f"{verb[:-1] if verb.endswith('s') else verb} {rest}"
+    sized_damage_cost: Any = None
     if verb == "has":  # -- unless damage (wave 27A) -- "has ~ deal 4 damage to them": optional_payment's SOURCE_DAMAGE, paid by the one it hits
         phrase = re.sub(r"damage to (?:them|you)$", "damage to you", f"have {rest}")
+        # -- unless damage (wave 34D) -- "… has ~ deal damage to them equal to his power" (Combustion Man), "… deal that much damage to them" (Craig Boone, the
+        # lead's own damage): the amount is read as the payment is offered (608.2h), the cost text carries a 1 that unless_pays.concrete_cost replaces
+        sm = re.fullmatch(r"(?:~|this [a-z]+) deal (?:damage to (?:them|you) equal to (?P<v>.+)|(?P<t>that much) damage to (?:them|you))", rest)
+        if sm is not None:
+            from app.rules import unless_pays
+
+            sized_damage_cost = "that much" if sm["t"] else unless_pays._value(re.sub(r"\b(?:his|her) (power|toughness)\b", r"~'s \1", sm["v"]), None)
+            if sized_damage_cost is None:
+                return None
+            phrase = "have ~ deal 1 damage to you"
     if (it == "self" or m["lead"] == "sacrifice ~") and re.search(r"^remove an? [^ ]+ counter from it$", phrase):
         phrase = phrase[:-2] + "~"  # -- trigger tail (wave 15B) -- "sacrifice ~ unless you remove a +1/+1 counter from it": it is the source
     phrase = re.sub(r" or (pays?|discards?|sacrifices?|returns?|exiles?) ", lambda v: f" or {v[1].rstrip('s')} ", phrase)  # (wave 15C)
@@ -3593,7 +3637,13 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         pay["alts"] = alts
     if sized is not None:  # -- unless pays (wave 4C) --
         pay.update(sized)
-    gated = [{"do": "may_rest"}, *found] if may else found  # (wave 4C: the "you may" after the payment, 118.12a)
+    if sized_damage_cost is not None:  # -- unless damage (wave 34D) -- "deal that much damage to them": the lead's own damage amount (one damage instruction)
+        if sized_damage_cost == "that much":
+            if len(found) != 1 or found[0].get("do") != "damage" or isinstance(found[0].get("n"), str) or "divided" in json.dumps(found[0].get("n")):
+                return None
+            sized_damage_cost = found[0]["n"]
+        pay["dmg"] = sized_damage_cost
+    gated =[{"do": "may_rest"}, *found] if may else found  # (wave 4C: the "you may" after the payment, 118.12a)
     return [pay, {"do": "only_if", "cond": {"succeeded": bind, "negate": True}, "skip": len(gated)}, *gated], sel
 
 
@@ -3657,7 +3707,7 @@ def _player_target(what: str) -> bool | None:
 
     if what in ("player", "opponent") or what.startswith("opponent_as:"):  # (wave 21E)
         return True
-    if what == "any" or not what:
+    if what in ("any", "any_other") or not what:  # (wave 34D: any_other)
         return None
     return selectors.from_key(what).player is not None if what.startswith(selectors.PREFIX) else False
 
@@ -3970,6 +4020,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")
     text = re.sub(r"^(When ~ enter, if )they're( not a token, create [^.]+? cop(?:y|ies) of )them\b", r"\1it's\2it", text)
     text = half_x(text) if "half X" in text else text  # -- X arithmetic (wave 34C) -- 107.1a
+    # -- damage sized by a count (wave 34D) -- 603.4, 702.33: "Whenever you cast a spell, if that spell was kicked, …" (Hallar) is "Whenever you cast a kicked
+    # spell, …": being kicked is a fact about the spell as it is cast and stays true as it resolves or is countered, so the intervening "if" has nothing to re-check
+    text = re.sub(r"^(Whenever you cast) a spell, if that spell was kicked, ", r"\1 a kicked spell, ", text)
+    # "When ~ dies, it deals damage equal to its power divided as you choose …" (Orca, Siege Demon): "it" is the creature that died, ~ (language.py reads ~'s)
+    text = re.sub(r"^(When ~ dies, )it deals (damage equal to its power divided as you choose among )", r"\1~ deals \2", text)
     if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
         return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
     if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I)
@@ -4550,7 +4605,7 @@ def _event_refs_ok(d: Definition) -> bool:
         cond = d.get("cond") if d.get("trigger") == "event" else None
         about_player = step_names_player(d) or (cond is not None and cond["event"] != "multi" and _has_player(cond))
         specs = [d.get("target") or {}, *(d.get("targets") or [])]
-        if not about_player or any(str(s.get("what")) in ("player", "opponent", "any", "player_or_planeswalker",
+        if not about_player or any(str(s.get("what")) in ("player", "opponent", "any", "any_other", "player_or_planeswalker",
                                                          "opponent_or_planeswalker") or str(s.get("what")).startswith("opponent_as:") for s in specs):
             return False
     from app.rules import watches  # -- turn watches (wave 7D) -- their deferred effects name their own event

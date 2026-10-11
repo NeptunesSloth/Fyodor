@@ -259,6 +259,13 @@ def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "attacked_this_turn"))
 
 
+@_suffix(r"that didn't attack this turn")  # -- damage sized by a count (wave 34D) -- Kratos, Angel's Trumpet: not declared as an attacker this turn (508.1)
+def _didnt_attack_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    if re.search(r"\bcreatures(?: [a-z ]+? controls?)?$", m.string[: m.start()].rstrip()) is None:  # ("creatures that player controls that didn't …")
+        raise ValueError("only \"creatures that didn't attack this turn\" (a group on the battlefield)")
+    return replace(s, extras=(*s.extras, "didnt_attack_this_turn"))
+
+
 @_suffix(r"that blocked this turn")  # -- combat state (wave 27A) -- declared as blockers this turn (509.1g); a creature put onto the battlefield blocking never "blocked"
 def _blocked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     if not m.string[: m.start()].endswith(("creature", "creatures")):
@@ -1710,6 +1717,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "unblocked" and card.id in plan.rules.blocked:  # (wave 15E) a blocked attacker stays blocked
             return False
         if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
+            return False
+        if extra == "didnt_attack_this_turn" and _attacked_this_turn_now(plan, card):  # -- damage sized by a count (wave 34D) --
             return False
         if extra == "blocked_this_turn" and not _blocked_this_turn_now(plan, card):  # -- combat state (wave 27A) --
             return False

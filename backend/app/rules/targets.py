@@ -111,6 +111,8 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         margin = 2 if cond == "hand2" else 1
         return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker)
                 if _more(plan, cond, p) >= _more(plan, cond, chooser) + margin]
+    if selector == "any_other":  # -- damage sized by a count (wave 34D) -- 115.4: "deals that much damage to any other target" (Black Panther): any target
+        return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker) if t != source_card]  # but the creature that deals it
     if selector.startswith(selectors.PREFIX):  # a structured selector (app/rules/selectors.py)
         return _selector_targets(plan, selectors.from_key(selector), chooser, source, source_card, attacker)
     if selector.startswith("graveyard:"):  # "target Spirit card with mana value N or less from your graveyard"
@@ -232,6 +234,15 @@ def where_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | N
     return values.evaluate(plan, ctx, spec["x_value"])
 
 
+def divide_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | None, source_object: str | None,
+             event: dict[str, Any] | None, x: int | None) -> int | None:
+    """-- damage sized by a count (wave 34D) -- "deals X damage divided as you choose among …, where X is the number of lands you control" (Ureni, Jaws of
+    Stone): the total is the count as the spell is cast or the ability put on the stack (601.2d: the division is announced then; 608.2d: "the amount and
+    division were determined as the spell or ability was put onto the stack"), the cast X otherwise."""
+    value = (spec.get("divide") or {}).get("value")
+    return x if value is None else where_x(plan, {"x_value": value}, chooser, source_card, source_object, event)
+
+
 def free_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
     """(min, max) targets of a group as the rules give them, before the engine's own limit; a divided group needs at most as many
     targets as there is to divide, and at least one (601.2d: each gets at least one)."""
@@ -244,6 +255,8 @@ def free_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
     total = divide_total(spec, x)
     if total is not None:
         lo, hi = max(lo, 1), min(hi, total)
+        if total == 0 and (spec.get("divide") or {}).get("value") is not None:
+            return 0, 0  # -- damage sized by a count (wave 34D) -- a total counted as it's put on the stack may be 0: nothing to divide, no targets (601.2d)
     return lo, hi
 
 
@@ -283,7 +296,8 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         options = [t for t in legal_targets(plan, spec["what"], chooser, source, source_card, attacker)
                    if t not in exclude and t not in banned]
         shaped = {**spec, "x_count": "upto"} if "x_value" in spec else spec
-        counted = where_x(plan, spec, chooser, source_card, source_object, event) if "x_value" in spec else x
+        counted = where_x(plan, spec, chooser, source_card, source_object, event) if "x_value" in spec else divide_x(
+            plan, spec, chooser, source_card, source_object, event, x)
         lo, hi = group_limits(shaped, counted)
         allowed = free_limits(shaped, counted)[1]
         if g >= len(out.counts) and hi == 0:  # -- kicked / instead (wave 4G) -- a group the spell doesn't require (601.2c)
@@ -319,7 +333,7 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         out.groups.append(chosen)
     given = list(division)
     for g, spec in enumerate(specs):
-        total = divide_total(spec, x)
+        total = divide_total(spec, divide_x(plan, spec, chooser, source_card, source_object, event, x))
         if total is None or not out.groups[g]:
             out.division.append([])
             continue
