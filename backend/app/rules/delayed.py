@@ -395,7 +395,9 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                 effect.source_card = ctx.get("source_card")
             # each effect of the clause ("gets +2/+2 and gains flying") owns the markers on the
             # objects it affects; ``_end`` keeps a marker another effect still owns
-            effect.markers = [m for cid, ids in written.items() if plan.oid(cid) in effect.affected for m in ids]
+            # (-- attack restrictions (wave 32B) -- a group effect, "Until your next turn, creatures can't attack you", has no objects of its own: it owns the markers
+            # the clause wrote on the creatures it matched, so they go when it ends)
+            effect.markers = [m for cid, ids in written.items() if effect.who or plan.oid(cid) in effect.affected for m in ids]
     if counter:
         expire(plan)  # 611.2b: a counter the objects don't have as the effect begins — it does nothing
     return True
@@ -522,7 +524,7 @@ EVENT = re.compile(rf"^when (?P<subject>{'|'.join(re.escape(s) for s in EVENT_SU
 UNTIL_LEADING = re.compile(rf"^(?P<duration>{DURATION_RE}), (?P<clause>.+)$")
 UNTIL_TRAILING = re.compile(rf"^(?P<clause>.+?) (?P<duration>{DURATION_RE})$")
 _EOT = re.compile(r"^(?P<clause>.+?)(?: until end of turn)$")
-_RESTRICT = re.compile(r"^(?P<o>.+?) can't (?P<r>attack or block|block|attack|be blocked)$")
+_RESTRICT = re.compile(r"^(?P<o>.+?) can't (?P<r>attack or block|block|attack you\b.*|attack|be blocked)$")  # (-- attack restrictions (wave 32B) -- "creatures can't attack you")
 
 
 def duration_clause(m: re.Match[str]) -> tuple[str, str]:

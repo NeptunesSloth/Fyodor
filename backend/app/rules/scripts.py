@@ -2558,7 +2558,7 @@ def _energy_paid(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
 
 
 # -- may pay or else (wave 4J) -- the whole ability: one payment, one consequence (no "you may" in it)
-_MAY_PAY_ELSE = re.compile(r"^(?:[Tt]hat player|[Tt]hey) may (?P<cost>pay (?:\{[^}]+\})+"
+_MAY_PAY_ELSE = re.compile(r"^(?:[Tt]hat (?:player|opponent)|[Tt]hey) may (?P<cost>pay (?:\{[^}]+\})+(?:, where X is the number of cards in their hand)?"  # (-- attack restrictions (wave 32B) -- "that opponent may pay {X}, where X is the number of cards in their hand": Champions of Minas Tirith)
                            r"|(?:pay \d+ life|(?:sacrifice|discard|exile) [^.]+))\. If (?:the player|that player|they) "
                            r"(?:doesn't|don't), (?:you (?=create ))?(?P<rest>(?![^.]*\bmay\b)[^.]+)\.$")  # (wave 26B: life, sacrifice, discard, exile)
 
@@ -2687,6 +2687,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         # (not where the grammar reads it already: an edict, language.EDICT_OTHERS; "during each other player's …")
         body = re.sub(r"\b([Ee])ach other player\b(?! sacrifices)(?!'s)", lambda m: f"{m[1]}ach opponent", body)
     body = _choose_then(body)  # -- if you do (wave 6F) --
+    from app.rules import each_may as _each_may_split
+
+    body = _each_may_split.split_one(body)  # -- attack restrictions (wave 32B) -- "You draw a card and that player may draw a card. If they do, …" (Willie Lumpkin)
     # -- if you do (wave 31A) -- "Create a Treasure token, then you may sacrifice a noncreature artifact. If you do, …": ", then you may [A]." in front of an
     # "If you do" is the sentence "Then you may [A]." (608.2c: "then" only orders), which is read as the payment it is
     body = re.sub(r"(?<=[a-z]), then (you may [^.\"]+?\. If you do, )", r". Then \1", body)
@@ -3485,6 +3488,8 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         payer = "event_player"
     elif who in ("that player", "they") and whos == {"that_player"}:
         payer = "that_player"  # the player the lead is about (the trigger event's, or a target: resolve_it binds it)
+    elif who in ("that player", "they") and len(whos) == 1 and str(next(iter(whos))).startswith("controlled:that_player|") and not groups:
+        payer = "that_player"  # -- attack restrictions (wave 32B) -- "Creatures they control can't attack you this turn unless that player exiles a card": their creatures
     elif who in ("that player", "they") and whos == {"target"} and groups and group_player is False:
         payer = "target"  # "Counter target spell unless they pay {1}": they = the spell's controller
     # -- unless pays (wave 4C) -- "[You] draw a card unless that player pays {1}." / "Counter it unless that player

@@ -825,6 +825,18 @@ RESTRICTION_LABELS = {"cant_block": "Can't block", "cant_attack": "Can't attack"
                       "assign_none": "Assigns no combat damage"}
 
 
+# -- attack restrictions (wave 32B) -- the marker of "can't attack you …" names the player (the rule's own text is "cant_attack_player:<id>")
+ATTACK_LABELS = {"cant_attack_player": "Can't attack {}", "cant_attack_player_pw": "Can't attack {} or their planeswalkers",
+                 "cant_attack_player_perm": "Can't attack {} or their permanents", "attack_tax": "Attacking {} costs extra",
+                 "attack_tax_pw": "Attacking {} costs extra"}
+
+
+def _restriction_label(plan: Plan, rule: str) -> str:
+    name, _, rest = rule.partition(":")
+    who = rest.split(":")[0]
+    return ATTACK_LABELS[name].format(plan.name(who)) if name in ATTACK_LABELS and who in plan.state.players else RESTRICTION_LABELS.get(rule, rule)
+
+
 _GROUPS = {"each_creature": selectors.Selector(types=("Creature",)).key(),
            "creatures_you_control": selectors.Selector(types=("Creature",), controller="you").key()}
 
@@ -853,16 +865,19 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         players, _, key = who[len("controlled:"):].partition("|")
         for pid in _players(plan, ctx, "target" if players == "target:0" and not ctx.get("groups") else players):
             mine = selectors.replace(selectors.from_key(key), controller=f"player:{pid}").key()
-            layers.add_effect(plan, affected=[], layer="6", source=ctx.get("source_object"), controller=ctx["controller"],
-                              imposes=tuple(e["rules"]), label=", ".join(e["rules"]), who=mine, source_card=ctx.get("source_card"),
-                              duration=duration)
+            made = layers.add_effect(plan, affected=[], layer="6", source=ctx.get("source_object"), controller=ctx["controller"],
+                                     imposes=tuple(e["rules"]), label=", ".join(e["rules"]), who=mine, source_card=ctx.get("source_card"),
+                                     duration=duration)
+            if duration == "their_turn":  # -- attack restrictions (wave 32B) -- "that player can't attack you … during their next turn" (611.2a)
+                made.until_player, made.turn = pid, plan.state.turn.number
+                plan.note(f"{plan.name(pid)}: {', '.join(_restriction_label(plan, r) for r in e['rules'])} during their next turn", actor=ctx["controller"])
     elif cards or group:
         layers.add_effect(plan, affected=[] if group else [plan.oid(c) for c in cards], layer="6",
                           source=ctx.get("source_object"), controller=ctx["controller"], imposes=tuple(e["rules"]),
                           label=", ".join(e["rules"]), who=who if group else None, source_card=ctx.get("source_card"),
                           duration=duration)
-    if cards:
-        _mark(plan, cards, ", ".join(RESTRICTION_LABELS.get(r, r) for r in e["rules"]),
+    if cards and duration != "their_turn":  # (-- attack restrictions (wave 32B) -- a player's next turn: no marker on the creatures there now, the group is the player's)
+        _mark(plan, cards, ", ".join(_restriction_label(plan, r) for r in e["rules"]),
               text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"))
     return True
 

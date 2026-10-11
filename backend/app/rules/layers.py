@@ -1064,7 +1064,7 @@ def _group_imposed(state: GameState, card: CardInstance, ch: Characteristics, in
 
 
 Layer = Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
-Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
+Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "their_turn"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
 
 
 def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | None, controller: str,
@@ -1092,7 +1092,8 @@ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | N
 def end_of_turn(plan: Plan) -> None:
     """514.2: "until end of turn" effects end in the cleanup step."""
     r = plan.rules
-    r.effects = [e for e in r.effects if e.duration not in ("end_of_turn", "end_of_combat")]  # (a combat a turn ended in, 18E review)
+    r.effects = [e for e in r.effects if e.duration not in ("end_of_turn", "end_of_combat")  # (a combat a turn ended in, 18E review)
+                 and not (e.duration == "their_turn" and e.until_player == plan.active and plan.state.turn.number > e.turn)]  # -- attack restrictions (wave 32B) -- "during their next turn" ends with that turn
     control_sync(plan)  # -- control (wave 3K) -- a Threaten effect ends: the creature goes back (613.1b)
 
 
