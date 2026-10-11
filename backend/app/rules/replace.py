@@ -260,7 +260,8 @@ class Planner:
     def applies(self, c: Candidate, ev: Event, sim: Sim) -> bool:
         # (-- counter putters (wave 22C) -- "… on a permanent or player": one counters static also applies to player events)
         if (c.event != ev["kind"] and not (c.event == "counters" and ev["kind"] == "player_counters" and c.match.get("players"))) \
-                or c.id in (ev.get("applied") or ()) or (c.op.get("once") and c.id in self.used):  # (review 28B: "the next time": one event)
+                or c.id in (ev.get("applied") or ()) or (c.op.get("once") and not c.op.get("batch") and c.id in self.used):
+            # (review 28B: "the next time": one event; wave 35A, ``batch``: damage's "next time" is one TIME — every event of the batch)
             return False
         fn = _APPLIES.get(ev["kind"])
         return bool(fn and fn(self.plan, c, ev, sim))
@@ -1562,6 +1563,12 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
         color = selectors.COLORS.get((selectors.source_choice(plan, c.source_card, "color") or "").lower())
         if color is None or color not in (src.get("colors") or ()):
             return False
+    if spec.get("chosen_type"):  # -- one-shot shields (wave 35A) -- "a creature of the chosen type" (Circle of Solace): its permanent's choice, 614.12a
+        from app.rules import selectors
+
+        kind = (selectors.source_choice(plan, c.source_card, "creature type") or "").strip()
+        if not kind or kind not in (src.get("subtypes") or ()):
+            return False
     if spec.get("colorless") and src.get("colors"):  # (-- prevention riders (wave 17A) -- "colorless sources", "non-Human sources")
         return False
     if spec.get("not_subtypes") and set(spec["not_subtypes"]) & set(src.get("subtypes") or ()):
@@ -1602,7 +1609,7 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if (c.prevention or c.legacy is not None) and ev.get("unpreventable") and not (
             c.op.get("rider") and c.id.startswith("s:")):  # (-- prevention riders (wave 17A) -- a static's additional effect
         return False  # still takes place, 615.12; a record's or shield's riders all count the damage prevented: none)
-    if c.op.get("once") and f"once:{c.id}" in sim.get("shields", {}):
+    if c.op.get("once") and not c.op.get("batch") and f"once:{c.id}" in sim.get("shields", {}):  # (wave 35A: ``batch``, see Planner.applies)
         return False
     # -- end refused grants/replacements (wave 3R2) --
     if c.legacy is not None:  # a stage-1 "prevent all …" static or this turn's record
@@ -1670,6 +1677,8 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         n = max(0, n - int(op["n"]))
     elif kind == "prevent_half_up":  # -- damage wordings (wave 6B) -- prevent half, rounded up: half rounded down is left
         n //= 2
+    elif kind == "prevent_half_down":  # -- one-shot shields (wave 35A) -- Dark Sphere: prevent half, rounded down: the rest is dealt
+        n -= n // 2
     elif kind == "prevent_all_but":
         n = min(n, int(op["n"]))
     elif kind == "prevent_all":

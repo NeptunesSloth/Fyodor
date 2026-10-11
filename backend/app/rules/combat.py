@@ -1082,6 +1082,7 @@ def end_combat(plan: Plan) -> None:
         for card in list(plan.state.cards.values()):
             for marker in [m for m in card.effects if m.text == "this combat"]:
                 plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
+    r.replacements = [x for x in r.replacements if x.get("until") != "end_of_combat"]  # -- one-shot shields (wave 35A) -- "this combat"
     r.blocked = []
     r.block_split = {}
     r.assign_unblocked = {}
