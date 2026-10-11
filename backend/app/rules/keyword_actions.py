@@ -125,6 +125,13 @@ def connive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             queue = [(None, None, lki.controller)]
     order = plan.apnap()
     queue.sort(key=lambda x: order.index(x[2]) if x[2] in order else len(order))
+    if e.get("only") is not None:  # (-- keyword actions (wave 35C) -- one of several conniving permanents, on its own)
+        queue = [q for q in queue if q[0] in e["only"]]
+    if queue and replace.candidates(plan, "connive"):  # -- keyword actions (wave 35C) -- "If a creature you control would connive, …" (Leader, Super-Genius)
+        if len(queue) > 1:  # each conniving permanent is its own event (701.50c)
+            return replace.run_effects(plan, ctx, [{**e, "only": [q[0]]} for q in queue if q[0] is not None])
+        if queue[0][0] is not None and (replaced := replace.keyword_replace(plan, ctx, e, "connive", queue[0][2], card=queue[0][0], n=n)) is not None:
+            return replaced
     return _connive_next(plan, ctx, queue, n)
 
 

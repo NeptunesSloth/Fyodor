@@ -677,5 +677,184 @@
   ],
   "power": "2",
   "toughness": "2"
+ },
+ {
+  "name": "Topography Tracker",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Merfolk Scout",
+  "oracle_text": "When this creature enters, create a Map token. (It's an artifact with \"{1}, {T}, Sacrifice this token: Target creature you control explores. Activate only as a sorcery.\")\nIf a creature you control would explore, instead it explores, then it explores again.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Explore"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Twists and Turns // Mycoid Maze",
+  "layout": "transform",
+  "mana_cost": "{G} // ",
+  "cmc": 1.0,
+  "type_line": "Enchantment // Land — Cave",
+  "oracle_text": "If a creature you control would explore, instead you scry 1, then that creature explores.\nWhen this enchantment enters, target creature you control explores.\nWhen a land you control enters, if you control seven or more lands, transform this enchantment.\n//\n(Transforms from Twists and Turns.)\n{T}: Add {G}.\n{3}{G}, {T}: Look at the top four cards of your library. You may reveal a creature card from among them and put that card into your hand. Put the rest on the bottom of your library in a random order.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Transform",
+   "Explore",
+   "Scry"
+  ],
+  "card_faces": [
+   {
+    "name": "Twists and Turns",
+    "mana_cost": "{G}",
+    "type_line": "Enchantment",
+    "oracle_text": "If a creature you control would explore, instead you scry 1, then that creature explores.\nWhen this enchantment enters, target creature you control explores.\nWhen a land you control enters, if you control seven or more lands, transform this enchantment.",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/3/c/3cdf691e-96a5-45c7-9b94-6f04af81c8e4.jpg?1783913741",
+     "normal": "https://cards.scryfall.io/normal/front/3/c/3cdf691e-96a5-45c7-9b94-6f04af81c8e4.jpg?1783913741",
+     "large": "https://cards.scryfall.io/large/front/3/c/3cdf691e-96a5-45c7-9b94-6f04af81c8e4.jpg?1783913741",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/3/c/3cdf691e-96a5-45c7-9b94-6f04af81c8e4.jpg?1783913741"
+    }
+   },
+   {
+    "name": "Mycoid Maze",
+    "mana_cost": "",
+    "type_line": "Land — Cave",
+    "oracle_text": "(Transforms from Twists and Turns.)\n{T}: Add {G}.\n{3}{G}, {T}: Look at the top four cards of your library. You may reveal a creature card from among them and put that card into your hand. Put the rest on the bottom of your library in a random order.",
+    "colors": [],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/3/c/3cdf691e-96a5-45c7-9b94-6f04af81c8e4.jpg?1783913741",
+     "normal": "https://cards.scryfall.io/normal/back/3/c/3cdf691e-96a5-45c7-9b94-6f04af81c8e4.jpg?1783913741",
+     "large": "https://cards.scryfall.io/large/back/3/c/3cdf691e-96a5-45c7-9b94-6f04af81c8e4.jpg?1783913741",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/3/c/3cdf691e-96a5-45c7-9b94-6f04af81c8e4.jpg?1783913741"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Leader, Super-Genius",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Gamma Scientist Villain",
+  "oracle_text": "If a creature you control would connive, instead you draw a card, then that creature connives.\nAt the beginning of combat on your turn, target creature you control connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on that creature.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Connive"
+  ],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Eligeth, Crossroads Augur",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Sphinx",
+  "oracle_text": "Flying\nIf you would scry a number of cards, draw that many cards instead.\nPartner (You can have two commanders if both have partner.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Partner"
+  ],
+  "power": "5",
+  "toughness": "6"
+ },
+ {
+  "name": "Merfolk Branchwalker",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Merfolk Scout",
+  "oracle_text": "When this creature enters, it explores. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on this creature, then put the card back or put it into your graveyard.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Explore"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Raffine's Informant",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "When this creature enters, it connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Connive"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Opt",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Scry"
+  ]
+ },
+ {
+  "name": "Preordain",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Scry 2, then draw a card. (To scry 2, look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Scry"
+  ]
  }
 ]

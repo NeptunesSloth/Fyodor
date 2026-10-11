@@ -389,7 +389,7 @@ class Planner:
 def affected(plan: Plan, ev: Event) -> str | None:
     """616.1: the affected object's controller (its owner if it has none) or the affected player."""
     kind = ev["kind"]
-    if kind in ("tokens", "draw", "draw_count", "life", "life_loss", "mill", "player_counters"):
+    if kind in ("tokens", "draw", "draw_count", "life", "life_loss", "mill", "player_counters", "scry", "explore", "connive"):
         return ev.get("player")
     if kind == "counters":
         if ev.get("controller"):
@@ -452,6 +452,10 @@ def describe(plan: Plan, ev: Event) -> str:
         return f"{plan.name(ev['player'])} loses {ev['n']} life"
     if kind == "mill":
         return f"{plan.name(ev['player'])} mills {ev['n']} card{'s' if ev['n'] != 1 else ''}"
+    if kind in ("explore", "connive"):  # -- keyword actions (wave 35C) --
+        return f"{ev['name']} {kind}s"
+    if kind == "scry":
+        return f"{plan.name(ev['player'])} scries {ev['n']}"
     if kind == "damage":  # (-- damage bodies (wave 35C) -- and what a replacement counts of it: "0 damage (Phytohydra counts 6)")
         return f"{ev['amount']} damage" + "".join(f" ({r['name']} counts {r['n']})" for r in ev.get("riders") or [])
     return kind
@@ -1531,6 +1535,84 @@ def mill_counts(plan: Plan, wants: list[tuple[str, int]], *, then: dict[str, Any
     return result
 
 
+# == keyword actions (wave 35C) -- 614.1a: scry, explore and connive replaced by other instructions ======================================
+def _action_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
+    """"If a creature you control would explore / connive": the creature is one its controller (the effect's) controls; "If you would scry a number of
+    cards": at least one (scrying 0 is no scry, 701.22b)."""
+    if ev["player"] not in plan.live() or ev["player"] != c.controller:
+        return False
+    if ev["kind"] == "scry":
+        return int(ev["n"]) >= 1
+    card = plan.state.cards.get(ev.get("card") or "")
+    return card is not None and card.zone.endswith(":battlefield") and plan.ch(card).is_creature and card.controller == c.controller
+
+
+def _action_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
+    op = c.op
+
+    def body(effects: list[dict[str, Any]]) -> Event:
+        return {"kind": "body", "player": ev["player"], "effects": copy.deepcopy(effects), "controller": c.controller, "label": c.label,
+                "source_card": c.source_card, "source_oid": c.source_oid}
+
+    if op["do"] == "again":  # two explores, neither replaced again by this effect (614.5)
+        return [dict(ev), dict(ev)]
+    if op["do"] == "before":
+        return [body(op["effects"]), dict(ev)]
+    if op["do"] == "draw":  # the scry never happens (614.6): they draw that many instead
+        return [body([{"do": "draw", "who": "you", "n": int(ev["n"])}])]
+    return [ev]
+
+
+def run_effects(plan: Plan, ctx: dict[str, Any], effects: list[dict[str, Any]], *, controller: str | None = None) -> bool:
+    """A replacement's instructions as a small resolution of its own (like a draw body, 121.6b): they run in order with the context of the replaced
+    instruction (its targets and event), and the resolution that instruction was part of goes on once they are done. False: it is running (or waiting
+    for a choice); the caller returns it."""
+    from app.rules import effects as fx
+
+    inner = copy.deepcopy({k: v for k, v in ctx.items() if k != "body_done"})
+    inner.update({"effects": copy.deepcopy(effects), "next": 0, "body_done": {"do": "continue", "ctx": ctx}})
+    inner.pop(ANSWERS, None)
+    inner.pop(SHIELDS, None)
+    if controller:
+        inner["controller"] = controller
+    fx.continue_effects(plan, inner)
+    return False
+
+
+def keyword_replace(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], kind: str, pid: str, *, card: str | None = None, n: int = 1) -> bool | None:
+    """THE choke point of scry / explore / connive (wave 35C): None when no replacement effect applies (the caller does the action), False when one
+    did (what it makes runs as a resolution of its own, the caller returns False) or a choice is open (616.1: the instruction runs again with the
+    answer, ``rerun_then``)."""
+    cands = candidates(plan, kind)
+    if not cands:
+        return None
+    card_obj = plan.state.cards.get(card or "")
+    ev: Event = {"kind": kind, "player": pid, "n": int(n), "card": card, "name": (card_obj.name if card_obj is not None else None) or "A creature",
+                 "applied": list(e.get("repl_applied") or [])}
+    answers = _ctx_answers(ctx)
+    then = rerun_then(ctx, e)
+    planner = Planner(plan, cands, answers, ask=then is not None)
+    out: list[Event] = []
+    try:
+        planner.settle(ev, {}, out.append)
+    except Ask as q:
+        if _pause(plan, q, answers, _resume_for(then, "keyword", {})):
+            return False
+        raise
+    left_to_players(plan, planner)
+    if not planner.used:
+        return None
+    note_applied(plan, ev, out, actor=pid)
+    effects: list[dict[str, Any]] = []
+    for f in out:
+        if f["kind"] == "body":
+            effects += f["effects"]
+        else:
+            effects.append({**e, "repl_applied": list(f.get("applied") or [])})
+    first = next((f for f in out if f["kind"] == "body"), None)
+    return run_effects(plan, ctx, effects, controller=first["controller"] if first is not None else None)
+
+
 def _run_loss(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     if lose_life(plan, [(x[0], int(x[1])) for x in request["losses"]], actor=request["actor"], then=then, answers=answers):
         run_then(plan, then)
@@ -2105,9 +2187,9 @@ def ask_shield(plan: Plan, s: ShieldAsk, resume: dict[str, Any], order: list[str
 # -- the kinds' rules (the loop dispatches on the event's kind) ------------------------------------
 _APPLIES: dict[str, Any] = {"tokens": _tokens_applies, "counters": _counters_applies, "player_counters": _player_counters_applies,
                             "draw": _draw_applies, "draw_count": _dcount_applies, "life": _life_applies, "life_loss": _loss_applies, "mill": _mill_applies,
-                            "damage": _damage_applies}
+                            "damage": _damage_applies, "scry": _action_applies, "explore": _action_applies, "connive": _action_applies}
 _APPLY: dict[str, Any] = {"tokens": _tokens_apply, "counters": _counters_apply, "player_counters": _counters_apply,
                           "draw": _draw_apply, "draw_count": _dcount_apply, "life": _life_apply, "life_loss": _loss_apply, "mill": _mill_apply,
-                          "damage": _damage_apply}
+                          "damage": _damage_apply, "scry": _action_apply, "explore": _action_apply, "connive": _action_apply}
 _PERFORM: dict[str, Any] = {"draw": _draw_perform, "dredge": _dredge_perform}
 SITES: dict[str, Any] = {"tokens": _run_tokens, "counters": _run_counters, "draw": _run_draw, "life": _run_life, "loss": _run_loss}

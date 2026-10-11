@@ -333,6 +333,32 @@ def _floor(text: str) -> Definition | None:
     return _static("life_loss", match, {"do": "floor"})
 
 
+# -- keyword actions (wave 35C) -- 614.1a, 701.22 / 701.44 / 701.50: "If you would scry a number of cards, draw that many cards instead." (Eligeth),
+# "If a creature you control would explore, instead it explores, then it explores again." (Topography Tracker), "… instead you scry 1, then that creature
+# explores." (Twists and Turns), "If a creature you control would connive, instead you draw a card, then that creature connives." (Leader, Super-Genius).
+# The action is the event (``scry`` / ``explore`` / ``connive``); op ``draw`` takes its place, ``again`` does it twice, ``before`` puts instructions
+# in front of it. What the replacement makes carries it as applied (614.5), so two Trackers explore four times and two Leaders draw twice.
+_ACTION = re.compile(r"^If a creature you control would (?P<verb>explore|connive), instead (?P<body>.+), then (?:that creature|it) (?P=verb)s(?P<again> again)?\.$")
+
+
+def _keyword_action(text: str) -> Definition | None:
+    if text == "If you would scry a number of cards, draw that many cards instead.":
+        return _static("scry", {"who": "you"}, {"do": "draw"})
+    m = _ACTION.match(text)
+    if not m:
+        return None
+    if m["body"] == "it explores" and m["again"] and m["verb"] == "explore":
+        return _static("explore", {"who": "you"}, {"do": "again"})
+    if m["again"]:
+        return None
+    from app.rules import draw_bodies
+
+    effects = draw_bodies.parse(m["body"]) if m["verb"] in ("explore", "connive") else None
+    if not effects or any(e["do"] not in ("draw", "scry") or e.get("who", "you") != "you" for e in effects):
+        return None
+    return _static(m["verb"], {"who": "you"}, {"do": "before", "effects": effects})
+
+
 # -- damage (120.4b, 614.1a, 615.10) ----------------------------------------------------------------
 _DAMAGE = re.compile(r"^If (?P<src>.+?) would deal (?:(?P<min>\d+) or more )?(?P<kind>combat |noncombat )?damage(?: to (?P<to>.+?))?, (?P<rest>.+)\.$")  # (min: wave 20B)
 _BACK = (r"(?: to (?:that permanent or player|that player or permanent|that player|that creature|that permanent|"
@@ -698,7 +724,7 @@ def _mill(text: str) -> Definition | None:
     return _static("mill", {"who": who}, {"do": "add", "n": n}) if n else None
 
 
-PARSERS = (_tokens, _counters, _draw, _draw_count, _life, _loss, _floor, _mill, _damage, _damage_body, _enters_tapped, _enter_extra)
+PARSERS = (_tokens, _counters, _draw, _draw_count, _life, _loss, _floor, _keyword_action, _mill, _damage, _damage_body, _enters_tapped, _enter_extra)
 
 
 def parse(text: str) -> Definition | None:

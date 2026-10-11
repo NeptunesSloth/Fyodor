@@ -986,6 +986,8 @@ def surveil(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     pid = ctx["controller"]
     n = _amount(plan, ctx, e["n"])
+    if where == "bottom" and n > 0 and (replaced := replace.keyword_replace(plan, ctx, e, "scry", pid, n=n)) is not None:
+        return replaced  # -- keyword actions (wave 35C) -- "If you would scry a number of cards, draw that many cards instead." (Eligeth)
     top = plan.state.zones.get(zone_key(pid, "library"), [])[:n]
     if n > 0:  # -- this-turn history (wave 4D) -- 701.22b/d, 701.25c/d: N > 0 scries / surveils, even an empty library
         from app.rules import history
@@ -1651,6 +1653,8 @@ def explore(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     me = _cards(plan, ctx, e.get("who", "self"))  # (wave 16C: "target creature you control explores"; 17D: "it" the event's creature)
     pid = plan.state.cards[me[0]].controller if me else ctx["controller"]  # 701.44a: that permanent's controller reveals and decides
+    if me and (replaced := replace.keyword_replace(plan, ctx, e, "explore", pid, card=me[0])) is not None:
+        return replaced  # -- keyword actions (wave 35C) -- "If a creature you control would explore, …" (Topography Tracker, Twists and Turns)
     library = plan.state.zones.get(zone_key(pid, "library"), [])
 
     def explored(kind: int) -> None:  # -- trigger tail (wave 15B) -- "Whenever a creature you control explores" (701.44a): 1 a land
