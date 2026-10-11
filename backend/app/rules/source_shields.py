@@ -357,8 +357,6 @@ def _next_dealt(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
             if target is not None:
                 raise scripts._NoMatch  # (two targets: not read)
             target = scripts.SELECTORS[dest]
-    if e.get("redirect") in ("src", "src_ctrl") and e.get("src") == "class" and e["props"].get("chosen_type"):
-        raise scripts._NoMatch
     return [e], target
 
 
