@@ -166,7 +166,8 @@ def allowed(definition: dict[str, Any]) -> bool:
                 return False
     return True
 
-_SENTENCE = re.compile(r"^each (?P<b>opponent|player) who (?P<rest>.+)$")
+# -- activated other (wave 34B) -- "Each opponent with no cards in hand loses 10 life." (Tinybones, Trinket Thief): "with …" is "who has …"
+_SENTENCE = re.compile(r"^each (?P<b>opponent|player) (?:who|(?P<with>with)) (?P<rest>.+)$")
 _FOR_EACH = re.compile(r"^for each (?P<b>opponent|player) who (?P<pred>[^,]+), (?P<rest>.+)$")
 _EACH_OPP = re.compile(r"^for each opponent, (?P<rest>.+)$")
 _THEN = re.compile(r"(?i)(?<=[a-z]), then (each (?:opponent|player) who )")
@@ -192,7 +193,7 @@ def sentence(text: str, effects: list[dict[str, Any]], read: Callable[[str], lis
     m = _SENTENCE.match(text.rstrip("."))
     if m is None:
         return None
-    base, words = m["b"], m["rest"].split(" ")
+    base, words = m["b"], (("has " if m["with"] else "") + m["rest"]).split(" ")
     for i in range(1, len(words)):
         pred = parse_pred(" ".join(words[:i]), prior)
         if pred is None:

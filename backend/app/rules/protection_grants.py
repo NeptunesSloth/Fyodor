@@ -12,6 +12,8 @@ chosen as the effect resolves. Researched against the Comprehensive Rules of 202
   Blessing) is one choice among those qualities: the object gains protection from one of them.
 * 105.1-105.2: the five colors; "colorless" is not a color, so it's offered only where the text names it.
 
+"the color of its controller's choice" (Wishmonger, Pale Wayfarer; wave 34B) is the same choice made by the player who controls the target as it resolves.
+
 Refused (manual): "the card type of your choice" (Pippin: which card types are offered isn't settled here),
 "the chosen color" after "Choose a color." (the binding isn't read), a player gaining protection (that's
 app/rules/player_shields.py), a duration other than "until end of turn".
@@ -58,6 +60,8 @@ def clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         raise L._Fail  # (a player gaining protection: app/rules/player_shields.py)
     who = L._who(kind, key)
     q = m["q"]
+    if q == "the color of its controller's choice" and who == "target":  # -- activated other (wave 34B) -- Wishmonger, Pale Wayfarer: the target's controller chooses
+        return [{"do": "protection_choice", "who": who, "options": list(COLORS), "chooser": "controller"}], L._one(group)
     if q in CHOICES:
         return [{"do": "protection_choice", "who": who, "options": list(CHOICES[q])}], L._one(group)
     if q == "the chosen color":  # -- chosen type (wave 20E) -- "Choose a color. … gain protection from the chosen color": chosen.bind_effects
@@ -77,7 +81,10 @@ def protection_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]:
         return True  # (nothing left to gain it: 611.2e)
     src = plan.state.cards.get(ctx.get("source_card") or "")
-    decide(plan, player=ctx["controller"], kind="choose_one",
+    # -- activated other (wave 34B) -- "the color of its controller's choice": 608.2d, the choice is made by the player who controls the target as it resolves
+    chooser = next(plan.state.cards[c].controller for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")) \
+        if e.get("chooser") == "controller" else ctx["controller"]
+    decide(plan, player=chooser, kind="choose_one",
            prompt=f"{ctx.get('name') or 'Protection'}: protection from which {'color' if e['options'] == COLORS else 'quality'}?",
            options=[DecisionOption(id=o, label=o) for o in e["options"]],
            resume={"step": "protection_choice", "ctx": ctx, "e": e}, source=src)

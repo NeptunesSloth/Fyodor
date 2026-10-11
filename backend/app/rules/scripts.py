@@ -299,8 +299,12 @@ def self_text(text: str, name: str) -> str:
         part = re.sub(rf"(?<!named )(?<!\w){re.escape(name)}(?!\w)", "‹granter›", part)  # (the full name: "each Garruk you control" is no granter)
         return part
 
+    # -- activated other (wave 34B) -- 'If Kellan is a Scout, it becomes a Human Faerie Detective and gains "Whenever Kellan deals combat damage …"': the
+    # object that gets the quoted ability is the source itself (it is the one that becomes), so the name in the quote names its owner as well (~ there)
+    alt = "|".join(re.escape(n) for n in names) or "(?!)"
+    self_grant = re.compile(rf"(?:^|: |\. )(?:If (?:{alt}|~|this \w+) is an? [\w' -]+, it|{alt}|~|[Tt]his \w+) becomes? [^\".]*$")
     parts = out.split('"')
-    out = '"'.join(own(p) if i % 2 == 0 else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
+    out = '"'.join(own(p) if i % 2 == 0 else _own(p) if self_grant.search(parts[i - 1]) else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
     out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
     out = re.sub(r"(\bto the battlefield) and (attach this (?:Equipment|Aura) to it\b)", lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", out)  # (wave 19C: Nim Deathmantle: two instructions in order)
     out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
@@ -2222,6 +2226,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
                   r"Shuffle \1 into its owner's library. Its owner draws \2 cards", body)
     # -- static_other sweep (wave 17C) -- 701.16a: "Its controller investigates." is "Its controller creates a Clue token." (Fateful Absence)
     body = re.sub(r"(?i)\b(its controller|that creature's controller|that permanent's controller) investigates\b", r"\1 creates a Clue token", body)
+    body = _split_tails(body, event_player)  # -- activated other (wave 34B) --
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     if re.match(r"(?i)choose a creature type\.", body):  # -- value grammar (wave 23C) -- "Choose a creature type. Draw a card for each creature you control of that type."
         body = body.replace(" of that type", " of the chosen type")  # (the type this very instruction chose)
@@ -2243,6 +2248,43 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     if found is not None and '{"x": 1}' not in json.dumps(found[0]):
         return found
     return _where_x(body, it, event_player) or found  # (X left as a cast X by the sentence grammar: read as the text defines it, if it can be)
+
+
+# -- activated other (wave 34B) -- clauses a grant list tacks on that are instructions about the same object, written as the sentences the grammar reads:
+# 702.3b "can attack [this turn] as though it didn't have defender" and 510.1a "assigns combat damage equal to its toughness rather than its power" (Walking
+# Bulwark, The Pride of Hull Clade, Roving Keep), and Gandalf's "its owner shuffles it into their library and draws …". The subject ("It" after a
+# target, "~" for the source: no pronoun binds to the source) lasts "this turn", the grant's own "until end of turn" (611.2a).
+_DEFENDER = "can attack this turn as though it didn't have defender"
+_TAIL_PUMP = re.compile(r"^(?P<lead>Until end of turn, )?(?P<s>~|target creature[^,.\"]*?) (?P<head>gets [+-]\d+/[+-]\d+), gains (?P<g>\"[^\"]+\"|[a-z ]+?),?"
+                        r" and can attack as though it didn't have defender\.$")
+_TAIL_LIST = re.compile(r"^(?:Until end of turn, )?(?P<s>~|target creature[^,.\"]*?) gains (?P<k>[a-z ]+?), can attack as though it didn't have defender, "
+                        r"and assigns combat damage equal to its toughness rather than its power\.$")
+_TAIL_IT = re.compile(r"^(?P<first>~ gets [+-]\d+/[+-]\d+[^.\"]*? until end of turn)\. It " + re.escape(_DEFENDER) + r"\.$")
+_YOU_ADD = re.compile(r"(?<=\. )You add ((?:\{[WUBRGC]\})+)(?=\.|$)")
+_THAT_PLAYER = re.compile(r"(?<=target creature an opponent controls\. )That player\b")
+# "Each player returns all black and all red creature cards from their graveyard to the battlefield." (Balthor the Defiled), "… all creature cards from their graveyard
+# to their hand." (Empty the Catacombs): a card in a graveyard is in its owner's, so every player returning their own is every such card returned under its owner's
+# control / to its owner's hand (400.3), "black and all red" the cards that are black or red
+_EACH_RETURNS = re.compile(r"(?<![\w'])[Ee]ach player returns all (?P<x>[a-z]+(?: and all [a-z]+)?(?: [a-z]+)?) cards from their graveyard to (?P<d>the battlefield|their hand)\b")
+_OWNER_SHUFFLES = re.compile(r"(^\s*|\. )~'s owner shuffles (?:him|her|it|~) into their library and draws (\w+ cards?)\b")
+
+
+def _split_tails(body: str, event_player: bool) -> str:
+    text = body.strip()
+    if (m := _TAIL_PUMP.match(text)) is not None:
+        it, grant = "~" if m["s"] == "~" else "It", m["g"].replace(',"', '"')
+        return f"{m['lead'] or ''}{m['s']} {m['head']} and gains {grant}. {it} {_DEFENDER}."
+    if (m := _TAIL_LIST.match(text)) is not None:
+        it = "~" if m["s"] == "~" else "It"
+        return f"{m['s']} gains {m['k']} until end of turn. {it} {_DEFENDER}. {it} assigns combat damage equal to its toughness rather than its power this turn."
+    if (m := _TAIL_IT.match(text)) is not None:
+        return f"{m['first']}. ~ {_DEFENDER}."
+    body = _OWNER_SHUFFLES.sub(lambda m: f"{m[1]}Shuffle ~ into its owner's library. Its owner draws {m[2]}", body)
+    body = _YOU_ADD.sub(r"Add \1", body)  # "You add {R}." (Red Death, Shipwrecker) is "Add {R}."
+    body = _EACH_RETURNS.sub(lambda m: f"Return all {m['x'].replace(' and all ', ' or ')} cards from all graveyards to "
+                             + ("the battlefield under their owners' control" if m["d"] == "the battlefield" else "their owners' hands"), body)
+    # "Goad target creature an opponent controls. That player draws a card.": the opponent named is the creature's controller (no event names a player here)
+    return body if event_player else _THAT_PLAYER.sub("Its controller", body)  # (a trigger whose event names a player keeps "that player" for it)
 
 
 def _plain_clause(text: str, it: str | None, event_player: bool) -> list[dict[str, Any]] | None:
@@ -4351,10 +4393,13 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # object the ability names is the source, so "it" is that creature
         body = re.sub(r"^(\s*~ (?:gets|gains) [^.\"]+\.) Tap it\.$", r"\1 Tap ~.", body)
         parsed = _own_choice(parse_effects(body, "self_gone" if gone else own))  # (_own_choice: wave 3R5)
-        if parsed is None or parsed[2]:
+        # -- activated other (wave 34B) -- 608.2d: "{1}: You may have Arni's base power become …": the one instruction is optional, asked as it resolves
+        # (a stack entry's ``optional``, like a triggered ability's 603.5); any other "may" shape stays manual
+        asked = parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0]["do"] == "become" and not parsed[0][0].get("optional")
+        if parsed is None or (parsed[2] and not asked):
             return None
         effects, target, _ = parsed
-        out = {"kind": "activated", "cost": ability.cost, "effects": effects, **target_fields(target)}
+        out = {"kind": "activated", "cost": ability.cost, "effects": effects, **target_fields(target), **({"optional": True} if asked else {})}
         if parsed_restriction:
             out["restriction"] = parsed_restriction
         if x_min is not None:
