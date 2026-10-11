@@ -640,6 +640,9 @@ class TriggerEvent(BaseModel):
     defended: str | None = None  # -- combat (wave 5C) -- "Whenever you attack a player": the player attacked (508.3e)
     # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, …": that creature (509.3c-d)
     other: ObjectRef | None = None
+    # -- X from the triggering object (wave 34C) -- 107.3a: the X a cycling cost was announced with ("When you cycle this card, create an X/X
+    # …"); None for any other event (a cast trigger reads its spell's payment record: triggers.cast_x)
+    x: int | None = None
 
 
 class PendingTrigger(BaseModel):

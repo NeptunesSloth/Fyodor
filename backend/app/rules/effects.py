@@ -17,7 +17,9 @@ controller", "its toughness" (608.2h: as they were), "return it" (400.7j: where 
 
 from __future__ import annotations
 
+import contextlib
 import itertools
+from collections.abc import Iterator
 from typing import Any
 
 from app.game.rules_state import DecisionOption, ObjectRef, StackEntry, remember_stack
@@ -116,6 +118,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if p != me and p not in named]
     if who == "event_player":  # "that player": the one the trigger event was about (who drew, was dealt damage …)
         return context.players(plan, ctx, context.EVENT)
+    if who == "source_owner":  # -- review 33 -- "~'s owner": the source card's owner, wherever it is now (108.3; a card shuffled into a
+        src = plan.state.cards.get(ctx.get("source_card") or "") or plan.rules.lki.get(ctx.get("source_object") or "")  # library is known
+        return [src.owner] if src is not None and src.owner in plan.live() else []  # there by no id: as it last existed, 608.2h)
     if who == "attacking_opponents":  # -- attached events (wave 4L) -- "Each opponent attacking that player"
         from app.rules import attached_players
 
@@ -1009,7 +1014,7 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
     resolver goes on after a paused choice (the resolver itself: its effects continue)."""
     t = e["token"]
     count = _amount(plan, ctx, e["n"])
-    if count <= 0:
+    if count <= 0 and not e.get("more"):  # (wave 34C: a list of kinds is judged kind by kind below: "create X A tokens and two B tokens", X = 0)
         _remember(plan, ctx, e, [])
         return True
     requests: list[tuple[str, dict[str, Any], int, str | None, bool]] = []
@@ -1040,6 +1045,9 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
             tapped = bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)
             requests.append((pid, spec, count * each[pid] if each is not None else count, source, tapped))
     # (the tokens are recorded as binding "as", the new objects they are: "they gain haste")
+    if not requests:  # (every kind counted 0)
+        _remember(plan, ctx, e, [])
+        return True
     made = replace.create_token_batch(plan, requests, ctx=ctx, bind=e.get("as"), then=then or _then(ctx, e))
     return made is not None  # (None: the creating player chooses an order first, 616.1)
 
@@ -3060,7 +3068,8 @@ def _did_counters_up(fn: Any) -> Any:
             cards = _cards(plan, ctx, e["who"])
             if e.get("reflex"):
                 context.refs(ctx)[name] = {"kind": "probe", "counter": e["kind"], "counters_up": {
-                    c: [plan.oid(plan.state.cards[c]), plan.state.cards[c].counters.get(e["kind"], 0)] for c in cards}}
+                    c: [plan.oid(plan.state.cards[c]), plan.state.cards[c].counters.get(e["kind"], 0)] for c in cards},
+                    **({"per": e["n"]} if isinstance(e.get("n"), int) else {})}  # (review 33: _reflex_times)
             else:  # (the "cards" record of a move, context.probe_ok: the objects the put was allowed on)
                 context.refs(ctx)[name] = {"kind": "probe", "to": "battlefield", "cards": {
                     c: plan.oid(plan.state.cards[c]) for c in cards if prohibitions.cant_counters(plan, c, None) is None}}
@@ -3199,10 +3208,25 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # the rulings of Ajani, Nacatl Avenger (a Doubling Season makes two Cat Warriors: two triggers), 603.12a)
         for ev in ([event.model_copy(update={"objects": [o], "count": 1, "amount": 1}) for o in event.objects
                     if any(new["card"] == o.card for new, _ in _this_way._matched(plan, ctx, e["cond"]["value"]))]
-                   if e.get("each") and event is not None else [event]):
+                   if e.get("each") and event is not None else [event] * _reflex_times(plan, ctx, e["cond"])):
             _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
                  name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=ev)
     return True
+
+
+def _reflex_times(plan: Plan, ctx: Context, cond: Any) -> int:
+    """-- review 33 -- 603.12a: "Put two quest counters on ~. When you do, …" triggers once each time that was done: once for every two
+    counters the put really added to that one object (a Doubling Season's four: twice — the rulings of Craig Boone, Novac Guard and Etched
+    Slith; a Hardened Scales' three: once). Anything else (several objects, an amount that isn't a number) triggers once."""
+    b = context.refs(ctx).get(cond.get("succeeded") or "") if isinstance(cond, dict) and isinstance(cond.get("succeeded"), str) else None
+    per = (b or {}).get("per")
+    if not b or not isinstance(per, int) or per <= 0 or len(b.get("counters_up") or {}) != 1:
+        return 1
+    (cid, (oid, before)), = b["counters_up"].items()
+    card = plan.state.cards.get(cid)
+    if card is None or plan.oid(card) != oid:
+        return 1
+    return max(1, (card.counters.get(b["counter"], 0) - int(before)) // per)
 
 
 # -- reflexive LKI (wave 4J) --
@@ -3243,7 +3267,25 @@ PRIMITIVES["kicked_gate"] = kicked_gate
 
 
 # -- resolving a definition -----------------------------------------------------------------
+@contextlib.contextmanager
+def reading_x(plan: Plan, x: int | None) -> Iterator[None]:
+    """-- X from the triggering object (wave 34C) -- while an ability resolves, a selector comparing with X ("mana value X": selectors.X_VALUE)
+    reads the X it was put on the stack with (107.3a, 107.3e), as it reads a spell's own (its stack_info) or the one announced while casting."""
+    before = plan.x_choice
+    if x is not None:
+        plan.x_choice = x
+    try:
+        yield
+    finally:
+        plan.x_choice = before
+
+
 def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
+    with reading_x(plan, entry.x):
+        _begin_resolution(plan, stack_id, entry)
+
+
+def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     """608.2: check targets, ask "you may", then carry out the effects in order."""
     ctx: Context = {"controller": entry.controller, "source_card": entry.source_card, "source_object": entry.source_object,
                     "name": entry.name, "targets": [t.model_dump() for t in entry.targets], "stack_id": stack_id,
@@ -3349,6 +3391,11 @@ def resume_may(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def continue_effects(plan: Plan, ctx: Context) -> None:
+    with reading_x(plan, ctx.get("x")):
+        _continue_effects(plan, ctx)
+
+
+def _continue_effects(plan: Plan, ctx: Context) -> None:
     while ctx["next"] < len(ctx["effects"]):  # (wave 19F: re-read each time: effects.repeat replaces the list)
         e = ctx["effects"][ctx["next"]]
         if replacements.ask_903_9b_first(plan, ctx, e):

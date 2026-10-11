@@ -57,7 +57,7 @@ def test_selectors(phrase, fields):
 
 
 @pytest.mark.parametrize("phrase", [
-    "activated or triggered ability from your graveyard", "artifact creature or Vehicle",
+    "activated or triggered ability from your graveyard",  # ("artifact creature or Vehicle": read since wave 33C)
 ])
 def test_refused_selectors(phrase):
     assert selectors.parse(phrase) is None
@@ -108,7 +108,7 @@ def test_target_forms_are_parsed(text, effects_, target):
 
 
 @pytest.mark.parametrize("text", [
-    "~ deals 2 damage to any other target.",  # ("other" than what? nothing was targeted before)
+    # ("~ deals 2 damage to any other target.": read since wave 34D, any target but the source)
     "Tap each of up to two other targets.",
     "~ deals 1 damage to any target, 2 damage to another target, and 3 damage to a third target.",  # (three-way: not read)
     "Counter target creature.",  # (a permanent can't be countered, 701.6a)
