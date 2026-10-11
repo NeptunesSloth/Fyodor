@@ -375,7 +375,7 @@ _SAC_OR = re.compile(r"^Sacrifice (?P<a>a|an|another) (?P<w1>[\w\-]+) or (?P<b>a
 _GRANDEUR = re.compile(r"^Discard another card named ~$")  # (grandeur, an ability word: 207.2c)
 _HALF_LIFE = "Pay half your life rounded up"
 _COMMANDER_LIFE = "Pay life equal to the number of colors in your commanders' color identity"
-_AND = re.compile(r" and (?=(?:(?:sacrifice|exile|return|remove|discard|tap|put|pay) )?(?:(?:a|an|another|one|two|three|this|it|\d+)\b|~))")
+_AND = re.compile(r" and (?=(?:(?:sacrifice|exile|return|remove|discard|tap|put|pay) )?(?:(?:a|an|another|one|two|three|four|five|six|seven|eight|nine|ten|thirteen|fifteen|this|it|\d+)\b|~))")  # (wave 34B: any count word the cost reads, Glass-Cast Heart)
 _VERB = re.compile(r"^(?P<verb>Sacrifice|Exile|Return|Remove|Discard|Tap|Put|Pay) ")
 
 

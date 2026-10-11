@@ -151,9 +151,14 @@ def entered(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog)
     sel = selectors.from_key(cond["sel"])
     me = ctx["controller"]
     n = 0
+    # (-- this-turn state (wave 33D) -- "other": "event": another than the object a trigger's event is about, "if that player had another
+    # land enter the battlefield under their control this turn" (Tunnel Ignus: lands that entered together count, 603.2)
+    from app.rules import context
+
+    other = {r.object_id for r in context._object_refs(ctx, context.EVENT)} if cond.get("other") == "event" else {_source_object(plan, ctx)}
     for e in log.entered:
         if (e.controller != me) != (cond.get("who") == "opponent") \
-                or (cond.get("other") and e.object_id == _source_object(plan, ctx)):  # ("who": wave 4D)
+                or (cond.get("other") and e.object_id in other):  # ("who": wave 4D)
             continue
         card = plan.state.cards.get(e.card)
         if card is not None and plan.oid(card) == e.object_id:
@@ -250,6 +255,8 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
                 log.facts[-1].source_types, log.facts[-1].source_supertypes = what["types"], what["supertypes"]
                 log.facts[-1].source_subtypes = what["subtypes"]  # (wave 17C: prowl, 702.76a)
                 log.facts[-1].source_controller = obj.controller if obj is not None else None
+            elif kind == "to_exile" and player is not None:  # -- this-turn state (wave 33D) -- 400.1: a card put into exile from another zone (a token is no card)
+                log.facts.append(TurnFact(kind="exile", player=player, object_id=info.get("oid"), **what))
             elif kind == "counters_put" and player is not None:
                 log.facts.append(TurnFact(kind="counters", player=player, object_id=info.get("oid"),
                                           amount=int(info.get("amount") or 0), counter=info.get("counter"),
@@ -464,6 +471,12 @@ def cast_amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     conditions read (601.2i), counted as the effect is carried out (608.2h)."""
     from app.rules import context
 
+    if v.get("greatest"):  # -- this-turn state (wave 33D) -- Rootha: "the greatest mana value among instant and sorcery spells you've cast this turn"
+        from app.rules import selectors
+
+        sel = selectors.from_key(v["sel"])
+        return max((int(n.mv) for n in log_for(plan).casts if n.player == ctx["controller"] and note_matches(
+            sel, n.types, n.subtypes, n.supertypes, n.colors, n.mv, x_cost=n.x_cost)), default=0)
     per = _cast_counts(plan, ctx, v, log_for(plan))
     who = v["spells_cast"]
     return sum(per.values()) if who == "all" else sum(per.get(p, 0) for p in ([ctx["controller"]] if who == "you" else context.players(plan, ctx, context.EVENT)))
@@ -493,6 +506,8 @@ def _facts_holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: Tur
             continue
         if cond.get("by") == "you" and f.actor != ctx["controller"]:  # (wave 16D) "you put a counter on a creature this turn"
             continue
+        if cond.get("of_self") and f.source != _source_object(plan, ctx):  # (wave 33D) "an Assassin crewed it this turn": the Vehicle is the source
+            continue
         per[f.player] = per.get(f.player, 0) + 1
     return _per_player(plan, ctx, cond, per)
 
@@ -504,12 +519,83 @@ def _damage(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog)
     for f in log.facts:
         if f.kind != "damage" or f.amount <= 0 or ("combat" in cond and f.combat != cond["combat"]):
             continue
-        if src and not (set(src["types"]) <= set(f.source_types) and set(src["supertypes"]) <= set(f.source_supertypes)):
+        if src and not (set(src["types"]) <= set(f.source_types) and set(src["supertypes"]) <= set(f.source_supertypes)
+                        and set(src.get("subtypes", ())) <= set(f.source_subtypes)):  # (wave 33D: "dealt combat damage by a Zombie")
             continue
         if cond.get("by_self") and f.object_id != _source_object(plan, ctx):  # ("~ dealt damage to an opponent")
             continue
         per[f.player] = per.get(f.player, 0) + f.amount
     return any(per.get(p, 0) >= int(cond.get("n", 1)) for p in _players(plan, ctx["controller"], cond.get("who")))
+
+
+# -- this-turn state (wave 33D) -- a fact about ONE object this turn ("it was dealt damage", "it was blocked", "that creature entered"): found by
+# its rules object id, so a creature that has died since is still read as it was (603.10a, 608.2h; 400.7: a new object is not it)
+def object_ids(plan: Plan, ctx: dict[str, Any], who: str) -> set[str]:
+    """The object ids a condition's object word names: the source, the trigger event's object, an earlier instruction's or a target."""
+    from app.rules import context
+
+    if who == "self":
+        oid = _source_object(plan, ctx)
+        return {oid} if oid else set()
+    if who == "event" or who.startswith("ref:"):
+        return {r.object_id for r in context._object_refs(ctx, context.EVENT if who == "event" else who[4:], was=True)}
+    if who == "target" or who.startswith("target:"):
+        from app.rules.effects import target_refs  # (effects imports this module)
+
+        return {t["object_id"] for t in target_refs(ctx, who) if t.get("object_id")}
+    return set()
+
+
+def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
+    """damaged: it was dealt ``n`` or more damage (120.3: dealt, so not prevented; ``combat``: only combat / noncombat), blocked: it became
+    blocked when blockers were declared (509.1g), attacked_or_blocked (508.1, 509.1g), entered: it entered the battlefield, dealt_player: it
+    dealt ``n`` or more damage to a player (``to`` "event": to the player the trigger's event is about). No such object: the test fails (608.2b)."""
+    from app.rules import context
+
+    ids = object_ids(plan, ctx, cond["object"])
+    if not ids:
+        return False
+    what, n = cond["what"], int(cond.get("n", 1))
+
+    def total(kind: str, key: Any) -> int:
+        return sum(f.amount for f in log.facts if f.kind == kind and key(f) and ("combat" not in cond or f.combat == cond["combat"]))
+
+    if what == "entered":
+        got = any(e.object_id in ids for e in log.entered)
+    elif what == "blocked":
+        got = any(a in ids for attacked in log.blocks.values() for a in attacked)
+    elif what == "attacked_or_blocked":
+        got = bool(ids & set(log.blockers)) or any(a in ids for attacking in log.attackers.values() for a in attacking)
+    elif what == "damaged":
+        got = total("damaged", lambda f: f.object_id in ids) >= n
+    elif what == "dealt_player":
+        to = set(context.players(plan, ctx, context.EVENT)) if cond.get("to") == "event" else None
+        got = total("damage", lambda f: f.object_id in ids and (to is None or f.player in to)) >= n
+    else:
+        raise ValueError(f"unknown object history {cond!r}")
+    return got != bool(cond.get("negate"))
+
+
+def _cast_nth(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
+    """"It's the second creature spell you cast this turn" (Vengevine: the spell a cast trigger is about), "if it was the second spell you cast
+    this turn" (Codespell Cleric: the spell this permanent was, 608.3): the nth spell of its kind its caster cast, counted in the order they
+    were cast (601.2i) — fixed once it was cast, so later casts don't change it as the ability resolves (603.4)."""
+    from app.rules import selectors
+
+    sel = selectors.from_key(cond["sel"])
+    ids, n = object_ids(plan, ctx, cond["object"]), 0
+    for note in log.casts:
+        subject = note.object_id in ids or (note.became is not None and note.became in ids)
+        if note.player != ctx["controller"] or not note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv,
+                                                                x_cost=note.x_cost):
+            if subject:
+                return False  # (the spell isn't of that kind)
+            continue
+        n += 1
+        if subject:
+            return n == int(cond["n"])
+    return False
+# -- end this-turn state (wave 33D) --
 
 
 def _prowl(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
@@ -556,6 +642,8 @@ _WAVE_4D: dict[str, Any] = {
     "facts": _facts_holds,
     "damage": _damage,
     "prowl": _prowl,
+    "object": _object_history,  # (wave 33D)
+    "cast_nth": _cast_nth,  # (wave 33D)
     "departed": _departed,
     "lands": lambda plan, ctx, cond, log: plan.rules.lands_this_turn(ctx["controller"], plan.state.turn.number) >= int(cond.get("n", 1)),
     "resolution": lambda plan, ctx, cond, log: resolution_holds(ctx, cond),
@@ -591,6 +679,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     if kind in ("tokens", "sacrificed", "discarded"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)
         return sum(1 for f in log.facts if f.kind == {"tokens": "token", "sacrificed": "sacrifice", "discarded": "discard"}[kind]
                    and (f.player == me or v.get("who") == "any"))  # (wave 21F: "who": "any" — each permanent sacrificed, whoever did it)
+    if kind == "opponents_attacked":  # -- this-turn state (wave 33D) -- 508.6: the opponents (still in the game, 800.4a) you declared attackers against
+        return len({p for a in log.attackers.get(me, []) for p in log.attacked_who.get(a, []) if p != me and p in plan.live()})
     if kind in ("opp_lost", "opp_damage"):  # (the opponents still in the game: 800.4a)
         opps = {p for p in plan.live() if p != me}
         if kind == "opp_lost":

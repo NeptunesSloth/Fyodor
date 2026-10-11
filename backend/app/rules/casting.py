@@ -3819,7 +3819,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         modal_abilities.announced(plan, ability_id, card, modal, oid)  # the modes chosen are public; remembered
     elif definition is not None and ability_id:
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
-                                         name=ch.name, x=a.x_value, **picked_targets.entry(definition),
+                                         name=ch.name, x=a.x_value, optional=bool(definition.get("optional")),  # (wave 34B: 608.2d, asked on resolution)
+                                         **picked_targets.entry(definition),
                                          # -- this-turn history (wave 4D) -- "the second time this ability has resolved"
                                          effects=history.counting_activations(history.counting_resolutions(list(definition["effects"]), f"{oid}:{a.ability}"),
                                                                 f"{oid}:{a.ability}"))
@@ -3830,7 +3831,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if ability_id:  # -- activation (wave 11F) -- 602.2: "Whenever a player activates an ability …"
         from app.rules.triggers import activated
 
-        activated(plan, card, oid, loyalty=ability.kind == "loyalty", ability_id=ability_id)
+        activated(plan, card, oid, loyalty=ability.kind == "loyalty", ability_id=ability_id, text=ability.text)
     if ability.kind == "loyalty":
         if r.loyalty_used.get(oid) == plan.state.turn.number:
             r.loyalty_second[oid] = plan.state.turn.number  # -- static_other sweep (wave 19A) -- the second use (Oath of Teferi)

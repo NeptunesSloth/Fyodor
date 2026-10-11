@@ -761,6 +761,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if cond.get("alone") and info.get("attackers") != 1:  # 506.5
         return False
+    if cond.get("while") is not None:  # "attacks while you control …", -- counters (wave 33C) -- "enters while this creature has a -1/-1 counter on it": part of the trigger event
+        from app.rules import conditions
+
+        if not conditions.holds(plan, {"controller": you, "source_card": watcher.id}, cond["while"]):
+            return False
     if event in ("attack", "unblocked", "you_attack"):
         want = cond.get("defender")
         # "whenever you attack" is once per combat; "whenever a player attacks you" once per player
@@ -774,17 +779,14 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
         if cond.get("first_each_turn") and not info.get("first"):
             return False
-        if cond.get("while") is not None:  # "attacks while you control …": part of the trigger event
-            from app.rules import conditions
-
-            if not conditions.holds(plan, {"controller": you, "source_card": watcher.id}, cond["while"]):
-                return False
     if event == "dealt_damage" and cond.get("combat") is not None and bool(info.get("combat")) != cond["combat"]:
         return False
     if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)
         return False
     if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
             cond.get("own") and (obj is None or obj.controller != player))):  # -- activation (wave 11F) --
+        return False
+    if event == "activate" and cond.get("word") and info.get("word") != cond["word"]:  # -- counters (wave 33C) -- "an exhaust / a boast / a power-up ability"
         return False
     if event == "activate" and cond.get("ability_targets"):  # -- stack interaction (wave 23B) -- "an ability that targets a creature or player"
         ref = info.get("source_ref")
@@ -952,6 +954,8 @@ def _targets_ok(plan: Plan, want: str, watcher: CardInstance, targets: list[tupl
     """115.9b: "a spell that targets ~ / a creature you control" — the spell's targets as they are now."""
     from app.rules import selectors
 
+    if want.startswith("opp_or:"):  # -- counters (wave 33C) -- 115.9b: "a spell that targets an opponent or a creature an opponent controls" (Danitha)
+        return any(c in plan.state.players and c != watcher.controller for c, _ in targets) or _targets_ok(plan, want[len("opp_or:"):], watcher, targets)
     if want == "self_only":  # -- copied abilities (wave 18F) -- "that targets only ~": every target, and at least one, is the watcher (115.9b)
         return bool(targets) and all(c == watcher.id and (o is None or plan.oid(watcher) == o) for c, o in targets)
     if want.startswith("only_one:"):  # -- spell copies (wave 31D) -- 115.9c: exactly one different object or player chosen, and 115.9b: it matches now
@@ -1077,6 +1081,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             nth = cond.get("nth") if cond["event"] == "draw" else None
             if nth and plan.rules.draws_this_turn.get(fact[3] or "", 0) != nth:
                 continue
+            if cond["event"] == "draw" and cond.get("nth_max") and plan.rules.draws_this_turn.get(fact[3] or "", 0) > cond["nth_max"]:
+                continue  # -- counters (wave 33C) -- "your first or second card each turn"
             if cond.get("not_first_in_draw_step") and fact[4].get("first_in_draw_step"):  # -- triggers (wave 5D) --
                 continue
             if cond.get("only_first_in_draw_step") and not fact[4].get("first_in_draw_step"):  # -- hideaway (wave 29D) -- Wiretapping
@@ -1743,7 +1749,7 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
                                          "effects": effects})
 
 
-def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False, ability_id: str | None = None) -> None:
+def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False, ability_id: str | None = None, text: str = "") -> None:
     """-- activation (wave 11F) -- 602.2: an activated ability (not a mana ability) was put on the stack by ``plan.actor``:
     "Whenever an opponent activates an ability of a creature …" (603.2). The source is the object that activated it,
     as it last existed if paying the cost moved it (603.10a, 608.2h)."""
@@ -1752,6 +1758,7 @@ def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False
     ability = plan.state.cards.get(ability_id or "")  # (wave 18F: the activated ability itself, for "copy that ability")
     _fire_generic(plan, [("activate", obj, och, plan.actor,
                           {"oid": oid, "snap": snap, "actor": plan.actor, "amount": 1, "loyalty": loyalty,
+                           "word": (w[1].lower() if (w := re.match(r"(Exhaust|Boast|Power-up) — ", text)) else None),  # (wave 33C: its ability word)
                            "source_ref": ObjectRef(card=ability.id, object_id=plan.oid(ability), zone=ability.zone) if ability else None})],
                   -1, {})
 

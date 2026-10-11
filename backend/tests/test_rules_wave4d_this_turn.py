@@ -159,7 +159,7 @@ def test_wordings(text, expected):
     "you've cast a spell with flying this turn",  # (keywords aren't recorded)
     "you attacked with two or more Merfolk this turn",  # (only how many creatures)
     "an opponent has cast another spell this turn",
-    "it was the second spell you cast this turn",
+    "an opponent was the second player to cast a spell this turn",  # (wave 33D reads "it was the second spell you cast this turn": cast_nth)
 ])
 def test_refused_wordings(text):
     assert conditions.parse(text, objects=True) is None
