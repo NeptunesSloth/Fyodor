@@ -391,7 +391,7 @@ def test_gandalf_goes_into_the_library_and_his_owner_draws_three(cards):
     mana(s, C=6)
     activate(s, "p1", gandalf, "shuffles")
     settle(s)
-    assert zone_of(s, "Gandalf, Wandering Wizard") == "p1:library"
+    assert zone_of(s, "Gandalf, Wandering Wizard") in ("p1:library", "p1:hand")  # (shuffled in first: one of the three drawn 3 times in 31)
     assert len(s.state.zones["p1:hand"]) == hand + 3 and len(s.state.zones["p1:library"]) == library + 1 - 3
     check(s)
 
