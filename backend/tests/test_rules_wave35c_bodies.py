@@ -17,9 +17,14 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
 from tests.wave9c_kit import build, card_named, check, life, mana, put, reloaded
-from tests.wave35c_kit import bolt, cards, pool  # noqa: F401
+from tests.wave35c_kit import bolt, repository
 
 FULL = ["Phytohydra", "Lichenthrope", "Force Bubble", "Crumbling Sanctuary", "Soul-Scar Mage", "Szadek, Lord of Secrets"]
+
+
+@pytest.fixture()
+def cards(settings):
+    yield from repository(settings)
 
 
 @pytest.mark.parametrize("name", FULL)
@@ -125,7 +130,8 @@ def test_two_replacements_of_one_bolt_ask_the_creatures_controller_which_applies
     """616.1: Furnace of Rath (the Bolt deals double damage) and Phytohydra (counters instead of damage) both apply to a Bolt at Phytohydra: doubling first makes
     6 counters, counters first makes 3 (nothing is left to double, 614.5). Alice, its controller, is asked; the question names both."""
     s = build(cards, ["Phytohydra", "Furnace of Rath", "Lightning Bolt"], [])
-    hydra, furnace = put(s, "Phytohydra"), put(s, "Furnace of Rath")
+    hydra = put(s, "Phytohydra")
+    put(s, "Furnace of Rath")
     mana(s, "p1", R=1)
     from tests.wave9c_kit import to_hand
 

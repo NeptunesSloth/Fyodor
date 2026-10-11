@@ -13,10 +13,15 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle, until
-from tests.wave9c_kit import build, check, life, mana, put, reloaded, to_hand
-from tests.wave35c_kit import alive, bolt, cards, cast_from_hand  # noqa: F401
+from tests.wave9c_kit import build, check, life, mana, put, reloaded
+from tests.wave35c_kit import alive, bolt, cast_from_hand, repository
 
 FULL = ["Worship", "Fortune Thief", "Angel's Grace", "Serra the Benevolent", "Angel of Grace"]
+
+
+@pytest.fixture()
+def cards(settings):
+    yield from repository(settings)
 
 
 @pytest.mark.parametrize("name", FULL)

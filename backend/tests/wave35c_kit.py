@@ -6,8 +6,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
@@ -22,8 +20,8 @@ EXTRA = [card(c["name"], set_code="w35c", number=f"C{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 
 
-@pytest.fixture()
-def cards(settings):
+def repository(settings):
+    """The card repository of a test (each test module wraps it in its own ``cards`` fixture)."""
     settings.ensure_dirs()
     build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))

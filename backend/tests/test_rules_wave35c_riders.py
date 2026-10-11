@@ -15,9 +15,14 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
 from tests.wave9c_kit import build, card_named, check, mana, put, reloaded, to_hand
-from tests.wave35c_kit import cards, cast_from_hand  # noqa: F401
+from tests.wave35c_kit import cast_from_hand, repository
 
 FULL = ["Anax, Hardened in the Forge", "Fblthp, the Lost"]
+
+
+@pytest.fixture()
+def cards(settings):
+    yield from repository(settings)
 
 
 @pytest.mark.parametrize("name", FULL)

@@ -14,10 +14,15 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
-from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, reloaded, to_hand
-from tests.wave35c_kit import bolt, cards, pool  # noqa: F401
+from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, reloaded
+from tests.wave35c_kit import bolt, pool, repository
 
 FULL = ["Festering Newt", "Mine Worker", "Power Plant Worker", "Tower Worker"]
+
+
+@pytest.fixture()
+def cards(settings):
+    yield from repository(settings)
 
 
 @pytest.mark.parametrize("name", FULL)

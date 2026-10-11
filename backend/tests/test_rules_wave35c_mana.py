@@ -14,7 +14,12 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle, until
 from tests.wave9c_kit import build, check, mana, put, reloaded
-from tests.wave35c_kit import cards, pool  # noqa: F401
+from tests.wave35c_kit import pool, repository
+
+
+@pytest.fixture()
+def cards(settings):
+    yield from repository(settings)
 
 
 @pytest.mark.parametrize("name", ["Kruphix, God of Horizons", "Omnath, Locus of the Void", "Horizon Stone"])
