@@ -177,6 +177,21 @@ def _base(recipe: CopyRecipe, info: CardInfo) -> Characteristics:
     return Characteristics(name=recipe.source)  # (unknown to the card database: typeless, as chars.of)
 
 
+def renamed(text: str, old: str, new: str) -> str:
+    """-- copied names (review 31) -- 201.5: "Text that refers to the object it's on by name means just that particular object …
+    regardless of any name changes": a copy "except its name is …" (Sakashima the Impostor, Chameleon) reads the copied text's
+    own name (its full name, the part before a comma, its 201.5c short name) as its new name, the way 201.5b treats a gained
+    ability's. One pass, so a new name holding the old short name isn't renamed again; "a token named …" is another object."""
+    from app.rules.scripts import _short_name
+
+    short = _short_name(old, text)
+    names = sorted({n for n in (old, old.split(",")[0].strip(), short) if n and len(n) >= 3}, key=len, reverse=True)
+    if not names:
+        return text
+    alts = "|".join(re.escape(n) + (r"(?! (?:the|of) [A-Z])" if n == short else "") for n in names)
+    return re.sub(rf"(?<![\w-])(?<!named )(?:{alts})(?!\w)", lambda _: new, text)
+
+
 def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
     """One copy effect's exceptions (707.9a-d)."""
     from app.rules import scripts
@@ -207,7 +222,11 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
         if any(a.kind == "static" and a.text.startswith(every[:-1]) for a in kept):
             kept = [a for a in kept if not (a.kind == "static" and a.text.startswith(every[:-1]))]
             rewrite = True
-    text = "\n".join([*(a.text for a in kept), *gained]) if rewrite else ch.oracle_text
+    own = [a.text for a in kept]
+    if ex.name is not None and ch.name and ex.name != ch.name:  # -- copied names (review 31) -- 201.5: the copied text's own name is this object
+        was, own = own, [renamed(t, ch.name, ex.name) for t in own]
+        rewrite = rewrite or own != was
+    text = "\n".join([*own, *gained]) if rewrite else ch.oracle_text
     if rewrite:
         abilities = chars.with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
     elif subtypes != ch.subtypes:
