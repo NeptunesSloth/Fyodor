@@ -126,7 +126,8 @@ def on_facts(plan: Plan, facts: list[Any], batch: int) -> None:
 
 # "When you next cast …, copy that spell. You may choose new targets for the copy." — the second sentence belongs to the
 # deferred ability (it follows the copy it is about: 707.10c), so the two are read as one clause
-_COPY_RETARGET = re.compile(r"(?P<head>\b[Ww]hen you next cast [^.]*? this turn, copy (?:that spell|it)(?: (?:twice|three times|[xX] times))?)"
+_COPY_RETARGET = re.compile(r"(?P<head>\b[Ww]hen you next cast [^.]*? this turn, copy (?:that spell|it)"
+                            r"(?: (?:twice|three times|[xX] times|an additional time)| for each [^.]+?)?)"  # (review 32: Howl of the Horde's raid, Thunderclap Drake)
                             r"\. [Yy]ou may choose new targets for the cop(?:y|ies)\.")
 
 
