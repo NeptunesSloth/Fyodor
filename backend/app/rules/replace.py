@@ -1617,6 +1617,11 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
         return False
     if m.get("monarch") and plan.state.table.monarch != c.controller:  # (-- prevention riders (wave 17A) -- "while you're the monarch")
         return False
+    if m.get("max_speed"):  # -- damage sized by a count (wave 34D) -- 702.178a: "As long as you have max speed, if a source you control would deal damage …"
+        from app.rules import speed
+
+        if speed.of(plan, c.controller) < speed.MAX:
+            return False
     if m.get("at_least") and ev["amount"] < m["at_least"]:
         return False  # -- instead (wave 20B) -- "If a source would deal 4 or more damage …": judged on the amount as it is now (614.6)
     if c.op["do"] == "redirect":  # -- refused grants/replacements (wave 3R2) -- 614.9: nowhere to redirect to: nothing

@@ -116,7 +116,7 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     if m := re.fullmatch(r"any target that isn't an? (commander|[A-Z][a-z]+)", p):  # -- activated sweep (wave 17B) -- "any target that
         return {"what": f"any_not:{m[1]}", "min": 1, "max": 1}  # isn't a commander / a Dragon" (targets.legal_targets)
     if p in ("another target", "any other target"):  # 115.4 (Arc Trail): any target other than the earlier one
-        return {"what": "", "min": 1, "max": 1, "another": "any"}
+        return {"what": "", "min": 1, "max": 1, "another": "any", **({"any_other": True} if p == "any other target" else {})}  # (wave 34D)
     if p.startswith(("target ", "another target ")):
         what, _ = _group_constraints(_target_key(p))  # (one target: "a single graveyard" is vacuous)
         group: dict[str, Any] = {"what": what, "min": 1, "max": 1}
@@ -205,10 +205,13 @@ def _divided(phrase: str, what: str, total: Any) -> dict[str, Any]:
     ``total`` of them."""
     group = target_group(phrase)
     # (-- distribute (wave 12A) -- "any number of other target creatures you control": other than the source, 115.3)
+    # -- damage sized by a count (wave 34D) -- a total "where X is <a count>" (scripts._where_x makes it the group's ``value``, read as the spell is cast)
     if group is None or group.get("another") == "any" or group["max"] < 2 and "another" in group \
-            or not (isinstance(total, int) or total == {"x": 1}):
+            or not (isinstance(total, int) or total == {"x": 1} or (isinstance(total, dict) and not _has_x(total))):
         raise _Fail
-    group = {**group, "min": max(1, group["min"]), "divide": {"what": what, "total": total}}
+    counted = not (isinstance(total, int) or total == {"x": 1})  # (a count: the total is read as the spell is cast, targets.divide_x)
+    group = {**group, "min": max(1, group["min"]), "divide": {"what": what, "total": {"x": 1}, "value": total} if counted
+             else {"what": what, "total": total}}
     if isinstance(total, int):
         if total < 1:
             raise _Fail
@@ -1621,6 +1624,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return found
     # -- end damage sized by a count (wave 4E) --
     src: dict[str, Any] = {"src": "it"} if text.startswith("it ") else {}
+    m = re.fullmatch(r"~ deals damage equal to (?:its|~'s) power divided as you choose among (?P<o>.+)", text)
+    if m:  # -- damage sized by a count (wave 34D) -- 601.2d, 608.2d: its power as it is when the ability goes on the stack, or as it last existed (Orca)
+        if rider is not None:
+            raise _Fail
+        return [{"do": "damage", "who": "target", "n": {"divided": 0}}], _divided(m["o"], "damage", {"power": "self"})
     m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage divided as you choose among (?P<o>.+)", text)
     if m:  # 601.2d: the division is announced as the spell is cast (each target gets at least 1)
         if rider is not None:
@@ -1670,6 +1678,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         # -- sized amounts (wave 3D) -- "each opponent and each creature and planeswalker they control": the opponents'
         # (selectors read "or" for a list of types), and "each other player" is every opponent (102.2)
         recipients = m["o"].replace("each other player", "each opponent")
+        if "any other target" in recipients and src:
+            raise _Fail  # -- damage sized by a count (wave 34D) -- "it deals … to any other target": other than which creature? (scripts._add_groups reads only the source's own)
         if recipients == "itself" and m["src"] == "~":  # -- chosen player (wave 4J) -- "~ deals 1 damage to itself" (Stuffy Doll)
             recipients = "~"
         recipients = re.sub(r"^(each opponent and each .+?) they control$", r"\1 your opponents control", recipients)
@@ -2455,6 +2465,8 @@ def _bite(text: str) -> tuple[Effects, Any] | None:
     src = "target" if group is not None else "host"
     groups = [group] if group is not None else []
     whos, parts = _bite_recipients(m["o"])  # (wave 4E: "… to each other creature and each opponent")
+    if src != "target" and any(g.get("another") == "any" for g in parts):
+        raise _Fail  # -- damage sized by a count (wave 34D) -- "enchanted creature deals … to any other target": other than the creature, not than the Aura
     n: Any = {stat: src} if not m["stat"].startswith("twice ") else {"times": [2, {stat: src}]}  # (sized amounts, wave 3D)
     effects: Effects = [{"do": "damage", "who": _shift(w, len(groups)), "n": n, "src": src} for w in whos]
     for joined in effects[:-1]:  # -- damage sized by a count (wave 4E) -- one sentence: one damage event (120.3, 608.2)

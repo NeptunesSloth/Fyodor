@@ -489,7 +489,18 @@ def _damage_to(text: str) -> Definition | None:
     return _static("damage", match, {"do": "prevent_all", "prevention": True, "rider": rider}) if rider else None
 
 
+_MAX_SPEED_IF = "As long as you have max speed, if "
+
+
 def _damage(text: str) -> Definition | None:
+    if text.startswith(_MAX_SPEED_IF):  # -- damage sized by a count (wave 34D) -- 702.178a "As long as you have max speed, if a source you control would deal
+        # damage to an opponent …, it deals that much damage plus 1 instead." (Far Fortune): the same replacement, in force only at max speed
+        d = _damage_plain("If " + text[len(_MAX_SPEED_IF):])
+        return None if d is None else {**d, "match": {**d["match"], "max_speed": True}}
+    return _damage_plain(text)
+
+
+def _damage_plain(text: str) -> Definition | None:
     if (d := _damage_to(text)) is not None:
         return d
     m = _DAMAGE.match(text)
