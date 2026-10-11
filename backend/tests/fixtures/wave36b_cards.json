@@ -888,5 +888,83 @@
    "R"
   ],
   "keywords": []
+ },
+ {
+  "name": "Crush of Tentacles",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Surge {3}{U}{U} (You may cast this spell for its surge cost if you or a teammate has cast another spell this turn.)\nReturn all nonland permanents to their owners' hands. If this spell's surge cost was paid, create an 8/8 blue Octopus creature token.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Surge"
+  ]
+ },
+ {
+  "name": "Reckless Bushwhacker",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Goblin Warrior Ally",
+  "oracle_text": "Surge {1}{R} (You may cast this spell for its surge cost if you or a teammate has cast another spell this turn.)\nHaste\nWhen this creature enters, if its surge cost was paid, other creatures you control get +1/+0 and gain haste until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Haste",
+   "Surge"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Tyrant of Valakut",
+  "layout": "normal",
+  "mana_cost": "{5}{R}{R}",
+  "cmc": 7.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Surge {3}{R}{R} (You may cast this spell for its surge cost if you or a teammate has cast another spell this turn.)\nFlying\nWhen this creature enters, if its surge cost was paid, it deals 3 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Surge"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Rafter Demon",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Demon",
+  "oracle_text": "Spectacle {3}{B}{R} (You may cast this spell for its spectacle cost rather than its mana cost if an opponent lost life this turn.)\nWhen this creature enters, if its spectacle cost was paid, each opponent discards a card.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Spectacle"
+  ],
+  "power": "4",
+  "toughness": "2"
  }
 ]

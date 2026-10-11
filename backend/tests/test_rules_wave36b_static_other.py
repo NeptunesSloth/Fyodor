@@ -10,6 +10,7 @@
   Advisors, Artificers, and/or Monks you control" counts the source if it is one (it says no "other").
 * 601.3: "You can't cast Rakdos unless an opponent lost life this turn." is a restriction on casting it (and 119.3: life lost by any means counts).
 * 115.7d-e: "You may choose new targets for target spell or ability." (Deflecting Swat): each target is kept or changed to a legal one, the final set judged.
+* 118.9, 702.117a: "If this spell's surge cost was paid, …" (also spectacle, emerge) reads the alternative cost the spell was cast for (Crush of Tentacles).
 * "thirty or more artifacts" (number words), a pronoun for the card itself ("as he attacks", 701.43d exert), a shortened name that is also a creature type
   ("a green Lizard creature" on Lizard, Connors's Curse: 205.3m), "creatures without flying or reach" (neither).
 """
@@ -30,7 +31,7 @@ from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, ask, next_turn, priority_to, settle, stops, to_phase
-from tests.wave9c_kit import build, card_named, cast, check, mana, put, to_hand
+from tests.wave9c_kit import build, card_named, cast, check, mana, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave36b_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -41,7 +42,7 @@ FULL = [DION, "Yuna, Hope of Spira", "Miriam, Herd Whisperer", "Narfi, Betrayer 
         "Winter, Tormented Loner", "Maraxus of Keld", "Saradoc, Master of Buckland", "The Archimandrite", "Rakdos, Lord of Riots",
         "Knuckles the Echidna", "Themberchaud", "Lizard, Connors's Curse", "Sidar Kondo of Jamuraa", "Mesa Lynx", "Glory of Warfare",
         "Blasphemous Edict", "Maha, Its Feathers Night", "Frodo, Determined Hero", "Sylvan Advocate", "Proft, Sinister Mastermind",
-        "Stormtide Leviathan", "Deflecting Swat"]
+        "Stormtide Leviathan", "Deflecting Swat", "Crush of Tentacles", "Reckless Bushwhacker", "Tyrant of Valakut", "Rafter Demon"]
 
 
 @pytest.fixture()
@@ -532,4 +533,58 @@ def test_deflecting_swat_may_keep_the_target(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["keep"])
     settle(s)
     assert s.state.cards[bears.id].zone == "p1:graveyard" and s.state.cards[corpse.id].zone == "p2:battlefield"
+    check(s)
+
+
+# -- Crush of Tentacles: "Surge {3}{U}{U}" / "Return all nonland permanents to their owners' hands. If this spell's surge cost was paid, create an 8/8 blue Octopus." --
+def crush_table(cards, surge):
+    s = build(cards, ["Crush of Tentacles", "Grizzly Bears", "Lightning Bolt"], forests=14)
+    put(s, "Grizzly Bears")
+    if surge:
+        bolt = to_hand(s, "Lightning Bolt")
+        mana(s, R=1)
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])  # another spell this turn: 702.117a
+        settle(s)
+    crush = to_hand(s, "Crush of Tentacles")
+    mana(s, U=2, C=3 if surge else 4)
+    act(s, "p1", type="cast_spell", card_id=crush.id, **({"alt_cost": f"{crush.id}:0"} if surge else {}))
+    settle(s)
+    return s
+
+
+def octopus(s):
+    return [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Octopus"]
+
+
+def test_crush_of_tentacles_makes_an_octopus_only_when_cast_for_its_surge_cost(cards):
+    s = crush_table(cards, surge=True)
+    assert zone_of(s, "Grizzly Bears") == "p1:hand" and len(octopus(s)) == 1 and ch(s, "Octopus").pt == (8, 8)
+    check(s)
+    s = crush_table(cards, surge=False)
+    assert zone_of(s, "Grizzly Bears") == "p1:hand" and octopus(s) == []  # cast for its mana cost: no Octopus
+    check(s)
+
+
+# -- Reckless Bushwhacker: "When this creature enters, if its surge cost was paid, other creatures you control get +1/+0 and gain haste until end of turn." --
+def bushwhacker_table(cards, surge):
+    s = build(cards, ["Reckless Bushwhacker", "Grizzly Bears", "Lightning Bolt"], forests=14)
+    put(s, "Grizzly Bears")
+    if surge:
+        bolt = to_hand(s, "Lightning Bolt")
+        mana(s, R=1)
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+        settle(s)
+    hand = to_hand(s, "Reckless Bushwhacker")
+    mana(s, R=1, C=1 if surge else 2)
+    act(s, "p1", type="cast_spell", card_id=hand.id, **({"alt_cost": f"{hand.id}:0"} if surge else {}))
+    settle(s)
+    return s
+
+
+def test_bushwhacker_pumps_the_others_only_when_its_surge_cost_was_paid(cards):
+    s = bushwhacker_table(cards, surge=True)
+    assert power_toughness(s, "Grizzly Bears") == (3, 2) and "haste" in keywords(s, "Grizzly Bears")  # the ETB sees the cast record (603.4)
+    check(s)
+    s = bushwhacker_table(cards, surge=False)
+    assert power_toughness(s, "Grizzly Bears") == (2, 2) and "haste" not in keywords(s, "Grizzly Bears")  # intervening "if" false: it never triggered
     check(s)

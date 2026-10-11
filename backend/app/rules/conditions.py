@@ -1556,9 +1556,12 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "self", "cast": {"optional": "teamwork"}}
     if t in ("this spell's prowl cost was paid", "its prowl cost was paid"):  # -- static_other sweep (wave 17C) -- 702.76a
         return {"object": "self", "cast": {"alt": "prowl"}}
-    if (m := re.fullmatch(r"(?:(?:this spell's|this creature's|its|his|her) (?P<k>mayhem|web-slinging|sneak) cost was paid(?P<turn> this turn)?|(?P<w>it|this spell|~|they) (?:was|were) cast "
+    if (m := re.fullmatch(r"(?:(?:this spell's|this creature's|its|his|her) (?P<k>mayhem|web-slinging|sneak|surge|spectacle|emerge) cost was paid(?P<turn> this turn)?|(?P<w>it|this spell|~|they) (?:was|were) cast "
                           r"using (?P<k2>mayhem|web-slinging))", t)) is not None:  # -- Marvel keywords (wave 25A; sneak: 30I) -- 702.187b, 702.188a, 702.190a
+        # (-- static_other (wave 36B) -- surge 702.117a, spectacle 702.137a, emerge 702.119a: the cast record's alternative is the keyword (alt_costs.keyword_definition))
         return {"object": _cast_who(m["w"] or "self"), "cast": {"alt": m["k"] or m["k2"], **({"this_turn": True} if m["turn"] else {})}}
+    if re.fullmatch(r"the (?:\{[^}]+\})+ cost was paid", t):  # -- static_other (wave 36B) -- "If the {1}{B} cost was paid" (Baleful Mastery): the one alternative cost the card prints (118.9a)
+        return {"object": "self", "cast": {"alt": "alternative"}}
     if t in ("this spell was foretold", "it was foretold"):  # -- hidden exile (wave 18A) -- 702.143c: cast for its foretell cost (the only way)
         return {"object": _cast_who(t.split()[0]), "cast": {"alt": "foretell"}}
     if t in ("it was kicked", "this spell was kicked", "~ was kicked"):  # -- kicked instead (wave 20F) -- 702.33d: "When you cast this
