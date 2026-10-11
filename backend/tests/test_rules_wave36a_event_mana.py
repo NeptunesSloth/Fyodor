@@ -22,8 +22,8 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import creature, settle, until
-from tests.wave36a_kit import attack, next_own_turn, offered, pick, pool
 from tests.wave9c_kit import build, card_named, check, put
+from tests.wave36a_kit import attack, next_own_turn, offered, pick, pool
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave36a_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}

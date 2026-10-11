@@ -59,5 +59,43 @@ def attack(s, *attackers):
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": a.id, "target": "p2"} for a in attackers])
 
 
+def ready(s, *names, pid="p1"):
+    """The permanents have been under their controller's control since the turn began (no summoning sickness, 302.6)."""
+    for name in names:
+        s.state.rules.controlled_since[card_named(s, name, pid).id].turn = 0
+
+
+def attack_as(s, pid, attackers, target):
+    """``pid`` declares the attackers (a list of cards) against ``target`` (a player id or a planeswalker's card id)."""
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, pid, type="declare_attackers", attackers=[{"card_id": a.id, "target": target} for a in attackers])
+
+
+def block(s, pid, *pairs):
+    """``pid`` declares blockers: (blocker, attacker) pairs."""
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in pairs])
+
+
+def to_turn_of(s, pid):
+    """Play on (nobody attacks, nothing is cast) to the first main phase of ``pid``'s next turn."""
+    until(s, lambda s: s.state.turn.active_player == pid and s.state.turn.phase == "main1" and s.state.rules.decision is None, limit=200)
+
+
+def resolve_stack(s, limit=20):
+    """Let the stack resolve (a choice that comes up is answered with the first options); stop at a declaration of attackers or blockers."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            return
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("the stack never emptied")
+
+
 def pool(s, pid="p1"):
     return {k: v for k, v in s.state.players[pid].mana.items() if v}

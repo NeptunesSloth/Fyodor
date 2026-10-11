@@ -935,6 +935,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return False
     if want == "you_or_pw":  # "attacks you or a planeswalker you control"
         return defended == you
+    if want == "opponent_or_pw":  # -- trigger other (wave 36A) -- "attacks one of your opponents or a planeswalker an opponent controls": not you, not what you control
+        return defended != you
     if not info.get("direct"):
         return False
     if want == "you":
@@ -1112,6 +1114,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 per = ""
             if cond["event"] == "mill" and cond.get("aggregate") and cond.get("player") == "any":
                 per = ""  # -- triggers (wave 17D) -- "one or more cards are milled": every player's cards of the batch are one event (603.2c)
+            if cond.get("all_players"):
+                per = ""  # -- trigger other (wave 36A) -- "one or more players sacrifice one or more creatures": every player's part of the batch is one event (603.2c)
             if cond.get("subject") == "source":  # "that source's controller" is the event's player
                 event.players = [fact[3]] if fact[3] else []
             if anykind:  # (its steps are in batches of their own: keyed by the instruction, not the batch)

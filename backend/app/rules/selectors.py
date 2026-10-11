@@ -565,6 +565,7 @@ def _compare_event(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], "<=" if m["eq"] else "<", EVENT_STAT + _REF_STAT[m["what"]])))
 
 
+@_suffix(r"with that spell's mana value")  # (-- event spells (wave 36A) -- the same comparison, worded short: Infernal Kirin, Celestial Kirin)
 @_suffix(r"with mana value equal to that spell's mana value")
 def _compare_event_spell(s: Selector, m: re.Match[str]) -> Selector:
     # -- event spells (wave 28D) -- "return target creature card with mana value equal to that spell's mana value from your graveyard to your

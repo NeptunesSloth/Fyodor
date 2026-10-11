@@ -115,7 +115,7 @@ TRIGGERS = [
     (re.compile(r"^At the beginning of (?:(?:each of )?(?P<whose>your|each|each player's|each opponent's|the|enchanted player's|the chosen player's) "
                 r"(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
                 r"postcombat main phases?)|the (?P<hstep>upkeep|draw step|end step) of enchanted (?:creature|permanent|land|artifact|"
-                r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's) turn|(?P<each_combat>each combat)), "
+                r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's|each player's) turn|(?P<each_combat>each combat)), "
                 r"(?P<body>.+)$"), "step"),
     # -- combat history (wave 31D) -- 511.2: "At end of combat, …" triggers as the end of combat step begins (a permanent's step trigger)
     (re.compile(r"^At end of combat(?P<mine> on your turn)?, (?P<body>.+)$"), "end_combat_step"),
@@ -195,9 +195,11 @@ def _may_have(body: str, ante: str | None) -> str:
     """"you may have it fight target creature" / "you may have target creature lose flying" is the same optional instruction
     in the third person; "it" is the source itself only when the trigger is about it (``ante``), else it stays unread."""
     m = re.match(rf"^you may have (?P<s>~|it|your life total|target [a-z ]+?) (?P<v>{'|'.join(_HAVE_VERBS)})\b", body)  # (wave 25B: your life total)
-    if m is None or (m["s"] == "it" and ante != "self"):
+    if m is None or (m["s"] == "it" and ante not in ("self", "event")):
         return body
-    return f"you may {'~' if m['s'] == 'it' else m['s']} {_HAVE_VERBS[m['v']]}{body[m.end():]}"
+    # (-- trigger other (wave 36A) -- "Whenever another Villain you control enters, you may have it connive." (Baron Strucker): "it" is the object the
+    # event is about (``ante`` "event"), which the pronoun binder finds in "you may it connives" as in "it connives")
+    return f"you may {'~' if m['s'] == 'it' and ante == 'self' else m['s']} {_HAVE_VERBS[m['v']]}{body[m.end():]}"
 
 
 def num(word: str) -> int:
@@ -3385,7 +3387,7 @@ def _choose_then(body: str) -> str:
 
 # -- free cast (wave 27D) -- "Choose target artifact card in your graveyard. You may cast that card this turn." (Emry): the chosen card is the
 # ability's target (115.1), which the sentence "You may cast target … from your graveyard this turn." grants a permission for (611.2a)
-_CHOOSE_TARGET_CAST = re.compile(r"(?<![^ ])Choose target (?P<what>[a-z ]+?) card in your graveyard\. You may (?P<v>cast|play) that card this turn\.")
+_CHOOSE_TARGET_CAST = re.compile(r"(?<![^ ])[Cc]hoose target (?P<what>[a-z ]+?) card in your graveyard\. You may (?P<v>cast|play) that card this turn\.")
 
 
 def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
