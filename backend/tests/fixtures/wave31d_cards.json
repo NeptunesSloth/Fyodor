@@ -477,5 +477,22 @@
   "keywords": [],
   "power": "0",
   "toughness": "0"
+ },
+ {
+  "name": "Grapeshot",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Grapeshot deals 1 damage to any target.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Storm"
+  ]
  }
 ]

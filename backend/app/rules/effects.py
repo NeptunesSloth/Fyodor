@@ -20,7 +20,7 @@ from __future__ import annotations
 import itertools
 from typing import Any
 
-from app.game.rules_state import DecisionOption, ObjectRef, StackEntry
+from app.game.rules_state import DecisionOption, ObjectRef, StackEntry, remember_stack
 from app.game.state import ALL, STACK, zone_key
 from app.rules import (
     block_effects,  # -- block effects (wave 30P) -- the object arguments of a block rule (a leaf module)
@@ -1506,6 +1506,7 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         plan.note(f"{card.name} can't be countered", [stack_id])
         return
     r = plan.rules
+    remember_stack(plan.state, stack_id)  # -- spell copies (wave 31D) -- a copy of it can still be made (608.2h, 707.10)
     r.stack.pop(stack_id, None)
     oid = plan.oid(stack_id)
     r.buyback = [o for o in r.buyback if o != oid]
@@ -3357,6 +3358,8 @@ def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
 
     stack_id = ctx["stack_id"]
     stack = plan.state.zones.get("stack", [])
+    if countered:  # -- spell copies (wave 31D) -- a spell with no legal target leaves the stack: a copy of it can still be made (608.2h)
+        remember_stack(plan.state, stack_id)
     plan.rules.stack.pop(stack_id, None)
     plan.rules.answers_903_9b = {}  # (answers for moves that didn't happen after all)
     if stack_id in stack:
