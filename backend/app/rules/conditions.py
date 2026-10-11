@@ -1083,6 +1083,8 @@ def needs_event(cond: Condition) -> bool:
     attacked ("defending player")? Only a triggered ability has them (scripts._event_refs_ok)."""
     if "as" in cond:
         return cond["as"] != "any" or needs_event(cond["cond"])
+    if cond.get("defended_more_life"):  # -- counters (wave 33C) -- reads the player an attack trigger's event was declared against
+        return True
     return any(needs_event(c) for k in ("all", "any") for c in cond.get(k, ())) or (
         "not" in cond and needs_event(cond["not"])) or (
         cond.get("versus", {}).get("who") in ("event", "defended") or cond.get("versus", {}).get("ref") in ("event", "defended"))

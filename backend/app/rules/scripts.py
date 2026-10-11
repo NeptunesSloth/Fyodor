@@ -872,6 +872,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 e["who"] = "controlled:" + player + "|" + who.partition("|")[2]
             # -- conditional / instead clauses (wave 1B) --  "If it's a land card, …": the object the pronoun
             # names, read as it is (or as it last existed, 608.2h): a plain target stays "target"
+            if e.get("do") == "only_if" and _cond_has_event(e["cond"]) and antecedent not in ("event", "event_gone", "event_spell", "event_all"):
+                return None  # -- counters (wave 33C) -- "that spell" is the spell a cast trigger is about: a targeted spell ("Counter target spell. If that spell is …") isn't read
             if e.get("do") == "only_if" and _cond_has_it(e["cond"]) and antecedent == "event_spell" \
                     and _cast_trigger_spell_cond(e["cond"]):
                 # (-- if you do (wave 5G) -- the cast spell; -- ability words (wave 9C) -- opus: "five or more mana was spent")
@@ -6047,6 +6049,12 @@ def _cond_has_it(cond: dict[str, Any]) -> bool:
     from app.rules import conditions
 
     return conditions._has_objects(cond)
+
+
+def _cond_has_event(cond: dict[str, Any]) -> bool:
+    from app.rules import conditions
+
+    return "event" in conditions.objects_in(cond)
 
 
 def _bind_cond(cond: dict[str, Any], ref: str) -> dict[str, Any]:
