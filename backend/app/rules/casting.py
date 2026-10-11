@@ -219,6 +219,8 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         return ab.instead if card.counters.get(ab.instead_if[0][1], 0) > 0 else ab.options
     if ab.instead_if and ab.instead_if[0][:1] in (("@count",), ("@power",)):  # -- kicked / instead (wave 4G) --
         return ab.instead if _controls_for_instead(state, card.controller, ab.instead_if[0], info) else ab.options
+    if ab.instead_if and ab.instead_if[0][:1] == ("@named",):  # -- named permanents (wave 35C) -- Tower Worker: a creature with each name
+        return ab.instead if all(_controls_named(state, card.controller, need[1], info) for need in ab.instead_if) else ab.options
     if ab.instead_if and all(_controls_subtypes(state, card.controller, need, info) for need in ab.instead_if):
         return ab.instead  # -- refused copy/mana (wave 3R3): Urza's Tower with the Mine and the Power-Plant --
     from app.rules import removed_mana  # -- if you do (wave 6F) -- one option per number removed
@@ -286,6 +288,20 @@ def _devotion(state: GameState, player: str, color: str, info: CardInfo) -> int:
             if color in sym.split("/"):
                 total += 1
     return total
+
+
+def _controls_named(state: GameState, player: str, name: str, info: CardInfo) -> bool:
+    """-- named permanents (wave 35C) -- ``player`` controls a creature with this name (201.2, 709.4a; a face-down one has none, 708.2a)."""
+    from app.rules import card_names
+    from app.rules.layers import derive
+
+    for cid in state.zones.get(zone_key(player, "battlefield"), []):
+        c = state.cards[cid]
+        if c.controller == player and not c.face_down:
+            ch = derive(state, c, chars.of(c, info), info)
+            if ch.is_creature and card_names.has_name(ch, name):
+                return True
+    return False
 
 
 def _controls_subtypes(state: GameState, player: str, need: tuple[str, ...], info: CardInfo) -> bool:

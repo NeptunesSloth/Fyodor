@@ -5547,6 +5547,8 @@ _DIES_DEALT = re.compile(r"(?P<what>creature|permanent|creature or planeswalker)
 
 
 _UNTIL_EOT_IF = re.compile(r"^until end of turn, (?P<rest>if .+)$")
+# -- life floor (wave 35C) -- "Until end of turn, damage that would reduce your life total to less than 1 reduces it to 1 instead." (Angel's Grace)
+_UNTIL_EOT_FLOOR = re.compile(r"^until end of turn, (?P<rest>damage that would reduce your life total to less than 1 reduces it to 1 instead)$")
 _NEXT_TIME_DRAW = re.compile(r"^the next time you would draw a card this turn, (?P<rest>.+)$")  # -- replacements: draws (wave 28B) -- Words of …
 _IF_THIS_TURN = re.compile(r"^(?P<head>if [^,]+?) this turn(?P<tail>, .+)$")
 
@@ -5569,6 +5571,10 @@ def _turn_record(text: str) -> list[dict[str, Any]] | None:
         if d is not None and d.get("static") == "replace" and d.get("event") == "draw" and d["op"].get("do") in ("body", "draw", "skip"):
             return [{"do": "replace_record", "event": "draw", "match": d["match"], "op": {**d["op"], "once": True}}]
         return None
+    if (fl := _UNTIL_EOT_FLOOR.match(text)) is not None:  # -- life floor (wave 35C) -- 611.2a: the static wording as a record of this resolution
+        d = replace_grammar.parse("D" + fl["rest"][1:] + ".")
+        if d is not None and d.get("static") == "replace":
+            return [{"do": "replace_record", "event": d["event"], "match": d["match"], "op": d["op"]}]
     m = _UNTIL_EOT_IF.match(text)
     body = m["rest"] if m else None
     if body is None:

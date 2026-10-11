@@ -311,6 +311,28 @@ def _loss(text: str) -> Definition | None:
     return _static("life_loss", match, {"do": "mul", "n": 2})
 
 
+# -- life floor (wave 35C) -- "Damage that would reduce your life total to less than 1 reduces it to 1 instead." (Fortune Thief, Ali from Cairo,
+# Sustaining Spirit), "If you control a creature, damage that would …" (Worship, Serra the Benevolent's emblem). 120.3a: the damage dealt stays what it was;
+# only the life it makes the player lose is replaced (the Gatherer rulings: lifelink and "deals damage" triggers see all of it, "lose life" and paying life
+# bypass it, and nothing applies to a player already below 1 life). Event ``life_loss`` of damage (``damage``: True), op ``floor``.
+_FLOOR = re.compile(r"^(?:If (?P<cond>[^,]+), d|D)amage that would reduce your life total to less than 1 reduces it to 1 instead\.$")
+
+
+def _floor(text: str) -> Definition | None:
+    m = _FLOOR.match(text)
+    if not m:
+        return None
+    match: dict[str, Any] = {"who": "you", "damage": True}
+    if m["cond"]:
+        from app.rules import conditions
+
+        cond = conditions.parse(m["cond"])
+        if cond is None or conditions.needs_event(cond) or conditions.objects_in(cond):
+            return None  # (a condition of the game as the damage would be dealt: you control a creature)
+        match["if"] = cond
+    return _static("life_loss", match, {"do": "floor"})
+
+
 # -- damage (120.4b, 614.1a, 615.10) ----------------------------------------------------------------
 _DAMAGE = re.compile(r"^If (?P<src>.+?) would deal (?:(?P<min>\d+) or more )?(?P<kind>combat |noncombat )?damage(?: to (?P<to>.+?))?, (?P<rest>.+)\.$")  # (min: wave 20B)
 _BACK = (r"(?: to (?:that permanent or player|that player or permanent|that player|that creature|that permanent|"
@@ -633,7 +655,7 @@ def _mill(text: str) -> Definition | None:
     return _static("mill", {"who": who}, {"do": "add", "n": n}) if n else None
 
 
-PARSERS = (_tokens, _counters, _draw, _draw_count, _life, _loss, _mill, _damage, _enters_tapped, _enter_extra)
+PARSERS = (_tokens, _counters, _draw, _draw_count, _life, _loss, _floor, _mill, _damage, _enters_tapped, _enter_extra)
 
 
 def parse(text: str) -> Definition | None:

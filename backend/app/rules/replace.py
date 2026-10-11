@@ -160,12 +160,13 @@ def static_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
 
     out: list[Candidate] = []
     for c in plan.state.cards.values():
-        if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
+        emblem = c.zone.endswith(":command") and c.token is not None and c.token.type_line == "Emblem"  # (-- life floor (wave 35C) -- 114.4: an emblem's)
+        if not (c.zone.endswith(":battlefield") or emblem) or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         ch = plan.ch(c)
         defs = scripts.definitions(ch)
         wanted = [(i, d) for i, d in defs.items() if d["kind"] == "static" and d.get("static") == "replace"
-                  and d.get("event") in events]
+                  and d.get("event") in events and (not emblem or d.get("event") == "life_loss")]
         if not wanted or "Room" in ch.subtypes:  # (a Room's door is unlocked or not: not modelled)
             continue
         skip = conditional_lines(ch)
@@ -1330,6 +1331,17 @@ def _loss_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     who, mine = c.match.get("who"), ev["player"] == c.controller
     if who == "you" and not mine or who == "opponent" and mine:
         return False
+    if c.match.get("damage") and not ev.get("damage"):
+        return False  # -- life floor (wave 35C) -- "damage that would reduce your life total": the life damage makes a player lose (120.3a), not other loss
+    if c.op["do"] == "floor":  # the loss would take them below 1 life from 1 or more (a player already below 1 is dealt damage as normal)
+        life = plan.state.players[ev["player"]].life
+        if life < 1 or ev["n"] < life:
+            return False
+    if (cond := c.match.get("if")) is not None:
+        from app.rules import conditions
+
+        if not conditions.holds(plan, {"controller": c.controller, "source_card": c.source_card}, cond):
+            return False
     return c.match.get("turn") != "yours" or plan.active == c.controller
 
 
@@ -1337,6 +1349,8 @@ def _loss_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     op = c.op
     if op["do"] == "mul":
         return [{**ev, "n": ev["n"] * int(op["n"])}]
+    if op["do"] == "floor":  # (applies only with 1 or more life and a loss of at least that much) they keep 1 life
+        return [{**ev, "n": plan.state.players[ev["player"]].life - 1}]
     return [ev]
 
 
@@ -1412,11 +1426,13 @@ def _run_life(plan: Plan, request: dict[str, Any], answers: dict[str, str], then
 
 # == life loss (119.3, 119.4, 118.11, 614.1a) ========================================================
 def plan_loss(plan: Plan, losses: list[tuple[str, int]], *, answers: dict[str, str], ask: bool,
-              cands: list[Candidate] | None = None) -> tuple[list[tuple[Event, list[Event]]], Planner] | Ask:
-    """-- life modifiers (wave 28B) -- life loss events ([(player, n)], each its own event) through 616.1."""
+              cands: list[Candidate] | None = None, damage: bool = False) -> tuple[list[tuple[Event, list[Event]]], Planner] | Ask:
+    """-- life modifiers (wave 28B) -- life loss events ([(player, n)], each its own event) through 616.1. ``damage``: the life damage makes them
+    lose (120.3a; wave 35C: "damage that would reduce your life total to less than 1" reads those and no other loss)."""
     planner = Planner(plan, cands if cands is not None else candidates(plan, "life_loss"), answers, ask=ask)
     order = plan.apnap()
-    evs: list[Event] = [{"kind": "life_loss", "player": p, "n": int(n), "applied": []} for p, n in losses if n > 0]
+    evs: list[Event] = [{"kind": "life_loss", "player": p, "n": int(n), "applied": [], **({"damage": True} if damage else {})}
+                        for p, n in losses if n > 0]
     evs.sort(key=lambda e: order.index(e["player"]) if e["player"] in order else len(order))
     sim: Sim = {}
     finals: list[tuple[Event, list[Event]]] = []
@@ -1975,7 +1991,7 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
     if out.players and (loss_cands := candidates(plan, "life_loss")):
         # -- life modifiers (wave 28B) -- 120.3a: the life lost to damage is a life-loss event of its own (the damage dealt stays what it was):
         # "would lose life" replacements change it (Bloodletter of Aclazotz: "Damage causes loss of life.")
-        planned_loss = plan_loss(plan, list(out.players.items()), answers=answers, ask=ask, cands=loss_cands)
+        planned_loss = plan_loss(plan, list(out.players.items()), answers=answers, ask=ask, cands=loss_cands, damage=True)
         if isinstance(planned_loss, Ask):
             return planned_loss
         loss_finals, loss_planner = planned_loss
