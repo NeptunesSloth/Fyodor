@@ -3769,8 +3769,14 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if cost.tap:
         plan.do({"type": "tap", "card_ids": [card.id], "tapped": True})
     if cost.loyalty or (cost.loyalty_x and a.x_value):
-        delta = cost.loyalty if not cost.loyalty_x else -(a.x_value or 0)
-        plan.do({"type": "counter", "card_ids": [card.id], "kind": "loyalty", "delta": delta})
+        delta = (cost.loyalty or 0) if not cost.loyalty_x else -(a.x_value or 0)
+        if delta > 0:  # -- loyalty costs (review 31) -- 606.4: put as a cost through the counter choke point like any cost's counters (122.6):
+            from app.rules import replace
+
+            # "If you would put …" applies (Vorinclex, Lae'zel), "If an effect would put …" doesn't (614.16, Doubling Season ruling)
+            replace.put_counters(plan, [(card.id, "loyalty", delta)], by=plan.actor, effect=False)
+        else:
+            plan.do({"type": "counter", "card_ids": [card.id], "kind": "loyalty", "delta": delta})
     for kind, n in cost.remove_counters:
         plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n})
     if cost.life:
