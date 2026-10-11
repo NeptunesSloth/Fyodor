@@ -3406,6 +3406,10 @@ def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     # -- activated leftovers (wave 7E) -- "{U}, {T}: You may tap or untap target creature.": the "may" is choosing neither
     if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0]["do"] == "tap_or_untap":
         return [{**parsed[0][0], "optional": True}], parsed[1], False
+    # -- static_other (wave 36B) -- "You may choose new targets for target spell or ability." (Deflecting Swat, 115.7d): the "may" is keeping every target
+    # (each is asked: keep or a new one), not a question about the whole spell
+    if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0]["do"] == "choose_new_targets":
+        return parsed[0], parsed[1], False
     return parsed
 
 

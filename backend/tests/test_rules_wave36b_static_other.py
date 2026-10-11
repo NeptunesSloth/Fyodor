@@ -9,6 +9,7 @@
 * 118.3, 602.2: "Tap two other untapped Halflings you control" taps two creatures other than the source and cannot be paid without them; "Tap three untapped
   Advisors, Artificers, and/or Monks you control" counts the source if it is one (it says no "other").
 * 601.3: "You can't cast Rakdos unless an opponent lost life this turn." is a restriction on casting it (and 119.3: life lost by any means counts).
+* 115.7d-e: "You may choose new targets for target spell or ability." (Deflecting Swat): each target is kept or changed to a legal one, the final set judged.
 * "thirty or more artifacts" (number words), a pronoun for the card itself ("as he attacks", 701.43d exert), a shortened name that is also a creature type
   ("a green Lizard creature" on Lizard, Connors's Curse: 205.3m), "creatures without flying or reach" (neither).
 """
@@ -28,7 +29,7 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, next_turn, settle, to_phase
+from tests.test_rules_wave34b_activated import activate, ask, next_turn, priority_to, settle, stops, to_phase
 from tests.wave9c_kit import build, card_named, cast, check, mana, put, to_hand
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave36b_cards.json").read_text("utf-8"))
@@ -40,7 +41,7 @@ FULL = [DION, "Yuna, Hope of Spira", "Miriam, Herd Whisperer", "Narfi, Betrayer 
         "Winter, Tormented Loner", "Maraxus of Keld", "Saradoc, Master of Buckland", "The Archimandrite", "Rakdos, Lord of Riots",
         "Knuckles the Echidna", "Themberchaud", "Lizard, Connors's Curse", "Sidar Kondo of Jamuraa", "Mesa Lynx", "Glory of Warfare",
         "Blasphemous Edict", "Maha, Its Feathers Night", "Frodo, Determined Hero", "Sylvan Advocate", "Proft, Sinister Mastermind",
-        "Stormtide Leviathan"]
+        "Stormtide Leviathan", "Deflecting Swat"]
 
 
 @pytest.fixture()
@@ -495,4 +496,40 @@ def test_mesa_lynx_is_bigger_on_other_players_turns(cards):
     assert power_toughness(s, "Mesa Lynx") == (2, 5) and power_toughness(s, "Walking Corpse") == (2, 4)  # +0/+2 twice; (+2/+0 is for my turn)
     to_phase(s, "main1", turn=3)
     assert power_toughness(s, "Mesa Lynx") == (4, 1) and power_toughness(s, "Walking Corpse") == (4, 2)
+    check(s)
+
+
+# -- Deflecting Swat: "You may choose new targets for target spell or ability." (115.7d) -------------------------------------------------------
+def swat_table(cards):
+    s = build(cards, ["Deflecting Swat", "Grizzly Bears"], ["Lightning Bolt", "Walking Corpse"])
+    stops(s)
+    bears = put(s, "Grizzly Bears")
+    corpse = put(s, "Walking Corpse", "p2")
+    to_phase(s, "main1", turn=2)  # Bob's turn
+    bolt = to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[bears.id])
+    priority_to(s, "p1")
+    swat = to_hand(s, "Deflecting Swat")
+    mana(s, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=swat.id, targets=[bolt.id])
+    d = ask(s)
+    assert d.player == "p1" and d.kind == "choose_one" and "keep" in [o.id for o in d.options]
+    return s, bears, corpse, bolt, d
+
+
+def test_deflecting_swat_sends_a_bolt_to_another_legal_target(cards):
+    s, bears, corpse, bolt, d = swat_table(cards)
+    assert corpse.id in [o.id for o in d.options] and bolt.id not in [o.id for o in d.options]  # 115.5: not the spell itself
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[corpse.id])
+    settle(s)
+    assert s.state.cards[corpse.id].zone == "p2:graveyard" and s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[bears.id].damage == 0
+    check(s)
+
+
+def test_deflecting_swat_may_keep_the_target(cards):
+    s, bears, corpse, bolt, d = swat_table(cards)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["keep"])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard" and s.state.cards[corpse.id].zone == "p2:battlefield"
     check(s)
