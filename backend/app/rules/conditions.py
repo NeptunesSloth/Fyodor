@@ -147,6 +147,7 @@ _OBJECT_WORDS = {"it": "it", "~": "self", "the sacrificed creature": "cost:sacri
                  "that land": "it", "that token": "it", "that artifact": "it"}
 _OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact)|the sacrificed (?:creature|permanent|artifact)|the discarded card) "
                      r"(?P<verb>is not|was not|isn't|wasn't|is|was) (?P<what>.+)")  # (wave 11F: "is not" before "is")
+_SAME_NAME_OF = re.compile(r"it (?:doesn't|does not) have the same name as .+")  # (wave 32A)
 # -- intervening ifs (wave 11F) -- "~ is enchanted", "it's enchanted or equipped" (303.4, 301.5: an Aura / Equipment
 # attached to it), "~ is monstrous" (701.37b), "it's renowned" (702.112b)
 _ATTACHED = {"enchanted": ("Aura",), "equipped": ("Equipment",), "enchanted or equipped": ("Aura", "Equipment")}
@@ -1025,6 +1026,10 @@ def _object(t: str) -> Condition | None:
     if m:
         stats = [x for x in (m["a"], m["b"]) if x] if m["a"] else ["power"] + (["toughness"] if "toughness" in t else [])
         return {"object": "it", "beats_self": stats}
+    m = _SAME_NAME_OF.fullmatch(t)  # -- same name (wave 32A) -- 201.2a: "if it doesn't have the same name as another creature you control or a creature card in your graveyard"
+    if m:  # (Guardian Project): the object's name against the others' (selectors._same_name), as it is or as it last existed (608.2h)
+        sel = selectors.parse("permanent that " + t.split(" ", 1)[1])
+        return {"object": "it", "is": sel.key()} if sel is not None and sel.extras else None
     t = re.sub(r"^(it|that (?:creature|permanent|card|land|token|artifact)|the sacrificed (?:creature|permanent|artifact))'s ", r"\1 is ", t)
     t = re.sub(r"^that's (?=another )", "that creature is ", t)  # -- keywords (wave 15E) -- backup 702.165a: "If that's another creature"
     m = _OBJECT.fullmatch(t)

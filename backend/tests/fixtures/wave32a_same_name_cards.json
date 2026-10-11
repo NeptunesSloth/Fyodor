@@ -1,0 +1,395 @@
+[
+ {
+  "name": "Evil Twin",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Shapeshifter",
+  "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield, except it has \"{U}{B}, {T}: Destroy target creature with the same name as this creature.\"",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "0"
+ },
+ {
+  "name": "Callidus Assassin",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{B}",
+  "cmc": 6.0,
+  "type_line": "Creature — Human Shapeshifter Assassin",
+  "oracle_text": "Flash\nPolymorphine — You may have this creature enter tapped as a copy of any creature on the battlefield, except it has \"When this creature enters, destroy up to one other target creature with the same name as this creature.\"",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Polymorphine",
+   "Flash"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Mocking Doppelganger",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Shapeshifter",
+  "oracle_text": "Flash\nYou may have this creature enter as a copy of a creature an opponent controls, except it has \"Other creatures with the same name as this creature are goaded.\" (They attack each combat if able and attack a player other than you if able.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Goad",
+   "Flash"
+  ],
+  "power": "0",
+  "toughness": "0"
+ },
+ {
+  "name": "Legions to Ashes",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile target nonland permanent an opponent controls and all tokens that player controls with the same name as that permanent.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Echoing Return",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return target creature card and all other cards with the same name as that card from your graveyard to your hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Deputy of Detention",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Vedalken Wizard",
+  "oracle_text": "When this creature enters, exile target nonland permanent an opponent controls and all other nonland permanents that player controls with the same name as that permanent until this creature leaves the battlefield.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "The Apprentice's Folly",
+  "layout": "saga",
+  "mana_cost": "{2}{U}{R}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II — Choose target nontoken creature you control that doesn't have the same name as a token you control. Create a token that's a copy of it, except it isn't legendary, is a Reflection in addition to its other types, and has haste.\nIII — Sacrifice all Reflections you control.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Brudiclad, Telchor Engineer",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Artifact Creature — Phyrexian Artificer",
+  "oracle_text": "Creature tokens you control have haste.\nAt the beginning of combat on your turn, create a 2/1 blue Phyrexian Myr artifact creature token. Then you may choose a token you control. If you do, each other token you control becomes a copy of that token.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Crush Underfoot",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Kindred Instant — Giant",
+  "oracle_text": "Choose a Giant creature you control. It deals damage equal to its power to target creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Marvin, Murderous Mimic",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Legendary Artifact Creature — Toy",
+  "oracle_text": "Marvin has all activated abilities of creatures you control that don't have the same name as this creature.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Hill Giant",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Rat King, Verminister",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Rat Avatar",
+  "oracle_text": "Disappear — At the beginning of your end step, if a permanent left the battlefield under your control this turn, create a 1/1 black Rat creature token and put a +1/+1 counter on Rat King.\n{T}, Sacrifice three Rats: Return target creature card and all other cards with the same name as that card from your graveyard to the battlefield tapped.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Disappear"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "The Elderspell",
+  "layout": "normal",
+  "mana_cost": "{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Destroy any number of target planeswalkers. Choose a planeswalker you control. Put two loyalty counters on it for each planeswalker destroyed this way.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Dragonlord Kolaghan",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Elder Dragon",
+  "oracle_text": "Flying, haste\nOther creatures you control have haste.\nWhenever an opponent casts a creature or planeswalker spell with the same name as a card in their graveyard, that player loses 10 life.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Haste"
+  ],
+  "power": "6",
+  "toughness": "5"
+ },
+ {
+  "name": "Strata Scythe",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "Imprint — When this Equipment enters, search your library for a land card, exile it, then shuffle.\nEquipped creature gets +1/+1 for each land on the battlefield with the same name as the exiled card.\nEquip {3}",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip",
+   "Imprint"
+  ]
+ },
+ {
+  "name": "Circle of Confinement",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, exile target creature an opponent controls with mana value 3 or less until this enchantment leaves the battlefield.\nWhenever an opponent casts a Vampire spell with the same name as a card exiled with this enchantment, you gain 2 life.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Vampire of the Dire Moon",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Creature — Vampire",
+  "oracle_text": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Lifelink",
+   "Deathtouch"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Runeclaw Bear",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Bear",
+  "oracle_text": "",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Guardian Project",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever a nontoken creature you control enters, if it doesn't have the same name as another creature you control or a creature card in your graveyard, draw a card.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Sakashima's Will",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n• Target opponent chooses a creature they control. You gain control of it.\n• Choose a creature you control. Each other creature you control becomes a copy of that creature until end of turn.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Gideon Jura",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Planeswalker — Gideon",
+  "oracle_text": "+2: During target opponent's next turn, creatures that player controls attack Gideon Jura if able.\n−2: Destroy target tapped creature.\n0: Until end of turn, Gideon Jura becomes a 6/6 Human Soldier creature that's still a planeswalker. Prevent all damage that would be dealt to him this turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "6"
+ },
+ {
+  "name": "Extraplanar Lens",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "Imprint — When this artifact enters, you may exile target land you control.\nWhenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Imprint"
+  ]
+ },
+ {
+  "name": "Invader Parasite",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Phyrexian Insect",
+  "oracle_text": "Imprint — When this creature enters, exile target land.\nWhenever a land an opponent controls with the same name as the exiled card enters, this creature deals 2 damage to that player.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Imprint"
+  ],
+  "power": "3",
+  "toughness": "2"
+ }
+]
