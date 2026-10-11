@@ -20,7 +20,7 @@ import pytest
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
-from app.game.rules_state import Arrival
+from app.game.rules_state import Arrival, TurnFact
 from app.rules import coverage, selectors
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -82,6 +82,7 @@ def test_an_old_save_has_no_origin_for_its_arrivals():
     read as "put there from the battlefield" (the card stays in the graveyard, untouched by such a trigger)."""
     old = Arrival.model_validate({"card": "c1", "owner": "p1"})
     assert (old.object_id, old.from_zone, old.combat) == (None, None, 0)
+    assert TurnFact.model_validate({"kind": "discard", "player": "p1"}).batch == 0  # (and a discard fact of an older save has no batch: "first time each turn" skips it)
 
 
 # -- Garna: "return to your hand all creature cards in your graveyard that were put there from anywhere this turn" ---------
@@ -127,6 +128,19 @@ def test_garna_leaves_a_card_that_left_and_came_back_to_the_graveyard_alone(card
     settle(s)
     assert zone(s, "Llanowar Elves") == "p1:battlefield"
     check(s)
+
+
+def test_arrivals_of_an_older_save_are_never_read_as_put_there_this_turn(cards):
+    """An arrival recorded before this wave has no object and no origin: nothing is returned on a guess (the card stays where it is)."""
+    s = garna_table(cards)
+    put(s, "Grizzly Bears")
+    to_gy(s, "Grizzly Bears")
+    for arrival in s.state.rules.turn_log.entered_graveyard:
+        arrival.object_id = arrival.from_zone = None
+    mana(s, B=1, R=1, G=3)
+    cast(s, "Garna, the Bloodflame")
+    settle(s)
+    assert zone(s, "Grizzly Bears") == "p1:graveyard"
 
 
 # -- Moira: "return to the battlefield target creature card in your graveyard that was put there from the battlefield this turn" -------

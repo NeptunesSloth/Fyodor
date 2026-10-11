@@ -4068,7 +4068,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = re.sub(r"^(When you cycle (?:this card|~), (?:you may have )?)it (deals?)\b", r"\1~ \2", text)
     # -- exile from the top (wave 36A) -- the same instruction worded from the other end: "exile that many cards from the top of your library" (Thor, Feldon),
     # "exile cards equal to its mana value from the top of target player's library" (Rakdos, the Muscle), "exile a number of cards from the top of your library
-    # equal to …" (Neriv) are "exile the top that many / X cards of …" (701.? the top cards, in order)
+    # equal to …" (Neriv) are "exile the top that many / X cards of …" (the same cards, from the top in order)
     text = re.sub(r"\bexile (?P<n>that many|X|\w+) cards from the top of (?P<lib>your library|their library|target player's library|that player's library|"
                   r"each opponent's library)\b", r"exile the top \g<n> cards of \g<lib>", text)
     text = re.sub(r"\bexile (?:cards equal to (?P<v>[^.]+?) from the top of (?P<lib>your library|their library|target player's library|that player's library)|"
