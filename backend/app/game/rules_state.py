@@ -487,6 +487,8 @@ class TurnFact(BaseModel):
     # permanent): the object that dealt it
     source: str | None = Field(default=None, max_length=80)
     actor: str | None = Field(default=None, max_length=64)  # -- long tail (wave 16D) -- "counters" facts: the player who put them (122.6)
+    # -- trigger other (wave 36A) -- "discard" facts: the event batch it happened in (0: not known / an older save), for "for the first time each turn" (603.2)
+    batch: int = 0
 # -- end this-turn history (wave 4D) --
 
 

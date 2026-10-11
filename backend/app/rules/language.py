@@ -1828,12 +1828,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
                   lambda m: "return all " + " or ".join([*m[1].split(", "), m[2]]) + " cards ", text)
     # -- graveyard history (wave 36A) -- the destination first, because the cards are described at length: "Return to your hand all creature
     # cards in your graveyard that were put there from anywhere this turn." (Garna), "return to the battlefield target creature card in your
-    # graveyard that …" (Moira) say what "Return all … to your hand" / "return target … to the battlefield" do; "Put that card into its
-    # owner's hand." (Ghost of Ramirez DePietro) is "Return that card to its owner's hand." (400.3)
+    # graveyard that …" (Moira) say what "Return all … to your hand" / "return target … to the battlefield" do
     text = re.sub(r"^(?P<may>you may )?return to (?P<d>your hand|the battlefield) (?P<o>(?:all|target|up to \w+ target|another target|each) "
                   r"(?!.* (?:under|tapped|attacking|face down|with|attached)\b).+)$", lambda m: f"{m['may'] or ''}return {m['o']} to {m['d']}", text)
-    text = re.sub(r"^put (?P<o>that card|it|them|those cards) into (?P<w>its|their) owner's hand$", r"return \g<o> to \g<w> owner's hand", text)
-    text = re.sub(r"^put (?P<o>that card|it) onto the battlefield(?P<rest>(?: under (?:your|its owner's) control)?)$", r"return \g<o> to the battlefield\g<rest>", text)  # (Captain N'ghathrod)
     found = reanimation_forms(text)  # -- reanimation (wave 3R) --
     if found is not None:
         return found

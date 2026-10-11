@@ -4063,6 +4063,15 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")
     text = re.sub(r"^(When ~ enter, if )they're( not a token, create [^.]+? cop(?:y|ies) of )them\b", r"\1it's\2it", text)
     text = half_x(text) if "half X" in text else text  # -- X arithmetic (wave 34C) -- 107.1a
+    # -- trigger other (wave 36A) -- 702.29c: "When you cycle this card, it deals 1 damage to each opponent" (Magmakin Artillerist, Resounding Thunder), "you may
+    # have it deal 1 damage to each creature" (Slice and Dice): "it" is the cycled card itself, the ability's source, whichever zone it went to
+    text = re.sub(r"^(When you cycle (?:this card|~), (?:you may have )?)it (deals?)\b", r"\1~ \2", text)
+    # -- graveyard history (wave 36A) -- "Choose target creature card in a graveyard that was put there from the battlefield this turn. Put that card onto the
+    # battlefield under your control." (Grim Return, Captain N'ghathrod), "… Put that card into its owner's hand." (Ghost of Ramirez DePietro): after a chosen
+    # graveyard card, "put it" moves that card as "Return it to …" does (only here: elsewhere "put it onto the battlefield" can name a card from any zone)
+    text = re.sub(r"((?:^|[,.] )[Cc]hoose (?:up to \w+ )?target (?:[^.]*? )?cards? (?:in|from) (?:your|a|an opponent's) graveyard[^.]*\. )Put (it|that card) "
+                  r"(?:onto the battlefield( under your control)?|into its owner's hand)\.",
+                  lambda m: f"{m[1]}Return {m[2]} to {'the battlefield' + (m[3] or '') if 'battlefield' in m[0][len(m[1]):] else 'its owner' + chr(39) + 's hand'}.", text)
     # -- damage sized by a count (wave 34D) -- 603.4, 702.33: "Whenever you cast a spell, if that spell was kicked, …" (Hallar) is "Whenever you cast a kicked
     # spell, …": being kicked is a fact about the spell as it is cast and stays true as it resolves or is countered, so the intervening "if" has nothing to re-check
     text = re.sub(r"^(Whenever you cast) a spell, if that spell was kicked, ", r"\1 a kicked spell, ", text)

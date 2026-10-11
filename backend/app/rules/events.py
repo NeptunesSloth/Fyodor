@@ -208,9 +208,15 @@ def _qualified(c: str) -> Condition | None:
         return None  # ("their" is the acting player's: only a player subject has one)
     # (-- counters (wave 33C) -- "Whenever an opponent loses life for the first time during each of their turns" (Valgavoth, Harrower of Souls): each such
     # player's first this turn, which must be their own turn)
-    if inner is None or (first and (inner.get("event") not in ("gain_life", "lose_life", "create_token") or inner.get("subject") != "player"
+    if inner is None or (first and (inner.get("event") not in ("gain_life", "lose_life", "create_token", "discard") or inner.get("subject") != "player"
                                     or inner.get("player") not in (("opponent", "any") if during == "their" else ("you",)))):
         return None
+    if first and inner.get("event") == "discard":  # -- trigger other (wave 36A) -- the cards of earlier discards are asked of the turn's log: only what it records
+        # (the log records a discarded card's types, subtypes and supertypes: a filter on anything else, a color or a mana value, isn't asked of it)
+        plain = selectors.replace(selectors.from_key(inner["obj"]), card=False, zones=selectors.Selector().zones, types=(), not_types=(), subtypes=(), not_subtypes=(),
+                                  supertypes=(), not_supertypes=())
+        if during or plain != selectors.Selector():
+            return None
     holds = None
     if wh is not None:  # ("it" is this creature only when the event is about this creature itself)
         from app.rules import conditions

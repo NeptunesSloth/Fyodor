@@ -240,7 +240,8 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
             elif kind == "discard" and not (info.get("to") or "").endswith(":graveyard"):
                 continue  # (review 23D: a discard put elsewhere instead was noted as it was replaced, note_discards)
             elif kind in ("discard", "sacrifice") and player is not None and obj is not None:
-                log.facts.append(TurnFact(kind=kind, player=player, object_id=info.get("oid"), token=obj.is_token, **what))
+                log.facts.append(TurnFact(kind=kind, player=player, object_id=info.get("oid"), token=obj.is_token, batch=e.batch if kind == "discard" else 0,
+                                          **what))  # (-- trigger other (wave 36A) -- the batch of a discard: "for the first time each turn")
             elif kind == "dealt_damage" and obj is None and info.get("recipient"):  # a player was dealt damage (120.3)
                 log.facts.append(TurnFact(kind="damage", player=info["recipient"], amount=int(info.get("amount") or 0),
                                           combat=bool(info.get("combat")), object_id=info.get("source_oid")))

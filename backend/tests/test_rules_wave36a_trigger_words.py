@@ -49,7 +49,8 @@ EXTRA = [card(c["name"], set_code="w36a", number=f"A{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 FULL = ["Gahiji, Honored One", "Frontier Warmonger", "Evin, Waterdeep Opportunist", "Hostile Investigator", "Kingpin, Wilson Fisk",
         "Titanbones, Towering Heart", "Bebop & Rocksteady", "Kitt Kanto, Mayhem Diva", "Rashka the Slayer", "Dwarven Soldier", "Amphibious Kavu",
-        "Baron Strucker, HYDRA Overlord", "Silas Renn, Seeker Adept", "Cloud, Ex-SOLDIER"]
+        "Baron Strucker, HYDRA Overlord", "Silas Renn, Seeker Adept", "Cloud, Ex-SOLDIER", "Rielle, the Everwise", "Veronica, Dissident Scribe",
+        "Magmakin Artillerist"]
 
 
 @pytest.fixture()
@@ -80,6 +81,8 @@ def test_the_trigger_wording_cards_are_full(name):
     "one or more players sacrifice one or more creatures",
     "you sacrifice ~ or another creature",
     "you discard this card",
+    "you discard one or more cards for the first time each turn",
+    "you discard one or more nonland cards for the first time each turn",
 ])
 def test_the_new_trigger_conditions_are_read(text):
     assert events.parse_condition(text) is not None
@@ -90,6 +93,8 @@ def test_the_new_trigger_conditions_are_read(text):
     "~ blocks one or more",  # (nothing named)
     "one or more players cycle one or more cards",  # (only sacrifice and discard are batches of every player)
     "you discard ~ or another card",
+    "you discard one or more cards with mana value 3 for the first time each turn",  # (a discard's mana value isn't kept in the turn's log: not asked of it)
+    "an opponent discards one or more cards for the first time each turn",
 ])
 def test_nearby_trigger_conditions_stay_unread(text):
     assert events.parse_condition(text) is None
@@ -394,6 +399,117 @@ def test_hostile_investigator_is_silent_when_nobody_discards(cards):
     mana(s, U=1)
     cast(s, "Opt")
     assert clues(s) == []
+    check(s)
+
+
+# -- Magmakin Artillerist: "When you cycle this card, it deals 1 damage to each opponent" ------------------------------------------------------
+def test_cycling_magmakin_artillerist_deals_one_damage_to_each_opponent(cards):
+    """702.29c: "it" is the cycled card, the source of the damage (a card in the graveyard); the damage is dealt to the opponent."""
+    s = build(cards, ["Magmakin Artillerist"], forests=20)
+    magmakin = to_hand(s, "Magmakin Artillerist")
+    mana(s, R=1, G=1)
+    act(s, "p1", type="activate_ability", card_id=magmakin.id, ability=1)
+    settle(s)
+    assert zone(s, "Magmakin Artillerist") == "p1:graveyard" and s.state.players["p2"].life == 39 and s.state.players["p1"].life == 40
+    check(s)
+
+
+def test_discarding_magmakin_artillerist_without_cycling_it_deals_no_damage(cards):
+    s = build(cards, ["Magmakin Artillerist", "Faithless Looting"], forests=20)
+    to_hand(s, "Magmakin Artillerist")
+    to_hand(s, "Faithless Looting")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Faithless Looting").id)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label.startswith("Magmakin")), next(o.id for o in d.options if o.label == "Forest")])
+    settle(s)
+    assert zone(s, "Magmakin Artillerist") == "p1:graveyard" and s.state.players["p2"].life == 40
+    check(s)
+
+
+# -- Rielle, the Everwise / Veronica, Dissident Scribe: "for the first time each turn" ----------------------------------------------------------
+def looting(s, discard_labels):
+    """Cast Faithless Looting (hand or graveyard) and discard the cards with these labels, one card for each label (a repeated label: another card)."""
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Faithless Looting").id)
+    d = s.state.rules.decision
+    assert d is not None and d.prompt == "Discard 2 cards"
+    ids, left = [], list(d.options)
+    for label in discard_labels:
+        o = next(o for o in left if o.label == label)
+        left.remove(o)
+        ids.append(o.id)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=ids)
+    settle(s)
+
+
+def rielle_table(cards):
+    s = build(cards, ["Rielle, the Everwise", "Faithless Looting", "Llanowar Elves"], forests=20)
+    put(s, "Rielle, the Everwise")
+    to_hand(s, "Faithless Looting")
+    to_hand(s, "Llanowar Elves")  # (so that there is a choice to make)
+    mana(s, R=4, G=2)
+    return s
+
+
+def test_rielle_draws_as_many_cards_as_you_discarded_the_first_time_each_turn(cards):
+    """Faithless Looting draws two and discards two in one batch: one trigger, drawing that many (2)."""
+    s = rielle_table(cards)
+    hand = len(s.state.zones["p1:hand"])
+    looting(s, ["Forest", "Forest"])
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + 2 - 2 + 2  # (cast, draw two, discard two, Rielle draws two)
+    check(s)
+
+
+def test_rielle_does_not_draw_for_a_second_discard_the_same_turn(cards):
+    s = rielle_table(cards)
+    looting(s, ["Forest", "Forest"])
+    hand = len(s.state.zones["p1:hand"])
+    looting(s, ["Forest", "Forest"])  # (flashback {2}{R}: the second discard of the turn)
+    assert len(s.state.zones["p1:hand"]) == hand + 2 - 2  # (draw two, discard two; nothing more)
+    check(s)
+
+
+def test_rielle_draws_again_on_the_next_turn(cards):
+    s = rielle_table(cards)
+    looting(s, ["Forest", "Forest"])
+    to_turn_of(s, "p2")
+    to_turn_of(s, "p1")
+    mana(s, R=3)
+    hand = len(s.state.zones["p1:hand"])
+    looting(s, ["Forest", "Forest"])
+    assert len(s.state.zones["p1:hand"]) == hand + 2 - 2 + 2
+    check(s)
+
+
+def veronica_table(cards):
+    s = build(cards, ["Veronica, Dissident Scribe", "Faithless Looting", "Grizzly Bears", "Llanowar Elves"], forests=20)
+    put(s, "Veronica, Dissident Scribe")
+    to_hand(s, "Faithless Looting")
+    to_hand(s, "Grizzly Bears")
+    to_hand(s, "Llanowar Elves")
+    mana(s, R=4, G=2)
+    return s
+
+
+def junk(s):
+    return [c for c in s.state.cards.values() if c.name == "Junk" and c.zone == "p1:battlefield"]
+
+
+def test_veronica_makes_a_junk_token_for_the_first_nonland_discard_of_the_turn(cards):
+    s = veronica_table(cards)
+    looting(s, ["Forest", "Forest"])
+    assert junk(s) == []  # (two lands: not nonland cards)
+    looting(s, ["Grizzly Bears", "Forest"])  # (the first nonland card discarded this turn, though the second discard of the turn)
+    assert len(junk(s)) == 1
+    check(s)
+
+
+def test_veronica_makes_a_junk_token_only_the_first_time(cards):
+    s = veronica_table(cards)
+    looting(s, ["Grizzly Bears", "Forest"])
+    assert len(junk(s)) == 1
+    looting(s, ["Llanowar Elves", "Forest"])  # (a second nonland discard this turn)
+    assert len(junk(s)) == 1
     check(s)
 
 
