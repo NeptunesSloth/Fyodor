@@ -26,9 +26,8 @@ from app.cards.repository import CardRepository
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_attachments import token
 from tests.test_rules_conditionals import settle, until
-from tests.wave9c_kit import build, card_named, check, mana, put, reloaded, to_hand
+from tests.wave9c_kit import build, check, mana, put, reloaded, to_hand
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave35a_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -90,7 +89,8 @@ def bolt(s, target, name="Lightning Bolt"):
 def choose(s, label, pid="p1"):
     d = s.state.rules.decision
     assert d is not None and d.kind == "choose_one" and d.player == pid, d
-    act(s, pid, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if label in o.label)])
+    exact = [o.id for o in d.options if o.label == label]
+    act(s, pid, type="choose", decision_id=d.id, option_ids=exact[:1] or [next(o.id for o in d.options if label in o.label)])
 
 
 # -- coverage ---------------------------------------------------------------------------------------------------
@@ -213,6 +213,249 @@ def test_reflect_damage_binds_the_spell_chosen_and_leaves_another_source_alone(c
     settle(s)
     assert (life(s, "p1"), life(s, "p2")) == (37, 37)  # the second one hit Alice; the first one's 3 went to Bob
     assert not s.state.rules.replacements
+    check(s)
+
+
+# -- Pilgrim of Justice: a red source of your choice, damage to anything ---------------------------------------------------------
+def test_pilgrim_of_justice_chooses_among_red_sources_only_and_prevents_the_next_damage_of_the_one_chosen(cards):
+    """609.7a-b, 615.9: only red sources are offered (not Bob's green Grizzly Bears, nor Atraxa in his command zone); the Bolt chosen on the
+    stack is prevented from killing Alice's Grizzly Bears (no recipient is named); a second Bolt is another source and kills them."""
+    s = build(cards, ["Pilgrim of Justice", "Grizzly Bears"], ["Lightning Bolt", "Lightning Bolt", "Grizzly Bears"])
+    pilgrim, bears = put(s, "Pilgrim of Justice"), put(s, "Grizzly Bears")
+    put(s, "Grizzly Bears", "p2")
+    stops(s)
+    bobs_turn(s)
+    bolt(s, bears.id)
+    mana(s, "p1", W=1)
+    act(s, "p1", type="activate_ability", card_id=pilgrim.id, ability=1)
+    d = until_asked(s)
+    labels = [o.label for o in d.options]
+    assert any("Lightning Bolt" in x for x in labels) and not any("Grizzly" in x or "Atraxa" in x for x in labels), labels
+    choose(s, "Lightning Bolt")
+    s = reloaded(s)
+    settle(s)
+    assert s.state.cards[pilgrim.id].zone == "p1:graveyard" and s.state.cards[bears.id].zone == "p1:battlefield"
+    assert s.state.cards[bears.id].damage == 0
+    bolt(s, bears.id)
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard"
+    check(s)
+
+
+# -- Dark Sphere: half, rounded down ----------------------------------------------------------------------------------------
+def test_dark_sphere_prevents_half_of_the_bolts_damage_rounded_down(cards):
+    """615.8: the chosen Bolt would deal 3 to Alice; half of it rounded down, 1, is prevented and 2 is dealt (the cost sacrificed the Sphere)."""
+    s = build(cards, ["Dark Sphere"], ["Lightning Bolt"])
+    sphere = put(s, "Dark Sphere")
+    stops(s)
+    bobs_turn(s)
+    bolt(s, "p1")
+    act(s, "p1", type="activate_ability", card_id=sphere.id, ability=0)
+    until_asked(s)
+    choose(s, "Lightning Bolt")
+    s = reloaded(s)
+    settle(s)
+    assert life(s, "p1") == 38 and s.state.cards[sphere.id].zone == "p1:graveyard"
+    check(s)
+
+
+# -- Bone Mask: cards exiled equal to the damage prevented ------------------------------------------------------------------
+def test_bone_mask_exiles_cards_equal_to_the_damage_prevented(cards):
+    """615.5: the Bolt's 3 damage to Alice is prevented; right after it she exiles 3 cards from the top of her library. Used up: the next
+    Bolt deals its 3."""
+    s = build(cards, ["Bone Mask"], ["Lightning Bolt", "Lightning Bolt"])
+    mask = put(s, "Bone Mask")
+    stops(s)
+    bobs_turn(s)
+    bolt(s, "p1")
+    mana(s, "p1", C=2)
+    act(s, "p1", type="activate_ability", card_id=mask.id, ability=0)
+    until_asked(s)
+    choose(s, "Lightning Bolt")
+    s = reloaded(s)
+    library, exiled = len(s.state.zones["p1:library"]), len(s.state.zones.get("p1:exile", []))
+    settle(s)
+    assert life(s, "p1") == 40
+    assert len(s.state.zones["p1:library"]) == library - 3 and len(s.state.zones["p1:exile"]) == exiled + 3
+    bolt(s, "p1")
+    settle(s)
+    assert life(s, "p1") == 37 and len(s.state.zones["p1:exile"]) == exiled + 3
+    check(s)
+
+
+# -- Mirrorwood Treefolk: damage to it, from whatever source, redirected to a target -----------------------------------------
+def test_mirrorwood_treefolk_redirects_the_next_damage_to_the_target(cards):
+    """614.9: Alice answers Bob's Lightning Bolt at the Treefolk with the ability targeting Bob: the 3 is dealt to Bob; the next Bolt at the
+    Treefolk is dealt to it (2/4: it survives with 3 damage)."""
+    s = build(cards, ["Mirrorwood Treefolk"], ["Lightning Bolt", "Lightning Bolt"])
+    tree = put(s, "Mirrorwood Treefolk")
+    stops(s)
+    bobs_turn(s)
+    bolt(s, tree.id)
+    mana(s, "p1", R=1, W=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=tree.id, ability=0, targets=["p2"])
+    s = reloaded(s)
+    settle(s)
+    assert (life(s, "p1"), life(s, "p2")) == (40, 37) and s.state.cards[tree.id].damage == 0
+    bolt(s, tree.id)
+    settle(s)
+    assert life(s, "p2") == 37 and s.state.cards[tree.id].damage == 3 and s.state.cards[tree.id].zone == "p1:battlefield"
+    check(s)
+
+
+# -- Circle of Solace: a creature of the chosen type (a class, read as the damage is dealt) -----------------------------------
+def test_circle_of_solace_prevents_only_the_chosen_types_next_damage(cards):
+    """614.12a, 615.8: Alice chose Goblin as the Circle entered. Bob's Goblin Piker (2) and Hill Giant (3) attack: only the Goblin's damage is
+    prevented (a creature of another type isn't), 40 - 3 = 37. Saved while it waits. Next turn the Piker's damage is dealt (no shield)."""
+    s = build(cards, ["Circle of Solace"], ["Goblin Piker", "Hill Giant"])
+    piker, giant = put(s, "Goblin Piker", "p2"), put(s, "Hill Giant", "p2")
+    stops(s)
+    cast_now(s, "Circle of Solace", W=1, C=3)
+    until_asked(s)
+    choose(s, "Goblin")
+    settle(s)
+    circle = named(s, "Circle of Solace")
+    assert circle.choices and "Goblin" in circle.choices.values()
+    bobs_turn(s)
+    attack(s, (piker, "p1"), (giant, "p1"))
+    no_blocks(s)
+    activate(s, circle, paid={"W": 1, "C": 1}, ability=1)
+    s = reloaded(s)
+    to_main2(s)
+    assert life(s, "p1") == 37
+    check(s)
+    until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    attack(s, (piker, "p1"))
+    no_blocks(s)
+    to_main2(s)
+    assert life(s, "p1") == 35
+    check(s)
+
+
+# -- Mercenaries: the creature itself, damage to whoever activated -----------------------------------------------------------
+def test_mercenaries_may_be_activated_by_the_player_it_would_hit(cards):
+    """602.2, 615.8: "Any player may activate this ability": Alice pays {3} for Bob's Mercenaries, and "you" is Alice: its combat damage to her
+    is prevented. Saved while it waits. The next attack (turn 4) is dealt: 40 - 3."""
+    s = build(cards, [], ["Mercenaries"])
+    merc = put(s, "Mercenaries", "p2")
+    stops(s)
+    bobs_turn(s)
+    attack(s, (merc, "p1"))
+    no_blocks(s)
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=merc.id, ability=0)
+    settle(s)
+    s = reloaded(s)
+    to_main2(s)
+    assert life(s, "p1") == 40
+    check(s)
+    until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    attack(s, (merc, "p1"))
+    no_blocks(s)
+    to_main2(s)
+    assert life(s, "p1") == 37
+    check(s)
+
+
+# -- Shield Dancer: a target attacking creature's damage to this creature is dealt to the attacker ----------------------------
+def test_shield_dancer_reflects_the_attackers_damage_to_itself(cards):
+    """614.9: Bob's Hill Giant (3) is blocked by Shield Dancer (1/3); the Giant's 3 damage to the Dancer is dealt to the Giant instead (it dies
+    to its own damage), the Dancer takes none; its own 1 damage to the Giant is dealt."""
+    s = build(cards, ["Shield Dancer"], ["Hill Giant"])
+    dancer, giant = put(s, "Shield Dancer"), put(s, "Hill Giant", "p2")
+    stops(s)
+    bobs_turn(s)
+    attack(s, (giant, "p1"))
+    block(s, (dancer, giant))
+    activate(s, dancer, paid={"W": 1, "C": 2}, targets=[giant.id])
+    s = reloaded(s)
+    to_main2(s)
+    assert s.state.cards[dancer.id].damage == 0 and s.state.cards[dancer.id].zone == "p1:battlefield"
+    assert s.state.cards[giant.id].zone == "p2:graveyard" and life(s, "p1") == 40
+    check(s)
+
+
+# -- Soltari Guerrillas: the creature itself, combat damage to an opponent, to a target creature instead ------------------------
+def test_soltari_guerrillas_deal_their_combat_damage_to_the_target_creature(cards):
+    """614.9: Alice's Guerrillas (3, shadow) are unblocked; she pays {0} for the target Hill Giant: the 3 combat damage to Bob is dealt to the
+    Giant (it dies), Bob loses no life."""
+    s = build(cards, ["Soltari Guerrillas"], ["Hill Giant"])
+    guerrillas, giant = put(s, "Soltari Guerrillas"), put(s, "Hill Giant", "p2")
+    stops(s)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    attack(s, (guerrillas, "p2"), attacker="p1")
+    until(s, lambda s: s.state.turn.phase == "declare_blockers" and s.state.rules.priority == "p1" and s.state.rules.decision is None)
+    act(s, "p1", type="activate_ability", card_id=guerrillas.id, ability=1, targets=[giant.id])
+    settle(s)
+    s = reloaded(s)
+    to_main2(s)
+    assert life(s, "p2") == 40 and s.state.cards[giant.id].zone == "p2:graveyard"
+    check(s)
+
+
+# -- Ria Ivor: the target creature's combat damage to players this combat, tokens equal to the damage prevented ------------------
+def ria_trigger(s, target_name):
+    """Alice's turn 3: the beginning of combat trigger asks for its target; answer it and let it resolve."""
+    until(s, lambda s: s.state.turn.phase == "begin_combat" and s.state.rules.decision is not None)
+    choose(s, target_name)
+    until(s, lambda s: s.state.turn.phase == "begin_combat" and not s.state.zones.get("stack") and s.state.rules.decision is None)
+
+
+def test_ria_ivor_prevents_the_targets_combat_damage_and_makes_that_many_mites(cards):
+    """615.5, 615.8: Ria Ivor targets Grizzly Bears; they attack with Ria (battle cry: +1/+0, so 3 damage): the Bears' 3 damage to Bob is
+    prevented and three 1/1 Phyrexian Mites are created, Ria's own 3 is dealt (a different source): 40 - 3 = 37. Saved with the shield waiting."""
+    s = build(cards, ["Ria Ivor, Bane of Bladehold", "Grizzly Bears"], [])
+    ria, bears = put(s, "Ria Ivor, Bane of Bladehold"), put(s, "Grizzly Bears")
+    stops(s)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    ria_trigger(s, "Grizzly Bears")
+    assert [r for r in s.state.rules.replacements if r.get("until") == "end_of_combat"]
+    s = reloaded(s)
+    attack(s, (ria, "p2"), (bears, "p2"), attacker="p1")
+    to_main2(s)
+    assert life(s, "p2") == 37
+    mites = [c for c in s.state.cards.values() if c.name == "Phyrexian Mite" and c.zone == "p1:battlefield"]
+    assert len(mites) == 3
+    assert not [r for r in s.state.rules.replacements if r.get("until") == "end_of_combat"]  # used up
+    check(s)
+
+
+def test_ria_ivors_shield_lasts_this_combat_only(cards):
+    """611.2a: "this combat": the Bears stay home, so the shield is never used, and it is gone when the combat ends (not left for a later
+    combat of the turn): after the combat no record of it is in force."""
+    s = build(cards, ["Ria Ivor, Bane of Bladehold", "Grizzly Bears"], [])
+    ria = put(s, "Ria Ivor, Bane of Bladehold")
+    put(s, "Grizzly Bears")
+    stops(s)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    ria_trigger(s, "Grizzly Bears")
+    assert [r for r in s.state.rules.replacements if r.get("until") == "end_of_combat"]  # (the shield is there during the combat)
+    attack(s, (ria, "p2"), attacker="p1")
+    to_main2(s)
+    assert life(s, "p2") == 37
+    assert not [r for r in s.state.rules.replacements if r.get("until") == "end_of_combat"]
+    assert not [c for c in s.state.cards.values() if c.name == "Phyrexian Mite"]
+    check(s)
+
+
+# -- Opal-Eye: any source of your choice, no recipient named, dealt to Opal-Eye instead ---------------------------------------
+def test_opal_eye_takes_the_damage_of_the_chosen_source_once(cards):
+    """614.9, 609.7a: on turn 4 (it has been under Alice's control since her turn began) Opal-Eye taps for the Bolt on the stack, which is
+    aimed at Alice's face: its 3 is dealt to Opal-Eye (1/4, it survives) and Alice loses nothing; the second Bolt hits her."""
+    s = build(cards, ["Opal-Eye, Konda's Yojimbo"], ["Lightning Bolt", "Lightning Bolt"])
+    eye = put(s, "Opal-Eye, Konda's Yojimbo")
+    stops(s)
+    until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    bolt(s, "p1")
+    act(s, "p1", type="activate_ability", card_id=eye.id, ability=2)
+    until_asked(s)
+    choose(s, "Lightning Bolt")
+    s = reloaded(s)
+    settle(s)
+    assert life(s, "p1") == 40 and s.state.cards[eye.id].damage == 3 and s.state.cards[eye.id].zone == "p1:battlefield"
+    bolt(s, "p1")
+    settle(s)
+    assert life(s, "p1") == 37
     check(s)
 
 

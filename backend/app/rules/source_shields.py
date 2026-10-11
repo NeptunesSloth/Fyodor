@@ -658,7 +658,7 @@ def _describe(e: dict[str, Any]) -> str:
     to = {"you": "you ", "host": "the enchanted creature ", "self": "this creature ", None: ""}.get(
         where, "the target " if where else "")
     if e.get("once"):
-        return f"the next time {what} of your choice would deal damage to {to}this turn, " + (
+        return f"the next time {what} of your choice would deal damage {'to ' + to if to else ''}this turn, " + (
             "that damage is dealt to something else instead" if e.get("redirect") else "prevent that damage")
     return f"prevent all damage {what} of your choice would deal {'to ' + to if to else ''}this turn"
 
@@ -690,7 +690,7 @@ def source_shield(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not mine:
             plan.note(f"{plan.name(pid)}: the source is gone, so the effect does nothing", actor=pid)
             return True
-        _record(plan, ctx, e, [plan.oid(mine[0])], plan.state.cards[mine[0]].name or "a creature")
+        _record(plan, ctx, e, [plan.oid(mine[0])], _label(plan, mine[0], plan.oid(mine[0]))[0])  # (a face-down target is not named)
         return True
     options = choosable(plan, e.get("props") or {})
     if not options:
@@ -942,7 +942,7 @@ def _record(plan: Plan, ctx: Context, e: dict[str, Any], oids: list[str] | None,
     replace.add_record(plan, event="damage", match=match, op=op, controller=pid, source=ctx.get("source_object"),
                        source_card=ctx.get("source_card"), label=ctx.get("name") or "a prevention effect",
                        **({"until": e["until"]} if e.get("until") else {}))
-    plan.note(f"{plan.name(pid)} chose {label}: {_describe(e)}", actor=pid)
+    plan.note(f"{plan.name(pid)} chose {label}: {_describe(e)}" if label else f"{plan.name(pid)}: {_describe(e)}", actor=pid)
 
 
 def resume_source_shield(plan: Plan, d: Any, chosen: list[str]) -> None:
