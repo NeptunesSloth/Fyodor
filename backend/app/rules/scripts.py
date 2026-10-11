@@ -560,6 +560,8 @@ class _Introducer:
             self.number = 2  # (-- wave 22D -- "Put each creature card milled this way onto the battlefield. They gain haste.": those cards)
         if self.do == "token_copy" and g is not None and groups is not None and g < len(groups) and groups[g]["max"] != 1:
             self.number = None  # (-- wave 22D -- a copy of each of several targets: "those tokens")
+        if self.do == "token_copy" and who.startswith((selectors.PREFIX, "controlled:")):
+            self.number = None  # -- token copies (wave 31C) -- "For each artifact you control, create a token that's a copy of that artifact. Those tokens gain haste."
         if self.do == "linked_cards":
             self.number = None  # (one card or several: whichever the referring wording says)
         if self.do == "edict" and g is None and who != "you":  # (wave 4A: one each, from several players)
@@ -3856,7 +3858,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if d is not None:  # "becomes a copy of …, except it has this ability" (707.9a): this ability's own line
         from app.rules import copying
 
-        d = copying.with_this_ability(d, ability.text)
+        d = copying.with_this_ability(d, ability, ch)
+    if d is not None and d.get("kind") == "spell" and any(e.get("do") == "token_copy" and '"other":true' in str(e.get("who")) for e in d.get("effects") or []):
+        return None  # -- token copies (wave 31C) -- "for each other …": other than the permanent whose ability it is — a spell has none on the battlefield (kept refused)
     return d
 
 
@@ -3867,6 +3871,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     )
 
     text = self_text(merged.protect(ability.text), ch.name)
+    # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")
+    text = re.sub(r"^(When ~ enter, if )they're( not a token, create [^.]+? cop(?:y|ies) of )them\b", r"\1it's\2it", text)
     if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
         return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
     if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I)
@@ -6792,13 +6798,32 @@ def _their_token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{**found[0][0], "their": True}], None
 
 
+# -- becomes a copy (wave 31C) -- 611.2a: the duration may lead the sentence ("Until end of turn, Oko becomes a copy of target creature you
+# control.") and may be "until your next turn" (Volrath, Absorbing Man: 500.4); the subject may be "it" (Tilonalli's Skinshifter, resolve_it)
 @_first
-@effect(r"~ becomes a copy of (?:(?P<src>it|that creature|that card)|(?P<pre>another |up to one (?:other )?)?target (?P<what>.+?))"
-        r"(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")
+@effect(r"(?:until (?P<lead>end of turn|your next turn), )?(?P<subj>~|it) becomes a copy of "
+        r"(?:(?P<src>it|that creature|that card)|(?P<pre>another |up to one (?:other )?)?target (?P<what>.+?))"
+        r"(?: until (?P<until>end of turn|your next turn))?(?:, except (?P<exc>.+))?")
 def _become_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import copying
 
-    found = copying.parse_become(m["what"], bool(m["until"]), m["exc"], m["pre"] or "", m["src"])
+    found = copying.parse_become(m["what"], m["lead"] or m["until"] or "", m["exc"], m["pre"] or "", m["src"]) \
+        if not (m["lead"] and m["until"]) and not (m["subj"] == "it" and m["src"]) else None
+    if found is None:
+        raise _NoMatch
+    if m["subj"] == "it":
+        found[0][0]["who"] = "it"
+    return found
+
+
+# -- becomes a copy (wave 31C) -- "Target artifact you control becomes a copy of a second target artifact you control until end of turn, except it isn't legendary."
+@_first
+@effect(r"(?:until (?P<lead>end of turn|your next turn), )?(?P<a>target .+?) becomes a copy of (?P<b>(?:another |a second )?target .+?)"
+        r"(?: until (?P<until>end of turn|your next turn))?(?:, except (?P<exc>.+))?")
+def _become_copy_targets(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import copying
+
+    found = copying.parse_become_targets(m["a"], m["b"], m["lead"] or m["until"] or "", m["exc"]) if not (m["lead"] and m["until"]) else None
     if found is None:
         raise _NoMatch
     return found
@@ -6865,7 +6890,7 @@ def _populate(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 @_first
-@effect(r"for each [^,]+, (?:its controller creates|create) (?:a|one) (?:tapped )?token that's a copy of that [a-z]+(?:, except .+)?")
+@effect(r"for each [^,]+, (?:its controller creates|create) (?:a|one) (?:tapped )?token that's a copy of (?:that [a-z]+|it)(?:, except .+)?")
 def _for_each_token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import populate
 

@@ -98,6 +98,7 @@ def quote(text: str) -> str | None:
     # that has the ability — scripts.self_text leaves the granter's name alone inside a quote)
     # (a comma just before the closing quotation mark belongs to the sentence around it: "…, each creature,")
     t = re.sub(r"(^|: |\. )~", r"\1This permanent", text.strip().rstrip(",;")).replace("~", "this permanent")
+    t = re.sub(r"^((?:When|Whenever) )this token( dies\b)", r"\1this permanent\2", t)  # -- token copies (wave 31C) -- "When this token dies, draw a card." (Jaxis): the object that has it
     if not t or "‹granter" in t:  # (wave 18F: a granter is bound only by a static grant, layers.py — a resolved effect's isn't)
         return None
     if not t.endswith((".", "!", "?")):
@@ -133,6 +134,7 @@ def rules_of(text: str) -> tuple[str, ...] | None:
     begins: 611.2c; 113.12: stating a quality isn't quite granting an ability, but it lasts as long
     and affects the same objects)."""
     t = re.sub(r"(^|: |\. )~", r"\1This permanent", text.strip().rstrip(",;")).replace("~", "this permanent")
+    t = re.sub(r"^((?:When|Whenever) )this token( dies\b)", r"\1this permanent\2", t)  # -- token copies (wave 31C) -- "When this token dies, draw a card." (Jaxis): the object that has it
     if not t:
         return None
     from app.rules import scripts

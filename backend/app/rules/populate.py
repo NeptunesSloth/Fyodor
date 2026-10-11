@@ -10,7 +10,9 @@
 * **"For each <permanent>, create a token that's a copy of that <permanent>"** (Second Harvest, Rhys
   the Redeemed, Multiversal Incursion, Clone Legion, Parallel Evolution "its controller creates"):
   one copy of each object the phrase names as the instruction resolves, all created at once (one
-  instruction: ``copying.token_copy`` over every object, one creation batch).
+  instruction: ``copying.token_copy`` over every object, one creation batch). -- token copies (wave 31C) -- also "… a copy of it"
+  (Saheeli, the Gifted) and "for each other nonland permanent you control" (other than the source: Oko, the Ringleader); "Those tokens gain
+  haste. Exile those tokens at the beginning of the next end step." name all of them (``_Introducer.number`` is open for a group).
 
 Refused (left manual, unknown wording): "Populate X times", "Populate. The token enters tapped and
 attacking." (Ghired), "for each of them" in a "one or more" trigger (Kambal), a phrase with a target
@@ -35,7 +37,7 @@ CREATURE_TOKENS_KEY = 'sel:{"controller":"you","token":true,"types":["Creature"]
 # the noun "that …" names, and the card type each object counted must have for it to fit
 _NOUNS = {"permanent": None, "creature": "Creature", "artifact": "Artifact", "enchantment": "Enchantment", "token": None}
 FOR_EACH = re.compile(r"for each (?P<what>[^,]+), (?:(?P<their>its controller creates)|create) (?:a|one) (?P<tapped>tapped )?"
-                      r"token that's a copy of that (?P<noun>permanent|creature|artifact|enchantment|token)"
+                      r"token that's a copy of (?:that (?P<noun>permanent|creature|artifact|enchantment|token)|it)"  # (wave 31C: "of it", Saheeli, the Gifted)
                       r"(?:, except (?P<exc>.+))?")
 
 
@@ -48,13 +50,12 @@ def parse_for_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     tm = re.fullmatch(r"(?P<sel>.+?) target player controls", what)
     if tm is not None:  # (Clone Legion: "each creature target player controls")
         what, target = tm["sel"] + " on the battlefield", "player"
-    if what.startswith(("other ", "another ")) or " target " in f" {what} ":
+    if what.startswith("another ") or " target " in f" {what} ":
         return None
     sel = selectors.parse(what.removesuffix(" on the battlefield") if what.endswith(" on the battlefield") else what)
-    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.ability is not None \
-            or sel.other or sel.extras:
-        return None
-    need = _NOUNS[m["noun"]]
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.ability is not None or sel.extras:
+        return None  # (wave 31C: "for each other nonland permanent you control" — other than the source, ``selectors.candidates``: Oko, the Ringleader)
+    need = _NOUNS[m["noun"]] if m["noun"] else None
     if need is not None and sel.types != (need,):
         return None  # ("that creature" must be what each counted object is)
     if m["noun"] == "token" and sel.token is not True:
