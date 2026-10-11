@@ -1,0 +1,682 @@
+[
+ {
+  "name": "Yorvo, Lord of Garenbrig",
+  "layout": "normal",
+  "mana_cost": "{G}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Giant Noble",
+  "oracle_text": "Yorvo enters with four +1/+1 counters on it.\nWhenever another green creature you control enters, put a +1/+1 counter on Yorvo. Then if that creature's power is greater than Yorvo's power, put another +1/+1 counter on Yorvo.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "0"
+ },
+ {
+  "name": "Cursed Wombat",
+  "layout": "normal",
+  "mana_cost": "{B}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Nightmare Wombat",
+  "oracle_text": "{2}{B}{G}: Adapt 2. (If this creature has no +1/+1 counters on it, put two +1/+1 counters on it.)\nPermanents you control have \"Whenever one or more +1/+1 counters are put on this permanent, put an additional +1/+1 counter on it. This ability triggers only once each turn.\"",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Adapt"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Experiment Twelve",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Elf Lizard Warrior",
+  "oracle_text": "Trample\nWhenever this creature or another creature you control is turned face up, put +1/+1 counters on that creature equal to its power.\nDisguise {4}{G} (You may cast this card face down for {3} as a 2/2 creature with ward {2}. Turn it face up any time for its disguise cost.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Trample",
+   "Disguise"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Shelinda, Yevon Acolyte",
+  "layout": "normal",
+  "mana_cost": "{G}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Cleric",
+  "oracle_text": "Lifelink\nWhenever another creature you control enters, put a +1/+1 counter on that creature if its power is less than Shelinda's power. Otherwise, put a +1/+1 counter on Shelinda.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Lifelink"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Bristlebane Battler",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Kithkin Soldier",
+  "oracle_text": "Trample, ward {2}\nThis creature enters with five -1/-1 counters on it.\nWhenever another creature you control enters while this creature has a -1/-1 counter on it, remove a -1/-1 counter from this creature.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Trample",
+   "Ward"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Encumbered Reejerey",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Merfolk Soldier",
+  "oracle_text": "This creature enters with three -1/-1 counters on it.\nWhenever this creature becomes tapped while it has a -1/-1 counter on it, remove a -1/-1 counter from it.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Moonshadow",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "Menace\nThis creature enters with six -1/-1 counters on it.\nWhenever one or more permanent cards are put into your graveyard from anywhere while this creature has a -1/-1 counter on it, remove a -1/-1 counter from this creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "7",
+  "toughness": "7"
+ },
+ {
+  "name": "Pyromancer Ascension",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever you cast an instant or sorcery spell that has the same name as a card in your graveyard, you may put a quest counter on this enchantment.\nWhenever you cast an instant or sorcery spell while this enchantment has two or more quest counters on it, you may copy that spell. You may choose new targets for the copy.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Iron Spider, Stark Upgrade",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Legendary Artifact Creature — Spider Hero",
+  "oracle_text": "Vigilance\n{T}: Put a +1/+1 counter on each artifact creature and/or Vehicle you control.\n{2}, Remove two +1/+1 counters from among artifacts you control: Draw a card.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Finneas, Ace Archer",
+  "layout": "normal",
+  "mana_cost": "{G}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Rabbit Archer",
+  "oracle_text": "Reach, vigilance\nWhenever Finneas attacks, put a +1/+1 counter on each other creature you control that's a token or a Rabbit. Then if creatures you control have total power 10 or greater, draw a card.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Reach",
+   "Vigilance"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Nalia de'Arnise",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Rogue",
+  "oracle_text": "You may look at the top card of your library any time.\nYou may cast Cleric, Rogue, Warrior, and Wizard spells from the top of your library.\nAt the beginning of combat on your turn, if you have a full party, put a +1/+1 counter on each creature you control and those creatures gain deathtouch until end of turn.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Adrenaline Jockey",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Minotaur Pilot",
+  "oracle_text": "Whenever a player casts a spell, if it's not their turn, this creature deals 4 damage to them.\nWhenever you activate an exhaust ability, put a +1/+1 counter on this creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Frenzied Raider",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Demon Berserker",
+  "oracle_text": "Whenever you activate a boast ability, put a +1/+1 counter on this creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Marvel Boy, Noh-Varr",
+  "layout": "normal",
+  "mana_cost": "{1}{R/W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Kree Soldier Hero",
+  "oracle_text": "Whenever another creature you control enters and whenever you activate a power-up ability, put a +1/+1 counter on Marvel Boy.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Rangers' Refueler",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Vehicle",
+  "oracle_text": "Whenever you activate an exhaust ability, draw a card.\nExhaust — {4}: This Vehicle becomes an artifact creature. Put a +1/+1 counter on it. (Activate each exhaust ability only once.)\nCrew 2",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Crew",
+   "Exhaust"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Afterburner Expert",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Goblin Artificer",
+  "oracle_text": "Exhaust — {2}{G}{G}: Put two +1/+1 counters on this creature. (Activate each exhaust ability only once.)\nWhenever you activate an exhaust ability, return this card from your graveyard to the battlefield.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Exhaust"
+  ],
+  "power": "4",
+  "toughness": "2"
+ },
+ {
+  "name": "Doubling Season",
+  "layout": "normal",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Hardened Scales",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Enchantment",
+  "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Intrepid Rabbit",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Rabbit Soldier",
+  "oracle_text": "Offspring {1} (You may pay an additional {1} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)\nWhen this creature enters, target creature you control gets +1/+1 until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Offspring"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Smuggler's Copter",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Vehicle",
+  "oracle_text": "Flying\nWhenever this Vehicle attacks or blocks, you may draw a card. If you do, discard a card.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying",
+   "Crew"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Brave Brawler",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Warrior Hero",
+  "oracle_text": "Lifelink\nPower-up — {4}{W}: Put two +1/+1 counters on this creature. (Activate each power-up ability only once. Reduce the cost by its mana cost if it entered this turn.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Power-up",
+   "Lifelink"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Verdant Force",
+  "layout": "normal",
+  "mana_cost": "{5}{G}{G}{G}",
+  "cmc": 8.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "At the beginning of each upkeep, create a 1/1 green Saproling creature token.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "7",
+  "toughness": "7"
+ },
+ {
+  "name": "Duskwielder",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Creature — Elf Berserker",
+  "oracle_text": "Boast — {1}: Target opponent loses 1 life and you gain 1 life. (Activate only if this creature attacked this turn and only once each turn.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Boast"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Celes, Rune Knight",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{W}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Wizard Knight",
+  "oracle_text": "When Celes enters, discard any number of cards, then draw that many cards plus one.\nWhenever one or more other creatures you control enter, if one or more of them entered from a graveyard or was cast from a graveyard, put a +1/+1 counter on each creature you control.",
+  "colors": [
+   "B",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Kotis, Sibsig Champion",
+  "layout": "normal",
+  "mana_cost": "{B}{G}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Zombie Warrior",
+  "oracle_text": "Once during each of your turns, you may cast a creature spell from your graveyard by exiling three other cards from your graveyard in addition to paying its other costs.\nWhenever one or more creatures you control enter, if one or more of them entered from a graveyard or was cast from a graveyard, put two +1/+1 counters on Kotis.",
+  "colors": [
+   "B",
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Zombify",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return target creature card from your graveyard to the battlefield.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Sage-Eye Avengers",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Creature — Djinn Monk",
+  "oracle_text": "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nWhenever this creature attacks, you may return target creature to its owner's hand if its power is less than this creature's power.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Prowess"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Unbreakable Formation",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Creatures you control gain indestructible until end of turn.\nAddendum — If you cast this spell during your main phase, put a +1/+1 counter on each of those creatures and they gain vigilance until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Addendum"
+  ]
+ },
+ {
+  "name": "Marcus, Mutant Mayor",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{U}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Mutant Advisor",
+  "oracle_text": "Vigilance, trample\nWhenever a creature you control deals combat damage to a player, draw a card if that creature has a +1/+1 counter on it. If it doesn't, put a +1/+1 counter on it.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Vigilance",
+   "Trample"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Chlorophant",
+  "layout": "normal",
+  "mana_cost": "{G}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "At the beginning of your upkeep, you may put a +1/+1 counter on this creature.\nThreshold — As long as there are seven or more cards in your graveyard, this creature has \"At the beginning of your upkeep, you may put another +1/+1 counter on this creature.\"",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Threshold"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Valgavoth, Harrower of Souls",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Elder Demon",
+  "oracle_text": "Flying\nWard—Pay 2 life.\nWhenever an opponent loses life for the first time during each of their turns, put a +1/+1 counter on Valgavoth and draw a card.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Ward"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Sulfuric Vortex",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of each player's upkeep, this enchantment deals 2 damage to that player.\nIf a player would gain life, that player gains no life instead.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Lady Octopus, Inspired Inventor",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Legendary Creature — Human Scientist Villain",
+  "oracle_text": "Whenever you draw your first or second card each turn, put an ingenuity counter on Lady Octopus.\n{T}: You may cast an artifact spell from your hand with mana value less than or equal to the number of ingenuity counters on Lady Octopus without paying its mana cost.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "2"
+ },
+ {
+  "name": "Divination",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Draw two cards.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Danitha, Spear of Agony",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Knight",
+  "oracle_text": "First strike\nWhenever you cast a spell that targets an opponent or a creature an opponent controls, put a +1/+1 counter on Danitha.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "First strike"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Rangers' Aetherhive",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{U}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Vehicle",
+  "oracle_text": "Vigilance\nWhenever you activate an exhaust ability, create a 1/1 colorless Thopter artifact creature token with flying.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Vigilance",
+   "Crew"
+  ],
+  "power": "3",
+  "toughness": "5"
+ },
+ {
+  "name": "Reluctant Dounguard",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Kithkin Soldier",
+  "oracle_text": "This creature enters with two -1/-1 counters on it.\nWhenever another creature you control enters while this creature has a -1/-1 counter on it, remove a -1/-1 counter from this creature.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ }
+]

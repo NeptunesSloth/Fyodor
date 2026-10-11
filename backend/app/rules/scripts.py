@@ -742,11 +742,15 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 return "target" if groups is None else f"target:{g}"
         return None
 
-    def cond_ref(index: int) -> Any:
+    def cond_ref(index: int, cond: Any = None) -> Any:
         """The object "it" names in a condition (conditional / instead clauses, wave 1B): what an earlier
         instruction moved, chose or created (its recorded object, 400.7j), a plain target of one
         (the target itself), the source, or the trigger event's object."""
         intro = objects(index, 1, None, skip_gated=True)
+        if intro is not None and out[intro.index].get("who") == "self" and "beats_self" in json.dumps(cond):
+            # -- counters (wave 33C) -- "put a +1/+1 counter on Yorvo. Then if that creature's power is greater than Yorvo's power, …": "that creature"
+            # is compared with the source, so it is not the source the sentence before put a counter on, but the creature the trigger is about
+            return "event" if antecedent in ("event", "event_gone") else None
         if intro is None:
             return None if antecedent == "event_spell" else stat_ref(index)
         if intro.do in _MOVERS or _group_of(out[intro.index]) is None:
@@ -873,7 +877,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 # (-- if you do (wave 5G) -- the cast spell; -- ability words (wave 9C) -- opus: "five or more mana was spent")
                 e["cond"] = _bind_cond(e["cond"], "event")
             if e.get("do") == "only_if" and _cond_has_it(e["cond"]):
-                ref = cond_ref(index)
+                ref = cond_ref(index, e["cond"])
                 if ref is None:
                     return None
                 e["cond"] = _bind_cond(e["cond"], ref)
@@ -2616,6 +2620,13 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = re.sub(r"(\b[Pp]ut [^.,]+? counters? on) each of those (?:creatures|permanents|cards|artifacts|lands|enchantments)\b", r"\1 each of them", body)
     body = re.sub(r"(^|\. )Each of those (creatures|permanents|cards|artifacts|lands|enchantments) (gains|gets|loses) ",
                   lambda m: f"{m[1]}Those {m[2]} {m[3][:-1]} ", body)
+    # -- counters (wave 33C) -- "Draw a card if that creature has a +1/+1 counter on it. If it doesn't, put a +1/+1 counter on it." (Marcus, Mutant Mayor):
+    # "If it doesn't" is the other case of the condition just read, as "Otherwise" is (the sentence before is a trailing "if it has …")
+    body = re.sub(r"(\bif (?:it|that creature) has [^.,]+?\.) If it doesn't, ", r"\1 Otherwise, ", body)
+    # -- counters (wave 33C) -- "Put a +1/+1 counter on each creature you control and those creatures gain deathtouch until end of turn." (Nalia
+    # de'Arnise, Overseer of Vault 76): two instructions about the same group, in order (608.2c): read as "…. Those creatures gain …"
+    body = re.sub(r"(\b[Pp]ut [^.,]+? counters? on each [^.,]+?) and (those creatures|they) (gain [^.]+? until end of turn)\.",
+                  lambda m: f"{m[1]}. {m[2].capitalize()} {m[3]}.", body)
     from app.rules import combat_rules as _combat_rules  # -- keywords (wave 15E) -- myriad's two sentences
 
     body = _combat_rules.merge_myriad(body)

@@ -372,13 +372,16 @@ def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:  # (wave 19D: "th
 
 # -- token & pump wordings (wave 6C) -- "each other creature you control that's a Fungus or Saproling", "each creature that's
 # a Barbarian, a Warrior, or a Berserker": any of these creature types (205.3m)
-@_suffix(r"that['’]s (?P<list>an? [A-Z][\w'’-]*(?:(?:,|,? or|,? and/or) (?:an? )?[A-Z][\w'’-]*)*)")
+# (-- counters (wave 33C) -- "each other creature you control that's a token or a Rabbit" (Finneas, Ace Archer): "token" is one of the alternatives, kept
+# as the word in the list and read as the object's being a token (111.7); alone it is no creature type: "that's a token" stays unread)
+@_suffix(r"that['’]s (?P<list>an? (?:[A-Z][\w'’-]*|token)(?:(?:,|,? or|,? and/or) (?:an? )?(?:[A-Z][\w'’-]*|token))*)")
 def _thats_types(s: Selector, m: re.Match[str]) -> Selector:
     words = [w for w in re.split(r",? (?:or|and/or) |, ", m["list"]) if w]
-    subs = [_core(re.sub(r"^an? ", "", w)) for w in words]
-    if not subs or any(c is None or c[0] != "sub" for c in subs):
+    subs = [("tok", "token") if re.sub(r"^an? ", "", w) == "token" else _core(re.sub(r"^an? ", "", w)) for w in words]
+    found = [c for c in subs if c is not None and c[0] in ("sub", "tok")]
+    if not subs or len(found) != len(subs) or found == [("tok", "token")]:
         raise ValueError("not a list of creature types")
-    return replace(s, extras=(*s.extras, "subtype_any:" + "|".join(c[1] for c in subs if c is not None)))
+    return replace(s, extras=(*s.extras, "subtype_any:" + "|".join(c[1] for c in found)))
 
 
 @_suffix(r"that(?:['’]s| is| are) one or more colors")  # (wave 15A: "permanents they control that are one or more colors")
@@ -1314,7 +1317,10 @@ def _parse(phrase: str) -> Selector | None:
         return Selector(player="opponent" if kinds[0][1] == "opponent" else "any")
     types = tuple(dict.fromkeys(v for k, v in kinds if k == "type"))
     subtypes = tuple(dict.fromkeys(v for k, v in kinds if k == "sub"))
-    if "or" in joins and "and" in joins:
+    # (-- counters (wave 33C) -- "artifact creature and/or Vehicle" (Iron Spider): an artifact creature, or a Vehicle (an artifact too, 301.7: the
+    # same as an artifact that is a creature or a Vehicle); any other mix of "and" with "or" is not read, nor one with a qualifier in front: "nontoken
+    # artifact creature or Vehicle" (Canoptek Spyder) — does "nontoken" go with the Vehicle too?)
+    if "or" in joins and "and" in joins and not (set(types) == {"Artifact", "Creature"} and subtypes == ("Vehicle",) and i < 0):
         return None  # "artifact creature or enchantment": not yet
     union = False
     if "or" in joins and types and subtypes:
@@ -1481,8 +1487,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra.startswith("targets:") and (zone != "stack" or not targets_match(plan, card, extra, you, source)):
             return False
     if sel.union:  # "creature or Vehicle": either the type or the subtype (-- target forms (agent T) --)
-        if not (set(sel.types) & ch.types or set(sel.subtypes) & ch.subtypes):
-            return False
+        if not ((set(sel.types) <= ch.types if "all_types" in sel.extras else set(sel.types) & ch.types) or set(sel.subtypes) & ch.subtypes):
+            return False  # (wave 33C: "artifact creature or Vehicle": all the types, or the subtype)
     elif sel.types:
         if "all_types" in sel.extras:
             if not set(sel.types) <= ch.types:
@@ -1735,7 +1741,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             p, t = _stat(ch, "power"), _stat(ch, "toughness")
             if p is None or t is None or t <= p:
                 return False
-        if extra.startswith("subtype_any:") and not set(extra[12:].split("|")) & ch.subtypes:  # (wave 6C)
+        if extra.startswith("subtype_any:") and not (set(extra[12:].split("|")) & ch.subtypes or (card.is_token and "token" in extra[12:].split("|"))):  # (wave 6C; 33C: "a token or a Rabbit")
             return False
         if extra == "mergeable":  # -- merged permanents (wave 18D) -- a permanent a mutating spell can merge with (app/rules/merged.py)
             from app.rules import merged

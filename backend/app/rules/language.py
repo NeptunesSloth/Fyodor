@@ -535,7 +535,8 @@ def _with_rider(text: str) -> tuple[str, Any]:
     ("where X is its power", "for each +1/+1 counter on it"): a placeholder "it", bound by
     scripts.resolve_it for an amount, or by the pump grammar to its own subject."""
     # -- counters (wave 21D) -- "put a number of +1/+1 counters on it equal to that creature's power" is "put X … counters on it, where X is …"
-    n = re.fullmatch(r"(put) a number of ([+-]\d+/[+-]\d+|[a-z]+) counters on (.+?) equal to (.+)", text)
+    # (-- counters (wave 33C) -- "put +1/+1 counters on that creature equal to its power" (Experiment Twelve): "a number of" left out)
+    n = re.fullmatch(r"(put) (?:a number of )?([+-]\d+/[+-]\d+|[a-z]+) counters on (.+?) equal to (.+)", text)
     if n:
         return f"put X {n[2]} counters on {n[3]}", ("x", _rider_value(n[4]))
     m = re.search(r",? where [xX] is (.+)$", text)  # (Oracle writes X; the lowercase form is the older tests')
@@ -1923,6 +1924,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
                 groups_out.append(group)
             return effects_out, _out(groups_out)
     # -- end counters (wave 5H) --
+    # -- counters (wave 33C) -- "put another +1/+1 counter on ~" / "put an additional +1/+1 counter on it" (Yorvo, Cursed Wombat): one more counter
+    # put by this instruction, which is "put a counter" (122.6: through the counter choke point, so replacement effects apply to it as to any put)
+    text = re.sub(r"^put (?:another|an additional) (?=(?:[+-]\d+/[+-]\d+|[a-z]+) counter on )", "put a ", text)
     m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|(?:first|double) strike|[a-z]+) counters? on (?P<o>.+)", text)  # (wave 26D: first / double strike)
     if m:
         if m["k"] in values.UNMODELED_COUNTERS:
