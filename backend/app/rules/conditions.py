@@ -143,9 +143,9 @@ _COMMANDER = re.compile(r"you control (?P<which>your commander|a commander)")
 _OBJECT_WORDS = {"it": "it", "~": "self", "the sacrificed creature": "cost:sacrificed", "the sacrificed permanent": "cost:sacrificed",
                  "the sacrificed artifact": "cost:sacrificed",  # (wave 16D: what a cost sacrificed, values._object)
                  "the discarded card": "cost:discarded",  # (wave 17B: the one card a cost discarded, values._object)
-                  "that creature": "it", "that permanent": "it", "that card": "it",
+                  "that creature": "it", "that permanent": "it", "that card": "it", "that spell": "event",  # (33C: a cast trigger's spell, never an earlier instruction's object)
                  "that land": "it", "that token": "it", "that artifact": "it"}
-_OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact)|the sacrificed (?:creature|permanent|artifact)|the discarded card) "
+_OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact|spell)|the sacrificed (?:creature|permanent|artifact)|the discarded card) "
                      r"(?P<verb>is not|was not|isn't|wasn't|is|was) (?P<what>.+)")  # (wave 11F: "is not" before "is")
 _SAME_NAME_OF = re.compile(r"it (?:doesn't|does not) have the same name as .+")  # (wave 32A)
 # -- intervening ifs (wave 11F) -- "~ is enchanted", "it's enchanted or equipped" (303.4, 301.5: an Aura / Equipment
@@ -1016,6 +1016,10 @@ def _object(t: str) -> Condition | None:
     m = _CONTROLLED.fullmatch(t)
     if m:
         return {"object": "it", "controlled_by": "you", **({"negate": True} if m["neg"] else {})}
+    if t == "that opponent has more life than another of your opponents":  # -- counters (wave 33C) -- Breena: the player the attack was declared against
+        return {"defended_more_life": True}
+    if t == "it entered under your control":  # -- counters (wave 33C) -- Phelia, Hallowed Respite: the object a "return it to the battlefield under its owner's control" made, now
+        return {"object": "it", "controlled_by": "you"}
     if re.fullmatch(r"(?:this card|~) is in your graveyard", t):  # -- graveyard triggers (wave 19C) -- the source, still the object that triggered
         return {"object": "self", "test": "in_graveyard"}
     if re.fullmatch(r"(?:this card|~) is in the command zone or on the battlefield", t):  # -- trigger other (wave 25B) -- eminence, 113.6b
@@ -1120,6 +1124,10 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "defended_more_life" in cond:  # -- counters (wave 33C) -- 508.3e: the player attacked has more life than one of the controller's other opponents
+        defended = (ctx.get("event") or {}).get("defended")
+        return defended in plan.state.players and any(
+            p not in (defended, ctx["controller"]) and plan.state.players[p].life < plan.state.players[defended].life for p in plan.live())
     if "vote" in cond:  # -- voting (wave 18C) -- this resolution's own vote (app/rules/voting.py)
         from app.rules import voting
 

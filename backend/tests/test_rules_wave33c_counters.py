@@ -19,7 +19,10 @@ real Oracle text (tests/fixtures/wave33c_counters_cards.json, from data/cards.sq
 * "Whenever an opponent loses life for the first time during each of their turns" (Valgavoth), "Whenever you draw your first or second card each turn" (Lady
   Octopus), "Whenever you cast a spell that targets an opponent or a creature an opponent controls" (Danitha, 115.9b), "Draw a card if that creature has a
   +1/+1 counter on it. If it doesn't, put …" (Marcus), "you may return target creature … if its power is less than this creature's power" (Sage-Eye Avengers),
-  "put a +1/+1 counter on each of those creatures and they gain vigilance" (Unbreakable Formation)."""
+  "put a +1/+1 counter on each of those creatures and they gain vigilance" (Unbreakable Formation), "Each other creature you control enters with an additional
+  vigilance counter on it" (Tayam), "If it entered under your control, put a +1/+1 counter on Phelia" (the permanent she exiled, back under its owner's control),
+  "if that opponent has more life than another of your opponents" (Breena: the player the attack was declared against, 508.3e), "If that spell is a Lesson, put
+  an additional +1/+1 counter on that land" (Toph: "that spell" is the cast trigger's spell, not the land earthbend made)."""
 
 from __future__ import annotations
 
@@ -45,7 +48,8 @@ FULL = ["Yorvo, Lord of Garenbrig", "Cursed Wombat", "Experiment Twelve", "Sheli
         "Moonshadow", "Iron Spider, Stark Upgrade", "Finneas, Ace Archer", "Nalia de'Arnise", "Adrenaline Jockey", "Frenzied Raider",
         "Marvel Boy, Noh-Varr", "Rangers' Refueler", "Afterburner Expert", "Celes, Rune Knight", "Kotis, Sibsig Champion", "Marcus, Mutant Mayor",
         "Sage-Eye Avengers", "Unbreakable Formation", "Chlorophant", "Valgavoth, Harrower of Souls", "Lady Octopus, Inspired Inventor",
-        "Danitha, Spear of Agony", "Pyromancer Ascension", "Rangers' Aetherhive", "Reluctant Dounguard"]
+        "Danitha, Spear of Agony", "Pyromancer Ascension", "Rangers' Aetherhive", "Reluctant Dounguard", "Tayam, Luminous Enigma",
+        "Phelia, Exuberant Shepherd", "Breena, the Demagogue", "Toph, Hardheaded Teacher"]
 
 
 @pytest.fixture()
@@ -493,4 +497,85 @@ def test_danitha_gets_a_counter_for_a_spell_aimed_at_an_opponent_or_their_creatu
         act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[target])
         answer(s)
         assert counters(s, danitha) == expected, target
+    check(s)
+
+
+# -- "Each other creature you control enters with an additional vigilance counter on it" (Tayam, Luminous Enigma) --------------------------------------
+@pytest.mark.parametrize("extra, n", [(None, 1), ("Doubling Season", 2)])
+def test_tayam_gives_each_other_creature_a_vigilance_counter_as_it_enters_and_the_keyword_with_it(cards, extra, n):
+    """614.1c / 122.6: the counter is part of how it enters (so Doubling Season doubles it); 122.1b: a vigilance counter gives vigilance."""
+    s = build(cards, ["Tayam, Luminous Enigma", "Grizzly Bears", *([extra] if extra else [])], [])
+    tayam = put(s, "Tayam, Luminous Enigma")
+    if extra:
+        put(s, extra)
+    bears = cast(s, "Grizzly Bears", G=2)
+    from app.rules.plan import Plan
+
+    assert counters(s, bears, "vigilance") == n and "vigilance" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bears.id]).keywords
+    assert counters(s, tayam, "vigilance") == 0  # "other": Tayam was already there
+    check(s)
+
+
+# -- "If it entered under your control, put a +1/+1 counter on Phelia" (Phelia, Exuberant Shepherd) -------------------------------------------------
+@pytest.mark.parametrize("owner, counter", [("p1", 1), ("p2", 0)])
+def test_phelia_gets_a_counter_only_if_what_she_exiled_came_back_under_your_control(cards, owner, counter):
+    """The exiled permanent returns under its owner's control at the next end step: yours (a counter) or an opponent's (none)."""
+    s = build(cards, ["Phelia, Exuberant Shepherd", "Grizzly Bears"], ["Grizzly Bears"])
+    phelia = put(s, "Phelia, Exuberant Shepherd")
+    target = put(s, "Grizzly Bears", owner)
+    ready(s, phelia)
+    attack(s, phelia)
+    through_combat(s, target.id)
+    assert s.state.cards[target.id].zone.endswith("exile")
+    for _ in range(40):
+        if s.state.cards[target.id].zone.endswith("battlefield"):
+            break
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    answer(s)
+    assert s.state.cards[target.id].zone.endswith("battlefield") and counters(s, phelia) == counter
+    check(s)
+
+
+# -- "if that opponent has more life than another of your opponents" (Breena, the Demagogue) ----------------------------------------------------
+@pytest.mark.parametrize("bob_life, fires", [(40, True), (20, False)])
+def test_breena_needs_the_attacked_player_to_have_more_life_than_another_of_her_controllers_opponents(cards, bob_life, fires):
+    """Carol's Breena sees Alice attack Bob: both are Carol's opponents, and Alice has 30. Bob must have more life than her for it to trigger."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    decks = [deck(cards, "Krenko, Mob Boss", [(1, "Llanowar Elves"), (10, "Forest")]), deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")]),
+             deck(cards, "Krenko, Mob Boss", [(1, "Breena, the Demagogue"), (10, "Mountain")])]
+    s = GameSession(enable(new_game([PlayerSetup(n, cards=d) for n, d in zip(("Alice", "Bob", "Carol"), decks, strict=True)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    breena, elves = put(s, "Breena, the Demagogue", "p3"), put(s, "Llanowar Elves")
+    act(s, "p1", type="set_life", player="p1", value=30)
+    act(s, "p1", type="set_life", player="p2", value=bob_life)
+    ready(s, elves)
+    hand = len(s.state.zones["p1:hand"])
+    attack(s, elves)
+    through_combat(s)
+    assert counters(s, breena) == (2 if fires else 0)  # Carol puts the two counters on a creature she controls
+    assert len(s.state.zones["p1:hand"]) == hand + (1 if fires else 0)  # Alice, "that attacking player", draws
+    check(s)
+
+
+# -- "If that spell is a Lesson, put an additional +1/+1 counter on that land." (Toph, Hardheaded Teacher) ----------------------------------------------
+def test_toph_earthbends_for_each_spell_and_puts_an_additional_counter_on_the_land_for_a_lesson(cards):
+    s = build(cards, ["Toph, Hardheaded Teacher", "Lightning Bolt", "Environmental Sciences"], [])
+    put(s, "Toph, Hardheaded Teacher")
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:2]
+    for f in forests:
+        act(s, "p1", type="move", card_ids=[f.id], to={"player": "p1", "zone": "battlefield"})
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=["p2"])  # not a Lesson: earthbend 1 only
+    answer(s, forests[0].id)
+    mana(s, "p1", C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Environmental Sciences").id)  # a Lesson: the land gets one more
+    answer(s, forests[1].id)
+    assert (counters(s, forests[0]), counters(s, forests[1])) == (1, 2)
     check(s)
