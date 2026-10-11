@@ -28,20 +28,36 @@ _LIST = rf"{_ITEM}(?:, {_ITEM})*,? or {_ITEM}"
 _NUM = r"[+\-−]\d+"
 _GAIN = re.compile(rf"^(?P<o>.+?)(?: gets (?P<p>{_NUM})/(?P<t>{_NUM}) and)? gains your choice of (?P<kws>{_LIST}) until end of turn$")
 _PUMP = re.compile(rf"^(?P<o>.+?) gets (?P<p1>{_NUM})/(?P<t1>{_NUM}) or (?P<p2>{_NUM})/(?P<t2>{_NUM}) until end of turn$")
-_SWITCH = re.compile(r"^switch (?P<o>target creature|this creature|~)'s power and toughness until end of turn$")
+_SWITCH = re.compile(r"^switch (?P<o>target creature|this creature|~|each creature)'s power and toughness until end of turn$")  # (wave 34B: Mannichi, "each creature's")
+# -- activated other (wave 34B) -- "Until end of turn, target creature has base power 1 or base toughness 1." (Vhati il-Dal): the controller chooses one of the two
+# settings as it resolves (608.2d), each the layer 7b setting of "has base power 1" / "has base toughness 1" (613.4b)
+_BASE_OR = re.compile(r"^(?:until end of turn, )?(?P<o>.+?) has base power (?P<p>\d+) or base toughness (?P<t>\d+)(?: until end of turn)?$")
 _TRIGGERED = re.compile(r"^(?P<o>.+?) gains? (?P<kw>persist|undying|prowess|exalted|flanking|battle cry|dethrone|toxic \d+) until end of turn$")  # (wave 17B: flanking …)
 _REGEN = re.compile(r"^regenerate (?!target creature(?: you control)?$)(?P<tgt>(?:another )?target .+)$")  # (not the older template's)
+
+
+def _base_or(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language as L
+    from app.rules.scripts import _NoMatch
+
+    try:
+        who, target = _subject(m["o"])
+    except L._Fail:
+        raise _NoMatch from None
+    options = [{"label": f"Base {stat} {m[key]}", "effects": [{"do": "become", "who": who, "types": [], "duration": "end_of_turn", key: int(m[key])}]}
+               for stat, key in (("power", "p"), ("toughness", "t"))]
+    return [{"do": "choose_effect", "who": who, "options": options}], target
 
 
 def _n(word: str) -> int:
     return int(word.replace("−", "-"))
 
 
-def _subject(text: str) -> tuple[str, Any]:
+def _subject(text: str, *, each: bool = False) -> tuple[str, Any]:
     from app.rules import language as L
 
     kind, key, group = L.ref(text)
-    if kind not in ("target", "self"):
+    if kind not in ("target", "self") and not (each and kind == "each" and text == "each creature"):  # (wave 34B: a switch of every creature, Mannichi)
         raise L._Fail  # (a group or a pronoun: who chooses what isn't read here)
     return L._who(kind, key), L._one(group)
 
@@ -74,7 +90,7 @@ def _switch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules.scripts import _NoMatch
 
     try:
-        who, target = _subject(m["o"])
+        who, target = _subject(m["o"], each=True)
     except L._Fail:
         raise _NoMatch from None
     return [{"do": "switch_pt", "who": who}], target
@@ -111,7 +127,7 @@ def _triggered(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_GAIN, _build), (_PUMP, _build), (_SWITCH, _switch), (_REGEN, _regen),
-                                                (_TRIGGERED, _triggered)]
+                                                (_TRIGGERED, _triggered), (_BASE_OR, _base_or)]
 
 
 def choose_effect(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

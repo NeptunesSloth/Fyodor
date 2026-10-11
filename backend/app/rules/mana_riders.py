@@ -63,6 +63,9 @@ _COMBO = re.compile(r"^Add (?P<n>two|three) mana in any combination of \{(?P<a>[
 _DIFFERENT = re.compile(r"^Add (?P<n>two|three) mana of different colors$")
 _GAIN = re.compile(r"^You gain (?P<n>\d+|one|two|three|four|five) life$")
 _OPP_GAIN = re.compile(r"^Each opponent gains (?P<n>\d+|one|two|three|four|five) life$")
+# -- activated other (wave 34B) -- 605.3b: "If you control another Mutant, you gain 1 life." (Black Tom Cassidy), "If you control a Nissa planeswalker, you
+# gain 2 life." (Avid Reclaimer): the condition is read as the mana is added (the ability resolves at once; 608.2c), as the activating player
+_GAIN_IF = re.compile(r"^If (?P<c>you control [^,]+), you gain (?P<n>\d+|one|two|three|four|five) life$")
 # "Put a nest counter on this creature." (Twitching Doll, Strixhaven Stadium, the depletion lands); "If there are no
 # mining counters on this land, sacrifice it." (Gemstone Mine, Peat Bog — after the cost removed one, 602.2b / 605.3b)
 _PUT_COUNTER = re.compile(r"^Put an? (?P<k>[a-z]+) counter on (?:this (?:artifact|creature|land|permanent|enchantment)|~)$")
@@ -177,6 +180,11 @@ def rider(sentence: str) -> tuple[str, int] | None:
         return "gain", _n(m["n"])
     if m := _OPP_GAIN.fullmatch(sentence):
         return "opp_gain", _n(m["n"])
+    if m := _GAIN_IF.fullmatch(sentence):  # (wave 34B)
+        from app.rules import conditions
+
+        cond = conditions.parse(m["c"])
+        return (f"gain_if:{json.dumps(cond, sort_keys=True)}", _n(m["n"])) if cond is not None and not conditions.is_cast_condition(cond) else None
     from app.rules.values import UNMODELED_COUNTERS
 
     if (m := _PUT_COUNTER.fullmatch(sentence)) and m["k"] not in UNMODELED_COUNTERS:
@@ -264,6 +272,11 @@ def after(plan: Plan, card: CardInstance, kind: str, n: int, who: str | None = N
             plan.rules.stay_tapped.append({"oid": plan.oid(card.id), "player": who})
     elif kind == "gain":
         replace.gain_life(plan, [(who, n)], actor=who)
+    elif kind.startswith("gain_if:"):  # (wave 34B) the condition as it is now, for the activating player; "another" is relative to this source
+        from app.rules import conditions
+
+        if conditions.holds(plan, {"controller": who, "source_card": card.id}, json.loads(kind[len("gain_if:"):])):
+            replace.gain_life(plan, [(who, n)], actor=who)
     elif kind == "opp_gain":
         gains = [(p, n) for p in plan.live() if p != who]
         if gains:
