@@ -847,12 +847,13 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e["who"] = "ref:" + name
                 else:
                     return None
-            elif who in ("it.controller", "it.owner"):
+            elif who in ("it.controller", "it.owner") or (isinstance(who, str) and who.startswith(("graveyard_of:it.controller", "graveyard_of:it.owner"))):
+                lead, _, rel = who.rpartition("it.")  # (-- turn-long triggers (wave 35B) -- "exile its controller's graveyard": that player's zone)
                 intro = objects(index, 1, None)
                 if intro is not None:
-                    e["who"] = f"ref:{bound(intro)}.{who[3:]}"
+                    e["who"] = f"{lead}ref:{bound(intro)}.{rel}"
                 elif antecedent in ("event", "event_gone", "self_gone"):
-                    e["who"] = f"ref:event.{who[3:]}"  # (as it last existed if it left: 608.2h)
+                    e["who"] = f"{lead}ref:event.{rel}"  # (as it last existed if it left: 608.2h)
                 else:
                     return None
             elif who == "that_player":
@@ -4562,7 +4563,9 @@ def _event_refs_ok(d: Definition) -> bool:
         return False
     if '\\"evt:' in raw and not (ev is not None and ev["event"] != "multi" and not ev.get("aggregate") and (
             ev.get("subject") in ("sel", "self", "self_or", "self_or_host", "host") or (ev.get("subject") == "player" and ev.get("obj"))
-            or (ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")))):  # (wave 28D: the spell a cast trigger is about)
+            or (ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")))) \
+            and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if i not in _delayed.object_deferred(d.get("effects") or [])]}):
+        # (wave 28D: the spell a cast trigger is about; -- turn-long triggers (wave 35B) -- or the one object a "When that creature dies this turn" trigger is about)
         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
     if "not_event" in raw and not (ev is not None and ev["event"] == "targeted"):  # -- stack interaction (wave 23B) -- "other than that creature":
         return False  # the object a "becomes the target" event is about (selectors.attacker_of); nothing else names one here
@@ -5584,6 +5587,11 @@ def _turn_record(text: str) -> list[dict[str, Any]] | None:
 
 def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
     """A sentence that sets up a replacement effect for the rest of the turn, or None."""
+    from app.rules import watches
+
+    # -- turn-long triggers (wave 35B) -- "When the creature an opponent controls dies this turn, …", "Whenever a creature dealt damage this way dies …"
+    if (bound := watches.bound_sentence(text, effects, groups)) is not None:
+        return bound
     if _DEALT_NO_REGEN.match(text) is not None:  # -- regeneration (wave 22C) -- "A creature dealt damage this way can't be regenerated this turn."
         dmg = [(i, e) for i, e in enumerate(effects) if e.get("do") in ("damage", "fight")]
         if not dmg:
@@ -5791,13 +5799,18 @@ def _delayed_exile_return_transformed(m: re.Match[str]) -> tuple[list[dict[str, 
 
 @effect(_delayed.EVENT.pattern.lstrip("^").rstrip("$"))
 def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    inner = _clause(m["clause"].replace("the creature's controller", "that creature's controller"))  # (wave 16D)
-    if inner is None or inner[1] is not None:  # (the deferred effect's own target: not modeled)
+    from app.rules import watches
+
+    # (-- turn-long triggers (wave 35B) -- the deferred ability's own target, chosen as it triggers, and an intervening "if": watches.deferred)
+    got = watches.deferred(m["clause"].replace("the creature's controller", "that creature's controller"))  # (wave 16D)
+    if got is None:
         raise _NoMatch
-    effects = _delayed.inner_for_event(inner[0])
-    if effects is None or any(e.get("do") in _delayed.UNDEFERRABLE for e in effects):
-        raise _NoMatch
+    effects, own, cond = got
     when, who = _delayed.event_when(m)
+    if who == "self" and re.search(r"\bthat (?:creature|permanent|token)\b", m["clause"]):
+        raise _NoMatch  # (War Barge: "When this artifact leaves the battlefield this turn, destroy that creature" — the target, not the event's object)
+    if cond is not None:
+        when["if"] = cond
     sel = None
     if who == "target":  # "When target creature dies this turn, …": the creature is this ability's target
         from app.rules import language
@@ -5806,7 +5819,10 @@ def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         if group is None:
             raise _NoMatch
         sel = group["what"]
-    return _delayed.wrap_when(effects, when, who=who, this_turn=bool(m["turn"])), sel  # (-- hidden exile (wave 18A) -- no "this turn": it waits for as long as it takes, 603.7)
+    wrapped = _delayed.wrap_when(effects, when, who=who, this_turn=bool(m["turn"]))  # (-- hidden exile (wave 18A) -- no "this turn": it waits for as long as it takes, 603.7)
+    if own is not None:
+        wrapped[0]["target"] = own
+    return wrapped, sel
 
 
 # -- turn watches (wave 7D; app/rules/watches.py) -- "Whenever you cast a spell this turn, draw a card." / "When you next
