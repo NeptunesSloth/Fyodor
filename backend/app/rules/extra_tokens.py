@@ -13,8 +13,9 @@ everything the original one had applied to it so far (614.5: each effect applies
 event). Effects applied after it apply to all of it — "twice that many" doubles the added Food
 too, "that many Squirrels" counts it — while a second "plus an additional Food token" adds one
 Food to the event, not one per part of it (a fixed-count addition never applies to a satellite).
-The added tokens aren't tapped because the original ones are ("create a tapped Treasure"), and
-the order of two such effects is the creating player's (616.1: they're asked when it matters).
+Anything else the creating effect specified (tapped, attacking, "that token gains haste") applies to the
+added tokens too (Chatterfang, Peregrin Took and Mondrak rulings: "applies to both the original tokens and
+the Squirrels"), and the order of two such effects is the creating player's (616.1: they're asked when it matters).
 """
 
 from __future__ import annotations
@@ -87,7 +88,7 @@ def swap(c: Any, ev: dict[str, Any]) -> list[dict[str, Any]]:
     for kind in (k for k in _EACH_KINDS if k != mine):
         found = token_grammar.parse(f"create a {kind} token")
         if found and len(found) == 1 and found[0].get("do") == "create_token":
-            out.append({**ev, "token": dict(found[0]["token"]), "tapped": False, "satellite": True, "root": root})
+            out.append({**ev, "token": dict(found[0]["token"]), "satellite": True, "root": root})
     return out
 
 
@@ -134,5 +135,5 @@ def apply(c: Any, ev: dict[str, Any], sim: dict[str, Any] | None = None) -> list
     root = ev.get("root") or dict(ev["token"])
     if ev.get("satellite") and sim is not None and c.op.get("n") != "same":
         sim.setdefault("sat_done", []).append(c.id)
-    extra = {**ev, "token": dict(c.op["token"]), "count": n, "tapped": False, "satellite": True, "root": root}
+    extra = {**ev, "token": dict(c.op["token"]), "count": n, "satellite": True, "root": root}
     return [{**ev, "root": root}, extra]
