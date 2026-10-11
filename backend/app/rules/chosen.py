@@ -182,7 +182,8 @@ def player_of(plan: Plan, card_id: str, object_id: str | None = None) -> str | N
 # printed after it ("• Khans — …", ``AbilityText.linked``, app/rules/oracle.py) are linked to it and each refers only to a choice involving
 # its own word. The choice is made as it enters (614.12a), by its controller, and belongs to that object (400.7): ``RulesState.chosen_words``
 # (object id -> word, what the rules read; ``copying.with_level`` puts it in ``Characteristics.word``) and the permanent's public ``choices``
-# entry ("Chosen word: Khans", the display). An object with no recorded word (a token copy, which isn't asked) has none of the linked abilities.
+# entry ("Chosen word: Khans", the display). An object with no recorded word has none of the linked abilities (a token copy is asked as it enters, wave 34A:
+# replacements.token_choices; one made by a site that can't pause is left to the players, copying.token_copy).
 WORDS = "word: "  # the entering choice's name: "word: Khans or Dragons"
 WORD_LABEL = "Chosen word"
 ENTERS_WORDS = re.compile(r"^As ~ enters, choose (?P<a>[A-Z][\w'’-]*) or (?P<b>[A-Z][\w'’-]*)\.$")
