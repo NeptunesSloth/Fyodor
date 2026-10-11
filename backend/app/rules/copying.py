@@ -1486,18 +1486,20 @@ def with_this_ability(d: dict[str, Any], ability: Any, ch: Characteristics) -> d
         d = _spread(d, [strip_reminders(a.text).strip() for a in rest])
         raw = json.dumps(d)
     name_marker = json.dumps(NAME_MARKER)[1:-1]
+    named = name_marker in raw  # (the copy is given the card's own name again: its text keeps naming it, review 31 ``renamed``)
     if name_marker in raw:  # -- enter as copy other (wave 20F) -- "except its name is Sakashima the Impostor": the name as printed (not ~)
-        named = re.search(r"\b(?:its|his|her) name is (?P<n>.+?)(?=, (?:it|he|she|they)\b| and (?:it|he|she|they)\b|\.(?:\s|$)|$)", text)
-        if named is None or '"' in named["n"]:
+        shown = re.search(r"\b(?:its|his|her) name is (?P<n>.+?)(?=, (?:it|he|she|they)\b| and (?:it|he|she|they)\b|\.(?:\s|$)|$)", text)
+        if shown is None or '"' in shown["n"]:
             return None
-        raw = raw.replace(name_marker, json.dumps(named["n"])[1:-1])
+        raw = raw.replace(name_marker, json.dumps(shown["n"])[1:-1])
         d = json.loads(raw)
     marker = json.dumps(THIS_ABILITY)
     if marker not in raw:
         return d
     if d.get("kind") not in ("activated", "triggered") or "\\u0000" in text or '"' in text:
         return None
-    own = text if text.startswith(("Exhaust — ", "Boast — ", "Power-up — ", "Forecast — ")) else scripts.self_text(text, ch.name).replace("~", "this permanent")
+    own = text if named or text.startswith(("Exhaust — ", "Boast — ", "Power-up — ", "Forecast — ")) \
+        else re.sub(r"(^|: |\. )~", r"\1This permanent", scripts.self_text(text, ch.name)).replace("~", "this permanent")
     return json.loads(raw.replace(marker, json.dumps(own)))
 
 
