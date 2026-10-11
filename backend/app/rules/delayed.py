@@ -48,7 +48,7 @@ from app.game.rules_state import DelayedTrigger, ObjectRef, TriggerEvent
 from app.game.state import PHASES
 
 if TYPE_CHECKING:
-    from app.game.rules_state import ContinuousEffect, Event
+    from app.game.rules_state import ContinuousEffect, Event, PendingTrigger
     from app.rules.plan import Plan
 
 Context = dict[str, Any]
@@ -179,7 +179,7 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     ctx["next"] = start + n
     refs = {k: v for k, v in (ctx.get("refs") or {}).items()}
     when = dict(e["when"])
-    if when["kind"] == "event":
+    if when["kind"] == "event" or (when["kind"] == "watch" and when.get("bound")):  # (-- turn-long triggers (wave 33A) -- a watch on one object)
         from app.rules import context
         from app.rules.effects import _cards
 
@@ -268,15 +268,15 @@ def mark_target(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return _swap_who(effects, "target", WATCH_TARGET)
 
 
-def _fire(plan: Plan, t: DelayedTrigger, event: TriggerEvent | None) -> None:
+def _fire(plan: Plan, t: DelayedTrigger, event: TriggerEvent | None) -> PendingTrigger | None:
     from app.rules.triggers import _add
 
     if t.controller not in plan.live():
-        return
+        return None
     definition = {"kind": "triggered", "trigger": "delayed", "optional": False, "target": t.target,  # (target: wave 25C, a turn watch's own)
                   "effects": [{"do": "bind_refs", "refs": t.refs}, *(_swap_who(t.effects, WATCH_TARGET, "target") if t.target else t.effects)]}
-    _add(plan, controller=t.controller, source_card=t.source_card or "", source_object=t.source_object or "",
-         name=t.name, index=7000, definition=definition, event=event)
+    return _add(plan, controller=t.controller, source_card=t.source_card or "", source_object=t.source_object or "",
+                name=t.name, index=7000, definition=definition, event=event)
 
 
 def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:

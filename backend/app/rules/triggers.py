@@ -1065,7 +1065,7 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
         watches,  # -- turn watches (wave 7D) -- "whenever … this turn" delayed triggers (also combat events)
     )
 
-    watches.on_facts(plan, facts, batch)
+    watches.on_facts(plan, facts, batch, fired)  # (-- turn-long triggers (wave 33A) -- "one or more": once per batch)
     for (watcher, ch, i, d), lo, hi in (watchers if watchers is not None else [(w, -1, -1) for w in _event_watchers(plan)]):
         if batch >= 0 and not (lo <= batch <= hi or (lo, hi) == (-1, -1)):
             continue
