@@ -8,7 +8,10 @@ data/cards.sqlite); every scenario checks the replay and a save and a load.
   Slayer) copied the card as it is in exile (a Clone that was a Serra Angel came back a Clone; an exiled token, gone, made nothing at
   all). Her rulings: a permanent copying something else gives a copy of what it copied; a token gives a copy of what made it. Identity
   Thief ("you may exile another target nontoken creature. If you do, this creature becomes a copy of that creature") read the trigger's
-  event instead of the exiled creature for its last known information, so a copied creature left it unchanged.
+  event instead of the exiled creature for its last known information, so a copied creature left it unchanged. Supplant Form ("Return
+  target creature to its owner's hand. You create a token that's a copy of that creature.") made no token at all (a hand is hidden).
+* 707.10c: "When you next cast …, copy that spell an additional time / for each time you've cast your commander …. You may choose new
+  targets for the copy." (Howl of the Horde's raid, Thunderclap Drake): the new-targets sentence was left outside the delayed trigger.
 """
 
 from __future__ import annotations

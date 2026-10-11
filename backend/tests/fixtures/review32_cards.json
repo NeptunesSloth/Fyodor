@@ -13,23 +13,6 @@
   "toughness": "1"
  },
  {
-  "name": "Fiery Temper",
-  "layout": "normal",
-  "mana_cost": "{1}{R}{R}",
-  "cmc": 3.0,
-  "type_line": "Instant",
-  "oracle_text": "Fiery Temper deals 3 damage to any target.\nMadness {R} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
-  "colors": [
-   "R"
-  ],
-  "color_identity": [
-   "R"
-  ],
-  "keywords": [
-   "Madness"
-  ]
- },
- {
   "name": "Kaya, Intangible Slayer",
   "layout": "normal",
   "mana_cost": "{3}{W}{W}{B}{B}",
@@ -51,206 +34,12 @@
   "loyalty": "6"
  },
  {
-  "name": "True Polymorph",
+  "name": "Clone",
   "layout": "normal",
-  "mana_cost": "{4}{U}{U}",
-  "cmc": 6.0,
-  "type_line": "Instant",
-  "oracle_text": "Target artifact or creature becomes a copy of another target artifact or creature.",
-  "colors": [
-   "U"
-  ],
-  "color_identity": [
-   "U"
-  ],
-  "keywords": []
- },
- {
-  "name": "Volrath, the Shapestealer",
-  "layout": "normal",
-  "mana_cost": "{2}{B}{G}{U}",
-  "cmc": 5.0,
-  "type_line": "Legendary Creature — Phyrexian Shapeshifter",
-  "oracle_text": "At the beginning of combat on your turn, put a -1/-1 counter on up to one target creature.\n{1}: Until your next turn, Volrath becomes a copy of target creature with a counter on it, except it's 7/5 and it has this ability.",
-  "colors": [
-   "B",
-   "G",
-   "U"
-  ],
-  "color_identity": [
-   "B",
-   "G",
-   "U"
-  ],
-  "keywords": [],
-  "power": "7",
-  "toughness": "5"
- },
- {
-  "name": "Tarmogoyf",
-  "layout": "normal",
-  "mana_cost": "{1}{G}",
-  "cmc": 2.0,
-  "type_line": "Creature — Lhurgoyf",
-  "oracle_text": "Tarmogoyf's power is equal to the number of card types among cards in all graveyards and its toughness is equal to that number plus 1.",
-  "colors": [
-   "G"
-  ],
-  "color_identity": [
-   "G"
-  ],
-  "keywords": [],
-  "power": "*",
-  "toughness": "1+*"
- },
- {
-  "name": "Leyline of Resonance",
-  "layout": "normal",
-  "mana_cost": "{2}{R}{R}",
+  "mana_cost": "{3}{U}",
   "cmc": 4.0,
-  "type_line": "Enchantment",
-  "oracle_text": "If this card is in your opening hand, you may begin the game with it on the battlefield.\nWhenever you cast an instant or sorcery spell that targets only a single creature you control, copy that spell. You may choose new targets for the copy.",
-  "colors": [
-   "R"
-  ],
-  "color_identity": [
-   "R"
-  ],
-  "keywords": []
- },
- {
-  "name": "Narset's Reversal",
-  "layout": "normal",
-  "mana_cost": "{U}{U}",
-  "cmc": 2.0,
-  "type_line": "Instant",
-  "oracle_text": "Copy target instant or sorcery spell, then return it to its owner's hand. You may choose new targets for the copy.",
-  "colors": [
-   "U"
-  ],
-  "color_identity": [
-   "U"
-  ],
-  "keywords": []
- },
- {
-  "name": "Valgavoth, Terror Eater",
-  "layout": "normal",
-  "mana_cost": "{6}{B}{B}{B}",
-  "cmc": 9.0,
-  "type_line": "Legendary Creature — Elder Demon",
-  "oracle_text": "Flying, lifelink\nWard—Sacrifice three nonland permanents.\nIf a card you didn't control would be put into an opponent's graveyard from anywhere, exile it instead.\nDuring your turn, you may play cards exiled with Valgavoth. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.",
-  "colors": [
-   "B"
-  ],
-  "color_identity": [
-   "B"
-  ],
-  "keywords": [
-   "Flying",
-   "Lifelink",
-   "Ward"
-  ],
-  "power": "9",
-  "toughness": "9"
- },
- {
-  "name": "Boon Satyr",
-  "layout": "normal",
-  "mana_cost": "{1}{G}{G}",
-  "cmc": 3.0,
-  "type_line": "Enchantment Creature — Satyr",
-  "oracle_text": "Flash\nBestow {3}{G}{G} (If you cast this card for its bestow cost, it's an Aura spell with enchant creature. It becomes a creature again if it's not attached.)\nEnchanted creature gets +4/+2.",
-  "colors": [
-   "G"
-  ],
-  "color_identity": [
-   "G"
-  ],
-  "keywords": [
-   "Bestow",
-   "Flash"
-  ],
-  "power": "4",
-  "toughness": "2"
- },
- {
-  "name": "Giant Growth",
-  "layout": "normal",
-  "mana_cost": "{G}",
-  "cmc": 1.0,
-  "type_line": "Instant",
-  "oracle_text": "Target creature gets +3/+3 until end of turn.",
-  "colors": [
-   "G"
-  ],
-  "color_identity": [
-   "G"
-  ],
-  "keywords": []
- },
- {
-  "name": "Shapesharer",
-  "layout": "normal",
-  "mana_cost": "{1}{U}",
-  "cmc": 2.0,
   "type_line": "Creature — Shapeshifter",
-  "oracle_text": "Changeling (This card is every creature type.)\n{2}{U}: Target Shapeshifter becomes a copy of target creature until your next turn.",
-  "colors": [
-   "U"
-  ],
-  "color_identity": [
-   "U"
-  ],
-  "keywords": [
-   "Changeling"
-  ],
-  "power": "1",
-  "toughness": "1"
- },
- {
-  "name": "Krark, the Thumbless",
-  "layout": "normal",
-  "mana_cost": "{1}{R}",
-  "cmc": 2.0,
-  "type_line": "Legendary Creature — Goblin Wizard",
-  "oracle_text": "Whenever you cast an instant or sorcery spell, flip a coin. If you lose the flip, return that spell to its owner's hand. If you win the flip, copy that spell, and you may choose new targets for the copy.\nPartner (You can have two commanders if both have partner.)",
-  "colors": [
-   "R"
-  ],
-  "color_identity": [
-   "R"
-  ],
-  "keywords": [
-   "Partner"
-  ],
-  "power": "2",
-  "toughness": "2"
- },
- {
-  "name": "Thousand-Year Storm",
-  "layout": "normal",
-  "mana_cost": "{4}{U}{R}",
-  "cmc": 6.0,
-  "type_line": "Enchantment",
-  "oracle_text": "Whenever you cast an instant or sorcery spell, copy it for each other instant and sorcery spell you've cast before it this turn. You may choose new targets for the copies.",
-  "colors": [
-   "R",
-   "U"
-  ],
-  "color_identity": [
-   "R",
-   "U"
-  ],
-  "keywords": []
- },
- {
-  "name": "Gogo, Master of Mimicry",
-  "layout": "normal",
-  "mana_cost": "{2}{U}",
-  "cmc": 3.0,
-  "type_line": "Legendary Creature — Wizard",
-  "oracle_text": "{X}{X}, {T}: Copy target activated or triggered ability you control X times. You may choose new targets for the copies. This ability can't be copied and X can't be 0. (Mana abilities can't be targeted.)",
+  "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
   "colors": [
    "U"
   ],
@@ -258,84 +47,25 @@
    "U"
   ],
   "keywords": [],
-  "power": "2",
-  "toughness": "4"
+  "power": "0",
+  "toughness": "0"
  },
  {
-  "name": "Kwain, Itinerant Meddler",
+  "name": "Serra Angel",
   "layout": "normal",
-  "mana_cost": "{W}{U}",
-  "cmc": 2.0,
-  "type_line": "Legendary Creature — Rabbit Wizard",
-  "oracle_text": "{T}: Each player may draw a card, then each player who drew a card this way gains 1 life.",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
   "colors": [
-   "U",
    "W"
   ],
   "color_identity": [
-   "U",
    "W"
-  ],
-  "keywords": [],
-  "power": "1",
-  "toughness": "3"
- },
- {
-  "name": "Druid of Purification",
-  "layout": "normal",
-  "mana_cost": "{3}{G}",
-  "cmc": 4.0,
-  "type_line": "Creature — Human Druid",
-  "oracle_text": "When this creature enters, starting with you, each player may choose an artifact or enchantment you don't control. Destroy each permanent chosen this way.",
-  "colors": [
-   "G"
-  ],
-  "color_identity": [
-   "G"
-  ],
-  "keywords": [],
-  "power": "2",
-  "toughness": "3"
- },
- {
-  "name": "Spectral Sailor",
-  "layout": "normal",
-  "mana_cost": "{U}",
-  "cmc": 1.0,
-  "type_line": "Creature — Spirit Pirate",
-  "oracle_text": "Flash (You may cast this spell any time you could cast an instant.)\nFlying\n{3}{U}: Draw a card.",
-  "colors": [
-   "U"
-  ],
-  "color_identity": [
-   "U"
   ],
   "keywords": [
    "Flying",
-   "Flash"
-  ],
-  "power": "1",
-  "toughness": "1"
- },
- {
-  "name": "Fire Lord Azula",
-  "layout": "normal",
-  "mana_cost": "{1}{U}{B}{R}",
-  "cmc": 4.0,
-  "type_line": "Legendary Creature — Human Noble",
-  "oracle_text": "Firebending 2 (Whenever this creature attacks, add {R}{R}. This mana lasts until end of combat.)\nWhenever you cast a spell while Fire Lord Azula is attacking, copy that spell. You may choose new targets for the copy. (A copy of a permanent spell becomes a token.)",
-  "colors": [
-   "B",
-   "R",
-   "U"
-  ],
-  "color_identity": [
-   "B",
-   "R",
-   "U"
-  ],
-  "keywords": [
-   "Firebending"
+   "Vigilance"
   ],
   "power": "4",
   "toughness": "4"
@@ -356,40 +86,6 @@
   "keywords": [],
   "power": "0",
   "toughness": "3"
- },
- {
-  "name": "Phantasmal Image",
-  "layout": "normal",
-  "mana_cost": "{1}{U}",
-  "cmc": 2.0,
-  "type_line": "Creature — Illusion",
-  "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield, except it's an Illusion in addition to its other types and it has \"When this creature becomes the target of a spell or ability, sacrifice it.\"",
-  "colors": [
-   "U"
-  ],
-  "color_identity": [
-   "U"
-  ],
-  "keywords": [],
-  "power": "0",
-  "toughness": "0"
- },
- {
-  "name": "Clone",
-  "layout": "normal",
-  "mana_cost": "{3}{U}",
-  "cmc": 4.0,
-  "type_line": "Creature — Shapeshifter",
-  "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
-  "colors": [
-   "U"
-  ],
-  "color_identity": [
-   "U"
-  ],
-  "keywords": [],
-  "power": "0",
-  "toughness": "0"
  },
  {
   "name": "Rest in Peace",
@@ -416,96 +112,6 @@
   "colors": [],
   "color_identity": [],
   "keywords": []
- },
- {
-  "name": "Tempting Contract",
-  "layout": "normal",
-  "mana_cost": "{4}",
-  "cmc": 4.0,
-  "type_line": "Artifact",
-  "oracle_text": "At the beginning of your upkeep, each opponent may create a Treasure token. For each opponent who does, you create a Treasure token.",
-  "colors": [],
-  "color_identity": [],
-  "keywords": [
-   "Treasure"
-  ]
- },
- {
-  "name": "Kaalia of the Vast",
-  "layout": "normal",
-  "mana_cost": "{1}{R}{W}{B}",
-  "cmc": 4.0,
-  "type_line": "Legendary Creature — Human Cleric",
-  "oracle_text": "Flying\nWhenever Kaalia attacks an opponent, you may put an Angel, Demon, or Dragon creature card from your hand onto the battlefield tapped and attacking that opponent.",
-  "colors": [
-   "B",
-   "R",
-   "W"
-  ],
-  "color_identity": [
-   "B",
-   "R",
-   "W"
-  ],
-  "keywords": [
-   "Flying"
-  ],
-  "power": "2",
-  "toughness": "2"
- },
- {
-  "name": "Serra Angel",
-  "layout": "normal",
-  "mana_cost": "{3}{W}{W}",
-  "cmc": 5.0,
-  "type_line": "Creature — Angel",
-  "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
-  "colors": [
-   "W"
-  ],
-  "color_identity": [
-   "W"
-  ],
-  "keywords": [
-   "Flying",
-   "Vigilance"
-  ],
-  "power": "4",
-  "toughness": "4"
- },
- {
-  "name": "Sadistic Shell Game",
-  "layout": "normal",
-  "mana_cost": "{4}{B}",
-  "cmc": 5.0,
-  "type_line": "Sorcery",
-  "oracle_text": "Starting with the next opponent in turn order, each player chooses a creature you don't control. Destroy the chosen creatures.",
-  "colors": [
-   "B"
-  ],
-  "color_identity": [
-   "B"
-  ],
-  "keywords": []
- },
- {
-  "name": "Moonstone, Harsh Mistress",
-  "layout": "normal",
-  "mana_cost": "{3}{B}",
-  "cmc": 4.0,
-  "type_line": "Legendary Creature — Human Doctor Villain",
-  "oracle_text": "Flying\nWhenever you discard a card, you may exile that card from your graveyard. If you do, until the end of your next turn, you may play that card.",
-  "colors": [
-   "B"
-  ],
-  "color_identity": [
-   "B"
-  ],
-  "keywords": [
-   "Flying"
-  ],
-  "power": "2",
-  "toughness": "4"
  },
  {
   "name": "Howl of the Horde",
