@@ -345,6 +345,13 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"max": "mana_value", "of": selectors.Selector(commander=True, owner="you", zones=selectors.ZONES).key()}
     if what == "the greatest mana value of a commander you own on the battlefield or in the command zone":  # -- amounts (wave 12C) --
         return {"max": "mana_value", "of": selectors.Selector(commander=True, owner="you", zones=("battlefield", "command")).key()}  # 903.3
+    m = re.fullmatch(r"the (?:greatest|highest) mana value among (?P<sel>.+? spells?) you(?:'ve| have) cast this turn", what)
+    if m:  # -- this-turn state (wave 33D) -- Rootha: the spells cast this turn, as they were cast (601.2i), an {X} spell with its X (202.3e)
+        from app.rules import conditions  # (conditions imports this module)
+
+        kind = re.sub(r"^(instant|sorcery) and (instant|sorcery) ", r"\1 or \2 ", m["sel"])
+        key = conditions._history_sel(kind, "stack")
+        return None if key is None else {"spells_cast": "you", "sel": key, "greatest": True}
     m = _AGGREGATE.match(what)
     if m:
         # -- X sized by a count (wave 19F) -- "the greatest power among creatures you control and creature cards in your graveyard":
@@ -479,6 +486,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "opp_lost"}
     if re.fullmatch(r"(?:the )?(?:total )?damage dealt to your opponents this turn", what):
         return {"turn_history": "opp_damage"}
+    if re.fullmatch(r"opponents? you(?:'ve| have)? attacked(?: this turn)?", what):  # -- this-turn state (wave 33D) -- Rose: 508.6, players you declared attackers against
+        return {"turn_history": "opponents_attacked"}
     m = _OPPONENTS_WHO.match(what)
     if m:  # each opponent whose history this turn says so (one per opponent)
         word = m["n"] or m["m"]
