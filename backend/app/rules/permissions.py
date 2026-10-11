@@ -93,7 +93,7 @@ SELF_IF = re.compile(rf"^(?:this spell|~) costs {_N} less to cast if (?P<cond>.+
 # tapped / with a finality counter on it." (Edgar, Noctis, Leonardo) or "If you do, it gains "…"" (Serra Paragon, The Eighth Doctor)
 _QUAL = r" with [a-z ]+? (?:\d+ or (?:less|greater)|less than or equal to the number of [a-z]+ counters on ~)"
 PERMISSION = re.compile(
-    r"^(?:(?P<once>once during each of your turns, )|(?P<during>during (?:your turn|each of your turns), ))?you may "
+    r"^(?:(?P<once>once during each of your turns, )|(?P<during>during (?:your turn|each of your turns), )|(?P<whilst>as long as [^,]+, ))?you may "
     r"(?P<what>play lands and cast spells|play lands|cast spells|play a land|(?P<slots>play a land and cast a permanent spell of each permanent type)|"
     r"play lands and cast (?P<psel>[a-z][a-z' ,-]*?) spells|play (?P<lsel>[a-z][a-z']*)(?P<lands> lands)?|"
     rf"play a (?P<hist>historic )?land(?: from your graveyard)? or cast (?:a |an )?(?P<csel>[a-z][a-z' ,-]*?) spell(?P<cq>{_QUAL})?|"
@@ -547,6 +547,11 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True,
                 "play": False, "cast": True, "filter": None, "extra": extra, "effects": [], **({"exile": True} if m["exile"] else {})}
+    if kind == "spell":  # -- as long as (wave 35D) -- 601.3d: an instant's or sorcery's own flash condition ("This spell has flash as long as …")
+        from app.rules import cast_limits
+
+        if cast_limits.SELF_FLASH_IF.fullmatch(t) or cast_limits.HAS_FLASH_WHILE.fullmatch(t):
+            return cast_limits.static_definition(text)
     if kind != "static":
         return None
     # -- small wordings (wave 11E) -- "Creature spells you control can't be countered." (101.2, 701.6)
@@ -678,6 +683,15 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         if (what.get("self") and zone != "graveyard") or (m["exile"] and (zone != "graveyard" or what.get("self"))):
             return None
         extras: dict[str, Any] = {}
+        if m["whilst"]:  # -- as long as (wave 35D) -- 611.3a: "As long as ~ is attached to a creature, you may play lands and cast spells from the top of your
+            # library." (The Reality Chip, Summoning Materia), "As long as an opponent controls more lands than you, you may play lands from the top of
+            # your library." (Verge Rangers): the permission of the top of the library, read afresh as a card there is looked at
+            from app.rules import statics
+
+            cond = statics.condition(m["whilst"][len("as long as "):-2])
+            if zone != "library_top" or what.get("self") or cond is None or "succeeded" in cond or "flag" in cond:
+                return None
+            extras["if"] = cond
         if m["by"] or m["tapped"] or m["fin"] or m["gain"] or m["during"] or m["slots"] or m["lsel"] or m["psel"] or m["csel"]:
             if zone != "graveyard" or what.get("self"):
                 return None  # (-- cast permissions (wave 30Q) -- the new wordings are the graveyard's)
@@ -1148,6 +1162,10 @@ def _linked_if(state: GameState, info: CardInfo, player: str, src: CardInstance,
     from app.rules.plan import Plan
 
     ctx = {"controller": player, "source_card": src.id, "source_object": state.rules.object_id(src.id) if state.rules else None}
+    if "static" in cond:  # -- as long as (wave 35D) -- a static's own condition ("~ is attached to a creature", "~ is tapped"): app/rules/statics.py
+        from app.rules import statics
+
+        return statics.holds(Plan.view(state, player, info), cond, source=src, controller=player)
     return conditions.holds(Plan.view(state, player, info), ctx, cond)
 
 

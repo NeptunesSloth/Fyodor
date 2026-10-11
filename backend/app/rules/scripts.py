@@ -4054,6 +4054,38 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     return d
 
 
+# -- as long as (wave 35D) -- 604.2, 611.3a: "As long as ~ is untapped, if a creature would deal combat damage to you, prevent 1 of that damage."
+# (Thunderstaff), "As long as ~ is attached to a creature, your opponents can't cast spells during your turn." (Conqueror's Flail), "As long as ~ has a
+# shield counter on ~, you and other Heroes you control have hexproof." (Captain America): the static ability the rest of the sentence is, applying only
+# while the condition holds. Tried last, so it never reads what a grammar above it reads; for the statics whose readers check ``static_if`` (replacement and
+# prevention effects: replace.static_candidates, replacements._static_records; the limits: cast_limits._statics; a player's hexproof: player_shields).
+_WHEN_KINDS = frozenset({"replace", "prevent", "cast_limit"})
+
+
+def _conditional_static(ability: AbilityText, ch: Characteristics, text: str) -> Definition | None:
+    m = re.fullmatch(r"As long as (?P<c>[^,]+), (?P<r>.+)", text)
+    cond_text, rest = (m["c"], m["r"]) if m is not None else (None, "")
+    # -- static_other (wave 36B) -- "During your turn, prevent all damage that would be dealt to ~." (Frodo, Guardian Naga, Personal Sanctuary), "Prevent all damage
+    # that would be dealt to ~ during your turn." (Gideon Blackblade): "as long as it's your turn" (500.1), read when the damage would be dealt
+    if m is None and (during := re.fullmatch(r"During your turn, (?P<r>[Pp]revent all .+)", text) or re.fullmatch(r"(?P<r>[Pp]revent all .+?) during your turn\.", text)):
+        cond_text, rest = "it's your turn", during["r"] if during["r"].endswith(".") else during["r"] + "."
+    if cond_text is None:
+        return None
+    from app.rules import statics
+
+    cond = statics.condition(cond_text)
+    if cond is None or "succeeded" in cond or "flag" in cond or "object" in cond:
+        return None
+    inner = _define(replace(ability, text=rest[:1].upper() + rest[1:]), ch)
+    if inner is None or inner.get("kind") != "static":
+        return None
+    if inner.get("static") in _WHEN_KINDS:
+        return {**inner, "static_if": [cond]}
+    if inner.get("static") == "grant" and inner.get("player_shield") and not inner.get("conditions"):
+        return {**inner, "conditions": [cond]}
+    return None
+
+
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     from app.rules import (
@@ -4178,6 +4210,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return None  # -- cost changers (wave 4I) -- a Room door's ability works only while it's unlocked: not modelled
         if granted is not None:
             return granted
+    if ability.kind == "static" and (gated := _conditional_static(ability, ch, text)) is not None:  # -- as long as (wave 35D) --
+        return gated
     if ability.kind == "triggered":
         text = re.sub(r"^((?:When|Whenever) [^,]+?) while this card is in your graveyard, ", r"\1, if this card is in your graveyard, ", text)  # (wave 19C)
         # -- spell copies (wave 31D) -- "Whenever you cast a spell while ~ is attacking, …" (Fire Lord Azula): a condition of the cast event (603.2),
@@ -5589,12 +5623,6 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
                 return None
             out["who"] = key
         return out
-    # -- static_other (wave 36B) -- "During your turn, prevent all damage that would be dealt to ~." (Frodo, Guardian Naga, Personal Sanctuary), "Prevent all damage
-    # that would be dealt to ~ during your turn." (Gideon Blackblade): the prevention works during its controller's turn only (615.1, 611.3a: read when the damage
-    # would be dealt, replacements._static_records)
-    during = re.fullmatch(r"During your turn, (?P<rest>[Pp]revent all .+)", text) or re.fullmatch(r"(?P<rest>[Pp]revent all .+?) during your turn\.", text)
-    if during is not None:
-        text = during["rest"] if during["rest"].endswith(".") else during["rest"] + "."
     low = _lower_first(text.rstrip("."))
     if low.startswith("prevent all ") and text.endswith(".") and text.count(". ") == 0:
         got = parse_prevent_all(low)
@@ -5603,8 +5631,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         scope, this_turn, target, _role = got
         if this_turn or target is not None:
             return None  # a static ability doesn't last "this turn" and doesn't target
-        return {"kind": "static", "static": "prevent", "scope": scope, "effects": [],
-                **({"conditions": [{"static": "your_turn"}]} if during is not None else {})}
+        return {"kind": "static", "static": "prevent", "scope": scope, "effects": []}
     # -- replacement effects stage 2 (wave 2E): token / counter / draw / life / damage statics and
     # "[Objects] enter tapped" (app/rules/replace_grammar.py, applied by app/rules/replace.py) --
     from app.rules import replace_grammar  # (a leaf module)
@@ -5628,6 +5655,8 @@ _DIES_DEALT = re.compile(r"(?P<what>creature|permanent|creature or planeswalker)
 
 
 _UNTIL_EOT_IF = re.compile(r"^until end of turn, (?P<rest>if .+)$")
+# -- life floor (wave 35C) -- "Until end of turn, damage that would reduce your life total to less than 1 reduces it to 1 instead." (Angel's Grace)
+_UNTIL_EOT_FLOOR = re.compile(r"^until end of turn, (?P<rest>damage that would reduce your life total to less than 1 reduces it to 1 instead)$")
 _NEXT_TIME_DRAW = re.compile(r"^the next time you would draw a card this turn, (?P<rest>.+)$")  # -- replacements: draws (wave 28B) -- Words of …
 _IF_THIS_TURN = re.compile(r"^(?P<head>if [^,]+?) this turn(?P<tail>, .+)$")
 
@@ -5650,6 +5679,10 @@ def _turn_record(text: str) -> list[dict[str, Any]] | None:
         if d is not None and d.get("static") == "replace" and d.get("event") == "draw" and d["op"].get("do") in ("body", "draw", "skip"):
             return [{"do": "replace_record", "event": "draw", "match": d["match"], "op": {**d["op"], "once": True}}]
         return None
+    if (fl := _UNTIL_EOT_FLOOR.match(text)) is not None:  # -- life floor (wave 35C) -- 611.2a: the static wording as a record of this resolution
+        d = replace_grammar.parse("D" + fl["rest"][1:] + ".")
+        if d is not None and d.get("static") == "replace":
+            return [{"do": "replace_record", "event": d["event"], "match": d["match"], "op": d["op"]}]
     m = _UNTIL_EOT_IF.match(text)
     body = m["rest"] if m else None
     if body is None:
@@ -6354,8 +6387,11 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
         rest = kicked_instead.plain_pronoun(rest)
         restated = kicked_instead.restate(rest, base)
         spell_cond = _cast_trigger_spell_cond(cond)  # -- ability words (wave 9C) -- opus: the cast trigger's spell, never a target
-        if restated is not None and it is not None and _cond_has_it(cond) and not spell_cond:
-            return False  # ("If that land is a Mountain, ~ deals 2 damage instead": the trigger's land, not the target)
+        if restated is not None and it is not None and _cond_has_it(cond) and not spell_cond and any(
+                str(e.get("who") or "").startswith("target") or e.get("src") for e in base):
+            return False  # ("If that land is a Mountain, ~ deals 2 damage instead": the trigger's land, not the target; -- named permanents (wave 35C) --
+            # with nothing targeted or sourced in the replaced sentence "it" is the trigger's object: "create a 1/1 Satyr. If the creature had power 4 or greater,
+            # create two of those tokens instead." (Anax))
         if rest.startswith("it deals ") and base[0]["do"] == "damage" and not base[0].get("src"):
             rest = "~ deals " + rest[len("it deals "):]  # (the source of the damage the sentence before it dealt)
         alt = (restated, None) if restated is not None else _bind_subject(cond, _clause(rest))

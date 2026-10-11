@@ -220,6 +220,10 @@ def flash_def(key: str | None, **extra: Any) -> Definition:
 # opponent has cast a spell this turn, …" (Captain Mar-Vell), "As long as ~'s power is even, you may cast noncreature spells as though they had
 # flash." (Kianne), "As long as you control a green or blue permanent, you may cast this spell as though it had flash." (Hungering Yeti = "… if …")
 AS_LONG_FLASH = re.compile(r"^as long as (?P<c>.+?), (?P<r>you may cast .+ as though (?:they|it) had flash)$")
+# -- as long as (wave 35D) -- 702.8a: "This spell has flash as long as you control a Spirit." (Supernatural Rescue, Crashing Tide, Mutual Destruction, Take for
+# a Ride, Graveyard Shift), "~ has flash as long as you control a Desert." (Colossal Rattlewurm): flash is only read when the spell is cast (601.3b), so it is
+# the permission of "You may cast this spell as though it had flash if …" (601.3d), its condition read as it is cast
+HAS_FLASH_WHILE = re.compile(r"^(?:this spell|~) has flash as long as (?P<c>.+)$")
 
 
 def _conditional_flash(cond_text: str, rest: str) -> Definition | None:
@@ -236,6 +240,8 @@ def _conditional_flash(cond_text: str, rest: str) -> Definition | None:
 def static_definition(text: str) -> Definition | None:
     """The definition of a static line of this grammar (``permissions.define_static`` asks), or None."""
     t = _lower_first(text.strip().rstrip("."))
+    if (own := HAS_FLASH_WHILE.fullmatch(t)) is not None:  # (wave 35D)
+        t = f"you may cast this spell as though it had flash if {own['c']}"
     if (lead := AS_LONG_FLASH.fullmatch(t)) is not None:
         if lead["r"] not in ("you may cast this spell as though it had flash", "you may cast ~ as though it had flash"):
             return _conditional_flash(lead["c"], lead["r"])
@@ -324,6 +330,10 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "loyalty_rule", "who": "you", "twice": True, "effects": []}
     if t == "you may activate loyalty abilities of ~ on any player's turn any time you could cast an instant":
         return {"kind": "static", "static": "loyalty_rule", "who": "self", "instant": True, "effects": []}
+    # -- unspent mana (wave 35C) -- 500.4, 614.1a: "If you would lose unspent mana, that mana becomes colorless instead." (Kruphix, Omnath, Horizon Stone:
+    # app/rules/kept_mana.py): the mana stays in the pool, colorless, with its restrictions and riders (the Gatherer rulings)
+    if t == "if you would lose unspent mana, that mana becomes colorless instead":
+        return {"kind": "static", "static": "colorless_mana", "effects": []}
     # -- static_other sweep (wave 21A) -- 106.4 / 500.4: "You don't lose unspent red mana as steps and phases end." (app/rules/kept_mana.py)
     m = re.fullmatch(r"you don't lose unspent (white|blue|black|red|green) mana as steps and phases end", t)
     if m:
@@ -519,7 +529,7 @@ def _spells_words(key: str | None, frm: list[str] | None) -> str:
 
 # -- reading the table -----------------------------------------------------------------------------
 _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
-_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as", "keep_mana", "gy_flashback",
+_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as", "keep_mana", "colorless_mana", "gy_flashback",
           "cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search",  # (wave 22B: app/rules/prohibitions.py)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock")  # (wave 29D: app/rules/life_lock.py)
@@ -571,14 +581,14 @@ def _statics(state: GameState, info: CardInfo | None, kind: str) -> list[tuple[C
     if not found:
         return []
     from app.rules import characteristics as chars
-    from app.rules import scripts
-    from app.rules.layers import derive
+    from app.rules import scripts, statics
+    from app.rules.layers import _view, derive
 
     out = []
     for cid, index, _d in found:
         card = state.cards[cid]
         now = scripts.definitions(derive(state, card, chars.of(card, info), info))
-        if now.get(index, {}).get("static") == kind:
+        if now.get(index, {}).get("static") == kind and statics.static_if_holds(_view(state, info), now[index], card):  # (wave 35D: 611.3a)
             out.append((card, now[index]))
     return out
 

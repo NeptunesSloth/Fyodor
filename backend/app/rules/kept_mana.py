@@ -103,6 +103,28 @@ def _always(plan: Plan) -> dict[str, set[str]]:
     return out
 
 
+def _colorless(plan: Plan) -> set[str]:
+    """-- unspent mana (wave 35C) -- 614.1a: the players with "If you would lose unspent mana, that mana becomes colorless instead." (Kruphix, Omnath,
+    Horizon Stone). Several of them agree on what happens, so there is no 616.1 order to ask."""
+    from app.rules.cast_limits import _statics
+
+    return {src.controller for src, _ in _statics(plan.state, plan.info, "colorless_mana")}
+
+
+def _to_colorless(plan: Plan, pid: str, keep: dict[str, int], keep_u: list[int]) -> None:
+    """-- unspent mana (wave 35C) -- 500.4 / 614.1a: what ``pid`` would lose (the pool but the mana an effect keeps) stays in the pool as colorless mana;
+    restrictions and riders stay with it (the Gatherer rulings of Kruphix, Omnath, Horizon Stone), so a unit keeps all but its type."""
+    player = plan.state.players[pid]
+    delta = {s: keep.get(s, 0) - n for s, n in player.mana.items() if s != "C" and n > keep.get(s, 0)}
+    changed = [u for u in player.mana_units if u.id not in keep_u and u.sym != "C"]
+    if not delta and not changed:
+        return
+    if delta:
+        delta["C"] = -sum(delta.values())
+    plan.do({"type": "rules_mana", "player": pid, "tap": [], "sacrifice": [], "delta": delta, "life": 0, "spend_units": [u.id for u in changed],
+             "add_units": [{**u.model_dump(exclude={"id"}), "sym": "C"} for u in changed], "label": ""}, actor=plan.active)
+
+
 def empty(plan: Plan) -> bool:
     """500.4 with 106.4: empty every pool except the mana an effect keeps. True when something was
     kept (the caller doesn't empty the pools itself)."""
@@ -110,7 +132,8 @@ def empty(plan: Plan) -> bool:
     r = plan.rules
     clamp(state)
     always = _always(plan)
-    if not r.kept_mana and not always:
+    colorless = _colorless(plan)
+    if not r.kept_mana and not always and not colorless:
         return False
     keep = {p: kept(state, p) for p in state.players}
     keep_u = {p: kept_units(state, p) for p in state.players}
@@ -118,9 +141,13 @@ def empty(plan: Plan) -> bool:
         pool = state.players[pid]
         keep[pid].update({c: pool.mana[c] for c in colors if pool.mana.get(c)})
         keep_u[pid] = sorted({*keep_u[pid], *(u.id for u in pool.mana_units if u.sym in colors)})
-    if not any(keep.values()) and not any(keep_u.values()):
+    if not any(keep.values()) and not any(keep_u.values()) and not colorless:
         r.kept_mana = []
         return False
+    for pid in colorless:  # (-- unspent mana (wave 35C) -- the colorless mana stays: nothing of theirs is lost)
+        _to_colorless(plan, pid, keep[pid], keep_u[pid])
+        keep[pid] = {s: n for s, n in state.players[pid].mana.items()}
+        keep_u[pid] = [u.id for u in state.players[pid].mana_units]
     for pid, player in state.players.items():
         delta = {s: keep[pid].get(s, 0) - n for s, n in player.mana.items() if n > keep[pid].get(s, 0)}
         if delta or len(keep_u[pid]) < len(player.mana_units):  # (units: wave 18B, the rest of them empty)
