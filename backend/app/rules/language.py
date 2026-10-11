@@ -1566,7 +1566,10 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # -- damage ---------------------------------------------------------------------------------
     # -- sized amounts (wave 3D) -- "that creature deals damage equal to its power": the pronoun's creature (as "it")
     text = re.sub(r"^that creature deals ", "it deals ", text)
-    text = re.sub(r"^exile that card from (?:your|their) graveyard$", "exile it", text)  # (wave 17D: the discarded card, Necropotence)
+    if text in ("exile that card from your graveyard", "exile that card from their graveyard") and rider is None:  # (wave 17D: Necropotence)
+        # -- review 32 -- the discarded card, only while it is in the graveyard: one a replacement put elsewhere (madness 702.35a, Rest in
+        # Peace 614.1a) can't be exiled from there, so nothing is exiled, linked or "done" (118.12: Containment Construct, Bag of Holding)
+        return [{"do": "exile", "who": "it", "from_zone": "graveyard"}], None
     # -- damage sized by a count (wave 4E) -- "Whenever Smaug attacks, he deals …": a named character's pronoun is the
     # card itself (its power: "his power"); "this enchantment deals … equal to the number of verse counters on it"
     text = re.sub(r"^(?:he|she) deals ", "~ deals ", text)
@@ -2647,6 +2650,17 @@ DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
 CHOOSE_VALUE = rf"choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player|{_NAME_WHAT})"
 ENTERS_CHOICE = re.compile(r"^As ~ enters, choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player)\.$")
+
+
+# -- choose own (wave 32A) -- "Then you may choose a token you control." (Brudiclad), "Choose a Giant creature you control. It deals damage equal to its
+# power to target creature." (Crush Underfoot): a choice made on resolution (608.2d: not a target, so nothing is chosen on cast and hexproof
+# doesn't matter) among the permanents the controller controls; what is chosen is "it" / "that token" for the next sentences
+CHOOSE_OWN = r"(?:you (?P<may>may )?)?choose (?:an?|one) (?P<sel>.+?) you control"
+
+
+def choose_own(m: re.Match[str]) -> tuple[Effects, Any]:
+    return [{"do": "player_chooses", "who": "you", "sel": _permanent_sel(m["sel"]), "n": 1, "label": m["sel"],
+             **({"upto": True, "optional": True} if m["may"] else {})}], None
 
 
 def _chooser(s: str) -> tuple[str, Any]:

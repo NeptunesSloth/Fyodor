@@ -2682,7 +2682,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         body = re.sub(r"(?:, then| and) shuffle (?:the rest|all other cards revealed this way) into your library", ", then shuffle", body)
     from app.rules import watches  # -- turn watches (wave 7D) --
 
-    body = watches.join_retarget(body)
+    body = watches.join_choose(watches.join_retarget(body))  # (-- turn-long triggers (wave 33A) --)
     if it is None and not event_player:  # -- if you do (wave 5G) -- a spell's or an activated ability's "each other
         # player": every other player than its controller is an opponent in a free-for-all (102.2, 806.2); in a trigger
         # "other" may be relative to the event's player — not read there
@@ -2920,6 +2920,17 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 added = _add_groups(groups, *inner)
                 pick_gate: dict[str, Any] = {"succeeded": name, **({"negate": True} if if_do["neg"] else {})}
                 effects += [{"do": "only_if", "cond": pick_gate, "skip": len(added)}, *added]
+                continue
+            chose_own = next((e for e in reversed(effects) if e["do"] == "player_chooses"), None)
+            if bind is None and chose_own is not None and chose_own.get("optional") and effects[-1] is chose_own and chose_own.get("who") == "you":
+                # -- choose own (wave 32A) -- "Then you may choose a token you control. If you do, each other token you control becomes a copy of
+                # that token." (Brudiclad): a permanent was chosen (608.2c, effects._choose_next records it); declining skips what follows
+                inner = _clause(if_do["rest"]) if not if_do["rest"].startswith("you may ") and not if_do["neg"] else None
+                if inner is None:
+                    return None
+                name = chose_own.setdefault("did", f"cdid{sum(1 for x in effects if x.get('did'))}")
+                added = _add_groups(groups, *inner)
+                effects += [{"do": "only_if", "cond": {"succeeded": name}, "skip": len(added)}, *added]
                 continue
             chooser = next((e for e in reversed(effects) if e["do"] == "choose_from_hand"), None)
             if bind is None and chooser is not None and chooser.get("optional") and (chooser.get("did") or effects[-1] is chooser):
@@ -5680,10 +5691,17 @@ def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # cast an instant or sorcery spell this turn, copy that spell." (603.7: a delayed trigger on an ordinary event)
 @effect(r"whenever (?P<cond>.+?) this turn, (?P<clause>.+)")
 def _watch_whenever(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    from app.rules import events, watches
+    from app.rules import watches
 
-    found = watches.build(events.parse_condition(m["cond"]), m["clause"], once=False, text=m["cond"])
-    return _from_language(found)
+    return _from_language(watches.parse(m["cond"], m["clause"]))  # (-- turn-long triggers (wave 33A) -- or on the one object it names)
+
+
+# -- turn-long triggers (wave 33A) -- "Until end of turn, whenever a creature you control dies, …" / "This turn, whenever …" (611.2a)
+@effect(r"(?:until end of turn|this turn), whenever (?P<rest>.+)")
+def _watch_whenever_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import watches
+
+    return _from_language(watches.parse_leading(m["rest"]))
 
 
 @effect(r"when you next cast (?P<spell>.+?) this turn, (?P<clause>.+)")
@@ -5778,6 +5796,7 @@ for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OT
                          (_language.CHOOSE_EACH_TYPE, _language.choose_each_type), (_language.CHOOSE_EACH_LAND, _language.choose_each_land),
                          (_language.CHOOSE_POWER_CAP, _language.choose_power_cap),  # PLAYER_CHOOSES)
                          (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.CHOOSE_ANY, _language.choose_any),  # (wave 31B)
+                         (_language.CHOOSE_OWN, _language.choose_own),  # (wave 32A)
                          (_language.REVEAL_HAND, _language.reveal_hand), (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
                          (_language.CHOOSE_VALUE, _language.choose_value),
                          (_language.CHOOSE_FROM_HAND_GY, _language.choose_from_hand_gy), (_language.LOOK_HAND, _language.look_hand),  # (wave 11D)
@@ -6862,7 +6881,7 @@ def _become_copy_targets(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # -- copy exceptions (wave 24A) -- "Each other creature you control becomes a copy of that creature until end of turn, except it isn't legendary."
 @_first
 @effect(r"each (?P<other>other )?(?P<grp>[a-z -]+?)(?P<ctl> you control)?(?P<oth> other than the chosen creature)? becomes a copy of "
-        r"(?:(?P<src>it|that creature)|target (?P<what>.+?))(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")
+        r"(?:(?P<src>it|that creature|that token)|target (?P<what>.+?))(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")  # (wave 32A: "that token", Brudiclad)
 def _become_copy_group(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import copying
 

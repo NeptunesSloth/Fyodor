@@ -125,6 +125,16 @@ def resume_populate(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 # -- a copy of an object that left the battlefield (608.2h, 111.12) -----------------------------------
+def gone_refs(plan: Plan, ctx: Context, who: str) -> list[Any]:
+    """The objects "event" / "ref:<name>" names that were on the battlefield and are no longer that object there (400.7)."""
+    from app.rules import context
+
+    if who != "event" and (not who.startswith(context.PREFIX) or "|" in who):
+        return []
+    name = context.EVENT if who == "event" else who[len(context.PREFIX):]
+    return [r for r in context._object_refs(ctx, name, was=True) if (r.zone or "").endswith("battlefield") and context._same(plan, r) is None]
+
+
 def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tuple[Any, str]]:
     """"Create a token that's a copy of it / of ~" when "it" (the trigger's object) or the source left the
     battlefield before the instruction: 608.2h — the effect uses the object's last known information, its
@@ -133,10 +143,10 @@ def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tu
     from app.rules import context, copying
 
     snaps: list[Any] = []
-    if who == "event":
-        for ref in context._object_refs(ctx, context.EVENT, was=True):
-            if (ref.zone or "").endswith("battlefield") and context._same(plan, ref) is None:
-                snaps.append(context.snapshot(plan, ref))
+    if who == "event" or who.startswith(context.PREFIX):  # -- review 32 -- or what an earlier instruction moved off the battlefield ("Exile
+        # target creature. … create a token that's a copy of it", Kaya, Intangible Slayer; Identity Thief): as it last existed there (608.2h)
+        for ref in gone_refs(plan, ctx, who):
+            snaps.append(context.snapshot(plan, ref))
     elif who == "self":
         oid = ctx.get("source_object")
         src = plan.state.cards.get(ctx.get("source_card") or "")
@@ -166,6 +176,10 @@ def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tu
         recipe = snap.copy_recipe.model_copy(deep=True) if snap.copy_recipe is not None else None
         if recipe is None and snap.printing and plan.info.get(snap.printing) is not None:
             recipe = CopyRecipe(printing=snap.printing, face=snap.face, source=name[:200])
+        if recipe is None and snap.is_token and not snap.printing and snap.token_type_line:  # -- review 32 -- a token's copiable values:
+            # what the effect that created it defined (707.2, 111.3; copying.base_recipe), as it last existed
+            recipe = CopyRecipe(token={"name": snap.name, "power": snap.token_power, "toughness": snap.token_toughness,
+                                       "colors": list(snap.token_colors), "type_line": snap.token_type_line, "text": snap.text}, source=name[:200])
         if recipe is None:
             out.append((f"a copy of {name} as it last existed (608.2h: its text isn't recorded)", ""))
             continue
