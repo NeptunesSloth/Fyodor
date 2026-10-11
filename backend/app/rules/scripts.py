@@ -2682,7 +2682,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         body = re.sub(r"(?:, then| and) shuffle (?:the rest|all other cards revealed this way) into your library", ", then shuffle", body)
     from app.rules import watches  # -- turn watches (wave 7D) --
 
-    body = watches.join_retarget(body)
+    body = watches.join_choose(watches.join_retarget(body))  # (-- turn-long triggers (wave 33A) --)
     if it is None and not event_player:  # -- if you do (wave 5G) -- a spell's or an activated ability's "each other
         # player": every other player than its controller is an opponent in a free-for-all (102.2, 806.2); in a trigger
         # "other" may be relative to the event's player — not read there
@@ -5652,10 +5652,17 @@ def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # cast an instant or sorcery spell this turn, copy that spell." (603.7: a delayed trigger on an ordinary event)
 @effect(r"whenever (?P<cond>.+?) this turn, (?P<clause>.+)")
 def _watch_whenever(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    from app.rules import events, watches
+    from app.rules import watches
 
-    found = watches.build(events.parse_condition(m["cond"]), m["clause"], once=False, text=m["cond"])
-    return _from_language(found)
+    return _from_language(watches.parse(m["cond"], m["clause"]))  # (-- turn-long triggers (wave 33A) -- or on the one object it names)
+
+
+# -- turn-long triggers (wave 33A) -- "Until end of turn, whenever a creature you control dies, …" / "This turn, whenever …" (611.2a)
+@effect(r"(?:until end of turn|this turn), whenever (?P<rest>.+)")
+def _watch_whenever_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import watches
+
+    return _from_language(watches.parse_leading(m["rest"]))
 
 
 @effect(r"when you next cast (?P<spell>.+?) this turn, (?P<clause>.+)")
