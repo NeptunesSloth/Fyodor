@@ -734,6 +734,18 @@ class StackEntry(BaseModel):
     copy_of: str | None = None
 
 
+class StackMemory(BaseModel):
+    """-- spell copies (wave 31D) -- a spell as it last existed on the stack (608.2h): what a copy of it needs once it has left (countered, returned
+    to its owner's hand …). "Copy it" in a cast trigger copies the spell even if it is gone by then (707.10, the Storm cycle / Krark rulings)."""
+
+    card: str = Field(max_length=64)
+    turn: int = 0
+    entry: StackEntry
+    info: dict[str, Any] = Field(default_factory=dict)  # its StackInfo (X, modes, tags: Kicked, Evoked …)
+    evoked: bool = False
+    dashed: bool = False
+
+
 class CostContribution(BaseModel):
     """One mana symbol of a spell's total cost paid by something that isn't mana (CR 702.51a
     convoke, 702.126a improvise, 702.66a delve): which object, and which symbol it paid."""
@@ -1101,6 +1113,7 @@ class RulesState(BaseModel):
     # lower) no longer transforms it. Cleared when it becomes a new object (400.7).
     transformed: dict[str, int] = Field(default_factory=dict)
     lki: dict[str, ObjectSnapshot] = Field(default_factory=dict)  # object id -> last known information
+    stack_lki: dict[str, StackMemory] = Field(default_factory=dict)  # -- spell copies (wave 31D) -- object id of a spell that left the stack -> how it was there
     batch: int = 0  # last event batch number
     events: list[Event] = Field(default_factory=list)  # events since the engine last acted (this intent's, or manual ones)
     events_dropped: bool = False  # manual play produced more events than are kept
@@ -1244,12 +1257,30 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
     )
 
 
+def remember_stack(state: GameState, card_id: str, info: Any = None) -> None:
+    """-- spell copies (wave 31D) -- a spell is leaving the stack: keep how it was there (its entry — targets, modes, X, kicker — and its
+    annotations) under its object id, for a copy of it made after it left (608.2h, 707.10). Copies and abilities cease to exist / don't
+    return, so only a spell card is kept; one remembered already (by whoever removed its entry first) stays."""
+    rules = state.rules
+    card = state.cards.get(card_id)
+    entry = rules.stack.get(card_id) if rules is not None else None
+    if rules is None or card is None or entry is None or entry.kind != "spell" or card.ability is not None or card.is_token:
+        return
+    oid = rules.object_id(card_id)
+    if oid in rules.stack_lki:
+        return
+    info = info if info is not None else card.stack_info
+    rules.stack_lki[oid] = StackMemory(card=card_id, turn=state.turn.number, entry=entry.model_copy(deep=True),
+                                       info=info.model_dump() if info is not None else {},
+                                       evoked=card_id in rules.evoked, dashed=card_id in rules.dashed)
+
+
 class Capture:
     """The table just before one step is applied (in memory only, never saved): what ``track``
     compares against to find zone changes, counters and taps, and the objects' last known
     information for anything that leaves the battlefield or the stack."""
 
-    __slots__ = ("zones", "snaps", "resources", "types", "designations")
+    __slots__ = ("zones", "snaps", "resources", "types", "designations", "stack_info")
 
     def __init__(self, state: GameState) -> None:
         self.zones = {cid: c.zone for cid, c in state.cards.items()}
@@ -1257,6 +1288,8 @@ class Capture:
             cid: snapshot(state, cid) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES
         }
         self.resources = {pid: dict(p.resources) for pid, p in state.players.items()}
+        # -- spell copies (wave 31D) -- the annotations of the spells on the stack (X, modes, kicker), reset when one leaves it
+        self.stack_info = {cid: c.stack_info.model_copy(deep=True) for cid, c in state.cards.items() if c.zone == "stack" and c.stack_info is not None}
         # -- counters & designations (wave 3E) -- the monarch (725), the initiative (726), day / night (731)
         self.designations = (state.table.monarch, state.table.initiative, state.table.day_night)
         # card id -> card types as they are now (layers applied) for the permanents the rules engine
@@ -1372,6 +1405,8 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
     oldest = state.turn.number - LKI_TURNS
     for oid in [o for o, snap in rules.lki.items() if snap.turn < oldest]:
         del rules.lki[oid]
+    for oid in [o for o, mem in rules.stack_lki.items() if mem.turn < oldest]:
+        del rules.stack_lki[oid]
 
 
 def _entry_order(state: GameState, before: Capture) -> list[tuple[str, str]]:
@@ -1437,6 +1472,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         if old_name == new_name == "battlefield":
             continue  # a control change is not a zone change: same object (rule 400.7 doesn't apply)
         old_oid = rules.object_id(card_id)
+        if old_name == "stack":  # -- spell copies (wave 31D) -- a spell leaving with its entry still there (returned to hand, exiled …)
+            remember_stack(state, card_id, before.stack_info.get(card_id))
         snap = before.snaps.get(card_id)
         if snap is not None:
             rules.lki[old_oid] = snap.model_copy(update={"turn": state.turn.number})
