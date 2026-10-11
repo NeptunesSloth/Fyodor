@@ -165,7 +165,7 @@ SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"prevent_ha
 # -- damage bodies (wave 35C) -- "put that many counters on it instead" (Phytohydra, Szadek, Soul-Scar Mage: app/rules/replace_grammar.py _damage_body)
 SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"body"}
 # … and token creation adding a different token (Peregrin Took, Chatterfang: app/rules/extra_tokens.py)
-SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra"}
+SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra", "replace", "each_of"}  # (wave 35C: token swaps)
 # -- replacements & prevention (wave 22C) -- "put half that many … rounded down" (Vorinclex) on counters
 SUPPORTED_REPLACE_OPS["counters"] = SUPPORTED_REPLACE_OPS["counters"] | {"half"}
 # -- replacements: draws and life (wave 28B) -- a draw replaced by its own instructions (app/rules/draw_bodies.py)

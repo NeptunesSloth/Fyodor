@@ -496,5 +496,186 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "Divine Visitation",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "If one or more creature tokens would be created under your control, that many 4/4 white Angel creature tokens with flying and vigilance are created instead.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Draconic Visitor",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flying\nIf one or more artifact tokens would be created under your control, that many 5/5 red Dragon creature tokens with flying are created instead.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Academy Manufactor",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact Creature — Assembly-Worker",
+  "oracle_text": "If you would create a Clue, Food, or Treasure token, instead create one of each.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Treasure",
+   "Food"
+  ],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Bilbo, Fellow Conspirator",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Halfling Citizen",
+  "oracle_text": "If you would create a Food token, instead create a Food token and a Treasure token.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Treasure",
+   "Food"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Thraben Inspector",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human Soldier",
+  "oracle_text": "When this creature enters, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Investigate"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Gilded Goose",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature — Bird",
+  "oracle_text": "Flying\nWhen this creature enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\n{1}{G}, {T}: Create a Food token.\n{T}, Sacrifice a Food: Add one mana of any color.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Flying",
+   "Food"
+  ],
+  "power": "0",
+  "toughness": "2"
+ },
+ {
+  "name": "Chatterfang, Squirrel General",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Squirrel Warrior",
+  "oracle_text": "Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)\nIf one or more tokens would be created under your control, those tokens plus that many 1/1 green Squirrel creature tokens are created instead.\n{B}, Sacrifice X Squirrels: Target creature gets +X/-X until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Landwalk",
+   "Forestwalk"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Brass's Bounty",
+  "layout": "normal",
+  "mana_cost": "{6}{R}",
+  "cmc": 7.0,
+  "type_line": "Sorcery",
+  "oracle_text": "For each land you control, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Treasure"
+  ]
+ },
+ {
+  "name": "Raise the Alarm",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Glint-Sleeve Artisan",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Dwarf Artificer",
+  "oracle_text": "Fabricate 1 (When this creature enters, put a +1/+1 counter on it or create a 1/1 colorless Servo artifact creature token.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Fabricate"
+  ],
+  "power": "2",
+  "toughness": "2"
  }
 ]

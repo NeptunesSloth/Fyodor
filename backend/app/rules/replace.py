@@ -647,6 +647,10 @@ def _tokens_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         from app.rules import extra_tokens
 
         return extra_tokens.apply(c, ev, sim)
+    if op["do"] in ("replace", "each_of"):  # -- token swaps (wave 35C) -- app/rules/extra_tokens.py
+        from app.rules import extra_tokens
+
+        return extra_tokens.swap(c, ev)
     n = ev["count"] * int(op["n"]) if op["do"] == "mul" else ev["count"] + int(op["n"]) if op["do"] == "add" else ev["count"]
     return [{**ev, "count": max(0, n)}]
 
