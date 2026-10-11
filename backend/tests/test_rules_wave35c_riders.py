@@ -14,7 +14,7 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
-from tests.wave9c_kit import build, card_named, check, mana, put, reloaded, to_hand
+from tests.wave9c_kit import build, card_named, check, life, mana, put, reloaded, to_hand
 from tests.wave35c_kit import cast_from_hand, repository
 
 FULL = ["Anax, Hardened in the Forge", "Fblthp, the Lost"]
@@ -97,4 +97,38 @@ def test_fblthp_cast_from_the_library_draws_two(cards):
     settle(s)
     assert s.state.cards[fblthp.id].zone == "p1:battlefield" and hand(s) == before + 2
     s = reloaded(s)
+    check(s)
+
+
+def test_emet_selch_casts_a_spell_from_the_graveyard_and_it_is_exiled_after(cards):
+    """603.2c: "Whenever one or more opponents lose life" — Bob loses 2 to Sign in Blood: the trigger lets Alice cast Lightning Bolt from her graveyard, and
+    614.1a: "If that spell would be put into your graveyard, exile it instead". "Do this only once each turn": a second loss that turn casts nothing."""
+    s = build(cards, ["Emet-Selch of the Third Seat", "Lightning Bolt", "Sign in Blood", "Sign in Blood"], [])  # (the first Sign in Blood is also a target)
+    put(s, "Emet-Selch of the Third Seat")
+    gy_bolt = card_named(s, "Lightning Bolt")
+    act(s, "p1", type="move", card_ids=[gy_bolt.id], to={"zone": "graveyard"})
+    mana(s, "p1", B=2, R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Sign in Blood").id, targets=["p2"])
+
+    def play_out():
+        asked = []
+        for _ in range(30):
+            d = s.state.rules.decision
+            if d is not None:
+                asked.append(d.prompt)
+                pick = next((o.id for o in d.options if o.label in ("Lightning Bolt", "Bob")), None) or d.options[0].id
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+            elif s.state.zones.get("stack"):
+                act(s, s.state.rules.priority, type="pass_priority")
+            else:
+                return asked
+        raise AssertionError("never settled")
+
+    assert any("Choose a spell to cast" in p for p in play_out())
+    assert life(s, "p2") == 40 - 2 - 3 and s.state.cards[gy_bolt.id].zone == "p1:exile"
+    s = reloaded(s)
+    mana(s, "p1", B=2)  # a second loss of life this turn: the trigger is on the stack, and the instruction is not done again
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Sign in Blood").id, targets=["p2"])
+    assert not any("Choose a spell to cast" in p for p in play_out())
+    assert life(s, "p2") == 40 - 2 - 3 - 2
     check(s)

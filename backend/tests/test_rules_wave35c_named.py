@@ -108,3 +108,74 @@ def test_festering_newt_shrinks_by_four_with_your_bogbrew_witch_and_by_one_witho
     assert s.state.cards[newt.id].zone == "p1:graveyard" and before - toughness() == shrunk
     s = reloaded(s)
     check(s)
+
+
+EMPIRES = ("Crown of Empires", "Scepter of Empires", "Throne of Empires")
+
+
+def empires(s, me, others, pid="p1"):
+    for name in others:
+        put(s, name, pid)
+    c = put(s, me, pid)
+    ready(s, c)
+    return c
+
+
+@pytest.mark.parametrize("others, lost", [(("Crown of Empires", "Throne of Empires"), 3), (("Crown of Empires",), 1), ((), 1)])
+def test_scepter_of_empires_deals_three_with_the_other_two(cards, others, lost):
+    s = build(cards, list(EMPIRES), [])
+    scepter = empires(s, "Scepter of Empires", others)
+    act(s, "p1", type="activate_ability", card_id=scepter.id, ability=0, targets=["p2"])
+    settle(s)
+    assert life(s, "p2") == 40 - lost
+    s = reloaded(s)
+    check(s)
+
+
+@pytest.mark.parametrize("others, made", [(("Crown of Empires", "Scepter of Empires"), 5), (("Scepter of Empires",), 1)])
+def test_throne_of_empires_makes_five_soldiers_with_the_other_two(cards, others, made):
+    s = build(cards, list(EMPIRES), [])
+    throne = empires(s, "Throne of Empires", others)
+    mana(s, "p1", W=1)
+    act(s, "p1", type="activate_ability", card_id=throne.id, ability=0)
+    settle(s)
+    assert sum(1 for c in s.state.cards.values() if c.name == "Soldier" and c.zone == "p1:battlefield") == made
+    check(s)
+
+
+@pytest.mark.parametrize("others, taken", [(("Scepter of Empires", "Throne of Empires"), True), (("Scepter of Empires",), False)])
+def test_crown_of_empires_steals_the_creature_instead_of_tapping_it(cards, others, taken):
+    s = build(cards, list(EMPIRES), ["Grizzly Bears"])
+    crown = empires(s, "Crown of Empires", others)
+    bears = put(s, "Grizzly Bears", "p2")
+    mana(s, "p1", W=3)
+    act(s, "p1", type="activate_ability", card_id=crown.id, ability=0, targets=[bears.id])
+    settle(s)
+    now = s.state.cards[bears.id]
+    assert (now.controller == "p1", now.tapped) == (taken, not taken)
+    s = reloaded(s)
+    check(s)
+
+
+def test_marauding_maulhorn_must_attack_unless_you_control_advocate_of_the_beast(cards):
+    """"attacks each combat if able unless you control a creature named Advocate of the Beast": the named creature lifts the requirement."""
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Marauding Maulhorn"], [])
+    maul = put(s, "Marauding Maulhorn")
+    ready(s, maul)
+    act(s, "p1", type="pass_priority")  # → declare attackers
+    with pytest.raises(ActionError, match="attacks each combat if able"):
+        act(s, "p1", type="declare_attackers", attackers=[])
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": maul.id, "target": "p2"}])
+    check(s)
+
+
+def test_marauding_maulhorn_with_advocate_needs_not_attack(cards):
+    s = build(cards, ["Marauding Maulhorn", "Advocate of the Beast"], [])
+    maul = put(s, "Marauding Maulhorn")
+    put(s, "Advocate of the Beast")
+    ready(s, maul)
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[])  # nothing is required
+    check(s)
