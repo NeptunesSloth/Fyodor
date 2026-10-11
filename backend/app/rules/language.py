@@ -3054,9 +3054,9 @@ def parse_loses_all(text: str) -> tuple[Effects, Any] | None:
         kind, key, group = ref(m["o"])
     except _Fail:
         return None
-    if kind in ("players", "it", "them"):
+    if kind in ("players", "them"):
         return None
-    return [{"do": "become", "who": _who(kind, key), "types": [], "lose_abilities": True, "duration": "end_of_turn"}], _one(group)
+    return [{"do": "become", "who": _who(kind, key), "types": [], "lose_abilities": True, "duration": "end_of_turn"}], _one(group)  # (wave 35D: "it")
 
 
 def parse_become(text: str) -> tuple[Effects, Any] | None:

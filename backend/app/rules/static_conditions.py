@@ -18,6 +18,9 @@ as <condition>."; this module adds the condition shapes that only a static's own
 * ``{"static": "life_vs_start", "op": ">=" | ">" | "<=", "plus": N, "half": bool}`` — your life total
   against your starting life total (119.1, 903.7: 40 in Commander; the game's setting is read);
 * ``{"static": "all", "conds": [...]}`` — "this card is in your graveyard and you control a Mountain".
+* (wave 35D) ``ring_bearer`` (701.54e), ``self_attached`` / ``host_attached`` (a count of the Equipment or Auras attached to the source, or to
+  the object it is attached to), ``dealt_damage`` (120.3: it has dealt damage since it became this object), ``was_cast`` (a permanent that was
+  cast as a spell), ``single_graveyard``, ``exile_owned``, ``blocked_by``, ``transformed`` (701.27g), ``doors`` (709.5): reads of the table.
 
 Devotion ("your devotion to red is less than five", 700.5) is a plain ``conditions`` value condition
 (``{"value": {"devotion": ["R"]}, "op": "<=", "n": 4}``). Anything else parses to None (manual).
@@ -71,6 +74,18 @@ _EXILED_COUNT = re.compile(r"there are (?P<n>\w+) or more (?P<what>cards|card ty
 # the fact is public)
 _TOP_CARD = re.compile(r"the top card of your library is (?:(?:a|an) (?P<sel>.+? card)|(?P<color>white|blue|black|red|green))")
 _SELF_COUNTERS = re.compile(r"there are (?P<n>\w+) or more (?P<kind>\+1/\+1|-1/-1|[a-z]+) counters on ~")
+# -- as long as (wave 35D) -- the shapes below read the table and the source (or the object it is attached to) and nothing else, so they are as
+# safe in a static as the ones above. Each says "~" for the source: statics.parse writes "it" as "~" where the subject is the source itself
+_RING_BEARER = re.compile(r"(?:~|it) is your Ring-bearer|it's your Ring-bearer")
+_ATTACH_COUNT = re.compile(r"(?:(?P<a>another|an?)|(?P<n>\w+) or more) (?P<sub>Equipment|Auras?) (?:is|are) attached to "
+                           r"(?:(?P<self>~)|(?P<who>equipped|enchanted) (?P<noun>creature|permanent|land))")
+_ENCHANTED_BY = re.compile(r"~ is (?:enchanted|equipped) by (?:(?P<ex>exactly) (?P<n>\w+)|(?P<m>\w+) or more) (?P<sub>Auras?|Equipment)")
+_DEALT = re.compile(r"~ (?:hasn't|haven't) dealt (?P<c>combat )?damage yet")
+_SINGLE_GRAVEYARD = re.compile(r"there are (?P<n>\w+) or more cards in a single graveyard")
+_EXILE_OWNED = re.compile(r"(?P<who>you|an opponent) owns? an? card in exile(?P<adv> that has an Adventure)?")
+_BLOCKED_BY = re.compile(r"(?P<n>\w+) or more creatures are blocking ~")
+_COUNTER_ON_ANY = re.compile(r"an? (?P<sel>[a-z]+) has an? (?P<kind>\+1/\+1|-1/-1|[a-z]+) counter on it")
+_DOORS = re.compile(r"there are (?P<n>\w+) or more unlocked doors among Rooms you control")
 
 
 def _num(word: str | None) -> int | None:
@@ -104,6 +119,9 @@ def parse(text: str) -> Condition | None:
     if t in ("~ is paired with another creature", "this creature is paired with another creature"):  # -- soulbond (wave 24B) -- 702.95b
         return {"static": "paired"}
     m = _ATTACHED.fullmatch(t)
+    if m and m["desc"] == "attacking alone":  # -- as long as (wave 35D) -- 506.5: the object it is attached to is the only attacking creature
+        alone: Condition = {"static": "host_test", "test": "attacking_alone", "who": m["who"], "noun": m["noun"]}
+        return {"static": "not", "cond": alone} if m["neg"] in ("is not", "isn't") else alone
     if m:
         key = attached_selector(m["desc"])
         found: Condition = {"static": "attached_is", "sel": key, "noun": m["noun"], "who": m["who"]}
@@ -196,12 +214,65 @@ def parse(text: str) -> Condition | None:
         return {"static": "any_hand", "n": 0}
     if t == "an opponent is poisoned":  # 122.1f: has one or more poison counters (Viridian Betrayers)
         return {"value": {"player_counters": "poison"}, "op": ">=", "n": 1, "per_opponent": True}
+    return _parse_35d(t)
+
+
+def _parse_35d(t: str) -> Condition | None:
+    """-- as long as (wave 35D) -- see the module docstring."""
+    if _RING_BEARER.fullmatch(t):
+        return {"static": "ring_bearer"}
+    m = _ATTACH_COUNT.fullmatch(t)
+    if m:
+        n = 1 if m["a"] else _num(m["n"])
+        if n is None:
+            return None
+        sub = "Equipment" if m["sub"] == "Equipment" else "Aura"
+        if m["self"]:
+            return {"static": "self_attached", "sub": sub, "op": ">=", "n": n, "other": m["a"] == "another"}
+        return {"static": "host_attached", "sub": sub, "op": ">=", "n": n, "other": m["a"] == "another", "who": m["who"], "noun": m["noun"]}
+    m = _ENCHANTED_BY.fullmatch(t)
+    if m and (n := _num(m["n"] or m["m"])) is not None:
+        return {"static": "self_attached", "sub": "Equipment" if m["sub"] == "Equipment" else "Aura", "op": "==" if m["ex"] else ">=", "n": n,
+                "other": False}
+    m = _DEALT.fullmatch(t)
+    if m:
+        return {"static": "not", "cond": {"static": "dealt_damage", "combat": bool(m["c"])}}
+    if t == "~ was cast":
+        return {"static": "was_cast"}
+    m = _SINGLE_GRAVEYARD.fullmatch(t)
+    if m and (n := _num(m["n"])) is not None:
+        return {"static": "single_graveyard", "n": n}
+    m = _EXILE_OWNED.fullmatch(t)
+    if m:
+        adv = selectors.parse("card that has an Adventure in exile") if m["adv"] else None  # 715.1 (the selector reads the printing)
+        return {"static": "exile_owned", "you": m["who"] == "you", "sel": adv.key() if adv is not None else None}
+    m = _BLOCKED_BY.fullmatch(t)
+    if m and (n := _num(m["n"])) is not None:
+        return {"static": "blocked_by", "n": n}
+    if t == "you control a transformed permanent":
+        return {"static": "transformed"}
+    m = _DOORS.fullmatch(t)
+    if m and (n := _num(m["n"])) is not None:
+        return {"static": "doors", "n": n}
+    if t == "you control a permanent of each color":  # 105.1: all five colors are among the permanents you control
+        from app.rules import conditions
+
+        return conditions.parse("there are five colors among permanents you control")
+    m = _CONTROL_NAMED.fullmatch(t)  # 201.2: a permanent with this name (as it is now)
+    if m:
+        return {"static": "named", "name": m["name"]}
+    m = _COUNTER_ON_ANY.fullmatch(t)  # "a creature has a -1/-1 counter on it": some permanent of any controller (Tenacious Hunter)
+    if m:
+        sel = selectors.parse(f"{m['sel']} with a {m['kind']} counter on it")
+        if sel is not None and sel.zones == ("battlefield",) and sel.player is None and not sel.card and sel.controller is None:
+            return {"value": {"count": sel.key()}, "op": ">=", "n": 1}
     return None
 
 
 _MOST_COMMON = re.compile(r"(?P<c>white|blue|black|red|green) is the most common color among all permanents or is tied for most common")
 _ANY_PLAYER = re.compile(r"any player controls (?:a|an) (?P<sel>.+)")
 _PLAIN = frozenset({"opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "any_hand"})
+_HOST = frozenset({"attached_is", "host_test"})  # -- as long as (wave 35D) -- "enchanted creature is blocking and you control a snow land" (Snow Devil)
 
 
 def compound(text: str) -> Condition | None:
@@ -215,13 +286,39 @@ def compound(text: str) -> Condition | None:
         a, b = statics.condition(left), statics.condition(right)
         if a is None or b is None:
             continue
-        if all(c.get("static") is None or c.get("static") in _PLAIN for c in (a, b)):
+        if all(c.get("static") is None or c.get("static") in _PLAIN or c.get("static") in _HOST for c in (a, b)):  # (wave 35D: _HOST)
             return {"static": "all", "conds": [a, b]}
     return None
 
 
+_YOU_CONTROL_OR = re.compile(r"you control (?P<a>(?:an?|\d+) .+?) or (?P<b>(?:an?|\d+) .+)")
+_COMMANDER_OR = re.compile(r"you control an? commander that's an? (?P<a>creature|planeswalker|artifact|enchantment) or (?P<b>creature|planeswalker|artifact|enchantment)")
+_CONTROL_NAMED = re.compile(r"you control an? permanent named (?P<name>(?:(?! or an? permanent named ).)+)")
+
+
+def either(text: str) -> Condition | None:
+    """-- as long as (wave 35D) -- "you control an artifact creature or a Plan" (Doctor Doom), "you control a commander that's a creature or
+    planeswalker" (Gray Harbor Merfolk), "you control a permanent named A or a permanent named B" (Liu Bei): the first half that holds. Each
+    half is a count of permanents, so the whole is as safe as one (a half that reads the source or an attached object isn't taken)."""
+    from app.rules import statics
+
+    m = _COMMANDER_OR.fullmatch(text)
+    pieces = [f"you control a {m['a']} commander", f"you control a {m['b']} commander"] if m else None
+    if pieces is None:
+        m = _YOU_CONTROL_OR.fullmatch(text)
+        pieces = [f"you control {m['a']}", f"you control {m['b']}"] if m else None
+    if pieces is None:
+        return None
+    found = [statics.condition(p) for p in pieces]
+    if any(c is None or not (c.get("static") == "named" or (c.get("static") is None and "value" in c)) for c in found):
+        return None
+    return {"static": "either", "conds": found}
+
+
 KINDS = frozenset({"top_card", "exiled_count", "attached_ctrl_is", "self_is", "attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all",
-                    "most_common_color", "hand_most", "paired", "any_hand"})  # (wave 20B)
+                    "most_common_color", "hand_most", "paired", "any_hand",  # (wave 20B)
+                    "ring_bearer", "self_attached", "host_attached", "dealt_damage", "was_cast", "single_graveyard", "exile_owned", "blocked_by",
+                    "transformed", "doors", "named", "either", "host_test"})  # (wave 35D)
 
 
 def attached_object(plan: Plan, source: CardInstance) -> CardInstance | None:
@@ -292,6 +389,8 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
         if r is None or not source.zone.endswith(":battlefield"):
             return False
         return r.object_id(source.id) in (r.monstrous if cond["is"] == "monstrous" else r.renowned)
+    if kind in _HOLDS_35D:
+        return _holds_35d(plan, cond, source, controller)
     opponents = [p for p in plan.live() if p != controller]
     if kind == "most_common_color":  # a permanent of two colors counts for each (105.2); colors as they are now (layer 5 is done first)
         tally = {c: 0 for c in "WUBRG"}
@@ -319,6 +418,64 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
             return 2 * life <= start
         want = start + int(cond.get("plus") or 0)
         return {">": life > want, ">=": life >= want, "<=": life <= want}[cond["op"]]
+    return False
+
+
+_HOLDS_35D = frozenset({"ring_bearer", "self_attached", "host_attached", "dealt_damage", "was_cast", "single_graveyard", "exile_owned",
+                        "blocked_by", "transformed", "doors", "named", "either", "host_test"})
+
+
+def _holds_35d(plan: Plan, cond: Condition, source: CardInstance, controller: str) -> bool:
+    """-- as long as (wave 35D) -- the conditions of the module docstring, read now (611.3a). Nothing here reads a hidden card: a count of
+    cards (public), the state of permanents (public), the printing of a card in exile its controller (its owner) may look at."""
+    kind, state, r = cond["static"], plan.state, plan.rules
+    on_field = source.zone.endswith(":battlefield")
+    if kind == "ring_bearer":  # 701.54e
+        from app.rules import designations
+
+        return on_field and designations.ring_bearer_of(state, source) and source.controller == controller
+    if kind in ("self_attached", "host_attached"):  # 301.5, 303.4: what is attached to it (an Aura or Equipment on a host), the source apart if "another"
+        host = source if kind == "self_attached" else attached_object(plan, source)
+        if host is None or not on_field:
+            return False
+        found = sum(1 for c in state.cards.values() if c.attached_to == host.id and c.zone.endswith(":battlefield")
+                    and not (cond["other"] and c.id == source.id) and cond["sub"] in plan.ch(c).subtypes)
+        return found == cond["n"] if cond["op"] == "==" else found >= cond["n"]
+    if kind == "dealt_damage":  # 120.3: since it became this object (400.7), more than 0 damage (prevented damage is not dealt, 615.1)
+        return r is not None and on_field and r.object_id(source.id) + ("+combat" if cond["combat"] else "") in r.dealt_damage
+    if kind == "was_cast":  # 608.3: the permanent remembers how its spell was paid (app/rules/engine.py), a copy's record is not a cast
+        record = r.payments.get(r.object_id(source.id)) if r is not None else None
+        return on_field and record is not None and record.cast_from is not None
+    if kind == "single_graveyard":  # 404.1: each player's graveyard is a zone of its own
+        return any(len(state.zones.get(f"{p}:graveyard", ())) >= cond["n"] for p in state.players)
+    if kind == "exile_owned":  # 406.1: exile is a zone of its owner's; a card's owner is the player whose zone it is in
+        owners = [controller] if cond["you"] else [p for p in plan.live() if p != controller]
+        sel = selectors.from_key(cond["sel"]) if cond["sel"] else None
+        return any((c := state.cards.get(cid)) is not None and (sel is None or (not c.unseen and selectors.matches(
+            plan, sel, c, plan.ch(c), controller, source.id))) for p in owners for cid in state.zones.get(f"{p}:exile", ()))
+    if kind == "blocked_by":  # 509.1: the creatures that block it (a creature blocking more than one attacker blocks each)
+        return on_field and sum(1 for c in state.cards.values() if c.zone.endswith(":battlefield") and c.blocks(source.id)) >= cond["n"]
+    if kind == "transformed":  # 701.27g: a double-faced permanent with its back face up (a merged or melded permanent never is)
+        from app.rules import characteristics as chars
+
+        return any(c.controller == controller and c.zone.endswith(":battlefield") and c.face == 1 and not c.face_down and not c.melded
+                   and not c.merged and chars.transformable(c, plan.info) for c in state.cards.values())
+    if kind == "host_test":  # a test of the source ("attacking alone") made of the object it is attached to (301.5, 303.4)
+        host = attached_object(plan, source)
+        from app.rules import statics
+
+        return host is not None and statics.holds(plan, {"static": "self", "test": cond["test"]}, source=host, controller=controller)
+    if kind == "either":
+        from app.rules import statics
+
+        return any(statics.holds(plan, c, source=source, controller=controller) for c in cond["conds"])
+    if kind == "named":
+        return any(c.controller == controller and c.zone.endswith(":battlefield") and plan.ch(c).name == cond["name"] for c in state.cards.values())
+    if kind == "doors":  # 709.5c: the unlocked doors of the Rooms you control
+        from app.rules import rooms
+
+        return sum(len(rooms.doors_of(plan, c.id)) for c in state.cards.values()
+                   if c.controller == controller and c.zone.endswith(":battlefield") and "Room" in plan.ch(c).subtypes) >= cond["n"]
     return False
 
 

@@ -98,7 +98,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption, turn_log_now
 from app.game.state import CardInstance, zone_key
-from app.rules import scripts, selectors
+from app.rules import scripts, selectors, statics
 
 if TYPE_CHECKING:
     from app.rules.characteristics import Characteristics
@@ -171,7 +171,7 @@ def static_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
         skip = conditional_lines(ch)
         oid = plan.oid(c)
         for i, d in sorted(wanted):
-            if i in skip:
+            if i in skip or not statics.static_if_holds(plan, d, c):  # (wave 35D: "As long as ~ is untapped, …", 611.3a)
                 continue
             out.append(Candidate(id=f"s:{oid}:{i}", event=d["event"], match=d["match"], op=d["op"], controller=c.controller,
                                  source_card=c.id, source_oid=oid, seq=(timestamp(plan.state, c.id), 0, i),
