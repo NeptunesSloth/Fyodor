@@ -162,6 +162,8 @@ SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
 SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"redirect"}
 # -- damage wordings (wave 6B) -- "prevent half that damage, rounded up" (Gisela, Blade of Goldnight; 615)
 SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"prevent_half_up"}
+# -- damage bodies (wave 35C) -- "put that many counters on it instead" (Phytohydra, Szadek, Soul-Scar Mage: app/rules/replace_grammar.py _damage_body)
+SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"body"}
 # … and token creation adding a different token (Peregrin Took, Chatterfang: app/rules/extra_tokens.py)
 SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra"}
 # -- replacements & prevention (wave 22C) -- "put half that many … rounded down" (Vorinclex) on counters

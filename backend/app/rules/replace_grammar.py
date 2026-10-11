@@ -511,6 +511,49 @@ def _damage_to(text: str) -> Definition | None:
     return _static("damage", match, {"do": "prevent_all", "prevention": True, "rider": rider}) if rider else None
 
 
+# -- damage bodies (wave 35C) -- 614.1a: "If damage would be dealt to this creature, put that many +1/+1 counters on it instead." (Phytohydra; -1/-1:
+# Lichenthrope), "If damage would be dealt to you, put that many depletion counters on this enchantment instead." (Force Bubble), "If damage would be dealt
+# to a player, that player exiles that many cards from the top of their library instead." (Crumbling Sanctuary), "If a source you control would deal noncombat
+# damage to a creature an opponent controls, put that many -1/-1 counters on that creature instead." (Soul-Scar Mage), "If Szadek would deal combat damage
+# to a player, instead put that many +1/+1 counters on Szadek and that player mills that many cards." The damage is never dealt (614.6: nothing that needs it
+# triggers or happens: no lifelink, no "deals damage"); the instructions count it ("that many": the damage as the replacement applies, 616.1 after any
+# doubling) and happen once the rest of the batch has been dealt — the prevention riders' machinery (615.5, app/rules/source_shields.py), op ``body``.
+_BODY_TO = re.compile(r"^If (?P<kind>combat |noncombat )?damage would be dealt to (?P<to>[^,]+?), (?P<rest>.+)\.$")
+_BODY_FROM = re.compile(r"^If (?P<src>[^,]+?) would deal (?P<kind>combat |noncombat )?damage to (?P<to>[^,]+?), (?P<rest>.+)\.$")
+_EXILE_THEIRS = re.compile(r"^that player exiles that many cards from the top of their library$")
+
+
+def _damage_body(text: str) -> Definition | None:
+    from app.rules import source_shields
+
+    m = _BODY_TO.match(text)
+    src: dict[str, Any] | None = {}
+    if m is None and (m := _BODY_FROM.match(text)) is not None:
+        src = _source(m["src"])
+    if m is None or src is None:
+        return None
+    rest = m["rest"]
+    if rest.startswith("instead "):
+        rest = rest[len("instead "):]
+    elif rest.endswith(" instead"):
+        rest = rest[: -len(" instead")]
+    else:
+        return None
+    to = _recipient(m["to"].replace("this creature", "~").replace("this permanent", "~"))
+    if to is None or "instead" in rest or not (to.get("objects") or to.get("players")) or (to.get("players") and to.get("objects")):
+        return None  # (a recipient we read, one kind of it: "you or a creature …" would need the rider to say which)
+    players = bool(to.get("players"))
+    rest = _EXILE_THEIRS.sub("exile the top that many cards of that player's library", rest)
+    it = None if players else "self" if to["objects"].get("self") else "to"
+    effects = source_shields.rider_body(rest, it, to_player=players and to["players"] == "any")
+    if not effects:
+        return None
+    match: dict[str, Any] = {"source": src, "to": to}
+    if m["kind"]:
+        match["combat"] = m["kind"] == "combat "
+    return _static("damage", match, {"do": "body", "rider": {"effects": effects, "if": False}})
+
+
 _MAX_SPEED_IF = "As long as you have max speed, if "
 
 
@@ -655,7 +698,7 @@ def _mill(text: str) -> Definition | None:
     return _static("mill", {"who": who}, {"do": "add", "n": n}) if n else None
 
 
-PARSERS = (_tokens, _counters, _draw, _draw_count, _life, _loss, _floor, _mill, _damage, _enters_tapped, _enter_extra)
+PARSERS = (_tokens, _counters, _draw, _draw_count, _life, _loss, _floor, _mill, _damage, _damage_body, _enters_tapped, _enter_extra)
 
 
 def parse(text: str) -> Definition | None:

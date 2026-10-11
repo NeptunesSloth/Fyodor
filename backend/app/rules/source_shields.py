@@ -765,9 +765,10 @@ _WHO_OK = frozenset({"you", "self", "each_opponent", "each_player"})
 _COLORS_BY_WORD = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 
 
-def rider_body(body: str, it: str | None = None) -> list[dict[str, Any]] | None:
+def rider_body(body: str, it: str | None = None, *, to_player: bool = False) -> list[dict[str, Any]] | None:
     """The effects of a rider sentence (first letter lower-cased, no final period), or None (not read). ``it``: what "it" /
-    "him" / "her" mean in a static's rider: "self" (the permanent itself) or "to" (the creature the damage was dealt to)."""
+    "him" / "her" mean in a static's rider: "self" (the permanent itself) or "to" (the creature the damage was dealt to).
+    ``to_player`` (-- damage bodies (wave 35C) --): "that player" is the player the damage would be dealt to (the replaced damage's)."""
     from app.rules import scripts
 
     text, target = body, None
@@ -776,7 +777,7 @@ def rider_body(body: str, it: str | None = None) -> list[dict[str, Any]] | None:
     lead = re.match(r"^for each 1 damage prevented this way, (?P<rest>.+)$", text)
     if lead:
         text = f"{lead['rest']} for each 1 damage prevented this way"
-    for phrase, surrogate, name in _ANAPHORS:
+    for phrase, surrogate, name in (*_ANAPHORS, *((("that player", "target player", "to_player"),) if to_player else ())):
         if phrase in text:
             if target is not None:
                 return None
@@ -795,15 +796,17 @@ def rider_body(body: str, it: str | None = None) -> list[dict[str, Any]] | None:
     if found is None:
         return None
     effects, spec, optional = found
-    if optional or spec != ({"from_ctrl": "player", "to": 'sel:{"types":["Creature"]}'}[target[1]] if target else None):
+    if optional or spec != ({"from_ctrl": "player", "to": 'sel:{"types":["Creature"]}', "to_player": "player"}[target[1]] if target else None):
         return None
     out = []
     for e in effects:
         if e.get("do") not in RIDER_DOS or e.get("optional") or e.get("may"):
             return None
         who = e.get("who")
+        if e.get("player") == "target" and target is not None and target[1] == "to_player":  # (a library: "the top X cards of that player's library")
+            e = {**e, "player": "ref:to"}
         if who == "target" and target is not None:
-            e = {**e, "who": f"ref:{target[1]}"}
+            e = {**e, "who": f"ref:{'to' if target[1] == 'to_player' else target[1]}"}
         elif who is not None and who not in _WHO_OK and e.get("do") != "create_token":
             return None
         out.append(e)

@@ -452,8 +452,8 @@ def describe(plan: Plan, ev: Event) -> str:
         return f"{plan.name(ev['player'])} loses {ev['n']} life"
     if kind == "mill":
         return f"{plan.name(ev['player'])} mills {ev['n']} card{'s' if ev['n'] != 1 else ''}"
-    if kind == "damage":
-        return f"{ev['amount']} damage"
+    if kind == "damage":  # (-- damage bodies (wave 35C) -- and what a replacement counts of it: "0 damage (Phytohydra counts 6)")
+        return f"{ev['amount']} damage" + "".join(f" ({r['name']} counts {r['n']})" for r in ev.get("riders") or [])
     return kind
 
 
@@ -1702,7 +1702,7 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         n -= n // 2
     elif kind == "prevent_all_but":
         n = min(n, int(op["n"]))
-    elif kind == "prevent_all":
+    elif kind == "prevent_all" or kind == "body":  # (-- damage bodies (wave 35C) -- a replaced damage is never dealt, 614.6)
         n = 0
     elif kind == "shield":  # 615.7: each 1 damage prevented reduces the shield by 1
         shields = sim.setdefault("shields", {})
@@ -1715,10 +1715,10 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     out = {**ev, "amount": n}
     if op.get("prevention"):
         out["prevented"] = int(ev.get("prevented") or 0) + (int(ev["amount"]) - n)
-        if op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
-            out["riders"] = [*(ev.get("riders") or []), {"rider": op["rider"], "n": int(ev["amount"]) - n, "by": c.controller,
-                                                         "card": c.source_card, "oid": c.source_oid, "name": c.label,
-                                                         **({"batch": c.id} if op.get("batch") else {})}]
+    if (op.get("prevention") or kind == "body") and op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
+        out["riders"] = [*(ev.get("riders") or []), {"rider": op["rider"], "n": int(ev["amount"]) - n, "by": c.controller,
+                                                     "card": c.source_card, "oid": c.source_oid, "name": c.label,
+                                                     **({"batch": c.id} if op.get("batch") else {})}]
     return [out]
 
 
