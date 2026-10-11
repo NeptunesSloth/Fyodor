@@ -7214,7 +7214,7 @@ def _mana_effect(pattern: str):  # type: ignore[no-untyped-def]
 
 
 _SYM = r"\{[WUBRGC]\}"
-_MANA_AMOUNT = r"(?P<n>\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X)"
+_MANA_AMOUNT = r"(?P<n>\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|that much|twice that much)"  # (-- event mana (wave 36A) -- "add that much mana of any one color" (Photon), "… in any combination of {R} and/or {G}" (Radha): the trigger event's amount, 608.2k)
 
 
 def _mana_n(word: str) -> Any:
@@ -7458,7 +7458,7 @@ def _restrict_mana(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 # "Add six {R}" / "add eight {C}" / "add that much {G}" (the trigger event's amount, 608.2k): n of one type
-@_mana_effect(r"add (?P<n>two|three|four|five|six|seven|eight|nine|ten|that much) (?P<sym>\{[WUBRGC]\})")
+@_mana_effect(r"add (?P<n>two|three|four|five|six|seven|eight|nine|ten|that much|twice that much) (?P<sym>\{[WUBRGC]\})")
 def _add_n_of(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "add_mana", "sym": m["sym"][1], "n": _mana_n(m["n"])}], None
 

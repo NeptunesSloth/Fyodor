@@ -810,6 +810,56 @@ def _entered_now(plan: Plan, card: CardInstance, you: str | None) -> bool:
     return any(e.object_id == oid and (you is None or e.controller == you) for e in log_for(plan, False).entered)
 
 
+# -- graveyard history (wave 36A) -- "target creature card in your graveyard that was put there from the battlefield this turn" (Moira, Samwise),
+# "… from anywhere …" (Night Nurse, Garna), "… from their library …" (Captain N'ghathrod), "creature cards that were put into your graveyard from
+# the battlefield this turn" (Fell Shepherd), "a card in a graveyard that was discarded or put there from a library this turn" (Ghost of Ramirez
+# DePietro), "… that wasn't put there this combat" (Storrev): the card that is in that graveyard now is the object (400.7) that was put there then,
+# read of the turn's log (RulesState.turn_log.entered_graveyard: where it came from, in which combat). Never a token (111.1: no card).
+_PUT_FROM = {"the battlefield": "battlefield", "anywhere": "any", "a library": "library", "your library": "library", "their library": "library",
+             "its owner's library": "library"}
+_PUT_THERE = (r"that (?:was|were) (?:(?P<disc>discarded or )?put (?:there|into (?P<who>your|a|an opponent's|that player's) graveyard)) from "
+              r"(?P<from>the battlefield|anywhere|a library|your library|their library|its owner's library) this turn")
+
+
+@_suffix(_PUT_THERE)
+def _put_there_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    origin = _PUT_FROM[m["from"]]
+    if m["disc"]:
+        if origin != "library":
+            raise ValueError("only \"discarded or put there from a library\"")
+        origin = "discard_or_library"
+    if m["who"]:  # the zone is the clause's own ("were put into your graveyard"), not an earlier "in your graveyard"
+        s = _in_zone(s, "graveyard", {"your": "you", "a": None, "an opponent's": "opponent", "that player's": "that_player"}[m["who"]])
+    return replace(s, extras=(*s.extras, "put_there:" + origin))
+
+
+@_suffix(r"that wasn't put there this combat")
+def _not_put_there_this_combat(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "not_put_there_combat"))
+
+
+def _put_there_now(plan: Plan, card: CardInstance, spec: str) -> bool:
+    """Is this card (in a graveyard now) the object that was put there this turn, from where ``spec`` says? (400.7, 608.2b)"""
+    from app.game.state import COMBAT_PHASES
+
+    r = plan.state.rules
+    if r is None or r.turn_log.turn != plan.state.turn.number or not card.zone.endswith(":graveyard"):
+        return False
+    oid = r.object_id(card.id)
+    arrival = next((a for a in reversed(r.turn_log.entered_graveyard) if a.card == card.id and a.object_id == oid), None)
+    if arrival is None:  # (another object, or put there before this was recorded: an older save)
+        return False
+    if spec == "combat":  # 506.1: this combat phase (a turn may have several)
+        return plan.state.turn.phase in COMBAT_PHASES and r.combats > 0 and arrival.combat == r.combats
+    if spec == "any":
+        return True
+    if spec in ("battlefield", "library"):
+        return arrival.from_zone == spec
+    # discarded (701.9a: from a hand to the graveyard, recorded as a discard of this object) or put there from a library
+    return arrival.from_zone == "library" or (arrival.from_zone == "hand" and any(
+        f.kind == "discard" and f.object_id == oid for f in r.turn_log.facts))
+
+
 def _has_counter(card: CardInstance, kind: str) -> bool:
     kind, _, need = kind.partition(">=")  # (wave 30L: "with three or more level counters on it")
     return (sum(card.counters.values()) if kind == COUNTER_ANY else card.counters.get(kind, 0)) >= int(need or 1)
@@ -1669,6 +1719,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra.startswith("entered_this_turn") and not _entered_now(plan, card, you if extra.endswith("_you") else None):
             return False  # (wave 5H)
+        if extra.startswith("put_there:") and not _put_there_now(plan, card, extra[10:]):  # -- graveyard history (wave 36A) --
+            return False
+        if extra == "not_put_there_combat" and _put_there_now(plan, card, "combat"):
+            return False
         if extra == "attached_source" and (source is None or card.attached_to != source):  # -- activated other (wave 34B) -- attached to the source itself
             return False
         if extra.startswith("attached_creature"):  # -- attached events (wave 30S) -- attached to a creature (of yours)
