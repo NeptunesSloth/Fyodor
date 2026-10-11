@@ -1779,7 +1779,7 @@ def from_command_zone(card: CardInstance, player: str) -> bool:
 
 
 def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None, *,
-               free: bool = False, slot: str | None = None) -> permissions.Grant | None:
+               free: bool = False, slot: str | None = None, via: str | None = None) -> permissions.Grant | None:
     """How ``player`` may cast this card from where it is (601.3): from their hand, their commander
     from the command zone, flashback from their graveyard, or a permission (app/rules/permissions):
     a static ability on the table or one an effect granted. ``free``: they want to use a "without
@@ -1813,12 +1813,14 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
             return permissions.Grant(how, flash=flash)
     if slot is not None:  # -- cast permissions (wave 30Q) -- the permanent type the caster chose to use up (Muldrotha)
         ways = [g for g in ways if g.slot == slot]
+    if via is not None:  # -- cast permissions (wave 32D) -- the limited permission the caster named (601.2)
+        ways = [g for g in ways if g.use == via]
     if not ways:
         return None
     # (a way with no extra cost to pay first: the cheaper of two permissions; -- review 30c -- then one with no rider on what it becomes: Karador's
     # before Serra Paragon's "it gains … exile it", Edgar's "enters tapped")
     best = min(ways, key=lambda g: (bool(g.extra), bool(g.enters)))
-    return replace(best, flash=flash or best.flash)
+    return permissions.with_choices(replace(best, flash=flash or best.flash), ways)  # (-- wave 32D -- a limited default: the other limited uses, to ask which)
 
 
 def _foretell_offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Any]:
@@ -2273,17 +2275,19 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking)
     if problem:
         raise ActionError(problem)
-    grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free, slot=a.slot)
+    grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free, slot=a.slot, via=a.via)
     if grant is not None and grant.how == "permission" and a.x_value and "{X}" in ch.mana_cost:
         # -- review 30c -- 202.3e, 601.2e: "with mana value 3 or less" reads the X announced (Lurrus ruling 2020-04-17: "{X}{W} … with X as 1 but not as 2")
         grant = cast_grant(plan.state, plan.actor, card, replace(ch, mana_value=ch.mana_value + a.x_value * ch.mana_cost.count("{X}")), plan.info,
-                           free=a.free, slot=a.slot)
+                           free=a.free, slot=a.slot, via=a.via)
         if grant is None:
             raise ActionError(f"{ch.name} can't be cast this way with X = {a.x_value}: its mana value would be too high")
     if a.slot is not None and grant is None:
         raise ActionError(f"{ch.name or 'That card'} can't be cast as a {a.slot} spell now")
-    if grant is not None and grant.slot and a.slot is None and len(left := permissions.slot_choices(plan.state, plan.actor, card, ch, plan.info)) > 1:
-        permissions.ask_slot(plan, a, card, ch, left)  # -- cast permissions (wave 30Q) -- "choose one as you cast it" (Muldrotha): asked before anything is paid
+    if a.via is not None and (grant is None or grant.use != a.via):  # -- cast permissions (wave 32D) -- 601.2: a permission that doesn't cover this cast
+        raise ActionError(f"{ch.name or 'That card'} can't be cast using that permission now")
+    if grant is not None and len(grant.among) > 1:
+        permissions.ask_use(plan, a, card, ch, grant.among, "cast")  # (-- wave 30Q, 32D -- "choose one as you cast it" (Muldrotha); which limited permission: asked before anything is paid)
         return
     free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
     base = M.parse_cost(ch.mana_cost)

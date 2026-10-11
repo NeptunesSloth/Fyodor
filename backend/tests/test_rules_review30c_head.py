@@ -107,16 +107,17 @@ def test_chainers_one_creature_spell_is_kept_when_lilianas_zombie_permission_cov
 
 
 @pytest.mark.parametrize("first", ["Serra Paragon", "Karador, Ghost Chieftain"])
-def test_the_permission_picked_for_the_caster_is_not_one_with_a_rider_when_a_plain_one_covers_the_cast(cards, first):
-    """Muldrotha ruling 2020-11-10: the caster announces the permission used. The engine picks it: never Serra Paragon's (the permanent gains
-    "… exile it …") when Karador's covers the same cast, whichever came first; Paragon's use is left for a land."""
+def test_the_caster_picks_the_permission_when_two_limited_ones_cover_the_cast(cards, first):
+    """Muldrotha ruling 2020-11-10: the caster announces the permission used (wave 32D asks; review 30c had the engine pick Karador's, the plain one, for
+    them). Karador's is the one chosen here, whichever came first, so Paragon's use (and its "… exile it …") is left for a land."""
     s = build(cards, ["Serra Paragon", "Karador, Ghost Chieftain", "Grizzly Bears"])
     put(s, first)
     put(s, "Karador, Ghost Chieftain" if first == "Serra Paragon" else "Serra Paragon")
     grave(s, "Grizzly Bears")
     put_in(s, "Forest", "graveyard")
     mana(s, G=2)
-    cast(s, "Grizzly Bears")
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Grizzly Bears").id)
+    settle(s, prefer=["Karador, Ghost Chieftain"])
     bear = card_named(s, "Grizzly Bears")
     assert bear.zone == "p1:battlefield" and not any("exile it" in a.text for a in Plan(s.state, "p1", s.cards, None).ch(bear).abilities)
     act(s, "p1", type="play_land", card_id=next(c.id for c in s.state.cards.values() if c.zone == "p1:graveyard" and c.name == "Forest"))

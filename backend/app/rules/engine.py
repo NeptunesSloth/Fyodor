@@ -1031,13 +1031,14 @@ def _after_resolution(plan: Plan) -> None:
 
 # -- intents -----------------------------------------------------------------------------
 def land_play_grant(state: GameState, player: str, card: CardInstance, ch: Characteristics,
-                    info: CardInfo | None) -> permissions.Grant | None:
+                    info: CardInfo | None, via: str | None = None) -> permissions.Grant | None:
     """How ``player`` may play this land from where it is: from their hand (305.1), or a
-    permission ("you may play lands from your graveyard", "you may play that card this turn")."""
+    permission ("you may play lands from your graveyard", "you may play that card this turn").
+    (-- cast permissions (wave 32D) -- ``via``: the limited permission the player named, 601.2)"""
     if card.zone == zone_key(player, "hand"):
         return permissions.Grant("hand")
-    found = [g for g in permissions.grants(state, player, card, ch, info, verb="play") if g.zone_ok] if info else []
-    return found[0] if found else None
+    found = [g for g in permissions.grants(state, player, card, ch, info, verb="play") if g.zone_ok and (via is None or g.use == via)] if info else []
+    return permissions.with_choices(found[0], found) if found else None
 
 
 def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, *,
@@ -1077,7 +1078,12 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     problem = land_play_problem(plan.state, plan.actor, card, plan.ch(probe), info=plan.info)
     if problem:
         raise ActionError(problem)
-    grant = land_play_grant(plan.state, plan.actor, card, plan.ch(probe), plan.info)
+    grant = land_play_grant(plan.state, plan.actor, card, plan.ch(probe), plan.info, a.via)
+    if a.via is not None and (grant is None or grant.use != a.via):  # -- cast permissions (wave 32D) -- 601.2: a permission that doesn't cover this play
+        raise ActionError(f"{plan.ch(probe).name or 'That card'} can't be played using that permission now")
+    if grant is not None and len(grant.among) > 1:  # … or several limited ones fit: which does the player use up? (asked before anything else is)
+        permissions.ask_use(plan, a, card, plan.ch(probe), grant.among, "play")
+        return
     # The land's own "enters" replacement effects (614.1c-d, app/rules/replacements.py): "enters
     # tapped [unless …]", a shock land's pay-life-or-tapped choice (made before it enters: 614.12a),
     # "enters [tapped] with … counters" as it enters (122.6).
