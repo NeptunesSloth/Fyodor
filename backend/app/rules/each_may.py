@@ -22,14 +22,24 @@ one optional payment per player, then each one's effect behind the negation of t
 as it last existed on the battlefield (608.2h); the cost each opponent is offered is the sacrifice of a permanent with
 any of its card types (205.2a), worked out as the instruction is reached.
 
+-- each player may (wave 31B) -- an action that is no cost: "Each player may scry 1." (Eager Construct), "Scry 2. Then each opponent may scry 1." (Myr
+Custodian), "…each player may search their library for a card and put that card into their hand. Then each player who searched their library this way
+shuffles." (Noble Benefactor), "Each player may draw a card, then each player who drew a card this way gains 1 life." (Kwain), "Each opponent may create
+a Treasure token. For each opponent who does, you create a Treasure token." (Tempting Contract). 101.4: every player answers in turn order (the question
+of app/rules/tempting.py: a private yes or no), 608.2d: then each who said yes does the action as "you" (``as_player``), and what the answers give follows
+(a player who said yes "drew a card this way"; the controller's own instruction once per opponent who did). Only actions whose every choice is the
+player's own are read (``_ACT_OK``); a choice from a hand (Kynaios and Tiro of Meletis) and "Each opponent who doesn't …" after an action are not.
+
 Not read: anything after "who doesn't" that names an object, a target or "this way" beyond the plain wording above;
 "If no one does" (Browbeat); costs that aren't ones optional_payment pays.
 """
 
 from __future__ import annotations
 
+import copy
 import json
 import re
+import threading
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -37,15 +47,22 @@ if TYPE_CHECKING:
 
 Context = dict[str, Any]
 _WHO = {"opponent": "each_opponent", "player": "each_player"}
-_MAY = re.compile(r"^(?:if (?P<cond>(?!you do\b)[^,]+), )?(?P<if>if you do, )?each (?P<who>opponent|player) may (?P<cost>.+)$")
+_MAY = re.compile(r"^(?:then )?(?:if (?P<cond>(?!you do\b)[^,]+), )?(?P<if>if you do, )?each (?P<who>opponent|player) may (?P<cost>.+)$")
 _FOR_EACH = re.compile(r"^for each (?P<who>opponent|player) who (?:doesn't|didn't), (?P<rest>.+)$")
 _WHO_DOESNT = re.compile(r"^each (?P<who>opponent|player) who (?:doesn't|didn't) (?P<rest>.+)$")
 _TO_EACH = re.compile(r"^(?P<lead>.+) to each (?P<who>opponent|player) who (?:doesn't|didn't)(?P<this> sacrifice a permanent this way)?$")
 # -- each player may (wave 23A) -- "Each player may discard their hand and draw five cards." (Raphael's Technique, Ruin Grinder) and
 # "Each player who discarded a card this way draws a card." / "… who does, …": what the players who paid get, once all have paid
 _AND_DRAW = re.compile(r"^(?P<cost>discard (?:their|your) hand) and draw (?P<rest>.+)$")
-_WHO_DID = re.compile(r"^each (?P<who>opponent|player) who (?:does|did|discarded (?:a card|their hand) this way),? (?P<rest>.+)$")
+_WHO_DID = re.compile(r"^each (?P<who>opponent|player) who (?:does|did|discarded (?:a card|their hand) this way|drew a card this way),? (?P<rest>.+)$")
 _TO_EACH_DID = re.compile(r"^(?P<lead>.+) to each (?P<who>opponent|player) who discarded (?:a card|their hand) this way$")
+# -- each player may (wave 31B) -- "Each player may draw a card, then each player who drew a card this way gains 1 life." (Kwain), "each opponent may
+# create a Treasure token. For each opponent who does, you create a Treasure token." (Tempting Contract): an action that is no cost, asked of each
+# player in turn order (the offer of app/rules/tempting.py), done by each who said yes (they are "you" for it), then what the answers give
+_SPLIT_THEN = re.compile(r"^(?P<act>.+?), then (?P<tail>each (?:opponent|player) who .+)$")
+_FOR_EACH_DID = re.compile(r"^for each (?P<who>opponent|player) who (?:does|did), (?P<rest>.+)$")
+_SHUFFLES = re.compile(r"^each (?:opponent|player) who searched their library this way shuffles$")
+_ACT_OK = frozenset({"scry", "draw", "create_token", "search", "shuffle_library"})  # (an action all of whose choices are the player's own, 701.19)
 _SHARES = "sacrifice a permanent that shares a card type with it"
 _TYPES = ("Artifact", "Battle", "Creature", "Enchantment", "Kindred", "Land", "Planeswalker")
 
@@ -53,6 +70,41 @@ _TYPES = ("Artifact", "Battle", "Creature", "Enchantment", "Kindred", "Land", "P
 def _third_person(rest: str) -> str:
     """"loses 3 life" → "That player loses 3 life" (the player who didn't pay)."""
     return f"That player {rest}"
+
+
+def _act(phrase: str) -> tuple[list[dict[str, Any]], str] | None:
+    """-- each player may (wave 31B) -- the effects of an action every player does for themselves ("scry 1", "draw a card", "create a Treasure
+    token", "search their library for a basic land card, reveal it, put it into their hand, then shuffle"), read as the player's own
+    instruction ("you"), with its text for the prompt; None for anything else (a choice from a hand or a target isn't read here)."""
+    from app.rules import scripts
+
+    if re.search(r"\byou(?:r|rs|rself)?\b", phrase, re.IGNORECASE):
+        return None  # ("each opponent may draw a card for each creature you control": "you" is the controller, but they would be "you" for it)
+    you = re.sub(r"\bthey control\b", "you control", re.sub(r"\btheir\b", "your", phrase))
+    parsed = scripts.parse_effects(you[:1].upper() + you[1:] + ".", "self")
+    if parsed is None or parsed[1] is not None or parsed[2] or not parsed[0] or any(
+            x["do"] not in _ACT_OK or x.get("as") or x.get("bind") or x.get("did") for x in parsed[0]):
+        return None
+    dumped = json.dumps(parsed[0])
+    if '"ref:' in dumped or '"target' in dumped or '"it"' in dumped or "event_amount" in dumped or "this_way" in dumped:
+        return None
+    return list(parsed[0]), you
+
+
+_reading = threading.local()  # (per thread: deck imports and jobs parse cards on other threads, so a shared flag could change a parse)
+
+
+def _read_alone(text: str) -> bool:
+    """-- each player may (wave 31B) -- does the rest of the grammar read this sentence by itself? (``pair`` stands back inside the probe)"""
+    from app.rules import scripts
+
+    if getattr(_reading, "on", False):
+        return True
+    _reading.on = True
+    try:
+        return scripts.parse_effects(text[:1].upper() + text[1:] + ".", "self", event_player=True) is not None
+    finally:
+        _reading.on = False
 
 
 def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_payment: str | None
@@ -65,13 +117,12 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
     if m is None:
         return None
     cost_phrase = m["cost"].replace(" of their choice", "")
+    tail = False
     then_texts: list[str] = []
     opp_texts: list[str] = []
     if (inline := _AND_DRAW.match(cost_phrase)) is not None:  # (one optional instruction: the draw is for the players who chose it)
         cost_phrase = "discard your hand"  # (the payer's own: each_may asks every player for theirs)
         then_texts.append(f"That player draws {inline['rest']}")
-    elif following is None:
-        return None
     nxt = re.sub(r"^then ", "", scripts._lower_first((following or "").rstrip(".").strip()))  # (wave 23A: "Then ~ deals 5 damage to each …")
     entry: dict[str, Any] = {"do": "each_may", "who": _WHO[m["who"]]}
     if cost_phrase == _SHARES:
@@ -86,10 +137,23 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
     elif (alts := optional_payment.alternatives(cost_phrase)) is not None:
         entry["alts"] = alts
     else:
-        return None
+        sp = _SPLIT_THEN.match(cost_phrase)  # -- each player may (wave 31B) -- "may draw a card, then each player who drew a card this way …"
+        if (act := _act(sp["act"] if sp else cost_phrase)) is None or _read_alone(text):
+            return None  # (a wording the sentence grammar already reads on its own — "each opponent may search their library for a basic land card, …" — stays as it was)
+        entry["act"], entry["text"] = act
+        if sp:
+            nxt, tail = sp["tail"], True
     body: str | None = None
-    used = 2
-    if (d := _WHO_DID.match(nxt)) is not None and d["who"] == m["who"] and entry.get("cost", "").startswith("Discard"):
+    used = 1 if tail else 2
+    acting = "act" in entry
+    if acting and "drew a card" in nxt and not any(x["do"] == "draw" for x in entry["act"]):
+        return None
+    shuffled = acting and _SHUFFLES.match(nxt) is not None and any(x["do"] == "search" for x in entry["act"])
+    if shuffled:  # (701.19: each who searched shuffles, once)
+        entry["act"] = [*entry["act"], {"do": "shuffle_library", "who": "you", "zones": []}]
+    elif acting and (fd := _FOR_EACH_DID.match(nxt)) is not None and fd["who"] == "opponent":
+        opp_texts.append(fd["rest"][:1].upper() + fd["rest"][1:])  # ("For each opponent who does, you create a Treasure token.": the controller's own, once each)
+    elif (d := _WHO_DID.match(nxt)) is not None and d["who"] == m["who"] and (entry.get("cost", "").startswith("Discard") or acting):
         then_texts.append(_third_person(d["rest"]))
     elif (td := _TO_EACH_DID.match(nxt)) is not None and td["who"] in (m["who"], "opponent") and entry.get("cost", "").startswith("Discard"):
         opp_texts.append(f"{td['lead']} to that player")  # ("each opponent who …" among each player: not the controller)
@@ -104,8 +168,12 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
                 a.startswith("Sacrifice") for a in entry.get("alts") or ()):
             return None  # ("who didn't sacrifice a permanent this way": only after a sacrifice)
         body = f"{t['lead']} to that player"
-    if body is None and not then_texts and not opp_texts:
+    if body is None and not then_texts and not opp_texts and not acting:
         return None
+    if acting and body is not None:
+        return None  # ("Each opponent who doesn't …" after an action: not read until a card needs it — Wernog's count of who did is not read either)
+    if acting and not (body or then_texts or opp_texts or shuffled):
+        used = 1  # (an action alone; the sentence after it is its own)
 
     def plain(sentence: str) -> list[dict[str, Any]] | None:
         parsed = scripts.parse_effects(sentence + ".", "self", event_player=True)
@@ -224,23 +292,32 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     added: list[dict[str, Any]] = []
     # -- review (wave 6R) -- 101.4: every choice first (in turn order), then the payments together (pay_deferred)
     defer = optional_payment.defers(cost, None if cost is not None else e.get("alts"))
-    for i, p in enumerate(players):
-        pay: dict[str, Any] = {"do": "optional_payment", "who": f"player:{p}", "cost": cost if cost is not None else e["alts"][0], "bind": f"{tag}{i}"}
-        if e.get("alts") and cost is None:
-            pay["alts"] = list(e["alts"])
-        if defer:
-            pay["defer"] = True
-        added.append(pay)
-    if defer and players:
-        added.append({"do": "pay_deferred", "binds": [f"{tag}{i}" for i in range(len(players))]})
+    acting = bool(e.get("act"))
+    if acting:  # -- each player may (wave 31B) -- 101.4: every player answers in turn order (tempting offers' question), then each who said yes does it as "you"
+        n = len(e["act"])
+        added += [{"do": "tempt_ask", "player": p, "bind": f"{tag}{i}", "text": e["text"]} for i, p in enumerate(players)]
+        for i, p in enumerate(players):
+            added += [{"do": "only_if", "cond": {"flag": f"{tag}{i}"}, "skip": n + 2}, {"do": "as_player", "player": p},
+                      *copy.deepcopy(e["act"]), {"do": "as_player_end"}]
+    else:
+        for i, p in enumerate(players):
+            pay: dict[str, Any] = {"do": "optional_payment", "who": f"player:{p}", "cost": cost if cost is not None else e["alts"][0], "bind": f"{tag}{i}"}
+            if e.get("alts") and cost is None:
+                pay["alts"] = list(e["alts"])
+            if defer:
+                pay["defer"] = True
+            added.append(pay)
+        if defer and players:
+            added.append({"do": "pay_deferred", "binds": [f"{tag}{i}" for i in range(len(players))]})
+    answered = "flag" if acting else "succeeded"  # (the answer of each: a recorded verdict, or a payment made)
     for i, p in enumerate(players):
         inner = _for(e.get("effects") or [], p)
         if inner:
-            added += [{"do": "only_if", "cond": {"succeeded": f"{tag}{i}", "negate": True}, "skip": len(inner)}, *inner]
+            added += [{"do": "only_if", "cond": {answered: f"{tag}{i}", "negate": True}, "skip": len(inner)}, *inner]
         for key in ("then", "then_opp"):  # -- each player may (wave 23A) -- the players who paid: "Each player who discarded a card this way draws a card"
             if e.get(key) and (key == "then" or p != ctx["controller"]):
                 done = _for(e[key], p)
-                added += [{"do": "only_if", "cond": {"succeeded": f"{tag}{i}"}, "skip": len(done)}, *done]
+                added += [{"do": "only_if", "cond": {answered: f"{tag}{i}"}, "skip": len(done)}, *done]
     ctx["effects"] = [*ctx["effects"][:at], *added, *ctx["effects"][at:]]
     effects.continue_effects(plan, ctx)
     return False

@@ -309,7 +309,7 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
     for src, index, d in permissions._table_statics(state, info, {"alt_cost"}):
         if not d.get("table") or src.controller != player or where == "foretell":
             continue
-        key = f"{src.id}:alt:{index}"
+        key = f"{r.object_id(src.id)}:alt:{index}"  # (-- review 31 -- 400.7: a new As Foretold / Darksteel Monolith has a new use, as permissions' review 30c)
         if d["once"] and r.once_per_turn.get(key) == state.turn.number:
             continue
         if d.get("zone") and not (where == d["zone"] and (d["zone"] != "hand" or card.zone == f"{player}:hand")):

@@ -564,6 +564,8 @@ class _Introducer:
             self.number = None  # (one card or several: whichever the referring wording says)
         if self.do == "edict" and g is None and who != "you":  # (wave 4A: one each, from several players)
             self.number = 2
+        if self.do == "player_chooses" and who in ("each_player", "each_opponent"):
+            self.number = None  # -- per-player choices (wave 31B) -- one each from several players: "Each opponent chooses a creature they control. … those creatures" (and Curfew's "it")
 
 
 def _exiles_countered(e: dict[str, Any]) -> bool:
@@ -2159,6 +2161,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # is offered their own payment in turn order, 101.4)
     body = re.sub(r"(^|\. )[Ee]ach (opponent|player) (sacrifices [^.]*?) unless they pay ((?:\{[^}]+\})+)\.",
                   lambda m: f"{m[1]}Each {m[2]} may pay {m[4]}. Each {m[2]} who doesn't {m[3]}.", body)
+    # -- per-player choices (wave 31B) -- "Starting with you, each player chooses a creature. Destroy each creature chosen this way." (The Horus
+    # Heresy), "… Destroy the chosen creatures." (Sadistic Shell Game): the creatures all of them chose, as "those creatures" names them
+    body = re.sub(r"(\b[Ee]ach player (?:may choose|chooses) [^.]+\. (?:Destroy|Exile) )(?:each (creature|permanent) chosen this way|the chosen (creatures|permanents))\.",
+                  lambda m: f"{m[1]}those {m[3] or m[2] + 's'}.", body)
     # -- control change (wave 26D) -- "It gains haste and myriad until end of turn." (Firbolg Flutist), "… and annihilator 2 …" (Flayer of Loyalties):
     # a keyword with its own triggered ability is granted as the ability line it is (613.1f, 702.116a, 702.86a), the quoted-grant grammar
     body = re.sub(r"((?:\bgains? |[Uu]ntil end of turn, [^.\"]*?\bgains? ))([^.\"]+?)( until end of turn|(?<=[a-z0-9])(?=\.|$))",
@@ -5695,8 +5701,8 @@ for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OT
                          (_language.CHOOSE_KINDS, _language.choose_kinds), (_language.CHOOSE_FOR_EACH, _language.choose_kinds),  # (wave 30K: before
                          (_language.CHOOSE_EACH_TYPE, _language.choose_each_type), (_language.CHOOSE_EACH_LAND, _language.choose_each_land),
                          (_language.CHOOSE_POWER_CAP, _language.choose_power_cap),  # PLAYER_CHOOSES)
-                         (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.REVEAL_HAND, _language.reveal_hand),
-                         (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
+                         (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.CHOOSE_ANY, _language.choose_any),  # (wave 31B)
+                         (_language.REVEAL_HAND, _language.reveal_hand), (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
                          (_language.CHOOSE_VALUE, _language.choose_value),
                          (_language.CHOOSE_FROM_HAND_GY, _language.choose_from_hand_gy), (_language.LOOK_HAND, _language.look_hand),  # (wave 11D)
                          (_language.DISCARD_ALL_REVEALED, _language.discard_all_revealed),
