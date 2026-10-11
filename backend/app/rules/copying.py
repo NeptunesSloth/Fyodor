@@ -992,12 +992,13 @@ def token_copy_request(plan: Plan, ctx: Context, controller: str, recipe: CopyRe
 
 
 def _entry_choice(plan: Plan, card_id: str) -> str | None:
-    """An "As ~ enters, choose …" of a token copy's copied text (707.6: made anew): today's token
-    path doesn't ask it, so it is left to the player."""
+    """An "As ~ enters, choose …" of a token copy's copied text (707.6: made anew) that the token path
+    couldn't ask (a site that can't pause: replace.create_token_batch asks it otherwise, wave 34A, and
+    the token then holds its choice), so it is left to the player."""
     from app.rules import scripts
 
     card = plan.state.cards.get(card_id)
-    if card is None:
+    if card is None or card.choices:
         return None
     for d in scripts.definitions(plan.ch(card)).values():
         if d.get("kind") == "replacement" and d.get("replacement") == "enters_choice":
