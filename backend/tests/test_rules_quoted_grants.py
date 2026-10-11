@@ -945,7 +945,7 @@ def test_mathas_grant_ends_when_the_counter_is_gone(cards):
 
 
 # -- what stays manual (never guessed) ---------------------------------------------------------------------
-@pytest.mark.parametrize("name", ["Hellish Rebuke", "Shackles of Treachery", "Restless Spire"])
+@pytest.mark.parametrize("name", ["Hellish Rebuke", "Restless Spire"])  # (Shackles of Treachery: read since wave 34B)
 def test_unreadable_grants_stay_manual(name):
     """Hellish Rebuke: the quote names the spell that grants it (a name inside a quote is the granter, not
     the object that gets the ability). Shackles of Treachery: its quote needs a clause the engine doesn't
