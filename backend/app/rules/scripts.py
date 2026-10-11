@@ -224,7 +224,7 @@ _ABILITY_WORD = re.compile(r"^(?:" + "|".join(re.escape(w).replace("'", "['’]"
                            re.IGNORECASE)
 
 
-_SELF_VERBS = r"(?:enters|attacks|dies|deals|becomes|is|gets|gains|can't|has|blocks|leaves|fights|isn't|doesn't)\b"
+_SELF_VERBS = r"(?:enters|entered|attacks|dies|deals|becomes|is|gets|gains|can't|has|blocks|leaves|fights|isn't|doesn't)\b"  # (wave 33D: "Kaito entered this turn")
 
 
 def _short_name(name: str, text: str = "") -> str | None:
@@ -616,7 +616,8 @@ def _cast_trigger_spell_cond(cond: dict[str, Any]) -> bool:
     """-- ability words (wave 9C) -- is a condition (or a part of one, under "not" / "all" / "any" as an "instead" clause
     makes it) about the mana spent to cast a cast trigger's spell ("if no mana was spent to cast it", opus)?"""
     cast = cond.get("cast") or {}
-    return bool(cast.get("no_mana") or cast.get("event_spell")) or (cond.get("stat") == "mana_value" and cond.get("object") == "it") or any(
+    return bool(cast.get("no_mana") or cast.get("event_spell")) or (cond.get("stat") == "mana_value" and cond.get("object") == "it") \
+        or cond.get("history") == "cast_nth" or any(  # (-- this-turn state (wave 33D) -- "if it's the second creature spell you cast this turn")
         _cast_trigger_spell_cond(c) for k in ("all", "any") for c in cond.get(k, ())) or (
         "not" in cond and _cast_trigger_spell_cond(cond["not"]))
 
@@ -4120,6 +4121,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if cond is not None and cond.get("event") == "you_attack":  # -- trigger sweep (wave 27B; review: an attack's own event only) --
                     body = re.sub(r"\b([Tt]hat|[Tt]he) attacking player\b", "that player", body)  # the event's player: the attacker (508.1)
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
+                if ante == "event" and cond is not None and not other_side.wanted(cond):  # -- this-turn state (wave 33D) -- Hixus: with no creature on
+                    body = re.sub(r"\bexile that creature until ~ leaves the battlefield", "exile it until ~ leaves the battlefield", body)  # the other side,
+                    # "that creature" is the event's own (610.3: exiled from the battlefield, so the linked return puts it back there)
                 if ante == "self_gone":  # -- trigger tail (wave 15B) -- "put her into her owner's library third from the top"
                     # (a gendered pronoun is written ~): the card after it left, found where it went (400.7e), like "it"
                     body = re.sub(r"\bput ~ into ~'s owner's library\b", "put it into its owner's library", body)
