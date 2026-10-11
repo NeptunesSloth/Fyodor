@@ -33,6 +33,7 @@ from tests.test_rules_conditionals import (
     on_field,
     sandbox,
     to_hand,
+    until,
     until_asked,
 )
 from tests.wave9c_kit import card_named, check
@@ -41,7 +42,7 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave34d_damage_cards.js
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w34d", number=f"D{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-FULL = ["Ureni, the Song Unending", "Jaws of Stone", "Volcanic Wind", "Monstrous Onslaught", "Magmatic Core", "Combustion Man",
+FULL = ["Far Fortune, End Boss", "Hallar, the Firefletcher", "Bloodstone Goblin", "Kratos, God of War", "Ureni, the Song Unending", "Jaws of Stone", "Volcanic Wind", "Monstrous Onslaught", "Magmatic Core", "Combustion Man",
         "Craig Boone, Novac Guard", "Black Panther, Most Dangerous"]
 
 
@@ -351,6 +352,52 @@ def test_a_prevention_shield_stops_black_panthers_damage_and_so_its_lifelink_and
     act(s, "p2", type="cast_spell", card_id=salve.id, modes=[1], targets=[wurm.id])
     answer(s)
     assert s.state.cards[wurm.id].zone == "p2:battlefield" and damage(s, wurm) == 0 and life(s, "p1") == 40
+    check(s)
+
+
+# -- the smaller pieces found on the way: max speed, "if that spell was kicked", "didn't attack this turn" ---------------------
+@pytest.mark.parametrize(("speed", "lost"), [(4, 2 + 5), (2, 1 + 4)])
+def test_far_fortune_adds_one_to_each_damage_only_at_max_speed(cards, speed, lost):
+    """702.178a, 614.1a: "Max speed — If a source you control would deal damage to an opponent …, it deals that much damage plus 1 instead." — its own attack
+    trigger (1) and its combat damage (4) go through the replacement at speed 4 and not before."""
+    s = sandbox(cards, "Far Fortune, End Boss")
+    fortune = on_field(s, "Far Fortune, End Boss")
+    combat_step(s)
+    act(s, "p1", type="set_resource", player="p1", key="speed", value=speed)
+    attack(s, (fortune, "p2"))
+    answer(s)
+    assert life(s, "p2") == 40 - lost
+    check(s)
+
+
+def test_hallar_counts_only_the_spells_that_were_kicked(cards):
+    """"Whenever you cast a spell, if that spell was kicked, …" (603.4, 702.33): the plain spell does nothing, the kicked one grows Hallar and he deals damage
+    equal to his counters to each opponent."""
+    s = sandbox(cards, "Hallar, the Firefletcher", *["Test Surge"] * 3)
+    hallar = on_field(s, "Hallar, the Firefletcher")
+    main_phase(s)
+    for kicker, counters_now, bob in ((0, 0, 40), (1, 1, 39), (1, 2, 37)):
+        surge = next(c for c in s.state.cards.values() if c.name == "Test Surge" and c.owner == "p1" and c.zone in ("p1:library", "p1:hand"))
+        act(s, "p1", type="move", card_ids=[surge.id], to={"zone": "hand"})
+        mana(s, "p1", G=1, C=2 if kicker else 0)
+        act(s, "p1", type="cast_spell", card_id=surge.id, targets=[hallar.id], **({"kicker": 1} if kicker else {}))
+        answer(s)
+        assert (counters(s, hallar), life(s, "p2")) == (counters_now, bob)
+    check(s)
+
+
+def test_kratos_deals_damage_for_the_creatures_that_did_not_attack(cards):
+    """"… the number of creatures that player controls that didn't attack this turn" (508.1): Kratos himself and the 1/1 that stayed home, not the one that
+    attacked."""
+    s = sandbox(cards, "Kratos, God of War")
+    on_field(s, "Kratos, God of War")
+    raider = creature(s, "p1", "Alice's Raider", "1/1")
+    creature(s, "p1", "Alice's Squire", "1/1")
+    combat_step(s)
+    attack(s, (raider, "p2"))
+    answer(s)
+    until(s, lambda s: s.state.turn.number == 2)  # (Alice's end step: Kratos's trigger resolved with the rest of her turn)
+    assert life(s, "p1") == 40 - 2
     check(s)
 
 
