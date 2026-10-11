@@ -555,7 +555,7 @@ def _controls_more(state: GameState, info: CardInfo | None, sel: str, a: str, b:
 
 def attack_forbidden(plan: Plan, ch: Characteristics, target: str) -> bool:
     """-- attached events (wave 4L) -- 508.1c: "can't attack you [or planeswalkers you control]" (rules
-    ``cant_attack_player:<player>`` / ``cant_attack_player_pw:<player>``, "you" being the static's controller); -- static_other sweep
+    ``cant_attack_player:<player>`` / ``cant_attack_player_pw:<player>`` / ``cant_attack_player_perm:<player>`` (wave 32B), "you" being the static's controller); -- static_other sweep
     (wave 21A) -- "can't attack unless / if defending player …" (``cant_attack_unless_def:<fact>`` / ``cant_attack_if_def:<fact>``)."""
     for rule in ch.imposed:
         name, _, who = rule.partition(":")
@@ -564,12 +564,16 @@ def attack_forbidden(plan: Plan, ch: Characteristics, target: str) -> bool:
             if defender in plan.state.players and _defender_fact(plan, who, defender) == (name == "cant_attack_if_def"):
                 return True
             continue
-        if name not in ("cant_attack_player", "cant_attack_player_pw"):
+        if name not in ("cant_attack_player", "cant_attack_player_pw", "cant_attack_player_perm"):
             continue
         if target == who:
             return True
         card = plan.state.cards.get(target)
         if name == "cant_attack_player_pw" and card is not None and card.controller == who                 and "Planeswalker" in plan.ch(card).types:
+            return True
+        # -- attack restrictions (wave 32B) -- "can't attack you or permanents you control": a planeswalker or a battle (506.3) the player controls
+        # (the battle's controller, 110.2 — not its protector)
+        if name == "cant_attack_player_perm" and card is not None and card.controller == who:
             return True
     return False
 

@@ -575,7 +575,8 @@ def _enters_tapped(text: str) -> Definition | None:
 # permanents already there give it (a creature entering with Renata doesn't get one: ruling).
 _ENTER_EXTRA = re.compile(
     r"^(?:Each (?P<one>.+?) enters|(?P<many>[A-Z].+?) enter) with (?:(?P<n>an|one|two|three|four|five) additional "
-    r"(?P<k>\+1/\+1|loyalty) counters?|a number of additional (?P<k2>\+1/\+1|loyalty) counters) on (?:it|them)"
+    r"(?P<k>\+1/\+1|loyalty|flying|deathtouch|haste|hexproof|indestructible|lifelink|menace|reach|shadow|trample|vigilance) counters?"  # (33C: Tayam's keyword counter, 122.1b)
+    r"|a number of additional (?P<k2>\+1/\+1|loyalty) counters) on (?:it|them)"
     r"(?: for each (?P<each>.+?)| equal to (?P<eq>~'s|this creature's) (?P<stat>power|toughness))?\.$")
 
 

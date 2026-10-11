@@ -143,9 +143,9 @@ _COMMANDER = re.compile(r"you control (?P<which>your commander|a commander)")
 _OBJECT_WORDS = {"it": "it", "~": "self", "the sacrificed creature": "cost:sacrificed", "the sacrificed permanent": "cost:sacrificed",
                  "the sacrificed artifact": "cost:sacrificed",  # (wave 16D: what a cost sacrificed, values._object)
                  "the discarded card": "cost:discarded",  # (wave 17B: the one card a cost discarded, values._object)
-                  "that creature": "it", "that permanent": "it", "that card": "it",
+                  "that creature": "it", "that permanent": "it", "that card": "it", "that spell": "event",  # (33C: a cast trigger's spell, never an earlier instruction's object)
                  "that land": "it", "that token": "it", "that artifact": "it"}
-_OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact)|the sacrificed (?:creature|permanent|artifact)|the discarded card) "
+_OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact|spell)|the sacrificed (?:creature|permanent|artifact)|the discarded card) "
                      r"(?P<verb>is not|was not|isn't|wasn't|is|was) (?P<what>.+)")  # (wave 11F: "is not" before "is")
 _SAME_NAME_OF = re.compile(r"it (?:doesn't|does not) have the same name as .+")  # (wave 32A)
 # -- intervening ifs (wave 11F) -- "~ is enchanted", "it's enchanted or equipped" (303.4, 301.5: an Aura / Equipment
@@ -154,6 +154,8 @@ _ATTACHED = {"enchanted": ("Aura",), "equipped": ("Equipment",), "enchanted or e
 _BEATS_SELF = re.compile(r"(?P<who>it|that creature) has greater (?P<a>power|toughness)(?: or (?P<b>power|toughness))? than ~|"
                          r"(?P<who2>its|that creature's) power is greater than ~'s(?: power)?"
                          r"(?: (?:or|and/or) (?:its|that creature's) toughness is greater than ~'s toughness)?")  # (and/or: 702.100a, wave 15E)
+# -- counters (wave 33C) -- "put a +1/+1 counter on that creature if its power is less than Shelinda's power": the same comparison the other way
+_LESS_SELF = re.compile(r"(?:its|that creature's) power is less than ~'s(?: power)?")
 # -- static_other sweep (wave 17C) -- 608.2h: "If you controlled that permanent" (Boomerang Basics): the controller it had, as it is
 # or as it last existed
 _CONTROLLED = re.compile(r"you (?:(?P<neg>didn't|did not) control|controlled) (?:it|that (?:creature|permanent|card|land|token|artifact|enchantment|planeswalker))")
@@ -1112,6 +1114,10 @@ def _object(t: str) -> Condition | None:
     m = _CONTROLLED.fullmatch(t)
     if m:
         return {"object": "it", "controlled_by": "you", **({"negate": True} if m["neg"] else {})}
+    if t == "that opponent has more life than another of your opponents":  # -- counters (wave 33C) -- Breena: the player the attack was declared against
+        return {"defended_more_life": True}
+    if t == "it entered under your control":  # -- counters (wave 33C) -- Phelia, Hallowed Respite: the object a "return it to the battlefield under its owner's control" made, now
+        return {"object": "it", "controlled_by": "you"}
     if re.fullmatch(r"(?:this card|~) is in your graveyard", t):  # -- graveyard triggers (wave 19C) -- the source, still the object that triggered
         return {"object": "self", "test": "in_graveyard"}
     if re.fullmatch(r"(?:this card|~) is in the command zone or on the battlefield", t):  # -- trigger other (wave 25B) -- eminence, 113.6b
@@ -1124,6 +1130,8 @@ def _object(t: str) -> Condition | None:
     if m:
         stats = [x for x in (m["a"], m["b"]) if x] if m["a"] else ["power"] + (["toughness"] if "toughness" in t else [])
         return {"object": "it", "beats_self": stats}
+    if _LESS_SELF.fullmatch(t):  # -- counters (wave 33C) -- Shelinda, Yevon Acolyte: strictly less (an equal power is the "Otherwise")
+        return {"object": "it", "beats_self": ["power"], "lt": True}
     m = _SAME_NAME_OF.fullmatch(t)  # -- same name (wave 32A) -- 201.2a: "if it doesn't have the same name as another creature you control or a creature card in your graveyard"
     if m:  # (Guardian Project): the object's name against the others' (selectors._same_name), as it is or as it last existed (608.2h)
         sel = selectors.parse("permanent that " + t.split(" ", 1)[1])
@@ -1173,6 +1181,8 @@ def needs_event(cond: Condition) -> bool:
     attacked ("defending player")? Only a triggered ability has them (scripts._event_refs_ok)."""
     if "as" in cond:
         return cond["as"] != "any" or needs_event(cond["cond"])
+    if cond.get("defended_more_life"):  # -- counters (wave 33C) -- reads the player an attack trigger's event was declared against
+        return True
     return any(needs_event(c) for k in ("all", "any") for c in cond.get(k, ())) or (
         "not" in cond and needs_event(cond["not"])) or (
         cond.get("versus", {}).get("who") in ("event", "defended") or cond.get("versus", {}).get("ref") in ("event", "defended"))
@@ -1214,6 +1224,10 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "defended_more_life" in cond:  # -- counters (wave 33C) -- 508.3e: the player attacked has more life than one of the controller's other opponents
+        defended = (ctx.get("event") or {}).get("defended")
+        return defended in plan.state.players and any(
+            p not in (defended, ctx["controller"]) and plan.state.players[p].life < plan.state.players[defended].life for p in plan.live())
     if "vote" in cond:  # -- voting (wave 18C) -- this resolution's own vote (app/rules/voting.py)
         from app.rules import voting
 
@@ -1416,7 +1430,7 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         if mine is None:
             return False
         pairs = [(values._stat_of(ch, st), values._stat_of(mine[1], st)) for st in cond["beats_self"]]
-        return any(a is not None and b is not None and a > b for a, b in pairs)
+        return any(a is not None and b is not None and (a < b if cond.get("lt") else a > b) for a, b in pairs)
     if "counters" in cond:  # -- counters (wave 5H) -- as it is, or as it last existed (603.10a)
         kind = cond["counters"]
         if "op" in cond:  # -- counter counts (wave 30L) -- how many (122.1)
@@ -1505,6 +1519,8 @@ def _cast_who(word: str) -> str:
     return "it" if word == "it" else "self"
 
 
+# -- counters (wave 33C) -- some one of the objects an aggregated trigger ("one or more creatures you control enter") is about, 603.2c
+_SOME_OF_THEM = re.compile(r"one or more of them entered from a graveyard(?: or (?:was|were) cast from (?P<b>a graveyard))?")
 _NO_MANA = re.compile(r"no mana was spent to cast (?:it|that spell)")  # -- if you do (wave 5G) --
 # -- ability words (wave 9C) -- opus: "If five or more mana was spent to cast that spell, …" (a cast trigger's spell)
 _SPENT_TOTAL_THAT = re.compile(r"(?P<n>\w+) or more mana was spent to cast that spell")
@@ -1541,6 +1557,12 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "it", "cast": {"total": "under_mv", "event_spell": True}}
     if _SPENT_OVER_PT.fullmatch(t):  # -- static_other sweep (wave 16B) -- increment: more than the source's power or toughness (702.190a)
         return {"object": "it", "cast": {"total": "over_min_pt", "event_spell": True}}
+    m = _SOME_OF_THEM.fullmatch(t)
+    if m:  # -- counters (wave 33C) -- Celes, Kotis: "if one or more of them entered from a graveyard or was cast from a graveyard" (an aggregated enter)
+        parts: list[Condition] = [{"object": "event", "each": "any", "cast": {"entered_from": "graveyard"}}]
+        if m["b"]:
+            parts.append({"object": "event", "each": "any", "cast": {"from": "graveyard"}})
+        return {"any": parts} if m["b"] else parts[0]
     m = re.fullmatch(r"(?P<who>it|~|this creature|that creature) entered from (?P<z>your graveyard|a graveyard|exile|your hand)", t)
     if m:  # -- history (wave 22E) -- Archfiend's Vessel: "if it entered from your graveyard or you cast it from your graveyard"
         return {"object": "it" if m["who"] in ("it", "that creature") else "self", "cast": {"entered_from": m["z"].replace("a ", "")}}
@@ -1601,6 +1623,10 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     the spell is on the stack, once it became a permanent and after that left (608.2h). No record — it wasn't cast
     (put onto the battlefield, a copy) — fails every such test."""
     how = cond["cast"]
+    if cond.get("each") == "any":  # -- counters (wave 33C) -- "if one or more of them …": some object of the event's batch
+        event = ctx.get("event") or {}
+        one = {k: v for k, v in cond.items() if k != "each"}
+        return any(_cast_holds(plan, {**ctx, "event": {**event, "objects": [r]}}, one) for r in event.get("objects") or [])
     if "entered_from" in how:  # -- history (wave 22E) -- "if it entered from your graveyard": where this turn's entry came from
         from app.rules import context, history
 

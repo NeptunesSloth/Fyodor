@@ -177,26 +177,42 @@ def _qualified(c: str) -> Condition | None:
     "you gain / lose life", "you create one or more tokens" "for the first time each turn" (also "during each of your
     turns"): the first such event of that player this turn, kept per player per turn whoever is watching, so an object that
     entered later this turn still sees the earlier ones (triggers._generic_events)."""
-    during = first = None
+    during = first = wh = None
+    # -- counters (wave 33C) -- "Whenever another creature you control enters while this creature has a -1/-1 counter on it" (Bristlebane Battler,
+    # Reluctant Dounguard, Moonshadow), "… becomes tapped while it has a -1/-1 counter on it" (Encumbered Reejerey): part of the trigger event,
+    # read as it happens (603.2; not an "if" after the comma, so 603.4's second look on resolution doesn't apply), as ``while`` on an attack
+    m = re.fullmatch(r"(?P<c>.+?) while (?P<w>(?:~|it) has (?:an?|one or more|\w+ or more) (?:\+1/\+1|-1/-1|[a-z]+) counters? on (?:it|~))", c)
+    if m:
+        c, wh = m["c"], m["w"]
     m = re.fullmatch(r"(?P<c>.+?) during (?P<t>your|an opponent's|their) turn", c)
     if m:
         c, during = m["c"], {"your": "you", "an opponent's": "opponent", "their": "their"}[m["t"]]
-    m = re.fullmatch(r"(?P<c>.+?) for the first time (?P<w>each turn|during each of your turns)", c)
+    m = re.fullmatch(r"(?P<c>.+?) for the first time (?P<w>each turn|during each of your turns|during each of their turns)", c)
     if m:
         c, first = m["c"], True
         if m["w"] != "each turn":
-            during = "you"
-    if during is None and first is None:
+            during = "you" if m["w"].endswith("your turns") else "their"
+    if during is None and first is None and wh is None:
         return None
     inner = _parse(c)
     if inner is None and during and re.search(r" (?:second|third|fourth|fifth) ", c):
         inner = _parse(f"{c} each turn")  # ("their second card during their turn": the Nth this turn, as "… each turn")
     if inner is not None and during == "their" and inner.get("subject") != "player":
         return None  # ("their" is the acting player's: only a player subject has one)
-    if inner is None or (first and (inner.get("event") not in ("gain_life", "lose_life", "create_token")
-                                    or inner.get("subject") != "player" or inner.get("player") != "you")):
+    # (-- counters (wave 33C) -- "Whenever an opponent loses life for the first time during each of their turns" (Valgavoth, Harrower of Souls): each such
+    # player's first this turn, which must be their own turn)
+    if inner is None or (first and (inner.get("event") not in ("gain_life", "lose_life", "create_token") or inner.get("subject") != "player"
+                                    or inner.get("player") not in (("opponent", "any") if during == "their" else ("you",)))):
         return None
-    return {**inner, **({"during": during} if during else {}), **({"first_each_turn": True} if first else {})}
+    holds = None
+    if wh is not None:  # ("it" is this creature only when the event is about this creature itself)
+        from app.rules import conditions
+
+        holds = conditions.parse(re.sub(r"^it ", "~ ", wh) if inner is not None and inner.get("subject") == "self" else wh, objects=True)
+        if holds is None or (holds.get("object") != "self" and (holds.get("value") or {}).get("on") != "self"):
+            return None
+    return {**inner, **({"during": during} if during else {}), **({"first_each_turn": True} if first else {}),
+            **({"while": holds} if holds else {})}
 
 
 def _object_sel(phrase: str, *, card: bool = False) -> str:
@@ -360,6 +376,9 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(rf"{_P} draws? (?:their|your) (?P<nth>first|second|third) card each turn", c)
     if m:
         return {"event": "draw", "subject": "player", "player": _PLAYERS[m["p"]], "nth": _NTH[m["nth"]]}
+    m = re.fullmatch(rf"{_P} draws? (?:their|your) first or second card each turn", c)  # -- counters (wave 33C) -- Lady Octopus: the first two of the turn
+    if m:
+        return {"event": "draw", "subject": "player", "player": _PLAYERS[m["p"]], "nth_max": 2}
     # -- triggers (wave 5D) -- "an opponent draws a card except the first one they draw in each of their draw steps"
     # (Orcish Bowmasters): not the first card that player draws during their own draw step (504.1's draw, usually)
     m = re.fullmatch(rf"{_P} draws a card except the first one they draw in each of their draw steps", c)
@@ -821,8 +840,14 @@ def _cast(c: str) -> Condition | None:
         spell = one["rest"]
     tg = re.fullmatch(r"(?P<rest>.+?) that targets (?P<t>~|an? .+|one or more .+)", spell)
     if tg:
+        opp = re.fullmatch(r"an opponent or (an? .+)", tg["t"])  # -- counters (wave 33C) -- Danitha: a player who is an opponent, or a permanent like that
         if tg["t"] == "~":
             out["targets"] = "self"
+        elif opp:
+            sel = selectors.parse(re.sub(r"^an? ", "", opp[1]))
+            if sel is None or sel.player is not None or sel.card:
+                return None
+            out["targets"] = "opp_or:" + sel.key()
         else:
             sel = selectors.parse(re.sub(r"^(?:an?|one or more) ", "", tg["t"]))
             if sel is None or sel.player is not None or sel.card:
@@ -909,7 +934,9 @@ def _player_action(c: str) -> Condition | None:
 # -- activation (wave 11F) -- 602.2: "Whenever an opponent activates an ability of an artifact, creature, or land that
 # isn't a mana ability", "Whenever you activate a loyalty ability". Mana abilities never use the stack (605.3b), so only
 # "that isn't a mana ability" (or a loyalty ability, 606.1: never a mana ability, 605.1a) is read: ``nonmana``
-_ACTIVATE = re.compile(rf"{_P} activates? (?:(?P<loyalty>a loyalty ability)|an ability)(?: of (?P<o>an? .+?)(?P<own> they control)?"
+# -- counters (wave 33C) -- "Whenever you activate an exhaust / a boast / a power-up ability" (Adrenaline Jockey, Frenzied Raider, Marvel Boy): the
+# activated ability whose text begins with that ability word (702.177a, 702.142a, 702.193a: each is an activated ability, never a mana ability)
+_ACTIVATE = re.compile(rf"{_P} activates? (?:(?P<loyalty>a loyalty ability)|an? (?P<word>exhaust|boast|power-up) ability|an ability)(?: of (?P<o>an? .+?)(?P<own> they control)?"
                        r"(?: on the battlefield)?)?(?P<nonmana> that isn't a mana ability)?"
                        r"(?: that targets (?P<tg>an? [a-z]+(?: or [a-z]+)?))?")
 # -- stack interaction (wave 23B) -- 602.2, 603.2: "Whenever an ability of equipped creature is activated" (Illusionist's Bracers): an
@@ -945,9 +972,9 @@ def _activate(c: str) -> Condition | None:
     tg = _ability_targets(m["tg"]) if m["tg"] else None
     if m["tg"] and (tg is None or m["loyalty"]):
         raise _Refuse
-    return {"event": "activate", "subject": "player", "player": _PLAYERS[m["p"]], "nonmana": bool(m["nonmana"]),
+    return {"event": "activate", "subject": "player", "player": _PLAYERS[m["p"]], "nonmana": bool(m["nonmana"] or m["word"]),
             "loyalty": bool(m["loyalty"]), **({"obj": sel.key()} if sel is not None else {}), **({"own": True} if m["own"] else {}),
-            **({"ability_targets": tg} if tg else {})}
+            **({"ability_targets": tg} if tg else {}), **({"word": m["word"]} if m["word"] else {})}
 
 
 _PLAIN_COUNTERS = frozenset({"lore", "loyalty", "charge", "oil", "time", "quest", "stun", "flying", "shield"})

@@ -78,6 +78,7 @@ class AbilityText:
     section: int = 1  # -- Class (wave 16A) -- 716.2a: the class level whose "as long as this Class is level N or greater" it is under
     keeps: str | None = None  # -- attached events (wave 25D) -- 702.16n: a granted protection that "doesn't remove" "auras" / "self:<granting Aura's id>"
     special: str | None = None  # -- mana for special abilities (wave 19E) -- "equip": an equip ability (702.6); a "Power-up — " line reads as "power_up"
+    linked: str | None = None  # -- linked words (wave 33B) -- 607.2f: the word of "As ~ enters, choose Khans or Dragons." this ability ("• Khans — …") belongs to
 
 
 def strip_reminders(text: str) -> str:
@@ -87,6 +88,7 @@ def strip_reminders(text: str) -> str:
     return text
 
 
+_WORDS_HEADER = re.compile(r"As (?:this [a-z]+|~) enters, choose ([A-Z][\w'’-]*) or ([A-Z][\w'’-]*)\.")  # (wave 33B: 607.2f)
 _TYPECYCLING = re.compile(r"^((?:basic )?[a-z]+cycling)(?: \{|$)")
 
 
@@ -306,6 +308,14 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
             level = int(m[2])
         else:
             sections.append(level)
+    # -- linked words (wave 33B) -- 607.2f: "As this enchantment enters, choose Khans or Dragons." and a bulleted line for each word ("• Khans — …"):
+    # each bullet is an ability of its own, linked to that choice; the bullet and its word are labels (207.2c), not part of the ability
+    linked: dict[int, str] = {}
+    for i, line in enumerate(lines[:-2]):
+        if (m := _WORDS_HEADER.fullmatch(line)) and not spell and lines[i + 1].startswith(f"• {m[1]} — ") and lines[i + 2].startswith(f"• {m[2]} — ") \
+                and m[1] != m[2] and not (i + 3 < len(lines) and lines[i + 3].startswith("•")):
+            for j, word in ((i + 1, m[1]), (i + 2, m[2])):
+                lines[j], linked[j] = lines[j][len(f"• {word} — "):], word
     tail: list[tuple[str, int]] = []
     for n, line in enumerate(lines):
         # -- keyword meanings (wave 11B) -- 702.107a: "Outlast [cost]" means "[Cost], {T}: Put a +1/+1 counter on this
@@ -350,7 +360,7 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
 
             line = speed.rewrite(line)
         kind, kws, cost = classify(line, spell=spell)
-        out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n]))
+        out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n], linked=linked.get(n)))
         # -- keyword meanings (wave 18E) -- 702.151a: "Reconfigure [cost]" is two activated abilities, "[Cost]: Attach this permanent to another
         # target creature you control. Activate only as a sorcery." and "[Cost]: Unattach this permanent. Activate only if this permanent is
         # attached to a creature and only as a sorcery."; 702.151b: attached to a creature, it isn't a creature (a static of its own).

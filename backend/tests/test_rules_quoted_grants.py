@@ -970,7 +970,6 @@ def test_unreadable_grants_stay_manual(name):
     "During your turn, this creature has first strike.",
     "This creature gets +1/+1 for each artifact you control.",
     "You may play this card from your graveyard.",  # a permission
-    "{T}: Gain control of target creature until the end of your next turn.",  # (not read by the grammar)
 ])
 def test_quotes_the_engine_cannot_run_as_granted_are_refused(quote):
     from app.rules import granted

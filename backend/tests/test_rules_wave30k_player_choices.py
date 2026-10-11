@@ -360,7 +360,7 @@ def test_slaughter_the_strong_a_creature_with_negative_power_subtracts(cards):
     ("Spell kind", "Sorcery", "Each player chooses an instant, a creature from among the permanents they control, then sacrifices the rest.", "PARTIAL"),
     ("Returns", "Sorcery", "Each player chooses an artifact, a creature from among the permanents they control, then returns the rest.", "PARTIAL"),
     ("Single Combat", "Sorcery", "Each player chooses a creature or planeswalker they control, then sacrifices the rest. Players can't cast "
-                                 "creature or planeswalker spells until the end of your next turn.", "PARTIAL"),
+                                 "creature or planeswalker spells until the end of your next turn.", "FULL"),  # (the casting limit since wave 32C)
     ("Stick Together", "Sorcery", "Each player chooses a party from among creatures they control, then sacrifices the rest.", "PARTIAL"),
 ])
 def test_coverage_levels(name, type_line, text, level):

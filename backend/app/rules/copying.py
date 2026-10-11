@@ -296,6 +296,9 @@ def with_level(state: GameState, card: CardInstance, ch: Characteristics, info: 
         return chars.with_doors(ch, data, doors)
     if ch.doors is None and any(a.section > 1 for a in ch.abilities):
         ch = replace(ch, level=r.levels.get(oid, 1))
+    if any(a.linked for a in ch.abilities):  # -- linked words (wave 33B) -- 607.2f: the word it chose as it entered (none: no linked ability)
+        ch = replace(ch, word=r.chosen_words.get(oid) or (card.choices.get("Chosen word", "") if card.zone.endswith(":battlefield") else ""))
+        # (a permanent put onto the battlefield by hand made no choice the rules recorded: the table's "Chosen word" entry stands in, as for a color)
     return ch
 
 
@@ -989,12 +992,13 @@ def token_copy_request(plan: Plan, ctx: Context, controller: str, recipe: CopyRe
 
 
 def _entry_choice(plan: Plan, card_id: str) -> str | None:
-    """An "As ~ enters, choose …" of a token copy's copied text (707.6: made anew): today's token
-    path doesn't ask it, so it is left to the player."""
+    """An "As ~ enters, choose …" of a token copy's copied text (707.6: made anew) that the token path
+    couldn't ask (a site that can't pause: replace.create_token_batch asks it otherwise, wave 34A, and
+    the token then holds its choice), so it is left to the player."""
     from app.rules import scripts
 
     card = plan.state.cards.get(card_id)
-    if card is None:
+    if card is None or card.choices:
         return None
     for d in scripts.definitions(plan.ch(card)).values():
         if d.get("kind") == "replacement" and d.get("replacement") == "enters_choice":
