@@ -32,10 +32,14 @@ one that has no such counter any more drops out, and the effect ends with the la
 doesn't change what an effect applies to: a characteristic-changing effect stays locked to the
 objects it began on (611.2c), so a "this turn" pump keeps going when the creature changes controllers.
 
+-- turn-long triggers (wave 35B) -- A "this turn" one may watch several objects ("Whenever a creature dealt damage this way dies this turn":
+each permanent the damage was actually dealt to, a trigger for each, 603.7b) or one object a later part of the spell named ("When the creature
+an opponent controls dies this turn", app/rules/watches.py), have an intervening "if" (603.4) and a target of its own for what it does.
+
 Not modelled here (the wording stays manual, never guessed; turn watches: app/rules/watches.py): (an "each"
 duration), conditions on the deferred effect
-("… if it didn't attack this turn"), several watched objects ("when a creature dealt damage this
-way dies"), and linked leaves-the-battlefield abilities of a *second* ability line (607).
+("… if it didn't attack this turn"), "dealt damage by that creature" watches, and linked leaves-the-battlefield abilities of a
+*second* ability line (607).
 """
 
 from __future__ import annotations
@@ -72,7 +76,7 @@ END_OF_COMBAT = {"kind": "step", "step": "end_combat", "whose": "next"}  # -- ot
 WHEN_RE = "|".join(re.escape(k) for k in sorted(WHEN, key=len, reverse=True))
 # "when that creature dies / leaves the battlefield this turn": the object an earlier part named
 EVENT_SUBJECTS = ("it", "that creature", "that permanent", "that token", "that card", "~", "this creature",
-                  "target creature", "target permanent")
+                  "target creature", "target creature other than ~", "target permanent")  # (wave 35B: Adarkar Valkyrie)
 EVENT_VERBS = {"dies": "die", "leaves the battlefield": "leave", "is put into a graveyard": "die"}
 EVENT_RE = "|".join(re.escape(k) for k in sorted(EVENT_VERBS, key=len, reverse=True))
 
@@ -134,6 +138,8 @@ def inner_for_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | Non
             e["who"] = "event.new" if e.get("do") in _MOVES else "event"
         elif who in ("it.controller", "it.owner"):
             e["who"] = f"ref:event.{who[3:]}"
+        elif isinstance(who, str) and who.startswith("graveyard_of:it."):  # -- turn-long triggers (wave 35B) -- "exile its controller's graveyard": the
+            e["who"] = "graveyard_of:ref:event." + who[len("graveyard_of:it."):]  # controller as it last was (608.2h, 603.10a)
         elif who == "it:exiled":  # -- hidden exile (wave 18A) -- "the exiled card": the earlier instruction's, bound by resolve_it (Ugin)
             pass
         elif who == "that_player" or (isinstance(who, str) and who.startswith(("it:", "them:"))):
@@ -183,7 +189,7 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         from app.rules import context
         from app.rules.effects import _cards
 
-        watched = _cards(plan, ctx, e["who"])
+        watched = dealt_cards(plan, ctx, e["dealt"], e.get("types")) if e.get("dealt") else _cards(plan, ctx, e["who"])  # (wave 35B)
         watched = [c for c in watched if plan.state.cards[c].zone.endswith(":battlefield")]
         if not watched:  # 603.7a: it already left — the event can't happen to that object
             plan.note(f"{ctx.get('name') or 'The ability'}: nothing to watch (it already left)")
@@ -212,6 +218,26 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     plan.rules.delayed.append(trigger)
     plan.note(f"{trigger.name or 'A delayed ability'} will trigger {describe_when(when)}")
     return True
+
+
+def object_deferred(effects: list[dict[str, Any]]) -> set[int]:
+    """-- turn-long triggers (wave 35B) -- the indices of the effects a "When that creature dies / leaves the battlefield this turn" trigger
+    defers: the one object its event is about (as it last existed, 603.10a) is what they name of "the event" ("lesser mana value")."""
+    out: set[int] = set()
+    for i, e in enumerate(effects):
+        if e.get("do") == "delayed" and e.get("when", {}).get("kind") == "event":
+            out.update(range(i + 1, i + 1 + int(e.get("n", 0))))
+    return out
+
+
+def dealt_cards(plan: Plan, ctx: Context, key: str, types: list[str] | None) -> list[str]:
+    """-- turn-long triggers (wave 35B) -- "a creature dealt damage this way": the permanents (of those types) that the damage instruction
+    before it actually dealt damage to (after prevention, effects.DEALT_KEY), each still the object that was dealt it (400.7)."""
+    from app.rules.effects import DEALT_KEY
+
+    oids = set((ctx.get(DEALT_KEY) or {}).get(key) or [])
+    return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) in oids
+            and (not types or set(types) & plan.ch(c).types)]
 
 
 def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, name: str, *, sacrifice: bool = False,
@@ -274,6 +300,7 @@ def _fire(plan: Plan, t: DelayedTrigger, event: TriggerEvent | None) -> PendingT
     if t.controller not in plan.live():
         return None
     definition = {"kind": "triggered", "trigger": "delayed", "optional": False, "target": t.target,  # (target: wave 25C, a turn watch's own)
+                  **({"if": t.when["if"]} if t.when.get("if") else {}),  # (-- turn-long triggers (wave 35B) -- an intervening "if", 603.4: as it triggers; as it resolves is its first effect)
                   "effects": [{"do": "bind_refs", "refs": t.refs}, *(_swap_who(t.effects, WATCH_TARGET, "target") if t.target else t.effects)]}
     return _add(plan, controller=t.controller, source_card=t.source_card or "", source_object=t.source_object or "",
                 name=t.name, index=7000, definition=definition, event=event)
@@ -331,7 +358,7 @@ def on_events(plan: Plan, events: list[Event]) -> None:
             continue
         died = _zone(e.to_zone) == "graveyard" or (e.to_zone is None and snap.is_token)
         for t in watching:
-            if t in fired:
+            if t in fired and t.once:  # (-- turn-long triggers (wave 35B) -- a "this turn" one on several objects triggers for each: 603.7b)
                 continue
             oids = {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []}
             if e.object_id not in oids or (t.when["event"] == "die" and not died):
