@@ -178,5 +178,26 @@
   ],
   "power": "12",
   "toughness": "12"
+ },
+ {
+  "name": "Aven Mimeomancer",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Bird Wizard",
+  "oracle_text": "Flying\nAt the beginning of your upkeep, you may put a feather counter on target creature. If you do, that creature has base power and toughness 3/1 and has flying for as long as it has a feather counter on it.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "3",
+  "toughness": "1"
  }
 ]

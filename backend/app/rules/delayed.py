@@ -32,6 +32,10 @@ one that has no such counter any more drops out, and the effect ends with the la
 doesn't change what an effect applies to: a characteristic-changing effect stays locked to the
 objects it began on (611.2c), so a "this turn" pump keeps going when the creature changes controllers.
 
+-- as long as (wave 37A) -- One duration may cover a list of effects of one sentence ("gain control of that permanent, it loses all abilities, and it can't
+attack or block", ``duration_pieces``), and "until this card is cast from exile" (``until_cast``) ends as the object its cost exiled from the hand is
+cast (601.2i; ``spell_cast``, 400.7j) — if that object already left, the effect lasts (the ruling for Rakish Revelers).
+
 -- turn-long triggers (wave 35B) -- A "this turn" one may watch several objects ("Whenever a creature dealt damage this way dies this turn":
 each permanent the damage was actually dealt to, a trigger for each, 603.7b) or one object a later part of the spell named ("When the creature
 an opponent controls dies this turn", app/rules/watches.py), have an intervening "if" (603.4) and a target of its own for what it does.
@@ -602,7 +606,7 @@ def duration_clause(m: re.Match[str]) -> tuple[str, str]:
 # control of that permanent, it loses all abilities, and it can't attack or block." (Opportunistic Dragon), "… another target permanent loses all
 # abilities and can't attack or block" (Immovable Rod): when the whole clause isn't one the grammar reads, each piece is read as a clause of its own
 # (a piece with no subject is about "it", the object the first names) and they all last as long as the duration. No quote is split.
-_PIECE_SEP = re.compile(r",? and |, ")
+_PIECE_SEP = re.compile(r"(?:,? and |, )(?=(?:it|they|that \w+|those \w+|gain control|(?:can't|loses|gains|gets|has|doesn't) ))")  # (a clause starts after it: "base power and toughness" is not split)
 _PREDICATE = re.compile(r"^(?:can't|loses|gains|gets|has|doesn't) ")
 
 

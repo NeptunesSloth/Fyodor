@@ -1418,7 +1418,8 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if e.get("who"):
         if not str(e["who"]).startswith(context.PREFIX) and e["who"] not in ("target", "cost_exiled_self"):
             return True  # (an unbound pronoun never reaches here: resolve_it refuses the ability)
-        from app.rules import effects as _effects  # -- as long as (wave 37A) -- "You may cast this card for as long as it remains exiled": the card its cost exiled
+        # -- as long as (wave 37A) -- "You may cast this card for as long as it remains exiled": the card its cost exiled
+        from app.rules import effects as _effects
 
         for cid in _effects._cards(plan, ctx, "cost_exiled_self") if e["who"] == "cost_exiled_self" else \
                 context.objects(plan, ctx, e["who"][len(context.PREFIX):]) if e["who"] != "target" else _target_cards(plan, ctx):

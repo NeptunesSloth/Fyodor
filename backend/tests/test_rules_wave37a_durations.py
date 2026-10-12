@@ -28,7 +28,7 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave37a_durations_cards
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w37a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-FULL = ["Opportunistic Dragon", "Immovable Rod", "Cunning Rhetoric", "Masked Bandits", "Rakish Revelers", "Spara's Adjudicators", "Shattered Seraph",
+FULL = ["Opportunistic Dragon", "Immovable Rod", "Cunning Rhetoric", "Aven Mimeomancer", "Masked Bandits", "Rakish Revelers", "Spara's Adjudicators", "Shattered Seraph",
         "Glamorous Outlaw", "Emrakul, the Exigent Doom"]
 
 
@@ -56,6 +56,21 @@ def now(s, c):
 
 def move(s, c, zone, pid="p1"):
     act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": zone})
+
+
+def calm(s, limit=40):
+    """Resolve the stack; attackers and blockers are declared as none, any other question is answered with its first option."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never calmed down")
 
 
 def kill(s, c):
@@ -97,6 +112,32 @@ def test_opportunistic_dragon_does_nothing_when_it_left_in_response_to_its_trigg
     act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.card_id == swiftspear.id])
     settle(s)
     assert now(s, swiftspear).controller == "p2" and "haste" in of(s, swiftspear).keywords
+    check(s)
+
+
+# -- 611.2b: "that creature has base power and toughness 3/1 and has flying for as long as it has a feather counter on it" ---------------
+def test_aven_mimeomancer_creature_is_a_3_1_flier_only_while_it_has_the_feather_counter(cards):
+    s = build(cards, mine=("Aven Mimeomancer",), theirs=("Grizzly Bears",))
+    put(s, "Aven Mimeomancer")
+    bears = put(s, "Grizzly Bears", "p2")
+    for _ in range(200):  # (to Alice's next upkeep: the trigger asks for its target and whether she puts the counter on)
+        d = s.state.rules.decision
+        if now(s, bears).counters.get("feather"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        else:
+            want = [o.id for o in d.options if o.card_id == bears.id or o.label.lower() == "yes"]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=(want or [d.options[0].id])[:max(1, d.min_choices)])
+    calm(s)
+    assert now(s, bears).counters.get("feather") == 1 and of(s, bears).pt == (3, 1) and "flying" in of(s, bears).keywords
+    check(s)
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="feather", delta=-1)  # (611.2b: no counter any more: the base 3/1 and flying end at once)
+    act(s, s.state.rules.priority, type="pass_priority")
+    calm(s)
+    assert of(s, bears).pt == (2, 2) and "flying" not in of(s, bears).keywords
     check(s)
 
 
