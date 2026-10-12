@@ -70,7 +70,8 @@ AT = at_re()
 
 
 def at_spec(m: re.Match[str], n: str = "") -> dict[str, Any] | None:
-    return {"as": "that"} if m[f"at{n}"] else None
+    # (wave 38B: "that opponent" is said apart — ``allowed``: in "a player attacks one of your opponents" it is the one attacked, "that player" the attacker)
+    return {"as": "that", **({"opp": True} if m[f"at{n}"] == "that opponent" else {})} if m[f"at{n}"] else None
 
 
 # -- token & pump wordings (wave 6C) -- numbers past ten ("Create thirteen tapped 2/2 black Zombie creature tokens.")
@@ -87,7 +88,7 @@ _SENTENCE = re.compile(
     rf"^create (?:(?P<n>{_QTY}) |(?P<lname>{_NAME}), an? (?P<legendary>legendary) )(?P<tapped>tapped (?P<atk0>and attacking )?)?"
     rf"(?:(?:(?P<pt>(?:\d+|X)/(?:\d+|X)) )?(?:(?P<colors>{_COLORS}) )?(?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?"
     r"(?P<land>land )?creature tokens?"
-    rf"|(?P<ncolors>{_COLORS}) (?P<nsnow>snow )?(?:(?P<nsub>{_CAPS}) )?(?P<nkind>artifact|enchantment) tokens?"  # (wave 15B)
+    rf"|(?:(?P<npt>\d+/\d+) )?(?P<ncolors>{_COLORS}) (?P<nsnow>snow )?(?:(?P<nsub>{_CAPS}) )?(?P<nkind>artifact|enchantment) tokens?"  # (wave 15B; wave 38B: a Vehicle's P/T)
     r"|(?P<pre>[A-Z][a-z]+) tokens?)"
     rf"(?: named (?P<name>{_NAME}))?"
     r"(?: with (?P<with>.+?))?"
@@ -142,7 +143,7 @@ def _quoted_text(quoted: str) -> str | None:
     return text if scripts.granted_ability(text) is not None else None
 
 
-def _with(part: str | None) -> tuple[list[str], str | None] | None:
+def _with(part: str | None, vehicle: bool = False) -> tuple[list[str], str | None] | None:
     """"flying", "flying and vigilance", "flying, first strike, and lifelink", '"…"',
     'haste and "…"' → (keywords the engine implements, the quoted ability's text)."""
     if part is None:
@@ -169,7 +170,8 @@ def _with(part: str | None) -> tuple[list[str], str | None] | None:
     )
 
     if any(k not in SUPPORTED_KEYWORDS and not re.fullmatch(r"toxic \d+", k) and not keyword_triggers.supported(k, k)
-           and not (k.startswith("protection from ") and protection.supported(k)) for k in kws):
+           and not (k.startswith("protection from ") and protection.supported(k))
+           and not (vehicle and re.fullmatch(r"crew \d+", k)) for k in kws):  # (wave 38B: a Vehicle token's "crew N", 702.122a)
         return None
     if quoted is not None:
         quoted = _quoted_text(quoted)
@@ -206,7 +208,8 @@ def parse(sentence: str) -> list[Effect] | None:
     if m["name"] and m["name2"]:
         return None
     if m["nkind"]:
-        return _named_noncreature(m, n_word=m["n"], plain=each is None and xdef is None and half is None)
+        plain = each is None and xdef is None and half is None
+        return _vehicle(m, n_word=m["n"], plain=plain) if m["npt"] else _named_noncreature(m, n_word=m["n"], plain=plain)
     if m["lname"] and (m["pre"] or m["name"] or m["name2"] or each is not None or xdef is not None or half is not None):
         return None  # -- token & pump wordings (wave 6C) -- "create Voja, a legendary 2/2 … token": one, named so (111.4)
     if (m["colors"] is None) == (m["thats"] is None) and not m["pre"]:
@@ -282,6 +285,30 @@ def parse(sentence: str) -> list[Effect] | None:
     return [effect]
 
 
+def _vehicle(m: re.Match[str], *, n_word: str | None, plain: bool) -> list[Effect] | None:
+    """-- vehicle tokens (wave 38B) -- "create a 3/2 colorless Vehicle artifact token with crew 1" (Mu Yanling, Chandra, Spark Hunter), "… named Zeppelin with
+    flying and crew 3" (Lita), "create The Blackjack, a legendary 3/3 colorless Vehicle artifact token with flying and crew 2" (Setzer): a Vehicle is an
+    artifact with a printed power and toughness (301.7) that is no creature until crewed (702.122a: the token's own "Crew N" line, run like a card's, 111.3).
+    The name is the effect's (111.4), else the subtype's. Only a fixed power and toughness, keywords and crew: any other rider leaves the sentence unread."""
+    if not plain or m["nkind"] != "artifact" or m["nsub"] != "Vehicle" or m["nsnow"] or m["thats"] or m["attacking"] or m["pre"] or (
+            m["lname"] and (m["name"] or m["name2"])):
+        return None
+    parsed = _with(m["with"], vehicle=True)
+    if parsed is None:
+        return None
+    kws, quoted = parsed
+    power, toughness = m["npt"].split("/")
+    colors = [] if m["ncolors"] == "colorless" else [COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", m["ncolors"])]
+    name = m["lname"] or m["name"] or m["name2"] or "Vehicle"
+    effect: Effect = {"do": "create_token", "who": "you", "n": _qty(n_word) if n_word else 1,
+                      "token": {"name": name, "power": power, "toughness": toughness, "colors": colors,
+                                "type_line": f"{'Legendary ' if m['lname'] else ''}Token Artifact — Vehicle",
+                                "text": "\n".join([k.capitalize() for k in kws] + ([quoted] if quoted else []))}}
+    if m["tapped"]:
+        effect["tapped"] = True
+    return [effect]
+
+
 def _named_noncreature(m: re.Match[str], *, n_word: str | None, plain: bool) -> list[Effect] | None:
     """-- trigger tail (wave 15B) -- "create a colorless artifact token named Scrap [with "…" and "…"]" (111.4: the ability sets
     the name; 111.10 has no such predefined token): a noncreature token with its quoted abilities, each of which the engine must
@@ -338,9 +365,13 @@ def allowed(d: dict[str, Any]) -> bool:
     if '"as": "that"' not in json.dumps(d, default=str):
         return True
     cond = d.get("cond") or {}
+    # -- tapped and attacking (wave 38B) -- 508.4: "Whenever a player attacks one of your opponents, that attacking player creates a tapped … token that's
+    # attacking that opponent" (Ellie, Combat Calligrapher): the opponent the event's attack was declared against (TriggerEvent.defended); "that player" there
+    # would be the attacker, so only the word "opponent" is read
+    others = cond.get("player") == "any" and cond.get("defender") == "opponent" and not cond.get("min_attackers") and '"opp": true' in json.dumps(d, default=str)
     return d.get("kind") == "triggered" and (d.get("trigger") == "attacks_self" or (
         d.get("trigger") == "event" and cond.get("event") in ("attack", "you_attack", "deal_combat_damage_player") and not cond.get("aggregate")
-        and (cond.get("event") != "you_attack" or cond.get("player") == "you")))  # ("you attack a player": not "a player attacks you")
+        and (cond.get("event") != "you_attack" or cond.get("player") == "you" or others)))  # ("you attack a player": not "a player attacks you")
 
 
 def create_attacking(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -350,9 +381,13 @@ def create_attacking(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool
     defending player). They are attacking but never "attacked" (no attack triggers)."""
     from app.rules import effects  # (effects registers this module's primitives)
 
+    # -- tapped and attacking (wave 38B) -- whoever creates them: "that attacking player creates a tapped … token that's attacking that opponent" (Ellie):
+    # that player is the creature's controller and so the one who attacks with it (508.4), or it never attacks if they aren't an attacking player (506.3b)
+    who = e.get("who") or "you"
+    makers = effects._players(plan, ctx, who)
     before = set(plan.state.cards)
-    effects.create_token(plan, ctx, {**e, "who": "you", "tapped": bool(e.get("tapped"))})
-    return enter_attacking(plan, ctx, [cid for cid in plan.state.cards if cid not in before], e.get("at"))
+    effects.create_token(plan, ctx, {**e, "who": who, "tapped": bool(e.get("tapped"))})
+    return enter_attacking(plan, ctx, [cid for cid in plan.state.cards if cid not in before], e.get("at"), makers[0] if len(makers) == 1 else None)
 
 
 def attack_options(plan: Plan, ctx: dict[str, Any], pid: str, at: dict[str, Any] | None = None) -> list[DecisionOption]:
@@ -376,11 +411,11 @@ def attack_options(plan: Plan, ctx: dict[str, Any], pid: str, at: dict[str, Any]
     return options
 
 
-def enter_attacking(plan: Plan, ctx: dict[str, Any], made: list[str], at: dict[str, Any] | None = None) -> bool:
+def enter_attacking(plan: Plan, ctx: dict[str, Any], made: list[str], at: dict[str, Any] | None = None, pid: str | None = None) -> bool:
     """-- token copy (wave 20F) -- the attack choice of creatures that just entered "tapped and attacking" (508.4): tokens, token copies
     (copying.token_copy), cards put onto the battlefield from a hand or a graveyard or a look (refused_zones, looking, put_from_hand); False while
-    their controller is asked whom they attack."""
-    pid = ctx["controller"]
+    their controller is asked whom they attack. (wave 38B: ``pid``, their controller when it isn't the ability's.)"""
+    pid = pid or ctx["controller"]
     new = [c for c in made if (card := plan.state.cards.get(c)) is not None and card.controller == pid and card.zone.endswith(":battlefield")
            and plan.ch(card).is_creature]
     if not new or plan.state.turn.phase not in _ATTACKING_PHASES or pid != plan.active:
@@ -395,7 +430,7 @@ def enter_attacking(plan: Plan, ctx: dict[str, Any], made: list[str], at: dict[s
     # ruling: each Gnome can attack a different player): one question per token, the rest follow in ``more``
     decide(plan, player=pid, kind="choose_one", prompt=f"{plan.state.cards[new[0]].name or 'A token'} enters attacking: attacking whom?"
            + (f" ({len(new) - 1} more to place)" if len(new) > 1 else ""),
-           options=options, resume={"step": "token_attack", "ctx": ctx, "cards": new[:1], "more": new[1:], "at": at})
+           options=options, resume={"step": "token_attack", "ctx": ctx, "cards": new[:1], "more": new[1:], "at": at, "pid": pid})
     return False
 
 
@@ -417,10 +452,49 @@ def resume_token_attack(plan: Plan, d: Any, chosen: list[str]) -> None:
     if chosen:
         _attack_with(plan, r["cards"], chosen[0], d.player)
     # -- falsification (wave 30D) -- the next token (old saves have no "more": their one answer covered every token)
-    if r.get("more") and not enter_attacking(plan, r["ctx"], r["more"], r.get("at")):
+    if r.get("more") and not enter_attacking(plan, r["ctx"], r["more"], r.get("at"), r.get("pid")):
         return
     effects.continue_effects(plan, r["ctx"])
 
 
-PRIMITIVES = {"create_attacking": create_attacking}
-RESUME = {"token_attack": resume_token_attack}
+# -- your choice (wave 38B) -- "create your choice of a Clue token, a Food token, or a Treasure token" (The Third Doctor, Transmutation Font): the controller
+# chooses one of the predefined tokens named as the instruction is carried out (608.2d: a choice the effect offers; 111.10: each is its own definition).
+# The kind chosen replaces this instruction in the resolution (an ordinary ``create_token`` then runs in its place, so a replacement — Doubling Season,
+# 616.1 — sees one creation like any other, and can pause it). Only predefined tokens with no power and toughness (artifact and enchantment ones).
+def pick_parse(kinds: str) -> list[Effect] | None:
+    """The instruction for "a X token, a Y token, or a Z token", or None (not read)."""
+    found: list[str] = []
+    for item in (i.strip() for i in re.split(r", or |, | or ", kinds.strip()) if i.strip()):
+        m = re.fullmatch(r"an? ([A-Z][a-z]+) tokens?", item)
+        made = parse(f"create a {m[1]} token") if m else None
+        if m is None or made is None or len(made) != 1 or made[0]["do"] != "create_token" or made[0]["token"]["power"] is not None:
+            return None
+        found.append(m[1])
+    return [{"do": "pick_token", "who": "you", "kinds": found}] if len(found) >= 2 and len(set(found)) == len(found) else None
+
+
+def pick_token(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Choose'}: choose a token to create",
+           options=[DecisionOption(id=k, label=f"{k} token") for k in e["kinds"]], resume={"step": "pick_token", "ctx": ctx, "e": e},
+           source=plan.state.cards.get(ctx.get("source_card") or ""))
+    return False
+
+
+def resume_pick_token(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if len(chosen) != 1 or chosen[0] not in e["kinds"]:
+        raise ActionError("Choose one of the tokens offered")
+    made = parse(f"create a {chosen[0]} token")
+    assert made is not None
+    plan.note(f"{plan.name(d.player)} chooses a {chosen[0]} token", actor=d.player)
+    at = ctx["next"] - 1
+    ctx["effects"] = [*ctx["effects"][:at], *made, *ctx["effects"][at + 1:]]
+    ctx["next"] = at
+    effects.continue_effects(plan, ctx)
+
+
+PRIMITIVES = {"create_attacking": create_attacking, "pick_token": pick_token}
+RESUME = {"token_attack": resume_token_attack, "pick_token": resume_pick_token}

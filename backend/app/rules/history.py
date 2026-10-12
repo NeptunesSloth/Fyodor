@@ -675,6 +675,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
                    and (v.get("who") != "you" or d.controller == me)  # (-- X actions (wave 9A) -- "under your control")
                    and (v.get("owner") != "you" or snap.owner == me)  # (-- this-turn history (wave 30R) -- "your graveyard": 400.3)
                    and _departed_matches(plan, selectors.from_key(v["sel"]), d, snap))
+    if kind == "entered":  # -- tokens (wave 38B) -- "creatures you had enter the battlefield under your control this turn": those that left too (608.2i)
+        return entered(plan, ctx, {"sel": v["sel"]}, log)
     if kind == "attackers":  # -- cost self reduction (wave 16F) -- each creature declared as an attacker this turn, once (508.1)
         return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
     if kind in ("tokens", "sacrificed", "discarded"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)
