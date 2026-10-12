@@ -2942,6 +2942,40 @@ def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateA
     plan.rules.passed = []
 
 
+def companion_action(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility) -> None:
+    """-- companion (wave 38D) -- 116.2g, 702.139a: a player who has chosen a companion may pay {3} to put it from outside the game into
+    their hand, any time they have priority and the stack is empty during a main phase of their turn, once per game (a card that has
+    left the companion zone has been taken: 702.139c). A special action: no stack, no response, not a cast or an ability (mana that can
+    pay only for those can't pay it). The player's companion is the one card of the companion zone; its condition must hold for the
+    starting deck (103.2b; 702.139b: the commander counts) — what isn't checked (a wording outside commander.COMPANION_RESTRICTIONS,
+    a card Fyodor has no data for) is refused, never allowed."""
+    state = plan.state
+    ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+    if ability is None or "companion" not in ability.keywords:
+        raise ActionError("Only a card's companion ability puts it into your hand from outside the game")
+    if state.turn.active_player != plan.actor or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
+        raise ActionError("You can take your companion only in your main phase while the stack is empty (116.2g)")
+    mine = [c for c in state.cards.values() if c.owner == plan.actor and c.origin == "companion"]
+    if len(mine) != 1:
+        raise ActionError("You may reveal no more than one companion (103.2b)")
+    start = [c for c in state.cards.values() if c.owner == plan.actor and c.origin in ("library", "command") and c.card_id
+             and not (c.is_token or c.copy_of or c.ability or c.test_object)]  # (702.139b: the commander too)
+    deck = [plan.info.get(c.card_id) for c in start if c.card_id]
+    data = plan.info.get(card.card_id) if card.card_id else None
+    if data is None or any(d is None for d in deck):
+        raise ActionError("Fyodor doesn't know every card of your starting deck: take your companion by hand")
+    problem = cmdr.companion_problem(data, [d for d in deck if d is not None])
+    if problem:
+        raise ActionError(problem)
+    cost = M.parse_cost("{3}")
+    if payment_step(plan, a, cost, f"taking {ch.name}", purpose=Purpose()):
+        return
+    pay(plan, plan.actor, cost, f"paid {cost.text()} to put {ch.name} into their hand", sources=a.sources, purpose=Purpose())
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "hand"}})
+    plan.note(f"{plan.name(plan.actor)} puts their companion {ch.name} into their hand", [card.id])
+    plan.rules.passed = []
+
+
 UNEARTH = re.compile(r"^unearth (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 MADNESS = re.compile(r"^madness (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 BUYBACK = re.compile(r"^buyback (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
@@ -3420,6 +3454,9 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
             raise ActionError("That card has no ability to use from your graveyard")
         _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
         unearth(plan, card, ch, a, unearth_cost)
+        return
+    if card.zone == zone_key(plan.actor, "companion") and card.owner == plan.actor:  # -- companion (wave 38D) -- 116.2g
+        companion_action(plan, card, plan.ch(card), a)
         return
     if card.zone == zone_key(plan.actor, "command") and card.owner == plan.actor:  # -- activated from hand / command zone (wave 27D)
         ch = plan.ch(card)

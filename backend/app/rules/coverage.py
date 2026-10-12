@@ -388,6 +388,11 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
             return keyword_triggers.partner_with_definition(line) is not None
         return True
+    if kw == "companion":  # -- companion (wave 38D) -- 702.139a: it functions outside the game; in the deck or as the commander it does nothing.
+        # Supported when its condition is one commander.COMPANION_RESTRICTIONS checks (the deck check and the 116.2g special action use it)
+        from app.rules import commander
+
+        return commander.companion_condition(line) in commander.COMPANION_RESTRICTIONS
     if kw in ("enchant", "equip"):  # app/rules/attachments.py: the wordings it maps
         from app.rules import attachments
 

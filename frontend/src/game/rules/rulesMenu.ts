@@ -123,6 +123,12 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   if (mine && zone === "hand" && hints.miracle?.includes(card.id)) {
     items.push({ label: "Reveal for miracle", onClick: () => void send({ type: "miracle_reveal", card_id: card.id }) });
   }
+  // -- companion (wave 38D) -- 116.2g, 702.139a: your companion is put into your hand for {3}, a special action (the server checks the main
+  // phase, the empty stack, the starting deck against the card's condition and the payment); it is the card's "Companion — …" line.
+  if (player === me && zone === "companion") {
+    const i = abilityLines(oracle).findIndex((l) => /^companion\s*—/i.test(l));
+    if (i >= 0) items.push({ label: "Put into your hand ({3}, special action)", disabled: !hints.has_priority, onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
+  }
   // 702.151a / 702.167a: reconfigure's attach and unattach abilities and craft are activated abilities the server adds after / in place of their
   // keyword line (rules/oracle.py): reconfigure's two come after all the printed lines (numbers n and n + 1 for n printed lines, so no
   // printed line's number moves), craft's is the line itself.
