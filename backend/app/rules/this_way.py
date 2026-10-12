@@ -158,17 +158,25 @@ def hit_condition(text: str) -> dict[str, Any] | None:
     return {"value": {"ref_amount": HIT}, "op": ">=", "n": 1, "hit_is": sel.key()}
 
 
+def _own_json(effects: list[dict[str, Any]]) -> str:
+    """-- reflexive excess (wave 42D) -- 603.12: the effects as JSON without the ability they hold (a reflexive trigger's body). That body went through
+    ``parse_effects`` itself, so its "dealt damage / damage dealt / excess damage this way" readers are bound to ITS damage instruction already: the
+    outer ability has none of its own to bind ("When you do, ~ deals damage equal to that creature's power to another target creature. If excess damage
+    was dealt this way, amass Goblins X, where X is that excess damage." — Bolg of the North)."""
+    import json
+
+    return json.dumps([{k: v for k, v in e.items() if k != "ability"} for e in effects])
+
+
 def dealt_to(found: Any) -> Any:
     """Bind every "dealt damage this way" condition of the ability to the one plain damage instruction before it: that
     instruction counts, as it is dealt, the recipients that match (effects._deal). Anything else — no such instruction, two
     of them, a damage chain (several recipients in one sentence), another reader of that damage — leaves the ability manual."""
-    import json
-
-    if found is None or '"hit_is"' not in json.dumps(found[0]):
+    if found is None or '"hit_is"' not in _own_json(found[0]):
         return found
     effects = list(found[0])
     gates = [e for e in effects if e.get("do") == "only_if" and "hit_is" in e["cond"]]
-    if len(gates) != json.dumps(effects).count('"hit_is"') or len({g["cond"]["hit_is"] for g in gates}) != 1:
+    if len(gates) != _own_json(effects).count('"hit_is"') or len({g["cond"]["hit_is"] for g in gates}) != 1:
         return None  # (the condition inside an "and" / "or", or two different questions about it)
     dmg = [i for i, e in enumerate(effects) if e.get("do") == "damage"]
     if len(dmg) != 1 or any(effects.index(g) < dmg[0] for g in gates):
@@ -370,13 +378,11 @@ def damage_dealt(found: Any) -> Any:
     damage instruction just before actually dealt — after prevention and replacement (615.6, 120.4: the damage events
     as they are dealt), all recipients together. Only right after one plain damage instruction; anything else in
     between, or no such instruction, leaves the ability manual."""
-    import json
-
-    if found is None or f'"{DAMAGE_DEALT}"' not in json.dumps(found[0]):
+    if found is None or f'"{DAMAGE_DEALT}"' not in _own_json(found[0]):
         return found
     effects = found[0]
     for i, e in enumerate(effects):
-        if f'"{DAMAGE_DEALT}"' not in json.dumps(e):
+        if f'"{DAMAGE_DEALT}"' not in _own_json([e]):
             continue
         prev = effects[i - 1] if i else None
         if prev is None or prev.get("do") != "damage" or prev.get("with_next") or prev.get("bind_dealt") \
@@ -396,12 +402,10 @@ def excess_dealt(found: Any) -> Any:
     replacement, above lethal damage — a planeswalker's loyalty, a battle's defense — to the permanent it was dealt to, as it was
     before the damage). Bound to the nearest plain damage instruction before the first thing that reads it; that instruction
     must name one target (several recipients: "to that creature" would be ambiguous). Anything else leaves the line manual."""
-    import json
-
-    if found is None or f'"{EXCESS_DEALT}"' not in json.dumps(found[0]):
+    if found is None or f'"{EXCESS_DEALT}"' not in _own_json(found[0]):
         return found
     effects = list(found[0])
-    first = next(i for i, e in enumerate(effects) if f'"{EXCESS_DEALT}"' in json.dumps(e))
+    first = next(i for i, e in enumerate(effects) if f'"{EXCESS_DEALT}"' in _own_json([e]))
     prev = next((i for i in range(first - 1, -1, -1) if effects[i].get("do") == "damage"), None)
     if prev is None:
         return None

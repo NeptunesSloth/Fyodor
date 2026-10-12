@@ -45,6 +45,7 @@ _LEGACY_TARGETS = {
     "any target": "any", "target player": "player", "target opponent": "opponent",
     # -- target forms (agent T) --  a player, or any planeswalker (whoever controls it)
     "target player or planeswalker": "player_or_planeswalker", "target opponent or planeswalker": "opponent_or_planeswalker",
+    "target player or battle": "player_or_battle", "target opponent or battle": "opponent_or_battle",  # (wave 42D: Onakke Javelineer, Ayara)
     "target permanent or player": "permanent_or_player",  # -- counter kinds (wave 24C) -- a permanent, or a player (115.1)
 }
 # -- activated other (wave 21E) -- "Choose target opponent who has more life than you do as you activate this ability.": the
@@ -2529,7 +2530,12 @@ def _bite(text: str) -> tuple[Effects, Any] | None:
         raise _Fail  # (a pronoun subject: which creature deals it isn't read here)
     src = "target" if group is not None else "host"
     groups = [group] if group is not None else []
-    whos, parts = _bite_recipients(m["o"])  # (wave 4E: "… to each other creature and each opponent")
+    if src == "target" and (m["o"] == "its controller" or (m["o"] == "that player" and m["s"].endswith(" an opponent controls"))):
+        # -- damage sized by a count (wave 42D) -- "target creature an opponent controls deals damage equal to its power to that player" (Dong Zhou): the player who
+        # controls the creature dealing it (the opponent the target phrase names), as it last existed if it left (608.2h, 108.4a): not the trigger event's player
+        whos, parts = ["target_player_or_controller"], []
+    else:
+        whos, parts = _bite_recipients(m["o"])  # (wave 4E: "… to each other creature and each opponent")
     if src != "target" and any(g.get("another") == "any" for g in parts):
         raise _Fail  # -- damage sized by a count (wave 34D) -- "enchanted creature deals … to any other target": other than the creature, not than the Aura
     n: Any = {stat: src} if not m["stat"].startswith("twice ") else {"times": [2, {stat: src}]}  # (sized amounts, wave 3D)

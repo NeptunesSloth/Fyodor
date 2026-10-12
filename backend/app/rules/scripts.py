@@ -577,6 +577,9 @@ class _Introducer:
                 self.number = 1  # -- damage sized by a count (wave 20A) -- "until you reveal a nonland card. … that card's mana value": the one found
         if self.do == "destroy_all":
             self.number = 2
+        if self.do == "damage" and g is None and who in ("you", "each_player", "each_opponent", "each_other_opponent", "event_player", "that_player",
+                                                         "chosen_player", "defending_player"):
+            self.objects = False  # -- damage sized by a count (wave 42D) -- damage to a player names no object: "~ deals damage to you equal to that card's mana value. You may play it this turn." (Daredevil): "it" is still the card exiled before
         if self.do == "return_card" and who.startswith("ref:") and "|" in who:
             self.number = 2  # (-- wave 22D -- "Put each creature card milled this way onto the battlefield. They gain haste.": those cards)
         if self.do == "token_copy" and g is not None and groups is not None and g < len(groups) and groups[g]["max"] != 1:
@@ -2863,6 +2866,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = re.sub(r"(\b[Pp]ut [^.,]+? counters? on) each of those (?:creatures|permanents|cards|artifacts|lands|enchantments)\b", r"\1 each of them", body)
     body = re.sub(r"(^|\. )Each of those (creatures|permanents|cards|artifacts|lands|enchantments) (gains|gets|loses) ",
                   lambda m: f"{m[1]}Those {m[2]} {m[3][:-1]} ", body)
+    # -- damage sized by a count (wave 42D) -- "~ deals X damage divided as you choose among any number of target creatures your opponents control. Each of those creatures deals
+    # damage equal to its power to ~." (Polukranos, World Eater): the sentence before named them, one source each ("They each deal damage equal to their power", language._bite_many)
+    body = re.sub(r"(^|\. )Each of those creatures deals damage equal to its power to ", r"\1They each deal damage equal to their power to ", body)
     # -- counters (wave 33C) -- "Draw a card if that creature has a +1/+1 counter on it. If it doesn't, put a +1/+1 counter on it." (Marcus, Mutant Mayor):
     # "If it doesn't" is the other case of the condition just read, as "Otherwise" is (the sentence before is a trailing "if it has …")
     body = re.sub(r"(\bif (?:it|that creature) has [^.,]+?\.) If it doesn't, ", r"\1 Otherwise, ", body)
@@ -4972,7 +4978,7 @@ def _event_refs_ok(d: Definition) -> bool:
         about_player = step_names_player(d) or (cond is not None and cond["event"] != "multi" and _has_player(cond))
         specs = [d.get("target") or {}, *(d.get("targets") or [])]
         if not about_player or any(str(s.get("what")) in ("player", "opponent", "any", "any_other", "player_or_planeswalker",
-                                                         "opponent_or_planeswalker") or str(s.get("what")).startswith("opponent_as:") for s in specs):
+                                                         "opponent_or_planeswalker", "player_or_battle", "opponent_or_battle") or str(s.get("what")).startswith("opponent_as:") for s in specs):
             return False
     from app.rules import watches  # -- turn watches (wave 7D) -- their deferred effects name their own event
 
@@ -6660,7 +6666,7 @@ def _bind_subject(cond: dict[str, Any], found: tuple[list[dict[str, Any]], Any] 
     effects = []
     for e in found[0]:
         e = {**e, "who": "self" if objects == {"self"} else "host"} if e.get("who") == "it" else e
-        if _holds_pronoun(e):
+        if _holds_pronoun({k: x for k, x in e.items() if not (k == "src" and x == "it")}):  # -- damage sized by a count (wave 42D) -- "it deals that much damage … if ~'s power is 7 or greater" (Vincent): the damage's source "it" is the trigger's subject as ever (resolve_it), not rewritten
             return None
         effects.append(e)
     return effects, found[1]
