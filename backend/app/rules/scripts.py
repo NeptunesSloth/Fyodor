@@ -512,6 +512,7 @@ _MOVERS = {"destroy", "destroy_all", "exile", "exile_until", "bounce", "return_c
 _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are tokens, not cards: 111.1)
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
+_RECORDING["double_pt"] = None  # -- trigger other (wave 41C) -- "double the power of each other creature you control until end of turn. Those creatures gain vigilance …"
 _RECORDING["create_attacking"] = None  # -- keywords (wave 15E) -- "create … tokens that are tapped and attacking. Sacrifice them …":
 _MOVERS.add("create_attacking")  # the pronoun names the tokens made, not the ability's source (was bound to the source)
 _CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n",
@@ -2176,8 +2177,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = re.sub(r"(^|, |\. )((?i:create) [^.\"]+? token)\. (It|That token|The token|[A-Z][\w',-]*(?: [A-Z][\w',-]*)*) enters tapped and attacking"
                   r"( that (?:player|opponent))?\.", lambda m: m[0] if m[3] not in ("It", "That token", "The token")
                   and not m[2].lower().startswith(f"create {m[3].lower()},") else f"{m[1]}{m[2]} that's tapped and attacking{m[4] or ''}.", body)
-    body = re.sub(r"(^|, |\. )((?i:(?:you may )?(?:put|return)) [^.]+? (?:onto|to) the battlefield(?: under your control)?)\. (?:It|That creature) enters "
-                  r"tapped and attacking( that (?:player|opponent))?\.", r"\1\2 tapped and attacking\3.", body)
+    body = re.sub(r"(^|, |\. )((?i:(?:then )?(?:you may )?(?:put|return)) [^.]+? (?:onto|to) the battlefield(?: under your control)?)\. (?:It|That creature) enters "
+                  r"tapped and attacking( that (?:player|opponent))?"
+                  r"(?: and (gains? [a-z ]+ until end of turn))?\.",  # (-- trigger other (wave 41C) -- "Then you may put a creature card … onto the battlefield. It enters tapped and attacking and gains indestructible until end of turn." (Nick Fury))
+                  lambda m: f"{m[1]}{m[2]} tapped and attacking{m[3] or ''}." + (f" It {m[4]}." if m[4] else ""), body)
     # -- zone replacements (wave 37B) -- "You may cast spells from your graveyard this turn, and if a card would be put into your graveyard from anywhere this
     # turn, exile it instead." (Walk-In Closet): two instructions of one sentence, the replacement a sentence of its own
     body = re.sub(r", and (if a card would be put into your graveyard from anywhere this turn, exile (?:that card|it) instead)\b",
@@ -2913,6 +2916,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # cards into their graveyard.": the revealed cards of that one library, all of them, are put into its owner's graveyard)
     body = re.sub(r"(reveals cards from the top of their library until they reveal an? [^.,]+?), then puts those cards into their graveyard",
                   r"\1. Put those cards into their graveyard", body)
+    # -- trigger other (wave 41C) -- 110.2a: after a reveal-until, "Put that card onto the battlefield tapped under your control" (Sméagol) and "You put that card onto
+    # the battlefield under your control and lose life equal to …" (Jhoira): put by you it is yours either way, so the words add nothing to "Put that card onto the battlefield"
+    body = re.sub(r"(\buntil (?:you|they) (?:reveal|exile) [^.]*\. )(?:You p|P)ut that card (onto the battlefield(?: tapped)?) under your control\b", r"\1Put that card \2", body)
     if "until you reveal " in body:
         body = re.sub(r"(until you reveal [^.]*?)\. If you do, put ", r"\1. Put ", body) if "ou may reveal cards" in body else body
         body = re.sub(r"(?:, then| and) shuffle (?:the rest|all other cards revealed this way) into your library", ", then shuffle", body)
@@ -3147,6 +3153,13 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                          and effects[prev_start].get("who") == "you")):  # (wave 21B: "Sacrifice a creature. If you can't, …": 701.21a, one object)  # -- keywords (wave 15E) -- fading 702.32a: "Remove a fade counter
             text = "if you don't, " + text[len("if you can't, "):]  # from this permanent. If you can't, sacrifice it." (the removal
             # of a counter that isn't there is the one that wasn't done, as "If you don't" reads it)
+        if re.match(r"if (?:the|that) player can't, ", text) and not optional and len(effects) - prev_start == 1 \
+                and effects[prev_start]["do"] in ("sacrifice_choice", "edict", "discard") and effects[prev_start].get("n", 1) == 1 \
+                and effects[prev_start].get("who") in ("event_player", "target", "that_player"):
+            # -- trigger other (wave 41C) -- 701.21a, 701.9b: "That player sacrifices a creature of their choice. If the player can't, …" (Wasitora, Woebringer
+            # Demon), "That player discards a card at random. If the player can't, you draw a card." (Urgoros): nothing was sacrificed / discarded, the same
+            # probe as "If you don't" after a mandatory instruction (effects._did_r1: a permanent left the battlefield / a card left the hand)
+            text = "if you don't, " + text.split(", ", 1)[1]
         if (asked := _that_player_may(text, effects, groups, lambda t: _plain_clause(t, it, event_player))) is not None:  # (wave 25D)
             effects += asked
             continue
@@ -4400,6 +4413,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return gated
     if ability.kind == "triggered":
         text = re.sub(r"^((?:When|Whenever) [^,]+?) while this card is in your graveyard, ", r"\1, if this card is in your graveyard, ", text)  # (wave 19C)
+        # -- trigger other (wave 41C) -- "Whenever you attack with your commander, if this card is in your graveyard, you may return it to the battlefield
+        # tapped and attacking." (Jocasta): the "it" of an intervening "this card is in your graveyard" is that card (603.4, 113.6m)
+        text = re.sub(r"(, if this card is in your graveyard, (?:you may )?)return it to (?=the battlefield|your hand)", r"\1return this card from your graveyard to ", text)
         # -- spell copies (wave 31D) -- "Whenever you cast a spell while ~ is attacking, …" (Fire Lord Azula): a condition of the cast event (603.2),
         # judged as it triggers and not again as it resolves (603.4 is for "if")
         text, while_attacking = re.subn(r"^(Whenever you cast [^,]+?) while ~ is attacking, ", r"\1, if ~ is attacking, ", text)
@@ -6342,7 +6358,7 @@ def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # their layers, 613.6); "It's still a land." is ``still_a``, which turns the types it set into
 # types added (205.1b). A quoted ability it grants must be one the engine carries out
 # (``granted_ability``), else the ability stays manual.
-@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:(?:a|an) |(?=\d+/\d+ [A-Za-z ]*creatures)|(?=(?:artifact |enchantment )?creatures with base power)|the basic land type of your choice|the (?:creature type|color or colors|color)(?: other than [A-Z][a-z]+)? of your choice).*)")
+@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:(?:a|an) |(?=\d+/\d+ [A-Za-z ]*creatures)|(?=(?:artifact |enchantment )?creatures with base power)|(?=(?:artifact |enchantment )creatures\b)|the basic land type of your choice|the (?:creature type|color or colors|color)(?: other than [A-Z][a-z]+)? of your choice).*)")
 def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
@@ -6903,7 +6919,7 @@ def _gated_other_rewrite(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # +1/+1 counter from it. If you do, …", "Discard a card. If you do, draw a card.", "Return it to its owner's hand. If
 # you do, …"): whether the player started that one instruction (118.12; an object gone is "can't", a count other than one is read
 # only if the whole of it could be paid, 118.3), probed as it runs (effects._did_r1, effects._did). The sentence before must be that one instruction (an intervening "if" of a trigger may gate it).
-_DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "remove_counters", "discard", "exile", "bounce", "add_counters", "tap", "search"})
+_DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "edict", "remove_counters", "discard", "exile", "bounce", "add_counters", "tap", "search"})
 
 
 def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any]],
@@ -7202,13 +7218,15 @@ def _probe_previous(effects: list[dict[str, Any]], prev_start: int, reflex: bool
         return None  # whether that was "done" isn't settled here (UNCERTAIN): not read
     if base[0]["do"] in ("exile", "bounce") and not isinstance(base[0].get("who"), str):
         return None
+    if base[0]["do"] == "edict" and base[0].get("who") not in ("event_player", "target", "that_player"):
+        return None  # -- trigger other (wave 41C) -- one player's edict only (effects._did_r1): "If the player can't, …"
     if base[0]["do"] == "tap" and base[0].get("who") not in ("self", "it"):
         return None  # -- if you do (wave 30G) -- (only the permanent itself: tapping several, or a target that may already be tapped, is not read)
     if base[0]["do"] == "search" and (reflex or base[0].get("who", "you") != "you" or any(base[0].get(k) for k in ("may", "zones", "graveyard", "lib_pid"))):
         return None  # -- if you do (wave 31A) -- 118.12b: "Search your library …. If you do, …" (not a reflexive "When you do") is read for the searcher's own library alone (effects._did_search)
     # -- if you do (wave 30C) -- 118.3: a mandatory "sacrifice / discard / remove N" with N other than one pays all or nothing (Egon's
     # ruling of 2021-02-05), and "If you do" asks whether it was started: the engine would do part of it, so that's left to the players
-    if base[0]["do"] in ("sacrifice", "sacrifice_choice", "discard", "remove_counters") and base[0].get("n", 1) != 1:
+    if base[0]["do"] in ("sacrifice", "sacrifice_choice", "edict", "discard", "remove_counters") and base[0].get("n", 1) != 1:
         return None
     name = f"mdid{sum(1 for e in effects if str(e.get('did') or '').startswith('mdid'))}"
     base[0]["did"] = name

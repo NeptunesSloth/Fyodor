@@ -359,8 +359,8 @@ _AND_EXTRA = re.compile(r"(?P<a>.+?),? and (?P<b>after this (?:main |combat )?ph
 _REMOVE = re.compile(r"remove (?P<o>.+?) from combat")
 _MAZE = re.compile(r"prevent all combat damage that would be dealt to and dealt by (?P<o>that creature|it|target creature(?: you control)?|~)"
                    r" this turn")
-_DOUBLE = re.compile(r"double (?:the (?P<w1>power and toughness|power) of (?P<o1>.+?)|(?P<o2>.+?)'s "
-                     r"(?P<w2>power and toughness|power)|(?P<o3>its) (?P<w3>power and toughness|power)) until end of turn")
+_DOUBLE = re.compile(r"double (?:the (?P<w1>power and toughness|power|toughness) of (?P<o1>.+?)|(?P<o2>.+?)'s "  # (-- trigger other (wave 41C) -- toughness alone, Rasaad yn Bashir)
+                     r"(?P<w2>power and toughness|power|toughness)|(?P<o3>its) (?P<w3>power and toughness|power|toughness)) until end of turn")
 # -- keywords (wave 15E) -- myriad (702.116a): "for each opponent other than defending player, you may create a token that's a
 # copy of ~ that's tapped and attacking that player or a planeswalker they control. If one or more tokens are created this way,
 # exile the tokens at end of combat."
@@ -406,7 +406,7 @@ def clause(text: str) -> tuple[Effects, Any] | None:
         found = _object(m["o1"] or m["o2"] or m["o3"], each=True)
         if found is None:
             return None
-        return [{"do": "double_pt", "who": found[0], "toughness": what == "power and toughness"}], found[1]
+        return [{"do": "double_pt", "who": found[0], "toughness": what != "power", **({"power": False} if what == "toughness" else {})}], found[1]
     m = _EACH_COMBAT.fullmatch(text)
     if m:  # (with a duration: "until end of turn", or "until your next turn, …" read as that: ``unwrapped``)
         restricted = _restrict(m["o"], ["must_attack"] + ([f"{OTHER_THAN}:@you"] if m["pl"] or m["sg"] else []))
@@ -604,7 +604,7 @@ def double_pt(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         ch = plan.ch(card)
         if not card.zone.endswith(":battlefield") or not ch.is_creature:
             continue
-        p = power(card, ch)
+        p = power(card, ch) if e.get("power", True) else 0  # (701.10b: +X/+0 for its power, +0/+X for its toughness)
         t = toughness(card, ch) if e.get("toughness") else 0
         if p is None or t is None:
             plan.note(f"{ctx.get('name') or 'The effect'}: {card.name}'s power isn't known: double it by hand")
