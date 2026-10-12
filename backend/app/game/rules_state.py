@@ -385,6 +385,7 @@ class Event(BaseModel):
     natural: int = 0
     nth: int = 0
     sides: int = 0
+    excess: int = 0  # -- trigger damage (wave 39B) -- a ``damage`` event: the excess damage (120.10) the batch dealt to the permanent, on its first event
 
 
 MAX_EVENTS = 500  # unconsumed events kept (a trigger collector consumes them; M16)
@@ -491,6 +492,10 @@ class TurnFact(BaseModel):
     actor: str | None = Field(default=None, max_length=64)  # -- long tail (wave 16D) -- "counters" facts: the player who put them (122.6)
     # -- trigger other (wave 36A) -- "discard" facts: the event batch it happened in (0: not known / an older save), for "for the first time each turn" (603.2)
     batch: int = 0
+    # -- trigger damage (wave 39B) -- "damaged" facts: the excess damage (120.10) the batch dealt to the permanent, on its first fact ("was dealt excess
+    # damage this turn"); "damage" / "damaged" / "counters" facts also keep their event batch (0: an older save), for "for the first time each turn"
+    excess: int = 0
+    source_spell: bool = False  # -- trigger damage (wave 39B) -- "damaged" facts: the source was a spell on the stack as it dealt the damage (120.1)
 # -- end this-turn history (wave 4D) --
 
 

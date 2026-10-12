@@ -244,24 +244,33 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
                                           **what))  # (-- trigger other (wave 36A) -- the batch of a discard: "for the first time each turn")
             elif kind == "dealt_damage" and obj is None and info.get("recipient"):  # a player was dealt damage (120.3)
                 log.facts.append(TurnFact(kind="damage", player=info["recipient"], amount=int(info.get("amount") or 0),
-                                          combat=bool(info.get("combat")), object_id=info.get("source_oid")))
+                                          combat=bool(info.get("combat")), object_id=info.get("source_oid"), batch=e.batch))  # (wave 39B: batch)
             elif kind == "dealt_damage" and obj is not None and info.get("oid") and int(info.get("amount") or 0) > 0:
                 # -- damage history (wave 6B) -- a permanent was dealt damage (120.3): "creature that was dealt damage
                 # this turn", "creature that dealt damage this turn" (app/rules/damage_history.py)
                 log.facts.append(TurnFact(kind="damaged", player=player or obj.controller, object_id=info["oid"],
                                           amount=int(info["amount"]), combat=bool(info.get("combat")),
-                                          source=info.get("source_oid"), **what))
+                                          source=info.get("source_oid"), batch=e.batch, excess=int(info.get("excess") or 0),
+                                          **what))  # (wave 39B: batch, excess — 120.10)
             elif kind == "deal_damage" and info.get("recipient") and log.facts and log.facts[-1].kind == "damage":
                 # its source, as it was as it dealt that damage (608.2i)
                 log.facts[-1].source_types, log.facts[-1].source_supertypes = what["types"], what["supertypes"]
                 log.facts[-1].source_subtypes = what["subtypes"]  # (wave 17C: prowl, 702.76a)
                 log.facts[-1].source_controller = obj.controller if obj is not None else None
+            elif kind == "deal_damage" and info.get("other_oid") and log.facts and log.facts[-1].kind == "damaged" \
+                    and log.facts[-1].object_id == info["other_oid"] and log.facts[-1].source == info.get("oid"):
+                # -- trigger damage (wave 39B) -- its source, as it was as it dealt that damage to a permanent (608.2i): "a Giant, Wizard, or spell you
+                # controlled dealt damage to it this turn" (Aegar) — a spell is a source on the stack that isn't an ability (120.1)
+                last = log.facts[-1]
+                last.source_subtypes, last.source_controller = what["subtypes"], obj.controller if obj is not None else None
+                last.source_types, last.source_supertypes = what["types"], what["supertypes"]
+                last.source_spell = obj is not None and obj.zone == "stack" and obj.ability is None
             elif kind == "to_exile" and player is not None:  # -- this-turn state (wave 33D) -- 400.1: a card put into exile from another zone (a token is no card)
                 log.facts.append(TurnFact(kind="exile", player=player, object_id=info.get("oid"), **what))
             elif kind == "counters_put" and player is not None:
                 log.facts.append(TurnFact(kind="counters", player=player, object_id=info.get("oid"),
                                           amount=int(info.get("amount") or 0), counter=info.get("counter"),
-                                          actor=info.get("actor"), **what))
+                                          actor=info.get("actor"), batch=e.batch, **what))  # (wave 39B: batch)
 
 
 def note_discards(plan: Plan, card_ids: list[str]) -> None:
@@ -499,7 +508,7 @@ def _facts_holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: Tur
     sel = selectors.from_key(cond["sel"]) if cond.get("sel") else None
     per: dict[str, int] = {}
     for f in log.facts:
-        if f.kind != cond["kind"] or (cond.get("counter") and f.counter != cond["counter"]):
+        if f.kind != cond["kind"] or (cond.get("counter") and f.counter != cond["counter"]) or (cond.get("excess") and f.excess <= 0):  # (wave 39B: 120.10)
             continue
         if sel is not None and not note_matches(sel, f.types, f.subtypes, f.supertypes, (), 0, f.token):
             continue
@@ -559,7 +568,8 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
     what, n = cond["what"], int(cond.get("n", 1))
 
     def total(kind: str, key: Any) -> int:
-        return sum(f.amount for f in log.facts if f.kind == kind and key(f) and ("combat" not in cond or f.combat == cond["combat"]))
+        return sum(f.excess if cond.get("excess") else f.amount for f in log.facts
+                   if f.kind == kind and key(f) and ("combat" not in cond or f.combat == cond["combat"]))  # (wave 39B: excess, 120.10)
 
     if what == "entered":
         got = any(e.object_id in ids for e in log.entered)
@@ -571,6 +581,9 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
         got = bool(ids & set(log.blockers)) or any(a in ids for attacking in log.attackers.values() for a in attacking)
     elif what == "damaged":
         got = total("damaged", lambda f: f.object_id in ids) >= n
+    elif what == "damaged_by":  # -- trigger damage (wave 39B) -- a Giant, Wizard or spell you controlled dealt it damage (the source as it was, 608.2i)
+        got = any(f.kind == "damaged" and f.object_id in ids and f.amount > 0 and f.source_controller == ctx["controller"]
+                  and ((cond.get("spell") and f.source_spell) or set(cond.get("subtypes", ())) & set(f.source_subtypes)) for f in log.facts)
     elif what == "dealt_player":
         to = set(context.players(plan, ctx, context.EVENT)) if cond.get("to") == "event" else None
         got = total("damage", lambda f: f.object_id in ids and (to is None or f.player in to)) >= n

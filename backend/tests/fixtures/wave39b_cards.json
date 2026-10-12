@@ -1,0 +1,289 @@
+[
+ {
+  "name": "Hercules, Olympian Hero",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Demigod Warrior Hero",
+  "oracle_text": "Whenever Hercules attacks, put a +1/+1 counter on him. He gains indestructible until end of turn.\nWhenever Hercules is dealt damage for the first time each turn, put that many +1/+1 counters on him. (He must survive the damage to get the counters.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Raphael, Tag Team Tough",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Mutant Ninja Turtle",
+  "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhenever Raphael deals combat damage to a player for the first time each turn, untap all attacking creatures. After this combat phase, there is an additional combat phase.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "5",
+  "toughness": "6"
+ },
+ {
+  "name": "Danny Pink",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Soldier Advisor",
+  "oracle_text": "Mentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)\nCreatures you control have \"Whenever one or more counters are put on this creature for the first time each turn, draw a card.\"",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Mentor"
+  ],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Axgard Artisan",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Dwarf Artificer",
+  "oracle_text": "Whenever one or more +1/+1 counters are put on this creature for the first time each turn, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Treasure"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Deus of Calamity",
+  "layout": "normal",
+  "mana_cost": "{R/G}{R/G}{R/G}{R/G}{R/G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Spirit Avatar",
+  "oracle_text": "Trample\nWhenever this creature deals 6 or more damage to an opponent, destroy target land that player controls.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Rith, Liberated Primeval",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{G}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Dragon",
+  "oracle_text": "Flying, ward {2}\nOther Dragons you control have ward {2}.\nAt the beginning of your end step, if a creature or planeswalker an opponent controlled was dealt excess damage this turn, create a 4/4 red Dragon creature token with flying.",
+  "colors": [
+   "G",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Ward"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Maarika, Brutal Gladiator",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Warrior",
+  "oracle_text": "Maarika, Brutal Gladiator must be blocked if able.\nAs long as it's your turn, Maarika has indestructible.\nWhenever Maarika deals damage to a creature, if that creature was dealt excess damage this turn, that creature's controller sacrifices a noncreature, nonland permanent.",
+  "colors": [
+   "B",
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R"
+  ],
+  "keywords": [],
+  "power": "7",
+  "toughness": "4"
+ },
+ {
+  "name": "Syr Carah, the Bold",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Knight",
+  "oracle_text": "Whenever Syr Carah or an instant or sorcery spell you control deals damage to a player, exile the top card of your library. You may play that card this turn.\n{T}: Syr Carah deals 1 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Molten Lavamancer",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Elemental Warlock Villain",
+  "oracle_text": "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nWhenever a source you control deals noncombat damage to one or more of your opponents during your turn, you create a 1/1 red Elemental creature token. This ability triggers only once each turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Prowess"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Fall of Cair Andros",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever a creature an opponent controls is dealt excess noncombat damage, amass Orcs X, where X is that excess damage. (Put X +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)\n{7}{R}: This enchantment deals 7 damage to target creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Amass"
+  ]
+ },
+ {
+  "name": "Aegar, the Freezing Flame",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Giant Wizard",
+  "oracle_text": "Whenever a creature or planeswalker an opponent controls is dealt excess damage, if a Giant, Wizard, or spell you controlled dealt damage to it this turn, draw a card.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Godo, Bandit Warlord",
+  "layout": "normal",
+  "mana_cost": "{5}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Human Barbarian",
+  "oracle_text": "When Godo enters, you may search your library for an Equipment card, put it onto the battlefield, then shuffle.\nWhenever Godo attacks for the first time each turn, untap it and all Samurai you control. After this phase, there is an additional combat phase.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Colossal Dreadmaw",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Creature — Dinosaur",
+  "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Typhoid Rats",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Creature — Rat",
+  "oracle_text": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Deathtouch"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Gifted Aetherborn",
+  "layout": "normal",
+  "mana_cost": "{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Aetherborn Vampire",
+  "oracle_text": "Deathtouch, lifelink",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Lifelink",
+   "Deathtouch"
+  ],
+  "power": "2",
+  "toughness": "3"
+ }
+]
