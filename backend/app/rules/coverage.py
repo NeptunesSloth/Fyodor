@@ -710,7 +710,10 @@ def x_selector_ok(ch: Characteristics, d: dict[str, Any]) -> bool:
     """-- reanimation (wave 10A) -- a selector reading "mana value X" (107.3f) needs an X the player announces: the {X} of
     the spell's mana cost or of the activated ability's cost. An X chosen elsewhere (energy or counters paid, "you may pay
     {X}" on resolution after the target was chosen) is not known when the target is, so those stay manual."""
-    if not _X_SELECTOR.search(json.dumps(d, default=str).replace('\\"', '"')):
+    # -- cast-permission riders (wave 38C) -- 603.12: "you may pay {X}. When you do, … target … with mana value X": the reflexive ability's targets are chosen after the
+    # payment, knowing the X paid (scripts: "x_event", triggers.event_x)
+    own = {**d, "effects": [e for e in d.get("effects") or [] if not (e.get("do") == "reflexive" and e.get("x_from") and (e.get("ability") or {}).get("x_event"))]}
+    if not _X_SELECTOR.search(json.dumps(own, default=str).replace('\\"', '"')):
         return True
     if d.get("kind") == "activated":
         return "{X}" in str(d.get("cost") or "")

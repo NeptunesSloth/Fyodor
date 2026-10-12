@@ -1543,6 +1543,7 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
     r.stack.pop(stack_id, None)
     oid = plan.oid(stack_id)
     r.buyback = [o for o in r.buyback if o != oid]
+    r.exile_resolves.pop(oid, None)  # -- cast riders (wave 38C) -- a countered spell doesn't resolve (701.6a): "as it resolves" never applies to it
     plan.note(f"{card.name or 'It'} is countered", [stack_id])
     if card.ability is None and by is not None:  # -- counter events (wave 19C) -- "Whenever a spell or ability you control counters a spell":
         from app.game.rules_state import (
@@ -4653,6 +4654,10 @@ PRIMITIVES.update(_join_forces.PRIMITIVES)
 from app.rules import cast_riders as _cast_riders  # noqa: E402, I001
 
 PRIMITIVES.update(_cast_riders.PRIMITIVES)
+# -- cast riders (wave 38C) -- "exile it instead of putting it into your graveyard as it resolves", "it becomes plotted" (app/rules/resolve_exile.py)
+from app.rules import resolve_exile as _resolve_exile  # noqa: E402, I001
+
+PRIMITIVES.update(_resolve_exile.PRIMITIVES)
 # -- pay to untap (wave 25C) -- Dream Tides, Mudslide (app/rules/pay_untap.py)
 from app.rules import pay_untap as _pay_untap  # noqa: E402, I001
 

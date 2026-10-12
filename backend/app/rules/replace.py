@@ -590,7 +590,7 @@ def run_then(plan: Plan, then: dict[str, Any] | None) -> None:
     fn(plan, then)
 
 
-THEN: dict[str, Any] = {"draw_rest": lambda plan, then: _then_draw_rest(plan, then)}  # continuation name -> fn(plan, then): filled by the sites' modules
+THEN: dict[str, Any] = {"draw_rest": lambda plan, then: _then_draw_rest(plan, then), "noop": lambda plan, then: None}  # continuation name -> fn(plan, then): filled by the sites' modules (-- cast riders (wave 38C) -- "noop": a body with nothing after it)
 
 
 def _ctx_answers(ctx: dict[str, Any] | None) -> dict[str, str]:

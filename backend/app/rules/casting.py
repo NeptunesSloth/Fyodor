@@ -2903,12 +2903,23 @@ def plot(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
         return
     pay(plan, plan.actor, cost, f"paid {cost.text()} to plot {ch.name}", sources=a.sources, purpose=Purpose())
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}})
+    become_plotted(plan, card.id)
+    plan.rules.passed = []
+
+
+def become_plotted(plan: Plan, card_id: str) -> None:
+    """-- cast riders (wave 38C) -- 702.170c-d: a card in exile becomes plotted (the plot special action, or "it becomes plotted": Lilah): its owner may
+    cast it without paying its mana cost during their main phase while the stack is empty, on any turn after this one (a permission that follows the
+    object, 400.7h)."""
+    card = plan.state.cards.get(card_id)
+    if card is None or not card.zone.endswith(":exile") or card.is_token or card.copy_of is not None:
+        return  # (a copy of a spell exiled ceases to exist, 704.5e)
+    name = plan.ch(card).name or card.name
     plan.rules.permissions.append(Permission(
         id=secrets.token_hex(4), player=card.owner, cast=True, zone="any", object_id=plan.oid(card), card=card.id, free=True,
-        until="permanent", turn=state.turn.number, after_turn=state.turn.number, sorcery=True,
-        label=f"{ch.name}: cast it without paying its mana cost (plotted)"))
-    plan.note(f"{ch.name} is plotted", [card.id])
-    plan.rules.passed = []
+        until="permanent", turn=plan.state.turn.number, after_turn=plan.state.turn.number, sorcery=True,
+        label=f"{name}: cast it without paying its mana cost (plotted)"))
+    plan.note(f"{name} is plotted", [card.id])
 
 
 FORETELL = re.compile(r"^foretell (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
@@ -3251,6 +3262,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
                       targets=tuple(t.id for t in chosen),  # (wave 4I: "spells that target …")
                       additional=(*((M.parse_cost(either.mana),) if either is not None and either.mana else ()), *mode_costs))  # (wave 6E)
     cost = _locked(plan, cost)  # (wave 4I: 601.2f)
+    if paid and pending is not None and pending["e"].get("spend"):  # -- cast-permission riders (wave 38C) -- 118.14: "…, and mana of any type can be spent to cast that spell" (Quistis)
+        cost = M.spend_as(cost, pending["e"]["spend"])
     if alt is not None or not cost.is_free:
         if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,
                         purpose=Purpose(spell=ch, zone=card.zone, player=plan.actor, kicked=bool(a.kicker))):
