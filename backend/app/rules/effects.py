@@ -3171,7 +3171,7 @@ def _did_r1(fn: Any, kind: str) -> Any:
         if name and name not in context.refs(ctx):
             refs = context.refs(ctx)
             if kind == "leave":  # sacrificed: moved off the battlefield (to wherever a replacement sent it)
-                if e["do"] == "sacrifice_choice":
+                if e["do"] in ("sacrifice_choice", "edict"):  # (wave 41C: an edict, "That player sacrifices a creature of their choice. If the player can't, …")
                     who = set(_players(plan, ctx, e["who"]))
                     cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in who]
                 else:
@@ -3834,6 +3834,7 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES.update({"edict": edict, "player_chooses": player_chooses, "reveal_hand": reveal_hand, "hide_revealed": hide_revealed,
                    "choose_from_hand": choose_from_hand, "discard_named": discard_named, "choose_value": choose_value})
+PRIMITIVES["edict"] = _did_r1(PRIMITIVES["edict"], "leave")  # -- trigger other (wave 41C) -- "That player sacrifices a creature of their choice. If the player can't, …"
 RESUME = {"edict": resume_edict, "player_chooses": resume_player_chooses, "choose_from_hand": resume_choose_from_hand,
           "choose_value": resume_choose_value, "look_hand": resume_look_hand}
 # -- if you do (wave 8C) -- "put your choice of a +1/+1, first strike, or trample counter on it" (app/rules/counter_pick.py)
