@@ -565,7 +565,8 @@ class ContinuousEffect(BaseModel):
     # -- end of next turn (wave 32C) -- "end_of_next_turn": "until the end of your next turn" ends in the cleanup step (514.2) of
     # ``until_player``'s next turn (a later turn than ``turn``, even when it began in one of their own turns: delayed.end_of_next_turn)
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
-                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat"] = "end_of_turn"
+                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast"] = "end_of_turn"
+    until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
     turn: int = 0  # the turn the effect began (next_turn: it ends on a later turn of until_player)
@@ -791,6 +792,7 @@ class PaymentRecord(BaseModel):
     discarded: list[str] = Field(default_factory=list)
     revealed: list[str] = Field(default_factory=list)  # -- static_other sweep (wave 17C) -- cards revealed from the hand to pay ("the revealed card's …")
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
+    exiled_objects: list[str] = Field(default_factory=list)  # -- as long as (wave 37A) -- the objects they became in exile (400.7j: "this card" finds that one)
     returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
     # -- keywords (wave 15E) -- ninjutsu 702.49c: what each returned attacking creature was attacking (player or permanent id)
     returned_attacking: dict[str, str] = Field(default_factory=dict)
