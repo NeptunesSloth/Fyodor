@@ -59,10 +59,21 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
     # gated by its trailing "if" (608.2c) — the plain "draw a card"; a name that is two creatures takes a plural verb ("Tokka & Rahzar deal 3 damage")
     body = re.sub(r"(?<=\. )([Dd]raw) (?:another|an additional) card(?= if )", r"\1 a card", body)
     body = re.sub(r"(^|, )~ deal (?=\d|X)", r"\1~ deals ", body)
+    # -- trigger other (wave 39A) -- "Until end of turn, that creature gets +2/+0, gains trample if it's red, and gains vigilance if it's white." (Aurelia, Exemplar of
+    # Justice): the pump, then each conditional grant as the sentence of its own it is (608.2c: in order; each "if" is judged as that instruction is carried out)
+    cg = re.search(r"Until end of turn, that creature gets ([+-]\d+/[+-]\d+)((?:, (?:and )?gains [a-z ]+? if it's [a-z]+)+)\.", body)
+    if cg is not None:
+        body = (body[:cg.start()] + f"That creature gets {cg[1]} until end of turn."
+                + "".join(f" That creature gains {k} until end of turn if {c}." for k, c in re.findall(r"gains ([a-z ]+?) if (it's [a-z]+)", cg[2])) + body[cg.end():])
+    # -- trigger other (wave 39A) -- "~'s base power and toughness become 6/6 and they gain trample" (Moon Girl and Devil Dinosaur): "they" is the one card, whose name is two names
+    body = re.sub(r"(~(?:'s base power and toughness become| has base power and toughness) \d+/\d+) and they (gain|have) ", lambda t: f"{t[1]} and {t[2]}s ", body)
     if (cond or {}).get("event") == "attack" and (cond or {}).get("subject") == "sel":  # -- trailing & intervening ifs (wave 38A) -- 508.1: "the creature that
         body = body.replace("the creature that attacked", "that creature")  # attacked" (Aradesh) is the object the event is about, "that creature"
     if name == "cast_self":  # -- history (wave 22E) -- "When you cast this spell, … where X is the amount of mana spent to cast it" (Prossh)
         body = re.sub(r"\bthe amount of mana spent to cast it\b", "the amount of mana spent to cast this spell", body)
+        # -- trigger other (wave 39A) -- "When you cast this spell, any player may sacrifice a creature of their choice. If a player does, counter ~." (Brain
+        # Gorgers, Phantasmagorian, Dash Hopes, Temporal Extortion): the trigger goes on the stack above the spell cast (603.3, 601.2i), which "counter ~" names
+        body = re.sub(r"\b(counter) ~(?=[.,\s]|$)", r"\1 that spell", body)
     if name == "dies_self" or (cond is not None and cond.get("event") == "die" and cond.get("subject") == "self"):
         # -- trigger other (wave 25B) -- "When this creature dies, … return this card to …": the card it is now, in its owner's graveyard (400.7: "it")
         body = re.sub(r"\b(return|put|exile|shuffle) this card\b", r"\1 it", body)

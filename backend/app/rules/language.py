@@ -1567,6 +1567,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m and rider is None and (m["your"] is not None) == (m["s"] in (None, "you")):
         who, target = _subject(m)
         return [{"do": "mill", "who": who, "n": 0, "half": m["r"]}], target
+    # -- trigger other (wave 39A) -- "target opponent discards half the cards in their hand, rounded down" (Lord Xander): 107.1a, effects._discard_next
+    m = re.fullmatch(_SUBJ + r"discards? half the cards in (?P<your>your|their) hand, rounded (?P<r>up|down)", text)
+    if m and rider is None and (m["your"] == "your") == (m["s"] in (None, "you")):
+        who, target = _subject(m)
+        return [{"do": "discard", "who": who, "n": 0, "half": m["r"]}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)
@@ -1598,6 +1603,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if sel is None or sel.player is not None or sel.controller is not None:
             raise _Fail
         return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": 10**6, "upto": True}], None
+    # -- trigger other (wave 39A) -- "Sacrifice half the non-Demon permanents you control, rounded up." (Rakdos the Defiler): 107.1a, counted as it resolves
+    m = re.fullmatch(r"sacrifice half the (?P<sel>.+?) you control, rounded (?P<r>up|down)", text)
+    if m and rider is None:
+        sel = selectors.parse(m["sel"])
+        if sel is None or sel.player is not None or sel.controller is not None or sel.zones != ("battlefield",):
+            raise _Fail
+        return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(),
+                 "n": {"half": {"count": selectors.replace(sel, controller="you").key()}, "round": m["r"]}}], None
     # -- trigger tail (wave 16C) -- "Exile a land you control." (Wormfang Newt, Turtle): you choose it as this resolves (608.2d),
     # then it's exiled (no sacrifice, 701.21a: sacrificing is putting into a graveyard); linked for "the exiled card" (607.2a)
     m = re.fullmatch(r"exile (?P<n>a|an|one|two|three|another|any number of) (?P<sel>(?!target )[A-Za-z -]+? you control)(?P<until> until ~ leaves the battlefield)?", text)
@@ -2070,6 +2083,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         effects, target = _pump(swapped, rider)
         return [*effects[1:], effects[0]], target
+    # -- trigger other (wave 39A) -- "attacking red creatures get +2/+0 and attacking white creatures get +0/+2 until end of turn." (Agrus Kos, Wojek Veteran): two
+    # groups, each its own pump with its own modifier (611.2c: each set of creatures is fixed as this resolves; a creature that is both gets both)
+    m = _PUMP_TWO.fullmatch(text)
+    if m and rider is None:
+        half_a = _PUMP.fullmatch(f"{m['a']} gets {m['pa']} until end of turn")
+        half_b = _PUMP.fullmatch(f"{m['b']} gets {m['pb']} until end of turn")
+        if half_a is None or half_b is None or ref(half_a["o"])[0] != "each" or ref(half_b["o"])[0] != "each":
+            raise _Fail
+        return [*_pump(half_a, None)[0], *_pump(half_b, None)[0]], None
     m = _PUMP.fullmatch(text)
     if m:
         return _pump(m, rider)
@@ -2218,6 +2240,7 @@ _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P
                    r"| and (?P<mb>must be blocked this turn if able)"  # (mb: wave 6E, 509.1c)
                    r"| and can (?P<bx>block (?:an additional creature|an additional \w+ creatures|up to \w+ additional creatures"
                    r"|any number of creatures)) this turn)?")  # (bx: wave 13B, 509.1a)
+_PUMP_TWO = re.compile(r"(?P<a>.+?) gets? (?P<pa>[+\-−]\d+/[+\-−]\d+) and (?P<b>(?:(?!\b(?:and|gets?)\b).)+?) gets? (?P<pb>[+\-−]\d+/[+\-−]\d+) until end of turn")  # (wave 39A)
 _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
 _GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
                         rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
@@ -2702,8 +2725,12 @@ _CHOOSERS = ("target player", "target opponent", "each opponent", "each of your 
              "that player", "its controller", "that creature's controller", "that permanent's controller", "defending player")
 CHOOSER = "|".join(re.escape(c) for c in sorted(_CHOOSERS, key=len, reverse=True))
 # (patterns are format()-ed by scripts.effect: no literal braces)
-EDICT = rf"(?P<s>{CHOOSER}) sacrifices (?P<n>{AMT}) (?P<sel>.+?) of their choice(?: for each (?P<each>.+))?"  # (each: wave 19D, Smokestack)
+EDICT = rf"(?P<s>{CHOOSER}) sacrifices (?P<n>{AMT}) (?P<sel>(?:(?!, then ).)+?) of their choice(?P<tail> that dealt combat damage to you this turn)?(?: for each (?P<each>.+))?"  # (each: wave 19D, Smokestack; tail: wave 39A)
 EDICT_OTHERS = rf"each other player sacrifices (?P<n>{AMT}) (?P<sel>.+?)(?: of their choice)?"
+# -- trigger other (wave 39A) -- "Each player sacrifices half the non-God creatures they control of their choice, rounded down." (Zodiark), "Target
+# opponent sacrifices half the nonland permanents they control of their choice, rounded down." (Lord Xander): half of what that player controls (107.1a:
+# rounded as written), counted for each player on their own; the choices are made in APNAP order (101.4) and everything goes at once
+EDICT_HALF = rf"(?P<s>{CHOOSER}) sacrifices half the (?P<sel>.+?) they control(?: of their choice)?, rounded (?P<r>up|down)"
 # -- modal spells (wave 24D) -- "Target opponent exiles a creature they control." (Doomfall, Debt to the Kami): the edict's choice (101.4,
 # 701.21a-style: the player chooses among what they control), exiled instead of sacrificed
 EDICT_EXILE = (rf"(?P<s>{CHOOSER}) exiles (?P<n>{AMT}) (?P<sel>.+?) they control"
@@ -2765,7 +2792,7 @@ def _permanent_sel(phrase: str) -> str:
     return sel.key()
 
 
-_GREATEST_OWN = re.compile(r"(?P<s>.+?) with the greatest (?P<stat>power|toughness|mana value) among (?P<among>.+?) (?:that player|they) controls?")
+_GREATEST_OWN = re.compile(r"(?P<s>.+?) with the (?P<ext>greatest|least) (?P<stat>power|toughness|mana value) among (?P<among>.+?) (?:that player|they) controls?")  # (ext: wave 39A)
 
 
 def _greatest_own(noun: str) -> selectors.Selector | None:
@@ -2781,7 +2808,7 @@ def _greatest_own(noun: str) -> selectors.Selector | None:
     if replace(among, types=(), not_types=()) != selectors.Selector():
         raise _Fail
     kinds = "|".join(among.types) + ("!" + "|".join(among.not_types) if among.not_types else "")
-    return replace(sel, extras=(*sel.extras, f"greatest_own:{m['stat'].replace(' ', '_')}:{kinds}"))
+    return replace(sel, extras=(*sel.extras, f"{m['ext']}_own:{m['stat'].replace(' ', '_')}:{kinds}"))
 
 
 def edict(m: re.Match[str]) -> tuple[Effects, Any]:
@@ -2792,7 +2819,7 @@ def edict(m: re.Match[str]) -> tuple[Effects, Any]:
             raise _Fail
         key = greatest.key()
     else:
-        key = _permanent_sel(m["sel"])
+        key = _permanent_sel(m["sel"] + (m.groupdict().get("tail") or ""))
     n = _amount(m["n"])
     if m.groupdict().get("each"):  # -- counters sweep (wave 19D) -- "… of their choice for each soot counter on this artifact": a count read as it resolves
         v = this_way.parse(m["each"]) if m["each"].endswith(" this way") else values.parse_count(m["each"], it="self")  # (wave 21C: Malfegor)
@@ -2800,6 +2827,11 @@ def edict(m: re.Match[str]) -> tuple[Effects, Any]:
             raise _Fail
         n = v if n == 1 else {"times": [n, v]}
     return [{"do": "edict", "who": who, "sel": key, "n": n, "label": m["sel"], **({"action": "exile"} if "exiles" in m.re.pattern else {})}], _one(group)
+
+
+def edict_half(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"])  # (-- trigger other (wave 39A) -- ``half_own``: effects._choose_next counts it for each player)
+    return [{"do": "edict", "who": who, "sel": _permanent_sel(m["sel"]), "n": {"half_own": m["r"]}, "label": m["sel"]}], _one(group)
 
 
 def player_chooses(m: re.Match[str]) -> tuple[Effects, Any]:

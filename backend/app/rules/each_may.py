@@ -47,7 +47,12 @@ if TYPE_CHECKING:
 
 Context = dict[str, Any]
 _WHO = {"opponent": "each_opponent", "player": "each_player"}
-_MAY = re.compile(r"^(?:then )?(?:if (?P<cond>(?!you do\b)[^,]+), )?(?P<if>if you do, )?each (?P<who>opponent|player) may (?P<cost>.+)$")
+_MAY = re.compile(r"^(?:then )?(?:if (?P<cond>(?!you do\b)[^,]+), )?(?P<if>if you do, )?(?P<every>each|any) (?P<who>opponent|player) may (?P<cost>.+)$")
+# -- trigger other (wave 39A) -- "Any opponent may sacrifice a creature of their choice. If a player does, tap this creature, you gain 3 life, and you draw a
+# card." (Clackbridge Troll), "When you cast this spell, any player may sacrifice a creature of their choice. If a player does, counter this spell." (Brain
+# Gorgers), "… If no one does, transform this creature." (Innocent Traveler): the same question to every player of the group (101.4, turn order), the
+# choices made first and the payments together (the rulings of Clackbridge Troll and Vile Mutilator), then what follows happens once, for the controller
+_ANY_DID = re.compile(r"^if (?P<w>a player|an opponent|no one|no player|nobody) does, (?P<rest>.+)$")
 _FOR_EACH = re.compile(r"^for each (?P<who>opponent|player) who (?:doesn't|didn't), (?P<rest>.+)$")
 _WHO_DOESNT = re.compile(r"^each (?P<who>opponent|player) who (?:doesn't|didn't) (?P<rest>.+)$")
 _TO_EACH = re.compile(r"^(?P<lead>.+) to each (?P<who>opponent|player) who (?:doesn't|didn't)(?P<this> sacrifice a permanent this way)?$")
@@ -149,8 +154,8 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
         if not re.fullmatch(r"Sacrifice (?:a|an) [a-z]+(?: or [a-z]+)*", str(pay.get("cost") or "")) or pay.get("alts"):
             return None  # (one permanent sacrificed: "it")
         entry["shares_type"] = last_payment
-    elif (cost := optional_payment.cost_text(cost_phrase)) is not None:
-        entry["cost"] = cost
+    elif (cost := optional_payment.cost_text(cost_phrase) or optional_payment.cost_text(re.sub(r"\btheir\b", "your", cost_phrase))) is not None:
+        entry["cost"] = cost  # (-- trigger other (wave 39A) -- the payer's own: "exile a card from their graveyard" is the cost "exile a card from your graveyard")
     elif (alts := optional_payment.alternatives(cost_phrase)) is not None:
         entry["alts"] = alts
     else:
@@ -163,6 +168,11 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
     body: str | None = None
     used = 1 if tail else 2
     acting = "act" in entry
+    anyone: str | None = None
+    if m["every"] == "any":  # (-- trigger other (wave 39A) -- the one sentence after it is "If a player does, …" / "If no one does, …", for the controller)
+        if acting or one or "shares_type" in entry or m["if"] or (ad := _ANY_DID.match(nxt)) is None:
+            return None
+        anyone, body = ("none" if ad["w"] in ("no one", "no player", "nobody") else "some"), ad["rest"][:1].upper() + ad["rest"][1:]
     if one and not acting:
         return None  # (a cost the one player pays — "That player may discard a card. If they do, …" — is the optional payment's: scripts._that_player_does)
     if acting and "drew a card" in nxt and not any(x["do"] == "draw" for x in entry["act"]):
@@ -206,9 +216,11 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
         return list(parsed[0])
 
     if body is not None:
-        if (inner := plain(body)) is None:
+        if (inner := plain(body)) is None or (anyone and re.search(r"event_player|that_player", json.dumps(inner))):
             return None
         entry["effects"] = inner
+        if anyone:
+            entry["any"] = anyone
     for key, texts_ in (("then", then_texts), ("then_opp", opp_texts)):  # (-- each player may (wave 23A) -- what the players who paid get)
         if texts_:
             done = [plain(t) for t in texts_]
@@ -333,8 +345,11 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if defer and players:
             added.append({"do": "pay_deferred", "binds": [f"{tag}{i}" for i in range(len(players))]})
     answered = "flag" if acting else "succeeded"  # (the answer of each: a recorded verdict, or a payment made)
+    if e.get("any") and e.get("effects"):  # -- trigger other (wave 39A) -- once, if any player (or, "none", no player) paid: the controller's own instructions
+        paid = {"any": [{answered: f"{tag}{i}"} for i in range(len(players))]}
+        added += [{"do": "only_if", "cond": paid if e["any"] == "some" else {"not": paid}, "skip": len(e["effects"])}, *copy.deepcopy(e["effects"])]
     for i, p in enumerate(players):
-        inner = _for(e.get("effects") or [], p)
+        inner = [] if e.get("any") else _for(e.get("effects") or [], p)
         if inner:
             added += [{"do": "only_if", "cond": {answered: f"{tag}{i}", "negate": True}, "skip": len(inner)}, *inner]
         for key in ("then", "then_opp"):  # -- each player may (wave 23A) -- the players who paid: "Each player who discarded a card this way draws a card"

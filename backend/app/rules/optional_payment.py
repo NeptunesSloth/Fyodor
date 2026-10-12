@@ -76,6 +76,7 @@ def cost_text(phrase: str) -> str | None:
     text the cost parser reads — or None when the engine couldn't pay every part by itself."""
     if " another " not in f" {phrase} ":  # -- if you do (wave 15C) -- the payer chooses what pays (Torment of Scarabs); "another" is
         phrase = phrase.replace(" of their choice", "")  # other than what? (an Aura's: the enchanted creature) — not read
+    phrase = re.sub(r"\b(non[a-z]+), (?=non[a-z]+ )", r"\1 ", phrase)  # -- trigger other (wave 39A) -- "two nonland, nontoken permanents" (Rakdos, Patron of Chaos): one adjective list, not two costs
     parts = []
     # -- if you do (wave 6F) -- "sacrifice an artifact, creature, enchantment, land, or planeswalker" (Braids): one
     # permanent of any of those types — the cost parser's "a creature or artifact or land"

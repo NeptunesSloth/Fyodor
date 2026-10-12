@@ -24,7 +24,8 @@ WAS_DEALT = "was_dealt_damage"  # the object was dealt damage this turn
 DEALT = "dealt_damage"  # the object dealt damage this turn (to anything)
 DEALT_YOU = "dealt_damage_you"  # the object dealt damage to "you" this turn
 BY_SOURCE = "dealt_damage_by_source"  # -- wave 19E -- the object was dealt damage this turn by the selector's source ("dealt damage by ~")
-EXTRAS = (WAS_DEALT, DEALT, DEALT_YOU, BY_SOURCE)
+DEALT_COMBAT_YOU = "dealt_combat_damage_you"  # -- trigger other (wave 39A) -- the object dealt combat damage to "you" this turn (120.1, 510.2; the log's combat flag)
+EXTRAS = (WAS_DEALT, DEALT, DEALT_YOU, BY_SOURCE, DEALT_COMBAT_YOU)
 
 
 def matches(plan: Plan, card: Any, extra: str, you: str | None, source: str | None = None) -> bool:
@@ -48,6 +49,8 @@ def matches(plan: Plan, card: Any, extra: str, you: str | None, source: str | No
     if extra == BY_SOURCE:
         src_card = plan.state.cards.get(source or "")
         return src_card is not None and any(to == oid and src == plan.oid(src_card) for to, _, src in dealt)
+    if extra == DEALT_COMBAT_YOU:
+        return any(f.kind == "damage" and f.amount > 0 and f.combat and f.object_id == oid and f.player == you for f in log_for(plan, False).facts)
     if extra == DEALT_YOU:
         return any(src == oid and player is not None and player == you for _, player, src in dealt)
     return any(src == oid for _, _, src in dealt)
