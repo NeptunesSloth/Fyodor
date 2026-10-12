@@ -1153,6 +1153,7 @@ class SetPrefs(_Intent):
     payment: Literal["self"] | None = None  # players always tap their own mana
     auto_resolve_own_triggers: Literal["off", "safe", "on"] | None = None
     auto_order_identical_triggers: bool | None = None
+    ask_graveyard_order: bool | None = None  # -- graveyard order (wave 40C) -- 404.3
     hold_priority: bool | None = None
     full_control: bool | None = None
     force_stop: bool | None = None

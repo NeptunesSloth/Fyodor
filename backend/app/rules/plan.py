@@ -87,6 +87,9 @@ class Plan:
         """Resolve and apply one table action on the scratch copy, and record it."""
         from app.game.engine import HANDLERS  # the game engine imports resolve → this module
         from app.game.resolve import resolve
+        from app.rules import (
+            graveyard_order,  # (-- graveyard order (wave 40C) -- 404.3: graveyard_order → plan)
+        )
 
         if len(self.steps) >= self.max_steps:
             raise ActionError("The rules engine stopped: too many steps for one action")
@@ -107,6 +110,7 @@ class Plan:
         if before is not None:  # (the turn log: what a permanent was as it left, layers applied)
             before.types = self._battlefield_types(payload)
         entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
+        gy_seen = graveyard_order.before(self, payload)
         HANDLERS[resolved.type](self.state, resolved)
         if before is not None and self.began is not None:
             for cid, zone in before.zones.items():
@@ -115,6 +119,8 @@ class Plan:
                     self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
               put_by=wither_put_by(resolved))  # (5H, 7C, 17D)
+        if gy_seen is not None:  # (wave 40C) two or more cards into one graveyard at once: its owner may arrange them (404.3)
+            graveyard_order.after(self, gy_seen)
         if entered_before is not None:  # -- refused modal/conditional (wave 3R1) -- what entered was, as it entered (608.2i)
             log = self.rules.turn_log
             for entry in log.entered[entered_before[1] if log.turn == entered_before[0] else 0:]:

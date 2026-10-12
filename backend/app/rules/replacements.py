@@ -1141,6 +1141,9 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
         return payload
     dest = (payload.get("to") or {}).get("zone")
     r = plan.rules
+    if dest == "graveyard" and payload.get("index") is not None and (who := payload["to"].get("player")) and all(
+            (c := plan.state.cards.get(cid)) is not None and c.zone == zone_key(who, "graveyard") for cid in payload.get("card_ids") or []):
+        return payload  # -- graveyard order (wave 40C) -- 404.3: arranging a graveyard moves nothing between zones: no replacement applies
     replaced: list[tuple[str, str, str]] = []  # (card, zone it goes to instead, why)
     riders: list[dict[str, Any]] = []  # -- zone replacements (wave 22C) -- what the replacements add (a token): after the moves
     held: list[str] = []  # -- zone replacements (wave 22C) -- cards waiting for their controller's 616.1 choice
