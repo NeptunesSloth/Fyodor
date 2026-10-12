@@ -192,6 +192,19 @@ def test_ellie_the_attacking_player_creates_a_zombie_attacking_the_opponent_they
     check(s)
 
 
+def test_combat_calligrapher_the_attacking_player_creates_a_flying_inkling_attacking_the_opponent(cards):
+    s = table(cards, mine=("Combat Calligrapher",))
+    put(s, "Combat Calligrapher")
+    wolf = hasty(s, "p2", "Wolf", "2/2")
+    to_attack(s, 2, "p2")
+    declare(s, (wolf, "p3"), pid="p2")
+    to_blocks(s)
+    (inkling,) = named(s, "Inkling")
+    assert inkling.controller == "p2" and inkling.tapped and attacking(inkling) == "p3"
+    assert of(s, inkling).pt == (2, 1) and of(s, inkling).colors == {"W", "B"} and "flying" in of(s, inkling).keywords
+    check(s)
+
+
 def test_ellie_does_not_trigger_when_the_attack_is_against_alice(cards):
     s = table(cards, mine=("Ellie, Brick Master",))
     put(s, "Ellie, Brick Master")
