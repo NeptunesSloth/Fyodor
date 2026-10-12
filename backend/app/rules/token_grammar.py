@@ -319,18 +319,26 @@ def _named_noncreature(m: re.Match[str], *, n_word: str | None, plain: bool) -> 
         return None
     # -- attached events (wave 25D) -- 702.6: an Equipment token's own "equip {2}" ("create a colorless Equipment artifact token named Axe with
     # "Equipped creature gets +1/+0" and equip {2}.")
-    equip = re.search(r'(?:^| and )(equip \{[^}"]+\}(?: and equip \{[^}"]+\})*)$', m["with"] or "") if m["nsub"] == "Equipment" else None
+    # -- attached events (wave 40B) -- 205.3g: more than one artifact type ("a colorless Book Equipment artifact token named Wasteland Survival Guide", Moira Brown); 702.6:
+    # keywords before the quoted abilities, which are told apart by a comma or nothing ("create Icingdeath, Frost Tongue, a legendary white Equipment artifact token with
+    # "Equipped creature gets +2/+0," "Whenever equipped creature attacks, tap target creature defending player controls," and equip {2}"; Nahiri's Stoneforged
+    # Blade "has indestructible, "Equipped creature gets +5/+5 and has double strike," and equip {0}" (scripts._define writes the sentence "It has …" as "with …"))
+    subs = m["nsub"].split() if m["nsub"] else []
+    equip = re.search(r'(?:^| and )(equip \{[^}"]+\}(?: and equip \{[^}"]+\})*)$', m["with"] or "") if "Equipment" in subs else None
     with_ = (m["with"] or "")[:equip.start()] if equip else m["with"] or ""
-    quotes = re.findall(r'"([^"]+)"', with_)
-    if not plain or not name or m["thats"] or m["attacking"] or m["pre"] or (
-            with_ and not re.fullmatch(r'"[^"]+"(?: and "[^"]+")*', with_)):
+    lead, _, tail = with_.partition('"')
+    tail = '"' + tail if tail else ""
+    keywords = _with(re.sub(r",? and$|,$", "", lead.strip()) or None) if lead.strip() else ([], None)
+    quotes = re.findall(r'"([^"]+)"', tail)
+    if not plain or not name or m["thats"] or m["attacking"] or m["pre"] or keywords is None or keywords[1] is not None or (
+            with_ and not tail and not keywords[0]) or (tail and not re.fullmatch(r'"[^"]+"(?:(?:,| and|,? and)? "[^"]+")*', tail)):
         return None
     allowed = ARTIFACT_TYPES if kind == "artifact" else ENCHANTMENT_TYPES
-    subs = [m["nsub"]] if m["nsub"] else []
     if any(x not in allowed for x in subs):
         return None
-    lines = []
+    lines = [k.capitalize() for k in keywords[0]]
     for q in quotes:
+        q = q.rstrip(",")
         line = _quoted_text(q.replace("this token", f"this {kind}")) if "this token" in q else _quoted_text(q)
         if line is None or ('"' in line):
             return None

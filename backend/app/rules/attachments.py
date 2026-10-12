@@ -286,7 +286,11 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
             replacements.ask_entry_choice(plan, entries, i, ctx, shuffle)
             return False
         # -- enter as copy (wave 5F) -- as it will enter: a permanent entering as a copy of an Aura is one (707.5, 303.4f)
-        if attach_kind(plan.ch(card) if copying.entering_as_copy(plan, card) else chars.of(card, plan.info)) != "aura" \
+        # (-- attached events (wave 40B) -- 712.14a: a double-faced card put onto the battlefield transformed enters with its back face up, so it is an Aura
+        # only if that face is: "return this card to the battlefield transformed" for Skin Invasion (a creature on the back) is no Aura entering)
+        data = plan.info.get(card.card_id) if entry.get("transformed") and card.card_id and card.token is None else None
+        as_face = chars.printed_from_data(data, 0 if card.face else 1) if data is not None else None
+        if attach_kind(as_face or (plan.ch(card) if copying.entering_as_copy(plan, card) else chars.of(card, plan.info))) != "aura" \
                 or entry.get("host"):
             continue
         hosts = _hosts_on_entering(plan, card, entry["player"])

@@ -16,7 +16,7 @@ from app.rules.plan import Plan
 
 Context = dict[str, Any]
 
-_PATTERN = re.compile(r"^tap or untap (?P<o>(?:another )?target .+)$")
+_PATTERN = re.compile(r"^tap or untap (?P<o>(?:another )?target .+|enchanted (?:creature|permanent|land)|equipped creature)$")  # (-- attached events (wave 40B) -- 303.4b, 301.5: "You may tap or untap equipped creature.", Sword of the Paruns)
 
 
 def _build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -27,6 +27,8 @@ def _build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         kind, key, group = language.ref(m["o"])
     except language._Fail:
         raise _NoMatch from None
+    if kind == "host":
+        return [{"do": "tap_or_untap", "who": "host"}], None
     if kind != "target" or group is None or group.get("max") != 1:
         raise _NoMatch
     return [{"do": "tap_or_untap", "who": language._who(kind, key)}], language._one(group)
