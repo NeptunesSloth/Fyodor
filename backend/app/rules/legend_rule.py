@@ -8,7 +8,9 @@ control." (Cadric, Soul Kindler), "… to creatures you control." (Council of Re
   keeps any number of legendary permanents, while the opponent's, whom it doesn't name, still lose all but one).
 * The static applies while its source is on the battlefield (611.3a); "you" is its controller. Read lazily, only when
   a player controls two or more legendary permanents with one name (app/rules/sba.py).
-* Not read: a condition ("If there are exactly two permanents named Brothers Yamazaki …").
+* (wave 42A) "If there are exactly two permanents named Brothers Yamazaki on the battlefield, the "legend rule" doesn't apply to them.": checked each time
+  the rule is (611.3a): with exactly two permanents of that name on the battlefield, whoever controls them, those two are not counted (one player controlling both
+  keeps both); with a third, or one, the rule is the ordinary one for all of them. Any other condition is not read.
 """
 
 from __future__ import annotations
@@ -24,8 +26,14 @@ KIND = "no_legend_rule"
 _TEXT = re.compile(r'^The "legend rule" doesn\'t apply(?: to (?P<what>permanents|tokens|creatures) you control)?\.$')
 
 
+_NAMED_TWO = re.compile(r'^If there are exactly two permanents named (?:~|this creature) on the battlefield, the "legend rule" doesn\'t apply to them\.$')
+
+
 def static_definition(text: str) -> dict[str, Any] | None:
-    m = _TEXT.match(text.strip().replace("“", '"').replace("”", '"'))
+    t = text.strip().replace("“", '"').replace("”", '"')
+    if _NAMED_TWO.match(t) is not None:
+        return {"kind": "static", "static": KIND, "scope": "named_two", "effects": []}
+    m = _TEXT.match(t)
     if m is None:
         return None
     return {"kind": "static", "static": KIND, "scope": m["what"] or "all", "effects": []}
@@ -44,6 +52,10 @@ def exempt_cards(plan: Plan, group: list[CardInstance]) -> set[str]:
         skip = conditional_lines(ch)  # (a leveler's / Class's level lines: the level isn't tracked)
         for i, d in scripts.definitions(ch).items():
             if i in skip or d.get("kind") != "static" or d.get("static") != KIND:
+                continue
+            if d["scope"] == "named_two":  # (wave 42A) exactly two permanents with the source's name on the battlefield: those two
+                same = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and plan.ch(c).name == ch.name]
+                out |= {card.id for card in group if card.id in same} if len(same) == 2 else set()
                 continue
             for card in group:
                 if d["scope"] == "all" or card.controller == src.controller and (

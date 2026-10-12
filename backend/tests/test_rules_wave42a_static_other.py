@@ -25,7 +25,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
-from app.rules import alt_costs, coverage, type_statics
+from app.rules import alt_costs, coverage, statics, type_statics
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -37,9 +37,11 @@ KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w42a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 DON = "Don Andres, the Renegade"
+YAMAZAKI = "Brothers Yamazaki"
 FULL = [DON, "Shauku, Endbringer", "Medomai the Ageless", "Stature, Size Shifter", "Masako the Humorless", "The Necrobloom",
         "Tannuk, Steadfast Second", "Adamaro, First to Desire", "Cayth, Famed Mechanist", "Tesak, Judith's Hellhound", "Barbara Wright",
-        "Dosan the Falling Leaf", "Technodrome", "Wirecat", "Glacial Crasher", "Karsus Depthguard"]
+        "Dosan the Falling Leaf", "Jasmine Boreal of the Seven", "Karn, Argent Defender", "Doorkeeper Thrull", YAMAZAKI, "Technodrome", "Wirecat", "Glacial Crasher",
+        "Karsus Depthguard"]
 
 
 @pytest.fixture()
@@ -400,6 +402,110 @@ def test_a_saga_has_no_read_ahead_choice_without_barbara(cards):
     act(s, "p1", type="cast_spell", card_id=saga.id)
     settle(s)
     assert s.state.cards[saga.id].counters.get("lore") == 1 and any(c.is_token and "Goblin" in (c.name or "") for c in s.state.cards.values())  # chapter I
+    check(s)
+
+
+# -- Jasmine Boreal of the Seven: "Creatures you control with no abilities can't be blocked by creatures with abilities." -------------------------------
+def jasmine_attack(cards, cayth=False):
+    s = build(cards, ["Jasmine Boreal of the Seven", "Grizzly Bears", "Cayth, Famed Mechanist"], ["Walking Corpse", "Elvish Mystic"], forests=20)
+    put(s, "Jasmine Boreal of the Seven")
+    bears = put(s, "Grizzly Bears")
+    if cayth:
+        put(s, "Cayth, Famed Mechanist")  # "Other nontoken creatures you control have fabricate 1": the Bears have an ability now (layer 6)
+    corpse, mystic = put(s, "Walking Corpse", "p2"), put(s, "Elvish Mystic", "p2")
+    next_turn(s)
+    attackers(s, bears)
+    blockers_asked(s)
+    return s, bears, corpse, mystic
+
+
+def test_a_creature_with_no_abilities_cannot_be_blocked_by_one_with_abilities(cards):
+    s, bears, corpse, mystic = jasmine_attack(cards)
+    with pytest.raises(ActionError, match="can't be blocked"):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": mystic.id, "attacker_id": bears.id}])  # a mana ability is an ability
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": corpse.id, "attacker_id": bears.id}])  # a vanilla creature may
+    check(s)
+
+
+def test_an_ability_another_static_grants_ends_the_evasion_of_a_creature_with_no_abilities(cards):
+    s, bears, corpse, mystic = jasmine_attack(cards, cayth=True)
+    assert any("Fabricate" in a.text for a in ch(s, "Grizzly Bears").abilities)
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": mystic.id, "attacker_id": bears.id}])  # Jasmine's rule no longer names the Bears (613.8)
+    check(s)
+
+
+# -- Muraganda Petroglyphs: "Creatures with no abilities get +2/+2." (kept manual: the subject of a layer 6-7 grant doesn't wait for other statics' granted abilities) --
+def test_a_pump_of_creatures_with_no_abilities_is_not_read_but_a_rule_is():
+    assert statics.parse("Creatures with no abilities get +2/+2.") is None
+    assert statics.parse("Creatures you control with no abilities have flying.") is None
+    assert statics.parse("Creatures you control with no abilities can't be blocked by creatures with abilities.") is not None
+
+
+# -- Karn, Argent Defender: "Artifacts and creatures entering the battlefield don't cause abilities to trigger." ---------------------------------------
+def karn_table(cards, karn=True):
+    s = build(cards, ["Karn, Argent Defender", "Elvish Visionary", "Staff of the Storyteller", "Scoured Barrens"], forests=30)
+    if karn:
+        put(s, "Karn, Argent Defender")
+    return s
+
+
+def test_karn_stops_the_enters_triggers_of_creatures_and_artifacts_but_not_lands(cards):
+    s = karn_table(cards)
+    hand = len(s.state.zones["p1:hand"])
+    visionary, staff = to_hand(s, "Elvish Visionary"), to_hand(s, "Staff of the Storyteller")
+    mana(s, "p1", G=2, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=visionary.id)
+    settle(s)
+    act(s, "p1", type="cast_spell", card_id=staff.id)
+    settle(s)
+    assert zone_of(s, "Elvish Visionary") == "p1:battlefield" and zone_of(s, "Staff of the Storyteller") == "p1:battlefield"
+    assert len(s.state.zones["p1:hand"]) == hand  # 603.2d: no card was drawn (the two cards came from the hand and back)
+    assert not any(c.is_token and c.zone == "p1:battlefield" for c in s.state.cards.values())  # no Spirit
+    barrens = to_hand(s, "Scoured Barrens")
+    life = s.state.players["p1"].life
+    act(s, "p1", type="play_land", card_id=barrens.id)
+    settle(s)
+    assert s.state.players["p1"].life == life + 1  # a land entering still causes its trigger
+    check(s)
+
+
+def test_the_enters_triggers_work_again_when_karn_leaves(cards):
+    s = karn_table(cards)
+    karn = card_named(s, "Karn, Argent Defender")
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="move", card_ids=[karn.id], to={"zone": "graveyard"})
+    visionary = to_hand(s, "Elvish Visionary")
+    mana(s, "p1", G=2)
+    act(s, "p1", type="cast_spell", card_id=visionary.id)
+    settle(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1  # drew a card (the cast one left the hand again)
+    check(s)
+
+
+# -- Brothers Yamazaki: "If there are exactly two permanents named Brothers Yamazaki on the battlefield, the "legend rule" doesn't apply to them." ----------
+
+
+def test_two_brothers_yamazaki_both_stay(cards):
+    s = build(cards, [YAMAZAKI, YAMAZAKI], [YAMAZAKI], forests=20)
+    first, second = copies_in(s, YAMAZAKI, 2)
+    act(s, "p1", type="pass_priority")  # state-based actions are checked as a player would get priority (704.3)
+    d = s.state.rules.decision
+    assert d is None or "Legend rule" not in d.prompt  # 704.5j: the rule doesn't apply to them
+    assert s.state.cards[first.id].zone == s.state.cards[second.id].zone == "p1:battlefield"
+    assert power_toughness(s, YAMAZAKI) == (4, 3)  # 2/1, +2/+2 for the other creature named Brothers Yamazaki
+    check(s)
+
+
+def test_a_third_brothers_yamazaki_brings_the_legend_rule_back_for_its_controller(cards):
+    s = build(cards, [YAMAZAKI, YAMAZAKI], [YAMAZAKI], forests=20)
+    first, second = copies_in(s, YAMAZAKI, 2)
+    (third,) = copies_in(s, YAMAZAKI, 1, "p2")  # three on the battlefield: not "exactly two"
+    act(s, "p1", type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and "Legend rule" in d.prompt and len(d.options) == 2  # Alice's two; Bob's one is alone
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert sum(1 for c in s.state.cards.values() if c.name == YAMAZAKI and c.zone.endswith(":battlefield") and c.controller == "p1") == 1
+    assert s.state.cards[third.id].zone == "p2:battlefield"
     check(s)
 
 

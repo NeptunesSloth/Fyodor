@@ -525,5 +525,122 @@
   ],
   "power": "4",
   "toughness": "3"
+ },
+ {
+  "name": "Jasmine Boreal of the Seven",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Druid",
+  "oracle_text": "{T}: Add {G}{W}. Spend this mana only to cast creature spells with no abilities.\nCreatures you control with no abilities can't be blocked by creatures with abilities.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Karn, Argent Defender",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Legendary Artifact Creature — Golem",
+  "oracle_text": "Artifacts and creatures entering the battlefield don't cause abilities to trigger.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Doorkeeper Thrull",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Thrull",
+  "oracle_text": "Flash\nFlying\nArtifacts and creatures entering don't cause abilities to trigger.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Flash"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Brothers Yamazaki",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Samurai",
+  "oracle_text": "Bushido 1 (Whenever this creature blocks or becomes blocked, it gets +1/+1 until end of turn.)\nIf there are exactly two permanents named Brothers Yamazaki on the battlefield, the \"legend rule\" doesn't apply to them.\nEach other creature named Brothers Yamazaki gets +2/+2 and has haste.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Bushido"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Elvish Visionary",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Elf Shaman",
+  "oracle_text": "When this creature enters, draw a card.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Staff of the Storyteller",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "When this artifact enters, create a 1/1 white Spirit creature token with flying.\nWhenever you create one or more creature tokens, put a story counter on this artifact.\n{W}, {T}, Remove a story counter from this artifact: Draw a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Scoured Barrens",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {W} or {B}.",
+  "colors": [],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": []
  }
 ]

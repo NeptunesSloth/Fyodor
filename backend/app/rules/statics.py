@@ -388,6 +388,10 @@ def parse(text: str) -> Definition | None:
     if any(_mentions(c, ("self_stat",)) for c in conds) and (who != "self" or not parts["rules"] or extra or parts["p"] or parts["t"] or parts["base"]
                                                               or parts["keywords"] or parts["grants"] or parts["each"] or parts["abilities_of"]):
         return None  # -- static_other (wave 42A) -- the source's own power is known to the rules pass (layers._with_rules) only: a rule of the source, nothing else
+    if "_abilities" in who and (not parts["rules"] or extra or parts["p"] or parts["t"] or parts["base"] or parts["keywords"] or parts["grants"] or parts["each"]
+                                or parts["abilities_of"]):
+        return None  # -- static_other (wave 42A) -- "creatures with no abilities": layer 6 grants of other statics change who has none (613.8), which the subject of a
+        # layer 6-7 grant doesn't wait for (layers._hits reads it before the granted abilities are there): only a rule, judged after every layer, is read
     if rule_cond and not parts["rules"]:
         return None  # "~ gets +1/+1 if …" isn't how a static grant is worded
     if who != "self" and any(_relative(sel) for r in parts["rules"] for sel in rule_selectors(rule_arg(r)[1])):

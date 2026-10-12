@@ -371,6 +371,18 @@ def _has_x_cost(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "x_cost"))
 
 
+# -- static_other (wave 42A) -- "creatures you control with no abilities" / "creatures with abilities" (Jasmine Boreal of the Seven, Muraganda Petroglyphs, Ruxa): an
+# object has an ability when any of its ability lines is there, the printed ones and the ones granted (113.1, 613.1f), judged on it as it is now
+@_suffix(r"with no abilities")
+def _no_abilities(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "no_abilities"))
+
+
+@_suffix(r"with abilities")
+def _has_abilities(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "has_abilities"))
+
+
 # -- base power (wave 30J) -- 208.4b: a creature's base power and/or toughness are what its characteristic-defining ability (613.4a) and the effects
 # that set them (613.4b) leave, ignoring effects and counters that modify without setting (Primo: "with base power 0"; Bess, Duskana: "with base
 # power and toughness 1/1"; Kutzil, Ms. Marvel: "with power greater than its base power")
@@ -1855,6 +1867,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                       and (not want or set(want.split("|")) & plan.ch(c).types) and not set(filter(None, unwanted.split("|"))) & plan.ch(c).types]
             if mine is None or any(p is not None and (p < mine if extra.startswith("least") else p > mine) for p in rivals):
                 return False
+        if (extra == "no_abilities" and ch.abilities) or (extra == "has_abilities" and not ch.abilities):  # (wave 42A)
+            return False
         if extra == "x_cost" and "{X}" not in ch.mana_cost:  # -- activated wordings (wave 15D) -- (107.3: printed in its mana cost)
             return False
         if extra == "power_gt_base" and (ch.base_pt is None or (_stat(ch, "power") or 0) <= ch.base_pt[0]):  # (wave 30J) as it is now, a * is no number
