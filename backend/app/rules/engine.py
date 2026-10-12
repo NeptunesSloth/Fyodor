@@ -1507,6 +1507,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
+    "free_optional": casting.resume_free_optional,  # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b
     "slot": permissions.resume_slot,  # -- cast permissions (wave 30Q) -- Muldrotha: which permanent type a cast uses up
     "legend_rule": sba.resume_legend_rule,
     "graveyard_order": graveyard_order.resume,  # -- graveyard order (wave 40C) -- 404.3

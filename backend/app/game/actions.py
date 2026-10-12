@@ -1005,6 +1005,9 @@ class CastSpell(_Intent):
     # -- cast permissions (wave 32D) -- 601.2: the limited permission the cast uses up when several fit (a once-a-turn permission, one of Muldrotha's types:
     # a Grant's ``use``); absent: the default way, or a question when the ways use up different things
     via: str | None = Field(default=None, max_length=64)
+    # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b: a cast made as an effect resolves (cascade, discover, Gandalf …) asks its caster which optional
+    # additional costs to pay (kicker, bargain, gift, casualty …); True once they were asked, so the answer "none" is not asked again
+    optional_asked: bool = False
 
 
 class MiracleReveal(_Intent):
