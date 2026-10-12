@@ -2581,6 +2581,12 @@ def _swap_x(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if isinstance(v, list):
             return [swap(x, key) for x in v]
         if isinstance(v, dict):
+            if v.get("do") == "free_cast" and v.get("mv") == _X_SENTINEL and (value is None or isinstance(value, dict)):
+                # -- free cast (wave 40D) -- "you may cast an instant or sorcery spell with mana value X or less from your hand without paying its mana cost, where X
+                # is twice the number of legendary Wizards you control" (Gandalf, Party Guest), "…, where X is the number of attacking creatures" (Epistolary
+                # Librarian): the limit is that count, read as the spell is chosen as the ability resolves (107.3c, 608.2h)
+                _x_now()[1] = True
+                v = {**v, "mv": value}
             return {k: swap(x, k) for k, x in v.items()}
         if key in ("power", "toughness") and v == str(_X_SENTINEL):  # -- wave 22D -- a token's printed "X/X" (effects.create_token reads the value)
             _x_now()[1] = True
@@ -4273,6 +4279,13 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = re.sub(r"\bexile (?:cards equal to (?P<v>[^.]+?) from the top of (?P<lib>your library|their library|target player's library|that player's library)|"
                   r"a number of cards from the top of (?P<lib2>your library|their library|target player's library|that player's library) equal to (?P<v2>[^.]+?))(?=\.)",
                   lambda m: f"exile the top X cards of {m['lib'] or m['lib2']}, where X is {m['v'] or m['v2']}", text)
+    # -- free cast (wave 40D) -- "Shuffle your library, then exile the top card." (Urza, Lord High Artificer), "…, then exile the top four cards." (Hazoret's Undying
+    # Fury): two instructions in order (701.24, then 701.13a)
+    text = re.sub(r"Shuffle your library, then exile the top (card|\w+ cards)\.", r"Shuffle your library. Exile the top \1 of your library.", text)
+    # "Draw a card, then discard a card. If there are four or more chorus counters on ~, you may cast the discarded card without paying its mana cost." (Malcolm,
+    # Alluring Scoundrel): "it" is the card the discard instruction just moved (resolve_it), when that ability has one
+    if "the discarded card" in text and re.search(r"\bdiscards? [^.]*\. [^.]*\byou may (?:cast|play) the discarded card\b", text):
+        text = re.sub(r"\b(you may (?:cast|play)) the discarded card\b", r"\1 it", text)
     # -- graveyard history (wave 36A) -- "Choose target creature card in a graveyard that was put there from the battlefield this turn. Put that card onto the
     # battlefield under your control." (Grim Return, Captain N'ghathrod), "… Put that card into its owner's hand." (Ghost of Ramirez DePietro): after a chosen
     # graveyard card, "put it" moves that card as "Return it to …" does (only here: elsewhere "put it onto the battlefield" can name a card from any zone)
@@ -7875,7 +7888,7 @@ def _copy_cards(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 @_first
-@effect(r"(?P<ex>exile [^,]+?) and copy it")
+@effect(r"(?P<ex>exile .+?) and copy it")  # (-- free cast (wave 40D) -- commas allowed: "exile target noncreature, nonland card with mana value less than ~'s power from a graveyard and copy it", Narset, Enlightened Exile)
 def _exile_and_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     """"Exile up to one target instant or sorcery card from your graveyard and copy it." (Renegade Bull): the exile
     instruction, then the copy of the card it exiled (707.12; the exile may be replaced: then nothing is copied)."""
