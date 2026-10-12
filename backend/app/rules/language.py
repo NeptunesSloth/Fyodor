@@ -3565,11 +3565,10 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     if not may and not hand and (one := this_way.choice_who(obj)) is not None:
         # -- resolution memory (wave 22D) -- "return a creature card put into a graveyard this way": one of them, chosen (608.2d)
         return [{**effect, "do": "return_choice", "who": one, "n": 1, "upto": False, "random": False, "label": "card"}], None
-    if not may and not hand and (top := _RA_TOP.fullmatch(obj)) is not None:  # -- reanimation (wave 37B) -- "the top creature card of your graveyard"
-        sel = selectors.parse(f"{top['what']} from your graveyard")
-        if sel is None or not _graveyard_cards(sel.key()) or "card" not in top["what"].split() or host_group is not None:
-            return None
-        return [{**effect, "do": "return_choice", "sel": sel.key(), "n": 1, "upto": False, "random": False, "top": True, "label": top["what"]}], None
+    if _RA_TOP.fullmatch(obj) is not None:  # -- review 35 -- 404.3: cards put into a graveyard at the same time are arranged by their owner; the
+        # engine doesn't ask that, so which creature card is on top after a combat or a wrath isn't known: Shallow Grave, Corpse Dance and Mistmoon
+        # Griffin stay manual (wave 37B read it as the last matching card of the order: effects.return_choice "top", kept for saved stacks)
+        return None
     if may and not _RA_CHOICE.fullmatch(obj):
         return None  # (only a choice models its own "may": choosing none)
     if (both := _RA_SELF_AND.fullmatch(obj)) is not None and not may and host_group is None:
