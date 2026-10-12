@@ -96,7 +96,11 @@ _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, rever
 _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
               "one of your opponents": "opponent", "one or more of your opponents": "opponent_any",
               "another one of your opponents": "other_opponent", "enchanted player": "enchanted_player",
-              "the player with the most life or tied for most life": "most_life"}  # (wave 15E: dethrone, 702.105a)
+              "the player with the most life or tied for most life": "most_life",  # (wave 15E: dethrone, 702.105a)
+              # -- trigger other (wave 36A) -- 508.3a: "attacks one of your opponents or a planeswalker an opponent controls" (Gahiji): any attack on an opponent
+              # or on what an opponent controls (a planeswalker's controller is the defending player, 508.5)
+              "one of your opponents or a planeswalker an opponent controls": "opponent_or_pw",
+              "one of your opponents or a planeswalker they control": "opponent_or_pw"}
 _DEFENDER_RE = "|".join(re.escape(k) for k in sorted(_DEFENDERS, key=len, reverse=True))
 _PLAYER_VERBS = [
     (r"gains? life", "gain_life"),
@@ -113,7 +117,10 @@ _MULTI = {"enters": "enter", "dies": "die", "attacks": "attack", "leaves the bat
           "is dealt damage": "dealt_damage",
           "is put into a graveyard from the battlefield": "die",  # (700.4; wave 5D: Ichor Wellspring)
           "deals combat damage to a player": "deal_combat_damage_player",  # (wave 17D: Park Heights Maverick)
-          "is turned face up": "turned_face_up"}  # -- face up (wave 6D) -- "~ enters or is turned face up" (702.37e)
+          "is turned face up": "turned_face_up",  # -- face up (wave 6D) -- "~ enters or is turned face up" (702.37e)
+          # -- trigger other (wave 36A) -- a plural name takes the plural verb ("Whenever Bebop & Rocksteady attack or block", "Krang & Shredder enter
+          # or attack"): one object (201.5: the name is the object's own), the same events
+          "enter": "enter", "die": "die", "attack": "attack", "block": "block", "deal combat damage to a player": "deal_combat_damage_player"}
 _MULTI_RE = "|".join(sorted((re.escape(k) for k in _MULTI), key=len, reverse=True))
 _P = r"(?P<p>you|an opponent|a player|enchanted player)"
 # -- counters & designations (wave 3E) -- a player getting counters (122.6; one event per player per instruction)
@@ -201,9 +208,15 @@ def _qualified(c: str) -> Condition | None:
         return None  # ("their" is the acting player's: only a player subject has one)
     # (-- counters (wave 33C) -- "Whenever an opponent loses life for the first time during each of their turns" (Valgavoth, Harrower of Souls): each such
     # player's first this turn, which must be their own turn)
-    if inner is None or (first and (inner.get("event") not in ("gain_life", "lose_life", "create_token") or inner.get("subject") != "player"
+    if inner is None or (first and (inner.get("event") not in ("gain_life", "lose_life", "create_token", "discard") or inner.get("subject") != "player"
                                     or inner.get("player") not in (("opponent", "any") if during == "their" else ("you",)))):
         return None
+    if first and inner.get("event") == "discard":  # -- trigger other (wave 36A) -- the cards of earlier discards are asked of the turn's log: only what it records
+        # (the log records a discarded card's types, subtypes and supertypes: a filter on anything else, a color or a mana value, isn't asked of it)
+        plain = selectors.replace(selectors.from_key(inner["obj"]), card=False, zones=selectors.Selector().zones, types=(), not_types=(), subtypes=(), not_subtypes=(),
+                                  supertypes=(), not_supertypes=())
+        if during or plain != selectors.Selector():
+            return None
     holds = None
     if wh is not None:  # ("it" is this creature only when the event is about this creature itself)
         from app.rules import conditions
@@ -334,15 +347,18 @@ def _parse(c: str) -> Condition | None:
     # 509.3b / 509.3d: "~ blocks or becomes blocked by a creature" — once per creature on the other side
     # (wave 11E: also "enchanted / equipped creature …", the permanent the source is attached to)
     m = re.fullmatch(r"(?P<s>~|enchanted creature|equipped creature) (?P<v>blocks or becomes blocked by|blocks|becomes blocked by)"
-                     r" (?P<o>an? .+|another .+)", c)
+                     r" (?P<o>an? .+|another .+|one or more .+)", c)  # (-- trigger other (wave 36A) -- "one or more black creatures", below)
     if m:
         other = _object_sel(m["o"])
         events = {"blocks or becomes blocked by": ["block", "blocked"], "blocks": ["block"],
                   "becomes blocked by": ["blocked"]}[m["v"]]
         subject = "self" if m["s"] == "~" else "host"
+        # -- trigger other (wave 36A) -- 509.3a, 603.2c: "Whenever ~ blocks one or more black creatures" (Rashka the Slayer), "~ blocks or becomes blocked by
+        # one or more Orcs" (Dwarven Soldier): once however many of them it blocks / is blocked by (not once for each, as "a creature" is, 509.3b, 509.3d)
+        many: Condition = {"aggregate": True} if m["o"].startswith("one or more ") else {}
         if len(events) == 1:
-            return {"event": events[0], "subject": subject, "other": other}
-        return {"event": "multi", "events": events, "other": other, **({"subject": "host"} if subject == "host" else {})}
+            return {"event": events[0], "subject": subject, "other": other, **many}
+        return {"event": "multi", "events": events, "other": other, **many, **({"subject": "host"} if subject == "host" else {})}
     # -- entry forms (wave 5F) -- "When this land enters untapped", "Whenever a permanent you control enters tapped":
     # how it entered is part of the trigger event (603.2; triggers._details_ok reads the turn log's Entry)
     m = re.fullmatch(r"(?P<s>.+?) enters (?P<t>tapped|untapped)", c)
@@ -657,6 +673,8 @@ def _subject(s: str, *, host: bool = False, many: bool = False) -> Condition | N
 def _defender(d: str | None, player_attack: bool = False) -> Condition:
     if d and _DEFENDERS[d] in ("opponent_any", "other_opponent") and not player_attack:
         raise _Refuse  # (review 27B) only "<a player> attacks …" reads these (a creature's attack, a count of attackers: not read)
+    if d and _DEFENDERS[d] == "opponent_or_pw" and player_attack:
+        raise _Refuse  # (wave 36A) a creature's attack only
     return {"defender": _DEFENDERS[d]} if d else {}
 
 
@@ -906,6 +924,19 @@ def _player_action(c: str) -> Condition | None:
             return {"event": "discard", "subject": "self", "cause": "opponent"}
         return {"event": "discard", "subject": "player", "player": "you", "obj": _object_sel("card", card=True), "cause": "opponent",
                 "aggregate": m["o"] != "a card"}
+    # -- trigger other (wave 36A) -- 603.2c: "Whenever one or more players sacrifice one or more creatures" (Evin, Waterdeep Opportunist), "… discard one or
+    # more cards" (Hostile Investigator): every player's part of one batch is one event (the same players' parts, however many players did it)
+    m = re.fullmatch(r"one or more players (?P<v>sacrifice|discard) (?P<o>one or more .+)", c)
+    if m:
+        found = _player_action(f"a player {m['v']}s {m['o']}")
+        return None if found is None or found.get("player") != "any" else {**found, "all_players": True}
+    # "Whenever you sacrifice ~ or another creature" (Kingpin, Wilson Fisk): either sacrifice, each its own event (603.2c; ~ is not "another")
+    m = re.fullmatch(r"you sacrifice ~ or (?P<o>another .+)", c)
+    if m:
+        mine, other = _parse("you sacrifice ~"), _parse(f"you sacrifice {m['o']}")
+        if mine is None or other is None or other.get("aggregate"):
+            return None
+        return {"event": "either", "subject": "player", "player": "you", "conds": [mine, other]}
     m = re.fullmatch(rf"{_P} (?P<v>sacrifices?|discards?|cycles? or discards?|cycles?|creates?|mills?) (?P<o>.+)", c)
     if not m:
         # -- triggers (wave 17D) -- "Whenever one or more nonland cards are milled" (701.17a: put from a library into its owner's graveyard)
@@ -920,7 +951,7 @@ def _player_action(c: str) -> Condition | None:
         event = next(e for w, e in (("sacrifice", "sacrifice"), ("discard", "discard"), ("cycle", "cycle"),
                                     ("create", "create_token"), ("mill", "mill")) if v.startswith(w))
     o = m["o"]
-    if o in ("~", "this card") and event in ("sacrifice", "cycle") and m["p"] == "you":
+    if o in ("~", "this card") and event in ("sacrifice", "cycle", "discard") and m["p"] == "you":  # (wave 36A: "When you discard this card", Titanbones)
         # "When you sacrifice ~" (603.10a: looks back in time), "When you cycle ~" (702.29c: from
         # whatever zone the card went to)
         return {"event": event, "subject": "self"}

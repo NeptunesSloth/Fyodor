@@ -109,7 +109,6 @@ def test_definitions_of_the_full_cards():
 
 @pytest.mark.parametrize("text", [
     "Whenever one or more modified creatures you control die, draw a card.",  # (wave 25B: a single dying creature is read as it last existed; a batch is not)
-    "Whenever you discard one or more nonland cards for the first time each turn, draw a card.",  # (a filter on the count)
     "Whenever a player gains life for the first time each turn, draw a card.",  # (each player's, or the table's first?)
     "Whenever you gain life for the first time this turn, draw a card.",
     "Whenever ~ attacks, he or she draws a card.",

@@ -115,7 +115,7 @@ TRIGGERS = [
     (re.compile(r"^At the beginning of (?:(?:each of )?(?P<whose>your|each|each player's|each opponent's|the|enchanted player's|the chosen player's) "
                 r"(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
                 r"postcombat main phases?)|the (?P<hstep>upkeep|draw step|end step) of enchanted (?:creature|permanent|land|artifact|"
-                r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's) turn|(?P<each_combat>each combat)), "
+                r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's|each player's) turn|(?P<each_combat>each combat)), "
                 r"(?P<body>.+)$"), "step"),
     # -- combat history (wave 31D) -- 511.2: "At end of combat, …" triggers as the end of combat step begins (a permanent's step trigger)
     (re.compile(r"^At end of combat(?P<mine> on your turn)?, (?P<body>.+)$"), "end_combat_step"),
@@ -195,9 +195,11 @@ def _may_have(body: str, ante: str | None) -> str:
     """"you may have it fight target creature" / "you may have target creature lose flying" is the same optional instruction
     in the third person; "it" is the source itself only when the trigger is about it (``ante``), else it stays unread."""
     m = re.match(rf"^you may have (?P<s>~|it|your life total|target [a-z ]+?) (?P<v>{'|'.join(_HAVE_VERBS)})\b", body)  # (wave 25B: your life total)
-    if m is None or (m["s"] == "it" and ante != "self"):
+    if m is None or (m["s"] == "it" and ante not in ("self", "event")):
         return body
-    return f"you may {'~' if m['s'] == 'it' else m['s']} {_HAVE_VERBS[m['v']]}{body[m.end():]}"
+    # (-- trigger other (wave 36A) -- "Whenever another Villain you control enters, you may have it connive." (Baron Strucker): "it" is the object the
+    # event is about (``ante`` "event"), which the pronoun binder finds in "you may it connives" as in "it connives")
+    return f"you may {'~' if m['s'] == 'it' and ante == 'self' else m['s']} {_HAVE_VERBS[m['v']]}{body[m.end():]}"
 
 
 def num(word: str) -> int:
@@ -3402,7 +3404,7 @@ def _choose_then(body: str) -> str:
 
 # -- free cast (wave 27D) -- "Choose target artifact card in your graveyard. You may cast that card this turn." (Emry): the chosen card is the
 # ability's target (115.1), which the sentence "You may cast target … from your graveyard this turn." grants a permission for (611.2a)
-_CHOOSE_TARGET_CAST = re.compile(r"(?<![^ ])Choose target (?P<what>[a-z ]+?) card in your graveyard\. You may (?P<v>cast|play) that card this turn\.")
+_CHOOSE_TARGET_CAST = re.compile(r"(?<![^ ])[Cc]hoose target (?P<what>[a-z ]+?) card in your graveyard\. You may (?P<v>cast|play) that card this turn\.")
 
 
 def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -4114,6 +4116,23 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")
     text = re.sub(r"^(When ~ enter, if )they're( not a token, create [^.]+? cop(?:y|ies) of )them\b", r"\1it's\2it", text)
     text = half_x(text) if "half X" in text else text  # -- X arithmetic (wave 34C) -- 107.1a
+    # -- trigger other (wave 36A) -- 702.29c: "When you cycle this card, it deals 1 damage to each opponent" (Magmakin Artillerist, Resounding Thunder), "you may
+    # have it deal 1 damage to each creature" (Slice and Dice): "it" is the cycled card itself, the ability's source, whichever zone it went to
+    text = re.sub(r"^(When you cycle (?:this card|~), (?:you may have )?)it (deals?)\b", r"\1~ \2", text)
+    # -- exile from the top (wave 36A) -- the same instruction worded from the other end: "exile that many cards from the top of your library" (Thor, Feldon),
+    # "exile cards equal to its mana value from the top of target player's library" (Rakdos, the Muscle), "exile a number of cards from the top of your library
+    # equal to …" (Neriv) are "exile the top that many / X cards of …" (the same cards, from the top in order)
+    text = re.sub(r"\bexile (?P<n>that many|X|\w+) cards from the top of (?P<lib>your library|their library|target player's library|that player's library|"
+                  r"each opponent's library)\b", r"exile the top \g<n> cards of \g<lib>", text)
+    text = re.sub(r"\bexile (?:cards equal to (?P<v>[^.]+?) from the top of (?P<lib>your library|their library|target player's library|that player's library)|"
+                  r"a number of cards from the top of (?P<lib2>your library|their library|target player's library|that player's library) equal to (?P<v2>[^.]+?))(?=\.)",
+                  lambda m: f"exile the top X cards of {m['lib'] or m['lib2']}, where X is {m['v'] or m['v2']}", text)
+    # -- graveyard history (wave 36A) -- "Choose target creature card in a graveyard that was put there from the battlefield this turn. Put that card onto the
+    # battlefield under your control." (Grim Return, Captain N'ghathrod), "… Put that card into its owner's hand." (Ghost of Ramirez DePietro): after a chosen
+    # graveyard card, "put it" moves that card as "Return it to …" does (only here: elsewhere "put it onto the battlefield" can name a card from any zone)
+    text = re.sub(r"((?:^|[,.] )[Cc]hoose (?:up to \w+ )?target (?:[^.]*? )?cards? (?:in|from) (?:your|a|an opponent's) graveyard[^.]*\. )Put (it|that card) "
+                  r"(?:onto the battlefield( under your control)?|into its owner's hand)\.",
+                  lambda m: f"{m[1]}Return {m[2]} to {'the battlefield' + (m[3] or '') if 'battlefield' in m[0][len(m[1]):] else 'its owner' + chr(39) + 's hand'}.", text)
     # -- damage sized by a count (wave 34D) -- 603.4, 702.33: "Whenever you cast a spell, if that spell was kicked, …" (Hallar) is "Whenever you cast a kicked
     # spell, …": being kicked is a fact about the spell as it is cast and stays true as it resolves or is countered, so the intervening "if" has nothing to re-check
     text = re.sub(r"^(Whenever you cast) a spell, if that spell was kicked, ", r"\1 a kicked spell, ", text)
@@ -5015,6 +5034,13 @@ def graveyard_only_ability(d: Definition | None) -> bool:
     return d is not None and d.get("kind") == "triggered" and graveyard_ability(d) and graveyard_trigger_ok(d)
 
 
+def own_card_event_ability(d: Definition | None) -> bool:
+    """-- trigger other (wave 36A) -- 702.29d, 701.9a: "When you cycle this card, …" / "When you discard this card, …" is a trigger of the card itself as it
+    goes from the hand to the graveyard, not part of what the spell does as it resolves (Slice and Dice, Resounding Thunder, Edgar's Awakening)."""
+    cond = (d or {}).get("cond") or {}
+    return d is not None and d.get("kind") == "triggered" and d.get("trigger") == "event" and cond.get("subject") == "self" and cond.get("event") in ("cycle", "discard")
+
+
 def spell_definition(ch: Characteristics) -> Definition | None:
     """A whole instant/sorcery as one definition, if every line is automated (else None)."""
     if not ch.is_instant_or_sorcery:
@@ -5028,6 +5054,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
     lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab) and not graveyard_only_ability(defs.get(ab.index))
+             and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
              and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional")  # (own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
@@ -7283,7 +7310,7 @@ def _mana_effect(pattern: str):  # type: ignore[no-untyped-def]
 
 
 _SYM = r"\{[WUBRGC]\}"
-_MANA_AMOUNT = r"(?P<n>\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X)"
+_MANA_AMOUNT = r"(?P<n>\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|that much|twice that much)"  # (-- event mana (wave 36A) -- "add that much mana of any one color" (Photon), "… in any combination of {R} and/or {G}" (Radha): the trigger event's amount, 608.2k)
 
 
 def _mana_n(word: str) -> Any:
@@ -7527,7 +7554,7 @@ def _restrict_mana(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 # "Add six {R}" / "add eight {C}" / "add that much {G}" (the trigger event's amount, 608.2k): n of one type
-@_mana_effect(r"add (?P<n>two|three|four|five|six|seven|eight|nine|ten|that much) (?P<sym>\{[WUBRGC]\})")
+@_mana_effect(r"add (?P<n>two|three|four|five|six|seven|eight|nine|ten|that much|twice that much) (?P<sym>\{[WUBRGC]\})")
 def _add_n_of(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "add_mana", "sym": m["sym"][1], "n": _mana_n(m["n"])}], None
 
