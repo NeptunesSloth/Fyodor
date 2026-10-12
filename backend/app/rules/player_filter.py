@@ -160,9 +160,11 @@ def allowed(definition: dict[str, Any]) -> bool:
     events after the resolution (history.note_events), so one read after an earlier instruction of the same ability would miss
     what that instruction did (Azula: "You may discard a card. Then … for each player who discarded a card this turn")."""
     for effects in [definition.get("effects") or [], *((m.get("effects") or []) for m in definition.get("modes") or [])]:
-        for e in effects[1:]:
+        for i, e in enumerate(effects[1:], 1):
             dumped = json.dumps(e)
-            if "players_where" in dumped and ('"history"' in dumped or '"dealt"' in dumped):
+            # (wave 38B: after nothing but token creation — "create a 3/3 … token if an opponent lost 3 or more life this turn. Then each opponent who lost
+            # 3 or more life this turn faces a villainous choice — …" (Davros) — the log is what it was: creating a token loses no life, discards no card)
+            if "players_where" in dumped and ('"history"' in dumped or '"dealt"' in dumped) and not all(x.get("do") in ("create_token", "only_if") for x in effects[:i]):
                 return False
     return True
 
