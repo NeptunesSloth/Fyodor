@@ -98,8 +98,13 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def finish(plan: Plan, attackers: list[CardInstance], exerted: list[CardInstance], pairs: list[list[str]]) -> None:
+    from app.game.rules_state import turn_log_now
     from app.rules import exert, triggers
 
+    log = turn_log_now(plan.state)  # -- trailing & intervening ifs (wave 38A) -- "if it enlisted a creature this combat" (Aradesh): known before the attack triggers
+    for attacker_id, _ in pairs:
+        if log is not None and attacker_id in plan.state.cards:
+            log.enlisted[plan.oid(plan.state.cards[attacker_id])] = plan.rules.combats
     exert.finish(plan, attackers, exerted)  # the attack triggers (508.1m) and the exerted creatures' "when you do"
     for attacker_id, tapped_id in pairs:  # 702.154a: "When you do": reflexive, for the creature that enlisted
         a, t = plan.state.cards.get(attacker_id), plan.state.cards.get(tapped_id)

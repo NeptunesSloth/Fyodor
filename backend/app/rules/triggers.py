@@ -1340,6 +1340,8 @@ def graveyard_ability(d: dict[str, Any]) -> bool:
 IN_GRAVEYARD = {"object": "self", "test": "in_graveyard"}
 # -- trigger other (wave 25B) -- eminence: "if ~ is in the command zone or on the battlefield" names the zones it functions in (113.6b)
 COMMAND_OR_BATTLEFIELD = {"object": "self", "test": "command_or_battlefield"}
+# -- trailing & intervening ifs (wave 38A) -- "At the beginning of your upkeep, if Oloro is in the command zone, you gain 2 life.": the zone it functions in, 113.6b
+COMMAND_IFS = (COMMAND_OR_BATTLEFIELD, {"object": "self", "test": "in_command"})
 
 
 def command_zone_abilities(plan: Plan, card: CardInstance, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
@@ -1347,7 +1349,7 @@ def command_zone_abilities(plan: Plan, card: CardInstance, trigger: str) -> list
     if not card.zone.endswith(":command") or designations.emblem_card(card) or not plan.in_game(card) or plan.manual(card):
         return []
     ch = plan.ch(card)
-    return [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if d.get("if") == COMMAND_OR_BATTLEFIELD]
+    return [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if d.get("if") in COMMAND_IFS]
 _GY_OTHERS = ("die", "leave", "sacrifice", "leave_graveyard")
 _SELFISH = ("self", "self_or", "host", "self_or_host")
 
@@ -1522,7 +1524,7 @@ def at_step_generic(plan: Plan) -> None:
         for i, d in scripts.definitions(ch).items():
             if d["kind"] != "triggered" or not str(d["trigger"]).startswith(prefix):
                 continue
-            if graveyard_ability(d) != gy or (cz and d.get("if") != COMMAND_OR_BATTLEFIELD):
+            if graveyard_ability(d) != gy or (cz and d.get("if") not in COMMAND_IFS):
                 continue
             if _whose_step(plan, card, d["trigger"][len(prefix):], ap):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,

@@ -30,7 +30,6 @@ ANY_PLAYER_BUT = re.compile(r"^Any player may activate this ability but only (?P
 
 _COMBAT_STATES = ("attacking", "blocked", "blocking")
 _SELF_COMBAT = re.compile(r"~ is (?P<a>attacking|blocked|blocking)(?: or (?P<b>attacking|blocked|blocking))?")
-_LIFE_ABOVE = re.compile(r"you have at least (?P<n>\w+) life more than your starting life total")
 _SAME_NAME = re.compile(r"you control (?P<n>\w+) or more (?P<what>lands|creatures|artifacts|permanents) with the same name")
 _NO_DEFENDER = re.compile(r"~ doesn't have (?P<kw>defender)")
 
@@ -52,9 +51,6 @@ def condition(text: str) -> dict[str, Any] | None:
     m = _SELF_COMBAT.fullmatch(text)
     if m:
         return {"act7b": "self_combat", "any": [x for x in (m["a"], m["b"]) if x]}
-    m = _LIFE_ABOVE.fullmatch(text)
-    if m and (n := conditions._num(m["n"])) is not None:
-        return {"act7b": "life_above_start", "n": n}
     if text == "you have more cards in hand than each opponent":
         return {"act7b": "hand_most"}
     m = _SAME_NAME.fullmatch(text)
@@ -87,7 +83,7 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
 
     me = ctx["controller"]
     kind = cond["act7b"]
-    if kind == "life_above_start":
+    if kind == "life_above_start":  # (-- trailing & intervening ifs (wave 38A) -- read as conditions.parse's life_vs_start now; kept for a definition made before)
         return plan.state.players[me].life - plan.state.settings.starting_life >= cond["n"]
     if kind == "hand_most":
         mine = len(plan.state.zones.get(f"{me}:hand", []))

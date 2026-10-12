@@ -4420,6 +4420,16 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     body = re.sub(r"\bthat (?:Mount or Vehicle|Vehicle|Mount)\b", "that creature", body)  # -- crew & saddle (wave 23D) -- the event's other object
                 if cond is not None and cond.get("event") == "you_attack":  # -- trigger sweep (wave 27B; review: an attack's own event only) --
                     body = re.sub(r"\b([Tt]hat|[Tt]he) attacking player\b", "that player", body)  # the event's player: the attacker (508.1)
+                    # -- trailing & intervening ifs (wave 38A) -- "Whenever an opponent attacks, if they attacked you and/or a planeswalker you control, …"
+                    # (Ever-Watching Threshold) is "Whenever an opponent attacks you or a planeswalker you control, …" (508.3d: once for each player
+                    # attacked): the "if" says what the declaration was (past tense), so as the ability resolves there is nothing left to check (603.4)
+                    if cond.get("subject") == "player" and cond.get("player") == "opponent" and not cond.get("defender") \
+                            and not cond.get("min_attackers") and (gate := re.match(r"^if they attacked you and/or a planeswalker you control, ", body)):
+                        body, cond = body[gate.end():], {**cond, "defender": "you_or_pw"}
+                if cond is not None and cond.get("event") == "attack" and cond.get("defender") == "opponent" and body.startswith("if that player is "):
+                    # -- trailing & intervening ifs (wave 38A) -- "attacks one of your opponents, if that player is the monarch" (M'Baku): "that player" is the
+                    # one attacked (508.5), the event's ``defended``, whose designation is read again as it resolves (603.4)
+                    body = "if defending player is " + body[len("if that player is "):]
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
                 if ante == "event" and cond is not None and not other_side.wanted(cond):  # -- this-turn state (wave 33D) -- Hixus: with no creature on
                     body = re.sub(r"\bexile that creature until ~ leaves the battlefield", "exile it until ~ leaves the battlefield", body)  # the other side,
@@ -4753,6 +4763,8 @@ def _event_refs_ok(d: Definition) -> bool:
         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
     if "not_event" in raw and not (ev is not None and ev["event"] == "targeted"):  # -- stack interaction (wave 23B) -- "other than that creature":
         return False  # the object a "becomes the target" event is about (selectors.attacker_of); nothing else names one here
+    if '"event_attacking"' in raw and not (ev is not None and ev["event"] == "you_attack" and ev.get("min_attackers")):
+        return False  # -- trailing & intervening ifs (wave 38A) -- "those creatures": the attackers an "attacks with creatures" trigger counted (its event's objects)
     if '"as": "defended"' in raw and not (d.get("trigger") == "attacks_self" or (
             ev is not None and ev["event"] in ("attack", "unblocked", "blocked", "you_attack"))):
         return False

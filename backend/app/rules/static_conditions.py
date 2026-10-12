@@ -15,7 +15,7 @@ as <condition>."; this module adds the condition shapes that only a static's own
 * ``{"static": "opp_graveyard", "n": N}`` — "an opponent has N or more cards in their graveyard" (some one
   opponent);
 * ``{"static": "opp_life", "op": "<=", "n": N}`` — "an opponent has N or less life" (some one opponent);
-* ``{"static": "life_vs_start", "op": ">=" | ">" | "<=", "plus": N, "half": bool}`` — your life total
+* ``{"static": "life_vs_start", "op": ">=" | ">" | "<=" | "<", "plus": N, "half": bool}`` — your life total
   against your starting life total (119.1, 903.7: 40 in Commander; the game's setting is read);
 * ``{"static": "all", "conds": [...]}`` — "this card is in your graveyard and you control a Mountain".
 * (wave 35D) ``ring_bearer`` (701.54e), ``self_attached`` / ``host_attached`` (a count of the Equipment or Auras attached to the source, or to
@@ -63,6 +63,7 @@ _LIFE_VS_START = {
     f"your life total is greater than {_START}": (">", 0, False),
     f"your life total is greater than or equal to {_START}": (">=", 0, False),
     f"your life total is less than or equal to half {_START}": ("<=", 0, True),
+    f"your life total is less than {_START}": ("<", 0, False),  # (-- trailing & intervening ifs (wave 38A) -- Resolute Archangel)
 }
 _LIFE_MORE = re.compile(r"you have at least (?P<n>\w+) life more than your starting life total"
                         r"|your life total is at least (?P<m>\w+) greater than your starting life total")
@@ -412,13 +413,18 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
     if kind == "opp_hand":
         return any(len(plan.state.zones.get(f"{p}:hand", ())) == cond["n"] for p in opponents)
     if kind == "life_vs_start":
-        life = plan.state.players[controller].life
-        start = plan.state.settings.starting_life
-        if cond.get("half"):  # "less than or equal to half your starting life total" (no rounding needed: compare doubled)
-            return 2 * life <= start
-        want = start + int(cond.get("plus") or 0)
-        return {">": life > want, ">=": life >= want, "<=": life <= want}[cond["op"]]
+        return life_vs_start(plan, cond, controller)
     return False
+
+
+def life_vs_start(plan: Plan, cond: Condition, controller: str) -> bool:
+    """119.1, 903.7: ``controller``'s life total against the game's starting life total (also read by an ability's own "if", conditions.holds)."""
+    life = plan.state.players[controller].life
+    start = plan.state.settings.starting_life
+    if cond.get("half"):  # "less than or equal to half your starting life total" (no rounding needed: compare doubled)
+        return 2 * life <= start
+    want = start + int(cond.get("plus") or 0)
+    return {">": life > want, ">=": life >= want, "<=": life <= want, "<": life < want}[cond["op"]]
 
 
 _HOLDS_35D = frozenset({"ring_bearer", "self_attached", "host_attached", "dealt_damage", "was_cast", "single_graveyard", "exile_owned",
