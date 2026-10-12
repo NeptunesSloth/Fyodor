@@ -104,7 +104,8 @@ _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a
               # -- trigger other (wave 36A) -- 508.3a: "attacks one of your opponents or a planeswalker an opponent controls" (Gahiji): any attack on an opponent
               # or on what an opponent controls (a planeswalker's controller is the defending player, 508.5)
               "one of your opponents or a planeswalker an opponent controls": "opponent_or_pw",
-              "one of your opponents or a planeswalker they control": "opponent_or_pw"}
+              "one of your opponents or a planeswalker they control": "opponent_or_pw",
+              "the monarch": "monarch"}  # -- this-turn state (wave 42B) -- 725.1, 508.3a: the player who is the monarch, attacked directly (Okoye, The Spear of Bashenga)
 _DEFENDER_RE = "|".join(re.escape(k) for k in sorted(_DEFENDERS, key=len, reverse=True))
 _PLAYER_VERBS = [
     (r"gains? life", "gain_life"),
@@ -201,8 +202,10 @@ def _qualified(c: str) -> Condition | None:
     if m:
         c, during = m["c"], {"your": "you", "an opponent's": "opponent", "their": "their"}[m["t"]]
     m = re.fullmatch(r"(?P<c>.+?) for the first time (?P<w>each turn|during each of your turns|during each of their turns)", c)
+    first_each = False
     if m:
         c, first = m["c"], True
+        first_each = m["w"] == "each turn"
         if m["w"] != "each turn":
             during = "you" if m["w"].endswith("your turns") else "their"
     if during is None and first is None and wh is None:
@@ -219,7 +222,12 @@ def _qualified(c: str) -> Condition | None:
     # object's, so only a ``self`` subject, and not "during each of your turns")
     own_first = first and not during and inner is not None and inner.get("subject") == "self" and not inner.get("aggregate") \
         and inner.get("event") in ("dealt_damage", "deal_combat_damage_player", "counters_put")
-    if inner is None or (first and not own_first and (inner.get("event") not in ("gain_life", "lose_life", "create_token", "discard")
+    # (-- this-turn state (wave 42B) -- 603.2: "Whenever a creature you control becomes tapped / one or more counters are put on a creature you control for the
+    # first time each turn" (Captain America, Stalwart Successor): the first such event of THE OBJECT it is about (the event's, not the watcher's), asked the same way;
+    # "during your turn" is a separate qualifier of the event)
+    obj_first = first and first_each and inner is not None and inner.get("subject") == "sel" and not inner.get("aggregate") \
+        and inner.get("event") in ("tapped", "counters_put")
+    if inner is None or (first and not own_first and not obj_first and (inner.get("event") not in ("gain_life", "lose_life", "create_token", "discard")
                                                       or inner.get("subject") != "player"
                                                       or inner.get("player") not in (("opponent", "any") if during == "their" else ("you",)))):
         return None

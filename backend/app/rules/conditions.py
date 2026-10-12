@@ -801,6 +801,12 @@ def _self_dealt(m: re.Match[str]) -> Condition:
     return {"history": "damage", "who": "opponent", "n": 1, "by_self": True, "object": "self", **({"combat": True} if m["kind"] else {})}
 
 
+@_history_pattern(r"a source you controlled dealt (?P<n>\w+) or more damage this turn")
+def _source_dealt(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])  # -- this-turn state (wave 42B) -- 120.3, 608.2i: ONE source's total over every recipient and every damage event (Dragon Cultist)
+    return None if n is None else {"history": "source_damage", "who": "you", "n": n}
+
+
 @_history_pattern(r"(?P<q>a|an|one or more|\w+ or more) (?P<sel>.+? cards?) (?:was|were) put into your graveyard from anywhere this turn")
 def _to_graveyard(m: re.Match[str]) -> Condition | None:
     q = _q(m["q"])
@@ -1003,7 +1009,7 @@ def _entered_opponent(m: re.Match[str]) -> Condition | None:
 
 # (-- this-turn history (wave 30R) -- "a nontoken creature you controlled died", "a creature an opponent controlled died", "a permanent was put
 # into your hand from the battlefield" (Barrin): who controlled it as it left, and the zone it went to, both recorded as it left (Departure))
-@_history_pattern(rf"{_Q} (?P<sel>.+?)(?P<ctl> you controlled| an opponent controlled)? "
+@_history_pattern(rf"{_Q} (?P<sel>.+?)(?P<nn> not named ~)?(?P<ctl> you controlled| an opponent controlled)? "
                   r"(?P<verb>died|left the battlefield|(?:was|were) put into (?P<gy>a|your) (?P<dest>graveyard|hand) from the battlefield)"
                   r"(?P<whose> under your control| under an opponent's control)? this turn")
 def _departed(m: re.Match[str]) -> Condition | None:
@@ -1014,6 +1020,8 @@ def _departed(m: re.Match[str]) -> Condition | None:
         return None
     out: Condition = {"history": "departed", "sel": key, "n": q[0], "op": q[1],
                       "died": not m["verb"].startswith("left") and m["dest"] != "hand"}  # 700.4: dies = put into a graveyard from the battlefield
+    if m["nn"]:
+        out["not_named"] = True  # -- this-turn state (wave 42B) -- "a creature not named ~ died this turn" (Ebondeath): its name as it last existed (201.2, 608.2i)
     if m["dest"] == "hand":
         out["to"] = "hand"  # (400.3: a permanent goes to its owner's hand — "your hand" is read as its owner's)
         if m["gy"] != "your":
