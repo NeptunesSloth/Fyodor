@@ -254,7 +254,7 @@ def free_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
             return 0, 0  # (X is 0: no targets, nothing to divide among them)
     total = divide_total(spec, x)
     if total is not None:
-        lo, hi = max(lo, 1), min(hi, total)
+        lo, hi = lo if (spec.get("divide") or {}).get("value") is not None else max(lo, 1), min(hi, total)  # (wave 41B: a counted total says how few, language._divided)
         if total == 0 and (spec.get("divide") or {}).get("value") is not None:
             return 0, 0  # -- damage sized by a count (wave 34D) -- a total counted as it's put on the stack may be 0: nothing to divide, no targets (601.2d)
     return lo, hi
