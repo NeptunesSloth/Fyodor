@@ -636,9 +636,10 @@ def _with_morph(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "morph_ability"))
 
 
-@_suffix(r"without (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")
+# (-- static_other (wave 36B) -- "creatures without flying or reach" (Sidar Kondo) have neither: without_keywords is a list none of which it has)
+@_suffix(r"without (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")(?P<more>(?: or (?:" + "|".join(_WITH_KEYWORDS) + r"))*)")
 def _without_kw(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, without_keywords=(*s.without_keywords, m["kw"]))
+    return replace(s, without_keywords=(*s.without_keywords, m["kw"], *(k for k in m["more"].split(" or ") if k)))
 
 
 @_suffix(r"with an? (?P<c>\+1/\+1|-1/-1|[a-z]+) counter on it")
@@ -1319,7 +1320,11 @@ def _parse(phrase: str) -> Selector | None:
             pending_join = "or"
             i -= 1
             continue
-        if w == "and" and nouns and nouns[-1][0] in ("type", "sub") and i > 0 and (left := _core(words[i - 1])) is not None \
+        # (-- static_other (wave 36B) -- the serial comma: "artifacts, creatures, and lands you control" (Maraxus of Keld) lists alternatives like "…, or lands")
+        left = None
+        if w == "and" and i > 0:
+            left = _core(words[i - 1]) or (_core(words[i - 2]) if i > 1 and words[i - 1] == "," else None)
+        if w == "and" and nouns and nouns[-1][0] in ("type", "sub") and left is not None \
                 and left[0] in ("type", "sub"):  # (wave 19F: also subtypes — "the number of Mounts and Vehicles you control")
             pending_join = "or"  # -- static_other sweep (wave 17C) -- "each creature and planeswalker", "creatures and planeswalkers": either type
             sub_and = sub_and or "sub" in (nouns[-1][0], left[0])

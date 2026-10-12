@@ -52,7 +52,8 @@ _RETURN = re.compile(rf"^Return {_N} (?P<what>.+? you control) to (?:its|their) 
 # "return X Swamps you control to their owner's hand" (the sacrifice / exile ones are ``_SAC_X`` / ``_EXILE_GY_X``)
 _DISCARD_X = re.compile(r"^Discard X (?P<what>(?:[\w\-]+ )*cards?)(?P<random> at random)?$")
 _RETURN_X = re.compile(r"^Return X (?P<what>.+? you control) to (?:its|their) owner's hands?$")
-_TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another )?untapped (?P<what>.+ you control(?: other than (?:~|this creature))?)$")
+# -- static_other (wave 36B) -- "Tap two other untapped Halflings you control" (Saradoc, Spring-Loaded Sawblades): "other" than the source, as "another"
+_TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another |other )?untapped (?P<what>.+ you control(?: other than (?:~|this creature))?)$")
 _UNTAP_OTHER = re.compile(rf"^Untap {_N} tapped (?P<what>.+ you control)$")  # -- activated sweep (wave 17B) -- Halo Fountain
 _REMOVE_CHOSEN = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|\d+) (?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? from (?:a|an|another) (?P<what>.+)$")
@@ -307,6 +308,8 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False)
                   r"\1 and \2 and \3", cost)
     if card_name and "," in card_name:  # (wave 4H) "Discard another card named Korlash, Heir to Blackblade": one part
         cost = cost.replace(card_name, "~")
+    # -- static_other (wave 36B) -- "Tap three untapped Advisors, Artificers, and/or Monks you control" (The Archimandrite): one part naming three kinds
+    cost = re.sub(r"(Tap \w+ (?:other )?untapped )([A-Z][\w'-]*), ([A-Z][\w'-]*),? and/or ([A-Z][\w'-]*)(?= you control)", r"\1\2 or \3 or \4", cost)
     for part in (p.strip() for p in cost.split(",")):
         if not part:
             continue
