@@ -11,6 +11,8 @@
 * 601.3: "You can't cast Rakdos unless an opponent lost life this turn." is a restriction on casting it (and 119.3: life lost by any means counts).
 * 115.7d-e: "You may choose new targets for target spell or ability." (Deflecting Swat): each target is kept or changed to a legal one, the final set judged.
 * 118.9, 702.117a: "If this spell's surge cost was paid, …" (also spectacle, emerge) reads the alternative cost the spell was cast for (Crush of Tentacles).
+* "permanents you control also gain indestructible until end of turn" (Dawn's Truce): "also" adds to the instruction before it (608.2c).
+* 608.2c: "If that creature is a Bird, Frog, Otter, or Rat, draw a card." (Splash Portal): the commas of a list of kinds don't end the condition.
 * "thirty or more artifacts" (number words), a pronoun for the card itself ("as he attacks", 701.43d exert), a shortened name that is also a creature type
   ("a green Lizard creature" on Lizard, Connors's Curse: 205.3m), "creatures without flying or reach" (neither).
 """
@@ -42,7 +44,8 @@ FULL = [DION, "Yuna, Hope of Spira", "Miriam, Herd Whisperer", "Narfi, Betrayer 
         "Winter, Tormented Loner", "Maraxus of Keld", "Saradoc, Master of Buckland", "The Archimandrite", "Rakdos, Lord of Riots",
         "Knuckles the Echidna", "Themberchaud", "Lizard, Connors's Curse", "Sidar Kondo of Jamuraa", "Mesa Lynx", "Glory of Warfare",
         "Blasphemous Edict", "Maha, Its Feathers Night", "Frodo, Determined Hero", "Sylvan Advocate", "Proft, Sinister Mastermind",
-        "Stormtide Leviathan", "Deflecting Swat", "Crush of Tentacles", "Reckless Bushwhacker", "Tyrant of Valakut", "Rafter Demon"]
+        "Stormtide Leviathan", "Deflecting Swat", "Crush of Tentacles", "Reckless Bushwhacker", "Tyrant of Valakut", "Rafter Demon", "Dawn's Truce", "Swarm Surge",
+        "Gallant Fowlknight", "Splash Portal", "Unagi's Spray", "Turtle Van"]
 
 
 @pytest.fixture()
@@ -587,4 +590,38 @@ def test_bushwhacker_pumps_the_others_only_when_its_surge_cost_was_paid(cards):
     check(s)
     s = bushwhacker_table(cards, surge=False)
     assert power_toughness(s, "Grizzly Bears") == (2, 2) and "haste" not in keywords(s, "Grizzly Bears")  # intervening "if" false: it never triggered
+    check(s)
+
+
+# -- Dawn's Truce: "You and permanents you control gain hexproof until end of turn. If the gift was promised, permanents you control also gain indestructible …" ---
+@pytest.mark.parametrize("gift", [False, True])
+def test_dawns_truce_gives_hexproof_and_with_the_gift_indestructible(cards, gift):
+    s = build(cards, ["Dawn's Truce", "Grizzly Bears"], ["Walking Corpse"])
+    put(s, "Grizzly Bears")
+    put(s, "Walking Corpse", "p2")
+    truce = to_hand(s, "Dawn's Truce")
+    mana(s, W=1, C=1)
+    their_hand = len(s.state.zones["p2:hand"])
+    act(s, "p1", type="cast_spell", card_id=truce.id, optional_costs=[f"{truce.id}:gift"] if gift else [])
+    settle(s)
+    assert "hexproof" in keywords(s, "Grizzly Bears") and "hexproof" not in keywords(s, "Walking Corpse", "p2")
+    assert ("indestructible" in keywords(s, "Grizzly Bears")) == gift  # 702.174: only when promised
+    assert len(s.state.zones["p2:hand"]) == their_hand + (1 if gift else 0)  # the gift: the opponent draws a card first
+    to_phase(s, "main1", turn=3)
+    assert "hexproof" not in keywords(s, "Grizzly Bears") and "indestructible" not in keywords(s, "Grizzly Bears")  # until end of turn
+    check(s)
+
+
+# -- Splash Portal: "… If that creature is a Bird, Frog, Otter, or Rat, draw a card." -----------------------------------------------------------
+@pytest.mark.parametrize(("creature", "draws"), [("Muck Rats", True), ("Grizzly Bears", False)])
+def test_splash_portal_draws_only_for_a_listed_kind(cards, creature, draws):
+    s = build(cards, ["Splash Portal", creature])
+    target = put(s, creature)
+    portal = to_hand(s, "Splash Portal")
+    mana(s, U=1)
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="cast_spell", card_id=portal.id, targets=[target.id])
+    settle(s)
+    assert s.state.cards[target.id].zone == "p1:battlefield"  # exiled and returned (a new object, 400.7)
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + (1 if draws else 0)  # the Portal left the hand; a Rat is a listed kind (205.3m)
     check(s)

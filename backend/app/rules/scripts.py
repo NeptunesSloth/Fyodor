@@ -2716,6 +2716,13 @@ def _may_else(m: re.Match[str]) -> str:
     return f"{effect[:1].upper()}{effect[1:]} unless that player {verb}s {rest}."
 
 
+_ALSO_SUBJECT = re.compile(r"(?<![\w'])((?:[Yy]ou|[Tt]hey|[Ii]t|[Tt]hat (?:creature|permanent)|[Tt]hose (?:creatures|permanents)|(?:[A-Za-z-]+ )*?(?:[Cc]reatures|[Pp]ermanents|[A-Z][a-z]+s) "
+                           r"(?:you|your opponents) control)) also (gains?|gets?|loses?|has|have|draws?)\b")
+
+
+_KIND_LIST_IF = re.compile(r"^(if [^,.]*?\b(?:a|an|another) )([A-Z][a-z]+(?:, [A-Z][a-z]+)+),? or ([A-Z][a-z]+)(?=,)")
+
+
 def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
@@ -2727,6 +2734,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             body = " ".join(f"You and that player each {part}." for part in re.split(r" and (?=(?:draw|lose|gain) )", both[1]))
     if it == "self":  # -- triggers (wave 17D) -- "draw a card for each Aura and Equipment attached to it": "it" is the source (Wyleth)
         body = re.sub(r"\b(Auras?|Equipment) attached to it\b", r"\1 attached to ~", body)
+    # -- static_other (wave 36B) -- "If the gift was promised, permanents you control also gain indestructible until end of turn." (Dawn's Truce), "Colorless creatures you
+    # control also gain first strike until end of turn." (Swarm Surge), "It also gets +1/+0 until end of turn if …" (Might of the Meek): "also" only says the instruction
+    # adds to the one before it (608.2c), as for "~ also deals" (language.py) — the same instruction without it
+    body = _ALSO_SUBJECT.sub(r"\1 \2", body)
     # -- review (wave 7R) -- "Create a tapped 2/2 black Zombie creature token and exile that card." (Wight): "that card" is
     # the card the trigger is about, never the token just created (a token is no card), and the pronoun reader would bind it
     # to the token. The two instructions don't depend on each other: read as "Exile that card. Create …" (the trigger's
@@ -3176,6 +3187,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if revealed is not None and last_look is not None and last_look.get("reveal") and last_look.get("n") == 1 \
                 and not last_look.get("until") and last_look.get("player") == "you":
             text = f"if it's a {revealed['w']}, {revealed['r']}"
+        # -- static_other (wave 36B) -- "If you control a Fish, Octopus, Otter, Seal, Serpent, or Whale, draw a card." (Unagi's Spray), "If that creature is a Bird, Frog, Otter,
+        # or Rat, draw a card." (Splash Portal): the commas of a list of kinds don't end the condition; "A or B or C" is the same list
+        text = _KIND_LIST_IF.sub(lambda k: k[1] + " or ".join([*k[2].split(", "), k[3]]), text)
         cond_m = re.match(r"^if (?P<c>[^,]+), (?P<rest>.+)$", text)
         if (way_m := re.match(r"^if (?P<c>[^.]+? this way), (?P<rest>.+)$", text)) is not None and this_way.condition(way_m["c"]) is not None:
             cond_m = way_m  # -- reflexive this way (wave 30G) -- "If a noncreature, nonland card is milled this way, …": commas inside the kind (Old Rutstein)
