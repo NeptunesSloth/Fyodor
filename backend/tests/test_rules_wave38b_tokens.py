@@ -463,8 +463,8 @@ def test_davros_makes_a_dalek_when_an_opponent_lost_three_life_then_that_opponen
     # quoted grants whose inner ability stays refused (a static other objects' rules depend on; a mana ability of the object's colors): Tomik, Katilda
     'Planeswalkers you control have "No more than one creature can attack this permanent each combat."',
     'Human creatures you control have "{T}: Add one mana of any of this creature\'s colors."',
-    # "for each player being attacked" (no ruling settles planeswalkers and battles), "each opponent dealt damage" (the event's players): Apothecary White, Malcolm
-    "Whenever you attack, you create a Food token for each player being attacked.",
+    # "each opponent dealt damage" (the event's players): Malcolm. ("for each player being attacked" is read since wave 40A: Commander Liara Portyr's ruling of
+    # 2022-06-10 — a player whose planeswalker is attacked, and who isn't attacked too, doesn't count; tests/test_rules_wave40a_if_you_do.py)
     "Whenever one or more Pirates you control deal damage to your opponents, you create a Treasure token for each opponent dealt damage.",
 ])
 def test_refused(text):

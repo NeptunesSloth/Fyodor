@@ -292,7 +292,7 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if what == "opponent you attacked with a creature this combat":  # -- casting extras (wave 18E) -- melee 702.121a
         return {"attacked_opponents": 1}
     if what in ("players being attacked", "player being attacked"):  # -- if you do (wave 40A) -- "draw a card for each player being attacked" (Amber Gristle O'Maul), "create a
-        return {"players_attacked": 1}  # Food token for each player being attacked" (Apothecary White): the players some creature is attacking now (not their planeswalkers, 802.4)
+        return {"players_attacked": 1}  # Food token for each player being attacked" (Apothecary White): the players some creature is attacking now (506.2, 506.6; not a player whose planeswalker or battle is attacked — Commander Liara Portyr's ruling of 2022-06-10, Suppressor Skyguard's of 2024-02-02)
     if re.fullmatch(r"times? (?:it|he|she|~|this (?:spell|creature|permanent|enchantment|artifact|land|planeswalker)) (?:was|were) kicked", what):
         return {"kicked": 1}  # (wave 23C: plural and "he"/"she"/"this permanent": 702.33d, a permanent remembers how its spell was kicked)
     if what in ("times this creature has mutated", "times ~ has mutated", "times this permanent has mutated", "time this creature has mutated"):  # -- merged permanents (wave 18D)
@@ -716,7 +716,7 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sum(len(plan.state.zones.get(f"{p}:library", [])) for p in players if p in plan.live())
     if "opponents" in v:
         return sum(1 for p in plan.live() if p != you)
-    if "players_attacked" in v:  # -- if you do (wave 40A) -- 802.4: a player is "being attacked" when a creature attacks that player (a planeswalker they control is another thing)
+    if "players_attacked" in v:  # -- if you do (wave 40A) -- 506.2, 506.6: a player is "being attacked" when a creature attacks that player (the ruling of Commander Liara Portyr, 2022-06-10: a planeswalker attacked alone does not count its controller)
         return len({c.attacking.id for c in plan.state.cards.values()
                     if c.attacking is not None and c.attacking.kind == "player" and c.zone.endswith(":battlefield") and c.attacking.id in plan.live()})
     if "attacked_opponents" in v:  # -- casting extras (wave 18E) -- the players its controller attacked in the latest declaration

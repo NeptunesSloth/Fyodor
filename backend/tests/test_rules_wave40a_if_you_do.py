@@ -515,7 +515,7 @@ def test_apothecary_white_makes_a_food_for_each_player_being_attacked(cards):
 
 
 def test_apothecary_white_attacking_only_a_planeswalker_attacks_no_player(cards):
-    """506.2, 506.6: Bob's planeswalker is attacked, Bob is not — no player is being attacked, so no Food."""
+    """506.2, 506.6; Commander Liara Portyr's ruling of 2022-06-10: Bob's planeswalker is attacked, Bob is not — no player is being attacked, so no Food."""
     s = three(cards, ["Apothecary White"], bob=["Chandra, Torch of Defiance"])
     walker = put(s, "Chandra, Torch of Defiance", "p2")
     act(s, "p2", type="counter", card_ids=[walker.id], kind="loyalty", delta=4)
