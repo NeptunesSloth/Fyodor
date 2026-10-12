@@ -514,6 +514,20 @@ def test_apothecary_white_makes_a_food_for_each_player_being_attacked(cards):
     check(s)
 
 
+def test_pack_attack_gives_each_attacker_plus_x_for_the_players_being_attacked(cards):
+    s = three(cards, ["Grizzly Bears", "Llanowar Elves", "Pack Attack"])
+    for n in ("Grizzly Bears", "Llanowar Elves"):
+        put(s, n)
+        ready(s, n)
+    to_hand(s, "Pack Attack")
+    attack_two(s, "Grizzly Bears", "Llanowar Elves")
+    mana(s, R=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Pack Attack").id)
+    settle(s)
+    assert pt(s, "Grizzly Bears") == (4, 2) and pt(s, "Llanowar Elves")[0] == 3  # X = 2: Bob and Carol
+    check(s)
+
+
 def test_apothecary_white_attacking_only_a_planeswalker_attacks_no_player(cards):
     """506.2, 506.6; Commander Liara Portyr's ruling of 2022-06-10: Bob's planeswalker is attacked, Bob is not — no player is being attacked, so no Food."""
     s = three(cards, ["Apothecary White"], bob=["Chandra, Torch of Defiance"])
