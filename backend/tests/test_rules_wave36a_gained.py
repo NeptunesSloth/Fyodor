@@ -667,3 +667,76 @@ def test_cycling_decree_of_justice_and_declining_makes_no_soldiers(cards):
     settle(s)
     assert tokens(s, "Soldier") == []
     check(s)
+
+
+# -- Gempalm Incinerator / Gloom Surgeon / Virtue of Courage: the other cards "exile from the top" and "it deals" turned FULL --------------------------
+def test_cycling_gempalm_incinerator_deals_damage_equal_to_the_goblins_on_the_battlefield(cards):
+    """702.29c: it deals X damage, X counted as the trigger resolves: two Goblins on the battlefield (the cycled card is in the graveyard)."""
+    from tests.test_rules_conditionals import creature
+
+    s = build(cards, ["Gempalm Incinerator"], theirs=["Grizzly Bears"], forests=20)
+    creature(s, "p1", "Goblin One", "1/1", "Token Creature — Goblin")
+    creature(s, "p2", "Goblin Two", "1/1", "Token Creature — Goblin")
+    put(s, "Grizzly Bears", "p2")
+    incinerator = to_hand(s, "Gempalm Incinerator")
+    mana(s, R=1, G=1)
+    act(s, "p1", type="activate_ability", card_id=incinerator.id, ability=0)
+    assert offered(s) == ["Goblin One", "Goblin Two", "Grizzly Bears"]  # (target creature: any)
+    pick(s, "Grizzly Bears")
+    answer(s, "yes")
+    settle(s)
+    assert zone(s, "Grizzly Bears", "p2") == "p2:graveyard" and zone(s, "Gempalm Incinerator") == "p1:graveyard"  # (2 damage to the 2/2)
+    check(s)
+
+
+def test_gloom_surgeon_prevents_combat_damage_and_exiles_that_many_cards(cards):
+    from tests.wave36a_kit import attack_as
+
+    s = build(cards, ["Gloom Surgeon"], theirs=["Grizzly Bears"], forests=20)
+    put(s, "Gloom Surgeon")
+    put(s, "Grizzly Bears", "p2")
+    ready(s, "Grizzly Bears", pid="p2")
+    to_turn_of(s, "p2")
+    library = len(s.state.zones["p1:library"])
+    attack_as(s, "p2", [card_named(s, "Grizzly Bears", "p2")], "p1")
+    block(s, "p1", (card_named(s, "Gloom Surgeon"), card_named(s, "Grizzly Bears", "p2")))
+    settle(s)
+    assert zone(s, "Gloom Surgeon") == "p1:battlefield" and len(s.state.zones["p1:library"]) == library - 2 and len(s.state.zones["p1:exile"]) == 2
+    check(s)
+
+
+def test_gloom_surgeon_takes_noncombat_damage_as_usual(cards):
+    s = build(cards, ["Gloom Surgeon", "Lightning Bolt"], forests=20)
+    put(s, "Gloom Surgeon")
+    to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    library = len(s.state.zones["p1:library"])
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=[card_named(s, "Gloom Surgeon").id])
+    settle(s)
+    assert zone(s, "Gloom Surgeon") == "p1:graveyard" and len(s.state.zones["p1:library"]) == library
+    check(s)
+
+
+def test_virtue_of_courage_exiles_that_many_cards_for_noncombat_damage_to_an_opponent(cards):
+    s = build(cards, ["Virtue of Courage // Embereth Blaze", "Lightning Bolt"], forests=20)
+    put(s, "Virtue of Courage // Embereth Blaze")
+    to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    library = len(s.state.zones["p1:library"])
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=["p2"])
+    answer(s, "yes")
+    settle(s)
+    assert s.state.players["p2"].life == 37 and len(s.state.zones["p1:library"]) == library - 3 and len(permissions(s)) == 3
+    check(s)
+
+
+def test_virtue_of_courage_ignores_damage_to_its_controller_and_combat_damage(cards):
+    s = build(cards, ["Virtue of Courage // Embereth Blaze", "Grizzly Bears"], forests=20)
+    put(s, "Virtue of Courage // Embereth Blaze")
+    put(s, "Grizzly Bears")
+    ready(s, "Grizzly Bears")
+    attack(s, card_named(s, "Grizzly Bears"))
+    library = len(s.state.zones["p1:library"])
+    settle(s)
+    assert s.state.players["p2"].life == 38 and len(s.state.zones["p1:library"]) == library  # (combat damage: no trigger, 603.2)
+    check(s)

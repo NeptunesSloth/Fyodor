@@ -1466,5 +1466,70 @@
   "keywords": [
    "Cycling"
   ]
+ },
+ {
+  "name": "Gempalm Incinerator",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Goblin",
+  "oracle_text": "Cycling {1}{R} ({1}{R}, Discard this card: Draw a card.)\nWhen you cycle this card, you may have it deal X damage to target creature, where X is the number of Goblins on the battlefield.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Cycling"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Gloom Surgeon",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Spirit",
+  "oracle_text": "If combat damage would be dealt to this creature, prevent that damage and exile that many cards from the top of your library.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Virtue of Courage // Embereth Blaze",
+  "layout": "adventure",
+  "mana_cost": "{3}{R}{R} // {1}{R}",
+  "cmc": 5.0,
+  "type_line": "Enchantment // Instant — Adventure",
+  "oracle_text": "Whenever a source you control deals noncombat damage to an opponent, you may exile that many cards from the top of your library. You may play those cards this turn.\n//\nEmbereth Blaze deals 2 damage to any target. (Then exile this card. You may cast the enchantment later from exile.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "card_faces": [
+   {
+    "name": "Virtue of Courage",
+    "mana_cost": "{3}{R}{R}",
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a source you control deals noncombat damage to an opponent, you may exile that many cards from the top of your library. You may play those cards this turn."
+   },
+   {
+    "name": "Embereth Blaze",
+    "mana_cost": "{1}{R}",
+    "type_line": "Instant — Adventure",
+    "oracle_text": "Embereth Blaze deals 2 damage to any target. (Then exile this card. You may cast the enchantment later from exile.)"
+   }
+  ]
  }
 ]
