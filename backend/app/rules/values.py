@@ -49,8 +49,10 @@ if TYPE_CHECKING:
 
 Value = int | dict[str, Any]
 NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
-           "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "twenty": 20}
-AMOUNT = r"(?:twice [xX]|half [xX] rounded (?:up|down)|(?:two|three|four|five|six|seven|eight|nine|ten) times [xX]|[xX] (?:plus|minus) (?:\d+|one|two|three|four|five)|twice that (?:much|many)|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x|X|that much|that many)"  # (wave 34C: "five times X", "X plus 3", "X minus one")
+           "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "twenty": 20,
+           "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+           "thirty": 30, "forty": 40, "fifty": 50}  # (static_other, wave 36B: "if you control thirty or more artifacts" (Knuckles the Echidna), "mills fourteen cards")
+AMOUNT = r"(?:twice [xX]|half [xX] rounded (?:up|down)|(?:two|three|four|five|six|seven|eight|nine|ten) times [xX]|[xX] (?:plus|minus) (?:\d+|one|two|three|four|five)|twice that (?:much|many)|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|x|X|that much|that many)"  # (wave 36B: the number words up to nineteen; wave 34C: "five times X", "X plus 3", "X minus one")
 
 # Counters that carry rules the engine doesn't model yet (122.1b keyword counters, 122.1c shield,
 # 122.1d stun, 122.1h finality, 122.1i rad, 714 lore): an effect putting one of these

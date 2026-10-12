@@ -44,6 +44,7 @@ _DISCARD_SELF = re.compile(r"^Discard (?:this card|~)$")  # -- ability words (wa
 _REVEAL_SELF = re.compile(r"^Reveal (?:this (?:card|creature)|~) from your hand$")  # -- forecast (wave 24C) -- 702.57a (113.6m: from the hand)
 REVEAL_SELF = "REVEAL_SELF"
 _EXILE_SELF_GY = re.compile(rf"^Exile {_SELF} from your graveyard$")
+_EXILE_SELF_HAND = re.compile(r"^Exile (?:this card|~) from your hand$")  # -- as long as (wave 37A) -- "{2}, Exile this card from your hand: …" (113.6m: works only from the hand)
 _EXILE_SELF = re.compile(rf"^Exile {_SELF}$")
 _EXILE_GY = re.compile(rf"^Exile {_N} (?P<what>(?:[\w\-]+ )*cards? from your graveyard)$")
 _RETURN_SELF = re.compile(rf"^Return {_SELF} to its owner's hand$")
@@ -52,7 +53,8 @@ _RETURN = re.compile(rf"^Return {_N} (?P<what>.+? you control) to (?:its|their) 
 # "return X Swamps you control to their owner's hand" (the sacrifice / exile ones are ``_SAC_X`` / ``_EXILE_GY_X``)
 _DISCARD_X = re.compile(r"^Discard X (?P<what>(?:[\w\-]+ )*cards?)(?P<random> at random)?$")
 _RETURN_X = re.compile(r"^Return X (?P<what>.+? you control) to (?:its|their) owner's hands?$")
-_TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another )?untapped (?P<what>.+ you control(?: other than (?:~|this creature))?)$")
+# -- static_other (wave 36B) -- "Tap two other untapped Halflings you control" (Saradoc, Spring-Loaded Sawblades): "other" than the source, as "another"
+_TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another |other )?untapped (?P<what>.+ you control(?: other than (?:~|this creature))?)$")
 _UNTAP_OTHER = re.compile(rf"^Untap {_N} tapped (?P<what>.+ you control)$")  # -- activated sweep (wave 17B) -- Halo Fountain
 _REMOVE_CHOSEN = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|\d+) (?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? from (?:a|an|another) (?P<what>.+)$")
@@ -182,7 +184,8 @@ class AbilityCost:
     def from_hand(self) -> bool:
         """-- ability words (wave 4F) -- 113.6m: "Discard this card" (channel: "{1}{R}, Discard this card: …") moves
         the card out of its owner's hand, so the ability works only there."""
-        return self.hand_only or any((c.kind == DISCARD and c.selector is None) or c.kind == REVEAL_SELF for c in self.components)
+        return self.hand_only or any((c.kind in (DISCARD, "EXILE_FROM_HAND") and c.selector is None) or c.kind == REVEAL_SELF  # (EXILE_FROM_HAND: wave 37A)
+                                     for c in self.components)
 
     @property
     def from_graveyard(self) -> bool:
@@ -255,6 +258,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(REMOVE_COUNTER, amount=_n(m["n"]), counter=m["kind"], text=part)
     if _EXILE_SELF_GY.match(part):
         return CostComponent(EXILE_FROM_GRAVEYARD, text=part)
+    if _EXILE_SELF_HAND.match(part):  # -- as long as (wave 37A) -- the source itself, exiled from the hand as the cost is paid (cost_payment: no selector = the source)
+        return CostComponent("EXILE_FROM_HAND", text=part)
     if _DISCARD_SELF.match(part):  # -- ability words (wave 4F) -- "Discard this card" (701.9a; 113.6m: from the hand)
         return CostComponent(DISCARD, text=part)
     if _REVEAL_SELF.match(part):  # -- forecast (wave 24C) -- revealed to everyone (701.20a), the card stays in the hand
@@ -307,6 +312,8 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False)
                   r"\1 and \2 and \3", cost)
     if card_name and "," in card_name:  # (wave 4H) "Discard another card named Korlash, Heir to Blackblade": one part
         cost = cost.replace(card_name, "~")
+    # -- static_other (wave 36B) -- "Tap three untapped Advisors, Artificers, and/or Monks you control" (The Archimandrite): one part naming three kinds
+    cost = re.sub(r"(Tap \w+ (?:other )?untapped )([A-Z][\w'-]*), ([A-Z][\w'-]*),? and/or ([A-Z][\w'-]*)(?= you control)", r"\1\2 or \3 or \4", cost)
     for part in (p.strip() for p in cost.split(",")):
         if not part:
             continue

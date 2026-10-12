@@ -117,7 +117,7 @@ _ALL_GRAVEYARDS = re.compile(r"there are (?P<n>\w+) or more (?P<sel>.+?) (?:tota
 _GRAVEYARD_TYPES = re.compile(r"there are (?P<n>\w+) or more (?P<what>card types|mana values) among cards in your graveyard")  # (wave 20B: mana values)
 _NONE_ON_BATTLEFIELD = re.compile(r"(?:there are )?no (?P<sel>[\w' -]+?)(?: are)? on the battlefield")
 _OBJECT_STAT = re.compile(r"(?P<who>its|that creature's|that permanent's|that card's|the card's|that spell's|~'s|the sacrificed (?:creature|permanent|artifact)'s) (?P<stat>power|toughness|mana value) "
-                          r"(?:is|was) (?:(?P<n>\w+) or (?P<cmp>less|greater|more|fewer)|(?P<cmp2>less|greater|more|fewer) than (?P<n2>\w+))")  # (17D: "than")
+                          r"(?:is|was) (?:(?P<n>\w+) or (?P<cmp>less|greater|more|fewer)|(?P<cmp2>less|greater|more|fewer) than (?P<n2>\w+)|exactly (?P<n3>\w+))")  # (17D: "than"; 36A: "exactly 20")
 _OBJECT_PARITY = re.compile(r"~'s (?P<stat>power|toughness) is (?P<p>even|odd)")
 _OBJECT_VS_REVEALED = re.compile(r"(?:its|that creature's|that permanent's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|less than|"
                                  r"greater than or equal to|greater than|equal to) the revealed card's (?P<ref>power|toughness|mana value)")
@@ -1090,7 +1090,7 @@ def _object(t: str) -> Condition | None:
     "~ is tapped": a test of the object the ability refers to (``"it"``: bound by scripts.resolve_it
     to its antecedent). Only characteristics are read of any referred object (608.2h: as it is, or as
     it last existed); physical state (tapped, attacking) only of the source itself."""
-    t = re.sub(r"^(it|that (?:creature|permanent)) has (power|toughness|mana value) (?=\w+ or (?:less|greater|more|fewer))",  # (wave 26D)
+    t = re.sub(r"^(it|~|that (?:creature|permanent)) has (power|toughness|mana value) (?=\w+ or (?:less|greater|more|fewer)|exactly \w+)",  # (wave 26D; 36A: ~, "exactly")
                lambda m: f"{'its' if m[1] == 'it' else m[1] + chr(39) + 's'} {m[2]} is ", t)  # "it has power 4 or greater" = "its power is 4 or greater"
     t = re.sub(r"^the creature had (?=(?:power|toughness|mana value) \w+ or )", "that creature had ", t)  # -- named permanents (wave 35C) -- Anax: the creature that died
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
@@ -1110,9 +1110,13 @@ def _object(t: str) -> Condition | None:
         return {"object": "self", "stat": m["stat"], "op": "parity", "n": int(m["p"] == "odd")}
     m = _OBJECT_STAT.fullmatch(t)
     if m:  # "its mana value was 3 or less", "its power is 4 or greater"
-        n = _num(m["n"] or m["n2"])
+        n = _num(m["n"] or m["n2"] or m["n3"])
         if n is None:
             return None
+        if m["n3"]:  # -- trigger other (wave 36A) -- "if its power is exactly 20" (Amalia Benavides Aguirre)
+            who = m["who"]
+            return {"object": "self" if who == "~'s" else "cost:sacrificed" if who.startswith("the sacrificed") else "it",
+                    "stat": m["stat"].replace(" ", "_"), "op": "==", "n": n}
         cmp = m["cmp"] or m["cmp2"]
         if m["cmp2"]:  # "less than 1" is at most 0, "greater than 3" at least 4 (whole numbers)
             n += -1 if cmp in ("less", "fewer") else 1
@@ -1556,9 +1560,12 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "self", "cast": {"optional": "teamwork"}}
     if t in ("this spell's prowl cost was paid", "its prowl cost was paid"):  # -- static_other sweep (wave 17C) -- 702.76a
         return {"object": "self", "cast": {"alt": "prowl"}}
-    if (m := re.fullmatch(r"(?:(?:this spell's|this creature's|its|his|her) (?P<k>mayhem|web-slinging|sneak) cost was paid(?P<turn> this turn)?|(?P<w>it|this spell|~|they) (?:was|were) cast "
+    if (m := re.fullmatch(r"(?:(?:this spell's|this creature's|its|his|her) (?P<k>mayhem|web-slinging|sneak|surge|spectacle|emerge) cost was paid(?P<turn> this turn)?|(?P<w>it|this spell|~|they) (?:was|were) cast "
                           r"using (?P<k2>mayhem|web-slinging))", t)) is not None:  # -- Marvel keywords (wave 25A; sneak: 30I) -- 702.187b, 702.188a, 702.190a
+        # (-- static_other (wave 36B) -- surge 702.117a, spectacle 702.137a, emerge 702.119a: the cast record's alternative is the keyword (alt_costs.keyword_definition))
         return {"object": _cast_who(m["w"] or "self"), "cast": {"alt": m["k"] or m["k2"], **({"this_turn": True} if m["turn"] else {})}}
+    if re.fullmatch(r"the (?:\{[^}]+\})+ cost was paid", t):  # -- static_other (wave 36B) -- "If the {1}{B} cost was paid" (Baleful Mastery): the one alternative cost the card prints (118.9a)
+        return {"object": "self", "cast": {"alt": "alternative"}}
     if t in ("this spell was foretold", "it was foretold"):  # -- hidden exile (wave 18A) -- 702.143c: cast for its foretell cost (the only way)
         return {"object": _cast_who(t.split()[0]), "cast": {"alt": "foretell"}}
     if t in ("it was kicked", "this spell was kicked", "~ was kicked"):  # -- kicked instead (wave 20F) -- 702.33d: "When you cast this

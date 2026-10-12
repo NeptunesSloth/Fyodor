@@ -412,6 +412,12 @@ class Arrival(BaseModel):
 
     card: str = Field(max_length=64)
     owner: str = Field(max_length=64)  # whose graveyard it went to
+    # -- graveyard history (wave 36A) -- 400.7: "a card in your graveyard that was put there from the battlefield this turn" is read of the
+    # object it is now: the object it became in the graveyard (``object_id``), the zone it came from (``from_zone``: "battlefield",
+    # "library", "hand" …; None: an older save, not known) and the combat phase it happened in (``combat``: RulesState.combats, 0: not in combat)
+    object_id: str | None = Field(default=None, max_length=80)
+    from_zone: str | None = Field(default=None, max_length=20)
+    combat: int = 0
 
 
 # -- refused modal/conditional (wave 3R1) --
@@ -481,6 +487,8 @@ class TurnFact(BaseModel):
     # permanent): the object that dealt it
     source: str | None = Field(default=None, max_length=80)
     actor: str | None = Field(default=None, max_length=64)  # -- long tail (wave 16D) -- "counters" facts: the player who put them (122.6)
+    # -- trigger other (wave 36A) -- "discard" facts: the event batch it happened in (0: not known / an older save), for "for the first time each turn" (603.2)
+    batch: int = 0
 # -- end this-turn history (wave 4D) --
 
 
@@ -557,7 +565,8 @@ class ContinuousEffect(BaseModel):
     # -- end of next turn (wave 32C) -- "end_of_next_turn": "until the end of your next turn" ends in the cleanup step (514.2) of
     # ``until_player``'s next turn (a later turn than ``turn``, even when it began in one of their own turns: delayed.end_of_next_turn)
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
-                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat"] = "end_of_turn"
+                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast"] = "end_of_turn"
+    until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
     turn: int = 0  # the turn the effect began (next_turn: it ends on a later turn of until_player)
@@ -783,6 +792,7 @@ class PaymentRecord(BaseModel):
     discarded: list[str] = Field(default_factory=list)
     revealed: list[str] = Field(default_factory=list)  # -- static_other sweep (wave 17C) -- cards revealed from the hand to pay ("the revealed card's …")
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
+    exiled_objects: list[str] = Field(default_factory=list)  # -- as long as (wave 37A) -- the objects they became in exile (400.7j: "this card" finds that one)
     returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
     # -- keywords (wave 15E) -- ninjutsu 702.49c: what each returned attacking creature was attacking (player or permanent id)
     returned_attacking: dict[str, str] = Field(default_factory=dict)
@@ -1458,6 +1468,13 @@ def _attach_event(state: GameState, kind: EventKind, card_id: str, oid: str, hos
          source=(was.object_id if was is not None else rules.object_id(host)) if host else None)
 
 
+def _combat_now(state: GameState, rules: RulesState) -> int:
+    """-- graveyard history (wave 36A) -- 506.1: which combat phase of the turn this is (RulesState.combats), 0 outside combat."""
+    from app.game.state import COMBAT_PHASES
+
+    return rules.combats if state.turn.phase in COMBAT_PHASES else 0
+
+
 def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, actor: str | None = None,
           group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None) -> None:
     departures = state.departures()
@@ -1526,7 +1543,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             log.left_graveyard.append(old_zone.split(":")[0])  # (a zone key is "<owner>:graveyard")
         if new_name == "graveyard" and new_zone and card is not None and card.card_id is not None \
                 and (log := turn_log_now(state)) is not None:  # (a token is no card: it never "descends")
-            log.entered_graveyard.append(Arrival(card=card_id, owner=new_zone.split(":")[0]))
+            log.entered_graveyard.append(Arrival(card=card_id, owner=new_zone.split(":")[0], object_id=new_oid, from_zone=old_name,
+                                                 combat=_combat_now(state, rules)))  # (-- graveyard history (wave 36A) --)
         if new_name == "battlefield" and card is not None and new_oid is not None \
                 and (log := turn_log_now(state)) is not None:  # -- refused modal/conditional (wave 3R1) --
             log.entered.append(Entry(card=card_id, object_id=new_oid, controller=card.controller,
@@ -1548,7 +1566,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             emit(state, "zone_change", new_object_id=rules.object_id(card_id), card=card_id, player=card.controller,
                  to_zone=card.zone, **({"from_zone": shell.zone} if shell is not None else {}))  # created: a token, a copy, an ability on the stack
             if shell is not None and _zone_name(card.zone) == "graveyard" and (log := turn_log_now(state)) is not None:
-                log.entered_graveyard.append(Arrival(card=card_id, owner=card.owner))
+                log.entered_graveyard.append(Arrival(card=card_id, owner=card.owner, object_id=rules.object_id(card_id), from_zone="battlefield",
+                                                     combat=_combat_now(state, rules)))  # (-- graveyard history (wave 36A) --)
             if _zone_name(card.zone) == "battlefield" and (log := turn_log_now(state)) is not None:  # (wave 3R1)
                 log.entered.append(Entry(card=card_id, object_id=rules.object_id(card_id), controller=card.controller,
                                          tapped=card.tapped))  # (-- entry forms (wave 5F) --)

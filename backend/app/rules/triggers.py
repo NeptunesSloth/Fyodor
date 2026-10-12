@@ -783,6 +783,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)
         return False
+    if event == "discard" and cond.get("first_each_turn") and not _first_discard(plan, cond, player, info):  # (wave 36A)
+        return False
     if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
             cond.get("own") and (obj is None or obj.controller != player))):  # -- activation (wave 11F) --
         return False
@@ -935,6 +937,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return False
     if want == "you_or_pw":  # "attacks you or a planeswalker you control"
         return defended == you
+    if want == "opponent_or_pw":  # -- trigger other (wave 36A) -- "attacks one of your opponents or a planeswalker an opponent controls": not you, not what you control
+        return defended != you
     if not info.get("direct"):
         return False
     if want == "you":
@@ -948,6 +952,22 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
     if want == "most_life":  # -- keywords (wave 15E) -- 702.105a: the player attacked has the most life or is tied for it
         return plan is not None and plan.state.players[defended].life >= max(plan.state.players[p].life for p in plan.live())
     return want == "player"
+
+
+def _first_discard(plan: Plan, cond: dict[str, Any], player: str | None, info: dict[str, Any]) -> bool:
+    """-- trigger other (wave 36A) -- "Whenever you discard one or more [nonland] cards for the first time each turn" (Rielle, the Everwise; Veronica,
+    Dissident Scribe): this event (the batch of discards, 603.2c) is the first of its kind this turn when no earlier batch of the turn discarded a card
+    that fits (a land discarded earlier doesn't count for "nonland cards"). The turn's log has each discard and its batch (history.note_events)."""
+    from app.rules import history, selectors
+
+    sel = selectors.from_key(cond["obj"]) if cond.get("obj") else None
+    batch = int(info.get("batch") or 0)
+    for f in history.log_for(plan).facts:
+        if f.kind != "discard" or f.player != player or not f.batch or f.batch >= batch:
+            continue
+        if sel is None or history.note_matches(sel, f.types, f.subtypes, f.supertypes):
+            return False
+    return True
 
 
 def _targets_ok(plan: Plan, want: str, watcher: CardInstance, targets: list[tuple[str, str | None]]) -> bool:
@@ -1112,6 +1132,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 per = ""
             if cond["event"] == "mill" and cond.get("aggregate") and cond.get("player") == "any":
                 per = ""  # -- triggers (wave 17D) -- "one or more cards are milled": every player's cards of the batch are one event (603.2c)
+            if cond.get("all_players"):
+                per = ""  # -- trigger other (wave 36A) -- "one or more players sacrifice one or more creatures": every player's part of the batch is one event (603.2c)
             if cond["event"] == "lose_life" and cond.get("aggregate"):
                 per = ""  # -- life floor (wave 35C) -- "one or more opponents lose life": every player's loss of the batch is one event (603.2c)
             if cond.get("subject") == "source":  # "that source's controller" is the event's player
@@ -1201,6 +1223,9 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
         if e.kind == "drew" and e.player:
             r.draws_this_turn[e.player] = r.draws_this_turn.get(e.player, 0) + 1
         facts = _facts(plan, e, window)
+        for f in facts:
+            if f[0] == "discard":
+                f[4]["batch"] = e.batch  # -- trigger other (wave 36A) -- the event batch, for "for the first time each turn" (_first_discard)
         for f in facts:  # -- trigger qualifiers (wave 11C) -- 603.2: "for the first time each turn", kept per player whoever watches
             if f[0] in _FIRST_KINDS and f[3] and int(f[4].get("amount") or 0) > 0:
                 key = f"first:{f[0]}:{f[3]}"

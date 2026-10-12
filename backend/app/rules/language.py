@@ -1826,6 +1826,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # (Brilliant Restoration): every card that is any of the types named (the "and" lists the kinds, as "or" would)
     text = re.sub(r"^return all ((?:[a-z]+, )*[a-z]+),? and ([a-z]+) cards (?=(?:with [^,]+ )?from your graveyard to )",
                   lambda m: "return all " + " or ".join([*m[1].split(", "), m[2]]) + " cards ", text)
+    # -- graveyard history (wave 36A) -- the destination first, because the cards are described at length: "Return to your hand all creature
+    # cards in your graveyard that were put there from anywhere this turn." (Garna), "return to the battlefield target creature card in your
+    # graveyard that …" (Moira) say what "Return all … to your hand" / "return target … to the battlefield" do
+    text = re.sub(r"^(?P<may>you may )?return to (?P<d>your hand|the battlefield) (?P<o>(?:all|target|up to \w+ target|another target|each) "
+                  r"(?!.* (?:under|tapped|attacking|face down|with|attached)\b).+)$", lambda m: f"{m['may'] or ''}return {m['o']} to {m['d']}", text)
     found = reanimation_forms(text)  # -- reanimation (wave 3R) --
     if found is not None:
         return found
@@ -2704,7 +2709,7 @@ CHOOSE_FROM_HAND_GY = (r"you choose (?:a|an) (?P<sel>.+?) from (?:it or (?:a|an)
 LOOK_HAND = rf"look at (?P<s>{CHOOSER})'s hand(?: and (?P<ch>choose .+))?"  # (Painful Memories, Extortion: "… and choose a card from it")
 # "Target player reveals their hand and discards all nonland cards." (Amnesia, Trapfinder's Trick)
 DISCARD_ALL_REVEALED = (rf"(?P<s>{CHOOSER}) reveals their hand and discards all (?:(?P<sel>.+?) )?cards?"
-                        r"(?P<tail> with (?:the chosen|that) name)?")  # (wave 22B: Cabal Therapy, "all cards with that name")
+                        r"(?P<tail> with (?:(?:the chosen|that) name|that spell's mana value))?")  # (wave 22B: Cabal Therapy, "all cards with that name"; wave 36A: Infernal Kirin)
 DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
 CHOOSE_VALUE = rf"choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player|{_NAME_WHAT})"
