@@ -471,10 +471,19 @@ _OPPONENTS_HAND = re.compile(r"^(?:the number of )?opponents? who (?:has|have) (
 # ("who has more cards in hand than you" stays manual: tests/test_rules_wave8b_triggers.py)
 
 
+# -- tokens (wave 38B) -- "the number of nontoken creatures you had enter the battlefield under your control this turn" (Gyome, Master Chef), "for each land you
+# had enter the battlefield under your control this turn" (Emergent Sequence): a look back (608.2i) at what entered under your control this turn, whether or not it
+# is still there (the ruling for Gyome counts those that died, stopped being creatures or changed hands), read as each was when it entered (history.entered)
+_TURN_ENTERED = re.compile(r"^(?:the number of )?(?P<sel>(?:nontoken )?(?:creature|land|permanent|artifact)s?) you had enter the battlefield under your control this turn$")
+
+
 def _turn_amount(what: str) -> Value | None:
     if m := _OPPONENTS_HAND.match(what):  # each opponent whose hand size now says so (the count of a hand is public)
         n = int(m["n"]) if m["n"].isdigit() else NUMBERS.get(m["n"])
         return {"opponents_hand": m["cmp"], "n": n} if n is not None else None
+    if m := _TURN_ENTERED.match(what):
+        sel = selectors.parse(m["sel"])
+        return {"turn_history": "entered", "sel": sel.key()} if sel is not None else None
     m = _TURN_LIFE.match(what)
     if m:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
@@ -645,6 +654,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if sel.player is not None:
             return sum(1 for p in plan.live() if selectors.matches_player(plan, sel, p, you))
         away = ctx.get("not_yet_entered") or ()  # -- review (wave 26D) -- an "enters with" count, read before they enter (replacements._counter_amount)
+        if "blocking_event" in sel.extras:  # -- trigger other (wave 39A) -- "for each creature blocking it": the creature the "becomes blocked" event is about, as this resolves
+            from app.rules import context
+
+            event_creatures = context.objects(plan, ctx, context.EVENT)
+            sel = selectors.replace(sel, extras=tuple("blocking_source" if x == "blocking_event" else x for x in sel.extras))
+            return sum(1 for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away)
         # (wave 32A: "for each land with the same name as the exiled card" (Strata Scythe) compares with the ability's own source, not with the
         # object a static's "other" is about — the equipped creature)
         where = ctx.get("source_card") if not sel.other and any(x.startswith(("samename_src", "nosamename_src", "samename_exiled_with")) for x in sel.extras) \

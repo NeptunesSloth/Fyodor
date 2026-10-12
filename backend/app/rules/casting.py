@@ -3847,7 +3847,14 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         if comp.kind == "WATERBEND":
             mana = mana.plus_generic(-len(cost_objects.get(i, [])))
     not_mana = cost_payment.excluded(cost, card, cost_objects)  # (they can't also tap for mana)
-    if payment_step(plan, a, mana.with_x(a.x_value or 0), f"{ch.name}’s ability",
+    due = mana.with_x(a.x_value or 0)
+    if mana.x:  # -- review 35 -- 601.2f (602.2b): X is chosen first (601.2b), then the total is increased and reduced ("Abilities you activate cost {2}
+        # less": Zirda, Training Grounds); ability_cost leaves an {X} cost alone (its X isn't known there)
+        from app.rules import cost_changes
+
+        own = cost_changes.ability_delta(plan.state, card.controller, card, ch, ability.text, plan.info) if "This ability costs " in ability.text else 0
+        due = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, due.text(), plan.info, own, ability.text))
+    if payment_step(plan, a, due, f"{ch.name}’s ability",
                     exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability))):
         return
     effect = ability.text.split(":", 1)[1].strip() if ":" in ability.text else ability.text
@@ -3873,7 +3880,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if cost.life:
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
         _replace_life.lose_life(plan, [(plan.actor, cost.life)])
-    paid = pay(plan, plan.actor, mana.with_x(a.x_value or 0), f"paid {mana.with_x(a.x_value or 0).text()} to activate {ch.name}",
+    paid = pay(plan, plan.actor, due, f"paid {due.text()} to activate {ch.name}",
                sources=a.sources, exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability)))
     record = PaymentRecord(card=ability_id or card.id, controller=plan.actor, total_cost=ability.cost or "",
                            mana_spent=dict(paid.spent) if paid else {}, life=cost.life + (paid.life if paid else 0),

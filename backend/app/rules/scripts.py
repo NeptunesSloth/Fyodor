@@ -194,6 +194,10 @@ _HAVE_VERBS = {"fight": "fights", "deal": "deals", "lose": "loses", "become": "b
 def _may_have(body: str, ante: str | None) -> str:
     """"you may have it fight target creature" / "you may have target creature lose flying" is the same optional instruction
     in the third person; "it" is the source itself only when the trigger is about it (``ante``), else it stays unread."""
+    # -- tapped and attacking (wave 38B) -- "you may have its controller create a 1/1 … token that's tapped and attacking" (Najeela): you decide, the
+    # controller of the creature the event is about creates it (a player who isn't the attacking player gets one that never attacks, 506.3b)
+    if ante == "event" and (made := re.match(r"^you may have its controller create( .+)$", body)) is not None:
+        return f"you may its controller creates{made[1]}"
     m = re.match(rf"^you may have (?P<s>~|it|your life total|target [a-z ]+?) (?P<v>{'|'.join(_HAVE_VERBS)})\b", body)  # (wave 25B: your life total)
     if m is None or (m["s"] == "it" and ante not in ("self", "event")):
         return body
@@ -1450,7 +1454,8 @@ def _someone_creates(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
 
     # -- token & pump wordings (wave 6C) -- "Its controller creates a 1/1 … token with changeling": the token grammar
     made = _token_parse("create " + m["rest"]) if not re.search(r"\bfor each\b|, where ", m["rest"]) else None
-    if made is not None and all(e["do"] == "create_token" for e in made):
+    # (wave 38B: "that attacking player creates a tapped … token that's attacking that opponent" — token_grammar.create_attacking, by that player)
+    if made is not None and all(e["do"] == "create_token" or (e["do"] == "create_attacking" and m["s"] in ("that player", "its controller")) for e in made):
         if m["s"] in ("target player", "target opponent"):
             return [{**e, "who": "target"} for e in made], SELECTORS[m["s"]]
         return [{**e, "who": language.PLAYER_GROUPS[m["s"]]} for e in made], None
@@ -1485,6 +1490,17 @@ def _counter_pick(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     from app.rules import counter_pick
 
     found = counter_pick.parse(m["kinds"], m["who"])
+    if found is None:
+        raise _NoMatch
+    return found, None
+
+
+# -- your choice (wave 38B) -- "Create your choice of a Clue token, a Food token, or a Treasure token." (The Third Doctor): token_grammar.pick_token
+@effect(r"create your choice of (?P<kinds>.+)")
+def _pick_token(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import token_grammar
+
+    found = token_grammar.pick_parse(m["kinds"])
     if found is None:
         raise _NoMatch
     return found, None
@@ -1805,8 +1821,9 @@ def _first(fn):  # type: ignore[no-untyped-def]
 @_first
 @effect(r"create (?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|twice X|half X) (?:tapped (?:and attacking )?)?"  # (half/twice, X/X: wave 4K; wave 30P: "tapped and attacking 1/1 …")
         r"(?:(?:(?:\d+|X)/(?:\d+|X) )?(?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) "
-        r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)* (?:enchantment )?(?:artifact )?(?:land )?creature tokens?|[A-Z][a-z]+ tokens?)"
-        r"(?: named [A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*)?(?: with (?:(?!, then )[^\"])*(?:\"[^\"]+\")?)?"
+        r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)* (?:enchantment )?(?:artifact )?(?:land )?creature tokens?|[A-Z][a-z]+ tokens?"
+        r"|\d+/\d+ (?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) Vehicle artifact tokens?)"  # (wave 38B)
+        r"(?: named [A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*)?(?: with (?:(?!, then | if | unless )[^\"])*(?:\"[^\"]+\")?)?"  # (wave 38B: nor a trailing " if …": _trailing_conditional)
         r"(?: that(?:'s| are) (?:tapped and )?attacking(?: (?:that player|that opponent|defending player))?)?"  # (wave 30P)
         r"(?: for each [^\"]+|, where [xX] is [^\"]+|, rounded (?:up|down))?")
 def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
@@ -2084,7 +2101,7 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
     # -- static_other sweep (wave 16B) -- "You draw two cards, lose 2 life, then mill two cards." is three instructions in order (608.2c)
     text = re.sub(r"^(?P<a>(?:you )?(?:gain|lose|draw|mill|scry|surveil)\b[^,.]*), (?P<b>(?:draw|lose|gain|mill|scry|surveil|investigate)\b[^,.]*), then ",
                   r"\g<a>, then \g<b>, then ", text)
-    for joiner in (r", then ", r" and (?=(?:~(?= )|(?:you|target|each|it|that player|that (?:creature|land|permanent|artifact)|draw|lose|gain|put|return|exile|"  # (wave 25B: "and ~ deals …": no \b after the ~)  (wave 30M: "Tap target creature, and that creature doesn't untap …")
+    for joiner in (r", then ", r" and (?=(?:~(?= )|(?:you|target|each|it|that player|that opponent|that (?:creature|land|permanent|artifact)|draw|lose|gain|put|return|exile|"  # (wave 25B: "and ~ deals …": no \b after the ~)  (wave 30M: "Tap target creature, and that creature doesn't untap …")
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
                                  r"remove|add|investigate|prevent|amass|proliferate|manifest|transform|suspect)\b))"):  # (wave 25B: suspect)  # (wave 20F: transform)  # (remove: wave 6D, "untap it and remove it from combat")
         parts = re.split(joiner, text, maxsplit=1)
@@ -2177,8 +2194,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = re.sub(r"(from an opponent's graveyard[^.]*?\.) Then that player (mills [^.]*\.)", r"\1 Then its owner \2", body)
     body = re.sub(r"(from an opponent's graveyard[^.]*?), then exile that player's graveyard\.", r"\1. Exile its owner's graveyard.", body)
     # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
-    # opponent, the token grammar's "… for each opponent"
-    body = re.sub(r"(^|\. )For each opponent, you (create (?![^.,]* with )[^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
+    # opponent, the token grammar's "… for each opponent". (wave 38B: not "… tapped and attacking that opponent" (Stampede Surfer): each token attacks
+    # its own opponent, combat_rules.create_attacking_each, not one count of them all attacking the trigger's)
+    body = re.sub(r"(^|\. )For each opponent, you (create (?![^.,]* with |[^.,]* attacking that opponent)[^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
     # -- resolution memory (wave 22D) -- "Choose any number of target creatures you control. For each of them, create a token that's a copy of that
     # creature, except it has haste." (Twinflame): one token for each object chosen — "create a token that's a copy of each of any number of target …"
     body = re.sub(r"(^|\. )Choose ((?:any number of|up to \w+) target [^.]+?)\. For each of them, create (?:a|one) token that's a copy of that "
@@ -2741,6 +2759,17 @@ _MAY_PAY_ELSE = re.compile(r"^(?:[Tt]hat (?:player|opponent)|[Tt]hey) may (?P<co
                            r"(?:doesn't|don't), (?:you (?=create ))?(?P<rest>(?![^.]*\bmay\b)[^.]+)\.$")  # (wave 26B: life, sacrifice, discard, exile)
 
 
+# -- trigger other (wave 39A) -- "Target opponent may sacrifice two nonland, nontoken permanents of their choice. If they don't, you draw two cards." (Rakdos,
+# Patron of Chaos): the same reading with the one target as the payer; what happens to the others is the ability's controller's own (no "they" in it)
+_MAY_PAY_ELSE_TARGET = re.compile(r"^(?P<who>[Tt]arget (?:opponent|player)) may (?P<cost>(?:pay \d+ life|(?:sacrifice|discard|exile) [^.]+))\. If (?:they|that player) "
+                                  r"(?:doesn't|don't), (?P<rest>(?![^.]*\b(?:may|they|their|them|that player)\b)[^.]+)\.$")
+
+
+def _may_else_target(m: re.Match[str]) -> str:
+    verb, _, rest = m["cost"].partition(" ")
+    return f"{m['rest'][:1].upper()}{m['rest'][1:]} unless {m['who'].lower()} {verb}s {rest}."
+
+
 def _may_else(m: re.Match[str]) -> str:
     """"That player may pay 2 life. If they don't, they lose 3 life." → "That player loses 3 life unless that player pays 2 life."
     (118.12a: the payer named in the third person, the effect's "they" the same player)."""
@@ -2828,6 +2857,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # -- may pay or else (wave 4J) -- "That player may pay {2}. If the player doesn't, you create a Treasure token."
     # (Smothering Tithe) is 118.12a's own reading of "[Effect] unless that player pays {2}": read as that
     body = _MAY_PAY_ELSE.sub(_may_else, body)
+    body = _MAY_PAY_ELSE_TARGET.sub(_may_else_target, body)  # (wave 39A)
+    # -- trigger other (wave 39A) -- "Look at target opponent's hand. You may exile a nonland card from it until ~ leaves the battlefield." (Deep-Cavern Bat): 701.20e, the
+    # private look; the card is chosen from it as "You may choose a nonland card from it. Exile that card …" says (608.2d), which the grammar reads
+    body = re.sub(r"([Ll]ook at target opponent's hand\. )You may exile (an? [a-z -]*card) from it( until [^.]+)?\.",
+                  lambda t: f"{t[1]}You may choose {t[2]} from it. Exile that card{t[3] or ''}.", body)
     from app.rules import recursion as _recursion  # -- recursion & tutors (wave 4M) --
 
     body = _recursion.join_sized_search(body)
@@ -3593,7 +3627,7 @@ _PICK_NEG = re.compile(r"^if you (don't|do) put (?:the card|that card|it|them) (
                        r"|on (?:top of|the bottom of) your library), ")
 _PICK_DIDNT = re.compile(r"^if you didn't put (?:a|the|that) card into your hand this way, ")
 _IF_YOU_DO = re.compile(r"^if you (?:(?P<neg>don't)|do), (?P<rest>.+)$")
-_UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller) "
+_UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller|target opponent|target player) "
                      r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?|removes?|taps?) .+|has (?:~|this [a-z]+) deal \d+ damage to (?:them|you)"
                      r"|has (?:~|this [a-z]+) deal (?:damage to (?:them|you) equal to .+|that much damage to (?:them|you)))$")  # (wave 27A: "has ~ deal 4 damage to them"; wave 1B: any cost the engine pays; wave 34D: sized)
 
@@ -3748,6 +3782,10 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         return None  # -- unless pays (wave 4C) -- "its mana value": the target object's, only when there is one
     if who == "you":
         payer = "you"
+    elif who in ("target opponent", "target player"):  # -- trigger other (wave 39A) -- the payer is the ability's one target, named only here
+        if groups or "target" in whos or "that_player" in whos or "event_player" in whos:
+            return None
+        payer, sel = "target", SELECTORS[who]
     elif who in ("they", "that player") and whos == {"it.controller"} and not groups:
         payer = "it.controller"  # (wave 26D) "that creature's controller loses 2 life unless they pay {2}": they are that controller
     elif who in ("its controller", "that creature's controller") and whos == {"it"} and not groups:
@@ -4087,6 +4125,13 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if d is not None and ("block_pair_this" in json.dumps(d, default=str) or "blocked_by_this" in json.dumps(d, default=str)) \
             and d.get("kind") not in ("activated", "triggered"):
         return None
+    if d is not None and d.get("kind") == "triggered" and d.get("trigger") == "event" and (d.get("cond") or {}).get("event") == "blocked" \
+            and not (d.get("cond") or {}).get("other"):  # -- trigger other (wave 39A) -- 509.3c: "Whenever a creature you control becomes blocked, it gets +3/+3 until end of
+        # turn for each creature blocking it" (General Marhault Elsdragon): the "it" of the event (not ~) is the creature whose blockers are counted, as this resolves
+        d = {**d, "effects": [json.loads(json.dumps(e, default=str).replace("blocking_source", "blocking_event")) if e.get("who") == "event" else e
+                              for e in d.get("effects") or []]}
+    if d is not None and d.get("kind") == "static" and "flanking" in str(d.get("who")) and any(str(g).lower() == "flanking" for g in d.get("grants") or []):
+        return None  # -- trigger other (wave 39A) -- "Other creatures you control with flanking have flanking" (Cavalry Master) is another instance of it for each: triggers.flanking counts printed ones only
     if d is not None and "blocking_source" in json.dumps(d, default=str) and not (
             d.get("kind") == "activated" or d.get("kind") == "triggered" and (
                 str(d.get("trigger", "")).endswith("_self") or (d.get("cond") or {}).get("subject") == "self")):
@@ -4443,7 +4488,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # -- triggers (wave 5D) -- "they lose 2 life", "an additional card"
                 from app.rules import trigger_words
 
-                if cond is not None and cond.get("subject") == "source" and re.search(r"\b(?:that player|they|them)\b", body):
+                # -- trigger other (wave 39A) -- ("that player" is read when the damage is to "you" from "a source an opponent controls": it can only be that opponent, Michiko Konda)
+                if cond is not None and cond.get("subject") == "source" and re.search(r"\b(?:that player|they|them)\b", body) \
+                        and not (cond.get("ctl") == "opponent" and cond.get("to") == "you" and not re.search(r"\b(?:they|them)\b", body)):
                     return None  # -- source damage (wave 11F) -- the source's controller, or the player dealt damage? (not read)
                 body = trigger_words.rewrite_body(body, name, cond, has_player)
                 if name == "step:draw:you":  # -- draw step (wave 6D) -- "At the beginning of your draw step, draw an
@@ -4456,6 +4503,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
                 if cond is not None and other_side.wanted(cond) and cond.get("subject") == "host" and "that creature" not in body:
                     body = body.replace("the other creature", "that creature")  # (wave 11E: Venom, Mammoth Harness)
+                if cond is not None and cond.get("event") == "blocked" and cond.get("other"):  # -- trigger other (wave 39A) -- 509.3d: "the blocking creature"
+                    body = re.sub(r"\bthe blocking creature\b", "that creature", body)  # (Order of the Mirror) is the creature that blocked this one: "that creature"
                 if cond is not None and other_side.wanted(cond) and cond.get("subject", "self") == "self":
                     # -- trigger tail (wave 15B) -- "When this creature blocks a creature, destroy both creatures / that creature and
                     # this creature.": the creature on the other side, then this one (509.3b)
@@ -6198,7 +6247,7 @@ def _choice_template(pattern: str, build: Any) -> None:
 from app.rules import language as _language  # noqa: E402  (a leaf module)
 
 for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OTHERS, _language.edict),
-                         (_language.EDICT_EXILE, _language.edict),
+                         (_language.EDICT_EXILE, _language.edict), (_language.EDICT_HALF, _language.edict_half),  # (wave 39A)
                          (_language.CHOOSE_KINDS, _language.choose_kinds), (_language.CHOOSE_FOR_EACH, _language.choose_kinds),  # (wave 30K: before
                          (_language.CHOOSE_EACH_TYPE, _language.choose_each_type), (_language.CHOOSE_EACH_LAND, _language.choose_each_land),
                          (_language.CHOOSE_POWER_CAP, _language.choose_power_cap),  # PLAYER_CHOOSES)
@@ -7875,7 +7924,7 @@ def _create_several_kinds(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 EFFECTS[:0] = [EFFECTS.pop()]  # (before the one-kind templates, which would read "with deathtouch and a 3/3 …" as keywords)
 
 
-@effect(r"create that many (?P<rest>[^\"]+ tokens?(?: with [^\"]+)?)")
+@effect(r"create that many (?P<rest>[^\"]+ tokens?(?: with (?:(?!, then )[^\"])+)?)")  # (wave 38B: the "with …" never crosses ", then " — Falcon and Redwing: "… with flying, then put a +1/+1 counter on ~")
 def _create_that_many(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     """"Whenever a creature you control deals combat damage to a player, create that many Treasure tokens." (Old
     Gnawbone): as many as the trigger event's amount (608.2k; scripts._event_refs_ok: only an event with an amount)."""

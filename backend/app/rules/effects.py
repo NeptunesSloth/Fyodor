@@ -2216,12 +2216,12 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         picked = [c for pid in order for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
         return _discard_next(plan, ctx, 0, [], picked, e.get("as"))
     return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("to", "graveyard"),
-                         e.get("zone", "hand"), bool(e.get("upto")), e.get("sel"))
+                         e.get("zone", "hand"), bool(e.get("upto")), e.get("sel"), e.get("half"))
 
 
 def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picked: list[str],
                   binding: str | None = None, dest: str = "graveyard", src: str = "hand", upto: bool = False,
-                  sel: str | None = None) -> bool:
+                  sel: str | None = None, half: str | None = None) -> bool:
     from app.rules import (
         prohibitions,  # -- prohibitions (wave 22B) -- 614.17: "… can't cause you to discard cards" (exiling isn't discarding)
     )
@@ -2236,6 +2236,8 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
         if hand and dest != "exile" and (why := prohibitions.cant_cause_discard(plan, pid, ctx["controller"])) is not None:
             plan.note(f"{why}: {plan.name(pid)} can't be made to discard cards")
             hand = []
+        if half:  # -- trigger other (wave 39A) -- "discards half the cards in their hand, rounded down" (Lord Xander): 107.1a, of the hand as it is as they discard
+            want = (len(hand) + (half == "up")) // 2
         n = min(want, len(hand)) if want or not upto else len(hand)  # (upto, 0: "any number of cards")
         if n == 0:
             continue
@@ -2249,7 +2251,7 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
                min_choices=0 if upto else n, max_choices=n,  # (-- trigger tail (wave 15B) -- "up to N" / "any number": 701.9a)
                resume={"step": "discard", "ctx": ctx, "want": want, "rest": players[i + 1:], "picked": picked,
-                       "as": binding, "to": dest, "zone": src, "upto": upto, "sel": sel})
+                       "as": binding, "to": dest, "zone": src, "upto": upto, "sel": sel, "half": half})
         return False
     cards = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(f":{src}")]
     if dest != "exile":  # (-- prohibitions (wave 22B) -- "discard your hand" / at random: the cards were picked without asking)
@@ -2267,7 +2269,7 @@ def resume_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
     picked = [*(d.resume.get("picked") or []), *chosen]
     if _discard_next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or [], picked, d.resume.get("as"),
                      d.resume.get("to", "graveyard"), d.resume.get("zone", "hand"), bool(d.resume.get("upto")),
-                     d.resume.get("sel")):
+                     d.resume.get("sel"), d.resume.get("half")):
         continue_effects(plan, ctx)
 
 
@@ -2409,6 +2411,11 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
                 **({"transformed": True} if e.get("transformed") else {}),  # (-- transform, wave 11A -- 712.14a)
                 **({"counter": e["counter"]} if e.get("counter") else {}),
                 **({"counter_n": e["counter_n"]} if e.get("counter_n") else {})} for cid in cards]  # (counters it enters with, 122.6; n: wave 4M)
+    nxt = ctx["effects"][ctx["next"]] if e.get("as") and 0 <= ctx.get("next", -1) < len(ctx.get("effects") or ()) else {}
+    if nxt.get("do") == "become" and nxt.get("lose_abilities") and nxt.get("who") == f"ref:{e['as']}" and nxt.get("duration") == "permanent":
+        # -- review 35 -- "Return target creature card … to the battlefield. It's a Skeleton … and has no abilities." (Xu-Ifit, ruling 2025-07-25): it has
+        # none as it enters — no "enters tapped" or "enters with" counters of its own apply (614.12), no "when it enters" triggers
+        entries = [{**x, "bare": True} for x in entries]
     if e.get("host"):  # -- refused zones/sized (wave 3R4) -- "attached to this creature / that creature"
         entries = _attached_entries(plan, ctx, e["host"], entries)
         cards = [x["card"] for x in entries]
@@ -3485,10 +3492,11 @@ def _labels(plan: Plan, cards: list[str]) -> str:
     return ", ".join(plan.state.cards[c].name or "a card" for c in cards if c in plan.state.cards)
 
 
-def _controlled(plan: Plan, key: str, pid: str, source: str | None) -> list[str]:
-    """The permanents ``pid`` controls that match a selector, evaluated for that player."""
+def _controlled(plan: Plan, key: str, pid: str, source: str | None, you: str | None = None) -> list[str]:
+    """The permanents ``pid`` controls that match a selector, evaluated for that player (``you``: -- trigger other (wave 39A) -- or for the ability's
+    controller, whose "you" a qualifier like "that dealt combat damage to you this turn" is)."""
     sel = selectors.from_key(key)
-    return [c for c in selectors.candidates(plan, sel, pid, source)
+    return [c for c in selectors.candidates(plan, sel, you or pid, source)
             if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
 
 
@@ -3499,21 +3507,22 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
     (101.4b). False while waiting for a choice."""
     from app.rules import conditions
 
-    want = _amount(plan, ctx, e["n"])
+    half = e["n"].get("half_own") if isinstance(e["n"], dict) else None  # -- trigger other (wave 39A) -- "sacrifices half the creatures they control, rounded down": each player's own count
+    want = 0 if half else _amount(plan, ctx, e["n"])
     exiling = e.get("action") == "exile"  # -- modal spells (wave 24D) -- "Target opponent exiles a creature they control."
     verb = ("exiles" if exiling else "sacrifices") if step == "edict" else "chooses"
     for i, turn in enumerate(players):
         # -- per-player choices (wave 30K) -- a turn is a player and the kind of permanent chosen (an old save: just the player); "you choose …
         # for each player" (Tragic Arrogance): the ability's controller decides what each player's permanents are
         pid, key = (turn, e["sel"]) if isinstance(turn, str) else turn
-        mine = _controlled(plan, key, pid, ctx.get("source_card"))
+        mine = _controlled(plan, key, pid, ctx.get("source_card"), ctx["controller"] if "dealt_combat_damage_you" in key else None)
         if e.get("any"):  # -- per-player choices (wave 31B) -- any permanent the ability's words allow ("a creature you don't control"), whoever controls it
             mine = [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
                     if plan.state.cards[c].zone.endswith(":battlefield")]
         if step == "edict" and not exiling and mine and _sacrifice_barred(plan, ctx, pid):
             mine = []  # -- prohibitions (wave 22B) -- nothing for them to sacrifice
         cap = e.get("power_cap")  # "any number of creatures they control with total power 4 or less" (Slaughter the Strong): always a choice
-        n = len(mine) if cap is not None else min(want, len(mine))
+        n = len(mine) if cap is not None else (len(mine) + (half == "up")) // 2 if half else min(want, len(mine))  # (107.1a: half rounded as written)
         if n == 0:
             continue
         by = ctx["controller"] if e.get("by") == "you" or (e.get("by_if") and conditions.holds(plan, ctx, e["by_if"])) else pid

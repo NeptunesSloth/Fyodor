@@ -1869,6 +1869,8 @@ def flanking(plan: Plan, pairs: list[tuple[CardInstance, CardInstance]]) -> None
             continue
         ach = plan.ch(attacker)
         n = sum(1 for ab in ach.abilities if ab.kind == "keywords" for kw in ab.keywords if kw == "flanking")
+        n = n or int("flanking" in ach.keywords)  # (a granted flanking: Sidewinder Sliver, Agility)
+        # ponytail: granted keywords are a set, so two grants on one creature trigger once; count grants if that ever matters (702.25b)
         if not n or "flanking" in plan.ch(blocker).keywords:
             continue
         for k in range(n):
