@@ -85,7 +85,7 @@ class _Fail(Exception):
 
 
 MAX_TARGETS = A.MAX_TARGETS  # "any number of target …": at most this many (the intents' limit; wave 29C: 250, as a trigger's, not 20)
-_QTY = r"one|two|three|four|five|six|seven|eight|nine|ten|\d+"
+_QTY = r"one hundred|one|two|three|four|five|six|seven|eight|nine|ten|\d+"  # (wave 41B: "up to one hundred target creatures", Baldin)
 # -- target forms (agent T) --  "up to one other target creature", "each of up to two other targets",
 # "any number of other target nonland permanents you control": "other" inside a counted group
 _GROUP = re.compile(rf"^(?:each of )?(?:up to (?P<upto>{_QTY}|X)|(?P<range>one or two|one, two, or three)|"  # (X: wave 4K)
@@ -93,7 +93,7 @@ _GROUP = re.compile(rf"^(?:each of )?(?:up to (?P<upto>{_QTY}|X)|(?P<range>one o
 
 
 def _qty(word: str) -> int:
-    return int(word) if word.isdigit() else values.NUMBERS[word]
+    return int(word) if word.isdigit() else 100 if word == "one hundred" else values.NUMBERS[word]
 
 
 def simple(group: dict[str, Any]) -> bool:
@@ -202,7 +202,8 @@ def _out(groups: list[dict[str, Any]]) -> Any:
 def _divided(phrase: str, what: str, total: Any) -> dict[str, Any]:
     """601.2d: "… divided as you choose among one, two, or three targets" / "distribute N
     counters among …": each target gets at least one, so at least one target and at most
-    ``total`` of them."""
+    ``total`` of them; (wave 41B) a total counted as the ability goes on the stack may be 0, so there the group says how few: "any number of" / "up to"
+    allow none (115.6; Yannik's ruling of 2020-04-17)."""
     group = target_group(phrase)
     x_plus = isinstance(total, dict) and set(total) == {"plus"} and total["plus"][0] == {"x": 1} and isinstance(total["plus"][1], int)  # (wave 34C: "X plus 1")
     # (-- distribute (wave 12A) -- "any number of other target creatures you control": other than the source, 115.3)
@@ -211,7 +212,7 @@ def _divided(phrase: str, what: str, total: Any) -> dict[str, Any]:
             or not (isinstance(total, int) or total == {"x": 1} or x_plus or (isinstance(total, dict) and not _has_x(total))):
         raise _Fail
     counted = not (isinstance(total, int) or total == {"x": 1} or x_plus)  # (a count: the total is read as the spell is cast, targets.divide_x)
-    group = {**group, "min": max(1, group["min"]), "divide": {"what": what, "total": {"x": 1}, "value": total} if counted
+    group = {**group, "min": group["min"] if counted else max(1, group["min"]), "divide": {"what": what, "total": {"x": 1}, "value": total} if counted
              else {"what": what, "total": total}}
     if isinstance(total, int):
         if total < 1:

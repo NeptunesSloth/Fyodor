@@ -262,6 +262,7 @@ def _self_pronouns(part: str) -> str:
     counter on him. He gains …"), written as ~. Anything else stays and so stays unsupported: "he or she" (a player), a
     contraction ("he's"), "her controller" (an earlier permanent's)."""
     part = re.sub(r"(~ enters (?:tapped )?with [^.]+? counters? on) (?:him|her)\b", r"\1 it", part)  # (as the "on it" form)
+    part = re.sub(r"\b(?:[Hh]e|[Ss]he)'s (?=equipped\b)", "~ is ", part)  # (wave 41B: "if he's equipped", Whiplash: "he's" is "he is" before a state)
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)\b(?! or |')", "~", part)
     part = re.sub(rf"\b(?:his|her) (?={_POSSESSED}\b)", "~'s ", part)
     part = re.sub(r"(?<!or )\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
@@ -283,6 +284,8 @@ def self_text(text: str, name: str) -> str:
         out = out[len("Forecast — "):]
     if out == text and (worded := word_prefix(text)) is not None:  # -- refused zones/sized (wave 3R4) -- 207.2d
         out = worded[1]
+    from app.rules.creature_types import CREATURE_TYPES as _CREATURE_TYPES
+
     short = _short_name(name, out)
     names = [n for n in sorted({name, name.split(",")[0].strip(), *([short] if short else [])}, key=len, reverse=True)
              if len(n) >= 3 or (len(n) == 2 and n.isupper())]  # (wave 15D: "MJ")
@@ -298,7 +301,8 @@ def self_text(text: str, name: str) -> str:
             # (wave 20C: the short name before "the/of Capital" starts another name: "create Tuktuk the Returned, a legendary …")
             # (-- static_other (wave 36B) -- a shortened name that is also a creature type is that type before "creature(s)": "becomes a green Lizard creature" on
             # Lizard, Connors's Curse is no self-reference ("a green ~ creature" is nothing a card says)
-            part = re.sub(r"(?<![\w-])" + (r"(?<!create )" if n != name else "") + rf"{re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else "")
+            part = re.sub(r"(?<![\w-])" + (r"(?<!create )" if n != name else "") + (r"(?<!other )(?<!another )" if n in _CREATURE_TYPES else "")  # (wave 41B: a Rat token's "each other Rat you control" is the type, not itself)
+                          + rf"{re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else "")
                           + (r"(?! (?:creature|token)s?\b)" if n != name else ""),  # (-- attached events (wave 40B) -- "create Icingdeath, Frost Tongue, a legendary … token": the token's own name, on Icingdeath, Frost Tyrant)
                           "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
         return part
@@ -1151,9 +1155,10 @@ def _add_groups(groups: list[dict[str, Any]], found: list[dict[str, Any]], sel: 
             plain = g.pop("another")
             any_other = g.pop("any_other", False)  # (wave 34D: "any other target", not "another target")
             if groups and all(_attachment_group(x) for x in groups):
-                raise _NoMatch  # -- attach all (wave 30S) -- "attach up to one target Equipment to her. Then up to one other target attacking creature": the
-                # "other" is other than her, not other than an Equipment (Amy Rose): not modelled, so manual
-            if groups:
+                if not g["what"]:  # -- attach all (wave 30S) -- "attach up to one target Equipment to her. Then up to one other target attacking creature": the
+                    raise _NoMatch  # "other" is other than her, not other than an Equipment (Amy Rose); (wave 41B) a group whose selector says it
+                    # ("other": other than the source) is kept as read; a bare "another target" (nothing to be other than) stays manual
+            elif groups:
                 g = {**g, "what": plain, "distinct_from": list(range(len(groups)))}
             elif not g["what"]:
                 if plain != "any" or not any_other:
@@ -1892,7 +1897,7 @@ def _connive(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
         return [{"do": "connive", "who": "self", "n": n}], None
     if m["who"] in ("it", "he", "she"):
         return [{"do": "connive", "who": "it", "n": n}], None
-    if SELECTORS[m["who"]] not in ("creature", "creature_you_control", "creature_opponent_controls"):
+    if SELECTORS[m["who"]] not in ("creature", "creature_you_control", "creature_opponent_controls", "attacking_creature"):  # (wave 41B: Raffine)
         raise _NoMatch
     return [{"do": "connive", "who": "target", "n": n}], SELECTORS[m["who"]]
 
@@ -2457,12 +2462,19 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
             and re.search(r"(?i)\bup to X (?:other )?targets?\b|\bX damage divided as you choose among\b", body[: m.start()]):  # (wave 34D: divided)
         text_def = text_def.rsplit(" as you ", 1)[0]  # -- X target counts (wave 27C) -- "…, where X is the number of Bobbleheads you control as you activate this
         # ability": X only counts the targets, which are chosen at that moment (601.2c)
+    if text_def == "the number of colors among those creatures":  # -- X sized by a count (wave 41B) -- "Ally creatures you control get +X/+X until end of turn, where X is the number of
+        # colors among those creatures." (General Tazri): "those creatures" are the ones the sentence's own subject names — counted as the pump is applied (608.2h)
+        sm = re.match(r"(?:[A-Za-z]+ )?creatures you control gets? [+-]X/[+-]X\b", body[body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0: m.start()].lstrip())
+        if sm is not None:
+            subject = sm[0].split(" get")[0]  # (the first letter of a sentence may have been lowered: "ally creatures" → the type "Ally")
+            text_def = "the number of colors among " + (subject if subject.lower().startswith("creatures") else subject[0].upper() + subject[1:])
     value, tail = defined_as(text_def), ""
     if value is None and ", then " in m["def"]:  # -- value grammar (wave 23C) -- "Scry X, where X is the greatest mana value among permanents you control, then draw three cards."
         defined, tail = m["def"].split(", then ", 1)  # (the definition ends where the next instruction begins)
         value, tail = defined_as(defined), ", then " + tail
     start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
     head, rest = body[start: m.start()], body[:start] + "\0" + tail + body[m.end():]
+    head = re.sub(r',"$', '."', head)  # -- X sized by a count (wave 41B) -- 'with "This token gets +1/+1 for each other Rat you control," where X is …' (Vren): the comma ends the clause, inside the quote by typography
     arith = re.search(r"\bX (plus|minus) (\d+|one|two|three|four|five)\b", head)
     if arith is not None and value is not None and len(re.findall(r"\bX\b", head)) == 1:  # -- X arithmetic (wave 34C) -- "You gain X plus 1 life, where X is …" (An-Havva Inn)
         head = head.replace(arith[0], "X")
@@ -2477,12 +2489,14 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
         return None
     now = _x_now()
     outer = list(now)
-    now[:] = [value, False]  # (-- X sized by a count (wave 19F) -- swapped in by _parse_effects before it binds the pronouns)
+    now[:] = [value, False, re.search(r"\b(?:any number of|up to \w+) (?:other )?target\b", head) is not None]  # (-- X sized by a count (wave 19F) -- swapped in by _parse_effects before it binds the pronouns; [2]: wave 41B, the group may have no target: 115.6)
     try:
         # -- X target counts (wave 27C) -- "up to X target …, where X is <a count>": the count is read as the targets are chosen (601.2c)
         standin = re.sub(r"\ban (?=\d+/\d+\b)", "a ", re.sub(r"\bX\b(?! (?:other )?targets?\b)", str(_X_SENTINEL), head))  # (-- wave 22D -- "an X/X token")
         got = _parse_effects_checked(rest.replace("\0", standin), it, event_player)
         hit = now[1]
+        if '"cost:exiled"' in json.dumps(value) and '"cost:exiled"' not in json.dumps(now[0]):
+            value = now[0]  # -- reflexive exile (wave 41B) -- the reflexive ability bound it to its event object (_reflexive)
     finally:
         now[:] = outer
     if got is not None:  # -- X conditions (wave 34C) -- "…, where X is …. If X is 4 or more, draw a card.": the condition reads the X the text defines
@@ -2578,6 +2592,12 @@ def _swap_x(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if isinstance(v, list):
             return [swap(x, key) for x in v]
         if isinstance(v, dict):
+            if (v.get("divide") or {}).get("total") == _X_SENTINEL and isinstance(value, dict) and len(value) == 1 \
+                    and next(iter(value)) in ("power", "toughness", "mana_value") and next(iter(value.values())) == "event":
+                # -- reflexive exile (wave 41B) -- a reflexive ability's "distribute X +1/+1 counters …, where X is the exiled creature's power" (Yannik): the total is
+                # the event object's stat as the ability is put on the stack (601.2d: ``divide.value``, targets.divide_x, which has the event)
+                _x_now()[1] = True
+                v = {**v, "min": 0 if _x_now()[2:] == [True] else v["min"], "divide": {**v["divide"], "total": {"x": 1}, "value": value}}  # (115.6: "any number of" allows none)
             if v.get("do") == "free_cast" and v.get("mv") == _X_SENTINEL and (value is None or isinstance(value, dict)):
                 # -- free cast (wave 40D) -- "you may cast an instant or sorcery spell with mana value X or less from your hand without paying its mana cost, where X
                 # is twice the number of legendary Wizards you control" (Gandalf, Party Guest), "…, where X is the number of attacking creatures" (Epistolary
@@ -4184,7 +4204,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     x_given = d is not None and _triggers.x_source(d, ch) is not None and "where X is" not in ability.text  # -- X from the triggering object (wave 34C) -- 107.3a/e/i
     where_text = removed_all.WHERE.sub("", ability.text) if ability.kind == "activated" else ability.text
-    if d is not None and '{"x": 1}' in json.dumps(d.get("effects") or [], default=str) and (
+    if d is not None and '{"x": 1}' in json.dumps(d.get("effects") or [], default=str).replace('"total": {"x": 1}, "value"', '"total": 0, "value"') and (  # (wave 41B: a reflexive ability's divided total with its value)
             re.search(r"\bwhere X is\b", where_text)
             or (d.get("kind") == "triggered" and d.get("trigger") != "enters_self" and not monstrous_x and not x_given)):
         return None
@@ -4287,6 +4307,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = re.sub(r"^(Whenever you cast) a spell, if that spell was kicked, ", r"\1 a kicked spell, ", text)
     # "When ~ dies, it deals damage equal to its power divided as you choose …" (Orca, Siege Demon): "it" is the creature that died, ~ (language.py reads ~'s)
     text = re.sub(r"^(When ~ dies, )it deals (damage equal to its power divided as you choose among )", r"\1~ deals \2", text)
+    if ability.kind == "static" and re.match(r"(?i:(?:~ has )?(?:bushido|firebending|mobilize) X, where X is)", text):  # -- X keywords (wave 41B) --
+        from app.rules import keyword_triggers
+
+        return keyword_triggers.dynamic_x(text)
     if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
         return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
     if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I)
@@ -7126,6 +7150,11 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
         return None
     b_effects, b_target, b_optional = parsed
     body_json = json.dumps([b_effects, b_target], default=str)
+    if lki is None and _exiled_base(base, cond["succeeded"]) and '"cost:exiled"' in body_json + json.dumps(_x_now()):  # -- reflexive exile (wave 41B) -- see _exiled_base
+        b_effects, b_target = json.loads(body_json.replace('"cost:exiled"', '"event"'))
+        body_json, lki = json.dumps([b_effects, b_target], default=str), body
+        if (now := _x_now()):  # (the stand-in of a "where X is …" sentence: _where_x swaps it in)
+            now[0] = json.loads(json.dumps(now[0]).replace('"cost:exiled"', '"event"'))
     stand_in = bool(_x_now()) and "event_amount" in json.dumps(_x_now()[0]) and "event_amount" in body_json  # (wave 34C: "where X is the amount of life you gained", read in _where_x)
     keep = (keep and '"event"' in body_json) or (stand_in and lki is None and not sized_x)  # (only when the body actually reads the trigger's event; wave 34C: or its amount, explicitly)
     x_bind = None
@@ -7172,6 +7201,15 @@ def _x_to_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 _SAC_ONE = re.compile(r"^sacrifice (?:a|an|another) [a-z ,]+$", re.I)
 _LKI_STAT = re.compile(r"\b(?:that|the sacrificed) (?:creature|artifact|permanent)'s (power|toughness|mana value)\b")
 _LKI_OTHER = re.compile(r"\b(?:it|its|itself|they|them|that creature|that artifact|that permanent|the sacrificed)\b")
+
+
+def _exiled_base(base: list[dict[str, Any]], name: str) -> bool:
+    """-- reflexive exile (wave 41B) -- "Exile target creature card from a graveyard. When you do, put X +1/+1 counters on target Symbiote, where X is the exiled
+    card's toughness." (Venom), "Exile another creature you control until ~ leaves the battlefield. When you do, distribute X … where X is the exiled creature's
+    power." (Yannik): the one object that instruction exiled (608.2h, 113.7a: as it last existed) is the reflexive ability's event object, which that X reads."""
+    return len(base) == 1 and base[0].get("did") == name and not base[0].get("all") and (
+        (base[0]["do"] == "exile" and str(base[0].get("who")).startswith("target")) or (base[0]["do"] == "sacrifice_choice" and base[0].get("exile") == "until"
+                                                                          and base[0].get("n") == 1))
 
 
 def _reflexive_lki(base: list[dict[str, Any]], name: str, body: str) -> str | None:

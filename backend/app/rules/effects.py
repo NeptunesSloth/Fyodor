@@ -3254,6 +3254,11 @@ def _reflexive_event(plan: Plan, ctx: Context, name: str) -> Any:
 
     b = context.refs(ctx).get(name) or {}
     before = [ObjectRef.model_validate(r) for r in b.get("objects") or []] if b.get("kind") in ("payment", "objects") else []
+    if b.get("kind") == "probe" and b.get("to") == "exile":  # -- reflexive exile (wave 41B) -- the object an exile was about to take (_did): its last known information
+        before = [ObjectRef(card=c, object_id=o) for c, o in (b.get("cards") or {}).items()]
+    elif b.get("kind") == "probe" and b.get("left"):  # (… or the permanents that were there when "exile … until" chose and are not any more: a token ceased to exist, 111.7)
+        before = [ObjectRef(card=c, object_id=o) for c, o in b["left"].items()
+                  if (card := plan.state.cards.get(c)) is None or (card.zone.endswith(":exile") and plan.oid(card) != o)]
     if b.get("kind") == "objects" and b.get("was"):
         # -- reflexive this way (wave 30G) -- an instruction that moved its objects ("Sacrifice a creature. When you do, … that creature's
         # power"): an object that left the battlefield is read as it last existed there (608.2h), not as the new object it became (400.7)

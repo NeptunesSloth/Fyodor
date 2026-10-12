@@ -53,6 +53,9 @@ _X_ONE_COLOR = re.compile(r"^Add X mana of any one color, where X is (?P<what>.+
 # one option (106.1)
 _X_COMBO = re.compile(r"^Add X mana in any combination of (?:(?P<colors>colors)|\{(?P<a>[WUBRG])\} and/or \{(?P<b>[WUBRG])\}), "
                       r"where X is (?P<what>.+)$")
+# -- X sized by a count (wave 41B) -- "{T}: Add X {G} or X {W}, where X is the number of other creatures you control." (Brigid, Clachan's Heart): one
+# of the two colors, X times (106.1, 605.3b: counted as the ability resolves, at once)
+_X_TWO_COLORS = re.compile(r"^Add X \{(?P<a>[WUBRG])\} or X \{(?P<b>[WUBRG])\}, where X is (?P<what>.+)$")
 _AMOUNT_EQUAL = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?P<what>.+)$")
 _AMONG = re.compile(r"^Add one mana of any color among (?P<what>.+)$")
 # (app/rules/oracle.py classifies this line as a mana ability; :func:`normalise` gives it the "Add" form)
@@ -154,6 +157,9 @@ def first_sentence(first: str) -> tuple[str | None, tuple[tuple[str, ...], ...]]
     if m := _X_ONE_COLOR.fullmatch(first):
         count = _value(m["what"])
         return (count, tuple((c,) for c in COLORS)) if count else None
+    if m := _X_TWO_COLORS.fullmatch(first):  # (wave 41B)
+        count = _value(m["what"])
+        return (count, ((m["a"],), (m["b"],))) if count else None
     if m := _X_COMBO.fullmatch(first):
         own = re.fullmatch(r"(?:this creature|[A-Z][^.]{0,60}?)'s (power|toughness)", m["what"])  # (the source's own: its current stat)
         count = "value:" + json.dumps({own[1]: "self"}) if own else _value(m["what"])

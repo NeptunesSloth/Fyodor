@@ -229,3 +229,38 @@ def backup_definition(ch: Any, ab: AbilityText, nth: int = 0) -> dict[str, Any] 
     probe = AbilityText(index=0, text=text, kind="triggered")
     d = scripts.define(probe, Characteristics(name="\u0000", abilities=(probe,), types=frozenset({"Creature"})))
     return d if d is not None and d.get("kind") == "triggered" and scripts._event_refs_ok(d) else None
+
+
+# -- X keywords (wave 41B) -- "Fumiko has bushido X, where X is the number of attacking creatures." (702.45a), "Firebending X, where X is
+# ~'s power." (702.189a), "Mobilize X, where X is the number of creature cards in your graveyard." (702.181a): the keyword's own meaning with
+# the number the text defines (107.3c); a triggered ability works its X out as it resolves (608.2h) — Fumiko's ruling (2005-02-01): "The bushido
+# bonus is calculated each time Fumiko's bushido trigger resolves, based on the number of attackers at that time." Soulshift X (Kodama of the
+# Center Tree) stays manual: its ruling reads the state "immediately before the Soulshift trigger", Kodama's own count included, which is not
+# when its trigger resolves. A bushido definition is carried by triggers.blocked, the others are ordinary triggers (triggers.abilities).
+_DYNAMIC_X = re.compile(r"(?P<kw>bushido|firebending|mobilize) X, where X is (?P<xdef>[^.]+?)\.?", re.IGNORECASE)
+_NOT_ALONE = re.compile(r'"(?:it|that_player|this_way|event[a-z_]*|ref[a-z_]*|cost:[a-z]+)"|"x"')  # a value that needs what this line has not got
+
+
+def dynamic_x(text: str) -> dict[str, Any] | None:
+    """The triggered ability of a static line "[~ has] bushido / firebending / mobilize X, where X is …", or None (not read)."""
+    from app.rules import scripts  # (scripts imports this module)
+
+    m = _DYNAMIC_X.fullmatch(text.removeprefix("~ has "))
+    if m is None:
+        return None
+    try:
+        value = scripts._x_amount(m["xdef"])
+    except scripts._NoMatch:
+        return None
+    if _NOT_ALONE.search(json.dumps(value)):
+        return None
+    kw = m["kw"].lower()
+    if kw == "mobilize":
+        d = json.loads(_definition("mobilize 2") or "[]")
+        if len(d) != 1 or d[0]["effects"][0].get("do") != "create_attacking":
+            return None
+        d[0]["effects"][0]["n"] = value
+        return d[0]
+    effect = {"do": "firebend", "n": value} if kw == "firebending" else {"do": "pump", "who": "self", "p": value, "t": value}
+    return {"kind": "triggered", "trigger": "attacks_self" if kw == "firebending" else "bushido", "optional": False, "target": None,
+            "effects": [effect]}
