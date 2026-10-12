@@ -577,6 +577,8 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
         got = any(e.object_id in ids for e in log.entered)
     elif what == "blocked":
         got = any(a in ids for attacked in log.blocks.values() for a in attacked)
+    elif what == "died":  # -- counters (wave 41A) -- 700.4: it was put into a graveyard from the battlefield (Departure.to)
+        got = any(d.object_id in ids and d.to == "graveyard" for d in log.left)
     elif what == "enlisted":  # -- trailing & intervening ifs (wave 38A) -- 702.154a: in this combat phase (500.8), fixed once it was (603.4: still so as it resolves)
         got = any(log.enlisted.get(i) == plan.rules.combats for i in ids)
     elif what == "attacked_or_blocked":

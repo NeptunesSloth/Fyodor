@@ -592,6 +592,11 @@ def _with_rider(text: str) -> tuple[str, Any]:
     n = re.fullmatch(r"(put) (?:a number of )?([+-]\d+/[+-]\d+|[a-z]+) counters on (.+?) equal to (.+)", text)
     if n:
         return f"put X {n[2]} counters on {n[3]}", ("x", _rider_value(n[4]))
+    # -- counters (wave 41A) -- "manifest a number of cards from the top of your library equal to the number of counters on it" (Omarthis, Ghostfire Initiate):
+    # "manifest the top X cards of your library, where X is …" (701.40a)
+    n = re.fullmatch(r"manifest a number of cards from the top of your library equal to (.+)", text)
+    if n:
+        return "manifest the top x cards of your library", ("x", _rider_value(n[1]))
     m = re.search(r",? where [xX] is (.+)$", text)  # (Oracle writes X; the lowercase form is the older tests')
     if m:
         return text[: m.start()], ("x", _rider_value(m[1]))
@@ -606,6 +611,8 @@ def _rider_value(phrase: str) -> Any:
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
     if phrase == "the total amount of mana paid this way":  # -- trigger other (wave 25B) -- join forces (app/rules/join_forces.py)
         return {"paid_x": "jf"}
+    if phrase == "its power minus ~'s power":  # -- counters (wave 41A) -- Drizzt Do'Urden's "the difference" (107.1b: never below 0; scripts._define words it so)
+        return {"minus": [_stat("its power"), _stat("~'s power")]}
     if phrase == "the damage dealt":  # -- triggers (wave 30J) -- Primo: "a number of +1/+1 counters on it equal to the damage dealt": the trigger event's amount
         return {"event_amount": 1}
     if re.fullmatch(r"(?:(?:\d+|one|two|three) plus )?the sacrificed (?:creature|artifact|permanent|land|enchantment)'s "
@@ -1451,6 +1458,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
     kw_x = re.fullmatch(r"(?:you )?(?P<v>earthbend|incubate) [xX]", text) if rider is not None and rider[0] == "x" else None
     if kw_x:
         found = keyword_forms(f"{kw_x['v']} x")  # -- keyword actions & face-down (wave 3F) -- "earthbend X, where X is …"
+        if found is None:
+            raise _Fail
+        return [_bind_x(e, rider[1]) for e in found[0]], found[1]
+    if rider is not None and rider[0] == "x" and text == "manifest the top x cards of your library":  # -- counters (wave 41A) -- Omarthis
+        found = keyword_forms(text)
         if found is None:
             raise _Fail
         return [_bind_x(e, rider[1]) for e in found[0]], found[1]
@@ -3110,15 +3122,19 @@ def _with_list(text: str, out: dict[str, Any]) -> None:
 def parse_loses_all(text: str) -> tuple[Effects, Any] | None:
     """"All creatures lose all abilities until end of turn" / "Until end of turn, target creature loses all abilities" (613.1f)."""
     m = re.fullmatch(r"(?:(?P<lead>until end of turn), )?(?P<o>.+?) loses? all abilities(?P<trail> until end of turn)?", text.strip())
-    if m is None or bool(m["lead"]) == bool(m["trail"]):
-        return None  # (no duration: not read; two: not Oracle wording)
+    if m is None or (m["lead"] and m["trail"]):
+        return None  # (two durations: not Oracle wording)
     try:
         kind, key, group = ref(m["o"])
     except _Fail:
         return None
     if kind in ("players", "them") or (kind == "it" and m["o"].lower() != "it"):  # (wave 35D: a bare "it" is the target of the sentence before; "that creature" is read by the event grammar)
         return None
-    return [{"do": "become", "who": _who(kind, key), "types": [], "lose_abilities": True, "duration": "end_of_turn"}], _one(group)
+    timed = bool(m["lead"] or m["trail"])
+    if not timed and kind not in ("target", "it"):
+        return None  # -- counters (wave 41A) -- 611.2a: no duration, the game — read for a chosen target, or the object the sentence before moved ("It loses all abilities.", Hellcat),
+        # only (its set is fixed as the effect begins, 611.2c); a group's isn't read
+    return [{"do": "become", "who": _who(kind, key), "types": [], "lose_abilities": True, "duration": "end_of_turn" if timed else "permanent"}], _one(group)
 
 
 def parse_become(text: str) -> tuple[Effects, Any] | None:

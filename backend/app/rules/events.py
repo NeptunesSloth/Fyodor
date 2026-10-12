@@ -192,7 +192,9 @@ def _qualified(c: str) -> Condition | None:
     # -- counters (wave 33C) -- "Whenever another creature you control enters while this creature has a -1/-1 counter on it" (Bristlebane Battler,
     # Reluctant Dounguard, Moonshadow), "… becomes tapped while it has a -1/-1 counter on it" (Encumbered Reejerey): part of the trigger event,
     # read as it happens (603.2; not an "if" after the comma, so 603.4's second look on resolution doesn't apply), as ``while`` on an attack
-    m = re.fullmatch(r"(?P<c>.+?) while (?P<w>(?:~|it) has (?:an?|one or more|\w+ or more) (?:\+1/\+1|-1/-1|[a-z]+) counters? on (?:it|~))", c)
+    # (-- counters (wave 41A) -- also "… deal combat damage to you while you're the monarch" (Tamiyo, Upriser Crowned): the watcher's controller's designation as it
+    # happens, 724.1)
+    m = re.fullmatch(r"(?P<c>.+?) while (?P<w>(?:~|it) has (?:an?|one or more|\w+ or more) (?:\+1/\+1|-1/-1|[a-z]+) counters? on (?:it|~)|you're the monarch)", c)
     if m:
         c, wh = m["c"], m["w"]
     m = re.fullmatch(r"(?P<c>.+?) during (?P<t>your|an opponent's|their) turn", c)
@@ -232,7 +234,7 @@ def _qualified(c: str) -> Condition | None:
         from app.rules import conditions
 
         holds = conditions.parse(re.sub(r"^it ", "~ ", wh) if inner is not None and inner.get("subject") == "self" else wh, objects=True)
-        if holds is None or (holds.get("object") != "self" and (holds.get("value") or {}).get("on") != "self"):
+        if holds is None or (holds.get("object") != "self" and (holds.get("value") or {}).get("on") != "self" and holds != {"status": "monarch"}):
             return None
     return {**inner, **({"during": during} if during else {}), **({"first_each_turn": True} if first else {}),
             **({"while": holds} if holds else {})}
@@ -349,16 +351,21 @@ def _parse(c: str) -> Condition | None:
     # -- trigger tail (wave 15B) -- "~ dies or is put into exile from the battlefield" (God-Eternal Oketra), "~ or another
     # nontoken artifact you control is put into a graveyard from the battlefield or is put into exile from the battlefield":
     # either event of the same objects (603.2), each its own (a card put into exile from the battlefield: 603.6c, 700.4)
-    m = re.fullmatch(r"(?P<s>.+?) (?:dies|(?:is|are) put into a graveyard from the battlefield) or (?:is|are) put into exile"
-                     r"(?: from the battlefield)?", c)  # (wave 20A: "When enchanted permanent dies or is put into exile", Kaya's Ghostform)
-    if m and not c.endswith("battlefield") and not m["s"].startswith(("enchanted ", "equipped ")):
+    m = re.fullmatch(r"(?P<s>.+?) (?:dies|(?:is|are) put into a graveyard from the battlefield) or (?:is|are) put into (?:exile"
+                     r"(?: from the battlefield)?|(?P<cz>the command zone))", c)  # (wave 20A: "When enchanted permanent dies or is put into exile", Kaya's Ghostform)
+    # (-- counters (wave 41A) -- 109.2: "a creature with a coin counter on it dies or is put into exile" (Athreos, Shroud-Veiled): a description with a card type
+    # and no "card" is a permanent on the battlefield, so "is put into exile" is from the battlefield too)
+    if m and not c.endswith("battlefield") and not m["s"].startswith(("enchanted ", "equipped ")) \
+            and not re.match(r"(?:an?|another) (?!.*\bcards?\b)(?:[a-z-]+ )*(?:creature|permanent|artifact|enchantment|land|planeswalker)\b", m["s"]):
         return None  # (a bare "put into exile" is from the battlefield only for what an Aura / Equipment is attached to: it's there)
     if m:
         died, left = _parse(f"{m['s']} dies"), _parse(f"{m['s']} leaves the battlefield")
         if died is None or left is None or died.get("event") != "die" or left.get("event") != "leave" or died.get("aggregate") \
                 or left.get("aggregate") or {k: v for k, v in died.items() if k != "event"} != {k: v for k, v in left.items() if k != "event"}:
             return None
-        return {"event": "either", "subject": died["subject"], "conds": [died, {**left, "dest": "exile"}]}
+        # (-- counters (wave 41A) -- 903.9b: "dies or is put into the command zone" (Reyhan): a commander that would go to its owner's hand or library may go to the
+        # command zone instead — it left the battlefield for there without dying; one that died is put there from the graveyard (903.9a), after it died)
+        return {"event": "either", "subject": died["subject"], "conds": [died, {**left, "dest": "command" if m["cz"] else "exile"}]}
     # -- attached events (wave 4L) -- "Whenever enchanted creature attacks or blocks" (the object it's attached to)
     # (-- attached events (wave 40B) -- also "becomes tapped or is dealt damage" (Cryoshatter): events of an object that stays on the battlefield, so the creature the
     # source is attached to as it happens is the one, 303.4b — not "dies" / "leaves", which look back, 603.10a)
@@ -477,6 +484,15 @@ def _parse(c: str) -> Condition | None:
                 or len({p["event"] for p in parts if p}) != len(parts):
             return None
         return {"event": "either", "subject": "self", "conds": parts}
+    # -- counters (wave 41A) -- "Whenever another creature you control or a land you control is put into a graveyard from the battlefield" (Long Feng, Grand
+    # Secretariat): two descriptions of the object the one event (603.2) is about, one trigger however many it matches (a land creature); each reads on its own
+    # with the shared predicate and says who controls it ("a creature or a land you control" is a different reading: not taken)
+    m = re.fullmatch(r"(?P<a>(?:an?|another) .+? (?:you control|an opponent controls)) or (?P<b>(?:an?|another) .+? (?:you control|an opponent controls)) (?P<p>dies|(?:is|are) put into a graveyard from the battlefield|leaves the battlefield|enters)", c)
+    if m:
+        a, b = _parse(f"{m['a']} {m['p']}"), _parse(f"{m['b']} {m['p']}")
+        if a is None or b is None or a.get("aggregate") or b.get("aggregate") or a["event"] != b["event"] or a["subject"] != "sel" or b["subject"] != "sel":
+            return None
+        return {"event": "either", "subject": "sel", "conds": [a, b]}
     # -- triggers (wave 17D) -- "Whenever you cast a black spell or a Swamp you control enters" (Staff of the Death Magus): two whole
     # conditions, each its own event (603.2c); split where both halves read on their own
     for part in re.finditer(r" or ", c):
@@ -613,6 +629,14 @@ def _parse(c: str) -> Condition | None:
         if m["g"] in ("a", "a player's"):
             return inner
         return {**inner, "gy_owner": "you" if m["g"] == "your" else "opponent"}
+    # -- counters (wave 41A) -- 109.2, 603.6c: "Whenever another nonland permanent you control is returned to its owner's hand" (Justice, Vance Astrovik): a permanent
+    # is on the battlefield, so it left the battlefield for a hand (400.3: its owner's, "its owner's hand" asks nothing of whose)
+    m = re.fullmatch(r"(?P<s>(?:an?|another) [^,]+?) (?:is|are) (?:returned to its owner's hand|put into its owner's hand from the battlefield)", c)
+    if m:
+        inner = _parse(f"{m['s']} leaves the battlefield")
+        if inner is None or inner.get("event") != "leave" or inner.get("subject") != "sel" or inner.get("aggregate"):
+            return None
+        return {**inner, "dest": "hand"}
     m = re.fullmatch(r"(?P<p>you|an opponent|a player|each opponent) gains? or loses? life", c)  # (wave 11C) each event: 603.2
     if m:
         return {"event": "either", "subject": "player", "player": _PLAYERS[m["p"]],
@@ -1170,13 +1194,17 @@ def _object_event(c: str) -> Condition | None:
     # damage to one of your opponents", "one or more creatures deal combat damage to one of your opponents"
     # -- source damage (wave 11F) -- "a source [you control | an opponent controls] deals [noncombat] damage [to …]": any
     # source of damage (120.1: a permanent, or a spell), once per source and recipient (603.2); ``ctl``: its controller
-    m = re.fullmatch(rf"a source(?P<ctl> you control| an opponent controls)? deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?"
-                     rf"damage(?P<to>{_DAMAGE_TO_RE}|)", c)
+    # (-- counters (wave 41A) -- "a red source you control deals damage to one or more permanents and/or players" (The Red Terror): the source's color as it
+    # dealt the damage (105.2), and a recipient that is any permanent or player — every recipient there is, so it is "deals damage" (120.1), once per source for
+    # the batch (603.2c))
+    m = re.fullmatch(rf"a(?P<col> white| blue| black| red| green| colorless)? source(?P<ctl> you control| an opponent controls)? deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?"
+                     rf"damage(?P<to>{_DAMAGE_TO_RE}|(?P<all> to one or more permanents and/or players))", c)
     # (-- trigger damage (wave 39B) -- "a source you control deals noncombat damage to one or more of your opponents" (Molten Lavamancer): once per source
     # for the batch (603.2c; triggers._fire_generic keys it by the source); a threshold over "one or more" recipients isn't read)
     if m and m["to"] != " to one or more creatures" and (m["to"] or not m["min"]) and not (
-            m["min"] and m["to"] in (" to one or more players", " to your opponents", " to one or more of your opponents")):
-        return {"event": "deal_damage", "subject": "source", "to": _DAMAGE_TO[m["to"]],
+            m["min"] and m["to"] in (" to one or more players", " to your opponents", " to one or more of your opponents")) and not (m["all"] and m["min"]):
+        return {"event": "deal_damage", "subject": "source", "to": "any" if m["all"] else _DAMAGE_TO[m["to"]],
+                **({"color": m["col"].strip()} if m["col"] else {}),
                 **({"min": _count(m["min"])} if m["min"] else {}), **({"aggregate": True} if m["to"] in _ONE_OR_MORE_TO else {}),
                 "ctl": {" you control": "you", " an opponent controls": "opponent"}.get(m["ctl"] or "", "any"),
                 "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}

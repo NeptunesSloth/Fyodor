@@ -4287,6 +4287,26 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = self_text(merged.protect(ability.text), ch.name)
     # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")
     text = re.sub(r"^(When ~ enter, if )they're( not a token, create [^.]+? cop(?:y|ies) of )them\b", r"\1it's\2it", text)
+    # -- counters (wave 41A) -- a plural name's own "them" after its own event ("Whenever Tui and La become untapped, put a +1/+1 counter on them."): the one object
+    # (201.5: the name is the object's own), written as ~ like its "they"/"Tui and La"
+    text = re.sub(r"^((?:When|Whenever) ~ (?:become|enter|attack|block|die|deal)\b[^,.]*, put (?:an?|\w+) [^.]*? counters? on) them\.", r"\1 ~.", text)
+    # -- counters (wave 41A) -- 608.2h, 603.10a: "…, if it had one or more +1/+1 counters on it, you may put that many +1/+1 counters on target creature" (Reyhan, Last of
+    # the Abzan): "that many" is the number of that kind it had as it last existed
+    text = re.sub(r"(\bif (?:it|that creature) had one or more (?P<k>\+1/\+1|-1/-1|[a-z]+) counters on it, (?:you may )?put) that many (?P=k) counters on "
+                  r"(?P<t>target creature)\b(?=[.,]|$)",
+                  lambda m: f"{m[1]} a number of {m['k']} counters on {m['t']} equal to the number of {m['k']} counters it had on it", text)
+    # -- counters (wave 41A) -- "Whenever a creature dies, if it had power greater than ~'s power, put a number of +1/+1 counters on ~ equal to the difference." (Drizzt
+    # Do'Urden): the dying creature's power as it last existed (608.2h) less ~'s own
+    text = re.sub(r"^(Whenever a creature dies, if it had power greater than ~'s power, put a number of \+1/\+1 counters on ~) equal to the difference\.$",
+                  r"\1 equal to its power minus ~'s power.", text)
+    # -- counters (wave 41A) -- 122.8, 608.2h: "When this creature leaves the battlefield, put its +1/+1 counters on target creature you control." (Selfless Police Captain)
+    # is the number of that kind it had as it last existed
+    text = re.sub(r"^(When ~ (?:dies|leaves the battlefield), (?:you may )?put) its (?P<k>\+1/\+1|-1/-1|[a-z]+) counters on (?P<t>target [^.,]+)\.$",
+                  lambda m: f"{m[1]} a number of {m['k']} counters on {m['t']} equal to the number of {m['k']} counters it had on it.", text)
+    # -- counters (wave 41A) -- "…, if … you control a prime number of lands, create Primo, the Indivisible, a legendary 0/0 green and blue Fractal creature token, then put
+    # that many +1/+1 counters on it." (Zimone, All-Questioning): "that many" is the prime number, how many lands you control as it resolves (608.2h)
+    text = re.sub(r"(, if [^,]*? you control a prime number of lands, create [^.]+?, a legendary [^,.]*? token), then put that many (\+1/\+1) counters on it\.",
+                  r"\1, then put a number of \2 counters on it equal to the number of lands you control.", text)
     text = half_x(text) if "half X" in text else text  # -- X arithmetic (wave 34C) -- 107.1a
     # -- trigger other (wave 36A) -- 702.29c: "When you cycle this card, it deals 1 damage to each opponent" (Magmakin Artillerist, Resounding Thunder), "you may
     # have it deal 1 damage to each creature" (Slice and Dice): "it" is the cycled card itself, the ability's source, whichever zone it went to
@@ -4592,6 +4612,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if ante == "self_gone":  # -- trigger tail (wave 15B) -- "put her into her owner's library third from the top"
                     # (a gendered pronoun is written ~): the card after it left, found where it went (400.7e), like "it"
                     body = re.sub(r"\bput ~ into ~'s owner's library\b", "put it into its owner's library", body)
+                    # -- counters (wave 41A) -- "When Hellcat dies, return her to the battlefield under her owner's control with a +1/+1 counter on her. She loses all
+                    # abilities and gains haste." (a gendered pronoun is written ~): the card after it left, as "return it …"; the sentence after is of that object
+                    body = re.sub(r"\breturn ~ to the battlefield under ~'s owner's control(?P<w> with (?:an?|\w+) [^.]*? counters? on) ~(?=\.)",
+                                  r"return it to the battlefield under its owner's control\g<w> it", body)
+                    body = re.sub(r"(?<=\. )~ loses all abilities and gains (haste)\.$", r"It loses all abilities. It gains \1.", body)
                 body = _may_have(body, ante)  # -- trigger tail (wave 15B) --
                 to_gy = cond is not None and cond.get("event") == "to_graveyard" and cond.get("subject") == "self"
                 if to_gy:  # -- trigger tail (wave 15B) -- 603.6c: the card is in its owner's graveyard, whose owner controls the ability
@@ -4836,7 +4861,12 @@ def _intervening_may(body: str, it: str | None, event_player: bool) -> tuple[lis
     if m is None:
         return None
     cond = conditions.parse(m["c"], objects=True)
-    if cond is None or set(conditions.objects_in(cond)) - {"self"}:
+    # (-- counters (wave 41A) -- 603.4, 608.2h: "Whenever a creature you control dies, if it had one or more +1/+1 counters on it, you may put that many +1/+1
+    # counters on target creature" (Reyhan, Last of the Abzan): "it" is the event's object, which an intervening "if" reads as it last existed, as without a "may")
+    about_event = it in ("event", "event_gone")
+    if cond is not None and about_event:
+        cond = conditions.bind_objects(cond, "event")
+    if cond is None or set(conditions.objects_in(cond)) - ({"self", "event"} if about_event else {"self"}):
         return None
     # -- if you do (wave 10C) -- "At the beginning of your upkeep, if this creature has a +1/+1 counter on it, you may remove a
     # +1/+1 counter from it. If you do, draw a card." (Ingenious Prodigy): the only object the condition names is the source, so
@@ -5496,6 +5526,8 @@ def _for_each(phrase: str) -> Any:
         return {"colors_spent": 1}  # converge (its spell's payment record, read as it enters: replacements._counter_amount)
     if phrase in ("creature that convoked it", "creature that convoked ~"):  # -- counters (wave 26D) -- 702.51a
         return {"convoked": 1}
+    if phrase == "time you've cast your commander from the command zone this game":  # -- counters (wave 41A) -- 903.8: The Swarmlord (values: wave 19B)
+        return {"commander_casts": 1}
     if " and each " in phrase:  # -- counters (wave 21D) -- "for each other Zombie you control and each Zombie card in your graveyard": the sum
         halves = [_for_each(x) for x in phrase.split(" and each ")]
         return {"plus": halves} if len(halves) == 2 and all(h is not None and "count" in h for h in halves) else None
