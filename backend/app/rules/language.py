@@ -1332,14 +1332,14 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     m = _NTH_FROM_TOP.fullmatch(text)  # -- trigger tail (wave 15B) -- "third from the top" (401.4: one card, the Nth from the top)
     if m:
         kind, key, group = ref(m["o"])
-        if kind not in ("target", "self", "it"):
+        if kind not in ("target", "self", "it", "host"):  # (wave 40B: "Put enchanted creature into its owner's library third from the top." — Shattered Ego)
             raise _Fail
         nth = ("second", "third", "fourth", "fifth", "sixth", "seventh").index(m["nth"]) + 2
         return [{"do": "to_library", "who": _who(kind, key), "place": nth}], _one(group)
     m = _TO_LIBRARY.fullmatch(text) or _SHUFFLE_INTO.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"])
-        if kind not in ("target", "self", "it", "them"):
+        if kind not in ("target", "self", "it", "them", "host"):  # (wave 40B: "Shuffle enchanted creature into its owner's library." — Dramatic Accusation)
             raise _Fail  # ("put two cards from your hand on top": which two? not read)
         place = "shuffle" if "place" not in m.groupdict() else ("top" if m["place"] == "on top" else "bottom")
         return [{"do": "to_library", "who": _who(kind, key), "place": place}], _one(group)
@@ -2247,7 +2247,7 @@ _GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST})
 _GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? (?:gains?|has|have) (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
 _LOSE_GAIN = re.compile(rf"(?P<o>.+?) loses? (?P<rm>{_KW_ONLY}) and gains? (?P<kw>{_KW_LIST})(?P<eot> until end of turn)?")
 _GAIN_LOSE = re.compile(rf"(?P<o>.+?) gains? (?P<kw>{_KW_ONLY}) and loses? (?P<rm>{_KW_ONLY}) until end of turn")
-_DOUBLE = re.compile(r"double (?P<o>target creature|~|this creature)'s power(?P<both> and toughness)? until end of turn")  # (wave 3D)
+_DOUBLE = re.compile(r"double (?P<o>target creature|~|this creature|enchanted creature|equipped creature)'s power(?P<both> and toughness)? until end of turn")  # (wave 3D; 40B: host)
 _BITE = re.compile(r"(?P<s>.+?) deals damage equal to (?P<stat>its power|its toughness|twice its power|that creature's power) to (?P<o>.+)")
 _ITS = {"target": "target", "self": "self", "host": "host"}  # what "its" names for a pump's subject
 
@@ -3693,7 +3693,7 @@ def _control_object(phrase: str) -> tuple[str, str, dict[str, Any] | None] | Non
         kind, key, group = ref(phrase)
     except _Fail:
         return None
-    if kind in ("it", "them", "self"):  # ("self": wave 12D, "Target opponent gains control of this creature")
+    if kind in ("it", "them", "self", "host"):  # ("self": wave 12D, "Target opponent gains control of this creature"; host: wave 40B, 303.4b — "gain control of enchanted land")
         return kind, key, group
     if kind not in ("target", "each") or not on_battlefield_only(key):
         return None

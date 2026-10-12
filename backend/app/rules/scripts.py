@@ -297,7 +297,8 @@ def self_text(text: str, name: str) -> str:
             # (wave 20C: the short name before "the/of Capital" starts another name: "create Tuktuk the Returned, a legendary …")
             # (-- static_other (wave 36B) -- a shortened name that is also a creature type is that type before "creature(s)": "becomes a green Lizard creature" on
             # Lizard, Connors's Curse is no self-reference ("a green ~ creature" is nothing a card says)
-            part = re.sub(rf"(?<![\w-]){re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else "") + (r"(?! (?:creature|token)s?\b)" if n != name else ""),
+            part = re.sub(r"(?<![\w-])" + (r"(?<!create )" if n != name else "") + rf"{re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else "")
+                          + (r"(?! (?:creature|token)s?\b)" if n != name else ""),  # (-- attached events (wave 40B) -- "create Icingdeath, Frost Tongue, a legendary … token": the token's own name, on Icingdeath, Frost Tyrant)
                           "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
         return part
 
@@ -449,7 +450,8 @@ def _aura_card_effects(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | 
         # -- attached events (wave 25D) -- "When enchanted creature dies, you may return this card from your graveyard to your hand / the
         # battlefield" (the Genju, Screams from Within): the trigger is the Aura's own, put on the stack while it is still on the battlefield, and
         # "this card" is its new object in the graveyard when the ability resolves (400.7f; effects._aura_card)
-        returns = e.get("do") == "return_card" and e.get("who") in ("self", "self_gy") and e.get("to") in ("hand", "battlefield") and not e.get("host")
+        returns = e.get("do") in ("return_card", "deferred:return_card") and e.get("who") in ("self", "self_gy") and e.get("to") in ("hand", "battlefield") \
+            and not e.get("host")  # (-- attached events (wave 40B) -- a delayed one ("at the beginning of the next end step") is the same card, flat in the list)
         if (e.get("do") == "bounce" and e.get("who") == "self") or returns:
             e = {**e, "who": AURA_CARD}
         out.append(e)
@@ -4227,6 +4229,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = re.sub(r"((?:^|[,.] )[Cc]hoose (?:up to \w+ )?target (?:[^.]*? )?cards? (?:in|from) (?:your|a|an opponent's) graveyard[^.]*\. )Put (it|that card) "
                   r"(?:onto the battlefield( under your control)?|into its owner's hand)\.",
                   lambda m: f"{m[1]}Return {m[2]} to {'the battlefield' + (m[3] or '') if 'battlefield' in m[0][len(m[1]):] else 'its owner' + chr(39) + 's hand'}.", text)
+    # -- attached events (wave 40B) -- 111.4, 702.6: "Create a colorless Equipment artifact token named Stoneforged Blade. It has indestructible, "Equipped creature gets
+    # +5/+5 and has double strike," and equip {0}." (Nahiri, the Lithomancer) is "… token named Stoneforged Blade with indestructible, "…," and equip {0}."
+    text = re.sub(r"((?:^|[:.] )[Cc]reate an? [^.\"]*? Equipment artifact token named [^.\"]+?)\. It has (?=[a-z\"])", r"\1 with ", text)
     # -- damage sized by a count (wave 34D) -- 603.4, 702.33: "Whenever you cast a spell, if that spell was kicked, …" (Hallar) is "Whenever you cast a kicked
     # spell, …": being kicked is a fact about the spell as it is cast and stays true as it resolves or is countered, so the intervening "if" has nothing to re-check
     text = re.sub(r"^(Whenever you cast) a spell, if that spell was kicked, ", r"\1 a kicked spell, ", text)
@@ -4435,6 +4440,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     and re.search(r"\bthis card\b", body) is not None
                 if aura_card:
                     body = re.sub(r"\bthis card\b", "~", body)
+                    # -- attached events (wave 40B) -- 303.4f, 400.7: "When enchanted creature dies, return this card to the battlefield [transformed under your
+                    # control / at the beginning of the next end step]." (Ghoulish Impetus, Skin Invasion, Journey to Eternity): the Aura is in its owner's
+                    # graveyard (the Genju's "from your graveyard", the zone it is in as the ability resolves)
+                    body = re.sub(r"\breturn ~ to the battlefield\b(?! attached)", "return ~ from your graveyard to the battlefield", body)
                 # -- attached events (wave 20A) -- "Whenever enchanted creature attacks, put a +1/+1 counter on it. Then if it has three or more
                 # +1/+1 counters on it, sacrifice this Aura." (the Ordeals): the "it" that got the counter is the creature (or ~ itself)
                 if cond is not None and cond.get("subject", "self") in ("self", "host"):
@@ -6038,6 +6047,20 @@ def _controller_sacrifices_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], A
     return [{"do": "sacrifice", "who": "it", "by": "controller"}], None
 
 
+# -- attached events (wave 40B) -- 701.21a: "Enchanted creature's controller sacrifices it." (Parasitic Implant, "… and you create a 1/1 … token"), "When this Aura leaves the
+# battlefield, enchanted permanent's controller sacrifices it." (Reality Acid; the permanent it was attached to as it last existed, 603.10a): whoever controls it as the
+# effect happens, nothing if it is gone (``by`` "controller", as evoke's)
+@effect(r"(?:enchanted (?:creature|permanent|land)|equipped creature)'s controller sacrifices it(?: and you (?P<rest>create .+))?")
+def _host_controller_sacrifices_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    sacrifice = [{"do": "sacrifice", "who": "host", "by": "controller"}]
+    if m["rest"] is None:
+        return sacrifice, None
+    made = _token_parse(m["rest"])
+    if made is None:
+        raise _NoMatch
+    return sacrifice + made, None
+
+
 @effect(rf"at the beginning of (?P<when>{_delayed.WHEN_RE}), (?P<clause>.+)")
 def _delayed_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return _deferred(m["clause"], _delayed.WHEN[m["when"]], m["when"])
@@ -6499,14 +6522,17 @@ def _bind_subject(cond: dict[str, Any], found: tuple[list[dict[str, Any]], Any] 
     object or an earlier sentence's. Other pronouns there (its controller, its power, them) aren't read."""
     from app.rules import conditions
 
-    if found is None or set(conditions.objects_in(cond)) != {"self"}:
+    # -- attached events (wave 40B) -- 301.5, 303.4b: the same for a condition about what the source is attached to ("When this Aura enters, if enchanted creature is a
+    # Wolf or Werewolf, untap that creature." — Howl of the Hunt): "it" / "that creature" after it are that object, not the Aura nor the trigger's antecedent
+    objects = set(conditions.objects_in(cond))
+    if found is None or objects not in ({"self"}, {"host"}):
         return found
     if conditions.is_cast_condition(cond):  # -- refused modal/conditional (wave 3R1) -- "If this spell was cast from a
         return found  # graveyard, …": how the spell was cast isn't the subject of what follows
 
     effects = []
     for e in found[0]:
-        e = {**e, "who": "self"} if e.get("who") == "it" else e
+        e = {**e, "who": "self" if objects == {"self"} else "host"} if e.get("who") == "it" else e
         if _holds_pronoun(e):
             return None
         effects.append(e)

@@ -71,6 +71,9 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
         life = static_conditions.parse(t)  # (the static grammar's reading, judged by static_conditions.life_vs_start)
         if life is not None and life.get("static") == "life_vs_start":
             return life
+    # -- attached events (wave 40B) -- "enchanted creature is white and untapped" (Nature's Chosen): one subject, two adjectives
+    t = re.sub(rf"^({_HOST_WORDS}) is ((?:white|blue|black|red|green|tapped|untapped|attacking|blocking)) and ((?:white|blue|black|red|green|tapped|untapped|attacking|blocking))$",
+               r"\1 is \2 and \1 is \3", t)
     found = _parse_one(t, objects)
     if found is None:
         found = _as_cond(t) if objects else None  # -- intervening ifs (wave 11F) -- (an ability's own event: not statics)
@@ -124,7 +127,8 @@ _GRAVEYARD_ARE = re.compile(r"(?:(?P<a>an?)|(?P<n>\w+) or more) (?P<sel>.+?) (?:
 _ALL_GRAVEYARDS = re.compile(r"there are (?P<n>\w+) or more (?P<sel>.+?) (?:total )?in all graveyards")  # (wave 16F: Avatar of Woe)
 _GRAVEYARD_TYPES = re.compile(r"there are (?P<n>\w+) or more (?P<what>card types|mana values) among cards in your graveyard")  # (wave 20B: mana values)
 _NONE_ON_BATTLEFIELD = re.compile(r"(?:there are )?no (?P<sel>[\w' -]+?)(?: are)? on the battlefield")
-_OBJECT_STAT = re.compile(r"(?P<who>its|that creature's|that permanent's|that card's|the card's|that spell's|~'s|the sacrificed (?:creature|permanent|artifact)'s) (?P<stat>power|toughness|mana value) "
+_HOST_WORDS = r"(?:enchanted (?:creature|permanent|land|artifact)|equipped creature)"  # -- attached events (wave 40B) -- 301.5, 303.4: the object the source is attached to
+_OBJECT_STAT = re.compile(rf"(?P<who>its|that creature's|that permanent's|that card's|the card's|that spell's|~'s|the sacrificed (?:creature|permanent|artifact)'s|{_HOST_WORDS}'s) (?P<stat>power|toughness|mana value) "
                           r"(?:is|was) (?:(?P<n>\w+) or (?P<cmp>less|greater|more|fewer)|(?P<cmp2>less|greater|more|fewer) than (?P<n2>\w+)|exactly (?P<n3>\w+))")  # (17D: "than"; 36A: "exactly 20")
 _OBJECT_PARITY = re.compile(r"~'s (?P<stat>power|toughness) is (?P<p>even|odd)")
 _OBJECT_VS_REVEALED = re.compile(r"(?:its|that creature's|that permanent's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|less than|"
@@ -156,12 +160,13 @@ _CARD_NAME = r"[A-Z][\w'’-]*(?: (?:(?:of|the|in|on|for|to) )*[A-Z][\w'’-]*)*
 _NAMED = re.compile(rf"you control (?:(?:an?) (?P<t1>creature|artifact|enchantment|land|permanent) named (?P<a1>{_CARD_NAME})"
                     rf"|(?P<t2>creature|artifact|enchantment|land|permanent)s named (?P<a2>{_CARD_NAME}) and (?P<b2>{_CARD_NAME}))")
 # "it's a land card", "that creature is a Human", "~ is an enchantment", "it was a creature card"
-_OBJECT_WORDS = {"it": "it", "~": "self", "the sacrificed creature": "cost:sacrificed", "the sacrificed permanent": "cost:sacrificed",
+_OBJECT_WORDS = {"it": "it", "~": "self", "enchanted creature": "host", "enchanted permanent": "host", "enchanted land": "host",
+                 "enchanted artifact": "host", "equipped creature": "host", "the sacrificed creature": "cost:sacrificed", "the sacrificed permanent": "cost:sacrificed",
                  "the sacrificed artifact": "cost:sacrificed",  # (wave 16D: what a cost sacrificed, values._object)
                  "the discarded card": "cost:discarded",  # (wave 17B: the one card a cost discarded, values._object)
                   "that creature": "it", "that permanent": "it", "that card": "it", "that spell": "event",  # (33C: a cast trigger's spell, never an earlier instruction's object)
                  "that land": "it", "that token": "it", "that artifact": "it"}
-_OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact|spell)|the sacrificed (?:creature|permanent|artifact)|the discarded card) "
+_OBJECT = re.compile(rf"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact|spell)|the sacrificed (?:creature|permanent|artifact)|the discarded card|{_HOST_WORDS}) "
                      r"(?P<verb>is not|was not|isn't|wasn't|is|was) (?P<what>.+)")  # (wave 11F: "is not" before "is")
 _SAME_NAME_OF = re.compile(r"it (?:doesn't|does not) have the same name as .+")  # (wave 32A)
 # -- intervening ifs (wave 11F) -- "~ is enchanted", "it's enchanted or equipped" (303.4, 301.5: an Aura / Equipment
@@ -192,9 +197,19 @@ _COUNT_COUNTERS = re.compile(r"(?P<who>it|~|that creature|that permanent) (?:has
                              r"(?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?:it|them|~|him|her)")
 # -- refused modal/conditional (wave 3R1) -- an ability the object has (a characteristic, 109.3: as it is, or as it
 # last existed, 608.2h — granted ones included). Keyword abilities only; "protection" (which quality?) isn't read.
-_HAS_KEYWORD = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card)) (?:has|had|(?P<neg>doesn't have|didn't have)) (?P<kw>decayed|flying|reach|haste|trample|deathtouch|"
+_HAS_KEYWORD = re.compile(rf"(?P<who>it|~|that (?:creature|permanent|card)|{_HOST_WORDS}) (?:has|had|(?P<neg>doesn't have|didn't have)) (?P<kw>decayed|flying|reach|haste|trample|deathtouch|"
                           r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible|defender|infect|"
                           r"toxic|wither|flash|madness|flashback|shroud|cycling)")
+
+
+def _stat_object(who: str) -> str:
+    """The object a possessive names in "its power is …": the source ("~'s"), what a cost sacrificed, what the source is attached to
+    ("enchanted creature's", wave 40B) or the pronoun's."""
+    if who == "~'s":
+        return "self"
+    if who.startswith("the sacrificed"):
+        return "cost:sacrificed"
+    return "host" if re.fullmatch(_HOST_WORDS + "'s", who) else "it"
 
 
 def _cmp(word: str | None) -> str:
@@ -1170,15 +1185,11 @@ def _object(t: str) -> Condition | None:
         if n is None:
             return None
         if m["n3"]:  # -- trigger other (wave 36A) -- "if its power is exactly 20" (Amalia Benavides Aguirre)
-            who = m["who"]
-            return {"object": "self" if who == "~'s" else "cost:sacrificed" if who.startswith("the sacrificed") else "it",
-                    "stat": m["stat"].replace(" ", "_"), "op": "==", "n": n}
+            return {"object": _stat_object(m["who"]), "stat": m["stat"].replace(" ", "_"), "op": "==", "n": n}
         cmp = m["cmp"] or m["cmp2"]
         if m["cmp2"]:  # "less than 1" is at most 0, "greater than 3" at least 4 (whole numbers)
             n += -1 if cmp in ("less", "fewer") else 1
-        who = m["who"]
-        return {"object": "self" if who == "~'s" else "cost:sacrificed" if who.startswith("the sacrificed") else "it",
-                "stat": m["stat"].replace(" ", "_"),
+        return {"object": _stat_object(m["who"]), "stat": m["stat"].replace(" ", "_"),
                 "op": "<=" if cmp in ("less", "fewer") else ">=", "n": n}
     m = _HAD_COUNTERS.fullmatch(t)  # -- counters (wave 5H) --
     if m:
@@ -1231,10 +1242,11 @@ def _object(t: str) -> Condition | None:
         return {"not": test} if negate else test
     if what in _STATES:
         past = m["verb"] in ("was", "wasn't", "was not") and what in ("tapped", "untapped", "attacking", "blocking")
-        if who not in ("self", "it") or (who == "it" and not past and what not in ("tapped", "untapped", "suspected")):
-            return None  # (an object other than the source: "it was attacking" as it last existed; -- trailing & intervening ifs (wave 38A) -- "it's tapped" / "it's suspected" as it is now, 608.2c)
+        if who not in ("self", "it", "host") or (who == "it" and not past and what not in ("tapped", "untapped", "suspected")) or (
+                who == "host" and (past or what not in ("tapped", "untapped", "attacking", "blocking"))):
+            return None  # (an object other than the source: "it was attacking" as it last existed; -- trailing & intervening ifs (wave 38A) -- "it's tapped" / "it's suspected" as it is now, 608.2c; -- attached events (wave 40B) -- what the source is attached to, as it is now, 301.5, 303.4)
         out: Condition = {"object": who, "test": _STATES[what]}
-        if who == "it":  # -- trigger tail (wave 16C) -- 608.2h: "if it was attacking": as it is, or as it last existed; unknown fails both ways
+        if who in ("it", "host"):  # -- trigger tail (wave 16C) -- 608.2h: "if it was attacking": as it is, or as it last existed; unknown fails both ways
             return {**out, "negate": True} if negate else out
     else:
         det = re.match(r"(?:a|an|another) (?P<rest>.+)", what) if what != "another" else None
