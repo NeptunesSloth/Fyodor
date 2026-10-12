@@ -31,7 +31,7 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave40a_cards.json").re
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w40a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-FULL = [c["name"] for c in DATA][:15]  # (the rest of the file only sets the table: a Planeswalker, a Vampire, ...)
+FULL = [c["name"] for c in DATA][:17]  # (the rest of the file only sets the table: a Planeswalker, a Vampire, ...)
 
 
 @pytest.fixture()
@@ -709,6 +709,74 @@ def test_chandras_defeat_on_a_chandra_planeswalker_declined(cards):
 def test_chandras_defeat_on_a_red_creature_asks_nothing(cards):
     s = defeat(cards, "Young Pyromancer")
     assert asked(s) is None and zone(s, "Llanowar Elves") == "p1:hand" and zone(s, "Young Pyromancer", "p2") == "p2:graveyard"
+    check(s)
+
+
+def ferocious(cards, big):
+    s = build(cards, mine=["Force Away", "Twisted Abomination", "Grizzly Bears", "Llanowar Elves"], theirs=["Grizzly Bears"])
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_prefs", response="on")
+    put(s, "Twisted Abomination" if big else "Grizzly Bears")
+    target = put(s, "Grizzly Bears", "p2")
+    for c in list(s.state.zones["p1:hand"]):
+        act(s, "p1", type="move", card_ids=[c], to={"zone": "library"})
+    to_hand(s, "Force Away")
+    to_hand(s, "Llanowar Elves")
+    mana(s, U=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Force Away").id, targets=[target.id])
+    return s
+
+
+def test_force_away_with_a_power_four_creature_may_draw_and_then_discard(cards):
+    """Ferocious: "If you control a creature with power 4 or greater, you may draw a card. If you do, discard a card." — checked after the bounce (608.2c)."""
+    s = ferocious(cards, big=True)
+    d = asked(s)
+    assert [o.id for o in d.options] == ["yes", "no"]
+    answer(s, "yes")
+    asked(s)  # which card to discard
+    pick(s, "Llanowar Elves")
+    assert zone(s, "Grizzly Bears", "p2") == "p2:hand" and zone(s, "Llanowar Elves") == "p1:graveyard"
+    check(s)
+
+
+def test_force_away_declining_the_draw_discards_nothing(cards):
+    s = ferocious(cards, big=True)
+    hand = len(s.state.zones["p1:hand"])
+    answer(s, "no")
+    assert len(s.state.zones["p1:hand"]) == hand and zone(s, "Llanowar Elves") == "p1:hand"
+    check(s)
+
+
+def test_force_away_without_a_power_four_creature_asks_nothing(cards):
+    s = ferocious(cards, big=False)
+    assert asked(s) is None and zone(s, "Llanowar Elves") == "p1:hand"
+    check(s)
+
+
+def venom(cards, victim):
+    s = build(cards, mine=["Venom, Eddie Brock", "Murder"], theirs=[victim])
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_prefs", response="on")
+    put(s, "Venom, Eddie Brock")
+    target = put(s, victim, "p2")
+    to_hand(s, "Murder")
+    mana(s, B=3)
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Murder").id, targets=[target.id])
+    settle(s)
+    return s, hand - 1  # (the Murder left the hand)
+
+
+def test_venom_draws_only_when_the_creature_that_died_was_a_villain(cards):
+    """"If that creature was a Villain" is the creature that died, not Venom (who is a Villain himself): 608.2h, as it last existed."""
+    s, hand = venom(cards, "Bob, Reluctant HYDRA Agent")
+    assert pt(s, "Venom, Eddie Brock") == (7, 5) and len(s.state.zones["p1:hand"]) == hand + 1
+    check(s)
+
+
+def test_venom_does_not_draw_when_the_creature_that_died_was_no_villain(cards):
+    s, hand = venom(cards, "Grizzly Bears")
+    assert pt(s, "Venom, Eddie Brock") == (7, 5) and len(s.state.zones["p1:hand"]) == hand
     check(s)
 
 

@@ -6740,6 +6740,8 @@ def _gated_payment_pair(a_text: str, b_text: str, effects: list[dict[str, Any]],
     sub = _parse_effects(f"{a_text}. {b_text}", it, event_player)
     if sub is None or sub[2] or not sub[0] or sub[0][0]["do"] != "optional_payment" or any(e["do"] == "reflexive" for e in sub[0]):
         return None
+    if any(e["do"] == "bounce" and e.get("who") == "self" for e in sub[0]):
+        return None  # (Jadzi's Journey to the Oracle: a spell returning itself as it resolves isn't read — 608.2n, 715.4 — and nothing here shows it)
     return sub[0], sub[1]
 
 
