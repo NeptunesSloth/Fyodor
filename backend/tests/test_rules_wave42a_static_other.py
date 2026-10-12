@@ -29,7 +29,7 @@ from app.rules import alt_costs, coverage, type_statics
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import ask, next_turn, settle, to_phase
+from tests.test_rules_wave34b_activated import ask, next_turn, priority_to, settle, stops, to_phase
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave42a_cards.json").read_text("utf-8"))
@@ -39,7 +39,7 @@ EXTRA = [card(c["name"], set_code="w42a", number=f"A{i:02d}", **{k: v for k, v i
 DON = "Don Andres, the Renegade"
 FULL = [DON, "Shauku, Endbringer", "Medomai the Ageless", "Stature, Size Shifter", "Masako the Humorless", "The Necrobloom",
         "Tannuk, Steadfast Second", "Adamaro, First to Desire", "Cayth, Famed Mechanist", "Tesak, Judith's Hellhound", "Barbara Wright",
-        "Technodrome", "Wirecat"]
+        "Dosan the Falling Leaf", "Technodrome", "Wirecat", "Glacial Crasher", "Karsus Depthguard"]
 
 
 @pytest.fixture()
@@ -400,6 +400,93 @@ def test_a_saga_has_no_read_ahead_choice_without_barbara(cards):
     act(s, "p1", type="cast_spell", card_id=saga.id)
     settle(s)
     assert s.state.cards[saga.id].counters.get("lore") == 1 and any(c.is_token and "Goblin" in (c.name or "") for c in s.state.cards.values())  # chapter I
+    check(s)
+
+
+# -- Wirecat / Technodrome: "This creature can't attack or block if an enchantment is on the battlefield." / "... unless its power is 6 or greater." ---------
+def copies_in(s, name, n, pid="p1"):
+    cs = [c for c in s.state.cards.values() if c.name == name and c.owner == pid and not c.zone.endswith(":battlefield")][:n]
+    assert len(cs) == n
+    act(s, pid, type="move", card_ids=[c.id for c in cs], to={"player": pid, "zone": "battlefield"})
+    return cs
+
+
+def test_wirecat_cannot_attack_while_any_enchantment_is_on_the_battlefield(cards):
+    s = build(cards, ["Wirecat", "Glorious Anthem", "Walking Corpse"], forests=20)
+    wirecat = put(s, "Wirecat")
+    corpse = put(s, "Walking Corpse")
+    put(s, "Glorious Anthem")  # an enchantment, whoever controls it
+    assert "cant_attack_or_block" in ch(s, "Wirecat").imposed and "cant_attack_or_block" not in ch(s, "Walking Corpse").imposed
+    next_turn(s)
+    to_phase(s, "declare_attackers")
+    with pytest.raises(ActionError, match="can't attack"):
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": wirecat.id, "target": "p2"}])
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": corpse.id, "target": "p2"}])
+    check(s)
+
+
+def test_wirecat_attacks_again_once_the_last_enchantment_is_gone(cards):
+    s = build(cards, ["Wirecat", "Glorious Anthem"], forests=20)
+    wirecat = put(s, "Wirecat")
+    anthem = put(s, "Glorious Anthem")
+    assert "cant_attack_or_block" in ch(s, "Wirecat").imposed
+    act(s, "p1", type="move", card_ids=[anthem.id], to={"zone": "graveyard"})  # no enchantment left
+    assert "cant_attack_or_block" not in ch(s, "Wirecat").imposed
+    next_turn(s)
+    attackers(s, wirecat)
+    assert s.state.players["p2"].life == 36  # four damage
+    check(s)
+
+
+def test_technodrome_attacks_only_with_power_six_or_greater_after_the_anthems(cards):
+    s = build(cards, ["Technodrome", "Glorious Anthem", "Glorious Anthem", "Glorious Anthem"], forests=20)
+    put(s, "Technodrome")
+    anthems = copies_in(s, "Glorious Anthem", 2)
+    assert power_toughness(s, "Technodrome") == (5, 5) and "cant_attack_or_block" in ch(s, "Technodrome").imposed  # layer 7c: 3 + 2
+    copies_in(s, "Glorious Anthem", 1)
+    assert power_toughness(s, "Technodrome") == (6, 6) and "cant_attack_or_block" not in ch(s, "Technodrome").imposed  # six: the unless is met
+    act(s, "p1", type="move", card_ids=[anthems[0].id], to={"zone": "graveyard"})  # an anthem leaves: back to five
+    assert power_toughness(s, "Technodrome") == (5, 5) and "cant_attack_or_block" in ch(s, "Technodrome").imposed
+    check(s)
+
+
+# -- Dosan the Falling Leaf: "Players can cast spells only during their own turns." -------------------------------------------------------------------
+def test_dosan_stops_a_player_casting_on_a_turn_that_is_not_theirs_until_he_leaves(cards):
+    s = build(cards, ["Dosan the Falling Leaf", "Lightning Bolt"], ["Lightning Bolt"], forests=20)
+    dosan = put(s, "Dosan the Falling Leaf")
+    stops(s)
+    mine = to_hand(s, "Lightning Bolt")
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=mine.id, targets=["p2"])  # her own turn
+    settle(s)
+    assert s.state.players["p2"].life == 37
+    bolt = to_hand(s, "Lightning Bolt", "p2")  # an instant: flash isn't enough
+    mana(s, "p2", R=1)
+    priority_to(s, "p2")  # Bob has priority in Alice's main phase
+    with pytest.raises(ActionError, match="can't cast"):
+        act(s, "p2", type="cast_spell", card_id=bolt.id, targets=["p1"])  # Alice's turn (601.3)
+    act(s, "p1", type="move", card_ids=[dosan.id], to={"zone": "graveyard"})  # the source left: Bob may cast on her turn
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=["p1"])
+    settle(s)
+    assert s.state.players["p1"].life == 37
+    check(s)
+
+
+def test_with_dosan_each_player_casts_on_their_own_turn_only(cards):
+    s = build(cards, ["Dosan the Falling Leaf", "Lightning Bolt"], ["Lightning Bolt"], forests=20)
+    put(s, "Dosan the Falling Leaf")
+    stops(s)
+    to_phase(s, "main1", turn=2)  # Bob's turn
+    theirs = to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=theirs.id, targets=["p1"])  # Bob on his own
+    settle(s)
+    assert s.state.players["p1"].life == 37
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, "p1", R=1)
+    priority_to(s, "p1")
+    with pytest.raises(ActionError, match="can't cast"):
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])  # Alice on Bob's turn
     check(s)
 
 

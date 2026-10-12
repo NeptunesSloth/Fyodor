@@ -455,5 +455,75 @@
   "keywords": [],
   "power": "4",
   "toughness": "3"
+ },
+ {
+  "name": "Dosan the Falling Leaf",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Monk",
+  "oracle_text": "Players can cast spells only during their own turns.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "City of Solitude",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Players can cast spells and activate abilities only during their own turns.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Glacial Crasher",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nThis creature can't attack unless there is a Mountain on the battlefield.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Karsus Depthguard",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Lizard Warrior",
+  "oracle_text": "Defender\nAs long as this creature's power is 5 or greater, it can attack as though it didn't have defender.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "4",
+  "toughness": "3"
  }
 ]

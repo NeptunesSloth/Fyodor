@@ -54,7 +54,7 @@ def define(t: str) -> dict[str, Any] | None:
     if (m["num"] is not None) != (m["kw"].lower() == "dredge"):  # (702.52a: "Dredge N", a number and no cost)
         return None
     return {"kind": "static", "static": "zone_grant", "filter": sel.key(), "keyword": m["kw"].lower(), "cost": m["cost"],
-            "num": int(m["num"]) if m["num"] else None, "reduce": int(m["red"][1:-1]) if m["red"] else 0, "effects": []}
+            "reduce": int(m["red"][1:-1]) if m["red"] else 0, "effects": [], **({"num": int(m["num"])} if m["num"] else {})}
 
 
 def _warp(m: re.Match[str]) -> dict[str, Any] | None:
