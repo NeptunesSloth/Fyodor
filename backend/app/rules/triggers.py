@@ -787,6 +787,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False  # (wave 39B)
     if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)
         return False
+    if event == "tapped" and cond.get("first_each_turn") and not info.get("first"):  # (wave 42B)
+        return False
     if event == "discard" and cond.get("first_each_turn") and not _first_discard(plan, cond, player, info):  # (wave 36A)
         return False
     if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
@@ -953,6 +955,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return defended not in (you, info.get("attacker"))
     if want == "enchanted_player":
         return defended == watcher.attached_player
+    if want == "monarch":  # -- this-turn state (wave 42B) -- 725.1: the player attacked is the monarch now (as the attack is declared)
+        return plan is not None and defended == plan.state.table.monarch
     if want == "most_life":  # -- keywords (wave 15E) -- 702.105a: the player attacked has the most life or is tied for it
         return plan is not None and plan.state.players[defended].life >= max(plan.state.players[p].life for p in plan.live())
     return want == "player"
@@ -1252,6 +1256,11 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
         for f in facts:
             if f[0] in ("discard", "dealt_damage", "deal_combat_damage_player", "counters_put"):
                 f[4]["batch"] = e.batch  # -- trigger other (wave 36A) -- the event batch, for "for the first time each turn" (_first_discard; wave 39B: _first_of)
+        for f in facts:  # -- this-turn state (wave 42B) -- 603.2: "a creature becomes tapped for the first time each turn", kept per object per turn (400.7: a new object
+            if f[0] == "tapped" and f[4].get("oid"):  # is untapped and has not become tapped yet) whoever watches, so an ability that began mid-turn counts earlier taps
+                key = f"tapped:{f[4]['oid']}"
+                f[4]["first"] = r.once_per_turn.get(key) != plan.state.turn.number
+                r.once_per_turn[key] = plan.state.turn.number
         for f in facts:  # -- trigger qualifiers (wave 11C) -- 603.2: "for the first time each turn", kept per player whoever watches
             if f[0] in _FIRST_KINDS and f[3] and int(f[4].get("amount") or 0) > 0:
                 key = f"first:{f[0]}:{f[3]}"

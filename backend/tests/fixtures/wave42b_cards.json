@@ -1,0 +1,236 @@
+[
+ {
+  "name": "Botanical Brawler",
+  "layout": "normal",
+  "mana_cost": "{G}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Elemental Warrior",
+  "oracle_text": "Trample\nThis creature enters with two +1/+1 counters on it.\nWhenever one or more +1/+1 counters are put on another permanent you control, if it's the first time +1/+1 counters have been put on that permanent this turn, put a +1/+1 counter on this creature.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "0",
+  "toughness": "0"
+ },
+ {
+  "name": "Stalwart Successor",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Warrior",
+  "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhenever one or more counters are put on a creature you control, if it's the first time counters have been put on that creature this turn, put a +1/+1 counter on that creature.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Captain America, Living Legend",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Soldier Hero",
+  "oracle_text": "Vigilance\nWhenever a creature you control becomes tapped during your turn, if it's the first time that creature has become tapped this turn, untap it.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Dragon Cultist",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Enchantment — Background",
+  "oracle_text": "Commander creatures you own have \"At the beginning of your end step, if a source you controlled dealt 5 or more damage this turn, create a 4/4 red Dragon creature token with flying.\"",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Willowdusk, Essence Seer",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Dryad Druid",
+  "oracle_text": "{1}, {T}: Choose another target creature. Put a number of +1/+1 counters on it equal to the amount of life you gained this turn or the amount of life you lost this turn, whichever is greater. Activate only as a sorcery.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Ebondeath, Dracolich",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Zombie Dragon",
+  "oracle_text": "Flash\nFlying\nEbondeath enters tapped.\nYou may cast this card from your graveyard if a creature not named Ebondeath, Dracolich died this turn.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying",
+   "Flash"
+  ],
+  "power": "5",
+  "toughness": "2"
+ },
+ {
+  "name": "Saffi Eriksdotter",
+  "layout": "normal",
+  "mana_cost": "{G}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Scout",
+  "oracle_text": "Sacrifice Saffi Eriksdotter: When target creature is put into your graveyard this turn, return that card to the battlefield.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Okoye, Mighty and Adored",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Warrior Hero",
+  "oracle_text": "When Okoye enters, you become the monarch.\nAt the beginning of combat on your turn, put a +1/+1 counter on target creature. Whenever that creature attacks the monarch this turn, it gains double strike and trample until end of turn.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Walking Ballista",
+  "layout": "normal",
+  "mana_cost": "{X}{X}",
+  "cmc": 0.0,
+  "type_line": "Artifact Creature — Construct",
+  "oracle_text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "0",
+  "toughness": "0"
+ },
+ {
+  "name": "Lightning Bolt",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Murder",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Swords to Plowshares",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Exile target creature. Its controller gains life equal to its power.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Gimli, Mournful Avenger",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Dwarf Warrior",
+  "oracle_text": "Gimli has indestructible as long as two or more creatures died under your control this turn.\nWhenever another creature you control dies, put a +1/+1 counter on Gimli. When this ability resolves for the third time this turn, Gimli fights up to one target creature you don't control.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Fight"
+  ],
+  "power": "3",
+  "toughness": "2"
+ }
+]

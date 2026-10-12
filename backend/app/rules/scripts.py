@@ -3139,6 +3139,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:
             effects.append(paid)
             continue
+        if (nth := _RESOLVES_NTH.match(text)) is not None:  # -- this-turn state (wave 42B) -- "When this ability resolves for the third time this turn, …" (Gimli)
+            reflex = _reflex_nth(nth, " ".join(texts[i:]), it)
+            if reflex is None:
+                return None
+            effects.append(reflex)
+            break  # (the rest of the ability is the reflexive trigger's)
         if text.startswith("when you do, ") or _REFLEX_THIS_WAY.match(text):  # -- refused modal/conditional (wave 3R1) -- a reflexive trigger (603.12)
             reflex = _reflexive(" ".join(texts[i:]), effects, prev_start, optional, it, groups)
             if reflex is None:
@@ -4049,6 +4055,26 @@ def _granter_bound(d: Definition, oid: str) -> Definition | None:
     return None if '"self"' in json.dumps(effects) else {**d, "effects": effects}
 
 
+# -- this-turn state (wave 42B) -- 603.2: "Whenever a creature you control becomes tapped during your turn, if it's the first time that creature has become
+# tapped this turn, untap it." (Captain America), "Whenever one or more counters are put on a creature you control, if it's the first time counters have been put
+# on that creature this turn, …" (Stalwart Successor, Botanical Brawler) is "… for the first time each turn": the first such event of THAT object this turn, asked
+# when the event happens (the turn's log / once-a-turn marks keep it, so an object that entered or an ability that began mid-turn counts what came before, 400.7)
+_FIRST_TIME = re.compile(r"^(?P<open>(?:Whenever|When) [^,]+?)(?P<during> during (?:your|an opponent's|their) turn)?, if it's the first time "
+                         r"(?:that (?P<tap>creature|permanent) has become tapped|(?P<k>(?:\+1/\+1 )?counters) have been put on that (?P<o>creature|permanent)) this turn, (?P<rest>.+)$")
+
+
+def _first_time_gate(text: str) -> str:
+    m = _FIRST_TIME.match(text)
+    if m is None:
+        return text
+    event = m["open"]
+    if m["tap"]:  # (the creature that became tapped is the event's subject: "a creature you control becomes tapped")
+        ok = event.endswith(" becomes tapped") and re.search(rf"\b(?:an?|another) {m['tap']}\b", event) is not None
+    else:
+        ok = re.search(rf"^(?:Whenever|When) (?:one or more |an? )?{re.escape(m['k'])} (?:are|is) put on (?:an?|another) {m['o']}\b[^,]*$", event) is not None
+    return f"{event} for the first time each turn{m['during'] or ''}, {m['rest']}" if ok else text
+
+
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     from app.rules import abilities_of
@@ -4447,6 +4473,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # "Whenever a creature an opponent controls dealt damage by ~ this turn dies, …" (events: damaged_by_self): a fact of the past (120.3),
         # as true when the ability resolves as when it triggers (603.4)
         text = re.sub(r"^Whenever (an? [^,]+?) dies, if ~ dealt damage to it this turn, ", r"Whenever \1 dealt damage by ~ this turn dies, ", text)
+        text = _first_time_gate(text)  # (-- this-turn state (wave 42B) --)
         # -- counters sweep (wave 19D) -- "At the beginning of your upkeep and whenever you cast a white spell, …" (the Shrines): the same
         # two conditions as "Whenever you cast a white spell and at the beginning of your upkeep, …" (603.2: it triggers on each)
         text = re.sub(r"^At the beginning of your (upkeep|end step) and (?:when|whenever) ([^,]+), (.+)$",
@@ -7192,6 +7219,27 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     if lki is not None:
         out["lki"] = cond["succeeded"]  # -- reflexive LKI (wave 4J) --
     return out
+
+
+# -- this-turn state (wave 42B) -- 603.12, 603.7c: "Whenever another creature you control dies, put a +1/+1 counter on ~. When this ability resolves for the third
+# time this turn, ~ fights up to one target creature you don't control." (Gimli, Mournful Avenger): a REFLEXIVE ability — it triggers as the first resolves for the
+# Nth time that turn (a copy counts: history.note_resolution) and chooses its own target as it is put on the stack (the ruling: "You don't choose a target ... at the
+# time it triggers"); not the "If this is the third time" of one ability, whose targets are chosen before any resolution is known
+_RESOLVES_NTH = re.compile(r"^when this ability resolves for the (?P<nth>second|third|fourth|fifth) time this turn, (?P<rest>.+)$", re.I)
+
+
+def _reflex_nth(m: re.Match[str], rest: str, it: str | None) -> dict[str, Any] | None:
+    body = _RESOLVES_NTH.match(rest)
+    if body is None or it not in (None, "self", "event", "event_gone"):
+        return None
+    parsed = parse_effects(body["rest"][:1].upper() + body["rest"][1:], "self" if it == "self" else None)
+    if parsed is None or not parsed[0]:
+        return None
+    b_effects, b_target, b_optional = parsed
+    if re.search(r'"event|"that_|event_amount|"it"', json.dumps([b_effects, b_target], default=str)):
+        return None  # (the reflexive ability has no event of its own: a "that creature" or "that much" there names nothing)
+    return {"do": "reflexive", "cond": {"history": "resolution", "n": ["second", "third", "fourth", "fifth"].index(m["nth"].lower()) + 2},
+            "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects, "optional": b_optional, **target_fields(b_target)}}
 
 
 def _x_to_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
