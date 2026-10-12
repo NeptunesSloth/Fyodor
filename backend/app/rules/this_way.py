@@ -413,10 +413,10 @@ def excess_dealt(found: Any) -> Any:
     return effects, found[1], found[2]
 
 
-def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
+def excess_by_target(plan: Plan, events: list[dict[str, Any]], *, note: bool = True) -> dict[str, int]:
     """120.10: the damage dealt by these events to permanents, in excess of what was lethal (a creature: its toughness less the
     damage marked before this damage; a planeswalker: its loyalty; a battle: its defense; several of those types: the greatest),
-    all sources together, summed over the permanents. Read before the damage is recorded. -- review (wave 10C) -- 120.4a: "Any
+    all sources together, for each permanent that was dealt some. Read before the damage is recorded. -- review (wave 10C) -- 120.4a: "Any
     amount of damage greater than 1 is excess damage if the source dealing that damage to a creature has deathtouch" (702.2c: any
     nonzero deathtouch damage is lethal for excess): a deathtouch source's damage beyond 1 is excess (all of it once the creature
     has already been dealt lethal). Wither and infect (120.3d) deal the same damage, as counters: lethal damage is unchanged.
@@ -432,10 +432,10 @@ def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
                 dt[ev["target"]] = dt.get(ev["target"], 0) + n
                 dt_hits[ev["target"]] = dt_hits.get(ev["target"], 0) + 1
     mixed = [cid for cid in dt if dt[cid] != total[cid] and plan.ch(plan.state.cards[cid]).is_creature]
-    if mixed:
+    if mixed and note:  # (``note`` False: the trigger record of every damage event, wave 39B, which asks nobody)
         plan.note("Damage from a deathtouch source and from other sources was dealt to the same creature together: the excess is "
                   "counted as the damage beyond its toughness — adjust by hand if it should differ", mixed)
-    excess = 0
+    excess: dict[str, int] = {}  # -- trigger damage (wave 39B) -- per permanent: do_damage records it on the damage event (a trigger reads it)
     for cid, n in total.items():
         card = plan.state.cards[cid]
         if not card.zone.endswith(":battlefield"):
@@ -450,8 +450,13 @@ def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
             over.append(n - card.counters.get("loyalty", 0))
         if "Battle" in ch.types:
             over.append(n - card.counters.get("defense", 0))
-        excess += max(0, max(over, default=0))
+        excess[cid] = max(0, max(over, default=0))
     return excess
+
+
+def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
+    """120.10: the excess damage of these events, summed over the permanents they dealt damage to (``excess_by_target``)."""
+    return sum(excess_by_target(plan, events).values())
 
 
 _SWAP = re.compile(r"^each player exiles all (?P<cards>creature) cards from their graveyard, then sacrifices all (?P<perms>creatures) "

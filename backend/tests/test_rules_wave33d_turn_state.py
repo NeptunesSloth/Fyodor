@@ -101,7 +101,7 @@ def test_the_this_turn_state_cards_are_full(name):
     "At the beginning of your end step, if you didn't play a card from exile this turn, create a tapped Powerstone token.",  # (a land played from exile isn't recorded)
     "Whenever one or more counters are put on a creature you control, if it's the first time counters have been put on that creature this turn, draw a card.",  # (first time: anchored to the event, not read)
     "At the beginning of your end step, if you attacked with a Hero this turn or a Hero entered the battlefield under your control this turn, draw a card.",
-    "At the beginning of your end step, if a creature or planeswalker an opponent controlled was dealt excess damage this turn, draw a card.",  # (excess damage isn't recorded)
+    "At the beginning of your end step, if a creature or planeswalker an opponent controlled was dealt excess damage by a Zombie this turn, draw a card.",  # (excess damage by a kind of source isn't recorded; the plain wording is, wave 39B)
     "At the beginning of your end step, if a modified creature died under your control this turn, draw a card.",
 ])
 def test_the_state_shapes_that_are_not_recorded_stay_manual(text):
@@ -140,7 +140,7 @@ def test_wordings(text, expected):
 
 @pytest.mark.parametrize("text", [
     "it's the first time counters have been put on that creature this turn",  # (anchored to its event: not read)
-    "that creature was dealt excess damage this turn",  # (the log doesn't keep excess damage)
+    "that creature was dealt excess combat damage this turn",  # (the log keeps excess damage, wave 39B, not split by combat / noncombat)
     "~ didn't attack or come under your control this turn",  # (control changes aren't recorded)
     "you didn't play a card from exile this turn",
     "an Assassin of your choice crewed it this turn",
