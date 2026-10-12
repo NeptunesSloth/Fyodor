@@ -64,6 +64,13 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     t = text.strip().rstrip(",").replace("’", "'")
     t = re.sub(r"^(defending player|that player|an opponent) is poisoned$", r"\1 has a poison counter", t)  # -- player counters (wave 20F) -- 122.1f
     t = re.sub(r"^your library has no cards in it$", "there are no cards in your library", t)  # -- activated other (wave 34B) -- Doctor Doom, Unrivaled: "your library has no cards in it" is the condition "there are no cards in your library" read as the effect resolves (608.2c)
+    t = t.replace("your team controls", "you control")  # -- trailing & intervening ifs (wave 38A) -- 102.4: outside a team game "your team" is "you" (Sickle Dancer)
+    if "your starting life total" in t:  # -- trailing & intervening ifs (wave 38A) -- 119.1, 903.7: "if your life total is greater than your starting life total" (Cosmos Elixir)
+        from app.rules import static_conditions
+
+        life = static_conditions.parse(t)  # (the static grammar's reading, judged by static_conditions.life_vs_start)
+        if life is not None and life.get("static") == "life_vs_start":
+            return life
     found = _parse_one(t, objects)
     if found is None:
         found = _as_cond(t) if objects else None  # -- intervening ifs (wave 11F) -- (an ability's own event: not statics)
@@ -106,6 +113,7 @@ _STATUS = {"you're the monarch": "monarch", "you are the monarch": "monarch", "y
            "you have the city's blessing": "city_blessing",
            "you own a card in exile": "own_exiled"}  # -- activated other (wave 21E) -- (Dreadlight Monstrosity)
 _THIS_TURN = r"(?P<when>this|last) turn"
+_EVENT_ATTACKING = re.compile(r"(?P<n>\w+) or more of those creatures (?:are|is) attacking you and/or planeswalkers you control")
 _DIFFERENT_POWERS = re.compile(r"you control (?P<n>\w+) or more creatures with different powers")
 # -- token & pump wordings (wave 6C) -- "if you control seven or more lands with different names" (Field of the Dead; wave 20D: "ten or more Gates with different names", Maze's End)
 _DIFFERENT_NAMES = re.compile(r"you control (?P<n>\w+) or more (?P<what>lands|creatures|artifacts|permanents|[A-Z][a-z]+s) with different names")
@@ -243,6 +251,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     # instruction just before, this_way.excess_dealt)
     if re.fullmatch(r"excess damage was dealt (?:to (?:that|a) (?:creature|permanent) )?this way", t):
         return {"value": {"ref_amount": "excess_dealt"}, "op": ">=", "n": 1}
+    m = _EVENT_ATTACKING.fullmatch(t)
+    if m and (n := _num(m["n"])) is not None:  # -- trailing & intervening ifs (wave 38A) -- 508.5, 603.4 (Mangara, Tomik): read again as the ability resolves
+        return {"event_attacking": n}
     m = _DIFFERENT_POWERS.fullmatch(t)
     if m:  # "you control three or more creatures with different powers"
         n = _num(m["n"])
@@ -443,6 +454,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
 _WHO = re.compile(r"(?P<who>that player|defending player|a player) (?P<verb>has|controls|cast|had|(?:didn't|did not|hasn't) cast) (?P<rest>.+)")
 _VERBS = {"has": "have", "controls": "control", "cast": "cast", "didn't cast": "didn't cast", "did not cast": "did not cast",
           "hasn't cast": "haven't cast", "had": "had"}  # -- event-player history (wave 30U) -- "if that player didn't cast a spell this turn" (Impatience): "you didn't cast …" read as them
+_WHO_STATUS = re.compile(r"(?P<who>that player|defending player) (?P<status>is the monarch|has the initiative)")
+_STATUS_WORDS = {"is the monarch": "monarch", "has the initiative": "initiative"}
 _MOST = re.compile(r"(?P<who>a player|that player) (?:(?P<controls>controls)|has) more (?P<what>.+?) than each other player")
 
 
@@ -462,6 +475,9 @@ def _as_cond(t: str) -> Condition | None:
         if quantity is None:
             return None
         return {"as": _AS[most["who"]], "cond": {"versus": {"value": quantity, "op": "<", "every": True}}}
+    m = _WHO_STATUS.fullmatch(t)  # -- trailing & intervening ifs (wave 38A) -- "if defending player is the monarch" (M'Baku): that player's designation, as it is now
+    if m:
+        return {"as": _AS[m["who"]], "cond": {"status": _STATUS_WORDS[m["status"]]}}
     m = _WHO.fullmatch(t)
     if m is None or " than " in m["rest"]:
         return None
@@ -744,9 +760,10 @@ def _history_sel(phrase: str, zone: str) -> str | None:
     return sel.key()
 
 
-@_history_pattern(r"~ (?P<neg>didn't |did not )?attack(?:ed)? this turn")
+@_history_pattern(r"~ (?P<neg>didn't |did not )?attack(?:ed)? this (?P<when>turn|combat)")
 def _self_attacked(m: re.Match[str]) -> Condition:
-    found: Condition = {"history": "self_attacked", "object": "self"}  # 508.1: this object was declared as an attacker this turn
+    found: Condition = {"history": "self_attacked", "object": "self",  # 508.1: this object was declared as an attacker this turn
+                        **({"combat": True} if m["when"] == "combat" else {})}  # (-- trailing & intervening ifs (wave 38A) -- in this combat phase: Tolsimir)
     return {"not": found} if m["neg"] else found
 
 
@@ -948,6 +965,12 @@ def _had_enter(m: re.Match[str]) -> Condition | None:
     return _entered(m)
 
 
+@_history_pattern(r"you had (?P<q>a|an|another|\w+ or more) (?P<sel>.+?) enter the battlefield under your control last turn")
+def _had_enter_last(m: re.Match[str]) -> Condition | None:
+    found = _entered(m)  # -- trailing & intervening ifs (wave 38A) -- 608.2i: the turn before this one (Ephara, God of the Polis)
+    return None if found is None else {**found, "last": True}
+
+
 @_history_pattern(r"(?P<q>a|an|another|\w+ or more) (?P<sel>.+?) entered the battlefield under an opponent's control this turn")
 def _entered_opponent(m: re.Match[str]) -> Condition | None:
     found = _entered(m)
@@ -1021,6 +1044,11 @@ def _object_attacked_or_blocked(m: re.Match[str]) -> Condition:
 @_history_pattern(r"(?P<o>it|that (?:creature|permanent|token)) entered this turn")  # (~: entered_self)
 def _object_entered(m: re.Match[str]) -> Condition:
     return _obj(m, "entered")
+
+
+@_history_pattern(rf"{_HO} enlisted a creature this combat")
+def _object_enlisted(m: re.Match[str]) -> Condition:
+    return _obj(m, "enlisted")  # -- trailing & intervening ifs (wave 38A) -- 702.154a: it was the attacker a creature was tapped for, in this combat phase (Aradesh)
 
 
 @_history_pattern(rf"{_HO} (?:dealt|has dealt) (?:(?P<n>\w+) or more )?(?P<kind>combat )?damage to (?P<p>a player|that player) this turn")
@@ -1141,6 +1169,8 @@ def _object(t: str) -> Condition | None:
         return {"object": "it", "controlled_by": "you", "entered": True}  # (review 33: "entered" marks the move it asks about: scripts._entered_after_delayed)
     if re.fullmatch(r"(?:this card|~) is in your graveyard", t):  # -- graveyard triggers (wave 19C) -- the source, still the object that triggered
         return {"object": "self", "test": "in_graveyard"}
+    if re.fullmatch(r"(?:this card|~) is in the command zone", t):  # -- trailing & intervening ifs (wave 38A) -- Oloro: it functions there, and only while it is (113.6b)
+        return {"object": "self", "test": "in_command"}
     if re.fullmatch(r"(?:this card|~) is in the command zone or on the battlefield", t):  # -- trigger other (wave 25B) -- eminence, 113.6b
         return {"object": "self", "test": "command_or_battlefield"}
     m = _HAS_KEYWORD.fullmatch(t)  # -- refused modal/conditional (wave 3R1) -- "if that creature has toxic"
@@ -1173,8 +1203,8 @@ def _object(t: str) -> Condition | None:
         return {"not": test} if negate else test
     if what in _STATES:
         past = m["verb"] in ("was", "wasn't", "was not") and what in ("tapped", "untapped", "attacking", "blocking")
-        if who not in ("self", "it") or (who == "it" and not past):
-            return None  # (an object other than the source: only "it was attacking" — as it last existed, never a present-tense guess)
+        if who not in ("self", "it") or (who == "it" and not past and what not in ("tapped", "untapped", "suspected")):
+            return None  # (an object other than the source: "it was attacking" as it last existed; -- trailing & intervening ifs (wave 38A) -- "it's tapped" / "it's suspected" as it is now, 608.2c)
         out: Condition = {"object": who, "test": _STATES[what]}
         if who == "it":  # -- trigger tail (wave 16C) -- 608.2h: "if it was attacking": as it is, or as it last existed; unknown fails both ways
             return {**out, "negate": True} if negate else out
@@ -1271,6 +1301,12 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return merged.pair_holds(plan, ctx, cond["pair"])
     if "extreme" in cond:  # -- extremes (wave 8B) -- app/rules/extremes.py
         return extremes.holds(plan, ctx, cond)
+    if "event_attacking" in cond:  # -- trailing & intervening ifs (wave 38A) -- 603.4: as it triggers and as it resolves
+        return _event_attacking(plan, ctx, cond["event_attacking"])
+    if cond.get("static") == "life_vs_start":  # -- trailing & intervening ifs (wave 38A) -- 119.1, 903.7: read as it triggers and as it resolves (603.4)
+        from app.rules import static_conditions
+
+        return static_conditions.life_vs_start(plan, cond, ctx["controller"])
     if "as" in cond:  # -- intervening ifs (wave 11F) -- a condition about another player
         return _as_holds(plan, ctx, cond)
     if "all" in cond:
@@ -1333,6 +1369,33 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     got = plan.state.players[ctx["controller"]].life if "life" in v and v["life"] != "player_min" \
         else values.evaluate(plan, ctx, v)  # (player_min: "a player has 13 or less life", wave 6E)
     return {">=": got >= n, "<=": got <= n, "==": got == n}[cond["op"]]
+
+
+def _attack_on_me(plan: Plan, me: str, target: str | None) -> bool:
+    """Is this attack target ("player:<id>" | "card:<id>", 508.1) you, or a planeswalker you control (on the battlefield now)?"""
+    kind, _, ident = (target or "").partition(":")
+    if kind == "player":
+        return ident == me
+    walker = plan.state.cards.get(ident) if kind == "card" else None
+    return walker is not None and walker.zone.endswith(":battlefield") and walker.controller == me and "Planeswalker" in plan.ch(walker).types
+
+
+def _event_attacking(plan: Plan, ctx: dict[str, Any], n: int) -> bool:
+    """"If two or more of those creatures are attacking you and/or planeswalkers you control" (Mangara, the Diplomat; Tomik, Wielder of Law),
+    603.4: counted as the attack is declared and again as the ability resolves, over the creatures the trigger event counted (the
+    event's objects). A creature still on the battlefield counts only while it is attacking you or your planeswalker (506.4: one removed from
+    combat doesn't); one that left the battlefield counts as it last existed (608.2h: the player or planeswalker it was attacking, the
+    ObjectSnapshot's ``attack_on``) — the rulings of 2020-06-23."""
+    me, got = ctx["controller"], 0
+    for ref in (ctx.get("event") or {}).get("objects") or []:
+        card = plan.state.cards.get(ref["card"])
+        if card is not None and plan.oid(card) == ref["object_id"] and card.zone.endswith(":battlefield"):
+            target = f"{card.attacking.kind}:{card.attacking.id}" if card.attacking is not None else None
+        else:
+            snap = plan.rules.lki.get(ref["object_id"])
+            target = snap.attack_on if snap is not None else None
+        got += _attack_on_me(plan, me, target)
+    return got >= n
 
 
 def _status(plan: Plan, you: str, kind: str) -> bool:
@@ -1410,13 +1473,13 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         live = plan.state.cards.get(card.id)
         if live is not None and live.zone.endswith(":battlefield"):
             state = {"tapped": live.tapped, "untapped": not live.tapped, "attacking": live.attacking is not None,
-                     "blocking": bool(live.blocking)}
+                     "blocking": bool(live.blocking), "suspected": plan.oid(live) in plan.rules.suspected}  # (suspected: wave 38A, 701.60)
         else:
             snap = next((x for x in reversed(plan.rules.lki.values()) if x.card == card.id and x.zone.endswith(":battlefield")), None)
             if snap is None:
                 return False
             state = {"tapped": snap.tapped, "untapped": not snap.tapped, "attacking": snap.attacking, "blocking": snap.blocking}
-        return state[cond["test"]] != bool(cond.get("negate"))
+        return cond["test"] in state and state[cond["test"]] != bool(cond.get("negate"))  # (a state not known as it last existed: fails both ways)
     if who == "event" and "is" in cond and selectors.from_key(cond["is"]).card:
         # "exile it if it's an instant or sorcery card" after "dies": the card it is now (a face-down 2/2 that died
         # is its face-up card in the graveyard, 708.9), while it is still there; else as it last existed
@@ -1487,6 +1550,8 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
     card = plan.state.cards.get(ctx.get("source_card") or "")
     if test == "in_graveyard":  # -- graveyard triggers (wave 19C) -- 400.7: a card that left is a new object, which isn't there
         return card is not None and card.zone == f"{card.owner}:graveyard" and plan.oid(card) == ctx.get("source_object")
+    if test == "in_command":  # -- trailing & intervening ifs (wave 38A) -- still that object, in the command zone (400.7): a commander cast in response is a new object
+        return card is not None and card.zone.endswith(":command") and plan.oid(card) == ctx.get("source_object")
     if test == "command_or_battlefield":  # -- trigger other (wave 25B) -- eminence: 113.6b, the zones the ability names (still that object, 400.7)
         return card is not None and card.zone.endswith((":command", ":battlefield")) and plan.oid(card) == ctx.get("source_object")
     if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object"):
@@ -1570,6 +1635,8 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": _cast_who(t.split()[0]), "cast": {"alt": "foretell"}}
     if t in ("it was kicked", "this spell was kicked", "~ was kicked"):  # -- kicked instead (wave 20F) -- 702.33d: "When you cast this
         return {"object": _cast_who(t.split()[0]), "cast": {"kicked": True}}  # spell, if it was kicked, …" (its record, 601.2h)
+    if t in ("it wasn't kicked", "~ wasn't kicked"):  # -- trailing & intervening ifs (wave 38A) -- "Then if it wasn't kicked, discard three cards." (Sphinx of Lost Truths): the same record, 702.33d
+        return {"not": {"object": _cast_who(t.split()[0]), "cast": {"kicked": True}}}
     if t in ("it escaped", "~ escaped"):  # -- escape (wave 5I) -- 702.138b
         return {"object": _cast_who(t.split()[0]), "cast": {"escaped": True}}
     if _NO_MANA.fullmatch(t):  # -- if you do (wave 5G) -- "if no mana was spent to cast it" (a cast trigger's spell)
