@@ -40,7 +40,7 @@ DON = "Don Andres, the Renegade"
 YAMAZAKI = "Brothers Yamazaki"
 FULL = [DON, "Shauku, Endbringer", "Medomai the Ageless", "Stature, Size Shifter", "Masako the Humorless", "The Necrobloom",
         "Tannuk, Steadfast Second", "Adamaro, First to Desire", "Cayth, Famed Mechanist", "Tesak, Judith's Hellhound", "Barbara Wright",
-        "Dosan the Falling Leaf", "Jasmine Boreal of the Seven", "Karn, Argent Defender", "Doorkeeper Thrull", YAMAZAKI, "Sekki, Seasons' Guide", "Aeve, Progenitor Ooze", "Technodrome", "Wirecat", "Glacial Crasher",
+        "Dosan the Falling Leaf", "Jasmine Boreal of the Seven", "Karn, Argent Defender", "Doorkeeper Thrull", "Mm'menon, the Right Hand", YAMAZAKI, "Sekki, Seasons' Guide", "Aeve, Progenitor Ooze", "Technodrome", "Wirecat", "Glacial Crasher",
         "Karsus Depthguard"]
 
 
@@ -543,6 +543,19 @@ def test_aeve_is_legendary_as_a_card_but_not_as_a_token_so_the_legend_rule_leave
     assert "Legendary" not in ch_of(s, token).supertypes and "Legendary" in ch(s, "Aeve, Progenitor Ooze").supertypes
     assert s.state.cards[aeve.id].zone == "p1:battlefield" and token.zone == "p1:battlefield"
     check(s)
+
+
+# -- Mm'menon, the Right Hand: "Artifacts you control have "{T}: Add {U}. Spend this mana only to cast a spell from anywhere other than your hand."" --------
+@pytest.mark.parametrize(("zone", "ok"), [("p1:hand", False), ("p1:graveyard", True), ("p1:exile", True), ("p1:library", True), ("p2:graveyard", True)])
+def test_mana_for_a_spell_from_anywhere_other_than_your_hand(cards, zone, ok):
+    from app.rules import casting
+    from app.rules import mana as M
+
+    kind = M.parse_spend("Spend this mana only to cast a spell from anywhere other than your hand.")
+    assert kind is not None
+    spell = ch(build(cards, ["Lightning Bolt"]), "Lightning Bolt")
+    assert casting.spend_allowed(kind, casting.Purpose(spell=spell, zone=zone, player="p1")) is ok  # 601.2a: the zone it is cast from
+    assert casting.spend_allowed(kind, None) is False  # (not for a cost that is no spell's)
 
 
 # -- Wirecat / Technodrome: "This creature can't attack or block if an enchantment is on the battlefield." / "... unless its power is 6 or greater." ---------
