@@ -2409,6 +2409,11 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
                 **({"transformed": True} if e.get("transformed") else {}),  # (-- transform, wave 11A -- 712.14a)
                 **({"counter": e["counter"]} if e.get("counter") else {}),
                 **({"counter_n": e["counter_n"]} if e.get("counter_n") else {})} for cid in cards]  # (counters it enters with, 122.6; n: wave 4M)
+    nxt = ctx["effects"][ctx["next"]] if e.get("as") and 0 <= ctx.get("next", -1) < len(ctx.get("effects") or ()) else {}
+    if nxt.get("do") == "become" and nxt.get("lose_abilities") and nxt.get("who") == f"ref:{e['as']}" and nxt.get("duration") == "permanent":
+        # -- review 35 -- "Return target creature card … to the battlefield. It's a Skeleton … and has no abilities." (Xu-Ifit, ruling 2025-07-25): it has
+        # none as it enters — no "enters tapped" or "enters with" counters of its own apply (614.12), no "when it enters" triggers
+        entries = [{**x, "bare": True} for x in entries]
     if e.get("host"):  # -- refused zones/sized (wave 3R4) -- "attached to this creature / that creature"
         entries = _attached_entries(plan, ctx, e["host"], entries)
         cards = [x["card"] for x in entries]

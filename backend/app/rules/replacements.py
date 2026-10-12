@@ -44,6 +44,7 @@ the player who may see it.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import re
@@ -79,7 +80,7 @@ def unless_holds(plan: Plan, controller: str, card: CardInstance, cond: dict[str
 
 def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bool | None = None,
                tapped: bool = False, answers: dict[str, str] | None = None, x: int | None = None,
-               extra: dict[str, int] | None = None, reserved: set[str] | None = None) -> dict[str, Any]:
+               extra: dict[str, int] | None = None, reserved: set[str] | None = None, bare: bool = False) -> dict[str, Any]:
     """How the permanent's own replacement effects modify its entering: {"tapped": bool, "life": N
     (a shock land whose controller pays), "choices": {"color": "Blue", …} (its "As ~ enters, choose
     …" answers, ``answers``), "choice": {"life": N} | {"what": "color"} (the next thing still to be
@@ -90,6 +91,9 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
     asked before it enters, 614.12a: {"what": "order:<question>", "order": …}; ``x`` / ``extra``:
     the X it was cast with, counters the effect putting it there adds)."""
     out: dict[str, Any] = {"tapped": bool(tapped)}
+    if bare:  # -- review 35 -- it enters with no abilities (``bare``: Xu-Ifit's ruling 2025-07-25): none of its own applies; others' still do (614.12)
+        out["tapped"] = out["tapped"] or others_enter_tapped(plan, card, controller)
+        return out
     # -- copy system (wave 2F): "You may have ~ enter as a copy of …" (707.5, 614.12a): chosen first;
     # then the rest of this plan reads the copied text (app/rules/copying.py) --
     from app.rules import copying
@@ -360,7 +364,7 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
         card = card.model_copy(update={"face": 1})
     return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
                       answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry),
-                      reserved=set(entry.get("reserved") or ())).get("choice")  # (reserved: wave 5G)
+                      reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare"))).get("choice")  # (reserved: wave 5G)
 
 
 def _extra(entry: Entry) -> dict[str, int] | None:
@@ -559,7 +563,7 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
                                                  entry["player"], pay_life=entry.get("pay_life"),
                                                  tapped=bool(entry.get("tapped")), answers=entry.get("choices"),
                                                  x=entry.get("x"), extra=_extra(entry),
-                                                 reserved=set(entry.get("reserved") or ()))))  # (reserved: wave 5G)
+                                                 reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")))))  # (reserved: wave 5G)
     # -- entering for a cost (wave 5G) -- the payment first, or it goes to its owner's graveyard instead (614.6)
     from app.rules import enter_cost
 
@@ -607,7 +611,7 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
 def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any], together: list[str] | None = None) -> None:
     controller = entry["player"]
     after_entry(plan, card_id, controller, x=entry.get("x"), extra_counters=_extra(entry), choices=ep.get("choices"),
-                newcomers=together)
+                newcomers=together, bare=bool(entry.get("bare")))
     entered = plan.state.cards.get(card_id)
     if entered is None or not entered.zone.endswith(":battlefield"):
         return
@@ -664,7 +668,7 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
 
 def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None,
                 extra_counters: dict[str, int] | None = None, choices: dict[str, str] | None = None,
-                newcomers: list[str] | None = None) -> None:
+                newcomers: list[str] | None = None, bare: bool = False) -> None:
     """The "enters with" part of entering (122.6: counters put on it as it enters, by its controller;
     306.5b: a planeswalker's loyalty), right after the move that put it onto the battlefield, and the
     record of what was chosen as it entered ("Chosen color: Blue" on the permanent, 614.12a)."""
@@ -705,13 +709,14 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         plan.rules.devoured[plan.oid(card)] = len(devour.picked(choices.get(devour.WHAT)))
     from app.rules import layers, riot  # -- keywords (wave 15E) -- 702.136a: "If you don't, it gains haste."
 
-    if riot.gains_haste(plan.ch(card), choices):
+    ch = dataclasses.replace(plan.ch(card), abilities=()) if bare else plan.ch(card)  # (-- review 35 -- ``bare``: no "enters with" of its own)
+    if riot.gains_haste(ch, choices):
         layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
                           add_keywords=("haste",), duration="permanent", label="Haste (riot)")
     from app.rules import mana_units
 
     mana_units.entered(plan, card, controller)  # -- mana provenance (wave 18B) -- 106.6: "it gains haste"
-    counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices, newcomers=newcomers)
+    counters = entering_counters(plan, card, controller, ch, x=x, extra=extra_counters, choices=choices, newcomers=newcomers)
     puts = [(card_id, kind, n) for kind, n in counters.items() if n > 0]
     from app.rules import replace
 
@@ -721,7 +726,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     if not plan.manual(card):
         from app.rules import layers
 
-        for d in scripts.definitions(plan.ch(card)).values():
+        for d in scripts.definitions(ch).values():
             if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters" and d.get("grant") and not d.get("self_in_group") \
                     and _counter_amount(plan, card.id, controller, d, x, newcomers) > 0:
                 layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,

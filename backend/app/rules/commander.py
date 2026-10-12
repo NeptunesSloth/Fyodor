@@ -325,13 +325,24 @@ def _symbols_repeat(c: Any) -> bool:
     return len(set(symbols)) < len(symbols)
 
 
+# -- review 35 -- the keyword abilities the rules call activated abilities (702.6a equip, 702.29a cycling and 702.29e typecycling, 702.122a crew,
+# 702.49a ninjutsu, 702.53a, 702.65a, 702.67a, 702.71a, 702.77a, 702.84a, 702.87a, 702.97a, 702.107a, 702.128a, 702.129a, 702.141a, 702.151a,
+# 702.167a craft, 702.171a saddle, 702.184a station): their Oracle line has no reminder text on most cards ("Equip {1}": Bonesplitter), so no colon.
+# A line about such abilities ("Equip abilities you activate cost {1} less", "Cycling abilities …") isn't one: the cost follows the keyword.
+_ACTIVATED_KEYWORD = re.compile(
+    r"^(?:equip(?: (?!abilities\b|costs?\b)[\w'-]+(?:,? (?:or )?[\w'-]+)*?)?|(?:\w+ )?\w*cycling|crew|saddle|(?:commander )?ninjutsu|transmute|aura swap"
+    r"|fortify|transfigure|reinforce [\dX]+|unearth|level up|scavenge|outlast|embalm|eternalize|encore|reconfigure|craft with .+?|station)"
+    r"(?: (?:\{|\d|X\b)|—|$)", re.IGNORECASE)
+
+
 def _activated(c: Any) -> bool:
     """Zirda: Gatherer ruling 2020-04-17: "Activated abilities contain a colon", and keyword abilities show it in their reminder text
     (equip, cycling …). An ability in quotation marks belongs to what is given it, and so does a keyword a line says something "has"
-    ("Each creature card in your graveyard has unearth {2}{B}. ({2}{B}: Return …)"); 305.6: a basic land type is an intrinsic mana ability."""
+    ("Each creature card in your graveyard has unearth {2}{B}. ({2}{B}: Return …)"); 305.6: a basic land type is an intrinsic mana ability.
+    (review 35: an activated keyword printed without its reminder text, ``_ACTIVATED_KEYWORD``.)"""
     for line in _QUOTED.sub("", c.oracle_text or "").splitlines():
         main = strip_reminders(line)
-        if ":" in main or (":" in line and not re.search(r"\b(?:has|have)\b", main)):
+        if ":" in main or (":" in line and not re.search(r"\b(?:has|have)\b", main)) or _ACTIVATED_KEYWORD.match(main.strip()):
             return True
     return bool(c.subtypes & BASIC_TYPES.keys())
 
