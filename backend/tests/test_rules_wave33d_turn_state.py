@@ -722,5 +722,5 @@ def test_inferno_hellion_shuffles_away_only_after_fighting(cards):
     s = reloaded(s)
     finish_turn(s)
     where = sorted(c.zone for c in s.state.cards.values() if c.name == "Inferno Hellion")  # (a card shuffled into a library is a new object, 400.7)
-    assert where == ["p1:battlefield", "p1:library"] and s.state.cards[home.id].zone == "p1:battlefield"
+    assert where[0] == "p1:battlefield" and where[1] in ("p1:hand", "p1:library") and s.state.cards[home.id].zone == "p1:battlefield"  # (shuffled in: Alice's next draw may find it, 1 in 21)
     check(s)
