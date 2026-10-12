@@ -2465,19 +2465,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if flashing is not None and "targets" in flashing and not cost_changes.targets_fit(
             plan, card, plan.actor, flashing["targets"], tuple(t.id for t in chosen)):
         raise ActionError(f"{ch.name} can be cast now only if its targets meet its flash condition")
-    optional = cost_changes.chosen_optional(plan.state, plan.actor, card, ch, plan.info, a.optional_costs) \
-        if a.optional_costs and not plan.manual(card) else []  # -- cost changers (wave 4I) -- (601.2b)
-    gift_to: str | None = None
-    if any(o.kind == "gift" for o in optional):  # -- gift (wave 23D) -- 702.174a: the opponent the gift is promised to
-        from app.rules import gift
-
-        found_gift = gift.announce(plan, a, card, ch)
-        if found_gift is gift.WAITING:
-            return
-        gift_to = found_gift
-    bargained = any(o.kind == "bargain" for o in optional)  # -- keywords (wave 30E) -- 702.166b: its controller declared the intention to pay the bargain cost
-    if a.optional_costs and plan.manual(card):
-        raise ActionError("That card is played by hand: pay its costs with the table tools")
+    announced = optional_announced(plan, a, card, ch)  # -- cost changers (wave 4I) -- (601.2b)
+    if announced is None:
+        return
+    optional, gift_to, bargained = announced
     # -- costs (wave 3$) -- 601.2b: an additional cost ("sacrifice a creature", "discard a card", "pay 2 life") is
     # announced with the rest; 601.2h pays it all at once, so nothing moves until every part is chosen and payable
     add_cost = None if plan.manual(card) or a.face_down else costs.spell_additional_cost(ch.abilities)
@@ -2508,11 +2499,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if (target_life := cost_changes.targeting_life(plan.state, plan.actor, card, ch, plan.info, tuple(t.id for t in chosen))):
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(  # -- casting costs (wave 22F) -- Terror of the Peaks: life for its targets (601.2f)
             components=(costs.CostComponent(costs.PAY_LIFE, amount=target_life, text=f"Pay {target_life} life"),), life=target_life))
-    if optional:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
-        parts = tuple(c for o in optional if (c := cost_changes.keyword_component(o) if o.kind else costs.CostComponent(
-            costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life")) is not None)  # (wave 23D: a gift costs nothing)
-        if parts:
-            add_cost = alt_costs.merged(add_cost, costs.AbilityCost(components=parts, life=sum(o.life for o in optional)))
+    if (optional_more := optional_parts(optional)) is not None:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
+        add_cost = alt_costs.merged(add_cost, optional_more)
     add_objects: dict[int, list[str]] = {}
     if add_cost is not None:
         problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
@@ -3197,6 +3185,107 @@ def _storm_trigger(plan: Plan, card: CardInstance, ch: Characteristics, k: int =
                          "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": before}]})
 
 
+# -- free-cast optional costs (wave 41D) --
+def optional_announced(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics) -> tuple[list[Any], str | None, bool] | None:
+    """601.2b: the optional additional costs the intent names, each checked now, the opponent a promised gift goes to (702.174a: asked as a
+    decision when there is a choice) and whether the bargain cost is paid (702.166b). One announcement for a cast with its cost and for a free
+    one (118.9d: ``cast_free``). None while the gift's opponent is asked."""
+    from app.rules import cost_changes
+
+    optional = cost_changes.chosen_optional(plan.state, plan.actor, card, ch, plan.info, a.optional_costs) \
+        if a.optional_costs and not plan.manual(card) else []
+    gift_to: str | None = None
+    if any(o.kind == "gift" for o in optional):  # -- gift (wave 23D) -- 702.174a: the opponent the gift is promised to
+        from app.rules import gift
+
+        found_gift = gift.announce(plan, a, card, ch)
+        if found_gift is gift.WAITING:
+            return None
+        gift_to = found_gift
+    if a.optional_costs and plan.manual(card):
+        raise ActionError("That card is played by hand: pay its costs with the table tools")
+    return optional, gift_to, any(o.kind == "bargain" for o in optional)  # -- keywords (wave 30E) -- 702.166b: its controller declared the intention to pay it
+
+
+def optional_parts(optional: list[Any]) -> AbilityCost | None:
+    """The cost parts the announced optional costs add (paid with the rest, 601.2h): a sacrifice, a tap, life; a gift costs nothing (wave 23D)."""
+    from app.rules import cost_changes
+
+    parts = tuple(c for o in optional if (c := cost_changes.keyword_component(o) if o.kind else costs.CostComponent(
+        costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life")) is not None)
+    return costs.AbilityCost(components=parts, life=sum(o.life for o in optional)) if parts else None
+
+
+FREE_KICKS = 6  # (the most times a multikicker cost is offered to a free cast: the table menu's own, frontend rulesMenu.ts MULTIKICKER_COUNTS)
+
+
+def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) -> list[tuple[str, str]]:
+    """118.9d: the optional additional costs the caster of a spell cast without paying its mana cost could pay, each one now possible (id, label):
+    the kicker cost ("kicker:N", N times; the mana is paid with the total cost, 601.2f) and the costs of ``cost_changes.optional_offers`` (bargain,
+    gift, casualty, conspire, teamwork, collect evidence, behold). Only what is public decides whether one is offered (mana, the permanents to
+    sacrifice or tap, an opponent): "behold" may be paid from the hand, so it is always offered (the cast refuses it if it can't be paid). A
+    permanent's "you may pay 2 life" that reduces one colour (Defiler of Vigor) is not asked: it changes nothing when no mana is paid."""
+    from app.rules import cost_changes
+
+    r = plan.rules
+    pending = r.free_cast_then
+    paid = pending is not None and pending["card"] == card.id and bool(pending["e"].get("paid"))  # (707.12: the copy's mana cost is paid)
+    alt = ch.mana_cost if paid else r.alt_costs.get(card.id)
+    out: list[tuple[str, str]] = []
+    if (kick := kicker_cost(ch.abilities)) is not None and not kick.entwine:  # (702.42a: entwine by hand)
+        for n in range(1, FREE_KICKS + 1 if kick.multi else 2):
+            try:
+                total = spell_cost(plan.state, card, ch, 0, plan.info, player=plan.actor, free=alt is None,
+                                   alternative=M.parse_cost(alt) if alt is not None else None, kicker=n)
+            except ActionError:
+                break  # (a kicker cost Fyodor can't pay)
+            if not can_pay(plan.state, plan.actor, total, plan.info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=plan.actor,
+                                                                                      kicked=True)):
+                break
+            out.append((f"kicker:{n}", kick.text if n == 1 else f"{kick.text}, paid {n} times"))
+    for o in cost_changes.optional_offers(plan.state, plan.actor, card, ch, plan.info):
+        if not o.kind:
+            continue
+        part = cost_changes.keyword_component(o)
+        if part is None:  # a gift: an opponent to give it to (702.174a)
+            if len(plan.live()) < 2:
+                continue
+        elif o.kind != "behold" and additional_problem(plan, costs.AbilityCost(components=(part,)), card, plan.actor):
+            continue
+        out.append((o.source, o.label))
+    return out
+
+
+def announce_free_optional(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics) -> bool:
+    """601.2b, 118.9d: ask the caster of a free cast which optional additional costs to pay (privately; none may be chosen), unless the intent
+    already announced them (``kicker``, ``optional_costs``) or they were asked. True while the question waits; its answer re-runs the cast."""
+    if a.optional_asked or a.kicker or a.optional_costs or plan.manual(card):
+        return False
+    offers = free_optional_offers(plan, card, ch)
+    if not offers:
+        return False
+    decide(plan, player=plan.actor, kind="choose_cards", prompt=f"{ch.name or 'This spell'}: pay any optional additional costs? (118.9d, 601.2b)",
+           options=[DecisionOption(id=i, label=text) for i, text in offers], min_choices=0, max_choices=len(offers),
+           resume=_announcing(plan, "free_optional", a), source=card)
+    return True
+
+
+def resume_free_optional(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """The caster's answer: the cast goes on with those costs announced (``kicker``, ``optional_costs``)."""
+    from app.rules.engine import INTENTS  # the engine imports this module
+
+    intent = A.parse_action(d.resume["intent"])
+    kicks = [c for c in chosen if c.startswith("kicker:")]
+    if len(kicks) > 1:
+        raise ActionError("Pay the kicker cost one number of times")
+    intent.kicker = int(kicks[0].split(":")[1]) if kicks else 0  # type: ignore[union-attr]
+    intent.optional_costs = [c for c in chosen if not c.startswith("kicker:")]  # type: ignore[union-attr]
+    intent.optional_asked = True  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
+
+
 # -- cast without paying (wave 3C) --
 def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpell) -> None:
     """Cast a card the engine let its player cast without paying its mana cost, as an effect
@@ -3215,8 +3304,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if not granted_casts.face_ok(r, card.id, a.face) and not (a.face and pending is not None and pending["card"] == card.id
                                                               and pending.get("face") == a.face):
         raise ActionError("That face of the card can't be cast this way")
-    if a.splice or a.prototype:
-        raise ActionError("Splice and prototype by hand: Fyodor does them only when a spell is cast with its cost")
+    if a.splice or a.prototype or a.buyback:  # (-- free-cast optional costs (wave 41D) -- buyback too: it was dropped without a word)
+        raise ActionError("Splice, prototype and buyback by hand: Fyodor does them only when a spell is cast with its cost")
     if a.kicker and (ek := kicker_cost(ch.abilities)) is not None and ek.entwine:  # (-- review (wave 18E) -- 702.42a: all modes, by hand here)
         raise ActionError("Entwine by hand: Fyodor entwines a spell only when it is cast with its cost")
     if "Legendary" in ch.supertypes and ch.is_instant_or_sorcery and not _controls_legendary(plan.state, plan.actor, plan.info):
@@ -3228,10 +3317,12 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if limited:
         raise ActionError(limited)
     # -- static wordings (wave 6E) -- 118.9d: a choice of additional costs is still announced (601.2b) and paid
-    from app.rules import either_costs
+    from app.rules import alt_costs, cost_changes, either_costs
 
     either = None if plan.manual(card) else either_costs.announce(plan, a, card, ch)
     if either is either_costs.WAITING:
+        return
+    if announce_free_optional(plan, a, card, ch):  # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b: kicker, bargain, gift, casualty … are announced too
         return
     definition = None if plan.manual(card) else scripts.spell_definition(ch)
     definition = per_opponent.for_cast(plan, card.id, definition)  # -- per-opponent targets (wave 23A) --
@@ -3267,6 +3358,10 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
             return  # waiting for the target choice; the grant stays
         picked_targets = found_targets
     chosen = picked_targets.flat
+    announced = optional_announced(plan, a, card, ch)  # -- free-cast optional costs (wave 41D) --
+    if announced is None:
+        return
+    optional, gift_to, bargained = announced
     alt = r.alt_costs.get(card.id)
     pending = r.free_cast_then  # -- cast a copy (wave 18F) -- 707.12: "You may cast the copy." pays its mana cost (never a flashback cost)
     paid = pending is not None and pending["card"] == card.id and bool(pending["e"].get("paid"))
@@ -3277,6 +3372,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     add_cost = None if plan.manual(card) else costs.spell_additional_cost(ch.abilities)
     if either is not None:  # -- static wordings (wave 6E) --
         add_cost = either if either.components else None
+    if (optional_more := optional_parts(optional)) is not None:  # -- free-cast optional costs (wave 41D) -- paid with the rest (601.2h)
+        add_cost = alt_costs.merged(add_cost, optional_more)
     add_objects: dict[int, list[str]] = {}
     if add_cost is not None:
         problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
@@ -3295,6 +3392,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
                       alternative=M.parse_cost(alt) if alt is not None else None, kicker=a.kicker,
                       targets=tuple(t.id for t in chosen),  # (wave 4I: "spells that target …")
                       additional=(*((M.parse_cost(either.mana),) if either is not None and either.mana else ()), *mode_costs))  # (wave 6E)
+    cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # (wave 41D, as the cast with its cost)
     cost = _locked(plan, cost)  # (wave 4I: 601.2f)
     if paid and pending is not None and pending["e"].get("spend"):  # -- cast-permission riders (wave 38C) -- 118.14: "…, and mana of any type can be spent to cast that spell" (Quistis)
         cost = M.spend_as(cost, pending["e"]["spend"])
@@ -3306,11 +3404,12 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (f" ({kind})" if alt and not paid else ""),
                            not_mana=not_mana)
         record.alternative = "" if paid else kind if alt is not None else "free"
-        record.additional = ["kicker"] if a.kicker else []
-        record.kicked = a.kicker
         r.alt_costs.pop(card.id, None)
     else:
         record = PaymentRecord(card=card.id, controller=plan.actor, alternative="free")
+    record.additional = (["kicker"] if a.kicker else []) + [f"optional:{o.source}" for o in optional]  # -- free-cast optional costs (wave 41D) --
+    record.kicked = a.kicker or int(gift_to is not None or bargained)  # (702.33d; a promised gift and a bargain read as kicked, as with the cost: 702.174k, 702.166)
+    record.gift_to = gift_to
     was_suspended = card.id in r.suspended
     from_hand = card.zone == zone_key(plan.actor, "hand")
     _note_cast(plan, record, card.zone.rsplit(":", 1)[-1])  # -- refused modal/conditional (wave 3R1) --
@@ -3339,7 +3438,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         plan.reserved_life = 0  # (wave 29C)
     plan.do({"type": "set_stack_info", "card_id": card.id,
              "tags": ([] if paid else [f"Cast for its {kind} cost" if alt is not None else "Cast without paying its mana cost"])
-             + (["Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}"] if a.kicker else [])})
+             + (["Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}"] if a.kicker else []) + (["Bargained"] if bargained else [])})
     record.x = a.x_value
     record_payment(plan, card.id, record)
     if a.targets:
@@ -3357,21 +3456,22 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if not plan.manual(card):
         _storm_triggers(plan, card, ch, record.cast_from)
         _ripple_triggers(plan, card, ch, record.cast_from)
+        _conspire_trigger(plan, card, ch, record)  # (wave 41D: casualty 702.153a, conspire 702.78a)
     if "replicate" in ch.keywords and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=modal_effects(definition, picked, True), x=a.x_value, modes=picked,
-                                      **picked_targets.entry(None), kicked=a.kicker)
+                                      **picked_targets.entry(None), kicked=record.kicked)
     elif definition is not None and picked:
         effects_in_order = modal_effects(definition, picked, False)
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
-                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=a.kicker)
+                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=record.kicked)
     elif definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=a.x_value,
-                                      **picked_targets.entry(definition), kicked=a.kicker)
+                                      **picked_targets.entry(definition), kicked=record.kicked)
     r.aura_targets = {k: v for k, v in r.aura_targets.items() if k != card.id and plan.state.cards.get(k) is not None
                       and plan.state.cards[k].zone == STACK}  # (review (wave 18D): never a target this card had as an earlier spell)
     if aura is not None and chosen:

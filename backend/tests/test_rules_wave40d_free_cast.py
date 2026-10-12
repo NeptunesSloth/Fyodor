@@ -226,10 +226,10 @@ def test_epistolary_librarian_limit_is_the_number_of_attacking_creatures(cards):
     check(s)
 
 
-def test_a_free_cast_is_made_without_the_optional_additional_cost_known_gap(cards):
-    """Pinned limit (118.9d / 601.2b would let the player pay kicker, bargain, gift, casualty … on a free cast): the question of a granted cast has no step
-    for them, so Burst Lightning cast through Gandalf is the unkicked one (2 damage, not 4) and nothing is asked. Lifting this needs an announcement step in
-    `permissions.resume_free_cast` / `effects.resume_suspend_cast` for every optional cost `casting.cast_spell` knows (not done: no card here needs it)."""
+def test_a_free_cast_whose_optional_additional_cost_cant_be_paid_is_the_plain_one(cards):
+    """Was a pinned limit (wave 40D: a free cast was never asked about kicker, bargain, gift, casualty …). Wave 41D lifts it (118.9d, 601.2b:
+    tests/test_rules_wave41d_free_cast_optional.py asks the caster): Alice has no mana for Burst Lightning's {4}, so no kicker is offered, nothing is asked
+    and Burst Lightning cast through Gandalf is the unkicked one (2 damage, not 4)."""
     s = build(cards, [GANDALF, "Burst Lightning"], ["Grizzly Bears"])
     put(s, GANDALF)
     to_hand(s, "Burst Lightning")
