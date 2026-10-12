@@ -115,21 +115,22 @@ def zone_names(s, zone, pid="p1"):
 
 @pytest.mark.parametrize("name", [c["name"] for c in DATA if c["name"] not in ("Angelic Destiny", "Skullclamp")])
 def test_the_cards_are_full(name):
-    data = next(c for c in DATA if c["name"] == name)
-    assert coverage.of_card_data({**data, "faces": data.get("card_faces") or [], "legalities": {"commander": "legal"}}).level == "FULL"
+    data = next(c for c in EXTRA if c["name"] == name)  # (with an id of its own: the printed characteristics are cached by it)
+    assert coverage.of_card_data({**data, "faces": data.get("card_faces") or []}).level == "FULL"
 
 
-MANUAL = json.loads((Path(__file__).parent / "fixtures" / "wave40b_manual.json").read_text("utf-8"))
+MANUAL = [card(c["name"], set_code="t40m", number=f"M{i:02d}", **{k: v for k, v in c.items() if k != "name"})
+          for i, c in enumerate(json.loads((Path(__file__).parent / "fixtures" / "wave40b_manual.json").read_text("utf-8")))]
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in MANUAL])
+@pytest.mark.parametrize("name", [c["name"] for c in json.loads((Path(__file__).parent / "fixtures" / "wave40b_manual.json").read_text("utf-8"))])
 def test_these_stay_manual(name):
     """Never faked: their attached-object wording needs more than this wave reads — Rhuk (the Equipment a creature that died had: unsettled), Preston Garvey and
     Scriv (an Aura token with its own enchant ability), Gift of Immortality / Radiant Grace (the Aura returns attached to another object), Hedron Blade
     ("becomes blocked by one or more colorless creatures" for equipped creature), Observed Stasis ("for each tapped creature its controller controls"),
     Glimmer Lens ("equipped creature and at least one other creature attack")."""
     data = next(c for c in MANUAL if c["name"] == name)
-    assert coverage.of_card_data({**data, "faces": data.get("card_faces") or [], "legalities": {"commander": "legal"}}).level != "FULL"
+    assert coverage.of_card_data({**data, "faces": data.get("card_faces") or []}).level != "FULL"
 
 
 def level_of(oracle: str, type_line: str = "Enchantment — Aura") -> str:
