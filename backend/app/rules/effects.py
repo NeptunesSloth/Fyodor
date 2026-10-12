@@ -187,7 +187,8 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
         src = ctx.get("source_card")
         return [src] if record is not None and src in record.exiled and src in plan.state.cards \
-            and plan.state.cards[src].zone.endswith(":exile") else []
+            and plan.state.cards[src].zone.endswith(":exile") \
+            and (not record.exiled_objects or plan.oid(src) in record.exiled_objects) else []  # (-- as long as (wave 37A) -- 400.7j: that object, not a later one)
     if who == "self_gy":  # -- reanimation (wave 3R) -- "return this card from your graveyard": the source, only
         # while it is still the same object in a graveyard (400.7)
         src = plan.state.cards.get(ctx.get("source_card") or "")
@@ -1554,6 +1555,8 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
     elif to == "exile":  # (wave 4A)
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
+    elif to == "hand":  # -- zone replacements (wave 37B) -- "put it into its owner's hand instead of into that player's graveyard" (Remand)
+        plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "hand"}}, actor=actor)
     elif to in ("top", "bottom"):  # (wave 4A)
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "library"}, "position": to},
                 actor=actor)
@@ -2359,8 +2362,9 @@ def return_card(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # A pronoun ("return it …") names the card an earlier instruction of this effect put there
     # (400.7j); one that isn't there any more — or a token, which ceased to exist (111.7, 111.8)
     # — is nothing to return (603.7c's principle: not in the zone it's expected in).
-    cards = [c for c in _cards(plan, ctx, e["who"]) if not plan.state.cards[c].zone.endswith(":battlefield")]
-    return _return_cards(plan, ctx, e, cards)
+    # -- reanimation (wave 37B) -- ``also``: "Return this card and target land card …" (Sandman): the source too, both in one move (608.2c)
+    cards = [c for w in (e["who"], e.get("also")) if w for c in _cards(plan, ctx, w) if not plan.state.cards[c].zone.endswith(":battlefield")]
+    return _return_cards(plan, ctx, e, list(dict.fromkeys(cards)))
 
 
 def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
@@ -4120,6 +4124,9 @@ def exile_if_dies(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     rec: dict[str, Any] = {"id": secrets.token_hex(4), "kind": "exile_if_dies", "turn": plan.state.turn.number,
                            "controller": ctx["controller"], "source": ctx.get("source_object"), "label": ctx.get("name") or ""}
+    if e.get("cards"):  # -- zone replacements (wave 37B) -- "If a card would be put into your graveyard from anywhere this turn, exile that card instead."
+        plan.rules.replacements.append({**rec, "kind": "exile_cards", "whose": e["cards"]})
+        return True
     if e.get("each"):
         rec["each"] = e["each"]
     else:
@@ -4231,8 +4238,10 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     import secrets
 
     pid = ctx["controller"]
-    pool = sorted(_cards(plan, ctx, e["who"]) if e.get("who") else  # (-- wave 22D -- "a creature card put into a graveyard this way")
-                  selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card")))
+    found = (_cards(plan, ctx, e["who"]) if e.get("who") else  # (-- wave 22D -- "a creature card put into a graveyard this way")
+             selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card")))
+    # -- reanimation (wave 37B) -- "the top creature card of your graveyard": the last matching card of the graveyard's order (index -1 is the top), nothing chosen
+    pool = found[-1:] if e.get("top") else sorted(found)
     want = _amount(plan, ctx, e["n"])
     if e.get("random"):
         picked = (plan.rng or secrets.SystemRandom()).sample(pool, min(want, len(pool)))
@@ -4243,12 +4252,15 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         from app.rules import win_game
 
         return win_game.lose_game(plan, ctx, {"who": "you"})
-    if most == 0 or (least == most == len(pool)):
+    # -- reanimation (wave 37B) -- "from your hand or graveyard": the hand is hidden, so a hand that holds cards is asked whether or not one of them
+    # matches (put_from_hand's rule, review 25C): the other players must not learn from the question that a matching card is there
+    hidden = not e.get("who") and "hand" in selectors.from_key(e["sel"]).zones and bool(plan.state.zones.get(f"{pid}:hand"))
+    if not hidden and (most == 0 or (least == most == len(pool))):
         return _return_cards(plan, ctx, e, pool[:most])
     decide(plan, player=pid, kind="choose_cards",
-           prompt=f"Choose {'up to ' if e.get('upto') else ''}{most} ({e.get('label', 'card')})" + {"exile": " to exile", "choose": ""}.get(e["to"], " to return"),
+           prompt=f"Choose {'up to ' if e.get('upto') else ''}{max(most, 1) if hidden else most} ({e.get('label', 'card')})" + {"exile": " to exile", "choose": ""}.get(e["to"], " to return"),
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
-           min_choices=least, max_choices=most, resume={"step": "return_choice", "ctx": ctx, "e": e})
+           min_choices=least, max_choices=max(most, 1) if hidden else most, resume={"step": "return_choice", "ctx": ctx, "e": e})
     return False
 
 

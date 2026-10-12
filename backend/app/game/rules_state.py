@@ -290,6 +290,8 @@ class ObjectSnapshot(BaseModel):
     damage: int = 0
     effects: list[str] = Field(default_factory=list)  # "+3/+3", "Flying" … (manual effect markers)
     attacking: bool = False
+    # -- trailing & intervening ifs (wave 38A) -- whom it was attacking as it last existed (508.1, 608.2h): "player:<id>" | "card:<id>"
+    attack_on: str | None = None
     blocking: bool = False
     attached_to: str | None = None
     attached_player: str | None = None  # -- attached events (wave 4L) -- the player an Aura enchanted (a Curse)
@@ -525,6 +527,10 @@ class TurnLog(BaseModel):
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
     blocks: dict[str, list[str]] = Field(default_factory=dict)  # -- combat history (wave 31D) -- blocker (object) -> the attackers (objects) it blocked this turn
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
+    # -- trailing & intervening ifs (wave 38A) -- 508.1, 500.8: attacker object -> the combat phase (RulesState.combats) it was last declared as an
+    # attacker in ("~ attacked this combat"); attacker object -> the combat phase it enlisted a creature in (702.154a: "it enlisted a creature this combat")
+    declared: dict[str, int] = Field(default_factory=dict)
+    enlisted: dict[str, int] = Field(default_factory=dict)
     # "<source object>:<ability index>" -> how many times that ability resolved this turn (copies included)
     resolved: dict[str, int] = Field(default_factory=dict)
     rolled: dict[str, int] = Field(default_factory=dict)  # -- dice (wave 24B) -- player -> dice rolled this turn (706.6: an ignored roll never happened)
@@ -565,7 +571,8 @@ class ContinuousEffect(BaseModel):
     # -- end of next turn (wave 32C) -- "end_of_next_turn": "until the end of your next turn" ends in the cleanup step (514.2) of
     # ``until_player``'s next turn (a later turn than ``turn``, even when it began in one of their own turns: delayed.end_of_next_turn)
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
-                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat"] = "end_of_turn"
+                      "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast"] = "end_of_turn"
+    until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
     turn: int = 0  # the turn the effect began (next_turn: it ends on a later turn of until_player)
@@ -791,6 +798,7 @@ class PaymentRecord(BaseModel):
     discarded: list[str] = Field(default_factory=list)
     revealed: list[str] = Field(default_factory=list)  # -- static_other sweep (wave 17C) -- cards revealed from the hand to pay ("the revealed card's …")
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
+    exiled_objects: list[str] = Field(default_factory=list)  # -- as long as (wave 37A) -- the objects they became in exile (400.7j: "this card" finds that one)
     returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
     # -- keywords (wave 15E) -- ninjutsu 702.49c: what each returned attacking creature was attacking (player or permanent id)
     returned_attacking: dict[str, str] = Field(default_factory=dict)
@@ -1270,6 +1278,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         token_type_line=token.type_line if token else None, token_colors=list(token.colors) if token else [],
         commander_key=c.commander_key, counters=dict(c.counters), damage=c.damage,
         effects=[e.value or e.name for e in c.effects], attacking=c.attacking is not None,
+        attack_on=f"{c.attacking.kind}:{c.attacking.id}" if c.attacking is not None else None,  # (wave 38A)
         blocking=c.blocking is not None, attached_to=c.attached_to, text=token.text if token else "",
         attached_player=c.attached_player,  # -- attached events (wave 4L) --
         merged=[p.model_dump() for p in c.merged], melded=c.melded,  # (wave 18D)
@@ -1365,6 +1374,8 @@ def note_attack(state: GameState, player: str, attackers: list[str] | None = Non
     if log is not None and attackers:  # -- this-turn history (wave 4D) --
         seen = log.attackers.setdefault(player, [])
         seen += [a for a in attackers if a not in seen]
+        if state.rules is not None:  # (wave 38A: this combat phase, 506.1)
+            log.declared.update({a: state.rules.combats for a in attackers})
         for a, t in zip(attackers, targets or (), strict=True):  # -- static_other sweep (wave 19A) -- 508.1c: "a player it has already attacked"
             if t in state.players and t not in log.attacked_who.setdefault(a, []):
                 log.attacked_who[a].append(t)

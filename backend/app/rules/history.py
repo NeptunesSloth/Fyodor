@@ -565,6 +565,8 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
         got = any(e.object_id in ids for e in log.entered)
     elif what == "blocked":
         got = any(a in ids for attacked in log.blocks.values() for a in attacked)
+    elif what == "enlisted":  # -- trailing & intervening ifs (wave 38A) -- 702.154a: in this combat phase (500.8), fixed once it was (603.4: still so as it resolves)
+        got = any(log.enlisted.get(i) == plan.rules.combats for i in ids)
     elif what == "attacked_or_blocked":
         got = bool(ids & set(log.blockers)) or any(a in ids for attacking in log.attackers.values() for a in attacking)
     elif what == "damaged":
@@ -651,10 +653,21 @@ _WAVE_4D: dict[str, Any] = {
     "activations": lambda plan, ctx, cond, log: bool(cond.get("key")) and plan.rules.ability_uses.get(
         f"{cond['key']}:t{plan.state.turn.number}", 0) >= int(cond["n"]),
     "attackers_power": lambda plan, ctx, cond, log: plan.rules.attack_power.get(ctx["controller"], 0) >= int(cond["n"]),
-    "self_attacked": lambda plan, ctx, cond, log: _source_object(plan, ctx) in {a for v in log.attackers.values() for a in v},
+    "self_attacked": lambda plan, ctx, cond, log: _self_attacked(plan, ctx, cond, log),
     "graveyard_cards": lambda plan, ctx, cond, log: _graveyard_cards(plan, ctx, cond, log),
     "rolled": lambda plan, ctx, cond, log: log.rolled.get(ctx["controller"], 0) >= int(cond["n"]),  # -- dice (wave 24B) --
 }
+
+
+def _self_attacked(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
+    """508.1: the source was declared as an attacker this turn, or (``combat``, wave 38A) in the combat phase this is — "Tolsimir attacked this
+    combat" is still so if it left combat since (603.4), but not in another combat of the turn (500.8)."""
+    oid = _source_object(plan, ctx)
+    if cond.get("combat"):
+        from app.game.state import COMBAT_PHASES
+
+        return oid is not None and plan.state.turn.phase in COMBAT_PHASES and log.declared.get(oid) == plan.rules.combats
+    return oid in {a for v in log.attackers.values() for a in v}
 
 
 def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:

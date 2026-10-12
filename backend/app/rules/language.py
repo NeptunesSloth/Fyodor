@@ -3380,9 +3380,9 @@ _RA_HOST = r"(?: attached to (?P<host>this creature|~|that creature|enchanted cr
 _RA_TAPPED = rf"(?P<t> tapped(?P<atk> and attacking{token_grammar.AT})?)?"
 _RA_TAPPED2 = rf"(?P<t2> tapped(?P<atk2> and attacking{token_grammar.at_re('2')})?)?"
 _RA_RETURN = re.compile(rf"return (?P<o>.+?) to (?:(?P<h>your hand|its owner's hand|their owner's hand|their owners' hands|their hand)|"
-                        rf"the battlefield{_RA_TAPPED}(?P<fd> face down)?{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST})")  # (face down: wave 18A, 708.4)
+                        rf"the battlefield{_RA_TAPPED}(?P<xf> transformed)?(?P<fd> face down)?{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST})")  # (face down: wave 18A, 708.4; transformed: wave 37B, 712.14a)
 _RA_PUT = re.compile(rf"put (?P<o>.+?) onto the battlefield{_RA_TAPPED}{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST}")
-_RA_ZONE = r"(?:your graveyard|a graveyard|an opponent's graveyard)"
+_RA_ZONE = r"(?:your graveyard|your hand or graveyard|a graveyard|an opponent's graveyard)"  # (-- reanimation (wave 37B) -- Danitha: "from your hand or graveyard")
 _RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any number of )|(?P<n>{AMT}) )(?P<what>[^,]+?)(?P<rand> at random)?"
                         rf" from (?P<z>{_RA_ZONE})")
 _RA_SELF = re.compile(r"(?:this card|~) from your graveyard")
@@ -3391,6 +3391,18 @@ _RA_SELF = re.compile(r"(?:this card|~) from your graveyard")
 _RA_SELF_ZONE = re.compile(r"put (?:(?P<h>this card|~) from your hand onto the battlefield|~ onto the battlefield from the command zone)")
 _RA_LIB = re.compile(r"put (?P<o>.+? from your graveyard) on top of your library")  # (wave 3R4)
 _RA_LIB_NTH = re.compile(r"put (?:this card|~) from your graveyard into your library (?P<n>second|third) from the top")
+# -- reanimation (wave 37B) -- "the top creature card of your graveyard" (Shallow Grave, Corpse Dance, Mistmoon Griffin): nothing is chosen, the topmost
+# creature card in the graveyard order (404.1: the graveyard is kept in order, face up); "this card and target land card from your graveyard"
+# (Sandman, Slimefoot and Squee): the source and a target of the ability, entering together (one instruction, 608.2c)
+_RA_TOP = re.compile(r"the top (?P<what>[^,]+? card) of your graveyard")
+_RA_SELF_AND = re.compile(r"(?:this card|~) and (?P<rest>.+? from your graveyard)")
+_PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Planeswalker", "Battle"})
+
+
+def _hand_or_graveyard(sel: Any) -> bool:
+    """-- reanimation (wave 37B) -- a selector over "your hand or graveyard" for a permanent card (an instant or sorcery card can't enter the battlefield)."""
+    return (sel is not None and sel.card and sel.zones == ("hand", "graveyard") and sel.zone_owner == "you" and not sel.player
+            and bool(sel.types or sel.subtypes) and set(sel.types) <= _PERMANENT_TYPES)
 
 
 def _graveyard_cards(key: str) -> bool:
@@ -3507,6 +3519,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     if not hand:  # (110.2a: the one instructed controls it unless the text says "its owner's")
         atk = m["atk"] or m["atk2"]
         effect.update(tapped=bool(m["t"] or m["t2"]), under="owner" if m["u"] and m["u"] != "your" else "you")
+        if m.groupdict().get("xf"):  # -- reanimation (wave 37B) -- 712.14a: "Return this card from your graveyard to the battlefield transformed" (Garland): it enters with its back face up
+            effect["transformed"] = True
         if m.groupdict().get("fd"):  # -- hidden exile (wave 18A) -- "return it to the battlefield face down" (708.4: a 2/2 face-down creature)
             effect["face_down"] = True
         if m["ck"]:  # -- refused zones/sized (wave 3R4) --
@@ -3532,8 +3546,24 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     if not may and not hand and (one := this_way.choice_who(obj)) is not None:
         # -- resolution memory (wave 22D) -- "return a creature card put into a graveyard this way": one of them, chosen (608.2d)
         return [{**effect, "do": "return_choice", "who": one, "n": 1, "upto": False, "random": False, "label": "card"}], None
+    if not may and not hand and (top := _RA_TOP.fullmatch(obj)) is not None:  # -- reanimation (wave 37B) -- "the top creature card of your graveyard"
+        sel = selectors.parse(f"{top['what']} from your graveyard")
+        if sel is None or not _graveyard_cards(sel.key()) or "card" not in top["what"].split() or host_group is not None:
+            return None
+        return [{**effect, "do": "return_choice", "sel": sel.key(), "n": 1, "upto": False, "random": False, "top": True, "label": top["what"]}], None
     if may and not _RA_CHOICE.fullmatch(obj):
         return None  # (only a choice models its own "may": choosing none)
+    if (both := _RA_SELF_AND.fullmatch(obj)) is not None and not may and host_group is None:
+        # -- reanimation (wave 37B) -- "Return this card and target land card from your graveyard to the battlefield tapped" (Sandman), "… this card and up to
+        # one other target creature card …" (Slimefoot and Squee): the source, and the ability's target; both move in one instruction (608.2c), so both enter
+        # at once (603.6a). Works from the graveyard only (113.6m: casting._GRAVEYARD_SELF)
+        try:
+            kind, key, group = ref(both["rest"])
+        except _Fail:
+            return None
+        if kind != "target" or group is None or not _graveyard_cards(key):
+            return None
+        return [{**effect, "who": _who(kind, key), "also": "self_gy"}], _one(group)
     if _RA_SELF.fullmatch(obj) or obj == "this card":  # works from the graveyard (113.6m): coverage keeps it to activated abilities
         # (wave 19C: "return this card to your hand" — a card that isn't on the battlefield: the one in the graveyard, nothing if it left)
         return [{**effect, "who": "self_gy"}], _one(host_group)  # (wave 25D: a host target, "attached to target creature")
@@ -3555,7 +3585,12 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
             what, different = dm["a"] + (dm["b"] or ""), "name" if dm["k"] == "names" else "mana_value"
         words = re.sub(r"\bcards\b", "card", what)
         sel = selectors.parse(f"{words} from {c['z']}")
-        if sel is None or not _graveyard_cards(sel.key()):
+        if sel is None:
+            return None
+        if c["z"] == "your hand or graveyard":  # -- reanimation (wave 37B) -- the hidden hand is asked about whether or not a card is there (effects.return_choice)
+            if hand or c["rand"] or not _hand_or_graveyard(sel):
+                return None
+        elif not _graveyard_cards(sel.key()):
             return None
         n = 999 if c["any"] else _amount(c["upto"] or c["n"]) if (c["upto"] or c["n"]) else 1  # ("any number of": wave 3R4)
         if not isinstance(n, int) or (c["rand"] and (c["upto"] or c["any"] or sel.zone_owner != "you")):
