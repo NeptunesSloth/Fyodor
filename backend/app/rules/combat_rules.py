@@ -351,8 +351,10 @@ _MUST_YOU = re.compile(r"(?P<o>target creature(?: an opponent controls)?) attack
 _EACH_COMBAT = re.compile(r"(?P<o>.+?) (?:attack each combat if able(?P<pl> and attack a player other than you if able)?"
                          r"|attacks each combat if able(?P<sg> and attacks a player other than you if able)?)"
                          r"(?P<eot> until end of turn)?")
-_EACH_OPP = re.compile(r"for each opponent, (?P<create>create .+? token(?:s)? that's tapped and attacking) that player"
-                       r"(?P<pw> or a planeswalker they control)?")
+# -- tapped and attacking (wave 38B) -- "for each opponent, you create a 2/2 … token that's tapped and attacking that opponent" (Stampede Surfer, Veteran
+# Soldier): the same instruction as "… attacking that player", the player being the one this opponent is (508.4: the effect says what it attacks)
+_EACH_OPP = re.compile(r"for each opponent, (?:you )?(?P<create>create .+? token(?:s)? that's tapped and attacking) "
+                       r"(?:that player(?P<pw> or a planeswalker they control)?|that opponent)")
 _AND_EXTRA = re.compile(r"(?P<a>.+?),? and (?P<b>after this (?:main |combat )?phase, there is an additional combat phase.*)")
 _REMOVE = re.compile(r"remove (?P<o>.+?) from combat")
 _MAZE = re.compile(r"prevent all combat damage that would be dealt to and dealt by (?P<o>that creature|it|target creature(?: you control)?|~)"
