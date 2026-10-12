@@ -450,6 +450,13 @@ def _your_zone(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, m["z"], "you")
 
 
+@_suffix(r"from your hand or graveyard")  # -- reanimation (wave 37B) -- "an Aura or Equipment card from your hand or graveyard" (Danitha): two zones, both yours
+def _your_hand_or_graveyard(s: Selector, m: re.Match[str]) -> Selector:
+    if s.zones != _DEFAULT.zones:
+        raise ValueError("conflicting zones")
+    return replace(s, zones=("hand", "graveyard"), zone_owner="you", card=True)
+
+
 @_suffix(r"(?:from|in) (?:a|any) graveyard")
 def _any_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", None)

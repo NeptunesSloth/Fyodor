@@ -3636,7 +3636,8 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
     return cost
 
 
-_GRAVEYARD_SELF = re.compile(r"(?:return|put) (?:this card|this creature|this artifact|this land|~) from your graveyard\b", re.I)
+# (-- reanimation (wave 37B) -- "Return this card and target land card from your graveyard to the battlefield tapped" (Sandman): this card too)
+_GRAVEYARD_SELF = re.compile(r"(?:return|put) (?:this card|this creature|this artifact|this land|~)(?: and [^:.]*?)? from your graveyard\b", re.I)
 
 
 def _own_text(text: str, name: str) -> str:
