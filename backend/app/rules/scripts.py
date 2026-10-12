@@ -1069,6 +1069,8 @@ def rename_bindings(value: Any, prefix: str) -> Any:
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
             v = "ref:" + prefix + v[4:]
+        elif isinstance(v, str) and v.startswith("graveyard_of:ref:") and not v.startswith("graveyard_of:ref:event"):
+            v = "graveyard_of:ref:" + prefix + v[len("graveyard_of:ref:"):]  # -- reanimation (wave 37B) -- "exile its owner's graveyard": the player a binding names (a spell's line kept it unrenamed)
         elif isinstance(v, str) and v.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- (Martial Coup)
             v = "except:" + prefix + v[len("except:"):]
         else:
@@ -2153,6 +2155,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # abilities." (Xu-Ifit): layers 4 and 6 (613.1d, 613.1f) of one effect, as "It loses all abilities and becomes a Skeleton in addition to its other types."
     body = re.sub(r"\b(It|That creature)'s an? ([A-Z][a-z]+) in addition to its other types and has no abilities\b",
                   r"\1 loses all abilities and becomes a \2 in addition to its other types", body)
+    # -- reanimation (wave 37B) -- "Put target creature card from an opponent's graveyard onto the battlefield tapped under your control. Then that player mills X
+    # cards." (Geth), "…, then exile that player's graveyard." (Nurgle's Conscription): that player is whose graveyard the card was in, its owner (400.3)
+    body = re.sub(r"(from an opponent's graveyard[^.]*?\.) Then that player (mills [^.]*\.)", r"\1 Then its owner \2", body)
+    body = re.sub(r"(from an opponent's graveyard[^.]*?), then exile that player's graveyard\.", r"\1. Exile its owner's graveyard.", body)
     # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
     # opponent, the token grammar's "… for each opponent"
     body = re.sub(r"(^|\. )For each opponent, you (create (?![^.,]* with )[^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
@@ -3420,6 +3426,11 @@ def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     # (Elvish Piper): the "may" is choosing no card
     if parsed is not None and parsed[2] and parsed[0] and parsed[0][0]["do"] == "put_from_hand":
         return [{**parsed[0][0], "optional": True}, *parsed[0][1:]], parsed[1], False
+    # -- zone replacements (wave 37B) -- "When you unlock this door, you may cast spells from your graveyard this turn, and if a card would be put into your graveyard
+    # from anywhere this turn, exile it instead." (Walk-In Closet): the "may" is the cast permission's own; the exile is not optional (Forgotten Cellar's ruling)
+    if parsed is not None and parsed[2] and parsed[0] and parsed[0][0]["do"] == "grant_play" and parsed[0][0].get("zone") == "graveyard" \
+            and any(e.get("do") == "exile_if_dies" and e.get("cards") for e in parsed[0][1:]):
+        return parsed[0], parsed[1], False
     # -- reanimation (wave 37B) -- "You may put an artifact card from your hand or graveyard onto the battlefield." (Dakkon, Danitha): the same, with the
     # graveyard too -- the "may" is choosing no card, asked privately as the hand holds cards (effects.return_choice), not a question about the whole ability
     if parsed is not None and parsed[2] and parsed[0] and parsed[0][0]["do"] == "return_choice" and "hand" in _sel_zones(parsed[0][0]):

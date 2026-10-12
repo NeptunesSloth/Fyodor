@@ -3580,10 +3580,12 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
             what, different = dm["a"] + (dm["b"] or ""), "name" if dm["k"] == "names" else "mana_value"
         words = re.sub(r"\bcards\b", "card", what)
         sel = selectors.parse(f"{words} from {c['z']}")
+        if sel is None:
+            return None
         if c["z"] == "your hand or graveyard":  # -- reanimation (wave 37B) -- the hidden hand is asked about whether or not a card is there (effects.return_choice)
             if hand or c["rand"] or not _hand_or_graveyard(sel):
                 return None
-        elif sel is None or not _graveyard_cards(sel.key()):
+        elif not _graveyard_cards(sel.key()):
             return None
         n = 999 if c["any"] else _amount(c["upto"] or c["n"]) if (c["upto"] or c["n"]) else 1  # ("any number of": wave 3R4)
         if not isinstance(n, int) or (c["rand"] and (c["upto"] or c["any"] or sel.zone_owner != "you")):
