@@ -94,7 +94,7 @@ SELF_IF = re.compile(rf"^(?:this spell|~) costs {_N} less to cast if (?P<cond>.+
 _QUAL = r" with [a-z ]+? (?:\d+ or (?:less|greater)|less than or equal to the number of [a-z]+ counters on ~)"
 PERMISSION = re.compile(
     r"^(?:(?P<once>once during each of your turns, )|(?P<during>during (?:your turn|each of your turns), )|(?P<whilst>as long as [^,]+, ))?you may "
-    r"(?P<what>play lands and cast spells|play lands|cast spells|play a land|(?P<slots>play a land and cast a permanent spell of each permanent type)|"
+    r"(?P<what>play lands and cast spells|play cards|play lands|cast spells|play a land|(?P<slots>play a land and cast a permanent spell of each permanent type)|"
     r"play lands and cast (?P<psel>[a-z][a-z' ,-]*?) spells|play (?P<lsel>[a-z][a-z']*)(?P<lands> lands)?|"
     rf"play a (?P<hist>historic )?land(?: from your graveyard)? or cast (?:a |an )?(?P<csel>[a-z][a-z' ,-]*?) spell(?P<cq>{_QUAL})?|"
     rf"cast (?:a |an )?(?P<sel>[a-z][a-z' ,-]*?) spells?(?P<qual>{_QUAL})?|cast (?:this card|~))"
@@ -104,6 +104,8 @@ PERMISSION = re.compile(
     r"(?:\. If (?:(?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead"
     r"|(?:you cast a spell this way|you do), (?:that [a-z]+ enters (?:(?P<tapped>tapped)|(?P<fin>with a finality counter on it))|it gains \"(?P<gain>[^\"]+)\")))?$",
     re.IGNORECASE)
+_GY_POOL = re.compile(r" from among cards in your graveyard that (?:were put there from (?P<from>anywhere other than the battlefield|your library)|"
+                      r"(?P<milled>were milled)) this turn$")  # (-- free cast (wave 40D) --)
 # -- resolution memory (wave 22D) -- "You may play lands and cast spells from among cards exiled with this creature." (Nightveil Specter),
 # "During your turn, if an opponent lost life this turn, you may play lands and cast spells from among cards exiled with this enchantment."
 # (Theater of Horrors): a static permission (611.3a) over the cards the object's linked exiling ability exiled (607.2a)
@@ -157,9 +159,14 @@ _UNTILS = "until end of turn|until the end of your next turn|until your next end
 # the ability stays manual. A bare "You may cast that card." (no duration) means "cast it now, as
 # this resolves, ignoring timing" — not a permission that lasts: refused.
 GRANT_THAT = re.compile(rf"^(?:(?P<until>{_UNTILS}), )?you may (?P<verb>play|cast) "
-                        r"(?P<what>that card|those cards|it)(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?"
+                        r"(?P<what>that card|those cards|it)(?P<from_ex> from exile)?(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?"
                         r"(?:, and (?P<spend>mana of any type can be spent to cast (?:that spell|those spells))"  # (wave 25C: Dire Fleet Daredevil)
                         r"| and (?P<spend2>you may spend mana as though it were mana of any (?P<k2>color|type) to cast (?:that spell|those spells)))?$")  # (Hurl Through Hell)
+# -- free cast (wave 40D) -- "Until end of turn, you may cast noncreature spells from among those cards without paying their mana costs." (Narset, Enlightened
+# Master), "Until end of turn, you may cast spells from among them." (Apex of Power): a permission (611.2a) for each of the cards an earlier instruction moved,
+# any number of them, with the cast's own timing (601.3) — the spell kind a quality of the permission (it is read when a card is cast)
+AMONG_GRANT = re.compile(r"^until end of turn, you may cast (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells from among (?:them|those cards|those exiled cards|the exiled cards)"
+                         r"(?P<free> without paying their mana costs)?$")
 # -- refused grants/replacements (wave 3R2) -- "You may play that card until the end of your next turn."
 _TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|those cards|it|them)(?: without paying (?:its|their) mana costs?)?) "
                              rf"(?P<until>{_UNTILS})$")
@@ -423,7 +430,7 @@ def spell_filter(phrase: str | None, tail: str | None = None) -> str | None:
 
 
 def _permission_what(what: str, sel: str | None, qual: str | None) -> dict[str, Any] | None:
-    if what in ("play lands and cast spells",):
+    if what in ("play lands and cast spells", "play cards"):  # (-- free cast (wave 40D) -- 305.1, 601.1: playing cards is playing lands and casting spells: Hades, Sorcerer of Eld)
         return {"play": True, "cast": True, "filter": None}
     if what in ("play lands", "play a land"):
         return {"play": True, "cast": False, "filter": None}
@@ -431,6 +438,8 @@ def _permission_what(what: str, sel: str | None, qual: str | None) -> dict[str, 
         return {"play": False, "cast": True, "filter": None}
     if what in ("cast this card", "cast ~"):
         return {"play": False, "cast": True, "filter": None, "self": True}
+    if sel in ("a", "an") and not qual:  # (-- free cast (wave 40D) -- "you may cast a spell from your graveyard": any spell, "a" is the article)
+        return {"play": False, "cast": True, "filter": None}
     key = spell_filter(sel, qual.strip() if qual else None)  # (-- cast permissions (wave 30Q) -- the quality is the selector's tail: "permanent" + "with mana value 2 or less")
     if key is None:
         return None
@@ -689,7 +698,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 "play": m["what"] != "cast spells from among", "cast": m["what"] != "play lands from among", "filter": None, "effects": [],
                 **({"once_any": True} if m["once"] else {}), **({"free": True, "life_mv": True} if m["life"] else {}),
                 **({"during": "your_turn"} if m["during"] else {}), **({"if": cond} if cond is not None else {})}
-    m = PERMISSION.fullmatch(t)
+    # -- free cast (wave 40D) -- "… from among cards in your graveyard that were put there from anywhere other than the battlefield / from your library this turn"
+    # (Banon, Kagha), "… that were milled this turn" (Raul): the permission of the graveyard, for the cards that arrived this turn as that says (the turn's log, 400.7)
+    pool = _GY_POOL.search(t)
+    m = PERMISSION.fullmatch(t[:pool.start()] + " from your graveyard" if pool is not None else t)
     if m:
         what = _permission_forms(m)
         if what is None:
@@ -729,6 +741,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             # that card (401.5; app/rules/view.hints): without a reveal / look line on the same
             # card the permission could never be used — refused rather than claimed
             return None
+        if pool is not None:
+            if zone != "graveyard" or what.get("self") or what.get("slots") or m["by"] or m["exile"] or m["gain"] or m["fin"] or m["tapped"]:
+                return None  # (the pool is read for the plain graveyard permission only)
+            extras["put_there"] = "milled" if pool["milled"] else "library" if pool["from"] == "your library" else "not_battlefield"
         return {"kind": "static", "static": "permission", "zone": zone, "once": bool(m["once"]), "flash": False,
                 "self": bool(what.get("self")), "play": what["play"], "cast": what["cast"], "filter": what["filter"],
                 "effects": [], **extras, **({"exile_gy": "is" if m["exile"] == "an instant or sorcery" else "all"} if m["exile"] else {})}
@@ -874,6 +890,12 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     among = _free_among(text)  # -- refused look/cast-free (wave 3R5) --
     if among is not None:
         return among, None
+    if (granted := AMONG_GRANT.fullmatch(text)) is not None:  # -- free cast (wave 40D) --
+        key = spell_filter(granted["sel"]) if granted["sel"] else None
+        if granted["sel"] and key is None:
+            return None
+        return [{"do": "grant_play", "who": "them:card", "play": False, "cast": True, "until": "end_of_turn", "optional": True,
+                 **({"filter": key} if key else {}), **({"free": True} if granted["free"] else {})}], None
     target = _free_target(text)
     if target is not None:
         return target
@@ -920,6 +942,8 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if m and (m["d1"] or m["d2"] or m["d3"]):
         return _grant_exiled(m)
     m = GRANT_THAT.fullmatch(text)
+    if m and m["from_ex"] and bool(m["until"]) == bool(m["this_turn"]):
+        return None  # -- free cast (wave 40D) -- "play that card from exile this turn" (Norin) is a permission with a stated duration only
     if m and m["free"] and not (m["until"] or m["this_turn"]):
         if m["what"] == "those cards":
             return None  # (several cards at once: not modelled)
@@ -945,7 +969,7 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         # ("that card": a card — never a token the same sentence created, 111.1: scripts.resolve_it)
         return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play",
                  "cast": True, "until": until, "optional": True, **({"free": True} if free else {}),
-                 **({"spend": spend_kind} if spend_kind else {})}], None
+                 **({"spend": spend_kind} if spend_kind else {}), **({"from_exile": True} if m["from_ex"] else {})}], None
     m = GRANT_ZONE.fullmatch(text)
     if m:
         if m["until"] and m["this_turn"]:
@@ -1142,6 +1166,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         if d["zone"] != "any" and d["zone"] != where:
             continue
+        if d.get("put_there") and not selectors.put_there_state(state, card, d["put_there"]):
+            continue  # -- free cast (wave 40D) -- only a card that is the object put into the graveyard this turn from there (400.7)
         # -- spell grants (wave 30T) -- 611.3a: "As long as ~ is tapped, you may cast spells as though they had flash" is read now, as its source's controller;
         # "the first creature spell you cast each turn" (601.2i): none of that kind cast earlier this turn, whenever the source arrived
         if d.get("if") is not None and not _linked_if(state, info, src.controller, src, d["if"]):
@@ -1446,11 +1472,14 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         for cid in _effects._cards(plan, ctx, "cost_exiled_self") if e["who"] == "cost_exiled_self" else \
                 context.objects(plan, ctx, e["who"][len(context.PREFIX):]) if e["who"] != "target" else _target_cards(plan, ctx):
             card = plan.state.cards[cid]
+            if e.get("from_exile") and not card.zone.endswith(":exile"):
+                continue  # -- free cast (wave 40D) -- "play that card from exile this turn" (Norin): a card a replacement put elsewhere isn't in exile to be played from
             if (e["until"] == "permanent" or e["until"] in SOURCE_UNTIL) and not card.zone.endswith(":exile"):
                 continue  # (-- Marvel keywords (wave 25A) -- "for as long as it remains exiled": a spell that wasn't countered, a card replaced elsewhere: no permission)
             holder = card.owner if e.get("owner") else pid  # ("its owner may cast it")
             r.permissions.append(Permission(id=secrets.token_hex(4), player=holder, play=e["play"], cast=e["cast"], zone="any",
                                             object_id=plan.oid(card), card=cid, until=e["until"], turn=turn, free=bool(e.get("free")), spend=e.get("spend", ""),
+                                            filter=e.get("filter"),  # (-- free cast (wave 40D) -- "noncreature spells from among those cards")
                                             exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")),  # (wave 25C)
                                             source=ctx.get("source_object"),
                                             label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" without paying its mana cost" if e.get("free") else "")))

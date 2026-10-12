@@ -230,7 +230,7 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
     if log is None:
         return
     for e in events:
-        if e.kind not in ("zone_change", "sacrificed", "damage", "counters") or e.turn != plan.state.turn.number:
+        if e.kind not in ("zone_change", "sacrificed", "damage", "counters", "milled") or e.turn != plan.state.turn.number:
             continue
         for kind, obj, ch, player, info in _facts(plan, e, {"cast_from": {}}):
             what: dict[str, Any] = {"types": sorted(ch.types), "subtypes": sorted(ch.subtypes),
@@ -265,6 +265,8 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
                 last.source_subtypes, last.source_controller = what["subtypes"], obj.controller if obj is not None else None
                 last.source_types, last.source_supertypes = what["types"], what["supertypes"]
                 last.source_spell = obj is not None and obj.zone == "stack" and obj.ability is None
+            elif kind == "mill" and obj is not None:  # -- free cast (wave 40D) -- 701.17a: this object was milled ("cards in your graveyard that were milled this turn", Raul)
+                log.facts.append(TurnFact(kind="mill", player=player or obj.owner, object_id=info.get("oid"), **what))
             elif kind == "to_exile" and player is not None:  # -- this-turn state (wave 33D) -- 400.1: a card put into exile from another zone (a token is no card)
                 log.facts.append(TurnFact(kind="exile", player=player, object_id=info.get("oid"), **what))
             elif kind == "counters_put" and player is not None:
