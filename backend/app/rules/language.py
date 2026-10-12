@@ -522,6 +522,18 @@ def _objects(o: str) -> tuple[list[str], list[dict[str, Any]]]:
     return whos, groups
 
 
+def _tap_it_and_all(verb: str, o: str) -> tuple[Effects, Any] | None:
+    """-- trigger damage (wave 39B) -- "untap it and all Samurai you control" (Godo): no target in either part, so one instruction for each, in the order
+    given (608.2c); "it" is bound like any pronoun. Anything else (a target, a plural of something else) is not read here."""
+    both = re.fullmatch(r"(?P<a>~|it|this creature) and (?P<b>(?:all|each) .+)", o) if verb in ("tap", "untap") else None
+    if both is None:
+        return None
+    one, many = ref(both["a"]), ref(both["b"])
+    if one[0] not in ("it", "self") or one[2] is not None or many[0] != "each" or many[2] is not None:
+        return None
+    return [{"do": verb, "who": _who(one[0], one[1])}, {"do": verb, "who": _who(many[0], many[1])}], None
+
+
 RESTRICTIONS = {"block": ["cant_block"], "attack": ["cant_attack"], "attack or block": ["cant_attack_or_block"],
                 "be blocked": ["cant_be_blocked"]}
 
@@ -1751,6 +1763,10 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return found
     m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap|airbend) (?P<o>.+)", text)  # (-- trigger other (wave 25B) -- airbend 701.65: app/rules/airbend.py)
     if m and not (m["v"] == "airbend" and re.search(r"\bspells?\b", m["o"])):
+        # -- trigger damage (wave 39B) -- "untap it and all Samurai you control" (Godo): no target in either part, so one instruction for each, in the
+        # order given (608.2c); "it" is bound like any pronoun
+        if (found_both := _tap_it_and_all(m["v"], m["o"])) is not None:
+            return found_both
         whos, groups = _objects(m["o"])
         if len(whos) > 1:  # "destroy target artifact and target enchantment": one group each (115.3)
             # -- activated other (wave 34B) -- "Exile ~ and target creature without flying that's attacking you." (Hunting Kavu), "Exile Mangara and target

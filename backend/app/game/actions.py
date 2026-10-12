@@ -1272,6 +1272,7 @@ class DamageDealt(BaseModel):
     target: Id  # card id or player id
     target_object: Annotated[str, Field(max_length=64)] | None = None
     amount: int = Field(ge=0, le=100000)
+    excess: int = Field(default=0, ge=0, le=100000)  # -- trigger damage (wave 39B) -- 120.10: the excess damage this batch dealt to the target (on its first event)
 
 
 class RulesLog(Base):

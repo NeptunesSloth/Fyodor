@@ -1025,6 +1025,34 @@ def _object_dealt(m: re.Match[str]) -> Condition | None:
     return _obj(m, "damaged", n=n, **_damage_kind(m), **({"negate": True} if m["neg"] != "was" else {}))
 
 
+# -- trigger damage (wave 39B) -- 120.10: "if that creature was dealt excess damage this turn" (Maarika), "if a creature or planeswalker an opponent
+# controlled was dealt excess damage this turn" (Rith): the turn's log keeps the excess each damage event dealt to a permanent (TurnFact.excess)
+@_history_pattern(rf"{_HO} (?P<neg>wasn't|was not|was) dealt excess damage this turn")
+def _object_dealt_excess(m: re.Match[str]) -> Condition:
+    return _obj(m, "damaged", n=1, excess=True, **({"negate": True} if m["neg"] != "was" else {}))
+
+
+@_history_pattern(r"an? (?P<sel>.+?) (?P<ctl>you|an opponent) controlled (?:was|were) dealt excess damage this turn")
+def _any_dealt_excess(m: re.Match[str]) -> Condition | None:
+    key = _history_sel(m["sel"], "battlefield")  # (the types it was as it was dealt the damage: 608.2i)
+    return None if key is None else {"history": "facts", "kind": "damaged", "excess": True, "sel": key, "n": 1,
+                                     "who": "you" if m["ctl"] == "you" else "opponent"}
+
+
+@_history_pattern(rf"an? (?P<kinds>[A-Z]\w+(?:(?:, or | or |, )[A-Za-z]\w+)*) you controlled dealt damage to {_HO} this turn")
+def _dealt_by_kinds(m: re.Match[str]) -> Condition | None:
+    """"if a Giant, Wizard, or spell you controlled dealt damage to it this turn" (Aegar): a source of one of those creature types or a spell,
+    under your control as it dealt the damage (the log keeps the source's types and controller as they were then, 608.2i)."""
+    from app.rules.creature_types import CREATURE_TYPES
+
+    kinds = re.split(r", or |, | or ", m["kinds"])
+    spell = "spell" in kinds
+    types = [k for k in kinds if k != "spell"]
+    if not types or not all(t in CREATURE_TYPES for t in types):
+        return None
+    return _obj(m, "damaged_by", subtypes=types, spell=spell)
+
+
 @_history_pattern(rf"(?P<n>\w+) or more (?P<kind>combat |noncombat )?damage was dealt to {_HO} this turn")
 def _damage_dealt_to_object(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"])

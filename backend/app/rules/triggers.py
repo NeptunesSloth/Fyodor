@@ -596,7 +596,7 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     if got is not None:
         out.append(("dealt_damage", got[0], got[1], got[0].controller,
                     {"oid": e.object_id, "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or ""),
-                     "amount": e.amount, "source_oid": e.source, "combat": e.combat}))
+                     "amount": e.amount, "source_oid": e.source, "combat": e.combat, "excess": e.excess}))  # (wave 39B: 120.10)
     elif e.player is not None:  # "you're dealt combat damage", "an opponent is dealt noncombat damage"
         out.append(("dealt_damage", None, None, e.player,
                     {"recipient": e.player, "amount": e.amount, "source_oid": e.source, "combat": e.combat}))
@@ -781,6 +781,10 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
     if event == "dealt_damage" and cond.get("combat") is not None and bool(info.get("combat")) != cond["combat"]:
         return False
+    if event == "dealt_damage" and cond.get("excess") and int(info.get("excess") or 0) <= 0:  # -- trigger damage (wave 39B) -- 120.10: it was dealt excess damage
+        return False
+    if cond.get("first_each_turn") and event in ("dealt_damage", "deal_combat_damage_player", "counters_put") and not _first_of(plan, cond, event, info):
+        return False  # (wave 39B)
     if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)
         return False
     if event == "discard" and cond.get("first_each_turn") and not _first_discard(plan, cond, player, info):  # (wave 36A)
@@ -954,6 +958,26 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
     return want == "player"
 
 
+def _first_of(plan: Plan, cond: dict[str, Any], event: str, info: dict[str, Any]) -> bool:
+    """-- trigger damage (wave 39B) -- "Whenever ~ is dealt damage / deals combat damage to a player / has +1/+1 counters put on it for the first time each
+    turn" (Hercules, Raphael, Axgard Artisan, Danny Pink; 603.2): this event is the first of its kind for THIS object this turn when no earlier batch of the
+    turn did the same to it (400.7: a new object has done nothing yet). The turn's log has each damage and counters fact with its batch (history.note_events),
+    so an ability the object gained mid-turn counts what happened before it had it, and two events of one batch (simultaneous damage) are one."""
+    from app.rules import history
+
+    batch, oid = int(info.get("batch") or 0), info.get("oid")
+    kind, key = {"dealt_damage": ("damaged", "object_id"), "deal_combat_damage_player": ("damage", "object_id"),
+                 "counters_put": ("counters", "object_id")}[event]
+    for f in history.log_for(plan).facts:
+        if f.kind != kind or getattr(f, key) != oid or f.amount <= 0 or not f.batch or f.batch >= batch:
+            continue
+        if (event == "dealt_damage" and cond.get("combat") is not None and f.combat != cond["combat"]) \
+                or (event == "deal_combat_damage_player" and not f.combat) or (event == "counters_put" and cond.get("counter") and f.counter != cond["counter"]):
+            continue
+        return False
+    return True
+
+
 def _first_discard(plan: Plan, cond: dict[str, Any], player: str | None, info: dict[str, Any]) -> bool:
     """-- trigger other (wave 36A) -- "Whenever you discard one or more [nonland] cards for the first time each turn" (Rielle, the Everwise; Veronica,
     Dissident Scribe): this event (the batch of discards, 603.2c) is the first of its kind this turn when no earlier batch of the turn discarded a card
@@ -1109,6 +1133,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 continue
             event = _event(plan, fact, batch)
             info = fact[4]
+            if cond.get("excess"):  # -- trigger damage (wave 39B) -- 120.10: "that excess damage" / "the excess": the amount of this event is the excess (the batch's total, 603.2c)
+                event.amount = int(info.get("excess") or 0)
             if cond["event"] == "you_attack" and cond.get("min_attackers"):  # -- history (wave 22E; review) -- "those creatures", "that many":
                 # the attackers the condition counted (508.1, 603.2c)
                 counted = _counted_attackers(plan, cond, watcher, info)
@@ -1129,7 +1155,7 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             per = (info.get("oid") or info.get("recipient") or "") if one_event else \
                 info.get("recipient") or info.get("actor") or (info.get("defended") if cond.get("defender") else "") or ""
             if cond.get("to") in ("players", "opponents", "creatures"):  # -- source damage (wave 11F) -- 603.2c: one per batch
-                per = ""
+                per = (info.get("oid") or "") if cond.get("subject") == "source" else ""  # (wave 39B: "a source …": each source of the batch, 603.2c)
             if cond["event"] == "mill" and cond.get("aggregate") and cond.get("player") == "any":
                 per = ""  # -- triggers (wave 17D) -- "one or more cards are milled": every player's cards of the batch are one event (603.2c)
             if cond.get("all_players"):
@@ -1224,8 +1250,8 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             r.draws_this_turn[e.player] = r.draws_this_turn.get(e.player, 0) + 1
         facts = _facts(plan, e, window)
         for f in facts:
-            if f[0] == "discard":
-                f[4]["batch"] = e.batch  # -- trigger other (wave 36A) -- the event batch, for "for the first time each turn" (_first_discard)
+            if f[0] in ("discard", "dealt_damage", "deal_combat_damage_player", "counters_put"):
+                f[4]["batch"] = e.batch  # -- trigger other (wave 36A) -- the event batch, for "for the first time each turn" (_first_discard; wave 39B: _first_of)
         for f in facts:  # -- trigger qualifiers (wave 11C) -- 603.2: "for the first time each turn", kept per player whoever watches
             if f[0] in _FIRST_KINDS and f[3] and int(f[4].get("amount") or 0) > 0:
                 key = f"first:{f[0]}:{f[3]}"

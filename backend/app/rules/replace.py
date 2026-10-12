@@ -2111,6 +2111,14 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
         return
     dealt = [{"source": ev["source_oid"], "target": ev["target"], "amount": int(ev["amount"]),
               **({"target_object": plan.oid(ev["target"])} if ev["target"] in plan.state.cards else {})} for ev in out.events]
+    # -- trigger damage (wave 39B) -- 120.10, 120.4a: the excess damage the sources of this batch together dealt to each permanent (above the
+    # lethal damage left, as it was before this damage; deathtouch 702.2c), on the first event of that permanent: "is dealt excess damage" triggers
+    # and the turn's log read it (the one place lethal damage is computed for them, this_way.excess_by_target)
+    from app.rules import this_way as _this_way
+
+    for target, over in _this_way.excess_by_target(plan, out.events, note=False).items():
+        if over > 0:
+            next(d for d in dealt if d["target"] == target)["excess"] = over
     # (-- can't lose life (wave 29D) -- 120.3a: a player was dealt damage whether or not it made them lose life: bloodthirst reads the damage)
     for pid in [*out.players, *out.poison, *(d["target"] for d in dealt)]:
         if pid in plan.state.players:

@@ -45,6 +45,12 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
     # difference between that number and the cards in hand as it resolves (608.2h; the "if" holds again then, 603.4)
     body = re.sub(r"^(if you have fewer than (\w+) cards in hand, draw cards equal to) the difference\.$",
                   r"\1 \2 minus the number of cards in your hand.", body)
+    # -- trigger damage (wave 39B) -- "if a Giant, Wizard, or spell you controlled dealt damage to it this turn" (Aegar): the list's commas would end the
+    # condition early; it is "a Giant or Wizard or spell" (conditions._dealt_by_kinds)
+    body = re.sub(r"^(if an? [A-Z]\w+(?:, [A-Z]\w+)*), or (spell|[A-Z]\w+)( you controlled dealt damage to )",
+                  lambda m: f"{m[1].replace(', ', ' or ')} or {m[2]}{m[3]}", body)
+    if (cond or {}).get("excess"):  # -- trigger damage (wave 39B) -- 120.10: "where X is that excess damage" (Fall of Cair Andros): the amount of an "is dealt excess
+        body = re.sub(r"\b(?:that excess damage|the excess damage|the excess)\b", "the amount of damage dealt", body)  # damage" event is the excess (triggers._fire_generic)
     if (cond or {}).get("event") == "cast":  # "…, if at least four mana was spent to cast it": the spell cast
         body = re.sub(r"^(if (?:at least \w+|\w+ or more) mana was spent to cast) it,", r"\1 that spell,", body)
         # (-- mana provenance (wave 18B) -- "if mana from a Treasure / three or more mana from creatures was spent to cast it")

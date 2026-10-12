@@ -41,8 +41,10 @@ A condition is a dict:
 * counters_put only: ``counter`` (the kind, or None for any);
 * deal_damage only: ``to`` ("any" | "player" | "opponent" | "creature" | "you" | "planeswalker" |
   "player_or_pw" | "player_or_battle" | "enchanted_player"), ``combat`` (True: only combat damage, False: only noncombat
-  damage, None: any); dealt_damage: ``combat`` likewise ("~ is dealt combat damage"), with a player
-  subject for damage dealt to a player ("you're dealt combat damage");
+  damage, None: any), ``min`` ("deals 6 or more damage to an opponent": the damage one source dealt that one recipient in one event); dealt_damage: ``combat``
+  likewise ("~ is dealt combat damage"), with a player subject for damage dealt to a player ("you're dealt combat damage"); ``excess`` (wave 39B, 120.10:
+  "is dealt excess [noncombat] damage": the damage event of a permanent has the excess its sources together dealt, the event's amount is that excess);
+  ``first_each_turn`` (wave 39B, 603.2: this object's first such damage / combat damage to a player / counters put on it this turn, asked of the turn's log);
 * attached / unattached (wave 30S, 603.2e, 701.3d): the Aura / Equipment is the subject; ``other`` the permanent it became attached to / let go of
   (a selector key, the one "on the other side" for "that creature" / "that permanent"), ``to`` "self": it became attached to this object;
 * multi: ``events`` (each a trigger event of this object: "When ~ enters or dies", 603.2).
@@ -91,6 +93,7 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
               # -- source damage (wave 11F) -- 603.2c: "to one or more players" is one trigger for the whole batch
               " to one or more players": "players", " to your opponents": "opponents",
               " to one or more of your opponents": "opponents", " to ~": "self", " to one or more creatures": "creatures"}
+_ONE_OR_MORE_TO = (" to one or more players", " to your opponents", " to one or more of your opponents")  # (wave 39B)
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
 _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
@@ -209,8 +212,14 @@ def _qualified(c: str) -> Condition | None:
         return None  # ("their" is the acting player's: only a player subject has one)
     # (-- counters (wave 33C) -- "Whenever an opponent loses life for the first time during each of their turns" (Valgavoth, Harrower of Souls): each such
     # player's first this turn, which must be their own turn)
-    if inner is None or (first and (inner.get("event") not in ("gain_life", "lose_life", "create_token", "discard") or inner.get("subject") != "player"
-                                    or inner.get("player") not in (("opponent", "any") if during == "their" else ("you",)))):
+    # (-- trigger damage (wave 39B) -- 603.2: "~ is dealt damage / deals combat damage to a player / has counters put on it for the first time each turn" (Hercules,
+    # Raphael, Axgard Artisan, Danny Pink): this object's first such event this turn, asked of the turn's log (triggers._first_of); a granted ability is its own
+    # object's, so only a ``self`` subject, and not "during each of your turns")
+    own_first = first and not during and inner is not None and inner.get("subject") == "self" and not inner.get("aggregate") \
+        and inner.get("event") in ("dealt_damage", "deal_combat_damage_player", "counters_put")
+    if inner is None or (first and not own_first and (inner.get("event") not in ("gain_life", "lose_life", "create_token", "discard")
+                                                      or inner.get("subject") != "player"
+                                                      or inner.get("player") not in (("opponent", "any") if during == "their" else ("you",)))):
         return None
     if first and inner.get("event") == "discard":  # -- trigger other (wave 36A) -- the cards of earlier discards are asked of the turn's log: only what it records
         # (the log records a discarded card's types, subtypes and supertypes: a filter on anything else, a color or a mana value, isn't asked of it)
@@ -292,6 +301,15 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(r"(?P<s>.+?) (?P<v>enters?) (?:the battlefield )?under (?P<w>your|an opponent's) control", c)
     if m and not re.search(r"\b(?:controls?|owns?)\b", m["s"]):
         return _parse(f"{m['s']} {'you control' if m['w'] == 'your' else 'an opponent controls'} {m['v']}")
+    # -- trigger damage (wave 39B) -- 120.10: "Whenever a creature or planeswalker an opponent controls is dealt excess damage" (Aegar), "… excess noncombat
+    # damage" (Toralf): a permanent was dealt damage, and the sources of that event together dealt more than was lethal (the excess is on the damage event,
+    # replace.do_damage); a player is dealt no excess damage
+    m = re.fullmatch(r"(?P<s>.+?) (?:is|are) dealt excess (?P<c>noncombat |combat )?damage", c)
+    if m:
+        inner = _parse(f"{m['s']} is dealt {m['c'] or ''}damage")
+        if inner is None or inner.get("event") != "dealt_damage" or inner.get("subject") in ("player", "host") or inner.get("aggregate"):
+            return None
+        return {**inner, "excess": True}
     # -- counters (wave 7C) -- "Whenever a creature dealt damage by ~ this turn dies" (Sengir Vampire): it dies, and ~ dealt
     # it damage earlier this turn (the turn's log, history.note_events; 700.4, 120.3)
     m = re.fullmatch(r"(?P<s>an? .+?) dealt damage by ~ this turn dies", c)
@@ -655,6 +673,12 @@ def _subject(s: str, *, host: bool = False, many: bool = False) -> Condition | N
     creature"), with ``many`` also "one or more …" (603.2c: one trigger per event batch)."""
     if s == "~":
         return {"subject": "self"}
+    # -- trigger damage (wave 39B) -- "Whenever ~ or an instant or sorcery spell you control deals damage to a player" (Syr Carah): this object or a spell
+    # of that kind (120.1: a spell is a source of damage while it's on the stack, where its selector looks)
+    m = re.fullmatch(r"~ or an? (?P<rest>[^,]+? spells? you control)", s)
+    if m:
+        spell = selectors.parse(m["rest"])
+        return {"subject": "self_or", "sel": spell.key()} if spell is not None and spell.zones == ("stack",) and spell.player is None else None
     if host and s in _HOSTS:
         return {"subject": "host"}
     if host and s in _SELF_OR_HOST:
@@ -1135,10 +1159,12 @@ def _object_event(c: str) -> Condition | None:
     # source of damage (120.1: a permanent, or a spell), once per source and recipient (603.2); ``ctl``: its controller
     m = re.fullmatch(rf"a source(?P<ctl> you control| an opponent controls)? deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?"
                      rf"damage(?P<to>{_DAMAGE_TO_RE}|)", c)
-    if m and m["to"] not in (" to one or more players", " to your opponents", " to one or more of your opponents",
-                             " to one or more creatures") and (m["to"] or not m["min"]):
+    # (-- trigger damage (wave 39B) -- "a source you control deals noncombat damage to one or more of your opponents" (Molten Lavamancer): once per source
+    # for the batch (603.2c; triggers._fire_generic keys it by the source); a threshold over "one or more" recipients isn't read)
+    if m and m["to"] != " to one or more creatures" and (m["to"] or not m["min"]) and not (
+            m["min"] and m["to"] in (" to one or more players", " to your opponents", " to one or more of your opponents")):
         return {"event": "deal_damage", "subject": "source", "to": _DAMAGE_TO[m["to"]],
-                **({"min": _count(m["min"])} if m["min"] else {}),
+                **({"min": _count(m["min"])} if m["min"] else {}), **({"aggregate": True} if m["to"] in _ONE_OR_MORE_TO else {}),
                 "ctl": {" you control": "you", " an opponent controls": "opponent"}.get(m["ctl"] or "", "any"),
                 "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}
     # -- trigger tail (wave 15B) -- "Whenever ~ deals damage to a Vampire": a creature of that type (120.1), as it last existed
@@ -1153,8 +1179,8 @@ def _object_event(c: str) -> Condition | None:
         return {**inner, "to_types": types}
     m = re.fullmatch(rf"(?P<s>.+?) deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?damage(?P<to>{_DAMAGE_TO_RE}|)", c)
     # (combat damage to a player / an opponent and damage to an opponent: the verbs below)
-    if m and not (m["to"] == " to an opponent" and m["c"] != "noncombat ") and \
-            not (m["to"] == " to a player" and m["c"] == "combat ") and (m["to"] or not m["min"]):
+    if m and not (m["to"] == " to an opponent" and m["c"] != "noncombat " and not m["min"]) and \
+            not (m["to"] == " to a player" and m["c"] == "combat " and not m["min"]) and (m["to"] or not m["min"]):  # (wave 39B: a threshold is read here: Deus of Calamity)
         to = _DAMAGE_TO[m["to"]]
         who = _subject(m["s"], host=True, many=to in ("opponent", "player", "player_or_pw", "player_or_battle", "players",
                                                       "opponents", "you"))
