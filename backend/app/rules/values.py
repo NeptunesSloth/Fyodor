@@ -469,10 +469,19 @@ _OPPONENTS_HAND = re.compile(r"^(?:the number of )?opponents? who (?:has|have) (
 # ("who has more cards in hand than you" stays manual: tests/test_rules_wave8b_triggers.py)
 
 
+# -- tokens (wave 38B) -- "the number of nontoken creatures you had enter the battlefield under your control this turn" (Gyome, Master Chef), "for each land you
+# had enter the battlefield under your control this turn" (Emergent Sequence): a look back (608.2i) at what entered under your control this turn, whether or not it
+# is still there (the ruling for Gyome counts those that died, stopped being creatures or changed hands), read as each was when it entered (history.entered)
+_TURN_ENTERED = re.compile(r"^(?:the number of )?(?P<sel>(?:nontoken )?(?:creature|land|permanent|artifact)s?) you had enter the battlefield under your control this turn$")
+
+
 def _turn_amount(what: str) -> Value | None:
     if m := _OPPONENTS_HAND.match(what):  # each opponent whose hand size now says so (the count of a hand is public)
         n = int(m["n"]) if m["n"].isdigit() else NUMBERS.get(m["n"])
         return {"opponents_hand": m["cmp"], "n": n} if n is not None else None
+    if m := _TURN_ENTERED.match(what):
+        sel = selectors.parse(m["sel"])
+        return {"turn_history": "entered", "sel": sel.key()} if sel is not None else None
     m = _TURN_LIFE.match(what)
     if m:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
