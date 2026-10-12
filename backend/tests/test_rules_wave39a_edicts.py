@@ -238,11 +238,11 @@ def test_deep_cavern_bat_looks_at_the_hand_privately_and_exiles_a_nonland_card_u
     murder = all_named(s, "Murder", "p2")[0]
     assert s.state.cards[murder.id].zone == "p2:exile"  # public now
     assert "Murder" in json.dumps(s.view("p3")) and "Giant Growth" not in json.dumps(s.view("p3"))
-    mana(s, R=1)  # Lightning Bolt kills the Bat (1/1): the exile ends, 610.3a
+    mana(s, R=1)  # Lightning Bolt kills the Bat (1/1): the exile ends, 610.3
     cast_from_hand(s, "Lightning Bolt", targets=[bat.id])
     settle(s)
     assert s.state.cards[bat.id].zone == "p1:graveyard"
-    assert s.state.cards[all_named(s, "Murder", "p2")[0].id].zone == "p2:hand"  # 610.3: back where it came from
+    assert s.state.cards[all_named(s, "Murder", "p2")[0].id].zone == "p2:hand"  # 610.3: back in Bob's hand
     check(s)
 
 
@@ -715,6 +715,10 @@ def test_indulgent_tormentor_the_target_opponent_may_sacrifice_or_pay_or_alice_d
     "Each player sacrifices half the permanents they control of their choice, round down each time.",
     # the count of a blocked creature that isn't the source or the event's creature
     "Whenever a creature you control attacks, it gets +1/+1 until end of turn for each creature blocking it.",
+    # Odric, Lunarch Marshal: the variants of hexproof / protection / landwalk a creature may have are granted as those exact abilities (the 2020 ruling), which
+    # a keyword set can't say; "The same is true for …" is not read either
+    "At the beginning of each combat, creatures you control gain first strike until end of turn if a creature you control has first strike. "
+    "The same is true for flying, deathtouch, double strike, haste, hexproof, indestructible, lifelink, menace, reach, skulk, trample, and vigilance.",
 ])
 def test_unread_wordings_stay_manual(text):
     from tests.test_rules_scripts import ch as characteristics

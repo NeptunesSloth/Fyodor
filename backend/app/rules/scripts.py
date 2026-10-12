@@ -4433,10 +4433,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # -- triggers (wave 5D) -- "they lose 2 life", "an additional card"
                 from app.rules import trigger_words
 
+                # -- trigger other (wave 39A) -- ("that player" is read when the damage is to "you" from "a source an opponent controls": it can only be that opponent, Michiko Konda)
                 if cond is not None and cond.get("subject") == "source" and re.search(r"\b(?:that player|they|them)\b", body) \
                         and not (cond.get("ctl") == "opponent" and cond.get("to") == "you" and not re.search(r"\b(?:they|them)\b", body)):
                     return None  # -- source damage (wave 11F) -- the source's controller, or the player dealt damage? (not read)
-                    # (-- trigger other (wave 39A) -- unless the damage is to "you" from "a source an opponent controls": "that player" can only be that opponent, Michiko Konda)
                 body = trigger_words.rewrite_body(body, name, cond, has_player)
                 if name == "step:draw:you":  # -- draw step (wave 6D) -- "At the beginning of your draw step, draw an
                     # additional card.": a triggered ability that draws, after the draw of 504.1 (504.2)
