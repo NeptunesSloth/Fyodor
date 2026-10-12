@@ -213,6 +213,9 @@ def parse(text: str) -> Definition | None:
     body = re.sub(r"(?P<sep>, and| and|,) all creatures able to block it do so$", r"\g<sep> must be blocked by all creatures able", body)
     # -- borrowed abilities (wave 18F) -- "As long as ~ is on the battlefield, …": a static of a permanent works there only (611.3b)
     body = re.sub(r"^As long as (?:~|it) is on the battlefield, ", "", body)
+    # -- static_other (wave 42A) -- 205.4, 613.1d: "Aeve isn't legendary if it's a token." (Aeve, Progenitor Ooze): the supertype taken off while it is a token (a layer 4
+    # effect of the object itself, read as "As long as it's a token, ~ isn't legendary")
+    body = re.sub(r"^(?:~|It) isn't legendary if it's a token$", "As long as it's a token, ~ isn't legendary", body)
     # -- as long as (wave 20B) -- "Each land gets +2/+2 as long as it's a creature." (Earth Surge, Depala's "Each Vehicle you control"): each
     # land that is a creature at that moment (611.3a), as "Each land creature gets +2/+2"
     body = re.sub(r"^Each (?P<n>[A-Za-z]+)(?P<c> you control)? (?P<v>gets? [+−-]\d+/[+−-]\d+) as long as it's a creature$",
@@ -445,6 +448,8 @@ def _layer4_parts(body: str) -> tuple[str, dict[str, Any]] | None:
     creature type). → (the rest of the predicate, or "" when nothing is left; the definition keys)."""
     if _NOT_CREATURE.fullmatch(body):
         return "", {"remove_types": ["Creature"], "add_subtypes": []}
+    if body in ("~ isn't legendary", "it isn't legendary"):  # (wave 42A)
+        return "", {"remove_types": [], "add_subtypes": [], "remove_supertypes": ["Legendary"]}
     # -- as long as (wave 20B) -- "it's a land" (205.1a: replaces the card types), "it's an artifact creature", "it's a 0/0 creature in addition
     # to its other types and it has annihilator 2" (205.1b; the 0/0 is layer 7b, 613.4b)
     m = _IS_TYPES.fullmatch(body)
@@ -472,6 +477,8 @@ def _layer4_safe(cond: dict[str, Any]) -> bool:
         return True
     if cond.get("static") == "not":  # (wave 36B: "during turns other than yours")
         return _layer4_safe(cond["cond"])
+    if cond == {"static": "self", "test": "a_token"}:  # (wave 42A) whether it is a token reads no characteristics
+        return True
     if cond == {"static": "self", "test": "attached_to_a_creature"}:  # -- casting extras (wave 18E) -- reconfigure 702.151b
         return True
     value = cond.get("value")
@@ -1129,7 +1136,7 @@ def _condition(text: str) -> dict[str, Any] | None:
     c = text.strip()
     if c in ("it's your turn",):
         return {"static": "your_turn"}
-    m = re.fullmatch(r"(?:it|~)(?:'s| is) (?P<test>attacking alone|attacking|blocking|tapped|untapped|enchanted or equipped|enchanted|equipped|attached to a creature)", c)
+    m = re.fullmatch(r"(?:it|~)(?:'s| is) (?P<test>attacking alone|attacking|blocking|tapped|untapped|enchanted or equipped|enchanted|equipped|attached to a creature|a token)", c)  # (wave 42A: a token)
     if m:
         return {"static": "self", "test": m["test"].replace(" ", "_")}
     # -- as long as (wave 25A) -- "it isn't attacking or blocking" / "it's not attacking" (Intrepid Ace): the opposite of what it is now (611.3a)
@@ -1210,6 +1217,8 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
                 plan, {"static": "self", "test": "equipped"}, source=source, controller=controller)
         if test in ("tapped", "untapped"):
             return source.tapped == (test == "tapped")
+        if test == "a_token":  # (wave 42A) 111.1: a token is a permanent that was created, not a card
+            return source.is_token
         if test == "modified":  # -- conditional statics (wave 4B) -- 700.9
             from app.rules import static_conditions
 

@@ -40,7 +40,7 @@ DON = "Don Andres, the Renegade"
 YAMAZAKI = "Brothers Yamazaki"
 FULL = [DON, "Shauku, Endbringer", "Medomai the Ageless", "Stature, Size Shifter", "Masako the Humorless", "The Necrobloom",
         "Tannuk, Steadfast Second", "Adamaro, First to Desire", "Cayth, Famed Mechanist", "Tesak, Judith's Hellhound", "Barbara Wright",
-        "Dosan the Falling Leaf", "Jasmine Boreal of the Seven", "Karn, Argent Defender", "Doorkeeper Thrull", YAMAZAKI, "Technodrome", "Wirecat", "Glacial Crasher",
+        "Dosan the Falling Leaf", "Jasmine Boreal of the Seven", "Karn, Argent Defender", "Doorkeeper Thrull", YAMAZAKI, "Sekki, Seasons' Guide", "Aeve, Progenitor Ooze", "Technodrome", "Wirecat", "Glacial Crasher",
         "Karsus Depthguard"]
 
 
@@ -506,6 +506,42 @@ def test_a_third_brothers_yamazaki_brings_the_legend_rule_back_for_its_controlle
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
     assert sum(1 for c in s.state.cards.values() if c.name == YAMAZAKI and c.zone.endswith(":battlefield") and c.controller == "p1") == 1
     assert s.state.cards[third.id].zone == "p2:battlefield"
+    check(s)
+
+
+# -- Sekki, Seasons' Guide: "If damage would be dealt to Sekki, prevent that damage, remove that many +1/+1 counters from Sekki, and create that many 1/1 colorless
+# Spirit creature tokens." -----------------------------------------------------------------------------------------------------------------------------
+def test_sekki_prevents_damage_and_turns_that_many_counters_into_spirits(cards):
+    s = build(cards, ["Sekki, Seasons' Guide", "Lightning Bolt", "Glorious Anthem"], forests=30)
+    sekki = to_hand(s, "Sekki, Seasons' Guide")
+    mana(s, "p1", G=8)
+    act(s, "p1", type="cast_spell", card_id=sekki.id)
+    settle(s)
+    assert s.state.cards[sekki.id].counters.get("+1/+1") == 8 and power_toughness(s, "Sekki, Seasons' Guide") == (8, 8)
+    put(s, "Glorious Anthem")  # a layer 7c bonus on top of the counters
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[sekki.id])
+    settle(s)
+    assert s.state.cards[sekki.id].damage == 0 and s.state.cards[sekki.id].counters.get("+1/+1") == 5  # 615.5: prevented, three counters removed
+    spirits = [c for c in s.state.cards.values() if c.is_token and c.name == "Spirit" and c.zone == "p1:battlefield"]
+    assert len(spirits) == 3 and all(power_toughness(s, "Spirit") == (2, 2) for _ in spirits)  # 1/1 each, +1/+1 from the anthem
+    assert power_toughness(s, "Sekki, Seasons' Guide") == (6, 6)
+    check(s)
+
+
+# -- Aeve, Progenitor Ooze: "Aeve isn't legendary if it's a token." -------------------------------------------------------------------------------------
+def test_aeve_is_legendary_as_a_card_but_not_as_a_token_so_the_legend_rule_leaves_a_copy_alone(cards):
+    s = build(cards, ["Aeve, Progenitor Ooze", "Glorious Anthem"], forests=20)
+    aeve = put(s, "Aeve, Progenitor Ooze")
+    assert "Legendary" in ch(s, "Aeve, Progenitor Ooze").supertypes
+    act(s, "p1", type="copy_card", card_id=aeve.id)  # a token copy of it
+    act(s, "p1", type="pass_priority")  # 704.3: state-based actions
+    d = s.state.rules.decision
+    assert d is None or "Legend rule" not in d.prompt  # 205.4, 704.5j: the token isn't legendary
+    token = next(c for c in s.state.cards.values() if c.is_token and c.name == "Aeve, Progenitor Ooze")
+    assert "Legendary" not in ch_of(s, token).supertypes and "Legendary" in ch(s, "Aeve, Progenitor Ooze").supertypes
+    assert s.state.cards[aeve.id].zone == "p1:battlefield" and token.zone == "p1:battlefield"
     check(s)
 
 

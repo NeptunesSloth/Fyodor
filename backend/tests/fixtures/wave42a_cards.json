@@ -642,5 +642,41 @@
    "W"
   ],
   "keywords": []
+ },
+ {
+  "name": "Sekki, Seasons' Guide",
+  "layout": "normal",
+  "mana_cost": "{5}{G}{G}{G}",
+  "cmc": 8.0,
+  "type_line": "Legendary Creature — Spirit",
+  "oracle_text": "Sekki enters with eight +1/+1 counters on it.\nIf damage would be dealt to Sekki, prevent that damage, remove that many +1/+1 counters from Sekki, and create that many 1/1 colorless Spirit creature tokens.\nSacrifice eight Spirits: Return this card from your graveyard to the battlefield.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "0"
+ },
+ {
+  "name": "Aeve, Progenitor Ooze",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{G}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Ooze",
+  "oracle_text": "Storm (When you cast this spell, copy it for each spell cast before it this turn. Copies become tokens.)\nAeve isn't legendary if it's a token.\nAeve enters with a +1/+1 counter on it for each other Ooze you control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Storm"
+  ],
+  "power": "2",
+  "toughness": "2"
  }
 ]

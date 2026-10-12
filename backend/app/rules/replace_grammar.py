@@ -504,7 +504,7 @@ _DAMAGE_TO = re.compile(r"^If (?P<kind>combat |noncombat )?damage would be dealt
 _DAMAGE_BE = re.compile(r"^If (?P<to>.+?) would be dealt (?P<kind>combat |noncombat )?damage(?P<cond> while [^,]+)?, (?P<rest>.+)$")
 _CONDS: dict[str, dict[str, Any]] = {" while it has a +1/+1 counter on it": {"counter": "+1/+1"},
                                      " while you're the monarch": {"monarch": True}}
-_RIDER = re.compile(r"^prevent that damage(?:\. | and )(?P<rider>.+?)\.?$")
+_RIDER = re.compile(r"^prevent that damage(?:\. | and |, )(?P<rider>.+?)\.?$")  # (wave 42A: ", remove that many … and create that many …", Sekki)
 
 
 def _prevention_rider(rest: str, it: str | None) -> Definition | None:
