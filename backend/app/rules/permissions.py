@@ -167,7 +167,9 @@ _TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|thos
 # "Until end of turn, you may play lands and cast spells from your graveyard." (Yawgmoth's Will)
 # -- cast permissions (wave 30Q) -- also "You may cast a creature spell from your graveyard this turn." (Chainer: one spell) and "You may cast Zombie spells
 # from your graveyard this turn." (Liliana, Untouched by Death: any number)
-GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>play lands and cast spells|play lands|cast spells|"
+# (-- zone replacements (wave 37B) -- "When you unlock this door, you may cast spells from your graveyard this turn" (Walk-In Closet): the trigger's own "you may"
+# is the ability's, so the sentence arrives without it)
+GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?(?:you may )?(?P<what>play lands and cast spells|play lands|cast spells|"
                         r"cast (?P<a>an? )?(?P<sel>[A-Za-z][A-Za-z' ,-]*?) (?P<sp>spells?))"
                         r" from your graveyard(?P<this_turn> this turn)?$")
 # -- cast a copy (wave 13C) -- "You may cast the copy without paying its mana cost." (707.12; each copy is its own choice, 707.12a)

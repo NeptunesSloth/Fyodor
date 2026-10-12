@@ -992,7 +992,7 @@ def _for_each_this_way(text: str) -> str:
 # instead of into that player's graveyard." (Dissipate, Memory Lapse; 608.2c: the counter's own destination)
 _COUNTERED_INSTEAD = re.compile(
     r"if (?:that|the) spell is countered this way, (?:(?P<exile>exile it)|put it on (?:(?P<top>top)|the bottom) of its "
-    r"owner's library) instead of (?:putting it )?into (?:its owner's|that player's) graveyard")
+    r"owner's library|(?P<hand>put it into its owner's hand)) instead of (?:putting it )?into (?:its owner's|that player's) graveyard")  # (hand: wave 37B, Remand)
 _EACH_CONTROLLER = re.compile(r"^for each (?P<what>[^,]+ this way), its controller creates (?P<token>.+)$")
 
 
@@ -2140,6 +2140,19 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
                   and not m[2].lower().startswith(f"create {m[3].lower()},") else f"{m[1]}{m[2]} that's tapped and attacking{m[4] or ''}.", body)
     body = re.sub(r"(^|, |\. )((?i:(?:you may )?(?:put|return)) [^.]+? (?:onto|to) the battlefield(?: under your control)?)\. (?:It|That creature) enters "
                   r"tapped and attacking( that (?:player|opponent))?\.", r"\1\2 tapped and attacking\3.", body)
+    # -- zone replacements (wave 37B) -- "You may cast spells from your graveyard this turn, and if a card would be put into your graveyard from anywhere this
+    # turn, exile it instead." (Walk-In Closet): two instructions of one sentence, the replacement a sentence of its own
+    body = re.sub(r", and (if a card would be put into your graveyard from anywhere this turn, exile (?:that card|it) instead)\b",
+                  lambda m: f". {m[1][:1].upper()}{m[1][1:]}", body)
+    # -- reanimation (wave 37B) -- "Return up to one target creature card with mana value less than or equal to the amount of life you lost this turn from your
+    # graveyard to the battlefield." (Betor): the limit in the words of the card, read as the same bound defined by text (wave 28D, where_bound):
+    # "… with mana value X or less from your graveyard to the battlefield, where X is the amount of life you lost this turn."
+    body = re.sub(r"(^|\. )((?:[Rr]eturn|[Pp]ut) [^.]*? with mana value) (?:less than or equal to|equal to or less than) (the (?:amount|number) of [^.,]+?)"
+                  r"( from your graveyard[^.]*?)\.", lambda m: f"{m[1]}{m[2]} X or less{m[4]}, where X is {m[3]}.", body)
+    # -- reanimation (wave 37B) -- "Return target creature card from your graveyard to the battlefield. It's a Skeleton in addition to its other types and has no
+    # abilities." (Xu-Ifit): layers 4 and 6 (613.1d, 613.1f) of one effect, as "It loses all abilities and becomes a Skeleton in addition to its other types."
+    body = re.sub(r"\b(It|That creature)'s an? ([A-Z][a-z]+) in addition to its other types and has no abilities\b",
+                  r"\1 loses all abilities and becomes a \2 in addition to its other types", body)
     # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
     # opponent, the token grammar's "… for each opponent"
     body = re.sub(r"(^|\. )For each opponent, you (create (?![^.,]* with )[^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
@@ -2873,7 +2886,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (dest := _COUNTERED_INSTEAD.fullmatch(text)) is not None and len(effects) - prev_start == 1 \
                 and effects[-1]["do"] == "counter" and "to" not in effects[-1]:  # -- "this way" outcomes (wave 4A) --
             # (after anything but a plain counter: other readers, e.g. unless_pays (wave 4C), or manual)
-            effects[-1] = {**effects[-1], "to": "exile" if dest["exile"] else ("top" if dest["top"] else "bottom")}
+            effects[-1] = {**effects[-1], "to": "exile" if dest["exile"] else "hand" if dest["hand"] else ("top" if dest["top"] else "bottom")}
             continue
         text = _for_each_this_way(text)  # -- "this way" outcomes (wave 4A) --
         from app.rules import (
@@ -3388,6 +3401,13 @@ def _choose_then(body: str) -> str:
 _CHOOSE_TARGET_CAST = re.compile(r"(?<![^ ])Choose target (?P<what>[a-z ]+?) card in your graveyard\. You may (?P<v>cast|play) that card this turn\.")
 
 
+def _sel_zones(e: dict[str, Any]) -> tuple[str, ...]:
+    """-- reanimation (wave 37B) -- the zones the selector of a choice instruction ("sel") reads from (none for one without)."""
+    from app.rules import selectors  # (a leaf module)
+
+    return selectors.from_key(e["sel"]).zones if isinstance(e.get("sel"), str) and e["sel"].startswith(selectors.PREFIX) else ()
+
+
 def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """-- refused look/cast-free (wave 3R5) -- A spell or activated ability that is all "You may cast …
     without paying its mana cost": the "may" is the cast's own choice (choosing no card), not a
@@ -3400,6 +3420,10 @@ def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     # (Elvish Piper): the "may" is choosing no card
     if parsed is not None and parsed[2] and parsed[0] and parsed[0][0]["do"] == "put_from_hand":
         return [{**parsed[0][0], "optional": True}, *parsed[0][1:]], parsed[1], False
+    # -- reanimation (wave 37B) -- "You may put an artifact card from your hand or graveyard onto the battlefield." (Dakkon, Danitha): the same, with the
+    # graveyard too -- the "may" is choosing no card, asked privately as the hand holds cards (effects.return_choice), not a question about the whole ability
+    if parsed is not None and parsed[2] and parsed[0] and parsed[0][0]["do"] == "return_choice" and "hand" in _sel_zones(parsed[0][0]):
+        return [{**parsed[0][0], "optional": True, "upto": True}, *parsed[0][1:]], parsed[1], False
     # -- activated leftovers (wave 7E) -- "{U}, {T}: You may tap or untap target creature.": the "may" is choosing neither
     if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0]["do"] == "tap_or_untap":
         return [{**parsed[0][0], "optional": True}], parsed[1], False
@@ -5634,6 +5658,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 # replacements.replace_move with the other "exile instead" effects (700.4: dies = put into a
 # graveyard from the battlefield). Read by the hook in _parse_effects (before its "If …," condition).
 _DIES_THIS_TURN = re.compile(r"^if (?P<det>that|a|an) (?P<what>.+?) would die this turn, exile it instead$")
+# -- zone replacements (wave 37B) -- Yawgmoth's Will, Gaea's Will, Magus of the Will, Walk-In Closet (", and if a card would …": a sentence of its own, _parse_effects_plain):
+# every card that would be put into its owner's graveyard this turn, from any zone (614.1a, 111.1: a token isn't a card), is exiled instead. A record of
+# this resolution (611.2a), applied by replacements.replace_move with the other "exile instead" effects -- the resolving spell included (608.2n)
+_GRAVEYARD_THIS_TURN = re.compile(r"^if a card would be put into your graveyard from anywhere this turn, exile (?:that card|it) instead$")
 _DEALT_NO_REGEN = re.compile(r"^(?:a creature|creatures) dealt damage this way can't be regenerated this turn$")
 _CREATURE_NO_REGEN_EXILE = re.compile(r"^if it's a creature, it can't be regenerated this turn, and if it would die this turn, exile it instead$")
 _DIES_THAT = {"creature": ["Creature"], "permanent": [], "creature or planeswalker": ["Creature", "Planeswalker"],
@@ -5713,6 +5741,8 @@ def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[
             return None  # (Disintegrate, Carbonize: the one target, "any target" or an object)
         return [{"do": "no_regen_turn", "who": found[0], "types": ["Creature"]},
                 {"do": "exile_if_dies", "who": found[0], "types": ["Creature"]}]
+    if _GRAVEYARD_THIS_TURN.match(text):  # -- zone replacements (wave 37B) -- "If a card would be put into your graveyard from anywhere this turn, exile that card instead."
+        return [{"do": "exile_if_dies", "cards": "your"}]
     m = _DIES_THIS_TURN.match(text)
     if m is None:
         return _turn_record(text)
