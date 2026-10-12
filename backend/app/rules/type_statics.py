@@ -46,6 +46,8 @@ _ARE_ALSO = re.compile(r"^(?P<during>During your turn, )?(?P<s>[A-Za-z0-9+/',\- 
                        r"(?: and (?:have|has) (?P<kw>[a-z]+)\.|"  # (wave 26D: "and has defender": a keyword, layer 6)
                        r" and have (?P<q>\"[^\"]+\")(?P<eq>(?:,? (?:and )?equip(?: [A-Z][a-z]+)? \{[^}]+\})+)?\.?"  # (wave 25D: + equip costs, and a period after the quote)
                        r"|\.(?P<same> The same is true for [^.]+\.)?)$")  # (Kudo, Graaz: base P/T, 7b; Roshan: the Maskwood sentence)
+_GRANT_AND_TYPE = re.compile(r"^(?P<s>(?:Each|All) [A-Za-z' -]+?(?: you control)?(?: but don't own)?|[A-Z][A-Za-z' -]+? you control(?: but don't own)?) "
+                             r"(?P<grant>(?:gets?|ha(?:s|ve)) [^\"]+?),? and (?:is|are) (?:an? )?(?P<what>[A-Z][A-Za-z ]+?) in addition to (?:its|their) other types\.$")
 _TYPE_WORDS = {"artifacts": "Artifact", "creatures": "Creature", "enchantments": "Enchantment", "lands": "Land"}
 MASKWOOD = ("Creatures you control are every creature type. The same is true for creature spells you control and "
             "creature cards you own that aren't on the battlefield.")
@@ -109,6 +111,16 @@ def parse(text: str) -> dict[str, Any] | None:
         return _definition(m["s"], {"add_types": ["Land"], "add_subtypes": [m["t"]]})
     if (m := _ARE_ALSO.fullmatch(text)) is not None and (found := _also(m)) is not None:
         return found
+    if (m := _GRANT_AND_TYPE.fullmatch(text)) is not None:
+        # -- static_other (wave 42A) -- "Each creature you control but don't own gets +2/+2, has menace and deathtouch, and is a Pirate in addition to its other
+        # types." (Don Andres): the grant (layers 6-7) and the layer-4 type addition (205.1b, 613.1d) of ONE group, read as the two sentences they would be
+        from app.rules import statics
+
+        grant = statics.parse(f"{m['s']} {m['grant']}.")
+        typed = parse(f"{m['s']} are {m['what']} in addition to their other types.")
+        if grant is None or typed is None or grant["who"] != typed["who"] or grant.get("layered") or not typed.get("layer4"):
+            return None
+        return {**grant, "layered": True, "layer4": typed["layer4"]}
     if (found := _layered(text)) is not None:
         return found
     if re.fullmatch(r"~ is also an? [A-Z][A-Za-z]*(?:(?:, | and |, and )[A-Z][A-Za-z]*)*\.", text) \
@@ -235,6 +247,16 @@ def _lands(d: dict[str, Any]) -> bool:
     return sel.types == ("Land",) or (not sel.types and bool(sel.subtypes) and set(sel.subtypes) <= set(BASIC))
 
 
+def _singular(word: str, known: set[str] | frozenset[str]) -> str | None:
+    """-- type statics (wave 42A) -- the type a plural subtype word names ("Pirates", "Mercenaries", "Elves"), or None."""
+    from app.rules.protection import _PLURALS
+
+    for one in (_PLURALS.get(word.lower()), word[:-1], word[:-3] + "y" if word.endswith("ies") else None):
+        if one and word.endswith("s") and one in known:
+            return one
+    return None
+
+
 def _also(m: re.Match[str]) -> dict[str, Any] | None:
     from app.rules.creature_types import CREATURE_TYPES
     from app.rules.layers import ARTIFACT_TYPES, ENCHANTMENT_TYPES, LAND_TYPES
@@ -245,8 +267,8 @@ def _also(m: re.Match[str]) -> dict[str, Any] | None:
     for w in m["what"].split(" "):
         if w in _TYPE_WORDS:
             types.append(_TYPE_WORDS[w])
-        elif w[:1].isupper() and w.endswith("s") and w[:-1] in CREATURE_TYPES | LAND_TYPES | ARTIFACT_TYPES | ENCHANTMENT_TYPES:
-            subtypes.append(w[:-1])
+        elif w[:1].isupper() and (one := _singular(w, CREATURE_TYPES | LAND_TYPES | ARTIFACT_TYPES | ENCHANTMENT_TYPES)) is not None:
+            subtypes.append(one)  # (wave 42A: "Mercenaries" is the plural of Mercenary, "Elves" of Elf: 205.3m)
         elif w[:1].isupper() and w in ARTIFACT_TYPES | LAND_TYPES | ENCHANTMENT_TYPES | CREATURE_TYPES:
             subtypes.append(w)  # ("Food artifacts": the singular before the type; wave 26D: "is a Wall")
         else:

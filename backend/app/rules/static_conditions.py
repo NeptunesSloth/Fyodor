@@ -51,6 +51,9 @@ _SELF_IS = re.compile(r"(?:~|it|this creature|this permanent|this artifact)(?P<n
 _ATTACHED_CTRL = re.compile(r"(?:its|(?:equipped|enchanted) (?:creature|permanent|land)'s) controller (?P<rest>(?:controls|has) .+)")
 _ATTACHED_STAT = re.compile(r"(?:its|(?:equipped|enchanted) (?:creature|permanent)'s) (?P<stat>power|toughness) is (?P<n>\w+) or "
                             r"(?P<cmp>less|greater|more|fewer)")
+# -- static_other (wave 42A) -- "~'s power is 1 or less" (Stature, Technodrome: "her / his / its power", written "~'s" by statics.parse): the source's own power or
+# toughness, 613.4, as the rules pass has it after layer 7 (layers._with_rules), for a rule-only static ("can't be blocked", "can't attack or block")
+_SELF_STAT = re.compile(r"~'s (?P<stat>power|toughness) is (?P<n>\w+) or (?P<cmp>less|greater|more|fewer)")
 _DESIGNATION = re.compile(r"(?:~ is|it's|it is) (?P<is>monstrous|renowned)")
 _MODIFIED = re.compile(r"(?:~ is|it's|it is) modified")
 _IN_GRAVEYARD = re.compile(r"this card is in your graveyard(?: and (?P<rest>.+))?")
@@ -146,6 +149,9 @@ def parse(text: str) -> Condition | None:
         if n is None:
             return None
         return {"static": "attached_stat", "stat": m["stat"], "n": n, "op": "<=" if m["cmp"] in ("less", "fewer") else ">="}
+    m = _SELF_STAT.fullmatch(t)
+    if m and (n := _num(m["n"])) is not None:
+        return {"static": "self_stat", "stat": m["stat"], "n": n, "op": "<=" if m["cmp"] in ("less", "fewer") else ">="}
     m = _DESIGNATION.fullmatch(t)
     if m:
         return {"static": "designation", "is": m["is"]}
@@ -319,7 +325,7 @@ def either(text: str) -> Condition | None:
 KINDS = frozenset({"top_card", "exiled_count", "attached_ctrl_is", "self_is", "attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all",
                     "most_common_color", "hand_most", "paired", "any_hand",  # (wave 20B)
                     "ring_bearer", "self_attached", "host_attached", "dealt_damage", "was_cast", "single_graveyard", "exile_owned", "blocked_by",
-                    "transformed", "doors", "named", "either", "host_test"})  # (wave 35D)
+                    "transformed", "doors", "named", "either", "host_test", "self_stat"})  # (wave 35D; 42A: self_stat)
 
 
 def attached_object(plan: Plan, source: CardInstance) -> CardInstance | None:
@@ -384,6 +390,11 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
 
         ch = plan.ch(host)
         got = sba.power(host, ch) if cond["stat"] == "power" else sba.toughness(host, ch)
+        return got is not None and (got <= cond["n"] if cond["op"] == "<=" else got >= cond["n"])
+    if kind == "self_stat":  # -- static_other (wave 42A) -- the source's power / toughness, read by layers._with_rules for its own rule (None anywhere else)
+        from app.rules import layers
+
+        got = layers.rule_pt(source.id, cond["stat"])
         return got is not None and (got <= cond["n"] if cond["op"] == "<=" else got >= cond["n"])
     if kind == "designation":  # 701.37b / 702.112b: a designation of this object (a new object has none, 400.7)
         r = plan.rules

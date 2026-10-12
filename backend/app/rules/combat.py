@@ -51,7 +51,7 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
                   ach: Characteristics, info: CardInfo | None = None) -> str | None:
     if not blocker.zone.endswith(":battlefield") or not bch.is_creature:
         return "Only creatures on the battlefield can block"
-    if blocker.tapped:
+    if blocker.tapped and "block_tapped" not in scripts.statics(bch):  # (wave 42A: Masako, "can block as though it were untapped", 509.1a)
         return f"{bch.name} is tapped"
     if {"cant_block", "cant_attack_or_block"} & scripts.statics(bch):
         return f"{bch.name} can't block"
@@ -610,8 +610,8 @@ def ask_next_blocker(plan: Plan) -> None:
         pid = r.blockers_pending[0]
         attackers = [c for c in attackers_on(state) if defender_of(state, c.attacking) == pid]
         blockers = [state.cards[cid] for cid in state.zones.get(zone_key(pid, "battlefield"), [])
-                    if state.cards[cid].controller == pid and not state.cards[cid].tapped
-                    and plan.ch(state.cards[cid]).is_creature]
+                    if state.cards[cid].controller == pid and plan.ch(state.cards[cid]).is_creature
+                    and (not state.cards[cid].tapped or "block_tapped" in scripts.statics(plan.ch(state.cards[cid])))]  # (wave 42A: Masako)
         if not attackers or not blockers:
             r.blockers_pending.pop(0)
             continue

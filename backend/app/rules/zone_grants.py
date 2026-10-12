@@ -28,9 +28,9 @@ if TYPE_CHECKING:
     from app.game.state import CardInstance, GameState
     from app.rules.characteristics import CardInfo, Characteristics
 
-KEYWORDS = ("cycling", "unearth", "miracle", "encore")
-_LINE = re.compile(r"^(?:each )?(?P<sel>[A-Za-z][A-Za-z ,'/-]*?) in your (?P<zone>hand|graveyard)(?P<tail> that's [A-Za-z ,/-]+?)? (?:has|have) (?P<kw>" + "|".join(KEYWORDS) + r")"
-                   r"(?: (?P<cost>(?:\{[^}X]+\})+)| ?\. (?:its|the) [a-z]+ cost is equal to its mana cost(?: reduced by (?P<red>\{\d+\}))?)$",
+KEYWORDS = ("cycling", "unearth", "miracle", "encore", "dredge")  # (wave 42A: dredge)
+_LINE = re.compile(r"^(?:each )?(?P<sel>[A-Za-z][A-Za-z ,'/-]*?) in your (?P<zone>hand|graveyard)(?P<tail> that's [A-Za-z ,/-]+?)? (?:has|have) (?P<kw>" + "|".join((*KEYWORDS, "warp")) + r")"
+                   r"(?: (?P<cost>(?:\{[^}X]+\})+)| (?P<num>\d+)| ?\. (?:its|the) [a-z]+ cost is equal to its mana cost(?: reduced by (?P<red>\{\d+\}))?)$",
                    re.IGNORECASE)
 
 
@@ -41,22 +41,43 @@ def define(t: str) -> dict[str, Any] | None:
     m = _LINE.fullmatch(t)
     if m is None:
         return None
+    if m["kw"].lower() == "warp":
+        return _warp(m)
     phrase = re.sub(r"\bcards\b", "card", m["sel"])
     sel = selectors.parse(f"{phrase} in your {m['zone']}{m['tail'] or ''}")
     if sel is None or sel.player is not None or sel.zones != (m["zone"],) or not sel.card or sel.zone_owner not in (None, "you"):
         return None
-    if m["kw"].lower() not in {"hand": ("cycling", "miracle"), "graveyard": ("unearth", "encore")}[m["zone"]]:
-        return None  # (the zone the keyword works from: 702.29a, 702.49a, 702.94a — the hand; 702.84a, 702.141a — the graveyard)
-    if m["cost"] is None and m["kw"].lower() not in ("miracle", "encore"):
+    if m["kw"].lower() not in {"hand": ("cycling", "miracle"), "graveyard": ("unearth", "encore", "dredge")}[m["zone"]]:
+        return None  # (the zone the keyword works from: 702.29a, 702.49a, 702.94a — the hand; 702.84a, 702.141a, 702.52a — the graveyard)
+    if m["cost"] is None and m["kw"].lower() not in ("miracle", "encore", "dredge"):
+        return None
+    if (m["num"] is not None) != (m["kw"].lower() == "dredge"):  # (702.52a: "Dredge N", a number and no cost)
         return None
     return {"kind": "static", "static": "zone_grant", "filter": sel.key(), "keyword": m["kw"].lower(), "cost": m["cost"],
-            "reduce": int(m["red"][1:-1]) if m["red"] else 0, "effects": []}
+            "num": int(m["num"]) if m["num"] else None, "reduce": int(m["red"][1:-1]) if m["red"] else 0, "effects": []}
+
+
+def _warp(m: re.Match[str]) -> dict[str, Any] | None:
+    """-- static_other (wave 42A) -- 702.185a: "Artifact cards and red creature cards in your hand have warp {2}{R}." (Tannuk). The alternative cost is chosen as the spell
+    is cast, from the card's printed characteristics (casting.cast_spell), so the grant is read the way a table alternative cost is (alt_costs.offers): for a spell
+    of those kinds cast from its caster's hand, "{2}{R}" instead of its mana cost, and the exile at the next end step and the later cast follow from the tag."""
+    from app.rules.permissions import spell_filter
+
+    if m["zone"] != "hand" or m["tail"] or not m["cost"]:
+        return None
+    keys = [spell_filter(re.sub(r"\bcards?\b", "", part).strip()) for part in re.split(r" and ", m["sel"])]
+    if not keys or None in keys:
+        return None
+    return {"kind": "static", "static": "alt_cost", "cost": f"pay {m['cost']}", "table": True, "filter": None, "filters": keys, "once": False,
+            "zone": "hand", "mv": None, "cond": None, "tag": "warp", "effects": []}
 
 
 def _line(d: dict[str, Any], ch: Characteristics, card: CardInstance) -> str | None:
     from app.rules import mana as M
     from app.rules.graveyard_grants import _two_ways
 
+    if d.get("num"):
+        return f"{d['keyword'].capitalize()} {d['num']}"
     if d["cost"]:
         return f"{d['keyword'].capitalize()} {d['cost']}"
     if not ch.mana_cost or "//" in ch.mana_cost or _two_ways(card):

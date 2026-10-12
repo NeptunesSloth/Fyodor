@@ -93,6 +93,7 @@ class _Derivation(threading.local):
         self.solving: list[list[Static]] = []  # (wave 22A) the table being solved: group_layers.solve
         self.l4: set[str] = set()  # (wave 4B) the objects whose own layer-4/5 statics' conditions are being read
         self.cda: set[str] = set()  # the objects whose characteristic-defining P/T is being read
+        self.pt: dict[str, tuple[int, int] | None] = {}  # (wave 42A) the object whose rule static is being judged -> its power / toughness after layer 7
 
 
 _T = _Derivation()
@@ -234,7 +235,9 @@ def _finish(state: GameState, info: CardInfo, out: list[Static], wiped: dict[str
         if st.definition["static"] != "grant":
             continue
         for text in st.definition.get("grants", ()):
-            inner = grammar.parse(scripts.self_text(text, ""))
+            # (wave 42A) 702.98a: a granted "Unleash" brings its second half, the static "can't block as long as it has a +1/+1 counter" (the first, the counter, is
+            # chosen as it enters: riot.py); the same static the printed keyword is (scripts.define)
+            inner = grammar.parse("~ can't block as long as it has a +1/+1 counter on it." if text.rstrip(".").lower() == "unleash" else scripts.self_text(text, ""))
             if inner is None:
                 continue
             for cid, controller in field:
@@ -1012,14 +1015,31 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
                 if set(rules) <= imposed or not _gate_open(view, st, tkey):
                     continue
                 source = state.cards[st.source]
-                if grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True) \
-                        and _conditions(view, st, tkey):
+                if not grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True):
+                    continue
+                if any(grammar._mentions(c, ("self_stat",)) for c in d.get("conditions") or ()):
+                    # -- static_other (wave 42A) -- "~ can't be blocked if her power is 1 or less" (Stature): a rule of the source itself (``applies`` holds only for
+                    # it), judged on its own power after layer 7 (613.4), right here where that is known; never cached (it is the object's, not the table's)
+                    _T.pt[card.id] = ch.pt
+                    try:
+                        holds = grammar.conditions_hold(view, d, source=source, controller=st.controller)
+                    finally:
+                        _T.pt.pop(card.id, None)
+                else:
+                    holds = _conditions(view, st, tkey)
+                if holds:
                     imposed.update(rules)
         finally:
             _T.depth -= 1
     if imposed:
         ch = replace(ch, imposed=ch.imposed | frozenset(imposed))
     return ch
+
+
+def rule_pt(card_id: str, stat: str) -> int | None:
+    """-- static_other (wave 42A) -- the power / toughness of the object whose own rule static is being judged by ``_with_rules`` (None: not now)."""
+    pt = _T.pt.get(card_id)
+    return None if pt is None else pt[0 if stat == "power" else 1]
 
 
 def _own(rules: list[str], controller: str) -> list[str]:
