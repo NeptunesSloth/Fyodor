@@ -1817,8 +1817,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "has_adventure":  # (wave 25B) the printing is an adventurer card, whichever half it is as it is cast
             data = plan.info.get(card.card_id) if card.card_id else None
             faces = (data or {}).get("faces") or []  # (review 25B: an omen card shares the layout but has an Omen, 720.2a, not an Adventure)
-            if not (data and data.get("layout") == "adventure" and len(faces) > 1 and "Adventure" in str(faces[1].get("type_line") or "")):
-                return False
+            if card.face_down or not (data and data.get("layout") == "adventure" and len(faces) > 1 and "Adventure" in str(faces[1].get("type_line") or "")):
+                return False  # (-- review 34 -- 406.3a, 708.2: a face-down card has no characteristics: its printing is nobody's business, Howling Galefang)
         if extra == "greatest_power_own":  # -- damage wordings (wave 6B) -- the greatest power among creatures its
             # controller controls (Crackling Doom: what the sacrificing player may choose; ties all qualify)
             mine = _stat(ch, "power")

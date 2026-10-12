@@ -933,8 +933,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
     """Whom the attack was declared against (508.3a, 508.3e, 508.6): ``defended`` is the defending
     player (a planeswalker's controller), ``direct`` whether it was that player (not a planeswalker)."""
     defended, you = info.get("defended"), watcher.controller
-    if defended is None:
-        return False
+    if defended is None or (info.get("battle") and want in ("you_or_pw", "opponent_or_pw")):
+        return False  # (-- review 34 -- 310.5, 508.5: a creature attacking a battle attacks no player and no planeswalker, Gahiji / Frontier Warmonger)
     if want == "you_or_pw":  # "attacks you or a planeswalker you control"
         return defended == you
     if want == "opponent_or_pw":  # -- trigger other (wave 36A) -- "attacks one of your opponents or a planeswalker an opponent controls": not you, not what you control
@@ -1258,6 +1258,9 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
         info: dict[str, Any] = {"oid": plan.oid(c), "attackers": len(cards), "attacking": attacking, "amount": 1}  # (amount: wave 17D, "that many")
         if event in ("attack", "unblocked"):  # whom it attacks (508.3a, 509.3g)
             info["defended"], info["direct"] = _defended(plan, c)
+            if c.attacking is not None and c.attacking.kind != "player" and (t := plan.state.cards.get(c.attacking.id)) is not None \
+                    and "Battle" in plan.ch(t).types:
+                info["battle"] = True  # -- review 34 -- 310.5: an attack on a battle (attacks neither a player nor a planeswalker)
         if event == "attack":  # "attacks for the first time each turn" (kept per object per turn)
             key = f"attacked:{info['oid']}"
             info["first"] = plan.rules.once_per_turn.get(key) != turn
@@ -1340,6 +1343,8 @@ def graveyard_ability(d: dict[str, Any]) -> bool:
 IN_GRAVEYARD = {"object": "self", "test": "in_graveyard"}
 # -- trigger other (wave 25B) -- eminence: "if ~ is in the command zone or on the battlefield" names the zones it functions in (113.6b)
 COMMAND_OR_BATTLEFIELD = {"object": "self", "test": "command_or_battlefield"}
+# -- trailing & intervening ifs (wave 38A) -- "At the beginning of your upkeep, if Oloro is in the command zone, you gain 2 life.": the zone it functions in, 113.6b
+COMMAND_IFS = (COMMAND_OR_BATTLEFIELD, {"object": "self", "test": "in_command"})
 
 
 def command_zone_abilities(plan: Plan, card: CardInstance, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
@@ -1347,7 +1352,7 @@ def command_zone_abilities(plan: Plan, card: CardInstance, trigger: str) -> list
     if not card.zone.endswith(":command") or designations.emblem_card(card) or not plan.in_game(card) or plan.manual(card):
         return []
     ch = plan.ch(card)
-    return [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if d.get("if") == COMMAND_OR_BATTLEFIELD]
+    return [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if d.get("if") in COMMAND_IFS]
 _GY_OTHERS = ("die", "leave", "sacrifice", "leave_graveyard")
 _SELFISH = ("self", "self_or", "host", "self_or_host")
 
@@ -1522,7 +1527,7 @@ def at_step_generic(plan: Plan) -> None:
         for i, d in scripts.definitions(ch).items():
             if d["kind"] != "triggered" or not str(d["trigger"]).startswith(prefix):
                 continue
-            if graveyard_ability(d) != gy or (cz and d.get("if") != COMMAND_OR_BATTLEFIELD):
+            if graveyard_ability(d) != gy or (cz and d.get("if") not in COMMAND_IFS):
                 continue
             if _whose_step(plan, card, d["trigger"][len(prefix):], ap):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
