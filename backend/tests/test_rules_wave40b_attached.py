@@ -354,6 +354,21 @@ def test_domestication_is_sacrificed_when_the_creature_gets_big(cards):
     check(s)
 
 
+def test_blade_of_the_bloodchief_puts_two_counters_on_an_equipped_vampire(cards):
+    """"If equipped creature is a Vampire, put two +1/+1 counters on it instead." — the condition and "it" are the equipped creature, not the Equipment."""
+    s = build(cards, ["Blade of the Bloodchief"])
+    blade = put(s, "Blade of the Bloodchief")
+    ape, bat, goat = make(s, "p1", "Ape", "Ape"), make(s, "p1", "Bat", "Vampire"), make(s, "p1", "Goat", "Goat")
+    equip(s, blade, ape, 1, C=1)
+    kill(s, goat)
+    assert s.state.cards[ape.id].counters.get("+1/+1") == 1 and not s.state.cards[blade.id].counters
+    equip(s, blade, bat, 1, C=1)
+    other = make(s, "p1", "Boar", "Boar")
+    kill(s, other)
+    assert s.state.cards[bat.id].counters.get("+1/+1") == 2 and s.state.cards[ape.id].counters.get("+1/+1") == 1
+    check(s)
+
+
 def test_narcolepsy_taps_the_enchanted_creature_every_upkeep(cards):
     s = build(cards, ["Narcolepsy"])
     ox = make(s, "p2", "Ox", "Ox")
