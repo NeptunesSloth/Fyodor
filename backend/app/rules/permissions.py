@@ -180,7 +180,10 @@ FREE_COPY = re.compile(r"^(?:if you do, )?you may cast (?P<w>the copy|the copies
 # as this resolves: 608.2g) / "You may cast an instant or sorcery spell from your hand with mana value X
 # or less without paying its mana cost."
 FREE_HAND = re.compile(r"^(?:you may )?cast (?:a|an) (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?(?:spell|card)(?P<h1> from your hand)?"
-                       r"(?: with mana value (?:(?P<n>\d+|X) or less|less than or equal to (?P<x2>[^,]+?)))?(?P<h2> from your hand)?"
+                       r"(?: with mana value (?:(?P<n>\d+|X) or less|less than or equal to (?P<x2>[^,]+?)))?"
+                       # -- if you do (wave 40A) -- "a permanent spell with equal or lesser mana value" (Kellan, the Kid), "a spell with lesser mana value that shares a card type
+                       # with it" (Baral and Kari Zev): than the spell that triggered it, the reading of Rashmi's "lesser mana value" below (_free_if)
+                       r"(?: with (?P<rel>equal or lesser|lesser) mana value(?P<share> that shares a card type with it)?)?(?P<h2> from your hand)?"
                        r" without paying its mana cost$")
 # -- play now (wave 28A) -- "You may play a land from the top of your library or cast a spell with mana value less than or equal to the damage dealt
 # from the top of your library without paying its mana cost." (Ziatora's Envoy): the card looked at, a land played (305.2a) or a spell cast within the limit
@@ -888,7 +891,14 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             mv = free_mv(m["n"], m["x2"])
         except ValueError:
             return None
-        return [{"do": "free_cast", "zone": "hand", "filter": key, "optional": True, "mv": mv}], None
+        e: dict[str, Any] = {"do": "free_cast", "zone": "hand", "filter": key, "optional": True, "mv": mv}
+        if m["rel"]:  # (-- if you do (wave 40A) -- the trigger's spell: scripts._event_refs_ok accepts it only on a cast trigger)
+            if mv is not None:
+                return None
+            e["mv" if m["rel"] == "equal or lesser" else "mv_lt"] = {"mana_value": "event"}
+            if m["share"]:
+                e["shares_type"] = "event"
+        return [e], None
     m = PLAY_OR_CAST_TOP.fullmatch(text)  # -- play now (wave 28A) --
     if m:
         try:
@@ -1628,6 +1638,8 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 continue  # (review 18F) 118.6: no mana cost is an unpayable cost (Living End's copy can't be cast by paying it)
             if below is not None and ch.mana_value >= below:
                 continue
+            if e.get("shares_type") and not _shares_type(plan, ctx, ch):  # -- if you do (wave 40A) -- "that shares a card type with it": the spell that triggered this
+                continue
             if e.get("parity") and ch.mana_value % 2 != (1 if e["parity"] == "odd" else 0):
                 continue
             if e.get("filter") and not spell_matches(plan.state, pid, card, ch, e["filter"], plan.info):
@@ -1657,6 +1669,14 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                   + " (or none)",
            options=options, min_choices=0, max_choices=1, resume={"step": "free_cast_pick", "ctx": ctx, "e": e})
     return False
+
+
+def _shares_type(plan: Plan, ctx: dict[str, Any], ch: Characteristics) -> bool:
+    """-- if you do (wave 40A) -- 205.2: the card shares a card type with the spell the trigger is about (as it was cast, 608.2h)."""
+    from app.rules import values
+
+    found = values._object(plan, ctx, "event")
+    return found is not None and bool(set(ch.types) & set(found[1].types))
 
 
 # -- play now (wave 28A) --
