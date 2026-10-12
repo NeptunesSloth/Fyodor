@@ -505,6 +505,7 @@ def _definition(who: str, kind: str | None, conds: list[dict[str, Any]], *, p: i
 
 # -- dynamic values (agent F): "gets +N/+N for each …", characteristic-defining P/T ---------------
 _PT_EACH = re.compile(r"^(?P<p>[+−-]\d+)/(?P<t>[+−-]\d+) for each (?P<each>.+)$")
+_PT_X_MIXED = re.compile(r"^(?P<p>[+−-])X/(?P<t>[+−-][1-9]\d*)$|^(?P<p2>[+−-][1-9]\d*)/(?P<t2>[+−-])X$")  # (wave 40B) "+X/+1", "+1/+X"
 _PT_X = re.compile(r"^(?P<p>[+−-])X/(?P<t>[+−-])(?P<t2>X|0)$|^(?P<p2>[+−-])0/(?P<t3>[+−-])X$")
 _CDA = re.compile(r"^(?:[A-Z][a-z]+ — )?~'s (?:(?P<both>power and toughness are each)|(?P<power>power is)|"
                   r"(?P<toughness>toughness is)) equal to (?P<v>.+?)"
@@ -835,6 +836,14 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
             rest = piece  # "has flying and vigilance": the verb carries over
         if verb == "get":
             pt = _PT.match(rest)
+            # -- attached events (wave 40B) -- 613.4c: "Equipped creature gets +X/+1, where X is the number of artifacts you control." (Cranial Ram): one 7c
+            # modification of X on one side and a fixed amount on the other = the dynamic part for X plus the fixed part for the number
+            mixed = _PT_X_MIXED.match(rest) if pt is None and x_value is not None and each is None else None
+            if mixed is not None:
+                sign_x, fixed = (mixed["p"], mixed["t"]) if mixed["p"] else (mixed["t2"], mixed["p2"])
+                each = {"p": (1 if sign_x == "+" else -1) if mixed["p"] else 0, "t": 0 if mixed["p"] else (1 if sign_x == "+" else -1), "value": x_value}
+                p, t = (p, t + _signed(fixed)) if mixed["p"] else (p + _signed(fixed), t)
+                continue
             if pt is None:
                 if each is not None:
                     return None  # (two dynamic parts: not a template)
