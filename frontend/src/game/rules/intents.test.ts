@@ -261,6 +261,27 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "unlock_door", card_id: "rb", door: 2 }]);
   });
 
+  it("offers your companion's special action (116.2g) with priority, as its Companion line", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true } });
+    const v = { ...base, cards: { ...base.cards, lu: card("lu", "p1:companion", "lurrus"), ob: card("ob", "p2:companion", "lurrus") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        lurrus: { id: "lurrus", name: "Lurrus of the Dream-Den", type_line: "Legendary Creature — Cat Nightmare",
+          oracle_text: "Companion — Each permanent card in your starting deck has mana value 2 or less. (If this card is your chosen companion, you may put it into your hand from outside the game for {3} as a sorcery.)\nLifelink" } as CardData,
+      },
+    });
+    const take = rulesMenu(v.cards.lu!, v, "p1").find((i) => i !== "separator" && i.label.startsWith("Put into your hand"));
+    if (!take || take === "separator") throw new Error("expected the companion action");
+    expect(take.disabled).toBe(false);
+    take.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "lu", ability: 0 }]);
+    expect(rulesMenu(v.cards.ob!, v, "p1").some((i) => i !== "separator" && i.label.startsWith("Put into your hand"))).toBe(false); // not yours
+    const idle = view({ ...RULES, hints: { ...RULES.hints, has_priority: false } });
+    const w = { ...idle, cards: { ...idle.cards, lu: card("lu", "p1:companion", "lurrus") } } as unknown as GameView;
+    expect(rulesMenu(w.cards.lu!, w, "p1").find((i) => i !== "separator" && i.label.startsWith("Put into your hand"))).toMatchObject({ disabled: true });
+  });
+
   it("offers Equip for an Equipment on the battlefield", () => {
     const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true } });
     const v = { ...base, cards: { ...base.cards, eq: card("eq", "p1:battlefield", "splitter") } } as unknown as GameView;

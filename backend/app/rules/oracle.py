@@ -128,6 +128,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("enchant",)  # (the commas list what it may enchant)
     if re.fullmatch(r"ward—[^;]+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 17C) -- "Ward—{2}, Pay 2 life." (one cost of two parts)
         return ("ward",)
+    if re.fullmatch(r"companion\s*—.+", line.strip(), re.IGNORECASE):  # -- companion (wave 38D) -- 702.139a: one keyword (Kaheera's condition lists creature types)
+        return ("companion",)
     pieces = [p for p in re.split(r"[,;]\s*", line) if p.strip()]
     names = [keyword_name(p) for p in pieces]
     if names and all(names):
