@@ -291,6 +291,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"exiled_with": 1}  # -- resolution memory (wave 22D) -- 607.2a: the cards the linked ability exiled and that are still there
     if what == "opponent you attacked with a creature this combat":  # -- casting extras (wave 18E) -- melee 702.121a
         return {"attacked_opponents": 1}
+    if what in ("players being attacked", "player being attacked"):  # -- if you do (wave 40A) -- "draw a card for each player being attacked" (Amber Gristle O'Maul), "create a
+        return {"players_attacked": 1}  # Food token for each player being attacked" (Apothecary White): the players some creature is attacking now (506.2, 506.6; not a player whose planeswalker or battle is attacked — Commander Liara Portyr's ruling of 2022-06-10, Suppressor Skyguard's of 2024-02-02)
     if re.fullmatch(r"times? (?:it|he|she|~|this (?:spell|creature|permanent|enchantment|artifact|land|planeswalker)) (?:was|were) kicked", what):
         return {"kicked": 1}  # (wave 23C: plural and "he"/"she"/"this permanent": 702.33d, a permanent remembers how its spell was kicked)
     if what in ("times this creature has mutated", "times ~ has mutated", "times this permanent has mutated", "time this creature has mutated"):  # -- merged permanents (wave 18D)
@@ -460,8 +462,9 @@ _TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this
 _TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?|permanents?|[A-Z][a-z-]+)(?P<ctl> you controlled)?"
                         r"(?: that (?P<verb>died|left the battlefield)|(?: that (?:was|were))? (?P<gy>put into your graveyard from the battlefield))"
                         r"(?P<mine> under your control)? this turn$")
-_OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? (?:who|that) (?:(?P<drew>drew (?P<n>\w+) or more cards)|"
-                            r"(?P<lost>lost life)|(?P<hurt>(?:was|were) dealt (?P<combat>combat )?damage)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
+_TURN_EXILED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?) that (?:was|were) exiled under your opponents' control this turn$")  # (wave 41B)
+_OPPONENTS_WHO = re.compile(r"^(?:the number of )?(?:your )?opponents? (?:who|that) (?:(?P<drew>drew (?P<n>\w+) or more cards)|"  # (wave 41B: "your opponents")
+                            r"(?P<lost>lost life)|(?P<hurt>(?:was|were) dealt (?P<combat>combat )?damage(?: by ~ or an? (?P<by>[A-Z][a-z]+))?)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
                             r"this turn$")
 
 
@@ -503,6 +506,11 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "attackers", **({"who": "you"} if m["mine"] else {})}
     if _TURN_DREW.match(what):
         return {"turn_history": "drew"}
+    m = _TURN_EXILED.match(what)
+    if m:  # -- this-turn history (wave 41B) -- "the number of creatures that were exiled under your opponents' control this turn" (Vren): each left the battlefield
+        # for exile, controlled by an opponent as it left (608.2i: as it last existed there)
+        sel = selectors.parse(m["sel"])
+        return None if sel is None else {"turn_history": "died", "sel": sel.key(), "to": "exile", "who": "opponent"}
     m = _TURN_DIED.match(what)
     if m:  # 700.4; as they last existed on the battlefield (608.2i)
         # -- trigger tail (wave 15B) -- "for each Zubera that died this turn": a creature type counts creatures (700.4)
@@ -531,8 +539,13 @@ def _turn_amount(what: str) -> Value | None:
         n = 1 if word is None else int(word) if word.isdigit() else NUMBERS.get(word)
         if n is None:
             return None
+        from app.rules.creature_types import CREATURE_TYPES
+
+        if m["by"] and m["by"] not in CREATURE_TYPES:
+            return None
         return {"turn_history": "opponents_who", "what": "drew" if m["drew"] else "lost" if m["lost"] else "damaged" if m["hurt"] else "lands", "n": n,
-                **({"combat": True} if m["combat"] else {})}  # (-- triggers (wave 30J) -- Tymna the Weaver: "opponents that were dealt combat damage", 510.2)
+                **({"combat": True} if m["combat"] else {}),  # (-- triggers (wave 30J) -- Tymna the Weaver: "opponents that were dealt combat damage", 510.2)
+                **({"by": m["by"]} if m["by"] else {})}  # (-- this-turn history (wave 41B) -- "dealt combat damage by ~ or a Dragon this turn" (Estinien Varlineau): the source was ~ or had that type, as it dealt it)
     from app.rules import (
         player_filter,  # -- per-player filters (wave 23A) -- "for each opponent who controls fewer creatures than you"
     )
@@ -714,6 +727,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sum(len(plan.state.zones.get(f"{p}:library", [])) for p in players if p in plan.live())
     if "opponents" in v:
         return sum(1 for p in plan.live() if p != you)
+    if "players_attacked" in v:  # -- if you do (wave 40A) -- 506.2, 506.6: a player is "being attacked" when a creature attacks that player (the ruling of Commander Liara Portyr, 2022-06-10: a planeswalker attacked alone does not count its controller)
+        return len({c.attacking.id for c in plan.state.cards.values()
+                    if c.attacking is not None and c.attacking.kind == "player" and c.zone.endswith(":battlefield") and c.attacking.id in plan.live()})
     if "attacked_opponents" in v:  # -- casting extras (wave 18E) -- the players its controller attacked in the latest declaration
         return sum(1 for p in plan.rules.attacked_players.get(you, []) if p in plan.live() and p != you)
     if "life" in v:

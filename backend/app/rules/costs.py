@@ -562,6 +562,7 @@ class Kicker:
     multi: bool = False  # 702.33c multikicker: any number of times
     entwine: bool = False  # -- casting extras (wave 18E) -- 702.42a: the count 1 means "choose all modes" (paid as kicker is)
     extra: str = ""  # (an entwine cost that isn't mana: "sacrifice two lands", paid with the additional costs)
+    text: str = ""  # -- free-cast optional costs (wave 41D) -- the keyword line ("Kicker {R}", "Squad {2}"): the label of the question
 
 
 def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
@@ -578,7 +579,7 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
         m = _KICKER.fullmatch(ab.text.strip().rstrip("."))
         if m is None or not kicker_line(ab.text):
             return None
-        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"]), entwine=bool(m["entwine"])))
+        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"]), entwine=bool(m["entwine"]), text=ab.text.strip().rstrip(".")))
     return found[0] if len(found) == 1 else None
 
 

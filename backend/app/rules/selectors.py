@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 from app.rules.creature_types import CREATURE_TYPES
 
 if TYPE_CHECKING:
-    from app.game.state import CardInstance
+    from app.game.state import CardInstance, GameState
     from app.rules.characteristics import Characteristics
     from app.rules.plan import Plan
 
@@ -876,22 +876,32 @@ def _not_put_there_this_combat(s: Selector, m: re.Match[str]) -> Selector:
 
 
 def _put_there_now(plan: Plan, card: CardInstance, spec: str) -> bool:
-    """Is this card (in a graveyard now) the object that was put there this turn, from where ``spec`` says? (400.7, 608.2b)"""
+    return put_there_state(plan.state, card, spec)
+
+
+def put_there_state(state: GameState, card: CardInstance, spec: str) -> bool:
+    """Is this card (in a graveyard now) the object that was put there this turn, from where ``spec`` says? (400.7, 608.2b)
+    -- free cast (wave 40D) -- also "not_battlefield" ("from anywhere other than the battlefield": Banon, the Returners' Leader) and "milled" (701.17a: put there
+    from a library by a mill instruction, a fact the turn's log keeps of that object — not by a search or another effect, Raul's ruling 2024-03-08)."""
     from app.game.state import COMBAT_PHASES
 
-    r = plan.state.rules
-    if r is None or r.turn_log.turn != plan.state.turn.number or not card.zone.endswith(":graveyard"):
+    r = state.rules
+    if r is None or r.turn_log.turn != state.turn.number or not card.zone.endswith(":graveyard"):
         return False
     oid = r.object_id(card.id)
     arrival = next((a for a in reversed(r.turn_log.entered_graveyard) if a.card == card.id and a.object_id == oid), None)
     if arrival is None:  # (another object, or put there before this was recorded: an older save)
         return False
     if spec == "combat":  # 506.1: this combat phase (a turn may have several)
-        return plan.state.turn.phase in COMBAT_PHASES and r.combats > 0 and arrival.combat == r.combats
+        return state.turn.phase in COMBAT_PHASES and r.combats > 0 and arrival.combat == r.combats
     if spec == "any":
         return True
     if spec in ("battlefield", "library"):
         return arrival.from_zone == spec
+    if spec == "not_battlefield":
+        return arrival.from_zone is not None and arrival.from_zone != "battlefield"
+    if spec == "milled":
+        return arrival.from_zone == "library" and any(f.kind == "mill" and f.object_id == oid for f in r.turn_log.facts)
     # discarded (701.9a: from a hand to the graveyard, recorded as a discard of this object) or put there from a library
     return arrival.from_zone == "library" or (arrival.from_zone == "hand" and any(
         f.kind == "discard" and f.object_id == oid for f in r.turn_log.facts))

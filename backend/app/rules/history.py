@@ -230,7 +230,7 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
     if log is None:
         return
     for e in events:
-        if e.kind not in ("zone_change", "sacrificed", "damage", "counters") or e.turn != plan.state.turn.number:
+        if e.kind not in ("zone_change", "sacrificed", "damage", "counters", "milled") or e.turn != plan.state.turn.number:
             continue
         for kind, obj, ch, player, info in _facts(plan, e, {"cast_from": {}}):
             what: dict[str, Any] = {"types": sorted(ch.types), "subtypes": sorted(ch.subtypes),
@@ -265,6 +265,8 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
                 last.source_subtypes, last.source_controller = what["subtypes"], obj.controller if obj is not None else None
                 last.source_types, last.source_supertypes = what["types"], what["supertypes"]
                 last.source_spell = obj is not None and obj.zone == "stack" and obj.ability is None
+            elif kind == "mill" and obj is not None:  # -- free cast (wave 40D) -- 701.17a: this object was milled ("cards in your graveyard that were milled this turn", Raul)
+                log.facts.append(TurnFact(kind="mill", player=player or obj.owner, object_id=info.get("oid"), **what))
             elif kind == "to_exile" and player is not None:  # -- this-turn state (wave 33D) -- 400.1: a card put into exile from another zone (a token is no card)
                 log.facts.append(TurnFact(kind="exile", player=player, object_id=info.get("oid"), **what))
             elif kind == "counters_put" and player is not None:
@@ -699,8 +701,9 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     if kind == "drew":
         return log.drew.get(me, 0)
     if kind == "died":
-        return sum(1 for d in log.left if (v.get("left") or d.to == "graveyard") and (snap := plan.rules.lki.get(d.object_id)) is not None
+        return sum(1 for d in log.left if (v.get("left") or d.to == v.get("to", "graveyard")) and (snap := plan.rules.lki.get(d.object_id)) is not None
                    and (v.get("who") != "you" or d.controller == me)  # (-- X actions (wave 9A) -- "under your control")
+                   and (v.get("who") != "opponent" or d.controller != me)  # (wave 41B: "exiled under your opponents' control", ``to``: the zone it went to)
                    and (v.get("owner") != "you" or snap.owner == me)  # (-- this-turn history (wave 30R) -- "your graveyard": 400.3)
                    and _departed_matches(plan, selectors.from_key(v["sel"]), d, snap))
     if kind == "entered":  # -- tokens (wave 38B) -- "creatures you had enter the battlefield under your control this turn": those that left too (608.2i)
@@ -727,6 +730,7 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
             return sum(1 for p in opponents if log.lost.get(p, 0) >= n)
         if v["what"] == "damaged":  # (wave 21F: Gnoll War Band — damage dealt to the player, 120.3)
             return sum(1 for p in opponents if any(f.kind == "damage" and f.player == p and f.amount > 0 and (f.combat or not v.get("combat"))
+                                                   and (not v.get("by") or f.object_id == ctx.get("source_object") or v["by"] in f.source_subtypes)  # (wave 41B: ~ or a <type>)
                                                    for f in log.facts))
         land = selectors.parse("land")
         assert land is not None

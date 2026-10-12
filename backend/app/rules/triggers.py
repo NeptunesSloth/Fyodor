@@ -1908,6 +1908,8 @@ def blocked(plan: Plan, blockers: list[CardInstance], attackers: list[CardInstan
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=4000 + k, definition={"kind": "triggered", "trigger": "bushido", "optional": False, "target": None,
                                              "effects": [{"do": "pump", "who": "self", "p": n, "t": n}]})
+        for i, d in abilities(plan, ch, "bushido"):  # -- X keywords (wave 41B) -- "~ has bushido X, where X is …": its X is worked out as it resolves (keyword_triggers.dynamic_x)
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=d)
 
 
 def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> None:

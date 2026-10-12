@@ -85,7 +85,7 @@ class _Fail(Exception):
 
 
 MAX_TARGETS = A.MAX_TARGETS  # "any number of target …": at most this many (the intents' limit; wave 29C: 250, as a trigger's, not 20)
-_QTY = r"one|two|three|four|five|six|seven|eight|nine|ten|\d+"
+_QTY = r"one hundred|one|two|three|four|five|six|seven|eight|nine|ten|\d+"  # (wave 41B: "up to one hundred target creatures", Baldin)
 # -- target forms (agent T) --  "up to one other target creature", "each of up to two other targets",
 # "any number of other target nonland permanents you control": "other" inside a counted group
 _GROUP = re.compile(rf"^(?:each of )?(?:up to (?P<upto>{_QTY}|X)|(?P<range>one or two|one, two, or three)|"  # (X: wave 4K)
@@ -93,7 +93,7 @@ _GROUP = re.compile(rf"^(?:each of )?(?:up to (?P<upto>{_QTY}|X)|(?P<range>one o
 
 
 def _qty(word: str) -> int:
-    return int(word) if word.isdigit() else values.NUMBERS[word]
+    return int(word) if word.isdigit() else 100 if word == "one hundred" else values.NUMBERS[word]
 
 
 def simple(group: dict[str, Any]) -> bool:
@@ -202,7 +202,8 @@ def _out(groups: list[dict[str, Any]]) -> Any:
 def _divided(phrase: str, what: str, total: Any) -> dict[str, Any]:
     """601.2d: "… divided as you choose among one, two, or three targets" / "distribute N
     counters among …": each target gets at least one, so at least one target and at most
-    ``total`` of them."""
+    ``total`` of them; (wave 41B) a total counted as the ability goes on the stack may be 0, so there the group says how few: "any number of" / "up to"
+    allow none (115.6; Yannik's ruling of 2020-04-17)."""
     group = target_group(phrase)
     x_plus = isinstance(total, dict) and set(total) == {"plus"} and total["plus"][0] == {"x": 1} and isinstance(total["plus"][1], int)  # (wave 34C: "X plus 1")
     # (-- distribute (wave 12A) -- "any number of other target creatures you control": other than the source, 115.3)
@@ -211,7 +212,7 @@ def _divided(phrase: str, what: str, total: Any) -> dict[str, Any]:
             or not (isinstance(total, int) or total == {"x": 1} or x_plus or (isinstance(total, dict) and not _has_x(total))):
         raise _Fail
     counted = not (isinstance(total, int) or total == {"x": 1} or x_plus)  # (a count: the total is read as the spell is cast, targets.divide_x)
-    group = {**group, "min": max(1, group["min"]), "divide": {"what": what, "total": {"x": 1}, "value": total} if counted
+    group = {**group, "min": group["min"] if counted else max(1, group["min"]), "divide": {"what": what, "total": {"x": 1}, "value": total} if counted
              else {"what": what, "total": total}}
     if isinstance(total, int):
         if total < 1:
@@ -1023,7 +1024,7 @@ _UNTIL = re.compile(rf"(?P<verb>reveal|exile) cards from the top of {_LIB} until
 # -- look and distribute (wave 3L) -- where the picked / remaining cards go; a library may be "that library"
 # / "that player's library" (the one looked at), a graveyard "their graveyard"
 _LIBREF = r"(?:your|that|their|that player's) library"
-_REST = (r"(?:the rest|the rest of (?:those|the) cards|the rest of them|the other|the others|the other cards|"
+_REST = (r"(?:the rest|the rest of (?:those|the)(?: revealed)? cards|the rest of them|the other|the others|the other cards|"
          r"all other cards revealed this way|"
          # -- refused look/cast-free (wave 3R5) -- after a free cast (608.2g): the cards it didn't cast
          r"all revealed cards not cast this way|the exiled cards not cast this way|the exiled cards that weren't cast this way|"
@@ -1897,7 +1898,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         found = _parse(f"return {m['o']} to the battlefield{m['rest']}")
         return [{**e, "put": True} for e in found[0]], found[1]  # (scripts refuses it unless "it" is the trigger event's card)
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|their hand|your hand|"
-                     r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?"
+                     r"the battlefield(?P<t> tapped(?P<atk> and attacking)?)?(?: under (?P<u>your|its owner's|their owners') control)?"
+                     r"(?P<t2> tapped(?P<atk2> and attacking)?)?"  # (-- trigger other (wave 41C) -- 508.4: "… under your control tapped and attacking", The Neutrinos)
                      r"(?: with (?:(?:an?|one) |(?P<cn>two|three|four|five) )(?P<ck>[+-]\d+/[+-]\d+|[a-z]+) counters? on it)?)", text)  # (wave 19D: N counters)
     if m:
         # -- activated sweep (wave 17B) -- "Return target commander you own from the battlefield to your hand." (Sanctum of Eternity)
@@ -1916,8 +1918,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
             if m["ck"] and m["ck"] in values.UNMODELED_COUNTERS:
                 raise _Fail
             # (-- quoted grants, wave 2D -- "… with a +1/+1 counter on it": it enters with it, 122.6)
-            return [{"do": "return_card", "who": who, "to": "battlefield", "tapped": bool(m["t"]),
+            if (m["atk"] or m["atk2"]) and (kind not in ("it", "them") or m["u"] not in (None, "your")):
+                raise _Fail  # -- trigger other (wave 41C) -- 508.4: only what an earlier instruction moved, under your control (506.3b: not read under its owner's)
+            return [{"do": "return_card", "who": who, "to": "battlefield", "tapped": bool(m["t"] or m["t2"]),
                      "under": "owner" if m["u"] and m["u"] != "your" else "you",  # (110.2a: unless it says otherwise)
+                     **({"attacking": True} if m["atk"] or m["atk2"] else {}),
                      **({"counter": m["ck"]} if m["ck"] else {}), **({"counter_n": values.NUMBERS[m["cn"]]} if m["cn"] else {})}], target
         if from_zone and kind not in ("it", "them"):
             return [{"do": "return_card", "who": who, "to": "hand", "under": "you" if m["d"] == "your hand" else "owner"}], target
@@ -3220,7 +3225,13 @@ def _become(text: str) -> tuple[Effects, Any]:
     text, rider = _with_rider(_become_forms(text))
     # -- static_other sweep (wave 19A) -- "All lands you control become 2/2 Elemental creatures with reach …" (Sylvan Awakening): a group
     # becomes the plural of the singular wording read below
-    text = re.sub(r"^(?P<pre>.+? becomes?) (?P<d>(?:\d+/\d+ )(?:[A-Z][\w'-]+ )*)creatures\b", r"\g<pre> a \g<d>creature", text)
+    # -- trigger other (wave 41C) -- also without a P/T and with a card type before "creatures": "Vehicles you control become artifact creatures until end of
+    # turn" (The Thanos-Copter), "Treasures you control become 3/3 Construct Assassin artifact creatures in addition to their other types until end of turn"
+    # (Vihaan, Goldwaker): the singular wording, "their other" → "its other" (205.1b)
+    plural = re.sub(r"^(?P<pre>.+? becomes?) (?P<d>(?=\d|[A-Z]|artifact |enchantment )(?:\d+/\d+ )?(?:[A-Z][\w'-]+ )*(?:(?:artifact|enchantment) )?)creatures\b",
+                    r"\g<pre> a \g<d>creature", text)
+    if plural != text:
+        text = plural.replace(" in addition to their other", " in addition to its other")
     if rider is None and (land := _BECOME_LAND.fullmatch(text)) is not None:
         return _become_land(land)
     if rider is None and (pick := _BECOME_PICK.fullmatch(text)) is not None:  # -- activated wordings (wave 15D) --
