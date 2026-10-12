@@ -264,11 +264,29 @@ def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "attacked_this_turn"))
 
 
+# -- counters (wave 41A) -- "each creature you control that you've put one or more +1/+1 counters on this turn has hexproof" (Kid Loki): the permanent (400.7: not a
+# new object) a counter of that kind was put on by you, 122.6, this turn (TurnFact "counters": ``object_id``, ``actor``, ``counter``)
+@_suffix(r"that you've put one or more (?P<k>\+1/\+1|-1/-1|[a-z]+) counters on this turn")
+def _you_put_counters_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    if re.search(r"\bcreatures?(?: [a-z ]+? controls?)?$", m.string[: m.start()].rstrip()) is None:
+        raise ValueError("only \"creatures that you've put counters on this turn\" (a group on the battlefield)")
+    return replace(s, extras=(*s.extras, f"you_put_counters:{m['k']}"))
+
+
 @_suffix(r"that didn't attack this turn")  # -- damage sized by a count (wave 34D) -- Kratos, Angel's Trumpet: not declared as an attacker this turn (508.1)
 def _didnt_attack_this_turn(s: Selector, m: re.Match[str]) -> Selector:
-    if re.search(r"\bcreatures(?: [a-z ]+? controls?)?$", m.string[: m.start()].rstrip()) is None:  # ("creatures that player controls that didn't …")
+    if re.search(r"\bcreatures?(?: [a-z ]+? controls?)?$", m.string[: m.start()].rstrip()) is None:  # ("creatures that player controls that didn't …"; wave 41A: "each creature you control that didn't …")
         raise ValueError("only \"creatures that didn't attack this turn\" (a group on the battlefield)")
     return replace(s, extras=(*s.extras, "didnt_attack_this_turn"))
+
+
+# -- counters (wave 41A) -- "each creature you control that didn't attack or enter this turn" (The Fifth Doctor): neither declared as an attacker (508.1) nor
+# entered the battlefield (a new object if it left and came back, 400.7) this turn
+@_suffix(r"that didn't attack or enter this turn")
+def _didnt_attack_or_enter_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    if re.search(r"\bcreatures?(?: [a-z ]+? controls?)?$", m.string[: m.start()].rstrip()) is None:
+        raise ValueError("only \"creatures that didn't attack or enter this turn\" (a group on the battlefield)")
+    return replace(s, extras=(*s.extras, "didnt_attack_this_turn", "not_entered_this_turn"))
 
 
 @_suffix(r"that blocked this turn")  # -- combat state (wave 27A) -- declared as blockers this turn (509.1g); a creature put onto the battlefield blocking never "blocked"
@@ -1016,6 +1034,8 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, attacking=True)
     if low == "blocking":
         return replace(s, blocking=True)
+    if low == "suspended":  # -- counters (wave 41A) -- 702.62b: "each suspended card you own" (Rose Tyler): in exile, with suspend and a time counter on it
+        return replace(s, zones=("exile",), extras=(*s.extras, "suspended"))
     if low == "unblocked":  # -- keywords (wave 15E) -- ninjutsu 702.49a: "unblocked attacking creature" (509.1h: not blocked)
         return replace(s, attacking=True, extras=(*s.extras, "unblocked"))
     if low in ("attacking-or-blocking", "blocking-or-attacking"):  # (joined by parse: one status)
@@ -1744,6 +1764,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra.startswith("entered_this_turn") and not _entered_now(plan, card, you if extra.endswith("_you") else None):
             return False  # (wave 5H)
+        if extra == "not_entered_this_turn" and _entered_now(plan, card, None):  # (wave 41A)
+            return False
+        if extra == "suspended" and not (card.id in plan.rules.suspended and card.zone.endswith(":exile") and card.counters.get("time", 0) > 0):
+            return False  # (wave 41A: 702.62b)
+        if extra.startswith("you_put_counters:") and not _you_put_counters_now(plan, card, you, extra[17:]):
+            return False  # (wave 41A: 122.6)
         if extra.startswith("put_there:") and not _put_there_now(plan, card, extra[10:]):  # -- graveyard history (wave 36A) --
             return False
         if extra == "not_put_there_combat" and _put_there_now(plan, card, "combat"):
@@ -1871,6 +1897,14 @@ def drawn_now(plan: Plan, card: CardInstance) -> bool:
     if r is None or r.turn_log.turn != plan.state.turn.number or not card.zone.endswith(":hand"):
         return False
     return r.object_id(card.id) in r.turn_log.drawn.get(card.owner, ())
+
+
+def _you_put_counters_now(plan: Plan, card: CardInstance, you: str | None, kind: str) -> bool:
+    """-- counters (wave 41A) -- ``you`` put one or more ``kind`` counters on this object (400.7) this turn (the turn's log, 608.2i)."""
+    from app.rules.history import log_for
+
+    oid = plan.oid(card)
+    return any(f.kind == "counters" and f.object_id == oid and f.actor == you and f.counter == kind and f.amount > 0 for f in log_for(plan, False).facts)
 
 
 def _attacked_this_turn_now(plan: Plan, card: CardInstance) -> bool:

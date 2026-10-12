@@ -62,7 +62,7 @@ from app.game.rules_state import (
     emit,
     track,
 )
-from app.game.state import COMBAT_PHASES, CardInstance, MergedPart, StackInfo, TokenDef
+from app.game.state import COMBAT_PHASES, AttackTarget, CardInstance, MergedPart, StackInfo, TokenDef
 from app.rules import characteristics as chars
 from app.rules import delayed, designations, layers, scripts, selectors
 from app.rules.characteristics import Characteristics
@@ -351,9 +351,14 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
     """The object as it last existed on the battlefield (603.10a: leaves-the-battlefield triggers
     look back in time)."""
     ch = _lki_characteristics(plan, snap)
+    # (-- counters (wave 41A) -- 603.10a, 608.2h: "an attacking creature you control dies" (Death Tyrant, Kardur): it was attacking (and whom) / blocking / tapped as it
+    # last existed — a selector that asks reads these of the dead object too)
+    kind, _, ident = (snap.attack_on or "").partition(":")
+    attacking = AttackTarget(kind="card" if kind == "card" else "player", id=ident) if snap.attacking else None
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, is_token=snap.is_token,
-                        attached_to=snap.attached_to, attached_player=snap.attached_player,
+                        attached_to=snap.attached_to, attached_player=snap.attached_player, tapped=snap.tapped,
+                        attacking=attacking, blocking="blocking" if snap.blocking else None,
                         counters=dict(snap.counters))  # (wave 3S: "each page counter on this Aura", 608.2h)
     if snap.x is not None:  # -- stack interaction (wave 5B) -- a spell's X as it last existed on the stack (202.3e)
         card.stack_info = StackInfo(x=snap.x)
@@ -679,6 +684,9 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
             return snap is not None and watcher.id in snap.attached
         return watcher.attached_to is not None and obj.id == watcher.attached_to
     if subject == "source":  # -- source damage (wave 11F) -- "a source you control / an opponent controls deals damage": its controller
+        if cond.get("color") and not (och is not None and (not och.colors if cond["color"] == "colorless"  # -- counters (wave 41A) -- "a red source": 105.2
+                                                          else selectors.COLORS[cond["color"]] in och.colors)):
+            return False
         return int(info.get("amount") or 0) > 0 and (cond.get("ctl", "any") == "any" or (cond["ctl"] == "you") == (player == you))
     if subject == "self_or_host":  # "~ or equipped creature"
         return obj.id == watcher.id or (watcher.attached_to is not None and obj.id == watcher.attached_to)

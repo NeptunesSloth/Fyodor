@@ -124,6 +124,8 @@ def _safe(v: Any) -> bool:
 def _value(what: str) -> str | None:
     from app.rules import values
 
+    # -- counters (wave 41A) -- the source's own name ("{T}: Add {U} for each counter on Nardole."): a mana ability is read before its card's name is written ~
+    what = re.sub(r"(\bcounters?) on (?!this |~|it\b)[A-Z][\w',-]*(?: [\w',-]+)*$", r"\1 on ~", what)
     v = values.parse_count(what, it=None)
     if v is None or not _safe(v):
         return None
