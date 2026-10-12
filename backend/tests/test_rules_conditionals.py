@@ -317,7 +317,7 @@ def test_object_wordings(text, expected):
 
 
 @pytest.mark.parametrize("text", [
-    "it's tapped",  # (physical state of an object other than the source: never read from last known information)
+    # ("it's tapped": read since wave 38A as the bound object's present state, 608.2c, never from last known information)
     "it's a creature you control",
     "it's the second time",
 ])
