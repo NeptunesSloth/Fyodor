@@ -311,6 +311,11 @@ THAT_PLAYER = "that_player"  # -- damage wordings (wave 6B) -- a controller the 
 
 # -- damage history (wave 6B) -- "creature that was dealt damage this turn", "each creature dealt damage this turn",
 # "creature that dealt damage [to you] this turn" (app/rules/damage_history.py)
+@_suffix(r"that dealt combat damage to you this turn")  # -- trigger other (wave 39A) -- Witch-king of Angmar: "a creature of their choice that dealt combat damage to you this turn"
+def _dealt_combat_damage_you(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "dealt_combat_damage_you"))
+
+
 @_suffix(r"that dealt damage (?P<you>to you )?this turn")
 def _dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "dealt_damage_you" if m["you"] else "dealt_damage"))
@@ -624,7 +629,7 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 # -- token & pump wordings (wave 6C) -- keywords a selector may ask about but a grant doesn't give ("if you control no
 # creatures with decayed": read from the object's keywords, like the others)
 _WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke",
-                  "modular", "toxic", "mutate", "awaken", "cascade",
+                  "modular", "toxic", "mutate", "awaken", "cascade", "flanking",  # (wave 39A: "all attacking creatures with flanking", Telim'Tor)
                   "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk")  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
 # an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
@@ -1804,7 +1809,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "drawn_this_turn" and not drawn_now(plan, card):  # -- drawn this turn (wave 18G) --
             return False
-        if extra in ("was_dealt_damage", "dealt_damage", "dealt_damage_you", "dealt_damage_by_source"):  # -- damage history (wave 6B) --
+        if extra in ("was_dealt_damage", "dealt_damage", "dealt_damage_you", "dealt_damage_by_source", "dealt_combat_damage_you"):  # -- damage history (wave 6B) --
             from app.rules import damage_history
 
             if not damage_history.matches(plan, card, extra, you, source):
@@ -1828,8 +1833,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                       if c.controller == card.controller and c.zone.endswith(":battlefield") and plan.ch(c).is_creature]
             if mine is None or any(p is None or p > mine for p in others):
                 return False
-        if extra.startswith("greatest_own:"):  # -- static_other sweep (wave 26A) -- "with the greatest mana value among creatures and
+        if extra.startswith(("greatest_own:", "least_own:")):  # -- static_other sweep (wave 26A) -- "with the greatest mana value among creatures and
             # planeswalkers they control" (Blot Out): no permanent of those kinds its controller controls beats it (ties all qualify)
+            # (-- trigger other (wave 39A) -- "with the least power among creatures they control": Witch-king, Bringer of Ruin; none has less)
             _, stat, kinds = extra.split(":", 2)
             stat = "mv" if stat == "mana_value" else stat
             want, _, unwanted = kinds.partition("!")
@@ -1837,7 +1843,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             rivals = [_stat(plan.ch(c), stat) for c in plan.state.cards.values()
                       if c.controller == card.controller and c.zone.endswith(":battlefield") and plan.in_game(c)
                       and (not want or set(want.split("|")) & plan.ch(c).types) and not set(filter(None, unwanted.split("|"))) & plan.ch(c).types]
-            if mine is None or any(p is not None and p > mine for p in rivals):
+            if mine is None or any(p is not None and (p < mine if extra.startswith("least") else p > mine) for p in rivals):
                 return False
         if extra == "x_cost" and "{X}" not in ch.mana_cost:  # -- activated wordings (wave 15D) -- (107.3: printed in its mana cost)
             return False

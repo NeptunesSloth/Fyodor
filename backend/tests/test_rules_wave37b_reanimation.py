@@ -3,8 +3,8 @@
 
 * 608.2c / 603.6a: "Return this card and target land card from your graveyard to the battlefield tapped." (Sandman, Slimefoot and Squee) is one
   instruction: both enter together, and only from the graveyard (113.6m). "… to the battlefield transformed" (Garland, 712.14a).
-* 400.7: a card returned from a graveyard is a new object; "the top creature card of your graveyard" (Shallow Grave, Corpse Dance, Mistmoon Griffin) is the
-  last creature card in the graveyard's order, nothing is chosen.
+* 400.7: a card returned from a graveyard is a new object. (Review 35: "the top creature card of your graveyard" — Shallow Grave, Corpse Dance, Mistmoon
+  Griffin — is manual: 404.3, the owner arranges cards put into a graveyard at the same time, which the engine doesn't ask.)
 * 614.1a, 616.1, 108.2a, 111.1: "If a card would be put into your graveyard from anywhere this turn, exile that card instead." (Yawgmoth's Will, Gaea's
   Will, Magus of the Will, Walk-In Closet) applies to a card from any zone, the resolving spell included, not to a token; a commander exiled this way may go
   to the command zone (903.9a).
@@ -37,7 +37,8 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave37b_cards.json").re
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w37b", number=f"B{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-FULL = [c["name"] for c in DATA if c["name"] not in ("Thought Scour", "Mind Rot")]  # (those two are only the means of milling and discarding)
+TOP = ("Shallow Grave", "Corpse Dance", "Mistmoon Griffin")  # (review 35: manual, 404.3)
+FULL = [c["name"] for c in DATA if c["name"] not in ("Thought Scour", "Mind Rot", *TOP)]  # (those two are only the means of milling and discarding)
 
 
 @pytest.fixture()
@@ -427,51 +428,8 @@ def test_nurgles_conscription_exiles_the_graveyard_of_the_player_whose_card_it_t
     assert s.state.cards[finks.id].zone == "p1:graveyard"  # (Bob's graveyard, not Alice's)
     check(s)
 
-def top_table(cards, extra=()):
-    s = build(cards, ["Shallow Grave", "Grizzly Bears", "Llanowar Elves", *extra], forests=12)
-    grave(s, "Grizzly Bears")
-    grave(s, "Llanowar Elves")
-    forest = grave(s, "Forest")  # the topmost card of the graveyard isn't a creature
-    return s, forest
-
-
-def keywords(s, c):
-    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id]).keywords
-
-
-def test_shallow_grave_returns_the_top_creature_card_with_haste_and_exiles_it_at_the_end_step(cards):
-    """The last creature card in the graveyard's order (not the Forest above it, not the older Grizzly Bears); nothing is chosen."""
-    s, forest = top_table(cards)
-    giant = card_named(s, "Llanowar Elves")
-    before = oid(s, giant)
-    to_hand(s, "Shallow Grave")
-    mana(s, B=1, G=1)
-    cast(s, "Shallow Grave")
-    assert s.state.rules.decision is None  # (nothing was chosen)
-    assert zone_of(s, "Llanowar Elves") == "p1:battlefield" and zone_of(s, "Grizzly Bears") == "p1:graveyard" and zone_of(s, "Forest") == "p1:graveyard"
-    assert "haste" in keywords(s, giant) and oid(s, giant) != before  # 400.7: a new object, the one the haste is for
-    until(s, lambda s: zone_of(s, "Llanowar Elves") != "p1:battlefield")
-    assert zone_of(s, "Llanowar Elves") == "p1:exile"  # "Exile it at the beginning of the next end step."
-    check(s)
-
-
-def test_shallow_grave_with_no_creature_card_does_nothing(cards):
-    s = build(cards, ["Shallow Grave"], forests=12)
-    grave(s, "Forest")
-    to_hand(s, "Shallow Grave")
-    mana(s, B=1, G=1)
-    cast(s, "Shallow Grave")
-    assert zone_of(s, "Forest") == "p1:graveyard" and not [n for n in names(s, "battlefield") if n != "Krenko, Mob Boss"]
-    check(s)
-
-
-def test_mistmoon_griffin_exiles_itself_first_so_the_card_below_it_is_the_top_creature_card(cards):
-    """"exile it, then return the top creature card of your graveyard": the Griffin is on top of the graveyard when it dies, and gone by then."""
-    s = build(cards, ["Mistmoon Griffin", "Grizzly Bears"], forests=12)
-    grave(s, "Grizzly Bears")
-    griffin = put(s, "Mistmoon Griffin")
-    act(s, "p1", type="set_damage", card_ids=[griffin.id], value=9)
-    act(s, s.state.rules.priority, type="pass_priority")
-    settle(s)
-    assert zone_of(s, "Mistmoon Griffin") == "p1:exile" and zone_of(s, "Grizzly Bears") == "p1:battlefield"
-    check(s)
+# -- review 35 -- "the top creature card of your graveyard" stays manual: 404.3, the owner arranges the cards put into a graveyard at the same time, and
+# the engine doesn't ask that (after a combat or a wrath the top creature card is the owner's pick)
+@pytest.mark.parametrize("name", TOP)
+def test_the_top_creature_card_of_your_graveyard_stays_manual(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL", name
