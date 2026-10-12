@@ -216,7 +216,7 @@ def test_wordings(text, expected):
     "As long as this card is in your graveyard, ~ gets +1/+1.",  # a card in a graveyard is no permanent
     "As long as your life total is greater than your starting life total, ~ gets +1/+1 and has menace. ~ gets an additional "
     "+5/+5 as long as your life total is at least 10 greater than your starting life total.",  # Elenda: two sentences
-    "As long as you control six or more lands, ~ and land creatures you control get +2/+2.",  # Sylvan Advocate
+    # (Sylvan Advocate: "As long as you control six or more lands, ~ and land creatures you control get +2/+2." is read since wave 36B: test_rules_wave36b_unions.py)
 ])
 def test_refused_wordings(text):
     assert statics.parse(text) is None

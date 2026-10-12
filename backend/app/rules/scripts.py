@@ -289,7 +289,10 @@ def self_text(text: str, name: str) -> str:
     def _own(part: str) -> str:
         for n in names:
             # (wave 20C: the short name before "the/of Capital" starts another name: "create Tuktuk the Returned, a legendary …")
-            part = re.sub(rf"(?<![\w-]){re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else ""), "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
+            # (-- static_other (wave 36B) -- a shortened name that is also a creature type is that type before "creature(s)": "becomes a green Lizard creature" on
+            # Lizard, Connors's Curse is no self-reference ("a green ~ creature" is nothing a card says)
+            part = re.sub(rf"(?<![\w-]){re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else "") + (r"(?! (?:creature|token)s?\b)" if n != name else ""),
+                          "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
         return part
 
     # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the
@@ -2713,6 +2716,13 @@ def _may_else(m: re.Match[str]) -> str:
     return f"{effect[:1].upper()}{effect[1:]} unless that player {verb}s {rest}."
 
 
+_ALSO_SUBJECT = re.compile(r"(?<![\w'])((?:[Yy]ou|[Tt]hey|[Ii]t|[Tt]hat (?:creature|permanent)|[Tt]hose (?:creatures|permanents)|(?:[A-Za-z-]+ )*?(?:[Cc]reatures|[Pp]ermanents|[A-Z][a-z]+s) "
+                           r"(?:you|your opponents) control)) also (gains?|gets?|loses?|has|have|draws?)\b")
+
+
+_KIND_LIST_IF = re.compile(r"^(if [^,.]*?\b(?:a|an|another) )([A-Z][a-z]+(?:, [A-Z][a-z]+)+),? or ([A-Z][a-z]+)(?=,)")
+
+
 def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
@@ -2724,6 +2734,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             body = " ".join(f"You and that player each {part}." for part in re.split(r" and (?=(?:draw|lose|gain) )", both[1]))
     if it == "self":  # -- triggers (wave 17D) -- "draw a card for each Aura and Equipment attached to it": "it" is the source (Wyleth)
         body = re.sub(r"\b(Auras?|Equipment) attached to it\b", r"\1 attached to ~", body)
+    # -- static_other (wave 36B) -- "If the gift was promised, permanents you control also gain indestructible until end of turn." (Dawn's Truce), "Colorless creatures you
+    # control also gain first strike until end of turn." (Swarm Surge), "It also gets +1/+0 until end of turn if …" (Might of the Meek): "also" only says the instruction
+    # adds to the one before it (608.2c), as for "~ also deals" (language.py) — the same instruction without it
+    body = _ALSO_SUBJECT.sub(r"\1 \2", body)
     # -- review (wave 7R) -- "Create a tapped 2/2 black Zombie creature token and exile that card." (Wight): "that card" is
     # the card the trigger is about, never the token just created (a token is no card), and the pronoun reader would bind it
     # to the token. The two instructions don't depend on each other: read as "Exile that card. Create …" (the trigger's
@@ -3173,6 +3187,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if revealed is not None and last_look is not None and last_look.get("reveal") and last_look.get("n") == 1 \
                 and not last_look.get("until") and last_look.get("player") == "you":
             text = f"if it's a {revealed['w']}, {revealed['r']}"
+        # -- static_other (wave 36B) -- "If you control a Fish, Octopus, Otter, Seal, Serpent, or Whale, draw a card." (Unagi's Spray), "If that creature is a Bird, Frog, Otter,
+        # or Rat, draw a card." (Splash Portal): the commas of a list of kinds don't end the condition; "A or B or C" is the same list
+        text = _KIND_LIST_IF.sub(lambda k: k[1] + " or ".join([*k[2].split(", "), k[3]]), text)
         cond_m = re.match(r"^if (?P<c>[^,]+), (?P<rest>.+)$", text)
         if (way_m := re.match(r"^if (?P<c>[^.]+? this way), (?P<rest>.+)$", text)) is not None and this_way.condition(way_m["c"]) is not None:
             cond_m = way_m  # -- reflexive this way (wave 30G) -- "If a noncreature, nonland card is milled this way, …": commas inside the kind (Old Rutstein)
@@ -3403,6 +3420,10 @@ def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     # -- activated leftovers (wave 7E) -- "{U}, {T}: You may tap or untap target creature.": the "may" is choosing neither
     if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0]["do"] == "tap_or_untap":
         return [{**parsed[0][0], "optional": True}], parsed[1], False
+    # -- static_other (wave 36B) -- "You may choose new targets for target spell or ability." (Deflecting Swat, 115.7d): the "may" is keeping every target
+    # (each is asked: keep or a new one), not a question about the whole spell
+    if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0]["do"] == "choose_new_targets":
+        return parsed[0], parsed[1], False
     return parsed
 
 
@@ -4068,14 +4089,19 @@ _WHEN_KINDS = frozenset({"replace", "prevent", "cast_limit"})
 
 def _conditional_static(ability: AbilityText, ch: Characteristics, text: str) -> Definition | None:
     m = re.fullmatch(r"As long as (?P<c>[^,]+), (?P<r>.+)", text)
-    if m is None:
+    cond_text, rest = (m["c"], m["r"]) if m is not None else (None, "")
+    # -- static_other (wave 36B) -- "During your turn, prevent all damage that would be dealt to ~." (Frodo, Guardian Naga, Personal Sanctuary), "Prevent all damage
+    # that would be dealt to ~ during your turn." (Gideon Blackblade): "as long as it's your turn" (500.1), read when the damage would be dealt
+    if m is None and (during := re.fullmatch(r"During your turn, (?P<r>[Pp]revent all .+)", text) or re.fullmatch(r"(?P<r>[Pp]revent all .+?) during your turn\.", text)):
+        cond_text, rest = "it's your turn", during["r"] if during["r"].endswith(".") else during["r"] + "."
+    if cond_text is None:
         return None
     from app.rules import statics
 
-    cond = statics.condition(m["c"])
+    cond = statics.condition(cond_text)
     if cond is None or "succeeded" in cond or "flag" in cond or "object" in cond:
         return None
-    inner = _define(replace(ability, text=m["r"][:1].upper() + m["r"][1:]), ch)
+    inner = _define(replace(ability, text=rest[:1].upper() + rest[1:]), ch)
     if inner is None or inner.get("kind") != "static":
         return None
     if inner.get("static") in _WHEN_KINDS:
@@ -4108,6 +4134,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return alt_costs.keyword_definition(ability.text)
     if ability.kind == "keywords" and ability.keywords == ("unleash",):  # -- keywords (wave 15E) -- 702.98a's second static
         return parse_anthem("~ can't block as long as it has a +1/+1 counter on it.")
+    # -- static_other (wave 36B) -- 601.3, 101.2: "You can't cast Rakdos unless an opponent lost life this turn." (Rakdos, Lord of Riots), "Threshold — You can't cast
+    # this spell unless there are seven or more cards in your graveyard." (Proft) says what "Cast this spell only if …" says: the card is cast only while the
+    # condition holds (the same clause grammar, app/rules/cast_timing.py); an "if …" form would need the clause negated: not read
+    if ability.kind == "static" and (unless := re.fullmatch(r"You can't cast (?:~|this spell) unless (?P<c>[^.]+)\.", text)) is not None:
+        text = f"Cast this spell only if {unless['c']}."
     if text.startswith("Cast this spell only "):  # -- cast timing (wave 7A) -- 601.3 (app/rules/cast_timing.py)
         from app.rules import cast_timing
 

@@ -23,7 +23,8 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 TRIGGER = "exerted_self"
-_EXERT = re.compile(r"^You may exert (?:~|this creature) as it attacks\. When you do, (?P<body>.+)$")
+# (static_other, wave 36B: a named character's "as he / she attacks" reads "as ~ attacks" once the pronoun is the card, Themberchaud)
+_EXERT = re.compile(r"^You may exert (?:~|this creature) as (?:it|~) attacks\. When you do, (?P<body>.+)$")
 
 
 def definition(text: str, ch: Characteristics, index: int) -> dict[str, Any] | None:
