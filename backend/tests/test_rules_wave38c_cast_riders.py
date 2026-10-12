@@ -66,12 +66,16 @@ def ready(s, *cs):
         s.state.rules.controlled_since[c.id].turn = 0  # (no longer summoning sick)
 
 
-def play_out(s, prefer=(), respond=None, limit=60):
+def play_out(s, prefer=(), respond=None, topup=None, limit=60):
     """Answer whatever is asked (the first of ``prefer`` on offer, else the first option) and let the stack resolve. ``respond``: (a spell, a player, the card
-    that player casts, its mana): that player casts the card at the spell once it is the top of the stack."""
+    that player casts, its mana): that player casts the card at the spell once it is the top of the stack. ``topup``: (a part of a prompt, mana): Alice has that mana from
+    the moment she is asked that (mana empties between steps)."""
     for _ in range(limit):
         d = s.state.rules.decision
         if d is not None:
+            if topup is not None and topup[0] in d.prompt:
+                mana(s, "p1", **topup[1])
+                topup = None
             ids = [o.id for o in d.options]
             chosen = next((p for p in prefer if p in ids), None)
             if d.kind == "declare_attackers":
@@ -90,14 +94,14 @@ def play_out(s, prefer=(), respond=None, limit=60):
     raise AssertionError("never settled")
 
 
-def attack(s, c, prefer=(), respond=None, **pool):
+def attack(s, c, prefer=(), respond=None, topup=None, **pool):
     act(s, "p1", type="pass_priority")  # → declare attackers
     if pool:
         mana(s, "p1", **pool)  # (mana empties between steps, and an X is offered up to the mana there is when the attack trigger resolves)
     if respond is not None:
         mana(s, respond[1], **respond[3])  # (a player with no mana is passed over: who answers has it by the time a spell is cast)
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"}])
-    play_out(s, prefer, respond)
+    play_out(s, prefer, respond, topup)
 
 
 def zone(s, c):
@@ -433,7 +437,7 @@ def test_tinybones_casts_a_permanent_card_from_the_damaged_players_graveyard_wit
     tinybones = put(s, "Tinybones, the Pickpocket")
     ready(s, tinybones)
     bears = grave(s, "Grizzly Bears", "p2")
-    attack(s, tinybones, prefer=(bears.id,), B=2)  # (Grizzly Bears' {1}{G}, paid with black mana)
+    attack(s, tinybones, prefer=(bears.id,), topup=("Choose a spell to cast", {"B": 2}))  # (Grizzly Bears' {1}{G}, paid with black mana)
     assert zone(s, bears) == "p1:battlefield" and s.state.cards[bears.id].controller == "p1" and life(s, "p2") == 39
     assert s.state.players["p1"].mana == {}
     check(s)
