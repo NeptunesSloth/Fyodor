@@ -55,6 +55,21 @@ def test_the_trailing_and_intervening_if_cards_are_full(name):
     assert coverage.of_characteristics(chs).level == "FULL", (name, coverage.of_characteristics(chs).manual_parts)
 
 
+MANUAL = json.loads((Path(__file__).parent / "fixtures" / "wave38a_manual_cards.json").read_text("utf-8"))
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in MANUAL])
+def test_the_intervening_ifs_that_are_not_read_stay_manual(name):
+    """Kazuul (whom "the defending player" is once its attacker left combat is unsettled, and its payer is the attacker's controller), O-Kagachi (a
+    player's last turn, not the turn before), Ramses (the Assassin as it attacked), Ashnod (what paid for the activation) and Rayne (a second "you may"
+    sentence of an optional ability) are refused rather than guessed."""
+    from tests.test_rules_scripts import ch as characteristics
+
+    c = next(c for c in MANUAL if c["name"] == name)
+    chs = characteristics(c["name"], c["type_line"], c["oracle_text"])
+    assert coverage.of_characteristics(chs).level != "FULL", name
+
+
 def table(cards, mine=(), theirs=(), players=2, commander="Krenko, Mob Boss", advance=True):
     """Alice (commander ``commander``), Bob and, with ``players=3``, Carol; ``mine`` / ``theirs`` are in Alice's / everyone else's library."""
     decks = [deck(cards, commander, [*((1, n) for n in mine), (20, "Forest")]),
