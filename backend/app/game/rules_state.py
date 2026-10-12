@@ -1185,6 +1185,8 @@ class RulesState(BaseModel):
     # steps and phases end" (500.4, 106.4): {"player", "mana": {sym: n}, "until": "end_of_turn" | "end_of_combat",
     # "turn"}; never more than that player's pool holds (spending uses the other mana first)
     kept_mana: list[dict[str, Any]] = Field(default_factory=list)
+    # -- review 34 -- 514.3a: players got priority in this cleanup step (a state-based action or a trigger), so another cleanup step follows it
+    cleanup_again: bool = False
     # -- mana provenance (wave 18B) -- does any card in this game ask where mana came from (mana_units.tracking)? Decided once, from
     # the cards of the game; None until the first mana is added
     provenance: bool | None = None
