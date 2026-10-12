@@ -55,6 +55,9 @@ _DISCARD_X = re.compile(r"^Discard X (?P<what>(?:[\w\-]+ )*cards?)(?P<random> at
 _RETURN_X = re.compile(r"^Return X (?P<what>.+? you control) to (?:its|their) owner's hands?$")
 # -- static_other (wave 36B) -- "Tap two other untapped Halflings you control" (Saradoc, Spring-Loaded Sawblades): "other" than the source, as "another"
 _TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another |other )?untapped (?P<what>.+ you control(?: other than (?:~|this creature))?)$")
+# -- attached events (wave 40B) -- 303.4b, 301.5: "Tap enchanted land: …" (Earthlore), "Sacrifice enchanted creature: …" (Betrothed of Fire): the permanent the source
+# is attached to (selectors "host_of_source"), paid with it as the one choice, made for you
+_HOST_COST = re.compile(r"^(?P<verb>Tap|Sacrifice) (?:enchanted (?:creature|land|permanent)|equipped creature)$")
 _UNTAP_OTHER = re.compile(rf"^Untap {_N} tapped (?P<what>.+ you control)$")  # -- activated sweep (wave 17B) -- Halo Fountain
 _REMOVE_CHOSEN = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|\d+) (?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? from (?:a|an|another) (?P<what>.+)$")
@@ -243,6 +246,9 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         if m["verb"] == "Tap":  # (an untapped one: 118.3)
             return CostComponent(TAP_OTHER, selector=replace(sel, tapped=False).key(), text=part)
         return CostComponent(SACRIFICE if m["verb"] == "Sacrifice" else UNATTACH, selector=sel.key(), text=part)
+    if m := _HOST_COST.match(part):  # (the verb's own rules: only an untapped permanent is tapped, 701.26a; only your own is sacrificed, 701.21a: cost_payment)
+        sel = selectors.Selector(extras=("host_of_source",), tapped=False if m["verb"] == "Tap" else None)
+        return CostComponent(TAP_OTHER if m["verb"] == "Tap" else SACRIFICE, selector=sel.key(), text=part)
     if (m := _SAC_SELF.match(part)) and (not m.group("name") or m.group("name") == card_name):
         return CostComponent(SACRIFICE, text=part)
     if m := _LIFE.match(part):

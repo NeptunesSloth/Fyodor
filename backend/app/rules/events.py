@@ -360,8 +360,10 @@ def _parse(c: str) -> Condition | None:
             return None
         return {"event": "either", "subject": died["subject"], "conds": [died, {**left, "dest": "exile"}]}
     # -- attached events (wave 4L) -- "Whenever enchanted creature attacks or blocks" (the object it's attached to)
+    # (-- attached events (wave 40B) -- also "becomes tapped or is dealt damage" (Cryoshatter): events of an object that stays on the battlefield, so the creature the
+    # source is attached to as it happens is the one, 303.4b — not "dies" / "leaves", which look back, 603.10a)
     m = re.fullmatch(rf"(?:enchanted|equipped) creature (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
-    if m and {_MULTI[m["a"]], _MULTI[m["b"]]} <= {"attack", "block", "blocked"}:
+    if m and {_MULTI[m["a"]], _MULTI[m["b"]]} <= {"attack", "block", "blocked", "tapped", "untapped", "dealt_damage"}:
         return {"event": "multi", "events": [_MULTI[m["a"]], _MULTI[m["b"]]], "subject": "host"}
     # 509.3b / 509.3d: "~ blocks or becomes blocked by a creature" — once per creature on the other side
     # (wave 11E: also "enchanted / equipped creature …", the permanent the source is attached to)
@@ -661,10 +663,21 @@ def _token_or_sel(phrase: str) -> selectors.Selector | None:
     """A subject phrase; "tokens you control" / "a creature token" name tokens (111.1)."""
     m = re.fullmatch(r"(?P<a>(?:another|other) )?(?P<rest>.*?)(?P<t>\btokens?)(?P<tail> .+)?", phrase)
     if m is None:
-        return selectors.parse(phrase)
+        return selectors.parse(phrase) or _kinds_you_control(phrase)
     base = selectors.parse(((m["a"] or "") + ((m["rest"] or "").strip() or ("permanents" if m["t"] == "tokens" else "permanent"))
                             + (m["tail"] or "")).strip())
     return selectors.replace(base, token=True) if base is not None else None
+
+
+def _kinds_you_control(phrase: str) -> selectors.Selector | None:
+    """-- attached events (wave 40B) -- 700.9, 303.4: "enchanted creature or enchantment creature you control" (Kestia, the Cultivator): two kinds of the permanents you
+    control, either one — each read on its own with "you control", nothing else shared (a trigger's subject: the selector's ``either``)."""
+    both = re.fullmatch(r"(?P<a>[a-z]+(?: [a-z]+)?) or (?P<b>[a-z]+(?: [a-z]+)?) you control", phrase)
+    halves = [selectors.parse(f"{both[k]} you control") for k in ("a", "b")] if both else []
+    if halves and all(h is not None and h.player is None and not h.card and not h.either and not h.union and h.zones == ("battlefield",)
+                      and h.controller == "you" for h in halves):
+        return selectors.Selector(either=tuple(h.key() for h in halves if h is not None))
+    return None
 
 
 def _subject(s: str, *, host: bool = False, many: bool = False) -> Condition | None:

@@ -392,7 +392,7 @@ def clause(text: str) -> tuple[Effects, Any] | None:
         return left[0] + right[0], left[1]
     m = _REMOVE.fullmatch(text)
     if m:  # 506.4
-        found = _object(m["o"])
+        found = _object(m["o"], host=True)  # (wave 40B: "remove enchanted creature from combat", 303.4b)
         return ([{"do": "remove_from_combat", "who": found[0]}], found[1]) if found is not None else None
     m = _MAZE.fullmatch(text)
     if m:  # (Maze of Ith: 615, a prevention effect for this turn)
@@ -474,9 +474,9 @@ def _token(create: str) -> dict[str, Any] | None:
     return found[0]
 
 
-def _object(phrase: str, *, each: bool = False) -> tuple[str, Any] | None:
+def _object(phrase: str, *, each: bool = False, host: bool = False) -> tuple[str, Any] | None:
     """An object reference: a target, "it" / "that creature", ~ (and with ``each``, a group: "each creature you
-    control") -> (who, target group)."""
+    control"; with ``host``, -- attached events (wave 40B) -- "enchanted creature") -> (who, target group)."""
     from app.rules import language
 
     if phrase == "its":
@@ -485,7 +485,7 @@ def _object(phrase: str, *, each: bool = False) -> tuple[str, Any] | None:
         kind, key, group = language.ref(phrase)
     except language._Fail:
         return None
-    if kind in ("players", "them", "host") or (kind == "each" and not each):
+    if kind in ("players", "them") or (kind == "host" and not host) or (kind == "each" and not each):
         return None
     return language._who(kind, key), language._one(group)
 

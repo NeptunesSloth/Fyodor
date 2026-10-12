@@ -1750,6 +1750,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "attached_source" and (source is None or card.attached_to != source):  # -- activated other (wave 34B) -- attached to the source itself
             return False
+        if extra == "host_of_source" and ((src := plan.state.cards.get(source or "")) is None or src.attached_to != card.id):
+            return False  # -- attached events (wave 40B) -- 303.4b, 301.5: the permanent the source (an Aura / Equipment) is attached to ("Tap enchanted creature")
         if extra.startswith("attached_creature"):  # -- attached events (wave 30S) -- attached to a creature (of yours)
             host = plan.state.cards.get(card.attached_to or "")
             if host is None or not host.zone.endswith(":battlefield") or not plan.ch(host).is_creature \
