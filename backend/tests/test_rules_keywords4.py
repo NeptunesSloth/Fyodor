@@ -61,6 +61,22 @@ def test_flanking(cards):
     assert s.state.cards[knight.id].zone == "p1:battlefield"  # and it dealt only 1 back
 
 
+def test_flanking_granted_by_a_static(cards):
+    """Sidewinder Sliver's real text: "All Sliver creatures have flanking." A granted instance triggers like a printed one (702.25a)."""
+    s = table(cards)
+    for name, pt, text in (("Sidewinder Sliver", "1/1", "All Sliver creatures have flanking. (Whenever a creature without flanking blocks a "
+                                                       "Sliver, the blocking creature gets -1/-1 until end of turn.)"), ("Muscle Sliver", "2/2", "")):
+        act(s, "p1", type="create_token", player="p1", token={"name": name, "type_line": "Token Creature — Sliver", "power": pt[0],
+                                                               "toughness": pt[2], "text": text})
+    sliver = next(c for c in s.state.cards.values() if c.name == "Muscle Sliver")
+    guard = creature(s, "p2", "Guard", "2/2")
+    automate(s)
+    attack(s, (sliver, "p2"))
+    block(s, "p2", (guard, sliver))
+    until(s, lambda s: guard.id not in s.state.cards or s.state.turn.phase == "main2")
+    assert guard.id not in s.state.cards and s.state.cards[sliver.id].zone == "p1:battlefield"
+
+
 def test_attack_needs_an_island(cards):
     s = table(cards)
     armada = creature(s, "p1", "Armada", "5/5", "This creature can't attack unless defending player controls an Island.")
