@@ -32,6 +32,7 @@ from app.rules import (
     attachments,
     cost_payment,
     costs,
+    delayed,  # -- as long as (wave 37A) --
     graveyard_keywords,
     history,
     merged,  # -- merged permanents (wave 18D) --
@@ -2553,6 +2554,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for (the caster's share, after assist)
     not_mana = cost_payment.excluded(add_cost, card, add_objects) if add_cost is not None else ()
     origin = card.zone  # (wave 17B: where it is cast from, before it moves to the stack)
+    from_oid = plan.oid(card)  # -- as long as (wave 37A) -- the object it is before it becomes the spell (400.7): "until this card is cast from exile"
     if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,
                     purpose=Purpose(spell=ch, zone=origin, player=plan.actor, kicked=bool(kicked))):
         return
@@ -2673,6 +2675,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     # for "whenever you cast"; amount: the Nth spell its caster cast this turn ("your second spell each turn")
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
          amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)
+    delayed.spell_cast(plan, from_oid)  # -- as long as (wave 37A) -- 611.2a: "until this card is cast from exile" is over
     # -- granted casts (wave 29B) -- 708.2, 613.1f, 601.2a: a face-down spell has no abilities of its own, but an effect that gives its spell cascade or
     # ripple ("the next creature spell you cast this turn has cascade") gives it to this one as it is cast: they trigger (702.85a, 702.60a). Its mana
     # value is 0 and it has no name (708.2a), so cascade finds nothing and ripple nothing with its name (201.2a). Storm / conspire copy the spell:
@@ -3272,6 +3275,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         plan.do({"type": "counter", "card_ids": [card.id], "kind": "time", "delta": -card.counters["time"]})
     if a.x_value is None and M.parse_cost(ch.mana_cost).x:
         a.x_value = 0  # X is 0 when a spell is cast without paying its mana cost (107.3b)
+    from_oid = plan.oid(card)  # (-- as long as (wave 37A) --)
     plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
     if a.face and plan.state.cards[card.id].face != a.face:  # -- play now (wave 28A) -- 712.11b, 709.3b: the half / back face being cast
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
@@ -3299,6 +3303,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         r.rebound_cast.append(plan.oid(card))
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
          amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)  # (the Nth spell this turn)
+    delayed.spell_cast(plan, from_oid)  # (-- as long as (wave 37A) --)
     extra = 0 if plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
     if extra or ("cascade" in ch.keywords and not plan.manual(card)):
         _cascade_triggers(plan, card, ch, extra)
@@ -3631,7 +3636,8 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
     return cost
 
 
-_GRAVEYARD_SELF = re.compile(r"(?:return|put) (?:this card|this creature|this artifact|this land|~) from your graveyard\b", re.I)
+# (-- reanimation (wave 37B) -- "Return this card and target land card from your graveyard to the battlefield tapped" (Sandman): this card too)
+_GRAVEYARD_SELF = re.compile(r"(?:return|put) (?:this card|this creature|this artifact|this land|~)(?: and [^:.]*?)? from your graveyard\b", re.I)
 
 
 def _own_text(text: str, name: str) -> str:

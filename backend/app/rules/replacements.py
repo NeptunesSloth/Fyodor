@@ -891,6 +891,19 @@ def _record_exile_instead(plan: Plan, card: CardInstance) -> str | None:
     return None
 
 
+def _record_exile_cards(plan: Plan, card: CardInstance) -> str | None:
+    """-- zone replacements (wave 37B) -- This turn's "If a card would be put into your graveyard from anywhere this turn, exile that card instead"
+    (effects.exile_if_dies "cards": Yawgmoth's Will): the name of the spell or ability whose effect applies, or None. It is about cards, so a token
+    (111.1) and a copy of a spell (707.10a) are not affected; "your graveyard" is where a card goes whose owner is the effect's controller (400.3)."""
+    if card.is_token or card.copy_of is not None:
+        return None
+    turn = plan.state.turn.number
+    for rec in plan.rules.replacements:
+        if rec.get("kind") == "exile_cards" and rec.get("turn") == turn and rec.get("whose") == "your" and card.owner == rec["controller"]:
+            return rec.get("label") or "a replacement effect"
+    return None
+
+
 # -- zone replacements (wave 22C) -- 614.1a, 616.1: every replacement effect that would put a card into a graveyard.
 # They agree (all send it to exile: no choice), or their results differ (exile vs "reveal it and shuffle it into its owner's
 # library", top / bottom of the library) and the affected object's controller (its owner if it has none) chooses which
@@ -958,6 +971,8 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         rider = {"source": src.id, "controller": src.controller, **d["rider"]} if d.get("rider") else None
         out.append(Cand(src.name or "a static ability", "exile", False, rider, plan.oid(src) if d.get("link") else ""))
     if frm == "battlefield" and (why := _record_exile_instead(plan, card)) is not None:  # -- replacement effects stage 2 (wave 2E) --
+        out.append(Cand(why, "exile"))
+    if (why := _record_exile_cards(plan, card)) is not None:  # -- zone replacements (wave 37B) -- from any zone
         out.append(Cand(why, "exile"))
     return out
 

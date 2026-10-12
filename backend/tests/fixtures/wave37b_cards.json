@@ -1,0 +1,436 @@
+[
+ {
+  "name": "Sandman, Shifting Scoundrel",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Sand Elemental Villain",
+  "oracle_text": "Sandman's power and toughness are each equal to the number of lands you control.\nSandman can't be blocked by creatures with power 2 or less.\n{3}{G}{G}: Return this card and target land card from your graveyard to the battlefield tapped.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "*",
+  "toughness": "*"
+ },
+ {
+  "name": "Slimefoot and Squee",
+  "layout": "normal",
+  "mana_cost": "{B}{R}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Fungus Goblin",
+  "oracle_text": "Whenever Slimefoot and Squee enters or attacks, create a 1/1 green Saproling creature token.\n{1}{B}{R}{G}, Sacrifice a Saproling: Return this card and up to one other target creature card from your graveyard to the battlefield. Activate only as a sorcery.",
+  "colors": [
+   "B",
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Garland, Knight of Cornelia // Chaos, the Endless",
+  "layout": "transform",
+  "mana_cost": "{B}{R} // ",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Knight // Legendary Creature — Demon",
+  "oracle_text": "Whenever you cast a noncreature spell, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\n{3}{B}{B}{R}{R}: Return this card from your graveyard to the battlefield transformed. Activate only as a sorcery.\n//\nFlying\nWhen Chaos dies, put it on the bottom of its owner's library.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Surveil",
+   "Transform"
+  ],
+  "power": "3",
+  "toughness": "2",
+  "card_faces": [
+   {
+    "name": "Garland, Knight of Cornelia",
+    "mana_cost": "{B}{R}",
+    "type_line": "Legendary Creature — Human Knight",
+    "oracle_text": "Whenever you cast a noncreature spell, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\n{3}{B}{B}{R}{R}: Return this card from your graveyard to the battlefield transformed. Activate only as a sorcery.",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+     "B",
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/8/e/8e6e21d2-e282-4f56-8e6b-929176b264b3.jpg?1783906471",
+     "normal": "https://cards.scryfall.io/normal/front/8/e/8e6e21d2-e282-4f56-8e6b-929176b264b3.jpg?1783906471",
+     "large": "https://cards.scryfall.io/large/front/8/e/8e6e21d2-e282-4f56-8e6b-929176b264b3.jpg?1783906471",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/8/e/8e6e21d2-e282-4f56-8e6b-929176b264b3.jpg?1783906471"
+    }
+   },
+   {
+    "name": "Chaos, the Endless",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Demon",
+    "oracle_text": "Flying\nWhen Chaos dies, put it on the bottom of its owner's library.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+     "B",
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/8/e/8e6e21d2-e282-4f56-8e6b-929176b264b3.jpg?1783906471",
+     "normal": "https://cards.scryfall.io/normal/back/8/e/8e6e21d2-e282-4f56-8e6b-929176b264b3.jpg?1783906471",
+     "large": "https://cards.scryfall.io/large/back/8/e/8e6e21d2-e282-4f56-8e6b-929176b264b3.jpg?1783906471",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/8/e/8e6e21d2-e282-4f56-8e6b-929176b264b3.jpg?1783906471"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Danitha, Benalia's Hope",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Knight",
+  "oracle_text": "First strike, vigilance, lifelink\nWhen Danitha enters, you may put an Aura or Equipment card from your hand or graveyard onto the battlefield attached to Danitha.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Lifelink",
+   "Vigilance",
+   "First strike"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Dread Tiller",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{G}",
+  "cmc": 3.0,
+  "type_line": "Artifact Creature — Scarecrow",
+  "oracle_text": "When this creature enters, put a -1/-1 counter on target creature.\nWhenever a creature with a -1/-1 counter on it dies, you may put a land card from your hand or graveyard onto the battlefield tapped.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Dakkon, Shadow Slayer",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker — Dakkon",
+  "oracle_text": "Dakkon enters with a number of loyalty counters on him equal to the number of lands you control.\n+1: Surveil 2.\n−3: Exile target creature.\n−6: You may put an artifact card from your hand or graveyard onto the battlefield.",
+  "colors": [
+   "B",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Surveil"
+  ],
+  "loyalty": "0"
+ },
+ {
+  "name": "Shallow Grave",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Return the top creature card of your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Corpse Dance",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Buyback {2} (You may pay an additional {2} as you cast this spell. If you do, put this card into your hand as it resolves.)\nReturn the top creature card of your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Buyback"
+  ]
+ },
+ {
+  "name": "Mistmoon Griffin",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Creature — Griffin",
+  "oracle_text": "Flying\nWhen this creature dies, exile it, then return the top creature card of your graveyard to the battlefield.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Yawgmoth's Will",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Until end of turn, you may play lands and cast spells from your graveyard.\nIf a card would be put into your graveyard from anywhere this turn, exile that card instead.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Gaea's Will",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Suspend 4—{G}\nUntil end of turn, you may play lands and cast spells from your graveyard.\nIf a card would be put into your graveyard from anywhere this turn, exile that card instead.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Suspend"
+  ]
+ },
+ {
+  "name": "Magus of the Will",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "{2}{B}, {T}, Exile this creature: Until end of turn, you may play lands and cast spells from your graveyard. If a card would be put into your graveyard from anywhere this turn, exile that card instead.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Walk-In Closet // Forgotten Cellar",
+  "layout": "split",
+  "mana_cost": "{2}{G} // {3}{G}{G}",
+  "cmc": 8.0,
+  "type_line": "Enchantment — Room // Enchantment — Room",
+  "oracle_text": "You may play lands from your graveyard.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)\n//\nWhen you unlock this door, you may cast spells from your graveyard this turn, and if a card would be put into your graveyard from anywhere this turn, exile it instead.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "card_faces": [
+   {
+    "name": "Walk-In Closet",
+    "mana_cost": "{2}{G}",
+    "type_line": "Enchantment — Room",
+    "oracle_text": "You may play lands from your graveyard.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+   },
+   {
+    "name": "Forgotten Cellar",
+    "mana_cost": "{3}{G}{G}",
+    "type_line": "Enchantment — Room",
+    "oracle_text": "When you unlock this door, you may cast spells from your graveyard this turn, and if a card would be put into your graveyard from anywhere this turn, exile it instead.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+   }
+  ]
+ },
+ {
+  "name": "Remand",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Counter target spell. If that spell is countered this way, put it into its owner's hand instead of into that player's graveyard.\nDraw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Betor, Ancestor's Voice",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{B}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Spirit Dragon",
+  "oracle_text": "Flying, lifelink\nAt the beginning of your end step, put a number of +1/+1 counters on up to one other target creature you control equal to the amount of life you gained this turn. Return up to one target creature card with mana value less than or equal to the amount of life you lost this turn from your graveyard to the battlefield.",
+  "colors": [
+   "B",
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Lifelink"
+  ],
+  "power": "3",
+  "toughness": "5"
+ },
+ {
+  "name": "Xu-Ifit, Osteoharmonist",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "{T}: Return target creature card from your graveyard to the battlefield. It's a Skeleton in addition to its other types and has no abilities. Activate only as a sorcery.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Geth, Lord of the Vault",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Phyrexian Zombie",
+  "oracle_text": "Intimidate (This creature can't be blocked except by artifact creatures and/or creatures that share a color with it.)\n{X}{B}: Put target artifact or creature card with mana value X from an opponent's graveyard onto the battlefield tapped under your control. Then that player mills X cards.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Mill",
+   "Intimidate"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Nurgle's Conscription",
+  "layout": "normal",
+  "mana_cost": "{4}{B}",
+  "cmc": 5.0,
+  "type_line": "Instant",
+  "oracle_text": "Put target creature card from an opponent's graveyard onto the battlefield tapped under your control, then exile that player's graveyard.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Swift Warkite",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{R}",
+  "cmc": 6.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flying\nWhen this creature enters, you may put a creature card with mana value 3 or less from your hand or graveyard onto the battlefield. That creature gains haste. Return it to your hand at the beginning of the next end step.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Thought Scour",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Target player mills two cards.\nDraw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Mill"
+  ]
+ },
+ {
+  "name": "Mind Rot",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target player discards two cards.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ }
+]
