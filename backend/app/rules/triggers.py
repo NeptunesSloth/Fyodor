@@ -2159,6 +2159,8 @@ def x_source(d: dict[str, Any], ch: Characteristics) -> str | None:
 def event_x(plan: Plan, t: PendingTrigger) -> int | None:
     """The X of the object a triggered ability triggered on (x_source): the spell cast (its payment record: 601.2h, 107.3e) or the cycling
     cost's announced X (107.3a). None when this trigger doesn't take its X from its event."""
+    if t.ability.get("x_event") and t.event is not None and t.event.amount is not None:  # -- cast-permission riders (wave 38C) -- the X a reflexive ability's payment named
+        return int(t.event.amount)
     cond = t.ability.get("cond") or {}
     if t.ability.get("trigger") != "cast_self" and cond.get("event") not in ("cast", "cycle"):
         return None  # (cheap: only these triggers read their event's X; the characteristics are derived below)

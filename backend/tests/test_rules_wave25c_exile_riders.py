@@ -163,11 +163,12 @@ def test_wordings_read():
     paid = scripts.parse_effects("You may cast target instant or sorcery card with mana value 3 or less from your graveyard. If that spell "
                                  "would be put into your graveyard, exile it instead.")
     assert paid is not None and paid[0][0]["do"] == "free_cast" and paid[0][0]["paid"] is True
-    # mana of any type is for a permission, never a free cast or a bare cast-now; a limit read as it resolves stays refused
+    # mana of any type is never for a free cast (nothing is spent); a limit read as it resolves stays refused
     assert scripts.parse_effects("You may cast target instant card from your graveyard without paying its mana cost, and mana of any "
                                  "type can be spent to cast that spell.") is None
-    assert scripts.parse_effects("You may cast target instant card from your graveyard, and mana of any type can be spent to cast "
-                                 "that spell.") is None
+    # (-- cast-permission riders (wave 38C) -- 118.14: the cast the effect makes as it resolves is "that way": Quistis Trepe, Tinybones, the Pickpocket)
+    bare = scripts.parse_effects("You may cast target instant card from your graveyard, and mana of any type can be spent to cast that spell.")
+    assert bare is not None and bare[0][0]["do"] == "free_cast" and bare[0][0]["paid"] is True and bare[0][0]["spend"] == "type"
     assert scripts.parse_effects("You may cast target instant or sorcery card with mana value less than or equal to ~'s power from your "
                                  "graveyard.") is not None  # (the source's power: the selector reads it, legal again as it resolves)
     assert scripts.parse_effects("You may cast target instant or sorcery card with mana value less than or equal to that damage from your "

@@ -817,6 +817,12 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
     oid = plan.oid(card_id)
     if not countered and x_spells.left_stack_itself(plan, card_id):
         return
+    from app.rules import (
+        resolve_exile,  # -- cast riders (wave 38C) -- 614.1a, 608.2n: "exile it instead of putting it into your graveyard as it resolves"
+    )
+
+    if oid in plan.rules.exile_resolves and resolve_exile.resolved(plan, card_id, controller, countered):  # (first: the controller picks, 616.1; this one has "If you do")
+        return
     if oid in plan.rules.rebound_cast:  # 702.88a rebound: exiled as it resolves, cast again next upkeep
         plan.rules.rebound_cast = [o for o in plan.rules.rebound_cast if o != oid]
         if not countered:
