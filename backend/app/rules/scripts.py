@@ -811,7 +811,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                         return None
                 else:
                     intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
-                if e.get("do") in ("grant_play", "free_cast", "look_exiled") and (
+                if e.get("do") in ("grant_play", "free_cast", "look_exiled", "plotted") and (
                         intro is None or (intro.do not in _MOVERS and not _exiles_countered(out[intro.index]))):
                     # "You may play that card this turn": only what an earlier instruction of this
                     # ability moved (exiled, found), where it went (400.7h/j) — never the source,
@@ -2135,6 +2135,12 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     if (gifts := refused_zones.gifts_ability(body)) is not None:
         return gifts
+    from app.rules import (
+        resolve_exile,  # -- cast riders (wave 38C) -- "Exile that card instead of putting it into your graveyard as it resolves. If you do, …"
+    )
+
+    if (exiled := resolve_exile.bind(body, it, parse_effects)) is not None:
+        return exiled
     # -- trigger other (wave 26B) -- "That token gains haste until end of turn and attacks this combat if able." (Legion Warboss): the two
     # instructions of one sentence about the same object
     body = re.sub(r"\b(That token|That creature|It) (gains haste until end of turn) and (attacks this (?:combat|turn) if able)",
@@ -3520,7 +3526,8 @@ def _piles(texts: list[str], i: int, effects: list[dict[str, Any]]) -> tuple[lis
 
 _WIN_IF_X = re.compile(r"^if [xX] is greater than or equal to the number of cards in your library, you win the game$")
 # (wave 18F: "You may cast the copy. If you do, you lose 2 life." too: the same record of what the cast did)
-_FREE_DONT = re.compile(r"^if you (?P<neg>don't|do)(?: cast (?:it|that card|the exiled card|the revealed card)(?: this way)?)?, (?P<rest>.+)$")
+# -- cast-permission riders (wave 38C) -- also "If you cast a spell this way, put a +1/+1 counter on ~." (Helmut Zemo, after the exile rider): a cast made
+_FREE_DONT = re.compile(r"^if you (?P<neg>don't|do|cast a spell this way)(?: cast (?:it|that card|the exiled card|the revealed card)(?: this way)?)?, (?P<rest>.+)$")  # (608.2c)
 
 
 def _free_dont(rest: str, effects: list[dict[str, Any]], negate: bool = True) -> list[dict[str, Any]] | None:
@@ -6982,8 +6989,11 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
         x_bind = base[0]["bind"]
     if x_bind is None and not keep and "event_amount" in json.dumps([b_effects, b_target], default=str):
         return None  # -- reflexive this way (wave 30G) -- "that much" here has no amount behind it (the reflexive ability's event carries none): reads 0, not read
+    # -- cast-permission riders (wave 38C) -- 603.12, 107.3f: "you may pay {X}. When you do, … target creature card with mana value X …" (Halo Forager, Isareth the
+    # Awakener): the reflexive ability goes on the stack after the payment, so its target is chosen knowing the X paid (the event's amount: triggers.event_x)
+    x_event = x_bind is not None and bool(re.search(rf',{selectors.X_VALUE}\]', json.dumps(b_target, default=str)))
     out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
-                                                        "optional": b_optional, **target_fields(b_target)},
+                                                        "optional": b_optional, **target_fields(b_target), **({"x_event": True} if x_event else {})},
            **({"x_from": x_bind} if x_bind else {}), **({"keep_event": True} if keep else {})}
     if lki is not None:
         out["lki"] = cond["succeeded"]  # -- reflexive LKI (wave 4J) --

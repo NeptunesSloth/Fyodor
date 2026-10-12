@@ -1911,6 +1911,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "suspend_mark", "who": "it"}], None
     if rider is None and (m := re.fullmatch(rf"suspend (?P<w>that card|it) with (?P<n>{AMT}) time counters", text)) is not None:
         return [{"do": "suspend_found", "n": _amount(m["n"]), **({"who": "it"} if m["w"] == "it" else {})}], None  # (app/rules/suspend_grants.py: the card an exile-until found / the exiled card)
+    # -- cast riders (wave 38C) -- 702.170c: "It becomes plotted." (the card an instruction exiled: app/rules/resolve_exile.py)
+    if text in ("it becomes plotted", "that card becomes plotted") and rider is None:
+        return [{"do": "plotted", "who": "it"}], None
     # -- counter kinds (wave 24C) -- app/rules/counter_kinds.py
     found = _counter_kinds(text, rider)
     if found is not None:

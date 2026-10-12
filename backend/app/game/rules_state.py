@@ -1193,6 +1193,8 @@ class RulesState(BaseModel):
     # steps and phases end" (500.4, 106.4): {"player", "mana": {sym: n}, "until": "end_of_turn" | "end_of_combat",
     # "turn"}; never more than that player's pool holds (spending uses the other mana first)
     kept_mana: list[dict[str, Any]] = Field(default_factory=list)
+    # -- review 34 -- 514.3a: players got priority in this cleanup step (a state-based action or a trigger), so another cleanup step follows it
+    cleanup_again: bool = False
     # -- mana provenance (wave 18B) -- does any card in this game ask where mana came from (mana_units.tracking)? Decided once, from
     # the cards of the game; None until the first mana is added
     provenance: bool | None = None
@@ -1208,6 +1210,10 @@ class RulesState(BaseModel):
     # counter on it / it gains "…"" does as it enters ({"tapped": True, "counters": {"finality": 1}, "abilities": [text]}); the new object a card becomes
     # when it leaves the stack (400.7) never matches a stale entry
     cast_enters: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    # -- cast riders (wave 38C) -- 614.1a: stack object (an instant or sorcery spell) -> "exile it instead of putting it into your graveyard as it resolves" and
+    # what follows when it was ({"bind", "then", "controller", "source_card", "source_object", "name"}); a countered spell never uses it (it doesn't resolve),
+    # and the new object a card becomes (400.7) never matches a stale entry
+    exile_resolves: dict[str, dict[str, Any]] = Field(default_factory=dict)
     # -- counters (wave 5H) -- keyword counters (122.1b) on permanents: card id -> kind -> [next_object, timestamp]
     # as the last counter of that kind was put on it (613.7c: all counters of a kind share the newest timestamp), so
     # layer 6 orders them against effects that add or remove abilities (613.1f, 613.7; app/rules/layers.py)

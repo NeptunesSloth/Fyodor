@@ -501,6 +501,11 @@ def next_step(plan: Plan) -> None:
     r = plan.rules
     phase = plan.state.turn.phase
     if phase == "cleanup":
+        if r.cleanup_again:  # -- review 34 -- 514.3a: a new cleanup step (discard to hand size, 514.2 again)
+            r.cleanup_again = False
+            _mark_step(plan)
+            on_step_start(plan)
+            return
         start_next_turn(plan)
         return
     if phase == "combat_damage" and r.combat_round == "first":
@@ -753,7 +758,19 @@ def cleanup_step(plan: Plan) -> None:
 
 def finish_cleanup(plan: Plan) -> None:
     turn_cleanup(plan)
-    # Cleanup normally grants no priority: the turn ends (triggers during cleanup arrive in M16).
+    # Cleanup normally grants no priority: the turn ends. -- review 34 -- 514.3a: unless a state-based action is performed or a triggered
+    # ability waits to be put on the stack (a discard to hand size: Rielle's ruling, "you'll draw that many cards … and a new cleanup step
+    # will happen after that one"): then the players get priority in this step, and once the stack is empty and all pass another cleanup
+    # step begins (next_step)
+    seq = plan.state.seq
+    sba.check(plan)
+    performed = plan.state.seq != seq
+    triggers.collect(plan)
+    r = plan.rules
+    if r.decision is not None or performed or any(t.controller in plan.live() for t in r.pending_triggers):
+        r.cleanup_again = True
+        _mark_step(plan)
+        return
     start_next_turn(plan)
 
 
@@ -799,6 +816,12 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
 
     oid = plan.oid(card_id)
     if not countered and x_spells.left_stack_itself(plan, card_id):
+        return
+    from app.rules import (
+        resolve_exile,  # -- cast riders (wave 38C) -- 614.1a, 608.2n: "exile it instead of putting it into your graveyard as it resolves"
+    )
+
+    if oid in plan.rules.exile_resolves and resolve_exile.resolved(plan, card_id, controller, countered):  # (first: the controller picks, 616.1; this one has "If you do")
         return
     if oid in plan.rules.rebound_cast:  # 702.88a rebound: exiled as it resolves, cast again next upkeep
         plan.rules.rebound_cast = [o for o in plan.rules.rebound_cast if o != oid]

@@ -207,6 +207,10 @@ FREE_AMONG = re.compile(
     r"|cards exiled this way|the cards exiled this way)"
     rf"(?: {_FREE_MV.replace('?P<n>', '?P<n2>').replace('?P<v>', '?P<v2>')})?"
     r" without paying (?:its|their) mana costs?$")
+# -- cast riders (wave 38C) -- "You may cast a spell from among cards you own in exile with dream counters on them without paying its mana cost." (Goliath
+# Daydreamer; the cards its other ability exiled), "… from among cards in exile with page counters on them …" (Tasha, the Witch Queen: any owner's): one at a time
+FREE_COUNTED = re.compile(r"^(?:you may )?cast (?:a|an) (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell from among cards (?P<own>you own )?in exile with "
+                          r"(?P<kind>[a-z]+) counters on them without paying its mana cost$")
 # "Once during each of your turns, you may cast an instant or sorcery spell from your hand without paying its
 # mana cost." (Zaffai and the Tempests): a static permission used up by the cast (``consume``), on its
 # controller's own turns only, with the cast's normal timing (601.3: a permission, not a cast as something resolves)
@@ -274,6 +278,11 @@ def _free_among(text: str) -> list[dict[str, Any]] | None:
     if (one := PLAY_ONE.fullmatch(text) or _linked_one(text)) is not None:
         return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": None, "optional": True, "mv": None, "n": 1,
                  **({"play": True} if one["verb"] == "play" else {})}]
+    if (c := FREE_COUNTED.fullmatch(text)) is not None:  # -- cast riders (wave 38C) -- the cards in exile with that kind of counter (``_free_pool``)
+        key = spell_filter(c["sel"]) if c["sel"] else None
+        if c["sel"] and key is None:
+            return None
+        return [{"do": "free_cast", "zone": "exile_counters", "kind": c["kind"], "own": bool(c["own"]), "filter": key, "optional": True, "mv": None, "n": 1}]
     m = FREE_AMONG.fullmatch(text)
     if m is None:
         return None
@@ -365,8 +374,8 @@ def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     # a land among them only with a land play left on your turn (305.2a/305.3: Tangled Florahedron's back face): not modelled, stays manual
     play = m["verb"] == "play"
     timed = bool(m["until"] or m["this_turn"])
-    if (m["until"] and m["this_turn"]) or (m["spend"] and (m["free"] or not timed)):
-        return None  # (mana spent is only for a permission; a free cast spends none)
+    if (m["until"] and m["this_turn"]) or (m["spend"] and (m["free"] or (play and not timed))):
+        return None  # (a free cast spends no mana; -- cast-permission riders (wave 38C) -- the bare paid cast may: "… from a graveyard, and mana of any type can be spent to cast that spell")
     # -- play now (wave 28A) -- the bare "play target … card from your graveyard [without paying its mana cost]" (Horde of Notions) is played as it
     # resolves (608.2g; a land with a land play left on its controller's turn, 305.2a-b, 305.3: ``free_cast`` "play")
     phrase = m["what"][len("target "):]
@@ -380,7 +389,8 @@ def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         return [{"do": "grant_play", "who": "target", "play": play, "cast": True, "until": "end_of_turn", "optional": True,
                  **({"free": True} if m["free"] else {}), **({"spend": "type"} if m["spend"] else {})}], sel.key()
     return [{"do": "free_cast", "zone": "target", "filter": None, "optional": True, "mv": None, "n": 1,
-             **({} if m["free"] else {"paid": True}), **({"play": True} if play else {})}], sel.key()
+             **({} if m["free"] else {"paid": True}), **({"play": True} if play else {}),
+             **({"spend": "type"} if m["spend"] else {})}], sel.key()  # (118.14: casting.cast_free spends the mana as the permission says)
 # -- end refused look/cast-free (wave 3R5) --
 
 
@@ -1744,6 +1754,9 @@ def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
     if zone == "graveyard":  # your graveyard, or every graveyard (public zones)
         whose = [pid] if e.get("whose") == "you" else plan.live()
         return [c for p in whose for c in plan.state.zones.get(zone_key(p, "graveyard"), [])]
+    if zone == "exile_counters":  # -- cast riders (wave 38C) -- the cards in exile (a player's own, or all) that have that kind of counter on them
+        return [c for p in ([pid] if e.get("own") else plan.live()) for c in plan.state.zones.get(zone_key(p, "exile"), [])
+                if plan.state.cards[c].counters.get(e["kind"], 0) > 0 and (not e.get("own") or plan.state.cards[c].owner == pid)]
     who = str(e.get("who") or "")
     return context.objects(plan, ctx, who[len(context.PREFIX):]) if who.startswith(context.PREFIX) else []
 
