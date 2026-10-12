@@ -196,6 +196,9 @@ class PlayerPrefs(BaseModel):
     mana_sources: dict[str, SourceProtection] = Field(default_factory=dict)  # card id -> PREFER / SAVE
     auto_resolve_own_triggers: TriggerAutoResolve = "safe"
     auto_order_identical_triggers: bool = True
+    # -- graveyard order (wave 40C) -- 404.3: ask me to arrange every batch of two or more cards put into my graveyard together, not only
+    # when a card on the table reads a graveyard's order (it covers a reader in my hand or library, app/rules/graveyard_order.py)
+    ask_graveyard_order: bool = False
     # -- temporary overrides --
     hold_priority: bool = False  # keep priority after casting / activating
     full_control: bool = False  # no smart passing at all: every priority is a stop
@@ -1071,6 +1074,9 @@ class RulesState(BaseModel):
     # different results apply (Blightsteel's shuffle vs Rest in Peace) stays where it is until its controller (owner if
     # it has none) picks the one that applies: card id -> {"oid", "dest", "options": {outcome: source label}}
     pending_616: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    # -- graveyard order (wave 40C) -- 404.3: batches of two or more cards that were put into one graveyard together, whose owner is to
+    # arrange them before anyone gets priority: {"owner", "cards" (bottom to top)} (app/rules/graveyard_order.py)
+    pending_gy_order: list[dict[str, Any]] = Field(default_factory=list)
     # 903.9b asked *before* the move, as a resolving effect is about to put a commander into its
     # owner's hand or library: "<object id>><hand|library>" -> "yes" (command zone) / "no",
     # consumed by that move (app/rules/replacements.ask_903_9b_first)

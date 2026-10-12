@@ -3567,7 +3567,9 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         return [{**effect, "do": "return_choice", "who": one, "n": 1, "upto": False, "random": False, "label": "card"}], None
     if _RA_TOP.fullmatch(obj) is not None:  # -- review 35 -- 404.3: cards put into a graveyard at the same time are arranged by their owner; the
         # engine doesn't ask that, so which creature card is on top after a combat or a wrath isn't known: Shallow Grave, Corpse Dance and Mistmoon
-        # Griffin stay manual (wave 37B read it as the last matching card of the order: effects.return_choice "top", kept for saved stacks)
+        # Griffin stay manual (wave 37B read it as the last matching card of the order: effects.return_choice "top", kept for saved stacks).
+        # -- graveyard order (wave 40C) -- the engine now asks the owner (app/rules/graveyard_order.py), but only when a reader is on the table
+        # or they opted in: a Shallow Grave in a hand with the preference off still meets an order its owner never arranged, so not in every game
         return None
     if may and not _RA_CHOICE.fullmatch(obj):
         return None  # (only a choice models its own "may": choosing none)

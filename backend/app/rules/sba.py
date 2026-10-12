@@ -354,6 +354,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
                 return True
         else:
             r.commander_offered.pop(card.id, None)
+    if r.pending_gy_order:  # -- graveyard order (wave 40C) -- 404.3: the owner arranges cards put into a graveyard together, before priority
+        from app.rules import graveyard_order
+
+        if graveyard_order.offer(plan):
+            return True
     return happened
 
 

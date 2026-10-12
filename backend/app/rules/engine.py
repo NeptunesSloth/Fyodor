@@ -54,6 +54,7 @@ from app.rules import (
     exert,  # -- static wordings (wave 6E) --
     extra_turns,  # -- extra turns (wave 8A) --
     gift,  # -- gift (wave 23D) --
+    graveyard_order,  # -- graveyard order (wave 40C) --
     hideaway,  # -- hideaway (wave 29D) --
     kinship,  # -- kinship (wave 9C) --
     layers,
@@ -1351,7 +1352,7 @@ def _require_seated(plan: Plan) -> None:
 
 
 SIMPLE_PREFS = ("response", "stops_my_turn", "stops_their_turn", "bluff_stops", "payment", "auto_resolve_own_triggers",
-                "auto_order_identical_triggers", "hold_priority", "full_control", "force_stop")
+                "auto_order_identical_triggers", "ask_graveyard_order", "hold_priority", "full_control", "force_stop")
 
 
 def set_prefs(plan: Plan, a: A.SetPrefs) -> None:
@@ -1508,6 +1509,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "slot": permissions.resume_slot,  # -- cast permissions (wave 30Q) -- Muldrotha: which permanent type a cast uses up
     "legend_rule": sba.resume_legend_rule,
+    "graveyard_order": graveyard_order.resume,  # -- graveyard order (wave 40C) -- 404.3
     "commander_zone": sba.resume_commander_zone,
     **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)
     **effects.RESUME,  # player choices: edicts, "chooses a", a revealed hand, "choose a color" (app/rules/effects.py)
