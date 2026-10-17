@@ -463,6 +463,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
             return "event" if all(x in _STAYING for x in cond["events"]) else None
         return "self" if all(x in _STAYING for x in cond["events"]) else None
     if name.endswith("_self") or cond.get("subject") == "self":
+        if event == "discard":
+            return "event"  # -- discard causes (wave 50E) -- "When a spell or ability an opponent controls causes you to discard this card, it deals 4 damage …": this card, now in the graveyard (701.9a)
         if event in _GONE or event == "sacrifice":
             return "self_gone"
         return "self" if event in _STAYING or event is None else None
@@ -4999,6 +5001,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     body = re.sub(r"\breturn ~ to the battlefield under ~'s owner's control(?P<w> with (?:an?|\w+) [^.]*? counters? on) ~(?=\.)",
                                   r"return it to the battlefield under its owner's control\g<w> it", body)
                     body = re.sub(r"(?<=\. )~ loses all abilities and gains (haste)\.$", r"It loses all abilities. It gains \1.", body)
+                if ante == "event" and cond is not None and cond.get("event") == "discard" and cond.get("subject") == "self":
+                    # -- discard causes (wave 50E) -- "… you gain 2 life, and you return this card from your graveyard to your hand at the beginning of the next end
+                    # step." (Mangara's Blessing, Sand Golem, Pure Intentions): the discarded card, found where it went (400.7e) if it is still there, as "return it …"
+                    body = re.sub(r",? and (?:you )?return this card from your graveyard to ", ". Return it to ", body)
+                    body = body.replace("return this card from your graveyard to ", "return it to ")
+                    body = re.sub(r"^it deals ", "~ deals ", body)  # (Guerrilla Tactics: the card is the source of its own ability's damage, 113.6m)
                 body = _may_have(body, ante)  # -- trigger tail (wave 15B) --
                 to_gy = cond is not None and cond.get("event") == "to_graveyard" and cond.get("subject") == "self"
                 if to_gy:  # -- trigger tail (wave 15B) -- 603.6c: the card is in its owner's graveyard, whose owner controls the ability
@@ -5272,6 +5280,8 @@ def _targeted(cond: dict[str, Any] | None) -> bool:
 
 def _has_player(cond: dict[str, Any]) -> bool:
     """Does the event name a player ("that player")? The player who acted, or who was dealt damage."""
+    if cond.get("cause") == "opponent":
+        return cond["event"] == "discard"  # -- discard causes (wave 50E) -- "that player loses 5 life": the opponent whose spell or ability caused it (triggers._fire_generic)
     if cond.get("subject") == "player" or cond["event"] in _PLAYER_EVENTS:
         return True
     if _targeted(cond):  # -- triggers (wave 19B; wave 21B: any controller) -- the player whose spell or ability it was
