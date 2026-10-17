@@ -1138,6 +1138,17 @@ def _object_event(c: str) -> Condition | None:
                 **({"during": "you"} if m["d"] else {})}  # (``other``: the Vehicle or Mount, for "that Mount or Vehicle")
     if c == "~ becomes crewed":
         return {"event": "crewed", "subject": "self"}
+    # -- destroy events (wave 45C) -- 701.8: "Whenever a noncreature artifact is sacrificed or destroyed" (Jaws): a permanent an effect destroyed (it looks back in time,
+    # 603.10a); a subject that can be a creature stays manual (state-based destruction isn't recorded: effects._destroyed)
+    m = re.fullmatch(r"(?P<o>an? .+?) is (?P<v>sacrificed or destroyed|destroyed)", c)
+    if m and (base := _subject(m["o"])) is not None and base["subject"] == "sel" and not base.get("aggregate"):
+        sel = selectors.from_key(base["sel"])
+        if "Creature" in sel.not_types:  # ("an artifact" can be an artifact creature, destroyed by lethal damage)
+            destroyed = {**base, "event": "destroyed"}
+            if m["v"] == "destroyed":
+                return destroyed
+            sacrificed = {"event": "sacrifice", "subject": "player", "player": "any", "obj": base["sel"], "aggregate": False}
+            return {"event": "either", "subject": "mixed", "conds": [sacrificed, destroyed]}
     # -- damage events (wave 45C) -- 120.1: "Whenever combat damage is dealt to you" (Risona) is "you're dealt combat damage": the player dealt it, once for
     # the simultaneous damage of the batch (603.2c)
     m = re.fullmatch(r"(?P<c>combat |noncombat )?damage is dealt to (?P<p>you|an opponent|a player)", c)

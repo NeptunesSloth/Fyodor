@@ -246,6 +246,14 @@ def facts(plan: Plan, e: Event) -> list[Any]:
             ch = plan.ch(card)
             return [("transform", card, ch, card.controller, {"oid": e.object_id, "face_name": ch.name})]
         return []
+    if e.counter == "destroyed" and e.card:  # -- destroy events (wave 45C) -- 701.8: the permanent as it last existed on the battlefield (603.10a)
+        from app.rules import triggers
+
+        got = triggers._object_then(plan, e.card, e.object_id)
+        if got is None:
+            return []
+        return [("destroyed", got[0], got[1], got[0].controller,
+                 {"oid": e.object_id, "snap": None if triggers._live(plan, got[0]) else plan.rules.lki.get(e.object_id or "")})]
     if e.counter == "control" and e.card in plan.state.cards:  # -- control events (wave 45C) -- 603.10d: ``player`` gained control of it from ``was``
         card = plan.state.cards[e.card]
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:

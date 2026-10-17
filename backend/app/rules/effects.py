@@ -915,9 +915,26 @@ def _destroy_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]
     doomed = [c for c in cards if "indestructible" not in plan.ch(plan.state.cards[c]).keywords]
     doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx), actor=ctx["controller"])
     if doomed:
+        gone = {c: plan.oid(c) for c in doomed}
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+        _destroyed(plan, gone)
     _moved(plan, ctx, e, before)
     return True
+
+
+def _destroyed(plan: Plan, gone: dict[str, str]) -> None:
+    """-- destroy events (wave 45C) -- 701.8a-b: these permanents (card -> the object it was) were destroyed: an effect's "destroy" that put them into their
+    owner's graveyard (a replacement that sent one elsewhere, or a regeneration or an indestructible permanent, didn't destroy it). The event joins the
+    batch of the move, so a permanent that left with them sees it (603.10a). ponytail: the state-based destruction (704.5g-h) isn't recorded, so the
+    trigger grammar only reads a subject that can't be a creature (events.py)."""
+    from app.game.rules_state import Event
+
+    r = plan.rules
+    for cid, oid in gone.items():
+        card = plan.state.cards.get(cid)
+        if card is None or card.zone.endswith(":graveyard"):  # (a token is gone from the graveyard once there: 111.7)
+            r.events.append(Event(batch=r.batch, kind="designation", turn=plan.state.turn.number, counter="destroyed", card=cid, object_id=oid,
+                                  player=plan.actor))
 
 
 def exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1903,7 +1920,9 @@ def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx), actor=ctx["controller"])
     before = _remember(plan, ctx, e, doomed)  # "creatures destroyed this way": the ones it destroys
     if doomed:
+        gone = {c: plan.oid(c) for c in doomed}
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+        _destroyed(plan, gone)
     _moved(plan, ctx, e, before)
     return True
 
