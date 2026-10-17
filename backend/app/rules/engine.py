@@ -601,6 +601,7 @@ def start_next_turn(plan: Plan) -> None:
     plan.rules.turn_base = base if extra else plan.active  # -- extra turns (wave 8A) -- 500.7
     plan.rules.extra_turn = bool(extra)  # -- static_other (wave 42A) -- 500.7: this turn is one an effect added
     tt = plan.rules.turns_taken  # -- most-played cards (wave 43B) -- the game's first turn was never begun here: counted when it ends
+    # ponytail: a state loaded mid-game starts the count at its next turn, so "first, second, or third turn" reads low there
     if not tt:
         tt[previous[0]] = 1
     tt[plan.active] = tt.get(plan.active, 0) + 1

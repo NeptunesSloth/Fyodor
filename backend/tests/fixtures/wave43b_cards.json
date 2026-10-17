@@ -377,6 +377,70 @@
   "toughness": "3"
  },
  {
+  "name": "Commander's Plate",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "Equipped creature gets +3/+3 and has protection from each color that's not in your commander's color identity.\nEquip commander {3}\nEquip {5}",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Birgi, God of Storytelling // Harnfel, Horn of Bounty",
+  "layout": "modal_dfc",
+  "mana_cost": "{2}{R} // {4}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — God // Legendary Artifact",
+  "oracle_text": "Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.\nCreatures you control can boast twice during each of your turns rather than once.\n//\nDiscard a card: Exile the top two cards of your library. You may play those cards this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "name": "Birgi, God of Storytelling",
+    "mana_cost": "{2}{R}",
+    "type_line": "Legendary Creature — God",
+    "oracle_text": "Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.\nCreatures you control can boast twice during each of your turns rather than once.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/4/4/44657ab1-0a6a-4a5f-9688-86f239083821.jpg?1783928241",
+     "normal": "https://cards.scryfall.io/normal/front/4/4/44657ab1-0a6a-4a5f-9688-86f239083821.jpg?1783928241",
+     "large": "https://cards.scryfall.io/large/front/4/4/44657ab1-0a6a-4a5f-9688-86f239083821.jpg?1783928241",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/4/4/44657ab1-0a6a-4a5f-9688-86f239083821.jpg?1783928241"
+    }
+   },
+   {
+    "name": "Harnfel, Horn of Bounty",
+    "mana_cost": "{4}{R}",
+    "type_line": "Legendary Artifact",
+    "oracle_text": "Discard a card: Exile the top two cards of your library. You may play those cards this turn.",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/4/4/44657ab1-0a6a-4a5f-9688-86f239083821.jpg?1783928241",
+     "normal": "https://cards.scryfall.io/normal/back/4/4/44657ab1-0a6a-4a5f-9688-86f239083821.jpg?1783928241",
+     "large": "https://cards.scryfall.io/large/back/4/4/44657ab1-0a6a-4a5f-9688-86f239083821.jpg?1783928241",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/4/4/44657ab1-0a6a-4a5f-9688-86f239083821.jpg?1783928241"
+    }
+   }
+  ]
+ },
+ {
   "name": "Hill Giant",
   "layout": "normal",
   "mana_cost": "{3}{R}",

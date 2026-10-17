@@ -186,6 +186,7 @@ def extend(state: GameState, card: CardInstance, info: CardInfo,
         if not ab.tap:
             # -- most-played cards (wave 43B) -- "a land's ability" (Caged Sun) also triggers on a mana ability without {T}: the engine doesn't add that
             # extra mana, so a land ability that makes the chosen color is left to the player while the trigger applies
+            # ponytail: those abilities stay manual rather than automated
             if any(d.get("any_ability") and any(d["only"] in opt for opt in ab.options) for d in triggers):
                 continue
             out.append((index, ab))

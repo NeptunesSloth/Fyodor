@@ -9,6 +9,9 @@ Every scenario checks the replay and a save and a load.
   Librarian [1240]) - a search of their OWN library, nothing found or not; "If an opponent would search a library, that player searches the top four cards of that library instead."
   (Aven Mindcensor [1255]).
 * 701.20a, 110.2: "Whenever this creature attacks, defending player reveals the top card of their library. If it's a land card, that player puts it into their hand." (Goblin Guide).
+* 701.43d, 603.12: "If this creature hasn't been exerted this turn, you may exert it as it attacks. When you do, untap all other creatures you control and after this phase, there is an
+  additional combat phase." (Combat Celebrant [1008]) - an exert already made this turn (an earlier attack, an exert cost) is remembered.
+* 603.4: "Whenever an opponent draws a card, if it isn't that player's turn, create a tapped Treasure token. This ability triggers only once each turn." (Tataru Taru [1047]).
 """
 
 from __future__ import annotations

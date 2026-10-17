@@ -7,6 +7,9 @@ Every scenario checks the replay and a save and a load.
 * 701.20e, 406.3, 401.4: "Look at the top three cards of your library. Put one of them into your hand, put one of them on the bottom of your library, and exile one of them. You may
   play the exiled card this turn." (Expressive Iteration [877]) - a private look, the exiled card public.
 * 101.2, 121.2: "Each opponent can't draw more than one card each turn." (Narset, Parter of Veils [976]): the limit counts what was drawn before Narset came; its controller is not limited.
+* 903.4, 702.16, the rulings 2020-11-10: "Equipped creature gets +3/+3 and has protection from each color that's not in your commander's color identity." (Commander's Plate [475]).
+* 702.142: "Creatures you control can boast twice during each of your turns rather than once." (Birgi, God of Storytelling [498]) - the line is read; the second boast is the
+  restrictions' (wave 4H, tests/test_rules_wave4h_activation_costs.py).
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, ask, settle, stops
 from tests.test_rules_wave43b_mana import to_bobs_main
-from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
+from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand, zone_of
 from tests.wave43b_kit import library, names_in, on_top, open_cards, stack_size, tapped
 
 
@@ -170,4 +173,21 @@ def test_narset_stops_an_opponent_drawing_a_second_card_in_a_turn_but_not_its_co
     settle(s)
     assert len(s.state.zones["p2:hand"]) == bob_hand - 1  # the Visionary left; its trigger drew nothing (101.2: he had drawn his one card this turn)
     assert any("can't draw more than 1 card each turn" in " ".join(p.t or p.name or "" for p in line.parts) for line in s.state.log)
+    check(s)
+
+
+# ---- Commander's Plate [475] -----------------------------------------------------------------------------------------------------------------------------
+def test_commanders_plate_gives_protection_from_each_color_outside_the_commanders_identity(cards):
+    """903.4, 702.16: Alice's commander is Krenko (red): the equipped creature has protection from white, blue, black and green - not from red. +3/+3 as well."""
+    from app.rules import protection
+    from tests.wave43b_kit import ch
+
+    s = build(cards, ["Commander's Plate", "Grizzly Bears"], ["Wall of Omens", "Hill Giant", "Elvish Mystic"])
+    plate, bears = put(s, "Commander's Plate"), put(s, "Grizzly Bears")
+    white, red, green = put(s, "Wall of Omens", "p2"), put(s, "Hill Giant", "p2"), put(s, "Elvish Mystic", "p2")
+    assert not protection.protected_from(ch(s, bears), ch(s, white))
+    act(s, "p1", type="attach", card_ids=[plate.id], to=bears.id)
+    assert pt(s, "Grizzly Bears") == (5, 5)
+    assert protection.protected_from(ch(s, bears), ch(s, white)) and protection.protected_from(ch(s, bears), ch(s, green))
+    assert not protection.protected_from(ch(s, bears), ch(s, red))  # red is in Krenko's color identity
     check(s)

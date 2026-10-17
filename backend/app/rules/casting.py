@@ -1256,7 +1256,7 @@ def _note_cast(plan: Plan, record: PaymentRecord, zone: str) -> None:
     if (cast_card := plan.state.cards.get(record.card)) is not None:
         from app.rules import prohibitions
 
-        prohibitions.bind_next_uncounterable(plan, cast_card, record.controller)  # -- most-played cards (wave 43B) -- "The next spell you cast this turn can't be countered."
+        prohibitions.bind_next_uncounterable(plan, cast_card, record.controller)  # -- most-played cards (wave 43B) -- "The next spell you cast this turn can't be countered." (ponytail: spells cast by hand, outside this path, are bound in engine.py)
     r = plan.rules  # (-- review 30 -- a new spell (400.7): an evoke / dash mark left by an earlier spell of this card that never resolved —
     # bounced or countered back to hand — isn't this one's, 702.74a, 702.109a; this cast marks it again if it pays that cost)
     r.evoked, r.dashed = [c for c in r.evoked if c != record.card], [c for c in r.dashed if c != record.card]

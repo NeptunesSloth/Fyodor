@@ -1907,6 +1907,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             from app.rules.creature_types import CREATURE_TYPES
 
             src = plan.state.cards.get(source or "")
+            # ponytail: the source's current characteristics, not last-known information (no subtypes are stored in the LKI snapshot)
             if src is None or not (ch.subtypes & plan.ch(src).subtypes & CREATURE_TYPES):
                 return False
         if extra == "has_adventure":  # (wave 25B) the printing is an adventurer card, whichever half it is as it is cast

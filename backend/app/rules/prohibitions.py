@@ -189,6 +189,7 @@ def draw_allowed(plan: Plan, player: str, k: int) -> int:
     if not k:
         return k
     caps = [int(d["n"]) for src, d in _statics(plan, "draw_cap") if d["who"] == "each" or src.controller != player]
+    # ponytail: the cap is applied up front, so a draw a replacement effect later replaces still uses up the allowance (no refund)
     if not caps:
         return k
     from app.game.rules_state import turn_log_now

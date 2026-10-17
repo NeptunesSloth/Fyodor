@@ -664,7 +664,7 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
         return True
     if comp.kind == C.EXERT:  # 701.43a-b: it won't untap during your next untap step (exerted again: the same one)
         plan.rules.exerted[plan.oid(card)] = player
-        plan.rules.exerted_turn[plan.oid(card)] = plan.state.turn.number  # (wave 43B)
+        plan.rules.exerted_turn[plan.oid(card)] = plan.state.turn.number  # (wave 43B) ponytail: only the exert paths in exert.py and here stamp it
         plan.note(f"{plan.name(player)} exerted {card.name or 'it'}")
         return True
     if comp.kind == C.DISCARD_HAND:  # 701.9a: every card in it (none is fine: Bomat Courier ruling, 2016-09-20)
