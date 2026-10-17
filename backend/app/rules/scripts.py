@@ -2369,6 +2369,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     if (soup := keyword_soup.bind(body, it)) is not None:
         return soup
+    from app.rules import combat_rules  # -- blocking tokens (wave 50J) --
+
+    if (blocker := combat_rules.blocking_token(body, it, parse_effects)) is not None:
+        return blocker
     # -- bushido grant (wave 50J) -- "That creature gains bushido 1 and becomes a Samurai in addition to its other creature types." (Sensei Golden-Tail): two continuous effects of
     # one object (611.2a: no duration, so for good), the keyword given as the ability it is ("Bushido 1", 702.45a)
     body = re.sub(r"\b(That creature) gains bushido (\d+) and becomes (an? [A-Z][a-z]+ in addition to its other creature types)\b", r'\1 gains "Bushido \2". \1 becomes \3', body)

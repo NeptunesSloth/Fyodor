@@ -82,7 +82,7 @@ def combat(s):
                                   "Thanos, the Mad Titan", "Extinction Event", "Gollum, Riddle Master",
                                   "Satya, Aetherflux Genius", "Hulk, Gamma Goliath", "Rex, Cyber-Hound",
                                   "Rayami, First of the Fallen", "Skrelv, Defector Mite",
-                                  "Yuriko, the Tiger's Shadow"])
+                                  "Yuriko, the Tiger's Shadow", "Brimaz, King of Oreskos"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -490,6 +490,42 @@ def test_commander_ninjutsu_is_refused_before_blockers_are_declared(cards):
     with pytest.raises(ActionError):  # 702.49a: no attacker is unblocked until blockers are declared
         act(s, "p1", type="activate_ability", card_id=yuriko.id, ability=ninja)
     assert s.state.cards[yuriko.id].zone == "p1:command"
+    check(s)
+
+
+# -- creatures put onto the battlefield blocking ----------------------------------------------------------------------------------------------------
+# 509.4: "Whenever Brimaz blocks a creature, create a 1/1 white Cat Soldier creature token with vigilance that's blocking that creature."
+def bob_attacks_and_alice_blocks(s, attacker, *blockers):
+    stops(s)
+    to_phase(s, "declare_attackers", turn=2)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": attacker.id, "target": "p1"}])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, "p1", type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": attacker.id} for b in blockers])
+            return
+        act(s, s.state.rules.priority, type="pass_priority") if d is None else act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    raise AssertionError("never asked to block")
+
+
+def test_brimaz_makes_a_cat_soldier_that_is_blocking_the_creature_he_blocks(cards):
+    s = build(cards, mine=["Brimaz, King of Oreskos"], theirs=["Grizzly Bears"])
+    brimaz = put(s, "Brimaz, King of Oreskos")
+    bears = put(s, "Grizzly Bears", "p2")
+    bob_attacks_and_alice_blocks(s, bears, brimaz)
+    settle(s)
+    (cat,) = [c for c in s.state.cards.values() if c.name == "Cat Soldier" and c.zone == "p1:battlefield"]
+    assert cat.blocking == bears.id and s.state.cards[brimaz.id].blocking == bears.id  # (it is blocking, but was never declared as a blocker, 509.4)
+    check(s)
+
+
+def test_brimaz_blocking_nothing_makes_no_token(cards):
+    s = build(cards, mine=["Brimaz, King of Oreskos"], theirs=["Grizzly Bears"])
+    put(s, "Brimaz, King of Oreskos")
+    bears = put(s, "Grizzly Bears", "p2")
+    bob_attacks_and_alice_blocks(s, bears)
+    settle(s)
+    assert not [c for c in s.state.cards.values() if c.name == "Cat Soldier"]
     check(s)
 
 
