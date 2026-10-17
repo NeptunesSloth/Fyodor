@@ -1,0 +1,449 @@
+[
+ {
+  "name": "White Plume Adventurer",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Orc Cleric",
+  "oracle_text": "When this creature enters, you take the initiative.\nAt the beginning of each opponent's upkeep, untap a creature you control. If you've completed a dungeon, untap all creatures you control instead.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Explore the Underdark",
+  "layout": "normal",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Search your library for up to two basic land cards and/or Gate cards, put them onto the battlefield tapped, then shuffle.\nYou take the initiative.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Tomb of Horrors Adventurer",
+  "layout": "normal",
+  "mana_cost": "{5}{U}",
+  "cmc": 6.0,
+  "type_line": "Creature — Elf Monk",
+  "oracle_text": "When this creature enters, you take the initiative.\nWhenever you cast your second spell each turn, copy it. If you've completed a dungeon, copy that spell twice instead. You may choose new targets for the copies. (A copy of a permanent spell becomes a token.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Rilsa Rael, Kingpin",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{B}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Rogue",
+  "oracle_text": "Deathtouch\nWhen Rilsa Rael enters, you take the initiative.\nWhenever you attack, target attacking creature gains deathtouch until end of turn. If you've completed a dungeon, that creature also gets +5/+0 and gains first strike and menace until end of turn.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Deathtouch"
+  ],
+  "power": "2",
+  "toughness": "5"
+ },
+ {
+  "name": "Caves of Chaos Adventurer",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Barbarian",
+  "oracle_text": "Trample\nWhen this creature enters, you take the initiative.\nWhenever this creature attacks, exile the top card of your library. If you've completed a dungeon, you may play that card this turn without paying its mana cost. Otherwise, you may play that card this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "5",
+  "toughness": "3"
+ },
+ {
+  "name": "Aarakocra Sneak",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Bird Rogue",
+  "oracle_text": "Flying\nWhen this creature enters, you take the initiative.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "1",
+  "toughness": "4"
+ },
+ {
+  "name": "Feywild Caretaker",
+  "layout": "normal",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Creature — Orc Wizard",
+  "oracle_text": "When this creature enters, you take the initiative.\nAt the beginning of your end step, if you have the initiative, create a 1/1 blue Faerie Dragon creature token with flying.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Dungeoneer's Pack",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "This artifact enters tapped.\n{2}, {T}, Sacrifice this artifact: You take the initiative, gain 3 life, draw a card, and create a Treasure token. Activate only as a sorcery. (A Treasure token is an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Treasure"
+  ]
+ },
+ {
+  "name": "Passageway Seer",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Tiefling Warlock",
+  "oracle_text": "Lifelink\nWhen this creature enters, you take the initiative.\nAt the beginning of your end step, if you have the initiative, put a +1/+1 counter on this creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Lifelink"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Vicious Battlerager",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Dwarf Barbarian",
+  "oracle_text": "When this creature enters, you take the initiative.\nSpiked Retribution — Whenever this creature becomes blocked by a creature, that creature's controller loses 5 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Spiked Retribution"
+  ],
+  "power": "1",
+  "toughness": "5"
+ },
+ {
+  "name": "Bloodboil Sorcerer",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Shaman Sorcerer",
+  "oracle_text": "When this creature enters, you take the initiative.\nCrown of Madness — {1}{R}, Sacrifice an artifact or creature: Goad target creature. (Until your next turn, that creature attacks each combat if able and attacks a player other than you if able.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Goad",
+   "Crown of Madness"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Goliath Paladin",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Giant Knight",
+  "oracle_text": "Vigilance\nWhen this creature enters, you take the initiative.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "3",
+  "toughness": "6"
+ },
+ {
+  "name": "Underdark Explorer",
+  "layout": "normal",
+  "mana_cost": "{4}{B}",
+  "cmc": 5.0,
+  "type_line": "Creature — Lizard Warrior",
+  "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhen this creature enters, you take the initiative.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "5",
+  "toughness": "3"
+ },
+ {
+  "name": "Avenging Hunter",
+  "layout": "normal",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Dragon Ranger",
+  "oracle_text": "Trample\nWhen this creature enters, you take the initiative.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Stirring Bard",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Dragon Bard",
+  "oracle_text": "Defender\nWhen this creature enters, you take the initiative.\nMantle of Inspiration — {T}: Target creature gains menace and haste until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Defender",
+   "Mantle of Inspiration"
+  ],
+  "power": "0",
+  "toughness": "4"
+ },
+ {
+  "name": "Secret Door",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Artifact Creature — Wall",
+  "oracle_text": "Defender\n{4}{U}: Venture into the dungeon. Activate only as a sorcery. (Enter the first room or advance to the next room.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Defender",
+   "Venture into the dungeon"
+  ],
+  "power": "0",
+  "toughness": "4"
+ },
+ {
+  "name": "Loot Dispute",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, you take the initiative and create a Treasure token.\nWhenever you attack the player who has the initiative, create a Treasure token.\nLoud Ruckus — Whenever you complete a dungeon, create a 5/5 red Dragon creature token with flying.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Loud Ruckus",
+   "Treasure"
+  ]
+ },
+ {
+  "name": "Undercellar Sweep",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, you take the initiative.\nWhenever you attack, if you or a player you're attacking has the initiative, you create two 1/1 white Soldier creature tokens that are tapped and attacking.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Sarevok's Tome",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact — Book",
+  "oracle_text": "When this artifact enters, you take the initiative.\n{T}: Add {C}. If you have the initiative, add {C}{C} instead.\n{3}, {T}: Exile cards from the top of your library until you exile a nonland card. You may cast that card without paying its mana cost. Activate only if you've completed a dungeon.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Undermountain Adventurer",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant Warrior",
+  "oracle_text": "Vigilance\nWhen this creature enters, you take the initiative.\n{T}: Add {G}{G}. If you've completed a dungeon, add six {G} instead.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Kick in the Door",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Put a +1/+1 counter on target creature. That creature gains haste until end of turn and can't be blocked by Walls this turn. Venture into the dungeon. (Enter the first room or advance to the next room.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Venture into the dungeon"
+  ]
+ },
+ {
+  "name": "You Find a Cursed Idol",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose one —\n• Smash It — Destroy target artifact.\n• Lift the Curse — Destroy target enchantment.\n• Steal Its Eyes — Create a Treasure token and venture into the dungeon. (Enter the first room or advance to the next room.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Treasure",
+   "Venture into the dungeon"
+  ]
+ },
+ {
+  "name": "Acererak the Archlich",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Zombie Wizard",
+  "oracle_text": "When Acererak enters, if you haven't completed Tomb of Annihilation, return Acererak to its owner's hand and venture into the dungeon.\nWhenever Acererak attacks, for each opponent, you create a 2/2 black Zombie creature token unless that player sacrifices a creature of their choice.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Venture into the dungeon"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Ellywick Tumblestrum",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Ellywick",
+  "oracle_text": "+1: Venture into the dungeon. (Enter the first room or advance to the next room.)\n−2: Look at the top six cards of your library. You may reveal a creature card from among them and put it into your hand. If it's legendary, you gain 3 life. Put the rest on the bottom of your library in a random order.\n−7: You get an emblem with \"Creatures you control have trample and haste and get +2/+2 for each differently named dungeon you've completed.\"",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Venture into the dungeon"
+  ],
+  "loyalty": "4"
+ },
+ {
+  "name": "Keen-Eared Sentry",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Soldier",
+  "oracle_text": "You have hexproof. (You can't be the target of spells or abilities your opponents control.)\nEach opponent can't venture into the dungeon more than once each turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Venture into the dungeon"
+  ],
+  "power": "2",
+  "toughness": "1"
+ }
+]

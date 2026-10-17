@@ -42,7 +42,7 @@ from dataclasses import dataclass
 from functools import cache
 from typing import Any
 
-from app.game.rules_state import DecisionOption, DungeonMark, Event, emit
+from app.game.rules_state import DecisionOption, DungeonMark, Event, TurnFact, emit, turn_log_now
 from app.game.state import CardInstance, TokenDef, zone_key
 from app.rules.plan import Plan, decide
 
@@ -61,9 +61,16 @@ def status(plan: Plan, you: str, kind: str) -> bool:
         return monarch != you
     if kind == "not_initiative":
         return table.initiative != you
+    if kind == "initiative_attack":  # -- initiative (wave 45B) -- 726.1, 506.2: you have it, or a creature you control is attacking the player who does
+        return table.initiative == you or (table.initiative is not None and any(
+            c.controller == you and c.attacking is not None and c.attacking.kind == "player" and c.attacking.id == table.initiative
+            for c in plan.state.cards.values() if c.zone.endswith(":battlefield")))
     if kind == "completed_dungeon":  # 309.7
         r = plan.state.rules
         return bool(r is not None and r.completed_dungeons.get(you))
+    if kind.startswith("completed:"):  # -- dungeons (wave 45B) -- 309.7: that dungeon, by name
+        r = plan.state.rules
+        return r is not None and kind[len("completed:"):] in r.completed_dungeons.get(you, [])
     if kind in ("day", "night"):  # 731.1
         return table.day_night == kind
     if kind == "neither_day_nor_night":
@@ -88,6 +95,8 @@ def _add_trigger(plan: Plan, controller: str, name: str, effects: list[dict[str,
 # -- rad counters (728) -----------------------------------------------------------------------------
 def static_definition(text: str) -> dict[str, Any] | None:
     """-- counters (wave 44C) -- 728.1a: "You gain life rather than lose life from radiation." (Strong, the Brutish Thespian)."""
+    if text == "Each opponent can't venture into the dungeon more than once each turn.":  # -- dungeons (wave 45B) -- 701.49, 701.49d, 101.2: Keen-Eared Sentry
+        return {"kind": "static", "static": "venture_limit", "effects": []}
     return {"kind": "static", "static": "rad_gain", "effects": []} if text == "You gain life rather than lose life from radiation." else None
 
 
@@ -387,9 +396,8 @@ _ROOM_EFFECTS: dict[tuple[str, str], list[dict[str, Any]]] = {
 # with them, app/rules/replacements.py)
 _THRONE = ("Reveal the top ten cards of your library. Put a creature card from among them onto the battlefield. It gains "
            "hexproof until your next turn. Then shuffle.")
-# Room abilities left to the players (a decision to resolve them by hand), and why: goad (701.15) is a
-# combat requirement the engine doesn't enforce.
-_BY_HAND = {("Undercity", "Arena")}
+# (-- dungeons (wave 45B) -- no room is left to the players now: Undercity's Arena, "Goad target creature.", is the goad keyword action,
+# 701.15, enforced as a combat requirement by app/rules/combat_rules.py.)
 
 
 def room(dungeon: str, name: str) -> Room:
@@ -402,8 +410,6 @@ def room_definition(dungeon: str, name: str) -> dict[str, Any] | None:
     definition, or None when the players resolve it by hand."""
     from app.rules import scripts
 
-    if (dungeon, name) in _BY_HAND:
-        return None
     effects = _ROOM_EFFECTS.get((dungeon, name))
     if effects is not None:
         return {"kind": "triggered", "trigger": "room", "effects": effects, "optional": False, "target": None}
@@ -441,8 +447,21 @@ def venture(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return all(_venture_one(plan, ctx, e, pid) for pid in players)  # (False: a choice is open; its resume ventures the rest)
 
 
+def _venture_barred(plan: Plan, pid: str) -> bool:
+    """-- dungeons (wave 45B) -- "Each opponent can't venture into the dungeon more than once each turn." (Keen-Eared Sentry): 101.2, and 701.49d (venturing
+    into Undercity is a variant of venturing into the dungeon). The ventures ``pid`` made this turn are the turn log's."""
+    from app.rules import cast_limits
+
+    log = plan.rules.turn_log
+    return log.turn == plan.state.turn.number and any(f.kind == "venture" and f.player == pid for f in log.facts) and any(
+        src.controller != pid for src, _ in cast_limits._statics(plan.state, plan.info, "venture_limit"))
+
+
 def _venture_one(plan: Plan, ctx: Context, e: dict[str, Any], pid: str) -> bool:
     r = plan.rules
+    if _venture_barred(plan, pid):
+        plan.note(f"{plan.name(pid)} can't venture into the dungeon more than once each turn")
+        return True
     into = e.get("into", "dungeon")
     mark = r.dungeons.get(pid)
     if mark is not None and not room(mark.dungeon, mark.room).leads:
@@ -491,6 +510,8 @@ def _enter(plan: Plan, pid: str, dungeon: str, name: str) -> None:
     r = plan.rules
     first = pid not in r.dungeons
     r.dungeons[pid] = DungeonMark(dungeon=dungeon, room=name)
+    if (log := turn_log_now(plan.state)) is not None:  # (-- dungeons (wave 45B) -- a venture this turn: _venture_barred)
+        log.facts.append(TurnFact(kind="venture", player=pid))
     plan.note(f"{plan.name(pid)} " + (f"ventured into {dungeon}: {name}" if first else f"moved into {name} ({dungeon})"))
     definition = room_definition(dungeon, name)
     index = [x.name for x in DUNGEONS[dungeon]].index(name)
@@ -972,8 +993,7 @@ def unautomated(definition: dict[str, Any]) -> str | None:
             wants.add("undercity")
     for into in sorted(wants):
         if not venture_automated(into):
-            return "a dungeon room is resolved by hand (" + ", ".join(
-                f"{d}: {n}" for d, n in sorted(_BY_HAND) if (d == UNDERCITY) == (into == "undercity")) + ")"
+            return "a dungeon room is resolved by hand"
     return None
 
 

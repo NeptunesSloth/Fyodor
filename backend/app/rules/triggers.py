@@ -989,6 +989,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return defended == watcher.attached_player
     if want == "monarch":  # -- this-turn state (wave 42B) -- 725.1: the player attacked is the monarch now (as the attack is declared)
         return plan is not None and defended == plan.state.table.monarch
+    if want == "initiative":  # -- initiative (wave 45B) -- 726.1: the player attacked has the initiative now (as the attack is declared)
+        return plan is not None and defended == plan.state.table.initiative
     if want == "most_life":  # -- keywords (wave 15E) -- 702.105a: the player attacked has the most life or is tied for it
         return plan is not None and plan.state.players[defended].life >= max(plan.state.players[p].life for p in plan.live())
     return want == "player"
