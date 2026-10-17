@@ -1994,7 +1994,8 @@ def _search_matches(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, key: 
 
     keys = e.get("alts") or [key]
     sels = [selectors.from_key(k) for k in keys]
-    matching = [c for c in among if any(selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)
+    matching = [c for c in among if any(selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid,
+                                                          ctx.get("source_card") if sel.extras else None)  # (wave 47D: "not named ~", the searching ability's source)
                                         for sel in sels)]
     # -- tutors (wave 3T) -- "a card named …" and "with mana value X or less" (the X chosen for this
     # spell or ability; a card in a library has its X as 0, 202.3e)

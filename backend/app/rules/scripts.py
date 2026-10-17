@@ -263,6 +263,7 @@ def _self_pronouns(part: str) -> str:
     contraction ("he's"), "her controller" (an earlier permanent's)."""
     part = re.sub(r"(~ enters (?:tapped )?with [^.]+? counters? on) (?:him|her)\b", r"\1 it", part)  # (as the "on it" form)
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)'s (?=equipped\b)", "~ is ", part)  # (wave 41B: "if he's equipped", Whiplash: "he's" is "he is" before a state)
+    part = re.sub(r"\b([Ii]f) (?:he|she) (wasn't|was|had|didn't have|hadn't)\b", r"\1 it \2", part)  # (wave 47D: "When Fang dies, if he wasn't a Spirit, return this card …": the dying object, as "if it was")
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)\b(?! or |')", "~", part)
     part = re.sub(rf"\b(?:his|her) (?={_POSSESSED}\b)", "~'s ", part)
     part = re.sub(r"(?<!or )\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
@@ -2954,6 +2955,18 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # -- tokens (wave 47D) -- "Create a white and black Spirit enchantment creature token. It has "This creature's power and toughness are each equal to …"" (Daxos): nothing
     # is printed for the token's P/T, so the CDA is the token's own quoted ability (111.4, 208.1), the grammar's "with"
     body = re.sub(r'(^|, |\. )((?i:create) [^."]+? creature token)\. It has "(?:This creature|~)(\'s power and toughness are each equal to [^"]+")', r'\1\2 with "This creature\3', body)
+    # -- reanimation (wave 47D) -- "return this card to the battlefield under your control. He's a Spirit in addition to his other types." (Fang, Roku's Companion): the pronoun for the
+    # object just returned, worded as "It's a Spirit in addition to its other types."
+    body = re.sub(r"\b(?:He|She)'s an? ([A-Z][a-z]+) in addition to (?:his|her) other types\b", r"It's a \1 in addition to its other types", body)
+    # -- reanimation (wave 47D) -- "When you cast this spell, amass Orcs 5, mill five cards, then return a creature card from your graveyard to the battlefield." (Sauron, Lord of
+    # the Rings): the instructions in order, 608.2c
+    body = re.sub(r"\b(amass [A-Z][a-z]+ (?:\d+|X)), (?=(?:mill|draw|scry|surveil) )", r"\1, then ", body)
+    # -- trigger other (wave 47D) -- "Return all creatures to their owners' hands except for Merfolk, Krakens, Leviathans, Octopuses, and Serpents." (Slinn Voda): the creatures that are none
+    # of those kinds, "all non-Merfolk non-Kraken … creatures"
+    from app.rules.selectors import _singular
+
+    body = re.sub(r"\b([Rr]eturn|[Dd]estroy|[Ee]xile) all creatures( to their owners' hands)? except for ([A-Z][a-z]+(?:(?:, and |, | and )[A-Z][a-z]+)*)\b",
+                  lambda m: f"{m[1]} all {' '.join('non-' + _singular(w) for w in re.split(r', and |, | and ', m[3]))} creatures{m[2] or ''}", body)
     # -- activated other (wave 44D) -- "Destroy all creatures except for ~. Those creatures can't be regenerated." (Mageta the Lion): all the others, the source being the only one
     # left out, as "Destroy all other creatures. They can't be regenerated." says
     body = re.sub(r"\b([Dd]estroy all) (creatures|artifacts|enchantments|lands) except for ~\. Those \2 can't be regenerated\.", r"\1 other \2. They can't be regenerated.", body)

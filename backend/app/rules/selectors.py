@@ -63,7 +63,7 @@ PLANESWALKER_TYPES = frozenset({
 _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves": "Werewolf", "thieves": "Thief",
               "mice": "Mouse", "fungi": "Fungus", "sphinxes": "Sphinx", "foxes": "Fox", "djinn": "Djinn",
               "allies": "Ally", "fairies": "Faerie", "zombies": "Zombie", "sorceries": "Sorcery", "mercenaries": "Mercenary",
-              "plains": "Plains", "pegasi": "Pegasus", "octopi": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
+              "plains": "Plains", "pegasi": "Pegasus", "octopi": "Octopus", "octopuses": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
 _IRREGULAR.update({"oxen": "Ox", "armies": "Army", "spies": "Spy", "cyclopes": "Cyclops"})  # -- static wordings (wave 6E) --
 _IRREGULAR.update({"aurochs": "Aurochs"})  # -- trigger tail (wave 15B) -- (its own plural)
 _IRREGULAR.update({"heroes": "Hero"})  # -- counters (wave 21D) --
