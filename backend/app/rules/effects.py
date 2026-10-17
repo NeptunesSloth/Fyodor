@@ -4744,6 +4744,9 @@ from app.rules import attach_entry as _attach_entry  # noqa: E402, I001
 
 PRIMITIVES.update(_attach_entry.PRIMITIVES)
 RESUME.update(_attach_entry.RESUME)  # (wave 25A: attach_choose)
+from app.rules import haunt as _haunt  # noqa: E402, I001  -- haunt (wave 50H) --
+
+PRIMITIVES.update(_haunt.PRIMITIVES)
 from app.rules import licids as _licids  # noqa: E402, I001  -- licids (wave 50A) --
 
 PRIMITIVES["licid"] = _licids.licid

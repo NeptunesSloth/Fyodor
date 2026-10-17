@@ -1120,6 +1120,7 @@ class RulesState(BaseModel):
     # id -> {"color": "Blue"}), consumed by the entry (614.12a)
     entry_choices: dict[str, dict[str, str]] = Field(default_factory=dict)
     devoured: dict[str, int] = Field(default_factory=dict)  # -- keyword mechanics (wave 9D) -- object -> permanents it devoured (702.82b)
+    haunting: dict[str, str] = Field(default_factory=dict)  # -- keywords (wave 50H) -- a haunt card's object in exile -> the object it haunts (702.55b)
     tribute_paid: list[str] = Field(default_factory=list)  # -- keywords (wave 50H) -- objects that entered with their tribute paid (702.104b)
     devoured_ids: dict[str, list[str]] = Field(default_factory=dict)  # (wave 48B: and the objects they were, for "the Goblins it devoured": their last known information, 608.2h)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
