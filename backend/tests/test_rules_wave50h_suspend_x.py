@@ -94,3 +94,16 @@ def test_the_last_counter_triggers_its_own_ability_and_offers_the_cast_whichever
     soldiers = [c for c in s.state.cards.values() if c.is_token and c.name == "Soldier" and c.zone == "p1:battlefield"]
     assert len(soldiers) == 1 and zone_of(s, "Benalish Commander") == "p1:battlefield"
     check(s)
+
+
+def test_a_plain_suspend_card_with_a_trigger_of_its_own_makes_a_token_each_upkeep(cards):
+    # Dinosaurs on a Spaceship: "Suspend 4—{3}{R}{W}" and "Whenever a time counter is removed from this card while it's exiled, create a 2/2 … Dinosaur …"
+    s = build(cards, ["Dinosaurs on a Spaceship"])
+    ship = to_hand(s, "Dinosaurs on a Spaceship")
+    mana(s, R=1, W=1, C=3)
+    act(s, "p1", type="activate_ability", card_id=ship.id, ability=suspend_index(s, "Dinosaurs on a Spaceship"))
+    assert s.state.cards[ship.id].counters.get("time") == 4
+    next_turn(s)
+    dinos = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    assert len(dinos) == 1 and s.state.cards[ship.id].counters.get("time") == 3 and zone_of(s, "Dinosaurs on a Spaceship") == "p1:exile"
+    check(s)

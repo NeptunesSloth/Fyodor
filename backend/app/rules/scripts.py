@@ -6296,9 +6296,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         if m["kw"]:  # -- counters (wave 7C) -- "… and with haste": the keyword it enters with, for as long as it stays
             out["grant"] = [m["kw"]]
         if m["q"]:  # -- keywords (wave 50H) -- '… and with "Pay 3 life: Regenerate this creature."' (the Volvers): the same, a granted ability (613.1f)
-            if granted_ability(m["q"]) is None:
+            from app.rules import granted
+
+            if (quoted := granted.quote(m["q"])) is None:  # (a static other objects depend on is refused: layers.py reads those from printed text, 113.10)
                 return None
-            out["grant_abilities"] = [m["q"]]
+            out["grant_abilities"] = [quoted]
         if m["each"]:
             each_text = m["each"]
             if " counter on it for each " in each_text or " counters on it for each " in each_text:  # -- counters (wave 21D) -- the same

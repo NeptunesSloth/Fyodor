@@ -452,5 +452,66 @@
   ],
   "power": "*",
   "toughness": "*"
+ },
+ {
+  "name": "Prison Barricade",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Wall",
+  "oracle_text": "Defender (This creature can't attack.)\nKicker {1}{W} (You may pay an additional {1}{W} as you cast this spell.)\nIf this creature was kicked, it enters with a +1/+1 counter on it and with \"This creature can attack as though it didn't have defender.\"",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Defender",
+   "Kicker"
+  ],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Dinosaurs on a Spaceship",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{W}",
+  "cmc": 6.0,
+  "type_line": "Creature — Dinosaur",
+  "oracle_text": "Vigilance, trample\nOther Dinosaurs you control get +1/+1 and have vigilance and trample.\nSuspend 4—{3}{R}{W}\nWhenever a time counter is removed from this card while it's exiled, create a 2/2 red and white Dinosaur creature token with flying and haste.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Vigilance",
+   "Suspend",
+   "Trample"
+  ],
+  "power": "7",
+  "toughness": "7"
+ },
+ {
+  "name": "Dig Up",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Cleave {1}{B}{B}{G} (You may cast this spell for its cleave cost. If you do, remove the words in square brackets.)\nSearch your library for a [basic land] card, [reveal it,] put it into your hand, then shuffle.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Cleave"
+  ]
  }
 ]

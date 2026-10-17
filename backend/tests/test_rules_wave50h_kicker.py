@@ -171,6 +171,25 @@ def test_the_volver_enters_with_the_ability_its_kicker_names(cards):
     check(s)
 
 
+def test_an_ability_it_enters_with_works_and_a_static_one_other_objects_depend_on_stays_manual(cards):
+    # Rakavolver, kicked with {1}{W}: two +1/+1 counters and "Whenever this creature deals damage, you gain that much life." (a triggered ability: it runs); Prison
+    # Barricade enters with "This creature can attack as though it didn't have defender." (a static that combat reads from printed text, 113.10: refused)
+    from tests.test_rules_wave34b_activated import attack, next_turn
+
+    assert level(cards, "Prison Barricade") != "FULL"
+    s = build(cards, ["Rakavolver"])
+    vol = to_hand(s, "Rakavolver")
+    pool(s, R=1, C=3, W=1)
+    act(s, "p1", type="cast_spell", card_id=vol.id, kicker=1)
+    settle(s)
+    next_turn(s)
+    mine, theirs = life(s, "p1"), life(s, "p2")
+    attack(s, vol)
+    settle(s)
+    assert (life(s, "p1"), life(s, "p2")) == (mine + 4, theirs - 4)  # 4 damage dealt (a 2/2 with two counters): that much life gained
+    check(s)
+
+
 # -- a free cast (118.9d): the optional kicker costs are offered one by one, only the payable ones --------------------------------------------------
 def test_a_free_cast_offers_only_the_kicker_masks_the_caster_can_pay(cards):
     gandalf = "Gandalf, Party Guest"

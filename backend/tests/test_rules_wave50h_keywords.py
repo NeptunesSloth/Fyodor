@@ -104,6 +104,21 @@ def test_a_flavor_word_before_a_life_payment_equip_cost_keeps_its_restriction(ca
     check(s)
 
 
+def test_dancer_chakrams_grants_its_anthem_to_the_other_commanders(cards):
+    # "Equipped creature gets +2/+2, has lifelink and "Other commanders you control get +2/+2 and have lifelink," and is a Performer in addition to its other types.":
+    # the Hero token isn't a commander, and the ruling says the granted ability applies whether or not the Chakrams is attached to one: Krenko (3/3) gets it
+    s = build(cards, ["Dancer's Chakrams"])
+    put(s, "Krenko, Mob Boss")
+    chakrams = to_hand(s, "Dancer's Chakrams")
+    mana(s, W=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=chakrams.id)
+    settle(s)
+    (hero,) = heroes(s)
+    assert s.state.cards[chakrams.id].attached_to == hero.id and pt(s, "Hero") == (3, 3)
+    assert pt(s, "Krenko, Mob Boss") == (5, 5) and "lifelink" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card_named(s, "Krenko, Mob Boss").id]).keywords
+    check(s)
+
+
 def test_thief_knife_grants_the_trigger_and_the_type(cards):
     s = build(cards, ["Thief's Knife"])
     knife = to_hand(s, "Thief's Knife")
@@ -210,4 +225,26 @@ def test_cleave_removes_the_restriction_from_a_target(cards):
     act(s, "p1", type="cast_spell", card_id=ret.id, alt_cost=f"{ret.id}:0", targets=[titan.id])  # Cleave {1}{U}
     settle(s)
     assert zone_of(s, "Granite Titan", "p2") == "p2:hand"
+    check(s)
+
+
+@pytest.mark.parametrize("cleaved", [False, True])
+def test_cleave_drops_the_reveal_and_the_basic_land_limit_and_the_opponent_sees_only_what_is_revealed(cards, cleaved):
+    # Dig Up: "Search your library for a [basic land] card, [reveal it,] put it into your hand, then shuffle."
+    import json
+
+    from app.game.views import build_view
+    from tests.test_rules_conditionals import until_asked
+
+    s = build(cards, ["Dig Up", "Mountain", "Rakavolver"])
+    dig = to_hand(s, "Dig Up")
+    mana(s, G=1, C=1, **({"B": 2} if cleaved else {}))  # {1}{G}; Cleave {1}{B}{B}{G}
+    act(s, "p1", type="cast_spell", card_id=dig.id, **({"alt_cost": f"{dig.id}:0"} if cleaved else {}))
+    d = until_asked(s)
+    labels = {o.label for o in d.options}
+    assert ("Rakavolver" in labels) == cleaved  # any card when cleaved, a basic land otherwise
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "Mountain")])
+    settle(s)
+    assert "Mountain" in [c.name for c in s.state.cards.values() if c.zone == "p1:hand"]
+    assert ("Mountain" in json.dumps(build_view(s.state, "p2"), default=str)) == (not cleaved)  # revealed to everyone only when not cleaved
     check(s)
