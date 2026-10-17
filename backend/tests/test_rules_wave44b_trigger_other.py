@@ -23,14 +23,16 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
 from tests.test_rules_wave38a_trailing_ifs import hand, table
-from tests.wave9c_kit import card_named, check, mana, put
+from tests.wave9c_kit import card_named, check, mana, pt, put
 from tests.wave36a_kit import attack_as, ready, to_turn_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave44b_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w44b", number=f"B{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-COMMANDERS = ["Zagras, Thief of Heartbeats", "Merry, Esquire of Rohan", "Kazuul, Tyrant of the Cliffs", "Selvala, Heart of the Wilds", "Rayne, Academy Chancellor"]
+COMMANDERS = ["Zagras, Thief of Heartbeats", "Merry, Esquire of Rohan", "Kazuul, Tyrant of the Cliffs", "Selvala, Heart of the Wilds", "Rayne, Academy Chancellor",
+              "Amalia Benavides Aguirre", "Jenson Carthalion, Druid Exile", "Michelangelo, Improviser", "Danitha, Sword of Hope", "Rose Noble",
+              "Tameshi, Reality Architect", "The Beast, Deathless Prince", "Ultron the Annihilator"]
 
 
 @pytest.fixture()
@@ -210,4 +212,173 @@ def test_rayne_draws_a_card_and_another_one_when_enchanted(cards, enchanted, bol
     act(s, bolter, type="cast_spell", card_id=bolt.id, targets=[bears.id])
     settle(s)
     assert before - library(s, "p1") == draws
+    check(s)
+
+
+# -- Amalia Benavides Aguirre ----------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("start", "destroyed"), [(19, True), (17, False)])
+def test_amalia_destroys_the_other_creatures_when_her_power_is_exactly_20_after_the_explore(cards, start, destroyed):
+    """Amalia: "Whenever you gain life, ~ explores. Then destroy all other creatures if its power is exactly 20." The explore's +1/+1 counter (a nonland card on top)
+    comes first (608.2c): 19 + 1 = 20 destroys, 17 + 1 = 18 doesn't."""
+    s = table(cards, ["Hill Giant", "Heroes' Reunion", "Amalia Benavides Aguirre", "Grizzly Bears"], ["Grizzly Bears"])
+    amalia = put(s, "Amalia Benavides Aguirre")
+    put(s, "Grizzly Bears")
+    base = pt(s, "Amalia Benavides Aguirre")[0]
+    act(s, "p1", type="counter", card_ids=[amalia.id], kind="+1/+1", delta=start - base)
+    assert pt(s, "Amalia Benavides Aguirre")[0] == start
+    reunion = card_named(s, "Heroes' Reunion")
+    act(s, "p1", type="move", card_ids=[reunion.id], to={"zone": "hand"})
+    mana(s, "p1", G=1, W=1)
+    act(s, "p1", type="cast_spell", card_id=reunion.id, targets=["p1"])
+    settle(s)
+    assert pt(s, "Amalia Benavides Aguirre")[0] == start + 1
+    assert zone(s, "Grizzly Bears") == ("p1:graveyard" if destroyed else "p1:battlefield")
+    assert zone(s, "Amalia Benavides Aguirre") == "p1:battlefield"
+    check(s)
+
+
+# -- Jenson Carthalion, Druid Exile ----------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("spell", "angels"), [("Transguild Courier", 1), ("Zhur-Taa Swine", 0)])
+def test_jenson_makes_an_angel_for_an_all_colors_spell(cards, spell, angels):
+    s = table(cards, ["Jenson Carthalion, Druid Exile", "Transguild Courier", "Zhur-Taa Swine"])
+    put(s, "Jenson Carthalion, Druid Exile")
+    c = card_named(s, spell)
+    act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+    mana(s, "p1", R=1, G=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert sum(1 for x in s.state.cards.values() if x.name == "Angel" and x.zone == "p1:battlefield") == angels
+    check(s)
+
+
+# -- Michelangelo, Improviser ----------------------------------------------------------------------------------------------------------------------
+def test_michelangelo_puts_a_creature_and_a_land_from_hand_onto_the_battlefield(cards):
+    """"You may put a creature card and/or a land card from your hand onto the battlefield" is up to one of each (a land put this way isn't played, ruling of
+    2026-01-27)."""
+    s = table(cards, ["Michelangelo, Improviser", "Grizzly Bears"])
+    mike = put(s, "Michelangelo, Improviser")
+    bears, forest = card_named(s, "Grizzly Bears"), next(c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library")
+    for c in (bears, forest):
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+    ready(s, "Michelangelo, Improviser")
+    attack_as(s, "p1", [mike], "p2")
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack") or s.state.turn.phase in ("declare_attackers", "declare_blockers", "combat_damage", "first_strike_damage"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[forest.id].zone == "p1:battlefield"
+    check(s)
+
+
+# -- Danitha, Sword of Hope / Rose Noble -------------------------------------------------------------------------------------------------------------
+def cast_from_hand(s, name, pid="p1", targets=None, **m):
+    c = card_named(s, name, pid)
+    act(s, pid, type="move", card_ids=[c.id], to={"zone": "hand"})
+    mana(s, pid, **m)
+    before = library(s, "p1")
+    act(s, pid, type="cast_spell", card_id=c.id, **({"targets": targets} if targets else {}))
+    settle(s)
+    return before - library(s, "p1")
+
+
+def test_danitha_draws_for_an_equipment_spell_once_each_turn(cards):
+    s = table(cards, ["Danitha, Sword of Hope", "Bonesplitter", "Short Sword"])
+    put(s, "Danitha, Sword of Hope")
+    assert cast_from_hand(s, "Bonesplitter", C=1) == 1
+    assert cast_from_hand(s, "Short Sword", C=1) == 0  # (this ability triggers only once each turn)
+    check(s)
+
+
+@pytest.mark.parametrize(("victim", "caster_draws"), [("p1", 1), ("p2", 0)])
+def test_danitha_draws_for_a_spell_that_targets_a_creature_you_control(cards, victim, caster_draws):
+    s = table(cards, ["Danitha, Sword of Hope", "Giant Growth", "Grizzly Bears"], ["Grizzly Bears"])
+    put(s, "Danitha, Sword of Hope")
+    bears = put(s, "Grizzly Bears", victim)
+    assert cast_from_hand(s, "Giant Growth", targets=[bears.id], G=1) == caster_draws
+    check(s)
+
+
+@pytest.mark.parametrize(("spell", "draws"), [("Night Nurse, Healer of Heroes", 1), ("K-9, Mark I", 1), ("Grizzly Bears", 0)])
+def test_rose_noble_draws_for_a_doctor_spell_or_a_creature_spell_with_doctors_companion(cards, spell, draws):
+    s = table(cards, ["Rose Noble", "Night Nurse, Healer of Heroes", "K-9, Mark I", "Grizzly Bears"])
+    put(s, "Rose Noble")
+    assert cast_from_hand(s, spell, W=2, U=1, G=2) == draws
+    check(s)
+
+
+# -- Tameshi, Reality Architect -----------------------------------------------------------------------------------------------------------------------
+def test_tameshi_draws_once_each_turn_for_noncreature_permanents_returned_to_hand(cards):
+    """Tameshi: "Whenever one or more noncreature permanents are returned to hand, draw a card. This ability triggers only once each turn." A creature bounced
+    doesn't count, and nothing returned from a graveyard does (ruling of 2022-02-18: from the battlefield)."""
+    s = table(cards, ["Tameshi, Reality Architect", "Bonesplitter", "Short Sword", "Grizzly Bears", "Boomerang"])
+    put(s, "Tameshi, Reality Architect")
+    ring, sword, bears = put(s, "Bonesplitter"), put(s, "Short Sword"), put(s, "Grizzly Bears")
+    assert cast_from_hand(s, "Boomerang", targets=[bears.id], U=2) == 0  # (a creature)
+    assert cast_from_hand(s, "Boomerang", targets=[ring.id], U=2) == 1  # (the Boomerang itself is a spell, not a permanent)
+    assert zone(s, "Bonesplitter") == "p1:hand"
+    assert cast_from_hand(s, "Boomerang", targets=[sword.id], U=2) == 0  # (only once each turn)
+    check(s)
+
+
+# -- The Beast, Deathless Prince ----------------------------------------------------------------------------------------------------------------------
+def test_the_beast_untaps_and_draws_when_a_creature_deals_combat_damage_to_its_owner(cards):
+    """Alice steals Bob's Grizzly Bears with Threaten and hits Bob (its owner): The Beast triggers; her own Bears dealing damage to Bob doesn't."""
+    s = table(cards, ["The Beast, Deathless Prince", "Threaten", "Grizzly Bears"], ["Grizzly Bears"])
+    put(s, "The Beast, Deathless Prince")
+    mine, theirs = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2")
+    ready(s, "Grizzly Bears")
+    cast_from_hand(s, "Threaten", targets=[theirs.id], R=1, C=2)
+    assert s.state.cards[theirs.id].controller == "p1"
+    before = library(s, "p1")
+    attack_as(s, "p1", [s.state.cards[mine.id], s.state.cards[theirs.id]], "p2")
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack") or s.state.turn.phase in ("declare_attackers", "declare_blockers", "combat_damage", "first_strike_damage"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert before - library(s, "p1") == 1  # (one trigger: only Bob's Bears hit its owner)
+    check(s)
+
+
+# -- Ultron the Annihilator -------------------------------------------------------------------------------------------------------------------------
+def ultron_table(cards):
+    s = table(cards, ["Sol Ring", "Ultron the Annihilator", "Shatter", "Mental Note"], ["Sol Ring"])  # (Alice's Sol Ring is the top card of her library)
+    put(s, "Ultron the Annihilator")
+    return s
+
+
+def test_ultron_drains_for_another_artifact_that_dies(cards):
+    s = ultron_table(cards)
+    ring = put(s, "Sol Ring")
+    before = s.state.players["p2"].life
+    cast_from_hand(s, "Shatter", targets=[ring.id], R=1, C=1)
+    assert zone(s, "Sol Ring") == "p1:graveyard" and s.state.players["p2"].life == before - 1
+    check(s)
+
+
+def test_ultron_drains_for_an_artifact_card_milled(cards):
+    s = ultron_table(cards)
+    before = s.state.players["p2"].life
+    cast_from_hand(s, "Mental Note", U=1)  # (mills Sol Ring and the card under it: an artifact card put into a graveyard from a library)
+    assert zone(s, "Sol Ring") == "p1:graveyard" and s.state.players["p2"].life == before - 1
+    check(s)
+
+
+def test_ultron_ignores_an_opponents_artifact(cards):
+    s = ultron_table(cards)
+    ring = put(s, "Sol Ring", "p2")
+    before = s.state.players["p2"].life
+    cast_from_hand(s, "Shatter", targets=[ring.id], R=1, C=1)
+    assert zone(s, "Sol Ring", "p2") == "p2:graveyard" and s.state.players["p2"].life == before
     check(s)

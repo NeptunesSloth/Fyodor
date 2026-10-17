@@ -910,7 +910,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False  # (-- trigger tail (wave 15B) -- "explores a land card": the card it revealed)
     if event == "expend" and not info["before"] < cond["n"] <= info["after"]:
         return False
-    if event == "to_graveyard" and cond.get("from") and info.get("from") != cond["from"]:  # -- into a graveyard (wave 6D)
+    if event == "to_graveyard" and cond.get("from") and (info.get("from") == "battlefield" if cond["from"] == "not_battlefield" else info.get("from") != cond["from"]):  # -- into a graveyard (wave 6D; wave 44B: "anywhere other than the battlefield")
         return False
     if event in ("to_exile", "to_library") and ((cond.get("froms") and info.get("from") not in cond["froms"])
                                                  or (cond.get("from_owner") == "you" and info.get("from_owner") != you)):
@@ -939,6 +939,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "planeswalker" and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_pw" and recipient is None and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_battle" and recipient is None and not info.get("recipient_battle")) or \
+                (to == "its_owner" and (recipient is None or obj is None or recipient != obj.owner)) or \
                 (to == "self" and info.get("other") != watcher.id) or \
                 (to == "players" and recipient is None) or (to == "opponents" and (recipient is None or recipient == you)) or \
                 (to == "creatures" and not info.get("recipient_creature")) or \

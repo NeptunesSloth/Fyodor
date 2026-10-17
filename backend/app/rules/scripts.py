@@ -327,6 +327,12 @@ def self_text(text: str, name: str) -> str:
     # opens a sentence of the spell, "When ~ enters, if the gift was promised, …" is the permanent's intervening "if"
     out = re.sub(r"(?:^|(?<=\. ))If the gift was promised, ", "If this spell was kicked, ", out)
     out = re.sub(r"\bif the gift was promised, ", "if it was kicked, ", out)
+    # -- trigger other (wave 44B) -- Amalia: "~ explores. Then destroy all other creatures if its power is exactly 20." is "Then if ~'s power is exactly 20, destroy …"
+    # (608.2c: the condition is read as that part is carried out, after the explore's counter); "you may put a creature card and/or a land card from your hand onto the
+    # battlefield" (Michelangelo) is up to one of each, two optional puts
+    out = re.sub(r"(?<=~ explores\. )Then (destroy all other creatures) if its (power is exactly \d+)\.", r"Then if ~'s \2, \1.", out)
+    out = re.sub(r"\byou may put an? (creature|land) card and/or an? (creature|land) card from your hand onto the battlefield\b",
+                 r"you may put a \1 card from your hand onto the battlefield. You may put a \2 card from your hand onto the battlefield", out)
     # -- trigger other (wave 44B) -- Rayne's 2004 ruling: "You may draw an additional card if ~ is enchanted." is checked as the ability resolves, a second optional draw
     out = re.sub(r"(?<=\. )You may draw an additional card if ([^.,]+?)\.", r"If \1, you may draw a card.", out)
     # -- keywords (wave 30E) -- 702.166b: a bargained spell is read the same way (a bargain card has no kicker): casting.py records it as kicked
