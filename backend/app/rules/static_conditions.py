@@ -480,9 +480,9 @@ def _holds_35d(plan: Plan, cond: Condition, source: CardInstance, controller: st
     if kind == "block_rel":  # -- most-played cards II (wave 45A) -- 509.1: the object it is attached to blocks a creature of that kind, or is blocked by one
         host = attached_object(plan, source)
         sel = selectors.from_key(cond["sel"])
-        found = [c for c in state.cards.values() if c.zone.endswith(":battlefield") and selectors.matches(plan, sel, c, plan.ch(c), controller, source.id)]
-        return host is not None and ((cond["rel"] != "blocked by" and any(host.blocks(c.id) for c in found))
-                                     or (cond["rel"] != "blocking" and any(c.blocks(host.id) for c in found)))
+        kind_of = [c for c in state.cards.values() if c.zone.endswith(":battlefield") and selectors.matches(plan, sel, c, plan.ch(c), controller, source.id)]
+        return host is not None and ((cond["rel"] != "blocked by" and any(host.blocks(c.id) for c in kind_of))
+                                     or (cond["rel"] != "blocking" and any(c.blocks(host.id) for c in kind_of)))
     if kind == "blocked_by":  # 509.1: the creatures that block it (a creature blocking more than one attacker blocks each)
         return on_field and sum(1 for c in state.cards.values() if c.zone.endswith(":battlefield") and c.blocks(source.id)) >= cond["n"]
     if kind == "transformed":  # 701.27g: a double-faced permanent with its back face up (a merged or melded permanent never is)

@@ -13,7 +13,7 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, settle, stops, to_phase
-from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
+from tests.wave9c_kit import build, check, mana, put, to_hand
 from tests.wave45a_kit import cast, open_cards
 
 
