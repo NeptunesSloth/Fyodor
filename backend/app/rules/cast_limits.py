@@ -539,7 +539,7 @@ _KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "s
           "cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
-          "rad_gain")  # (wave 44C: app/rules/designations.py)
+          "rad_gain", "venture_limit")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:

@@ -243,6 +243,9 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
 
 
 _UNLESS_EACH = re.compile(r"^(?:if (?P<cond>[^,]+), )?each (?P<who>opponent|player) (?P<lead>.+?) unless (?:they|that player) (?P<act>.+)$")
+# -- dungeons (wave 45B) -- "For each opponent, you create a 2/2 black Zombie creature token unless that player sacrifices a creature of their choice."
+# (Acererak the Archlich): the controller's own instruction, once for each opponent who doesn't (118.12a)
+_UNLESS_FOR_EACH = re.compile(r"^for each (?P<who>opponent|player), (?P<lead>you .+?) unless that player (?P<act>.+)$")
 
 
 def unless_sentence(text: str) -> list[dict[str, Any]] | None:
@@ -252,7 +255,8 @@ def unless_sentence(text: str) -> list[dict[str, Any]] | None:
     from app.rules import optional_payment, scripts
 
     m = _UNLESS_EACH.match(text)
-    if m is None:
+    mine = None if m else _UNLESS_FOR_EACH.match(text)
+    if (m := m or mine) is None:
         return None
     act = re.sub(r"\b(pays?|discards?|sacrifices?|returns?|exiles?)\b", lambda v: v[1].rstrip("s") if v[1] != "pays" else "pay", m["act"])
     if " another " in f" {act} ":
@@ -267,7 +271,7 @@ def unless_sentence(text: str) -> list[dict[str, Any]] | None:
         return None
     if not optional_payment.defers(entry.get("cost"), entry.get("alts")):
         return None  # (a mana payment by each opponent in turn: refused since wave 4C, as before)
-    parsed = scripts.parse_effects(_third_person(m["lead"]) + ".", "self", event_player=True)
+    parsed = scripts.parse_effects((m["lead"] if mine else _third_person(m["lead"])) + ".", "self", event_player=True)
     if parsed is None or parsed[1] is not None or parsed[2] or not parsed[0]:
         return None
     dumped = json.dumps(parsed[0])
@@ -275,7 +279,7 @@ def unless_sentence(text: str) -> list[dict[str, Any]] | None:
         return None
     entry["effects"] = parsed[0]
     out = [entry]
-    if m["cond"]:  # ("At the beginning of your end step, if you attacked this turn, each opponent loses …": 603.4)
+    if not mine and m["cond"]:  # ("At the beginning of your end step, if you attacked this turn, each opponent loses …": 603.4)
         from app.rules import conditions
 
         cond = conditions.parse(m["cond"], objects=True)

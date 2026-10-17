@@ -118,7 +118,7 @@ class Plan:
                     was, self.began[cid] = self.began.get(cid, False), down_public(c)
                     self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
-              put_by=wither_put_by(resolved))  # (5H, 7C, 17D)
+              put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
         if gy_seen is not None:  # (wave 40C) two or more cards into one graveyard at once: its owner may arrange them (404.3)
             graveyard_order.after(self, gy_seen)
         if entered_before is not None:  # -- refused modal/conditional (wave 3R1) -- what entered was, as it entered (608.2i)

@@ -106,7 +106,8 @@ _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a
               # or on what an opponent controls (a planeswalker's controller is the defending player, 508.5)
               "one of your opponents or a planeswalker an opponent controls": "opponent_or_pw",
               "one of your opponents or a planeswalker they control": "opponent_or_pw",
-              "the monarch": "monarch"}  # -- this-turn state (wave 42B) -- 725.1, 508.3a: the player who is the monarch, attacked directly (Okoye, The Spear of Bashenga)
+              "the monarch": "monarch",  # -- this-turn state (wave 42B) -- 725.1, 508.3a: the player who is the monarch, attacked directly (Okoye, The Spear of Bashenga)
+              "the player who has the initiative": "initiative"}  # -- initiative (wave 45B) -- 726.1, 508.3a: Loot Dispute
 _DEFENDER_RE = "|".join(re.escape(k) for k in sorted(_DEFENDERS, key=len, reverse=True))
 _PLAYER_VERBS = [
     (r"gains? life", "gain_life"),
@@ -545,6 +546,12 @@ def _parse(c: str) -> Condition | None:
 
     if (rolled := dice.event_condition(c)) is not None:
         return rolled
+    from app.rules import (
+        coin_flips,  # -- coin events (wave 45C) -- 705.2: "you win a coin flip", "a player loses a coin flip"
+    )
+
+    if (flipped := coin_flips.event_condition(c)) is not None:
+        return flipped
     for rx, event in _DESIGNATION_EVENTS:  # -- counters & designations (wave 3E) --
         m = rx.fullmatch(c)
         if m:
@@ -1132,6 +1139,37 @@ def _object_event(c: str) -> Condition | None:
                 **({"during": "you"} if m["d"] else {})}  # (``other``: the Vehicle or Mount, for "that Mount or Vehicle")
     if c == "~ becomes crewed":
         return {"event": "crewed", "subject": "self"}
+    # -- destroy events (wave 45C) -- 701.8: "Whenever a noncreature artifact is sacrificed or destroyed" (Jaws): a permanent an effect destroyed (it looks back in time,
+    # 603.10a); a subject that can be a creature stays manual (state-based destruction isn't recorded: effects._destroyed)
+    m = re.fullmatch(r"(?P<o>an? .+?) is (?P<v>sacrificed or destroyed|destroyed)", c)
+    if m and (base := _subject(m["o"])) is not None and base["subject"] == "sel" and not base.get("aggregate"):
+        sel = selectors.from_key(base["sel"])
+        if "Creature" in sel.not_types:  # ("an artifact" can be an artifact creature, destroyed by lethal damage)
+            destroyed = {**base, "event": "destroyed"}
+            if m["v"] == "destroyed":
+                return destroyed
+            sacrificed = {"event": "sacrifice", "subject": "player", "player": "any", "obj": base["sel"], "aggregate": False}
+            return {"event": "either", "subject": "mixed", "conds": [sacrificed, destroyed]}
+    # -- damage events (wave 45C) -- 120.1: "Whenever combat damage is dealt to you" (Risona) is "you're dealt combat damage": the player dealt it, once for
+    # the simultaneous damage of the batch (603.2c)
+    m = re.fullmatch(r"(?P<c>combat |noncombat )?damage is dealt to (?P<p>you|an opponent|a player)", c)
+    if m:
+        return {"subject": "player", "player": _PLAYERS[m["p"]], "event": "dealt_damage", "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}
+    # -- tap events (wave 45C) -- 701.26a: "Whenever you tap one or more untapped creatures your opponents control" (Sharae): the player whose step
+    # tapped them (an untapped permanent is the only one that can become tapped), once for the batch (603.2c)
+    m = re.fullmatch(r"you tap (?P<o>one or more) (?:untapped )?(?P<rest>.+)", c)
+    if m and (base := _subject(f"{m['o']} {m['rest']}", many=True)) is not None and base["subject"] == "sel":
+        return {**base, "event": "tapped", "tapper": "you"}
+    # -- control events (wave 45C) -- 603.10d: "Whenever an opponent gains control of a permanent from you" (Zidane): looks back in time (the permanent,
+    # itself too, as it was under its old controller); the other control-change wordings stay manual
+    m = re.fullmatch(r"an opponent gains control of (?P<o>~|an? [\w ]+?) from you", c)
+    if m and (base := _subject(m["o"])) is not None and base["subject"] in ("sel", "self") and not base.get("aggregate"):
+        return {**base, "event": "control_change", "to": "opponent", "from": "you"}
+    # -- saga events (wave 45C) -- 714.2d: "Whenever the final chapter ability of a Saga you control resolves / triggers" (Tom Bombadil, Narci,
+    # Historian's Boon): the Saga's greatest-numbered chapter ability (rules/sagas.py emits it)
+    m = re.fullmatch(r"the final chapter ability of (?P<s>an? .+?) (?P<w>resolves|triggers)", c)
+    if m and (base := _subject(m["s"])) is not None and base["subject"] == "sel" and "Saga" in m["s"]:
+        return {**base, "event": "final_chapter", "when": m["w"]}
     # -- attachment events (wave 30S) -- 603.2e, 701.3: "Whenever this Equipment becomes attached to a creature" (Enormous Energy Blade),
     # "Whenever an Aura you control becomes attached to a creature you control" (Siona), "Whenever an Aura becomes attached to this
     # creature" (Brood Keeper: ``to`` self); 701.3d, 603.10c: "Whenever this Equipment becomes unattached from a permanent" (Grafted
@@ -1221,6 +1259,14 @@ def _object_event(c: str) -> Condition | None:
                 raise _Refuse
             return {"event": "either", "subject": "mixed",
                     "conds": [{**extra, "subject": "player", "player": "you"}, {**extra, **perm}]}
+        # -- target events (wave 45C) -- 115.1: "a creature you control or a creature spell you control becomes the target of …" (Surrak): a permanent or a
+        # spell on the stack, each its own event
+        union = re.fullmatch(r"(?P<a>an? [\w ]+? you control) or (?P<b>an? [\w ]+? spell you control)", m["s"])
+        if union:
+            a, b = _subject(union["a"]), _subject(union["b"])
+            if a is None or b is None or m["first"]:
+                raise _Refuse
+            return {"event": "either", "subject": "mixed", "conds": [{**extra, **a}, {**extra, **b}]}
         base = _subject(m["s"], host=True)
         if base is None or (m["first"] and base["subject"] != "self"):
             raise _Refuse

@@ -401,7 +401,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         return [("tapped_for_mana", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player})] if got is not None else []
     if e.kind in ("tapped", "untapped", "turned_face_up"):  # (turned_face_up: wave 18A, 702.37e)
         got = _object_then(plan, e.card, e.object_id)
-        return [(e.kind, got[0], got[1], got[0].controller, {"oid": e.object_id})] if got is not None else []
+        return [(e.kind, got[0], got[1], got[0].controller, {"oid": e.object_id, "tapper": e.actor, "declared": e.combat})] if got is not None else []
     if e.kind in ("life_gain", "life_loss"):
         return [("gain_life" if e.kind == "life_gain" else "lose_life", None, None, e.player, {"amount": e.amount})]
     if e.kind == "spell_cast":
@@ -826,6 +826,14 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event in ("scry", "surveil") and cond.get("nth") and info.get("nth") != cond["nth"]:  # -- looks (wave 8B) --
         return False
+    if event == "coin_flip" and cond.get("won") != info.get("won"):  # -- coin events (wave 45C) -- won or lost (705.2)
+        return False
+    if event == "tapped" and ((cond.get("tapper") == "you" and info.get("tapper") != you) or (cond.get("not_declared") and info.get("declared"))):
+        return False  # -- tap events (wave 45C) -- "you tap …" (the step's actor); "if it isn't being declared as an attacker" (508.1f)
+    if event == "control_change" and (player == you or info.get("was") != you):  # -- control events (wave 45C) -- "an opponent gains control … from you" (603.10d)
+        return False
+    if event == "final_chapter" and cond.get("when") != info.get("when"):  # -- saga events (wave 45C) -- triggers or resolves (rules/sagas.py)
+        return False
     if event == "roll_die":  # -- dice (wave 24B) -- the die's own result / size / place in the turn (app/rules/dice.py)
         from app.rules import dice
 
@@ -981,6 +989,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return defended == watcher.attached_player
     if want == "monarch":  # -- this-turn state (wave 42B) -- 725.1: the player attacked is the monarch now (as the attack is declared)
         return plan is not None and defended == plan.state.table.monarch
+    if want == "initiative":  # -- initiative (wave 45B) -- 726.1: the player attacked has the initiative now (as the attack is declared)
+        return plan is not None and defended == plan.state.table.initiative
     if want == "most_life":  # -- keywords (wave 15E) -- 702.105a: the player attacked has the most life or is tied for it
         return plan is not None and plan.state.players[defended].life >= max(plan.state.players[p].life for p in plan.live())
     return want == "player"
@@ -1238,6 +1248,12 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
     left: dict[int, str] = {}  # (a watcher that left: the object it was, wave 3S)
     window: dict[str, Any] = {"cast_from": {}}
     for e in events:
+        if e.kind == "designation" and e.counter == "control" and not e.manual and e.card in plan.state.cards and e.from_zone in plan.live():
+            card = plan.state.cards[e.card]  # -- control events (wave 45C) -- 603.10d: "an opponent gains control of … from you" looks back in time, so the
+            if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id and not plan.manual(card):  # permanent's own abilities
+                ch = plan.ch(card)  # (Zidane taken by an opponent) are its old controller's, as it was before the event
+                watchers += [((card.model_copy(update={"controller": e.from_zone}), ch, i, d), -big, big) for i, d in abilities(plan, ch, "event")
+                             if d.get("cond", {}).get("event") == "control_change"]
         if e.kind == "cycled" and not e.manual and e.card in plan.state.cards:
             # 702.29c: "When you cycle ~" triggers from whatever zone the card went to
             card = plan.state.cards[e.card]
@@ -1957,8 +1973,8 @@ def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[
                                                             "actor": controller}))
             continue
         card = plan.state.cards.get(tid)
-        if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):
-            continue
+        if card is None or plan.manual(card) or not (card.zone.endswith(":battlefield") or (card.zone == "stack" and card.ability is None)):
+            continue  # (-- target events (wave 45C) -- 115.1: a spell on the stack can become a target too: "a creature spell you control", Surrak)
         oid = plan.oid(card)
         # "for the first time each turn" (603.2): the first time this turn that something targeted this object ("any"), or the
         # first time a spell or ability its controller controls did / an opponent's did ("by": the ones the trigger asks about);
