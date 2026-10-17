@@ -21,6 +21,8 @@ Every scenario checks the replay and a save and a load.
 * 700.2: "Target nonattacking creature gains reach and deathtouch until end of turn. Untap it." (Ruthless Instincts, mode one).
 * 120.3, 608.2c: "~ deals 1 damage to each nonblack creature and an additional 1 damage to each green creature." (Kaervek's Hex), "… X damage to each creature with flying and 1 additional damage to each blue
   creature." (Tropical Storm), "… 2 damage to each attacking creature and 1 damage to you and each creature you control." (Hail Storm): two instructions of one source, in order.
+* 120.3, 608.2c, 601.2h: "~ deals 3 damage to each creature without flying if {R} was spent to cast this spell and 3 damage to each creature with flying if {G} was spent to cast this spell."
+  (Firespout): the two halves are two instructions, each with its own mana-spent condition (both when {R}{G} was spent).
 * 118.12: "At the beginning of your upkeep, sacrifice this creature unless you mill two cards." (Deep Spawn) - the payment is the controller's choice.
 * 602.2: "{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target." (Granite Shard and the other Shards) - the ability may be paid either way, not both (the rulings).
 * 702.129a: "Eternalize—{2}{W}{W}, Discard a card." (Sunscourge Champion, Sinuous Striker) - the keyword's cost has a second part, a discard from the hand (the card with
@@ -610,4 +612,26 @@ def test_hail_storm_hits_attackers_harder_and_you_and_your_creatures_lightly(car
     settle(s)
     assert s.state.cards[bears.id].zone == "p1:graveyard"  # 2 as an attacker + 1 as your creature
     assert s.state.cards[elves.id].zone == "p1:graveyard" and life(s) == 39  # 1 damage to a 1/1 you control, and 1 to you
+    check(s)
+
+
+def test_firespout_hits_what_the_spent_mana_names(cards):
+    s = build(cards, ["Firespout", "Grizzly Bears", "Mulldrifter"])
+    bears = put(s, "Grizzly Bears")
+    flyer = put(s, "Mulldrifter")
+    mana(s, R=1, C=2)  # only {R} was spent: the creatures without flying
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Firespout").id)
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard" and s.state.cards[flyer.id].zone == "p1:battlefield" and s.state.cards[flyer.id].damage == 0
+    check(s)
+
+
+def test_firespout_does_both_when_both_colors_were_spent(cards):
+    s = build(cards, ["Firespout", "Grizzly Bears", "Mulldrifter"])
+    bears = put(s, "Grizzly Bears")
+    flyer = put(s, "Mulldrifter")
+    mana(s, R=1, G=1, C=1)  # {2}{R/G}: {R} for the hybrid symbol, {G} and {C} for the generic part
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Firespout").id)
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard" and s.state.cards[flyer.id].zone == "p1:graveyard"
     check(s)

@@ -680,5 +680,22 @@
    "G"
   ],
   "keywords": []
+ },
+ {
+  "name": "Firespout",
+  "layout": "normal",
+  "mana_cost": "{2}{R/G}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Firespout deals 3 damage to each creature without flying if {R} was spent to cast this spell and 3 damage to each creature with flying if {G} was spent to cast this spell. (Do both if {R}{G} was spent.)",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": []
  }
 ]
