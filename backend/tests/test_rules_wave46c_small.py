@@ -272,6 +272,17 @@ def test_aggressive_mining_bars_its_controller_from_playing_lands_but_not_the_op
     check(s)
 
 
+def test_a_token_with_vanishing_enters_with_its_time_counters(cards):
+    # 702.63a: "create a 1/1 white Human Noble creature token with vanishing 3" (The Girl in the Fireplace, chapter I) - three time counters as it enters
+    s = build(cards, ["The Girl in the Fireplace"], [])
+    to_hand(s, "The Girl in the Fireplace")
+    mana(s, W=1, C=2)
+    cast(s, "The Girl in the Fireplace")
+    noble = card_named(s, "Human Noble")
+    assert noble.is_token and s.state.cards[noble.id].counters.get("time") == 3 and zone_of(s, "Human Noble") == "p1:battlefield"
+    check(s)
+
+
 def test_fire_nation_attacks_makes_soldiers_that_add_red_mana_when_they_attack(cards):
     # 702.189a: a token "with firebending 1" - "Whenever this creature attacks, add {R}. This mana lasts until end of combat."
     s = build(cards, ["Fire Nation Attacks"], [])
