@@ -4682,10 +4682,11 @@ def special_action(state: GameState, player: str, info: CardInfo, *, instant: bo
         if main and r is not None:  # (a Room, or a copy of one: the printing whose halves it has, 709.5b)
             oid = r.object_id(card.id)
             data = info.get(room_printing(r, card, oid))
-            for door in (1, 2) if data is not None and chars.room(data) else ():
-                if door not in r.unlocked.get(oid, []) and can_pay(
-                        state, player, M.parse_cost((half := chars.half_from_data(data, door - 1)).mana_cost), info, purpose=Purpose(ability_of=half)):
-                    return True
+            if data is not None and chars.room(data):
+                for door in (1, 2):
+                    if door not in r.unlocked.get(oid, []) and can_pay(
+                            state, player, M.parse_cost((half := chars.half_from_data(data, door - 1)).mana_cost), info, purpose=Purpose(ability_of=half)):
+                        return True
     if main:
         for cid in state.zones.get(zone_key(player, "companion"), []):
             card = state.cards[cid]
