@@ -91,6 +91,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [who[7:]] if who[7:] in plan.live() else []
     if who == "each_player":
         return list(plan.live())
+    if who == "looked_owner":  # -- most-played cards III (wave 46C) -- the owner of the library the last look or reveal was at
+        return [ctx["looked_owner"]] if ctx.get("looked_owner") in plan.live() else []
     if who == "each_opponent":
         return [p for p in plan.live() if p != me]
     if who == "put_none_opponents":  # -- trigger other (wave 44B) -- 101.4: the opponents who chose no card in the "each player may put" just before (put_from_hand.each_put)
@@ -3170,7 +3172,7 @@ def _did_counters_up(fn: Any) -> Any:
                     **({"per": e["n"]} if isinstance(e.get("n"), int) else {})}  # (review 33: _reflex_times)
             else:  # (the "cards" record of a move, context.probe_ok: the objects the put was allowed on)
                 context.refs(ctx)[name] = {"kind": "probe", "to": "battlefield", "cards": {
-                    c: plan.oid(plan.state.cards[c]) for c in cards if prohibitions.cant_counters(plan, c, None) is None}}
+                    c: plan.oid(plan.state.cards[c]) for c in cards if prohibitions.cant_counters(plan, c, None, e["kind"]) is None}}
         return bool(fn(plan, ctx, e))
     return run
 
@@ -3849,9 +3851,14 @@ def discard_named(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 CHOICE_OPTIONS: dict[str, list[str]] = {
     "color": ["White", "Blue", "Black", "Red", "Green"],
     "basic land type": ["Plains", "Island", "Swamp", "Mountain", "Forest"],
+    # -- commanders (wave 47A) -- 205.2a: "As Umori enters, choose a card type." / "… other than creature or land." (Stenn): the card types a spell or a permanent can have
+    "card type": ["Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"],
+    "card type other than creature or land": ["Artifact", "Battle", "Enchantment", "Instant", "Kindred", "Planeswalker", "Sorcery"],
+    "artifact, creature, enchantment, instant, or sorcery": ["Artifact", "Creature", "Enchantment", "Instant", "Sorcery"],  # (Cloud Key)
 }
 CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
-                 "opponent": "Chosen opponent", "player": "Chosen player"}
+                 "opponent": "Chosen opponent", "player": "Chosen player", "card type": "Chosen card type",
+                 "card type other than creature or land": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type"}
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
 CHOICE_LABELS.update({w: card_names.LABEL for w in card_names.ALL_WHATS})  # -- card names (wave 22B) -- 201.4
 
@@ -4546,6 +4553,10 @@ from app.rules import player_control as _player_control  # noqa: E402  (wave 18H
 
 PRIMITIVES.update(_player_control.PRIMITIVES)  # 723.1 "You control target player during that player's next turn."
 PRIMITIVES.update(_extra_turns.PRIMITIVES)  # 500.7 "Take an extra turn after this one."
+from app.rules import end_turn as _end_turn  # noqa: E402  -- end the turn (wave 46C) --
+
+PRIMITIVES.update(_end_turn.PRIMITIVES)  # 724.1 "End the turn."
+RESUME.update(_end_turn.RESUME)
 from app.rules import land_plays as _land_plays  # noqa: E402  -- one-shot extra land plays (wave 8A) --
 
 PRIMITIVES.update(_land_plays.PRIMITIVES)  # 305.2 "You may play an additional land this turn."

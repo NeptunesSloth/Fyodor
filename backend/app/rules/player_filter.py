@@ -232,6 +232,9 @@ def _for_each(base: str, pred: Pred | None, clause: str, name: str,
 
 def count(what: str) -> dict[str, Any] | None:
     """"the number of opponents who P" / "opponent who P" (a "for each" count) → ``{"players_where": …}``, or None."""
+    if m := re.fullmatch(r"(?:the number of )?(?P<b>opponent|player)s? whose life total is less than half their starting life total", what.strip()):
+        # -- commanders (wave 47A) -- Anya: each such player's own life total against the starting life total (119.1, 903.7)
+        return {"players_where": {"base": m["b"], "pred": {"cond": {"static": "life_vs_start", "op": "<", "plus": 0, "half": True}}}}
     m = re.fullmatch(r"(?:the number of )?(?P<b>opponent|player)s? who (?P<p>.+)", what.strip())
     if m is None or "this way" in m["p"]:
         return None

@@ -431,6 +431,14 @@ def _power_over_base(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "power_gt_base"))
 
 
+@_suffix(r"that (?:isn't|is not|aren't|are not) an? (?P<sub>[A-Z][A-Za-z]+)")  # -- commanders (wave 47A) -- Heliod, the Radiant Dawn: "enchantment card that isn't a God" (a subtype, 205.3)
+def _isnt_subtype(s: Selector, m: re.Match[str]) -> Selector:
+    core = _core(m["sub"])
+    if core is None or core[0] != "sub":
+        raise ValueError(m["sub"])
+    return replace(s, not_subtypes=(*s.not_subtypes, core[1]))
+
+
 @_suffix(r"with toughness greater than (?:its|their) power")  # (Ghalta the Immovable, Bedrock Tortoise)
 def _toughness_over_power(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "toughness_gt_power"))
@@ -442,9 +450,12 @@ def _attacking_opponent(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_opponent"))
 
 
-@_suffix(r"(?:that(?:['’]s| are) )?attacking you")  # (wave 17D: also plural / bare)
+@_suffix(r"(?:that(?:['’]s| are) )?attacking you(?P<pw> or a planeswalker you control)?")  # (wave 17D: also plural / bare; wave 46C: "or a planeswalker you control", Soul Snare)
 def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
+    return replace(s, attacking=True, extras=(*s.extras, "attacking_you_pw" if m["pw"] else "attacking_you"))
+
+
+_SUFFIXES.insert(0, _SUFFIXES.pop())  # (first: its "… you control" is also the controller suffix)
 
 
 @_suffix(r"that['’]s exactly two colors")
@@ -1007,7 +1018,7 @@ def _has_counter(card: CardInstance, kind: str) -> bool:
 # creature type. Destroy all creatures that aren't of the chosen type": bind_chosen substitutes that answer).
 # ``matches`` reads the source's record; without a source or a valid record nothing matches (never a guess).
 CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_chosen_type": "creature type",
-                 "not_chosen_color": "color", "chosen_name": "card name"}  # (-- card names (wave 22B) -- app/rules/card_names.py)
+                 "not_chosen_color": "color", "chosen_name": "card name", "chosen_card_type": "card type"}  # (wave 47A: card type, Umori)  # (-- card names (wave 22B) -- app/rules/card_names.py)
 
 
 @_suffix(r"(?:with|that has) (?:the chosen|that) name")  # -- card names (wave 22B) -- 709.4a: one of its names is the chosen name
@@ -1039,6 +1050,8 @@ def bind_chosen(sel: Selector, value: str) -> Selector | None:
         if neg:
             return replace(sel, extras=rest, not_subtypes=(value,))
         return replace(sel, extras=rest, subtypes=(value,))
+    if what == "card type" and value in CARD_TYPES.values():  # -- commanders (wave 47A) -- the card type chosen as the source entered (Umori, Stenn)
+        return None if sel.types or sel.not_types else replace(sel, extras=rest, types=(value,))
     color = COLORS.get(value.strip().lower())
     if what == "color" and color is not None:
         if sel.colors or sel.not_colors:
@@ -1055,7 +1068,7 @@ def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
     card = plan.state.cards.get(source or "")
     if card is None:
         return None
-    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name"}[what]
+    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name", "card type": "Chosen card type"}[what]
     value = card.choices.get(label)
     return value.strip() if value else None
 
@@ -1073,6 +1086,8 @@ def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | Non
     if bound.subtypes and not set(bound.subtypes) & ch.subtypes:
         return False
     if set(bound.not_subtypes) & ch.subtypes:
+        return False
+    if bound.types and not set(bound.types) & ch.types:  # (wave 47A: a card type)
         return False
     if bound.colors and not set(bound.colors) & ch.colors:
         return False
@@ -1160,7 +1175,7 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, multicolored=False, colorless=False)
     if low == "commander":
         return replace(s, commander=True)
-    if low in ("enchanted", "equipped", "modified", "historic", "goaded"):  # (wave 11C: modified 700.9, historic 700.6; wave 22E: goaded 701.15)
+    if low in ("enchanted", "equipped", "modified", "historic", "goaded", "renowned"):  # (wave 11C: modified 700.9, historic 700.6; wave 22E: goaded 701.15; wave 47A: renowned 702.112b)
         return replace(s, extras=(*s.extras, low))
     if low in ("face-down", "face-up"):  # -- keyword actions & face-down (wave 3F) -- 708: "face-down creatures you control"
         return replace(s, extras=(*s.extras, low.replace("-", "_")))
@@ -1927,6 +1942,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "shares_commander_type" and not _shares_commander_type_now(plan, ch, you):  # (wave 22E)
             return False
+        if extra == "renowned" and not (plan.rules is not None and plan.oid(card) in plan.rules.renowned):
+            return False  # -- commanders (wave 47A) -- 702.112b: the designation is on this object (a new object has none, 400.7)
         if extra == "goaded":  # (wave 22E) 701.15b: goaded by someone (a goad effect lasts until that player's next turn: layers' imposed rules)
             from app.rules.keyword_actions import goaded_by
 
@@ -1954,6 +1971,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "attacking_alone" and sum(1 for c in plan.state.cards.values() if c.attacking is not None and c.zone.endswith(":battlefield")) != 1:
             return False  # -- activated other (wave 42C) -- 506.5 (the same count statics.py reads for "as long as it's attacking alone")
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
+            return False
+        if extra == "attacking_you_pw" and (card.attacking is None or not (  # -- most-played cards III (wave 46C) -- 506.3: attacks you, or a planeswalker you control
+                (card.attacking.kind == "player" and card.attacking.id == you) or (card.attacking.kind == "card" and (target_walker := plan.state.cards.get(card.attacking.id)) is not None
+                                                                                   and "Planeswalker" in plan.ch(target_walker).types and target_walker.controller == you))):
             return False
         if extra == "attacking_opponent" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id == you
                                               or card.attacking.id not in plan.live()):

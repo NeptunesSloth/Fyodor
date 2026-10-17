@@ -344,6 +344,8 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "loyalty_rule", "who": "you", "twice": True, "effects": []}
     if t == "you may activate loyalty abilities of ~ on any player's turn any time you could cast an instant":
         return {"kind": "static", "static": "loyalty_rule", "who": "self", "instant": True, "effects": []}
+    if t == "you may activate equip abilities any time you could cast an instant":  # -- most-played cards III (wave 46C) -- 702.6a: the sorcery timing of equip lifted (Leonin Shikari)
+        return {"kind": "static", "static": "loyalty_rule", "who": "you", "equip_instant": True, "effects": []}
     # -- unspent mana (wave 35C) -- 500.4, 614.1a: "If you would lose unspent mana, that mana becomes colorless instead." (Kruphix, Omnath, Horizon Stone:
     # app/rules/kept_mana.py): the mana stays in the pool, colorless, with its restrictions and riders (the Gatherer rulings)
     if t == "if you would lose unspent mana, that mana becomes colorless instead":
@@ -544,7 +546,7 @@ def _spells_words(key: str | None, frm: list[str] | None) -> str:
 # -- reading the table -----------------------------------------------------------------------------
 _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
 _KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as", "keep_mana", "colorless_mana", "gy_flashback",
-          "cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
+          "cant_enter", "cant_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
           "rad_gain", "venture_limit")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)

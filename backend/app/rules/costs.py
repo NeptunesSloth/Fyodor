@@ -325,6 +325,8 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False)
         cost = cost.replace(card_name, "~")
     # -- static_other (wave 36B) -- "Tap three untapped Advisors, Artificers, and/or Monks you control" (The Archimandrite): one part naming three kinds
     cost = re.sub(r"(Tap \w+ (?:other )?untapped )([A-Z][\w'-]*), ([A-Z][\w'-]*),? and/or ([A-Z][\w'-]*)(?= you control)", r"\1\2 or \3 or \4", cost)
+    # -- commanders (wave 47A) -- "Remove three counters from among other artifacts, creatures, and planeswalkers you control" (Tekuthal): one part naming three kinds
+    cost = re.sub(r"(Remove \w+ (?:[+\-/\w]+ )?counters? from among (?:other )?)(\w+), (\w+), (?:and|or) (\w+)(?= you control)", r"\1\2 or \3 or \4", cost)
     for part in (p.strip() for p in cost.split(",")):
         if not part:
             continue
@@ -441,8 +443,8 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
     if m := _X_SELF.match(part):
         return CostComponent(REMOVE_COUNTER, amount=0, counter=m["kind"], x=True, text=part)
     if m := _AMONG.match(part):  # -- activated sweep (wave 26C) -- 122.1: the counters come off any of the permanents, one pick for each counter
-        key = _selector(m["what"], zone="battlefield")
-        if key is None or m["what"].startswith("other "):
+        key = _selector(m["what"], zone="battlefield")  # (wave 47A: "other" is the selector's own, Tekuthal: the permanent paying isn't among them)
+        if key is None:
             return None
         return CostComponent(REMOVE_COUNTER, amount=0 if m["n"] == "X" else _n(m["n"]), counter=m["kind"] or ANY_COUNTER, selector=key,
                              x=m["n"] == "X", among=True, text=part)

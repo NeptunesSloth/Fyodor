@@ -552,7 +552,6 @@ def test_the_wordings_parse(text):
 
 @pytest.mark.parametrize("text", [
     "search your library for a basic land card that shares a land type, put it onto the battlefield, then shuffle",
-    "search your library for an artifact card with a mana ability or a basic land card, reveal it, put it into your hand, then shuffle",
     "search your library for up to X creature cards with mana value X or less, where X is the number of lands you control, "
     "put them onto the battlefield, then shuffle",
     "return target creature card from your graveyard to the battlefield with a hexproof counter and an indestructible counter on it",
@@ -564,7 +563,8 @@ def test_what_cannot_be_done_correctly_is_refused(text):
 def test_a_bare_grant_needs_a_whole_sentence_about_an_earlier_object():
     found = parse_effects("Return target creature card from your graveyard to the battlefield. It gains haste.")
     assert found is not None and found[0][1] == {"do": "grant", "who": "ref:e0", "keywords": ["haste"], "duration": "permanent"}
-    assert parse_effects("Until end of turn, double target creature's power and it gains first strike.") is None
+    # (a leading "Until end of turn," covers both parts since wave 44C; the grant's default duration is the end of the turn)
+    assert parse_effects("Until end of turn, double target creature's power and it gains first strike.") is not None
     assert parse_effects("Target creature gains haste.") is None  # (no pronoun: not read)
 
 

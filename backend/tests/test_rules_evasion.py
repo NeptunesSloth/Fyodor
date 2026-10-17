@@ -56,7 +56,7 @@ def blocks(s, pid, *pairs):
     ("~ can't be blocked except by two or more creatures.", "self", ["min_blockers:2"], {}),
     ("~ can't be blocked except by three or more creatures.", "self", ["min_blockers:3"], {}),
     ("~ can't be blocked except by creatures with flying or reach.", "self",
-     ["cant_be_blocked_except_by:" + key("creatures with flying") + "|" + key("creatures with reach")], {}),
+     ["cant_be_blocked_except_by:" + key("creatures with flying or reach")], {}),  # (one either-keyword selector since wave 45D)
     ("~ can't be blocked except by creatures with flying.", "self", ["cant_be_blocked_except_by:" + key("creatures with flying")], {}),
     ("~ can't be blocked except by black creatures.", "self", ["cant_be_blocked_except_by:" + key("black creatures")], {}),
     ("~ can't be blocked by artifact creatures.", "self", ["cant_be_blocked_by:" + key("artifact creatures")], {}),
@@ -224,7 +224,7 @@ def test_except_by_creatures_with_flying_or_reach(cards):
     spider = creature(s, "p2", "Spider", "1/3", "Reach")
     automate(s)
     attack(s, (pest, "p2"))
-    with pytest.raises(ActionError, match="except by creatures with flying or creatures with reach"):
+    with pytest.raises(ActionError, match="except by creatures with flying or reach"):
         block(s, "p2", (cat, pest))
     block(s, "p2", (spider, pest))
     assert pest.id not in s.state.cards

@@ -1215,7 +1215,7 @@ def _object_event(c: str) -> Condition | None:
     # -- most-played cards (wave 43B) -- "When the twelfth hour counter is put on this artifact" (Midnight Clock), "When the fourth plan counter is put on this
     # enchantment" (the plan-counter enchantments): the ability triggers when counters are put on it and it had fewer than that many before and that many or
     # more after (the ruling, 2019-10-04), however many counters one event put at once
-    m = re.fullmatch(r"the (?P<n>second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth) (?P<k>[a-z]+) counter is put on (?:~|this [a-z]+)", c)
+    m = re.fullmatch(r"the (?P<n>second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth) (?P<k>\+1/\+1|-1/-1|[a-z]+) counter is put on (?:~|this [a-z]+)", c)  # (wave 47A: +1/+1, Shang-Chi)
     if m:
         return {"subject": "self", "event": "counters_put", "counter": m["k"],
                 "nth": ("second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth").index(m["n"]) + 2}
