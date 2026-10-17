@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-FULL = ["Devouring Greed", "Devouring Rage", "Burn at the Stake", "Corpse Cobble", "Vicious Betrayal"]
+FULL = ["Devouring Greed", "Devouring Rage", "Burn at the Stake", "Corpse Cobble", "Vicious Betrayal", "Plumb the Forbidden"]
 
 
 @pytest.mark.parametrize("name", FULL)
@@ -258,4 +258,36 @@ def test_corpse_cobble_cast_with_flashback_still_pays_the_additional_cost(cards)
     cast_paying(s, "Corpse Cobble", crew)
     zombie = next(x for x in s.state.cards.values() if x.name == "Zombie" and x.zone == "p1:battlefield")
     assert zombie.is_token and zone_of(s, "Corpse Cobble") == "p1:exile" and zone_of(s, "Hill Giant") == "p1:graveyard"
+    check(s)
+
+
+# ---- "When you do, copy this spell for each creature sacrificed this way": Plumb the Forbidden ------------------------------------------------
+def plumb_cast(cards, n, deck_extra=()):
+    s = build(cards, ["Plumb the Forbidden", *CREW[:3], *deck_extra])
+    crew = [put(s, x) for x in CREW[:3]]
+    to_hand(s, "Plumb the Forbidden")
+    mana(s, B=2)
+    hand = len(s.state.zones["p1:hand"]) - 1  # (without Plumb the Forbidden itself)
+    cast_paying(s, "Plumb the Forbidden", crew[:n])
+    return s, crew, len(s.state.zones["p1:hand"]) - hand  # (the cards drawn)
+
+
+def test_plumb_the_forbidden_with_nothing_sacrificed_is_one_draw_and_no_trigger(cards):
+    s, crew, drawn = plumb_cast(cards, 0)
+    assert life(s) == 39 and drawn == 1 and all(zone_of(s, x.name) == "p1:battlefield" for x in crew)
+    check(s)
+
+
+def test_plumb_the_forbidden_copies_itself_for_each_creature_sacrificed(cards):
+    """Two creatures sacrificed: two copies, so three resolutions in all; each draws a card and loses 1 life."""
+    s, crew, drawn = plumb_cast(cards, 2)
+    assert [zone_of(s, x.name) for x in crew] == ["p1:graveyard", "p1:graveyard", "p1:battlefield"]
+    assert life(s) == 40 - 3 and drawn == 3
+    check(s)
+
+
+def test_plumb_the_forbidden_is_a_spell_not_cast_when_copied_so_its_copies_do_not_copy(cards):
+    """707.10: a copy isn't cast, so "when you cast this spell" doesn't trigger for it: one creature gives exactly one copy."""
+    s, crew, drawn = plumb_cast(cards, 1)
+    assert life(s) == 40 - 2 and drawn == 2
     check(s)

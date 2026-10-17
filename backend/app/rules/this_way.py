@@ -385,6 +385,9 @@ def cost_objects(plan: Plan, ctx: dict[str, Any], source: str, kind: str) -> dic
     source devoured as it entered (702.82b)."""
     sid = ctx.get("stack_id")
     record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if record is None and src is not None and src.zone == "stack":  # a cast trigger of the spell itself (601.2i): its cost's record
+        record = plan.rules.payments.get(plan.oid(src))
     if kind == "exiled":  # (the cards it exiled are in exile now, new objects: 400.7j)
         pairs = [] if record is None else list(zip(record.exiled_objects, record.exiled_was, strict=False))
         news = [{"card": o.rsplit(".", 1)[0], "object_id": o, "zone": f"{plan.state.cards[o.rsplit('.', 1)[0]].owner}:exile"} for o, _ in pairs if o.rsplit(".", 1)[0] in plan.state.cards]

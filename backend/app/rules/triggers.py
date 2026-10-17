@@ -136,6 +136,10 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         record = plan.rules.payments.get(source_object)
         if record is None or not record.kicked:
             return None  # (it wasn't: the ability doesn't trigger; kicked status never changes later)
+    if definition.get("if_paid"):  # -- any number as an additional cost (wave 48B) -- 603.4: "When you cast this spell, if you sacrificed one or more creatures this way, …": the cost's record
+        record = plan.rules.payments.get(source_object)
+        if record is None or not (record.sacrificed_objects if definition["if_paid"] == "sacrificed" else record.tapped_objects):
+            return None
     if definition.get("if") is not None:  # 603.4: an intervening "if" must hold as it triggers
         from app.rules import conditions
 

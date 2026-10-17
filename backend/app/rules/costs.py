@@ -733,6 +733,7 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
     text = re.sub(r"\b(\w+), (\w+), and/or (\w+)\b", r"\1 or \2 or \3", text)  # (wave 17C: "tap two untapped artifacts, creatures, and/or lands")
     # -- any number as an additional cost (wave 48B) -- 601.2b: "sacrifice any number of creatures" / "you may sacrifice any number of Spirits" (Devouring Greed) /
     # "tap any number of untapped creatures you control" (Burn at the Stake): zero is allowed, so the "you may" changes nothing; what the effect reads is how many were paid
+    text = re.sub(r"^(you may (?:sacrifice|tap)) one or more ", r"\1 any number of ", text, flags=re.IGNORECASE)  # (optional, so "one or more" is none or more: Plumb the Forbidden)
     if (any_n := re.fullmatch(r"(?:you may )?((?:sacrifice|tap) any number of [^,]+)", text, re.IGNORECASE)) is not None:
         anyp = any_number_part(any_n[1], 0)
         return AbilityCost(components=(anyp,)) if anyp is not None else None

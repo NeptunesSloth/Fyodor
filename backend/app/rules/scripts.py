@@ -4273,7 +4273,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return words  # -- linked words (wave 33B) -- 607.2f: "As this enchantment enters, choose Khans or Dragons."
     view = _granter_view(ability) if "‹granter" in ability.text else None
     with _exiled_with.reading(ability, self_text(ability.text, ch.name)), this_way.paid_by(
-            spell_additional_cost(ch.abilities) if ability.kind == "spell" else parse_ability_cost(ability.cost, card_name=ch.name) if ability.kind == "activated" and ability.cost else None):  # -- resolution memory (wave 22D) -- 607.2a: "the exiled card's owner …"
+            spell_additional_cost(ch.abilities) if ability.kind == "spell" or ability.text.startswith("When you cast this spell, ") else parse_ability_cost(ability.cost, card_name=ch.name) if ability.kind == "activated" and ability.cost else None):  # -- resolution memory (wave 22D) -- 607.2a: "the exiled card's owner …"
         d = _enters_self_check(_define(view[0] if view else ability, ch), ch)  # (-- any number as an additional cost (wave 48B) -- "creatures sacrificed this way" of a spell's own cost)
     if view and d is not None:
         d = _granter_bound(d, view[1])
@@ -4754,6 +4754,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 kicked = re.match(r"^if (?:it|~) was kicked, (?P<rest>.+)$", body) if name in ("enters_self", "cast_self") else None  # (wave 20F: cast_self, 702.33d)
                 if kicked is not None:  # 603.4 intervening "if": checked as it triggers (triggers._add)
                     body = kicked["rest"]
+                paid_if = re.match(r"^if you (?P<v>sacrificed|tapped) one or more [a-z ]+ this way, (?P<rest>.+)$", body) if name == "cast_self" else None
+                if paid_if is not None:  # -- any number as an additional cost (wave 48B) -- 603.12: "When you cast this spell, if you sacrificed one or more creatures this way, …" (Plumb the Forbidden)
+                    body = paid_if["rest"]
                 cond = None
                 if trigger == "event":
                     from app.rules import events as event_grammar  # (a leaf module)
@@ -4993,6 +4996,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                         out["gy_watch"] = True  # -- graveyard triggers (wave 19C) -- it sees the events that come after the card is there
                 if kicked is not None:
                     out["if_kicked"] = True
+                if paid_if is not None:
+                    out["if_paid"] = paid_if["v"]
                 if limit is not None:
                     out["limit"] = restrictions.limit_kind(limit)
                 if "filter" in pattern.groupindex:
@@ -8282,7 +8287,7 @@ def _copy_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if m["k"]:
         out["n"] = {"twice": 2, "three times": 3, "x times": {"x": 1}, "an additional time": 1}[m["k"].lower()]
     if m["each"]:  # -- spell copies (wave 31D) -- 707.10: one copy for each of them (a count, read as the instruction is carried out, 608.2h)
-        if (n := values.parse_count(m["each"])) is None:
+        if (n := (this_way.parse(m["each"]) if m["each"].endswith(" this way") else values.parse_count(m["each"]))) is None:  # (wave 48B: "for each creature sacrificed this way", Plumb the Forbidden)
             raise _NoMatch
         out["n"] = n
     if m["w"] == "it":
