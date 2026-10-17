@@ -1615,6 +1615,8 @@ def _parse(phrase: str) -> Selector | None:
     else:
         s = replace(s, types=types)
     s = replace(s, subtypes=subtypes, union=union)
+    if len(subtypes) > 1 and joins == {"and"}:  # -- lead fix (wave 48) -- "Eldrazi Scion", "Spider Hero", "Elf Warriors": side by side they narrow each other (205.3)
+        s = replace(s, extras=(*s.extras, "all_subtypes"))
     prefix_words = _join_statuses(words[: i + 1])
     if sub_and and any(w.lower() not in (",", "another", "other") for w in prefix_words):
         return None  # (a qualifier — "equipped", "tapped", "nonartifact" — belongs to which of the kinds? not read)
@@ -1763,7 +1765,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if set(sel.not_types) & ch.types:
         return False
-    if sel.subtypes and not sel.union and not set(sel.subtypes) & ch.subtypes:
+    if sel.subtypes and not sel.union and not (set(sel.subtypes) <= ch.subtypes if "all_subtypes" in sel.extras else set(sel.subtypes) & ch.subtypes):
         return False
     if set(sel.not_subtypes) & ch.subtypes:
         return False
