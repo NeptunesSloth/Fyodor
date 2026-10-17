@@ -263,6 +263,7 @@ def _self_pronouns(part: str) -> str:
     contraction ("he's"), "her controller" (an earlier permanent's)."""
     part = re.sub(r"(~ enters (?:tapped )?with [^.]+? counters? on) (?:him|her)\b", r"\1 it", part)  # (as the "on it" form)
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)'s (?=equipped\b)", "~ is ", part)  # (wave 41B: "if he's equipped", Whiplash: "he's" is "he is" before a state)
+    part = re.sub(r"\b([Ii]f) (?:he|she) (wasn't|was|had|didn't have|hadn't)\b", r"\1 it \2", part)  # (wave 47D: "When Fang dies, if he wasn't a Spirit, return this card …": the dying object, as "if it was")
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)\b(?! or |')", "~", part)
     part = re.sub(rf"\b(?:his|her) (?={_POSSESSED}\b)", "~'s ", part)
     part = re.sub(r"(?<!or )\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
@@ -341,6 +342,21 @@ def self_text(text: str, name: str) -> str:
     # target opponent each draw"; "destroy target permanent an opponent controls. They create a Treasure token." (Vraska): "they" is the player who controlled it
     out = re.sub(r"\byou and another target player each draw a card\b", "you and target opponent each draw a card", out)
     out = re.sub(r"(destroy target permanent an opponent controls\.) They create a Treasure token\.", r"\1 Its controller creates a Treasure token.", out)
+    # -- most-played cards III (wave 46C) -- "target legendary permanent that's an artifact, creature, or enchantment" (Bounty Agent) is "target legendary artifact, creature, or enchantment"
+    out = re.sub(r"\bpermanent that's an? ((?:artifact|creature|enchantment|planeswalker)(?:,? (?:or )?(?:artifact|creature|enchantment|planeswalker))+)\b", r"\1", out)
+    # "Until end of turn, gain control of target creature and it gains haste. Untap and goad that creature." (Besmirch): the same instructions in the order written
+    out = out.replace("Until end of turn, gain control of target creature and it gains haste. Untap and goad that creature.",
+                      "Gain control of target creature until end of turn. It gains haste until end of turn. Untap that creature. Goad that creature.")
+    # "Target creature's owner shuffles it into their library." (Ominous Cemetery) is "The owner of target creature shuffles it …"
+    out = re.sub(r"\b([Tt])arget ((?:[a-z]+ )*?(?:creature|permanent|artifact|enchantment|land|planeswalker))'s owner (shuffles|puts) ",
+                 lambda m: f"{'T' if m[1] == 'T' else 't'}he owner of target {m[2]} {m[3]} ", out)
+    # -- most-played cards III (wave 46C) -- "You and target opponent each create a Food token." (Oath of the Grey Host, Thran Spider): each creates their own token
+    # (608.2c: the instruction is carried out for each in turn), "target opponent creates a 2/4 white Ox creature token and you draw a card" (Ox Drover): two instructions
+    out = re.sub(r"\b([Yy])ou and target opponent each create (an? [^.,]+? token)\b", lambda m: f"{m[1]}ou create {m[2]} and target opponent creates {m[2]}", out)
+    out = re.sub(r"(\btarget opponent creates an? [^.,]+? token) and (you draw a card)\b", r"\1. \2", out)
+    # "During turns other than yours, this spell costs {3} more to cast." (Hurkyl's Final Meditation) is "This spell costs {3} more to cast if it's not your turn."
+    out = re.sub(r"(?:^|(?<=\n))During (turns other than yours|your turn), this spell costs ((?:\{[\dX]+\})+) (more|less) to cast\.",
+                 lambda m: f"This spell costs {m[2]} {m[3]} to cast if it's {'not ' if m[1][0] == 't' else ''}your turn.", out)
     # -- trigger other (wave 44B) -- Namor the Sub-Mariner: "that many" is the number of those mana symbols in the cast spell's mana cost
     out = re.sub(r"(with one or more (\w+) mana symbols in its mana cost, create) that many ([^.]+? tokens)\.",
                  r"\1 X \3, where X is the number of \2 mana symbols in that spell's mana cost.", out)
@@ -533,7 +549,7 @@ def _group_of(e: dict[str, Any]) -> int | None:
 # new object in exile (400.7j). Each maps to the verb "… <verb> this way" names, if any.
 _RECORDING: dict[str, str | None] = {
     "destroy": "destroyed", "destroy_all": "destroyed", "exile": "exiled", "exile_until": "exiled",
-    "bounce": "returned", "return_card": "returned", "blink": "returned", "sacrifice": "sacrificed",
+    "bounce": "returned", "return_card": "returned", "blink": "blinked", "sacrifice": "sacrificed",  # (blink, wave 46C: exiled and returned)
     "sacrifice_choice": "sacrificed", "discard": "discarded", "mill": "milled", "search": None, "pick_looked": None,
     "create_token": "created", "tap": None, "untap": None, "phase_out": None, "pump": None, "grant": None, "restrict": None,
     "add_counters": None, "remove_counters": None, "regenerate": None, "damage": None,
@@ -1951,7 +1967,7 @@ def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 # …", "Create Voja, a legendary 2/2 …", "… named Kobolds of Kher Keep", "… with flying named Wasp", "… that's all
 # colors", "Create thirteen …" (never a copy, nor an instruction joined to another one)
 @_first
-@effect(r"(?!.*\b(?:cop(?:y|ies)|then|unless|instead|blocking|attached|equal|attacking that|that player)\b)"
+@effect(r"(?!.*\b(?:cop(?:y|ies)|then|unless|instead|blocking|attached|attacking that|that player)\b)(?![^\"]*\bequal\b)"  # (wave 47D: "equal" only outside a quoted CDA, Beau)
         r"(?:(?:for each [^,\"]+, )?create (?:[A-Z][^\"]*?, an? legendary .+|(?:eleven|twelve|thirteen|fourteen|fifteen|"
         r"sixteen|seventeen|eighteen|nineteen|twenty) .+|.+ named .+|.+ that's (?:all colors|colorless|white|blue|black|red|"
         r"green)(?:[ ,].+)?)|for each [^,\"]+, create .+)")
@@ -2951,6 +2967,21 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # so the condition is stated for each (nothing in between changes whether it is attacking)
     body = re.sub(r"\bIf (?:he's|she's|it's|~ is) attacking, untap ~ and (there is an additional combat phase after this phase)\.",
                   r"If ~ is attacking, untap ~. If ~ is attacking, \1.", body)
+    # -- tokens (wave 47D) -- "Create a white and black Spirit enchantment creature token. It has "This creature's power and toughness are each equal to …"" (Daxos): nothing
+    # is printed for the token's P/T, so the CDA is the token's own quoted ability (111.4, 208.1), the grammar's "with"
+    body = re.sub(r'(^|, |\. )((?i:create) [^."]+? creature token)\. It has "(?:This creature|~)(\'s power and toughness are each equal to [^"]+")', r'\1\2 with "This creature\3', body)
+    # -- reanimation (wave 47D) -- "return this card to the battlefield under your control. He's a Spirit in addition to his other types." (Fang, Roku's Companion): the pronoun for the
+    # object just returned, worded as "It's a Spirit in addition to its other types."
+    body = re.sub(r"\b(?:He|She)'s an? ([A-Z][a-z]+) in addition to (?:his|her) other types\b", r"It's a \1 in addition to its other types", body)
+    # -- reanimation (wave 47D) -- "When you cast this spell, amass Orcs 5, mill five cards, then return a creature card from your graveyard to the battlefield." (Sauron, Lord of
+    # the Rings): the instructions in order, 608.2c
+    body = re.sub(r"\b(amass [A-Z][a-z]+ (?:\d+|X)), (?=(?:mill|draw|scry|surveil) )", r"\1, then ", body)
+    # -- trigger other (wave 47D) -- "Return all creatures to their owners' hands except for Merfolk, Krakens, Leviathans, Octopuses, and Serpents." (Slinn Voda): the creatures that are none
+    # of those kinds, "all non-Merfolk non-Kraken … creatures"
+    from app.rules.selectors import _singular
+
+    body = re.sub(r"\b([Rr]eturn|[Dd]estroy|[Ee]xile) all creatures( to their owners' hands)? except for ([A-Z][a-z]+(?:(?:, and |, | and )[A-Z][a-z]+)*)\b",
+                  lambda m: f"{m[1]} all {' '.join('non-' + _singular(w) for w in re.split(r', and |, | and ', m[3]))} creatures{m[2] or ''}", body)
     # -- activated other (wave 44D) -- "Destroy all creatures except for ~. Those creatures can't be regenerated." (Mageta the Lion): all the others, the source being the only one
     # left out, as "Destroy all other creatures. They can't be regenerated." says
     body = re.sub(r"\b([Dd]estroy all) (creatures|artifacts|enchantments|lands) except for ~\. Those \2 can't be regenerated\.", r"\1 other \2. They can't be regenerated.", body)
@@ -3076,6 +3107,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # -- trigger other (wave 41C) -- 110.2a: after a reveal-until, "Put that card onto the battlefield tapped under your control" (Sméagol) and "You put that card onto
     # the battlefield under your control and lose life equal to …" (Jhoira): put by you it is yours either way, so the words add nothing to "Put that card onto the battlefield"
     body = re.sub(r"(\buntil (?:you|they) (?:reveal|exile) [^.]*\. )(?:You p|P)ut that card (onto the battlefield(?: tapped)?) under your control\b", r"\1Put that card \2", body)
+    # -- most-played cards III (wave 46C) -- "Its controller reveals cards from the top of their library until they reveal a creature card. The player puts that card onto the battlefield,
+    # then shuffles all other cards revealed this way into their library." (Polymorph, Transmogrify): the revealed cards stay in that library (701.20b), the owner puts the
+    # card found and shuffles. Refused: "and the rest on the bottom of their library in any order" (Proteus Staff: the owner orders them)
+    body = re.sub(r"((?:Its|That creature's|That permanent's) controller) (reveals cards from the top of their library until they reveal an? [^.]+?)\. (?:That|The) player "
+                  r"puts that card onto the battlefield, then shuffles (?:the rest|all other cards revealed this way) into their library\.",
+                  r"\1 \2. That player puts that card onto the battlefield. Shuffle that library.", body)
     if "until you reveal " in body:
         body = re.sub(r"(until you reveal [^.]*?)\. If you do, put ", r"\1. Put ", body) if "ou may reveal cards" in body else body
         body = re.sub(r"(?:, then| and) shuffle (?:the rest|all other cards revealed this way) into your library", ", then shuffle", body)
@@ -3269,6 +3306,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
         if (unless_each := _each_may.unless_sentence(text)) is not None:  # -- if you do (wave 15C) -- "Each opponent … unless they …"
             effects += unless_each
+            continue
+        if (repeated := _each_may.repeat_sentence(text, texts[i + 1] if i + 1 < len(texts) else None)) is not None:  # -- cost reductions paid with objects (wave 47C) -- "Repeat the following process X times."
+            effects += repeated
+            skip_to = i + 2
             continue
         if (each := _each_may.pair(text, texts[i + 1] if i + 1 < len(texts) else None, effects, _last_payment(effects))) is not None:
             effects += each[0]
@@ -4248,6 +4289,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     from app.rules import exiled_with
 
     d = exiled_with.link(d, ability, ch)
+    # -- cost reductions paid with objects (wave 47C) -- "mana value less than X" (107.3f) reads the X announced for a spell or an ability with {X} in its cost; any other X
+    # (Scrap Welder's is the sacrificed artifact's) is unbound, so the ability stays manual
+    if d is not None and re.search(r'\["mv","<",-1\]', json.dumps(d, default=str).replace('\\"', '"')) \
+            and not ("{X}" in (ch.mana_cost or "") if d.get("kind") == "spell" else d.get("kind") == "activated" and "{X}" in (ability.cost or "")):
+        return None
     from app.rules import kicked_instead  # -- kicked / instead (wave 4G) -- 702.33g: a spell's targets only
 
     if d is not None and d.get("kind") != "spell" and kicked_instead.has_kicked_groups(d):
@@ -4512,6 +4558,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                   r"\1, ~ gets \2 until end of turn. ~ gains \3 until end of turn. Each other creature you control that shares a creature type with ~ gets \2 until end of turn. "
                   r"Each other creature you control that shares a creature type with ~ gains \3 until end of turn.", text)
     text = half_x(text) if "half X" in text else text  # -- X arithmetic (wave 34C) -- 107.1a
+    # -- cost reductions paid with objects (wave 47C) -- "Choose target creature with mana value less than X. Search your library for a creature card with the same name as that
+    # creature, put it onto the battlefield tapped, then shuffle." (March of Burgeoning Life): the target is the one the search names (115.1, 601.2c)
+    text = re.sub(r"^Choose (target [^.]+?)\. (Search your library for a creature card with the same name as) that creature\b", r"\2 \1", text)
     # -- trigger other (wave 36A) -- 702.29c: "When you cycle this card, it deals 1 damage to each opponent" (Magmakin Artillerist, Resounding Thunder), "you may
     # have it deal 1 damage to each creature" (Slice and Dice): "it" is the cycled card itself, the ability's source, whichever zone it went to
     text = re.sub(r"^(When you cycle (?:this card|~), (?:you may have )?)it (deals?)\b", r"\1~ \2", text)
@@ -4638,8 +4687,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return paired
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
         return rule
-    if ability.kind == "static" and re.fullmatch(r"You control enchanted (?:creature|permanent|land|artifact)\.", text):
-        return {"kind": "static", "static": "control", "who": "host", "effects": []}  # -- control (wave 3K) -- layer 2 (613.1b)
+    if ability.kind == "static" and re.fullmatch(r"You control enchanted (?:creature|permanent|land|artifact|enchantment)\.", text):
+        return {"kind": "static", "static": "control", "who": "host", "effects": []}  # -- control (wave 3K) -- layer 2 (613.1b); (wave 46C: "enchanted enchantment", Steal Enchantment)
     if ability.kind == "static" and text == "If it's neither day nor night, it becomes day as ~ enters.":
         return {"kind": "static", "static": "day_as_enters", "effects": []}  # (wave 3E: app/rules/designations.py, 731.1)
     if ability.kind == "static" and text == "Creatures you control can boast twice during each of your turns rather than once.":
@@ -4692,7 +4741,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import trigger_words  # or Vehicle spell", "a noncreature, nonland card")
 
                 m = trigger_words.comma_condition(text, m)
-            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b|\bspent to cast it\b|\bits mana value\b", m["body"]):  # (3R3: copy it; wave 16B: increment; 18B: mana spent)
+            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b|\bspent to cast it\b|\bits mana value\b|\bthat creature enters with\b", m["body"]):  # (3R3: copy it; wave 16B: increment; 18B: mana spent)
                 continue  # -- sized amounts (wave 3D) -- it reads the spell cast: the generic condition's event carries it
             if m:
                 name = step_trigger(m) if trigger == "step" else (
@@ -8135,6 +8184,10 @@ EFFECTS[:0] = _next_untap.TEMPLATES
 from app.rules import extra_turns as _extra_turns  # noqa: E402
 
 EFFECTS[:0] = _extra_turns.TEMPLATES
+# -- end the turn (wave 46C) -- "End the turn." (app/rules/end_turn.py)
+from app.rules import end_turn as _end_turn  # noqa: E402
+
+EFFECTS[:0] = _end_turn.TEMPLATES
 # -- controlling another player (wave 18H) -- "You control target player during that player's next turn." (app/rules/player_control.py)
 from app.rules import player_control as _player_control  # noqa: E402
 
@@ -8250,6 +8303,27 @@ def _return_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "bounce", "who": "event_spell"}], None
 
 
+# -- cast riders (wave 47D) -- "Whenever you cast a creature spell with mana value 5 or greater, that creature enters with X additional +1/+1 counters on it, where X is its mana
+# value minus 4." (Runadi), "…, that creature enters with an additional +1/+1 counter on it for each Dog and/or Wolf you control." (Torgal): the creature spell a cast trigger is
+# about gets that many counter riders as the trigger resolves (cast_riders.spell_rider, 614.1c); only in a creature-spell cast trigger (``_event_spell_ok``)
+@_first
+@effect(r"that creature enters with (?P<n>an|one|two|three|X) additional \+1/\+1 counters? on it(?: for each (?P<each>[^,.]+)|, where X is (?P<x>[^,.]+))?")
+def _spell_counters(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import values
+
+    if m["n"] == "X" and m["x"]:
+        n: Any = values.parse_count(re.sub(r"^its ", "that spell's ", m["x"]))
+    elif m["each"] and m["n"] in ("an", "one"):
+        n = values.parse_count(m["each"])
+    elif not m["each"] and not m["x"] and m["n"] != "X":
+        n = {"an": 1, "one": 1, "two": 2, "three": 3}[m["n"]]
+    else:
+        n = None
+    if n is None or "spent" in json.dumps(n):  # (mana spent to cast "it" would be read for the ability's source, not the spell: Wildgrowth Archaic stays manual)
+        raise _NoMatch
+    return [{"do": "spell_rider", "who": "event_spell", "n": n, "riders": [{"kind": "counter"}]}], None
+
+
 # -- copied abilities (wave 18F) -- "Whenever you activate an ability of an artifact, … copy that ability." (Kurkesh, 707.10): the
 # activated ability the trigger's event is about (``_event_spell_ok``: only in an activation trigger)
 @_first
@@ -8354,6 +8428,10 @@ def _event_spell_ok(d: Definition) -> bool:
     if not uses:
         return True
     cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
+    from app.rules import cast_riders  # -- cast riders (wave 47D) -- "that creature" is a creature spell
+
+    if any(effects[k].get("do") == "spell_rider" for k in uses) and not cast_riders._creature_spell_watch(cond):
+        return False
     # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, copy it" — the event is this very spell's casting
     if not (d.get("kind") == "triggered" and d.get("trigger") == "cast_self") and (
             cond is None or cond.get("event") != "cast" or cond.get("subject") != "player" or cond.get("copy")):

@@ -1102,6 +1102,10 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
         return "Lands are played in a main phase"
     if state.zones.get(STACK):
         return "You can only play a land while the stack is empty"
+    from app.rules import cast_limits
+
+    if info is not None and (barred := next((src for src, _ in cast_limits._statics(state, info, "cant_play_lands") if src.controller == player), None)) is not None:
+        return f"{barred.name or 'A permanent'}: you can't play lands"  # -- most-played cards III (wave 46C) -- 305.1
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
     from app.rules import land_plays  # -- additional land plays (wave 4J) -- 305.2a

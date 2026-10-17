@@ -91,6 +91,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [who[7:]] if who[7:] in plan.live() else []
     if who == "each_player":
         return list(plan.live())
+    if who == "looked_owner":  # -- most-played cards III (wave 46C) -- the owner of the library the last look or reveal was at
+        return [ctx["looked_owner"]] if ctx.get("looked_owner") in plan.live() else []
     if who == "each_opponent":
         return [p for p in plan.live() if p != me]
     if who == "put_none_opponents":  # -- trigger other (wave 44B) -- 101.4: the opponents who chose no card in the "each player may put" just before (put_from_hand.each_put)
@@ -388,7 +390,7 @@ def set_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     for pid in _players(plan, ctx, e["who"]):
         start = plan.state.settings.starting_life
-        want = -(-start // 2) if e["n"] == "half_start" else _amount(plan, ctx, e["n"])  # (107.1a: rounded up)
+        want = -(-start // 2) if e["n"] == "half_start" else start // 2 if e["n"] == "half_start_down" else _amount(plan, ctx, e["n"])  # (107.1a: rounded up; wave 47C: down, Torgaar)
         diff = want - plan.state.players[pid].life
         if diff < 0:
             replace.lose_life(plan, [(pid, abs(diff))], actor=ctx["controller"])  # -- life modifiers (wave 28B) -- 119.5: a loss event
@@ -1994,7 +1996,8 @@ def _search_matches(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, key: 
 
     keys = e.get("alts") or [key]
     sels = [selectors.from_key(k) for k in keys]
-    matching = [c for c in among if any(selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)
+    matching = [c for c in among if any(selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid,
+                                                          ctx.get("source_card") if sel.extras else None)  # (wave 47D: "not named ~", the searching ability's source)
                                         for sel in sels)]
     # -- tutors (wave 3T) -- "a card named …" and "with mana value X or less" (the X chosen for this
     # spell or ability; a card in a library has its X as 0, 202.3e)
@@ -3170,7 +3173,7 @@ def _did_counters_up(fn: Any) -> Any:
                     **({"per": e["n"]} if isinstance(e.get("n"), int) else {})}  # (review 33: _reflex_times)
             else:  # (the "cards" record of a move, context.probe_ok: the objects the put was allowed on)
                 context.refs(ctx)[name] = {"kind": "probe", "to": "battlefield", "cards": {
-                    c: plan.oid(plan.state.cards[c]) for c in cards if prohibitions.cant_counters(plan, c, None) is None}}
+                    c: plan.oid(plan.state.cards[c]) for c in cards if prohibitions.cant_counters(plan, c, None, e["kind"]) is None}}
         return bool(fn(plan, ctx, e))
     return run
 
@@ -4551,6 +4554,10 @@ from app.rules import player_control as _player_control  # noqa: E402  (wave 18H
 
 PRIMITIVES.update(_player_control.PRIMITIVES)  # 723.1 "You control target player during that player's next turn."
 PRIMITIVES.update(_extra_turns.PRIMITIVES)  # 500.7 "Take an extra turn after this one."
+from app.rules import end_turn as _end_turn  # noqa: E402  -- end the turn (wave 46C) --
+
+PRIMITIVES.update(_end_turn.PRIMITIVES)  # 724.1 "End the turn."
+RESUME.update(_end_turn.RESUME)
 from app.rules import land_plays as _land_plays  # noqa: E402  -- one-shot extra land plays (wave 8A) --
 
 PRIMITIVES.update(_land_plays.PRIMITIVES)  # 305.2 "You may play an additional land this turn."

@@ -246,6 +246,21 @@ _UNLESS_EACH = re.compile(r"^(?:if (?P<cond>[^,]+), )?each (?P<who>opponent|play
 # -- dungeons (wave 45B) -- "For each opponent, you create a 2/2 black Zombie creature token unless that player sacrifices a creature of their choice."
 # (Acererak the Archlich): the controller's own instruction, once for each opponent who doesn't (118.12a)
 _UNLESS_FOR_EACH = re.compile(r"^for each (?P<who>opponent|player), (?P<lead>you .+?) unless that player (?P<act>.+)$")
+# -- cost reductions paid with objects (wave 47C) -- "Then for each blight counter on it, each opponent loses 4 life unless that player sacrifices a nonland permanent of their choice
+# or discards a card." (Rottenmouth Viper): the choice is made once for each counter
+_UNLESS_TIMES = re.compile(r"^(?:then )?for each (?P<count>[a-z\-]+ counters? on it), (?P<rest>each (?:opponent|player) .+)$")
+_REPEAT_X = re.compile(r"^repeat the following process X times$", re.IGNORECASE)
+
+
+def repeat_sentence(text: str, following: str | None) -> list[dict[str, Any]] | None:
+    """-- cost reductions paid with objects (wave 47C) -- "Repeat the following process X times. Each opponent loses 3 life unless that player sacrifices a nonland permanent of their
+    choice or discards a card." (Torment of Hailfire): the second sentence, done X times (the X of the spell), one after the other."""
+    if _REPEAT_X.match(text) is None or following is None:
+        return None
+    from app.rules import scripts
+
+    inner = unless_sentence(scripts._lower_first(following.rstrip(".").strip()))
+    return [{**inner[0], "rounds": {"x": 1}}] if inner is not None and len(inner) == 1 and inner[0]["do"] == "each_may" and "times" not in inner[0] else None
 
 
 def unless_sentence(text: str) -> list[dict[str, Any]] | None:
@@ -254,6 +269,12 @@ def unless_sentence(text: str) -> list[dict[str, Any]] | None:
     opponent may [cost]. Each opponent who doesn't [effect]" — the same entry as ``pair`` builds (turn order, 101.4)."""
     from app.rules import optional_payment, scripts
 
+    if (t := _UNLESS_TIMES.match(text)) is not None:  # -- cost reductions paid with objects (wave 47C) -- "Then for each blight counter on it, each opponent loses 4 life unless …"
+        from app.rules import values
+
+        count = values.parse_count(t["count"], it="self")
+        inner = unless_sentence(t["rest"]) if isinstance(count, dict) and "counters" in count else None
+        return [{**inner[0], "times": count}] if inner is not None and len(inner) == 1 and inner[0]["do"] == "each_may" else None
     m = _UNLESS_EACH.match(text)
     mine = None if m else _UNLESS_FOR_EACH.match(text)
     if (m := m or mine) is None:
@@ -327,11 +348,21 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if cost is None:  # (no card type to share: no payment can be made — every player "doesn't")
             cost = ""
     at = ctx["next"]
+    if e.get("rounds") is not None:  # -- cost reductions paid with objects (wave 47C) -- "Repeat the following process X times." (Torment of Hailfire): the instruction once for each repetition, one after the other
+        # (each repetition is done separately: the choices in turn order, then the actions together, ruling 2017-07-14)
+        once = {k: v for k, v in e.items() if k != "rounds"}
+        ctx["effects"] = [*ctx["effects"][:at], *(dict(once) for _ in range(max(0, effects._amount(plan, ctx, e["rounds"])))), *ctx["effects"][at:]]
+        effects.continue_effects(plan, ctx)
+        return False
     tag = f"m{at}_"
     added: list[dict[str, Any]] = []
     # -- review (wave 6R) -- 101.4: every choice first (in turn order), then the payments together (pay_deferred)
     defer = optional_payment.defers(cost, None if cost is not None else e.get("alts"))
     acting = bool(e.get("act"))
+    # -- cost reductions paid with objects (wave 47C) -- "for each blight counter on it, each opponent … unless …": each player makes that many choices in a row (the ruling of Rottenmouth
+    # Viper: all of a player's, then the next player's, then the actions together), none of the same object twice (optional_payment._choose_next)
+    times = 1 if e.get("times") is None else max(0, effects._amount(plan, ctx, e["times"]))
+    slots = [(i, p, f"{tag}{i}" if e.get("times") is None else f"{tag}{i}_{k}") for i, p in enumerate(players) for k in range(times)]
     if acting:  # -- each player may (wave 31B) -- 101.4: every player answers in turn order (tempting offers' question), then each who said yes does it as "you"
         n = len(e["act"])
         added += [{"do": "tempt_ask", "player": p, "bind": f"{tag}{i}", "text": e["text"]} for i, p in enumerate(players)]
@@ -339,27 +370,27 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             added += [{"do": "only_if", "cond": {"flag": f"{tag}{i}"}, "skip": n + 2}, {"do": "as_player", "player": p},
                       *copy.deepcopy(e["act"]), {"do": "as_player_end"}]
     else:
-        for i, p in enumerate(players):
-            pay: dict[str, Any] = {"do": "optional_payment", "who": f"player:{p}", "cost": cost if cost is not None else e["alts"][0], "bind": f"{tag}{i}"}
+        for _, p, name in slots:
+            pay: dict[str, Any] = {"do": "optional_payment", "who": f"player:{p}", "cost": cost if cost is not None else e["alts"][0], "bind": name}
             if e.get("alts") and cost is None:
                 pay["alts"] = list(e["alts"])
             if defer:
                 pay["defer"] = True
             added.append(pay)
-        if defer and players:
-            added.append({"do": "pay_deferred", "binds": [f"{tag}{i}" for i in range(len(players))]})
+        if defer and slots:
+            added.append({"do": "pay_deferred", "binds": [name for _, _, name in slots]})
     answered = "flag" if acting else "succeeded"  # (the answer of each: a recorded verdict, or a payment made)
     if e.get("any") and e.get("effects"):  # -- trigger other (wave 39A) -- once, if any player (or, "none", no player) paid: the controller's own instructions
         paid = {"any": [{answered: f"{tag}{i}"} for i in range(len(players))]}
         added += [{"do": "only_if", "cond": paid if e["any"] == "some" else {"not": paid}, "skip": len(e["effects"])}, *copy.deepcopy(e["effects"])]
-    for i, p in enumerate(players):
+    for _, p, name in slots:
         inner = [] if e.get("any") else _for(e.get("effects") or [], p)
         if inner:
-            added += [{"do": "only_if", "cond": {answered: f"{tag}{i}", "negate": True}, "skip": len(inner)}, *inner]
+            added += [{"do": "only_if", "cond": {answered: name, "negate": True}, "skip": len(inner)}, *inner]
         for key in ("then", "then_opp"):  # -- each player may (wave 23A) -- the players who paid: "Each player who discarded a card this way draws a card"
             if e.get(key) and (key == "then" or p != ctx["controller"]):
                 done = _for(e[key], p)
-                added += [{"do": "only_if", "cond": {answered: f"{tag}{i}"}, "skip": len(done)}, *done]
+                added += [{"do": "only_if", "cond": {answered: name}, "skip": len(done)}, *done]
     ctx["effects"] = [*ctx["effects"][:at], *added, *ctx["effects"][at:]]
     effects.continue_effects(plan, ctx)
     return False

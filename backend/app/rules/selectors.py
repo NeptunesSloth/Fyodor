@@ -63,7 +63,7 @@ PLANESWALKER_TYPES = frozenset({
 _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves": "Werewolf", "thieves": "Thief",
               "mice": "Mouse", "fungi": "Fungus", "sphinxes": "Sphinx", "foxes": "Fox", "djinn": "Djinn",
               "allies": "Ally", "fairies": "Faerie", "zombies": "Zombie", "sorceries": "Sorcery", "mercenaries": "Mercenary",
-              "plains": "Plains", "pegasi": "Pegasus", "octopi": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
+              "plains": "Plains", "pegasi": "Pegasus", "octopi": "Octopus", "octopuses": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
 _IRREGULAR.update({"oxen": "Ox", "armies": "Army", "spies": "Spy", "cyclopes": "Cyclops"})  # -- static wordings (wave 6E) --
 _IRREGULAR.update({"aurochs": "Aurochs"})  # -- trigger tail (wave 15B) -- (its own plural)
 _IRREGULAR.update({"heroes": "Hero"})  # -- counters (wave 21D) --
@@ -450,9 +450,12 @@ def _attacking_opponent(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_opponent"))
 
 
-@_suffix(r"(?:that(?:['’]s| are) )?attacking you")  # (wave 17D: also plural / bare)
+@_suffix(r"(?:that(?:['’]s| are) )?attacking you(?P<pw> or a planeswalker you control)?")  # (wave 17D: also plural / bare; wave 46C: "or a planeswalker you control", Soul Snare)
 def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
+    return replace(s, attacking=True, extras=(*s.extras, "attacking_you_pw" if m["pw"] else "attacking_you"))
+
+
+_SUFFIXES.insert(0, _SUFFIXES.pop())  # (first: its "… you control" is also the controller suffix)
 
 
 @_suffix(r"that['’]s exactly two colors")
@@ -578,6 +581,11 @@ def _compare(s: Selector, m: re.Match[str]) -> Selector:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
     return replace(s, compare=(*s.compare, (what, "<=" if m["dir"] == "less" else ">=", n)))
+
+
+@_suffix(r"with (?P<what>mana value|power|toughness) less than [xX]")  # -- cost reductions paid with objects (wave 47C) -- "target creature with mana value less than X" (March of Burgeoning Life)
+def _less_than_x(s: Selector, m: re.Match[str]) -> Selector:  # (107.3f: the X of the spell, strictly; "X or less" is ``_compare``)
+    return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]], "<", X_VALUE)))
 
 
 @_suffix(r"with power or toughness (?P<n>\d+) or (?P<dir>less|greater)")  # (wave 15A: Tetsuko Umezawa — either one)
@@ -830,6 +838,12 @@ def _source_counters(plan: Plan, source: str | None, kind: str) -> int | None:
         return None
     last = max(snaps, key=lambda s: int(s.object_id.rsplit(".", 1)[-1]))
     return last.counters.get(kind, 0)
+
+
+# -- tutor (wave 47D) -- "Dragon cards not named ~" (Tiamat): a name other than the source's (201.2); before "named ~", whose pattern ends the same way
+@_suffix(r"not named ~")
+def _not_named_self(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "not_named_self"))
 
 
 # -- amounts (wave 12C) -- "cards named ~ in all graveyards" (Kindle): the source's name (201.2), read with the source in play
@@ -1396,6 +1410,9 @@ def parse_either(phrase: str) -> Selector | None:
     a, b = _parse(m["head"] or m["head2"]), _parse(m["last"] or m["last2"])
     if a is None or b is None or a.player or b.player or a.zones != ("battlefield",) or b.zones != ("battlefield",):
         return None
+    mv = tuple(c for c in b.compare if c[0] == "mv")
+    if mv and not a.compare:  # -- cost reductions paid with objects (wave 47C) -- "artifact, creature, or enchantment with mana value X or less" (March of Otherworldly Light): every permanent has a
+        a = replace(a, compare=mv)  # mana value, so it limits each kind (a power or a keyword belongs to the last kind alone, as for Exorcise)
     return Selector(either=(a.key(), b.key()))
 
 
@@ -1955,11 +1972,17 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 return False
         if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
             return False  # (wave 12C)
+        if extra == "not_named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name == ch.name):
+            return False  # (wave 47D)
         if extra.startswith(("samename", "nosamename")) and not _same_name_now(plan, extra, card, ch, you, source):
             return False  # (wave 32A)
         if extra == "attacking_alone" and sum(1 for c in plan.state.cards.values() if c.attacking is not None and c.zone.endswith(":battlefield")) != 1:
             return False  # -- activated other (wave 42C) -- 506.5 (the same count statics.py reads for "as long as it's attacking alone")
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
+            return False
+        if extra == "attacking_you_pw" and (card.attacking is None or not (  # -- most-played cards III (wave 46C) -- 506.3: attacks you, or a planeswalker you control
+                (card.attacking.kind == "player" and card.attacking.id == you) or (card.attacking.kind == "card" and (target_walker := plan.state.cards.get(card.attacking.id)) is not None
+                                                                                   and "Planeswalker" in plan.ch(target_walker).types and target_walker.controller == you))):
             return False
         if extra == "attacking_opponent" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id == you
                                               or card.attacking.id not in plan.live()):

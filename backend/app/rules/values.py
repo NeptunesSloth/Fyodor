@@ -549,6 +549,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "tokens"}
     if m := re.fullmatch(r"permanents? (you(?:'ve)? )?sacrificed this turn", what):  # (wave 21F: The Balrog, "each permanent sacrificed": anyone's)
         return {"turn_history": "sacrificed", **({} if m[1] else {"who": "any"})}
+    if re.fullmatch(r"other artifacts? or creatures? you(?:'ve)? sacrificed this turn", what):  # -- cost reductions paid with objects (wave 47C) -- Dargo, the Shipwrecker: the ones
+        return {"turn_history": "sacrificed", "sel": selectors.Selector(types=("Artifact", "Creature")).key()}  # sacrificed before; this cast's own are sacrificed later (601.2h)
     if re.fullmatch(r"cards? you(?:'ve)? cycled or discarded this turn", what):  # (wave 21F: Hollow One; a cycled card is discarded, 702.29a)
         return {"turn_history": "discarded"}
     if re.fullmatch(r"(?:the )?(?:total )?(?:amount of )?(?:1 )?life (?:lost by your opponents|your opponents (?:have )?lost) this turn", what):  # (wave 30J: "for each 1 life", Neheb; "the total amount of life your opponents lost", Florian)
