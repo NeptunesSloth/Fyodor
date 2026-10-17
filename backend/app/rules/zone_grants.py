@@ -89,8 +89,8 @@ def _line(d: dict[str, Any], ch: Characteristics, card: CardInstance) -> str | N
         return f"{d['keyword'].capitalize()} {d['cost']}"
     if not ch.mana_cost or "//" in ch.mana_cost or _two_ways(card):
         return None
-    cost = M.parse_cost(ch.mana_cost)
-    if cost.x or cost.unsupported:
+    cost = M.parse_cost(ch.mana_cost.replace("{X}", "") or "{0}")  # (an {X} in that mana cost is 0: Varolz ruling)
+    if cost.unsupported:
         return None
     if d["reduce"]:
         cost = cost.plus_generic(-min(d["reduce"], cost.generic))

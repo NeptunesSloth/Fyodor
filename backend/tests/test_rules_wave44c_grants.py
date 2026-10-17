@@ -92,3 +92,16 @@ def test_varolz_gives_scavenge_to_no_creature_card_of_an_opponent_nor_to_a_noncr
         assert not any("Exile this card from your graveyard" in a.text for a in ch(s, c).abilities)
     assert bears.id in s.state.cards
     check(s)
+
+
+def test_varolz_scavenge_cost_of_an_x_creature_card_is_its_mana_cost_with_x_as_0(cards):
+    # Varolz ruling (2013): "If the creature card you scavenge has {X} in its mana cost, X is 0." Endless One ({X}) scavenges for {0}, a 0/0 card: no counters.
+    s = build(cards, ["Varolz, the Scar-Striped", "Endless One", "Grizzly Bears"], [])
+    put(s, "Varolz, the Scar-Striped")
+    one = to_graveyard(s, "Endless One")
+    bears = put(s, "Grizzly Bears")
+    settle(s)
+    activate(s, "p1", one, "Exile this card from your graveyard", targets=[bears.id])
+    settle(s)
+    assert zone_of(s, "Endless One") == "p1:exile" and not s.state.cards[bears.id].counters.get("+1/+1")
+    check(s)
