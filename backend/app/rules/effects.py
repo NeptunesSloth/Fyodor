@@ -93,6 +93,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return list(plan.live())
     if who == "each_opponent":
         return [p for p in plan.live() if p != me]
+    if who == "put_none_opponents":  # -- trigger other (wave 44B) -- 101.4: the opponents who chose no card in the "each player may put" just before (put_from_hand.each_put)
+        return [p for p in plan.live() if p != me and p in ctx.get("_put_none", ())]
     if who == "gifted":  # -- gift (wave 23D) -- 702.174d-i: the opponent the gift was promised to
         from app.rules import gift
 
@@ -2685,8 +2687,13 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         library = _library(plan, pid)
         if e.get("until"):
             at = _first_match(plan, ctx, library, e["until"], ctx["controller"])
+            for _ in range(int(e.get("need") or 1) - 1):  # -- trigger other (wave 44B) -- "until they reveal four land cards": down to the Nth match (all of it if fewer)
+                if at is None:
+                    break
+                nxt = _first_match(plan, ctx, library[at + 1:], e["until"], ctx["controller"])
+                at = None if nxt is None else at + 1 + nxt
             top = library if at is None else library[: at + 1]
-            if at is not None and len(owners) == 1:
+            if at is not None and len(owners) == 1 and not e.get("need"):
                 ctx["found"] = library[at]
         else:
             top = library[: _amount(plan, ctx, e["n"])]
@@ -4248,6 +4255,7 @@ def _put_mana(plan: Plan, ctx: Context, pid: str, mana: list[str]) -> bool:
     from app.rules import mana as M
 
     ctx["_mana_added"] = {c: mana.count(c) for c in dict.fromkeys(mana)}  # (wave 3R3: "this mana", app/rules/kept_mana.py)
+    ctx["_mana_added_player"] = pid  # (-- trigger other (wave 44B) -- whose pool: "that player adds {G}{G}{G}. … they don't lose this mana", Shizuko)
     if mana:
         delta: dict[str, int] = {}
         for c in mana:

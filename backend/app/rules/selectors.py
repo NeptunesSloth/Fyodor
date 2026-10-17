@@ -324,6 +324,16 @@ def _drawn_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "drawn_this_turn"))
 
 
+@_suffix(r"with one or more (?P<c>white|blue|black|red|green) mana symbols? in its mana cost")  # -- trigger other (wave 44B) -- Namor the Sub-Mariner: 202.1, 107.4e
+def _with_color_symbols(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "cost_symbol:" + COLORS[m["c"]]))
+
+
+@_suffix(r"with a legendary Equipment attached to it")  # -- trigger other (wave 44B) -- Kassandra, Eagle Bearer: 301.5, an Equipment attached to it that is legendary
+def _with_legendary_equipment(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "legendary_equipped"))
+
+
 # -- both colors (wave 6D) -- "a spell that's both red and white" (the Mimics): each of the colors (105.2)
 @_suffix(r"that['’]s both (?P<c1>" + "|".join(COLORS) + r") and (?P<c2>" + "|".join(COLORS) + r")")
 def _thats_both(s: Selector, m: re.Match[str]) -> Selector:
@@ -672,7 +682,8 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 # creatures with decayed": read from the object's keywords, like the others)
 _WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke",
                   "modular", "toxic", "mutate", "awaken", "cascade", "flanking",  # (wave 39A: "all attacking creatures with flanking", Telim'Tor)
-                  "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk")  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
+                  "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk",
+                  "doctor's companion")  # (wave 44B: "creature spell with doctor's companion", Rose Noble)  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
 # an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
 
@@ -1789,6 +1800,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "equipped" and not _has_attached(plan, card, "Equipment"):
             return False
+        if extra.startswith("cost_symbol:") and extra[12:] not in {x for sym in re.findall(r"\{([^}]+)\}", ch.mana_cost or "") for x in sym.split("/")}:
+            return False  # (wave 44B)
+        if extra == "legendary_equipped" and not any(c.attached_to == card.id and "Equipment" in plan.ch(c).subtypes and "Legendary" in plan.ch(c).supertypes
+                                                     for c in plan.state.cards.values()):
+            return False  # (wave 44B)
         if extra == "enchanted_by_yours" and not any(c.attached_to == card.id and "Aura" in plan.ch(c).subtypes and c.controller == you
                                                      for c in plan.state.cards.values()):
             return False  # (wave 32B)

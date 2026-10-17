@@ -165,7 +165,7 @@ def keep(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     units = list(ctx.get("_mana_unit_ids") or ())  # (wave 18B: mana_units.restrict made the mana added into units)
     if not mana and not units:
         return True
-    pid = ctx["controller"]
+    pid = ctx.get("_mana_added_player") or ctx["controller"]  # (wave 44B: the player who added it, "they don't lose this mana")
     plan.rules.kept_mana.append({"player": pid, "mana": mana, "units": units, "until": e.get("until", "end_of_turn"),
                                  "turn": plan.state.turn.number})
     clamp(plan.state)

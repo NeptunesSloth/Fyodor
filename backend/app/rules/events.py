@@ -91,6 +91,7 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
               " to one of your opponents": "opponent", " to enchanted player": "enchanted_player",
               " to a player or battle": "player_or_battle",
               # -- source damage (wave 11F) -- 603.2c: "to one or more players" is one trigger for the whole batch
+              " to its owner": "its_owner",  # -- trigger other (wave 44B) -- 120.1: The Beast, "a creature deals combat damage to its owner" (the damage dealer's owner is the player)
               " to one or more players": "players", " to your opponents": "opponents",
               " to one or more of your opponents": "opponents", " to ~": "self", " to one or more creatures": "creatures"}
 _ONE_OR_MORE_TO = (" to one or more players", " to your opponents", " to one or more of your opponents")  # (wave 39B)
@@ -471,7 +472,7 @@ def _parse(c: str) -> Condition | None:
         return {"event": "either", "subject": a["subject"], "conds": [a, b]}
     # -- trigger tail (wave 16C) -- "Whenever a creature dies or a creature card is put into a graveyard from a library" (Dreadhound):
     # two whole conditions, each its own event (603.2c); both halves must read on their own
-    m = re.fullmatch(r"(?P<a>(?:an?|another) [^,]+? (?:dies|attacks|enters)|(?:an?) [^,]+? (?:is|are) put into [^,]+?) or "
+    m = re.fullmatch(r"(?P<a>(?:an?|another) [^,]+? (?:dies|attacks|enters)|(?:an?|another) [^,]+? (?:is|are) put into [^,]+?) or "
                      r"(?P<b>(?:an?|another) [^,]+? (?:is|are) put into [^,]+?)", c)
     if m:
         a, b = _parse(m["a"]), _parse(m["b"])
@@ -652,10 +653,11 @@ def _parse(c: str) -> Condition | None:
         return {**inner, "gy_owner": "you" if m["g"] == "your" else "opponent"}
     # -- counters (wave 41A) -- 109.2, 603.6c: "Whenever another nonland permanent you control is returned to its owner's hand" (Justice, Vance Astrovik): a permanent
     # is on the battlefield, so it left the battlefield for a hand (400.3: its owner's, "its owner's hand" asks nothing of whose)
-    m = re.fullmatch(r"(?P<s>(?:an?|another) [^,]+?) (?:is|are) (?:returned to its owner's hand|put into its owner's hand from the battlefield)", c)
+    # (-- trigger other (wave 44B) -- "Whenever one or more noncreature permanents are returned to hand" (Tameshi): once for the batch that left for a hand, 603.2c)
+    m = re.fullmatch(r"(?P<s>(?:an?|another|one or more) [^,]+?) (?:is|are) (?:returned to (?:its owner's )?hand|put into its owner's hand from the battlefield)", c)
     if m:
-        inner = _parse(f"{m['s']} leaves the battlefield")
-        if inner is None or inner.get("event") != "leave" or inner.get("subject") != "sel" or inner.get("aggregate"):
+        inner = _parse(f"{m['s']} {'leave' if m['s'].startswith('one or more') else 'leaves'} the battlefield")
+        if inner is None or inner.get("event") != "leave" or inner.get("subject") != "sel" or bool(inner.get("aggregate")) != m["s"].startswith("one or more"):
             return None
         return {**inner, "dest": "hand"}
     m = re.fullmatch(r"(?P<p>you|an opponent|a player|each opponent) gains? or loses? life", c)  # (wave 11C) each event: 603.2
@@ -763,6 +765,14 @@ def _defender(d: str | None, player_attack: bool = False) -> Condition:
 
 def _combat(c: str) -> Condition | None:
     """Attack conditions with more to them than "~ attacks" (508.3, 509.3g, 506.5)."""
+    # -- trigger other (wave 44B) -- 508.1: "you attack with ~ and another legendary creature" (Merry): ~ is declared as an attacker together with another creature
+    # of that kind (not necessarily attacking the same player, ruling 2023-06-16); it triggers once, as ~ attacks
+    m = re.fullmatch(r"you attack with ~ and another (?P<o>[a-z ]+)", c)
+    if m:
+        sel = selectors.parse(m["o"])
+        if sel is None or sel.player is not None or sel.card:
+            return None
+        return {"event": "attack", "subject": "self", "min_attackers": 1, "sel": sel.key(), "others_only": True}
     # 508.3d / 508.3e: "a player attacks you", "an opponent attacks you with two or more creatures",
     # "you attack a player", "a player attacks one of your opponents" — once per player attacked
     m = re.fullmatch(rf"(?P<p>you|an opponent|a player) attacks? (?P<d>{_DEFENDER_RE})"
@@ -880,6 +890,15 @@ def _cast(c: str) -> Condition | None:
             return None
         return {**base, "copy": "or" if cm["both"] else "only"}
     # -- end refused copy/mana (wave 3R3) --
+    # -- trigger other (wave 44B) -- 603.2c: "you cast an Equipment spell or a spell that targets a creature you control" (Danitha), "a Doctor spell or creature spell
+    # with doctor's companion" (Rose Noble): two whole conditions, each its own event (one trigger for a spell that is both); each half reads on its own
+    ec = re.fullmatch(rf"{_P} casts? (?P<a>an? [^,]+? spell) or (?P<b>(?:an? )?[^,]+? spell(?: that targets [^,]+| with [^,]+))", c)
+    if ec is not None:
+        verb = "casts" if ec["p"] in ("an opponent", "a player") else "cast"
+        a, b = (_cast(f"{ec['p']} {verb} {x}") for x in (ec["a"], ec["b"] if ec["b"].startswith(("a ", "an ")) else "a " + ec["b"]))
+        if a is None or b is None or "targets" not in str(a) + str(b) and "keywords" not in str(a) + str(b):
+            return None
+        return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
     m = re.fullmatch(rf"{_P} casts? (?P<spell>.+)", c)
     if not m:
         return None
