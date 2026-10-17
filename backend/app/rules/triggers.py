@@ -1133,7 +1133,8 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
                         if kind in _PAIRED.values() and info.get("other") in plan.state.cards
-                        else _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None)  # (wave 19B: the Ring-bearer chosen)
+                        else _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None,  # (wave 19B: the Ring-bearer chosen)
+                        ballots=info.get("ballots") or [])  # (-- voting (wave 48D) --)
 
 
 def _attack_object(plan: Plan, kind: str, obj: CardInstance | None) -> ObjectRef | None:
@@ -1962,6 +1963,12 @@ def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False
                            "word": (w[1].lower() if (w := re.match(r"(Exhaust|Boast|Power-up) — ", text)) else None),  # (wave 33C: its ability word)
                            "source_ref": ObjectRef(card=ability.id, object_id=plan.oid(ability), zone=ability.zone) if ability else None})],
                   -1, {})
+
+
+def voted(plan: Plan, starter: str, ballots: list[list[str]]) -> None:
+    """-- voting (wave 48D) -- 701.38: the votes of one spell or ability are all in: "Whenever players finish voting" triggers (603.2) as it finishes resolving
+    (rulings of Grudge Keeper); the trigger carries the votes of this voting alone."""
+    _fire_generic(plan, [("voted", None, None, starter, {"ballots": [list(b) for b in ballots]})], -1, {})
 
 
 def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -> None:

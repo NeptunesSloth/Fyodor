@@ -26,7 +26,11 @@ control. Exile each permanent with the most votes or tied for most votes." (Coun
 
 Not read (manual): "for each creature with one or more votes, … that many …" (Trap the
 Trespassers), several-choice results that move cards between voters (Expropriate), a "this way" count of a repeated instruction
-(Messenger Jays), "Whenever players finish voting" triggers and "You choose how each player votes" (Illusion of Choice).
+(Messenger Jays) and "You choose how each player votes" (Illusion of Choice).
+
+* (wave 48D) "Whenever players finish voting" (Model of Unity, Erestor of the Council, Grudge Keeper) triggers as the last ballot is in (``_finish``), carrying
+  the ballots; "each opponent who voted for a choice you voted for / didn't vote for" are player filters (player_filter, ``{"voted": "same" | "other"}``) read
+  against the trigger's ballots: a player with several votes may be both (Erestor's ruling).
 """
 
 from __future__ import annotations
@@ -402,6 +406,9 @@ def _finish(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for _, choice in v["ballots"]:
         tally[choice] += 1
     v["tally"] = tally
+    from app.rules.triggers import voted  # -- voting (wave 48D) -- "Whenever players finish voting"
+
+    voted(plan, ctx["controller"], v["ballots"])
     if "sel" in e:
         from app.rules import context
 

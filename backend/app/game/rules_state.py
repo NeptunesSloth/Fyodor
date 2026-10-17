@@ -677,6 +677,8 @@ class TriggerEvent(BaseModel):
     # -- attacked object (wave 45A) -- 508.5: the planeswalker or battle an attacking creature's event is about, as it triggered ("deals 1 damage to the player or
     # planeswalker it's attacking"); None when it attacks a player (``defended``)
     attacked: ObjectRef | None = None
+    # -- voting (wave 48D) -- 701.38: "Whenever players finish voting": the [voter, choice] of every vote of the voting that finished, as cast
+    ballots: list[list[str]] = Field(default_factory=list)
 
 
 class PendingTrigger(BaseModel):

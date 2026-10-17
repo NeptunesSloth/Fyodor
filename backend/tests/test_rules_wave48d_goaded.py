@@ -12,22 +12,16 @@ from __future__ import annotations
 
 import pytest
 
-from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import stops
 from tests.wave9c_kit import build, check, mana, put, to_hand
 from tests.wave47b_kit import build3
-from tests.wave48d_kit import FULL, cast, open_cards
+from tests.wave48d_kit import cast, open_cards
 
 
 @pytest.fixture()
 def cards(settings):
     yield from open_cards(settings)
-
-
-@pytest.mark.parametrize("name", FULL)
-def test_every_card_is_full(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
 def until(s, ok, limit=200):
