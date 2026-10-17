@@ -22,7 +22,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_attachments import token
+from tests.test_rules_attachments import ch, token
 from tests.test_rules_conditionals import through_combat
 from tests.test_rules_copy import choose, pay
 from tests.test_rules_wave39b_trigger_damage import attack, block, to_main1
@@ -179,6 +179,44 @@ def test_soul_link_gains_life_for_the_damage_dealt_and_the_damage_taken_by_a_cre
     block(s, (big, ape))
     s = combat(s)
     assert dead(s, ape) and life(s, "p1") == before + 5
+    check(s)
+
+
+def test_an_ability_the_aura_gave_the_dying_creature_triggers_too(cards):
+    """Combat Research gives the Rhino "Whenever this creature deals combat damage to a player, draw a card." The Rhino is the trigger's source and has left
+    the battlefield (with its Aura) by the time the trigger is looked at: its last known information has the ability (603.10a)."""
+    s = build(cards, ["Combat Research"], forests=20)
+    rhino, viper = token(s, "p1", "Rhino", "3/3", "Trample"), token(s, "p2", "Viper", "1/1", "Deathtouch")
+    enchant(s, "Combat Research", rhino, U=1)
+    to_main1(s, 3)
+    attack(s, (rhino, "p2"))
+    block(s, (viper, rhino))
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "divide"
+    start = len(s.state.zones["p1:library"])
+    act(s, "p1", type="choose", decision_id=d.id, amounts=[1, 2])
+    s = combat(s)
+    assert dead(s, rhino) and life(s, "p2") == 38 and len(s.state.zones["p1:library"]) == start - 1
+    check(s)
+
+
+def test_komainu_battle_armor_goads_when_the_creature_it_equips_dies_dealing_combat_damage_to_a_player(cards):
+    """"Whenever this creature or equipped creature deals combat damage to a player, goad each creature that player controls" (701.15): the 5/5 menace trampler
+    assigns 1 to each deathtouch Viper and 3 to Bob, and dies; Bob's Wall that did not block is goaded."""
+    s = build(cards, ["Komainu Battle Armor"], forests=20)
+    armor, rhino = put(s, "Komainu Battle Armor"), token(s, "p1", "Rhino", "3/3", "Trample")
+    vipers, wall = [token(s, "p2", f"Viper{i}", "1/1", "Deathtouch") for i in (1, 2)], token(s, "p2", "Wall", "0/4")
+    equip(s, armor, rhino, 4, C=4)  # (reconfigure {4}: attach to target creature you control, 702.151a)
+    assert s.state.cards[armor.id].attached_to == rhino.id
+    to_main1(s, 3)
+    attack(s, (rhino, "p2"))
+    block(s, *[(v, rhino) for v in vipers])
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "divide"
+    act(s, "p1", type="choose", decision_id=d.id, amounts=[1, 1, 3])
+    s = combat(s)
+    assert dead(s, rhino) and life(s, "p2") == 37
+    assert "goaded:p1" in ch(s, wall).imposed
     check(s)
 
 
