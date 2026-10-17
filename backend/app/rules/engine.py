@@ -596,6 +596,7 @@ def start_next_turn(plan: Plan) -> None:
             break
         skipped.append((plan.active, plan.state.turn.number))
     plan.rules.turn_base = base if extra else plan.active  # -- extra turns (wave 8A) -- 500.7
+    plan.rules.extra_turn = bool(extra)  # -- static_other (wave 42A) -- 500.7: this turn is one an effect added
     player_control.turn_began(plan)  # -- controlling another player (wave 18H) -- 723.1: the whole turn, its untap choices too
     if untap_choice.ask(plan, asked, {"stunned": stunned, "previous": list(previous), "skipped": [list(s) for s in skipped],
                                       "plain": stay is None, "keep": keep}, limited):  # (wave 7F) the untap step waits for the choice

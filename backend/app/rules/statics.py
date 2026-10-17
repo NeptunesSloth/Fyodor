@@ -97,7 +97,7 @@ TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "
 # -- static grants (wave 15A) -- keywords whose whole meaning is one triggered ability (keyword_triggers.MEANINGS): granted as the
 # line itself (613.1f). Not modular / graft / living weapon / for mirrodin! / ravenous: those have a half that works as the
 # permanent enters (a granted one would miss it).
-MEANING_GRANTS = r"extort|ingest|melee|myriad|exploit|(?:poisonous|frenzy|afterlife|annihilator|afflict) \d+"
+MEANING_GRANTS = r"extort|ingest|melee|myriad|exploit|(?:poisonous|frenzy|afterlife|annihilator|afflict|fabricate) \d+"  # (wave 42A: fabricate N, 702.123a: one enters trigger)
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
                      "enchanted permanent": "permanent", "enchanted artifact": "artifact",
@@ -213,6 +213,9 @@ def parse(text: str) -> Definition | None:
     body = re.sub(r"(?P<sep>, and| and|,) all creatures able to block it do so$", r"\g<sep> must be blocked by all creatures able", body)
     # -- borrowed abilities (wave 18F) -- "As long as ~ is on the battlefield, …": a static of a permanent works there only (611.3b)
     body = re.sub(r"^As long as (?:~|it) is on the battlefield, ", "", body)
+    # -- static_other (wave 42A) -- 205.4, 613.1d: "Aeve isn't legendary if it's a token." (Aeve, Progenitor Ooze): the supertype taken off while it is a token (a layer 4
+    # effect of the object itself, read as "As long as it's a token, ~ isn't legendary")
+    body = re.sub(r"^(?:~|It) isn't legendary if it's a token$", "As long as it's a token, ~ isn't legendary", body)
     # -- as long as (wave 20B) -- "Each land gets +2/+2 as long as it's a creature." (Earth Surge, Depala's "Each Vehicle you control"): each
     # land that is a creature at that moment (611.3a), as "Each land creature gets +2/+2"
     body = re.sub(r"^Each (?P<n>[A-Za-z]+)(?P<c> you control)? (?P<v>gets? [+−-]\d+/[+−-]\d+) as long as it's a creature$",
@@ -234,9 +237,14 @@ def parse(text: str) -> Definition | None:
     # -- static_other (wave 36B) -- "During turns other than yours, this creature gets +0/+2." (Mesa Lynx, Glory of Warfare, Oak Street Innkeeper): any turn but the
     # controller's own (500.1: each turn has one active player), the opposite of "during your turn"
     other_turn = None if m else re.match(r"^During turns other than yours, (?P<rest>.+)$", body)
+    # -- static_other (wave 42A) -- 500.7: "~ can't attack during extra turns." (Medomai the Ageless): a restriction that holds while the turn in progress is one an effect added
+    extra_turn = None if m or other_turn else re.match(r"^(?P<rest>~ can't (?:attack|block|attack or block)) during extra turns$", body)
     if other_turn:
         conds.append({"static": "not", "cond": {"static": "your_turn"}})
         body = other_turn["rest"]
+    elif extra_turn:
+        conds.append({"static": "extra_turn"})
+        body = extra_turn["rest"]
     elif m:
         conds.append({"static": "your_turn"})
         body = m["rest"]
@@ -278,6 +286,7 @@ def parse(text: str) -> Definition | None:
                     if rest_text.startswith("~ "):
                         cond_text = re.sub(r"^(?:it|they) (?=ha(?:sn't|ven't) dealt |was cast$|is your Ring-bearer$)", "~ ", cond_text)
                         cond_text = re.sub(r"( attached to | blocking )it$", r"\1~", cond_text)
+                        cond_text = re.sub(r"^(?:its|her|his|their) (?=(?:power|toughness) is )", "~'s ", cond_text)  # (wave 42A: "unless its power is 6 or greater", "if her power is 1 or less")
                     elif host:
                         cond_text = re.sub(r"(?<= attached to )it$", f"{host['w'].lower()} {host['n']}", cond_text)
                     cond = _condition(cond_text)
@@ -379,6 +388,13 @@ def parse(text: str) -> Definition | None:
         return None  # ("where X is …" with no X in the sentence)
     if who == "self" and not conds and not parts["rules"] and parts["each"] is None and parts["abilities_of"] is None:
         return None  # "~ has flying." unconditionally is a keyword line, not a static: not a template
+    if any(_mentions(c, ("self_stat",)) for c in conds) and (who != "self" or not parts["rules"] or extra or parts["p"] or parts["t"] or parts["base"]
+                                                              or parts["keywords"] or parts["grants"] or parts["each"] or parts["abilities_of"]):
+        return None  # -- static_other (wave 42A) -- the source's own power is known to the rules pass (layers._with_rules) only: a rule of the source, nothing else
+    if "_abilities" in who and (not parts["rules"] or extra or parts["p"] or parts["t"] or parts["base"] or parts["keywords"] or parts["grants"] or parts["each"]
+                                or parts["abilities_of"]):
+        return None  # -- static_other (wave 42A) -- "creatures with no abilities": layer 6 grants of other statics change who has none (613.8), which the subject of a
+        # layer 6-7 grant doesn't wait for (layers._hits reads it before the granted abilities are there): only a rule, judged after every layer, is read
     if rule_cond and not parts["rules"]:
         return None  # "~ gets +1/+1 if …" isn't how a static grant is worded
     if who != "self" and any(_relative(sel) for r in parts["rules"] for sel in rule_selectors(rule_arg(r)[1])):
@@ -432,6 +448,8 @@ def _layer4_parts(body: str) -> tuple[str, dict[str, Any]] | None:
     creature type). → (the rest of the predicate, or "" when nothing is left; the definition keys)."""
     if _NOT_CREATURE.fullmatch(body):
         return "", {"remove_types": ["Creature"], "add_subtypes": []}
+    if body in ("~ isn't legendary", "it isn't legendary"):  # (wave 42A)
+        return "", {"remove_types": [], "add_subtypes": [], "remove_supertypes": ["Legendary"]}
     # -- as long as (wave 20B) -- "it's a land" (205.1a: replaces the card types), "it's an artifact creature", "it's a 0/0 creature in addition
     # to its other types and it has annihilator 2" (205.1b; the 0/0 is layer 7b, 613.4b)
     m = _IS_TYPES.fullmatch(body)
@@ -459,6 +477,8 @@ def _layer4_safe(cond: dict[str, Any]) -> bool:
         return True
     if cond.get("static") == "not":  # (wave 36B: "during turns other than yours")
         return _layer4_safe(cond["cond"])
+    if cond == {"static": "self", "test": "a_token"}:  # (wave 42A) whether it is a token reads no characteristics
+        return True
     if cond == {"static": "self", "test": "attached_to_a_creature"}:  # -- casting extras (wave 18E) -- reconfigure 702.151b
         return True
     value = cond.get("value")
@@ -614,7 +634,7 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
     if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
         return goaded["s"], goaded["p"]
-    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|(?<!you )don't|doesn't|assigns?(?= combat damage)|(?:crews|saddles)(?= (?:Vehicles|Mounts)))\b", body)  # (assigns: wave 6E; crews: 17C)
+    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|(?<!you )(?<!but )don't|doesn't|assigns?(?= combat damage)|(?:crews|saddles)(?= (?:Vehicles|Mounts)))\b", body)  # (assigns: wave 6E; crews: 17C; wave 42A: "but don't own" is part of the subject, 108.3)
     if m is None or m.start() == 0:
         return None, None
     return body[: m.start()].strip(), body[m.start():].strip()
@@ -884,7 +904,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         if rest in GRANTABLE_KEYWORDS:
             keywords.append(rest)
             continue
-        if rest in TRIGGERED_GRANTS or rest == "riot" or re.fullmatch(MEANING_GRANTS, rest):  # -- static wordings (wave 6E) --
+        if rest in TRIGGERED_GRANTS or rest in ("riot", "unleash", "read ahead") or re.fullmatch(MEANING_GRANTS, rest):  # -- static wordings (wave 6E) -- (wave 42A: unleash and read ahead, read as riot is: the entering permanent's own characteristics)
             # (wave 17C: riot is read from the entering permanent's characteristics as it enters, 614.12: app/rules/riot.py)
             grants.append(rest.capitalize())  # (wave 15A: "have extort", "have afflict 2": their CR meaning, keyword_triggers)
             continue
@@ -982,6 +1002,9 @@ RULES.update({"assigns combat damage equal to its toughness rather than its powe
 # Lord Magnus, Quagmire, Undertow …): the attacker's landwalk restriction isn't applied (app/rules/combat.py)
 RULES.update({f"can be blocked as though they didn't have {w}": (f"ignore_landwalk:{w}",)
               for w in ("plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk")})
+# -- static_other (wave 42A) -- 509.1a: "Tapped creatures you control can block as though they were untapped." (Masako the Humorless): a tapped creature
+# with the rule may be declared as a blocker (app/rules/combat.py ``block_problem``); the rest of its block is as any other
+RULES.update({"can block as though it were untapped": ("block_tapped",), "can block as though they were untapped": ("block_tapped",)})
 
 
 def _rule(piece: str) -> list[str] | None:
@@ -1115,7 +1138,7 @@ def _condition(text: str) -> dict[str, Any] | None:
     c = text.strip()
     if c in ("it's your turn",):
         return {"static": "your_turn"}
-    m = re.fullmatch(r"(?:it|~)(?:'s| is) (?P<test>attacking alone|attacking|blocking|tapped|untapped|enchanted or equipped|enchanted|equipped|attached to a creature)", c)
+    m = re.fullmatch(r"(?:it|~)(?:'s| is) (?P<test>attacking alone|attacking|blocking|tapped|untapped|enchanted or equipped|enchanted|equipped|attached to a creature|a token)", c)  # (wave 42A: a token)
     if m:
         return {"static": "self", "test": m["test"].replace(" ", "_")}
     # -- as long as (wave 25A) -- "it isn't attacking or blocking" / "it's not attacking" (Intrepid Ace): the opposite of what it is now (611.3a)
@@ -1178,6 +1201,8 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
         return plan.state.turn.active_player == controller
     if kind == "not":  # "unless …"
         return not holds(plan, cond["cond"], source=source, controller=controller)
+    if kind == "extra_turn":  # -- static_other (wave 42A) -- 500.7: the turn in progress was added by an effect (engine.start_next_turn records it)
+        return plan.rules is not None and plan.rules.extra_turn
     if kind == "self":
         test = cond["test"]
         if test == "attacking":
@@ -1194,6 +1219,8 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
                 plan, {"static": "self", "test": "equipped"}, source=source, controller=controller)
         if test in ("tapped", "untapped"):
             return source.tapped == (test == "tapped")
+        if test == "a_token":  # (wave 42A) 111.1: a token is a permanent that was created, not a card
+            return source.is_token
         if test == "modified":  # -- conditional statics (wave 4B) -- 700.9
             from app.rules import static_conditions
 

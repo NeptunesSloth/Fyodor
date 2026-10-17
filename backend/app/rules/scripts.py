@@ -4022,7 +4022,7 @@ def granted_ability(text: str) -> AbilityText | None:
         from app.rules import statics
 
         line = ab.text.rstrip(".")  # -- protection grants (wave 5E) -- (a resolved grant's text ends with a period)
-        if re.fullmatch(statics.MEANING_GRANTS, line.lower()) or line.lower() == "riot":  # -- static grants (wave 15A) --
+        if re.fullmatch(statics.MEANING_GRANTS, line.lower()) or line.lower() in ("riot", "unleash"):  # -- static grants (wave 15A) -- (wave 42A: unleash, the same)
             return ab  # "Extort", "Afflict 2": their CR meaning; (wave 17C) riot: read as it enters (app/rules/riot.py)
         if ab.keywords == ("cumulative upkeep",):  # -- attached events (wave 20A) -- 702.24a: a triggered ability of whatever has it (triggers._cumulative_upkeep)
             from app.rules.coverage import _keyword_supported

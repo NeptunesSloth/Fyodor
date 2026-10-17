@@ -316,6 +316,8 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         if d.get("filter") and not permissions.spell_matches(state, player, card, ch, d["filter"], info):
             continue
+        if d.get("filters") and not any(permissions.spell_matches(state, player, card, ch, k, info) for k in d["filters"]):
+            continue  # (wave 42A: either kind of spell, "Artifact cards and red creature cards in your hand have warp", zone_grants)
         if d.get("mv") is not None:
             from app.rules import values
 

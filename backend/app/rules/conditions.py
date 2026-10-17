@@ -514,6 +514,9 @@ def _as_cond(t: str) -> Condition | None:
 _HAND_N = re.compile(r"you have (?:(?P<a>a)|exactly (?P<e>\w+)|fewer than (?P<f>\w+)|more than (?P<m>\w+)|at least (?P<l>\w+)) "
                      r"cards? in (?:your )?hand")
 _BATTLEFIELD_N = re.compile(r"there (?:are|is) (?:(?P<n>\w+) or more|fewer than (?P<f>\w+)|exactly (?P<e>\w+)) (?P<sel>.+?) on the battlefield")
+# -- static_other (wave 42A) -- "there's another creature on the battlefield" (Shauku, Endbringer), "an enchantment is on the battlefield" (Wirecat): one or more
+# of them, whoever controls them (the source itself is not "another")
+_BATTLEFIELD_ONE = re.compile(r"(?:there(?:'s| is) (?P<a>an?|another) (?P<s1>[\w' -]+?)|(?P<b>an?) (?P<s2>[\w' -]+?) is) on the battlefield")
 _GRAVEYARD_FEWER = re.compile(r"there are fewer than (?P<f>\w+) (?P<sel>.+? in your graveyard)")
 _SELF_FEWER = re.compile(r"(?:~|this [a-z]+) has fewer than (?P<f>\w+) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?:it|~|this [a-z]+)")
 # -- counter counts (wave 30L) -- "there are four or more lore counters among Sagas you control" (Tom Bombadil), "there are thirty or more
@@ -553,6 +556,12 @@ def _more_ifs(t: str) -> Condition | None:
         if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.controller is not None or n is None:
             return None
         return {"value": {"count": sel.key()}, "op": ">=" if m["n"] else "==" if m["e"] else "<=", "n": n - 1 if m["f"] else n}
+    m = _BATTLEFIELD_ONE.fullmatch(t)
+    if m:  # whoever controls them: the battlefield as a whole
+        sel = selectors.parse(("another " if m["a"] == "another" else "") + (m["s1"] or m["s2"]))
+        if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.controller is not None or sel.card:
+            return None
+        return {"value": {"count": sel.key()}, "op": ">=", "n": 1}
     m = _GRAVEYARD_FEWER.fullmatch(t)
     if m:
         sel, n = selectors.parse(m["sel"]), _num(m["f"])

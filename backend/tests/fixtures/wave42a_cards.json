@@ -1,0 +1,701 @@
+[
+ {
+  "name": "Don Andres, the Renegade",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Vampire Pirate",
+  "oracle_text": "Each creature you control but don't own gets +2/+2, has menace and deathtouch, and is a Pirate in addition to its other types.\nWhenever you cast a noncreature spell you don't own, create two tapped Treasure tokens.",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Treasure"
+  ],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Corsair Captain",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Pirate",
+  "oracle_text": "When this creature enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nOther Pirates you control get +1/+1.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Treasure"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Shauku, Endbringer",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Vampire",
+  "oracle_text": "Flying\nShauku can't attack if there's another creature on the battlefield.\nAt the beginning of your upkeep, you lose 3 life.\n{T}: Exile target creature and put a +1/+1 counter on Shauku.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Medomai the Ageless",
+  "layout": "normal",
+  "mana_cost": "{4}{W}{U}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Sphinx",
+  "oracle_text": "Flying\nWhenever Medomai deals combat damage to a player, take an extra turn after this one.\nMedomai can't attack during extra turns.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Time Warp",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{U}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target player takes an extra turn after this one.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Stature, Size Shifter",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Legendary Creature — Human Hero",
+  "oracle_text": "Stature can't be blocked if her power is 1 or less.\nPower-up — {X}{U}{U}: Put X +1/+1 counters on Stature. (Activate each power-up ability only once. Reduce the cost by her mana cost if she entered this turn.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Power-up"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Glorious Anthem",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Creatures you control get +1/+1.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Masako the Humorless",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Advisor",
+  "oracle_text": "Flash\nTapped creatures you control can block as though they were untapped.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flash"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "The Necrobloom",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{B}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Plant",
+  "oracle_text": "Landfall — Whenever a land you control enters, create a 0/1 green Plant creature token. If you control seven or more lands with different names, create a 2/2 black Zombie creature token instead.\nLand cards in your graveyard have dredge 2. (You may return a land card from your graveyard to your hand and mill two cards instead of drawing a card.)",
+  "colors": [
+   "B",
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Mill",
+   "Landfall"
+  ],
+  "power": "2",
+  "toughness": "7"
+ },
+ {
+  "name": "Divination",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Draw two cards.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Tannuk, Steadfast Second",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Kavu Pilot",
+  "oracle_text": "Other creatures you control have haste.\nArtifact cards and red creature cards in your hand have warp {2}{R}. (You may cast a card from your hand for its warp cost. Exile that permanent at the beginning of the next end step, then you may cast it from exile on a later turn.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "5"
+ },
+ {
+  "name": "Shivan Dragon",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Adamaro, First to Desire",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Spirit",
+  "oracle_text": "Adamaro's power and toughness are each equal to the number of cards in the hand of the opponent with the most cards in hand.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "*",
+  "toughness": "*"
+ },
+ {
+  "name": "Cayth, Famed Mechanist",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Dwarf Artificer",
+  "oracle_text": "Fabricate 1 (When this creature enters, put a +1/+1 counter on it or create a 1/1 colorless Servo artifact creature token.)\nOther nontoken creatures you control have fabricate 1.\n{2}, {T}: Choose one —\n• Populate.\n• Proliferate.",
+  "colors": [
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Proliferate",
+   "Fabricate",
+   "Populate"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Tesak, Judith's Hellhound",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Elemental Dog",
+  "oracle_text": "Unleash (You may have this creature enter with a +1/+1 counter on it. It can't block as long as it has a +1/+1 counter on it.)\nOther Dogs you control have unleash.\nCreatures you control with counters on them have haste.\nWhenever Tesak attacks, add {R} for each attacking creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Unleash"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Barbara Wright",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Advisor",
+  "oracle_text": "History Teacher — Sagas you control have read ahead. (As a Saga enters, choose a chapter and start with that many lore counters. Skipped chapters don't trigger.)\nDoctor's companion (You can have two commanders if the other is the Doctor.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "History Teacher",
+   "Doctor's companion"
+  ],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Fable of the Mirror-Breaker // Reflection of Kiki-Jiki",
+  "layout": "transform",
+  "mana_cost": "{2}{R} // ",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Saga // Enchantment Creature — Goblin Shaman",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — Create a 2/2 red Goblin Shaman creature token with \"Whenever this token attacks, create a Treasure token.\"\nII — You may discard up to two cards. If you do, draw that many cards.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.\n//\n{1}, {T}: Create a token that's a copy of another target nonlegendary creature you control, except it has haste. Sacrifice it at the beginning of the next end step.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Transform",
+   "Treasure"
+  ],
+  "card_faces": [
+   {
+    "name": "Fable of the Mirror-Breaker",
+    "mana_cost": "{2}{R}",
+    "type_line": "Enchantment — Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — Create a 2/2 red Goblin Shaman creature token with \"Whenever this token attacks, create a Treasure token.\"\nII — You may discard up to two cards. If you do, draw that many cards.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/0/b/0b696cd1-0d72-4df5-bacc-dc77e62f9a13.jpg?1783923787",
+     "normal": "https://cards.scryfall.io/normal/front/0/b/0b696cd1-0d72-4df5-bacc-dc77e62f9a13.jpg?1783923787",
+     "large": "https://cards.scryfall.io/large/front/0/b/0b696cd1-0d72-4df5-bacc-dc77e62f9a13.jpg?1783923787",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/0/b/0b696cd1-0d72-4df5-bacc-dc77e62f9a13.jpg?1783923787"
+    }
+   },
+   {
+    "name": "Reflection of Kiki-Jiki",
+    "mana_cost": "",
+    "type_line": "Enchantment Creature — Goblin Shaman",
+    "oracle_text": "{1}, {T}: Create a token that's a copy of another target nonlegendary creature you control, except it has haste. Sacrifice it at the beginning of the next end step.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/0/b/0b696cd1-0d72-4df5-bacc-dc77e62f9a13.jpg?1783923787",
+     "normal": "https://cards.scryfall.io/normal/back/0/b/0b696cd1-0d72-4df5-bacc-dc77e62f9a13.jpg?1783923787",
+     "large": "https://cards.scryfall.io/large/back/0/b/0b696cd1-0d72-4df5-bacc-dc77e62f9a13.jpg?1783923787",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/0/b/0b696cd1-0d72-4df5-bacc-dc77e62f9a13.jpg?1783923787"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Mongrel Pack",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Dog",
+  "oracle_text": "When this creature dies during combat, create four 1/1 green Dog creature tokens.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "1"
+ },
+ {
+  "name": "Walking Corpse",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Zombie",
+  "oracle_text": "",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Elvish Mystic",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature — Elf Druid",
+  "oracle_text": "{T}: Add {G}.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Technodrome",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact Creature — Construct",
+  "oracle_text": "Reach, trample\nThis creature can't attack or block unless its power is 6 or greater.\n{T}, Sacrifice another artifact: Draw a card. Put a +1/+1 counter on this creature.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Reach",
+   "Trample"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Wirecat",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact Creature — Cat",
+  "oracle_text": "This creature can't attack or block if an enchantment is on the battlefield.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Laughing Jasper Flint",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Lizard Rogue",
+  "oracle_text": "Creatures you control but don't own are Mercenaries in addition to their other types.\nAt the beginning of your upkeep, exile the top X cards of target opponent's library, where X is the number of outlaws you control. Until end of turn, you may cast spells from among those cards, and mana of any type can be spent to cast those spells.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Dosan the Falling Leaf",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Monk",
+  "oracle_text": "Players can cast spells only during their own turns.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "City of Solitude",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Players can cast spells and activate abilities only during their own turns.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Glacial Crasher",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nThis creature can't attack unless there is a Mountain on the battlefield.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Karsus Depthguard",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Lizard Warrior",
+  "oracle_text": "Defender\nAs long as this creature's power is 5 or greater, it can attack as though it didn't have defender.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Jasmine Boreal of the Seven",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Druid",
+  "oracle_text": "{T}: Add {G}{W}. Spend this mana only to cast creature spells with no abilities.\nCreatures you control with no abilities can't be blocked by creatures with abilities.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Karn, Argent Defender",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Legendary Artifact Creature — Golem",
+  "oracle_text": "Artifacts and creatures entering the battlefield don't cause abilities to trigger.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Doorkeeper Thrull",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Thrull",
+  "oracle_text": "Flash\nFlying\nArtifacts and creatures entering don't cause abilities to trigger.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Flash"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Brothers Yamazaki",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Samurai",
+  "oracle_text": "Bushido 1 (Whenever this creature blocks or becomes blocked, it gets +1/+1 until end of turn.)\nIf there are exactly two permanents named Brothers Yamazaki on the battlefield, the \"legend rule\" doesn't apply to them.\nEach other creature named Brothers Yamazaki gets +2/+2 and has haste.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Bushido"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Elvish Visionary",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Elf Shaman",
+  "oracle_text": "When this creature enters, draw a card.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Staff of the Storyteller",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "When this artifact enters, create a 1/1 white Spirit creature token with flying.\nWhenever you create one or more creature tokens, put a story counter on this artifact.\n{W}, {T}, Remove a story counter from this artifact: Draw a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Scoured Barrens",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {W} or {B}.",
+  "colors": [],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Sekki, Seasons' Guide",
+  "layout": "normal",
+  "mana_cost": "{5}{G}{G}{G}",
+  "cmc": 8.0,
+  "type_line": "Legendary Creature — Spirit",
+  "oracle_text": "Sekki enters with eight +1/+1 counters on it.\nIf damage would be dealt to Sekki, prevent that damage, remove that many +1/+1 counters from Sekki, and create that many 1/1 colorless Spirit creature tokens.\nSacrifice eight Spirits: Return this card from your graveyard to the battlefield.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "0"
+ },
+ {
+  "name": "Aeve, Progenitor Ooze",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{G}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Ooze",
+  "oracle_text": "Storm (When you cast this spell, copy it for each spell cast before it this turn. Copies become tokens.)\nAeve isn't legendary if it's a token.\nAeve enters with a +1/+1 counter on it for each other Ooze you control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Storm"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Mm'menon, the Right Hand",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{U}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Jellyfish Advisor",
+  "oracle_text": "Flying\nYou may look at the top card of your library any time.\nYou may cast artifact spells from the top of your library.\nArtifacts you control have \"{T}: Add {U}. Spend this mana only to cast a spell from anywhere other than your hand.\"",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "3",
+  "toughness": "4"
+ }
+]

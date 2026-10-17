@@ -769,6 +769,12 @@ def rider_body(body: str, it: str | None = None, *, to_player: bool = False) -> 
     ``to_player`` (-- damage bodies (wave 35C) --): "that player" is the player the damage would be dealt to (the replaced damage's)."""
     from app.rules import scripts
 
+    # -- static_other (wave 42A) -- 615.5: "prevent that damage, remove that many +1/+1 counters from Sekki, and create that many 1/1 colorless Spirit creature
+    # tokens" (Sekki, Seasons' Guide): several additional effects, each read on its own and done in that order, each by the damage prevented
+    pieces = re.split(r", and (?=create that many |remove that many |put that many )", body)
+    if len(pieces) > 1:
+        found_pieces = [rider_body(piece, it, to_player=to_player) for piece in pieces]
+        return None if any(f is None for f in found_pieces) else [e for f in found_pieces if f for e in f]
     text, target = body, None
     if it:
         text = re.sub(r"\b(?:it|him|her)\b", "this creature" if it == "self" else "that creature", text)

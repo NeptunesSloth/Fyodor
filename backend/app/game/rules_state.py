@@ -1045,6 +1045,7 @@ class RulesState(BaseModel):
     extra_turns: list[dict[str, Any]] = Field(default_factory=list)
     player_control: list[PlayerControl] = Field(default_factory=list)  # -- controlling another player (wave 18H) --
     turn_base: str | None = None
+    extra_turn: bool = False  # -- static_other (wave 42A) -- 500.7: the turn in progress is an extra turn ("can't attack during extra turns", Medomai; engine.start_next_turn)
     # … and "can't gain life this turn / for the rest of the game" (614.17; app/rules/cant_gain.py):
     # {"id", "player", "controller", "turn" (None: the rest of the game), "label"}
     cant_gain: list[dict[str, Any]] = Field(default_factory=list)

@@ -803,6 +803,9 @@ def parse_spend(sentence: str) -> str | None:
         return "q:" + json.dumps({"cast": None, "ability": "any"}, sort_keys=True)
     if s == "This mana can't be spent to cast spells from your hand":
         return "q:" + json.dumps({"cast": [{"not_zone": "hand"}], "ability": "any"}, sort_keys=True)
+    if s in ("Spend this mana only to cast a spell from anywhere other than your hand", "Spend this mana only to cast spells from anywhere other than your hand"):
+        # -- static_other (wave 42A) -- Mm'menon, the Right Hand: a spell cast from any zone but its caster's hand (601.2a), and no ability
+        return "q:" + json.dumps({"cast": [{"not_zone": "hand"}], "ability": None}, sort_keys=True)
     if m := _ORIGIN.fullmatch(s):
         alt: dict[str, object] = {"zone": "exile" if m["z"] == "exile" else "graveyard", "own": m["z"] == "your graveyard"}
         if m["kw"]:

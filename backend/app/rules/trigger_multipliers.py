@@ -50,7 +50,9 @@ STATIC = "trigger_multiplier"
 # battlefield — entering (or dying: 700.4); not a spell's, a delayed or a reflexive one, which no such event causes. The effects counted
 # are those existing immediately after the event (603.10), for dying immediately before it (603.10a: Hushbringer dying with the creatures).
 SUPPRESS = "trigger_suppress"
-_SUPPRESS_TEXT = re.compile(r"^Creatures entering(?P<die> or dying)? don't cause abilities to trigger\.$")
+# (wave 42A: "Artifacts and creatures entering the battlefield don't cause abilities to trigger." (Karn, Argent Defender; Doorkeeper Thrull): the objects it stops are
+# those of either kind, ``kinds``)
+_SUPPRESS_TEXT = re.compile(r"^(?P<what>Creatures|Artifacts and creatures) entering(?P<die> or dying)?(?: the battlefield)? don't cause abilities to trigger\.$")
 _TAIL = r", (?:that ability|it) triggers an additional time\.$"
 _CAUSE = re.compile(r"^If (?P<cause>.+?) causes a triggered ability of a permanent you control to trigger" + _TAIL)
 _SOURCE = re.compile(r"^If a triggered ability of (?P<src>.+?) triggers" + _TAIL)
@@ -80,7 +82,8 @@ def static_definition(text: str) -> dict[str, Any] | None:
     from app.rules import selectors
 
     if (s := _SUPPRESS_TEXT.match(text.strip())) is not None:
-        return {"kind": "static", "static": SUPPRESS, "causes": ["enter", "die"] if s["die"] else ["enter"], "effects": []}
+        return {"kind": "static", "static": SUPPRESS, "causes": ["enter", "die"] if s["die"] else ["enter"], "effects": [],
+                **({"kinds": ["Artifact", "Creature"]} if s["what"] != "Creatures" else {})}
     m = _CAUSE.match(text.strip())
     if m is not None:
         for rx, cause in _CAUSES:
@@ -247,13 +250,15 @@ def suppressed(plan: Plan, event: TriggerEvent | None) -> bool:
     if event is None or event.kind not in ("enter", "die", "leave") or not event.objects:
         return False
     cause = "enter" if event.kind == "enter" else "die"
-    for ref in event.objects:
-        got = _object(plan, ref)
-        if got is None or "Creature" not in got[1].types or (event.kind == "leave" and not _died(plan, ref)):
-            return False
     look_back = event.kind in LOOK_BACK
     batch = event.batch if event.batch > 0 else None
-    return any(cause in d["causes"] for pid in plan.state.players for _, d in _multipliers(plan, pid, batch, look_back, SUPPRESS))
+    found = [d for pid in plan.state.players for _, d in _multipliers(plan, pid, batch, look_back, SUPPRESS) if cause in d["causes"]]
+    for ref in event.objects:  # every object of the event is one the effects name (a creature; wave 42A: or an artifact, where the effect says so)
+        got = _object(plan, ref)
+        if got is None or (event.kind == "leave" and not _died(plan, ref)) \
+                or not any(set(d.get("kinds") or ("Creature",)) & got[1].types for d in found):
+            return False
+    return bool(found)
 
 
 def _extras(plan: Plan) -> dict[str, tuple[list[PendingTrigger], int]]:

@@ -6,7 +6,7 @@ A value is an int (a literal) or a dict:
 
 * ``{"x": 1}`` — the X the spell or ability was cast / activated with (107.3);
 * ``{"count": "<selector key>"}`` — the number of objects (or players) matching a selector;
-* ``{"hand": "you" | "target"}`` — the number of cards in a player's hand;
+* ``{"hand": "you" | "target" | "opponent_max"}`` — the number of cards in a player's hand (opponent_max, wave 42A: the largest hand among your opponents);
 * ``{"opponents": 1}`` — the number of opponents still in the game;
 * ``{"power": "self" | "target" | "it" | "event" | "ref:<b>"}`` / ``{"toughness": …}`` /
   ``{"mana_value": …}`` — of an object (as it is, or as it last existed: 608.2h);
@@ -285,6 +285,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"hand": "target"}
     if what in ("cards in all players' hands", "card in all players' hands"):  # -- X sized by a count (wave 19F) --
         return {"hand": "all"}
+    if what in ("cards in the hand of the opponent with the most cards in hand", "cards in the hand of the opponent with the most cards in their hand"):
+        return {"hand": "opponent_max"}  # -- static_other (wave 42A) -- Adamaro: the largest hand among your opponents (a count of cards, public: 402.3)
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
         return {"opponents": 1}
     if what in ("cards exiled with ~", "cards exiled with it", "card exiled with ~", "card exiled with it"):
@@ -722,6 +724,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return len(plan.state.zones.get(f"{who}:hand", [])) if who in plan.live() else 0
     if "hand" in v and v["hand"] == "all":  # (wave 19F) every player's hand, a public count
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live())
+    if "hand" in v and v["hand"] == "opponent_max":  # (wave 42A) the opponent with the most cards in hand: that many (0 with no opponent)
+        return max([len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live() if p != you] or [0])
     if "hand" in v:
         players = [you] if v["hand"] == "you" else _target_players(plan, ctx)
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in players)

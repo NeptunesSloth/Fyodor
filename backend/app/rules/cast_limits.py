@@ -249,6 +249,11 @@ def static_definition(text: str) -> Definition | None:
     m = STATIC_CAST.fullmatch(t)
     if m:
         return _cast_definition(m)
+    if t in ("players can cast spells only during their own turns", "each player can cast spells only during their own turn"):
+        # -- static_other (wave 42A) -- 601.3: "Players can cast spells only during their own turns." (Dosan the Falling Leaf): a spell is cast only while its
+        # caster is the active player (500.1), flash or not; the limit of every player is on the turns that are not theirs
+        return {"kind": "static", "static": "cast_limit", "who": "each", "when": "not_own_turn", "filter": None, "from": None, "act": None, "max": None,
+                "effects": []}
     m = STATIC_NOBODY.fullmatch(t)
     if m:  # -- prohibitions (wave 22B) --
         ok, key = _filter(m["sel"], m["tail"])
@@ -604,7 +609,9 @@ def _who_ok(who: str, player: str, controller: str, src: CardInstance | None = N
     return who == "each" or (who == "opponents" and player != controller) or (who == "you" and player == controller)
 
 
-def _when_ok(state: GameState, when: str | None, controller: str) -> bool:
+def _when_ok(state: GameState, when: str | None, controller: str, player: str | None = None) -> bool:
+    if when == "not_own_turn":  # (wave 42A) a turn that isn't the casting player's own
+        return player is not None and state.turn.active_player != player
     if when == "your_turn":
         return state.turn.active_player == controller
     if when == "combat":
@@ -685,7 +692,7 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
         if x.get("player") == player and _record_live(state, x) and _cast_hit(state, player, card, ch, info, x):
             return f"{x.get('label') or 'An effect'}: you can't cast {_spells_words(x.get('filter'), x.get('from'))} now"
     for src, d in _statics(state, info, "cast_limit"):
-        if _who_ok(d["who"], player, src.controller, src, state) and _when_ok(state, d.get("when"), src.controller) \
+        if _who_ok(d["who"], player, src.controller, src, state) and _when_ok(state, d.get("when"), src.controller, player) \
                 and _cast_hit(state, player, card, ch, info, d, resolving, src.id):
             more = " more than once this turn" if d.get("max") is not None else \
                 " except any time you could cast a sorcery" if d.get("sorcery") else ""
@@ -737,7 +744,7 @@ def activation_problem(state: GameState, player: str, card: CardInstance, ch: Ch
                 and _act_hit(state, player, card, ch, x["act"], x, x.get("controller") or player, info, mana=mana, loyalty=loyalty):
             return f"{x.get('label') or 'An effect'}: that ability can't be activated now"
     for src, d in _statics(state, info, "cast_limit"):
-        if d.get("act") and _who_ok(d["who"], player, src.controller, src, state) and _when_ok(state, d.get("when"), src.controller) \
+        if d.get("act") and _who_ok(d["who"], player, src.controller, src, state) and _when_ok(state, d.get("when"), src.controller, player) \
                 and _act_hit(state, player, card, ch, d["act"], d, src.controller, info, mana=mana, loyalty=loyalty, source=src.id):
             return f"{src.name or 'A permanent'}: that ability can't be activated now"
     return None
