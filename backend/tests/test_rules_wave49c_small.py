@@ -4,6 +4,8 @@ Every scenario checks the replay and a save and a load.
 * 613.1f, 613.7: "All creatures lose flying." (Gravity Sphere), "All creatures lose flying and islandwalk." (Mystic Decree) - a static loss in timestamp order.
 * 105.2, 509.1: "White creatures and blue creatures can't block." (Magistrate's Veto), "Green creatures and white creatures can't block this turn." (Flash of Defiance).
 * 115.2: "… can't be the target of spells" (Spectral Shield), "… of blue or black spells" (Karplusan Strider), "… unless it attacked or blocked this turn" (Lurker) - abilities still may.
+* 115.1, 608.2b: "Exile target creature with the greatest power among creatures on the battlefield." (Topple), "… target nonland permanent with the lowest mana value." (Culling Scales)
+  - a tie is no beating, and the target must still be the one when it resolves; "Destroy target creature if it has the least power or is tied for least power …" (Wretched Banquet) judges as it resolves.
 * 118.12: "At the beginning of your upkeep, sacrifice this creature unless you mill two cards." (Deep Spawn) - the payment is the controller's choice.
 * 602.2: "{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target." (Granite Shard and the other Shards) - the ability may be paid either way, not both (the rulings).
 * 702.129a: "Eternalize—{2}{W}{W}, Discard a card." (Sunscourge Champion, Sinuous Striker) - the keyword's cost has a second part, a discard from the hand (the card with
@@ -218,4 +220,54 @@ def test_deep_spawn_is_sacrificed_unless_you_mill_two_cards(cards, answer, mille
     assert (s.state.cards[spawn.id].zone == "p1:battlefield") is alive
     assert len(s.state.zones["p1:library"]) == library - milled - 1  # (and the draw for the turn)
     assert len(s.state.zones["p1:graveyard"]) == graveyard + milled + (0 if alive else 1)
+    check(s)
+
+
+def test_topple_targets_only_a_creature_with_the_greatest_power(cards):
+    s = build(cards, ["Topple", "Llanowar Elves"], ["Grizzly Bears", "Twisted Abomination"])
+    put(s, "Llanowar Elves")
+    bears = put(s, "Grizzly Bears", "p2")
+    big = put(s, "Twisted Abomination", "p2")
+    mana(s, W=1, C=2)
+    topple = to_hand(s, "Topple")
+    for small in (bears, card_named(s, "Llanowar Elves")):
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=topple.id, targets=[small.id])
+    act(s, "p1", type="cast_spell", card_id=topple.id, targets=[big.id])  # 5 power: nobody has more
+    settle(s)
+    assert s.state.cards[big.id].zone == "p2:exile"
+    check(s)
+
+
+def test_topple_may_target_any_of_the_creatures_tied_for_greatest_power(cards):
+    s = build(cards, ["Topple", "Grizzly Bears"], ["Grizzly Bears"])
+    mine = put(s, "Grizzly Bears")
+    theirs = put(s, "Grizzly Bears", "p2")
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Topple").id, targets=[mine.id])  # both 2: either may be chosen
+    settle(s)
+    assert s.state.cards[mine.id].zone == "p1:exile" and s.state.cards[theirs.id].zone == "p2:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize(("target", "dies"), [("Llanowar Elves", True), ("Grizzly Bears", False)])
+def test_wretched_banquet_destroys_only_the_creature_with_the_least_power(cards, target, dies):
+    s = build(cards, ["Wretched Banquet", "Llanowar Elves"], ["Grizzly Bears"])
+    put(s, "Llanowar Elves")
+    put(s, "Grizzly Bears", "p2")
+    mana(s, B=1)
+    victim = card_named(s, target, "p1" if target == "Llanowar Elves" else "p2")
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Wretched Banquet").id, targets=[victim.id])
+    settle(s)
+    assert (s.state.cards[victim.id].zone.endswith(":graveyard")) is dies
+    check(s)
+
+
+def test_culling_scales_destroys_the_nonland_permanent_with_the_lowest_mana_value(cards):
+    s = build(cards, ["Culling Scales", "Llanowar Elves"], ["Grizzly Bears"])
+    put(s, "Culling Scales")  # mana value 3
+    elves = put(s, "Llanowar Elves")  # 1
+    bears = put(s, "Grizzly Bears", "p2")  # 2
+    to_phase(s, "main1", turn=3)
+    assert s.state.cards[elves.id].zone == "p1:graveyard" and s.state.cards[bears.id].zone == "p2:battlefield"
     check(s)

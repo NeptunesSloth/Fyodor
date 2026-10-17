@@ -1027,6 +1027,23 @@ CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_c
                  "not_chosen_color": "color", "chosen_name": "card name", "chosen_card_type": "card type"}  # (wave 47A: card type, Umori)  # (-- card names (wave 22B) -- app/rules/card_names.py)
 
 
+# -- extremes (wave 49C) -- 115.1: "creature with the greatest power among creatures on the battlefield" (Topple), "nonland permanent with the lowest mana value" (Culling Scales): one
+# that no object of the scope beats (a tie is no beating: "target any one of them"), judged as it is chosen and again as it resolves (608.2b); the scope is the sentence's own
+# ("among creatures you control") or the selector itself
+@_suffix(r"with the (?P<which>greatest|lowest|least) (?P<what>power|toughness|mana value)(?: among (?P<scope>.+?))?")
+def _extreme(s: Selector, m: re.Match[str]) -> Selector | None:
+    scope = "self"
+    if m["scope"]:
+        scope_sel = _parse(re.sub(r"s( on the battlefield| you control| you don't control| an opponent controls)?$", r"\1", m["scope"]).replace(" on the battlefield", ""))
+        if scope_sel is None or scope_sel.player is not None or scope_sel.card or scope_sel.zones != ("battlefield",):
+            return None
+        scope = scope_sel.key()
+    return replace(s, extras=(*s.extras, f"ext:{'greatest' if m['which'] == 'greatest' else 'least'}:{ {'mana value': 'mv'}.get(m['what'], m['what']) }:{scope}"))
+
+
+_SUFFIXES.insert(0, _SUFFIXES.pop())  # (before the controller suffix, whose "you control" would be taken for the whole phrase's: "… among creatures you control")
+
+
 @_suffix(r"(?:with|that has) (?:the chosen|that) name")  # -- card names (wave 22B) -- 709.4a: one of its names is the chosen name
 def _of_chosen_name(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "chosen_name"))
@@ -1903,6 +1920,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         # (700.6; set only by the look-and-distribute grammar: "a historic card from among them")
         if extra == "historic" and not ("Artifact" in ch.types or "Legendary" in ch.supertypes or "Saga" in ch.subtypes):
             return False
+        if extra.startswith("ext:"):  # -- extremes (wave 49C) -- no object of the scope has more (or less) of it
+            _, which, what, scope = extra.split(":", 3)
+            scope_sel = replace(sel, extras=tuple(x for x in sel.extras if not x.startswith("ext:"))) if scope == "self" else from_key(scope)
+            mine = _stat(ch, what)
+            others = [v for c in candidates(plan, scope_sel, you, source) if (v := _stat(plan.ch(plan.state.cards[c]), what)) is not None]
+            if mine is None or (which == "greatest" and any(v > mine for v in others)) or (which == "least" and any(v < mine for v in others)):
+                return False
         if extra.startswith("pot:"):  # (wave 15A) power or toughness (either) at most / at least n
             op, n = ("<=", int(extra[6:])) if extra[4:6] == "<=" else (">=", int(extra[6:]))
             vals = [v for v in (_stat(ch, "power"), _stat(ch, "toughness")) if v is not None]

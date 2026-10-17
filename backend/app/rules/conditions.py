@@ -1234,6 +1234,8 @@ def _object(t: str) -> Condition | None:
     it last existed); physical state (tapped, attacking) only of the source itself."""
     t = re.sub(r"^(it|~|that (?:creature|permanent)) has (power|toughness|mana value) (?=\w+ or (?:less|greater|more|fewer)|exactly \w+)",  # (wave 26D; 36A: ~, "exactly")
                lambda m: f"{'its' if m[1] == 'it' else m[1] + chr(39) + 's'} {m[2]} is ", t)  # "it has power 4 or greater" = "its power is 4 or greater"
+    t = re.sub(r"^it has the (least|greatest) (power|toughness) or is tied for (?:the )?(?:least|greatest) (?:power|toughness) among creatures on the battlefield$",
+               r"it's a creature with the \1 \2 among creatures on the battlefield", t)  # -- extremes (wave 49C) -- Wretched Banquet: no creature has less, 608.2c (selectors "ext:")
     t = re.sub(r"^(?:it|that card) has the chosen name$", "it's a card with the chosen name", t)  # -- card names (wave 49C) -- Cursed Scroll: 201.4, the name answered earlier in the same resolution
     t = re.sub(r"^the creature had (?=(?:power|toughness|mana value) \w+ or )", "that creature had ", t)  # -- named permanents (wave 35C) -- Anax: the creature that died
     t = re.sub(r"^it had (power|toughness|mana value) (?=\w+ or )", r"its \1 was ", t)  # -- most-played cards (wave 49A) -- "If it had mana value 3 or less" (Consuming Ashes): as it last existed (608.2h)
