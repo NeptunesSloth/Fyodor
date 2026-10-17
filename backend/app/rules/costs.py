@@ -112,6 +112,7 @@ class CostComponent:
     every: bool = False  # -- activated sweep (wave 26C) -- "Remove all oil counters from ~": X is every such counter there is, set as it's activated
     among: bool = False  # -- activated sweep (wave 26C) -- "Remove two +1/+1 counters from among creatures you control": any permanents, one pick per counter
     reduces: int = 0  # -- cost reductions paid with objects (wave 47C) -- "you may sacrifice any number of creatures. This spell costs {2} less for each": any number, none too; each takes this much generic off the total cost
+    anyn: bool = False  # (wave 48B: any number, none too, with or without a reduction: "sacrifice any number of creatures", "for each creature sacrificed this way")
 
     @property
     def chosen(self) -> bool:
@@ -669,16 +670,16 @@ _ANY_COUNTERS = re.compile(r"^remove any number of (?P<kind>[+\-]\d+/[+\-]\d+) c
 def any_number_part(text: str, per: int) -> CostComponent | None:
     if (c := _ANY_COUNTERS.match(text.strip())) is not None and per > 0:  # (122.1: the counters come off any of the creatures, one pick for each, as for "from among")
         key = _selector(c["what"], zone="battlefield")
-        return CostComponent(REMOVE_COUNTER, amount=0, counter=c["kind"], selector=key, among=True, up_to=True, reduces=per, text=text[:1].upper() + text[1:]) if key else None
+        return CostComponent(REMOVE_COUNTER, amount=0, counter=c["kind"], selector=key, among=True, up_to=True, reduces=per, anyn=True, text=text[:1].upper() + text[1:]) if key else None
     m = _ANY_NUMBER.match(text.strip())
-    if m is None or per <= 0:
+    if m is None or per < 0:
         return None
     verb, zone = m["verb"].lower(), (m["zone"] or "battlefield").lower()
     if (verb == "exile") == (zone == "battlefield"):
         return None  # (sacrifice and tap are of permanents; exile is of the hand or the graveyard)
     key = _selector(m["what"].replace(" and/or ", " or ") + (" from your graveyard" if zone == "graveyard" else ""), zone=zone)
     kind = {"sacrifice": SACRIFICE, "tap": TAP_OTHER}.get(verb) or (EXILE_FROM_GRAVEYARD if zone == "graveyard" else "EXILE_FROM_HAND")
-    return CostComponent(kind, amount=0, selector=key, up_to=True, reduces=per, text=text[:1].upper() + text[1:]) if key else None
+    return CostComponent(kind, amount=0, selector=key, up_to=True, reduces=per, anyn=True, text=text[:1].upper() + text[1:]) if key else None
 
 
 def additional_cost_text(line: str) -> str | None:
@@ -728,6 +729,11 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
     if text == "pay X life":  # -- X sized by a count (wave 4K) -- Toxic Deluge: X announced as it's cast (601.2b,
         return AbilityCost(life_x=True)  # 107.3a), paid with the rest (601.2h), at most your life (119.4, 118.3)
     text = re.sub(r"\b(\w+), (\w+), and/or (\w+)\b", r"\1 or \2 or \3", text)  # (wave 17C: "tap two untapped artifacts, creatures, and/or lands")
+    # -- any number as an additional cost (wave 48B) -- 601.2b: "sacrifice any number of creatures" / "you may sacrifice any number of Spirits" (Devouring Greed) /
+    # "tap any number of untapped creatures you control" (Burn at the Stake): zero is allowed, so the "you may" changes nothing; what the effect reads is how many were paid
+    if (any_n := re.fullmatch(r"(?:you may )?((?:sacrifice|tap) any number of [^,]+)", text, re.IGNORECASE)) is not None:
+        anyp = any_number_part(any_n[1], 0)
+        return AbilityCost(components=(anyp,)) if anyp is not None else None
     if text.lower().startswith("you may") or "," in text:
         return None
     has_x = re.search(r"\bx\b", text, re.IGNORECASE) is not None  # -- X sized by a count (wave 25D) -- one part sized by the announced X (below)

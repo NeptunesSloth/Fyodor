@@ -608,6 +608,10 @@ def _with_rider(text: str) -> tuple[str, Any]:
     m = re.search(r",? where [xX] is (.+)$", text)  # (Oracle writes X; the lowercase form is the older tests')
     if m:
         return text[: m.start()], ("x", _rider_value(m[1]))
+    # -- any number as an additional cost (wave 48B) -- "loses 2 life plus 2 life for each Spirit sacrificed this way" (Devouring Greed): the first amount, and the second counted
+    m = re.fullmatch(r"(.+? \d+ life) plus (?:an additional )?(\d+) life for each (.+)", text)
+    if m:
+        return m[1], ("plus", (int(m[2]), _rider_value(m[3])))
     m = re.search(r" for each (.+)$", text)
     if m:
         return text[: m.start()], ("each", _rider_value(m[1]))
@@ -671,6 +675,8 @@ def _apply(n: Any, rider: Any) -> Any:
         if n != {"x": 1}:
             raise _Fail  # "where X is" with no X in the sentence
         return v
+    if kind == "plus":  # (wave 48B: n, and k more for each v)
+        return {"plus": [n, v[1] if v[0] == 1 else {"times": [v[0], v[1]]}]}
     return v if n == 1 else {"times": [n, v]}
 
 

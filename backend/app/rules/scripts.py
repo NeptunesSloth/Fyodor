@@ -1097,9 +1097,16 @@ def _for_each_this_way(text: str) -> str:
     when the instruction is the same whatever object is counted: "For each permanent destroyed this way, its
     controller creates …" (one instruction per object) stays as written (not read)."""
     m = _FOR_EACH_LEADING.match(text)
-    if m is None or (this_way.parse(m["what"]) is None and not _ATTACHED_WHAT.fullmatch(m["what"])) or _PER_OBJECT.search(m["rest"]):
+    counted = this_way.parse(m["what"]) if m else None
+    if m is None or (counted is None and not _ATTACHED_WHAT.fullmatch(m["what"])):
         return text
-    return f"{m['rest']} for each {m['what']}"
+    rest = m["rest"]
+    if counted is not None and counted["this_way"] in this_way.paid():  # -- any number as an additional cost (wave 48B) -- Devouring Rage: "that creature" is the spell's target, not one
+        rest = re.sub(r"^(that creature gets) an additional (?=[+-]\d)", r"\1 ", rest)  # of the objects its cost sacrificed (gone); "an additional" is just one more pump (611.2a)
+        per = _PER_OBJECT.search(rest.removeprefix("that creature"))
+    else:
+        per = _PER_OBJECT.search(rest)
+    return text if per else f"{rest} for each {m['what']}"
 
 
 # "Counter target spell. If that spell is countered this way, exile it / put it on top of its owner's library
@@ -1181,7 +1188,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
             out[k] = v
             continue
         if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount", "ref_count",
-                 "bind_dealt", "bind_excess", "bind_hit", "paid_x", "perm_as") and isinstance(v, str):  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
+                 "bind_dealt", "bind_excess", "bind_hit", "paid_x", "perm_as") and isinstance(v, str) and v != this_way.COST:  # (wave 48B: the spell's own cost is one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -4265,8 +4272,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if ability.kind == "static" and (words := _chosen.words_header(self_text(ability.text, ch.name), ch)) is not None:
         return words  # -- linked words (wave 33B) -- 607.2f: "As this enchantment enters, choose Khans or Dragons."
     view = _granter_view(ability) if "‹granter" in ability.text else None
-    with _exiled_with.reading(ability, self_text(ability.text, ch.name)):  # -- resolution memory (wave 22D) -- 607.2a: "the exiled card's owner …"
-        d = _enters_self_check(_define(view[0] if view else ability, ch), ch)
+    with _exiled_with.reading(ability, self_text(ability.text, ch.name)), this_way.paid_by(ch.abilities if ability.kind == "spell" else ()):  # -- resolution memory (wave 22D) -- 607.2a: "the exiled card's owner …"
+        d = _enters_self_check(_define(view[0] if view else ability, ch), ch)  # (-- any number as an additional cost (wave 48B) -- "creatures sacrificed this way" of a spell's own cost)
     if view and d is not None:
         d = _granter_bound(d, view[1])
     # -- exiled with (wave 6D) -- 607.2a linked abilities (app/rules/exiled_with.py)
@@ -4545,6 +4552,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # -- cost reductions paid with objects (wave 47C) -- "Choose target creature with mana value less than X. Search your library for a creature card with the same name as that
     # creature, put it onto the battlefield tapped, then shuffle." (March of Burgeoning Life): the target is the one the search names (115.1, 601.2c)
     text = re.sub(r"^Choose (target [^.]+?)\. (Search your library for a creature card with the same name as) that creature\b", r"\2 \1", text)
+    # -- any number as an additional cost (wave 48B) -- "Target player loses 2 life plus 2 life for each Spirit sacrificed this way. You gain that much life." (Devouring Greed): "that much"
+    # is the life that was lost (119.3, 608.2c)
+    text = re.sub(r"^(Target (?:player|opponent) loses \d+ life plus \d+ life for each [^.]+ this way\.) You gain that much life\.$", r"\1 You gain life equal to the life lost this way.", text)
     # -- trigger other (wave 36A) -- 702.29c: "When you cycle this card, it deals 1 damage to each opponent" (Magmakin Artillerist, Resounding Thunder), "you may
     # have it deal 1 damage to each creature" (Slice and Dice): "it" is the cycled card itself, the ability's source, whichever zone it went to
     text = re.sub(r"^(When you cycle (?:this card|~), (?:you may have )?)it (deals?)\b", r"\1~ \2", text)

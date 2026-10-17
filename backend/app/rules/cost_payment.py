@@ -318,9 +318,9 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, cost: 
             found = _choose_power(plan, a, i, comp, cost, card, what, given.get(i), used)
         elif comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- the materials: one choice of at least ``amount`` objects
             found = _choose_craft(plan, a, i, comp, cost, card, what, given.get(i), used)
-        elif comp.reduces:  # -- cost reductions paid with objects (wave 47C) -- any number, none too
+        elif comp.anyn:  # -- cost reductions paid with objects (wave 47C) -- any number, none too
             found = _choose_any(plan, a, i, comp, cost, card, what, given.get(i), used)
-        if comp.kind in (C.WATERBEND, "TAP_POWER", C.CRAFT) or comp.reduces:
+        if comp.kind in (C.WATERBEND, "TAP_POWER", C.CRAFT) or comp.anyn:
             if found is None:
                 return None
             out[i] = found
@@ -405,7 +405,7 @@ def _choose_any(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, i
     if not usable and comp.kind != "EXILE_FROM_HAND":
         return []
     decide(plan, player=plan.actor, kind="choose_cards",
-           prompt=f"{what}: choose any number to {_VERBS.get(comp.kind, 'use')} (“{comp.text}”), each taking {{{comp.reduces}}} off the cost, or none",
+           prompt=f"{what}: choose any number to {_VERBS.get(comp.kind, 'use')} (“{comp.text}”)" + (f", each taking {{{comp.reduces}}} off the cost" if comp.reduces else "") + ", or none",
            options=[DecisionOption(id=t, label=label, card_id=cid) for t, (cid, label) in shown.items()],
            min_choices=0, max_choices=len(usable),
            resume={"step": "ability_cost", "component": i, "amount": None, "empty_ok": True,
