@@ -438,5 +438,128 @@
   ],
   "power": "2",
   "toughness": "2"
+ },
+ {
+  "name": "Dennick, Pious Apprentice // Dennick, Pious Apparition",
+  "layout": "transform",
+  "mana_cost": "{W}{U} // ",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Soldier // Legendary Creature — Spirit Soldier",
+  "oracle_text": "Lifelink\nCards in graveyards can't be the targets of spells or abilities.\nDisturb {2}{W}{U} (You may cast this card from your graveyard transformed for its disturb cost.)\n//\nFlying\nWhenever one or more creature cards are put into graveyards from anywhere, investigate. This ability triggers only once each turn. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nIf Dennick would be put into a graveyard from anywhere, exile it instead.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Lifelink",
+   "Investigate",
+   "Transform",
+   "Disturb"
+  ],
+  "power": "2",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "name": "Dennick, Pious Apprentice",
+    "mana_cost": "{W}{U}",
+    "type_line": "Legendary Creature — Human Soldier",
+    "oracle_text": "Lifelink\nCards in graveyards can't be the targets of spells or abilities.\nDisturb {2}{W}{U} (You may cast this card from your graveyard transformed for its disturb cost.)",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+     "U",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353",
+     "normal": "https://cards.scryfall.io/normal/front/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353",
+     "large": "https://cards.scryfall.io/large/front/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353"
+    }
+   },
+   {
+    "name": "Dennick, Pious Apparition",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Spirit Soldier",
+    "oracle_text": "Flying\nWhenever one or more creature cards are put into graveyards from anywhere, investigate. This ability triggers only once each turn. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nIf Dennick would be put into a graveyard from anywhere, exile it instead.",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+     "U",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353",
+     "normal": "https://cards.scryfall.io/normal/back/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353",
+     "large": "https://cards.scryfall.io/large/back/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Tomik, Distinguished Advokist",
+  "layout": "normal",
+  "mana_cost": "{W}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Advisor",
+  "oracle_text": "Flying\nLands on the battlefield and land cards in graveyards can't be the targets of spells or abilities your opponents control.\nYour opponents can't play land cards from graveyards.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Raise Dead",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return target creature card from your graveyard to your hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Stone Rain",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Destroy target land.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Crucible of Worlds",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "You may play lands from your graveyard.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]

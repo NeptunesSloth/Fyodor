@@ -596,3 +596,101 @@ def test_haakon_lets_you_cast_knights_from_the_graveyard_while_he_is_in_play(car
         with pytest.raises(ActionError):
             act(s, "p1", type="cast_spell", card_id=knight.id)
     check(s)
+
+
+# -- Dennick, Pious Apprentice and Tomik, Distinguished Advokist -------------------------------------------------------------------------------------
+DENNICK = "Dennick, Pious Apprentice // Dennick, Pious Apparition"
+
+
+@pytest.mark.parametrize("dennick, legal", [(True, False), (False, True)])
+def test_dennick_makes_cards_in_graveyards_untargetable(cards, dennick, legal):
+    """115.2: "Cards in graveyards can't be the targets of spells or abilities" - anyone's, yours too: no Raise Dead on your own Bears."""
+    s = build(cards, [DENNICK, "Raise Dead", "Grizzly Bears"], [])
+    if dennick:
+        put(s, DENNICK)
+    bears = to_graveyard(s, "Grizzly Bears")
+    mana(s, "p1", B=1)
+    spell = to_hand(s, "Raise Dead")
+    if legal:
+        act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id])
+        settle(s)
+        assert s.state.cards[bears.id].zone == "p1:hand"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id])
+    check(s)
+
+
+def test_dennick_investigates_once_a_turn_for_creature_cards_put_into_any_graveyard(cards):
+    """The back face (Pious Apparition, what a disturb cast puts onto the battlefield): "Whenever one or more creature cards are put into graveyards from anywhere,
+    investigate. This ability triggers only once each turn."  A land card doesn't (Stone Rain on Alice's Forest); Bob's Bears dying does; a second one the same turn doesn't."""
+    s = build(cards, [DENNICK, "Stone Rain", "Lightning Bolt", "Lightning Bolt"], ["Grizzly Bears", "Grizzly Bears"])
+    dennick = card_named(s, DENNICK)
+    act(s, "p1", type="move", card_ids=[dennick.id], to={"player": "p1", "zone": "battlefield"}, back_ids=[dennick.id])  # (as a disturb cast would leave it, 702.146b)
+    assert s.state.cards[dennick.id].zone == "p1:battlefield" and s.state.cards[dennick.id].face == 1
+    forest, first, second = put(s, "Forest"), put(s, "Grizzly Bears", "p2"), next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p2:library")
+    act(s, "p2", type="move", card_ids=[second.id], to={"player": "p2", "zone": "battlefield"})
+    clues = lambda: len([c for c in s.state.cards.values() if c.name == "Clue" and c.zone.endswith(":battlefield")])  # noqa: E731
+
+    def cast(name, target, **m):
+        mana(s, "p1", **m)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, name).id, targets=[target.id])
+        settle(s)
+
+    cast("Stone Rain", forest, R=3)
+    assert s.state.cards[forest.id].zone == "p1:graveyard" and clues() == 0
+    cast("Lightning Bolt", first, R=1)
+    assert s.state.cards[first.id].zone == "p2:graveyard" and clues() == 1
+    cast("Lightning Bolt", second, R=1)
+    assert s.state.cards[second.id].zone == "p2:graveyard" and clues() == 1
+    check(s)
+
+
+@pytest.mark.parametrize("tomik, legal", [(True, False), (False, True)])
+def test_tomik_stops_your_opponents_targeting_lands(cards, tomik, legal):
+    """Bob's Stone Rain can't target a land while Tomik is in play, any land (even his own); Alice's can."""
+    s = build(cards, ["Tomik, Distinguished Advokist", "Stone Rain"], ["Stone Rain"])
+    if tomik:
+        put(s, "Tomik, Distinguished Advokist")
+    forest = put(s, "Forest")
+    to_main1(s, 2)
+    mana(s, "p2", R=3)
+    rain = to_hand(s, "Stone Rain", "p2")
+    if legal:
+        act(s, "p2", type="cast_spell", card_id=rain.id, targets=[forest.id])
+        settle(s)
+        assert s.state.cards[forest.id].zone == "p1:graveyard"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p2", type="cast_spell", card_id=rain.id, targets=[forest.id])
+    check(s)
+
+
+def test_tomik_doesnt_stop_his_controller_targeting_lands(cards):
+    s = build(cards, ["Tomik, Distinguished Advokist", "Stone Rain"], [])
+    put(s, "Tomik, Distinguished Advokist")
+    forest = put(s, "Forest")
+    mana(s, "p1", R=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Stone Rain").id, targets=[forest.id])
+    settle(s)
+    assert s.state.cards[forest.id].zone == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize("who, tomik, legal", [("p2", True, False), ("p2", False, True), ("p1", True, True)])
+def test_tomik_stops_your_opponents_playing_lands_from_graveyards(cards, who, tomik, legal):
+    """"Your opponents can't play land cards from graveyards": Bob's Crucible of Worlds is stopped, Alice's own isn't."""
+    s = build(cards, ["Tomik, Distinguished Advokist", "Crucible of Worlds"], ["Crucible of Worlds"])
+    if tomik:
+        put(s, "Tomik, Distinguished Advokist")
+    put(s, "Crucible of Worlds", who)
+    if who == "p2":
+        to_main1(s, 2)
+    land = to_graveyard(s, "Forest", who) if who == "p1" else to_graveyard(s, "Island", "p2")
+    if legal:
+        act(s, who, type="play_land", card_id=land.id)
+        assert s.state.cards[land.id].zone == f"{who}:battlefield"
+    else:
+        with pytest.raises(ActionError):
+            act(s, who, type="play_land", card_id=land.id)
+    check(s)

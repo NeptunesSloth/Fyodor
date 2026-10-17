@@ -79,6 +79,10 @@ SPELL_SELECTORS: dict[str, Callable[[Characteristics], bool]] = {
 def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics,
                source: Characteristics | None = None) -> bool:
     """Hexproof: not by opponents; shroud: by nobody; protection: not by a source with that quality."""
+    from app.rules import prohibitions
+
+    if prohibitions.untargetable(plan, chooser, card):  # -- cant restrictions (wave 50G) -- 115.2: "Lands on the battlefield … can't be the targets of spells or abilities your opponents control"
+        return False
     if "shroud" in ch.keywords:
         return False
     if "hexproof" in ch.keywords and card.controller != chooser:
@@ -134,7 +138,10 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         for cid in plan.state.zones.get(f"{chooser}:graveyard", []):
             g = chars.of(plan.state.cards[cid], plan.info)
             if (sub == "*" or sub in g.subtypes or sub in g.types) and g.mana_value <= int(mv):
-                found.append(cid)
+                from app.rules import prohibitions
+
+                if not prohibitions.untargetable(plan, chooser, plan.state.cards[cid]):  # (wave 50G)
+                    found.append(cid)
         return found
     if selector in SPELL_SELECTORS:  # spells on the stack (115.1)
         check_spell = SPELL_SELECTORS[selector]
@@ -176,11 +183,15 @@ def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source:
 
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, chooser)
                 and player_shields.can_target(plan, chooser, p, source)]
+    from app.rules import prohibitions
+
     out = []
     for cid in selectors.candidates(plan, sel, chooser, source_card, attacker):
         card = plan.state.cards[cid]
         on_field = card.zone.endswith(":battlefield") or card.zone == "stack"
         if on_field and not can_target(plan, chooser, card, plan.ch(card), source):  # hexproof / shroud / protection
+            continue
+        if not on_field and prohibitions.untargetable(plan, chooser, card):  # -- cant restrictions (wave 50G) -- "Cards in graveyards can't be the targets of spells or abilities"
             continue
         out.append(cid)
     return out

@@ -620,8 +620,8 @@ def _parse(c: str) -> Condition | None:
         return {"event": "to_graveyard", "subject": "self"}  # (it triggers from the graveyard, on the card's new object)
     if c in ("~ is put into your graveyard from your library", "this card is put into your graveyard from your library"):
         return {"event": "to_graveyard", "subject": "self", "from": "library"}  # -- triggers (wave 19B) -- (Narcomoeba)
-    m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?P<g>your|an opponent's|a) "
-                     r"graveyard from (?P<f>anywhere other than the battlefield|anywhere|your library|a library)", c)  # (wave 43B: Syr Konrad)
+    m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?:(?P<g>your|an opponent's|a) "
+                     r"graveyard|graveyards) from (?P<f>anywhere other than the battlefield|anywhere|your library|a library)", c)  # (wave 43B: Syr Konrad; wave 50G: "graveyards", Dennick)
     if m:
         gsel = selectors.from_key(_object_sel(m["o"], card=True))
         owner = {"your": "you", "an opponent's": "opponent"}.get(m["g"])

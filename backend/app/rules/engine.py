@@ -1108,6 +1108,9 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
 
     if info is not None and (barred := next((src for src, _ in cast_limits._statics(state, info, "cant_play_lands") if src.controller == player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play lands"  # -- most-played cards III (wave 46C) -- 305.1
+    if info is not None and card.zone.endswith(":graveyard") and (barred := next(
+            (src for src, _ in cast_limits._statics(state, info, "cant_play_gy_lands") if src.controller != player), None)) is not None:
+        return f"{barred.name or 'A permanent'}: you can't play land cards from graveyards"  # -- cant restrictions (wave 50G) -- Tomik, Distinguished Advokist
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
     from app.rules import land_plays  # -- additional land plays (wave 4J) -- 305.2a
