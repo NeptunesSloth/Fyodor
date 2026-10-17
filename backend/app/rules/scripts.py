@@ -340,6 +340,9 @@ def self_text(text: str, name: str) -> str:
     # target opponent each draw"; "destroy target permanent an opponent controls. They create a Treasure token." (Vraska): "they" is the player who controlled it
     out = re.sub(r"\byou and another target player each draw a card\b", "you and target opponent each draw a card", out)
     out = re.sub(r"(destroy target permanent an opponent controls\.) They create a Treasure token\.", r"\1 Its controller creates a Treasure token.", out)
+    # -- most-played cards III (wave 46C) -- "Target creature's owner shuffles it into their library." (Ominous Cemetery) is "The owner of target creature shuffles it …"
+    out = re.sub(r"\b([Tt])arget ((?:[a-z]+ )*?(?:creature|permanent|artifact|enchantment|land|planeswalker))'s owner (shuffles|puts) ",
+                 lambda m: f"{'T' if m[1] == 'T' else 't'}he owner of target {m[2]} {m[3]} ", out)
     # -- most-played cards III (wave 46C) -- "You and target opponent each create a Food token." (Oath of the Grey Host, Thran Spider): each creates their own token
     # (608.2c: the instruction is carried out for each in turn), "target opponent creates a 2/4 white Ox creature token and you draw a card" (Ox Drover): two instructions
     out = re.sub(r"\b([Yy])ou and target opponent each create (an? [^.,]+? token)\b", lambda m: f"{m[1]}ou create {m[2]} and target opponent creates {m[2]}", out)

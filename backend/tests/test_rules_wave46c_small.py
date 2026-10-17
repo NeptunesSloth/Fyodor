@@ -291,6 +291,20 @@ def test_fire_nation_attacks_makes_soldiers_that_add_red_mana_when_they_attack(c
     check(s)
 
 
+def test_ominous_cemetery_shuffles_the_creature_into_its_owners_library(cards):
+    # 701.24a: "Target creature's owner shuffles it into their library." - the owner's library, not the activator's
+    s = build(cards, ["Ominous Cemetery"], ["Hill Giant"])
+    cemetery, giant = put(s, "Ominous Cemetery"), put(s, "Hill Giant", "p2")
+    mana(s, C=5)
+    activate(s, "p1", cemetery, "Exile", targets=[giant.id])
+    for _ in range(6):
+        if not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert zone_of(s, "Hill Giant", "p2") == "p2:library" and zone_of(s, "Ominous Cemetery") == "p1:exile"
+    check(s)
+
+
 def logged(s, since):
     return [" ".join(p.t or "" for p in e.parts) for e in s.state.log[since:]]
 
