@@ -1290,7 +1290,7 @@ def record_payment(plan: Plan, card_id: str, record: PaymentRecord) -> None:
     r.payments[plan.oid(card_id)] = record
 
 
-def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCost, what: str, *,
+def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect, cost: M.ManaCost, what: str, *,  # (-- licids (wave 50A) -- EndEffect)
                  exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> bool:
     """Before a spell or ability is put on the stack: does the player want to see or choose the
     payment first? Returns True if a decision was opened (the intent then waits for it; nothing
