@@ -127,7 +127,10 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         trigger_multipliers,  # -- static_other sweep (wave 16B) -- "Creatures entering don't cause abilities to trigger"
     )
 
-    if trigger_multipliers.suppressed(plan, event if event is not None else cause, controller):
+    src = plan.state.cards.get(source_card)  # (review 37: Elesh Norn stops only the abilities of permanents)
+    permanent = index not in (trigger_multipliers.DELAYED, trigger_multipliers.REFLEXIVE, trigger_multipliers.MADNESS) and src is not None \
+        and src.zone.endswith(":battlefield") and plan.oid(src) == source_object
+    if trigger_multipliers.suppressed(plan, event if event is not None else cause, controller, permanent):
         return None
     if definition.get("if_kicked"):  # 603.4: "When ~ enters, if it was kicked, …" (702.33e)
         record = plan.rules.payments.get(source_object)

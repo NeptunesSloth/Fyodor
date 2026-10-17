@@ -373,8 +373,10 @@ def count(plan: Plan, t: PendingTrigger, index: int, cause: TriggerEvent | None)
     return sum(_applies(plan, d, mult, t, source, cause, batch, look_back) for mult, d in _multipliers(plan, None, batch, look_back))
 
 
-def suppressed(plan: Plan, event: TriggerEvent | None, controller: str | None = None) -> bool:
-    """Is the trigger this event would cause (an ability ``controller`` controls) stopped by a "Creatures entering [or dying] don't cause abilities to trigger" effect?"""
+def suppressed(plan: Plan, event: TriggerEvent | None, controller: str | None = None, permanent: bool = True) -> bool:
+    """Is the trigger this event would cause (an ability ``controller`` controls) stopped by a "Creatures entering [or dying] don't cause abilities to trigger" effect?
+    (-- review 37 -- ``permanent``: the ability is a permanent's; "abilities of permanents your opponents control" (Elesh Norn) doesn't stop a card's in a graveyard,
+    Bloodghast's landfall, nor a delayed triggered ability, 603.2d, 110.1)"""
     if event is None or event.kind not in ("enter", "die", "leave") or not event.objects:
         return False
     cause = "enter" if event.kind == "enter" else "die"
@@ -382,7 +384,7 @@ def suppressed(plan: Plan, event: TriggerEvent | None, controller: str | None = 
     batch = event.batch if event.batch > 0 else None
     # (wave 43A: "… abilities of permanents your opponents control": only those, whoever controls the object that entered, 603.2d)
     found = [d for pid in plan.state.players for _, d in _multipliers(plan, pid, batch, look_back, SUPPRESS)
-             if cause in d["causes"] and (not d.get("opponents") or (controller is not None and controller != pid))]
+             if cause in d["causes"] and (not d.get("opponents") or (controller is not None and controller != pid and permanent))]
     for ref in event.objects:  # every object of the event is one the effects name (a creature; wave 42A: or an artifact, where the effect says so; wave 43A: or any permanent)
         got = _object(plan, ref)
         if got is None or (event.kind == "leave" and not _died(plan, ref)) \
