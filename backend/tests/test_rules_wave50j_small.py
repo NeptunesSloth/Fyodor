@@ -69,7 +69,7 @@ def combat(s):
 
 @pytest.mark.parametrize("name", ["Odric, Lunarch Marshal", "Akroma, Vision of Ixidor", "Odric, Blood-Cursed", "Bleeding Effect", "Majestic Myriarch",
                                   "Kaima, the Fractured Calm", "Havoc Eater", "Pia Nalaar, Chief Mechanic", "Rampaging Aetherhood", "Sensei Golden-Tail", "Kathril, Aspect Warper",
-                                  "Concerted Effort", "Thunderous Orator", "Wonder Man, Hollywood Hero"])
+                                  "Concerted Effort", "Thunderous Orator", "Wonder Man, Hollywood Hero", "Kang the Conqueror"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -241,6 +241,29 @@ def test_wonder_man_lets_a_power_up_ability_be_activated_twice(cards):
     mana(s, G=4)
     with pytest.raises(ActionError, match="only twice"):
         activate(s, "p1", snake)
+    check(s)
+
+
+def test_kang_takes_an_extra_turn_in_which_no_power_up_ability_can_be_activated(cards):
+    s = build(cards, mine=["Kang the Conqueror", "Serpent Specialist"])
+    kang = put(s, "Kang the Conqueror")
+    snake = put(s, "Serpent Specialist")
+    next_turn(s)
+    mana(s, U=8)
+    activate(s, "p1", kang)
+    settle(s)
+    assert counters(s, "Kang the Conqueror") == {"+1/+1": 1}
+    turn = s.state.turn.number
+    to_phase(s, "main1", turn=turn + 1)  # the extra turn: Alice again
+    assert s.state.turn.active_player == "p1"
+    mana(s, G=4)
+    with pytest.raises(ActionError, match="can't be activated this turn"):
+        activate(s, "p1", snake)
+    to_phase(s, "main1", turn=turn + 3)  # (Bob's turn came between; this is Alice's next one)
+    mana(s, G=4)
+    activate(s, "p1", snake)
+    settle(s)
+    assert counters(s, "Serpent Specialist") == {"+1/+1": 2}
     check(s)
 
 

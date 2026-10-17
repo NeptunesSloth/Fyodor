@@ -436,5 +436,25 @@
   ],
   "power": "1",
   "toughness": "1"
+ },
+ {
+  "name": "Kang the Conqueror",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Villain",
+  "oracle_text": "Flying\nPower-up — {5}{U}{U}{U}: Put a +1/+1 counter on Kang. Take an extra turn after this one. During that turn, power-up abilities can't be activated. (Activate each power-up ability only once. Reduce the cost by his mana cost if he entered this turn.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Power-up"
+  ],
+  "power": "4",
+  "toughness": "5"
  }
 ]

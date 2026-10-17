@@ -277,6 +277,8 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
         elif kind == "per_game":
             if x.get("exhaust") and _exhaust_again(state, player):
                 continue  # (wave 4F) 702.177b: an effect lets exhaust abilities be activated again: the player decides
+            if x.get("power_up") and state.turn.number in r.no_power_up_turns:  # -- power-up (wave 50J) -- Kang the Conqueror's extra turn
+                return "Power-up abilities can't be activated this turn"
             # -- power-up (wave 50J) -- "Each power-up ability of permanents you control can be activated an additional time." (Wonder Man; name-keyed like Birgi's, ponytail: it
             # stays while he has lost his abilities)
             n = x["n"] + (1 if x.get("power_up") and any((c := state.cards.get(cid)) is not None and _face_name(c) == "Wonder Man, Hollywood Hero"
