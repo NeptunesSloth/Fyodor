@@ -134,6 +134,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("enchant",)  # (the commas list what it may enchant)
     if re.fullmatch(r"ward—[^;]+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 17C) -- "Ward—{2}, Pay 2 life." (one cost of two parts)
         return ("ward",)
+    if re.fullmatch(r"protection from [^,;]+(?:, (?:and )?from [^,;]+)+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.16a: "Protection from blue, from black, and from red" is one keyword (app/rules/protection.py)
+        return ("protection",)
     if re.fullmatch(r"kicker—(?:\{[^}]+\})+, [^;{}]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.33a: "Kicker—{2}{R}, Sacrifice a land." is one keyword (its cost has two parts)
         return ("kicker",)
     if re.fullmatch(r"eternalize—\{[^;]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 49C) -- 702.129a: "Eternalize—{2}{W}{W}, Discard a card." is one keyword (its cost has two parts)

@@ -583,5 +583,26 @@
   ],
   "power": "*",
   "toughness": "*"
+ },
+ {
+  "name": "Oversoul of Dusk",
+  "layout": "normal",
+  "mana_cost": "{G/W}{G/W}{G/W}{G/W}{G/W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Spirit Avatar",
+  "oracle_text": "Protection from blue, from black, and from red",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Protection"
+  ],
+  "power": "5",
+  "toughness": "5"
  }
 ]

@@ -96,7 +96,7 @@ def hexproof_from(ch: Characteristics, source: Characteristics | None) -> bool:
 
 def _pieces(line: str) -> list[str]:
     """The protection pieces of a keyword line ("Flying, protection from red" → ["protection from red"])."""
-    return [p.strip() for p in re.split(r"[,;]", line) if p.strip().lower().startswith("protection")]
+    return [p.strip() for p in re.split(r",(?!\s*(?:and\s+)?from\b)|;", line) if p.strip().lower().startswith("protection")]  # (wave 50H: "from blue, from black, and from red" is one keyword's qualities)
 
 
 def qualities(ch: Characteristics, exempt: Callable[[str], bool] | None = None) -> list[Quality]:

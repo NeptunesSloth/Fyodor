@@ -33,6 +33,13 @@ EXTRA = [card(c["name"], set_code="w50h", number=f"M{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 BEAR = card("Runeclaw Bear", set_code="w50h", number="P01", mana_cost="{1}{G}", cmc=2.0, type_line="Creature — Bear", oracle_text="", power="2", toughness="2",
             colors=["G"], color_identity=["G"])
+BOUNCE = card("Quick Bounce", set_code="w50h", number="P03", mana_cost="{U}", cmc=1.0, type_line="Instant", oracle_text="Return target creature to its owner's hand.", colors=["U"],
+              color_identity=["U"])
+EDICT = card("Doom Edict", set_code="w50h", number="P04", mana_cost="{B}", cmc=1.0, type_line="Instant", oracle_text="Destroy target creature.", colors=["B"], color_identity=["B"])
+BOOST = card("Mighty Boost", set_code="w50h", number="P05", mana_cost="{G}", cmc=1.0, type_line="Instant", oracle_text="Target creature gets +3/+3 until end of turn.", colors=["G"],
+             color_identity=["G"])
+JOLT = card("Spark Jolt", set_code="w50h", number="P06", mana_cost="{R}", cmc=1.0, type_line="Instant", oracle_text="Spark Jolt deals 2 damage to target creature.", colors=["R"],
+            color_identity=["R"])
 TITAN = card("Granite Titan", set_code="w50h", number="P02", mana_cost="{4}{R}", cmc=5.0, type_line="Creature — Giant", oracle_text="", power="5", toughness="5",
              colors=["R"], color_identity=["R"])
 
@@ -40,7 +47,7 @@ TITAN = card("Granite Titan", set_code="w50h", number="P02", mana_cost="{4}{R}",
 @pytest.fixture()
 def cards(settings):
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA, BEAR, TITAN], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, BEAR, TITAN, BOUNCE, EDICT, BOOST, JOLT], settings.cards_db_path, meta={"bulk_type": "test"})
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
     yield repo
     repo.close()
@@ -269,4 +276,24 @@ def test_cleave_drops_the_reveal_and_the_basic_land_limit_and_the_opponent_sees_
     settle(s)
     assert "Mountain" in [c.name for c in s.state.cards.values() if c.zone == "p1:hand"]
     assert ("Mountain" in json.dumps(build_view(s.state, "p2"), default=str)) == (not cleaved)  # revealed to everyone only when not cleaved
+    check(s)
+
+
+# -- Protection from several qualities in one line (702.16a) -------------------------------------------------------
+@pytest.mark.parametrize("spell,color,legal", [("Quick Bounce", "U", False), ("Doom Edict", "B", False), ("Spark Jolt", "R", False), ("Mighty Boost", "G", True)])
+def test_protection_from_a_list_of_colors_is_every_color_of_it(cards, spell, color, legal):
+    # Oversoul of Dusk: "Protection from blue, from black, and from red": a spell of each of those colors can't target it; a green one can
+    assert level(cards, "Oversoul of Dusk") == "FULL"
+    s = build(cards, [spell], ["Oversoul of Dusk"])
+    soul = put(s, "Oversoul of Dusk", "p2")
+    sp = to_hand(s, spell)
+    mana(s, **{color: 1})
+    if legal:
+        act(s, "p1", type="cast_spell", card_id=sp.id, targets=[soul.id])
+        settle(s)
+        assert zone_of(s, spell) == "p1:graveyard"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=sp.id, targets=[soul.id])
+        assert zone_of(s, spell) == "p1:hand"
     check(s)
