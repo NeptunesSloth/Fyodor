@@ -342,6 +342,9 @@ def self_text(text: str, name: str) -> str:
     out = re.sub(r"(destroy target permanent an opponent controls\.) They create a Treasure token\.", r"\1 Its controller creates a Treasure token.", out)
     # -- most-played cards III (wave 46C) -- "target legendary permanent that's an artifact, creature, or enchantment" (Bounty Agent) is "target legendary artifact, creature, or enchantment"
     out = re.sub(r"\bpermanent that's an? ((?:artifact|creature|enchantment|planeswalker)(?:,? (?:or )?(?:artifact|creature|enchantment|planeswalker))+)\b", r"\1", out)
+    # "Until end of turn, gain control of target creature and it gains haste. Untap and goad that creature." (Besmirch): the same instructions in the order written
+    out = out.replace("Until end of turn, gain control of target creature and it gains haste. Untap and goad that creature.",
+                      "Gain control of target creature until end of turn. It gains haste until end of turn. Untap that creature. Goad that creature.")
     # "Target creature's owner shuffles it into their library." (Ominous Cemetery) is "The owner of target creature shuffles it …"
     out = re.sub(r"\b([Tt])arget ((?:[a-z]+ )*?(?:creature|permanent|artifact|enchantment|land|planeswalker))'s owner (shuffles|puts) ",
                  lambda m: f"{'T' if m[1] == 'T' else 't'}he owner of target {m[2]} {m[3]} ", out)

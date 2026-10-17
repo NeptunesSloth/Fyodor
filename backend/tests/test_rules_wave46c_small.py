@@ -272,6 +272,33 @@ def test_aggressive_mining_bars_its_controller_from_playing_lands_but_not_the_op
     check(s)
 
 
+def test_besmirch_steals_untaps_hastes_and_goads_until_the_turn_ends(cards):
+    # 611.2, 701.15a: "Until end of turn, gain control of target creature and it gains haste. Untap and goad that creature." - the control ends at the cleanup step, the goad lasts
+    from app.rules.keyword_actions import goaded_by
+
+    s = build(cards, ["Besmirch"], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    act(s, "p2", type="tap", card_ids=[giant.id], tapped=True)
+    to_hand(s, "Besmirch")
+    mana(s, R=2, C=1)
+    cast(s, "Besmirch", targets=[giant.id])
+    now = s.state.cards[giant.id]
+    assert now.controller == "p1" and not now.tapped and "haste" in ch(s, giant).keywords and goaded_by(ch(s, giant)) == {"p1"}
+    stops(s)
+    for _ in range(40):  # (goaded and hasty, it must attack: Bob, the only player but Alice)
+        d = s.state.rules.decision
+        if s.state.turn.number == 2 and s.state.turn.phase == "upkeep":
+            break
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[{"card_id": giant.id, "target": "p2"}])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[giant.id].controller == "p2" and goaded_by(ch(s, giant)) == {"p1"}  # back to Bob, still goaded until Alice's next turn
+    check(s)
+
+
 def test_a_token_with_vanishing_enters_with_its_time_counters(cards):
     # 702.63a: "create a 1/1 white Human Noble creature token with vanishing 3" (The Girl in the Fireplace, chapter I) - three time counters as it enters
     s = build(cards, ["The Girl in the Fireplace"], [])

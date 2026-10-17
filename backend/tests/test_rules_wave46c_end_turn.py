@@ -141,7 +141,7 @@ def test_days_undoing_shuffles_draws_seven_and_ends_the_turn(cards):
 
 def test_hurkyls_final_meditation_bounces_all_nonland_permanents_and_ends_the_turn(cards):
     s = build(cards, ["Hurkyl's Final Meditation", "Hill Giant"], ["Grizzly Bears"])
-    giant, bears = put(s, "Hill Giant"), put(s, "Grizzly Bears", "p2")
+    put(s, "Hill Giant"), put(s, "Grizzly Bears", "p2")
     to_hand(s, "Hurkyl's Final Meditation")
     mana(s, U=3, C=4)  # on its controller's turn: no extra {3}
     cast(s, "Hurkyl's Final Meditation")
