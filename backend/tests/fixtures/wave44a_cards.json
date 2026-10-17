@@ -1,0 +1,375 @@
+[
+ {
+  "name": "Etali, Primal Conqueror // Etali, Primal Sickness",
+  "layout": "transform",
+  "mana_cost": "{5}{R}{R} // ",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Elder Dinosaur // Legendary Creature — Phyrexian Elder Dinosaur",
+  "oracle_text": "Trample\nWhen Etali enters, each player exiles cards from the top of their library until they exile a nonland card. You may cast any number of spells from among the nonland cards exiled this way without paying their mana costs.\n{9}{G/P}: Transform Etali. Activate only as a sorcery.\n//\nTrample, indestructible\nWhenever Etali deals combat damage to a player, they get that many poison counters. (A player with ten or more poison counters loses the game.)",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Indestructible",
+   "Transform",
+   "Trample"
+  ],
+  "power": "7",
+  "toughness": "7",
+  "card_faces": [
+   {
+    "name": "Etali, Primal Conqueror",
+    "mana_cost": "{5}{R}{R}",
+    "type_line": "Legendary Creature — Elder Dinosaur",
+    "oracle_text": "Trample\nWhen Etali enters, each player exiles cards from the top of their library until they exile a nonland card. You may cast any number of spells from among the nonland cards exiled this way without paying their mana costs.\n{9}{G/P}: Transform Etali. Activate only as a sorcery.",
+    "power": "7",
+    "toughness": "7",
+    "colors": [
+     "R"
+    ]
+   },
+   {
+    "name": "Etali, Primal Sickness",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Phyrexian Elder Dinosaur",
+    "oracle_text": "Trample, indestructible\nWhenever Etali deals combat damage to a player, they get that many poison counters. (A player with ten or more poison counters loses the game.)",
+    "power": "11",
+    "toughness": "11",
+    "colors": [
+     "G",
+     "R"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Fevered Suspicion",
+  "layout": "normal",
+  "mana_cost": "{6}{B}{R}",
+  "cmc": 8.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each opponent exiles cards from the top of their library until they exile a nonland card. You may cast any number of spells from among those nonland cards without paying their mana costs.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Rebound"
+  ]
+ },
+ {
+  "name": "Auntie Ool, Cursewretch",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{R}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Goblin Warlock",
+  "oracle_text": "Ward—Blight 2. (To blight 2, a player puts two -1/-1 counters on a creature they control.)\nWhenever one or more -1/-1 counters are put on a creature, draw a card if you control that creature. If you don't control it, its controller loses 1 life.",
+  "colors": [
+   "B",
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Blight",
+   "Ward"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Scar",
+  "layout": "normal",
+  "mana_cost": "{B/R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Put a -1/-1 counter on target creature.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Emiel the Blessed",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Unicorn",
+  "oracle_text": "{3}: Exile another target creature you control, then return it to the battlefield under its owner's control.\nWhenever another creature you control enters, you may pay {G/W}. If you do, put a +1/+1 counter on it. If it's a Unicorn, put two +1/+1 counters on it instead. ({G/W} can be paid with either {G} or {W}.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Pearled Unicorn",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Unicorn",
+  "oracle_text": "",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Rufus Shinra",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Noble",
+  "oracle_text": "Whenever Rufus Shinra attacks, if you don't control a creature named Darkstar, create Darkstar, a legendary 2/2 white and black Dog creature token.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "The Gitrog, Ravenous Ride",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Frog Horror Mount",
+  "oracle_text": "Trample, haste\nWhenever The Gitrog deals combat damage to a player, you may sacrifice a creature that saddled it this turn. If you do, draw X cards, then put up to X land cards from your hand onto the battlefield tapped, where X is the sacrificed creature's power.\nSaddle 1",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Saddle",
+   "Haste",
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "5"
+ },
+ {
+  "name": "Akuta, Born of Ash",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Spirit",
+  "oracle_text": "Haste\nAt the beginning of your upkeep, if you have more cards in hand than each opponent, you may sacrifice a Swamp. If you do, return Akuta from your graveyard to the battlefield.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Haste"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Dihada, Binder of Wills",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{W}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Dihada",
+  "oracle_text": "+2: Up to one target legendary creature gains vigilance, lifelink, and indestructible until your next turn.\n−3: Reveal the top four cards of your library. Put any number of legendary cards from among them into your hand and the rest into your graveyard. Create a Treasure token for each card put into your graveyard this way.\n−11: Gain control of all nonland permanents until end of turn. Untap them. They gain haste until end of turn.\nDihada, Binder of Wills can be your commander.",
+  "colors": [
+   "B",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Treasure"
+  ],
+  "loyalty": "5"
+ },
+ {
+  "name": "Blex, Vexing Pest // Search for Blex",
+  "layout": "modal_dfc",
+  "mana_cost": "{2}{G} // {2}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Pest // Sorcery",
+  "oracle_text": "Other Pests, Bats, Insects, Snakes, and Spiders you control get +1/+1.\nWhen Blex dies, you gain 4 life.\n//\nLook at the top five cards of your library. You may put any number of them into your hand and the rest into your graveyard. You lose 3 life for each card you put into your hand this way.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2",
+  "card_faces": [
+   {
+    "name": "Blex, Vexing Pest",
+    "mana_cost": "{2}{G}",
+    "type_line": "Legendary Creature — Pest",
+    "oracle_text": "Other Pests, Bats, Insects, Snakes, and Spiders you control get +1/+1.\nWhen Blex dies, you gain 4 life.",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+     "G"
+    ]
+   },
+   {
+    "name": "Search for Blex",
+    "mana_cost": "{2}{B}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "Look at the top five cards of your library. You may put any number of them into your hand and the rest into your graveyard. You lose 3 life for each card you put into your hand this way.",
+    "colors": [
+     "B"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Kefka, Court Mage // Kefka, Ruler of Ruin",
+  "layout": "transform",
+  "mana_cost": "{2}{U}{B}{R} // ",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Wizard // Legendary Creature — Avatar Wizard",
+  "oracle_text": "Whenever Kefka enters or attacks, each player discards a card. Then you draw a card for each card type among cards discarded this way.\n{8}: Each opponent sacrifices a permanent of their choice. Transform Kefka. Activate only as a sorcery.\n//\nFlying\nWhenever an opponent loses life during your turn, you draw that many cards.",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform"
+  ],
+  "power": "4",
+  "toughness": "5",
+  "card_faces": [
+   {
+    "name": "Kefka, Court Mage",
+    "mana_cost": "{2}{U}{B}{R}",
+    "type_line": "Legendary Creature — Human Wizard",
+    "oracle_text": "Whenever Kefka enters or attacks, each player discards a card. Then you draw a card for each card type among cards discarded this way.\n{8}: Each opponent sacrifices a permanent of their choice. Transform Kefka. Activate only as a sorcery.",
+    "power": "4",
+    "toughness": "5",
+    "colors": [
+     "B",
+     "R",
+     "U"
+    ]
+   },
+   {
+    "name": "Kefka, Ruler of Ruin",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Avatar Wizard",
+    "oracle_text": "Flying\nWhenever an opponent loses life during your turn, you draw that many cards.",
+    "power": "5",
+    "toughness": "7",
+    "colors": [
+     "B",
+     "R",
+     "U"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Winter Soldier, Reborn Avenger",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Soldier Hero",
+  "oracle_text": "Whenever Winter Soldier attacks, return target creature card with mana value less than or equal to Winter Soldier's power from your graveyard to the battlefield. If a Hero enters this way, it enters with an additional +1/+1 counter on it.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "5"
+ },
+ {
+  "name": "Winter Soldier, Bucky Barnes",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Legendary Creature — Human Soldier Hero",
+  "oracle_text": "Winter Soldier enters tapped.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Vendilion Clique",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Faerie Wizard",
+  "oracle_text": "Flash\nFlying\nWhen Vendilion Clique enters, look at target player's hand. You may choose a nonland card from it. If you do, that player reveals the chosen card, puts it on the bottom of their library, then draws a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Flash"
+  ],
+  "power": "3",
+  "toughness": "1"
+ }
+]

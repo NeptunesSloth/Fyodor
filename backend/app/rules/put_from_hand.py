@@ -31,7 +31,7 @@ Context = dict[str, Any]
 _PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Planeswalker", "Battle"})
 # (-- triggers (wave 19B) -- "any number of creature cards", "a permanent card with mana value less than or equal to the number of lands you
 # control / that damage": the count is read as the card is chosen, 608.2h)
-PATTERN = (r"put (?P<cnt>an?|any number of) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater))?"
+PATTERN = (r"put (?P<cnt>an?|any number of|up to (?P<upto>\d+)) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater))?"
            # -- put from hand (wave 30P) -- "with mana value 3 or less" / "X or less, where X is the number of attacking creatures you control"
            # (Kinscaer Sentry), "less than that creature's mana value" (Arni Metalbrow), "with lesser power" (Shadowfax): the limit is read as the card is chosen
            r"(?: with (?:mana value (?:(?P<op>less than or equal to|less than|equal to) (?P<v>that damage|the number of [^.]+?|that creature's mana value)"
@@ -80,6 +80,8 @@ def parse(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
         effect["pw"] = ["<", {"power": "self"}]
     if m["cnt"] == "any number of":
         effect["many"] = True
+    if m["upto"]:  # -- if you do (wave 44A) -- "put up to X land cards from your hand onto the battlefield tapped" (The Gitrog, Ravenous Ride): at most X, read as they are chosen
+        effect["many"], effect["cap"] = True, int(m["upto"])  # (X is the stand-in scripts._swap_x turns into the value, 608.2h)
     if m["tapped"]:
         effect["tapped"] = True
     if m["atk"]:  # -- trigger tail (wave 15B) -- 508.4: its controller chooses whom it attacks (looking.attack_with_entered)
@@ -106,6 +108,12 @@ def put_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                if plan.state.cards[c].zone == f"{pid}:hand" and _permanent_card(plan, c) and _mv_ok(plan, ctx, e, c)]
     options = list(dict.fromkeys(options))
     may = bool(e.get("optional")) or bool(e.get("many"))  # ("you may": none is a choice; a trigger's "you may" was asked already, 603.5)
+    cap = len(options) if e.get("cap") is None else max(0, effects._amount(plan, ctx, e["cap"]))
+    if e.get("cap") is not None and cap == 0:  # ("up to 0": no choice to make, and nothing to ask: the hand's contents stay hidden)
+        effects._remember(plan, ctx, e, [])
+        if e.get("did"):
+            context.bind_payment(ctx, e["did"], False)
+        return True
     if not options and not (may and plan.state.zones.get(f"{pid}:hand")):
         effects._remember(plan, ctx, e, [])
         if e.get("did"):  # -- if you do (wave 26C) -- "If you do": no card was put onto the battlefield
@@ -117,7 +125,7 @@ def put_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
            prompt=f"{ctx.get('name') or 'It'}: {'you may ' if may else ''}put a {e.get('label') or 'permanent'} card from "
                   "your hand onto the battlefield",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
-           min_choices=0 if may else 1, max_choices=len(options) if e.get("many") else 1,
+           min_choices=0 if may else 1, max_choices=min(len(options), cap) if e.get("many") else 1,
            resume={"step": "put_from_hand", "ctx": ctx, "e": e})
     return False
 
@@ -155,6 +163,8 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     pid = ctx["controller"]
     cards = []
+    if e.get("cap") is not None and len(chosen) > max(0, effects._amount(plan, ctx, e["cap"])):
+        raise ActionError("Choose no more cards than the effect allows")
     for cid in chosen[: 999 if e.get("many") else 1]:
         card = plan.state.cards.get(cid)
         if card is None or card.zone != f"{pid}:hand" or not _permanent_card(plan, cid) or not _mv_ok(plan, ctx, e, cid) \

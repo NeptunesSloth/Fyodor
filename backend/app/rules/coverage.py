@@ -355,7 +355,7 @@ REFUSED += (
      "casting a copy of a card (707.12): belongs to the copy system"),
     (re.compile(r"\bcast target [^.]*with mana value less than or equal to [^.]*from [^.]*graveyard\b", re.I),
      "a target card whose mana value limit is read as it resolves: the target's legality would change with it"),
-    (re.compile(r"\b(?:each opponent|each player) (?:exiles|reveals) cards from the top of their library until\b", re.I),
+    (re.compile(r"\b(?:each opponent|each player) reveals cards from the top of their library until\b", re.I),  # (exiles: wave 44A)
      "\"until\" in several libraries at once: the resolution keeps one found card"),
     (re.compile(r"\btapped and attacking (?:that player|defending player)\b", re.I),
      "put onto the battlefield attacking a player the effect names (508.4: its choice isn't the controller's)"),
