@@ -827,3 +827,48 @@ def test_nathan_cant_pay_for_a_spell_he_owns_with_the_wrong_color(cards):
         nathan_attack(s, nathan, "Lightning Bolt", G=2)
     assert s.state.cards[card_named(s, "Lightning Bolt").id].zone == "p1:exile"
     check(s)
+
+
+# -- Sanwell, Avenger Ace ----------------------------------------------------------------------------------------------------------------------------
+SANWELL = "Sanwell, Avenger Ace"
+
+
+@pytest.mark.parametrize("attacking, survives", [(True, True), (False, False)])
+def test_sanwell_takes_no_damage_while_an_artifact_creature_you_control_attacks(cards, attacking, survives):
+    """"As long as an artifact creature you control is attacking, prevent all damage that would be dealt to Sanwell": Alice's Lightning Bolt at her own Sanwell (a 2/2) in
+    the declare blockers step is prevented with Frogmite attacking, kills him with no attacker."""
+    s = build(cards, [SANWELL, "Frogmite", "Lightning Bolt"], [])
+    sanwell, frog = put(s, SANWELL), put(s, "Frogmite")
+    finish_turn(s)
+    finish_turn(s)
+    act(s, "p1", type="set_prefs", stops_my_turn=["main1", "declare_blockers", "main2"])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": frog.id, "target": "p2"}] if attacking else [])
+    drive(s, [], lambda s: s.state.turn.phase in ("declare_blockers", "main2") and s.state.rules.decision is None and not s.state.zones.get("stack"))
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[sanwell.id])
+    settle(s)
+    assert (s.state.cards[sanwell.id].zone == "p1:battlefield") == survives
+    check(s)
+
+
+@pytest.mark.parametrize("pick, cast", [("Frogmite", True), ("Sky-Skiff", True), ("<none>", False)])
+def test_sanwell_exiles_six_and_casts_a_vehicle_or_artifact_creature_from_among_them(cards, pick, cast):
+    """"Whenever Sanwell becomes tapped, exile the top six cards of your library. You may cast a Vehicle or artifact creature spell from among them. Then put the rest on
+    the bottom of your library in a random order." (the cast is paid for, 608.2g: Frogmite {4}, Sky-Skiff {2}); a Bears isn't offered, and a card not cast can't be cast later."""
+    s = build(cards, [SANWELL, "Grizzly Bears", "Frogmite", "Sky-Skiff"], [])
+    sanwell = put(s, SANWELL)
+    finish_turn(s)
+    finish_turn(s)
+    stack_top(s, ["Grizzly Bears", "Frogmite", "Sky-Skiff"])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": sanwell.id, "target": "p2"}])  # (attacking taps him)
+    mana(s, "p1", G=4)
+    offered = []
+    drive_offers = lambda s: (offered.append([o.label for o in s.state.rules.decision.options]) if s.state.rules.decision is not None else None) or (  # noqa: E731
+        s.state.rules.decision is None and not s.state.zones.get("stack"))
+    drive(s, [pick], drive_offers)
+    assert [n for n in ("Frogmite", "Sky-Skiff") if s.state.cards[card_named(s, n).id].zone == "p1:battlefield"] == ([pick] if cast else [])
+    assert not [c for c in s.state.cards.values() if c.zone == "p1:exile"] and s.state.cards[card_named(s, "Grizzly Bears").id].zone == "p1:library"
+    assert not any("Grizzly Bears" in o for options in offered for o in options)
+    check(s)

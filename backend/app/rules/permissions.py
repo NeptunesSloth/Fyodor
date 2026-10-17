@@ -311,7 +311,10 @@ def _free_among(text: str) -> list[dict[str, Any]] | None:
         return None  # ("cast instant and sorcery spells … from among them": any number of them; "cast spell": not English)
     key = spell_filter(m["sel"]) if m["sel"] else None
     if m["sel"] and key is None:
-        return None
+        two = re.fullmatch(r"(.+?) or (.+)", m["sel"])  # -- cant restrictions (wave 50G) -- "a Vehicle or artifact creature spell" (Sanwell): a spell of either kind, each its own selector
+        if two is None or not (first := spell_filter(two[1])) or not (second := spell_filter(two[2])):
+            return None
+        key = selectors.Selector(either=(first, second), zones=("stack",)).key()
     try:
         mv = free_mv(m["n1"] or m["n2"], m["v1"] or m["v2"])
     except ValueError:
