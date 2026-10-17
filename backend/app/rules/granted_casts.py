@@ -32,6 +32,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
+from app.rules import characteristics as chars
 from app.rules.plan import decide
 
 if TYPE_CHECKING:
@@ -41,15 +42,19 @@ if TYPE_CHECKING:
 
 
 def faces(plan: Plan, player: str, cid: str, *, below: int | None = None, at_most: int | None = None,
-          play: bool = False) -> list[tuple[int | None, Characteristics]]:
+          play: bool = False, back: bool = False) -> list[tuple[int | None, Characteristics]]:
     """Each way ``player`` could cast the card ``cid`` now: (face, the spell's characteristics) of every half / face that is a spell, whose mana
     value is less than ``below`` (cascade) / at most ``at_most`` (discover) and that nothing prohibits casting (601.3). ``play``: a land face is
-    one too while the player has a land play left (suspend: "play it", 702.62a; 305.2a-b, 305.3)."""
+    one too while the player has a land play left (suspend: "play it", 702.62a; 305.2a-b, 305.3). ``back``: "cast it transformed" -- the back face of a
+    transforming double-faced card, nothing else (-- battles (wave 45B) -- 310.12b, 712.11a; a card that isn't one can't be, per the Siege rulings)."""
     from app.rules import cast_limits, casting, land_plays, permissions
 
     card = plan.state.cards[cid]
     out: list[tuple[int | None, Characteristics]] = []
-    for face, ch in permissions.play_faces(plan, card):
+    data = plan.info.get(card.card_id or "") if back and not card.is_token else None
+    ways = permissions.play_faces(plan, card) if not back else [(1, chars.as_cast(card, plan.info, 1))] \
+        if data and data.get("layout") == "transform" and len(data.get("faces") or []) > 1 else []
+    for face, ch in ways:
         if ch.is_land:
             if play and land_plays.open_for_effect(plan.state, player, plan.info):
                 out.append((face, ch))
@@ -65,14 +70,14 @@ def faces(plan: Plan, player: str, cid: str, *, below: int | None = None, at_mos
 
 
 def ask(plan: Plan, ctx: dict[str, Any], *, player: str, cid: str, head: str, no: str, decline: str | None = None,
-        below: int | None = None, at_most: int | None = None, group: list[str] | None = None, play: bool = False) -> bool:
+        below: int | None = None, at_most: int | None = None, group: list[str] | None = None, play: bool = False, back: bool = False) -> bool:
     """Ask ``player`` whether to cast the card, offering every way to cast it (``faces``). True when nothing was asked because the card can't be
     cast, its declined outcome (``decline``, effects.leave_uncast) already done; False while the question is pending (resume: "suspend_cast").
     ``group``: the cards already put on the bottom of the library with it in mind (cascade: a declined card joins them in a random order)."""
     from app.rules import effects, permissions
 
     card = plan.state.cards[cid]
-    found = faces(plan, player, cid, below=below, at_most=at_most, play=play)
+    found = faces(plan, player, cid, below=below, at_most=at_most, play=play, back=back)
     if not found:
         plan.note(f"{card.name} can't be cast without paying its mana cost now", [cid])
         effects.leave_uncast(plan, player, cid, decline, group or ())
@@ -80,9 +85,9 @@ def ask(plan: Plan, ctx: dict[str, Any], *, player: str, cid: str, head: str, no
     plan.rules.free_casts.append(cid)
     both = len(permissions.play_faces(plan, card)) > 1
     options = [DecisionOption(id="yes" if not face else f"yes@{face}",
-                              label=f"{'Play' if ch.is_land else 'Cast'} {ch.name}" if both else "Play it" if ch.is_land else "Cast it")
+                              label=f"{'Play' if ch.is_land else 'Cast'} {ch.name}" if both else "Play it" if ch.is_land else "Cast it transformed" if back else "Cast it")
                for face, ch in found]
-    decide(plan, player=player, kind="choose_one", prompt=f"{head}: cast {card.name} without paying its mana cost?",
+    decide(plan, player=player, kind="choose_one", prompt=f"{head}: cast {card.name}{' transformed' if back else ''} without paying its mana cost?",
            options=[*options, DecisionOption(id="no", label=no)],
            resume={"step": "suspend_cast", "ctx": ctx, "card": cid, **({"decline": decline} if decline else {}), **({"group": group} if group else {})},
            source=card)

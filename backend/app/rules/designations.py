@@ -42,7 +42,7 @@ from dataclasses import dataclass
 from functools import cache
 from typing import Any
 
-from app.game.rules_state import DecisionOption, DungeonMark, Event, emit
+from app.game.rules_state import DecisionOption, DungeonMark, Event, TurnFact, emit, turn_log_now
 from app.game.state import CardInstance, TokenDef, zone_key
 from app.rules.plan import Plan, decide
 
@@ -61,9 +61,16 @@ def status(plan: Plan, you: str, kind: str) -> bool:
         return monarch != you
     if kind == "not_initiative":
         return table.initiative != you
+    if kind == "initiative_attack":  # -- initiative (wave 45B) -- 726.1, 506.2: you have it, or a creature you control is attacking the player who does
+        return table.initiative == you or (table.initiative is not None and any(
+            c.controller == you and c.attacking is not None and c.attacking.kind == "player" and c.attacking.id == table.initiative
+            for c in plan.state.cards.values() if c.zone.endswith(":battlefield")))
     if kind == "completed_dungeon":  # 309.7
         r = plan.state.rules
         return bool(r is not None and r.completed_dungeons.get(you))
+    if kind.startswith("completed:"):  # -- dungeons (wave 45B) -- 309.7: that dungeon, by name
+        r = plan.state.rules
+        return r is not None and kind[len("completed:"):] in r.completed_dungeons.get(you, [])
     if kind in ("day", "night"):  # 731.1
         return table.day_night == kind
     if kind == "neither_day_nor_night":
@@ -90,6 +97,8 @@ def _add_trigger(plan: Plan, controller: str, name: str, effects: list[dict[str,
 # -- rad counters (728) -----------------------------------------------------------------------------
 def static_definition(text: str) -> dict[str, Any] | None:
     """-- counters (wave 44C) -- 728.1a: "You gain life rather than lose life from radiation." (Strong, the Brutish Thespian)."""
+    if text == "Each opponent can't venture into the dungeon more than once each turn.":  # -- dungeons (wave 45B) -- 701.49, 701.49d, 101.2: Keen-Eared Sentry
+        return {"kind": "static", "static": "venture_limit", "effects": []}
     return {"kind": "static", "static": "rad_gain", "effects": []} if text == "You gain life rather than lose life from radiation." else None
 
 
@@ -233,8 +242,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
     if e.counter == "roll_die" and e.player:  # -- dice (wave 24B) -- one die (706.2): its result, the natural result, the size, the turn's count
         return [("roll_die", None, None, e.player, {"amount": e.amount, "natural": e.natural, "sides": e.sides, "nth": e.nth,
                                                     "actor": e.player})]
-    if e.counter == "win_flip" and e.player:  # -- coin flips (wave 45D) -- 705.2: the flipper won (app/rules/coin_flips.py)
-        return [("win_flip", None, None, e.player, {})]
+    if e.counter == "coin_flip" and e.player:  # -- coin events (wave 45C) -- 705.2: the flipper won (1) or lost (0) a flip (rules/coin_flips.py)
+        return [("coin_flip", None, None, e.player, {"won": bool(e.amount), "actor": e.player})]
     if e.counter == "crime" and e.player:  # -- crimes (wave 6D) -- 700.13
         return [("commit_crime", None, None, e.player, {})]
     if e.counter in ("monstrous", "renowned") and e.card in plan.state.cards:  # -- becomes monstrous (wave 6D) --
@@ -247,6 +256,19 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             ch = plan.ch(card)
             return [("transform", card, ch, card.controller, {"oid": e.object_id, "face_name": ch.name})]
+        return []
+    if e.counter == "destroyed" and e.card:  # -- destroy events (wave 45C) -- 701.8: the permanent as it last existed on the battlefield (603.10a)
+        from app.rules import triggers
+
+        got = triggers._object_then(plan, e.card, e.object_id)
+        if got is None:
+            return []
+        return [("destroyed", got[0], got[1], got[0].controller,
+                 {"oid": e.object_id, "snap": None if triggers._live(plan, got[0]) else plan.rules.lki.get(e.object_id or "")})]
+    if e.counter == "control" and e.card in plan.state.cards:  # -- control events (wave 45C) -- 603.10d: ``player`` gained control of it from ``was``
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("control_change", card, plan.ch(card), e.player, {"oid": e.object_id, "was": e.from_zone})]
         return []
     if e.counter == "mutated" and e.card in plan.state.cards:  # -- merged permanents (wave 18D) -- 702.140d: a spell merged with it
         card = plan.state.cards[e.card]
@@ -376,9 +398,8 @@ _ROOM_EFFECTS: dict[tuple[str, str], list[dict[str, Any]]] = {
 # with them, app/rules/replacements.py)
 _THRONE = ("Reveal the top ten cards of your library. Put a creature card from among them onto the battlefield. It gains "
            "hexproof until your next turn. Then shuffle.")
-# Room abilities left to the players (a decision to resolve them by hand), and why: goad (701.15) is a
-# combat requirement the engine doesn't enforce.
-_BY_HAND = {("Undercity", "Arena")}
+# (-- dungeons (wave 45B) -- no room is left to the players now: Undercity's Arena, "Goad target creature.", is the goad keyword action,
+# 701.15, enforced as a combat requirement by app/rules/combat_rules.py.)
 
 
 def room(dungeon: str, name: str) -> Room:
@@ -391,8 +412,6 @@ def room_definition(dungeon: str, name: str) -> dict[str, Any] | None:
     definition, or None when the players resolve it by hand."""
     from app.rules import scripts
 
-    if (dungeon, name) in _BY_HAND:
-        return None
     effects = _ROOM_EFFECTS.get((dungeon, name))
     if effects is not None:
         return {"kind": "triggered", "trigger": "room", "effects": effects, "optional": False, "target": None}
@@ -430,8 +449,21 @@ def venture(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return all(_venture_one(plan, ctx, e, pid) for pid in players)  # (False: a choice is open; its resume ventures the rest)
 
 
+def _venture_barred(plan: Plan, pid: str) -> bool:
+    """-- dungeons (wave 45B) -- "Each opponent can't venture into the dungeon more than once each turn." (Keen-Eared Sentry): 101.2, and 701.49d (venturing
+    into Undercity is a variant of venturing into the dungeon). The ventures ``pid`` made this turn are the turn log's."""
+    from app.rules import cast_limits
+
+    log = plan.rules.turn_log
+    return log.turn == plan.state.turn.number and any(f.kind == "venture" and f.player == pid for f in log.facts) and any(
+        src.controller != pid for src, _ in cast_limits._statics(plan.state, plan.info, "venture_limit"))
+
+
 def _venture_one(plan: Plan, ctx: Context, e: dict[str, Any], pid: str) -> bool:
     r = plan.rules
+    if _venture_barred(plan, pid):
+        plan.note(f"{plan.name(pid)} can't venture into the dungeon more than once each turn")
+        return True
     into = e.get("into", "dungeon")
     mark = r.dungeons.get(pid)
     if mark is not None and not room(mark.dungeon, mark.room).leads:
@@ -480,6 +512,8 @@ def _enter(plan: Plan, pid: str, dungeon: str, name: str) -> None:
     r = plan.rules
     first = pid not in r.dungeons
     r.dungeons[pid] = DungeonMark(dungeon=dungeon, room=name)
+    if (log := turn_log_now(plan.state)) is not None:  # (-- dungeons (wave 45B) -- a venture this turn: _venture_barred)
+        log.facts.append(TurnFact(kind="venture", player=pid))
     plan.note(f"{plan.name(pid)} " + (f"ventured into {dungeon}: {name}" if first else f"moved into {name} ({dungeon})"))
     definition = room_definition(dungeon, name)
     index = [x.name for x in DUNGEONS[dungeon]].index(name)
@@ -961,8 +995,7 @@ def unautomated(definition: dict[str, Any]) -> str | None:
             wants.add("undercity")
     for into in sorted(wants):
         if not venture_automated(into):
-            return "a dungeon room is resolved by hand (" + ", ".join(
-                f"{d}: {n}" for d, n in sorted(_BY_HAND) if (d == UNDERCITY) == (into == "undercity")) + ")"
+            return "a dungeon room is resolved by hand"
     return None
 
 
@@ -1052,11 +1085,7 @@ def ascend_permanents(plan: Plan) -> bool:
     """Any time (checked with the state-based actions): the players with an ascend permanent and ten permanents get the blessing."""
     happened = False
     for pid in plan.live():
-        if not city_blessing_due(plan, pid):
-            continue
-        if any(c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c) and any(
-                ab.kind == "keywords" and "ascend" in ab.keywords for ab in plan.ch(c).abilities)
-               for c in plan.state.cards.values()):
+        if ascend_permanent_due(plan, pid):
             get_city_blessing(plan, pid)
             happened = True
     return happened
@@ -1082,3 +1111,12 @@ def storied_permanents(plan: Plan) -> bool:
             plan.note(f"{plan.name(pid)} has an enduring story")
             happened = True
     return happened
+
+
+def ascend_permanent_due(plan: Plan, pid: str) -> bool:
+    """-- most-played cards II (wave 45A) -- 702.131b: ten permanents and a permanent with ascend: the blessing is theirs at once ("any time"), also in the middle of a
+    resolution before the state-based actions are checked (Ocelot Pride's ruling 2024-06-07: its Cat as the tenth permanent gives it before the ability checks)."""
+    return city_blessing_due(plan, pid) and any(
+        c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c) and any(
+            ab.kind == "keywords" and "ascend" in ab.keywords for ab in plan.ch(c).abilities)
+        for c in plan.state.cards.values())

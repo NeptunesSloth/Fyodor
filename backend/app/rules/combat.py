@@ -397,7 +397,7 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     else:
         to_tap = [x.card_id for x in a.attackers if "vigilance" not in plan.ch(plan.state.cards[x.card_id]).keywords]
         if to_tap:
-            plan.do({"type": "tap", "card_ids": to_tap, "tapped": True})
+            plan.do({"type": "tap", "card_ids": to_tap, "tapped": True, "declared": True})
         by_target: dict[str, list[str]] = {}
         for decl in a.attackers:
             by_target.setdefault(decl.target, []).append(decl.card_id)

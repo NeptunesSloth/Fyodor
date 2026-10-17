@@ -20,7 +20,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-_UNBLOCKED = re.compile(r"^(?!.*\")(?P<o>.+?) can't be blocked (?P<by>by .+?) this turn$")
+# (-- turn grants (wave 45B) -- a subject that names no grant: "… gains haste until end of turn and can't be blocked by Walls this turn" is _SHARED's (Kick in the Door))
+_UNBLOCKED = re.compile(r"^(?!.*\")(?P<o>(?:(?!\b(?:gains?|gets|has|have)\b).)+?) can't be blocked (?P<by>by .+?) this turn$")
 _UNBLOCKED_EXCEPT = re.compile(r"^(?!.*\")(?P<o>.+?) can't be blocked this turn except by (?P<ex>.+)$")
 _UNBLOCKED_LEAD = re.compile(r"^(?!.*\")until end of turn, (?P<o>.+?) can't be blocked (?P<by>by .+)$")
 _SHARED = re.compile(r"^(?!.*\")(?P<lead>until end of turn, )?(?P<o>(?:target|another target|this|that|~|it\b)[^,]*?) "

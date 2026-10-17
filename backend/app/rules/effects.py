@@ -133,6 +133,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         from app.rules import defending
 
         return defending.players(plan, ctx)
+    if who == "attacked":  # -- attacked object (wave 45A) -- "the player or planeswalker it's attacking" (508.5; app/rules/defending.py)
+        from app.rules import defending
+
+        return defending.attacked(plan, ctx)[0]
     if who == "chosen_player":  # -- chosen player (wave 4J) -- the player the source chose as it entered (614.12a)
         from app.rules import chosen
 
@@ -167,10 +171,26 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         return radiance.cards(plan, ctx, who)
     if who.startswith(selectors.PREFIX):  # "each creature you control", "all other Goblins" …
         sel = selectors.from_key(who)
+        if any(isinstance(c[2], str) and c[2].startswith(selectors.TARGET_STAT) for c in sel.compare):  # -- most-played cards II (wave 45A) -- "power greater than target creature's power"
+            first = next(iter(target_refs(ctx, "target")), {})  # (its power as the spell resolves, 608.2b; none left: the spell didn't resolve)
+            tc = plan.state.cards.get(first.get("id", ""))
+            if tc is None or not tc.zone.endswith(":battlefield") or plan.oid(tc) != first.get("object_id"):
+                return []
+            bound: list[tuple[str, str, int | str]] = []
+            for w, o, n in sel.compare:
+                v = selectors._stat(plan.ch(tc), n[len(selectors.TARGET_STAT):]) if isinstance(n, str) and n.startswith(selectors.TARGET_STAT) else n
+                if v is None:
+                    return []
+                bound.append((w, o, v))
+            sel = selectors.replace(sel, compare=tuple(bound))
         return [] if sel.player else selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.cards
                 and plan.oid(t["id"]) == t.get("object_id")]
+    if who == "attacked":  # -- attacked object (wave 45A) --
+        from app.rules import defending
+
+        return defending.attacked(plan, ctx)[1]
     if who == "self":
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
@@ -915,9 +935,26 @@ def _destroy_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]
     doomed = [c for c in cards if "indestructible" not in plan.ch(plan.state.cards[c]).keywords]
     doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx), actor=ctx["controller"])
     if doomed:
+        gone = {c: plan.oid(c) for c in doomed}
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+        _destroyed(plan, gone)
     _moved(plan, ctx, e, before)
     return True
+
+
+def _destroyed(plan: Plan, gone: dict[str, str]) -> None:
+    """-- destroy events (wave 45C) -- 701.8a-b: these permanents (card -> the object it was) were destroyed: an effect's "destroy" that put them into their
+    owner's graveyard (a replacement that sent one elsewhere, or a regeneration or an indestructible permanent, didn't destroy it). The event joins the
+    batch of the move, so a permanent that left with them sees it (603.10a). ponytail: the state-based destruction (704.5g-h) isn't recorded, so the
+    trigger grammar only reads a subject that can't be a creature (events.py)."""
+    from app.game.rules_state import Event
+
+    r = plan.rules
+    for cid, oid in gone.items():
+        card = plan.state.cards.get(cid)
+        if card is None or card.zone.endswith(":graveyard"):  # (a token is gone from the graveyard once there: 111.7)
+            r.events.append(Event(batch=r.batch, kind="designation", turn=plan.state.turn.number, counter="destroyed", card=cid, object_id=oid,
+                                  player=plan.actor))
 
 
 def exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1047,7 +1084,7 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
                     "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
             # a token enters tapped when its creator says so ("create a tapped …") or its own text does
             # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
-            tapped = bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)
+            tapped = (bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)) and not replacements.token_enters_untapped(plan, pid, spec)  # (wave 45A)
             requests.append((pid, spec, count * each[pid] if each is not None else count, source, tapped))
     # (the tokens are recorded as binding "as", the new objects they are: "they gain haste")
     if not requests:  # (every kind counted 0)
@@ -1906,7 +1943,9 @@ def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx), actor=ctx["controller"])
     before = _remember(plan, ctx, e, doomed)  # "creatures destroyed this way": the ones it destroys
     if doomed:
+        gone = {c: plan.oid(c) for c in doomed}
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+        _destroyed(plan, gone)
     _moved(plan, ctx, e, before)
     return True
 
@@ -3475,12 +3514,18 @@ def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
     stack = plan.state.zones.get("stack", [])
     if countered:  # -- spell copies (wave 31D) -- a spell with no legal target leaves the stack: a copy of it can still be made (608.2h)
         remember_stack(plan.state, stack_id)
-    plan.rules.stack.pop(stack_id, None)
+    entry = plan.rules.stack.pop(stack_id, None)
     plan.rules.answers_903_9b = {}  # (answers for moves that didn't happen after all)
     if stack_id in stack:
         from app.rules.engine import leave_stack  # engine imports this module
 
         leave_stack(plan, stack_id, ctx["controller"], countered=countered)
+    if not countered and entry is not None and entry.event is not None and entry.event.kind == "chapter" and entry.copy_of is None:
+        from app.rules import (
+            sagas,  # -- saga events (wave 45C) -- 714.2d: a final chapter ability finished resolving (and left the stack)
+        )
+
+        sagas.chapter_event(plan, entry.event, "resolves")
     _after_resolution(plan)
 
 

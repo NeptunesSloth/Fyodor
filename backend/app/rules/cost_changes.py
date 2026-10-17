@@ -700,7 +700,7 @@ def reduce_only(cost: M.ManaCost, colors: tuple[str, ...]) -> M.ManaCost:
 
     colored = list(cost.colored)
     for c in (x for x in colors if x):  # (wave 17C: a keyword's optional cost reduces no color)
-        if any(c in h for h in cost.hybrid) or c in cost.phyrexian:
+        if any(c in h for h in cost.hybrid) or any(c in p.split("/") for p in cost.phyrexian):
             raise ActionError("A hybrid or Phyrexian mana symbol with that reduction: pay it by hand with the table tools")
         if c in colored:
             colored.remove(c)

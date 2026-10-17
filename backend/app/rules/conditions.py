@@ -115,6 +115,7 @@ _HAND = re.compile(r"you have (?:(?P<no>no)|(?P<n>\w+) or (?P<cmp>more|fewer|les
 _YOUR_TURN = re.compile(r"it(?:'s| is) (?P<neg>not |n't )?your turn|it isn't your turn|it(?:'s| is) an opponent's turn")
 _THEIR_TURN = re.compile(r"it(?:'s| is| isn't) (?P<neg>not )?(?:that player's|their) turn")  # (wave 17D: the trigger event's player, 500.1; wave 43B: "isn't", Tataru Taru)
 _STATUS = {"you're the monarch": "monarch", "you are the monarch": "monarch", "you have the initiative": "initiative",
+           "you or a player you're attacking has the initiative": "initiative_attack",  # -- initiative (wave 45B) -- Undercellar Sweep
            "you have the city's blessing": "city_blessing", "you have an enduring story": "enduring_story",
            "you own a card in exile": "own_exiled"}  # -- activated other (wave 21E) -- (Dreadlight Monstrosity)
 _THIS_TURN = r"(?P<when>this|last) turn"
@@ -614,6 +615,7 @@ def _more_ifs(t: str) -> Condition | None:
 # monarch" (725), "you've completed a dungeon" (309.7), "it's day / night" (731).
 _HAS_COUNTERS = re.compile(r"(?P<who>you|an opponent) (?:has|have) (?:(?P<no>no)|(?P<a>a|an|one or more)|(?P<n>\w+) or more) "
                            r"(?P<kind>poison|experience|rad|energy) counters?")
+_COMPLETED = re.compile(r"you(?: (?P<neg>haven't|have not)|'ve| have) completed (?P<d>Lost Mine of Phandelver|Dungeon of the Mad Mage|Tomb of Annihilation|Undercity)")
 _DESIGNATIONS = {"there is no monarch": "no_monarch", "an opponent is the monarch": "opponent_monarch",
                  "you're not the monarch": "not_monarch", "you aren't the monarch": "not_monarch",
                  "you don't have the initiative": "not_initiative", "you've completed a dungeon": "completed_dungeon",
@@ -655,6 +657,9 @@ def designation_condition(t: str) -> Condition | None:
         return out
     if t in _DESIGNATIONS:
         return {"status": _DESIGNATIONS[t]}
+    if (c := _COMPLETED.fullmatch(t)) is not None:  # -- dungeons (wave 45B) -- 309.7: "if you haven't completed Tomb of Annihilation" (Acererak the Archlich)
+        held: Condition = {"status": f"completed:{c['d']}"}
+        return {"not": held} if c["neg"] else held
     return None
 # -- end counters & designations (wave 3E) --
 
@@ -1508,7 +1513,9 @@ def _status(plan: Plan, you: str, kind: str) -> bool:
         from app.rules import designations
 
         return designations.status(plan, you, kind)
-    return bool(plan.state.players[you].city_blessing)  # 702.131c ascend: the city's blessing
+    from app.rules import designations
+
+    return bool(plan.state.players[you].city_blessing) or designations.ascend_permanent_due(plan, you)  # 702.131c ascend: the city's blessing (702.131b: at once; wave 45A)
 
 
 def _versus(plan: Plan, ctx: dict[str, Any], spec: dict[str, Any]) -> bool:

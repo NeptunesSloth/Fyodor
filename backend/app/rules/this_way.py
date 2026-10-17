@@ -45,10 +45,11 @@ _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled",), "sacrificed": ("sa
           "graveyard": ("destroyed", "sacrificed", "milled", "discarded", "put_graveyard"), "your_graveyard": ("milled", "discarded", "put_graveyard"),
           "died": ("destroyed", "sacrificed"), "tapped": ("tapped",),
           "revealed": ("revealed",), "shuffled": ("shuffled",),  # (wave 10C: reveal_hand.py)
+          "battlefield_put": ("put_battlefield",),  # -- most-played cards II (wave 45A) -- "If you put a Cave onto the battlefield this way" (put_from_hand)
           "created": ("created",)}  # -- reflexive this way (wave 30G) -- 603.12: "create a token. When you do, …" (the tokens it made)
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
-    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?|you put into your hand"
+    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?|you put into your hand|you put onto the battlefield"
     r"|put into (?P<gy>a|your|their|its owner's|that player's|their owners') graveyards?|died|that died) this way$")
 _NOUN_ONLY = re.compile(r"^(?:cards?)$")
 _GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discarded|milled) this way$")
@@ -74,7 +75,9 @@ def parse(phrase: str) -> dict[str, Any] | None:
     what = m["what"].strip()
     what = re.sub(r" that$", "", what)  # ("creature that died this way")
     verb = m["verb"]
-    if verb.startswith("returned") or verb.startswith("you put"):
+    if verb == "you put onto the battlefield":
+        kind = "battlefield_put"
+    elif verb.startswith("returned") or verb.startswith("you put"):
         kind = "your_hand" if verb.startswith(("returned to your", "you put")) else "returned"
     elif verb.startswith("put into"):
         kind = "your_graveyard" if m["gy"] == "your" else "graveyard"
@@ -137,6 +140,7 @@ def filtered(plan: Plan, ctx: dict[str, Any], cards: list[str], key: str) -> lis
 
 _IF_PASSIVE = re.compile(r"^(?:a|an|at least one|one or more|any) (?P<what>.+?) (?:is|was|were|are) (?P<rest>.+ this way)$")
 _IF_THAT = re.compile(r"^that (?:creature|permanent) (?:(?:was|is) (?P<verb>destroyed|sacrificed|exiled)|(?P<dies>dies|died)) this way$")
+_IF_YOU_PUT = re.compile(r"^you put (?:a|an|one or more) (?P<what>.+?) (?P<dest>into your hand|onto the battlefield) this way$")  # (wave 45A)
 _IF_YOU = re.compile(r"^you (?P<verb>sacrificed|exiled|discarded|milled|destroyed) (?:a|an|one or more) (?P<what>.+?) this way$")
 
 
@@ -227,6 +231,8 @@ def condition(text: str) -> dict[str, Any] | None:
         phrase = f"{m['what']}{ctl} {m['verb']} this way"
         if m["verb"] in ("milled", "discarded") and (v := parse(phrase)) is not None:
             return {"value": {**v, "by": "you"}, "op": ">=", "n": 1}
+    if phrase is None and (m := _IF_YOU_PUT.match(text)) is not None:  # -- most-played cards II (wave 45A) -- "If you put a Town card into your hand this way" (Town Greeter), "a Cave onto the battlefield" (Spelunking)
+        phrase = f"{m['what']} you put {m['dest']} this way"
     v = parse(phrase) if phrase is not None else None
     if v is None:
         return hit_condition(text)  # -- if you do (wave 10C) --
@@ -278,6 +284,8 @@ def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], y
             old_card is not None and old_card.zone.endswith(":hand")
     if kind == "exiled":
         return dest == "exile"
+    if kind == "battlefield_put":
+        return dest == "battlefield"
     if kind in ("graveyard", "your_graveyard"):
         return dest == "graveyard"
     if kind == "died":
@@ -354,9 +362,20 @@ def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[d
             continue  # (wave 19C: only the cards the controller discarded / milled)
         if v["this_way"] == "your_graveyard" and not (new.get("zone") or "").startswith(f"{you}:"):
             continue
-        if sel is not None:
+        if sel is not None and v["this_way"] == "battlefield_put":  # -- most-played cards II (wave 45A) -- the permanent it became: what it is now that it is there ("a Cave", "a land card")
+            now = plan.state.cards.get(new["card"])
+            if now is None or plan.oid(now) != new["object_id"] or not now.zone.endswith(":battlefield") or not selectors.matches(
+                    plan, selectors.replace(sel, card=False, zones=("battlefield",)), now, plan.ch(now), you):
+                continue
+        elif sel is not None:
             if sel.card:  # a card: where it went (a public zone, 400.7j / 701.17c)
                 card = plan.state.cards.get(new["card"])
+                if v.get("public") and card is not None and not card.is_token and new["object_id"] == was["object_id"]:
+                    # (wave 45A: a card put into the hand that was public before - milled, revealed: its printed kind; scripts.py checked the look before it)
+                    if not selectors.matches(plan, sel, card, plan.ch(card), you):
+                        continue
+                    out.append((new, was))
+                    continue
                 if card is None or new["object_id"] == was["object_id"] or card.is_token:
                     continue  # (a hidden zone, or gone: nothing to read; a token isn't a card, 111.1)
                 then = card if card.zone == new.get("zone") else card.model_copy(update={"zone": new.get("zone") or card.zone})

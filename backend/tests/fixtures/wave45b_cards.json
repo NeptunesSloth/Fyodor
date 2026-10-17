@@ -1,0 +1,1187 @@
+[
+ {
+  "name": "Invasion of Amonkhet // Lazotep Convert",
+  "layout": "transform",
+  "mana_cost": "{1}{U}{B} // ",
+  "cmc": 3.0,
+  "type_line": "Battle — Siege // Creature — Zombie",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, each player mills three cards, then each opponent discards a card and you draw a card. (To mill three cards, a player puts the top three cards of their library into their graveyard.)\n//\nYou may have this creature enter as a copy of any creature card in a graveyard, except it's a 4/4 black Zombie in addition to its other colors and types.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Transform",
+   "Mill"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Amonkhet",
+    "mana_cost": "{1}{U}{B}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, each player mills three cards, then each opponent discards a card and you draw a card. (To mill three cards, a player puts the top three cards of their library into their graveyard.)",
+    "defense": "4",
+    "colors": [
+     "B",
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/9/8/981f091a-17f8-412e-9752-69070ebed4ea.jpg?1783916953",
+     "normal": "https://cards.scryfall.io/normal/front/9/8/981f091a-17f8-412e-9752-69070ebed4ea.jpg?1783916953",
+     "large": "https://cards.scryfall.io/large/front/9/8/981f091a-17f8-412e-9752-69070ebed4ea.jpg?1783916953",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/9/8/981f091a-17f8-412e-9752-69070ebed4ea.jpg?1783916953"
+    }
+   },
+   {
+    "name": "Lazotep Convert",
+    "mana_cost": "",
+    "type_line": "Creature — Zombie",
+    "oracle_text": "You may have this creature enter as a copy of any creature card in a graveyard, except it's a 4/4 black Zombie in addition to its other colors and types.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "B",
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/9/8/981f091a-17f8-412e-9752-69070ebed4ea.jpg?1783916953",
+     "normal": "https://cards.scryfall.io/normal/back/9/8/981f091a-17f8-412e-9752-69070ebed4ea.jpg?1783916953",
+     "large": "https://cards.scryfall.io/large/back/9/8/981f091a-17f8-412e-9752-69070ebed4ea.jpg?1783916953",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/9/8/981f091a-17f8-412e-9752-69070ebed4ea.jpg?1783916953"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Azgol // Ashen Reaper",
+  "layout": "transform",
+  "mana_cost": "{B}{R} // ",
+  "cmc": 2.0,
+  "type_line": "Battle — Siege // Creature — Zombie Elemental",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, target player sacrifices a creature or planeswalker of their choice and loses 1 life.\n//\nMenace\nAt the beginning of your end step, put a +1/+1 counter on this creature if a permanent was put into a graveyard from the battlefield this turn.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Transform",
+   "Menace"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Azgol",
+    "mana_cost": "{B}{R}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, target player sacrifices a creature or planeswalker of their choice and loses 1 life.",
+    "defense": "4",
+    "colors": [
+     "B",
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/a/e/ae2e1244-f05b-45f9-8afc-59f190524798.jpg?1783916952",
+     "normal": "https://cards.scryfall.io/normal/front/a/e/ae2e1244-f05b-45f9-8afc-59f190524798.jpg?1783916952",
+     "large": "https://cards.scryfall.io/large/front/a/e/ae2e1244-f05b-45f9-8afc-59f190524798.jpg?1783916952",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/a/e/ae2e1244-f05b-45f9-8afc-59f190524798.jpg?1783916952"
+    }
+   },
+   {
+    "name": "Ashen Reaper",
+    "mana_cost": "",
+    "type_line": "Creature — Zombie Elemental",
+    "oracle_text": "Menace\nAt the beginning of your end step, put a +1/+1 counter on this creature if a permanent was put into a graveyard from the battlefield this turn.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+     "B",
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/a/e/ae2e1244-f05b-45f9-8afc-59f190524798.jpg?1783916952",
+     "normal": "https://cards.scryfall.io/normal/back/a/e/ae2e1244-f05b-45f9-8afc-59f190524798.jpg?1783916952",
+     "large": "https://cards.scryfall.io/large/back/a/e/ae2e1244-f05b-45f9-8afc-59f190524798.jpg?1783916952",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/a/e/ae2e1244-f05b-45f9-8afc-59f190524798.jpg?1783916952"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Belenon // Belenon War Anthem",
+  "layout": "transform",
+  "mana_cost": "{2}{W} // ",
+  "cmc": 3.0,
+  "type_line": "Battle — Siege // Enchantment",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, create a 2/2 white and blue Knight creature token with vigilance.\n//\nCreatures you control get +1/+1.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Belenon",
+    "mana_cost": "{2}{W}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, create a 2/2 white and blue Knight creature token with vigilance.",
+    "defense": "5",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/4/f/4fb0eb2d-9cb7-4e72-a970-5009b046df2a.jpg?1783917065",
+     "normal": "https://cards.scryfall.io/normal/front/4/f/4fb0eb2d-9cb7-4e72-a970-5009b046df2a.jpg?1783917065",
+     "large": "https://cards.scryfall.io/large/front/4/f/4fb0eb2d-9cb7-4e72-a970-5009b046df2a.jpg?1783917065",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/4/f/4fb0eb2d-9cb7-4e72-a970-5009b046df2a.jpg?1783917065"
+    }
+   },
+   {
+    "name": "Belenon War Anthem",
+    "mana_cost": "",
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control get +1/+1.",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/4/f/4fb0eb2d-9cb7-4e72-a970-5009b046df2a.jpg?1783917065",
+     "normal": "https://cards.scryfall.io/normal/back/4/f/4fb0eb2d-9cb7-4e72-a970-5009b046df2a.jpg?1783917065",
+     "large": "https://cards.scryfall.io/large/back/4/f/4fb0eb2d-9cb7-4e72-a970-5009b046df2a.jpg?1783917065",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/4/f/4fb0eb2d-9cb7-4e72-a970-5009b046df2a.jpg?1783917065"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Dominaria // Serra Faithkeeper",
+  "layout": "transform",
+  "mana_cost": "{2}{W} // ",
+  "cmc": 3.0,
+  "type_line": "Battle — Siege // Creature — Angel",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, you gain 4 life and draw a card.\n//\nFlying, vigilance",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance",
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Dominaria",
+    "mana_cost": "{2}{W}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, you gain 4 life and draw a card.",
+    "defense": "5",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/7/e/7e784d3d-0c6d-4ce5-beb5-edd2adb32385.jpg?1783917066",
+     "normal": "https://cards.scryfall.io/normal/front/7/e/7e784d3d-0c6d-4ce5-beb5-edd2adb32385.jpg?1783917066",
+     "large": "https://cards.scryfall.io/large/front/7/e/7e784d3d-0c6d-4ce5-beb5-edd2adb32385.jpg?1783917066",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/7/e/7e784d3d-0c6d-4ce5-beb5-edd2adb32385.jpg?1783917066"
+    }
+   },
+   {
+    "name": "Serra Faithkeeper",
+    "mana_cost": "",
+    "type_line": "Creature — Angel",
+    "oracle_text": "Flying, vigilance",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/7/e/7e784d3d-0c6d-4ce5-beb5-edd2adb32385.jpg?1783917066",
+     "normal": "https://cards.scryfall.io/normal/back/7/e/7e784d3d-0c6d-4ce5-beb5-edd2adb32385.jpg?1783917066",
+     "large": "https://cards.scryfall.io/large/back/7/e/7e784d3d-0c6d-4ce5-beb5-edd2adb32385.jpg?1783917066",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/7/e/7e784d3d-0c6d-4ce5-beb5-edd2adb32385.jpg?1783917066"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Eldraine // Prickle Faeries",
+  "layout": "transform",
+  "mana_cost": "{3}{B} // ",
+  "cmc": 4.0,
+  "type_line": "Battle — Siege // Creature — Faerie",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, target opponent discards two cards.\n//\nFlying\nAt the beginning of each opponent's upkeep, if that player has two or fewer cards in hand, this creature deals 2 damage to them.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Eldraine",
+    "mana_cost": "{3}{B}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, target opponent discards two cards.",
+    "defense": "4",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/9/2/92f5b177-b0c6-4573-b860-f75dad1941bd.jpg?1783917011",
+     "normal": "https://cards.scryfall.io/normal/front/9/2/92f5b177-b0c6-4573-b860-f75dad1941bd.jpg?1783917011",
+     "large": "https://cards.scryfall.io/large/front/9/2/92f5b177-b0c6-4573-b860-f75dad1941bd.jpg?1783917011",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/9/2/92f5b177-b0c6-4573-b860-f75dad1941bd.jpg?1783917011"
+    }
+   },
+   {
+    "name": "Prickle Faeries",
+    "mana_cost": "",
+    "type_line": "Creature — Faerie",
+    "oracle_text": "Flying\nAt the beginning of each opponent's upkeep, if that player has two or fewer cards in hand, this creature deals 2 damage to them.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/9/2/92f5b177-b0c6-4573-b860-f75dad1941bd.jpg?1783917011",
+     "normal": "https://cards.scryfall.io/normal/back/9/2/92f5b177-b0c6-4573-b860-f75dad1941bd.jpg?1783917011",
+     "large": "https://cards.scryfall.io/large/back/9/2/92f5b177-b0c6-4573-b860-f75dad1941bd.jpg?1783917011",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/9/2/92f5b177-b0c6-4573-b860-f75dad1941bd.jpg?1783917011"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Ergamon // Truga Cliffcharger",
+  "layout": "transform",
+  "mana_cost": "{R}{G} // ",
+  "cmc": 2.0,
+  "type_line": "Battle — Siege // Creature — Rhino",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, create a Treasure token. Then you may discard a card. If you do, draw a card.\n//\nTrample\nWhen this creature enters, you may discard a card. If you do, search your library for a land or battle card, reveal it, put it into your hand, then shuffle.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Transform",
+   "Treasure",
+   "Trample"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Ergamon",
+    "mana_cost": "{R}{G}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, create a Treasure token. Then you may discard a card. If you do, draw a card.",
+    "defense": "5",
+    "colors": [
+     "G",
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/b/3/b3e0fc49-f765-4bd1-a2b9-23e703388b50.jpg?1783916953",
+     "normal": "https://cards.scryfall.io/normal/front/b/3/b3e0fc49-f765-4bd1-a2b9-23e703388b50.jpg?1783916953",
+     "large": "https://cards.scryfall.io/large/front/b/3/b3e0fc49-f765-4bd1-a2b9-23e703388b50.jpg?1783916953",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/b/3/b3e0fc49-f765-4bd1-a2b9-23e703388b50.jpg?1783916953"
+    }
+   },
+   {
+    "name": "Truga Cliffcharger",
+    "mana_cost": "",
+    "type_line": "Creature — Rhino",
+    "oracle_text": "Trample\nWhen this creature enters, you may discard a card. If you do, search your library for a land or battle card, reveal it, put it into your hand, then shuffle.",
+    "power": "3",
+    "toughness": "4",
+    "colors": [
+     "G",
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/b/3/b3e0fc49-f765-4bd1-a2b9-23e703388b50.jpg?1783916953",
+     "normal": "https://cards.scryfall.io/normal/back/b/3/b3e0fc49-f765-4bd1-a2b9-23e703388b50.jpg?1783916953",
+     "large": "https://cards.scryfall.io/large/back/b/3/b3e0fc49-f765-4bd1-a2b9-23e703388b50.jpg?1783916953",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/b/3/b3e0fc49-f765-4bd1-a2b9-23e703388b50.jpg?1783916953"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Innistrad // Deluge of the Dead",
+  "layout": "transform",
+  "mana_cost": "{2}{B}{B} // ",
+  "cmc": 4.0,
+  "type_line": "Battle — Siege // Enchantment",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nFlash\nWhen this Siege enters, target creature an opponent controls gets -13/-13 until end of turn.\n//\nWhen this enchantment enters, create two 2/2 black Zombie creature tokens.\n{2}{B}: Exile target card from a graveyard. If it was a creature card, create a 2/2 black Zombie creature token.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Transform",
+   "Flash"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Innistrad",
+    "mana_cost": "{2}{B}{B}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nFlash\nWhen this Siege enters, target creature an opponent controls gets -13/-13 until end of turn.",
+    "defense": "5",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/7/7/77720d2e-2b7b-492b-852c-eea5061eb31b.jpg?1783917010",
+     "normal": "https://cards.scryfall.io/normal/front/7/7/77720d2e-2b7b-492b-852c-eea5061eb31b.jpg?1783917010",
+     "large": "https://cards.scryfall.io/large/front/7/7/77720d2e-2b7b-492b-852c-eea5061eb31b.jpg?1783917010",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/7/7/77720d2e-2b7b-492b-852c-eea5061eb31b.jpg?1783917010"
+    }
+   },
+   {
+    "name": "Deluge of the Dead",
+    "mana_cost": "",
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, create two 2/2 black Zombie creature tokens.\n{2}{B}: Exile target card from a graveyard. If it was a creature card, create a 2/2 black Zombie creature token.",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/7/7/77720d2e-2b7b-492b-852c-eea5061eb31b.jpg?1783917010",
+     "normal": "https://cards.scryfall.io/normal/back/7/7/77720d2e-2b7b-492b-852c-eea5061eb31b.jpg?1783917010",
+     "large": "https://cards.scryfall.io/large/back/7/7/77720d2e-2b7b-492b-852c-eea5061eb31b.jpg?1783917010",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/7/7/77720d2e-2b7b-492b-852c-eea5061eb31b.jpg?1783917010"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Ixalan // Belligerent Regisaur",
+  "layout": "transform",
+  "mana_cost": "{1}{G} // ",
+  "cmc": 2.0,
+  "type_line": "Battle — Siege // Creature — Dinosaur",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, look at the top five cards of your library. You may reveal a permanent card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\n//\nTrample\nWhenever you cast a spell, this creature gains indestructible until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Transform",
+   "Trample"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Ixalan",
+    "mana_cost": "{1}{G}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, look at the top five cards of your library. You may reveal a permanent card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    "defense": "4",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/f/a/fa20fc16-e106-4953-ace4-5ac9c7fec97b.jpg?1783916974",
+     "normal": "https://cards.scryfall.io/normal/front/f/a/fa20fc16-e106-4953-ace4-5ac9c7fec97b.jpg?1783916974",
+     "large": "https://cards.scryfall.io/large/front/f/a/fa20fc16-e106-4953-ace4-5ac9c7fec97b.jpg?1783916974",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/f/a/fa20fc16-e106-4953-ace4-5ac9c7fec97b.jpg?1783916974"
+    }
+   },
+   {
+    "name": "Belligerent Regisaur",
+    "mana_cost": "",
+    "type_line": "Creature — Dinosaur",
+    "oracle_text": "Trample\nWhenever you cast a spell, this creature gains indestructible until end of turn.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/f/a/fa20fc16-e106-4953-ace4-5ac9c7fec97b.jpg?1783916974",
+     "normal": "https://cards.scryfall.io/normal/back/f/a/fa20fc16-e106-4953-ace4-5ac9c7fec97b.jpg?1783916974",
+     "large": "https://cards.scryfall.io/large/back/f/a/fa20fc16-e106-4953-ace4-5ac9c7fec97b.jpg?1783916974",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/f/a/fa20fc16-e106-4953-ace4-5ac9c7fec97b.jpg?1783916974"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Kaladesh // Aetherwing, Golden-Scale Flagship",
+  "layout": "transform",
+  "mana_cost": "{U}{R} // ",
+  "cmc": 2.0,
+  "type_line": "Battle — Siege // Legendary Artifact — Vehicle",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, create a 1/1 colorless Thopter artifact creature token with flying.\n//\nFlying\nAetherwing's power is equal to the number of artifacts you control.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform",
+   "Crew"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Kaladesh",
+    "mana_cost": "{U}{R}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, create a 1/1 colorless Thopter artifact creature token with flying.",
+    "defense": "4",
+    "colors": [
+     "R",
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/4/f/4f7231f6-8adc-4a68-9984-e56b974c087b.jpg?1783916951",
+     "normal": "https://cards.scryfall.io/normal/front/4/f/4f7231f6-8adc-4a68-9984-e56b974c087b.jpg?1783916951",
+     "large": "https://cards.scryfall.io/large/front/4/f/4f7231f6-8adc-4a68-9984-e56b974c087b.jpg?1783916951",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/4/f/4f7231f6-8adc-4a68-9984-e56b974c087b.jpg?1783916951"
+    }
+   },
+   {
+    "name": "Aetherwing, Golden-Scale Flagship",
+    "mana_cost": "",
+    "type_line": "Legendary Artifact — Vehicle",
+    "oracle_text": "Flying\nAetherwing's power is equal to the number of artifacts you control.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+    "power": "*",
+    "toughness": "4",
+    "colors": [
+     "R",
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/4/f/4f7231f6-8adc-4a68-9984-e56b974c087b.jpg?1783916951",
+     "normal": "https://cards.scryfall.io/normal/back/4/f/4f7231f6-8adc-4a68-9984-e56b974c087b.jpg?1783916951",
+     "large": "https://cards.scryfall.io/large/back/4/f/4f7231f6-8adc-4a68-9984-e56b974c087b.jpg?1783916951",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/4/f/4f7231f6-8adc-4a68-9984-e56b974c087b.jpg?1783916951"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Kamigawa // Rooftop Saboteurs",
+  "layout": "transform",
+  "mana_cost": "{3}{U} // ",
+  "cmc": 4.0,
+  "type_line": "Battle — Siege // Creature — Moonfolk Ninja",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, tap target artifact or creature an opponent controls and put a stun counter on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)\n//\nFlying\nWhenever this creature deals combat damage to a player or battle, draw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Kamigawa",
+    "mana_cost": "{3}{U}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, tap target artifact or creature an opponent controls and put a stun counter on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+    "defense": "4",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040",
+     "normal": "https://cards.scryfall.io/normal/front/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040",
+     "large": "https://cards.scryfall.io/large/front/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040"
+    }
+   },
+   {
+    "name": "Rooftop Saboteurs",
+    "mana_cost": "",
+    "type_line": "Creature — Moonfolk Ninja",
+    "oracle_text": "Flying\nWhenever this creature deals combat damage to a player or battle, draw a card.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040",
+     "normal": "https://cards.scryfall.io/normal/back/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040",
+     "large": "https://cards.scryfall.io/large/back/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Karsus // Refraction Elemental",
+  "layout": "transform",
+  "mana_cost": "{2}{R}{R} // ",
+  "cmc": 4.0,
+  "type_line": "Battle — Siege // Creature — Elemental",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, it deals 3 damage to each creature and each planeswalker.\n//\nWard—Pay 2 life.\nWhenever you cast a spell, this creature deals 2 damage to each opponent.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Transform",
+   "Ward"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Karsus",
+    "mana_cost": "{2}{R}{R}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, it deals 3 damage to each creature and each planeswalker.",
+    "defense": "4",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/7/7/776b8951-cf15-47ff-b36f-f47706eddb6f.jpg?1783916995",
+     "normal": "https://cards.scryfall.io/normal/front/7/7/776b8951-cf15-47ff-b36f-f47706eddb6f.jpg?1783916995",
+     "large": "https://cards.scryfall.io/large/front/7/7/776b8951-cf15-47ff-b36f-f47706eddb6f.jpg?1783916995",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/7/7/776b8951-cf15-47ff-b36f-f47706eddb6f.jpg?1783916995"
+    }
+   },
+   {
+    "name": "Refraction Elemental",
+    "mana_cost": "",
+    "type_line": "Creature — Elemental",
+    "oracle_text": "Ward—Pay 2 life.\nWhenever you cast a spell, this creature deals 2 damage to each opponent.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/7/7/776b8951-cf15-47ff-b36f-f47706eddb6f.jpg?1783916995",
+     "normal": "https://cards.scryfall.io/normal/back/7/7/776b8951-cf15-47ff-b36f-f47706eddb6f.jpg?1783916995",
+     "large": "https://cards.scryfall.io/large/back/7/7/776b8951-cf15-47ff-b36f-f47706eddb6f.jpg?1783916995",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/7/7/776b8951-cf15-47ff-b36f-f47706eddb6f.jpg?1783916995"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Lorwyn // Winnowing Forces",
+  "layout": "transform",
+  "mana_cost": "{4}{B}{G} // ",
+  "cmc": 6.0,
+  "type_line": "Battle — Siege // Creature — Elf Warrior",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, destroy target non-Elf creature an opponent controls with power X or less, where X is the number of lands you control.\n//\nWinnowing Forces's power and toughness are each equal to the number of lands you control.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Lorwyn",
+    "mana_cost": "{4}{B}{G}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, destroy target non-Elf creature an opponent controls with power X or less, where X is the number of lands you control.",
+    "defense": "5",
+    "colors": [
+     "B",
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/9/3/93f623da-616e-4067-9ea8-5dfbeef8ce0b.jpg?1783916950",
+     "normal": "https://cards.scryfall.io/normal/front/9/3/93f623da-616e-4067-9ea8-5dfbeef8ce0b.jpg?1783916950",
+     "large": "https://cards.scryfall.io/large/front/9/3/93f623da-616e-4067-9ea8-5dfbeef8ce0b.jpg?1783916950",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/9/3/93f623da-616e-4067-9ea8-5dfbeef8ce0b.jpg?1783916950"
+    }
+   },
+   {
+    "name": "Winnowing Forces",
+    "mana_cost": "",
+    "type_line": "Creature — Elf Warrior",
+    "oracle_text": "Winnowing Forces's power and toughness are each equal to the number of lands you control.",
+    "power": "*",
+    "toughness": "*",
+    "colors": [
+     "B",
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/9/3/93f623da-616e-4067-9ea8-5dfbeef8ce0b.jpg?1783916950",
+     "normal": "https://cards.scryfall.io/normal/back/9/3/93f623da-616e-4067-9ea8-5dfbeef8ce0b.jpg?1783916950",
+     "large": "https://cards.scryfall.io/large/back/9/3/93f623da-616e-4067-9ea8-5dfbeef8ce0b.jpg?1783916950",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/9/3/93f623da-616e-4067-9ea8-5dfbeef8ce0b.jpg?1783916950"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Mercadia // Kyren Flamewright",
+  "layout": "transform",
+  "mana_cost": "{1}{R} // ",
+  "cmc": 2.0,
+  "type_line": "Battle — Siege // Creature — Goblin Spellshaper",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, you may discard a card. If you do, draw two cards.\n//\n{2}{R}, {T}, Discard a card: Create two 1/1 blue and red Elemental creature tokens. Creatures you control get +1/+0 and gain haste until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Mercadia",
+    "mana_cost": "{1}{R}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, you may discard a card. If you do, draw two cards.",
+    "defense": "4",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+     "normal": "https://cards.scryfall.io/normal/front/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+     "large": "https://cards.scryfall.io/large/front/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993"
+    }
+   },
+   {
+    "name": "Kyren Flamewright",
+    "mana_cost": "",
+    "type_line": "Creature — Goblin Spellshaper",
+    "oracle_text": "{2}{R}, {T}, Discard a card: Create two 1/1 blue and red Elemental creature tokens. Creatures you control get +1/+0 and gain haste until end of turn.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+     "normal": "https://cards.scryfall.io/normal/back/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+     "large": "https://cards.scryfall.io/large/back/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Moag // Bloomwielder Dryads",
+  "layout": "transform",
+  "mana_cost": "{2}{G}{W} // ",
+  "cmc": 4.0,
+  "type_line": "Battle — Siege // Creature — Dryad",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, put a +1/+1 counter on each creature you control.\n//\nWard {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)\nAt the beginning of your end step, put a +1/+1 counter on target creature you control.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Transform",
+   "Ward"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Moag",
+    "mana_cost": "{2}{G}{W}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, put a +1/+1 counter on each creature you control.",
+    "defense": "5",
+    "colors": [
+     "G",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/e/4/e454bf31-5aa0-4109-a3f5-c3f9cc838682.jpg?1783916950",
+     "normal": "https://cards.scryfall.io/normal/front/e/4/e454bf31-5aa0-4109-a3f5-c3f9cc838682.jpg?1783916950",
+     "large": "https://cards.scryfall.io/large/front/e/4/e454bf31-5aa0-4109-a3f5-c3f9cc838682.jpg?1783916950",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/e/4/e454bf31-5aa0-4109-a3f5-c3f9cc838682.jpg?1783916950"
+    }
+   },
+   {
+    "name": "Bloomwielder Dryads",
+    "mana_cost": "",
+    "type_line": "Creature — Dryad",
+    "oracle_text": "Ward {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)\nAt the beginning of your end step, put a +1/+1 counter on target creature you control.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+     "G",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/e/4/e454bf31-5aa0-4109-a3f5-c3f9cc838682.jpg?1783916950",
+     "normal": "https://cards.scryfall.io/normal/back/e/4/e454bf31-5aa0-4109-a3f5-c3f9cc838682.jpg?1783916950",
+     "large": "https://cards.scryfall.io/large/back/e/4/e454bf31-5aa0-4109-a3f5-c3f9cc838682.jpg?1783916950",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/e/4/e454bf31-5aa0-4109-a3f5-c3f9cc838682.jpg?1783916950"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Segovia // Caetus, Sea Tyrant of Segovia",
+  "layout": "transform",
+  "mana_cost": "{2}{U} // ",
+  "cmc": 3.0,
+  "type_line": "Battle — Siege // Legendary Creature — Serpent",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, create two 1/1 blue Kraken creature tokens with trample.\n//\nNoncreature spells you cast have convoke. (Your creatures can help cast those spells. Each creature you tap while casting a noncreature spell pays for {1} or one mana of that creature's color.)\nAt the beginning of your end step, untap up to four target creatures.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Segovia",
+    "mana_cost": "{2}{U}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, create two 1/1 blue Kraken creature tokens with trample.",
+    "defense": "4",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/9/d/9df3e743-7bb8-482a-afd1-4d51119d416c.jpg?1783917037",
+     "normal": "https://cards.scryfall.io/normal/front/9/d/9df3e743-7bb8-482a-afd1-4d51119d416c.jpg?1783917037",
+     "large": "https://cards.scryfall.io/large/front/9/d/9df3e743-7bb8-482a-afd1-4d51119d416c.jpg?1783917037",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/9/d/9df3e743-7bb8-482a-afd1-4d51119d416c.jpg?1783917037"
+    }
+   },
+   {
+    "name": "Caetus, Sea Tyrant of Segovia",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Serpent",
+    "oracle_text": "Noncreature spells you cast have convoke. (Your creatures can help cast those spells. Each creature you tap while casting a noncreature spell pays for {1} or one mana of that creature's color.)\nAt the beginning of your end step, untap up to four target creatures.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/9/d/9df3e743-7bb8-482a-afd1-4d51119d416c.jpg?1783917037",
+     "normal": "https://cards.scryfall.io/normal/back/9/d/9df3e743-7bb8-482a-afd1-4d51119d416c.jpg?1783917037",
+     "large": "https://cards.scryfall.io/large/back/9/d/9df3e743-7bb8-482a-afd1-4d51119d416c.jpg?1783917037",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/9/d/9df3e743-7bb8-482a-afd1-4d51119d416c.jpg?1783917037"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Shandalar // Leyline Surge",
+  "layout": "transform",
+  "mana_cost": "{3}{G}{G} // ",
+  "cmc": 5.0,
+  "type_line": "Battle — Siege // Enchantment",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, return up to three target permanent cards from your graveyard to your hand.\n//\nAt the beginning of your upkeep, you may put a permanent card from your hand onto the battlefield.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Shandalar",
+    "mana_cost": "{3}{G}{G}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, return up to three target permanent cards from your graveyard to your hand.",
+    "defense": "4",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/5/f/5f80764e-8fa2-44e2-84c6-3b55f1c40ee7.jpg?1783916974",
+     "normal": "https://cards.scryfall.io/normal/front/5/f/5f80764e-8fa2-44e2-84c6-3b55f1c40ee7.jpg?1783916974",
+     "large": "https://cards.scryfall.io/large/front/5/f/5f80764e-8fa2-44e2-84c6-3b55f1c40ee7.jpg?1783916974",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/5/f/5f80764e-8fa2-44e2-84c6-3b55f1c40ee7.jpg?1783916974"
+    }
+   },
+   {
+    "name": "Leyline Surge",
+    "mana_cost": "",
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, you may put a permanent card from your hand onto the battlefield.",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/5/f/5f80764e-8fa2-44e2-84c6-3b55f1c40ee7.jpg?1783916974",
+     "normal": "https://cards.scryfall.io/normal/back/5/f/5f80764e-8fa2-44e2-84c6-3b55f1c40ee7.jpg?1783916974",
+     "large": "https://cards.scryfall.io/large/back/5/f/5f80764e-8fa2-44e2-84c6-3b55f1c40ee7.jpg?1783916974",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/5/f/5f80764e-8fa2-44e2-84c6-3b55f1c40ee7.jpg?1783916974"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Theros // Ephara, Ever-Sheltering",
+  "layout": "transform",
+  "mana_cost": "{2}{W} // ",
+  "cmc": 3.0,
+  "type_line": "Battle — Siege // Legendary Enchantment Creature — God",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for an Aura, God, or Demigod card, reveal it, put it into your hand, then shuffle.\n//\nEphara has lifelink and indestructible as long as you control at least three other enchantments.\nWhenever another enchantment you control enters, draw a card.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Theros",
+    "mana_cost": "{2}{W}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for an Aura, God, or Demigod card, reveal it, put it into your hand, then shuffle.",
+    "defense": "4",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/4/3/433e9f1c-9d6c-4c7e-89d0-79595b4331f2.jpg?1783917071",
+     "normal": "https://cards.scryfall.io/normal/front/4/3/433e9f1c-9d6c-4c7e-89d0-79595b4331f2.jpg?1783917071",
+     "large": "https://cards.scryfall.io/large/front/4/3/433e9f1c-9d6c-4c7e-89d0-79595b4331f2.jpg?1783917071",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/4/3/433e9f1c-9d6c-4c7e-89d0-79595b4331f2.jpg?1783917071"
+    }
+   },
+   {
+    "name": "Ephara, Ever-Sheltering",
+    "mana_cost": "",
+    "type_line": "Legendary Enchantment Creature — God",
+    "oracle_text": "Ephara has lifelink and indestructible as long as you control at least three other enchantments.\nWhenever another enchantment you control enters, draw a card.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "U",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/4/3/433e9f1c-9d6c-4c7e-89d0-79595b4331f2.jpg?1783917071",
+     "normal": "https://cards.scryfall.io/normal/back/4/3/433e9f1c-9d6c-4c7e-89d0-79595b4331f2.jpg?1783917071",
+     "large": "https://cards.scryfall.io/large/back/4/3/433e9f1c-9d6c-4c7e-89d0-79595b4331f2.jpg?1783917071",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/4/3/433e9f1c-9d6c-4c7e-89d0-79595b4331f2.jpg?1783917071"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Tolvada // The Broken Sky",
+  "layout": "transform",
+  "mana_cost": "{3}{W}{B} // ",
+  "cmc": 5.0,
+  "type_line": "Battle — Siege // Enchantment",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, return target nonbattle permanent card from your graveyard to the battlefield.\n//\nCreature tokens you control get +1/+0 and have lifelink.\nAt the beginning of your end step, create a 1/1 white and black Spirit creature token with flying.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Tolvada",
+    "mana_cost": "{3}{W}{B}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, return target nonbattle permanent card from your graveyard to the battlefield.",
+    "defense": "5",
+    "colors": [
+     "B",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/0/0/00255899-aaaf-46c6-8037-bd0e3c06250c.jpg?1783916950",
+     "normal": "https://cards.scryfall.io/normal/front/0/0/00255899-aaaf-46c6-8037-bd0e3c06250c.jpg?1783916950",
+     "large": "https://cards.scryfall.io/large/front/0/0/00255899-aaaf-46c6-8037-bd0e3c06250c.jpg?1783916950",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/0/0/00255899-aaaf-46c6-8037-bd0e3c06250c.jpg?1783916950"
+    }
+   },
+   {
+    "name": "The Broken Sky",
+    "mana_cost": "",
+    "type_line": "Enchantment",
+    "oracle_text": "Creature tokens you control get +1/+0 and have lifelink.\nAt the beginning of your end step, create a 1/1 white and black Spirit creature token with flying.",
+    "colors": [
+     "B",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/0/0/00255899-aaaf-46c6-8037-bd0e3c06250c.jpg?1783916950",
+     "normal": "https://cards.scryfall.io/normal/back/0/0/00255899-aaaf-46c6-8037-bd0e3c06250c.jpg?1783916950",
+     "large": "https://cards.scryfall.io/large/back/0/0/00255899-aaaf-46c6-8037-bd0e3c06250c.jpg?1783916950",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/0/0/00255899-aaaf-46c6-8037-bd0e3c06250c.jpg?1783916950"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Vryn // Overloaded Mage-Ring",
+  "layout": "transform",
+  "mana_cost": "{3}{U} // ",
+  "cmc": 4.0,
+  "type_line": "Battle — Siege // Artifact",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, draw three cards, then discard a card.\n//\n{1}, {T}, Sacrifice this artifact: Copy target spell you control. You may choose new targets for the copy. (A copy of a permanent spell becomes a token.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Vryn",
+    "mana_cost": "{3}{U}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, draw three cards, then discard a card.",
+    "defense": "4",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/c/0/c0ef6737-8e85-42ca-8ee6-6a34f9462de3.jpg?1783917038",
+     "normal": "https://cards.scryfall.io/normal/front/c/0/c0ef6737-8e85-42ca-8ee6-6a34f9462de3.jpg?1783917038",
+     "large": "https://cards.scryfall.io/large/front/c/0/c0ef6737-8e85-42ca-8ee6-6a34f9462de3.jpg?1783917038",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/c/0/c0ef6737-8e85-42ca-8ee6-6a34f9462de3.jpg?1783917038"
+    }
+   },
+   {
+    "name": "Overloaded Mage-Ring",
+    "mana_cost": "",
+    "type_line": "Artifact",
+    "oracle_text": "{1}, {T}, Sacrifice this artifact: Copy target spell you control. You may choose new targets for the copy. (A copy of a permanent spell becomes a token.)",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/c/0/c0ef6737-8e85-42ca-8ee6-6a34f9462de3.jpg?1783917038",
+     "normal": "https://cards.scryfall.io/normal/back/c/0/c0ef6737-8e85-42ca-8ee6-6a34f9462de3.jpg?1783917038",
+     "large": "https://cards.scryfall.io/large/back/c/0/c0ef6737-8e85-42ca-8ee6-6a34f9462de3.jpg?1783917038",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/c/0/c0ef6737-8e85-42ca-8ee6-6a34f9462de3.jpg?1783917038"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Xerex // Vertex Paladin",
+  "layout": "transform",
+  "mana_cost": "{2}{W}{U} // ",
+  "cmc": 4.0,
+  "type_line": "Battle — Siege // Creature — Angel Knight",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, return up to one target creature to its owner's hand.\n//\nFlying\nVertex Paladin's power and toughness are each equal to the number of creatures you control.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Xerex",
+    "mana_cost": "{2}{W}{U}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, return up to one target creature to its owner's hand.",
+    "defense": "4",
+    "colors": [
+     "U",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/6/c/6c8c9c33-569c-4b67-a18d-4cd0f18d01f4.jpg?1783916949",
+     "normal": "https://cards.scryfall.io/normal/front/6/c/6c8c9c33-569c-4b67-a18d-4cd0f18d01f4.jpg?1783916949",
+     "large": "https://cards.scryfall.io/large/front/6/c/6c8c9c33-569c-4b67-a18d-4cd0f18d01f4.jpg?1783916949",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/6/c/6c8c9c33-569c-4b67-a18d-4cd0f18d01f4.jpg?1783916949"
+    }
+   },
+   {
+    "name": "Vertex Paladin",
+    "mana_cost": "",
+    "type_line": "Creature — Angel Knight",
+    "oracle_text": "Flying\nVertex Paladin's power and toughness are each equal to the number of creatures you control.",
+    "power": "*",
+    "toughness": "*",
+    "colors": [
+     "U",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/6/c/6c8c9c33-569c-4b67-a18d-4cd0f18d01f4.jpg?1783916949",
+     "normal": "https://cards.scryfall.io/normal/back/6/c/6c8c9c33-569c-4b67-a18d-4cd0f18d01f4.jpg?1783916949",
+     "large": "https://cards.scryfall.io/large/back/6/c/6c8c9c33-569c-4b67-a18d-4cd0f18d01f4.jpg?1783916949",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/6/c/6c8c9c33-569c-4b67-a18d-4cd0f18d01f4.jpg?1783916949"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Gobakhan // Lightshield Array",
+  "layout": "transform",
+  "mana_cost": "{1}{W} // ",
+  "cmc": 2.0,
+  "type_line": "Battle — Siege // Enchantment",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, look at target opponent's hand. You may exile a nonland card from it. For as long as that card remains exiled, its owner may play it. A spell cast this way costs {2} more to cast.\n//\nAt the beginning of your end step, put a +1/+1 counter on each creature that attacked this turn.\nSacrifice this enchantment: Creatures you control gain hexproof and indestructible until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Gobakhan",
+    "mana_cost": "{1}{W}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, look at target opponent's hand. You may exile a nonland card from it. For as long as that card remains exiled, its owner may play it. A spell cast this way costs {2} more to cast.",
+    "defense": "3",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064",
+     "normal": "https://cards.scryfall.io/normal/front/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064",
+     "large": "https://cards.scryfall.io/large/front/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064"
+    }
+   },
+   {
+    "name": "Lightshield Array",
+    "mana_cost": "",
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your end step, put a +1/+1 counter on each creature that attacked this turn.\nSacrifice this enchantment: Creatures you control gain hexproof and indestructible until end of turn.",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064",
+     "normal": "https://cards.scryfall.io/normal/back/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064",
+     "large": "https://cards.scryfall.io/large/back/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of New Phyrexia // Teferi Akosa of Zhalfir",
+  "layout": "transform",
+  "mana_cost": "{X}{W}{U} // ",
+  "cmc": 2.0,
+  "type_line": "Battle — Siege // Legendary Planeswalker — Teferi",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, create X 2/2 white and blue Knight creature tokens with vigilance.\n//\n+1: Draw two cards. Then discard two cards unless you discard a creature card.\n−2: You get an emblem with \"Knights you control get +1/+0 and have ward {1}.\"\n−3: Tap any number of untapped creatures you control. When you do, shuffle target nonland permanent an opponent controls with mana value X or less into its owner's library, where X is the number of creatures tapped this way.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of New Phyrexia",
+    "mana_cost": "{X}{W}{U}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, create X 2/2 white and blue Knight creature tokens with vigilance.",
+    "defense": "6",
+    "colors": [
+     "U",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/1/b/1b83af86-e1a9-4be1-83dc-0c1ab81b129e.jpg?1783916950",
+     "normal": "https://cards.scryfall.io/normal/front/1/b/1b83af86-e1a9-4be1-83dc-0c1ab81b129e.jpg?1783916950",
+     "large": "https://cards.scryfall.io/large/front/1/b/1b83af86-e1a9-4be1-83dc-0c1ab81b129e.jpg?1783916950",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/1/b/1b83af86-e1a9-4be1-83dc-0c1ab81b129e.jpg?1783916950"
+    }
+   },
+   {
+    "name": "Teferi Akosa of Zhalfir",
+    "mana_cost": "",
+    "type_line": "Legendary Planeswalker — Teferi",
+    "oracle_text": "+1: Draw two cards. Then discard two cards unless you discard a creature card.\n−2: You get an emblem with \"Knights you control get +1/+0 and have ward {1}.\"\n−3: Tap any number of untapped creatures you control. When you do, shuffle target nonland permanent an opponent controls with mana value X or less into its owner's library, where X is the number of creatures tapped this way.",
+    "loyalty": "4",
+    "colors": [
+     "U",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/1/b/1b83af86-e1a9-4be1-83dc-0c1ab81b129e.jpg?1783916950",
+     "normal": "https://cards.scryfall.io/normal/back/1/b/1b83af86-e1a9-4be1-83dc-0c1ab81b129e.jpg?1783916950",
+     "large": "https://cards.scryfall.io/large/back/1/b/1b83af86-e1a9-4be1-83dc-0c1ab81b129e.jpg?1783916950",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/1/b/1b83af86-e1a9-4be1-83dc-0c1ab81b129e.jpg?1783916950"
+    }
+   }
+  ]
+ }
+]

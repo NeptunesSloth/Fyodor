@@ -660,9 +660,15 @@ def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLo
     sel = selectors.from_key(cond["sel"])
     me = ctx["controller"]
     src = _source_object(plan, ctx) if cond.get("other") else None
+    skip = {src}
+    spell = plan.state.cards.get(ctx.get("source_card") or "")
+    if src is not None and spell is not None and spell.zone == "stack" and spell.ability is None:
+        # (-- review 38 -- a spell's "another creature": one other than its target, "Destroy target creature. If another creature died this turn, draw a card."
+        # (Chain Assassination ruling 2024-07-05: the target's own death doesn't count))
+        skip |= {t.get("object_id") if isinstance(t, dict) else getattr(t, "object_id", None) for t in ctx.get("targets") or []}
     n = 0
     for d in log.left:
-        if (cond.get("died") and d.to != "graveyard") or (cond.get("to") and d.to != cond["to"]) or d.object_id == src:
+        if (cond.get("died") and d.to != "graveyard") or (cond.get("to") and d.to != cond["to"]) or d.object_id in skip:
             continue  # (-- this-turn history (wave 30R) -- "to": a permanent put into a hand from the battlefield)
         if cond.get("who") and (d.controller == me) != (cond["who"] == "you"):
             continue

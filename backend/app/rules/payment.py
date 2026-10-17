@@ -61,7 +61,7 @@ def pays(helper: Helper, symbol: str) -> bool:
         return False
     parts = symbol.split("/")
     if parts[-1] == "P":
-        return parts[0] in helper.colors
+        return any(p in helper.colors for p in parts[:-1])  # (review 38: {G/W/P})
     return any(p in helper.colors for p in parts)
 
 
@@ -85,7 +85,7 @@ def remaining(cost: M.ManaCost, paid: Iterable[str]) -> M.ManaCost:
     if generic < 0:
         raise ValueError("more generic mana paid than the cost has")
     return M.ManaCost(generic, tuple(colored), tuple(tuple(h.split("/")) for h in hybrid),
-                      tuple(p[0] for p in phyrexian), 0, cost.unsupported)
+                      tuple(p[:-2] for p in phyrexian), 0, cost.unsupported)
 
 
 def _order(symbols: Iterable[str]) -> list[str]:
@@ -163,6 +163,6 @@ def after_pool(cost: M.ManaCost, pool: dict[str, int]) -> M.ManaCost:
     for h in cost.hybrid:
         if not take(p for p in h if not p.isdigit()):
             hybrid.append(h)
-    phyrexian = tuple(c for c in cost.phyrexian if not take((c,)))
+    phyrexian = tuple(c for c in cost.phyrexian if not take(c.split("/")))
     generic = max(0, cost.generic - sum(units.values()))
     return M.ManaCost(generic, colored, tuple(hybrid), phyrexian, 0, cost.unsupported)
