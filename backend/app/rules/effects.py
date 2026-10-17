@@ -2196,7 +2196,13 @@ def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in chosen],
                min_choices=1, max_choices=1, resume={"step": "search_split", "ctx": ctx, "e": e, "found": list(chosen)})
         return
-    _finish_search(plan, ctx, e, d.player, list(chosen), {c: e["to"] for c in chosen})
+    to_if = e.get("to_if")  # -- most-played modal spells (wave 50I) -- "Put it onto the battlefield tapped if it's a land card. Otherwise, put it into your hand." (Archdruid's Charm)
+    from app.rules import characteristics as chars
+
+    _finish_search(plan, ctx, e, d.player, list(chosen),
+                   {c: to_if["to"] if to_if is not None and selectors.matches(plan, selectors.from_key(to_if["sel"]), plan.state.cards[c],
+                                                                              chars.of(plan.state.cards[c], plan.info), d.player, None) else e["to"]
+                    for c in chosen})
 
 
 def resume_search_split(plan: Plan, d: Any, chosen: list[str]) -> None:

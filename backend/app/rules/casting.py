@@ -822,6 +822,8 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
         if len(allowed) < lo:
             raise ActionError(f"{what} can't have {lo} modes chosen (a mode has no legal target)")
     if a.modes:
+        if (w := modal.get("weights")) is not None and sum(w[i] for i in a.modes if 0 <= i < len(w)) > modal["budget"]:  # -- most-played modal spells (wave 50I) -- the Seasons' pawprints
+            raise ActionError(f"The modes you chose add up to more than {modal['budget']} pawprints")
         if not lo <= len(a.modes) <= hi:
             raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}")
         if not repeat and len(set(a.modes)) != len(a.modes):

@@ -59,6 +59,8 @@ def _value(phrase: str, its: str | None) -> Any:
 def sized_cost(phrase: str, its: str | None = None) -> dict[str, Any] | None:
     """"{X}" / "{X}, where X is …" / "{N} for each …" / "{A} plus an additional {B} for each …" →
     ``{"cost": base mana text ("" if none), "per": mana text, "n": value}``, or None."""
+    if phrase.strip() == "twice {X}":  # -- most-played modal spells (wave 50I) -- "pays twice {X}" (Thassa's Intervention): twice the amount {X} stands for, i.e. {2} for each X (107.3a)
+        return {"cost": "", "per": "{2}", "n": {"x": 1}}
     m = _X.match(phrase.strip())
     if m:
         n = {"x": 1} if m["v"] is None else _value(m["v"], its)

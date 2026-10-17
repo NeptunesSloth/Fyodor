@@ -2427,6 +2427,11 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # and the other into your graveyard. Then shuffle." (Final Parting, Fork in the Road), "… for a white card, …, and a green card. Reveal
     # those cards, put them into your hand, then shuffle." (Conflux), "…. Put those cards into your graveyard, then shuffle.": one search
     # sentence (701.23), read by language._search
+    # (-- most-played modal spells (wave 50I) -- the destination by kind: "Put it onto the battlefield tapped if it's a land card. Otherwise, put it into your hand."
+    # (Archdruid's Charm) is one clause of the search, language._search)
+    body = re.sub(r"((?i:search) your library for [^.]+?)(?: and (reveal it))?\. Put it (onto the battlefield(?: tapped)?) if it's (an? [a-z ]+? card)\. "
+                  r"Otherwise, put it into your hand\. Then shuffle\b",
+                  lambda m: f"{m[1]}, {m[2] + ', ' if m[2] else ''}put it {m[3]} if it's {m[4]} and into your hand otherwise, then shuffle", body)
     body = re.sub(r"((?i:search) your library for [^.]+?)(?: and (reveal (?:them|it)))?\. ((?:Reveal (?:those cards|them|that card|it), )?"
                   r"[Pp]ut (?:one(?: of them)?|those cards|them|that card|it) [^.]+?)(?:, then shuffle|\. Then shuffle)\b",
                   lambda m: f"{m[1]}, {m[2] + ', ' if m[2] else ''}{m[3][:1].lower()}{m[3][1:]}, then shuffle", body)
@@ -5702,6 +5707,31 @@ def spree_definition(ch: Characteristics, lines: list[AbilityText]) -> Definitio
     return modal
 
 
+# -- most-played modal spells (wave 50I) -- Bloomburrow's Seasons: "Choose up to five {P} worth of modes. You may choose the same mode more than once." and a line per mode,
+# "{P}{P} — …": the pawprints are not a cost (ruling 2024-07-26), they only bound the choice, 700.2d (a mode may be chosen more than once; each time with its own target, 601.2c)
+_PAWPRINT_HEADER = re.compile(r"^Choose up to (?P<n>one|two|three|four|five|six) \{P\} worth of modes\. You may choose the same mode more than once\.$")
+_PAWPRINT_MODE = re.compile(r"^(?P<p>(?:\{P\})+) — (?P<text>.+)$")
+
+
+def pawprint_definition(lines: list[AbilityText], name: str) -> Definition | None:
+    m = _PAWPRINT_HEADER.match(lines[0].text) if lines else None
+    found = [_PAWPRINT_MODE.fullmatch(ab.text) for ab in lines[1:]]
+    if m is None or len(lines) < 3 or None in found:
+        return None
+    modal = modal_definition([replace(lines[0], text="Choose five. You may choose the same mode more than once."),
+                              *(replace(ab, text=f"• {f['text']}") for ab, f in zip(lines[1:], found, strict=True) if f)], name)
+    if modal is None:
+        return None
+    weights = [f["p"].count("{P}") for f in found if f]
+    budget = _NUMBERS[m["n"]] if m["n"] in _NUMBERS else 6
+    # ponytail: choosing no mode at all (allowed, ruling 2024-07-26, but it does nothing) isn't offered
+    modal["modal"] = {**modal["modal"], "min": 1, "max": budget // min(weights), "weights": weights, "budget": budget}
+    for mode, f in zip(modal["modes"], found, strict=True):
+        if f:
+            mode["text"] = f"{f['p']} — {f['text']}"
+    return modal
+
+
 def _from_hand_ability(ab: AbilityText) -> bool:
     return ab.kind == "activated" and re.search(r"(?:^|, )(?:Discard|Reveal) (?:this (?:card|creature)|~)(?: from your hand)?(?:,|$)", ab.cost or "") is not None
 
@@ -5740,6 +5770,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
                            or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)
+    if lines and (pawed := pawprint_definition(lines, ch.name)) is not None:  # (-- most-played modal spells (wave 50I) -- the Seasons)
+        return pawed if _event_refs_ok(pawed) else None
     if lines and modal_header(lines[0].text) is not None:  # (-- modal frames (wave 33B) -- after the lines about casting it: "Cast this spell only during combat.")
         from app.rules import gift
 

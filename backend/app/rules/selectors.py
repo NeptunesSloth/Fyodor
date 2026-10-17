@@ -589,6 +589,14 @@ def _less_than_x(s: Selector, m: re.Match[str]) -> Selector:  # (107.3f: the X o
     return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]], "<", X_VALUE)))
 
 
+OWN_GRAVEYARD = "own_gy"  # -- most-played modal spells (wave 50I) -- the number of cards in the graveyard of the controller of the object tested
+
+
+@_suffix(r"with (?P<what>mana value|power|toughness) less than or equal to the number of cards in its controller's graveyard")  # (Drown in the Loch)
+def _own_graveyard(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]], "<=", OWN_GRAVEYARD)))
+
+
 @_suffix(r"with power or toughness (?P<n>\d+) or (?P<dir>less|greater)")  # (wave 15A: Tetsuko Umezawa — either one)
 def _power_or_toughness(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"pot:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))
@@ -1885,6 +1893,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if ref_value is None:
                 return False
             n = ref_value
+        elif n == OWN_GRAVEYARD:  # (wave 50I) its controller's graveyard, as it is when checked (608.2b: again as the spell resolves)
+            n = len(plan.state.zones.get(f"{card.controller}:graveyard", []))
         elif isinstance(n, str) and n.startswith(COUNT_STAT):  # -- control change (wave 20E) --
             n = len(candidates(plan, from_key(n[len(COUNT_STAT):]), you, source))
         elif isinstance(n, str) and n.startswith("wx:"):  # -- review 28D -- a bound read again whenever it's checked (107.3c, 608.2b)

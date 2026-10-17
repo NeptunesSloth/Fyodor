@@ -729,7 +729,8 @@ _SEARCH = re.compile(
     rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) (?:may |(?=searches ))?)?"  # (wave 19E: "searches")
     rf"searche?s? (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"
     rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, ))?"
-    rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE})(?: attached to (?P<host>~|this creature|this equipment))?)(?P<shuf>, then shuffles?)?"
+    rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE})(?: attached to (?P<host>~|this creature|this equipment))?"
+    rf"(?P<cond> if it's (?P<cq>an? [a-z ]+? card) and (?P<els>{_PLACE}) otherwise)?)(?P<shuf>, then shuffles?)?"  # (cond: wave 50I)
     rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
     rf"|then shuffles? and puts? {_PRON} (?:on top(?: in any order)?|(?P<third>third from the top)))")  # (wave 42C: "searches …, then shuffles and puts that card on top")  # ("in any order": wave 3R4; third: wave 20D)
 _DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
@@ -979,6 +980,13 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         if not to.startswith("battlefield") or n != 1 or m["one"]:
             raise _Fail
         extra["host"] = "self"
+    if m["cond"]:  # -- most-played modal spells (wave 50I) -- "Put it onto the battlefield tapped if it's a land card. Otherwise, put it into your hand." (Archdruid's Charm): the card found
+        # goes where its kind says (701.23, 608.2c); it is revealed, so where it goes is public
+        kind = _card_selector(re.sub(r"^an? ", "", m["cq"]))
+        if kind is None or n != 1 or anything or m["one"] or m["host"] or "parts" in extra or not m["reveal"]:
+            raise _Fail
+        extra["to_if"] = {"sel": kind, "to": to}
+        to = _DESTS[m["els"]]
     if to != "top" and not (m["shuf"] or m["shuf2"]):
         extra["shuffle"] = False  # (only when the text says so: 701.23e)
     return [{"do": "search", "who": _SEARCHERS[m["who"]] if m["who"] else "you", "label": m["sel"], "max": n,
