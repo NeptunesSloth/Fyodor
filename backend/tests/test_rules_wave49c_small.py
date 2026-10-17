@@ -14,6 +14,7 @@ Every scenario checks the replay and a save and a load.
   greatest power." (Triumph of Gerrard), "if enchanted permanent is a creature with the greatest power among creatures on the battlefield" (Historian's Wisdom, intervening: 603.4), "if it has
   the greatest power or is tied for greatest power among creatures on the battlefield" (Strength-Testing Hammer). "Each opponent chooses a creature with the greatest mana value among
   creatures they control" (Summon: Valefor) stays manual: the extreme is among the chooser's own creatures.
+* 506.4: "Untap target nonattacking creature. It gets +1/+3 until end of turn." (Alarum), "Target nonattacking, nonblocking creature gets +0/+2 until end of turn." (Unlikely Alliance).
 * 118.12: "At the beginning of your upkeep, sacrifice this creature unless you mill two cards." (Deep Spawn) - the payment is the controller's choice.
 * 602.2: "{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target." (Granite Shard and the other Shards) - the ability may be paid either way, not both (the rulings).
 * 702.129a: "Eternalize—{2}{W}{W}, Discard a card." (Sunscourge Champion, Sinuous Striker) - the keyword's cost has a second part, a discard from the hand (the card with
@@ -35,7 +36,7 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import attach, attack, settle, to_phase
+from tests.test_rules_wave34b_activated import attach, attack, settle, stops, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave49c_small_cards.json").read_text("utf-8"))
@@ -431,4 +432,38 @@ def test_strength_testing_hammer_draws_when_the_equipped_creature_has_the_greate
     attack(s, bears)
     settle(s)
     assert len(s.state.zones["p1:hand"]) == hand + (0 if bigger else 1)
+    check(s)
+
+
+def test_alarum_untaps_and_pumps_a_creature_that_is_not_attacking(cards):
+    s = build(cards, ["Alarum", "Grizzly Bears"])
+    bears = put(s, "Grizzly Bears")
+    act(s, "p1", type="tap", card_ids=[bears.id])
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Alarum").id, targets=[bears.id])
+    settle(s)
+    assert not s.state.cards[bears.id].tapped and Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bears.id]).pt == (3, 5)
+    check(s)
+
+
+def test_alarum_cannot_target_an_attacking_creature(cards):
+    s = build(cards, ["Alarum", "Grizzly Bears"])
+    bears = put(s, "Grizzly Bears")
+    to_phase(s, "main1", turn=3)
+    stops(s)
+    attack(s, bears)
+    mana(s, W=1, C=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Alarum").id, targets=[bears.id])
+    check(s)
+
+
+def test_unlikely_alliance_needs_a_creature_that_neither_attacks_nor_blocks(cards):
+    s = build(cards, ["Unlikely Alliance", "Grizzly Bears"])
+    alliance = put(s, "Unlikely Alliance")
+    bears = put(s, "Grizzly Bears")
+    mana(s, W=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=alliance.id, ability=0, targets=[bears.id])
+    settle(s)
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bears.id]).pt == (2, 4)
     check(s)
