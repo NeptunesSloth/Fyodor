@@ -71,8 +71,8 @@ def drive(s, want=(), limit=150):
 
 def test_the_undercity_and_initiative_cards_are_full():
     """The fifteen cards whose only gap was Undercity's Arena, Secret Door (which ventures into every dungeon) and the cards of the same family that
-    wave 45B reads too: Loot Dispute, Undercellar Sweep, Sarevok's Tome, Undermountain Adventurer, Kick in the Door, You Find a Cursed Idol."""
-    assert len(DATA) == 22
+    wave 45B reads too: Loot Dispute, Undercellar Sweep, Sarevok's Tome, Undermountain Adventurer, Kick in the Door, You Find a Cursed Idol, Acererak the Archlich, Ellywick Tumblestrum, Keen-Eared Sentry."""
+    assert len(DATA) == 25
     for c in DATA:
         assert coverage.of_card_data({**c, "faces": c.get("card_faces") or []}).level == "FULL", c["name"]
 
@@ -284,6 +284,78 @@ def test_kick_in_the_door_a_counter_haste_no_wall_can_block_and_a_venture(cards)
     with pytest.raises(ActionError, match="can't be blocked"):
         block(s, "p2", (wall, bears))
     block(s, "p2", (blocker, bears))
+    check(s)
+
+
+def test_acererak_returns_to_hand_and_ventures_until_tomb_of_annihilation_is_completed(cards):
+    """"When Acererak enters, if you haven't completed Tomb of Annihilation, return Acererak to its owner's hand and venture into the dungeon."
+    (603.4: checked as it triggers and as it resolves.) Cast the first time it bounces and ventures; with Tomb completed it stays."""
+    s = build(cards, ["Acererak the Archlich"])
+    acererak = to_hand(s, "Acererak the Archlich")
+    mana(s, "p1", B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=acererak.id)
+    drive(s, want=["Tomb of Annihilation"])
+    assert s.state.cards[acererak.id].zone == "p1:hand" and rules(s).dungeons["p1"].dungeon == "Tomb of Annihilation"
+    rules(s).completed_dungeons["p1"] = ["Tomb of Annihilation"]  # (by hand: completed since)
+    mana(s, "p1", B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=acererak.id)
+    drive(s)
+    assert s.state.cards[acererak.id].zone == "p1:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize(("bob_pays", "zombies"), [(True, 1), (False, 2)])
+def test_acererak_attacks_a_zombie_for_each_opponent_who_does_not_sacrifice_a_creature(cards, bob_pays, zombies):
+    """"Whenever Acererak attacks, for each opponent, you create a 2/2 black Zombie creature token unless that player sacrifices a creature of their
+    choice." (118.12a) Carol has no creature to sacrifice, so she never pays; Bob sacrifices his Bears or doesn't."""
+    s = three(cards, ["Acererak the Archlich"], ["Grizzly Bears"])
+    acererak = put(s, "Acererak the Archlich")
+    bears = put(s, "Grizzly Bears", "p2")
+    season(s)
+    to_phase(s, "declare_attackers", turn=1)
+    attack(s, (acererak, "p2"))
+    drive(s, want=["pay" if bob_pays else "decline"])
+    assert len([c for c in s.state.cards.values() if c.name == "Zombie" and c.zone == "p1:battlefield"]) == zombies
+    assert (s.state.cards[bears.id].zone == "p2:graveyard") == bob_pays
+    check(s)
+
+
+def test_keen_eared_sentry_lets_an_opponent_venture_once_each_turn(cards):
+    """"Each opponent can't venture into the dungeon more than once each turn." (101.2) Alice ventures twice with Secret Door in her turn: only the
+    first moves her marker; in her next turn she may venture again."""
+    s = build(cards, ["Secret Door"], ["Keen-Eared Sentry"])
+    door = put(s, "Secret Door")
+    put(s, "Keen-Eared Sentry", "p2")
+    season(s)
+    for room in ("Lost Mine of Phandelver", "Mine Tunnels"):
+        mana(s, "p1", U=1, C=4)
+        act(s, "p1", type="activate_ability", card_id=door.id, ability=1)
+        drive(s, want=[room])
+    assert rules(s).dungeons["p1"].room == "Cave Entrance"  # (the second venture did nothing)
+    to_phase(s, "main1", turn=3)
+    mana(s, "p1", U=1, C=4)
+    act(s, "p1", type="activate_ability", card_id=door.id, ability=1)
+    drive(s, want=["Mine Tunnels"])
+    assert rules(s).dungeons["p1"].room == "Mine Tunnels"
+    check(s)
+
+
+def test_ellywicks_emblem_counts_the_differently_named_dungeons_you_completed(cards):
+    """Ellywick Tumblestrum's -7: "Creatures you control have trample and haste and get +2/+2 for each differently named dungeon you've completed."
+    (The ruling: it counts every one completed, before or after the emblem.) Lost Mine of Phandelver is completed through Secret Door after it."""
+    s = build(cards, ["Ellywick Tumblestrum", "Grizzly Bears", "Secret Door"])
+    walker, bears, door = put(s, "Ellywick Tumblestrum"), put(s, "Grizzly Bears"), put(s, "Secret Door")
+    season(s)
+    act(s, "p1", type="counter", card_ids=[walker.id], kind="loyalty", delta=7 - s.state.cards[walker.id].counters.get("loyalty", 0))
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=2)
+    drive(s)
+    assert {"trample", "haste"} <= ch(s, bears).keywords and ch(s, bears).pt == (2, 2)  # (none completed yet)
+    for room in ("Lost Mine of Phandelver", "Goblin Lair", "Storeroom", "Temple of Dumathoin"):
+        mana(s, "p1", U=1, C=4)
+        act(s, "p1", type="activate_ability", card_id=door.id, ability=1)
+        drive(s, want=[room, bears.id])
+    assert rules(s).completed_dungeons["p1"] == ["Lost Mine of Phandelver"]
+    assert ch(s, bears).pt == (5, 5)  # +2/+2 and the Storeroom's +1/+1 counter (it targets the Bears)
     check(s)
 
 

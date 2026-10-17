@@ -389,5 +389,61 @@
    "Treasure",
    "Venture into the dungeon"
   ]
+ },
+ {
+  "name": "Acererak the Archlich",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Zombie Wizard",
+  "oracle_text": "When Acererak enters, if you haven't completed Tomb of Annihilation, return Acererak to its owner's hand and venture into the dungeon.\nWhenever Acererak attacks, for each opponent, you create a 2/2 black Zombie creature token unless that player sacrifices a creature of their choice.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Venture into the dungeon"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Ellywick Tumblestrum",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Ellywick",
+  "oracle_text": "+1: Venture into the dungeon. (Enter the first room or advance to the next room.)\n−2: Look at the top six cards of your library. You may reveal a creature card from among them and put it into your hand. If it's legendary, you gain 3 life. Put the rest on the bottom of your library in a random order.\n−7: You get an emblem with \"Creatures you control have trample and haste and get +2/+2 for each differently named dungeon you've completed.\"",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Venture into the dungeon"
+  ],
+  "loyalty": "4"
+ },
+ {
+  "name": "Keen-Eared Sentry",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Soldier",
+  "oracle_text": "You have hexproof. (You can't be the target of spells or abilities your opponents control.)\nEach opponent can't venture into the dungeon more than once each turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Venture into the dungeon"
+  ],
+  "power": "2",
+  "toughness": "1"
  }
 ]

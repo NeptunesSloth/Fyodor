@@ -331,6 +331,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     m = _PLAYER_COUNTERS.match(what)
     if m:
         return {"player_counters": m["kind"]}
+    if what == "differently named dungeon you've completed":  # -- dungeons (wave 45B) -- 309.7: Ellywick Tumblestrum's emblem, one per name
+        return {"dungeons_completed": 1}
     if _EXCESS_DEALT.fullmatch(what):  # -- as long as (wave 9B) -- 120.10: scripts bind it to the damage just before (this_way.excess_dealt)
         return {"ref_amount": "excess_dealt"}
     if re.fullmatch(r"cards in all graveyards with the same name as (?:that|the) spell", what):  # -- value grammar (wave 23C) -- Cabal Shrine: 201.2
@@ -768,6 +770,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "unspent" in v:  # (106.4: the plain pool and the units both hold mana; "" = any color)
         me = plan.state.players[you]
         return sum(n for c, n in me.mana.items() if v["unspent"] in ("", c)) + sum(1 for u in me.mana_units if v["unspent"] in ("", u.sym))
+    if "dungeons_completed" in v:  # -- dungeons (wave 45B) -- the different names among the dungeons you completed (309.7)
+        return len(set(plan.rules.completed_dungeons.get(you, ())))
     if "player_counters" in v:
         if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together
             return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you)
