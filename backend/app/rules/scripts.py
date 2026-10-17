@@ -3419,6 +3419,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 # the one the trigger is about, never the source an instruction before just named (a name is not its antecedent): as it last existed (608.2h)
                 cond = json.loads(json.dumps(cond).replace('"object": "it"', '"object": "event"'))
             if cond is None and (cond := this_way.condition(cond_m["c"])) is not None:  # -- "this way" outcomes (wave 4A) --
+                if cond["value"].get("this_way") == "your_hand" and cond["value"].get("of"):
+                    # -- most-played cards II (wave 45A) -- "If you put a Town card into your hand this way": what kind the card is can be read only when the cards were public before
+                    # (milled into a graveyard, or revealed from the library): a card taken from a hidden zone unseen is never read, nobody learns its kind from the life gained
+                    if not any(e.get("do") == "mill" or (e.get("do") == "look_top" and e.get("reveal")) for e in effects):
+                        return None
+                    cond = {**cond, "value": {**cond["value"], "public": True}}
                 inner = _conditional_inner(cond_m["rest"])
             else:
                 inner = _conditional_inner(cond_m["rest"], cond) if cond is not None else None
@@ -7811,7 +7817,7 @@ def _each_put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return found
 
 
-_RECORDING["put_from_hand"] = None  # ("That creature gains haste.": the permanent it put onto the battlefield)
+_RECORDING["put_from_hand"] = "put_battlefield"  # ("That creature gains haste.": the permanent it put onto the battlefield; wave 45A: "If you put a Cave onto the battlefield this way")
 _MOVERS.add("put_from_hand")
 # -- end token copies & attach on entry (wave 5J) --
 
