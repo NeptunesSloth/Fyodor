@@ -4841,7 +4841,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import trigger_words  # or Vehicle spell", "a noncreature, nonland card")
 
                 m = trigger_words.comma_condition(text, m)
-            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b|\bspent to cast it\b|\bits mana value\b|\bthat creature enters with\b", m["body"]):  # (3R3: copy it; wave 16B: increment; 18B: mana spent)
+            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b|\bspent to cast it\b|\bits mana value\b|\bthat creature enters with\b", m["body"], re.I):  # (3R3: copy it; wave 16B: increment; 18B: mana spent)
                 continue  # -- sized amounts (wave 3D) -- it reads the spell cast: the generic condition's event carries it
             if m:
                 name = step_trigger(m) if trigger == "step" else (
@@ -8441,6 +8441,15 @@ def _copy_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 @effect(r"return that spell to its owner's hand")
 def _return_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "bounce", "who": "event_spell"}], None
+
+
+# -- commanders (wave 50C) -- "Whenever you cast an instant or sorcery spell, … that spell gains deathtouch and lifelink." (Judith, Carnage Connoisseur): the spell a cast
+# trigger is about has the keywords while it is that object on the stack (613.1f, 400.7); the damage it deals as it resolves is dealt by a source with them (702.2b, 702.15b: the
+# ruling of 2024-02-02 - a spell that tells another object to deal the damage deals none itself)
+@_first
+@effect(r"[Tt]hat spell gains (?P<kw>deathtouch and lifelink|lifelink and deathtouch|deathtouch|lifelink)")
+def _spell_gains(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "grant", "who": "event_spell", "keywords": m["kw"].split(" and ")}], None
 
 
 # -- cast riders (wave 47D) -- "Whenever you cast a creature spell with mana value 5 or greater, that creature enters with X additional +1/+1 counters on it, where X is its mana

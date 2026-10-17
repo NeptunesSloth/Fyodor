@@ -187,7 +187,14 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         if shape is None:
             shape = found
         elif found != shape:
-            return {}  # (the header says the same to every mode)
+            # -- commanders (wave 50C) -- "Whenever you cast an instant or sorcery spell, choose one — • That spell gains …" (Judith): a mode that reads the spell cast needs the
+            # generic cast event (it carries the spell), the others read as the plain "cast_you" trigger: the same trigger, so the event one is the ability's
+            ev = next((x for x in (found, shape) if x.get("trigger") == "event" and (x.get("cond") or {}).get("event") == "cast"), None)
+            other = shape if ev is found else found
+            if ev is None or other.get("trigger") != "cast_you" or {k: v for k, v in other.items() if k not in ("filter", "trigger")} \
+                    != {k: v for k, v in ev.items() if k not in ("cond", "trigger")}:
+                return {}  # (the header says the same to every mode)
+            shape = ev
         modes.append({"text": text, "effects": scripts.rename_bindings(d["effects"], f"m{k}_"), "target": d["target"],
                       **({"groups": d["targets"]} if d.get("targets") else {})})  # (-- modal frames (wave 33B) -- several or "up to N" targets)
     assert shape is not None
