@@ -2924,8 +2924,8 @@ def _permanent_sel(phrase: str) -> str:
     """"creature", "creature or planeswalker", "nontoken artifact", "permanent" — a permanent
     selector (no player, not a card in another zone, no controller: the chooser's own)."""
     sel = selectors.parse(phrase)
-    if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.controller is not None:
-        raise _Fail
+    if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.controller is not None or any(e.startswith("ext:") for e in sel.extras):
+        raise _Fail  # (wave 49C: an extreme is among the chooser's own permanents here, not the whole table's: _GREATEST_OWN reads that)
     return sel.key()
 
 

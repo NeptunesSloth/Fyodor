@@ -430,5 +430,65 @@
    "G"
   ],
   "keywords": []
+ },
+ {
+  "name": "Triumph of Gerrard",
+  "layout": "saga",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II — Put a +1/+1 counter on target creature you control with the greatest power.\nIII — Target creature you control with the greatest power gains flying, first strike, and lifelink until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Favor of the Mighty",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Kindred Enchantment — Giant",
+  "oracle_text": "Each creature with the greatest mana value has protection from each color.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Historian's Wisdom",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant artifact or creature\nWhen this Aura enters, if enchanted permanent is a creature with the greatest power among creatures on the battlefield, draw a card.\nAs long as enchanted permanent is a creature, it gets +2/+1.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Strength-Testing Hammer",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "Whenever equipped creature attacks, roll a six-sided die. That creature gets +X/+0 until end of turn, where X is the result. Then if it has the greatest power or is tied for greatest power among creatures on the battlefield, draw a card.\nEquip {3}",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip"
+  ]
  }
 ]

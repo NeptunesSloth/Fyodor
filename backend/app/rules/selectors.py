@@ -1034,6 +1034,8 @@ CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_c
 def _extreme(s: Selector, m: re.Match[str]) -> Selector:
     scope = "self"
     if m["scope"]:
+        if not re.search(r"(?:on the battlefield|you control|you don't control|your opponents control|an opponent controls)$", m["scope"]):
+            raise ValueError(m["scope"])  # (a bare "among creatures": whose? "Each opponent chooses a creature with the greatest mana value among creatures they control" strips the owner first)
         scope_sel = _parse(re.sub(r"s( on the battlefield| you control| you don't control| an opponent controls)?$", r"\1", m["scope"]).replace(" on the battlefield", ""))
         if scope_sel is None or scope_sel.player is not None or scope_sel.card or scope_sel.zones != ("battlefield",):
             raise ValueError(m["scope"])  # (not a group of permanents: no selector)

@@ -10,6 +10,10 @@ Every scenario checks the replay and a save and a load.
   (Heaven Sent), "Choose a card name, then target player mills a card. If a card with the chosen name was milled this way, you gain life equal to its mana value." (Lammastide Weave: the name is no
   "it"), "... becomes a creature with haste and \"...\"" (Druid Class).
 * 102.4: "creatures your team controls" (Dwarven Lightsmith, Combo Attack), "another Warrior your team controls" (Thrasher Brute, Decorated Champion) - outside a team game "your team" is "you".
+* Gained with the extremes: "Each creature with the greatest mana value has protection from each color." (Favor of the Mighty), "Put a +1/+1 counter on target creature you control with the
+  greatest power." (Triumph of Gerrard), "if enchanted permanent is a creature with the greatest power among creatures on the battlefield" (Historian's Wisdom, intervening: 603.4), "if it has
+  the greatest power or is tied for greatest power among creatures on the battlefield" (Strength-Testing Hammer). "Each opponent chooses a creature with the greatest mana value among
+  creatures they control" (Summon: Valefor) stays manual: the extreme is among the chooser's own creatures.
 * 118.12: "At the beginning of your upkeep, sacrifice this creature unless you mill two cards." (Deep Spawn) - the payment is the controller's choice.
 * 602.2: "{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target." (Granite Shard and the other Shards) - the ability may be paid either way, not both (the rulings).
 * 702.129a: "Eternalize—{2}{W}{W}, Discard a card." (Sunscourge Champion, Sinuous Striker) - the keyword's cost has a second part, a discard from the hand (the card with
@@ -370,4 +374,61 @@ def test_combo_attack_has_two_of_your_creatures_deal_their_power_to_a_creature(c
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Combo Attack").id, targets=[bears[0].id, bears[1].id, big.id], target_counts=[2, 1])
     settle(s)
     assert s.state.cards[big.id].zone == "p2:graveyard"  # 2 + 2 damage to a toughness 3
+    check(s)
+
+
+def test_triumph_of_gerrard_puts_its_counter_on_the_creature_you_control_with_the_greatest_power(cards):
+    s = build(cards, ["Triumph of Gerrard", "Grizzly Bears", "Llanowar Elves"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Triumph of Gerrard").id)
+    settle(s)
+    assert s.state.cards[bears.id].counters.get("+1/+1") == 1 and not s.state.cards[elves.id].counters.get("+1/+1")
+    check(s)
+
+
+def test_favor_of_the_mighty_gives_protection_to_the_creature_with_the_greatest_mana_value(cards):
+    s = build(cards, ["Favor of the Mighty", "Grizzly Bears"], ["Twisted Abomination"])
+    put(s, "Grizzly Bears")
+    put(s, "Favor of the Mighty")
+    big = put(s, "Twisted Abomination", "p2")  # mana value 6
+    plan = Plan(s.state, "p1", s.cards, None)
+    assert any("rotection from each color" in a.text for a in plan.ch(s.state.cards[big.id]).abilities)
+    assert not any("rotection" in a.text for a in chars(s, "Grizzly Bears").abilities)
+    check(s)
+
+
+@pytest.mark.parametrize(("bobs", "draws"), [([], True), (["Twisted Abomination"], False)])
+def test_historians_wisdom_draws_only_for_the_creature_with_the_greatest_power(cards, bobs, draws):
+    s = build(cards, ["Historian's Wisdom", "Grizzly Bears"], bobs)
+    bears = put(s, "Grizzly Bears")
+    for name in bobs:
+        put(s, name, "p2")  # power 5 against Alice's 2 + 2
+    wisdom = to_hand(s, "Historian's Wisdom")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=wisdom.id, targets=[bears.id])
+    settle(s)
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + (1 if draws else 0)
+    check(s)
+
+
+@pytest.mark.parametrize("bigger", [False, True])
+def test_strength_testing_hammer_draws_when_the_equipped_creature_has_the_greatest_power(cards, bigger):
+    s = build(cards, ["Strength-Testing Hammer", "Grizzly Bears", "Twisted Abomination", "Giant Growth", "Giant Growth", "Giant Growth"])
+    bears = put(s, "Grizzly Bears")
+    attach(s, put(s, "Strength-Testing Hammer"), bears)
+    big = put(s, "Twisted Abomination")
+    to_phase(s, "main1", turn=3)
+    if bigger:
+        for _ in range(3):
+            mana(s, G=1)
+            act(s, "p1", type="cast_spell", card_id=to_hand(s, "Giant Growth").id, targets=[big.id])
+            settle(s)  # 5 + 9 = 14 against at most 2 + 6
+    else:
+        act(s, "p1", type="move", card_ids=[big.id], to={"zone": "graveyard"})
+    hand = len(s.state.zones["p1:hand"])
+    attack(s, bears)
+    settle(s)
+    assert len(s.state.zones["p1:hand"]) == hand + (0 if bigger else 1)
     check(s)
