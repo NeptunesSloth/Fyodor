@@ -219,5 +219,46 @@
   "keywords": [
    "Vigilance"
   ]
+ },
+ {
+  "name": "Spider-Man, To the Rescue",
+  "layout": "normal",
+  "mana_cost": "{2}{G/W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Spider Human Hero",
+  "oracle_text": "Flash\nReach, vigilance\nNo One Dies! — When Spider-Man enters, you may tap him. When you do, another target nonattacking creature you control gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Reach",
+   "Vigilance",
+   "Flash",
+   "No One Dies!"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Ian the Reckless",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Warrior",
+  "oracle_text": "Whenever Ian the Reckless attacks, if it's modified, you may have it deal damage equal to its power to you and any target. (Equipment, Auras you control, and counters are modifications.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
  }
 ]

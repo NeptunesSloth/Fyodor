@@ -5263,6 +5263,8 @@ def _intervening_may(body: str, it: str | None, event_player: bool) -> tuple[lis
     about_event = it in ("event", "event_gone")
     if cond is not None and about_event:
         cond = conditions.bind_objects(cond, "event")
+    elif cond is not None and it == "self":  # -- trigger other (wave 50F) -- "Whenever ~ attacks, if it's modified, you may …" (Ian the Reckless): "it" is the source
+        cond = conditions.bind_objects(cond, "self")
     if cond is None or set(conditions.objects_in(cond)) - ({"self", "event"} if about_event else {"self"}):
         return None
     # -- if you do (wave 10C) -- "At the beginning of your upkeep, if this creature has a +1/+1 counter on it, you may remove a

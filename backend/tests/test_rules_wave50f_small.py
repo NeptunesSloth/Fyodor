@@ -45,7 +45,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["The Balrog of Moria", "Elektra, Femme Fatale", "Invisible Woman", "The Motherlode, Excavator", "Lich's Relic", "Tasha, the Witch Queen", "Sepulchral Primordial", "Sorin, Vengeful Bloodlord", "Chainer, Dementia Master"])
+@pytest.mark.parametrize("name", ["The Balrog of Moria", "Elektra, Femme Fatale", "Invisible Woman", "The Motherlode, Excavator", "Lich's Relic", "Tasha, the Witch Queen", "Sepulchral Primordial", "Sorin, Vengeful Bloodlord", "Chainer, Dementia Master", "Spider-Man, To the Rescue", "Ian the Reckless"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -309,6 +309,50 @@ def test_battle_at_the_helvault_exiles_a_permanent_of_each_player(cards):
     cast_from_hand(s, "Battle at the Helvault", W=2, G=4)
     settle(s, target="Grizzly Bears")
     assert s.state.cards[mine.id].zone == "p1:exile" and s.state.cards[theirs.id].zone == "p2:exile"
+    check(s)
+
+
+def test_spider_man_taps_himself_to_make_another_nonattacking_creature_indestructible(cards):
+    s = build(cards, ["Spider-Man, To the Rescue", "Grizzly Bears"], [])
+    bears = put(s, "Grizzly Bears")
+    cast_from_hand(s, "Spider-Man, To the Rescue", G=3)
+    settle(s, answer="yes")
+    spidey = card_named(s, "Spider-Man, To the Rescue")
+    assert s.state.cards[spidey.id].tapped and "indestructible" in chars(s, s.state.cards[bears.id]).keywords
+    assert "indestructible" not in chars(s, s.state.cards[spidey.id]).keywords  # "another"
+    check(s)
+
+
+def test_spider_man_declined_stays_untapped_and_gives_nothing(cards):
+    s = build(cards, ["Spider-Man, To the Rescue", "Grizzly Bears"], [])
+    bears = put(s, "Grizzly Bears")
+    cast_from_hand(s, "Spider-Man, To the Rescue", G=3)
+    settle(s, answer="no")
+    assert not s.state.cards[card_named(s, "Spider-Man, To the Rescue").id].tapped
+    assert "indestructible" not in chars(s, s.state.cards[bears.id]).keywords
+    check(s)
+
+
+def test_ian_modified_deals_his_power_to_you_and_to_any_target(cards):
+    s = build(cards, ["Ian the Reckless"], [])
+    stops(s)
+    ian = put(s, "Ian the Reckless")
+    act(s, "p1", type="counter", card_ids=[ian.id], kind="+1/+1", delta=1)  # modified (700.9): power 3
+    next_turn(s)
+    attack(s, ian)
+    settle(s, answer="yes", target="Bob")
+    assert life(s) == 37 and life(s, "p2") == 37
+    check(s)
+
+
+def test_ian_not_modified_does_not_trigger(cards):
+    s = build(cards, ["Ian the Reckless"], [])
+    stops(s)
+    ian = put(s, "Ian the Reckless")
+    next_turn(s)
+    attack(s, ian)
+    assert not s.state.zones.get("stack") and s.state.rules.decision is None
+    assert life(s) == 40 and life(s, "p2") == 40
     check(s)
 
 
