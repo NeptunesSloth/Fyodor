@@ -672,5 +672,26 @@
   "keywords": [
    "Goad"
   ]
+ },
+ {
+  "name": "Obeka, Brute Chronologist",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Ogre Wizard",
+  "oracle_text": "{T}: The player whose turn it is may end the turn. (Exile all spells and abilities from the stack. The player whose turn it is discards down to their maximum hand size. Damage wears off, and \"this turn\" and \"until end of turn\" effects end.)",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "4"
  }
 ]

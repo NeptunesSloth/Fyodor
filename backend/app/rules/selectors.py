@@ -1933,8 +1933,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra == "attacking_you_pw" and (card.attacking is None or not (  # -- most-played cards III (wave 46C) -- 506.3: attacks you, or a planeswalker you control
-                (card.attacking.kind == "player" and card.attacking.id == you) or (card.attacking.kind == "card" and (pw := plan.state.cards.get(card.attacking.id)) is not None
-                                                                                   and "Planeswalker" in plan.ch(pw).types and pw.controller == you))):
+                (card.attacking.kind == "player" and card.attacking.id == you) or (card.attacking.kind == "card" and (target_walker := plan.state.cards.get(card.attacking.id)) is not None
+                                                                                   and "Planeswalker" in plan.ch(target_walker).types and target_walker.controller == you))):
             return False
         if extra == "attacking_opponent" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id == you
                                               or card.attacking.id not in plan.live()):

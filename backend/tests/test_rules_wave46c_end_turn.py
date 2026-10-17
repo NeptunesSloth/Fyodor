@@ -139,6 +139,39 @@ def test_days_undoing_shuffles_draws_seven_and_ends_the_turn(cards):
     check(s)
 
 
+def obeka_on_alices_turn(s, answer):
+    """Bob's Obeka (in play since his turn 2) is activated in Alice's turn 3; the player whose turn it is - Alice - answers."""
+    stops(s)
+    to_phase(s, "main1", turn=3)
+    act(s, "p1", type="pass_priority")
+    obeka = card_named(s, "Obeka, Brute Chronologist", "p2")
+    activate(s, "p2", obeka)
+    for _ in range(4):  # (both pass: the ability resolves and asks)
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and d.kind == "confirm"  # 608.2d: the active player decides, not Obeka's controller
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[answer])
+    return obeka
+
+
+def test_obekas_ability_lets_the_player_whose_turn_it_is_end_the_turn(cards):
+    s = build(cards, [], ["Obeka, Brute Chronologist"])
+    put(s, "Obeka, Brute Chronologist", "p2")
+    obeka = obeka_on_alices_turn(s, "yes")
+    assert s.state.turn.number == 4 and s.state.turn.active_player == "p2" and not s.state.cards[obeka.id].tapped  # (it untapped in its controller's untap step)
+    check(s)
+
+
+def test_obekas_ability_does_nothing_when_the_player_whose_turn_it_is_declines(cards):
+    s = build(cards, [], ["Obeka, Brute Chronologist"])
+    put(s, "Obeka, Brute Chronologist", "p2")
+    obeka = obeka_on_alices_turn(s, "no")
+    assert s.state.turn.number == 3 and s.state.cards[obeka.id].tapped
+    check(s)
+
+
 def test_hurkyls_final_meditation_bounces_all_nonland_permanents_and_ends_the_turn(cards):
     s = build(cards, ["Hurkyl's Final Meditation", "Hill Giant"], ["Grizzly Bears"])
     put(s, "Hill Giant"), put(s, "Grizzly Bears", "p2")
