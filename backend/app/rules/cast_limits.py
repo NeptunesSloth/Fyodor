@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import re
 import secrets
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from app.cards.names import normalize_name
@@ -625,8 +626,8 @@ def _record_live(state: GameState, x: dict[str, Any]) -> bool:
 
 
 def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None,
-              d: dict[str, Any], resolving: bool = False, source: str | None = None) -> bool:
-    """Does this limit forbid ``player`` casting this card as this spell now (``resolving``: as something resolves)?"""
+              d: dict[str, Any], resolving: bool = False, source: str | None = None, x: int | None = None) -> bool:
+    """Does this limit forbid ``player`` casting this card as this spell now (``resolving``: as something resolves; ``x``: the X announced)?"""
     if d.get("spells") is False:
         return False
     if d.get("exiled_with_name"):  # -- linked exile (wave 30H) --
@@ -647,11 +648,13 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
             return True  # (can't tell: forbid rather than allow a cast the rules may forbid)
         from app.rules.permissions import spell_matches
 
+        if x is not None:  # -- review 38 -- 601.2e, 202.3e: once X is announced, the proposed spell's mana value counts it (Void Winnower ruling 2015-08-25)
+            ch = replace(ch, mana_value=ch.mana_value + x * ch.mana_cost.count("{X}"))
         if not spell_matches(state, player, card, ch, key, info, source):  # (source: wave 22B, "with the chosen name")
             return False
         # -- prohibitions (wave 44D) -- 601.3a: a choice made while proposing the spell (the X of a mana cost with {X}) could raise its mana value past an upper bound
         # ("spells with mana value 3 or less", Brisela), so the player may begin to cast it, ignoring the effect
-        if "{X}" in ch.mana_cost and any(what == "mv" and op == "<=" for what, op, _ in selectors.from_key(key).compare):
+        if x is None and "{X}" in ch.mana_cost and any(what == "mv" and op == "<=" for what, op, _ in selectors.from_key(key).compare):
             return False
     if d.get("max") is not None:
         return _cast_this_turn(state, player, key) >= int(d["max"])
@@ -683,9 +686,10 @@ def _cast_this_turn(state: GameState, player: str, key: str | None) -> int:
 
 
 def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None, *,
-                 resolving: bool = False) -> str | None:
+                 resolving: bool = False, announced: int | None = None) -> str | None:
     """Why a rule or effect prohibits ``player`` from casting this card as this spell now (601.3), or None. ``resolving``:
-    the cast is made as something resolves (608.2g: suspend, cascade, "you may cast … without paying …")."""
+    the cast is made as something resolves (608.2g: suspend, cascade, "you may cast … without paying …"). ``announced``: the X
+    of its mana cost, once chosen (601.2e checks the proposed spell again)."""
     r = state.rules
     if r is None:
         return None
@@ -694,11 +698,11 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     if (why := split_second.problem(state, info, "cast other spells", card.id)) is not None:
         return why
     for x in r.cast_limits:
-        if x.get("player") == player and _record_live(state, x) and _cast_hit(state, player, card, ch, info, x):
+        if x.get("player") == player and _record_live(state, x) and _cast_hit(state, player, card, ch, info, x, x=announced):
             return f"{x.get('label') or 'An effect'}: you can't cast {_spells_words(x.get('filter'), x.get('from'))} now"
     for src, d in _statics(state, info, "cast_limit"):
         if _who_ok(d["who"], player, src.controller, src, state) and _when_ok(state, d.get("when"), src.controller, player) \
-                and _cast_hit(state, player, card, ch, info, d, resolving, src.id):
+                and _cast_hit(state, player, card, ch, info, d, resolving, src.id, announced):
             more = " more than once this turn" if d.get("max") is not None else \
                 " except any time you could cast a sorcery" if d.get("sorcery") else ""
             return f"{src.name or 'A permanent'}: you can't cast {_spells_words(d.get('filter'), d.get('from'))}{more} now"
