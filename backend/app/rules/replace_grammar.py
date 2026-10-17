@@ -659,7 +659,7 @@ def _damage_plain(text: str) -> Definition | None:
 # (-- review (wave 6R) -- lazy items: greedy ones swallowed "your opponents control" into the last item, so in "Creatures
 # and nonbasic lands your opponents control enter tapped." (Thalia, Heretic Cathar) only the lands were the opponents')
 _ENTER_TAPPED = re.compile(r"^(?P<what>[A-Z][a-z]+?(?:, [a-z ]+?)*,? (?:and [a-z ]+? )?|[A-Z][A-Za-z -]+? )"  # (wave 21A: "Non-Phyrexian creatures")
-                           r"(?P<ctrl>your opponents control |you control |an opponent controls )?enter tapped\.$")
+                           r"(?P<ctrl>your opponents control |you control |an opponent controls )?enter (?P<un>un)?tapped\.$")  # (wave 45A: "enter untapped")
 
 
 def _enters_tapped(text: str) -> Definition | None:
@@ -679,7 +679,9 @@ def _enters_tapped(text: str) -> Definition | None:
         if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.other:
             return None
         keys.append(sel.key())
-    return {"kind": "static", "static": "enters_tapped_others", "who": keys, "effects": []} if keys else None
+    # -- most-played cards II (wave 45A) -- "Lands you control enter untapped." (Horizon Explorer, The Wandering Minstrel), "Gates you control enter untapped." (Gond Gate): the same
+    # replacement effect the other way (614.1d; replacements.entry_plan: it wins over a "tapped" the entering permanent would get)
+    return {"kind": "static", "static": "enters_untapped_others" if m["un"] else "enters_tapped_others", "who": keys, "effects": []} if keys else None
 
 
 # -- counters (wave 5H) -- "Each other creature you control enters with an additional +1/+1 counter on it." (Renata,

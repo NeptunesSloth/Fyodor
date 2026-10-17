@@ -182,6 +182,7 @@ SUPPORTED_REPLACE_OPS["draw_count"] = frozenset({"add", "each_one"})  # 121.2a: 
 SUPPORTED_REPLACE_OPS["life_loss"] = frozenset({"mul", "floor"})  # 119.3: Bloodletter of Aclazotz (app/rules/replace.py lose_life); floor: wave 35C
 SUPPORTED_REPLACEMENTS |= {
     "enters_tapped_others",  # 614.1d, 614.12: "Creatures your opponents control enter tapped."
+    "enters_untapped_others",  # 614.1d: "Lands you control enter untapped." (wave 45A)
     "exile_if_dies",  # "If that creature / a creature dealt damage this way would die this turn, exile it instead." (611.2a)
 }
 
@@ -196,8 +197,8 @@ def stage2_supported(d: dict[str, Any]) -> bool | None:
 
             return draw_bodies.supported(op.get("effects") or [])
         return op.get("do") in SUPPORTED_REPLACE_OPS.get(str(d.get("event")), frozenset())
-    if d.get("kind") == "static" and d.get("static") == "enters_tapped_others":
-        return "enters_tapped_others" in SUPPORTED_REPLACEMENTS
+    if d.get("kind") == "static" and d.get("static") in ("enters_tapped_others", "enters_untapped_others"):
+        return str(d["static"]) in SUPPORTED_REPLACEMENTS
     effects = d.get("effects") or []
     if any(e.get("do") == "exile_if_dies" for e in effects) and "exile_if_dies" not in SUPPORTED_REPLACEMENTS:
         return False

@@ -1128,10 +1128,18 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                             _source_ref(plan, info.get("source_oid")) if kind == "dealt_damage" else None),
                         amount=int(info.get("amount") or 0), count=1, x=info.get("x") if kind == "cycle" else None, combat=info.get("combat"),  # (wave 43A)
                         defended=info.get("defended") if kind == "you_attack" else _attack_defended(plan, kind, obj),
+                        attacked=_attack_object(plan, kind, obj),  # (wave 45A)
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
                         if kind in _PAIRED.values() and info.get("other") in plan.state.cards
                         else _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None)  # (wave 19B: the Ring-bearer chosen)
+
+
+def _attack_object(plan: Plan, kind: str, obj: CardInstance | None) -> ObjectRef | None:
+    """-- attacked object (wave 45A) -- an attacking creature's event: the planeswalker or battle it attacks now (508.5), else None (a player)."""
+    t = obj.attacking if obj is not None and kind in ("attack", "unblocked", "blocked", "blocked_pair") else None
+    c = plan.state.cards.get(t.id) if t is not None and t.kind == "card" else None
+    return ObjectRef(card=c.id, object_id=plan.oid(c), zone=c.zone) if c is not None else None
 
 
 def _attack_defended(plan: Plan, kind: str, obj: CardInstance | None) -> str | None:
@@ -2086,7 +2094,7 @@ def attacked(plan: Plan, attackers: list[CardInstance]) -> None:
         ch = plan.ch(card)
         # -- defending player (wave 6D) -- the attack, with the player it's against (508.5: app/rules/defending.py)
         attack = TriggerEvent(kind="attack", count=1, objects=[ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone)],
-                              defended=_attack_defended(plan, "attack", card))
+                              defended=_attack_defended(plan, "attack", card), attacked=_attack_object(plan, "attack", card))
         for i, d in abilities(plan, ch, "attacks_self"):
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
                  definition=d, event=attack)

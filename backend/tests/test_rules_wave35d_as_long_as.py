@@ -36,7 +36,7 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave35d_cards.json").re
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w35d", number=f"D{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-FULL = ["Frodo Baggins", "Balan, Wandering Knight", "Brass Knuckles", "Timber Paladin", "Face of Divinity", "Palladia-Mors, the Ruiner",
+FULL = ["Sting, the Glinting Dagger", "Frodo Baggins", "Balan, Wandering Knight", "Brass Knuckles", "Timber Paladin", "Face of Divinity", "Palladia-Mors, the Ruiner",
         "Ruric Thar, Magecrusher", "Karakyk Guardian", "The Tarrasque", "Doctor Doom", "Liu Bei, Lord of Shu", "Gray Harbor Merfolk",
         "Swimmer in Nightmares", "Warden of the Beyond", "Howling Galefang", "Oculus Whelp", "Rampaging Cyclops", "Tenacious Hunter",
         "Rampaging Soulrager", "Security Bypass", "Snow Devil", "Goblin Caves", "Arcades Sabboth", "Homicidal Seclusion", "Verge Rangers",
@@ -51,10 +51,10 @@ FULL = ["Frodo Baggins", "Balan, Wandering Knight", "Brass Knuckles", "Timber Pa
 # * Grond: a layer-4 type change whose condition reads other permanents' creature types (613.8, app/rules/statics.py ``_layer4_safe``);
 # * (Cloud, Midgar Mercenary - a trigger multiplier read with last known information (603.10) under a condition - is read since wave 43A: test_rules_wave43a_trigger_multipliers.py)
 # * Archelos: "enter tapped" and "enter untapped" replacements whose order the affected permanent's controller chooses (616.1);
-# * Sting: "blocking or blocked by a Goblin or Orc" (the relation between the equipped creature and the creature it fights);
+# * (Sting - "blocking or blocked by a Goblin or Orc", a relation between the equipped creature and the creature it fights - is read since wave 45A: test_rules_wave45a_attacked.py)
 # * Bronze Horse: "prevent all damage … by spells that target it" (its unconditional wording isn't read).
 MANUAL = ["Croakid Amphibonaut", "Manor Gargoyle", "Warmonger's Chariot", "Grond, the Gatebreaker",
-          "Archelos, Lagoon Mystic", "Sting, the Glinting Dagger", "Bronze Horse"]
+          "Archelos, Lagoon Mystic", "Bronze Horse"]
 
 
 @pytest.fixture()

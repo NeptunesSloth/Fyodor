@@ -1083,11 +1083,16 @@ def ascend_permanents(plan: Plan) -> bool:
     """Any time (checked with the state-based actions): the players with an ascend permanent and ten permanents get the blessing."""
     happened = False
     for pid in plan.live():
-        if not city_blessing_due(plan, pid):
-            continue
-        if any(c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c) and any(
-                ab.kind == "keywords" and "ascend" in ab.keywords for ab in plan.ch(c).abilities)
-               for c in plan.state.cards.values()):
+        if ascend_permanent_due(plan, pid):
             get_city_blessing(plan, pid)
             happened = True
     return happened
+
+
+def ascend_permanent_due(plan: Plan, pid: str) -> bool:
+    """-- most-played cards II (wave 45A) -- 702.131b: ten permanents and a permanent with ascend: the blessing is theirs at once ("any time"), also in the middle of a
+    resolution before the state-based actions are checked (Ocelot Pride's ruling 2024-06-07: its Cat as the tenth permanent gives it before the ability checks)."""
+    return city_blessing_due(plan, pid) and any(
+        c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c) and any(
+            ab.kind == "keywords" and "ascend" in ab.keywords for ab in plan.ch(c).abilities)
+        for c in plan.state.cards.values())
