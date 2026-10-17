@@ -3149,7 +3149,7 @@ def _did_counters_up(fn: Any) -> Any:
                     **({"per": e["n"]} if isinstance(e.get("n"), int) else {})}  # (review 33: _reflex_times)
             else:  # (the "cards" record of a move, context.probe_ok: the objects the put was allowed on)
                 context.refs(ctx)[name] = {"kind": "probe", "to": "battlefield", "cards": {
-                    c: plan.oid(plan.state.cards[c]) for c in cards if prohibitions.cant_counters(plan, c, None) is None}}
+                    c: plan.oid(plan.state.cards[c]) for c in cards if prohibitions.cant_counters(plan, c, None, e["kind"]) is None}}
         return bool(fn(plan, ctx, e))
     return run
 

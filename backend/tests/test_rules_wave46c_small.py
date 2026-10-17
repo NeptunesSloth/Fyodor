@@ -127,6 +127,56 @@ def test_helitrooper_makes_equip_abilities_that_target_it_cost_less_but_not_othe
     check(s)
 
 
+def cast_with(s, name, picks, pid="p1"):
+    """Cast the creature and answer the target choice of its enters ability with these cards."""
+    act(s, pid, type="cast_spell", card_id=card_named(s, name, pid).id)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[c.id for c in picks])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def counters(s, c, kind):
+    return s.state.cards[c.id].counters.get(kind, 0)
+
+
+def test_blightbeetle_bars_plus_one_counters_on_the_opponents_creatures_only(cards):
+    # 614.17: "Creatures your opponents control can't have +1/+1 counters put on them." - Alice's creatures get none, Bob's own can, and -1/-1 counters are another kind
+    s = build(cards, ["Rishkar, Peema Renegade", "Hill Giant", "Skinrender", "Shivan Dragon"], ["Blightbeetle", "Grizzly Bears"])
+    giant, bears, dragon = put(s, "Hill Giant"), put(s, "Grizzly Bears", "p2"), put(s, "Shivan Dragon")
+    put(s, "Blightbeetle", "p2")
+    to_hand(s, "Rishkar, Peema Renegade")
+    mana(s, G=1, C=2)
+    cast_with(s, "Rishkar, Peema Renegade", [giant, bears])
+    assert counters(s, giant, "+1/+1") == 0 and counters(s, bears, "+1/+1") == 1  # Alice's creatures are barred, Bob's isn't
+    to_hand(s, "Skinrender")
+    mana(s, B=2, C=2)
+    cast_with(s, "Skinrender", [dragon])
+    assert counters(s, dragon, "-1/-1") == 3  # another kind of counter
+    check(s)
+
+
+def test_darksteel_angel_bars_minus_one_counters_on_its_controllers_creatures(cards):
+    s = build(cards, ["Darksteel Angel", "Hill Giant", "Skinrender"], ["Skinrender", "Shivan Dragon"])
+    giant, dragon = put(s, "Hill Giant"), put(s, "Shivan Dragon", "p2")
+    put(s, "Darksteel Angel")
+    to_hand(s, "Skinrender")
+    mana(s, B=2, C=2)
+    cast_with(s, "Skinrender", [dragon])
+    assert counters(s, dragon, "-1/-1") == 3  # Bob's creature is not "a creature you control" of Alice
+    to_hand(s, "Skinrender", "p2")
+    stops(s)
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", B=2, C=2)
+    cast_with(s, "Skinrender", [giant], "p2")
+    assert counters(s, giant, "-1/-1") == 0  # 614.17: they can't be put on Alice's creature
+    check(s)
+
+
 def test_bladegraft_aspirant_reduces_the_activated_abilities_of_equipment_that_target_it(cards):
     s = build(cards, ["Bladegraft Aspirant", "Loxodon Warhammer"], [])
     aspirant, hammer = put(s, "Bladegraft Aspirant"), put(s, "Loxodon Warhammer")

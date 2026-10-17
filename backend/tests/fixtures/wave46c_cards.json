@@ -255,5 +255,93 @@
   "keywords": [
    "Equip"
   ]
+ },
+ {
+  "name": "Blightbeetle",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Insect",
+  "oracle_text": "Protection from green (This creature can't be blocked, targeted, dealt damage, enchanted, or equipped by anything green.)\nCreatures your opponents control can't have +1/+1 counters put on them.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Protection"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Darksteel Angel",
+  "layout": "normal",
+  "mana_cost": "{9}",
+  "cmc": 9.0,
+  "type_line": "Artifact Creature — Angel",
+  "oracle_text": "Flying, indestructible\nYou can't lose the game and your opponents can't win the game.\nCreatures you control can't have -1/-1 counters put on them.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying",
+   "Indestructible"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Rishkar, Peema Renegade",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Elf Druid",
+  "oracle_text": "When Rishkar enters, put a +1/+1 counter on each of up to two target creatures.\nEach creature you control with a counter on it has \"{T}: Add {G}.\"",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Skinrender",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Phyrexian Zombie",
+  "oracle_text": "When this creature enters, put three -1/-1 counters on target creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Shivan Dragon",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
  }
 ]

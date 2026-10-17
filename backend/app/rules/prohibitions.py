@@ -49,6 +49,9 @@ _ENTER = re.compile(r"^(?P<what>(?:nonland )?(?:permanent|creature) cards) in (?
 _ZONES = {"graveyards": ("graveyard",), "libraries": ("library",), "graveyards and libraries": ("graveyard", "library")}
 _COUNTERS = re.compile(r"^counters can't be put on (?P<sel>[a-z, ]+)$")
 _SELF_COUNTERS = "~ can't have counters put on it"
+# -- most-played cards III (wave 46C) -- "Creatures your opponents control can't have +1/+1 counters put on them." (Blightbeetle), "Creatures you control can't have -1/-1
+# counters put on them." (Melira, Sylvok Outcast): a prohibition of one kind of counter (614.17), like "Counters can't be put on …" for the permanents the selector names
+_KIND_COUNTERS = re.compile(r"^(?P<sel>(?:creatures|permanents) (?:you control|your opponents control)) can't have (?P<counter>[+-]\d+/[+-]\d+) counters put on them$")
 _SEARCH_STATICS = {"players can't search libraries": "each", "your opponents can't search libraries": "opponents",
                    "spells and abilities your opponents control can't cause their controller to search their library": "caused"}
 # "Players can't pay life or sacrifice creatures to cast spells or activate abilities." (Angel of Jubilation, Yasharn), "Players can't pay life to
@@ -72,6 +75,12 @@ def static_definition(text: str) -> Definition | None:
         if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras or sel.other:
             return None
         return {"kind": "static", "static": "cant_counters", "sel": sel.key(), "effects": []}
+    m = _KIND_COUNTERS.fullmatch(t)
+    if m is not None:
+        sel = selectors.parse(m["sel"])
+        if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras or sel.other:
+            return None
+        return {"kind": "static", "static": "cant_counters", "sel": sel.key(), "counter": m["counter"], "effects": []}
     m = _PAY.fullmatch(t)
     if m is not None:
         sel = selectors.parse(m["sac"]) if m["sac"] else None
@@ -130,9 +139,9 @@ def cant_get_counters(plan: Plan) -> str | None:
     return next((_label(src) for src, d in _statics(plan, "cant_counters") if d.get("players")), None)
 
 
-def cant_counters(plan: Plan, card_id: str, entering_for: str | None) -> str | None:
+def cant_counters(plan: Plan, card_id: str, entering_for: str | None, counter: str | None = None) -> str | None:
     """The permanent saying counters can't be put on this card (614.17), or None. ``entering_for``: the controller it is entering
-    under (it isn't on the battlefield yet: only other permanents' lines are read)."""
+    under (it isn't on the battlefield yet: only other permanents' lines are read). ``counter``: the kind put (a line about one kind, wave 46C, bars that kind only)."""
     found = _statics(plan, "cant_counters")
     card = plan.state.cards.get(card_id)
     if card is None or not found and entering_for is None:
@@ -147,7 +156,7 @@ def cant_counters(plan: Plan, card_id: str, entering_for: str | None) -> str | N
         if any(self_text(ab.text, ch.name).rstrip(".") == _SELF_COUNTERS for ab in ch.abilities):
             return _label(card)
     for src, d in found:
-        if d.get("players"):
+        if d.get("players") or (d.get("counter") and d["counter"] != counter):
             continue
         if d["sel"] is None:
             if src.id == card_id and entering_for is None:
