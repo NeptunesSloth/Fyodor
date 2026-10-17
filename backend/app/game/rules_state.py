@@ -288,6 +288,7 @@ class ObjectSnapshot(BaseModel):
     base_power: int | None = None  # -- base power (wave 30J) -- 208.4b, as it last existed (608.2h): "with base power 0", "power greater than its base power"
     base_toughness: int | None = None
     token_colors: list[str] = Field(default_factory=list)
+    token_mana_cost: str = ""  # (wave 49D) a token's mana cost, as it last existed (608.2h)
     commander_key: str | None = None
     counters: dict[str, int] = Field(default_factory=dict)
     damage: int = 0
@@ -1324,6 +1325,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         face_down=c.face_down, face=c.face, is_token=c.is_token,
         token_power=token.power if token else None, token_toughness=token.toughness if token else None,
         token_type_line=token.type_line if token else None, token_colors=list(token.colors) if token else [],
+        token_mana_cost=token.mana_cost if token else "",
         commander_key=c.commander_key, counters=dict(c.counters), damage=c.damage,
         effects=[e.value or e.name for e in c.effects], attacking=c.attacking is not None,
         attack_on=f"{c.attacking.kind}:{c.attacking.id}" if c.attacking is not None else None,  # (wave 38A)

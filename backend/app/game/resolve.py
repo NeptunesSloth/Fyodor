@@ -229,6 +229,7 @@ def _token_def(spec: A.TokenSpec, info: CardInfo) -> TokenDef:
         colors=list(spec.colors),
         type_line=spec.type_line,
         text=spec.text,
+        mana_cost=spec.mana_cost,  # (wave 49D)
         back=_token_def(spec.back, info) if spec.back is not None else None,  # -- wave 3F -- a double-faced token (111.10i)
     )
 

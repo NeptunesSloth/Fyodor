@@ -96,7 +96,7 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, is_token=snap.is_token,
                         token=TokenDef(name=snap.name, text=snap.text, power=snap.token_power, toughness=snap.token_toughness,
-                                      colors=snap.token_colors, type_line=snap.token_type_line or "Token Creature")
+                                      colors=snap.token_colors, type_line=snap.token_type_line or "Token Creature", mana_cost=snap.token_mana_cost)
                         if snap.is_token and not snap.printing else None,
                         merged=[MergedPart(**p) for p in snap.merged], melded=snap.melded)  # (wave 18D: a merged permanent's cards)
     ch = chars.of(card, plan.info)
@@ -1170,10 +1170,12 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
     for (watcher, ch, i, d), lo, hi in (watchers if watchers is not None else [(w, -1, -1) for w in _event_watchers(plan)]):
         if batch >= 0 and not (lo <= batch <= hi or (lo, hi) == (-1, -1)):
             continue
-        cond = d["cond"]
+        whole = d["cond"]
         for fact in facts:
-            if not _cond_matches(plan, cond, watcher, fact):
+            if not _cond_matches(plan, whole, watcher, fact):
                 continue
+            # -- either with a batch half (wave 49D) -- 603.2c: "discards a card or mills one or more cards": the half this event is batches (or not) on its own
+            cond = next((x for x in whole["conds"] if _cond_matches(plan, x, watcher, fact)), whole) if whole["event"] == "either" and any(x.get("aggregate") for x in whole["conds"]) else whole
             nth = cond.get("nth") if cond["event"] == "draw" else None
             if nth and plan.rules.draws_this_turn.get(fact[3] or "", 0) != nth:
                 continue

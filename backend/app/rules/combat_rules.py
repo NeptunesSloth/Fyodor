@@ -151,12 +151,7 @@ def taxes(plan: Plan, ch: Characteristics, target: str) -> list[tuple[str, str, 
     return out
 
 
-def attack_cost(plan: Plan, declared: list[tuple[str, str]]) -> str:
-    """The total cost of the declaration (508.1h, "" when none): for each attack-cost static that applies to a creature
-    attacking its controller (or, for "you or planeswalkers you control", one of their planeswalkers), its cost for
-    each creature attacking that player (or them and their planeswalkers)."""
-    from app.rules import mana as M
-
+def _applying(plan: Plan, declared: list[tuple[str, str]]) -> tuple[set[tuple[str, str, str, str]], dict[str, int], dict[str, int]]:
     applying: set[tuple[str, str, str, str]] = set()
     direct: dict[str, int] = {}
     any_way: dict[str, int] = {}
@@ -168,9 +163,21 @@ def attack_cost(plan: Plan, declared: list[tuple[str, str]]) -> str:
         if is_direct:
             direct[player] = direct.get(player, 0) + 1
         applying.update(taxes(plan, plan.ch(plan.state.cards[cid]), target))
+    return applying, direct, any_way
+
+
+def attack_cost(plan: Plan, declared: list[tuple[str, str]]) -> str:
+    """The total cost of the declaration (508.1h, "" when none): for each attack-cost static that applies to a creature
+    attacking its controller (or, for "you or planeswalkers you control", one of their planeswalkers), its cost for
+    each creature attacking that player (or them and their planeswalkers)."""
+    from app.rules import mana as M
+
+    applying, direct, any_way = _applying(plan, declared)
     generic, symbols = 0, []
     for kind, player, cost, src in sorted(applying):
         n = (direct if kind == TAX else any_way).get(player, 0)
+        if cost.endswith(" life"):  # (the life part: ``attack_life``)
+            continue
         if cost == "{X}":
             cost = f"{{{_tax_x(plan, src)}}}"
         each = M.parse_cost(cost)
@@ -179,6 +186,14 @@ def attack_cost(plan: Plan, declared: list[tuple[str, str]]) -> str:
     if not generic and not symbols:
         return ""
     return (f"{{{generic}}}" if generic else "") + "".join(symbols)
+
+
+def attack_life(plan: Plan, declared: list[tuple[str, str]]) -> int:
+    """-- life attack costs (wave 49D) -- 508.1g-h: the life the declaration costs, "unless their controller pays 2 life for each of those
+    creatures" (Sivitri, Dragon Master): the same count as a mana cost's, paid together with it (508.1j)."""
+    applying, direct, any_way = _applying(plan, declared)
+    return sum(int(cost.split()[0]) * (direct if kind == TAX else any_way).get(player, 0)
+               for kind, player, cost, _ in applying if cost.endswith(" life"))
 
 
 def _tax_x(plan: Plan, source: str) -> int:

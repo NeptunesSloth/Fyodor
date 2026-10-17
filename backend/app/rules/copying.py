@@ -125,7 +125,7 @@ def base_recipe(card: CardInstance) -> CopyRecipe:
     if card.token is not None and not card.card_id:
         t = card.token
         token = {"name": t.name, "power": t.power, "toughness": t.toughness, "colors": list(t.colors),
-                 "type_line": t.type_line, "text": t.text}
+                 "type_line": t.type_line, "text": t.text, "mana_cost": t.mana_cost}
     return CopyRecipe(printing=card.card_id, face=card.face, token=token, source=card.name[:200])
 
 
@@ -179,7 +179,7 @@ def _base(recipe: CopyRecipe, info: CardInfo) -> Characteristics:
         probe = CardInstance(id="copy-probe", owner="", controller="", zone="", is_token=True,
                              token=TokenDef(name=str(t.get("name") or ""), power=t.get("power"), toughness=t.get("toughness"),
                                             colors=list(t.get("colors") or []), type_line=str(t.get("type_line") or ""),
-                                            text=str(t.get("text") or "")))
+                                            text=str(t.get("text") or ""), mana_cost=str(t.get("mana_cost") or "")))
         return chars.of(probe, info)
     return Characteristics(name=recipe.source)  # (unknown to the card database: typeless, as chars.of)
 
@@ -980,6 +980,8 @@ def token_copy_request(plan: Plan, ctx: Context, controller: str, recipe: CopyRe
         spec: dict[str, Any] = {"card_id": recipe.printing, "name": (ch.name or "Token")[:80]}
     elif recipe.token is not None:
         spec = {k: recipe.token.get(k) for k in ("name", "power", "toughness", "colors", "type_line", "text")}
+        if recipe.token.get("mana_cost"):  # (wave 49D: 707.2, a copy copies the mana cost)
+            spec["mana_cost"] = recipe.token["mana_cost"]
     else:
         (notes if notes is not None else []).append(f"{recipe.source or 'That object'} isn't in the card database: no copy is created")
         return None

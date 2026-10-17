@@ -1613,6 +1613,18 @@ def _create_predefined(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | No
                        "type_line": type_line, "text": text}}], None
 
 
+# -- named tokens (wave 49D) -- "Create a Tarmogoyf token." (Disa, Tarmogoyf Nest), "a Gingerbrute token" (Ginger), "a Spellgorger Weird token" (Ral):
+# the rulings read it as a token that's a copy of the card of that name, so it has the card's copiable values, mana cost included (707.2, 111.3)
+NAMED_TOKENS = {  # name: (mana cost, colors, power, toughness, type line, the card's Oracle text)
+    "Tarmogoyf": ("{1}{G}", ["G"], "*", "1+*", "Token Creature — Lhurgoyf",
+                  "Tarmogoyf's power is equal to the number of card types among cards in all graveyards and its toughness is equal to that number plus 1."),
+    "Gingerbrute": ("{1}", [], "1", "1", "Token Artifact Creature — Food Golem",
+                    "Haste\n{1}: This creature can't be blocked this turn except by creatures with haste.\n{2}, {T}, Sacrifice this creature: You gain 3 life."),
+    "Spellgorger Weird": ("{2}{R}", ["R"], "2", "2", "Token Creature — Weird",
+                          "Whenever you cast a noncreature spell, put a +1/+1 counter on this creature."),
+}
+
+
 # -- if you do (wave 8C) -- "put your choice of a +1/+1, first strike, or trample counter on that creature" (counter_pick.py)
 @effect(r"put your choice of (?P<kinds>.+?) counters? on (?P<who>~|this creature|it|that creature)")
 def _counter_pick(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
@@ -1981,13 +1993,23 @@ def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return found, None
 
 
+# (wave 49D) a named token before the general token grammar, which reads "a Tarmogoyf token" as a predefined one it doesn't know
+@_first
+@effect(r"create {N} (?P<kind>Tarmogoyf|Gingerbrute|Spellgorger Weird) tokens?")
+def _create_named(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    cost, colors, p, t, type_line, text = NAMED_TOKENS[m["kind"]]
+    return [{"do": "create_token", "who": "you", "n": num(m["n"]),
+             "token": {"name": m["kind"], "power": p, "toughness": t, "colors": list(colors), "type_line": type_line, "text": text,
+                       "mana_cost": cost}}], None
+
+
 # -- token & pump wordings (wave 6C) -- the token grammar's newer forms (app/rules/token_grammar.py): "For each …, create
 # …", "Create Voja, a legendary 2/2 …", "… named Kobolds of Kher Keep", "… with flying named Wasp", "… that's all
 # colors", "Create thirteen …" (never a copy, nor an instruction joined to another one)
 @_first
-@effect(r"(?!.*\b(?:cop(?:y|ies)|then|unless|instead|blocking|attached|attacking that|that player)\b)(?![^\"]*\bequal\b)"  # (wave 47D: "equal" only outside a quoted CDA, Beau)
+@effect(r"(?!.*\b(?:cop(?:y|ies)|then|unless|instead|blocking|attached|attacking that|that player|at the beginning of)\b)(?![^\"]*\bequal\b)"  # (wave 47D: "equal" only outside a quoted CDA, Beau)
         r"(?:(?:for each [^,\"]+, )?create (?:[A-Z][^\"]*?, an? legendary .+|(?:eleven|twelve|thirteen|fourteen|fifteen|"
-        r"sixteen|seventeen|eighteen|nineteen|twenty) .+|.+ named .+|.+ that's (?:all colors|colorless|white|blue|black|red|"
+        r"sixteen|seventeen|eighteen|nineteen|twenty) .+|.+ named .+|.+ that(?:'s| is| are) (?:all colors|colorless|white|blue|black|red|"
         r"green)(?:[ ,].+)?)|for each [^,\"]+, create .+)")
 def _create_tokens_6c(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     from app.rules import token_grammar
@@ -2617,6 +2639,8 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
         return (values.player_relative(text) or v) if v is None or "that_player" in json.dumps(v) else v
 
     text_def = m["def"]
+    if text_def.endswith(" at that time") and re.search(r"\bat the beginning of (?:your|the|each|their|its owner's) next\b", body[: m.start()]):
+        text_def = text_def[: -len(" at that time")]  # -- delayed counts (wave 49D) -- 603.7: "X is the number of lands you control at that time" (Hazezon Tamar): a delayed trigger counts as it resolves
     if re.search(r" as you (?:activate this ability|cast this spell)$", text_def) and len(re.findall(r"\bX\b", body[: m.start()])) == 1 \
             and re.search(r"(?i)\bup to X (?:other )?targets?\b|\bX damage divided as you choose among\b", body[: m.start()]):  # (wave 34D: divided)
         text_def = text_def.rsplit(" as you ", 1)[0]  # -- X target counts (wave 27C) -- "…, where X is the number of Bobbleheads you control as you activate this
@@ -3931,6 +3955,11 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
         return None
     else:
         phrase, payer = text[len("you may "):], "you"
+    # -- exile as a cost (wave 49D) -- "you may pay {1} and exile it" (Kinzu, Timothar): the dead card is exiled as part of the cost, so the payment
+    # is offered only while it's still in the graveyard it went to (118.3, 400.7: optional_payment ``needs``)
+    needs = None
+    if it in ("event", "event_gone") and (gate := re.fullmatch(r"(?P<pay>pay [^,]+?) and exile it", phrase)) is not None:
+        phrase, needs = gate["pay"], "event.new"
     if re.search(r"\bit\b", phrase) and it != "self":
         return None
     cost = optional_payment.cost_text(phrase)
@@ -3945,7 +3974,7 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
             return None
         cost, sized = found.pop("cost"), found
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
-    return {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind, **sized}
+    return {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind, **sized, **({"needs": needs} if needs else {})}
 
 
 _THAT_PLAYER_MAY = re.compile(r"^(?:that|that attacking) player may (?P<v>create|draw|put|discard|sacrifice|exile|return|add|gain|lose|mill) (?P<rest>.+)$")
