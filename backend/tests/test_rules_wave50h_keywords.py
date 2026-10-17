@@ -181,6 +181,28 @@ def test_cancelling_the_choice_leaves_the_card_in_hand(cards):
     check(s)
 
 
+# -- Vanishing without a number (702.63b) -----------------------------------------------------------------------
+def test_tidewalker_has_vanishing_without_a_number_and_enters_with_a_counter_for_each_island(cards):
+    # "This creature enters with a time counter on it for each Island you control." + "Vanishing" (702.63b: only the upkeep removal and the sacrifice)
+    from tests.test_rules_wave34b_activated import next_turn
+
+    assert level(cards, "Tidewalker") == "FULL"
+    s = build(cards, ["Tidewalker", "Island", "Island"])
+    for island in [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Island" and c.zone == "p1:library"][:2]:
+        act(s, "p1", type="move", card_ids=[island.id], to={"player": "p1", "zone": "battlefield"})
+    walker = to_hand(s, "Tidewalker")
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=walker.id)
+    settle(s)
+    assert s.state.cards[walker.id].counters.get("time") == 2 and pt(s, "Tidewalker") == (2, 2)  # nothing of vanishing's own: just the Islands
+    next_turn(s)
+    assert s.state.cards[walker.id].counters.get("time") == 1 and zone_of(s, "Tidewalker") == "p1:battlefield"
+    check(s)
+    next_turn(s)  # the last counter comes off: sacrificed
+    assert zone_of(s, "Tidewalker") == "p1:graveyard"
+    check(s)
+
+
 # -- Cleave (702.148a) ------------------------------------------------------------------------------------------
 @pytest.mark.parametrize("name", ["Path of Peril", "Alchemist's Retrieval"])
 def test_cleave_cards_are_full(cards, name):

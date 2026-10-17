@@ -311,7 +311,8 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                     from app.rules import keyword_triggers
 
                     for piece in keyword_triggers.pieces(kw, ab.text):
-                        counters[kind] = counters.get(kind, 0) + int(piece.split()[1])
+                        if " " in piece:  # (-- keywords (wave 50H) -- 702.63b: "Vanishing" alone enters with no counters of its own)
+                            counters[kind] = counters.get(kind, 0) + int(piece.split()[1])
         from app.rules import (
             amplify,  # -- casting extras (wave 18E) -- 702.38a: N for each card revealed as it entered
             devour,  # -- keyword mechanics (wave 9D) -- 702.82a: N for each permanent sacrificed as it entered

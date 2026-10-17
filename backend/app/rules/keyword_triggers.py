@@ -124,7 +124,7 @@ def _definition(piece: str) -> str | None:
     if piece.startswith("recover "):  # -- casting extras (wave 18E) -- 702.59a
         kw, cost = "recover", piece[len("recover "):].upper()
     meaning = MEANINGS.get(kw)
-    if meaning is None or (kw in _NUMBERED) != bool(n):
+    if meaning is None or ((kw in _NUMBERED) != bool(n) and not (kw == "vanishing" and not n)):  # (-- keywords (wave 50H) -- 702.63b: "Vanishing" without a number is the two triggers only)
         return None
     one = n == "1"
     word = "a" if one else {"2": "two", "3": "three", "4": "four", "5": "five"}.get(n, n)

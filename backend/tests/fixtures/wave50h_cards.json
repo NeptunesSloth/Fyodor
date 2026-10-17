@@ -564,5 +564,24 @@
   "keywords": [
    "Paradigm"
   ]
+ },
+ {
+  "name": "Tidewalker",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "This creature enters with a time counter on it for each Island you control.\nVanishing (At the beginning of your upkeep, remove a time counter from this creature. When the last is removed, sacrifice it.)\nTidewalker's power and toughness are each equal to the number of time counters on it.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Vanishing"
+  ],
+  "power": "*",
+  "toughness": "*"
  }
 ]
