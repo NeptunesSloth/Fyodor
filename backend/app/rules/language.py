@@ -4120,6 +4120,12 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
     if re.fullmatch(r"transform (?:this token|~|this (?:creature|artifact|land|enchantment|permanent|saga|vehicle))", text) \
             and has_primitive("transform"):
         return [{"do": "transform", "who": "self"}], None  # (701.27c: anything that isn't double-faced doesn't turn over)
+    if (m := re.fullmatch(r"transform all (?P<o>Incubator tokens you control)", text)) and has_primitive("transform"):
+        # -- commanders (wave 50C) -- 701.27a: "transform all Incubator tokens you control" (Glissa, Elesh Norn): every double-faced token the selector finds as this resolves,
+        # each one object that turns over (701.27f: not one that transformed since the ability went on the stack). (Other mass wordings - "Transform all Humans you
+        # control" - stay refused: tests/test_rules_wave11a_transform.py.)
+        sel = selectors.parse(m["o"])
+        return ([{"do": "transform", "who": sel.key()}], None) if sel is not None else None
     m = re.fullmatch(r"transform (?P<o>(?:up to one )?target .+)", text)
     if m and has_primitive("transform"):  # -- transform (wave 48A) -- "transform up to one target Werewolf you control" (Waxing Moon), "transform target Incubator token you control": a chosen permanent on the battlefield (701.27a)
         try:

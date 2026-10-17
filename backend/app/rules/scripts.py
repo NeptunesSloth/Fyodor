@@ -270,7 +270,7 @@ def _self_pronouns(part: str) -> str:
     part = re.sub(r"(?<!or )\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
                   "~", part)
     part = re.sub(r"(?<=\btransformed under )~'s owner's control\b", "its owner's control", part)  # -- activated other (wave 44D) -- "return her to the battlefield transformed under her owner's control" (Nissa, Jace)
-    part = re.sub(r"(\bexile ~, then return )~(?= to the battlefield\b)", r"\1it", part)  # (-- activated other (wave 44D) -- "exile Nissa, then return her …": the card just exiled)
+    part = re.sub(r"(\b[Ee]xile ~, then return )(?:~|him|her)(?= to the battlefield\b)", r"\1it", part)  # (wave 50C: "him", Zuko; the capital, a mode)  # (-- activated other (wave 44D) -- "exile Nissa, then return her …": the card just exiled)
     return re.sub(r"(?<=return ~ to )~'s owner's hand\b", "its owner's hand", part)  # -- if you do (wave 40A) -- "return him to his owner's hand" (Bob): 400.3, the card's owner
 
 
@@ -2328,6 +2328,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     from app.rules import refused_zones  # -- refused zones/sized (wave 3R4) -- Gifts piles (a leaf module)
 
     body = _licids.rewrite(body)  # -- licids (wave 50A) --
+    body = body.replace("can't be blocked by more than one creature each combat this turn", "can't be blocked by more than one creature this turn")  # (-- commanders (wave 50C) -- Glorfindel: the effect lasts the turn, so it covers each combat of it, 611.2a)
+    body = re.sub(r"(\. |^)It's (an? [^.]+? for as long as it has an? [^.]+? counter on it)(?=\.|$)", r"\1It becomes \2", body)  # (-- commanders (wave 50C) -- Sauron, Dino Devotee: "It's a green Dinosaur with base power and toughness 5/5 for as long as it has a saurian counter on it" is a duration effect on the creature just given the counter, 611.2a)
     if (gifts := refused_zones.gifts_ability(body)) is not None:
         return gifts
     from app.rules import (
@@ -2456,6 +2458,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- reflexive this way (wave 30G) -- "you may discard one or more land cards" is "any number" to a player who may choose none (Loamcrafter Faun)
     body = re.sub(r"(?i)(?<!spell, )\byou may (discard|sacrifice) one or more ", r"you may \1 any number of ", body)
     body = _COUNTED_IF_YOU_DO.sub(_counted_if_you_do, body)  # -- reflexive this way (wave 30G) -- Neheb: "… draw that many cards and add that much {R}."
+    body = re.sub(r"^(target (?:opponent|player) gains control of [^.]+)\. If they do, ", r"\1. If you do, ", body, flags=re.I)  # (-- commanders (wave 50C) -- Bill Ferny: "If they do" asks whether the control changed, as "If you do" after the instruction)
     body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus| and )",
                   r"\1, then draw a card for each card discarded this way", body)
     # (wave 45D) Jared Carthalion: "For each of them, put a number of +1/+1 counters on it equal to the number of colors it is." is each chosen creature's own count
@@ -6739,6 +6742,16 @@ def _return_owner(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return _from_language(language.parse_return_owner(m.group(0)))
 
 
+@effect(r"return (?P<o>it|that card) to the battlefield under an opponent's control")
+def _return_opponent(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """-- commanders (wave 50C) -- "Exile ~, then return it to the battlefield under an opponent's control." (Zuko, Conflicted; Sol'Kanar the Tainted): its controller
+    chooses the opponent as this resolves (608.2d; with one opponent there is nothing to choose). It is not a target (115.1)."""
+    from app.rules import language
+
+    effects, target = _from_language(language.parse_return_owner(f"return {m['o']} to the battlefield under its owner's control"))
+    return [{"do": "choose_opponent", "as": "copp"}, *({**e, "under": "ref:copp"} for e in effects)], target
+
+
 @effect(r"exile (?P<o>.+?) until ~ leaves the battlefield")
 def _exile_until_any(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
@@ -7412,7 +7425,7 @@ def _gated_other_rewrite(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # you do, …"): whether the player started that one instruction (118.12; an object gone is "can't", a count other than one is read
 # only if the whole of it could be paid, 118.3), probed as it runs (effects._did_r1, effects._did). The sentence before must be that one instruction (an intervening "if" of a trigger may gate it).
 _DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "edict", "remove_counters", "discard", "exile", "bounce", "add_counters", "tap", "search",
-                            "choose_random"})  # (choose_random: wave 47B, "Choose a player at random. When you do, …")
+                            "choose_random", "gain_control"})  # (gain_control: wave 50C, Bill Ferny)  # (choose_random: wave 47B, "Choose a player at random. When you do, …")
 
 
 def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any]],
