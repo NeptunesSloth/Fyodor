@@ -3291,6 +3291,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (unless_each := _each_may.unless_sentence(text)) is not None:  # -- if you do (wave 15C) -- "Each opponent … unless they …"
             effects += unless_each
             continue
+        if (repeated := _each_may.repeat_sentence(text, texts[i + 1] if i + 1 < len(texts) else None)) is not None:  # -- cost reductions paid with objects (wave 47C) -- "Repeat the following process X times."
+            effects += repeated
+            skip_to = i + 2
+            continue
         if (each := _each_may.pair(text, texts[i + 1] if i + 1 < len(texts) else None, effects, _last_payment(effects))) is not None:
             effects += each[0]
             skip_to = i + each[1]  # (wave 23A: the one sentence, or it and the one after it)
@@ -4269,6 +4273,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     from app.rules import exiled_with
 
     d = exiled_with.link(d, ability, ch)
+    # -- cost reductions paid with objects (wave 47C) -- "mana value less than X" (107.3f) reads the X announced for a spell or an ability with {X} in its cost; any other X
+    # (Scrap Welder's is the sacrificed artifact's) is unbound, so the ability stays manual
+    if d is not None and re.search(r'\["mv","<",-1\]', json.dumps(d, default=str).replace('\\"', '"')) \
+            and not ("{X}" in (ch.mana_cost or "") if d.get("kind") == "spell" else d.get("kind") == "activated" and "{X}" in (ability.cost or "")):
+        return None
     from app.rules import kicked_instead  # -- kicked / instead (wave 4G) -- 702.33g: a spell's targets only
 
     if d is not None and d.get("kind") != "spell" and kicked_instead.has_kicked_groups(d):
@@ -4533,6 +4542,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                   r"\1, ~ gets \2 until end of turn. ~ gains \3 until end of turn. Each other creature you control that shares a creature type with ~ gets \2 until end of turn. "
                   r"Each other creature you control that shares a creature type with ~ gains \3 until end of turn.", text)
     text = half_x(text) if "half X" in text else text  # -- X arithmetic (wave 34C) -- 107.1a
+    # -- cost reductions paid with objects (wave 47C) -- "Choose target creature with mana value less than X. Search your library for a creature card with the same name as that
+    # creature, put it onto the battlefield tapped, then shuffle." (March of Burgeoning Life): the target is the one the search names (115.1, 601.2c)
+    text = re.sub(r"^Choose (target [^.]+?)\. (Search your library for a creature card with the same name as) that creature\b", r"\2 \1", text)
     # -- trigger other (wave 36A) -- 702.29c: "When you cycle this card, it deals 1 damage to each opponent" (Magmakin Artillerist, Resounding Thunder), "you may
     # have it deal 1 damage to each creature" (Slice and Dice): "it" is the cycled card itself, the ability's source, whichever zone it went to
     text = re.sub(r"^(When you cycle (?:this card|~), (?:you may have )?)it (deals?)\b", r"\1~ \2", text)

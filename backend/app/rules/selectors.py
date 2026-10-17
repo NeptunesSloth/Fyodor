@@ -583,6 +583,11 @@ def _compare(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, (what, "<=" if m["dir"] == "less" else ">=", n)))
 
 
+@_suffix(r"with (?P<what>mana value|power|toughness) less than [xX]")  # -- cost reductions paid with objects (wave 47C) -- "target creature with mana value less than X" (March of Burgeoning Life)
+def _less_than_x(s: Selector, m: re.Match[str]) -> Selector:  # (107.3f: the X of the spell, strictly; "X or less" is ``_compare``)
+    return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]], "<", X_VALUE)))
+
+
 @_suffix(r"with power or toughness (?P<n>\d+) or (?P<dir>less|greater)")  # (wave 15A: Tetsuko Umezawa — either one)
 def _power_or_toughness(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"pot:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))
@@ -1399,6 +1404,9 @@ def parse_either(phrase: str) -> Selector | None:
     a, b = _parse(m["head"] or m["head2"]), _parse(m["last"] or m["last2"])
     if a is None or b is None or a.player or b.player or a.zones != ("battlefield",) or b.zones != ("battlefield",):
         return None
+    mv = tuple(c for c in b.compare if c[0] == "mv")
+    if mv and not a.compare:  # -- cost reductions paid with objects (wave 47C) -- "artifact, creature, or enchantment with mana value X or less" (March of Otherworldly Light): every permanent has a
+        a = replace(a, compare=mv)  # mana value, so it limits each kind (a power or a keyword belongs to the last kind alone, as for Exorcise)
     return Selector(either=(a.key(), b.key()))
 
 

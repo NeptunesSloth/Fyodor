@@ -882,6 +882,10 @@ class Permission(BaseModel):
     # -- trigger other (wave 25B) -- airbend 701.65a: the card may be cast only by paying this rather than its mana cost (an alternative
     # cost, 118.9), for as long as it remains exiled (the permission follows the object, 400.7h)
     alt_mana: str = ""
+    # -- cost reductions paid with objects (wave 47C) -- "You may play up to two of those cards": the permissions of one instruction share ``group``, and ``left`` more
+    # of them may be used (consume ends the others when the last is)
+    group: str = ""
+    left: int = 0
 
 
 class CostModifier(BaseModel):
