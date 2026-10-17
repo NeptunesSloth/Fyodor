@@ -4438,6 +4438,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if d is not None and d.get("kind") != "spell" and kicked_instead.has_kicked_groups(d):
         return None
+    if d is not None and any(e.get("do") == "create_token" and "Vehicle" in str((e.get("token") or {}).get("type_line")) and (e["token"].get("power") == {"x": 1})
+                             for e in d.get("effects") or []):
+        return None  # -- energy X (wave 50J) -- an X/X Vehicle token is read only with the X a payment paid (Pia Nalaar: bound as paid_x), never a bare X
     cond = d.get("cond") if d is not None and d.get("kind") == "triggered" else None
     if cond is not None and cond.get("event") == "enter" and cond.get("aggregate"):
         # "Whenever one or more artifacts you control enter, ~ deals that much damage": the number of them (603.2c)
