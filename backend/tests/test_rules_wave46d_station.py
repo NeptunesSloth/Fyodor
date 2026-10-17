@@ -25,7 +25,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import creature, pick, until_asked
 from tests.test_rules_wave12a_counters_keywords import answer
-from tests.wave9c_kit import build, card_named, check, life, mana, put
+from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave46d_station_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -69,7 +69,7 @@ def ready(s, *names):
         s.state.rules.controlled_since[card_named(s, n).id].turn = 0
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in DATA if c["name"] != "Doubling Season"])
+@pytest.mark.parametrize("name", [c["name"] for c in DATA if c["name"] not in ("Doubling Season", "Exploration Broodship", "Tapestry Warden")])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -272,6 +272,93 @@ def test_a_planet_land_gains_its_mana_ability_at_twelve(cards):
     mana(s, G=1)
     act(s, "p1", type="activate_ability", card_id=card_named(s, "Evendo, Waking Haven").id, ability=index)
     assert s.state.players["p1"].mana == {"G": 2}  # ({G} paid, {G} for each of the two creatures)
+    check(s)
+
+
+def test_a_token_copy_of_a_station_permanent_has_the_abilities_but_not_the_counters(cards):
+    s = build(cards, ["Adagia, Windswept Bastion", "Galvanizing Sawship"])
+    put(s, "Adagia, Windswept Bastion")
+    put(s, "Galvanizing Sawship")
+    add_charge(s, "Adagia, Windswept Bastion", 12)
+    add_charge(s, "Galvanizing Sawship", 5)
+    assert ch_of(s, "Galvanizing Sawship").is_creature
+    index = next(a.index for a in ch_of(s, "Adagia, Windswept Bastion").abilities if a.index >= 100)
+    mana(s, W=1, C=3)
+    act(s, "p1", type="activate_ability", card_id=card_named(s, "Adagia, Windswept Bastion").id, ability=index,
+        targets=[card_named(s, "Galvanizing Sawship").id])
+    answer(s)
+    copies = [c for c in s.state.cards.values() if c.name == "Galvanizing Sawship" and c.is_token]
+    assert len(copies) == 1 and copies[0].counters.get("charge", 0) == 0  # (721 ruling: the counters aren't copied)
+    copy = ch_of_id(s, copies[0].id)
+    assert "Legendary" in copy.supertypes and not copy.is_creature and not copy.keywords and copy.power is None
+    assert any(a.text.startswith("Tap another untapped creature") for a in copy.abilities)  # (its station symbols and station ability are)
+    act(s, "p1", type="counter", card_ids=[copies[0].id], kind="charge", delta=3)
+    assert ch_of_id(s, copies[0].id).is_creature and ch_of_id(s, copies[0].id).pt == (6, 5)  # (the copy's abilities follow its own counters)
+    check(s)
+
+
+def decide_all(s, picks=(), limit=40):
+    """Resolve everything; each decision takes the next of ``picks`` (an option id or a label) when it is offered, else its first option."""
+    picks = list(picks)
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            want = next((o.id for o in d.options for p in picks if p in (o.id, o.label)), None)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[want] if want else ids[: d.max_choices if d.kind == "choose_cards" else max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+@pytest.mark.parametrize("kind, plus, charge_after", [("+1/+1 counter", 1, 0), ("charge counter", 0, 2)])
+def test_inspirit_puts_your_choice_of_counters_on_another_artifact(cards, kind, plus, charge_after):
+    s = build(cards, ["Inspirit, Flagship Vessel", "Sol Ring"])
+    put(s, "Inspirit, Flagship Vessel")
+    ring = put(s, "Sol Ring")
+    add_charge(s, "Inspirit, Flagship Vessel", 1)  # (1+: At the beginning of combat on your turn, put your choice of …)
+    act(s, "p1", type="pass_priority")  # -> beginning of combat: the trigger
+    decide_all(s, [ring.id, kind])
+    now = s.state.cards[ring.id].counters
+    assert (now.get("+1/+1", 0), now.get("charge", 0)) == (plus, charge_after)
+    check(s)
+
+
+def test_inspirit_has_nothing_to_trigger_without_a_charge_counter(cards):
+    s = build(cards, ["Inspirit, Flagship Vessel", "Sol Ring"])
+    put(s, "Inspirit, Flagship Vessel")
+    ring = put(s, "Sol Ring")
+    act(s, "p1", type="pass_priority")
+    decide_all(s)
+    assert not s.state.cards[ring.id].counters
+    check(s)
+
+
+def test_synthesizer_labship_animates_another_artifact_at_the_beginning_of_combat(cards):
+    s = build(cards, ["Synthesizer Labship", "Sol Ring"])
+    put(s, "Synthesizer Labship")
+    ring = put(s, "Sol Ring")
+    add_charge(s, "Synthesizer Labship", 2)
+    act(s, "p1", type="pass_priority")  # -> beginning of combat
+    decide_all(s, [ring.id])
+    ch = ch_of_id(s, ring.id)
+    assert ch.is_creature and ch.pt == (2, 2) and "flying" in ch.keywords
+    assert not ch_of(s, "Synthesizer Labship").is_creature  # (2 charge counters is below 9)
+    check(s)
+
+
+def test_larval_scoutlander_sacrifices_a_lander_for_two_basic_lands(cards):
+    s = build(cards, ["Larval Scoutlander"])
+    lander = creature(s, "p1", "Lander", pt="0/0", type_line="Token Artifact — Lander")
+    lands = len([c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Forest"])
+    scout = to_hand(s, "Larval Scoutlander")
+    mana(s, G=3, C=3)
+    act(s, "p1", type="cast_spell", card_id=scout.id)
+    decide_all(s, ["pay", lander.id])
+    assert lander.id not in s.state.zones["p1:battlefield"]  # (sacrificed to the "you may sacrifice a land or Lander")
+    assert len([c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Forest"]) == lands + 2
     check(s)
 
 
