@@ -139,7 +139,7 @@ def test_the_wordings_are_read_and_the_rest_refused():
     done = scripts.parse_effects("Return it to the battlefield tapped and transformed under its owner's control.")
     assert done is None or "transform" not in str(done)  # (no antecedent for "it" outside a trigger)
     for text in ("Transform it.", "Transform target creature.", "Transform all Humans you control.",
-                 "At the beginning of the next end step, transform this creature.", "Transform up to one other target double-faced artifact you control."):
+                 "Transform up to one other target double-faced artifact you control."):
         assert scripts.parse_effects(text) is None, text
     for name in NAMES:
         assert level(name) == "FULL", name

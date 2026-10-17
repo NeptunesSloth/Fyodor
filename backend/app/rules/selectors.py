@@ -63,7 +63,7 @@ PLANESWALKER_TYPES = frozenset({
 _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves": "Werewolf", "thieves": "Thief",
               "mice": "Mouse", "fungi": "Fungus", "sphinxes": "Sphinx", "foxes": "Fox", "djinn": "Djinn",
               "allies": "Ally", "fairies": "Faerie", "zombies": "Zombie", "sorceries": "Sorcery", "mercenaries": "Mercenary",
-              "plains": "Plains", "pegasi": "Pegasus", "octopi": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
+              "plains": "Plains", "pegasi": "Pegasus", "octopi": "Octopus", "octopuses": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
 _IRREGULAR.update({"oxen": "Ox", "armies": "Army", "spies": "Spy", "cyclopes": "Cyclops"})  # -- static wordings (wave 6E) --
 _IRREGULAR.update({"aurochs": "Aurochs"})  # -- trigger tail (wave 15B) -- (its own plural)
 _IRREGULAR.update({"heroes": "Hero"})  # -- counters (wave 21D) --
@@ -838,6 +838,12 @@ def _source_counters(plan: Plan, source: str | None, kind: str) -> int | None:
         return None
     last = max(snaps, key=lambda s: int(s.object_id.rsplit(".", 1)[-1]))
     return last.counters.get(kind, 0)
+
+
+# -- tutor (wave 47D) -- "Dragon cards not named ~" (Tiamat): a name other than the source's (201.2); before "named ~", whose pattern ends the same way
+@_suffix(r"not named ~")
+def _not_named_self(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "not_named_self"))
 
 
 # -- amounts (wave 12C) -- "cards named ~ in all graveyards" (Kindle): the source's name (201.2), read with the source in play
@@ -1966,6 +1972,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 return False
         if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
             return False  # (wave 12C)
+        if extra == "not_named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name == ch.name):
+            return False  # (wave 47D)
         if extra.startswith(("samename", "nosamename")) and not _same_name_now(plan, extra, card, ch, you, source):
             return False  # (wave 32A)
         if extra == "attacking_alone" and sum(1 for c in plan.state.cards.values() if c.attacking is not None and c.zone.endswith(":battlefield")) != 1:

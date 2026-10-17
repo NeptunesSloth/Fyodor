@@ -263,6 +263,7 @@ def _self_pronouns(part: str) -> str:
     contraction ("he's"), "her controller" (an earlier permanent's)."""
     part = re.sub(r"(~ enters (?:tapped )?with [^.]+? counters? on) (?:him|her)\b", r"\1 it", part)  # (as the "on it" form)
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)'s (?=equipped\b)", "~ is ", part)  # (wave 41B: "if he's equipped", Whiplash: "he's" is "he is" before a state)
+    part = re.sub(r"\b([Ii]f) (?:he|she) (wasn't|was|had|didn't have|hadn't)\b", r"\1 it \2", part)  # (wave 47D: "When Fang dies, if he wasn't a Spirit, return this card …": the dying object, as "if it was")
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)\b(?! or |')", "~", part)
     part = re.sub(rf"\b(?:his|her) (?={_POSSESSED}\b)", "~'s ", part)
     part = re.sub(r"(?<!or )\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
@@ -1966,7 +1967,7 @@ def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 # …", "Create Voja, a legendary 2/2 …", "… named Kobolds of Kher Keep", "… with flying named Wasp", "… that's all
 # colors", "Create thirteen …" (never a copy, nor an instruction joined to another one)
 @_first
-@effect(r"(?!.*\b(?:cop(?:y|ies)|then|unless|instead|blocking|attached|equal|attacking that|that player)\b)"
+@effect(r"(?!.*\b(?:cop(?:y|ies)|then|unless|instead|blocking|attached|attacking that|that player)\b)(?![^\"]*\bequal\b)"  # (wave 47D: "equal" only outside a quoted CDA, Beau)
         r"(?:(?:for each [^,\"]+, )?create (?:[A-Z][^\"]*?, an? legendary .+|(?:eleven|twelve|thirteen|fourteen|fifteen|"
         r"sixteen|seventeen|eighteen|nineteen|twenty) .+|.+ named .+|.+ that's (?:all colors|colorless|white|blue|black|red|"
         r"green)(?:[ ,].+)?)|for each [^,\"]+, create .+)")
@@ -2966,6 +2967,21 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # so the condition is stated for each (nothing in between changes whether it is attacking)
     body = re.sub(r"\bIf (?:he's|she's|it's|~ is) attacking, untap ~ and (there is an additional combat phase after this phase)\.",
                   r"If ~ is attacking, untap ~. If ~ is attacking, \1.", body)
+    # -- tokens (wave 47D) -- "Create a white and black Spirit enchantment creature token. It has "This creature's power and toughness are each equal to …"" (Daxos): nothing
+    # is printed for the token's P/T, so the CDA is the token's own quoted ability (111.4, 208.1), the grammar's "with"
+    body = re.sub(r'(^|, |\. )((?i:create) [^."]+? creature token)\. It has "(?:This creature|~)(\'s power and toughness are each equal to [^"]+")', r'\1\2 with "This creature\3', body)
+    # -- reanimation (wave 47D) -- "return this card to the battlefield under your control. He's a Spirit in addition to his other types." (Fang, Roku's Companion): the pronoun for the
+    # object just returned, worded as "It's a Spirit in addition to its other types."
+    body = re.sub(r"\b(?:He|She)'s an? ([A-Z][a-z]+) in addition to (?:his|her) other types\b", r"It's a \1 in addition to its other types", body)
+    # -- reanimation (wave 47D) -- "When you cast this spell, amass Orcs 5, mill five cards, then return a creature card from your graveyard to the battlefield." (Sauron, Lord of
+    # the Rings): the instructions in order, 608.2c
+    body = re.sub(r"\b(amass [A-Z][a-z]+ (?:\d+|X)), (?=(?:mill|draw|scry|surveil) )", r"\1, then ", body)
+    # -- trigger other (wave 47D) -- "Return all creatures to their owners' hands except for Merfolk, Krakens, Leviathans, Octopuses, and Serpents." (Slinn Voda): the creatures that are none
+    # of those kinds, "all non-Merfolk non-Kraken … creatures"
+    from app.rules.selectors import _singular
+
+    body = re.sub(r"\b([Rr]eturn|[Dd]estroy|[Ee]xile) all creatures( to their owners' hands)? except for ([A-Z][a-z]+(?:(?:, and |, | and )[A-Z][a-z]+)*)\b",
+                  lambda m: f"{m[1]} all {' '.join('non-' + _singular(w) for w in re.split(r', and |, | and ', m[3]))} creatures{m[2] or ''}", body)
     # -- activated other (wave 44D) -- "Destroy all creatures except for ~. Those creatures can't be regenerated." (Mageta the Lion): all the others, the source being the only one
     # left out, as "Destroy all other creatures. They can't be regenerated." says
     body = re.sub(r"\b([Dd]estroy all) (creatures|artifacts|enchantments|lands) except for ~\. Those \2 can't be regenerated\.", r"\1 other \2. They can't be regenerated.", body)
@@ -4725,7 +4741,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import trigger_words  # or Vehicle spell", "a noncreature, nonland card")
 
                 m = trigger_words.comma_condition(text, m)
-            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b|\bspent to cast it\b|\bits mana value\b", m["body"]):  # (3R3: copy it; wave 16B: increment; 18B: mana spent)
+            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b|\bspent to cast it\b|\bits mana value\b|\bthat creature enters with\b", m["body"]):  # (3R3: copy it; wave 16B: increment; 18B: mana spent)
                 continue  # -- sized amounts (wave 3D) -- it reads the spell cast: the generic condition's event carries it
             if m:
                 name = step_trigger(m) if trigger == "step" else (
@@ -8287,6 +8303,27 @@ def _return_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "bounce", "who": "event_spell"}], None
 
 
+# -- cast riders (wave 47D) -- "Whenever you cast a creature spell with mana value 5 or greater, that creature enters with X additional +1/+1 counters on it, where X is its mana
+# value minus 4." (Runadi), "…, that creature enters with an additional +1/+1 counter on it for each Dog and/or Wolf you control." (Torgal): the creature spell a cast trigger is
+# about gets that many counter riders as the trigger resolves (cast_riders.spell_rider, 614.1c); only in a creature-spell cast trigger (``_event_spell_ok``)
+@_first
+@effect(r"that creature enters with (?P<n>an|one|two|three|X) additional \+1/\+1 counters? on it(?: for each (?P<each>[^,.]+)|, where X is (?P<x>[^,.]+))?")
+def _spell_counters(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import values
+
+    if m["n"] == "X" and m["x"]:
+        n: Any = values.parse_count(re.sub(r"^its ", "that spell's ", m["x"]))
+    elif m["each"] and m["n"] in ("an", "one"):
+        n = values.parse_count(m["each"])
+    elif not m["each"] and not m["x"] and m["n"] != "X":
+        n = {"an": 1, "one": 1, "two": 2, "three": 3}[m["n"]]
+    else:
+        n = None
+    if n is None or "spent" in json.dumps(n):  # (mana spent to cast "it" would be read for the ability's source, not the spell: Wildgrowth Archaic stays manual)
+        raise _NoMatch
+    return [{"do": "spell_rider", "who": "event_spell", "n": n, "riders": [{"kind": "counter"}]}], None
+
+
 # -- copied abilities (wave 18F) -- "Whenever you activate an ability of an artifact, … copy that ability." (Kurkesh, 707.10): the
 # activated ability the trigger's event is about (``_event_spell_ok``: only in an activation trigger)
 @_first
@@ -8391,6 +8428,10 @@ def _event_spell_ok(d: Definition) -> bool:
     if not uses:
         return True
     cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
+    from app.rules import cast_riders  # -- cast riders (wave 47D) -- "that creature" is a creature spell
+
+    if any(effects[k].get("do") == "spell_rider" for k in uses) and not cast_riders._creature_spell_watch(cond):
+        return False
     # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, copy it" — the event is this very spell's casting
     if not (d.get("kind") == "triggered" and d.get("trigger") == "cast_self") and (
             cond is None or cond.get("event") != "cast" or cond.get("subject") != "player" or cond.get("copy")):
