@@ -100,7 +100,21 @@ def test_last_one_standing_destroys_every_creature_but_the_one_chosen_at_random(
     cast(s, "Last One Standing")
     alive = [c for c in ids if s.state.cards[c].zone.endswith(":battlefield")]
     assert alive == [ids[index]]
-    assert "is chosen at random" in str(s.view("p2")["log"])
+    assert "chosen at random" in str(s.view("p2")["log"])
+    check(s)
+
+
+def test_a_face_down_creature_picked_at_random_is_not_named_in_the_log(cards, monkeypatch):
+    s, ids = three_creatures(cards, ["Last One Standing", "Llanowar Elves"])
+    hill = next(c for c in ids if s.state.cards[c].name == "Hill Giant")
+    act(s, "p3", type="face_down", card_ids=[hill], face_down=True)
+    pin_random(monkeypatch, ids.index(hill))
+    to_hand(s, "Last One Standing")
+    mana(s, B=1, R=2)
+    cast(s, "Last One Standing")
+    for viewer in ("p1", "p2"):  # (a face-down permanent has no name: 708.2a)
+        picks = [e for e in s.view(viewer)["log"] if "chosen at random" in str(e["parts"])]
+        assert len(picks) == 1 and "Hill Giant" not in str(picks[0]["parts"])
     check(s)
 
 

@@ -183,7 +183,7 @@ def choose_random_object(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     found = sorted(selectors.candidates(plan, selectors.from_key(e["sel"]), ctx["controller"], ctx.get("source_card")))
     pick = (plan.rng or secrets.SystemRandom()).choice(found) if found else None
     if pick is not None:
-        plan.note(f"{ctx.get('name') or 'It'}: {plan.state.cards[pick].name or 'a card'} is chosen at random", [pick], actor=ctx["controller"])
+        plan.note(f"{ctx.get('name') or 'It'}: chosen at random →", [pick], actor=ctx["controller"])  # (the card is shown as the log shows any card: a face-down one isn't named)
     if e.get("as"):
         context.bind_objects(plan, ctx, e["as"], [pick] if pick is not None else [])
     return True
