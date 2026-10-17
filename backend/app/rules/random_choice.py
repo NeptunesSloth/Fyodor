@@ -69,6 +69,8 @@ def strip_pw(body: str) -> tuple[str, str]:
     if "at random" in body:  # (the sentence as the grammar has it: Skull Rend's "Those players" are the opponents it dealt damage to; Reckless Handling's "shuffle, then discard")
         body = re.sub(r"(deals \d+ damage to each opponent)\. Those players each (discard )", r"\1. Each opponent \2", body)
         body = re.sub(r"(Search your library [^.]*?into your hand), shuffle, then (discard [^.]*\.)", r"\1, then shuffle. \2", body)
+    if "opponent chosen at random gains control of" in body:  # (Witch Hunt: the subject of the sentence is the target, picked at random: ``post`` flags the group)
+        return re.sub(r"\b([Tt]arget opponent) chosen at random (gains control of )", r"\1 \2", body), "target_random"
     if "at random" in body and "repeat this process" in body:  # (Sin: "exile a permanent card from your graveyard at random, then create a tapped token that's a copy of
         # that card. If the exiled card is a land card, repeat this process.": it is the exiled card that is asked about, not the token ``post`` sets that right)
         new = re.sub(r"\bIf the exiled card is (an? [\w ]+? card), repeat this process\.", r"If that card is \1, repeat this process.", body)
@@ -90,6 +92,10 @@ def post(got: Any, mode: str = "") -> Any:
         if len(picks) != 1:
             return None
         picks[0]["pw"] = True
+    if mode == "target_random":
+        if not isinstance(got[1], str):
+            return None
+        got = (effects, [{"what": got[1], "min": 1, "max": 1, "random": True}], got[2])
     if mode == "exiled":  # the condition names the card exiled at random (the first instruction), whatever the pronoun bound to since
         first = effects[0] if effects else {}
         gates = [e for e in effects if e.get("do") == "only_if" and str((e.get("cond") or {}).get("object", "")).startswith("ref:")]

@@ -83,6 +83,15 @@ def test_power_pack_exiles_an_instant_or_sorcery_at_random_and_casts_it_free_nex
     check(s)
 
 
+def test_witch_hunt_goes_to_the_opponent_picked_at_random_at_the_end_step(cards, monkeypatch):
+    pin_random(monkeypatch)  # Carol
+    s = build3(cards, ["Witch Hunt"])
+    hunt = put(s, "Witch Hunt")
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1" and s.state.rules.decision is None)  # (Alice's end step is over)
+    assert s.state.cards[hunt.id].controller == "p3"
+    check(s)
+
+
 def test_goblin_test_pilot_ignores_a_target_sent_along_and_picks_at_random(cards, monkeypatch):
     pin_random(monkeypatch)  # the last of the legal targets in the table's order: Carol
     s = build3(cards, ["Goblin Test Pilot"])
