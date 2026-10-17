@@ -2420,6 +2420,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             from app.rules import overload
 
             ch = overload.overlay(ch)
+        if "cleave" in kinds:  # -- keywords (wave 50H) -- 702.148a: the words in square brackets are removed
+            from app.rules import cleave
+
+            ch = cleave.overlay(ch)
         bestowed_cast = "bestow" in kinds
         sneaking = "sneak" in kinds  # -- keywords (wave 30I) -- 702.190a
         mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature

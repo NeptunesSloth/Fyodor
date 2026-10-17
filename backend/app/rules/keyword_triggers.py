@@ -42,6 +42,7 @@ MEANINGS: dict[str, str] = {
     "living weapon": "When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this "
                      "Equipment to it.",  # 702.92a
     "for mirrodin!": "When this Equipment enters, create a 2/2 red Rebel creature token, then attach this Equipment to it.",  # 702.163a
+    "job select": "When this Equipment enters, create a 1/1 colorless Hero creature token, then attach this Equipment to it.",  # -- keywords (wave 50H) -- 702.182a
     "annihilator": "Whenever this creature attacks, defending player sacrifices {n} permanents.",  # 702.86a
     "afflict": "Whenever this creature becomes blocked, defending player loses {n} life.",  # 702.130a
     # 702.156a: the triggered half of ravenous (its "enters with X +1/+1 counters" half is replacements.entering_counters;

@@ -486,7 +486,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return graveyard_keywords.supported(kw, line)
     if kw == "living metal":  # -- commanders (wave 50C) -- 702.161a: scripts.define reads it as its static meaning
         return True
-    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "emerge", "foretell", "mutate", "web-slinging", "sneak", "freerunning", "impending", "more than meets the eye"):  # -- keywords (wave 15E; sneak: 30I; freerunning, impending: 43D) -- app/rules/alt_costs.py: the cost with its condition
+    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "cleave", "emerge", "foretell", "mutate", "web-slinging", "sneak", "freerunning", "impending", "more than meets the eye"):  # -- keywords (wave 15E; sneak: 30I; freerunning, impending: 43D) -- app/rules/alt_costs.py: the cost with its condition
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(line) is not None
@@ -649,6 +649,11 @@ def features_of(ch: Characteristics) -> list[Feature]:
                     from app.rules import overload
 
                     add("keyword:overload", "Overload", _keyword_supported(kw, ab.text) and overload.supported(ch))
+                    continue
+                if kw == "cleave":  # -- keywords (wave 50H) -- 702.148a: the spell read without the words in square brackets too
+                    from app.rules import cleave
+
+                    add("keyword:cleave", "Cleave", _keyword_supported(kw, ab.text) and cleave.supported(ch))
                     continue
                 add(f"keyword:{kw}", kw.capitalize(), _keyword_supported(kw, ab.text) if kw != "backup" else all(
                     keyword_triggers.backup_definition(ch, ab, n) is not None

@@ -286,6 +286,8 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         return []
     out: list[AbilityText] = []
     lines = [raw.strip() for raw in strip_reminders(oracle_text).split("\n") if raw.strip()]
+    if spell and any(line.startswith("Cleave {") for line in lines):  # -- keywords (wave 50H) -- 702.148a: cast any other way the brackets are only punctuation (cleave.cleaved)
+        lines = [line if line.startswith("Cleave {") else line.replace("[", "").replace("]", "") for line in lines]
     if not spell and "LEVEL " in oracle_text:  # -- keyword mechanics (wave 9D) -- a leveler's text as 702.87a / 711.2 say it
         from app.rules import levelers
 
@@ -300,6 +302,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
             lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
                               "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
                               "its owner's control."]
+    # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
+    for i, line in enumerate(lines):
+        if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):
+            lines[i] = w[1]
     # -- any number as an additional cost (wave 48B) -- 603.12: "As an additional cost to cast this spell, you may sacrifice one or more creatures. When you do, copy this spell for each
     # creature sacrificed this way." (Plumb the Forbidden) is the cost and a trigger of the spell on being cast (601.2i), which only exists if something was sacrificed
     if spell:
