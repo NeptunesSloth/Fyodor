@@ -327,6 +327,8 @@ def self_text(text: str, name: str) -> str:
     # opens a sentence of the spell, "When ~ enters, if the gift was promised, …" is the permanent's intervening "if"
     out = re.sub(r"(?:^|(?<=\. ))If the gift was promised, ", "If this spell was kicked, ", out)
     out = re.sub(r"\bif the gift was promised, ", "if it was kicked, ", out)
+    # -- trigger other (wave 44B) -- Rayne's 2004 ruling: "You may draw an additional card if ~ is enchanted." is checked as the ability resolves, a second optional draw
+    out = re.sub(r"(?<=\. )You may draw an additional card if ([^.,]+?)\.", r"If \1, you may draw a card.", out)
     # -- keywords (wave 30E) -- 702.166b: a bargained spell is read the same way (a bargain card has no kicker): casting.py records it as kicked
     out = re.sub(r"(?:^|(?<=\. ))If this spell was bargained, ", "If this spell was kicked, ", out)
     out = re.sub(r"\bif it was bargained, ", "if it was kicked, ", out)
@@ -406,7 +408,7 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         return "event"  # (the enchanted creature as the step began: triggers.at_step_generic)
     cond = cond or {}
     event = cond.get("event")
-    if cond.get("other") or (event == "deal_damage" and cond.get("to") == "creature"):
+    if cond.get("other") or (event == "deal_damage" and cond.get("to") in ("creature", "planeswalker")):  # (wave 44B: a planeswalker)
         # "… becomes blocked by a creature, destroy that creature" / "… deals damage to a creature,
         # exile that creature": the creature on the other side, which the event doesn't name
         return None
@@ -3852,6 +3854,8 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         payer = "it.controller"  # (wave 26D) "that creature's controller loses 2 life unless they pay {2}": they are that controller
     elif who in ("its controller", "that creature's controller") and whos == {"it"} and not groups:
         payer = "it.controller"  # -- unless pays (wave 26D) -- "destroy that creature unless its controller pays {2}": the trigger's object (resolve_it)
+    elif who == "that creature's controller" and it == "event" and whos == {"you"} and not groups:
+        payer = "it.controller"  # -- trigger other (wave 44B) -- "create a 3/3 Ogre token unless that creature's controller pays {3}" (Kazuul): the attacker's controller (resolve_it)
     elif who in ("its controller", "that creature's controller"):
         if "target" not in whos or not groups or group_player is not False:
             return None
@@ -4625,6 +4629,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # creature's toughness" / "… deals damage to a creature, …": the event's object (app/rules/other_side.py)
                 from app.rules import other_side
 
+                if cond is not None and cond.get("event") == "deal_damage" and cond.get("to") == "planeswalker":
+                    body = re.sub(r"\bthat planeswalker\b", "that permanent", body)  # -- trigger other (wave 44B) -- Zagras: the planeswalker dealt damage (other_side)
                 if cond is not None and other_side.wanted(cond) and cond.get("subject") == "host" and "that creature" not in body:
                     body = body.replace("the other creature", "that creature")  # (wave 11E: Venom, Mammoth Harness)
                 if cond is not None and cond.get("event") == "blocked" and cond.get("other"):  # -- trigger other (wave 39A) -- 509.3d: "the blocking creature"
@@ -4647,6 +4653,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # -- trailing & intervening ifs (wave 38A) -- "attacks one of your opponents, if that player is the monarch" (M'Baku): "that player" is the
                     # one attacked (508.5), the event's ``defended``, whose designation is read again as it resolves (603.4)
                     body = "if defending player is " + body[len("if that player is "):]
+                if cond is not None and cond.get("event") == "attack" and cond.get("subject") == "sel" and not cond.get("aggregate") \
+                        and body.startswith("if you're the defending player, "):
+                    # -- trigger other (wave 44B) -- 508.5, Kazuul's 2023 ruling: you're the defending player when the creature attacks you, a planeswalker you
+                    # control or a battle you protect (defending.defended); that never changes while it attacks (a creature removed from combat keeps it),
+                    # so the intervening "if" (603.4) is part of the trigger event
+                    body, cond = body[len("if you're the defending player, "):], {**cond, "defending_player": "you"}
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
                 if ante == "event" and cond is not None and not other_side.wanted(cond):  # -- this-turn state (wave 33D) -- Hixus: with no creature on
                     body = re.sub(r"\bexile that creature until ~ leaves the battlefield", "exile it until ~ leaves the battlefield", body)  # the other side,

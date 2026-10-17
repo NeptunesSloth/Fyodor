@@ -787,6 +787,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
         if cond.get("first_each_turn") and not info.get("first"):
             return False
+        if cond.get("defending_player") == "you":  # -- trigger other (wave 44B) -- 508.5: "if you're the defending player" (a battle you protect included)
+            from app.rules import defending
+
+            if obj is None or defending.defended(plan, obj) != you:
+                return False
     if event == "dealt_damage" and cond.get("combat") is not None and bool(info.get("combat")) != cond["combat"]:
         return False
     if event == "dealt_damage" and cond.get("excess") and int(info.get("excess") or 0) <= 0:  # -- trigger damage (wave 39B) -- 120.10: it was dealt excess damage

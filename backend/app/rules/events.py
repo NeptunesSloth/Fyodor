@@ -750,6 +750,14 @@ def _defender(d: str | None, player_attack: bool = False) -> Condition:
 
 def _combat(c: str) -> Condition | None:
     """Attack conditions with more to them than "~ attacks" (508.3, 509.3g, 506.5)."""
+    # -- trigger other (wave 44B) -- 508.1: "you attack with ~ and another legendary creature" (Merry): ~ is declared as an attacker together with another creature
+    # of that kind (not necessarily attacking the same player, ruling 2023-06-16); it triggers once, as ~ attacks
+    m = re.fullmatch(r"you attack with ~ and another (?P<o>[a-z ]+)", c)
+    if m:
+        sel = selectors.parse(m["o"])
+        if sel is None or sel.player is not None or sel.card:
+            return None
+        return {"event": "attack", "subject": "self", "min_attackers": 1, "sel": sel.key(), "others_only": True}
     # 508.3d / 508.3e: "a player attacks you", "an opponent attacks you with two or more creatures",
     # "you attack a player", "a player attacks one of your opponents" — once per player attacked
     m = re.fullmatch(rf"(?P<p>you|an opponent|a player) attacks? (?P<d>{_DEFENDER_RE})"
