@@ -514,6 +514,7 @@ _MOVERS = {"destroy", "destroy_all", "exile", "exile_until", "bounce", "return_c
            "sacrifice_choice", "discard", "mill", "search", "pick_looked", "create_token",
            "edict"}  # (edict: wave 4A)
 _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are tokens, not cards: 111.1)
+_RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
 _RECORDING["double_pt"] = None  # -- trigger other (wave 41C) -- "double the power of each other creature you control until end of turn. Those creatures gain vigilance …"
@@ -7111,6 +7112,8 @@ def _verb_of(e: dict[str, Any]) -> str | None:
     """The verb "… <verb> this way" names for an instruction (_RECORDING; a move to exile by another name is an exile)."""
     if (e["do"] == "sacrifice_choice" and e.get("exile")) or (e["do"] == "discard" and e.get("to") == "exile"):
         return "exiled"
+    if e["do"] in ("pick_looked", "rest_looked") and e.get("to") in ("hand", "graveyard"):
+        return "put_" + e["to"]  # -- if you do (wave 44A) -- "for each card put into your graveyard / you put into your hand this way" after a look (Dihada, Blex)
     return _RECORDING.get(e["do"])
 
 

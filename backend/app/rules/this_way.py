@@ -41,14 +41,14 @@ if TYPE_CHECKING:
 
 # The verbs, each with the recording effects' verbs (scripts._RECORDING) that it may name.
 _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled",), "sacrificed": ("sacrificed",),
-          "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned",), "your_hand": ("returned",),
-          "graveyard": ("destroyed", "sacrificed", "milled", "discarded"), "your_graveyard": ("milled", "discarded"),
+          "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned",), "your_hand": ("returned", "put_hand"),
+          "graveyard": ("destroyed", "sacrificed", "milled", "discarded", "put_graveyard"), "your_graveyard": ("milled", "discarded", "put_graveyard"),
           "died": ("destroyed", "sacrificed"), "tapped": ("tapped",),
           "revealed": ("revealed",), "shuffled": ("shuffled",),  # (wave 10C: reveal_hand.py)
           "created": ("created",)}  # -- reflexive this way (wave 30G) -- 603.12: "create a token. When you do, …" (the tokens it made)
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
-    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?"
+    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?|you put into your hand"
     r"|put into (?P<gy>a|your|their|its owner's|that player's|their owners') graveyards?|died|that died) this way$")
 _NOUN_ONLY = re.compile(r"^(?:cards?)$")
 _GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discarded|milled) this way$")
@@ -71,8 +71,8 @@ def parse(phrase: str) -> dict[str, Any] | None:
     what = m["what"].strip()
     what = re.sub(r" that$", "", what)  # ("creature that died this way")
     verb = m["verb"]
-    if verb.startswith("returned"):
-        kind = "your_hand" if verb.startswith("returned to your") else "returned"
+    if verb.startswith("returned") or verb.startswith("you put"):
+        kind = "your_hand" if verb.startswith(("returned to your", "you put")) else "returned"
     elif verb.startswith("put into"):
         kind = "your_graveyard" if m["gy"] == "your" else "graveyard"
     elif verb in ("died", "that died"):

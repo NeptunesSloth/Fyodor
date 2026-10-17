@@ -32,7 +32,7 @@ ETALI, SUSPICION = "Etali, Primal Conqueror // Etali, Primal Sickness", "Fevered
 OOL, SCAR = "Auntie Ool, Cursewretch", "Scar"
 EMIEL, UNICORN = "Emiel the Blessed", "Pearled Unicorn"
 RUFUS = "Rufus Shinra"
-FULL = [ETALI, SUSPICION, OOL, EMIEL, RUFUS, "The Gitrog, Ravenous Ride"]
+FULL = [ETALI, SUSPICION, OOL, EMIEL, RUFUS, "The Gitrog, Ravenous Ride", "Akuta, Born of Ash", "Dihada, Binder of Wills", "Blex, Vexing Pest // Search for Blex"]
 
 
 @pytest.fixture()
@@ -352,6 +352,61 @@ def test_akuta_does_not_trigger_when_an_opponent_holds_as_many_cards(cards):
     swamp = akuta_upkeep(s)  # (Alice holds 7 or fewer, Bob 8: not more than each opponent)
     assert s.state.rules.decision is None or s.state.rules.decision.prompt != "Akuta, Born of Ash: pay Sacrifice a Swamp?"
     assert s.state.cards[swamp.id].zone == "p1:battlefield" and zone_of(s, AKUTA) == "p1:graveyard"
+    check(s)
+
+
+# ---- "for each card put into your graveyard / you put into your hand this way" after a look (Dihada, Binder of Wills; Blex, Vexing Pest) ----------------
+DIHADA, BLEX = "Dihada, Binder of Wills", "Blex, Vexing Pest // Search for Blex"
+
+
+def test_dihada_makes_a_treasure_for_each_card_put_into_the_graveyard(cards):
+    s = build(cards, [DIHADA, "Karador, Ghost Chieftain", "Grizzly Bears", "Lightning Bolt"], [])
+    top = stack_top(s, ["Karador, Ghost Chieftain", "Grizzly Bears", "Lightning Bolt", "Forest"])
+    act(s, "p1", type="counter", card_ids=[put(s, DIHADA).id], kind="loyalty", delta=5)  # (put there by hand: no loyalty of its own)
+    act(s, "p1", type="activate_ability", card_id=card_named(s, DIHADA).id, ability=1)
+    pass_until_stack_empty(s)
+    d = decision(s)
+    assert [o.id for o in d.options] == [top[0]]  # (the one legendary card among the four)
+    choose(s, [top[0]], resolve=True)
+    assert s.state.cards[top[0]].zone == "p1:hand"
+    assert all(s.state.cards[c].zone == "p1:graveyard" for c in top[1:])
+    assert len(named(s, "Treasure")) == 3  # (three cards went to the graveyard)
+    check(s)
+
+
+def test_dihada_makes_a_treasure_for_every_card_when_none_is_kept(cards):
+    s = build(cards, [DIHADA, "Karador, Ghost Chieftain", "Grizzly Bears", "Lightning Bolt"], [])
+    top = stack_top(s, ["Karador, Ghost Chieftain", "Grizzly Bears", "Lightning Bolt", "Forest"])
+    act(s, "p1", type="counter", card_ids=[put(s, DIHADA).id], kind="loyalty", delta=5)  # (put there by hand: no loyalty of its own)
+    act(s, "p1", type="activate_ability", card_id=card_named(s, DIHADA).id, ability=1)
+    pass_until_stack_empty(s)
+    choose(s, [], resolve=True)
+    assert all(s.state.cards[c].zone == "p1:graveyard" for c in top) and len(named(s, "Treasure")) == 4
+    check(s)
+
+
+def test_blex_search_loses_three_life_for_each_card_put_into_the_hand(cards):
+    s = build(cards, [BLEX, "Grizzly Bears", "Lightning Bolt"], [])
+    top = stack_top(s, ["Grizzly Bears", "Lightning Bolt", "Forest", "Forest", "Forest"])
+    to_hand(s, BLEX)
+    mana(s, B=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, BLEX).id, face=1)
+    pass_until_stack_empty(s)
+    choose(s, top[:2], resolve=True)
+    assert all(s.state.cards[c].zone == "p1:hand" for c in top[:2]) and all(s.state.cards[c].zone == "p1:graveyard" for c in top[2:])
+    assert life(s) == 40 - 6
+    check(s)
+
+
+def test_blex_search_loses_no_life_when_no_card_is_taken(cards):
+    s = build(cards, [BLEX], [])
+    top = stack_top(s, ["Forest", "Forest", "Forest", "Forest", "Forest"])
+    to_hand(s, BLEX)
+    mana(s, B=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, BLEX).id, face=1)
+    pass_until_stack_empty(s)
+    choose(s, [], resolve=True)
+    assert all(s.state.cards[c].zone == "p1:graveyard" for c in top) and life(s) == 40
     check(s)
 
 

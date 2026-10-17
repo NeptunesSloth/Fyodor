@@ -2831,13 +2831,16 @@ def rest_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
     owner, rest = _looked(plan, ctx)
     ctx["looked"] = []
+    before = _remember(plan, ctx, e, rest)  # (wave 44A: "for each card put into your graveyard this way")
     if not rest:
         return True
     if e["to"] in ("graveyard", "exile"):
         plan.do({"type": "move", "card_ids": rest, "to": {"player": owner, "zone": e["to"]}}, actor=pid)
+        _moved(plan, ctx, e, before)
         return True
     if e["to"] == "hand":
         plan.do({"type": "move", "card_ids": rest, "to": {"player": pid, "zone": "hand"}}, actor=pid)
+        _moved(plan, ctx, e, before)
         return True
     if e["to"] == "top_any":
         if len(rest) == 1:
