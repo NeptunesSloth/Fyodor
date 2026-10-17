@@ -4,6 +4,8 @@ Every scenario checks the replay and a save and a load.
 * 701.71a: if you don't control a Jace planeswalker token, create a blue Jace planeswalker token with 0 loyalty, "[−1]: Surveil 1" and "[−3]: Draw a card."; choose a
   Jace planeswalker token you control; put N loyalty counters on it. A later empower puts its counters on the token you already have.
 * 704.5i: a Jace token that got 0 counters (Empower Jace X with X = 0) has 0 loyalty and is put into the graveyard (a token then ceases to exist, 111.7).
+* 608.2b: a spell with Empower Jace on a line of its own does nothing when its only target is gone (Academic Ascent: rulings "You won't empower Jace").
+* 121.1: "If excess damage was dealt to that permanent this way, empower Jace X, where X is that excess damage." (Violent Echoes).
 * 606.3: the token's loyalty abilities are the ordinary ones of a planeswalker.
 """
 
@@ -20,8 +22,8 @@ from app.cards.repository import CardRepository
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, settle
-from tests.wave9c_kit import build, check, mana, put, to_hand
+from tests.test_rules_wave34b_activated import activate, settle, stops
+from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 from tests.wave43b_kit import cast, ch, move
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave48a_cards.json").read_text("utf-8"))
@@ -135,4 +137,53 @@ def test_the_activated_ability_of_campus_crier_empowers_from_the_graveyard(cards
     settle(s)
     (jace,) = jaces(s)
     assert loyalty(jace) == 2
+    check(s)
+
+
+def test_a_spell_with_empower_on_its_own_line_does_nothing_when_its_target_is_gone(cards):
+    s = build(cards, ["Academic Ascent", "Grizzly Bears"], ["Lightning Bolt"])
+    stops(s)
+    bears = put(s, "Grizzly Bears")
+    to_hand(s, "Academic Ascent")
+    to_hand(s, "Lightning Bolt", "p2")
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Academic Ascent").id, targets=[bears.id])
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Lightning Bolt", "p2").id, targets=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard" and jaces(s) == []  # fizzled: no Jace token
+    check(s)
+
+
+def test_academic_ascent_pumps_and_empowers(cards):
+    s = build(cards, ["Academic Ascent", "Grizzly Bears"], [])
+    bears = put(s, "Grizzly Bears")
+    to_hand(s, "Academic Ascent")
+    mana(s, W=1, C=1)
+    cast(s, "Academic Ascent", targets=[bears.id])
+    assert "flying" in ch(s, bears).keywords and len(jaces(s)) == 1 and loyalty(jaces(s)[0]) == 2
+    check(s)
+
+
+def test_fatehold_charm_first_mode_draws_and_empowers(cards):
+    s = build(cards, ["Fatehold Charm"], [])
+    to_hand(s, "Fatehold Charm")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, W=1, U=1)
+    cast(s, "Fatehold Charm", modes=[0])
+    assert len(s.state.zones["p1:hand"]) == hand  # the Charm left, a card was drawn
+    (jace,) = jaces(s)
+    assert loyalty(jace) == 2
+    check(s)
+
+
+def test_violent_echoes_empowers_by_the_excess_damage(cards):
+    s = build(cards, ["Violent Echoes"], ["Albino Troll"])
+    troll = put(s, "Albino Troll", "p2")
+    to_hand(s, "Violent Echoes")
+    mana(s, R=2, C=2)
+    cast(s, "Violent Echoes", targets=[troll.id])
+    assert s.state.cards[troll.id].zone == "p2:graveyard"
+    (jace,) = jaces(s)
+    assert loyalty(jace) == 3  # 6 damage to a 3-toughness creature: 3 excess
     check(s)

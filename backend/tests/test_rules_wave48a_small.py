@@ -266,3 +266,10 @@ def test_compelling_deterrence_discards_when_you_control_a_zombie(cards):
     cast(s, "Compelling Deterrence", targets=[card_named(s, "Grizzly Bears", "p2").id])
     assert len(names_in(s, "hand", "p2")) == 1 and len(names_in(s, "graveyard", "p2")) == 1
     check(s)
+
+
+def test_n_target_cards_from_an_opponents_graveyard_are_one_graveyards_cards():
+    from app.rules.scripts import parse_effects
+
+    _, targets, _ = parse_effects("Exile two target cards from an opponent's graveyard.")
+    assert targets[0]["same_graveyard"] is True and targets[0]["min"] == targets[0]["max"] == 2
