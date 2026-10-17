@@ -521,7 +521,9 @@ def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import characteristics as chars
 
     r = plan.rules
-    for cid in effects._cards(plan, ctx, e.get("who", "self")):
+    named = effects._cards(plan, ctx, e.get("who", "self"))
+    effects._remember(plan, ctx, e, named)  # -- most-played cards II (wave 45A) -- "Transform this land, then untap it." (Westvale Abbey): "it" is the permanent named, transformed or not
+    for cid in named:
         card = plan.state.cards[cid]
         if not card.zone.endswith(":battlefield") or card.face_down:
             continue

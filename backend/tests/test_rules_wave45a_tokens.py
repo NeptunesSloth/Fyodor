@@ -12,7 +12,7 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import settle, stops, to_phase
+from tests.test_rules_wave34b_activated import activate, settle, stops, to_phase
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 from tests.wave45a_kit import cast, open_cards
 
@@ -80,4 +80,20 @@ def test_ocelot_pride_does_not_copy_a_token_from_an_earlier_turn(cards):
     settle(s)
     assert len(cats(s)) == 2  # the Cat and its copy; the Spirit that entered last turn is not copied
     assert sum(1 for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Spirit") == 1
+    check(s)
+
+
+# ---- Westvale Abbey [1500] -------------------------------------------------------------------------------------------------------------------------------
+def test_westvale_abbey_transforms_and_untaps_itself_after_sacrificing_five_creatures(cards):
+    # 701.28: "{5}, {T}, Sacrifice five creatures: Transform this land, then untap it." - "it" is the same permanent (a transformed permanent is not a new object)
+    s = build(cards, ["Westvale Abbey // Ormendahl, Profane Prince"], [])
+    abbey = put(s, "Westvale Abbey // Ormendahl, Profane Prince")
+    for i in range(5):
+        act(s, "p1", type="create_token", player="p1", token={"name": f"Walker {i}", "power": "1", "toughness": "1", "type_line": "Token Creature — Spirit"})
+    mana(s, C=5)
+    activate(s, "p1", abbey, "Sacrifice five creatures")
+    settle(s)
+    now = s.state.cards[abbey.id]
+    assert now.face == 1 and not now.tapped and now.zone == "p1:battlefield"
+    assert not [c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name.startswith("Walker")]
     check(s)

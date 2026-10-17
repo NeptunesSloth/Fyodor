@@ -525,6 +525,7 @@ _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are
 _RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
+_RECORDING["transform"] = None  # -- most-played cards II (wave 45A) -- "Transform this land, then untap it." (Westvale Abbey): "it" is the permanent that transformed (701.28: the same object)
 _RECORDING["double_pt"] = None  # -- trigger other (wave 41C) -- "double the power of each other creature you control until end of turn. Those creatures gain vigilance …"
 _RECORDING["create_attacking"] = None  # -- keywords (wave 15E) -- "create … tokens that are tapped and attacking. Sacrifice them …":
 _MOVERS.add("create_attacking")  # the pronoun names the tokens made, not the ability's source (was bound to the source)
