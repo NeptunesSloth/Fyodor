@@ -20,6 +20,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
+from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave30h_linked_exile import settle, stack_top
@@ -40,6 +41,22 @@ def cards(settings):
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
     yield repo
     repo.close()
+
+
+FULL = ["Torgaar, Famine Incarnate", "Gorex, the Tombshell", "Dargo, the Shipwrecker", "Hierophant Bio-Titan", "Explosive Singularity", "March of Swirling Mist",
+        "March of Otherworldly Light", "March of Wretched Sorrow", "Extus, Oriq Overlord // Awaken the Blood Avatar"]
+# (kept manual: the cost line is read, the rest of the card is not — a blight-counter choice for every opponent, "play up to two of those cards", "mana value less than X")
+PARTIAL = ["Rottenmouth Viper", "March of Reckless Joy", "March of Burgeoning Life"]
+
+
+@pytest.mark.parametrize("name", FULL)
+def test_every_card_is_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+@pytest.mark.parametrize("name", PARTIAL)
+def test_the_cards_whose_other_lines_are_not_read_stay_partial(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL", name
 
 
 def cast_reduced(s, name, chosen, **kw):
@@ -356,4 +373,55 @@ def test_a_copy_of_a_march_pays_nothing_and_exiles_nothing(cards):
     assert sorted(x.name for x in s.state.cards.values() if x.zone == "p1:exile") == ["Dregscape Zombie", "Murder"]
     assert not any(x.zone == "p2:exile" for x in s.state.cards.values())
     assert s.state.players["p2"].life == 42 and s.state.players["p1"].life == 40  # (Bob's copy, X = 2, resolves first and kills the target: the original fizzles, 608.2b)
+    check(s)
+
+
+# ---- the back face of a double-faced card: Extus, Oriq Overlord // Awaken the Blood Avatar -----------------------------------------------------
+def test_awaken_the_blood_avatar_sacrificing_three_creatures_costs_six_less(cards):
+    """Ruling 2021-04-16: "can't reduce its cost below {B}{R}. However, you can sacrifice any number of creatures"; the line is read for the face that is cast (712.11b)."""
+    s = build(cards, ["Extus, Oriq Overlord // Awaken the Blood Avatar", "Hill Giant", "Grizzly Bears", "Goblin Piker"], ["Grizzly Bears"])
+    crew = [put(s, n) for n in ("Hill Giant", "Grizzly Bears", "Goblin Piker")]
+    put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Extus, Oriq Overlord // Awaken the Blood Avatar")
+    mana(s, B=1, R=1)
+    c = card_named(s, "Extus, Oriq Overlord // Awaken the Blood Avatar")
+    act(s, "p1", type="cast_spell", card_id=c.id, face=1, optional_costs=[f"{c.id}:reduce"],
+        cost_choices=[{"component": 0, "cards": [x.id for x in crew]}])
+    settle(s)
+    assert all(zone_of(s, x.name) == "p1:graveyard" for x in crew) and zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard"
+    assert any(x.is_token and x.controller == "p1" and x.zone == "p1:battlefield" for x in s.state.cards.values())  # (the Avatar)
+    check(s)
+
+
+# ---- counters from among creatures: Hierophant Bio-Titan --------------------------------------------------------------------------------------
+def test_hierophant_bio_titan_removes_the_counters_chosen_and_costs_two_less_for_each(cards):
+    """{10}{G}{G}: four +1/+1 counters removed (each one a pick, from any of the creatures: 122.1) take {8} off, leaving {2}{G}{G}; the others stay."""
+    s = build(cards, ["Hierophant Bio-Titan", "Hill Giant", "Grizzly Bears"])
+    giant, bears = put(s, "Hill Giant"), put(s, "Grizzly Bears")
+    act(s, "p1", type="counter", card_ids=[giant.id], kind="+1/+1", delta=3)
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=2)
+    to_hand(s, "Hierophant Bio-Titan")
+    mana(s, G=2, C=2)
+    c = card_named(s, "Hierophant Bio-Titan")
+    act(s, "p1", type="cast_spell", card_id=c.id, optional_costs=[f"{c.id}:reduce"])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and d.min_choices == 0 and d.max_choices == 5 and d.options[0].label == "+1/+1 counter on Hill Giant"
+    s = reloaded_session(s)  # a save and a load in the middle of the question
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options[1:5]])
+    settle(s)
+    assert zone_of(s, "Hierophant Bio-Titan") == "p1:battlefield"
+    assert sum(s.state.cards[x.id].counters.get("+1/+1", 0) for x in (giant, bears)) == 1
+    check(s)
+
+
+def test_hierophant_bio_titan_with_no_counters_on_the_table_asks_nothing_and_costs_the_whole_twelve(cards):
+    s = build(cards, ["Hierophant Bio-Titan", "Hill Giant"])
+    put(s, "Hill Giant")
+    to_hand(s, "Hierophant Bio-Titan")
+    mana(s, G=2, C=10)
+    c = card_named(s, "Hierophant Bio-Titan")
+    act(s, "p1", type="cast_spell", card_id=c.id, optional_costs=[f"{c.id}:reduce"])
+    settle(s)
+    assert zone_of(s, "Hierophant Bio-Titan") == "p1:battlefield"
     check(s)

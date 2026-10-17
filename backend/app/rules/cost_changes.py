@@ -599,8 +599,8 @@ def own_cost(text: str) -> Any:
 # -- cost reductions paid with objects (wave 47C) -- 601.2b: "As an additional cost to cast this spell, you may sacrifice any number of creatures. This spell costs {2} less to cast
 # for each creature sacrificed this way." (Torgaar), the March cycle ("exile any number of blue cards from your hand"), Gorex, Explosive Singularity: announced with the other
 # additional costs, the objects chosen as the total cost is determined (601.2f: each takes N generic off, never below {0}, 118.7a) and paid with the rest (601.2h)
-ANY_COST = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>(?:sacrifice|exile|tap) any number of [^.]+)\. this spell costs \{(?P<n>\d+)\} less to cast "
-                      r"for each (?P<noun>card|creature|permanent) (?:sacrificed|exiled|tapped) this way"
+ANY_COST = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>(?:sacrifice|exile|tap|remove) any number of [^.]+)\. this spell costs \{(?P<n>\d+)\} less to cast "
+                      r"for each (?P<noun>card|creature|permanent|counter) (?:sacrificed|exiled|tapped|removed) this way"
                       r"(?: and \{(?P<m>\d+)\} less to cast (?P<more>for each other artifact or creature you've sacrificed this turn))?$", re.IGNORECASE)
 
 

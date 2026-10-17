@@ -392,6 +392,11 @@ def _choose_any(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, i
     any number of the objects, none too; the cost is worked out from the pick (``reduction``, 601.2f) and paid with the rest (601.2h). Cards of the hand are asked
     about even when there are none, so that skipping the question doesn't tell the others what the hand holds."""
     usable = [c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card) and c not in used]
+    shown = {c: (c, plan.state.cards[c].name or "Card") for c in usable}
+    if comp.among:  # (counters: each one is a pick, 122.1 — "Remove any number of +1/+1 counters from among creatures you control")
+        shown = {t: (cid, f"{kind} counter on {plan.state.cards[cid].name or 'it'}") for t, (cid, kind) in counter_tokens(plan, usable).items()
+                 if comp.counter in (C.ANY_COUNTER, kind)}
+        usable = list(shown)
     if given is not None:
         if len(set(given)) != len(given) or any(c not in usable for c in given):
             raise ActionError(f"Choose from what can pay “{comp.text}”")
@@ -401,7 +406,7 @@ def _choose_any(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, i
         return []
     decide(plan, player=plan.actor, kind="choose_cards",
            prompt=f"{what}: choose any number to {_VERBS.get(comp.kind, 'use')} (“{comp.text}”), each taking {{{comp.reduces}}} off the cost, or none",
-           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
+           options=[DecisionOption(id=t, label=label, card_id=cid) for t, (cid, label) in shown.items()],
            min_choices=0, max_choices=len(usable),
            resume={"step": "ability_cost", "component": i, "amount": None, "empty_ok": True,
                    "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},

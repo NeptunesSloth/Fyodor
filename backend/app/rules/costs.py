@@ -661,7 +661,13 @@ def _extra_part(part: str) -> CostComponent | None:
 _ANY_NUMBER = re.compile(r"^(?P<verb>sacrifice|exile|tap) any number of (?P<what>.+?)(?: from your (?P<zone>hand|graveyard))?$", re.IGNORECASE)
 
 
+_ANY_COUNTERS = re.compile(r"^remove any number of (?P<kind>[+\-]\d+/[+\-]\d+) counters from among (?P<what>creatures you control)$", re.IGNORECASE)
+
+
 def any_number_part(text: str, per: int) -> CostComponent | None:
+    if (c := _ANY_COUNTERS.match(text.strip())) is not None and per > 0:  # (122.1: the counters come off any of the creatures, one pick for each, as for "from among")
+        key = _selector(c["what"], zone="battlefield")
+        return CostComponent(REMOVE_COUNTER, amount=0, counter=c["kind"], selector=key, among=True, up_to=True, reduces=per, text=text[:1].upper() + text[1:]) if key else None
     m = _ANY_NUMBER.match(text.strip())
     if m is None or per <= 0:
         return None
