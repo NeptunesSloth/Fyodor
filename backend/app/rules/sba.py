@@ -198,6 +198,10 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         if offer_616(plan):
             return True
     found = find(plan)
+    # -- storied (wave 45D) -- 702.195a, any time: before a permanent that leaves in this very check (legend rule, 0 toughness) is gone (ruling 2026-06-29)
+    from app.rules import designations
+
+    storied = designations.storied_permanents(plan)
     if found.vanishing:
         plan.do({"type": "delete_card", "card_ids": [c.id for c in found.vanishing], "force": True},
                 actor=found.vanishing[0].owner)
@@ -206,14 +210,13 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         # hand). A declined set isn't asked about again until something changes.
         fingerprint = found.fingerprint()
         if r.sba_declined == fingerprint:
-            return bool(found.vanishing)
+            return bool(found.vanishing) or storied
         decide(plan, player=plan.turn_player, kind="confirm", prompt=f"State-based actions: {found.summary(plan)}",
                options=[DecisionOption(id="yes", label="Apply"), DecisionOption(id="no", label="Leave for now")],
                resume={"step": "sba_confirm", "fingerprint": fingerprint})
         return True
-    happened = bool(found.vanishing)
-    from app.rules import designations  # -- keywords (wave 15E) -- 702.131b: ascend, any time
-
+    happened = bool(found.vanishing) or storied
+    # -- keywords (wave 15E) -- 702.131b: ascend, any time
     happened = designations.ascend_permanents(plan) or happened
     from app.rules import speed  # -- speed (wave 24B) -- 704.5aa
 

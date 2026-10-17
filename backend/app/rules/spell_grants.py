@@ -48,6 +48,9 @@ KEYWORDS = ("lifelink", "deathtouch", "split second")
 NEXT_KEYWORDS = ("convoke", "improvise", "cascade", "storm")
 
 _SPELLS = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells you control (?:has|have) (?P<kw>" + "|".join(KEYWORDS) + r")$", re.IGNORECASE)
+# (wave 45D) "Each spell you cast has split second if mana from an artifact was spent to cast it." (Shadow the Hedgehog): a spell *cast* by the controller (a copy is not cast,
+# 707.10), judged from the payment record of that cast (601.2h; a cast by hand has no known payment: the grant never applies)
+_CAST_TAG = re.compile(r"^each spell you cast has (?P<kw>split second) if mana from an? (?P<tag>artifact) was spent to cast it$", re.IGNORECASE)
 _BOTH = re.compile(r"^(?P<bf>[A-Za-z][A-Za-z' ,-]*? you control) and (?P<sel>[A-Za-z][A-Za-z' ,-]*?) spells you control (?:has|have) (?P<kw>"
                    + "|".join(KEYWORDS) + r")$", re.IGNORECASE)
 _NEXT = re.compile(r"^the next (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell you cast this turn (?:has|have) "
@@ -72,6 +75,9 @@ def _filter(phrase: str | None) -> tuple[bool, str | None]:
 def static_definition(text: str) -> dict[str, Any] | None:
     """The static of a grant line to spells ("Instant and sorcery spells you control have lifelink."), or None."""
     t = text.strip().rstrip(".")
+    if (tagged := _CAST_TAG.fullmatch(t)) is not None:
+        return {"kind": "static", "static": "spell_grant", "effects": [],
+                "spell_grants": [{"keyword": tagged["kw"].lower(), "filter": None, "cast_tag": tagged["tag"].capitalize()}]}
     both = _BOTH.fullmatch(t)
     mm = both or _SPELLS.fullmatch(t)
     if mm is None:
@@ -120,6 +126,11 @@ def apply(state: GameState, card: CardInstance, ch: Characteristics, info: CardI
     for src, g in found:
         if src.controller != card.controller or g["keyword"] in ch.keywords:
             continue
+        if g.get("cast_tag"):  # (wave 45D) the payment record of the cast
+            rec = state.rules.payments.get(state.rules.object_id(card.id)) if state.rules is not None else None
+            if rec is None or rec.cast_from is None or rec.controller != src.controller or not rec.mana_known \
+                    or not any(g["cast_tag"] in x for x in rec.mana_tags):
+                continue
         view = view or Plan.view(state, src.controller, info)
         if g["filter"] is not None and not selectors.matches(view, selectors.from_key(g["filter"]), card, ch, src.controller, src.id):
             continue

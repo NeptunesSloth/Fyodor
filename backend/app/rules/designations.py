@@ -75,6 +75,8 @@ def status(plan: Plan, you: str, kind: str) -> bool:
         return table.day_night == kind
     if kind == "neither_day_nor_night":
         return table.day_night is None
+    if kind == "enduring_story":  # -- storied (wave 45D) -- 702.195b
+        return you in plan.rules.enduring_story
     if kind in ("ring_bearer", "no_ring_bearer"):  # -- trigger other (wave 25B) -- 701.54e: a creature on the battlefield under their control
         return (_bearer_card(plan, you) is not None) == (kind == "ring_bearer")
     return False
@@ -1085,6 +1087,28 @@ def ascend_permanents(plan: Plan) -> bool:
     for pid in plan.live():
         if ascend_permanent_due(plan, pid):
             get_city_blessing(plan, pid)
+            happened = True
+    return happened
+
+
+# -- storied (wave 45D) -- 702.195: the enduring story designation
+def storied_permanents(plan: Plan) -> bool:
+    """702.195a: any time a player controls a permanent with storied and three or more permanents that are artifacts, Sagas
+    and/or legendary, they get the enduring story designation for the rest of the game (702.195b: no other rules meaning).
+    ponytail: the storied keyword is read off printed characteristics (no card grants it)."""
+    from app.rules import characteristics as chars
+
+    happened = False
+    for pid in plan.live():
+        if pid in plan.rules.enduring_story:
+            continue
+        mine = [c for c in plan.state.cards.values() if c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c)]
+        if not any(ab.kind == "keywords" and "storied" in ab.keywords for c in mine for ab in chars.of(c, plan.info).abilities):
+            continue
+        n = sum(1 for c in mine if (ch := plan.ch(c)).supertypes & {"Legendary"} or ch.types & {"Artifact"} or "Saga" in ch.subtypes)
+        if n >= 3:
+            plan.rules.enduring_story.append(pid)
+            plan.note(f"{plan.name(pid)} has an enduring story")
             happened = True
     return happened
 

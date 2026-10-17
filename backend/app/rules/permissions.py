@@ -776,10 +776,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 "self": bool(what.get("self")), "play": what["play"], "cast": what["cast"], "filter": what["filter"],
                 "effects": [], **extras, **({"exile_gy": "is" if m["exile"] == "an instant or sorcery" else "all"} if m["exile"] else {})}
     m = FLASH.fullmatch(t)
-    if m:
-        key = spell_filter(m["sel"]) if m["sel"] else None
-        if m["sel"] and key is None:
-            return None
+    key = spell_filter(m["sel"]) if m and m["sel"] else None
+    if m and not (m["sel"] and key is None):  # (wave 45D: not read here, cast_limits reads "legendary spells and artifact spells")
         return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": False,
                 "play": False, "cast": True, "filter": key, "effects": []}
     if (shown := REVEALED_ZONES.get(t)) is not None:  # -- revealed zones (wave 25A) -- 401.5, 701.20a: every player's top card, or the hands
