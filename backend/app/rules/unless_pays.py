@@ -97,6 +97,9 @@ def concrete_cost(plan: Plan, ctx: Context, e: dict[str, Any]) -> str:
         return re.sub(r"deal \d+ damage", f"deal {max(0, int(values.evaluate(plan, ctx, e['dmg'])))} damage", str(e["cost"]))
     if "times" in e:  # -- keywords (wave 43C) -- 702.24a cumulative upkeep: the cost once for each age counter (evaluated now, 608.2h)
         return repeat_cost(str(e["cost"]), values.evaluate(plan, ctx, e["times"]))
+    if "energy_n" in e:  # -- energy X (wave 50J) -- "unless you pay an amount of {E} equal to its mana value" (Satya): worked out as the payment is offered (608.2h)
+        n = values.evaluate(plan, ctx, e["energy_n"])
+        return "Pay " + "{E}" * n if n else "{0}"
     if "per" not in e:
         return str(e["cost"])
     n = values.evaluate(plan, ctx, e["n"])

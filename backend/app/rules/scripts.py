@@ -1040,6 +1040,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if "life_x" in e:  # -- sized payments (wave 5G) -- "pay X life, where X is its power"
                 e["life_x"] = _bind_stats(e["life_x"], lambda verb=None, at=index: stat_ref(at, verb),
                                           (lambda: "event") if antecedent == "event_spell" else None)
+            if "energy_n" in e:  # -- energy X (wave 50J) -- "unless you pay an amount of {E} equal to its mana value" (Satya): the token the ability made
+                e["energy_n"] = _bind_stats(e["energy_n"], lambda verb=None, at=index: stat_ref(at, verb), None)
             for pk in ("p", "t"):  # -- as long as (wave 9B) -- "gets +X/+X …, where X is the discarded card's mana value" (a pump / become)
                 # (wave 20A: a pump's plain "it" is "that card's mana value", language._Ante; a "become" reads its own "it";
                 # -- layers (wave 30O) -- except "base power … equal to that creature's power", whose "it" is another object, ``ante``)
@@ -4126,6 +4128,9 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         its = "target" if m["who"] in ("its controller", "that player", "they") else None  # (checked below: a target object)
         if re.fullmatch(r"(?:\{E\})+", rest):  # "unless you pay {E}{E}" (107.14: energy counters, not mana)
             cost = optional_payment.cost_text(f"pay {rest}")
+        elif (em := re.fullmatch(r"an amount of \{E\} equal to (?P<v>.+)", rest)) is not None:  # -- energy X (wave 50J) -- Satya: "equal to its mana value"
+            energy_n = unless_pays._value(em["v"], "it")
+            sized, cost = ({"cost": "", "energy_n": energy_n}, "") if energy_n is not None else (None, None)
         else:
             sized = unless_pays.sized_cost(rest, its)
             cost = "" if sized is not None else None

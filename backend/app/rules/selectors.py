@@ -2037,9 +2037,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             if not goaded_by(ch):
                 return False
-        if extra.startswith("parity:"):  # -- chosen quality (wave 50J) -- the mana value (a spell's X counts on the stack, 202.3e) or power is odd / even as chosen earlier in this resolution
-            if not _parity_holds(card, ch, extra.split(":")[1] == "mv", extra.endswith(":even")):
-                return False
+        if extra.startswith("parity:") and not _parity_holds(card, ch, extra.split(":")[1] == "mv", extra.endswith(":even")):
+            return False  # -- chosen quality (wave 50J) -- the mana value (a spell's X counts on the stack, 202.3e) or power is odd / even as chosen earlier in this resolution
         if extra.startswith("name:"):  # -- card names (wave 22B) -- 709.4a, a name chosen earlier in this resolution
             from app.rules import card_names
 

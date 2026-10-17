@@ -70,7 +70,8 @@ def combat(s):
 @pytest.mark.parametrize("name", ["Odric, Lunarch Marshal", "Akroma, Vision of Ixidor", "Odric, Blood-Cursed", "Bleeding Effect", "Majestic Myriarch",
                                   "Kaima, the Fractured Calm", "Havoc Eater", "Pia Nalaar, Chief Mechanic", "Rampaging Aetherhood", "Sensei Golden-Tail", "Kathril, Aspect Warper",
                                   "Concerted Effort", "Thunderous Orator", "Wonder Man, Hollywood Hero", "Kang the Conqueror",
-                                  "Thanos, the Mad Titan", "Extinction Event", "Gollum, Riddle Master"])
+                                  "Thanos, the Mad Titan", "Extinction Event", "Gollum, Riddle Master",
+                                  "Satya, Aetherflux Genius"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -393,6 +394,39 @@ def test_pia_nalaar_pays_nothing_and_makes_nothing_when_declined_or_without_ener
     to_end_step(s)
     settle(s)  # (no energy: nothing is asked)
     assert energy(s) == 0 and not [c for c in s.state.cards.values() if c.name == "Nalaar Aetherjet"]
+    check(s)
+
+
+def satya_table(cards, copied="Grizzly Bears"):
+    s = build(cards, mine=["Satya, Aetherflux Genius", copied])
+    satya = put(s, "Satya, Aetherflux Genius")
+    put(s, copied)
+    next_turn(s)
+    stops(s)
+    attack(s, satya)
+    settle(s)
+    return s
+
+
+def test_satya_keeps_the_copy_when_it_pays_energy_equal_to_its_mana_value(cards):
+    s = satya_table(cards)
+    assert energy(s) == 2 and len([c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.is_token]) == 1  # (it got {E}{E} and the token copy of the Bears)
+    to_phase(s, "end")
+    settle(s, answer="pay")  # (the mana value of the copy, 2)
+    assert energy(s) == 0 and len([c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p1:battlefield"]) == 2
+    check(s)
+
+
+def test_satya_sacrifices_the_copy_when_the_energy_is_declined_or_too_little(cards):
+    s = satya_table(cards)
+    to_phase(s, "end")
+    settle(s, answer="decline")
+    assert energy(s) == 2 and len([c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p1:battlefield"]) == 1
+    check(s)
+    s = satya_table(cards, copied="Serra Angel")  # (mana value 5, only two {E}: it can't be paid)
+    to_phase(s, "end")
+    settle(s)
+    assert energy(s) == 2 and not [c for c in s.state.cards.values() if c.name == "Serra Angel" and c.is_token and c.zone == "p1:battlefield"]
     check(s)
 
 
