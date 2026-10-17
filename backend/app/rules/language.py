@@ -1066,7 +1066,7 @@ _REST_ALONE = re.compile(rf"(?:put {_REST}|put the revealed cards (?P<rest2>on t
 # instant or sorcery card" (the subject's own library), and "Then that player puts the exiled cards that weren't
 # cast this way on the bottom of their library in a random order" (random: who puts them doesn't matter)
 _SUBJ_UNTIL = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) cards from the top of their library until they "
-                         r"(?:reveal|exile) (?:a|an) (?P<sel>.+)")
+                         r"(?:reveal|exile) (?:(?P<cnt>two|three|four|five|six|seven) |an? )(?P<sel>.+)")  # (wave 44B: "until they reveal four land cards", Mirko Vosk)
 _REST_THEY = re.compile(rf"(?:that player|the player) puts {_REST}")
 _OWNERS = r"(?:its owner's|their owner's|their owners'|your)"
 _TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_OWNERS} library")
@@ -1277,8 +1277,10 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     if m and not m["subj"].startswith("each"):
         kind, key, group = ref(m["subj"])
         do = "look_top" if m["verb"] == "reveals" else "exile_top"
+        if m["cnt"] and do != "look_top":
+            raise _Fail
         return [{"do": do, "n": 0, "player": _who(kind, key), "until": _card_sel(m["sel"]),
-                 **({"reveal": True} if do == "look_top" else {})}], _one(group)
+                 **({"reveal": True} if do == "look_top" else {}), **({"need": values.NUMBERS[m["cnt"]]} if m["cnt"] else {})}], _one(group)
     m = _UNTIL.fullmatch(text)
     if m:
         who, group = _lib_owner(m["lib"])

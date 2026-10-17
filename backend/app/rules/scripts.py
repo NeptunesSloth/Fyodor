@@ -331,7 +331,7 @@ def self_text(text: str, name: str) -> str:
     # (608.2c: the condition is read as that part is carried out, after the explore's counter); "you may put a creature card and/or a land card from your hand onto the
     # battlefield" (Michelangelo) is up to one of each, two optional puts
     out = re.sub(r"(?<=~ explores\. )Then (destroy all other creatures) if its (power is exactly \d+)\.", r"Then if ~'s \2, \1.", out)
-    out = re.sub(r"\byou may put an? (creature|land) card and/or an? (creature|land) card from your hand onto the battlefield\b",
+    out = re.sub(r"(?<=combat damage to a player, )you may put an? (creature|land) card and/or an? (creature|land) card from your hand onto the battlefield\b",
                  r"you may put a \1 card from your hand onto the battlefield. You may put a \2 card from your hand onto the battlefield", out)
     # -- trigger other (wave 44B) -- Rayne's 2004 ruling: "You may draw an additional card if ~ is enchanted." is checked as the ability resolves, a second optional draw
     out = re.sub(r"(?<=\. )You may draw an additional card if ([^.,]+?)\.", r"If \1, you may draw a card.", out)
@@ -2957,7 +2957,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = _loops.plain(body)  # -- loops and repeats (wave 24B) -- "draw a card and repeat this process"
     # (-- loops and repeats (wave 24B) -- "Target player reveals cards from the top of their library until they reveal a land card, then puts those
     # cards into their graveyard.": the revealed cards of that one library, all of them, are put into its owner's graveyard)
-    body = re.sub(r"(reveals cards from the top of their library until they reveal an? [^.,]+?), then puts those cards into their graveyard",
+    body = re.sub(r"(reveals cards from the top of their library until they reveal (?:an?|two|three|four|five|six|seven) [^.,]+?), then puts those cards into their graveyard",
                   r"\1. Put those cards into their graveyard", body)
     # -- trigger other (wave 41C) -- 110.2a: after a reveal-until, "Put that card onto the battlefield tapped under your control" (Sméagol) and "You put that card onto
     # the battlefield under your control and lose life equal to …" (Jhoira): put by you it is yours either way, so the words add nothing to "Put that card onto the battlefield"
@@ -8080,6 +8080,11 @@ _CHOSEN["copy_cards"] = "n"
 # -- if you do (wave 5G) -- "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell."
 # (Vexing Bauble, Boromir): the trigger event's spell (701.6a), while it is still that object on the stack (400.7;
 # effects.counter); only in a cast trigger (``_event_spell_ok``).
+@effect(r"it becomes saddled until end of turn")  # -- trigger other (wave 44B) -- Kolodin: the Mount that entered (702.171b)
+def _it_becomes_saddled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "saddle_it", "who": "it"}], None
+
+
 @effect(r"counter that spell")
 def _counter_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "counter", "who": "event_spell"}], None

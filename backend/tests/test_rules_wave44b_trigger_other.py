@@ -24,7 +24,7 @@ from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
 from tests.test_rules_wave38a_trailing_ifs import hand, table
 from tests.wave9c_kit import card_named, check, mana, pt, put
-from tests.wave36a_kit import attack_as, ready, to_turn_of
+from tests.wave36a_kit import attack_as, block, ready, to_turn_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave44b_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -32,7 +32,8 @@ EXTRA = [card(c["name"], set_code="w44b", number=f"B{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 COMMANDERS = ["Zagras, Thief of Heartbeats", "Merry, Esquire of Rohan", "Kazuul, Tyrant of the Cliffs", "Selvala, Heart of the Wilds", "Rayne, Academy Chancellor",
               "Amalia Benavides Aguirre", "Jenson Carthalion, Druid Exile", "Michelangelo, Improviser", "Danitha, Sword of Hope", "Rose Noble",
-              "Tameshi, Reality Architect", "The Beast, Deathless Prince", "Ultron the Annihilator"]
+              "Tameshi, Reality Architect", "The Beast, Deathless Prince", "Ultron the Annihilator", "Kolodin, Triumph Caster",
+              "Mirko Vosk, Mind Drinker"]
 
 
 @pytest.fixture()
@@ -381,4 +382,75 @@ def test_ultron_ignores_an_opponents_artifact(cards):
     before = s.state.players["p2"].life
     cast_from_hand(s, "Shatter", targets=[ring.id], R=1, C=1)
     assert zone(s, "Sol Ring", "p2") == "p2:graveyard" and s.state.players["p2"].life == before
+    check(s)
+
+
+# -- Kolodin, Triumph Caster -------------------------------------------------------------------------------------------------------------------------
+def test_kolodin_saddles_a_mount_as_it_enters(cards):
+    """Kolodin: "Whenever a Mount you control enters, it becomes saddled until end of turn" (702.171b), and Mounts have haste, so Bulwark Ox attacks saddled
+    the turn it is cast and its "attacks while saddled" trigger puts the counter. A creature that isn't a Mount is no such entry."""
+    from app.rules import crew_saddle
+    from app.rules.plan import Plan
+
+    s = table(cards, ["Kolodin, Triumph Caster", "Bulwark Ox", "Grizzly Bears"])
+    put(s, "Kolodin, Triumph Caster")
+    cast_from_hand(s, "Grizzly Bears", W=1, G=2)
+    ox = card_named(s, "Bulwark Ox")
+    cast_from_hand(s, "Bulwark Ox", W=2)
+    plan = Plan(s.state, "p1", s.cards, None)
+    assert crew_saddle.is_saddled(plan, s.state.cards[ox.id]) and not crew_saddle.is_saddled(plan, s.state.cards[card_named(s, "Grizzly Bears").id])
+    attack_as(s, "p1", [s.state.cards[ox.id]], "p2")
+    settle(s)
+    assert sum(c.counters.get("+1/+1", 0) for c in s.state.cards.values() if c.zone == "p1:battlefield") == 1
+    check(s)
+
+
+# -- Mirko Vosk, Mind Drinker ------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("lands_left", "milled"), [(20, 6), (3, 5)])
+def test_mirko_vosk_makes_the_player_reveal_until_four_lands_and_mill_them(cards, lands_left, milled):
+    """Bob's library is a Bears and a Hill Giant over Islands: revealing until four land cards is six cards; with only three lands (ruling of 2013-04-15) all of
+    his library is revealed and put into his graveyard."""
+    s = table(cards, ["Mirko Vosk, Mind Drinker"], ["Grizzly Bears", "Hill Giant"])
+    mirko = put(s, "Mirko Vosk, Mind Drinker")
+    ready(s, "Mirko Vosk, Mind Drinker")
+    islands = [c for c in s.state.cards.values() if c.name == "Island" and c.zone == "p2:library"]
+    for c in islands[: len(islands) - lands_left]:
+        act(s, "p2", type="move", card_ids=[c.id], to={"zone": "exile"})
+    in_library = len(s.state.zones["p2:library"])
+    attack_as(s, "p1", [mirko], "p2")
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack") or s.state.turn.phase in ("declare_attackers", "declare_blockers", "combat_damage", "first_strike_damage"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert len(s.state.zones["p2:graveyard"]) == milled and len(s.state.zones["p2:library"]) == in_library - milled
+    check(s)
+
+
+# -- Soul Charmer (shares Kazuul's "unless that creature's controller pays") -------------------------------------------------------------------------
+@pytest.mark.parametrize(("answer", "gained"), [("decline", 2), ("pay", 0)])
+def test_soul_charmer_gains_life_unless_the_blockers_controller_pays(cards, answer, gained):
+    s = table(cards, ["Soul Charmer"], ["Grizzly Bears", "Island"])
+    charmer, bears = put(s, "Soul Charmer"), put(s, "Grizzly Bears", "p2")
+    ready(s, "Soul Charmer")
+    for _ in range(2):
+        act(s, "p2", type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2" and c.zone == "p2:library")],
+            to={"player": "p2", "zone": "battlefield"})
+    life_before = s.state.players["p1"].life
+    attack_as(s, "p1", [charmer], "p2")
+    block(s, "p2", (bears, charmer))
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p2" and sorted(o.id for o in d.options) == ["decline", "pay"]
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[answer])
+    settle(s)
+    assert s.state.players["p1"].life == life_before + gained
     check(s)

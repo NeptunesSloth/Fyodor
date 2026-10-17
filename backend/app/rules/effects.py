@@ -2678,8 +2678,11 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         library = _library(plan, pid)
         if e.get("until"):
             at = _first_match(plan, ctx, library, e["until"], ctx["controller"])
+            for _ in range(int(e.get("need") or 1) - 1):  # -- trigger other (wave 44B) -- "until they reveal four land cards": down to the Nth match (all of it if fewer)
+                nxt = _first_match(plan, ctx, library[at + 1:], e["until"], ctx["controller"]) if at is not None else None
+                at = None if nxt is None else at + 1 + nxt
             top = library if at is None else library[: at + 1]
-            if at is not None and len(owners) == 1:
+            if at is not None and len(owners) == 1 and not e.get("need"):
                 ctx["found"] = library[at]
         else:
             top = library[: _amount(plan, ctx, e["n"])]

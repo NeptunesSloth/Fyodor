@@ -585,5 +585,81 @@
   "keywords": [
    "Mill"
   ]
+ },
+ {
+  "name": "Bulwark Ox",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Ox Mount",
+  "oracle_text": "Whenever this creature attacks while saddled, put a +1/+1 counter on target creature.\nSacrifice this creature: Creatures you control with counters on them gain hexproof and indestructible until end of turn.\nSaddle 1 (Tap any number of other creatures you control with total power 1 or more: This Mount becomes saddled until end of turn. Saddle only as a sorcery.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Saddle"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Kolodin, Triumph Caster",
+  "layout": "normal",
+  "mana_cost": "{R}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Pilot",
+  "oracle_text": "Mounts and Vehicles you control have haste.\nWhenever a Mount you control enters, it becomes saddled until end of turn.\nWhenever a Vehicle you control enters, it becomes an artifact creature until end of turn.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Mirko Vosk, Mind Drinker",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{B}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Vampire",
+  "oracle_text": "Flying\nWhenever Mirko Vosk deals combat damage to a player, that player reveals cards from the top of their library until they reveal four land cards, then puts those cards into their graveyard.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Soul Charmer",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Rebel",
+  "oracle_text": "Whenever this creature deals combat damage to a creature, you gain 2 life unless that creature's controller pays {2}.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
  }
 ]
