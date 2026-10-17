@@ -305,7 +305,7 @@ def self_text(text: str, name: str) -> str:
             # (-- static_other (wave 36B) -- a shortened name that is also a creature type is that type before "creature(s)": "becomes a green Lizard creature" on
             # Lizard, Connors's Curse is no self-reference ("a green ~ creature" is nothing a card says)
             part = re.sub(r"(?<![\w-])" + (r"(?<!create )" if n != name else "") + (r"(?<!other )(?<!another )" if n in _CREATURE_TYPES else "")  # (wave 41B: a Rat token's "each other Rat you control" is the type, not itself)
-                          + rf"{re.escape(n)}(?!\w)" + (r"(?! (?:the|of) [A-Z])" if n == short else "")
+                          + rf"{re.escape(n)}(?!\w)(?! target\b)" + (r"(?! (?:the|of) [A-Z])" if n == short else "")  # (-- most-played cards (wave 49A) -- "Exile target …" on Exile is the verb)
                           + (r"(?! (?:creature|token)s?\b)" if n != name else ""),  # (-- attached events (wave 40B) -- "create Icingdeath, Frost Tongue, a legendary … token": the token's own name, on Icingdeath, Frost Tyrant)
                           "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
         return part
@@ -4681,7 +4681,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import exert
 
         return exert.definition(text, ch, ability.index)
-    if ability.kind == "static" and text.startswith("If ") and "mana, it produces" in text:
+    if ability.kind == "static" and text.startswith("If ") and ("mana, it produces" in text or text.startswith("If tapped for mana, ")):
         from app.rules import mana_replace  # -- mana replacements (wave 9C) -- 106.12b
 
         if (replaced := mana_replace.definition(text)) is not None:
@@ -8259,6 +8259,9 @@ EFFECTS[:0] = _graveyard_exile.TEMPLATES  # "Exile target player's graveyard." (
 from app.rules import tap_mana as _tap_mana  # noqa: E402, I001  -- mana riders (wave 5A) --
 
 EFFECTS[:0] = _tap_mana.TEMPLATES  # "Until end of turn, whenever a player taps an Island for mana, …" (High Tide)
+from app.rules import mana_replace as _mana_replace  # noqa: E402, I001  -- mana replacements (wave 49A) --
+
+EFFECTS[:0] = _mana_replace.TEMPLATES  # "Until end of turn, if you tap a land for mana, it produces {U} instead of any other type." (Deep Water)
 from app.rules import untap_riders as _untap_riders  # noqa: E402, I001
 
 EFFECTS[:0] = _untap_riders.TEMPLATES  # "Untap up to three lands." (app/rules/untap_riders.py)

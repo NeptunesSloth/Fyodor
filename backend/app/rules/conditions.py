@@ -66,6 +66,8 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     t = text.strip().rstrip(",").replace("’", "'")
     t = re.sub(r"^(defending player|that player|an opponent) is poisoned$", r"\1 has a poison counter", t)  # -- player counters (wave 20F) -- 122.1f
     t = re.sub(r"^your library has no cards in it$", "there are no cards in your library", t)  # -- activated other (wave 34B) -- Doctor Doom, Unrivaled: "your library has no cards in it" is the condition "there are no cards in your library" read as the effect resolves (608.2c)
+    t = re.sub(r"^you control no (\w+) other than (?:this \w+|~)(?= and |$)", r"you control no other \1", t)  # -- most-played cards (wave 49A) -- Barren Glory: "no permanents other than this enchantment"
+    t = re.sub(r"^(you control no other \w+) and have ", r"\1 and you have ", t)  # (the elided subject of the second half)
     t = t.replace("your team controls", "you control")  # -- trailing & intervening ifs (wave 38A) -- 102.4: outside a team game "your team" is "you" (Sickle Dancer)
     if "your starting life total" in t:  # -- trailing & intervening ifs (wave 38A) -- 119.1, 903.7: "if your life total is greater than your starting life total" (Cosmos Elixir)
         from app.rules import static_conditions
@@ -747,6 +749,12 @@ def _drew(m: re.Match[str]) -> Condition | None:
     return None if n is None else {"history": "drew", "n": n}
 
 
+@_history_pattern(r"an opponent has drawn (?P<n>\w+) or more cards this turn")
+def _opponent_drew(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])  # (wave 49A) one opponent, not all of them together
+    return None if n is None else {"history": "drew", "who": "opponent", "n": n}
+
+
 @_history_pattern(r"you(?:'ve)? cast (?P<n>\w+) or more spells this turn")
 def _spells(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"])
@@ -1226,6 +1234,7 @@ def _object(t: str) -> Condition | None:
     t = re.sub(r"^(it|~|that (?:creature|permanent)) has (power|toughness|mana value) (?=\w+ or (?:less|greater|more|fewer)|exactly \w+)",  # (wave 26D; 36A: ~, "exactly")
                lambda m: f"{'its' if m[1] == 'it' else m[1] + chr(39) + 's'} {m[2]} is ", t)  # "it has power 4 or greater" = "its power is 4 or greater"
     t = re.sub(r"^the creature had (?=(?:power|toughness|mana value) \w+ or )", "that creature had ", t)  # -- named permanents (wave 35C) -- Anax: the creature that died
+    t = re.sub(r"^it had (power|toughness|mana value) (?=\w+ or )", r"its \1 was ", t)  # -- most-played cards (wave 49A) -- "If it had mana value 3 or less" (Consuming Ashes): as it last existed (608.2h)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)'s (?:power|toughness|mana value)) (\w+ or )", r"\1 was \2", t)
     t = re.sub(r"^it has the same (power|toughness|mana value) as the (discarded|revealed) card$", r"its \1 is equal to the \2 card's \1", t)  # (wave 44D: Hisoka, Minamo Sensei)

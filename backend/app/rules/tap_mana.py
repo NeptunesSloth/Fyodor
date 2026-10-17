@@ -146,7 +146,7 @@ def _triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any
                 elif d.get("trigger") == "tap_for_mana":
                     out.append((c.controller, d, c.id))
     if r is not None and state.turn.phase != "cleanup":  # (514.2: "until end of turn" ends in the cleanup step)
-        out += [(str(x["controller"]), x["def"], None) for x in r.tap_mana if x.get("turn") == state.turn.number]
+        out += [(str(x["controller"]), x["def"], None) for x in r.tap_mana if x.get("turn") == state.turn.number and x["def"].get("trigger")]  # (wave 49A: the replacements go to mana_replace)
     return out
 
 

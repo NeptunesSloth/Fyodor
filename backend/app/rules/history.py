@@ -93,8 +93,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         return _WAVE_4D[kind](plan, ctx, cond, log)
     if kind == "gained":
         return log.gained.get(me, 0) >= n
-    if kind == "drew":
-        return log.drew.get(me, 0) >= n
+    if kind == "drew":  # (-- most-played cards (wave 49A) -- "an opponent has drawn four or more cards this turn": one opponent still in the game, Even the Score)
+        return any(log.drew.get(p, 0) >= n for p in ([p for p in plan.live() if p != me] if cond.get("who") == "opponent" else [me]))
     if kind == "spells":
         return plan.rules.spells_this_turn(me, plan.state.turn.number) >= n
     if kind == "lost":

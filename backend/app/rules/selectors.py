@@ -1154,6 +1154,8 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, blocking=True)
     if low == "suspended":  # -- counters (wave 41A) -- 702.62b: "each suspended card you own" (Rose Tyler): in exile, with suspend and a time counter on it
         return replace(s, zones=("exile",), extras=(*s.extras, "suspended"))
+    if low == "blocked":  # -- most-played cards (wave 49A) -- 509.1h: an attacking creature that has become blocked (Smite, Warpath)
+        return replace(s, attacking=True, extras=(*s.extras, "blocked"))
     if low == "unblocked":  # -- keywords (wave 15E) -- ninjutsu 702.49a: "unblocked attacking creature" (509.1h: not blocked)
         return replace(s, attacking=True, extras=(*s.extras, "unblocked"))
     if low in ("attacking-or-blocking", "blocking-or-attacking"):  # (joined by parse: one status)
@@ -1998,6 +2000,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "cycling_ability" and not any(k.endswith("cycling") for k in ch.keywords):  # (wave 20C)
             return False
         if extra == "kicker_ability" and not {"kicker", "multikicker"} & ch.keywords:  # (wave 43D)
+            return False
+        if extra == "blocked" and card.id not in plan.rules.blocked:  # (wave 49A)
             return False
         if extra == "unblocked" and card.id in plan.rules.blocked:  # (wave 15E) a blocked attacker stays blocked
             return False
