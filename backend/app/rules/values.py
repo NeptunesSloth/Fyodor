@@ -370,6 +370,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
             return None
         return {"counters": m["kind"], "on": on}
     m = _AMONG.match(what)
+    if m and m["sel"] in ("spells you've cast this turn", "spells you have cast this turn") and _DISTINCT[m["kind"]] == "types":
+        return {"cast_types": "you"}  # -- trigger other (wave 44B) -- April O'Neil: the card types of this turn's cast spells, as they were cast (601.2i, history.CastNote)
     if m:
         key = _selector_key(m["sel"])
         return {"distinct": _DISTINCT[m["kind"]], "among": key} if key else None
@@ -684,6 +686,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         where = ctx.get("source_card") if not sel.other and any(x.startswith(("samename_src", "nosamename_src", "samename_exiled_with")) for x in sel.extras) \
             else _other_than(ctx)
         return sum(1 for c in selectors.candidates(plan, sel, you, where) if c not in away)
+    if "cast_types" in v:  # -- trigger other (wave 44B) -- 205.2a: the different card types among the spells you cast this turn (a spell of two types counts both)
+        from app.rules import history
+
+        return len({"Kindred" if t == "Tribal" else t for n in history.log_for(plan).casts if n.player == ctx["controller"] for t in n.types if t in CARD_TYPES})
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
         from app.rules import context
 

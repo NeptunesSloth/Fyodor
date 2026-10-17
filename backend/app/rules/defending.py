@@ -25,11 +25,10 @@ _SUBJECTS = ("self", "sel", "host", "self_or_host", "self_or")
 
 
 def per_player_attack(cond: dict[str, Any]) -> bool:
-    """-- trigger other (wave 44B) -- 508.3e: "Whenever you attack a player" / "one or more creatures you control attack a player" triggers once for each player
-    attacked (triggers._fire_generic keeps one per defended player), so "that player" in its effect is that one player, the event's defended player (508.5a)."""
-    return cond.get("defender") == "player" and (
-        (cond.get("event") == "you_attack" and cond.get("player") == "you")
-        or (cond.get("event") == "attack" and cond.get("subject") == "sel" and bool(cond.get("aggregate"))))
+    """-- trigger other (wave 44B) -- 508.3e: "Whenever one or more creatures you control attack a player" triggers once for each player attacked
+    (triggers._fire_generic keeps one per defended player), so "that player" in its effect is that one player, the event's defended player (508.5a).
+    ("Whenever you attack a player" is the you_attack event, whose "that player" triggers.bind_that_player already binds to the one attacked.)"""
+    return cond.get("defender") == "player" and cond.get("event") == "attack" and cond.get("subject") == "sel" and bool(cond.get("aggregate"))
 
 
 def allowed(d: dict[str, Any]) -> bool:

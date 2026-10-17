@@ -738,5 +738,22 @@
   "keywords": [],
   "power": "2",
   "toughness": "2"
+ },
+ {
+  "name": "April O'Neil, Hacktivist",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Scientist",
+  "oracle_text": "At the beginning of your end step, draw a card for each card type among spells you've cast this turn.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "5"
  }
 ]

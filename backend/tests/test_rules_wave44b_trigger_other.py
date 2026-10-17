@@ -33,7 +33,8 @@ EXTRA = [card(c["name"], set_code="w44b", number=f"B{i:02d}", **{k: v for k, v i
 COMMANDERS = ["Zagras, Thief of Heartbeats", "Merry, Esquire of Rohan", "Kazuul, Tyrant of the Cliffs", "Selvala, Heart of the Wilds", "Rayne, Academy Chancellor",
               "Amalia Benavides Aguirre", "Jenson Carthalion, Druid Exile", "Michelangelo, Improviser", "Danitha, Sword of Hope", "Rose Noble",
               "Tameshi, Reality Architect", "The Beast, Deathless Prince", "Ultron the Annihilator", "Kolodin, Triumph Caster",
-              "Mirko Vosk, Mind Drinker", "Gornog, the Red Reaper", "Whirlwind, Killer Cyclone", "Vraska, the Cutting Glare", "Splinter, Aging Champion"]
+              "Mirko Vosk, Mind Drinker", "Gornog, the Red Reaper", "Whirlwind, Killer Cyclone", "Vraska, the Cutting Glare", "Splinter, Aging Champion",
+              "April O'Neil, Hacktivist"]
 
 
 @pytest.fixture()
@@ -555,4 +556,25 @@ def test_splinter_lets_you_and_another_player_draw_when_it_leaves(cards):
     settle(s)
     assert zone(s, "Splinter, Aging Champion") == "p1:graveyard"
     assert {p: before[p] - library(s, p) for p in ("p1", "p2")} == {"p1": 1, "p2": 1}
+    check(s)
+
+
+# -- April O'Neil, Hacktivist --------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("spells", "draws"), [((), 0), (("Grizzly Bears",), 1), (("Grizzly Bears", "Lightning Bolt", "Giant Growth"), 2)])
+def test_april_draws_for_each_card_type_among_the_spells_cast_this_turn(cards, spells, draws):
+    """April: "At the beginning of your end step, draw a card for each card type among spells you've cast this turn": a creature and two instants are two types."""
+    from tests.wave36a_kit import finish_turn
+
+    s = table(cards, ["April O'Neil, Hacktivist", "Grizzly Bears", "Lightning Bolt", "Giant Growth"])
+    put(s, "April O'Neil, Hacktivist")
+    for name in spells:
+        c = card_named(s, name)
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+        mana(s, "p1", R=1, G=1, C=1)
+        targets = ["p2"] if name == "Lightning Bolt" else [card_named(s, "Grizzly Bears").id] if name == "Giant Growth" else None
+        act(s, "p1", type="cast_spell", card_id=c.id, **({"targets": targets} if targets else {}))
+        settle(s)
+    before = library(s, "p1")
+    finish_turn(s)
+    assert before - library(s, "p1") == draws
     check(s)
