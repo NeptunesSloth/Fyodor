@@ -3388,7 +3388,7 @@ def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """702.33e: "If this spell was kicked, …" (``kicked`` True) — and, for "… instead", the
     unkicked text (``kicked`` False): the next ``n`` effects happen only if the spell was (or
     wasn't) kicked; otherwise they're skipped."""
-    if (values.kicked_count(plan, ctx) > 0) != bool(e["kicked"]):
+    if values.kicked_holds(plan, ctx, e.get("with")) != bool(e["kicked"]):  # (-- keywords (wave 50H) -- "kicked with its {R} kicker": ``with``)
         ctx["next"] += int(e["n"])
     return True
 

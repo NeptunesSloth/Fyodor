@@ -5,7 +5,7 @@ import { isVisible, splitZone, type GameCard, type GameView } from "../../types/
 import { abilityLines, automationOn, isLand, send, setPrefs } from "./intents";
 
 /** 702.33a / 702.33c: a "Kicker {cost}" or "Multikicker {cost}" keyword line (mana costs only, as the server pays them). */
-const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+$|^entwine—|^kicker—/i; // (702.42a entwine: kicker's count 1 is "choose all modes"; wave 43D: "Kicker—Sacrifice a land.", paid by the server)
+const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+(?: and\/or (?:\{[^}]+\})+)?$|^entwine—|^kicker—/i; // (702.42a entwine: kicker's count 1 is "choose all modes"; wave 43D: "Kicker—Sacrifice a land.", paid by the server)
 /** Multikicker: how many times to pay (a submenu; more is rare enough to do by hand). */
 export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
 
@@ -92,7 +92,12 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   if (mine && (zone === "hand" || zone === "command") && kicker) {
     const castable = !!hints.castable?.includes(card.id);
     const cast = (times: number) => () => void send({ type: "cast_spell", card_id: card.id, kicker: times });
-    if (/^multikicker/i.test(kicker)) {
+    const two = /^kicker ((?:\{[^}]+\})+) and\/or ((?:\{[^}]+\})+)$/i.exec(kicker);
+    if (two) {
+      // 702.33b (wave 50H): "Kicker {A} and/or {B}" is two kicker costs, each paid at most once: the server reads kicker as a mask (1: the first, 2: the second, 3: both)
+      items.push({ label: `Cast with ${kicker}`, disabled: !castable,
+        submenu: [{ label: `Kicked with ${two[1]}`, onClick: cast(1) }, { label: `Kicked with ${two[2]}`, onClick: cast(2) }, { label: "Kicked with both", onClick: cast(3) }] });
+    } else if (/^multikicker/i.test(kicker)) {
       // 702.33c: any number of times. The server checks the total cost when it's paid.
       items.push({ label: `Cast with ${kicker}`, disabled: !castable,
         submenu: MULTIKICKER_COUNTS.map((n) => ({ label: `Kicked ×${n}`, onClick: cast(n) })) });

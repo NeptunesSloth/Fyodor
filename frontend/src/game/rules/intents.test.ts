@@ -348,6 +348,23 @@ describe("rules card menu", () => {
     expect(labels(rulesMenu(v.cards.c2!, v, "p1")).some((l) => /kicker/i.test(l))).toBe(false);  // no kicker line
   });
 
+  it("offers each kicker cost of \"Kicker {A} and/or {B}\" (wave 50H, 702.33b): the cast's kicker is a mask", () => {
+    const base = view({ ...RULES, hints: { castable: ["k1"] } });
+    const v = { ...base, cards: { ...base.cards, k1: card("k1", "p1:hand", "battlemage") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        battlemage: { id: "battlemage", name: "Thornscape Battlemage", type_line: "Creature — Elf Wizard",
+          oracle_text: "Kicker {R} and/or {W} (You may pay an additional {R} and/or {W} as you cast this spell.)\nWhen this creature enters, if it was kicked with its {R} kicker, it deals 2 damage to any target." } as CardData,
+      },
+    });
+    const both = item(rulesMenu(v.cards.k1!, v, "p1"), "Cast with Kicker {R} and/or {W}");
+    expect(both.disabled).toBe(false);
+    expect(both.submenu?.map((i) => (i === "separator" ? "—" : i.label))).toEqual(["Kicked with {R}", "Kicked with {W}", "Kicked with both"]);
+    both.submenu?.forEach((i) => (i === "separator" ? undefined : i.onClick?.()));
+    expect(sent.map((m) => (m as { kicker?: number }).kicker)).toEqual([1, 2, 3]);
+  });
+
   it("offers entwine, prototype, splice and miracle (wave 18E)", () => {
     const base = view({ ...RULES, hints: { castable: ["e1", "p1x", "s1"], miracle: ["w1"] } });
     const v = { ...base, zones: { "p1:hand": ["e1", "p1x", "s1", "s2", "w1"] },

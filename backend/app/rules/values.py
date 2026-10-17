@@ -1045,6 +1045,24 @@ def _devotion(plan: Plan, you: str, colors: list[str]) -> int:
     return total
 
 
+def kicked_holds(plan: Plan, ctx: dict[str, Any], need: Any, card_id: str | None = None) -> bool:
+    """-- keywords (wave 50H) -- 702.33f: "if it was kicked", "kicked twice", "kicked with its {R} kicker" (``need``: True, ``{"times": 2}`` or ``{"with": "{R}"}``)."""
+    n = kicked_count(plan, ctx)
+    if not isinstance(need, dict):
+        return n > 0
+    if "times" in need:
+        return n == need["times"]
+    from app.rules.costs import kicker_cost
+
+    entry = plan.rules.stack.get(ctx.get("stack_id") or "")
+    record = plan.rules.payments.get(ctx.get("source_object") or "")
+    mask = entry.kicked_mask if entry is not None and entry.kind == "spell" else record.kicked_mask if record is not None else 0
+    card = plan.state.cards.get(card_id or ctx.get("source_card") or "")
+    kick = kicker_cost(plan.ch(card).abilities) if card is not None else None
+    bit = 0 if kick is None or not kick.second else 1 if kick.cost.upper() == need["with"].upper() else 2 if kick.second.upper() == need["with"].upper() else 0
+    return bool(mask & bit)
+
+
 def kicked_count(plan: Plan, ctx: dict[str, Any]) -> int:
     """702.33d: how many times the spell resolving (or copied, 707.10) was kicked; for an ability
     of a permanent, how many times the spell it was cast as was (its payment record)."""

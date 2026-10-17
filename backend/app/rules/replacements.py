@@ -704,6 +704,8 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
     if d.get("if_kicked") or d.get("per_kick"):  # 702.33e: how its spell was cast (the payment record)
         record = plan.rules.payments.get(plan.oid(card_id))
         kicked = record.kicked if record is not None else 0
+        if isinstance(d.get("if_kicked"), dict) and not values.kicked_holds(plan, {"source_object": plan.oid(card_id), "source_card": card_id}, d["if_kicked"]):
+            kicked = 0  # (-- keywords (wave 50H) -- 702.33f: kicked with that kicker's cost)
         amount = 0 if d.get("if_kicked") and not kicked else amount * kicked if d.get("per_kick") else amount
     if d.get("if_cast") is not None:  # -- refused modal/conditional (wave 3R1) -- adamant: how its spell was paid (601.2h)
         from app.rules import conditions
@@ -770,7 +772,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
 
     if tribute.counters(ch, choices):
         plan.rules.tribute_paid.append(plan.oid(card))
-        plan.note(f"{plan.name(choices[tribute.OPP])} pays tribute: {card.name} enters with {tribute.counters(ch, choices)} additional +1/+1 counters", [card.id])
+        plan.note(f"{plan.name((choices or {})[tribute.OPP])} pays tribute: {card.name} enters with {tribute.counters(ch, choices)} additional +1/+1 counters", [card.id])
     from app.rules import mana_units
 
     mana_units.entered(plan, card, controller)  # -- mana provenance (wave 18B) -- 106.6: "it gains haste"
@@ -785,10 +787,11 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import layers
 
         for d in scripts.definitions(ch).values():
-            if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters" and d.get("grant") and not d.get("self_in_group") \
+            if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters" and (d.get("grant") or d.get("grant_abilities")) and not d.get("self_in_group") \
                     and _counter_amount(plan, card.id, controller, d, x, newcomers) > 0:
                 layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
-                                  add_keywords=tuple(d["grant"]), duration="permanent", label=f"Enters with {d['grant'][0]}")
+                                  add_keywords=tuple(d.get("grant") or ()), add_abilities=list(d.get("grant_abilities") or ()),  # (wave 50H: a granted ability)
+                                  duration="permanent", label=f"Enters with {(d.get('grant') or d['grant_abilities'])[0]}")
             elif d["kind"] == "replacement" and d.get("replacement") == "enters_prepared":  # -- prepared (wave 13C) -- 722.3a
                 from app.rules import keyword_actions
 

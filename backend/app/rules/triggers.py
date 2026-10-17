@@ -134,8 +134,12 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
     if trigger_multipliers.suppressed(plan, event if event is not None else cause, controller, permanent):
         return None
     if definition.get("if_kicked"):  # 603.4: "When ~ enters, if it was kicked, …" (702.33e)
+        from app.rules import (
+            values,  # (-- keywords (wave 50H) -- 702.33f: "kicked twice", "kicked with its {R} kicker")
+        )
+
         record = plan.rules.payments.get(source_object)
-        if record is None or not record.kicked:
+        if record is None or not record.kicked or not values.kicked_holds(plan, {"source_object": source_object, "source_card": source_card}, definition["if_kicked"]):
             return None  # (it wasn't: the ability doesn't trigger; kicked status never changes later)
     if definition.get("if_paid"):  # -- any number as an additional cost (wave 48B) -- 603.4: "When you cast this spell, if you sacrificed one or more creatures this way, …": the cost's record
         record = plan.rules.payments.get(source_object)
