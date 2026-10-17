@@ -105,7 +105,7 @@ def test_eater_of_virtue_lends_the_hexproof_from_black_of_a_card_it_exiled(cards
 def test_ajani_sleeper_agent_pays_its_hybrid_phyrexian_symbol_with_white_and_keeps_its_loyalty(cards):
     s = build(cards, [AJANI], [])
     mana(s, C=1, G=1, W=2)  # {1}{G}{G/W/P}{W}: the second {W} pays {G/W/P}
-    act(s, "p1", type="cast_spell", card_id=to_hand(s, AJANI).id)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, AJANI).id, life_symbols=[])
     pass_until_stack_empty(s)
     ajani = card_named(s, AJANI)
     assert life(s) == 40 and s.state.cards[ajani.id].counters.get("loyalty") == 4 and not any(s.state.players["p1"].mana.values())
