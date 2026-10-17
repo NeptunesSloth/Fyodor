@@ -1754,6 +1754,8 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "it", "cast": {"total": "under_mv", "event_spell": True}}
     if _SPENT_OVER_PT.fullmatch(t):  # -- static_other sweep (wave 16B) -- increment: more than the source's power or toughness (702.190a)
         return {"object": "it", "cast": {"total": "over_min_pt", "event_spell": True}}
+    if re.fullmatch(r"the amount of mana spent to cast (?:it|that spell) is greater than (?:~|this creature)'s power", t):  # (wave 45D: Liberator) the amount actually spent (ruling 2022-10-14)
+        return {"object": "it", "cast": {"total": "over_power", "event_spell": True}}
     m = _SOME_OF_THEM.fullmatch(t)
     if m:  # -- counters (wave 33C) -- Celes, Kotis: "if one or more of them entered from a graveyard or was cast from a graveyard" (an aggregated enter)
         parts: list[Condition] = [{"object": "event", "each": "any", "cast": {"entered_from": "graveyard"}}]
@@ -1922,12 +1924,12 @@ def _total_mana_spent(plan: Plan, ctx: dict[str, Any], need: int | str) -> bool:
 
         spell = plan.state.cards.get(record.card)
         return spell is not None and sum(record.mana_spent.values()) < mana_value(spell, plan.ch(spell))
-    if need == "over_min_pt":  # increment: strictly more than the smaller of the source's power and toughness (as it is now, 603.4)
+    if need in ("over_min_pt", "over_power"):  # increment: strictly more than the smaller of the source's power and toughness (as it is now, 603.4); (wave 45D) Liberator: its power
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is None or not src.zone.endswith(":battlefield"):
             return False
         ch = plan.ch(src)
-        stats = [s for s in (values._stat_of(ch, "power"), values._stat_of(ch, "toughness")) if s is not None]
+        stats = [s for s in (values._stat_of(ch, "power"), None if need == "over_power" else values._stat_of(ch, "toughness")) if s is not None]
         return bool(stats) and sum(record.mana_spent.values()) > min(stats)
     return sum(record.mana_spent.values()) >= int(need)
 
