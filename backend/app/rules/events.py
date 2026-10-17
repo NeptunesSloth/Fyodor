@@ -69,6 +69,7 @@ class _Refuse(Exception):
 
 _EVENT_VERBS = [
     (r"enters?", "enter"),
+    (r"phases? in", "phase_in"),  # -- trigger other (wave 50G) -- 702.26a
     (r"dies|die", "die"),
     (r"leaves? the battlefield", "leave"),
     (r"is put into a graveyard from the battlefield|are put into a graveyard from the battlefield", "die"),
@@ -439,7 +440,7 @@ def _parse(c: str) -> Condition | None:
         return {"event": "attack", "subject": "self", "min_attackers": _count(m["n"]), "sel": sel.key(),
                 **({"others_only": True} if m["o"] else {})}
     # "you draw your second card each turn"
-    m = re.fullmatch(rf"{_P} draws? (?:their|your) (?P<nth>first|second|third) card each turn", c)
+    m = re.fullmatch(rf"{_P} draws? (?:their|your) (?P<nth>first|second|third) card (?:each|in a) turn", c)
     if m:
         return {"event": "draw", "subject": "player", "player": _PLAYERS[m["p"]], "nth": _NTH[m["nth"]]}
     m = re.fullmatch(rf"{_P} draws? (?:their|your) first or second card each turn", c)  # -- counters (wave 33C) -- Lady Octopus: the first two of the turn
@@ -620,8 +621,8 @@ def _parse(c: str) -> Condition | None:
         return {"event": "to_graveyard", "subject": "self"}  # (it triggers from the graveyard, on the card's new object)
     if c in ("~ is put into your graveyard from your library", "this card is put into your graveyard from your library"):
         return {"event": "to_graveyard", "subject": "self", "from": "library"}  # -- triggers (wave 19B) -- (Narcomoeba)
-    m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?P<g>your|an opponent's|a) "
-                     r"graveyard from (?P<f>anywhere other than the battlefield|anywhere|your library|a library)", c)  # (wave 43B: Syr Konrad)
+    m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?:(?P<g>your|an opponent's|a) "
+                     r"graveyard|graveyards) from (?P<f>anywhere other than the battlefield|anywhere|your library|a library)", c)  # (wave 43B: Syr Konrad; wave 50G: "graveyards", Dennick)
     if m:
         gsel = selectors.from_key(_object_sel(m["o"], card=True))
         owner = {"your": "you", "an opponent's": "opponent"}.get(m["g"])
@@ -642,7 +643,7 @@ def _parse(c: str) -> Condition | None:
     # graveyard]" (Rakshasa Vizier, Laelia), "… into a library from anywhere" (Dutiful Knowledge Seeker): a card (never a token,
     # 111.7) put there, as it is there (603.6c); "during your turn" is the generic qualifier
     m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?P<z>exile|a library)"
-                     r"(?: from (?P<f>your graveyard|your hand|your library and/or your graveyard|anywhere))?", c)
+                     r"(?: from (?P<f>your graveyard|your hand|your library and/or your graveyard|graveyards and/or the battlefield|anywhere))?", c)
     if m and (m["z"] == "exile" or m["f"] == "anywhere"):
         gsel = selectors.from_key(_object_sel(m["o"], card=True))
         if gsel.zones or gsel.zone_owner:
@@ -650,8 +651,11 @@ def _parse(c: str) -> Condition | None:
         out = {"event": "to_exile" if m["z"] == "exile" else "to_library", "subject": "sel",
                "aggregate": m["o"].startswith("one or more "), "sel": gsel.key()}
         if m["f"] and m["f"] != "anywhere":
-            out["froms"] = ["library", "graveyard"] if "library" in m["f"] else [m["f"].split()[1]]
-            out["from_owner"] = "you"
+            if m["f"].startswith("graveyards"):  # -- cant restrictions (wave 50G) -- "from graveyards and/or the battlefield" (Ketramose): anyone's graveyard, or the battlefield
+                out["froms"] = ["graveyard", "battlefield"]
+            else:
+                out["froms"] = ["library", "graveyard"] if "library" in m["f"] else [m["f"].split()[1]]
+                out["from_owner"] = "you"
         return out
     # -- graveyard owner (wave 6D) -- "a creature is put into an opponent's graveyard from the battlefield", "a nontoken
     # creature is put into your graveyard from the battlefield", "~ is put into your graveyard from the battlefield": it
@@ -705,6 +709,10 @@ def _parse(c: str) -> Condition | None:
             if sel is None or sel.player is not None:
                 return None
             return {"event": event, "subject": "self_or", "sel": sel.key()}
+        m2 = re.fullmatch(r"~ and/or one or more (?P<rest>other .+)", subject)
+        if m2 and event == "enter":  # -- cant restrictions (wave 50G) -- 603.2c: "Whenever Anje and/or one or more other Vampires you control enter" is one trigger for the batch that entered together, it among them or not
+            sel = _token_or_sel(m2["rest"])
+            return None if sel is None or sel.player is not None or sel.card else {"event": event, "subject": "self_or", "sel": sel.key(), "aggregate": True}
         aggregate = False
         m3 = re.fullmatch(r"one or more (?P<rest>.+)", subject)
         if m3:  # -- triggers (wave 30J) -- "one or more creatures you control each with power greater than its base power" (Kutzil): the filter
@@ -1279,6 +1287,12 @@ def _object_event(c: str) -> Condition | None:
             if a is None or b is None or m["first"]:
                 raise _Refuse
             return {"event": "either", "subject": "mixed", "conds": [{**extra, **a}, {**extra, **b}]}
+        selfor = re.fullmatch(r"~ or another (?P<rest>[^,]+)", m["s"])
+        if selfor is not None and not m["first"]:  # -- trigger other (wave 50G) -- "Whenever ~ or another Spirit you control becomes the target of a spell" (King of the Oathbreakers): each object its own event
+            other = selectors.parse("another " + selfor["rest"])
+            if other is None or other.player is not None or other.card:
+                raise _Refuse
+            return {"subject": "self_or", "sel": other.key(), **extra}
         base = _subject(m["s"], host=True)
         if base is None or (m["first"] and base["subject"] != "self"):
             raise _Refuse

@@ -396,7 +396,7 @@ def _block_pair_source(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "block_pair_this" if m["b"].startswith("blocking") else "blocked_by_this"))
 
 
-@_suffix(r"that has an Adventure")  # -- trigger other (wave 25B) -- 715.1: the card is an adventurer card ("It doesn't need to have gone on the adventure first")
+@_suffix(r"that (?:has|have) an Adventure")  # -- trigger other (wave 25B) -- 715.1: the card is an adventurer card ("It doesn't need to have gone on the adventure first")
 def _has_adventure(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "has_adventure"))
 
@@ -1198,6 +1198,8 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, attacking=True, extras=(*s.extras, "unblocked"))
     if low in ("attacking-or-blocking", "blocking-or-attacking"):  # (joined by parse: one status)
         return replace(s, in_combat=True)
+    if low == "tapped-or-blocking":  # -- cant restrictions (wave 50G) -- "target tapped or blocking creature" (Tetsuo Umezawa): either state, 506.4
+        return replace(s, extras=(*s.extras, "tapped_or_blocking"))
     pt = re.fullmatch(r"(\d+)/(\d+)", word)
     if pt:  # "1/1 creature": exactly that power and toughness
         return replace(s, compare=(*s.compare, ("power", "==", int(pt[1])), ("toughness", "==", int(pt[2]))))
@@ -1697,6 +1699,10 @@ def _join_statuses(words: list[str]) -> list[str]:
             out.append("attacking-or-blocking")
             k += 3
             continue
+        if k + 2 < len(words) and words[k + 1] == "or" and (words[k].lower(), words[k + 2].lower()) == ("tapped", "blocking"):  # (wave 50G: Tetsuo Umezawa)
+            out.append("tapped-or-blocking")
+            k += 3
+            continue
         out.append(words[k])
         k += 1
     return out
@@ -1977,6 +1983,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "not_attacking" and card.attacking is not None:  # (wave 35D)
             return False
         if extra == "not_blocking" and card.blocking:  # (wave 49C)
+            return False
+        if extra == "tapped_or_blocking" and not (card.tapped or card.blocking):  # (wave 50G)
             return False
         if extra.startswith("counter:") and not _has_counter(card, extra[8:]):  # (wave 5H: any kind, "*")
             return False

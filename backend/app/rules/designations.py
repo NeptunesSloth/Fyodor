@@ -300,6 +300,11 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             return [("connive", card, plan.ch(card), card.controller, {"oid": e.object_id})]
         return []
+    if e.counter == "phase_in" and e.card in plan.state.cards:  # -- trigger other (wave 50G) -- 702.26a: the permanent that phased in (no zone change, 702.26d)
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("phase_in", card, plan.ch(card), card.controller, {"oid": e.object_id})]
+        return []
     if e.counter == "explore" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.44a: the creature that explored
         card = plan.state.cards[e.card]
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:

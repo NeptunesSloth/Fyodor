@@ -26,8 +26,8 @@ abilities; of the commanders 46 / 2 / 0 / 4. Seven commanders and two more cards
 
 Refused (manual, with the reason): Jegantha (the payment would have to know which part of a cost each mana pays), Shaun & Rebecca (a reflexive trigger of a mana ability),
 Baba Lysaga ("up to three permanents" and the card types among them), Grenzo (a mill from the bottom with a condition on the card), Diaochan and the other
-"of an opponent's choice" targets, Asmodeus (the exile link needs the replacement to be the exiling ability), Tetsuo Umezawa / Bartel Runeaxe ("can't be the target
-of Aura spells" is another family's).
+"of an opponent's choice" targets, Asmodeus (the exile link needs the replacement to be the exiling ability). (Tetsuo Umezawa / Bartel Runeaxe, "can't be the target of
+Aura spells", were read in wave 50G: tests/test_rules_wave50g_commanders.py.)
 """
 
 from __future__ import annotations
@@ -570,7 +570,6 @@ def test_fertilid_cannot_be_activated_without_the_mana_and_keeps_its_counter(car
 
 
 # ---- still manual ---------------------------------------------------------------------------------------------------------------------------------------
-@pytest.mark.parametrize("name", ["Jegantha, the Wellspring", "Shaun & Rebecca, Agents", "Baba Lysaga, Night Witch", "Grenzo, Dungeon Warden", "Diaochan, Artful Beauty",
-                                  "Tetsuo Umezawa", "Bartel Runeaxe"])
+@pytest.mark.parametrize("name", ["Jegantha, the Wellspring", "Shaun & Rebecca, Agents", "Baba Lysaga, Night Witch", "Grenzo, Dungeon Warden", "Diaochan, Artful Beauty"])
 def test_still_manual(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL", name

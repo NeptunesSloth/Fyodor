@@ -1187,7 +1187,7 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
         if room is None or room[0] > 0:
             return True
         if room[0] == 0:
-            plan.note(f"{plan.name(pid)} can't draw more than {room[1]} card{'s' if room[1] != 1 else ''} each turn", actor=pid)
+            plan.note(f"{plan.name(pid)} can't draw cards" if room[1] == 0 else f"{plan.name(pid)} can't draw more than {room[1]} card{'s' if room[1] != 1 else ''} each turn", actor=pid)
             room[0] = -1  # (noted once)
         return False
 
@@ -1603,6 +1603,8 @@ def _action_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         return [body(op["effects"]), dict(ev)]
     if op["do"] == "draw":  # the scry never happens (614.6): they draw that many instead
         return [body([{"do": "draw", "who": "you", "n": int(ev["n"])}])]
+    if op["do"] == "plus":  # -- keyword actions (wave 50G) -- "scry that many cards plus one instead" (Kenessos): the same scry, one card deeper (614.1a)
+        return [{**ev, "n": int(ev["n"]) + 1}]
     return [ev]
 
 
@@ -1651,7 +1653,7 @@ def keyword_replace(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], kind: st
         if f["kind"] == "body":
             effects += f["effects"]
         else:
-            effects.append({**e, "repl_applied": list(f.get("applied") or [])})
+            effects.append({**e, **({"n": f["n"]} if f["kind"] == "scry" else {}), "repl_applied": list(f.get("applied") or [])})  # (wave 50G: a scry made deeper)
     first = next((f for f in out if f["kind"] == "body"), None)
     return run_effects(plan, ctx, effects, controller=first["controller"] if first is not None else None)
 

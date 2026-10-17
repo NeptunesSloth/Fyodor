@@ -42,7 +42,10 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 Definition = dict[str, Any]
-KINDS = ("cant_enter", "cant_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap")
+KINDS = ("cant_enter", "cant_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap", "cant_target", "cant_play_gy_lands")
+# -- cant restrictions (wave 50G) -- 115.2: "Cards in graveyards can't be the targets of spells or abilities." (Dennick, Pious Apprentice), "Lands on the battlefield and land
+# cards in graveyards can't be the targets of spells or abilities your opponents control." (Tomik, Distinguished Advokist): whose spells and abilities, and which objects
+_UNTARGETABLE = re.compile(r"^(?P<what>[a-z ]+?) can't be the targets of spells or abilities(?P<opp> your opponents control)?$")
 
 _ENTER = re.compile(r"^(?P<what>(?:nonland )?(?:permanent|creature) cards) in (?P<zones>graveyards|libraries|graveyards and libraries) "
                     r"can't enter the battlefield$")
@@ -94,6 +97,16 @@ def static_definition(text: str) -> Definition | None:
     m = re.fullmatch(r"(?P<who>each opponent|each player) can't draw more than one card each turn", t)
     if m:  # -- most-played cards (wave 43B) -- 101.2: Narset, Parter of Veils; Spirit of the Labyrinth; Leovold (see ``draw_allowed``)
         return {"kind": "static", "static": "draw_cap", "who": "opponents" if m["who"] == "each opponent" else "each", "n": 1, "effects": []}
+    m = _UNTARGETABLE.fullmatch(t)
+    if m:
+        sels = [selectors.parse(re.sub(r" on the battlefield$", "", part)) for part in m["what"].split(" and ")]
+        if any(x is None or x.player is not None or x.controller or x.owner or x.zone_owner or x.zones not in (("battlefield",), ("graveyard",)) for x in sels):
+            return None
+        return {"kind": "static", "static": "cant_target", "sels": [x.key() for x in sels if x is not None], "opponents": bool(m["opp"]), "effects": []}
+    if t == "your opponents can't play land cards from graveyards":  # -- cant restrictions (wave 50G) -- 305.1, 115.2 (Tomik): read by engine.land_play_problem
+        return {"kind": "static", "static": "cant_play_gy_lands", "effects": []}
+    if t == "players can't draw cards":  # -- cant restrictions (wave 50G) -- 121.2, 101.2: no draw at all (Maralen of the Mornsong, Omen Machine) is "can't draw more than 0 cards each turn" (see ``draw_left``)
+        return {"kind": "static", "static": "draw_cap", "who": "each", "n": 0, "effects": []}
     if t in _SEARCH_STATICS:  # (Mindlock Orb, Stranglehold, Ashiok, Dream Render)
         return {"kind": "static", "static": "cant_search", "who": _SEARCH_STATICS[t], "effects": []}
     if t == "spells and abilities your opponents control can't cause you to sacrifice permanents":  # (Sigarda, Tajuru Preserver)
@@ -209,6 +222,16 @@ def draw_left(plan: Plan, player: str) -> tuple[int, int] | None:
 
     log = turn_log_now(plan.state)
     return max(0, min(caps) - (log.drew.get(player, 0) if log is not None else 0)), min(caps)
+
+
+def untargetable(plan: Plan, chooser: str, card: CardInstance) -> bool:
+    """-- cant restrictions (wave 50G) -- 115.2: may ``chooser`` (who controls the spell or ability that targets) not target this card or permanent because of a "can't be the
+    target of spells or abilities [your opponents control]" static (Dennick, Tomik): of the player it says it for, "your opponents" being everyone but its controller."""
+    found = _statics(plan, "cant_target")
+    ch = plan.ch(card) if found else None
+    return ch is not None and any(
+        not (d["opponents"] and chooser == src.controller)
+        and any(selectors.matches(plan, selectors.from_key(k), card, ch, src.controller, src.id) for k in d["sels"]) for src, d in found)
 
 
 def note_search(plan: Plan, searcher: str, owner: str) -> None:

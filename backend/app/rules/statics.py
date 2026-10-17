@@ -1119,6 +1119,8 @@ def _rule(piece: str) -> list[str] | None:
     m = re.fullmatch(r"can't be the targets? of (?:(?P<c>(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*) )?spells", piece)
     if m:
         return ["untargetable_spells" + (":" + "".join({"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[c] for c in m["c"].split(" or ")) if m["c"] else "")]
+    if piece == "can't be the target of Aura spells":  # -- cant restrictions (wave 50G) -- 115.2, 303.4: no Aura spell may target it (Tetsuo Umezawa, Bartel Runeaxe); an ability still may
+        return ["untargetable_aura_spells"]
     m = re.fullmatch(r"can't be the targets? of (?P<n>non)?(?P<c>white|blue|black|red|green) spells(?: (?P<o1>your opponents control))? or "
                      r"abilities from (?P=n)?(?P=c) sources(?: (?P<o2>your opponents control))?", piece)
     if m:

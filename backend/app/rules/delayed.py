@@ -111,7 +111,7 @@ MARKER = "until end of turn"  # the table marker text app/rules/effects._mark wr
 
 
 def wrap_when(effects: list[dict[str, Any]], when: dict[str, Any], *, who: str | None = None,
-              this_turn: bool = False) -> list[dict[str, Any]]:
+              this_turn: bool = False, next_turn: bool = False) -> list[dict[str, Any]]:
     """The ``delayed`` effect and the ``n`` effects it defers, as one flat list (so the pronoun
     resolver and the target-group bookkeeping see the deferred effects like any others)."""
     head: dict[str, Any] = {"do": "delayed", "when": dict(when), "n": len(effects)}
@@ -119,6 +119,8 @@ def wrap_when(effects: list[dict[str, Any]], when: dict[str, Any], *, who: str |
         head["who"] = who
     if this_turn:
         head["this_turn"] = True
+    if next_turn:  # -- turn-long triggers (wave 50G) -- "Until your next turn, whenever …": ends as its controller's next turn begins (500.4, turn_began)
+        head["next_turn"] = True
     # (marked as deferred: a later sentence's "that creature" must not bind to what the deferred
     # exile will record — it hasn't happened when the creating ability resolves)
     return [head, *({**e, "do": DEFERRED + e["do"]} for e in effects)]
@@ -222,7 +224,7 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         id=secrets.token_hex(4), controller=ctx["controller"], source_card=ctx.get("source_card"),
         source_object=ctx.get("source_object"), name=ctx.get("name") or "", when=when,
         effects=_bind_now(plan, ctx, deferred, refs), refs=refs, event=ctx.get("event"), turn=turn,
-        step=plan.state.turn.phase, until_turn=turn if e.get("this_turn") else None, once=bool(e.get("once", True)),
+        step=plan.state.turn.phase, until_turn=turn if e.get("this_turn") else None, until_player=ctx["controller"] if e.get("next_turn") else None, once=bool(e.get("once", True)),
         target=e.get("target"))
     plan.rules.delayed.append(trigger)
     plan.note(f"{trigger.name or 'A delayed ability'} will trigger {describe_when(when)}")
@@ -533,6 +535,8 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     from app.rules import cast_limits  # -- cast limits (wave 5E) -- "until your next turn, … can't cast …"
 
     cast_limits.turn_began(plan, skipped)
+    r.delayed = [t for t in r.delayed if t.until_player is None or not ((t.until_player == active and turn > t.turn)  # -- turn-long triggers (wave 50G) -- "until your next turn" watches
+                                                                        or any(t.until_player == p and n > t.turn for p, n in skipped or ()))]
     ended = [e for e in r.effects if (e.duration == "next_turn" and e.until_player == active and turn > e.turn)
              or (e.duration in ("next_turn", "end_of_next_turn")  # (-- end of next turn (wave 32C) -- a departed player's turn never gets a cleanup, 800.4m)
                  and any(e.until_player == p and n > e.turn for p, n in skipped or ()))]

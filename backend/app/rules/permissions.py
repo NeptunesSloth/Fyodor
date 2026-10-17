@@ -225,7 +225,7 @@ FREE_AMONG = re.compile(
     r" from among (?P<src>them|those cards|those nonland cards|cards revealed this way|the revealed cards|the exiled cards"
     r"|cards exiled this way|the cards exiled this way|the nonland cards exiled this way)"  # (wave 44A: a land is never cast, so "nonland" adds nothing)
     rf"(?: {_FREE_MV.replace('?P<n>', '?P<n2>').replace('?P<v>', '?P<v2>')})?"
-    r" without paying (?:its|their) mana costs?$")
+    r"(?P<free> without paying (?:its|their) mana costs?)?$")  # (wave 50G: without it, the cast is paid for, as the ability resolves: 608.2g, Nathan Drake)
 # -- cast riders (wave 38C) -- "You may cast a spell from among cards you own in exile with dream counters on them without paying its mana cost." (Goliath
 # Daydreamer; the cards its other ability exiled), "… from among cards in exile with page counters on them …" (Tasha, the Witch Queen: any owner's): one at a time
 FREE_COUNTED = re.compile(r"^(?:you may )?cast (?:a|an) (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell from among cards (?P<own>you own )?in exile with "
@@ -311,7 +311,10 @@ def _free_among(text: str) -> list[dict[str, Any]] | None:
         return None  # ("cast instant and sorcery spells … from among them": any number of them; "cast spell": not English)
     key = spell_filter(m["sel"]) if m["sel"] else None
     if m["sel"] and key is None:
-        return None
+        two = re.fullmatch(r"(.+?) or (.+)", m["sel"])  # -- cant restrictions (wave 50G) -- "a Vehicle or artifact creature spell" (Sanwell): a spell of either kind, each its own selector
+        if two is None or not (first := spell_filter(two[1])) or not (second := spell_filter(two[2])):
+            return None
+        key = selectors.Selector(either=(first, second), zones=("stack",)).key()
     try:
         mv = free_mv(m["n1"] or m["n2"], m["v1"] or m["v2"])
     except ValueError:
@@ -319,7 +322,7 @@ def _free_among(text: str) -> list[dict[str, Any]] | None:
     # "zone": "among" — resolved to the cards looked at (still in the library: "looked") or to the
     # cards an earlier instruction moved ("that", a binding) by scripts.resolve_it
     return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": key, "optional": True, "mv": "x" if m["eq"] else mv,
-             "n": _FREE_COUNT[m["q"] or "any number of"], **({"mv_eq": True} if m["eq"] else {})}]
+             "n": _FREE_COUNT[m["q"] or "any number of"], **({"mv_eq": True} if m["eq"] else {}), **({} if m["free"] else {"paid": True})}]
 
 
 # "You may cast it without paying its mana cost if it's a spell with lesser mana value." (Rashmi, Eternities
@@ -513,6 +516,12 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     t = _lower_first(text.strip().rstrip("."))
     if kind not in ("static", "spell"):
         return None
+    if kind == "static":  # -- cant restrictions (wave 50G) -- "As long as Haakon is on the battlefield, you may cast Knight spells from your graveyard.": a static of a permanent works only there anyway (113.6)
+        t = re.sub(r"^as long as ~ is on the battlefield, (?=you may cast )", "", t)
+        if t in ("you may cast this card from your graveyard, but not from anywhere else", "you may cast ~ from your graveyard, but not from anywhere else"):
+            # 2006-07-15 ruling: it can't be cast from any other zone, the command zone or one an effect opens included (casting.cast_grant reads ``only``)
+            return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True, "play": False, "cast": True,
+                    "filter": None, "only": True, "effects": []}
     # -- cost changers (wave 44D) -- "Spells you cast with mana value 5 or greater cost {1} less to cast and can't be countered." (Thryx, the Sudden Storm): the cost change
     # (601.2f), whose spells also can't be countered (101.2: ``spell_uncounterable`` reads the mark)
     if (both := re.fullmatch(r"(spells you cast with mana value \d+ or greater cost \{\d+\} less to cast) and can't be countered", t)) is not None:

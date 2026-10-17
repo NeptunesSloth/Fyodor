@@ -251,7 +251,7 @@ def _singular(word: str, known: set[str] | frozenset[str]) -> str | None:
     """-- type statics (wave 42A) -- the type a plural subtype word names ("Pirates", "Mercenaries", "Elves"), or None."""
     from app.rules.protection import _PLURALS
 
-    for one in (_PLURALS.get(word.lower()), word[:-1], word[:-3] + "y" if word.endswith("ies") else None):
+    for one in (_PLURALS.get(word.lower()), word[:-1], word[:-3] + "y" if word.endswith("ies") else None, word[:-2] if word.endswith("es") else None):  # (wave 50G: "Heroes")
         if one and word.endswith("s") and one in known:
             return one
     return None

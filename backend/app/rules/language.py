@@ -715,7 +715,7 @@ def _subject(m: re.Match[str]) -> tuple[str, str | None]:
 # a mana value that may be X), whether it is revealed, where it goes (one place, or "one … and the
 # other …"), and whether the library is shuffled (701.23, 701.24).
 _PRON = r"(?:it|them|that card|those cards|the card|the cards)"
-_PLACE = r"(?:into your hand|onto the battlefield tapped|onto the battlefield|into your graveyard)"
+_PLACE = r"(?:into (?:your|their) hand|onto the battlefield tapped|onto the battlefield|into your graveyard)"
 # Who searches: the player themself ("you may" is read before this), or a named player who may search
 # their own library ("Its controller may search their library for a basic land card …": Path to Exile).
 _SEARCHERS = {**{k: v for k, v in PLAYER_GROUPS.items() if k in ("its controller", "that player", "that creature's controller",
@@ -732,7 +732,7 @@ _SEARCH = re.compile(
     rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE})(?: attached to (?P<host>~|this creature|this equipment))?)(?P<shuf>, then shuffles?)?"
     rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
     rf"|then shuffles? and puts? {_PRON} (?:on top(?: in any order)?|(?P<third>third from the top)))")  # (wave 42C: "searches …, then shuffles and puts that card on top")  # ("in any order": wave 3R4; third: wave 20D)
-_DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
+_DESTS = {"into your hand": "hand", "into their hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
           "into your graveyard": "graveyard"}
 _MV_X = re.compile(r"(?P<rest>.+?),? (?:with|that (?:each )?have) mana value [xX](?P<less> or less)?")  # (wave 20D: Uncage the Menagerie)
 # -- tutor (wave 20D) -- a number: "with mana value 4 or 5" (Transit Mage), "that have mana value 9" (Grozoth), "… 3 or less"
@@ -869,6 +869,8 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     if (m["who"] is None) != (m["lib"] == "your"):
         raise _Fail  # ("their library" is a named player's; "your library" is the one who controls the effect's)
     forced = " searches " in text  # -- search (wave 19E) -- "Each player searches their library …, puts it …, then shuffles." (no "may")
+    if not forced and "into their hand" in text and m["who"] in ("each opponent", "each other player", "each player"):
+        return None  # -- search into their hand (wave 50G) -- "Each player may search their library … into their hand" is each_may's (101.4: all answer first; only searchers shuffle)
     if forced and (m["exile"] or " put " in text or text.count(" shuffle") != text.count(" shuffles")):
         raise _Fail
     extra: dict[str, Any] = {}

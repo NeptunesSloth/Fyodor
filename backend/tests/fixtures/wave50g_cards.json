@@ -1,0 +1,760 @@
+[
+ {
+  "name": "Hakbal of the Surging Soul",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Merfolk Scout",
+  "oracle_text": "At the beginning of combat on your turn, each Merfolk creature you control explores. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on the exploring creature, then put the card back or put it into your graveyard.)\nWhenever Hakbal attacks, you may put a land card from your hand onto the battlefield. If you don't, draw a card.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Explore"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Maralen of the Mornsong",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Elf Wizard",
+  "oracle_text": "Players can't draw cards.\nAt the beginning of each player's draw step, that player loses 3 life, searches their library for a card, puts it into their hand, then shuffles.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Tetsuo Umezawa",
+  "layout": "normal",
+  "mana_cost": "{U}{B}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Archer",
+  "oracle_text": "Tetsuo Umezawa can't be the target of Aura spells.\n{U}{B}{B}{R}, {T}: Destroy target tapped or blocking creature.",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Bartel Runeaxe",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{R}{G}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Giant Warrior",
+  "oracle_text": "Vigilance\nBartel Runeaxe can't be the target of Aura spells.",
+  "colors": [
+   "B",
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "6",
+  "toughness": "5"
+ },
+ {
+  "name": "Valentina Allegra de Fontaine",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Spy Villain",
+  "oracle_text": "Other Villains you control are Heroes in addition to their other types.\n{T}: Target Hero you control connives. Activate only as a sorcery. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on that creature.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Connive"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Anje, Maid of Dishonor",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Vampire",
+  "oracle_text": "Whenever Anje and/or one or more other Vampires you control enter, create a Blood token. This ability triggers only once each turn. (It's an artifact with \"{1}, {T}, Discard a card, Sacrifice this token: Draw a card.\")\n{2}, Sacrifice another creature or a Blood token: Each opponent loses 2 life and you gain 2 life.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Kenessos, Priest of Thassa",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Merfolk Cleric",
+  "oracle_text": "If you would scry a number of cards, scry that many cards plus one instead.\n{3}{G/U}: Look at the top card of your library. If it's a Kraken, Leviathan, Octopus, or Serpent creature card, you may put it onto the battlefield. If you don't put the card onto the battlefield, you may put it on the bottom of your library.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Kraken Hatchling",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Creature — Kraken",
+  "oracle_text": "",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "4"
+ },
+ {
+  "name": "Kree Commandos",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Kree Soldier Villain",
+  "oracle_text": "Flying, vigilance\nProwess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Prowess",
+   "Vigilance"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Masked Meower",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Creature — Spider Cat Hero",
+  "oracle_text": "Haste\nDiscard a card, Sacrifice this creature: Draw a card.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Haste"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Vampire Interloper",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Vampire Scout",
+  "oracle_text": "Flying\nThis creature can't block.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Bloodtithe Harvester",
+  "layout": "normal",
+  "mana_cost": "{B}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Vampire",
+  "oracle_text": "When this creature enters, create a Blood token. (It's an artifact with \"{1}, {T}, Discard a card, Sacrifice this token: Draw a card.\")\n{T}, Sacrifice this creature: Target creature gets -X/-X until end of turn, where X is twice the number of Blood tokens you control. Activate only as a sorcery.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Merfolk Branchwalker",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Merfolk Scout",
+  "oracle_text": "When this creature enters, it explores. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on this creature, then put the card back or put it into your graveyard.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Explore"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Undead Hand Ninja",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Zombie Ninja Villain",
+  "oracle_text": "Deathtouch\nWhenever one or more creature cards leave your graveyard, each opponent loses 1 life and you gain 1 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Deathtouch"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Bishop's Soldier",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Vampire Soldier",
+  "oracle_text": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Lifelink"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Tamiyo, Inquisitive Student // Tamiyo, Seasoned Scholar",
+  "layout": "transform",
+  "mana_cost": "{U} // ",
+  "cmc": 1.0,
+  "type_line": "Legendary Creature — Moonfolk Wizard // Legendary Planeswalker — Tamiyo",
+  "oracle_text": "Flying\nWhenever Tamiyo attacks, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nWhen you draw your third card in a turn, exile Tamiyo, then return her to the battlefield transformed under her owner's control.\n//\n+2: Until your next turn, whenever a creature attacks you or a planeswalker you control, it gets -1/-0 until end of turn.\n−3: Return target instant or sorcery card from your graveyard to your hand. If it's a green card, add one mana of any color.\n−7: Draw cards equal to half the number of cards in your library, rounded up. You get an emblem with \"You have no maximum hand size.\"",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Investigate",
+   "Transform"
+  ],
+  "power": "0",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "name": "Tamiyo, Inquisitive Student",
+    "mana_cost": "{U}",
+    "type_line": "Legendary Creature — Moonfolk Wizard",
+    "oracle_text": "Flying\nWhenever Tamiyo attacks, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nWhen you draw your third card in a turn, exile Tamiyo, then return her to the battlefield transformed under her owner's control.",
+    "power": "0",
+    "toughness": "3",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/2/a/2a717b98-cdac-416d-bf6c-f6b6638e65d1.jpg?1783911236",
+     "normal": "https://cards.scryfall.io/normal/front/2/a/2a717b98-cdac-416d-bf6c-f6b6638e65d1.jpg?1783911236",
+     "large": "https://cards.scryfall.io/large/front/2/a/2a717b98-cdac-416d-bf6c-f6b6638e65d1.jpg?1783911236",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/2/a/2a717b98-cdac-416d-bf6c-f6b6638e65d1.jpg?1783911236"
+    }
+   },
+   {
+    "name": "Tamiyo, Seasoned Scholar",
+    "mana_cost": "",
+    "type_line": "Legendary Planeswalker — Tamiyo",
+    "oracle_text": "+2: Until your next turn, whenever a creature attacks you or a planeswalker you control, it gets -1/-0 until end of turn.\n−3: Return target instant or sorcery card from your graveyard to your hand. If it's a green card, add one mana of any color.\n−7: Draw cards equal to half the number of cards in your library, rounded up. You get an emblem with \"You have no maximum hand size.\"",
+    "loyalty": "2",
+    "colors": [
+     "G",
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/2/a/2a717b98-cdac-416d-bf6c-f6b6638e65d1.jpg?1783911236",
+     "normal": "https://cards.scryfall.io/normal/back/2/a/2a717b98-cdac-416d-bf6c-f6b6638e65d1.jpg?1783911236",
+     "large": "https://cards.scryfall.io/large/back/2/a/2a717b98-cdac-416d-bf6c-f6b6638e65d1.jpg?1783911236",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/2/a/2a717b98-cdac-416d-bf6c-f6b6638e65d1.jpg?1783911236"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Sneaky Snacker",
+  "layout": "normal",
+  "mana_cost": "{U}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Faerie Rogue",
+  "oracle_text": "Flying\nWhen you draw your third card in a turn, return this card from your graveyard to the battlefield tapped.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Ketramose, the New Dawn",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — God",
+  "oracle_text": "Menace, lifelink, indestructible\nKetramose can't attack or block unless there are seven or more cards in exile.\nWhenever one or more cards are put into exile from graveyards and/or the battlefield during your turn, you draw a card and lose 1 life.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [
+   "Lifelink",
+   "Indestructible",
+   "Menace"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Relic of Progenitus",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Target player exiles a card from their graveyard.\n{1}, Exile this artifact: Exile all graveyards. Draw a card.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Haakon, Stromgald Scourge",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Zombie Knight",
+  "oracle_text": "You may cast this card from your graveyard, but not from anywhere else.\nAs long as Haakon is on the battlefield, you may cast Knight spells from your graveyard.\nWhen Haakon dies, you lose 2 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Fallen Askari",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Knight",
+  "oracle_text": "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\nThis creature can't block.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flanking"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Dennick, Pious Apprentice // Dennick, Pious Apparition",
+  "layout": "transform",
+  "mana_cost": "{W}{U} // ",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Soldier // Legendary Creature — Spirit Soldier",
+  "oracle_text": "Lifelink\nCards in graveyards can't be the targets of spells or abilities.\nDisturb {2}{W}{U} (You may cast this card from your graveyard transformed for its disturb cost.)\n//\nFlying\nWhenever one or more creature cards are put into graveyards from anywhere, investigate. This ability triggers only once each turn. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nIf Dennick would be put into a graveyard from anywhere, exile it instead.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Lifelink",
+   "Investigate",
+   "Transform",
+   "Disturb"
+  ],
+  "power": "2",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "name": "Dennick, Pious Apprentice",
+    "mana_cost": "{W}{U}",
+    "type_line": "Legendary Creature — Human Soldier",
+    "oracle_text": "Lifelink\nCards in graveyards can't be the targets of spells or abilities.\nDisturb {2}{W}{U} (You may cast this card from your graveyard transformed for its disturb cost.)",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+     "U",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353",
+     "normal": "https://cards.scryfall.io/normal/front/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353",
+     "large": "https://cards.scryfall.io/large/front/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353"
+    }
+   },
+   {
+    "name": "Dennick, Pious Apparition",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Spirit Soldier",
+    "oracle_text": "Flying\nWhenever one or more creature cards are put into graveyards from anywhere, investigate. This ability triggers only once each turn. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nIf Dennick would be put into a graveyard from anywhere, exile it instead.",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+     "U",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353",
+     "normal": "https://cards.scryfall.io/normal/back/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353",
+     "large": "https://cards.scryfall.io/large/back/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/4/d/4df8d711-09e3-43e5-b59e-ea6a92cae726.jpg?1783924353"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Tomik, Distinguished Advokist",
+  "layout": "normal",
+  "mana_cost": "{W}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Advisor",
+  "oracle_text": "Flying\nLands on the battlefield and land cards in graveyards can't be the targets of spells or abilities your opponents control.\nYour opponents can't play land cards from graveyards.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Raise Dead",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return target creature card from your graveyard to your hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Stone Rain",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Destroy target land.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Crucible of Worlds",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "You may play lands from your graveyard.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "King of the Oathbreakers",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Spirit Noble",
+  "oracle_text": "Flying\nWhenever King of the Oathbreakers or another Spirit you control becomes the target of a spell, it phases out. (Treat it and anything attached to it as though they don't exist until your next turn.)\nWhenever King of the Oathbreakers or another Spirit you control phases in, create a tapped 1/1 white Spirit creature token with flying.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Beluna Grandsquall // Seek Thrills",
+  "layout": "adventure",
+  "mana_cost": "{G}{U}{R} // {2}{G}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Giant Noble // Instant — Adventure",
+  "oracle_text": "Trample\nPermanent spells you cast that have an Adventure cost {1} less to cast.\n//\nMill seven cards. Then put all cards that have an Adventure from among the milled cards into your hand.",
+  "colors": [
+   "G",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Trample",
+   "Mill"
+  ],
+  "power": "4",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "name": "Beluna Grandsquall",
+    "mana_cost": "{G}{U}{R}",
+    "type_line": "Legendary Creature — Giant Noble",
+    "oracle_text": "Trample\nPermanent spells you cast that have an Adventure cost {1} less to cast.",
+    "power": "4",
+    "toughness": "4"
+   },
+   {
+    "name": "Seek Thrills",
+    "mana_cost": "{2}{G}{U}{R}",
+    "type_line": "Instant — Adventure",
+    "oracle_text": "Mill seven cards. Then put all cards that have an Adventure from among the milled cards into your hand."
+   }
+  ]
+ },
+ {
+  "name": "Nathan Drake, Treasure Hunter",
+  "layout": "normal",
+  "mana_cost": "{U}{B}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Rogue",
+  "oracle_text": "First strike\nYou may spend mana as though it were mana of any color to cast spells you don't own or to activate abilities of permanents you control but don't own.\nWhenever Nathan Drake attacks, exile the top card of each player's library. You may cast a spell from among those cards.",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "First strike"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Sanwell, Avenger Ace",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Pilot",
+  "oracle_text": "As long as an artifact creature you control is attacking, prevent all damage that would be dealt to Sanwell.\nWhenever Sanwell becomes tapped, exile the top six cards of your library. You may cast a Vehicle or artifact creature spell from among them. Then put the rest on the bottom of your library in a random order.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "1"
+ },
+ {
+  "name": "Borderland Explorer",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Elf Scout",
+  "oracle_text": "When this creature enters, each player may discard a card. Each player who discarded a card this way may search their library for a basic land card, reveal it, put it into their hand, then shuffle.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "1"
+ },
+ {
+  "name": "Warping Wurm",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Wurm",
+  "oracle_text": "Phasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nAt the beginning of your upkeep, this creature phases out unless you pay {2}{G}{U}.\nWhenever this creature phases in, put a +1/+1 counter on it.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Phasing"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Origin of the Avengers",
+  "layout": "saga",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Scry 2.\nII — You may put a Hero creature card with mana value 3 or less from your hand onto the battlefield. If you don't, draw a card.\nIII — Put a +1/+1 counter on each creature you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Scry"
+  ]
+ },
+ {
+  "name": "Shimmering Efreet",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Efreet",
+  "oracle_text": "Flying\nPhasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nWhenever this creature phases in, target creature phases out. (It phases in before its controller untaps during their next untap step.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Phasing"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Ice Cream Kitty",
+  "layout": "normal",
+  "mana_cost": "{1}{B/G}",
+  "cmc": 2.0,
+  "type_line": "Artifact Creature — Food Cat Mutant",
+  "oracle_text": "{2}, Sacrifice another creature or token: Draw a card. Activate only as a sorcery.\n{2}, {T}, Sacrifice this creature: You gain 3 life.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
+ }
+]

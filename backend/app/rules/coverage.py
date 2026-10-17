@@ -168,7 +168,7 @@ SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"redirect"}
 SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"prevent_half_up"}
 # -- keyword actions (wave 35C) -- the action as the event: scry → draw (Eligeth), explore twice / after a scry (Topography Tracker, Twists and Turns),
 # connive after a draw (Leader, Super-Genius): app/rules/replace.py ``keyword_replace``
-SUPPORTED_REPLACE_OPS["scry"] = frozenset({"draw"})
+SUPPORTED_REPLACE_OPS["scry"] = frozenset({"draw", "plus"})  # (wave 50G: Kenessos)
 SUPPORTED_REPLACE_OPS["explore"] = frozenset({"again", "before"})
 SUPPORTED_REPLACE_OPS["connive"] = frozenset({"before"})
 SUPPORTED_REPLACE_OPS["proliferate"] = frozenset({"again"})  # -- keyword actions (wave 50F) -- 701.34a, 614.1a: "proliferate twice instead" (Tekuthal, Inquiry Dominus)
