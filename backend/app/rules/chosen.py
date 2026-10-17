@@ -44,6 +44,8 @@ def chooses_player(ch: Characteristics) -> bool:
 #   is evaluated for another object) and never on a card without that one enters choice.
 # * a "Choose a creature type." instruction earlier in the same resolution (Kindred Dominance, Bloodline Bidding) —
 #   bind_effects puts the answer into the instructions after it as the choice is made (effects.resume_choose_value).
+RULE_PREFIX = "cant_be_blocked_by:"
+_CHOSEN_COLOR_LINE = re.compile(r"(?:Protection|Hexproof) from the chosen color")
 _SOURCE_KEYS = frozenset({"who", "sel", "spell", "obj", "what", "source"})  # (wave 43A: "source": a trigger multiplier's sources — Roaming Throne, read against its own choice)
 
 
@@ -55,6 +57,8 @@ def _uses(node: Any, key: str = "") -> list[tuple[str, str]]:
         return [u for k, v in node.items() for u in _uses(v, k)]
     if isinstance(node, list):
         return [u for v in node for u in _uses(v, key)]
+    if isinstance(node, str) and node.startswith(RULE_PREFIX):  # -- chosen type (wave 50J) -- "can't be blocked by creatures of the chosen color": the rule carries the selector
+        node = node[len(RULE_PREFIX):]
     if isinstance(node, str) and node.startswith(selectors.PREFIX) and "chosen_" in node:
         sel = selectors.from_key(node)
         what = selectors.chosen_what(sel)
@@ -93,11 +97,11 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     dumped = json.dumps(d)
     if "Protection from the chosen color" in dumped and d.get("static") == "grant":  # -- attached events (wave 25D) -- an Aura's static: its own enters choice
         return _enters_choices(ch).count("color") == 1
-    if "Protection from the chosen color" in dumped:  # -- chosen type (wave 20E) -- only in the instructions after a "Choose a color." of this resolution
+    if _CHOSEN_COLOR_LINE.search(dumped):  # -- chosen type (wave 20E) -- only in the instructions after a "Choose a color." of this resolution (wave 50J: and hexproof from it)
         effects = d.get("effects") or []
         picks = [i for i, e in enumerate(effects) if e.get("do") == "choose_value" and e.get("what") == "color" and not e.get("remember")]
-        if len(picks) != 1 or any("Protection from the chosen color" in json.dumps(e) for e in effects[: picks[0]]) \
-                or "Protection from the chosen color" in json.dumps({k: v for k, v in d.items() if k != "effects"}):
+        if len(picks) != 1 or any(_CHOSEN_COLOR_LINE.search(json.dumps(e)) for e in effects[: picks[0]]) \
+                or _CHOSEN_COLOR_LINE.search(json.dumps({k: v for k, v in d.items() if k != "effects"})):
             return False
     if ('"hand": "chosen"' in dumped or '\\"controller\\":\\"chosen\\"' in dumped or '\\"zone_owner\\":\\"chosen\\"' in dumped) \
             and not chooses_player(ch):
@@ -136,12 +140,16 @@ def bind_effects(effects: list[dict[str, Any]], what: str, value: str) -> list[d
             return {k: walk(v) for k, v in node.items()}
         if isinstance(node, list):
             return [walk(v) for v in node]
+        if isinstance(node, str) and node.startswith(RULE_PREFIX) and "chosen_" in node:  # (wave 50J: a restriction's rule carries its selector)
+            return RULE_PREFIX + walk(node[len(RULE_PREFIX):])
         if isinstance(node, str) and node.startswith(selectors.PREFIX) and "chosen_" in node:
             sel = selectors.from_key(node)
             if selectors.chosen_what(sel) == what and (bound := selectors.bind_chosen(sel, value)) is not None:
                 return bound.key()
         if node == "Protection from the chosen color" and what == "color":  # (wave 20E: protection_grants.CHOSEN_LINE)
             return f"Protection from {value.lower()}"
+        if node == "Hexproof from the chosen color" and what == "color":  # (wave 50J: protection_grants.CHOSEN_HEXPROOF)
+            return f"Hexproof from {value.lower()}"
         return node
 
     return [walk(e) for e in effects]

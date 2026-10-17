@@ -81,7 +81,7 @@ def combat(s):
                                   "Concerted Effort", "Thunderous Orator", "Wonder Man, Hollywood Hero", "Kang the Conqueror",
                                   "Thanos, the Mad Titan", "Extinction Event", "Gollum, Riddle Master",
                                   "Satya, Aetherflux Genius", "Hulk, Gamma Goliath", "Rex, Cyber-Hound",
-                                  "Rayami, First of the Fallen"])
+                                  "Rayami, First of the Fallen", "Skrelv, Defector Mite"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -420,6 +420,26 @@ def test_rayami_has_nothing_from_a_card_exiled_without_a_blood_counter(cards):
     put(s, "Rayami, First of the Fallen")
     act(s, "p1", type="move", card_ids=[card_named(s, "Serra Angel").id], to={"zone": "exile"})
     assert not keywords(s, "Rayami, First of the Fallen")
+    check(s)
+
+
+# -- Skrelv: "Choose a color. Another target creature you control gains toxic 1 and hexproof from that color until end of turn. It can't be blocked by creatures of that color" ---
+def test_skrelv_gives_toxic_hexproof_from_the_chosen_color_and_evasion_from_creatures_of_it(cards):
+    s = build(cards, mine=["Skrelv, Defector Mite", "Grizzly Bears"], theirs=["Serra Angel", "Llanowar Elves"])
+    skrelv = put(s, "Skrelv, Defector Mite")
+    bears = put(s, "Grizzly Bears")
+    angel = put(s, "Serra Angel", "p2")
+    elves = put(s, "Llanowar Elves", "p2")
+    next_turn(s)
+    mana(s, W=1)
+    activate(s, "p1", skrelv, targets=[bears.id])
+    settle(s, answer="White")
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bears.id])
+    assert {"toxic", "hexproof from"} <= ch.keywords and any(a.text.lower().startswith("hexproof from white") for a in ch.abilities)
+    attack(s, bears)
+    with pytest.raises(ActionError):  # (a white creature can't block it)
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": angel.id, "attacker_id": bears.id}])
+    block(s, (elves, bears))  # (a green one can)
     check(s)
 
 

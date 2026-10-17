@@ -604,5 +604,24 @@
   "keywords": [],
   "power": "5",
   "toughness": "4"
+ },
+ {
+  "name": "Skrelv, Defector Mite",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Legendary Artifact Creature — Phyrexian Mite",
+  "oracle_text": "Toxic 1 (Players dealt combat damage by this creature also get a poison counter.)\nSkrelv can't block.\n{W/P}, {T}: Choose a color. Another target creature you control gains toxic 1 and hexproof from that color until end of turn. It can't be blocked by creatures of that color this turn. ({W/P} can be paid with either {W} or 2 life.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Toxic"
+  ],
+  "power": "1",
+  "toughness": "1"
  }
 ]
