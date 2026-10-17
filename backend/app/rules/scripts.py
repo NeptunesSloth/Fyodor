@@ -4254,9 +4254,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if d.get("kind") == "triggered" and d.get("trigger") == "event" and cond_.get("subject") == "sel" and not cond_.get("aggregate"):
             d = {**d, "effects": [json.loads(json.dumps(e, default=str).replace("shares_type_source", "shares_type_event")) if e.get("who") == "event" else e
                                   for e in d.get("effects") or []]}
+        # (-- counters (wave 44C -- "Whenever you cast a spell that shares a creature type with this creature" (Folk Hero's grant): the spell is matched with the watcher as its source)
         if "shares_type_source" in json.dumps(d, default=str) and not (
                 d.get("kind") == "activated" or d.get("kind") == "triggered" and (
-                    str(d.get("trigger", "")).endswith("_self") or cond_.get("subject") == "self")):
+                    str(d.get("trigger", "")).endswith("_self") or cond_.get("subject") == "self"
+                    or (cond_.get("event") == "cast" and cond_.get("subject") == "player" and "shares_type_source" not in json.dumps(d.get("effects"), default=str)))):
             return None
     if d is not None and d.get("kind") == "static" and "flanking" in str(d.get("who")) and any(str(g).lower() == "flanking" for g in d.get("grants") or []):
         return None  # -- trigger other (wave 39A) -- "Other creatures you control with flanking have flanking" (Cavalry Master) is another instance of it for each: triggers.flanking counts printed ones only
@@ -4394,6 +4396,13 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # that many +1/+1 counters on it." (Zimone, All-Questioning): "that many" is the prime number, how many lands you control as it resolves (608.2h)
     text = re.sub(r"(, if [^,]*? you control a prime number of lands, create [^.]+?, a legendary [^,.]*? token), then put that many (\+1/\+1) counters on it\.",
                   r"\1, then put a number of \2 counters on it equal to the number of lands you control.", text)
+    # -- counters (wave 44C) -- 510.1a: "Until end of turn, target creature you control assigns combat damage equal to its toughness rather than its power." (Bill the Pony) is "… this turn."
+    text = re.sub(r"(^|: )Until end of turn, ((?:target|each) [^,.]+? assigns combat damage equal to its toughness rather than its power)\.", r"\1\2 this turn.", text)
+    # -- counters (wave 44C) -- 205.3m, 702.93a: "…, it and other creatures you control that share a creature type with it each get +2/+0 and gain undying until end of turn." (Haunted One's
+    # grant): it, then each other creature of the group, each given both (one effect for each part)
+    text = re.sub(r"^((?:When|Whenever) ~ [^,]+?), it and other creatures you control that share a creature type with it each get ([+\-−]\d+/[+\-−]\d+) and gain (undying|persist) until end of turn\.$",
+                  r"\1, ~ gets \2 until end of turn. ~ gains \3 until end of turn. Each other creature you control that shares a creature type with ~ gets \2 until end of turn. "
+                  r"Each other creature you control that shares a creature type with ~ gains \3 until end of turn.", text)
     text = half_x(text) if "half X" in text else text  # -- X arithmetic (wave 34C) -- 107.1a
     # -- trigger other (wave 36A) -- 702.29c: "When you cycle this card, it deals 1 damage to each opponent" (Magmakin Artillerist, Resounding Thunder), "you may
     # have it deal 1 damage to each creature" (Slice and Dice): "it" is the cycled card itself, the ability's source, whichever zone it went to

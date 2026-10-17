@@ -604,6 +604,8 @@ def _relative_count(each: str, group: str | None = None) -> dict[str, Any] | Non
     # subject's own count, read for each object it modifies (611.3a); ``group``: the pronoun that agrees with its verb ("it" after "gets")
     if group is not None and (c := _COUNTERS_ON_IT.match(each)) is not None and each.endswith(f" on {group}"):
         return {"relative": "counters", "kind": c["k"] or "any"}
+    if group == "it" and each == "point of bushido it has":  # -- counters (wave 44C) -- 702.45a: the bushido numbers the object modified has (Takeno, Samurai General)
+        return {"relative": "bushido"}
     if each == "of its colors":  # -- attached events (wave 16F) -- 105.1: the colors of the object modified (Civic Saber)
         return {"relative": "colors"}
     m = _SHARING.match(each) or _SAME_NAME.match(each)
