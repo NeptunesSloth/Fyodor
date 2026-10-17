@@ -20,7 +20,7 @@ from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_wave5j_token_copies import drive
 from tests.test_rules_wave34b_activated import activate, next_turn, stops
-from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
+from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand, zone_of
 from tests.wave45a_kit import FULL, cast, life, open_cards
 
 
@@ -245,5 +245,20 @@ def test_sting_gives_first_strike_to_the_equipped_creature_blocked_by_a_goblin_o
     until_decision(s, "declare_blockers")
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": enemy.id, "attacker_id": giant.id}])
     assert first_strike(s, "Hill Giant") is expected
+    check(s)
+
+
+# ---- Jumbo Cactuar [2929] --------------------------------------------------------------------------------------------------------------------------------
+def test_jumbo_cactuar_gets_9999_power_when_it_attacks(cards):
+    # 207.2d: "10,000 Needles" is a flavor word (it starts with a digit and holds a comma): the trigger after it is an ordinary one
+    s = build(cards, ["Jumbo Cactuar"], [])
+    stops(s)
+    cactuar = put(s, "Jumbo Cactuar")
+    next_turn(s)
+    base = pt(s, "Jumbo Cactuar")
+    until_decision(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": cactuar.id, "target": "p2"}])
+    drive(s)
+    assert pt(s, "Jumbo Cactuar") == (base[0] + 9999, base[1])
     check(s)
 

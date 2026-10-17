@@ -665,7 +665,10 @@ def _apply(n: Any, rider: Any) -> Any:
     return v if n == 1 else {"times": [n, v]}
 
 
-_SUBJ = rf"(?:(?P<s>target player|target opponent|{PLAYER_PHRASES}) )?"
+# -- most-played cards II (wave 45A) -- "Any number of target players each mill two cards." (Court of Cunning), "Two target players each draw a card." (Gleaming Splendor): one
+# target group of players (115.1, 601.2c), every chosen player does it (effects._players: "target" is the whole group)
+_MULTI_PLAYERS = r"(?:any number of|up to (?:one|two|three|four)|two|three|four) target (?:players|opponents) each"
+_SUBJ = rf"(?:(?P<s>{_MULTI_PLAYERS}|target player|target opponent|{PLAYER_PHRASES}) )?"
 
 
 def _subject(m: re.Match[str]) -> tuple[str, str | None]:
@@ -675,6 +678,8 @@ def _subject(m: re.Match[str]) -> tuple[str, str | None]:
     s = m["s"] or "you"
     if s in ("target player", "target opponent"):
         return "target", _LEGACY_TARGETS[s]
+    if s.endswith(" each") and "target" in s:  # (wave 45A: the group of players, not one)
+        return "target", _one(target_group(s.removesuffix(" each")))
     return PLAYER_GROUPS[s], None
 
 
