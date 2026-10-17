@@ -3084,7 +3084,7 @@ _KIND_LIST_IF = re.compile(r"^(if [^,.]*?\b(?:a|an|another) )([A-Z][a-z]+(?:, [A
 
 def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     body = body.strip()
-    if not body.endswith(".") and not body.endswith('."'):
+    if not body.endswith((".", '."', ".'\"")):  # (wave 51B: Urza's Saga ends on a quote inside a quote, .'")
         return None
     if event_player:  # -- trigger sweep (wave 27B) -- "you and that player each draw a card and lose 1 life" (Karazikar): each part
         # is one instruction for both players ("you and that player each draw …": 121.2c, the active player draws first)

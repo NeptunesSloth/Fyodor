@@ -252,6 +252,13 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
 
             own = derive(state, card, chars.of(card, info), info).colors
             out += [(m,) for m in M.COLORS if m in own]
+        elif opt == ("EXILED_COLORS",):  # -- imprint (wave 51B) -- 607.2a, 106.1b: the colors now (613) of the cards its linked ability exiled and that are still there (400.7); a colorless one gives no mana
+            from app.rules.layers import derive
+
+            oid = state.rules.object_id
+            seen = {col for o in state.rules.exiled_with.get(oid(card.id), []) if (c := state.cards.get(o.rsplit(".", 1)[0])) is not None and c.zone.endswith(":exile")
+                    and oid(c.id) == o for col in derive(state, c, chars.of(c, info), info).colors}
+            out += [(m,) for m in M.COLORS if m in seen]
         elif opt == ("LANDS",):
             out += [(m,) for m in M.ALL_MANA if m in _land_mana(state, [card.controller], info, skip=card.id)]
         elif opt[0].startswith("LANDS:"):  # -- mana (wave 19E) -- any color / type a (basic / Gate) land you control could produce
