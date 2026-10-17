@@ -57,8 +57,8 @@ EXTRA = [card(c["name"], set_code="w42d", number=f"D{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 FULL = ["Bolg of the North", "Vincent, Vengeful Atoner", "Daredevil, Fearless Fighter", "Dong Zhou, the Tyrant", "Polukranos, World Eater",
         "Ayara, Widow of the Realm // Ayara, Furnace Queen", "Onakke Javelineer", "Living Inferno"]
-MANUAL = ["Tellah, Great Sage", "Ian the Reckless", "Iron Fist, Living Weapon", "Imodane, the Pyrohammer", "The Lord of Pain",
-          "Breeches, the Blastmaker"]  # (Vial Smasher is FULL since wave 47B: a recorded random opponent)
+MANUAL = ["Tellah, Great Sage", "Iron Fist, Living Weapon", "Imodane, the Pyrohammer", "The Lord of Pain",
+          "Breeches, the Blastmaker"]  # (Vial Smasher is FULL since wave 47B: a recorded random opponent; Ian the Reckless since wave 50F: "if it's modified")
 
 
 @pytest.fixture()
