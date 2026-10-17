@@ -94,6 +94,8 @@ def parse_pred(text: str, prior: dict[str, Any] | None = None) -> Pred | None:
         return None if value is None else {"extreme": value, "most": m["ext"] in ("most", "highest")}
     if (m := re.fullmatch(r"(?:was|were) dealt (?P<c>combat )?damage this turn", t)) is not None:
         return {"dealt": bool(m["c"])}
+    if t == "received no votes":  # -- random choices (wave 47B) -- this resolution's own vote (voting.py), for the player voted for
+        return {"votes": 0}
     # a condition as that player: "controls an Elf" → "you control an Elf", "has three or more poison counters" → "you have …"
     sub = re.sub(r"^(?:controls|control)\b", "you control", t)
     sub = re.sub(r"^(?:doesn't|does not|don't) control\b", "you don't control", sub)
@@ -121,6 +123,9 @@ def holds(plan: Plan, ctx: Context, pred: Pred, pid: str) -> bool:
         got = {p: values.evaluate(plan, {**ctx, "controller": p}, pred["extreme"]) for p in plan.live()}
         best = max(got.values(), default=0) if pred["most"] else min(got.values(), default=0)
         return pid in got and got[pid] == best
+    if "votes" in pred:  # (the vote of this resolution: a player in no ballot has none)
+        tally = (ctx.get("vote") or {}).get("tally")
+        return tally is not None and int(tally.get(pid, 0)) == pred["votes"]
     if "dealt" in pred:  # (this turn's log: damage dealt to the player, 120.3; ``dealt`` True: combat damage only)
         from app.rules import history
 

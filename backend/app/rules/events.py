@@ -992,8 +992,8 @@ def _cast(c: str) -> Condition | None:
     spell = re.sub(r"^(\w+) spell or an? (\w+) spell$", r"\1 or \2 spell", spell)  # (wave 17D: "a noncreature spell or a Dragon spell")
     sel = selectors.parse(spell) if spell != "spell" else selectors.Selector(zones=("stack",))
     if sel is None:  # -- triggers (wave 17D) -- "a noncreature or Dragon spell": two whole kinds, either one (601.2i)
-        alt = re.fullmatch(r"([a-z]+|[A-Z][a-z]+) or ([a-z]+|[A-Z][a-z]+) spell", spell)
-        halves = [selectors.parse(f"{w} spell") for w in alt.groups()] if alt else []
+        alt = re.fullmatch(r"(?:([a-z]+|[A-Z][a-z]+) or ([a-z]+|[A-Z][a-z]+)|(\w+ \w+) or (\w+ \w+)) spell", spell)  # (wave 47D: "a Phyrexian creature or artifact creature spell", Brimaz: each half qualified)
+        halves = [selectors.parse(f"{w} spell") for w in alt.groups() if w] if alt else []
         if len(halves) == 2 and all(h is not None and h.player is None for h in halves):
             keys = tuple(selectors.replace(h, zones=("stack",)).key() for h in halves if h is not None)
             return {**out, "spell": selectors.Selector(either=keys).key()}

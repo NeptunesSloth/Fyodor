@@ -105,6 +105,44 @@ def resume_amass(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, r["ctx"])
 
 
+# -- empower Jace (wave 48A) ------------------------------------------------------------------
+# 701.71a: "To empower Jace N means 'If you don't control a Jace planeswalker token, create a blue Jace planeswalker token with 0
+# loyalty, "[−1]: Surveil 1," and "[−3]: Draw a card." Choose a Jace planeswalker token you control. Put N loyalty counters on it.'"
+JACE: dict[str, Any] = {"name": "Jace", "power": None, "toughness": None, "colors": ["U"], "type_line": "Token Planeswalker — Jace",
+                        "text": "−1: Surveil 1\n−3: Draw a card."}
+JACE_KEY = selectors.Selector(controller="you", types=("Planeswalker",), subtypes=("Jace",), token=True).key()
+
+
+def _jaces(plan: Plan, ctx: Context) -> list[str]:
+    return selectors.candidates(plan, selectors.from_key(JACE_KEY), ctx["controller"], ctx.get("source_card"))
+
+
+def empower_jace(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.71a. The token enters with 0 loyalty (state-based actions are not checked mid-resolution, 704.3); the choice among several
+    Jace tokens (a token-doubling effect) is the controller's. After a 616.1 choice the instruction runs again from the start."""
+    n = effects._amount(plan, ctx, e["n"])
+    jaces = _jaces(plan, ctx)
+    if not jaces:
+        if not effects.create_token(plan, ctx, {"who": "you", "n": 1, "token": dict(JACE)}, then=replace.rerun_then(ctx, e)):
+            return False
+        if not (jaces := _jaces(plan, ctx)):
+            return True  # (the token could not be created: nothing to put counters on)
+    if len(jaces) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"Empower Jace {n}: choose a Jace planeswalker token you control",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Jace", card_id=c) for c in jaces],
+               resume={"step": "empower_choose", "ctx": ctx, "n": n})
+        return False
+    return n <= 0 or replace.put_counters(plan, [(jaces[0], "loyalty", n)], by=ctx["controller"], then={"do": "continue", "ctx": ctx})
+
+
+def resume_empower(plan: Plan, d: Any, chosen: list[str]) -> None:
+    r = d.resume
+    if chosen and chosen[0] in plan.state.cards and plan.state.cards[chosen[0]].zone.endswith(":battlefield") and r["n"] > 0 \
+            and not replace.put_counters(plan, [(chosen[0], "loyalty", r["n"])], by=r["ctx"]["controller"], then={"do": "continue", "ctx": r["ctx"]}):
+        return  # (a 616.1 choice first)
+    effects.continue_effects(plan, r["ctx"])
+
+
 # -- connive (701.50) -------------------------------------------------------------------------
 def connive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.50a: "that permanent's controller draws a card, then discards a card. If a nonland card
@@ -531,6 +569,8 @@ def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             continue
         if r.transformed.get(cid, 0) > r.objects.get(ctx.get("stack_id") or "", 1 << 60):
             continue  # (an ability not on the stack has no number: never ignored)
+        if e.get("since") is not None and r.transformed.get(cid, 0) > e["since"]:
+            continue  # (wave 47D) 701.27f: a delayed triggered ability counts from when it was created
         plan.do({"type": "set_face", "card_id": cid, "face": 1 - min(card.face, 1)}, actor=ctx["controller"])
         now = plan.state.cards[cid]
         # -- transform (wave 16F) -- 701.28: "When this creature transforms into …" (the same object, 712.18; designations.facts)
@@ -579,10 +619,10 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
 
 
 PRIMITIVES = {"class_level": class_level, "amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
-              "goad": goad, "detain": detain, "suspect": suspect, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform, "flip": flip,
+              "goad": goad, "detain": detain, "suspect": suspect, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "empower_jace": empower_jace, "transform": transform, "flip": flip,
               **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
-RESUME = {"amass_choose": resume_amass, "bolster_choose": resume_bolster, "connive_discard": resume_connive,
+RESUME = {"amass_choose": resume_amass, "empower_choose": resume_empower, "bolster_choose": resume_bolster, "connive_discard": resume_connive,
           **facedown.RESUME,  # -- keyword actions & face-down (wave 3F) --
           **token_grammar.RESUME}
 # -- replacement effects stage 2 (wave 2E): where a keyword action goes on after a 616.1 choice --
