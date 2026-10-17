@@ -301,8 +301,7 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     # ("up to X target …": read now, the number of targets announced with X, 601.2c — wave 4K)
     # (copy system, wave 2F / 3R3: "copy target spell", and "copy it / that spell" for the spell a cast trigger
     # was about, are read now: app/rules/copying.py)
-    (re.compile(r"\bshuffles? up to \w+ target cards? from their graveyard\b", re.I),
-     "cards from a target player's graveyard (a zone bound to an earlier target): not modelled"),
+    # ("target player shuffles up to N target cards from their graveyard into their library": read now, wave 46B — the graveyard_of target group)
     (re.compile(r"\btarget creature with the greatest\b", re.I), "\"the greatest … among\" (a computed extreme): not modelled"),
     (re.compile(r"(?<!switch )\btarget creature's power and toughness\b", re.I),  # (switching: wave 7E, choice_grants.switch_pt)
      "switching or reading a target's P/T pair: not modelled"),

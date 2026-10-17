@@ -1146,7 +1146,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
+_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player", "cards")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -1249,6 +1249,8 @@ def _add_groups(groups: list[dict[str, Any]], found: list[dict[str, Any]], sel: 
                 g = {**g, "what": "any_other"}  # -- damage sized by a count (wave 34D) -- "any other target" with nothing before it: any target but the
                 # source (targets.legal_targets); language.py lets only a damage sentence of the source itself ("~ deals … to any other target") say it
         index.append(len(groups))
+        if g.get("graveyard_of") is not None:  # -- shuffle target cards (wave 46B) -- the group of the player whose graveyard it is: this clause's numbering
+            g = {**g, "graveyard_of": index[g["graveyard_of"]]}
         groups.append(g)
     return _renumber(found, index)
 
@@ -2338,6 +2340,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- static_other sweep (wave 19A) -- "Choose a creature type. Draw a card for each permanent you control of that type." (Distant
     # Melody): "that type" is the type just chosen, as in "of the chosen type" (app/rules/chosen.py)
     body = re.sub(r"(Choose a creature type\. [^.]*?) of that type\b", r"\1 of the chosen type", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
+    # -- chosen type (wave 46B) -- "Creatures of the creature type of your choice get -3/-3 until end of turn." (Witch's Vengeance, Tribal Unity, Karona):
+    # chosen as it resolves, like "Choose a creature type. Creatures of the chosen type get …" (the objects are those on the battlefield then, 611.2c)
+    body = re.sub(r"(?i)(^|\. )creatures of the creature type of your choice get ", r"\1Choose a creature type. Creatures of the chosen type get ", body)
     body = _stack_interaction.rewrite(body)  # -- stack interaction (wave 23B) -- Ouphe Vandals: the rider of a counter of an ability
     # -- unless pays (wave 26D) -- 118.12a: "Each opponent sacrifices a permanent of their choice unless they pay {1}." (Rishadan Cutpurse) is
     # "Each opponent may pay {1}. Each opponent who doesn't sacrifices a permanent of their choice." (app/rules/each_may.py: each player
@@ -5568,6 +5573,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
         for g in own:
             if g.get("distinct_from"):
                 g["distinct_from"] = [offset + d for d in g["distinct_from"]]
+            if g.get("graveyard_of") is not None:  # (wave 46B)
+                g["graveyard_of"] += offset
             groups.append(g)
         try:  # (each line's bindings keep their own names: "e0" of line 2 isn't line 1's)
             effects += rename_bindings(_renumber(defs[ab.index]["effects"], index), f"l{ab.index}_")

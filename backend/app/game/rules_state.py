@@ -834,6 +834,7 @@ class PaymentRecord(BaseModel):
     cast_from: str | None = Field(default=None, max_length=20)
     cast_main: bool = False
     mana_known: bool = True
+    flash_sac: bool = False  # -- flash auras (wave 46B) -- cast with its own "as though it had flash" when a sorcery couldn't have been cast: sacrificed at the next cleanup step
 
 
 class Permission(BaseModel):
@@ -1566,6 +1567,10 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             if new_name == "battlefield":  # 707.5: the copy effect it is entering with is the new object's
                 for eff in rules.effects:
                     if eff.layer == "1" and eff.source == ENTERING_COPY + card_id and old_oid in eff.affected:
+                        eff.affected.append(new_oid)
+            if new_name == "battlefield" and old_name == "stack":  # -- color lace (wave 46B) -- 400.7a: what a spell or ability did to a permanent spell goes on
+                for eff in rules.effects:  # applying to the permanent it becomes (a color, a type, a keyword, a control change), for the rest of its duration
+                    if old_oid in eff.affected and new_oid not in eff.affected:
                         eff.affected.append(new_oid)
         else:
             rules.objects.pop(card_id, None)
