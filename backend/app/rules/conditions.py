@@ -1338,6 +1338,8 @@ def _object(t: str) -> Condition | None:
             det = re.match(r"(?P<rest>another .+)", what)
         if det is None and re.fullmatch(r"(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*", what):
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "it's blue": a color test, on whatever it is
+        if det is None and what == "modified":  # -- trigger other (wave 50F) -- 700.9: "if it's modified" (Ian the Reckless): a counter on it, equipped, or enchanted by its controller's Aura
+            det = re.match(r"(?P<rest>.+)", "modified creature")
         if det is None and re.fullmatch(r"(?:non)?(?:basic|legendary|snow)", what):  # -- damage wordings (wave 6B) --
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "If that land was nonbasic": a supertype (205.4)
         sel = selectors.parse(det["rest"]) if det else None
