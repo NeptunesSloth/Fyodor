@@ -409,6 +409,9 @@ def _targeting_definition(m: re.Match[str]) -> dict[str, Any] | None:
 def _targeting_definition_of(who: str | None, what: str) -> dict[str, Any] | None:
     from app.rules import selectors
 
+    you = what.startswith("you or ")  # -- most-played cards III (wave 46C) -- "Spells your opponents cast that target you or a permanent you control cost {2} more to cast." (Monastery Siege): the player is a target too
+    if you:
+        what = what[len("you or "):]
     if what == "~":
         target = "self"
     else:
@@ -419,7 +422,7 @@ def _targeting_definition_of(who: str | None, what: str) -> dict[str, Any] | Non
             return None
         target = sel.key()
     caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[who]
-    return {"kind": "static", "static": "cost_modifier", "caster": caster, "filter": None, "target": target, "effects": []}
+    return {"kind": "static", "static": "cost_modifier", "caster": caster, "filter": None, "target": target, "effects": [], **({"target_you": True} if you else {})}
 
 
 def targeting_life(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo,
@@ -431,18 +434,20 @@ def targeting_life(state: GameState, player: str, card: CardInstance, ch: Charac
     for src, _, d in permissions._table_statics(state, info, {"cost_modifier"}):
         if not d.get("life") or (d["caster"] == "you" and src.controller != player) or (d["caster"] == "opponent" and src.controller == player):
             continue
-        if targets != ANY_TARGET and _targets_match(state, info, src, d["target"], targets):
+        if targets != ANY_TARGET and _targets_match(state, info, src, d["target"], targets, d.get("target_you", False)):
             total += int(d["life"])
     return total
 
 
-def _targets_match(state: GameState, info: CardInfo, src: CardInstance, target: str, targets: tuple[str, ...]) -> bool:
+def _targets_match(state: GameState, info: CardInfo, src: CardInstance, target: str, targets: tuple[str, ...], you: bool = False) -> bool:
     """Does one of the spell's chosen targets fit "that target …"? ("~": the source itself; else a permanent, read
-    relative to the source's controller: "a Merfolk you control" is one the changer's controller controls.)"""
+    relative to the source's controller: "a Merfolk you control" is one the changer's controller controls; ``you``: or the changer's controller, a player.)"""
     from app.rules import selectors
 
     view = None
     for tid in targets:
+        if you and tid == src.controller:
+            return True
         card = state.cards.get(tid)
         if card is None or not card.zone.endswith(":battlefield"):
             continue
@@ -513,7 +518,7 @@ def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[st
         if targets == ANY_TARGET:  # -- review (Codex) -- a castability hint, before targets: the best case
             if d["change"]["dir"] > 0:
                 return None
-        elif not _targets_match(state, info, src, d["target"], targets):
+        elif not _targets_match(state, info, src, d["target"], targets, d.get("target_you", False)):
             return None
     if d.get("ordinal") and not _ordinal_ok(state, info, player, d):
         return None

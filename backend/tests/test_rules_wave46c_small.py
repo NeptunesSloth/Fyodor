@@ -15,7 +15,7 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from app.rules.plan import Plan
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, stops, to_phase
+from tests.test_rules_wave34b_activated import activate, settle, stops, to_phase
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
 from tests.wave46c_kit import FULL, cast, open_cards
 
@@ -174,6 +174,36 @@ def test_darksteel_angel_bars_minus_one_counters_on_its_controllers_creatures(ca
     mana(s, "p2", B=2, C=2)
     cast_with(s, "Skinrender", [giant], "p2")
     assert counters(s, giant, "-1/-1") == 0  # 614.17: they can't be put on Alice's creature
+    check(s)
+
+
+def test_monastery_siege_taxes_spells_that_target_its_controller_or_their_permanents(cards):
+    # 601.2c, 601.2f: Dragons - "Spells your opponents cast that target you or a permanent you control cost {2} more to cast."
+    s = build(cards, ["Monastery Siege", "Hill Giant"], ["Shock", "Lightning Bolt", "Grizzly Bears"])
+    giant, bears = put(s, "Hill Giant"), put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Monastery Siege")
+    to_hand(s, "Shock", "p2")
+    to_hand(s, "Lightning Bolt", "p2")
+    mana(s, U=1, C=2)
+    mana(s, "p2", R=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Monastery Siege").id)
+    act(s, "p2", type="pass_priority")  # (he holds instants: the Siege resolves once he passes)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if "Dragons" in o.label)])
+    settle(s)
+    stops(s)
+    act(s, "p1", type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Lightning Bolt", "p2").id, targets=[bears.id])  # his own creature: {R}
+    settle(s)
+    assert s.state.players["p2"].mana.get("R", 0) == 1
+    act(s, "p1", type="pass_priority")  # (Bob has priority again)
+    for target in ("p1", giant.id):
+        with pytest.raises(ActionError, match="Not enough mana to pay"):
+            act(s, "p2", type="cast_spell", card_id=card_named(s, "Shock", "p2").id, targets=[target])  # {R} is not enough: {2}{R}
+    mana(s, "p2", C=2)
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Shock", "p2").id, targets=["p1"])
+    settle(s)
+    assert s.state.players["p1"].life == 38 and s.state.players["p2"].mana.get("R", 0) == 0
     check(s)
 
 
