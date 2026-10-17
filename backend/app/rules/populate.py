@@ -14,8 +14,9 @@
   (Saheeli, the Gifted) and "for each other nonland permanent you control" (other than the source: Oko, the Ringleader); "Those tokens gain
   haste. Exile those tokens at the beginning of the next end step." name all of them (``_Introducer.number`` is open for a group).
 
-Refused (left manual, unknown wording): "Populate X times", "Populate. The token enters tapped and
-attacking." (Ghired), "for each of them" in a "one or more" trigger (Kambal), a phrase with a target
+"Populate. The token enters tapped and attacking." (Ghired, wave 46A) is "populate tapped and attacking": the copy is created attacking (508.4).
+
+Refused (left manual, unknown wording): "Populate X times", "for each of them" in a "one or more" trigger (Kambal), a phrase with a target
 the copy text doesn't name.
 """
 
@@ -91,21 +92,22 @@ def populate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         plan.note("Populate: no creature token to copy (701.36b)", actor=pid)
         return True
     if len(mine) == 1:
-        return _copy(plan, ctx, mine[0])
+        return _copy(plan, ctx, mine[0], bool(e.get("attacking")))
     decide(plan, player=pid, kind="choose_cards", prompt="Populate: choose a creature token you control to copy",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Token", card_id=c) for c in mine],
-           resume={"step": "populate_choose", "ctx": ctx})
+           resume={"step": "populate_choose", "ctx": ctx, "attacking": bool(e.get("attacking"))})
     return False
 
 
-def _copy(plan: Plan, ctx: Context, cid: str) -> bool:
+def _copy(plan: Plan, ctx: Context, cid: str, attacking: bool = False) -> bool:
     """The copy, as the instruction being resolved: it takes populate's place in the resolution (a
     616.1 order prompt then runs this copy again, not the choice)."""
     from app.rules import copying
 
-    e = {"do": "token_copy", "n": 1, "who": f"object:{plan.oid(cid)}"}
     k = int(ctx.get("next") or 0) - 1
     effects = list(ctx.get("effects") or [])
+    # (-- cant restrictions (wave 46A) -- "Populate. The token enters tapped and attacking." (Ghired): 508.4, the copy's controller chooses what it attacks)
+    e = {"do": "token_copy", "n": 1, "who": f"object:{plan.oid(cid)}", **({"attacking": True, "tapped": True} if attacking else {})}
     if 0 <= k < len(effects) and effects[k].get("do") == "populate":
         effects[k] = e
         ctx["effects"] = effects
@@ -121,7 +123,7 @@ def resume_populate(plan: Plan, d: Any, chosen: list[str]) -> None:
     if card is None or not card.zone.endswith(":battlefield") or not selectors.matches(
             plan, selectors.from_key(CREATURE_TOKENS_KEY), card, plan.ch(card), d.player, ctx.get("source_card")):
         raise ActionError("Choose a creature token you control")
-    if _copy(plan, ctx, card.id):
+    if _copy(plan, ctx, card.id, bool(d.resume.get("attacking"))):
         effects.continue_effects(plan, ctx)
 
 
