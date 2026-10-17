@@ -57,8 +57,11 @@ def allowed(definition: dict[str, Any]) -> bool:
     """The flag only on a triggered ability's, an activated ability's or a spell's own single target group (see the module
     docstring; a spell or ability is expanded as it is put on the stack, 601.2c)."""
     raw = json.dumps(definition, default=str)
+    # (-- if you do (wave 50F) -- "you may exile it. When you do, for each opponent, …" (The Balrog of Moria): 603.12 the reflexive ability is put on the stack, and
+    # expanded, like any trigger — the flag is its own single group)
     return FLAG not in raw or (definition.get("kind") in ("triggered", "activated", "spell") and flagged(definition)
-                               and raw.count(f'"{FLAG}"') == len(definition["targets"]) == 1)
+                               and raw.count(f'"{FLAG}"') == len(definition["targets"]) == 1) \
+        or (raw.count(f'"{FLAG}"') == 1 and any(e.get("do") == "reflexive" and allowed(e["ability"]) for e in definition.get("effects") or []))
 
 
 def expand(plan: Plan, t: PendingTrigger) -> None:

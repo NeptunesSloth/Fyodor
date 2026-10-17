@@ -198,6 +198,8 @@ def _may_have(body: str, ante: str | None) -> str:
     # controller of the creature the event is about creates it (a player who isn't the attacking player gets one that never attacks, 506.3b)
     if ante == "event" and (made := re.match(r"^you may have its controller create( .+)$", body)) is not None:
         return f"you may its controller creates{made[1]}"
+    if re.match(r"^you may have (?:~|it|him|her) deal \d+ damage to you\. (?:If|When) you do, ", body):
+        return body  # -- if you do (wave 50F) -- 118.12: an optional cost (Elektra), read by _may_pay_sentence
     m = re.match(rf"^you may have (?P<s>~|it|your life total|target [a-z ]+?) (?P<v>{'|'.join(_HAVE_VERBS)})\b", body)  # (wave 25B: your life total)
     if m is None or (m["s"] == "it" and ante not in ("self", "event")):
         return body
@@ -377,6 +379,12 @@ def self_text(text: str, name: str) -> str:
     # whatever the order of the text, so the damage sentence names "any target" itself
     if out.startswith("Choose any target. ") and out.count("that permanent or player") == 1 and out.count("\n") == 0:
         out = out[len("Choose any target. "):].replace("that permanent or player", "any target")
+    # -- trigger other (wave 50F) -- "target creature gets +1/+0 until end of turn for each creature you control and can't be blocked this turn" (Invisible Woman): two
+    # instructions on the one target (608.2c); "destroy target nonbasic land defending player controls, and creatures that player controls without flying can't block
+    # this turn" (The Motherlode): the second is a sentence of its own, "that player" being the defending player the first names
+    out = re.sub(r"(\btarget creature(?: you control)? gets [+-]\d+/[+-]\d+ until end of turn for each [^,.]+?) and (can't be blocked this turn)\.", r"\1. It \2.", out)
+    out = re.sub(r"(\btarget [^,.]+? defending player controls), and creatures that player controls (without [a-z]+ can't block this turn)\.",
+                 r"\1. Creatures defending player controls \2.", out)
     return _counter_threshold(_language.base_become(out))  # (-- layers (wave 30O) -- "~'s base power and toughness become …")
 
 
@@ -3988,6 +3996,8 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
         phrase, needs = gate["pay"], "event.new"
     if re.search(r"\bit\b", phrase) and it != "self":
         return None
+    if it == "self":  # -- if you do (wave 50F) -- "you may have her deal 2 damage to you" (Elektra): the source itself
+        phrase = re.sub(r"^have (?:it|him|her) deal (?=\d+ damage to you$)", "have ~ deal ", phrase)
     cost = optional_payment.cost_text(phrase)
     sized: dict[str, Any] = {}
     if cost is None and (alts := optional_payment.alternatives(phrase)) is not None:  # -- if you do (wave 6F) -- A or B
