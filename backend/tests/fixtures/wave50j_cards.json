@@ -583,5 +583,26 @@
   ],
   "power": "2",
   "toughness": "2"
+ },
+ {
+  "name": "Rayami, First of the Fallen",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{G}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Vampire",
+  "oracle_text": "If a nontoken creature would die, exile that card with a blood counter on it instead.\nAs long as an exiled creature card with a blood counter on it has flying, Rayami has flying. The same is true for first strike, double strike, deathtouch, haste, hexproof, indestructible, lifelink, menace, protection, reach, trample, and vigilance.",
+  "colors": [
+   "B",
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "4"
  }
 ]

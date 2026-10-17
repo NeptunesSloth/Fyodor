@@ -971,12 +971,13 @@ class Cand(NamedTuple):
     used: bool = False
     rider: dict[str, Any] | None = None
     link: str = ""  # -- linked exile (wave 30H) -- 607.2b: the object whose linked replacement effect this is: the card it exiles is "exiled with" it
+    counter: str = ""  # -- exile with a counter (wave 50J) -- "exile that card with a blood counter on it instead" (Rayami): the kind of counter the exiled card gets
 
     @property
     def sig(self) -> str:
         """What the effect does, for the 616.1 question: the same result with the same rider needs no choice."""
         if self.rider is None:  # (-- linked exile (wave 30H) -- a linked replacement is another result: what it exiles is "exiled with" its object, so 616.1 asks)
-            return f"{self.outcome}+{self.link}" if self.link else self.outcome
+            return f"{self.outcome}+{self.link}" if self.link else self.outcome + (f"+{self.counter}" if self.counter else "")
         key = json.dumps([self.rider["controller"], self.rider["effects"], self.rider["reflexive"], self.link], sort_keys=True, default=str)
         return f"{self.outcome}+{hashlib.sha1(key.encode()).hexdigest()[:8]}"
 
@@ -1020,7 +1021,7 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         out.append(Cand(card.name or "its own ability", "library:shuffle"))
     for src, d in _static_exile_all(plan, card):
         rider = {"source": src.id, "controller": src.controller, **d["rider"]} if d.get("rider") else None
-        out.append(Cand(src.name or "a static ability", "exile", False, rider, plan.oid(src) if d.get("link") else ""))
+        out.append(Cand(src.name or "a static ability", "exile", False, rider, plan.oid(src) if d.get("link") else "", d.get("counter", "")))
     if frm == "battlefield" and (why := _record_exile_instead(plan, card)) is not None:  # -- replacement effects stage 2 (wave 2E) --
         out.append(Cand(why, "exile"))
     if (why := _record_exile_cards(plan, card)) is not None:  # -- zone replacements (wave 37B) -- from any zone
@@ -1053,6 +1054,8 @@ def move_instead(plan: Plan, cid: str, outcome: str | Cand, actor: str | None) -
     if isinstance(outcome, Cand):
         move_instead(plan, cid, outcome.outcome, actor)
         _record_link(plan, cid, outcome)
+        if outcome.counter:  # (it is in exile now: the counter goes on that object)
+            plan.do({"type": "counter", "card_ids": [cid], "kind": outcome.counter, "delta": 1}, actor=actor)
         if outcome.rider is not None:
             run_rider(plan, outcome.rider)
         return
@@ -1195,6 +1198,7 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
     held: list[str] = []  # -- zone replacements (wave 22C) -- cards waiting for their controller's 616.1 choice
     madness: list[tuple[str, str]] = []
     links: dict[str, Cand] = {}  # -- linked exile (wave 30H) -- the linked replacement effects that apply (607.2b)
+    marks: dict[str, str] = {}  # -- exile with a counter (wave 50J) -- the card -> the kind of counter its exiling puts on it
     for cid in payload.get("card_ids") or []:
         card = plan.state.cards.get(cid)
         if card is None:
@@ -1233,6 +1237,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             replaced.append((cid, pick.outcome, pick.label))
             if pick.link:
                 links[cid] = pick
+            if pick.counter:
+                marks[cid] = pick.counter
             if pick.rider is not None:
                 riders.append(pick.rider)
             continue
@@ -1270,6 +1276,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": zone}, **also}, actor=actor)
         if cid in links:
             _record_link(plan, cid, links[cid])
+        if cid in marks:  # (it is in exile now: the counter goes on that object)
+            plan.do({"type": "counter", "card_ids": [cid], "kind": marks[cid], "delta": 1}, actor=actor)
     for rider in riders:  # -- zone replacements (wave 22C) -- "… instead exile it and create a token": part of the replacing event
         run_rider(plan, rider)
     for cid, cost in madness:

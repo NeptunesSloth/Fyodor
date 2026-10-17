@@ -91,7 +91,9 @@ INHERITED = frozenset({"flying", "fear", "first strike", "double strike", "death
 _EXILED_SET = r"a card exiled with (?:~|this creature|it)"
 _INHERIT = [re.compile(rf"^As long as (?P<set>{_EXILED_SET}) has (?P<k>[a-z ]+?), (?P<who>~|this creature|equipped creature) has (?P=k)\.$"),
             re.compile(rf"^(?P<who>~|This creature|Equipped creature) has (?P<k>[a-z ]+?) as long as (?P<set>{_EXILED_SET}) has (?P=k)\.$"),
-            re.compile(r"^As long as (?P<set>a creature card with (?P<k>[a-z ]+?) is in a graveyard), (?P<who>~|this creature) has (?P=k)\.$")]
+            re.compile(r"^As long as (?P<set>a creature card with (?P<k>[a-z ]+?) is in a graveyard), (?P<who>~|this creature) has (?P=k)\.$"),
+            # (wave 50J) Rayami, First of the Fallen
+            re.compile(r"^As long as (?P<set>an exiled creature card with an? (?P<ctr>[a-z]+) counter on it) has (?P<k>[a-z ]+?), (?P<who>~|this creature) has (?P=k)\.$")]
 _SAME = re.compile(r"^The same is true for (?P<ks>[a-z, ]+?)\.$")
 
 
@@ -111,8 +113,9 @@ def inherit(text: str, definition: Any) -> dict[str, Any] | None:
         return None  # (e.g. "protection from any color": not read)
     attached = m["who"].lower() == "equipped creature"
     linked = m["set"].startswith("a card exiled with")
-    sel = None if linked else selectors.parse("creature card in a graveyard")
-    if not linked and (sel is None or sel.zones != ("graveyard",)):
+    ctr = m.groupdict().get("ctr")  # (wave 50J: "an exiled creature card with a blood counter on it", Rayami)
+    sel = None if linked else selectors.parse(f"creature card in exile with a {ctr} counter on it" if ctr else "creature card in a graveyard")
+    if not linked and (sel is None or sel.zones != (("exile",) if ctr else ("graveyard",))):
         return None
     found: dict[str, Any] = definition("attached" if attached else "self", "creature" if attached else None, [],
                                        abilities_of={"sel": sel.key() if sel is not None else None, "linked": linked, "no_mana": False,

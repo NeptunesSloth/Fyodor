@@ -80,7 +80,8 @@ def combat(s):
                                   "Kaima, the Fractured Calm", "Havoc Eater", "Pia Nalaar, Chief Mechanic", "Rampaging Aetherhood", "Sensei Golden-Tail", "Kathril, Aspect Warper",
                                   "Concerted Effort", "Thunderous Orator", "Wonder Man, Hollywood Hero", "Kang the Conqueror",
                                   "Thanos, the Mad Titan", "Extinction Event", "Gollum, Riddle Master",
-                                  "Satya, Aetherflux Genius", "Hulk, Gamma Goliath", "Rex, Cyber-Hound"])
+                                  "Satya, Aetherflux Genius", "Hulk, Gamma Goliath", "Rex, Cyber-Hound",
+                                  "Rayami, First of the Fallen"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -398,6 +399,27 @@ def test_rex_borrows_nothing_from_a_card_exiled_without_a_brain_counter(cards):
     rex = put(s, "Rex, Cyber-Hound")
     act(s, "p1", type="move", card_ids=[card_named(s, "Llanowar Elves").id], to={"zone": "exile"})
     assert not any(a.kind == "mana" for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[rex.id]).abilities)
+    check(s)
+
+
+def test_rayami_exiles_a_dying_creature_with_a_blood_counter_and_has_what_it_has(cards):
+    s = build(cards, mine=["Rayami, First of the Fallen", "Serra Angel", "Murder"])
+    put(s, "Rayami, First of the Fallen")
+    angel = put(s, "Serra Angel")
+    to_hand(s, "Murder")
+    mana(s, B=2, G=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Murder").id, targets=[angel.id])
+    settle(s)
+    assert zone_of(s, "Serra Angel") == "p1:exile" and counters(s, "Serra Angel") == {"blood": 1}  # (614.1a: exiled instead of dying, with the counter on it)
+    assert keywords(s, "Rayami, First of the Fallen") >= {"flying", "vigilance"}
+    check(s)
+
+
+def test_rayami_has_nothing_from_a_card_exiled_without_a_blood_counter(cards):
+    s = build(cards, mine=["Rayami, First of the Fallen", "Serra Angel"])
+    put(s, "Rayami, First of the Fallen")
+    act(s, "p1", type="move", card_ids=[card_named(s, "Serra Angel").id], to={"zone": "exile"})
+    assert not keywords(s, "Rayami, First of the Fallen")
     check(s)
 
 

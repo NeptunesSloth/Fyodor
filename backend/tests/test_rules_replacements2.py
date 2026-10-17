@@ -715,6 +715,8 @@ _ALLOWED = {
     ("casting.py", "activate_to_stack"): "a loyalty ability's cost (606.4: a cost, not an effect; agent A's region)",
     ("casting.py", "suspend"): "time counters on a card in exile (not a permanent: no counter replacement applies)",
     ("recursion.py", "spell_self_move"): "wave 7C: a spell's time counters as it exiles itself (a card in exile, as above)",
+    ("replacements.py", "move_instead"): "wave 50J: the counter an exiling replacement puts on the card it exiled (Rayami: a card in exile, not a permanent)",
+    ("replacements.py", "replace_move"): "wave 50J: the same, for the batch path",
     ("designations.py", "emblem"): "wave 13A: an emblem is not a token (114.1, 111.7): no token-creation replacement applies",
 }
 

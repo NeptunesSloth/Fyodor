@@ -5867,7 +5867,7 @@ LIBRARY_INSTEAD_SELF = re.compile(r"^If ~ would die, put it on (?P<pos>top|the b
 # Statics: "If a creature an opponent controls would die, exile it instead." / Rest in Peace / Leyline of the Void
 EXILE_INSTEAD_STATIC = re.compile(r"^If (?P<subject>a card or token|a card|(?:a|an|another) (?P<sel>[A-Za-z][A-Za-z' ~]+?)) would "
                                   r"(?P<what>die|be put into (?P<whose>a|your|an opponent's) graveyard(?P<any> from anywhere)?), "
-                                  r"exile (?:it|that card) instead\.$")  # (any: "If a permanent would be put into a graveyard" — wave 20B)
+                                  r"exile (?:it|that card)(?: with an? (?P<ctr>[a-z]+) counter on it)? instead\.$")  # (any: "If a permanent would be put into a graveyard" — wave 20B; ctr: wave 50J, Rayami)
 # Prevention: "Prevent all [combat] damage that would be dealt [this turn] [to …] [by …] [this turn]."
 PREVENT_ALL = re.compile(r"^prevent all (?P<kind>combat |noncombat )?damage that would be dealt(?P<t1> this turn)?"
                          r"(?: to (?P<to>.+?))?(?P<t2> this turn)?(?: by (?P<by>.+?))?(?P<t3> this turn)?$")
@@ -6375,7 +6375,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return None
     if m:
         out = {"kind": "static", "static": "exile_instead", "effects": [],
-               **({"rider": rider} if rider is not None else {}),
+               **({"rider": rider} if rider is not None else {}), **({"counter": m["ctr"]} if m["ctr"] else {}),
                "from": "anywhere" if m["any"] else "battlefield",
                "graveyard_of": {"a": "any", "your": "you", "an opponent's": "opponent"}.get(m["whose"] or "a", "any")}
         if m["subject"] in ("a card or token", "a card") and m["what"] != "die" and not m["any"]:
