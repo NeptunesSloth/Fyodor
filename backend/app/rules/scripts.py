@@ -4785,7 +4785,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             if m:
                 name = step_trigger(m) if trigger == "step" else (
                     f"step:end_combat:{'you' if m['mine'] else 'any'}" if trigger == "end_combat_step" else trigger)  # (wave 31D: "any": no player named)
-                if name.startswith("step:") and not name.endswith(":you") and re.search(r"\beach other player\b", m["body"]):
+                if name.startswith("step:") and not name.endswith(":you") and re.search(r"\beach other player\b", re.sub(
+                        r"^if that player (?:controls|has) more [^,]+? than each other player, ", "", m["body"])):  # (wave 49C: the comparison is conditions._MOST, other than that player)
                     return None  # -- if you do (wave 5G) -- "other" than whose step it is, or than you? (not read)
                 # -- trigger limits (app/rules/restrictions.py): "This ability triggers only once
                 # each turn." is split off and enforced as it triggers (triggers._add); "Do this
@@ -8184,6 +8185,22 @@ def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
     return _from_language(language.control_forms(m["t"]))
+
+
+# -- extremes (wave 49C) -- "the player with the most life gains control of this creature." (Wild Dogs, Ghazbán Ogre), "the player who has the most cards in hand …" (Sokenzan
+# Renegade), "the player who controls the most creatures …" (Wild Mammoth), "… Wizards …" (Thoughtbound Primoc): the player whose quantity is greater than every other player's,
+# picked as it resolves (random_choice.pick_most), gains control for good (611.2a); none when they tie
+@_first  # (before the control templates, which decline "<player phrase> gains control of …" they half understand)
+@effect(r"the player (?:with the most (?P<life>life)|who has the most (?P<hand>cards in hand)|who controls the most (?P<what>[A-Za-z]+)) gains control of (?:~|this creature)")
+def _most_gains_control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import conditions
+
+    key = conditions._count(m["what"], "you control") if m["what"] else None
+    value = {"life": "you"} if m["life"] else {"hand": "you"} if m["hand"] else {"count": key} if key else None
+    if value is None:
+        raise _NoMatch
+    return [{"do": "pick_most", "value": value, "as": "pm"}, {"do": "gain_control", "who": "self", "to": "ref:pm"}], None
+
 # -- counters & designations (wave 3E) -- Palace Jailer: "exile target creature an opponent controls until an
 # opponent becomes the monarch" — a delayed trigger (603.7) watching for a player who is an opponent of the
 # ability's controller to become the monarch (725.3; app/rules/designations.py), however long that takes and
