@@ -1753,13 +1753,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if rider is not None:
             raise _Fail
         return [{"do": "damage", "who": "target", "n": {"divided": 0}, **src}], _divided(m["o"], "damage", _amount(m["n"]))
-    m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage to (?P<o1>.+?) and (?P<m>{AMT}) damage to (?P<o2>.+)", text)
+    m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage to (?P<o1>.+?)(?:, (?P<k>{AMT}) damage to (?P<o3>.+?),)? and (?P<m>{AMT}) damage to (?P<o2>.+)", text)
     # -- damage sized by a count (wave 4E) -- "~ deals X damage to target creature and X damage to you, where X is …" (one X for
     # both: 107.3c), "… and X damage to itself" (~ itself: the source)
     if m and (rider is None or (rider[0] == "x" and m["n"].lower() == "x" == m["m"].lower())):
         effects: Effects = []
         groups: list[dict[str, Any]] = []
-        for o, n in ((m["o1"], m["n"]), (m["o2"], m["m"])):
+        for o, n in ((m["o1"], m["n"]), *(((m["o3"], m["k"]),) if m["k"] else ()), (m["o2"], m["m"])):  # (wave 50E: three, Cone of Flame)
             controlled = _that_player_controls(o) if groups else None  # -- damage wordings (wave 6B) -- "… and 1 damage
             # to each creature that player controls" (Radiating Lightning): the first part's target player's
             whos, parts = ([controlled], []) if controlled is not None else _objects("~" if o == "itself" and m["src"] == "~" else o)
@@ -1768,7 +1768,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
             effects.append({"do": "damage", "who": whos[0] if not parts else ("target" if not groups else f"target:{len(groups)}"),
                             "n": _apply(_amount(n), rider), **src})
             groups += parts
-        effects[0]["with_next"] = True  # (dealt at once: one damage event)
+        for joined in effects[:-1]:
+            joined["with_next"] = True  # (dealt at once: one damage event)
         _check_per_player(effects, groups)  # -- damage sized by a count (wave 4E) --
         return effects, _out(groups)
     m = re.fullmatch(rf"(?P<src>~|it) deals (?:(?P<n>{AMT}) damage|damage equal to (?P<stat>.+?)) to (?P<o>.+)", text)
