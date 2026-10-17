@@ -1079,6 +1079,11 @@ def _of_chosen_parity(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "chosen_parity_mv" if m["stat"] == "mana value" else "chosen_parity_power"))
 
 
+@_suffix(r"with (?:an? )?(?P<q>even|odd) (?P<stat>mana values?|power)")  # -- chosen quality (wave 51C) -- "creatures with even mana values" (Void Winnower), "a permanent with an even mana value" (Desecrate Reality): 107.1, the parity test of wave 50J
+def _with_parity(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"parity:{'mv' if m['stat'].startswith('mana') else 'power'}:{m['q']}"))
+
+
 @_suffix(r"with mana value, power, or toughness equal to the chosen number")  # -- commander sweep (wave 49B) -- Talion, the Kindly Lord: any of the three equals the number chosen as it entered
 def _of_chosen_number(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "chosen_number"))

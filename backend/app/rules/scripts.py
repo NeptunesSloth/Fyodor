@@ -2553,6 +2553,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
                   r"Shuffle \1 into its owner's library. Its owner draws \2 cards", body)
     # -- static_other sweep (wave 17C) -- 701.16a: "Its controller investigates." is "Its controller creates a Clue token." (Fateful Absence)
     body = re.sub(r"(?i)\b(its controller|that creature's controller|that permanent's controller) investigates\b", r"\1 creates a Clue token", body)
+    # -- resolution memory (wave 51C) -- "Each player mills four cards. Put a creature card … from among the milled cards onto the battlefield under your control." (Gyruda): the cards every
+    # one of them milled, as "milled this way" names them
+    body = re.sub(r"(?i)\b(each (?:player|opponent) mills [^.]+\. Put an? [^.]+?) from among the milled cards\b", r"\1 milled this way", body)
     body = _split_tails(body, event_player)  # -- activated other (wave 34B) --
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     if re.match(r"(?i)choose a creature type\.", body):  # -- value grammar (wave 23C) -- "Choose a creature type. Draw a card for each creature you control of that type."

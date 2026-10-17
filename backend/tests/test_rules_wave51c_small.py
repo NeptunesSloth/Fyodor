@@ -18,6 +18,7 @@ import pytest
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
+from app.game.errors import ActionError
 from app.rules import coverage, hand_size
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
@@ -41,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -150,4 +151,103 @@ def test_toad_wins_on_twenty_cards_or_twenty_counters(cards, in_hand, counters, 
     attack(s, toad)
     settle(s)
     assert (s.state.rules.winner == "p1") is wins
+    check(s)
+
+
+# -- Render Silent -----------------------------------------------------------------------------------------------------------------------------
+def test_render_silent_stops_the_countered_spells_controller_only(cards):
+    """"Counter target spell. Its controller can't cast spells this turn.": Alice (the spell's controller) can't cast; Bob (who cast Render Silent) is not limited."""
+    s = build(cards, ["Lightning Bolt", "Grizzly Bears"], ["Render Silent"])
+    bolt, bears = to_hand(s, "Lightning Bolt"), to_hand(s, "Grizzly Bears")
+    silent = to_hand(s, "Render Silent", "p2")
+    act(s, "p2", type="set_prefs", response="on")
+    mana(s, "p2", W=1, U=2)
+    mana(s, R=1, G=2)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=silent.id, targets=[bolt.id])
+    settle(s)
+    assert life(s, "p2") == 40 and zone_of(s, "Lightning Bolt") == "p1:graveyard"
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bears.id)
+    assert [x["player"] for x in s.state.rules.cast_limits] == ["p1"]  # (not Bob, who cast Render Silent)
+    check(s)
+
+
+# -- Void Winnower -----------------------------------------------------------------------------------------------------------------------------
+def test_void_winnower_stops_even_spells_of_opponents(cards):
+    s = build(cards, ["Grizzly Bears", "Llanowar Elves"], ["Void Winnower"])
+    put(s, "Void Winnower", "p2")
+    bears, elves = to_hand(s, "Grizzly Bears"), to_hand(s, "Llanowar Elves")
+    mana(s, G=3)
+    with pytest.raises(ActionError):  # (mana value 2 is even)
+        act(s, "p1", type="cast_spell", card_id=bears.id)
+    act(s, "p1", type="cast_spell", card_id=elves.id)  # (mana value 1 is odd)
+    settle(s)
+    assert zone_of(s, "Llanowar Elves") == "p1:battlefield"
+    check(s)
+
+
+def to_blockers(s, limit=40):
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            return
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no blockers asked")
+
+
+def test_void_winnower_stops_even_creatures_of_opponents_blocking(cards):
+    s = build(cards, ["Void Winnower"], ["Grizzly Bears", "Llanowar Elves"])
+    winnower = put(s, "Void Winnower")
+    bears, elves = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+    next_turn(s)
+    attack(s, winnower)
+    to_blockers(s)
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bears.id, "attacker_id": winnower.id}])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": elves.id, "attacker_id": winnower.id}])
+    settle(s)
+    assert zone_of(s, "Llanowar Elves", "p2") == "p2:graveyard"
+    check(s)
+
+
+# -- Desecrate Reality -------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("paid", [{"C": 7}, {"G": 7}])
+def test_desecrate_reality_even_exile_and_odd_return_with_adamant(cards, paid):
+    s = build(cards, ["Desecrate Reality", "Llanowar Elves", "Grizzly Bears"], ["Grizzly Bears", "Llanowar Elves"])
+    bears, elves = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+    mine = [card_named(s, n) for n in ("Llanowar Elves", "Grizzly Bears")]
+    act(s, "p1", type="move", card_ids=[c.id for c in mine], to={"player": "p1", "zone": "graveyard"})
+    desecrate = to_hand(s, "Desecrate Reality")
+    mana(s, **paid)
+    with pytest.raises(ActionError):  # (Llanowar Elves: mana value 1, odd)
+        act(s, "p1", type="cast_spell", card_id=desecrate.id, targets=[elves.id], target_counts=[1])
+    act(s, "p1", type="cast_spell", card_id=desecrate.id, targets=[bears.id], target_counts=[1])
+    settle(s)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:exile" and zone_of(s, "Llanowar Elves", "p2") == "p2:battlefield"
+    back = paid == {"C": 7}  # (adamant: three colorless mana; only the odd card, Llanowar Elves, may return)
+    assert (zone_of(s, "Llanowar Elves") == "p1:battlefield") is back and zone_of(s, "Grizzly Bears") == "p1:graveyard"
+    check(s)
+
+
+# -- Gyruda, Doom of Depths ----------------------------------------------------------------------------------------------------------------------
+def test_gyruda_takes_an_even_creature_milled_by_either_player(cards):
+    s = build(cards, ["Gyruda, Doom of Depths", "Hill Giant", "Llanowar Elves"], ["Grizzly Bears", "Craw Wurm"])
+    for pid, names in (("p1", ["Hill Giant", "Llanowar Elves"]), ("p2", ["Grizzly Bears", "Craw Wurm"])):
+        for name in reversed(names):  # (the top four cards of each library: these two, then two lands)
+            act(s, pid, type="move", card_ids=[card_named(s, name, pid).id], to={"player": pid, "zone": "library"}, position="top")
+    gyruda = to_hand(s, "Gyruda, Doom of Depths")
+    mana(s, U=2, G=4)
+    act(s, "p1", type="cast_spell", card_id=gyruda.id)
+    d = until_asked(s)
+    assert d is not None and d.player == "p1"
+    labels = sorted(o.label for o in d.options)
+    assert labels == ["Craw Wurm", "Grizzly Bears", "Hill Giant"], labels  # (mana values 6, 2, 4 are even: Llanowar Elves, 1, is not offered)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "Grizzly Bears")])
+    settle(s)
+    bears = card_named(s, "Grizzly Bears", "p2")
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[bears.id].controller == "p1"
+    assert zone_of(s, "Llanowar Elves") == "p1:graveyard"
     check(s)
