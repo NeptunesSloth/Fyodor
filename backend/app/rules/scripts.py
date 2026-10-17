@@ -3037,10 +3037,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # so the condition is stated for each (nothing in between changes whether it is attacking)
     body = re.sub(r"\bIf (?:he's|she's|it's|~ is) attacking, untap ~ and (there is an additional combat phase after this phase)\.",
                   r"If ~ is attacking, untap ~. If ~ is attacking, \1.", body)
-    # -- damage wordings (wave 49C) -- "~ deals 1 damage to each nonblack creature and an additional 1 damage to each green creature." (Kaervek's Hex), "… X damage to each creature with flying and 1 additional
-    # damage to each blue creature." (Tropical Storm), "~ deals 2 damage to each attacking creature and 1 damage to you and each creature you control." (Hail Storm): two instructions of one source, in order (608.2c)
-    body = re.sub(r"(~ deals (?:\d+|X) damage to each [^.]+?) and (?:an additional (\d+)|(\d+) additional|(\d+)) damage to ((?:you and )?each [^.]+?)\.",
-                  lambda m: f"{m[1]}. ~ deals {m[2] or m[3] or m[4]} damage to {m[5]}.", body)
+    # -- damage wordings (wave 49C) -- "~ deals 3 damage to each creature without flying if {R} was spent to cast this spell and 3 damage to each creature with flying if {G} was
+    # spent to cast this spell." (Firespout): each half with its own condition, so two sentences (the groups don't overlap; an unconditional pair is one event, _two_damage_parts)
+    body = re.sub(r"(~ deals (?:\d+|X) damage to each [^.]+? if [^.]+?) and (\d+) damage to (each [^.]+? if [^.]+?)\.", r"\1. ~ deals \2 damage to \3.", body)
     # -- card names (wave 49C) -- "If that card has the chosen name, that player puts it into their hand. If it doesn't, the player puts it into their graveyard." (Petra Sphinx): the "Otherwise" of that condition
     body = re.sub(r"(\bIf that card has the chosen name, [^.]+\.) If it doesn't, the player puts it into their graveyard\.", r"\1 Otherwise, that player puts it into their graveyard.", body)
     # -- tokens (wave 47D) -- "Create a white and black Spirit enchantment creature token. It has "This creature's power and toughness are each equal to …"" (Daxos): nothing
@@ -8527,6 +8526,19 @@ def _opponents_who_didnt_draw(m: re.Match[str]) -> tuple[list[dict[str, Any]], A
 @effect(r"it becomes saddled until end of turn")  # -- trigger other (wave 44B) -- Kolodin: the Mount that entered (702.171b)
 def _it_becomes_saddled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "saddle_it", "who": "it"}], None
+
+
+# -- damage wordings (wave 49C; review 41) -- "~ deals 1 damage to each nonblack creature and an additional 1 damage to each green creature." (Kaervek's Hex), "… X damage to each
+# creature with flying and 1 additional damage to each blue creature." (Tropical Storm), "~ deals 2 damage to each attacking creature and 1 damage to you and each creature you
+# control." (Hail Storm): one instruction, so one damage event; a creature in both groups is dealt the sum at once (effects.damage joins ``with_next`` hits)
+@effect(r"~ deals (?P<a>\d+|[xX]) damage to (?P<p>each [^.]+?) and (?:an additional (?P<b>\d+)|(?P<c>\d+) additional|(?P<d>\d+)) damage to (?P<q>(?:you and )?each [^.]+)")
+def _two_damage_parts(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    halves = [h for n, who in ((m["a"], m["p"]), (m["b"] or m["c"] or m["d"], m["q"])) if (h := _one_clause(f"~ deals {n} damage to {who}")) is not None]
+    if len(halves) < 2 or any(h[1] is not None or any(e["do"] != "damage" for e in h[0]) for h in halves):
+        raise _NoMatch
+    effects = [{**e, "with_next": True} for h in halves for e in h[0]]
+    effects[-1].pop("with_next")
+    return effects, None
 
 
 @effect(r"counter that spell")

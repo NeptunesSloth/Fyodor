@@ -166,3 +166,21 @@ def test_druid_class_level_three_makes_a_land_a_creature_as_big_as_your_lands(ca
     ch = chars(s, land)
     assert (sba.power(land, ch), sba.toughness(land, ch)) == (4, 4) and s.state.players["p1"].life == 41  # (landfall: 1 life)
     check(s)
+
+
+# -- lead, after review 41: one damage sentence is one damage event ----------------------------------------------------------------------------------
+
+
+def test_kaervek_s_hex_deals_a_green_creature_its_two_damage_at_once(cards):
+    """120.3, 603.2c (Enrage rulings: damage dealt at once triggers once): "1 damage to each nonblack creature and an additional 1 damage to each
+    green creature" is one instruction; the green creature is dealt 2 in one event, so "whenever this creature is dealt damage" triggers once
+    (a black creature, dealt nothing, is wave 49C's test)."""
+    s = build(cards, ["Kaervek's Hex", "Ripjaw Raptor"])
+    raptor = put(s, "Ripjaw Raptor")
+    hex_ = to_hand(s, "Kaervek's Hex")
+    before = len(s.state.zones["p1:hand"])
+    mana(s, B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=hex_.id)
+    settle(s)
+    assert len(s.state.zones["p1:hand"]) == before - 1 + 1 and s.state.cards[raptor.id].damage == 2
+    check(s)

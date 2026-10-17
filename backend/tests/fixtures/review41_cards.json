@@ -177,5 +177,39 @@
   ],
   "power": "4",
   "toughness": "4"
+ },
+ {
+  "name": "Ripjaw Raptor",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Dinosaur",
+  "oracle_text": "Enrage — Whenever this creature is dealt damage, draw a card.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Enrage"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Kaervek's Hex",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Kaervek's Hex deals 1 damage to each nonblack creature and an additional 1 damage to each green creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
  }
 ]
