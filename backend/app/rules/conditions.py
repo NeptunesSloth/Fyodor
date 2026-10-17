@@ -594,6 +594,10 @@ def _more_ifs(t: str) -> Condition | None:
     key = _count("permanents", "you control")
     if m and _num(m["n"]) is not None and key is not None:
         return {"value": {"distinct": "colors", "among": key}, "op": ">=", "n": _num(m["n"])}
+    m = re.fullmatch(r"there are (?P<n>\w+) basic land types among lands you control", t)  # -- trigger other (wave 44D) -- 205.3i: "five basic land types" (Nael, Avizoa Aeronaut)
+    land_key = _count("lands", "you control")
+    if m and _num(m["n"]) is not None and land_key is not None:
+        return {"value": {"distinct": "basic_land_types", "among": land_key}, "op": ">=", "n": _num(m["n"])}
     m = _EXACT_LIFE.fullmatch(t)
     if m and _num(m["n"]) is not None:
         return {"value": {"life": "you"}, "op": "==", "n": _num(m["n"])}

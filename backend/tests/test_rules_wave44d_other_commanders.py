@@ -38,8 +38,9 @@ MINN, MASTER, VONDAM = "Minn, Wily Illusionist", "The Master of Lake-town", "Syr
 HISOKA, MAGETA, JOLRAEL = "Hisoka, Minamo Sensei", "Mageta the Lion", "Jolrael, Empress of Beasts"
 WILL, ROWAN, ZIMONE, AGATHA = "Will, Scion of Peace", "Rowan, Scion of War", "Zimone, Infinite Analyst", "Agatha of the Vile Cauldron"
 TIFA, HULK, AZULA = "Tifa, Martial Artist", "Bruce Banner // The Incredible Hulk", "Azula, Ruthless Firebender"
+NAEL = "Nael, Avizoa Aeronaut"
 FULL = [BRISELA, NEVINYRRAL, KNIGHT, ELLIE, MEREN, BORTUK, JACE, NISSA, SHEOLDRED, ZUKO, MIZZIX, WITCH, MINN, MASTER, VONDAM, HISOKA, MAGETA, JOLRAEL, WILL, ROWAN,
-        ZIMONE, AGATHA, TIFA, HULK, AZULA]
+        ZIMONE, AGATHA, TIFA, HULK, AZULA, NAEL]
 
 
 @pytest.fixture()
@@ -604,4 +605,31 @@ def test_azula_gets_none_when_nobody_discarded(cards):
         act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options] if d.kind == "order" else [])  # (order both, decline the discard)
     pass_until_stack_empty(s)
     assert exp(s) == 0 and not s.state.zones["p1:graveyard"]
+    check(s)
+
+
+def nael_hits(cards, basics):
+    s = build(cards, [NAEL, *basics], [])
+    nael = put(s, NAEL)
+    for name in ("Forest", *basics):
+        put(s, name)
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": nael.id, "target": "p2"}])
+    hand = len(s.state.zones["p1:hand"])
+    to_phase(s, "combat_damage")
+    settle_all(s)
+    return s, hand
+
+
+def test_nael_draws_when_the_lands_have_all_five_basic_land_types(cards):
+    s, hand = nael_hits(cards, ["Island", "Swamp", "Mountain", "Plains"])
+    assert len(s.state.zones["p1:hand"]) == hand + 1
+    check(s)
+
+
+def test_nael_does_not_draw_with_fewer_basic_land_types(cards):
+    s, hand = nael_hits(cards, ["Island"])
+    assert len(s.state.zones["p1:hand"]) == hand
     check(s)
