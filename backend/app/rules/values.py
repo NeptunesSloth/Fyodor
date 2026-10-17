@@ -456,6 +456,10 @@ def _sized(what: str, it: str | None) -> Value | None:
 # "cards you've drawn this turn", "creatures that died this turn", "opponent who drew two or more cards this turn".
 _TURN_LIFE = re.compile(r"^(?:the )?(?:amount of )?life you(?:'ve| have)? (?P<k>gained|lost) this turn$")
 _TURN_SPELL = re.compile(r"^spell (?P<who>you|they)(?:'ve| have) cast this turn$")
+# -- this-turn state (wave 42B) -- 119.3, 608.2h: "the amount of life you gained this turn or the amount of life you lost this turn, whichever is greater"
+# (Willowdusk, Essence Seer): the larger of the two totals the turn's log keeps (neither is the net change: 119.3)
+_TURN_LIFE_GREATER = re.compile(r"^(?:the )?amount of life you(?:'ve| have)? (?:gained|lost) this turn or the amount of life you(?:'ve| have)? "
+                                r"(?:lost|gained) this turn, whichever is greater$")
 _TURN_CAST = re.compile(r"^(?:the number of )?(?P<other>other )?(?:(?P<sel>[a-z]+(?: (?:and|or) [a-z]+)?) )?spells?"
                         r"(?: (?P<who>you|they)(?:'ve| have))? cast(?P<before> before it)? this turn(?P<first> other than the first)?$")
 _TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
@@ -490,6 +494,8 @@ def _turn_amount(what: str) -> Value | None:
     m = _TURN_LIFE.match(what)
     if m:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
+    if _TURN_LIFE_GREATER.match(what):
+        return {"turn_history": "life_greater"}  # (-- this-turn state (wave 42B) --)
     if (m := _TURN_SPELL.match(what)):
         return {"spells_cast": "you" if m["who"] == "you" else "event_player"}
     if (m := _TURN_CAST.match(what)):  # -- this-turn history (wave 30R) -- "instant and sorcery spells you've cast", "other spells", "spells cast"

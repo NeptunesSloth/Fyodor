@@ -44,7 +44,9 @@ Condition = dict[str, Any]
 _N = values.NUMBERS | {"no": 0}
 _OPS = {">=": lambda a, b: a >= b, "<=": lambda a, b: a <= b, "==": lambda a, b: a == b,
         ">": lambda a, b: a > b, "<": lambda a, b: a < b,
-        "parity": lambda a, b: a % 2 == b}  # (-- spell grants (wave 30T) -- "~'s power is even / odd" (Kianne): b 0 even, 1 odd; 0 is even, a negative odd)
+        "parity": lambda a, b: a % 2 == b,  # (-- spell grants (wave 30T) -- "~'s power is even / odd" (Kianne): b 0 even, 1 odd; 0 is even, a negative odd)
+        # -- counters (wave 41A) -- "you control a prime number of lands" (Zimone, All-Questioning): 2, 3, 5, 7 … (a number greater than 1 with no divisor but 1 and itself)
+        "prime": lambda a, b: a > 1 and all(a % d for d in range(2, int(a ** 0.5) + 1))}
 
 
 def _num(word: str) -> int | None:
@@ -173,6 +175,7 @@ _SAME_NAME_OF = re.compile(r"it (?:doesn't|does not) have the same name as .+") 
 # attached to it), "~ is monstrous" (701.37b), "it's renowned" (702.112b)
 _ATTACHED = {"enchanted": ("Aura",), "equipped": ("Equipment",), "enchanted or equipped": ("Aura", "Equipment")}
 _BEATS_SELF = re.compile(r"(?P<who>it|that creature) has greater (?P<a>power|toughness)(?: or (?P<b>power|toughness))? than ~|"
+                         r"(?P<who3>it|that creature) had power greater than ~'s(?: power)?|"  # (-- counters (wave 41A) -- Drizzt Do'Urden: as it last existed, 608.2h)
                          r"(?P<who2>its|that creature's) power is greater than ~'s(?: power)?"
                          r"(?: (?:or|and/or) (?:its|that creature's) toughness is greater than ~'s toughness)?")  # (and/or: 702.100a, wave 15E)
 # -- counters (wave 33C) -- "put a +1/+1 counter on that creature if its power is less than Shelinda's power": the same comparison the other way
@@ -269,6 +272,12 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     m = _EVENT_ATTACKING.fullmatch(t)
     if m and (n := _num(m["n"])) is not None:  # -- trailing & intervening ifs (wave 38A) -- 508.5, 603.4 (Mangara, Tomik): read again as the ability resolves
         return {"event_attacking": n}
+    m = re.fullmatch(r"the number of attacking creatures is greater than the number of (?P<k>\+1/\+1|-1/-1|[a-z]+) counters on ~", t)
+    if m and (key := _count("attacking creatures", "")) is not None:  # -- counters (wave 41A) -- ED-E, Lonesome Eyebot: counted as it triggers and again as it resolves (603.4; the ruling of 2024-03-08)
+        return {"value": {"count": key}, "op": ">", "n": {"counters": m["k"], "on": "self"}}
+    m = re.fullmatch(r"you control a prime number of (?P<what>lands|creatures|artifacts|enchantments)", t)
+    if m and (key := _count(m["what"], "you control")) is not None:  # -- counters (wave 41A) -- Zimone, All-Questioning: read as it triggers and as it resolves (603.4)
+        return {"value": {"count": key}, "op": "prime", "n": 0}
     m = _DIFFERENT_POWERS.fullmatch(t)
     if m:  # "you control three or more creatures with different powers"
         n = _num(m["n"])
@@ -801,6 +810,12 @@ def _self_dealt(m: re.Match[str]) -> Condition:
     return {"history": "damage", "who": "opponent", "n": 1, "by_self": True, "object": "self", **({"combat": True} if m["kind"] else {})}
 
 
+@_history_pattern(r"a source you controlled dealt (?P<n>\w+) or more damage this turn")
+def _source_dealt(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])  # -- this-turn state (wave 42B) -- 120.3, 608.2i: ONE source's total over every recipient and every damage event (Dragon Cultist)
+    return None if n is None else {"history": "source_damage", "who": "you", "n": n}
+
+
 @_history_pattern(r"(?P<q>a|an|one or more|\w+ or more) (?P<sel>.+? cards?) (?:was|were) put into your graveyard from anywhere this turn")
 def _to_graveyard(m: re.Match[str]) -> Condition | None:
     q = _q(m["q"])
@@ -1003,7 +1018,7 @@ def _entered_opponent(m: re.Match[str]) -> Condition | None:
 
 # (-- this-turn history (wave 30R) -- "a nontoken creature you controlled died", "a creature an opponent controlled died", "a permanent was put
 # into your hand from the battlefield" (Barrin): who controlled it as it left, and the zone it went to, both recorded as it left (Departure))
-@_history_pattern(rf"{_Q} (?P<sel>.+?)(?P<ctl> you controlled| an opponent controlled)? "
+@_history_pattern(rf"{_Q} (?P<sel>.+?)(?P<nn> not named ~)?(?P<ctl> you controlled| an opponent controlled)? "
                   r"(?P<verb>died|left the battlefield|(?:was|were) put into (?P<gy>a|your) (?P<dest>graveyard|hand) from the battlefield)"
                   r"(?P<whose> under your control| under an opponent's control)? this turn")
 def _departed(m: re.Match[str]) -> Condition | None:
@@ -1014,6 +1029,8 @@ def _departed(m: re.Match[str]) -> Condition | None:
         return None
     out: Condition = {"history": "departed", "sel": key, "n": q[0], "op": q[1],
                       "died": not m["verb"].startswith("left") and m["dest"] != "hand"}  # 700.4: dies = put into a graveyard from the battlefield
+    if m["nn"]:
+        out["not_named"] = True  # -- this-turn state (wave 42B) -- "a creature not named ~ died this turn" (Ebondeath): its name as it last existed (201.2, 608.2i)
     if m["dest"] == "hand":
         out["to"] = "hand"  # (400.3: a permanent goes to its owner's hand — "your hand" is read as its owner's)
         if m["gy"] != "your":
@@ -1096,6 +1113,13 @@ def _object_attacked_or_blocked(m: re.Match[str]) -> Condition:
 @_history_pattern(r"(?P<o>it|that (?:creature|permanent|token)) entered this turn")  # (~: entered_self)
 def _object_entered(m: re.Match[str]) -> Condition:
     return _obj(m, "entered")
+
+
+# -- counters (wave 41A) -- 700.4: "Whenever another creature you control leaves the battlefield, if it didn't die, …" (Taeko, the Patient Avalanche): it went
+# somewhere other than a graveyard; the turn's departures keep where each went (Departure.to), found by the object's id, fixed once it left (603.4)
+@_history_pattern(r"(?P<o>it|that (?:creature|permanent)) (?:didn't|did not) die")
+def _object_didnt_die(m: re.Match[str]) -> Condition:
+    return _obj(m, "died", negate=True)
 
 
 @_history_pattern(rf"{_HO} enlisted a creature this combat")
@@ -1406,7 +1430,7 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if "main_phase" in cond:  # -- combat (wave 5C) --
         return plan.state.turn.phase in ("main1", "main2") and plan.state.turn.active_player == ctx["controller"]
     v = cond["value"]
-    n = cond["n"]
+    n = values.evaluate(plan, ctx, cond["n"]) if isinstance(cond["n"], dict) else cond["n"]  # (-- counters (wave 41A) -- a count against a count: ED-E)
     if cond.get("per_opponent") and "player_counters" in v:  # (wave 3E) "an opponent has three or more poison counters"
         per = [values.evaluate(plan, {**ctx, "controller": p}, v) for p in plan.live() if p != ctx["controller"]]
         return any(_OPS[cond["op"]](x, n) for x in per)
@@ -1417,7 +1441,7 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return any({">=": x >= n, "<=": x <= n, "==": x == n}[cond["op"]] for x in per)
     got = plan.state.players[ctx["controller"]].life if "life" in v and v["life"] != "player_min" \
         else values.evaluate(plan, ctx, v)  # (player_min: "a player has 13 or less life", wave 6E)
-    return {">=": got >= n, "<=": got <= n, "==": got == n}[cond["op"]]
+    return _OPS[cond["op"]](got, n)  # (-- counters (wave 41A) -- all of them: "prime" too)
 
 
 def _attack_on_me(plan: Plan, me: str, target: str | None) -> bool:

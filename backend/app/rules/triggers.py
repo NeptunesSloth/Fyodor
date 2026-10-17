@@ -62,7 +62,7 @@ from app.game.rules_state import (
     emit,
     track,
 )
-from app.game.state import COMBAT_PHASES, CardInstance, MergedPart, StackInfo, TokenDef
+from app.game.state import COMBAT_PHASES, AttackTarget, CardInstance, MergedPart, StackInfo, TokenDef
 from app.rules import characteristics as chars
 from app.rules import delayed, designations, layers, scripts, selectors
 from app.rules.characteristics import Characteristics
@@ -351,9 +351,14 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
     """The object as it last existed on the battlefield (603.10a: leaves-the-battlefield triggers
     look back in time)."""
     ch = _lki_characteristics(plan, snap)
+    # (-- counters (wave 41A) -- 603.10a, 608.2h: "an attacking creature you control dies" (Death Tyrant, Kardur): it was attacking (and whom) / blocking / tapped as it
+    # last existed — a selector that asks reads these of the dead object too)
+    kind, _, ident = (snap.attack_on or "").partition(":")
+    attacking = AttackTarget(kind="card" if kind == "card" else "player", id=ident) if snap.attacking else None
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, is_token=snap.is_token,
-                        attached_to=snap.attached_to, attached_player=snap.attached_player,
+                        attached_to=snap.attached_to, attached_player=snap.attached_player, tapped=snap.tapped,
+                        attacking=attacking, blocking="blocking" if snap.blocking else None,
                         counters=dict(snap.counters))  # (wave 3S: "each page counter on this Aura", 608.2h)
     if snap.x is not None:  # -- stack interaction (wave 5B) -- a spell's X as it last existed on the stack (202.3e)
         card.stack_info = StackInfo(x=snap.x)
@@ -679,6 +684,9 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
             return snap is not None and watcher.id in snap.attached
         return watcher.attached_to is not None and obj.id == watcher.attached_to
     if subject == "source":  # -- source damage (wave 11F) -- "a source you control / an opponent controls deals damage": its controller
+        if cond.get("color") and not (och is not None and (not och.colors if cond["color"] == "colorless"  # -- counters (wave 41A) -- "a red source": 105.2
+                                                          else selectors.COLORS[cond["color"]] in och.colors)):
+            return False
         return int(info.get("amount") or 0) > 0 and (cond.get("ctl", "any") == "any" or (cond["ctl"] == "you") == (player == you))
     if subject == "self_or_host":  # "~ or equipped creature"
         return obj.id == watcher.id or (watcher.attached_to is not None and obj.id == watcher.attached_to)
@@ -786,6 +794,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if cond.get("first_each_turn") and event in ("dealt_damage", "deal_combat_damage_player", "counters_put") and not _first_of(plan, cond, event, info):
         return False  # (wave 39B)
     if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)
+        return False
+    if event == "tapped" and cond.get("first_each_turn") and not info.get("first"):  # (wave 42B)
         return False
     if event == "discard" and cond.get("first_each_turn") and not _first_discard(plan, cond, player, info):  # (wave 36A)
         return False
@@ -953,6 +963,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return defended not in (you, info.get("attacker"))
     if want == "enchanted_player":
         return defended == watcher.attached_player
+    if want == "monarch":  # -- this-turn state (wave 42B) -- 725.1: the player attacked is the monarch now (as the attack is declared)
+        return plan is not None and defended == plan.state.table.monarch
     if want == "most_life":  # -- keywords (wave 15E) -- 702.105a: the player attacked has the most life or is tied for it
         return plan is not None and plan.state.players[defended].life >= max(plan.state.players[p].life for p in plan.live())
     return want == "player"
@@ -1252,6 +1264,11 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
         for f in facts:
             if f[0] in ("discard", "dealt_damage", "deal_combat_damage_player", "counters_put"):
                 f[4]["batch"] = e.batch  # -- trigger other (wave 36A) -- the event batch, for "for the first time each turn" (_first_discard; wave 39B: _first_of)
+        for f in facts:  # -- this-turn state (wave 42B) -- 603.2: "a creature becomes tapped for the first time each turn", kept per object per turn (400.7: a new object
+            if f[0] == "tapped" and f[4].get("oid"):  # is untapped and has not become tapped yet) whoever watches, so an ability that began mid-turn counts earlier taps
+                key = f"tapped:{f[4]['oid']}"
+                f[4]["first"] = r.once_per_turn.get(key) != plan.state.turn.number
+                r.once_per_turn[key] = plan.state.turn.number
         for f in facts:  # -- trigger qualifiers (wave 11C) -- 603.2: "for the first time each turn", kept per player whoever watches
             if f[0] in _FIRST_KINDS and f[3] and int(f[4].get("amount") or 0) > 0:
                 key = f"first:{f[0]}:{f[3]}"

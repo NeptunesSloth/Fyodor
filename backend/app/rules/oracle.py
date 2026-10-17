@@ -20,7 +20,7 @@ _MANA_ABILITY = re.compile(
     rf"^\{{T\}}: Add (?:{_MANA_SYMBOL}(?:{_MANA_SYMBOL})*(?:(?:, | or |, or ){_MANA_SYMBOL})*|one mana of any color)\.$"
 )
 _LOYALTY = re.compile(r"^[+−-]?\d+: |^[+−-]X: ")
-_TRIGGER = re.compile(r"^(?:[A-Z][A-Za-z0-9'’!?,\- ]+ — )?(When|Whenever|At) ")  # (wave 6E: "Exterminate! — When …")  # an ability word ("Landfall — ") may lead
+_TRIGGER = re.compile(r"^(?:[A-Z][\w'’!?,\- ]+ — )?(When|Whenever|At) ")  # (wave 6E: "Exterminate! — When …"; wave 41A: a letter with a mark, "Pavitr's Sevā — When …")  # an ability word ("Landfall — ") may lead
 # (-- ability words (wave 4F) -- digits too: "Descend 4 — Whenever …", 207.2c)
 # (-- attached events (wave 4L) -- "Equipped creature has "{T}: …"" is a static granting an ability, not a cost)
 _COST_START = re.compile(
@@ -148,7 +148,8 @@ _ADD_MANA = re.compile(r"^(?P<cost>[^:]+): (?:Choose a color(?: of (?:a permanen
 # 702.160 prototype), Case conditions (719.3 "To solve —", "Solved —"), Saga chapters (714.2b),
 # "Corrupted —" (-- ability words (wave 4F) -- read like an ability word: scripts.ABILITY_WORDS).
 # Anything else is a flavor word only when what follows is a trigger or a cost-led activated ability; other lines are left as they were.
-_WORD_PREFIX = re.compile(r"^(?P<w>[A-Z][A-Za-z0-9'’!?,\- ]{0,48}?) — (?P<rest>\S.*)$")
+# (-- counters (wave 41A) -- \w: a flavor word may carry a mark on a letter, "Pavitr's Sevā — Whenever …" (Spider-Man India); 207.2d)
+_WORD_PREFIX = re.compile(r"^(?P<w>[A-Z][\w'’!?,\- ]{0,48}?) — (?P<rest>\S.*)$")
 _NOT_FLAVOR = frozenset({"max speed", "power-up", "exhaust", "boast", "forecast", "visit", "companion", "prototype",
                          "solved", "to solve", "station", "level up",
                          "prize"})  # (-- review (wave 6R) -- "Prize —" is part of an Attraction's visit ability: 702.159b)

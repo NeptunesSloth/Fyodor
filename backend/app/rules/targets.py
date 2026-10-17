@@ -60,9 +60,12 @@ SELECTORS: dict[str, tuple[bool, Check | None]] = {
     # (a player, or any planeswalker: not only an opponent's)
     "player_or_planeswalker": (True, _types("Planeswalker")),
     "opponent_or_planeswalker": (True, _types("Planeswalker")),
+    # -- damage sized by a count (wave 42D) -- "target opponent or battle" (Ayara), "target player or battle" (Onakke Javelineer): a player, or any battle
+    "player_or_battle": (True, _types("Battle")),
+    "opponent_or_battle": (True, _types("Battle")),
     "permanent_or_player": (True, lambda plan, who, card, ch: True),  # -- counter kinds (wave 24C) -- "target permanent or player"
 }
-OPPONENTS_ONLY = ("opponent", "opponent_or_planeswalker")
+OPPONENTS_ONLY = ("opponent", "opponent_or_planeswalker", "opponent_or_battle")
 
 
 SPELL_SELECTORS: dict[str, Callable[[Characteristics], bool]] = {

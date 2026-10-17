@@ -1625,13 +1625,15 @@ def source_info(plan: Plan, card_id: str | None, oid: str | None, ch: Any, contr
     card = plan.state.cards.get(card_id or "")
     spell = bool(card is not None and card.zone == "stack" and card.ability is None)
     ctrl = controller
+    counters: dict[str, int] = {}
     if card is not None and (card.zone.endswith(":battlefield") or card.zone == "stack") and (oid is None or plan.oid(card) == oid):
-        ctrl = card.controller
+        ctrl, counters = card.controller, card.counters
     elif oid and oid in plan.rules.lki:
-        ctrl = plan.rules.lki[oid].controller
+        ctrl, counters = plan.rules.lki[oid].controller, plan.rules.lki[oid].counters
     return {"card": card_id, "controller": ctrl, "spell": spell,
             "colors": sorted(ch.colors) if ch is not None else [], "types": sorted(ch.types) if ch is not None else [],
-            "subtypes": sorted(ch.subtypes) if ch is not None else []}
+            "subtypes": sorted(ch.subtypes) if ch is not None else [],
+            "has_counters": any(n > 0 for n in counters.values())}  # (-- counters (wave 41A) -- "a creature you control with a counter on it", Raphael, the Muscle)
 
 
 def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -> bool:
@@ -1656,6 +1658,8 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
     if spec.get("controller") == "opponent" and src.get("controller") in (None, c.controller):
         return False
     if spec.get("spell") and not src.get("spell"):
+        return False
+    if spec.get("has_counters") and not src.get("has_counters"):  # (wave 41A: a source with a counter of any kind on it as it would deal the damage)
         return False
     if spec.get("colors") and not set(spec["colors"]) & set(src.get("colors") or ()):
         return False

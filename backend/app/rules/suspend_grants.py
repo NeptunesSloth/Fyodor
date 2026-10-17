@@ -30,7 +30,7 @@ _COUNTED = re.compile(r"\b(?P<e>[Ee])xile (?P<what>it|that card|target [^.,]+?) 
 
 
 _FOUND = re.compile(r"(exile cards from the top of your library until you exile an? [^.,]+?)\. Put (?P<n>an?|one|two|three|four|five|six|seven|eight|nine|ten) "
-                    r"time counters on that card\. It gains suspend\.")
+                    r"time counters on (?:that card|it)\. It gains suspend\.")  # (-- counters (wave 41A) -- "Put three time counters on it": The Tenth Doctor)
 
 
 def rewrite(body: str) -> str:
