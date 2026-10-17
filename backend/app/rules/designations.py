@@ -372,9 +372,8 @@ _ROOM_EFFECTS: dict[tuple[str, str], list[dict[str, Any]]] = {
 # with them, app/rules/replacements.py)
 _THRONE = ("Reveal the top ten cards of your library. Put a creature card from among them onto the battlefield. It gains "
            "hexproof until your next turn. Then shuffle.")
-# Room abilities left to the players (a decision to resolve them by hand), and why: goad (701.15) is a
-# combat requirement the engine doesn't enforce.
-_BY_HAND = {("Undercity", "Arena")}
+# (-- dungeons (wave 45B) -- no room is left to the players now: Undercity's Arena, "Goad target creature.", is the goad keyword action,
+# 701.15, enforced as a combat requirement by app/rules/combat_rules.py.)
 
 
 def room(dungeon: str, name: str) -> Room:
@@ -387,8 +386,6 @@ def room_definition(dungeon: str, name: str) -> dict[str, Any] | None:
     definition, or None when the players resolve it by hand."""
     from app.rules import scripts
 
-    if (dungeon, name) in _BY_HAND:
-        return None
     effects = _ROOM_EFFECTS.get((dungeon, name))
     if effects is not None:
         return {"kind": "triggered", "trigger": "room", "effects": effects, "optional": False, "target": None}
@@ -957,8 +954,7 @@ def unautomated(definition: dict[str, Any]) -> str | None:
             wants.add("undercity")
     for into in sorted(wants):
         if not venture_automated(into):
-            return "a dungeon room is resolved by hand (" + ", ".join(
-                f"{d}: {n}" for d, n in sorted(_BY_HAND) if (d == UNDERCITY) == (into == "undercity")) + ")"
+            return "a dungeon room is resolved by hand"
     return None
 
 
