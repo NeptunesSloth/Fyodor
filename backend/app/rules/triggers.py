@@ -1228,6 +1228,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 per = ""  # -- life floor (wave 35C) -- "one or more opponents lose life": every player's loss of the batch is one event (603.2c)
             if cond.get("subject") == "source":  # "that source's controller" is the event's player
                 event.players = [fact[3]] if fact[3] else []
+            if cond.get("cause") == "opponent" and info.get("by"):  # -- discard causes (wave 50E) -- "that player loses 5 life" (Psychic Purge): the opponent whose spell or ability did it, not the discarder
+                event.players = [info["by"]]
             if anykind:  # (its steps are in batches of their own: keyed by the instruction, not the batch)
                 per, batch_key = f"{info.get('oid')}:{info['group']}", 0
             else:

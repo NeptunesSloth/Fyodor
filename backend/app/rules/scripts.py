@@ -463,6 +463,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
             return "event" if all(x in _STAYING for x in cond["events"]) else None
         return "self" if all(x in _STAYING for x in cond["events"]) else None
     if name.endswith("_self") or cond.get("subject") == "self":
+        if event == "discard":
+            return "event"  # -- discard causes (wave 50E) -- "When a spell or ability an opponent controls causes you to discard this card, it deals 4 damage …": this card, now in the graveyard (701.9a)
         if event in _GONE or event == "sacrifice":
             return "self_gone"
         return "self" if event in _STAYING or event is None else None
@@ -3040,6 +3042,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # -- damage wordings (wave 49C) -- "~ deals 3 damage to each creature without flying if {R} was spent to cast this spell and 3 damage to each creature with flying if {G} was
     # spent to cast this spell." (Firespout): each half with its own condition, so two sentences (the groups don't overlap; an unconditional pair is one event, _two_damage_parts)
     body = re.sub(r"(~ deals (?:\d+|X) damage to each [^.]+? if [^.]+?) and (\d+) damage to (each [^.]+? if [^.]+?)\.", r"\1. ~ deals \2 damage to \3.", body)
+    # -- damage wordings (wave 50E) -- "~ deals 1 damage to any target, 2 damage to another target, and 3 damage to a third target." (Cone of Flame), "… 2 damage to target creature, 3 damage to another target
+    # creature, and 4 damage to a third target creature." (Serpentine Spike): three targets chosen as it is cast (115.1, 601.2c), each different from the others, then one damage instruction each, in order (608.2c)
+    # ponytail: three events in order, not one simultaneous event (120.3): the targets are three different objects, so only a "one or more" batch trigger could tell
+    body = re.sub(r"(~ deals) (\d+) damage to (any target|target [a-z ]+?), (\d+) damage to another target( [a-z ]+?)?, and (\d+) damage to a third target( [a-z ]+?)?(?=\.)",
+                  lambda m: f"{m[1]} {m[2]} damage to {m[3]}. ~ deals {m[4]} damage to another target{m[5] or ''}. ~ deals {m[6]} damage to another target{m[7] or ''}", body)
     # -- card names (wave 49C) -- "If that card has the chosen name, that player puts it into their hand. If it doesn't, the player puts it into their graveyard." (Petra Sphinx): the "Otherwise" of that condition
     body = re.sub(r"(\bIf that card has the chosen name, [^.]+\.) If it doesn't, the player puts it into their graveyard\.", r"\1 Otherwise, that player puts it into their graveyard.", body)
     # -- tokens (wave 47D) -- "Create a white and black Spirit enchantment creature token. It has "This creature's power and toughness are each equal to …"" (Daxos): nothing
@@ -4503,7 +4510,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if d is not None and d.get("kind") == "static" and "flanking" in str(d.get("who")) and any(str(g).lower() == "flanking" for g in d.get("grants") or []):
         return None  # -- trigger other (wave 39A) -- "Other creatures you control with flanking have flanking" (Cavalry Master) is another instance of it for each: triggers.flanking counts printed ones only
     if d is not None and "blocking_source" in json.dumps(d, default=str) and not (
-            d.get("kind") == "activated" or d.get("kind") == "triggered" and (
+            d.get("kind") == "activated" or (d.get("kind"), d.get("static")) == ("static", "prevent") or d.get("kind") == "triggered" and (  # (wave 50E: a prevention shield)
                 str(d.get("trigger", "")).endswith("_self") or (d.get("cond") or {}).get("subject") == "self")):
         return None
     # -- combat (wave 5C) -- "attacks each combat if able" needs its duration
@@ -4998,6 +5005,15 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     body = re.sub(r"\breturn ~ to the battlefield under ~'s owner's control(?P<w> with (?:an?|\w+) [^.]*? counters? on) ~(?=\.)",
                                   r"return it to the battlefield under its owner's control\g<w> it", body)
                     body = re.sub(r"(?<=\. )~ loses all abilities and gains (haste)\.$", r"It loses all abilities. It gains \1.", body)
+                if ante == "event" and cond is not None and cond.get("event") == "discard" and cond.get("subject") == "self":
+                    # -- discard causes (wave 50E) -- "… you gain 2 life, and you return this card from your graveyard to your hand at the beginning of the next end
+                    # step." (Mangara's Blessing, Sand Golem, Pure Intentions): the discarded card, found where it went (400.7e) if it is still there, as "return it …"
+                    body = re.sub(r",? and (?:you )?return this card from your graveyard to ", ". Return it to ", body)
+                    body = body.replace("return this card from your graveyard to ", "return it to ")
+                    body = re.sub(r"^it deals ", "~ deals ", body)  # (Guerrilla Tactics: the card is the source of its own ability's damage, 113.6m)
+                if ante == "self" and (it_ := re.search(r"damage that would be dealt (?:to|by) it\b", body)) is not None and ". " not in body[:it_.start()] \
+                        and "target" not in body[:it_.start()]:  # -- damage wordings (wave 50E) -- "Whenever this creature becomes blocked, prevent all combat damage that would be dealt by it this turn." (Ignoble Soldier), "… all damage that would be dealt to it this turn is dealt to target creature instead." (Karona's Zealot):
+                    body = body[:it_.end() - 2] + "~" + body[it_.end():]  # "it" of the first sentence is the source itself (written ~), when no earlier target or object could be meant
                 body = _may_have(body, ante)  # -- trigger tail (wave 15B) --
                 to_gy = cond is not None and cond.get("event") == "to_graveyard" and cond.get("subject") == "self"
                 if to_gy:  # -- trigger tail (wave 15B) -- 603.6c: the card is in its owner's graveyard, whose owner controls the ability
@@ -5271,6 +5287,8 @@ def _targeted(cond: dict[str, Any] | None) -> bool:
 
 def _has_player(cond: dict[str, Any]) -> bool:
     """Does the event name a player ("that player")? The player who acted, or who was dealt damage."""
+    if cond.get("cause") == "opponent":
+        return cond["event"] == "discard"  # -- discard causes (wave 50E) -- "that player loses 5 life": the opponent whose spell or ability caused it (triggers._fire_generic)
     if cond.get("subject") == "player" or cond["event"] in _PLAYER_EVENTS:
         return True
     if _targeted(cond):  # -- triggers (wave 19B; wave 21B: any controller) -- the player whose spell or ability it was
@@ -5352,7 +5370,8 @@ def _event_refs_ok(d: Definition) -> bool:
     if "blocking_source" in json.dumps(d) or "blocked_by_source" in json.dumps(d):
         self_trigger = d.get("kind") == "triggered" and _trigger_antecedent(str(d.get("trigger")), d.get("cond")) == "self"
         mine = d.get("kind") == "activated" and not re.search(r"\b[Ss]acrifice (?:this|~)", str(d.get("cost")))
-        if not (self_trigger or mine):
+        shield = d.get("kind") == "static" and d.get("static") == "prevent"  # -- damage wordings (wave 50E) -- 615.1: "Prevent all damage that would be dealt to this creature by creatures it's blocking" (Wall of Vapor): the shield's source is on the battlefield (replacements._object_matches)
+        if not (self_trigger or mine or shield):
             return False
     # (-- random choices (wave 47B) -- a reflexive ability that follows "Choose a player at random." binds its own: effects.reflexive ``players_from``)
     unbound = json.dumps({**d, "effects": [e for e in d.get("effects") or [] if not e.get("players_from")]})
