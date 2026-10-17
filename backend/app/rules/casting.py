@@ -1290,7 +1290,7 @@ def record_payment(plan: Plan, card_id: str, record: PaymentRecord) -> None:
     r.payments[plan.oid(card_id)] = record
 
 
-def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCost, what: str, *,
+def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect, cost: M.ManaCost, what: str, *,  # (-- licids (wave 50A) -- EndEffect)
                  exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> bool:
     """Before a spell or ability is put on the stack: does the player want to see or choose the
     payment first? Returns True if a decision was opened (the intent then waits for it; nothing
@@ -3932,7 +3932,9 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
             cost = replace(cost, mana=M.spend_as(M.parse_cost(cost.mana), mode).text())
     # -- reanimation (wave 3R) -- 113.6m: "{1}{B}: Return this card from your graveyard to the battlefield" moves the
     # card out of the graveyard, so the ability works only there
-    if ability.kind == "activated" and ":" in ability.text and (_GRAVEYARD_SELF.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~"))
+    # (review 40: anywhere in the effect, "Exile five target cards from an opponent's graveyard. Return this card from your graveyard to your hand." on
+    # Lochmere Serpent; ponytail: no card's earlier part puts it into the graveyard first, the 113.6m exception)
+    if ability.kind == "activated" and ":" in ability.text and (_GRAVEYARD_SELF.search(ability.text.split(":", 1)[1].strip().replace(ch.name, "~"))
                                                                  or "Activate only if this card is in your graveyard" in ability.text):
         cost = replace(cost, graveyard_only=True,  # (review 20E: Glory's "Activate only if this card is in your graveyard.", 113.6m)
                        exile_too=_GRAVEYARD_OR_EXILE.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~")) is not None)  # (wave 42C)

@@ -622,6 +622,11 @@ class ContinuousEffect(BaseModel):
     # this effect's timestamp; later grants apply again) and quoted abilities it gains (their text).
     remove_abilities: bool = False
     add_abilities: list[str] = Field(default_factory=list)
+    # -- licids (wave 50A) -- 613.1f: "loses this ability" (one printed ability, by its index); 116.2c: "You may pay {W} to end this effect" - the
+    # special action's cost (``end_cost``, for ``controller``) ends every effect of the same resolution (``end_group``: the first one's timestamp)
+    lose_index: list[int] = Field(default_factory=list)
+    end_cost: str | None = None
+    end_group: int = 0
     # -- copy system (wave 2F): layer 1a (613.2a) — a copy effect: the affected objects' copiable
     # values become this recipe's (707.2-707.5); the latest (by timestamp) applies (613.7)
     copy_recipe: CopyRecipe | None = None

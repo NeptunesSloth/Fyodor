@@ -310,6 +310,10 @@ def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], y
     if not moved:
         return False
     dest = (new.get("zone") or "").rsplit(":", 1)[-1] if new["object_id"] != was["object_id"] else None
+    if old_card is None and dest is None:  # -- review 40 -- a token went where it was sent, then ceased to exist (111.7): the turn log keeps where (Siren's Ruse 2017-09-29)
+        from app.rules import history
+
+        dest = next((d.to for d in reversed(history.log_for(plan).left) if d.object_id == was["object_id"]), None)
     if kind in ("returned", "your_hand"):  # (a hand is hidden: only the card's zone now tells where it went)
         return old_card is not None and old_card.zone == f"{you}:hand" if kind == "your_hand" else \
             old_card is not None and old_card.zone.endswith(":hand")
