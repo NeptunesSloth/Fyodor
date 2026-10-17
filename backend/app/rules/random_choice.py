@@ -1,16 +1,21 @@
 # -- random choices (wave 47B) --
-"""Random choices among public things: "Choose an opponent at random." (Vial Smasher, Ruhan of the Fomori, Strax), "… an opponent chosen at
-random" (Zaffai). Researched against CR 2026-09-25 and the rulings (Vial Smasher the Fierce 2020-11-10, Strax 2023-10-13).
+"""Random choices: "Choose an opponent at random." (Vial Smasher, Ruhan of the Fomori), "… an opponent chosen at random" (Zaffai), "Choose a creature at
+random" (Last One Standing), "reveals a card at random from their hand" (Ignite Memories, Nebuchadnezzar). Researched against CR 2026-09-25 and the
+rulings (Vial Smasher the Fierce 2020-11-10, Scab-Clan Giant 2013-04-15, Indoraptor 2023-11-10).
 
-* The Comprehensive Rules have no rule for "at random": nobody chooses, the game picks without bias. The pick is made while the ability
-  resolves (Vial Smasher ruling), from the players still in the game (800.4a); with one opponent left that opponent is it.
-* The pick comes from the table's entropy source (plan.rng, as dice and coin flips) and is recorded: the player lands in the resolution
-  context (a decision's resume, the saved rules state) and every instruction after it is a recorded step, so a replay or a load never draws
-  again. The pick is public (players are), and logged.
+* The Comprehensive Rules have no rule for "at random": nobody chooses, the game picks without bias, while the ability resolves (Vial Smasher ruling),
+  from the players still in the game (800.4a); with one opponent left that opponent is it.
+* The pick comes from the table's entropy source (plan.rng, as dice and coin flips) and is recorded: the player or object lands in the resolution
+  context (a decision's resume, the saved rules state) and every instruction after it is a recorded step, so a replay or a load never draws again.
+* Public things (players, the battlefield, graveyards): the pick is logged. A hand is hidden: ``reveal_random`` shows only the cards picked, to
+  everyone (701.20a) or to the looker alone (701.20e), and hides them again when the resolution ends (effects.hide_revealed); nothing about the
+  cards left is asked, logged or shown. A pick among hidden cards that isn't revealed afterwards is not read.
 * "Choose an opponent at random. ~ deals damage … to that player or a planeswalker that player controls." (Vial Smasher): after the pick,
   its controller chooses the player or one of that player's planeswalkers (ruling); no player may act between the two.
+* "target … chosen at random" is a target group flagged ``random`` (language.target_group; targets.choose_groups picks it as the targets are chosen,
+  601.2c, and reads nothing the caller sent); only an ability's single group is read (coverage.definition_supported).
 
-Not read (manual): a pick among objects, cards or modes (their own systems), "didn't attack during your last combat" (Territorial Hellkite).
+Not read (manual): "didn't attack during your last combat" (Territorial Hellkite), a pick among modes of a Saga chapter, "choose 1, 2 or 3 at random".
 """
 
 from __future__ import annotations
@@ -31,6 +36,7 @@ Context = dict[str, Any]
 _CLAUSE = re.compile(r"choose (?P<w>an opponent|a player) at random")
 _OBJECT = re.compile(r"choose (?:a|an) (?P<w>[\w -]+?) at random(?: (?P<z>in your graveyard))?")
 _DAMAGE_AT_RANDOM = re.compile(r"(?P<s>~|[Ii]t) deals (?P<n>\d+) damage to a (?P<w>creature(?: an opponent controls| you control)?) chosen at random")
+_DISCARD_REVEALED = re.compile(r"(?:then )?that player discards (?:all|each) (?P<what>[\w -]+?) revealed this way")
 _REVEAL = re.compile(r"(?:(?P<s>.+?) )?reveals? (?P<n>a|one|two|three|X|\d+) cards? at random (?:from|in) (?:their|your|that player's) hand")
 _LOOK = re.compile(r"look at (?P<n>a) card at random in (?P<s>target (?:player|opponent))'s hand")
 _OR_PW = re.compile(r"(?<=\. )(?P<d>[^.]*?) to that player or a planeswalker that player controls\.")
@@ -55,6 +61,16 @@ def object_clause(text: str) -> tuple[list[dict[str, Any]], None] | None:
     if sel is None or sel.player is not None or sel.zones not in ((), ("battlefield",), ("graveyard",)) or sel.ability is not None:
         return None  # (a hidden zone, or not a plain object phrase: the pick would be among cards nobody has seen, or isn't one)
     return [{"do": "choose_random_object", "sel": sel.key()}], None
+
+
+def discard_revealed_clause(text: str) -> tuple[list[dict[str, Any]], None] | None:
+    """"Then that player discards all cards with that name revealed this way." (Nebuchadnezzar): those of the cards just revealed at random that match
+    ("with that name": the name chosen earlier in the same resolution, chosen.bind_effects), from the hand they are in (701.9a)."""
+    from app.rules import selectors
+
+    m = _DISCARD_REVEALED.fullmatch(text)
+    sel = selectors.parse(m["what"].replace("cards", "card")) if m is not None else None
+    return None if sel is None or sel.zones not in ((), ("hand",)) else ([{"do": "discard_revealed", "sel": sel.key()}], None)
 
 
 def reveal_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
@@ -122,6 +138,13 @@ def post(got: Any, mode: str = "") -> Any:
         gates[0]["cond"]["object"] = f"ref:{first['as']}"
     from app.rules import selectors
 
+    for i, e in enumerate(effects):  # "Reveal … at random. … discards those": the discard reads the cards the reveal bound
+        if e.get("do") == "discard_revealed":
+            before = [j for j in range(i) if effects[j].get("do") == "reveal_random"]
+            if not before:
+                return None
+            effects[before[-1]].setdefault("as", f"rv{before[-1]}")
+            e["of"] = effects[before[-1]]["as"]
     for i, e in enumerate(effects):  # "Choose a creature at random. … Destroy all other creatures.": the others are the creatures but the one picked
         if e.get("do") == "choose_random_object":
             e.setdefault("as", f"rc{i}")
@@ -140,6 +163,17 @@ def post(got: Any, mode: str = "") -> Any:
             k += 1
         k += 1
     return None if INLINE in json.dumps(effects) else got
+
+
+def discard_revealed(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import characteristics as chars
+    from app.rules import selectors
+    from app.rules.effects import _discard_next
+
+    sel = selectors.from_key(e["sel"])
+    cards = [c for c in context.objects(plan, ctx, e["of"]) if plan.state.cards[c].zone.endswith(":hand")
+             and selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), ctx["controller"])]
+    return _discard_next(plan, ctx, 0, [], cards)
 
 
 def choose_random_object(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -214,5 +248,5 @@ def reveal_random(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"choose_random": choose_random, "choose_random_object": choose_random_object, "reveal_random": reveal_random}
+PRIMITIVES = {"choose_random": choose_random, "choose_random_object": choose_random_object, "reveal_random": reveal_random, "discard_revealed": discard_revealed}
 RESUME: dict[str, Any] = {"choose_random": resume_choose_random}

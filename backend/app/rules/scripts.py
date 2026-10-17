@@ -2057,7 +2057,8 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         return combat_found
     from app.rules import random_choice  # -- random choices (wave 47B) -- "choose an opponent at random"
 
-    if (picked := random_choice.clause(text) or random_choice.reveal_clause(text) or random_choice.object_clause(text)) is not None:
+    if (picked := random_choice.clause(text) or random_choice.reveal_clause(text) or random_choice.object_clause(text)
+                                      or random_choice.discard_revealed_clause(text)) is not None:
         return picked
     # -- token & pump wordings (wave 6C) -- "create a Monster Role token attached to it"
     from app.rules import roles
