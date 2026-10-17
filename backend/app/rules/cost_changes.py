@@ -281,7 +281,7 @@ _FROM = {"from your graveyard": ("your_graveyard",), "from graveyards": ("gravey
          "from anywhere other than your hand": ("not_hand",)}
 STATIC = re.compile(
     r"^(?P<during>during your turn, |during turns other than yours, )?(?:each )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? "
-    r"(?:(?P<with>with (?:flying|flash|mana value \d+ or (?:greater|less))) )?(?P<who>you cast |your opponents cast )?(?:(?P<with2>with mana value \d+ or (?:greater|less)) )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
+    r"(?:(?P<with>with (?:flying|flash|mana value \d+ or (?:greater|less))) )?(?P<who>you cast |your opponents cast )?(?:(?P<with2>with (?:mana value \d+ or (?:greater|less)|toughness greater than its power)) )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
     r"(?:(?P<from>from (?:your graveyard or from exile|graveyards or from exile|your graveyard|graveyards|exile"
     r"|anywhere other than your hand)) )?"
     rf"costs? {_SYMBOL} (?P<dir>less|more) to cast(?P<rest>.*)$")

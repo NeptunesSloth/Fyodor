@@ -12,7 +12,8 @@
   "until end of turn" for both); a target subject is one target (115.3), so both halves name the same group. Base
   power and toughness is layer 7b (613.4b), a keyword layer 6 (613.1f).
 
-Not read: "this combat" (a turn may have several combats, 500.8), a filter the selector grammar doesn't read.
+"... by <filter> this combat" (wave 47A; a turn may have several combats, 500.8) ends the restriction with the combat (effects.restrict ``duration``).
+Not read: "this combat" with "except by", a filter the selector grammar doesn't read.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ import re
 from typing import Any
 
 # (-- turn grants (wave 45B) -- a subject that names no grant: "… gains haste until end of turn and can't be blocked by Walls this turn" is _SHARED's (Kick in the Door))
-_UNBLOCKED = re.compile(r"^(?!.*\")(?P<o>(?:(?!\b(?:gains?|gets|has|have)\b).)+?) can't be blocked (?P<by>by .+?) this turn$")
+_UNBLOCKED = re.compile(r"^(?!.*\")(?P<o>(?:(?!\b(?:gains?|gets|has|have)\b| and (?!target )).)+?) can't be blocked (?P<by>by .+?) this (?P<d>turn|combat)$")  # (wave 47A: "this combat", Tadeas: effects.restrict ``duration``)
 _UNBLOCKED_EXCEPT = re.compile(r"^(?!.*\")(?P<o>.+?) can't be blocked this turn except by (?P<ex>.+)$")
 _UNBLOCKED_LEAD = re.compile(r"^(?!.*\")until end of turn, (?P<o>.+?) can't be blocked (?P<by>by .+)$")
 _SHARED = re.compile(r"^(?!.*\")(?P<lead>until end of turn, )?(?P<o>(?:target|another target|this|that|~|it\b)[^,]*?) "
@@ -54,7 +55,7 @@ def _unblocked(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
             raise _fail() from None
         if kind not in ("target", "it", "them", "self", "each") or (kind == "target" and found is not None):
             raise _fail()
-        out.append({"do": "restrict", "who": language._who(kind, key), "rules": rules})
+        out.append({"do": "restrict", "who": language._who(kind, key), "rules": rules, **({"duration": "end_of_combat"} if m.groupdict().get("d") == "combat" else {})})
         found = language._one(group) if kind == "target" else found
     return out, found
 

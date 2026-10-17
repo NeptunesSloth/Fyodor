@@ -350,6 +350,7 @@ def _who(kind: str, key: str) -> str:
 
 # -- dynamic values (agent F) -------------------------------------------------------------------
 _STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
+_DIFF = re.compile(r"the difference between (?P<a>that creature's power|its power|~'s power) and (?P<b>its toughness|that creature's toughness|~'s toughness|toughness)")
 
 
 def _stat(phrase: str, its: str = "it") -> Any:
@@ -359,11 +360,11 @@ def _stat(phrase: str, its: str = "it") -> Any:
     its own subject ("~ deals damage equal to its power": ~'s). Also any quantity the value
     grammar reads ("the number of lands you control", "your devotion to red", "twice its power":
     app/rules/values.py), and "~'s power" (the source's, 608.2h)."""
-    if (d := re.fullmatch(r"the difference between (?P<a>that creature's power|its power|~'s power) and (?P<b>its toughness|that creature's toughness|~'s toughness)", phrase)) is not None:
+    if (d := _DIFF.fullmatch(phrase)) is not None:
         # -- most-played cards II (wave 45A) -- "the difference between that creature's power and its toughness" (Jaws of Defeat): how far apart they are, one object's own (608.2h)
         a, b = d["a"], d["b"]
-        if b.startswith("its ") and not a.startswith("its "):
-            b = a.rsplit(" ", 1)[0] + " " + b[len("its "):]  # ("that creature's power and its toughness": the same creature)
+        if b == "toughness" or b.startswith("its ") and not a.startswith("its "):  # (wave 47A: Doran, "its power and toughness")
+            b = a.rsplit(" ", 1)[0] + " toughness"  # ("that creature's power and its toughness": the same creature)
         return {"diff": [_stat(a, its), _stat(b, its)]}
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
@@ -629,6 +630,8 @@ def _rider_value(phrase: str) -> Any:
                     r"the sacrificed (?:creature|artifact|permanent|land)'s|the discarded card's|the milled card's|the spell's|"
                     r"the exiled (?:creature )?card's|the exiled creature's) (?:power|toughness|mana value)", phrase) or re.fullmatch(
                         r"the mana value of (?:that spell|the spell|the milled card)|the (?:power|toughness|mana value) of (?:the exiled card|the card you exiled)", phrase):  # (wave 19F; 34C: "the power of the exiled card")
+        return _stat(phrase)
+    if _DIFF.fullmatch(phrase):  # (wave 47A: Doran, "where X is the difference between its power and toughness")
         return _stat(phrase)
     if phrase in ("of its colors", "of that spell's colors"):  # -- value grammar (wave 23C) -- "for each of its colors": how many colors the object is (105.1)
         return {"colors": "that_spell" if "spell" in phrase else "it"}
@@ -3823,6 +3826,10 @@ def _control_object(phrase: str) -> tuple[str, str, dict[str, Any] | None] | Non
 
 def control_forms(text: str) -> tuple[Effects, Any] | None:
     """The control-changing wordings above; None when the sentence is not one of them."""
+    if re.fullmatch(r"that player untaps (?:~|this creature) and gains control of (?:it|~)", text):
+        # -- commanders (wave 47A) -- Karona, False God: "At the beginning of each player's upkeep, that player untaps Karona and gains control of it": the player the trigger is
+        # about (the one whose upkeep it is) gets control (613.1b, permanent), after the untap
+        return [{"do": "untap", "who": "self"}, {"do": "gain_control", "who": "self", "to": "event_player"}], None
     m = _CT_UNTAP.fullmatch(text)
     if m:
         found = _control_object(m["o"])
