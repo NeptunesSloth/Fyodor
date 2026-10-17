@@ -24,6 +24,13 @@ _EVENTS = ("attack", "unblocked", "blocked")
 _SUBJECTS = ("self", "sel", "host", "self_or_host", "self_or")
 
 
+def per_player_attack(cond: dict[str, Any]) -> bool:
+    """-- trigger other (wave 44B) -- 508.3e: "Whenever one or more creatures you control attack a player" triggers once for each player attacked
+    (triggers._fire_generic keeps one per defended player), so "that player" in its effect is that one player, the event's defended player (508.5a).
+    ("Whenever you attack a player" is the you_attack event, whose "that player" triggers.bind_that_player already binds to the one attacked.)"""
+    return cond.get("defender") == "player" and cond.get("event") == "attack" and cond.get("subject") == "sel" and bool(cond.get("aggregate"))
+
+
 def allowed(d: dict[str, Any]) -> bool:
     """Whether a definition that names the defending player (or the attacked object) is an attacking creature's trigger (above)."""
     if WHO not in (raw := json.dumps(d, default=str)) and "defended_player" not in raw and '"who": "attacked"' not in raw:
@@ -33,6 +40,8 @@ def allowed(d: dict[str, Any]) -> bool:
     if d.get("trigger") == "attacks_self":
         return True
     cond = d.get("cond") or {}
+    if per_player_attack(cond):
+        return d.get("trigger") == "event"
     return d.get("trigger") == "event" and cond.get("event") in _EVENTS and cond.get("subject") in _SUBJECTS \
         and not cond.get("aggregate")
 

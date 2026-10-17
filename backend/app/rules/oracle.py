@@ -34,7 +34,7 @@ _COST_START = re.compile(
 KEYWORDS = frozenset({
     "devoid", "renown", "bloodthirst", "soulshift",
     "flying", "reach", "vigilance", "trample", "deathtouch", "lifelink", "first strike", "double strike", "haste",
-    "defender", "menace", "hexproof", "indestructible", "flash", "shroud", "fear", "intimidate", "skulk", "prowess",
+    "defender", "menace", "hexproof", "hexproof from", "indestructible", "flash", "shroud", "fear", "intimidate", "skulk", "prowess",
     "protection", "ward", "equip", "enchant", "cycling", "kicker", "multikicker", "flashback", "convoke", "delve", "cascade",
     "affinity", "storm", "partner", "partner with", "changeling", "landwalk", "islandwalk", "swampwalk",
     "forestwalk", "mountainwalk", "plainswalk", "snow landwalk", "nonbasic landwalk", "legendary landwalk", "artifact landwalk", "snow plainswalk", "snow islandwalk", "snow swampwalk", "snow mountainwalk", "snow forestwalk", "desertwalk", "exalted", "undying", "persist", "wither", "infect", "toxic",
@@ -101,6 +101,8 @@ def keyword_name(piece: str) -> str | None:
         return raw
     if re.match(r"^\w+ (?:abilities|costs) you (?:activate|pay)\b", raw):  # -- keywords (wave 15E) -- "Equip abilities you activate
         return None  # cost {1} less", "Dash costs you pay cost {2} less": a static ability about the keyword, not the keyword
+    if raw.startswith("hexproof from "):  # -- keywords (wave 44D) -- 702.11d: a variant of hexproof, not plain hexproof (_PARAM strips the quality)
+        return "hexproof from"
     base = _PARAM.sub("", raw).strip(" —-")
     if base in KEYWORDS:
         return base
@@ -130,7 +132,13 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("ward",)
     if re.fullmatch(r"companion\s*—.+", line.strip(), re.IGNORECASE):  # -- companion (wave 38D) -- 702.139a: one keyword (Kaheera's condition lists creature types)
         return ("companion",)
-    pieces = [p for p in re.split(r"[,;]\s*", line) if p.strip()]
+    pieces: list[str] = []
+    for p in (p for p in re.split(r"[,;]\s*", line) if p.strip()):
+        # -- keywords (wave 44D) -- 702.11d, 702.11f: the commas of "hexproof from artifacts, creatures, and enchantments" list the qualities of one keyword
+        if pieces and pieces[-1].lower().startswith("hexproof from") and keyword_name(p) is None:
+            pieces[-1] += f", {p}"
+        else:
+            pieces.append(p)
     names = [keyword_name(p) for p in pieces]
     if names and all(names):
         return tuple(n for n in names if n)

@@ -324,6 +324,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"life": "target"}
     if what in ("the highest life total among your opponents", "the greatest life total among your opponents"):
         return {"life": "opponent_max"}
+    m = re.fullmatch(r"(?:the number of )?(?P<c>white|blue|black|red|green) mana symbols? in that spell's mana cost", what)
+    if m:  # -- trigger other (wave 44B) -- Namor the Sub-Mariner: the symbols of that color in the mana cost of the spell a cast trigger is about (202.1, 107.4e hybrid counts for each color)
+        return {"cast_symbols": _COLOR_WORDS[m["c"]]}
     m = re.fullmatch(r"(?P<c>white|blue|black|red|green) mana symbols? (?:in|among) the mana costs? of permanents you control", what)
     if m:  # -- value grammar (wave 23C) -- 700.5: that IS devotion (chroma)
         return {"devotion": [_COLOR_WORDS[m["c"]]]}
@@ -335,6 +338,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"player_counters": m["kind"]}
     if _EXCESS_DEALT.fullmatch(what):  # -- as long as (wave 9B) -- 120.10: scripts bind it to the damage just before (this_way.excess_dealt)
         return {"ref_amount": "excess_dealt"}
+    if (gv := re.fullmatch(r"graveyards? with (?P<n>\w+) or more cards? in (?:it|them)", what)) is not None and gv["n"] in NUMBERS:
+        return {"graveyards_with": NUMBERS[gv["n"]]}  # -- trigger other (wave 44D) -- "a card for each graveyard with seven or more cards in it" (The Master of Lake-town): every player's, 404.1
     if re.fullmatch(r"cards in all graveyards with the same name as (?:that|the) spell", what):  # -- value grammar (wave 23C) -- Cabal Shrine: 201.2
         return {"same_name": "event", "zone": "graveyard"}  # (the spell a cast trigger is about; scripts._event_refs_ok)
     if _DAMAGE_EVENT.fullmatch(what):  # -- value grammar (wave 23C) -- "the amount of damage it dealt to that player": the damage trigger's amount
@@ -374,6 +379,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
             return None
         return {"counters": m["kind"], "on": on}
     m = _AMONG.match(what)
+    if m and m["sel"] in ("spells you've cast this turn", "spells you have cast this turn") and _DISTINCT[m["kind"]] == "types":
+        return {"cast_types": "you"}  # -- trigger other (wave 44B) -- April O'Neil: the card types of this turn's cast spells, as they were cast (601.2i, history.CastNote)
     if m:
         key = _selector_key(m["sel"])
         return {"distinct": _DISTINCT[m["kind"]], "among": key} if key else None
@@ -661,6 +668,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sum(1 for t in record.mana_tags if v["mana_from"] in t)
     if "mana_spent" in v:  # -- X actions (wave 9A) -- a spell cast by hand: no mana known, 0 (and said so)
         return _mana_spent(plan, ctx, v["mana_spent"])
+    if "graveyards_with" in v:  # -- trigger other (wave 44D) -- the graveyards of the players still in the game
+        live = plan.live()
+        return sum(1 for key, ids in plan.state.zones.items() if key.endswith(":graveyard") and key.split(":")[0] in live and len(ids) >= v["graveyards_with"])
     if "named_self_in_graveyards" in v:  # -- mana riders (wave 5A) -- cards with the source's name in every graveyard
         from app.rules import characteristics as chars
 
@@ -701,6 +711,17 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         where = ctx.get("source_card") if not sel.other and any(x.startswith(("samename_src", "nosamename_src", "samename_exiled_with")) for x in sel.extras) \
             else _other_than(ctx)
         return sum(1 for c in selectors.candidates(plan, sel, you, where) if c not in away)
+    if "cast_symbols" in v:  # -- trigger other (wave 44B) -- the spell the trigger is about, on the stack (a cast trigger resolves with it still there or as it was)
+        from app.rules import context
+
+        refs = context._object_refs(ctx, context.EVENT)
+        card = plan.state.cards.get(refs[0].card) if refs else None
+        cost = plan.ch(card).mana_cost if card is not None else ""
+        return sum(1 for sym in re.findall(r"\{([^}]+)\}", cost or "") if v["cast_symbols"] in sym.split("/"))
+    if "cast_types" in v:  # -- trigger other (wave 44B) -- 205.2a: the different card types among the spells you cast this turn (a spell of two types counts both)
+        from app.rules import history
+
+        return len({"Kindred" if t == "Tribal" else t for n in history.log_for(plan).casts if n.player == ctx["controller"] for t in n.types if t in CARD_TYPES})
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
         from app.rules import context
 
@@ -966,6 +987,8 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
     if v["relative"] == "counters":  # -- counters (wave 26D) -- "for each +1/+1 counter on it" (122.1): counters on the object modified
         return sum(n for k, n in card.counters.items() if v["kind"] in ("any", k))
     mine = plan.ch(card)
+    if v["relative"] == "bushido":  # -- counters (wave 44C) -- 702.45a: "for each point of bushido it has": the sum of its bushido abilities' numbers (each instance counts)
+        return sum(int(n) for a in mine.abilities if "bushido" in a.keywords for n in re.findall(r"(?i)bushido (\d+)", a.text))
     if v["relative"] == "mana_value":  # -- attached events (wave 20A) -- 202.3: the object modified (a creature's X is 0 on the battlefield)
         from app.rules.stack_interaction import mana_value
 

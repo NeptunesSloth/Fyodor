@@ -1488,7 +1488,7 @@ def plan_loss(plan: Plan, losses: list[tuple[str, int]], *, answers: dict[str, s
 
 
 def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = None, then: dict[str, Any] | None = None,
-              answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None) -> bool:
+              answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None, as_gain: bool = False) -> bool:
     """THE life-loss choke point (wave 28B): every way a player loses life that isn't damage's own result (effects, a payment of life: 119.4
     "the player loses that much life", 118.11 a payment may be modified by effects) goes through the "would lose life" replacements.
     With none in force, each player just loses it. False while a choice is open."""
@@ -1502,7 +1502,10 @@ def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = 
         return True
     if not candidates(plan, "life_loss"):
         for pid, n in losses:
-            plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor or pid)
+            if as_gain:  # -- counters (wave 44C) -- "gain life rather than lose life from radiation" (728.1a): the gain event, through the gain replacements
+                gain_life(plan, [(pid, n)], actor=actor or pid)
+            else:
+                plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor or pid)
         return True
     answers = answers if answers is not None else _ctx_answers(ctx)
     planned = plan_loss(plan, losses, answers=answers, ask=then is not None)
@@ -1517,7 +1520,10 @@ def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = 
         note_applied(plan, before, out, actor=actor)
         for ev in out:
             if ev["kind"] == "life_loss" and ev["n"] > 0:
-                plan.do({"type": "life", "player": ev["player"], "delta": -ev["n"]}, actor=actor or ev["player"])
+                if as_gain:  # (wave 44C)
+                    gain_life(plan, [(ev["player"], ev["n"])], actor=actor or ev["player"])
+                else:
+                    plan.do({"type": "life", "player": ev["player"], "delta": -ev["n"]}, actor=actor or ev["player"])
     return True
 
 
@@ -1663,7 +1669,12 @@ def source_info(plan: Plan, card_id: str | None, oid: str | None, ch: Any, contr
         ctrl, counters = card.controller, card.counters
     elif oid and oid in plan.rules.lki:
         ctrl, counters = plan.rules.lki[oid].controller, plan.rules.lki[oid].counters
-    return {"card": card_id, "controller": ctrl, "spell": spell,
+    from app.rules.history import (
+        log_for,  # -- counters (wave 44C) -- "a creature you control that entered this turn" (Neriv): the source's object entered the battlefield this turn
+    )
+
+    soid = oid or (plan.oid(card) if card is not None else None)
+    return {"card": card_id, "controller": ctrl, "spell": spell, "entered": soid is not None and any(e.object_id == soid for e in log_for(plan, False).entered),
             "colors": sorted(ch.colors) if ch is not None else [], "types": sorted(ch.types) if ch is not None else [],
             "subtypes": sorted(ch.subtypes) if ch is not None else [],
             "has_counters": any(n > 0 for n in counters.values())}  # (-- counters (wave 41A) -- "a creature you control with a counter on it", Raphael, the Muscle)
@@ -1691,6 +1702,8 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
     if spec.get("controller") == "opponent" and src.get("controller") in (None, c.controller):
         return False
     if spec.get("spell") and not src.get("spell"):
+        return False
+    if spec.get("entered") and not src.get("entered"):  # (wave 44C)
         return False
     if spec.get("has_counters") and not src.get("has_counters"):  # (wave 41A: a source with a counter of any kind on it as it would deal the damage)
         return False

@@ -28,10 +28,10 @@ if TYPE_CHECKING:
     from app.game.state import CardInstance, GameState
     from app.rules.characteristics import CardInfo, Characteristics
 
-KEYWORDS = ("cycling", "unearth", "miracle", "encore", "dredge")  # (wave 42A: dredge)
+KEYWORDS = ("cycling", "unearth", "miracle", "encore", "dredge", "scavenge", "jump-start")  # (wave 42A: dredge; 44C: scavenge, jump-start)
 _LINE = re.compile(r"^(?:each )?(?P<sel>[A-Za-z][A-Za-z ,'/-]*?) in your (?P<zone>hand|graveyard)(?P<tail> that's [A-Za-z ,/-]+?)? (?:has|have) (?P<kw>" + "|".join((*KEYWORDS, "warp")) + r")"
-                   r"(?: (?P<cost>(?:\{[^}X]+\})+)| (?P<num>\d+)| ?\. (?:its|the) [a-z]+ cost is equal to its mana cost(?: reduced by (?P<red>\{\d+\}))?)$",
-                   re.IGNORECASE)
+                   r"(?: (?P<cost>(?:\{[^}X]+\})+)| (?P<num>\d+)|(?P<eq> ?\. (?:its|the) [a-z]+ cost is equal to its mana cost(?: reduced by (?P<red>\{\d+\}))?))?$",
+                   re.IGNORECASE)  # (wave 44C: the tail is optional: jump-start has none, 702.133a)
 
 
 def define(t: str) -> dict[str, Any] | None:
@@ -43,13 +43,18 @@ def define(t: str) -> dict[str, Any] | None:
         return None
     if m["kw"].lower() == "warp":
         return _warp(m)
-    phrase = re.sub(r"\bcards\b", "card", m["sel"])
+    phrase = re.sub(r"^(instant|sorcery) and (instant|sorcery) cards?\b", r"\1 or \2 card", re.sub(r"\bcards\b", "card", m["sel"]))  # (wave 44C: "instant and sorcery")
     sel = selectors.parse(f"{phrase} in your {m['zone']}{m['tail'] or ''}")
     if sel is None or sel.player is not None or sel.zones != (m["zone"],) or not sel.card or sel.zone_owner not in (None, "you"):
         return None
-    if m["kw"].lower() not in {"hand": ("cycling", "miracle"), "graveyard": ("unearth", "encore", "dredge")}[m["zone"]]:
-        return None  # (the zone the keyword works from: 702.29a, 702.49a, 702.94a — the hand; 702.84a, 702.141a, 702.52a — the graveyard)
-    if m["cost"] is None and m["kw"].lower() not in ("miracle", "encore", "dredge"):
+    if m["kw"].lower() not in {"hand": ("cycling", "miracle"), "graveyard": ("unearth", "encore", "dredge", "scavenge", "jump-start")}[m["zone"]]:
+        return None  # (the zone the keyword works from: 702.29a, 702.49a, 702.94a — the hand; 702.84a, 702.141a, 702.52a, 702.97a, 702.133a — the graveyard)
+    if m["kw"].lower() == "jump-start":  # -- static_other (wave 44C) -- 702.133a: no cost of its own, the card's cost is paid and a card is discarded
+        return {"kind": "static", "static": "zone_grant", "filter": sel.key(), "keyword": "jump-start", "cost": None, "reduce": 0, "effects": []} \
+            if not (m["cost"] or m["num"] or m["eq"]) else None
+    if m["cost"] is None and not m["num"] and not m["eq"]:
+        return None
+    if m["cost"] is None and m["kw"].lower() not in ("miracle", "encore", "dredge", "scavenge"):
         return None
     if (m["num"] is not None) != (m["kw"].lower() == "dredge"):  # (702.52a: "Dredge N", a number and no cost)
         return None
@@ -76,18 +81,37 @@ def _line(d: dict[str, Any], ch: Characteristics, card: CardInstance) -> str | N
     from app.rules import mana as M
     from app.rules.graveyard_grants import _two_ways
 
+    if d["keyword"] == "jump-start":
+        return "Jump-start"
     if d.get("num"):
         return f"{d['keyword'].capitalize()} {d['num']}"
     if d["cost"]:
         return f"{d['keyword'].capitalize()} {d['cost']}"
     if not ch.mana_cost or "//" in ch.mana_cost or _two_ways(card):
         return None
-    cost = M.parse_cost(ch.mana_cost)
-    if cost.x or cost.unsupported:
+    cost = M.parse_cost(ch.mana_cost.replace("{X}", "") or "{0}")  # (an {X} in that mana cost is 0: Varolz ruling)
+    if cost.unsupported:
         return None
     if d["reduce"]:
         cost = cost.plus_generic(-min(d["reduce"], cost.generic))
     return f"{d['keyword'].capitalize()} {cost.text()}"
+
+
+def jump_start(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> bool:
+    """-- static_other (wave 44C) -- 702.133a: does a static of ``player``'s give this card in their graveyard jump-start? (A cast reads the card as it is cast, so the
+    granted ability that ``apply`` adds to a card in a graveyard is not there: the permission is asked here.)"""
+    from app.rules import selectors
+    from app.rules.cast_limits import _statics
+    from app.rules.plan import Plan
+
+    view = None
+    for src, d in _statics(state, info, "zone_grant"):
+        if d["keyword"] != "jump-start" or src.controller != player or card.zone != f"{player}:graveyard" or card.owner != player:
+            continue
+        view = view or Plan.view(state, player, info)
+        if selectors.matches(view, selectors.from_key(d["filter"]), card, ch, player, src.id):
+            return True
+    return False
 
 
 def apply(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo) -> Characteristics:
@@ -110,6 +134,6 @@ def apply(state: GameState, card: CardInstance, ch: Characteristics, info: CardI
         if not selectors.matches(view, selectors.from_key(d["filter"]), card, ch, src.controller, src.id) or (line := _line(d, ch, card)) is None:
             continue
         parsed = parse_abilities(line)
-        if len(parsed) == 1 and parsed[0].kind == "keywords":
+        if len(parsed) == 1 and (parsed[0].kind == "keywords" or d["keyword"] in ("scavenge", "jump-start")):  # (wave 44C: read as the ability they mean, 702.97a, 702.133a)
             extra.append(replace(parsed[0], index=100 + len(extra)))
     return replace(ch, abilities=ch.abilities + tuple(extra)) if extra else ch

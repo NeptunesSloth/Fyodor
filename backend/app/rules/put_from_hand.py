@@ -33,8 +33,8 @@ _PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Pl
 # control / that damage": the count is read as the card is chosen, 608.2h)
 PATTERN = (r"put (?P<cnt>an?|any number of|up to (?P<upto>\d+)) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater))?"
            # -- put from hand (wave 30P) -- "with mana value 3 or less" / "X or less, where X is the number of attacking creatures you control"
-           # (Kinscaer Sentry), "less than that creature's mana value" (Arni Metalbrow), "with lesser power" (Shadowfax): the limit is read as the card is chosen
-           r"(?: with (?:mana value (?:(?P<op>less than or equal to|less than|equal to) (?P<v>that damage|the number of [^.]+?|that creature's mana value)"
+           # (Kinscaer Sentry), "less than that creature's mana value" (Arni Metalbrow), "less than or equal to that creature's power" (Minn, Wily Illusionist; wave 44D), "with lesser power" (Shadowfax): the limit is read as the card is chosen
+           r"(?: with (?:mana value (?:(?P<op>less than or equal to|less than|equal to) (?P<v>that damage|the number of [^.]+?|that creature's (?:mana value|power))"
            r"|(?P<n>\d+|X) or less)|(?P<lp>lesser power)))? from your hand "
            rf"onto the battlefield(?P<tapped> tapped(?P<atk> and attacking{AT})?)?(?:, where X is (?P<xdef>[^.]+))?")
 
@@ -212,6 +212,7 @@ def each_put(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import effects
 
     who = [p for p in plan.apnap() if p in effects._players(plan, ctx, e["who"])]
+    ctx["_each_put_who"] = list(who)  # -- trigger other (wave 44B) -- "then each opponent who didn't draws a card" (Kynaios and Tiro): who was asked, to tell who put nothing
     return _ask_each(plan, ctx, e, who, [])
 
 
@@ -220,6 +221,7 @@ def _ask_each(plan: Plan, ctx: Context, e: dict[str, Any], who: list[str], picks
     from app.rules.plan import decide
 
     if not who:
+        ctx["_put_none"] = [p for p in ctx.get("_each_put_who", ()) if not any(x["player"] == p for x in picks)]  # (wave 44B: players who put nothing)
         return not picks or attachments.enter(plan, picks, ctx)  # (an Aura chooses what it enchants: the resolution goes on after)
     pid = who[0]
     options = [c for c in selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card"))

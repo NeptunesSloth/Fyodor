@@ -1080,7 +1080,7 @@ _REST_ALONE = re.compile(rf"(?:put {_REST}|put the revealed cards (?P<rest2>on t
 # instant or sorcery card" (the subject's own library), and "Then that player puts the exiled cards that weren't
 # cast this way on the bottom of their library in a random order" (random: who puts them doesn't matter)
 _SUBJ_UNTIL = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) cards from the top of their library until they "
-                         r"(?:reveal|exile) (?:a|an) (?P<sel>.+)")
+                         r"(?:reveal|exile) (?:(?P<cnt>two|three|four|five|six|seven) |an? )(?P<sel>.+)")  # (wave 44B: "until they reveal four land cards", Mirko Vosk)
 _REST_THEY = re.compile(rf"(?:that player|the player) puts {_REST}")
 _OWNERS = r"(?:its owner's|their owner's|their owners'|your)"
 _TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_OWNERS} library")
@@ -1292,8 +1292,10 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     if m and (not m["subj"].startswith("each") or m["verb"] == "exiles"):  # (wave 44A: "each player exiles … until" keeps every library's cards)
         kind, key, group = ref(m["subj"])
         do = "look_top" if m["verb"] == "reveals" else "exile_top"
+        if m["cnt"] and do != "look_top":
+            raise _Fail
         return [{"do": do, "n": 0, "player": _who(kind, key), "until": _card_sel(m["sel"]),
-                 **({"reveal": True} if do == "look_top" else {})}], _one(group)
+                 **({"reveal": True} if do == "look_top" else {}), **({"need": values.NUMBERS[m["cnt"]]} if m["cnt"] else {})}], _one(group)
     m = _UNTIL.fullmatch(text)
     if m:
         who, group = _lib_owner(m["lib"])
@@ -3311,10 +3313,14 @@ def _become(text: str) -> tuple[Effects, Any]:
     d = _DESC.fullmatch(m["desc"])
     if d is None:
         raise _Fail
-    kind, key, group = ref(m["o"])
-    if kind == "players":
-        raise _Fail
-    who = _who(kind, key)
+    tg: list[dict[str, Any]] = []
+    if (controlled := target_controls(m["o"], tg)) is not None:  # -- activated other (wave 44D) -- "All lands target player controls become 3/3 creatures" (Jolrael)
+        who, group = controlled, tg[0]
+    else:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        who = _who(kind, key)
     kinds = (d["kinds"] or "").split()
     types = [k.capitalize() for k in kinds]
     subs = (d["subs"] or "").split()

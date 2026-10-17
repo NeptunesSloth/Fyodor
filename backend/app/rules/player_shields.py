@@ -47,8 +47,18 @@ def _lower_first(s: str) -> str:
     return s[:1].lower() + s[1:] if s[:1].isupper() else s
 
 
+_STATIC_PROTECTION = re.compile(r"^you and (?P<perm>permanents you control) have protection from (?P<q>[A-Za-z]+)$")  # (wave 44C: Gor Muldrak, Amphinologist)
+
+
 def static_definition(text: str) -> Definition | None:
     t = _lower_first(text.strip().rstrip("."))
+    if (p := _STATIC_PROTECTION.fullmatch(t)) is not None:  # -- counters (wave 44C) -- 702.16b: you have protection from that quality, as the permanents do (a layer-6 grant)
+        from app.rules import protection, statics
+
+        d = statics.parse(f"Permanents you control have protection from {p['q']}.")
+        if d is None or d.get("static") != "grant" or d.get("conditions") or protection.parse(f"protection from {p['q']}") is None:
+            return None
+        return {**d, "player_shield": "protection", "quality": p["q"]}
     m = _STATIC.fullmatch(t)
     if m is None:
         return None
@@ -197,7 +207,7 @@ def _shields(plan: Plan, player: str) -> list[tuple[str, str | None, str]]:
 
     for src, d in cast_limits._statics(plan.state, plan.info, "grant"):
         if d.get("player_shield") and src.controller == player and statics.conditions_hold(plan, d, source=src, controller=src.controller):  # (wave 35D)
-            out.append((d["player_shield"], None, src.name or "a permanent"))
+            out.append((d["player_shield"], d.get("quality"), src.name or "a permanent"))  # (wave 44C: protection has its quality)
     return out
 
 
@@ -225,7 +235,7 @@ def can_target(plan: Plan, chooser: str, player: str, source: Characteristics | 
 
 def protected_from(plan: Plan, player: str, source: Characteristics | None) -> str | None:
     """702.16c/e/j: the label of a protection ``player`` has from ``source`` (an Aura, a damage source), or None."""
-    if not plan.rules.player_shields:
+    if not plan.rules.player_shields and not _any_static(plan.state, plan.info):  # (wave 44C: a static's protection too)
         return None
     for shield, quality, label in _shields(plan, player):
         if shield == "protection" and _protects(quality, source):

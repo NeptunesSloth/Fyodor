@@ -281,7 +281,7 @@ _FROM = {"from your graveyard": ("your_graveyard",), "from graveyards": ("gravey
          "from anywhere other than your hand": ("not_hand",)}
 STATIC = re.compile(
     r"^(?P<during>during your turn, |during turns other than yours, )?(?:each )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? "
-    r"(?:(?P<with>with (?:flying|flash)) )?(?P<who>you cast |your opponents cast )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
+    r"(?:(?P<with>with (?:flying|flash|mana value \d+ or (?:greater|less))) )?(?P<who>you cast |your opponents cast )?(?:(?P<with2>with mana value \d+ or (?:greater|less)) )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
     r"(?:(?P<from>from (?:your graveyard or from exile|graveyards or from exile|your graveyard|graveyards|exile"
     r"|anywhere other than your hand)) )?"
     rf"costs? {_SYMBOL} (?P<dir>less|more) to cast(?P<rest>.*)$")
@@ -289,8 +289,10 @@ _EXCEPT = " except during its controller's turn"
 # "The first creature spell you cast each turn costs {2} less to cast." (Shadow in the Warp) / "The second spell you cast
 # each turn costs {1} less to cast." (Raging Battle Mouse): read against this turn's casts (history.py, 601.2i)
 # -- spell grants (wave 30T) -- "… costs {2} less to cast and can be cast as though it had flash." (Radagast of Rhosgobel): the first one's flash too
-ORDINAL = re.compile(rf"^the (?P<ord>first|second) (?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spell you cast each turn costs {_SYMBOL} "
-                     r"less to cast(?P<flash> and can be cast as though it had flash)?$")
+# -- cost changers (wave 44D) -- "The first spell you cast with {X} in its mana cost each turn costs {1} less to cast for each +1/+1 counter on ~." (Zimone, Infinite Analyst): the
+# turn's cast records say whether a spell had {X} in its mana cost (history.CastNote.x_cost)
+ORDINAL = re.compile(rf"^the (?P<ord>first|second) (?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spell you cast(?P<xc> with \{{X\}} in its mana cost)? each turn costs {_SYMBOL} "
+                     r"less to cast(?P<each> for each [^.]+?)?(?P<flash> and can be cast as though it had flash)?$")
 
 
 # -- casting costs (wave 22F) -- Damping Sphere: "Each spell a player casts costs {1} more to cast for each other spell that player has cast this
@@ -304,7 +306,7 @@ def special(t: str) -> bool:
     if ORDINAL.fullmatch(t) or TARGETING.fullmatch(t) or TARGETING_LIFE.fullmatch(t) or PER_CASTER.fullmatch(t):
         return True
     m = STATIC.fullmatch(t)
-    return m is not None and bool(m["during"] or m["with"] or m["chosen"] or m["from"] or m["rest"] or m["own"] or not m["n"].isdigit())
+    return m is not None and bool(m["during"] or m["with"] or m["with2"] or m["chosen"] or m["from"] or m["rest"] or m["own"] or not m["n"].isdigit())
 
 
 def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
@@ -339,8 +341,9 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     if m["chosen"] and not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
         return None
     sel = m["sel"]
-    key = spell_filter(sel, m["with"]) if sel or m["with"] else None
-    if (sel or m["with"]) and key is None:
+    with_ = m["with"] or m["with2"]  # (-- cost changers (wave 44D) -- "Instant and sorcery spells you cast with mana value 4 or greater cost {X} less …", The Scarlet Witch)
+    key = spell_filter(sel, with_) if sel or with_ else None
+    if (sel or with_) and key is None:
         return None
     caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
     out: dict[str, Any] = {"kind": "static", "static": "cost_modifier", "delta": change["dir"] * int(change.get("n", 0)),
@@ -459,18 +462,22 @@ def _ordinal_definition(o: re.Match[str]) -> dict[str, Any] | None:
 
     if not o["n"].isdigit():
         return None
-    key = spell_filter(o["sel"]) if o["sel"] else None
-    if o["sel"] and (key is None or not history.note_selector_ok(selectors.from_key(key))):
+    tail = "with {X} in its mana cost" if o["xc"] else None
+    key = spell_filter(o["sel"], tail) if o["sel"] or tail else None
+    if (o["sel"] or tail) and (key is None or not history.note_selector_ok(selectors.from_key(key), spell=True)):
         return None  # (a kind of spell the turn's cast records can't answer: "kicked", "face-down", "with flying")
     if o["ord"] == "second" and key is not None:
         return None
     n = int(o["n"])
     if o["flash"] and o["ord"] != "first":
         return None
+    change = parse_change(o["n"], "less", o["each"] or "")
+    if change is None or change.get("mana"):
+        return None
     from app.rules import cast_limits
 
     return {"kind": "static", "static": "cost_modifier", "delta": -n, "caster": "you", "filter": key,
-            "change": {"dir": -1, "n": n}, "ordinal": 1 if o["ord"] == "first" else 2, "effects": [],
+            "change": change, "ordinal": 1 if o["ord"] == "first" else 2, "effects": [],
             **({"flash_perm": cast_limits.flash_def(key, first=True)} if o["flash"] else {})}  # (read by permissions.grants: 601.3b)
 
 
@@ -481,7 +488,7 @@ def _ordinal_ok(state: GameState, info: CardInfo, player: str, d: dict[str, Any]
     log = history.log_for(view_of(state, player, info))
     sel = selectors.from_key(d["filter"]) if d.get("filter") else None
     before = sum(1 for note in log.casts if note.player == player
-                 and (sel is None or history.note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv)))
+                 and (sel is None or history.note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv, x_cost=note.x_cost)))
     return before == d["ordinal"] - 1
 
 

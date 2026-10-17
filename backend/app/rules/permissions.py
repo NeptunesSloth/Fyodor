@@ -64,7 +64,8 @@ STATIC_COST = re.compile(
 # mana in that cost to less than one mana." / "Abilities you activate that aren't mana abilities cost {2} less to activate."
 ABILITY_COST = re.compile(
     rf"^(?:activated abilities(?: of (?P<sel>[a-z][a-z' ,-]*?))?|(?P<yours>abilities you activate that aren't mana abilities)) "
-    rf"costs? {_N} (?P<dir>less|more) to activate(?:\. (?P<floor>this effect can't reduce the mana in that cost to less than one mana))?$",
+    rf"costs? (?:{_N}|\{{(?P<x>X)\}}) (?P<dir>less|more) to activate(?:, where X is (?P<xv>~'s (?:power|toughness)))?"  # (wave 44D: Agatha of the Vile Cauldron)
+    rf"(?:\. (?P<floor>this effect can't reduce the mana in that cost to less than one mana))?$",
     re.IGNORECASE)
 # -- equip (wave 15E) -- "Equip abilities you activate cost {1} less to activate." (Bureau Headmaster), "Equip costs you pay cost
 # {1} less." (Auriok Steelshaper), "Equip abilities you activate of other Equipment cost {1} less to activate." (Bladehold
@@ -78,6 +79,9 @@ EQUIP_COST = re.compile(
 STORED_COST = re.compile(
     rf"^(?P<until>until your next turn, )?{_SEL} spells you cast (?P<this_turn>this turn )?cost {_N} (?P<dir>less|more) to cast$",
     re.IGNORECASE)
+# -- cost changers (wave 44D) -- "Spells you cast this turn that are white and/or blue cost {X} less to cast, where X is the amount of life you gained this turn." (Will,
+# Scion of Peace; Rowan, Scion of War): X is read once, as the ability resolves (the rulings of 2023-09-01), then it is the stored cost modifier above
+STORED_COST_X = re.compile(r"^spells you cast this turn that are (?P<sel>[a-z]+) and/or (?P<sel2>[a-z]+) cost \{X\} less to cast, where X is (?P<v>.+)$", re.IGNORECASE)
 # "This spell costs {1} less to cast for each creature card in your graveyard."
 SELF_PER = re.compile(rf"^(?:this spell|~) costs {_N} less to cast for each (?P<what>.+)$")
 # "This spell costs {1} less to cast if you control a Wizard."
@@ -184,6 +188,9 @@ GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?(?:you may )?(?P<w
 # -- cast a copy (wave 13C) -- "You may cast the copy without paying its mana cost." (707.12; each copy is its own choice, 707.12a)
 # (wave 18F: without "without paying …" the copy's mana cost is paid: 707.12 "You may cast the copy. (You still pay its costs.)")
 FREE_COPY = re.compile(r"^(?:if you do, )?you may cast (?P<w>the copy|the copies|any number of the copies)(?P<free> without paying (?:its|their) mana costs?)?$")
+# -- trigger other (wave 44D) -- "Whenever you discard a nonland card, you may cast it from your graveyard." (Oskar, Rubbish Reclaimer): cast now, as this resolves (608.2g), paying its
+# costs (the Oskar ruling of 2022-04-29: "You may cast the spell immediately. You must pay all costs")
+CAST_IT_FROM_GRAVEYARD = re.compile(r"^(?:you may )?cast (?:it|that card) from your graveyard$")
 # -- cast without paying (wave 3C) --
 # "You may cast a spell with mana value 5 or less from your hand without paying its mana cost." (cast now,
 # as this resolves: 608.2g) / "You may cast an instant or sorcery spell from your hand with mana value X
@@ -425,7 +432,7 @@ def spell_filter(phrase: str | None, tail: str | None = None) -> str | None:
         return None
     kinds = sum(bool(x) for x in (sel.types, sel.subtypes, sel.colors, sel.supertypes, sel.not_types, sel.colorless))
     # (-- cost changers (wave 20E) -- "red or green creature": any of those colors, and the type: the colors are one list, 105.1)
-    colors_then_type = re.fullmatch(r"(?:white|blue|black|red|green)(?:(?: or|,) (?:white|blue|black|red|green))+ [a-z]+", text, re.I)
+    colors_then_type = re.fullmatch(r"(?:white|blue|black|red|green)(?:(?: or|,) (?:white|blue|black|red|green))+ (?:instant or sorcery|[a-z]+)", text, re.I)  # (wave 44C: Wort, "red or green instant or sorcery")
     if re.search(r"\bor\b|,", text) and not sel.union and kinds > 1 and not (colors_then_type and len(sel.colors) > 1 and sel.types):
         return None  # "red or creature" can't be one selector: a list of one kind only
     return sel.key()
@@ -499,6 +506,11 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     t = _lower_first(text.strip().rstrip("."))
     if kind not in ("static", "spell"):
         return None
+    # -- cost changers (wave 44D) -- "Spells you cast with mana value 5 or greater cost {1} less to cast and can't be countered." (Thryx, the Sudden Storm): the cost change
+    # (601.2f), whose spells also can't be countered (101.2: ``spell_uncounterable`` reads the mark)
+    if (both := re.fullmatch(r"(spells you cast with mana value \d+ or greater cost \{\d+\} less to cast) and can't be countered", t)) is not None:
+        cheaper = define_static(both[1], kind, lines)
+        return {**cheaper, "uncounterable": True} if cheaper is not None and cheaper.get("static") == "cost_modifier" and cheaper.get("caster") == "you" else None
     # -- costs (wave 3$) -- "As an additional cost to cast this spell, sacrifice a creature." (601.2b): paid with the
     # rest of the cost as the spell is cast (casting.cast_spell); a wording the cost grammar can't pay stays manual
     if cost_changes.OWN_OPTIONAL.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"
@@ -644,9 +656,18 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                     or sel.extras or sel.attacking or sel.blocking:
                 return None
             key = sel.key()
-        return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
+        sign = -1 if m["dir"] == "less" else 1
+        xtra: dict[str, Any] = {}
+        if m["x"]:  # -- cost changers (wave 44D) -- "{X} less to activate, where X is ~'s power": the source's power, read as each cost is determined (601.2f)
+            value = cost_changes._value(m["xv"] or "")
+            if value is None:
+                return None
+            xtra = {"value": value, "sign": sign}
+        elif m["xv"]:
+            return None
+        return {"kind": "static", "static": "ability_cost_modifier", "delta": 0 if m["x"] else int(m["n"]) * sign,
                 "filter": key, "who": "you" if m["yours"] or (m["sel"] and "you control" in m["sel"]) else "any",
-                "floor": bool(m["floor"]), "effects": []}
+                "floor": bool(m["floor"]), "effects": [], **xtra}
     # -- conditional statics (wave 4B) -- "You may cast this card from your graveyard as long as you control a Zombie."
     # (Gravecrawler; 113.6f: functions from the graveyard; 611.3a: checked whenever the cast is offered or begun)
     m = RETRACE_GRANT.fullmatch(t)
@@ -885,9 +906,18 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             return None
         return [{"do": "cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1), "filter": key,
                  "until": "next_turn" if m["until"] else "end_of_turn"}], None
+    if (x := STORED_COST_X.fullmatch(text)) is not None:
+        from app.rules import values
+
+        key, value = spell_filter(f"{x['sel']} or {x['sel2']}"), values.parse_count(x["v"])
+        if key is None or not isinstance(value, dict) or "turn_history" not in value:
+            return None
+        return [{"do": "cost_modifier", "delta": value, "dir": -1, "filter": key, "until": "end_of_turn"}], None
     m = LOOK_EXILED.fullmatch(text)  # -- hidden exile (wave 18A) --
     if m:
         return [{"do": "look_exiled", "who": "them:card" if m["what"] in ("those cards", "them") else "it:card", "optional": True}], None
+    if CAST_IT_FROM_GRAVEYARD.fullmatch(text):
+        return [{"do": "free_cast", "zone": "that", "who": "ref:event", "filter": None, "optional": True, "mv": None, "n": 1, "paid": True}], None
     m = FREE_COPY.fullmatch(text)  # -- cast a copy (wave 13C) --
     if m:
         many = m["w"] != "the copy"
@@ -1039,7 +1069,9 @@ def spell_uncounterable(state: GameState, info: CardInfo, card: CardInstance, ch
                                        for x in state.rules.results):
         return True
     return any((d.get("any_player") or src.controller == card.controller) and (not d["filter"] or spell_matches(state, card.controller, card, ch, d["filter"], info))
-               for src, _, d in _table_statics(state, info, {"spells_uncounterable"}))
+               for src, _, d in _table_statics(state, info, {"spells_uncounterable"})) \
+        or any(d.get("uncounterable") and src.controller == card.controller and (not d["filter"] or spell_matches(state, card.controller, card, ch, d["filter"], info))
+               for src, _, d in _table_statics(state, info, {"cost_modifier"}))  # (-- cost changers (wave 44D) -- Thryx)
 
 
 def _table_statics(state: GameState, info: CardInfo, kinds: set[str]) -> list[tuple[CardInstance, int, Definition]]:
@@ -1137,6 +1169,11 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                     continue  # -- conditional statics (wave 4B) -- "as long as you control a Zombie"
                 out.append(Grant("permission", f"{ch.name}: cast it from {'exile' if where == 'exile' else 'your graveyard'}", once_key=key if d["once"] else None,
                                  extra=d.get("extra") or "", exile=bool(d.get("exile"))))
+    if verb == "cast" and where == "graveyard" and card.owner == player and not card.face_down:  # -- static_other (wave 44C) -- 702.133a: jump-start a static gave it (Niv-Mizzet, Supreme)
+        from app.rules import zone_grants
+
+        if zone_grants.jump_start(state, player, card, ch, info):
+            out.append(Grant("permission", f"{ch.name}: cast it from your graveyard (jump-start)", extra="discard a card", exile=True))
     if verb == "play" and where == "graveyard" and card.owner == player:  # -- Marvel keywords (wave 25A) -- 702.187c: a bare "Mayhem"
         from app.rules import mayhem
 
@@ -1433,10 +1470,16 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
             view = view or _view(state, player, info)
             if not selectors.matches(view, selectors.from_key(d["filter"]), card, ch, src.controller, src.id):
                 continue
-        if d["delta"] > 0:
-            increase += d["delta"]
-        else:
-            reduction -= d["delta"]
+        delta = d["delta"]
+        if d.get("value") is not None:  # (wave 44D) the amount read now, with the source's own context
+            view = view or _view(state, player, info)
+            from app.rules import values
+
+            delta = d["sign"] * values.evaluate(view, cost_changes.context(state, src.controller, src), d["value"])
+        if delta > 0:
+            increase += delta
+        elif delta < 0:
+            reduction -= delta
             floor = floor or d["floor"]
     if not increase and not reduction:
         return mana
@@ -1567,11 +1610,14 @@ def cost_modifier(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     cost {N} less to cast": a cost modifier for its controller's spells with that duration (601.2f,
     611.2a; generic mana only, 118.7a), read with the table's static ones (``modifiers``)."""
     pid = ctx["controller"]
+    from app.rules import values
+
+    delta = e["dir"] * values.evaluate(plan, ctx, e["delta"]) if isinstance(e["delta"], dict) else int(e["delta"])  # (wave 44D: an amount read now, 611.2a)
     plan.rules.cost_modifiers.append(CostModifier(
-        id=secrets.token_hex(4), controller=pid, delta=int(e["delta"]), caster="you", filter=e.get("filter"),
+        id=secrets.token_hex(4), controller=pid, delta=delta, caster="you", filter=e.get("filter"),
         until=e["until"], turn=plan.state.turn.number, source=ctx.get("source_object"),
         label=(ctx.get("name") or "An effect")[:120]))
-    amount = f"{{{abs(int(e['delta']))}}} {'less' if int(e['delta']) < 0 else 'more'}"
+    amount = f"{{{abs(delta)}}} {'less' if delta < 0 else 'more'}"
     plan.note(f"{plan.name(pid)}'s spells cost {amount} to cast "
               + ("until their next turn" if e["until"] == "next_turn" else "this turn") + f" ({ctx.get('name') or 'an effect'})")
     return True

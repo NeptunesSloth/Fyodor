@@ -192,10 +192,11 @@ def test_garruk_counts_two_nonland_discards_per_opponent(cards):
 
 # -- "each player who discarded a card this turn": counted for each player, whatever Alice chooses --
 
-def test_azula_a_this_turn_count_after_her_own_discard_stays_manual(cards):
-    # The turn's log takes in a discard only after the resolution (history.note_events): "you may discard a card. Then … for
-    # each player who discarded a card this turn" would miss Azula's own discard (and declining skipped the count too).
-    assert coverage.of_card_data(cards.resolve("Azula, Ruthless Firebender")).level != "FULL"
+def test_azula_a_this_turn_count_after_her_own_discard_is_read_but_not_after_other_instructions(cards):
+    # The turn's log takes in a discard only after the resolution (history.note_events), but history.log_for reads the events no trigger collection has noted yet
+    # (wave 24A), so "you may discard a card. Then … for each player who discarded a card this turn" sees Azula's own discard (wave 44D; the count is its own
+    # instruction, so declining the discard doesn't skip it: tests/test_rules_wave44d_other_commanders.py). Any other earlier instruction still keeps the count manual.
+    assert coverage.of_card_data(cards.resolve("Azula, Ruthless Firebender")).level == "FULL"
     assert scripts.parse_effects("Each opponent loses 1 life. Each opponent who lost life this turn discards a card.") is not None
     ch_text = "Whenever this creature attacks, each opponent loses 1 life. Then each opponent who lost life this turn discards a card."
     assert not _defined(ch_text)

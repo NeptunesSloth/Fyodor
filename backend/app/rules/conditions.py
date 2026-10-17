@@ -134,7 +134,7 @@ _OBJECT_STAT = re.compile(rf"(?P<who>its|that creature's|that permanent's|that c
                           r"(?:is|was) (?:(?P<n>\w+) or (?P<cmp>less|greater|more|fewer)|(?P<cmp2>less|greater|more|fewer) than (?P<n2>\w+)|exactly (?P<n3>\w+))")  # (17D: "than"; 36A: "exactly 20")
 _OBJECT_PARITY = re.compile(r"~'s (?P<stat>power|toughness) is (?P<p>even|odd)")
 _OBJECT_VS_REVEALED = re.compile(r"(?:its|that creature's|that permanent's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|less than|"
-                                 r"greater than or equal to|greater than|equal to) the revealed card's (?P<ref>power|toughness|mana value)")
+                                 r"greater than or equal to|greater than|equal to) the (?P<kind>revealed|discarded) card's (?P<ref>power|toughness|mana value)")  # (wave 44D: discarded)
 # -- trigger other (wave 25B) -- converge: "if its mana value is less than or equal to the number of colors of mana spent to cast this spell"
 _OBJECT_VS_COLORS = re.compile(r"(?:its|that creature's|that permanent's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|"
                                r"equal to) the number of colors of mana spent to cast (?:this spell|~)")
@@ -266,6 +266,10 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         return {"combat_phase": "first"}
     if t in ("it's your main phase", "it is your main phase"):
         return {"main_phase": "yours"}
+    if t == "it's the first combat phase of your turn":  # -- trigger other (wave 44D) -- Tifa, Martial Artist: also this player's own turn (500.1)
+        return {"combat_phase": "first_yours"}
+    if t == "it's combat":  # -- trigger other (wave 44D) -- 506.1: "Whenever you cast a spell during combat" (Zuko): the combat phase, any of its steps
+        return {"combat_phase": "any"}
     # "you control a Forest", "you control two or more Islands", "you control another Elf",
     # "you control no creatures", "you don't control a …", "an opponent controls a …"
     # -- as long as (wave 9B) -- "If excess damage was dealt (to that creature) this way, …" (120.10: scripts bind it to the damage
@@ -466,9 +470,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     found = _more_ifs(t)  # -- intervening ifs (wave 11F) --
     if found is not None:
         return found
-    m = re.fullmatch(r"an opponent (?:(?P<has>has)|controls) (?P<rest>(?:no|\w+ or (?:more|fewer|less)) .+ in hand)", t)  # (wave 16F)
+    m = re.fullmatch(r"an opponent (?:(?P<has>has)|controls) (?P<rest>(?:no|\w+ or (?:more|fewer|less)) .+ in (?:hand|their graveyard))", t)  # (wave 16F; 44D: Sheoldred's graveyard)
     if m:  # "an opponent has no cards in hand": the same test read for some one opponent ("you" of it is them)
-        inner = _parse_one(f"you {'have' if m['has'] else 'control'} {m['rest']}", objects)
+        inner = _parse_one(f"you {'have' if m['has'] else 'control'} {m['rest'].replace('their graveyard', 'your graveyard')}", objects)
         if inner is not None and "value" in inner and not inner.get("per_opponent"):
             return {"as": "opponent", "cond": inner}
     if objects:
@@ -590,6 +594,10 @@ def _more_ifs(t: str) -> Condition | None:
     key = _count("permanents", "you control")
     if m and _num(m["n"]) is not None and key is not None:
         return {"value": {"distinct": "colors", "among": key}, "op": ">=", "n": _num(m["n"])}
+    m = re.fullmatch(r"there are (?P<n>\w+) basic land types among lands you control", t)  # -- trigger other (wave 44D) -- 205.3i: "five basic land types" (Nael, Avizoa Aeronaut)
+    land_key = _count("lands", "you control")
+    if m and _num(m["n"]) is not None and land_key is not None:
+        return {"value": {"distinct": "basic_land_types", "among": land_key}, "op": ">=", "n": _num(m["n"])}
     m = _EXACT_LIFE.fullmatch(t)
     if m and _num(m["n"]) is not None:
         return {"value": {"life": "you"}, "op": "==", "n": _num(m["n"])}
@@ -1210,13 +1218,14 @@ def _object(t: str) -> Condition | None:
     t = re.sub(r"^the creature had (?=(?:power|toughness|mana value) \w+ or )", "that creature had ", t)  # -- named permanents (wave 35C) -- Anax: the creature that died
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)'s (?:power|toughness|mana value)) (\w+ or )", r"\1 was \2", t)
+    t = re.sub(r"^it has the same (power|toughness|mana value) as the (discarded|revealed) card$", r"its \1 is equal to the \2 card's \1", t)  # (wave 44D: Hisoka, Minamo Sensei)
     m = _OBJECT_VS_COLORS.fullmatch(t)
     if m:  # (wave 25B) the spell's own payment record, read as it resolves
         return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]], "n": {"colors_spent": 1}}
     m = _OBJECT_VS_REVEALED.fullmatch(t)
     if m:  # -- static_other sweep (wave 17C) -- "its power is less than or equal to the revealed card's power" (Titan's Presence)
         return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]],
-                "n": {_REF_STATS[m["ref"]]: "cost:revealed"}}
+                "n": {_REF_STATS[m["ref"]]: f"cost:{m['kind']}"}}
     m = _OBJECT_VS_COUNT.fullmatch(t)
     if m and (count := values.parse_count(m["v"])) is not None:
         return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]], "n": {"count_value": count}}
@@ -1304,6 +1313,8 @@ def _object(t: str) -> Condition | None:
         if det is None and re.fullmatch(r"(?:non)?(?:basic|legendary|snow)", what):  # -- damage wordings (wave 6B) --
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "If that land was nonbasic": a supertype (205.4)
         sel = selectors.parse(det["rest"]) if det else None
+        if what == "all colors":  # -- trigger other (wave 44B) -- 105.2: "If that spell was all colors" (Jenson Carthalion): all five of them
+            sel = selectors.Selector(extras=("all_colors:WUBRG",))
         if (sel is None or sel.player is not None or sel.zone_owner is not None or sel.controller is not None
                 or sel.owner is not None or sel.zones not in (("battlefield",), ())):
             return None  # (a test of the object's characteristics, wherever it is: no zone or player relation)
@@ -1440,7 +1451,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if "combat_phase" in cond:  # -- combat (wave 5C) --
         from app.game.state import COMBAT_PHASES
 
-        return plan.state.turn.phase in COMBAT_PHASES and plan.rules.combats == 1
+        return plan.state.turn.phase in COMBAT_PHASES and (cond["combat_phase"] == "any" or plan.rules.combats == 1) \
+            and (cond["combat_phase"] != "first_yours" or plan.state.turn.active_player == ctx["controller"])
     if "main_phase" in cond:  # -- combat (wave 5C) --
         return plan.state.turn.phase in ("main1", "main2") and plan.state.turn.active_player == ctx["controller"]
     v = cond["value"]
@@ -1631,7 +1643,7 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         elif isinstance(bound, dict) and "count_value" in bound:  # (wave 26A) a count of the table, read as the spell resolves
             bound = values.evaluate(plan, ctx, bound["count_value"])
         elif isinstance(bound, dict):  # -- static_other sweep (wave 17C) -- the card a spell's cost revealed
-            bound = values.evaluate(plan, ctx, bound) if values._object(plan, ctx, "cost:revealed") is not None else None
+            bound = values.evaluate(plan, ctx, bound) if values._object(plan, ctx, next(iter(bound.values()))) is not None else None  # (wave 44D: also "cost:discarded")
         return value is not None and bound is not None and bool(_OPS[cond["op"]](value, bound))
     # "it's a land card" / "that creature is a Human": its characteristics, wherever it is (a card in
     # a library, a graveyard or exile, or a permanent as it last existed): the zone is not the test

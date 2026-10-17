@@ -56,7 +56,7 @@ Context = dict[str, Any]
 Definition = dict[str, Any]
 
 # -- grammar ---------------------------------------------------------------------------------------
-_SPELLS = r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<tail> with the chosen name)?"  # (wave 22B: card_names.py)
+_SPELLS = r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<tail> with the chosen name| with mana value \d+ or (?:greater|less))?"  # (wave 22B: card_names.py; wave 44D: Brisela's mana value bound, as STATIC_NOBODY reads it)
 _FROM = r"(?: from (?P<frm>anywhere other than their hands|graveyards or libraries|graveyards or exile|graveyards))?"
 _ACT = (r"(?: or (?P<act>activate abilities of artifacts, creatures, or enchantments|activate abilities that aren't mana abilities"
         r"|activate abilities of cards in graveyards|activate planeswalkers' loyalty abilities))?")
@@ -537,7 +537,8 @@ _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
 _KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as", "keep_mana", "colorless_mana", "gy_flashback",
           "cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
-          "life_lock")  # (wave 29D: app/rules/life_lock.py)
+          "life_lock",  # (wave 29D: app/rules/life_lock.py)
+          "rad_gain")  # (wave 44C: app/rules/designations.py)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -647,6 +648,10 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
         from app.rules.permissions import spell_matches
 
         if not spell_matches(state, player, card, ch, key, info, source):  # (source: wave 22B, "with the chosen name")
+            return False
+        # -- prohibitions (wave 44D) -- 601.3a: a choice made while proposing the spell (the X of a mana cost with {X}) could raise its mana value past an upper bound
+        # ("spells with mana value 3 or less", Brisela), so the player may begin to cast it, ignoring the effect
+        if "{X}" in ch.mana_cost and any(what == "mv" and op == "<=" for what, op, _ in selectors.from_key(key).compare):
             return False
     if d.get("max") is not None:
         return _cast_this_turn(state, player, key) >= int(d["max"])

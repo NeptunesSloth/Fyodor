@@ -72,6 +72,7 @@ _TAX_PW_RE = re.compile(r"(?P<sub>.+?) can't attack you or planeswalkers you con
 _CTRL_RE = re.compile(r"(?P<sub>.+?) can't block creatures you control\.")
 _POWER_SUB = re.compile(r"Creatures with power less than (?:~|this creature)'s power")
 _LIMIT_RE = re.compile(r"No more than (?P<n>one|two|three|four|five) creatures? can attack you each combat\.")
+_LIMIT_PW_RE = re.compile(r"No more than (?P<n>one|two|three|four|five) creatures? can attack (?:~|this planeswalker) each combat\.")  # (wave 44C: Tomik, Orzhov Lawmage)
 _LIMIT_ALL_RE = re.compile(r"No more than (?P<n>one|two|three|four|five) creatures? can (?P<v>attack|block) each combat\.")
 
 
@@ -83,6 +84,9 @@ def static_definition(text: str) -> Definition | None:
     m = _LIMIT_RE.fullmatch(t)
     if m:
         return {"kind": "static", "static": LIMIT, "n": _NUMBERS[m["n"]], "effects": []}
+    m = _LIMIT_PW_RE.fullmatch(t)  # -- counters (wave 44C) -- 508.1: no more than N creatures attack this planeswalker (keyed by it in ``limits``)
+    if m:
+        return {"kind": "static", "static": LIMIT, "n": _NUMBERS[m["n"]], "pw": True, "effects": []}
     m = _LIMIT_ALL_RE.fullmatch(t)
     if m:
         return {"kind": "static", "static": LIMIT_ALL if m["v"] == "attack" else BLOCK_LIMIT_ALL, "n": _NUMBERS[m["n"]], "effects": []}
@@ -209,7 +213,8 @@ def limits(plan: Plan, kind: str = LIMIT) -> dict[str, int]:
             if d.get("kind") != "static":
                 continue
             if d.get("static") == kind == LIMIT:
-                out[c.controller] = min(out.get(c.controller, 99), int(d["n"]))
+                who = c.id if d.get("pw") else c.controller  # (wave 44C: "attack this planeswalker": the planeswalker itself)
+                out[who] = min(out.get(who, 99), int(d["n"]))
             elif d.get("static") == (BLOCK_LIMIT_ALL if kind == BLOCK_LIMIT_ALL else LIMIT_ALL):
                 out["*"] = min(out.get("*", 99), int(d["n"]))
     return out
@@ -219,7 +224,8 @@ def limit_problem(plan: Plan, declared: list[tuple[str, str]], caps: dict[str, i
     for player, n in caps.items():
         k = len(declared) if player == "*" else sum(1 for _, t in declared if t == player)
         if k > n:
-            return f"No more than {n} creature{'s' if n != 1 else ''} can attack {'' if player == '*' else plan.name(player) + ' '}each combat"
+            who = "" if player == "*" else (plan.state.cards[player].name if player in plan.state.cards else plan.name(player)) + " "
+            return f"No more than {n} creature{'s' if n != 1 else ''} can attack {who}each combat"
     return None
 
 

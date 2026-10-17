@@ -395,6 +395,10 @@ def _source(phrase: str) -> dict[str, Any] | None:
         return {"self": True}
     if phrase in ("equipped creature", "enchanted creature"):
         return {"attached": True}
+    if (fresh := re.fullmatch(r"(?P<src>.+?) that entered this turn", phrase)) is not None:
+        # -- counters (wave 44C) -- "a creature you control that entered this turn" (Neriv, Heart of the Storm): the source entered the battlefield this turn (608.2h: as it last existed)
+        inner = _source(fresh["src"])
+        return None if inner is None or "alts" in inner else {**inner, "entered": True}
     if (counted := re.fullmatch(r"(?P<src>.+?) with (?:a|one or more) counters? on (?:it|them)", phrase)) is not None:
         # -- counters (wave 41A) -- "a creature you control with a counter on it" (Raphael, the Muscle): the source has a counter of any kind on it as it would deal the damage
         inner = _source(counted["src"])
@@ -598,8 +602,8 @@ def _damage(text: str) -> Definition | None:
 def _damage_plain(text: str) -> Definition | None:
     # -- counters (wave 41A) -- "Double all damage that creatures you control with counters on them would deal." (Raphael, the Muscle) is "If a creature you control with a
     # counter on it would deal damage to a permanent or player, it deals double that damage instead." (every recipient there is)
-    if (dbl := re.fullmatch(r"Double all damage that (?P<src>creatures|sources) (?P<ctl>you control|an opponent controls)(?P<with> with counters on them)? would deal\.", text)) is not None:
-        noun = "creature" if dbl["src"] == "creatures" else "source"
+    if (dbl := re.fullmatch(r"Double all damage that (?P<src>creatures|creature sources|sources) (?P<ctl>you control|an opponent controls)(?P<with> with counters on them)? would deal\.", text)) is not None:
+        noun = "source" if dbl["src"] == "sources" else "creature"  # (wave 44C: "creature sources", Absorbing Man and Titania)
         text = (f"If a {noun} {dbl['ctl']}{' with a counter on it' if dbl['with'] else ''} would deal damage to a permanent or player, "
                 "it deals double that damage instead.")
     if (d := _damage_to(text)) is not None:
