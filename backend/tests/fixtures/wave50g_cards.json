@@ -269,5 +269,24 @@
   ],
   "power": "2",
   "toughness": "1"
+ },
+ {
+  "name": "Bishop's Soldier",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Vampire Soldier",
+  "oracle_text": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Lifelink"
+  ],
+  "power": "2",
+  "toughness": "2"
  }
 ]

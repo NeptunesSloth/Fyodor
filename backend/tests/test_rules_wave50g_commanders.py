@@ -27,7 +27,7 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_attachments import ch
-from tests.test_rules_conditionals import settle
+from tests.test_rules_conditionals import settle, until
 from tests.test_rules_wave39b_trigger_damage import attack, finish_turn, to_main1
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
 
@@ -241,6 +241,96 @@ def test_tetsuo_destroys_a_blocking_creature(cards):
     check(s)
 
 
+# -- Valentina Allegra de Fontaine -------------------------------------------------------------------------------------------------------------------
+def test_valentina_makes_your_other_villains_heroes_not_theirs(cards):
+    """613.1d: "Other Villains you control are Heroes in addition to their other types" - yours, not an opponent's, and not a creature that isn't a Villain."""
+    s = build(cards, ["Valentina Allegra de Fontaine", "Undead Hand Ninja", "Grizzly Bears"], ["Kree Commandos"])
+    put(s, "Valentina Allegra de Fontaine")
+    ninja, bears, kree = put(s, "Undead Hand Ninja"), put(s, "Grizzly Bears"), put(s, "Kree Commandos", "p2")
+    assert "Hero" in ch(s, ninja).subtypes and "Villain" in ch(s, ninja).subtypes
+    assert "Hero" not in ch(s, bears).subtypes and "Hero" not in ch(s, kree).subtypes
+    check(s)
+
+
+def test_valentina_connives_a_hero_you_control(cards):
+    """"{T}: Target Hero you control connives. Activate only as a sorcery." A Villain of yours is a Hero, an opponent's Hero is no target (701.50)."""
+    s = build(cards, ["Valentina Allegra de Fontaine", "Undead Hand Ninja", "Grizzly Bears"], ["Masked Meower"])
+    val, ninja, bears, theirs = (put(s, "Valentina Allegra de Fontaine"), put(s, "Undead Hand Ninja"), put(s, "Grizzly Bears"),
+                                 put(s, "Masked Meower", "p2"))
+    finish_turn(s)
+    finish_turn(s)
+    for bad in (bears, theirs):
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=val.id, ability=ability(s, val, "connives"), targets=[bad.id])
+    hand, library, yard = len(s.state.zones["p1:hand"]), len(s.state.zones["p1:library"]), len(s.state.zones["p1:graveyard"])
+    act(s, "p1", type="activate_ability", card_id=val.id, ability=ability(s, val, "connives"), targets=[ninja.id])
+    settle(s)
+    assert (len(s.state.zones["p1:hand"]), len(s.state.zones["p1:library"]), len(s.state.zones["p1:graveyard"])) == (hand, library - 1, yard + 1)
+    check(s)
+
+
+# -- Anje, Maid of Dishonor --------------------------------------------------------------------------------------------------------------------------
+def bloods(s, pid="p1"):
+    return [c for c in s.state.cards.values() if c.name == "Blood" and c.controller == pid and c.zone.endswith(":battlefield")]
+
+
+def cast_now(s, name, **m):
+    """Cast ``name`` from the hand with this mana and let everything resolve."""
+    mana(s, "p1", **m)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, name).id)
+    settle(s)
+
+
+def test_anje_triggers_for_anje_or_another_vampire_once_each_turn(cards):
+    """Anje entering uses the turn's trigger up (603.2c: one trigger, however many Vampires entered); a Vampire a turn later makes a Blood, one that is no Vampire never does."""
+    s = build(cards, ["Anje, Maid of Dishonor", "Vampire Interloper", "Bishop's Soldier", "Grizzly Bears"], [])
+    cast_now(s, "Anje, Maid of Dishonor", R=2, B=1, G=3)
+    assert len(bloods(s)) == 1  # (Anje herself)
+    cast_now(s, "Vampire Interloper", B=2)
+    assert len(bloods(s)) == 1  # (only once each turn)
+    finish_turn(s)
+    finish_turn(s)
+    cast_now(s, "Grizzly Bears", G=2)
+    assert len(bloods(s)) == 1  # (not a Vampire)
+    cast_now(s, "Bishop's Soldier", W=2)
+    assert len(bloods(s)) == 2
+    check(s)
+
+
+@pytest.mark.parametrize("pay", ["Blood", "Grizzly Bears"])
+def test_anje_sacrifices_another_creature_or_a_blood_token(cards, pay):
+    s = build(cards, ["Anje, Maid of Dishonor", "Grizzly Bears"], [])
+    cast_now(s, "Anje, Maid of Dishonor", R=2, B=1, G=3)
+    anje = card_named(s, "Anje, Maid of Dishonor")
+    bears = put(s, "Grizzly Bears")
+    finish_turn(s)
+    finish_turn(s)
+    paid = bloods(s)[0] if pay == "Blood" else bears
+    mana(s, "p1", G=2)
+    act(s, "p1", type="activate_ability", card_id=anje.id, ability=ability(s, anje, "Each opponent loses 2 life"),
+        cost_choices=[{"component": 1, "cards": [paid.id]}])
+    settle(s)
+    assert (life(s, "p2"), life(s, "p1")) == (38, 42) and paid.id not in on_battlefield_ids(s)
+    check(s)
+
+
+def test_anje_cant_sacrifice_herself_for_her_ability(cards):
+    s = build(cards, ["Anje, Maid of Dishonor"], [])
+    cast_now(s, "Anje, Maid of Dishonor", R=2, B=1, G=3)
+    anje = card_named(s, "Anje, Maid of Dishonor")
+    finish_turn(s)
+    finish_turn(s)
+    mana(s, "p1", G=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=anje.id, ability=ability(s, anje, "Each opponent loses 2 life"),
+            cost_choices=[{"component": 1, "cards": [anje.id]}])
+    check(s)
+
+
+def on_battlefield_ids(s):
+    return {c.id for c in s.state.cards.values() if c.zone.endswith(":battlefield")}
+
+
 def test_maralen_replaces_the_draw_step_with_a_tutor(cards):
     """Bob's draw step: no draw; he loses 3 life, searches his library for a card, puts it into his hand and shuffles."""
     s = build(cards, ["Maralen of the Mornsong"], ["Counterspell"], islands=6)
@@ -249,4 +339,79 @@ def test_maralen_replaces_the_draw_step_with_a_tutor(cards):
     to_main1(s, 2)
     assert life(s, "p2") == 37
     assert len(s.state.zones["p2:hand"]) == hand + 1 and len(s.state.zones["p2:library"]) == library - 1
+    check(s)
+
+
+# -- Hakbal of the Surging Soul ----------------------------------------------------------------------------------------------------------------------
+def drive(s, picks, done, limit=60):
+    """Pass priority until ``done(s)``; a decision is answered by the first of ``picks`` (substrings of an option's label or of the prompt) that fits, else its first option."""
+    for _ in range(limit):
+        if done(s):
+            return
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        if d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+            continue
+        if "<none>" in picks and d.min_choices == 0:  # (decline an optional choice)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[])
+            continue
+        want = next((o for p in picks for o in d.options if p in o.label or p in d.prompt), d.options[0])
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[want.id])
+    raise AssertionError("never got there")
+
+
+def counters(s, name, pid="p1"):
+    return s.state.cards[card_named(s, name, pid).id].counters.get("+1/+1", 0)
+
+
+def merfolk_table(cards, theirs=()):
+    s = build(cards, ["Hakbal of the Surging Soul", "Merfolk Looter", "Merfolk Branchwalker", "Grizzly Bears", "Llanowar Elves"], list(theirs))
+    seasoned(s, "Hakbal of the Surging Soul", "Merfolk Looter", "Merfolk Branchwalker", "Grizzly Bears")
+    return s
+
+
+def test_hakbal_explores_each_merfolk_in_the_order_you_choose(cards):
+    """At the beginning of combat each Merfolk you control explores, one after another in the order you pick (the 2023-11-10 ruling): the Bears on top gives +1/+1 to
+    whoever explores first, then two lands go to the hand. Your other creatures, and an opponent's Merfolk, don't explore."""
+    s = merfolk_table(cards, ["Merfolk Looter"])
+    put(s, "Merfolk Looter", "p2")
+    stack_top(s, ["Llanowar Elves", "Forest", "Forest"])
+    hand = len(s.state.zones["p1:hand"])
+    base = {n: counters(s, n) for n in ("Merfolk Branchwalker", "Merfolk Looter", "Hakbal of the Surging Soul", "Grizzly Bears")}  # (turns 1 and 2 had combats too)
+    asked = []
+
+    def ordered(s):
+        d = s.state.rules.decision
+        if d is not None:
+            asked.append(d.prompt)
+        return bool(asked) and d is None and not s.state.zones.get("stack")
+
+    drive(s, ["Merfolk Branchwalker", "Put it into your graveyard"], ordered)
+    assert asked.count("Choose the creature that explores next") == 2  # (three Merfolk: asked while two or more are left)
+    assert {n: counters(s, n) - b for n, b in base.items()} == {"Merfolk Branchwalker": 1, "Merfolk Looter": 0, "Hakbal of the Surging Soul": 0, "Grizzly Bears": 0}
+    assert counters(s, "Merfolk Looter", "p2") == 0
+    assert len(s.state.zones["p1:hand"]) == hand + 2 and "Llanowar Elves" in [s.state.cards[c].name for c in s.state.zones["p1:graveyard"]]
+    check(s)
+
+
+@pytest.mark.parametrize("mode, lands, drawn", [("put", 1, 0), ("decline", 0, 1), ("no land", 0, 1)])
+def test_hakbal_puts_a_land_from_your_hand_or_draws(cards, mode, lands, drawn):
+    """"Whenever Hakbal attacks, you may put a land card from your hand onto the battlefield. If you don't, draw a card."  A land put: no draw; declined, or no land in
+    the hand to put: a draw (608.2c, 118.12)."""
+    s = build(cards, ["Hakbal of the Surging Soul"], [])
+    hakbal = put(s, "Hakbal of the Surging Soul")
+    finish_turn(s)
+    finish_turn(s)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    if mode == "no land":
+        act(s, "p1", type="move", card_ids=[c for c in s.state.zones["p1:hand"]], to={"zone": "exile"})
+    in_hand = len(s.state.zones["p1:hand"])
+    forests, library = len(on_battlefield(s, "Forest")), len(s.state.zones["p1:library"])
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": hakbal.id, "target": "p2"}])
+    drive(s, {"put": ["Forest"], "decline": ["<none>"], "no land": []}[mode], lambda s: s.state.rules.decision is None and not s.state.zones.get("stack"))
+    assert len(on_battlefield(s, "Forest")) - forests == lands and library - len(s.state.zones["p1:library"]) == drawn
+    assert len(s.state.zones["p1:hand"]) == in_hand - lands + drawn
     check(s)
