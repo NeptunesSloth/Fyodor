@@ -5723,7 +5723,7 @@ def pawprint_definition(lines: list[AbilityText], name: str) -> Definition | Non
     if modal is None:
         return None
     weights = [f["p"].count("{P}") for f in found if f]
-    budget = _NUMBERS[m["n"]] if m["n"] in _NUMBERS else 6
+    budget = _NUMBERS.get(m["n"], 6)
     # ponytail: choosing no mode at all (allowed, ruling 2024-07-26, but it does nothing) isn't offered
     modal["modal"] = {**modal["modal"], "min": 1, "max": budget // min(weights), "weights": weights, "budget": budget}
     for mode, f in zip(modal["modes"], found, strict=True):

@@ -16,8 +16,10 @@ import pytest
 from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.test_rules_wave33b_modal import settle
-from tests.test_rules_wave50i_modal_modes import cards, until_decision  # noqa: F401
+from tests.test_rules_wave50i_modal_modes import cards_fixture, until_decision
 from tests.wave9c_kit import build, card_named, check, life, mana, put, reloaded, to_hand, zone_of
+
+cards = pytest.fixture()(cards_fixture)
 
 # --- Archdruid's Charm: the destination depends on the kind of card found ---------------------------------------------------------------
 

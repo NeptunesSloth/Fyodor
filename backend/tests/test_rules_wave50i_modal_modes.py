@@ -37,13 +37,15 @@ LESSONS = [card(n, set_code="w50i", number=f"L{i:02d}", mana_cost="{G}", cmc=1.0
                 colors=["G"], color_identity=["G"]) for i, n in enumerate(("Test Lesson One", "Test Lesson Two"))]
 
 
-@pytest.fixture()
-def cards(settings):
+def cards_fixture(settings):
     settings.ensure_dirs()
     build_database([*fixture_cards(), *EXTRA, *LESSONS], settings.cards_db_path, meta={"bulk_type": "test"})
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
     yield repo
     repo.close()
+
+
+cards = pytest.fixture()(cards_fixture)  # (the other wave 50I test files use the same table of cards)
 
 
 @pytest.mark.parametrize("name", [c["name"] for c in DATA])

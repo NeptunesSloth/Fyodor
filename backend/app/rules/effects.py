@@ -4411,6 +4411,8 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     import secrets
 
     pid = ctx["controller"]
+    if e.get("chooser") == "target" and (named := _players(plan, ctx, "target")):  # -- commanders (wave 50I) -- "Target player returns a … card from their graveyard to their hand": they choose
+        pid = named[0]
     found = (_cards(plan, ctx, e["who"]) if e.get("who") else  # (-- wave 22D -- "a creature card put into a graveyard this way")
              selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card")))
     # -- reanimation (wave 37B) -- "the top creature card of your graveyard": the last matching card of the graveyard's order (index -1 is the top), nothing chosen
@@ -4440,7 +4442,7 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     pool = set(_cards(plan, ctx, e["who"]) if e.get("who") else
-               selectors.candidates(plan, selectors.from_key(e["sel"]), ctx["controller"], ctx.get("source_card")))
+               selectors.candidates(plan, selectors.from_key(e["sel"]), d.player if e.get("chooser") else ctx["controller"], ctx.get("source_card")))
     cards = [c for c in chosen if c in pool]  # (still there and still matching)
     if e.get("different"):  # -- refused zones/sized (wave 3R4) -- "… cards with different names / mana values"
         from app.rules.targets import _different

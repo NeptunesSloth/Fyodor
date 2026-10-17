@@ -1693,6 +1693,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m and rider is None:
         who, target = _subject(m)
         return [{"do": m["v"][:-1] if m["v"] == "surveils" else "scry", "who": who, "n": _amount(m["n"])}], target
+    # -- commanders (wave 50I) -- "Target player returns an artifact, instant, or sorcery card from their graveyard to their hand." (Donnie & April): that player chooses the card
+    # from their own graveyard (608.2d), as "return a … card from your graveyard to your hand" reads for its controller (effects.return_choice, "chooser")
+    m = re.fullmatch(r"(?P<s>target player|target opponent) returns (?P<rest>(?:an?|up to \w+) .+? cards? from their graveyard to their hand)", text)
+    if m and rider is None:
+        found = parse_sentence("return " + m["rest"].replace("their graveyard to their hand", "your graveyard to your hand"))
+        if found is not None and found[1] is None and len(found[0]) == 1 and found[0][0]["do"] == "return_choice" and found[0][0]["to"] == "hand" \
+                and not found[0][0].get("random") and not found[0][0].get("optional") and not found[0][0].get("who"):
+            return [{**found[0][0], "chooser": "target"}], _LEGACY_TARGETS[m["s"]]
     m = re.fullmatch(_SUBJ + rf"sacrifices? (?P<n>{AMT}|another) (?P<sel>.+)", text)
     if m and rider is None:
         who, target = _subject(m)
@@ -3627,7 +3635,7 @@ _RA_RETURN = re.compile(rf"return (?P<o>.+?) to (?:(?P<h>your hand|its owner's h
                         rf"the battlefield{_RA_TAPPED}(?P<xf> transformed)?(?P<fd> face down)?{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST})")  # (face down: wave 18A, 708.4; transformed: wave 37B, 712.14a)
 _RA_PUT = re.compile(rf"put (?P<o>.+?) onto the battlefield{_RA_TAPPED}{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST}")
 _RA_ZONE = r"(?:your graveyard|your hand or graveyard|a graveyard|an opponent's graveyard)"  # (-- reanimation (wave 37B) -- Danitha: "from your hand or graveyard")
-_RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any number of )|(?P<n>{AMT}) )(?P<what>[^,]+?)(?P<rand> at random)?"
+_RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any number of )|(?P<n>{AMT}) )(?P<what>(?:[^,]|,(?= [^,]+, or | or ))+?)(?P<rand> at random)?"  # (wave 50I: "an artifact, instant, or sorcery card")
                         rf" from (?P<z>{_RA_ZONE})")
 _RA_SELF = re.compile(r"(?:this card|~) from your graveyard")
 _RA_SELF_EXILE = re.compile(r"(?:this card|~) from your graveyard or from exile")  # -- activated other (wave 42C) -- 113.6m: Mister Immortal works from either zone
