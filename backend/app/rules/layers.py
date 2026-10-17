@@ -58,7 +58,8 @@ def _num(value: str | None) -> int | None:
 
 def affecting(state: GameState, card: CardInstance) -> list[ContinuousEffect]:
     r = state.rules
-    if r is None or not r.effects or not card.zone.endswith(":battlefield"):
+    # (-- color lace (wave 46B) -- a spell on the stack is affected too: "Target spell or permanent becomes blue" locks in the spell, 611.2c)
+    if r is None or not r.effects or not (card.zone.endswith(":battlefield") or card.zone == "stack"):
         return []
     oid = r.object_id(card.id)
     return sorted((e for e in r.effects if oid in e.affected), key=lambda e: e.timestamp)

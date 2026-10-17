@@ -1563,6 +1563,10 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                 for eff in rules.effects:
                     if eff.layer == "1" and eff.source == ENTERING_COPY + card_id and old_oid in eff.affected:
                         eff.affected.append(new_oid)
+            if new_name == "battlefield" and old_name == "stack":  # -- color lace (wave 46B) -- 400.7a: what a spell or ability did to a permanent spell goes on
+                for eff in rules.effects:  # applying to the permanent it becomes (a color, a type, a keyword, a control change), for the rest of its duration
+                    if old_oid in eff.affected and new_oid not in eff.affected:
+                        eff.affected.append(new_oid)
         else:
             rules.objects.pop(card_id, None)
         if old_name == "library" and new_name == "hand" and card is not None and new_oid is not None \

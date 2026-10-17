@@ -3362,15 +3362,17 @@ _BECOME_COLOR = re.compile(r"^(?:(?P<lead>until end of turn, ))?(?P<o>.+?)(?: ga
 
 def _become_color(m: re.Match[str]) -> tuple[Effects, Any]:
     kind, key, group = ref(m["o"])
-    if kind == "players" or not (m["lead"] or m["trail"]):
-        raise _Fail  # (no duration: a color for the rest of the game, not read)
+    # -- color lace (wave 46B) -- no duration: for the rest of the game (611.2a; Thoughtlace); a rider ("and gains …") would need its own duration
+    perm = not (m["lead"] or m["trail"])
+    if kind == "players" or (perm and (m["pp"] or m["gain"] or m["pre"])):
+        raise _Fail
     who = _who(kind, key)
     colors = [] if m["colors"] == "colorless" else list(_COLOR_LETTERS.values()) if m["colors"] == "all colors" \
         else [_COLOR_LETTERS[c] for c in re.split(r",? and |, ", m["colors"])]
     if m["add"] and not colors:
         raise _Fail
     out: Effects = [{"do": "become", "who": who, "types": [], **({"add_colors": colors} if m["add"] else {"colors": colors}),
-                     "duration": "end_of_turn"}]
+                     "duration": "permanent" if perm else "end_of_turn"}]
     if m["pp"]:
         out.append({"do": "pump", "who": who, "p": _signed(m["pp"]), "t": _signed(m["tt"])})
     if m["gain"] or m["pre"]:
