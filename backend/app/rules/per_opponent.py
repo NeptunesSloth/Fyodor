@@ -89,7 +89,7 @@ def expanded(plan: Plan, controller: str, source_card: str | None, ab: dict[str,
     effects: list[dict[str, Any]] = []
     for p in opponents:
         key = replace(sel, controller=f"player:{p}").key()
-        if group["min"] and not legal_targets(plan, key, controller, source_of(plan, source_card), source_card):
+        if group["min"] and not legal_targets(plan, key, controller, source_of(plan, source_card, ab.get("kind") == "spell"), source_card):
             continue
         effects += _renumber(ab["effects"], [len(groups)])
         groups.append({k: v for k, v in group.items() if k != FLAG} | {"what": key})
