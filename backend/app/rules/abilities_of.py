@@ -73,7 +73,7 @@ def parse(rest: str) -> dict[str, Any] | None:
             return None
         sel = replace(sel, zones=("graveyard",))
     elif sel.card:  # ("Elf cards in your graveyard": the selector grammar's own zone)
-        if sel.zones not in (("graveyard",), ("exile",)) or sel.extras:
+        if sel.zones not in (("graveyard",), ("exile",)) or any(not x.startswith("counter:") for x in sel.extras):  # (wave 50J: "cards in exile with brain counters on them", Rex)
             return None
     elif sel.zones != ("battlefield",):
         return None

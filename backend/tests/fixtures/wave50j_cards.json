@@ -562,5 +562,26 @@
   ],
   "power": "6",
   "toughness": "5"
+ },
+ {
+  "name": "Rex, Cyber-Hound",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Artifact Creature — Robot Dog",
+  "oracle_text": "Whenever Rex deals combat damage to a player, they mill two cards and you get {E}{E} (two energy counters).\nPay {E}{E}: Choose target creature card in a graveyard. Exile it with a brain counter on it. Activate only as a sorcery.\nRex has all activated abilities of all cards in exile with brain counters on them.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Mill"
+  ],
+  "power": "2",
+  "toughness": "2"
  }
 ]

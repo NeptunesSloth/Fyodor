@@ -23,7 +23,16 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, attach, attack, block, next_turn, stops, to_phase
+from tests.test_rules_wave34b_activated import (
+    ability,
+    activate,
+    attach,
+    attack,
+    block,
+    next_turn,
+    stops,
+    to_phase,
+)
 from tests.wave9c_kit import build, card_named, cast, check, life, mana, pt, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave50j_cards.json").read_text("utf-8"))
@@ -71,7 +80,7 @@ def combat(s):
                                   "Kaima, the Fractured Calm", "Havoc Eater", "Pia Nalaar, Chief Mechanic", "Rampaging Aetherhood", "Sensei Golden-Tail", "Kathril, Aspect Warper",
                                   "Concerted Effort", "Thunderous Orator", "Wonder Man, Hollywood Hero", "Kang the Conqueror",
                                   "Thanos, the Mad Titan", "Extinction Event", "Gollum, Riddle Master",
-                                  "Satya, Aetherflux Genius", "Hulk, Gamma Goliath"])
+                                  "Satya, Aetherflux Genius", "Hulk, Gamma Goliath", "Rex, Cyber-Hound"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -365,6 +374,30 @@ def test_gollum_riddle_master_triggers_for_spells_of_the_quality_it_chose_as_it_
     act(s, "p2", type="cast_spell", card_id=card_named(s, "Lightning Bolt", "p2").id, targets=["p2"])
     settle(s)
     assert counters(s, "Gollum, Riddle Master") == {"+1/+1": 1} and life(s, "p2") == 40 - 3 - 2 and life(s, "p1") == 40 + 2  # (another mode: one that hasn't been chosen)
+    check(s)
+
+
+# -- exile with a counter, abilities of the cards with it -----------------------------------------------------------------------------------------------
+# "Exile it with a brain counter on it." / "Rex has all activated abilities of all cards in exile with brain counters on them." (Rex, Cyber-Hound): 113.10, 613.1f
+def test_rex_has_the_activated_abilities_of_the_cards_it_exiled_with_a_brain_counter(cards):
+    s = build(cards, mine=["Rex, Cyber-Hound", "Llanowar Elves", "Grizzly Bears"])
+    rex = put(s, "Rex, Cyber-Hound")
+    to_graveyard(s, "Llanowar Elves", "Grizzly Bears")
+    act(s, "p1", type="resource", player="p1", key="energy", delta=2)
+    next_turn(s)
+    act(s, "p1", type="activate_ability", card_id=rex.id, ability=ability(s, "Rex, Cyber-Hound", contains="Exile"), targets=[card_named(s, "Llanowar Elves").id])
+    settle(s)
+    assert zone_of(s, "Llanowar Elves") == "p1:exile" and counters(s, "Llanowar Elves") == {"brain": 1} and energy(s) == 0
+    assert any(a.kind == "mana" and "Add {G}" in a.text for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[rex.id]).abilities)  # (its mana ability, lent)
+    assert zone_of(s, "Grizzly Bears") == "p1:graveyard"
+    check(s)
+
+
+def test_rex_borrows_nothing_from_a_card_exiled_without_a_brain_counter(cards):
+    s = build(cards, mine=["Rex, Cyber-Hound", "Llanowar Elves"])
+    rex = put(s, "Rex, Cyber-Hound")
+    act(s, "p1", type="move", card_ids=[card_named(s, "Llanowar Elves").id], to={"zone": "exile"})
+    assert not any(a.kind == "mana" for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[rex.id]).abilities)
     check(s)
 
 
