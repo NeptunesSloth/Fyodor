@@ -654,6 +654,9 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         if problem:
             raise ActionError(problem)
         per_attacker[decl.attacker_id] = per_attacker.get(decl.attacker_id, 0) + 1
+    cap = r.block_caps.get(plan.actor)  # -- commander sweep (wave 49B) -- 509.1b: "Each opponent can't block with more than one creature this combat." (Mirri)
+    if cap is not None and len(used) > cap:
+        raise ActionError(f"You can't block with more than {cap} creature{'s' if cap != 1 else ''} this combat")
     for aid, n in per_attacker.items():
         ach = plan.ch(plan.state.cards[aid])
         least = min_blockers(ach)
@@ -1105,5 +1108,6 @@ def end_combat(plan: Plan) -> None:
     r.blocked = []
     r.block_split = {}
     r.assign_unblocked = {}
+    r.block_caps = {}  # (wave 49B) "this combat"
     r.no_attackers = False
     r.combat_round = ""

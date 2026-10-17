@@ -636,6 +636,8 @@ def _relative_count(each: str, group: str | None = None) -> dict[str, Any] | Non
         return {"relative": "counters", "kind": c["k"] or "any"}
     if group == "it" and each == "point of bushido it has":  # -- counters (wave 44C) -- 702.45a: the bushido numbers the object modified has (Takeno, Samurai General)
         return {"relative": "bushido"}
+    if group == "it" and each == "time it has attacked this turn":  # -- commander sweep (wave 49B) -- 508.1: the combats it was declared an attacker in this turn (Moraug, Fury of Akoum)
+        return {"relative": "attacks"}
     if each == "of its colors":  # -- attached events (wave 16F) -- 105.1: the colors of the object modified (Civic Saber)
         return {"relative": "colors"}
     m = _SHARING.match(each) or _SAME_NAME.match(each)

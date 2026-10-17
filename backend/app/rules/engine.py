@@ -683,6 +683,7 @@ def on_step_start(plan: Plan) -> None:
         effects.designations.rad_trigger(plan)
     elif phase == "begin_combat":  # -- combat (wave 5C) -- "if it's the first combat phase of the turn"
         combat_rules.combat_began(plan)
+        delayed.at_step(plan, "begin_combat")  # -- commander sweep (wave 49B) -- 603.7: "At the beginning of that combat" (Moraug), the one combat phase a tagged trigger waits for
     elif phase == "end_combat":  # -- (wave 3E) delayed triggers "at end of combat" (511.2, 603.7: the Ring's sacrifice) --
         delayed.at_step(plan, "end_combat")
     elif phase == "declare_attackers":

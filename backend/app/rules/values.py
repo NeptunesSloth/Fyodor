@@ -998,6 +998,10 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
         return evaluate(plan, {**ctx, "controller": card.controller}, v["of"])
     if v["relative"] == "counters":  # -- counters (wave 26D) -- "for each +1/+1 counter on it" (122.1): counters on the object modified
         return sum(n for k, n in card.counters.items() if v["kind"] in ("any", k))
+    if v["relative"] == "attacks":  # -- commander sweep (wave 49B) -- "for each time it has attacked this turn" (Moraug): this turn's record of the object
+        from app.rules import history
+
+        return history.log_for(plan).attack_counts.get(plan.oid(card), 0)
     mine = plan.ch(card)
     if v["relative"] == "bushido":  # -- counters (wave 44C) -- 702.45a: "for each point of bushido it has": the sum of its bushido abilities' numbers (each instance counts)
         return sum(int(n) for a in mine.abilities if "bushido" in a.keywords for n in re.findall(r"(?i)bushido (\d+)", a.text))

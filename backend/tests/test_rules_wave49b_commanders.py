@@ -36,8 +36,8 @@ EXTRA = [card(c["name"], set_code="w49b", number=f"B{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 HINATA, DARIEN, ARCHELOS, GRAVEMOTHER = "Hinata, Dawn-Crowned", "King Darien XLVIII", "Archelos, Lagoon Mystic", "Sliver Gravemother"
 KATILDA, MYCOTYRANT, ULAMOG, STOMP = "Katilda, Dawnhart Martyr // Katilda's Rising Dawn", "The Mycotyrant", "Ulamog, the Defiler", "Savage Stomp"
-VARCHILD, SABSUNEN = "Varchild, Betrayer of Kjeldor", "Sab-Sunen, Luxa Embodied"
-NAMES = [HINATA, DARIEN, ARCHELOS, GRAVEMOTHER, KATILDA, MYCOTYRANT, ULAMOG, VARCHILD, SABSUNEN]
+VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN = "Varchild, Betrayer of Kjeldor", "Sab-Sunen, Luxa Embodied", "Mirri, Weatherlight Duelist", "Moraug, Fury of Akoum", "Sarkhan, Dragon Ascendant"
+NAMES = [HINATA, DARIEN, ARCHELOS, GRAVEMOTHER, KATILDA, MYCOTYRANT, ULAMOG, VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN]
 
 
 @pytest.fixture()
@@ -319,6 +319,157 @@ def test_varchild_deals_no_damage_to_a_blocker_so_nothing_is_created(cards):
     check(s)
 
 
+# ---- Sarkhan, Dragon Ascendant -------------------------------------------------------------------------------------------------------------------
+def cast_sarkhan(s):
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, SARKHAN).id)
+    settle(s)
+
+
+def treasures(s):
+    return [c for c in s.state.cards.values() if c.is_token and c.name == "Treasure" and c.zone == "p1:battlefield"]
+
+
+def test_sarkhan_beholds_a_dragon_card_from_the_hand_for_a_treasure(cards):
+    s = build(cards, [SARKHAN, "Shivan Dragon"], [])
+    dragon = to_hand(s, "Shivan Dragon")
+    cast_sarkhan(s)
+    assert len(treasures(s)) == 1 and s.state.cards[dragon.id].zone == "p1:hand"  # revealed, not moved (701.4a)
+    check(s)
+
+
+def test_sarkhan_beholds_a_dragon_you_control(cards):
+    s = build(cards, [SARKHAN], [])
+    token(s, "p1", "Drake", "Token Creature — Dragon")
+    cast_sarkhan(s)
+    assert len(treasures(s)) == 1
+    check(s)
+
+
+def test_sarkhan_makes_no_treasure_without_a_dragon_to_behold(cards):
+    s = build(cards, [SARKHAN, "Grizzly Bears"], [])
+    to_hand(s, "Grizzly Bears")
+    cast_sarkhan(s)
+    assert zone_of(s, SARKHAN) == "p1:battlefield" and not treasures(s)
+    check(s)
+
+
+def test_sarkhan_grows_and_becomes_a_dragon_when_a_dragon_enters(cards):
+    s = build(cards, [SARKHAN, "Shivan Dragon", "Grizzly Bears"], [])
+    sarkhan = put(s, SARKHAN)
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Grizzly Bears").id)  # a Bear is no Dragon
+    settle(s)
+    assert not s.state.cards[sarkhan.id].counters
+    mana(s, R=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Shivan Dragon").id)
+    settle(s)
+    now = s.state.cards[sarkhan.id]
+    assert now.counters.get("+1/+1") == 1
+    from app.rules.plan import Plan
+
+    here = Plan(s.state, "p1", s.cards, None).ch(now)
+    assert "Dragon" in here.subtypes and "flying" in here.keywords
+    check(s)
+
+
+# ---- Moraug, Fury of Akoum -----------------------------------------------------------------------------------------------------------------------
+def test_moraug_pumps_for_each_attack_and_untaps_as_the_added_combat_begins(cards):
+    s = build(cards, [MORAUG, "Grizzly Bears", "Forest"], [])
+    put(s, MORAUG)
+    bears = put(s, "Grizzly Bears")
+    stops(s)
+    next_turn(s)
+    assert pt(s, "Grizzly Bears") == (2, 2)  # it hasn't attacked
+    attack(s, bears)
+    assert pt(s, "Grizzly Bears") == (3, 2)  # once
+    through_combat(s)
+    assert s.state.cards[bears.id].tapped and s.state.players["p2"].life == 37
+    land(s, "Forest")  # a main phase: landfall adds a combat phase after this one
+    settle(s)
+    to_phase(s, "declare_attackers", turn=3)
+    assert not s.state.cards[bears.id].tapped  # "At the beginning of that combat, untap all creatures you control."
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    assert pt(s, "Grizzly Bears") == (4, 2)  # twice
+    to_phase(s, "end", turn=3)
+    assert s.state.players["p2"].life == 33
+    check(s)
+
+
+def test_moraugs_untap_belongs_to_the_combat_it_added_not_the_next_one(cards):
+    s = build(cards, [MORAUG, "Grizzly Bears", "Forest"], [])
+    put(s, MORAUG)
+    bears = put(s, "Grizzly Bears")
+    stops(s)
+    next_turn(s)
+    act(s, "p1", type="tap", card_ids=[bears.id], tapped=True)
+    land(s, "Forest")  # the first main phase: the added combat comes before the turn's own
+    settle(s)
+    assert attackers_asked(s, 3)
+    assert not s.state.cards[bears.id].tapped  # untapped as the added combat began
+    act(s, "p1", type="declare_attackers", attackers=[])
+    act(s, "p1", type="tap", card_ids=[bears.id], tapped=True)
+    assert attackers_asked(s, 3)  # the turn's own combat
+    assert s.state.cards[bears.id].tapped  # the delayed trigger is spent: nothing untaps now
+    check(s)
+
+
+# ---- Mirri, Weatherlight Duelist -----------------------------------------------------------------------------------------------------------------
+def test_mirri_attacking_lets_each_opponent_block_with_one_creature_only(cards):
+    s = build(cards, [MIRRI, "Grizzly Bears"], ["Llanowar Elves", "Young Wolf"])
+    mirri = put(s, MIRRI)
+    e1, e2 = put(s, "Llanowar Elves", "p2"), put(s, "Young Wolf", "p2")
+    next_turn(s)
+    attack(s, mirri)
+    ask(s)
+    with pytest.raises(ActionError, match="more than 1 creature"):  # two blockers on Mirri this combat
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": e1.id, "attacker_id": mirri.id}, {"blocker_id": e2.id, "attacker_id": mirri.id}])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": e1.id, "attacker_id": mirri.id}])
+    through_combat(s)
+    assert zone_of(s, "Llanowar Elves", "p2") == "p2:graveyard"  # (first strike)
+    check(s)
+
+
+def test_without_mirri_attacking_two_blockers_are_allowed(cards):
+    s = build(cards, [MIRRI, "Grizzly Bears"], ["Llanowar Elves", "Young Wolf"])
+    put(s, MIRRI)
+    bears = put(s, "Grizzly Bears")
+    e1, e2 = put(s, "Llanowar Elves", "p2"), put(s, "Young Wolf", "p2")
+    next_turn(s)
+    attack(s, bears)
+    ask(s)
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": e1.id, "attacker_id": bears.id}, {"blocker_id": e2.id, "attacker_id": bears.id}])
+    assert s.state.cards[e1.id].blocking and s.state.cards[e2.id].blocking  # accepted: Alice is asked how Bears divide their damage
+    check(s)
+
+
+def test_a_tapped_mirri_lets_only_one_creature_attack_its_controller(cards):
+    s = build(cards, [MIRRI], ["Llanowar Elves", "Young Wolf"])
+    mirri = put(s, MIRRI)
+    e1, e2 = put(s, "Llanowar Elves", "p2"), put(s, "Young Wolf", "p2")
+    next_turn(s)
+    attack(s, mirri)
+    ask(s)
+    act(s, "p2", type="declare_blockers", blocks=[])
+    through_combat(s)
+    assert s.state.cards[mirri.id].tapped
+    assert attackers_asked(s, 4)  # Bob's combat: Mirri is still tapped
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_attackers", attackers=[{"card_id": e1.id, "target": "p1"}, {"card_id": e2.id, "target": "p1"}])
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": e1.id, "target": "p1"}])
+    check(s)
+
+
+def test_an_untapped_mirri_limits_nothing_on_the_attack(cards):
+    s = build(cards, [MIRRI], ["Llanowar Elves", "Young Wolf"])
+    put(s, MIRRI)
+    e1, e2 = put(s, "Llanowar Elves", "p2"), put(s, "Young Wolf", "p2")
+    stops(s)
+    assert attackers_asked(s, 2)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": e1.id, "target": "p1"}, {"card_id": e2.id, "target": "p1"}])
+    check(s)
+
+
 # ---- Sab-Sunen, Luxa Embodied --------------------------------------------------------------------------------------------------------------------
 def test_sab_sunen_attacks_only_with_an_even_number_of_counters(cards):
     s = build(cards, [SABSUNEN], [], forests=20)
@@ -338,12 +489,12 @@ def test_sab_sunen_attacks_only_with_an_even_number_of_counters(cards):
 
 
 def attackers_asked(s, turn):
-    """Is Alice asked to declare attackers in this turn's combat (stopping at that decision)?"""
-    for _ in range(60):
+    """Is the active player asked to declare attackers in this turn's combat (stopping at that decision)?"""
+    for _ in range(80):
         d = s.state.rules.decision
         if d is not None and d.kind == "declare_attackers":
             return True
-        if s.state.turn.number != turn or s.state.turn.phase == "main2":
+        if s.state.turn.number > turn or (s.state.turn.number == turn and s.state.turn.phase == "main2"):
             return False
         act(s, s.state.rules.priority, type="pass_priority")
     raise AssertionError("never settled")
