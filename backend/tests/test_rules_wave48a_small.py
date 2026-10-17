@@ -9,6 +9,8 @@ Every scenario checks the replay and a save and a load.
   counters on it." (Elvish Vatkeeper) - the chosen permanent turns over; a target that is not a Werewolf (an Incubator token) is no legal target.
 * 701.53a: "Incubate X twice, where X is the number of lands you control." (Glistening Dawn) - two Incubator tokens, each with X counters (X read as it resolves);
   "you gain 5 life and incubate 5" (Tangled Skyline).
+* 608.2c, 702.33e: "Counter target spell if its mana value is 2 or less. If this spell was kicked, counter that spell if its mana value is 4 or less instead." (Prohibit, Overload) - the
+  limit is judged as the spell resolves: a three-mana spell survives it unkicked and is countered kicked.
 * 115.3, 611.2c: "Until end of turn, target creature gets +0/+2 and another target creature gets -2/-0." (Rookie Mistake, Skulduggery) - two different targets, each its own pump;
   "+X/+0 and -0/-X, where X is the number of artifacts you control" (Monoist Circuit-Feeder) - one X for both halves.
 """
@@ -26,7 +28,7 @@ from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, ask, next_turn, settle
+from tests.test_rules_wave34b_activated import activate, ask, next_turn, settle, stops
 from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand
 from tests.wave43b_kit import cast, ch, move, names_in
 
@@ -200,4 +202,30 @@ def test_tangled_skyline_gains_life_and_incubates(cards):
     mana(s, G=1, C=4)
     cast(s, "Tangled Skyline")
     assert life(s) == 45 and [c.counters.get("+1/+1") for c in incubators(s)] == [5]
+    check(s)
+
+
+def prohibit(cards, kicked):
+    """Alice casts Kitchen Finks (mana value 3); Bob answers with Prohibit, kicked or not."""
+    s = build(cards, ["Kitchen Finks"], ["Prohibit"])
+    stops(s)
+    to_hand(s, "Kitchen Finks")
+    to_hand(s, "Prohibit", "p2")
+    mana(s, G=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Kitchen Finks").id)
+    mana(s, "p2", U=1, C=1 + 2 * kicked)
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Prohibit", "p2").id, targets=[card_named(s, "Kitchen Finks").id], kicker=kicked)
+    settle(s)
+    return s
+
+
+def test_prohibit_does_not_counter_a_three_mana_spell_unless_kicked(cards):
+    s = prohibit(cards, 0)
+    assert s.state.cards[card_named(s, "Kitchen Finks").id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_kicked_prohibit_counters_a_three_mana_spell(cards):
+    s = prohibit(cards, 1)
+    assert s.state.cards[card_named(s, "Kitchen Finks").id].zone == "p1:graveyard"
     check(s)
