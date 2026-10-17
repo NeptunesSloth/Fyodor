@@ -98,7 +98,7 @@ class Plan:
             # exile it instead", Rest in Peace-like statics, madness, 903.9b — app/rules/replacements.py
             from app.rules.replacements import replace_move  # (replacements → plan for type hints only)
 
-            payload = replace_move(self, payload, actor)
+            payload = graveyard_order.unordered(self, replace_move(self, payload, actor))
         if payload.get("type") in ("move", "mill", "put_top_face_down"):
             payload = {**payload, "keep_ids": True}  # (renumber_face_down)
         if payload.get("type") == "rules_sync" and self.renumber_face_down():

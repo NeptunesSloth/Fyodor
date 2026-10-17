@@ -35,6 +35,20 @@ if TYPE_CHECKING:
 READER = re.compile(r"\b(?:top|bottom)\b(?:(?!library)[^.:;]){0,30}?\bof (?:(?!library)[^.:;]){0,30}?graveyard", re.IGNORECASE)
 
 
+def unordered(plan: Plan, payload: dict[str, Any]) -> dict[str, Any]:
+    """-- lead fix (review 36) -- A hand's order is hidden (it is the order the cards were drawn in unless the player moved them), so cards a
+    move puts from a hand into a graveyard (or face up into exile) together land by name, not in the hand's order ("discard your hand"); the owner may still arrange
+    them (404.3, above)."""
+    ids, to = payload.get("card_ids") or [], payload.get("to")
+    if payload.get("type") != "move" or len(ids) < 2 or payload.get("face_down") \
+            or (to.get("zone") if isinstance(to, dict) else to) not in ("graveyard", "exile"):  # (Rest in Peace sends them to exile)
+        return payload
+    cards = plan.state.cards
+    if not any((c := cards.get(i)) is not None and c.zone.endswith(":hand") for i in ids):
+        return payload
+    return {**payload, "card_ids": sorted(ids, key=lambda i: ((c := cards.get(i)) is not None and c.name or "", i))}
+
+
 def before(plan: Plan, payload: dict[str, Any]) -> dict[str, Any] | None:
     """The graveyards as a move or mill into one is about to happen (and whether a card leaves the battlefield with it)."""
     kind = payload.get("type")
