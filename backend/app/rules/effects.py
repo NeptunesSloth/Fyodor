@@ -249,6 +249,9 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         return context.objects(plan, ctx, context.EVENT)
     if who == "event_spell":  # -- spell copies (wave 31D) -- the spell a cast trigger is about, while it is still that object on the stack (400.7)
         return [c for c in context.objects(plan, ctx, context.EVENT) if plan.state.cards[c].zone == "stack"]
+    if who == "event_gy":  # -- review 42 -- "return this card from your graveyard …" (Mangara's Blessing): the discarded card while it is still that object in a
+        # graveyard; discarded into exile instead (an opponent's Leyline of the Void), it is not returned (the card's ruling 2004-10-04)
+        return [c for c in context.objects(plan, ctx, context.EVENT) if plan.state.cards[c].zone.endswith(":graveyard")]
     if who == context.EVENT_NEW:  # after "dies" / "leaves": the new object where it went — only while
         # it's still there (400.7e, 603.6c)
         return context.objects(plan, ctx, context.EVENT_NEW)
