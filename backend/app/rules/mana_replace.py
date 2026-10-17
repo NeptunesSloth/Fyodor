@@ -45,6 +45,15 @@ _LAND = re.compile(r"^If a land is tapped for mana, it produces (?P<sym>\{[WUBRG
 _TWO = re.compile(r"^If a land is tapped for two or more mana, it produces \{C\} instead of any other type and amount\.$")
 _CHOICE = re.compile(r"^If a basic land you control is tapped for mana, it produces mana of a color of your choice instead "
                      r"of any other type\.$")
+# -- mana replacements (wave 49A) -- 106.12b: "Until end of turn, if you tap a land [you control] for mana, it produces {U} instead of any other type." (Deep Water),
+# "… one mana of a color of your choice instead of any other type and amount." (Harvest Mage), "… if a player taps a nonbasic land for mana, it produces
+# colorless mana instead of any other type." (Pale Moon): an effect for the rest of the turn (514.2), kept with the High Tide records (tap_mana.until_eot)
+_UNTIL = re.compile(r"^Until end of turn, if (?:you tap (?P<mine>a land)(?: you control)?|a player taps (?P<any>a nonbasic land|a land)) for mana, it produces "
+                    r"(?P<to>\{[WUBRGC]\}|colorless mana|one mana of a color of your choice) instead of any other type(?P<amount> and amount)?\.$")
+# "If tapped for mana, Plains produce {R}, Islands produce {G}, … instead of any other type." (Naked Singularity, Reality Twist): the color follows the
+# permanent's basic land types, the tapping player choosing one when it has several (ruling 2013-04-15); the amount stays
+_MAP = re.compile(r"^If tapped for mana, (?P<m>(?:(?:Plains|Islands|Swamps|Mountains|Forests) produce \{[WUBRG]\}(?:, and |, | and )?)+) instead of any other type\.$")
+_TYPES = {"Plains": "Plains", "Islands": "Island", "Swamps": "Swamp", "Mountains": "Mountain", "Forests": "Forest"}
 
 
 def definition(text: str) -> dict[str, Any] | None:
@@ -66,7 +75,34 @@ def definition(text: str) -> dict[str, Any] | None:
         return static("any", "land", {"do": "collapse", "min": 2, "to": "C"})
     if _CHOICE.match(text):
         return static("you", "basic land", {"do": "recolor", "to": "choice"})
+    if (m := _MAP.match(text)) is not None:  # (wave 49A)
+        return static("any", "permanent", {"do": "map", "map": {_TYPES[a]: b for a, b in re.findall(r"(\w+) produce \{(\w)\}", m["m"])}})
     return None
+
+
+def spell_effect(text: str) -> dict[str, Any] | None:
+    """(wave 49A) "Until end of turn, if … taps a land for mana, it produces …" as the instruction that records it for this turn."""
+    from app.rules import selectors
+
+    m = _UNTIL.match(text.strip())
+    if m is None or (m["to"][0] == "o" and not m["amount"]):  # (a color of your choice is one mana: only "and amount")
+        return None
+    to = "C" if m["to"] == "colorless mana" else "choice" if m["to"][0] == "o" else m["to"][1]
+    sel = selectors.parse("nonbasic land" if m["any"] == "a nonbasic land" else "land")
+    op = {"do": "fixed", "mana": to} if m["amount"] else {"do": "recolor", "to": to}
+    return {"do": "tap_mana_until_eot", "def": {"kind": "static", "static": "mana_replace", "who": "you" if m["mine"] else "any",
+                                                 "sel": sel.key() if sel else "", "op": op, "effects": []}}
+
+
+def _template(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules.scripts import _NoMatch
+
+    if (found := spell_effect("U" + m.group(0)[1:].rstrip(".") + ".")) is None:
+        raise _NoMatch
+    return [found], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(re.compile(r"^until end of turn, if (?:you tap|a player taps) .+ for mana, it produces .+$"), _template)]
 
 
 def _statics(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any]]]:
@@ -87,13 +123,15 @@ def _statics(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any]
             if c.face_down or (r is not None and r.card_mode(c.id) == "manual"):
                 continue
             # (a cheap first look: the printed text, or a copy effect giving other copiable values, 613.2c)
-            if "mana, it produces" not in chars.of(c, info).oracle_text and c.copy_of is None \
+            if not re.search(r"mana, (?:it produces|\w+ produce)", chars.of(c, info).oracle_text) and c.copy_of is None \
                     and (r is None or r.object_id(c.id) not in copies):
                 continue
             ch = derive(state, c, copiable(state, c, info), info)
             for d in scripts.definitions(ch).values():
                 if d.get("static") == "mana_replace":
                     out.append((c.controller, d))
+    if r is not None and state.turn.phase != "cleanup":  # (wave 49A) this turn's effects of resolved spells and abilities (514.2: they end in the cleanup step)
+        out += [(str(x["controller"]), x["def"]) for x in r.tap_mana if x["def"].get("static") == "mana_replace" and x.get("turn") == state.turn.number]
     return out
 
 
@@ -108,15 +146,22 @@ def _applies(state: GameState, info: CardInfo, card: CardInstance, owner: str, d
     if d["who"] == "you" and owner != card.controller:
         return False
     plan = Plan.view(state, owner, info)
-    return selectors.matches(plan, selectors.from_key(d["sel"]), card, plan.ch(card), owner)
+    return selectors.matches(plan, selectors.from_key(d["sel"]), card, plan.ch(card), owner) \
+        and (d["op"]["do"] != "map" or bool(_map_colors(d["op"], plan.ch(card).subtypes)))  # (wave 49A) a Plains permanent, say
 
 
-def _apply(op: dict[str, Any], option: tuple[str, ...]) -> list[tuple[str, ...]]:
+def _map_colors(op: dict[str, Any], subtypes: Any) -> list[str]:
+    return list(dict.fromkeys(c for t, c in op["map"].items() if t in subtypes))
+
+
+def _apply(op: dict[str, Any], option: tuple[str, ...], subtypes: Any = ()) -> list[tuple[str, ...]]:
     mana = tuple(option)
     if op["do"] == "mul":
         return [mana * int(op["n"])]
+    if op["do"] == "map":  # (wave 49A) one color per mapped basic land type it has; all its mana is of the one chosen
+        return [tuple(c for _ in mana) for c in _map_colors(op, subtypes)]
     if op["do"] == "fixed":
-        return [(op["mana"],)]
+        return [(c,) for c in COLORS] if op["mana"] == "choice" else [(op["mana"],)]
     if op["do"] == "collapse":
         return [(op["to"],)] if len(mana) >= int(op["min"]) else [mana]
     if op["to"] == "choice":
@@ -134,6 +179,9 @@ def extend(state: GameState, card: CardInstance, info: CardInfo,
     statics = [d for owner, d in _statics(state, info) if _applies(state, info, card, owner, d)]
     if not statics:
         return found
+    from app.rules.plan import Plan
+
+    subtypes = Plan.view(state, card.controller, info).ch(card).subtypes  # (wave 49A) for a "map"
     out = []
     for index, ab in found:
         if not ab.tap:
@@ -141,6 +189,6 @@ def extend(state: GameState, card: CardInstance, info: CardInfo,
             continue
         if len(statics) > 1 or ab.spend_only is not None or ab.count is not None or ab.instead_if:
             continue
-        options = tuple(dict.fromkeys(new for opt in ab.options for new in _apply(statics[0]["op"], opt)))
+        options = tuple(dict.fromkeys(new for opt in ab.options for new in _apply(statics[0]["op"], opt, subtypes)))
         out.append((index, replace(ab, options=options)))
     return out

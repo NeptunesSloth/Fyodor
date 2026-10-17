@@ -4666,7 +4666,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import exert
 
         return exert.definition(text, ch, ability.index)
-    if ability.kind == "static" and text.startswith("If ") and "mana, it produces" in text:
+    if ability.kind == "static" and text.startswith("If ") and ("mana, it produces" in text or text.startswith("If tapped for mana, ")):
         from app.rules import mana_replace  # -- mana replacements (wave 9C) -- 106.12b
 
         if (replaced := mana_replace.definition(text)) is not None:
@@ -8239,6 +8239,9 @@ EFFECTS[:0] = _graveyard_exile.TEMPLATES  # "Exile target player's graveyard." (
 from app.rules import tap_mana as _tap_mana  # noqa: E402, I001  -- mana riders (wave 5A) --
 
 EFFECTS[:0] = _tap_mana.TEMPLATES  # "Until end of turn, whenever a player taps an Island for mana, …" (High Tide)
+from app.rules import mana_replace as _mana_replace  # noqa: E402, I001  -- mana replacements (wave 49A) --
+
+EFFECTS[:0] = _mana_replace.TEMPLATES  # "Until end of turn, if you tap a land for mana, it produces {U} instead of any other type." (Deep Water)
 from app.rules import untap_riders as _untap_riders  # noqa: E402, I001
 
 EFFECTS[:0] = _untap_riders.TEMPLATES  # "Untap up to three lands." (app/rules/untap_riders.py)
