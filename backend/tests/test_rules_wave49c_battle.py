@@ -17,10 +17,10 @@ from app.cards.repository import CardRepository
 from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act
 from tests.test_rules_review34_head import EXTRA as REVIEW34
 from tests.test_rules_review34_head import SIEGE, bobs_attack, drive, seasoned
 from tests.wave9c_kit import build, check, put, reloaded
-from tests.game_helpers import act
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave49c_battle_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()} | {c["name"] for c in REVIEW34}
