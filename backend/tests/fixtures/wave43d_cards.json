@@ -1,0 +1,337 @@
+[
+ {
+  "name": "Goblin Barrage",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Kicker—Sacrifice an artifact or Goblin. (You may sacrifice an artifact or Goblin in addition to any other costs as you cast this spell.)\nGoblin Barrage deals 4 damage to target creature. If this spell was kicked, it also deals 4 damage to target player or planeswalker.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Kicker"
+  ]
+ },
+ {
+  "name": "Phyrexian Scuta",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Phyrexian Zombie",
+  "oracle_text": "Kicker—Pay 3 life. (You may pay 3 life in addition to any other costs as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Kicker"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Bog Down",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Kicker—Sacrifice two lands. (You may sacrifice two lands in addition to any other costs as you cast this spell.)\nTarget player discards two cards. If this spell was kicked, that player discards three cards instead.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Kicker"
+  ]
+ },
+ {
+  "name": "Reiterating Bolt",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Replicate—Pay {E}{E}{E}. (When you cast this spell, copy it for each time you paid its replicate cost. You may choose new targets for the copies.)\nReiterating Bolt deals 3 damage to target creature or planeswalker.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Replicate"
+  ]
+ },
+ {
+  "name": "Exterminate!",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Replicate—Tap an untapped Dalek you control. (When you cast this spell, copy it for each time you paid its replicate cost. You may choose new targets for the copies.)\nDestroy target creature. Its controller loses 3 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Replicate"
+  ]
+ },
+ {
+  "name": "Ruthless Radrat",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Rat Mutant",
+  "oracle_text": "Squad—Exile four cards from your graveyard. (As an additional cost to cast this spell, you may pay its squad cost any number of times. When this creature enters, create that many tokens that are copies of it.)\nMenace (This creature can't be blocked except by two or more creatures.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Menace",
+   "Squad"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Arctic Merfolk",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Merfolk",
+  "oracle_text": "Kicker—Return a creature you control to its owner's hand. (You may return a creature you control to its owner's hand in addition to any other costs as you cast this spell.)\nIf this creature was kicked, it enters with a +1/+1 counter on it.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Kicker"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Rushing River",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Kicker—Sacrifice a land. (You may sacrifice a land in addition to any other costs as you cast this spell.)\nReturn target nonland permanent to its owner's hand. If this spell was kicked, return another target nonland permanent to its owner's hand.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Kicker"
+  ]
+ },
+ {
+  "name": "Vicious Offering",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Kicker—Sacrifice a creature. (You may sacrifice a creature in addition to any other costs as you cast this spell.)\nTarget creature gets -2/-2 until end of turn. If this spell was kicked, that creature gets -5/-5 until end of turn instead.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Kicker"
+  ]
+ },
+ {
+  "name": "Gandalf, Party Guest",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Avatar Wizard",
+  "oracle_text": "At the beginning of combat on your turn, you may cast an instant or sorcery spell with mana value X or less from your hand without paying its mana cost, where X is twice the number of legendary Wizards you control.",
+  "colors": [
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Verdeloth the Ancient",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Treefolk",
+  "oracle_text": "Kicker {X} (You may pay an additional {X} as you cast this spell.)\nSaproling creatures and other Treefolk creatures get +1/+1.\nWhen Verdeloth enters, if it was kicked, create X 1/1 green Saproling creature tokens.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Kicker"
+  ],
+  "power": "4",
+  "toughness": "7"
+ },
+ {
+  "name": "Kangee, Aerie Keeper",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Bird Wizard",
+  "oracle_text": "Kicker {X}{2} (You may pay an additional {X}{2} as you cast this spell.)\nFlying\nWhen Kangee enters, if it was kicked, put X feather counters on it.\nOther Bird creatures get +1/+1 for each feather counter on Kangee.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Kicker",
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Bloodbraid Challenger",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Elf Berserker",
+  "oracle_text": "Cascade\nHaste\nEscape—{3}{R}{G}, Exile three other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Haste",
+   "Escape",
+   "Cascade"
+  ],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Eagle Vision",
+  "layout": "normal",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Freerunning {1}{U} (You may cast this spell for its freerunning cost if you dealt combat damage to a player this turn with an Assassin or commander.)\nDraw three cards.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Freerunning"
+  ]
+ },
+ {
+  "name": "Chain Assassination",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Freerunning {1}{B} (You may cast this spell for its freerunning cost if you dealt combat damage to a player this turn with an Assassin or commander.)\nDestroy target creature. If another creature died this turn, draw a card.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Freerunning"
+  ]
+ },
+ {
+  "name": "Restart Sequence",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Freerunning {1}{B} (You may cast this spell for its freerunning cost if you dealt combat damage to a player this turn with an Assassin or commander.)\nReturn target creature card from your graveyard to the battlefield.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Freerunning"
+  ]
+ },
+ {
+  "name": "Escape Detection",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Freerunning—Return a blue creature you control to its owner's hand. (You may cast this spell for its freerunning cost if you dealt combat damage to a player this turn with an Assassin or commander.)\nReturn target creature to its owner's hand.\nDraw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Freerunning"
+  ]
+ },
+ {
+  "name": "Achilles Davenport",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Assassin",
+  "oracle_text": "Freerunning {U}{B} (You may cast this spell for its freerunning cost if you dealt combat damage to a player this turn with an Assassin or commander.)\nMenace (This creature can't be blocked except by two or more creatures.)\nOther Assassins you control get +1/+1.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Freerunning",
+   "Menace"
+  ],
+  "power": "3",
+  "toughness": "3"
+ }
+]

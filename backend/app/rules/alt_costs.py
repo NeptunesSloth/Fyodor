@@ -175,11 +175,13 @@ def define(t: str) -> dict[str, Any] | None:
 # (702.117a: "if you or a teammate has cast another spell this turn" — no teammates in Commander), freerunning
 # (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
 PROWL_COND = "a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell"  # 702.76a
+FREERUN_COND = ("a player was dealt combat damage this turn by a creature that, at the time it dealt that damage, was an assassin creature or a commander "
+                "under your control")  # -- cast keywords (wave 43D) -- 702.173a
 KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None,
-                 "prowl": PROWL_COND, "overload": None, "emerge": None, "foretell": None, "mutate": None,
+                 "prowl": PROWL_COND, "overload": None, "emerge": None, "foretell": None, "mutate": None, "freerunning": FREERUN_COND,
                  "web-slinging": None, "sneak": None}  # (wave 17C: prowl; wave 18D: mutate, 702.140a)
 # (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate|web-slinging|sneak)(?: from (?P<q>[A-Za-z]+))? "
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate|web-slinging|sneak|freerunning)(?: from (?P<q>[A-Za-z]+))? "
                            r"(?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
 # when the prowl condition holds for that spell
@@ -220,6 +222,7 @@ def grant_web_slinging(t: str) -> dict[str, Any] | None:
 # -- keywords (wave 30E) -- 702.74a: "Evoke—Exile a white card from your hand." (Solitude, Fury, Grief, Endurance, Subtlety) is an alternative cost
 # of non-mana parts ("You may cast this card by paying [cost] rather than its mana cost"); a mana "Evoke {cost}" is casting.EVOKE's
 _EVOKE_COST = re.compile(r"^evoke—(?P<cost>[^{}]+)$", re.IGNORECASE)
+_FREERUN_COST = re.compile(r"^freerunning—(?P<cost>[^{}]+)$", re.IGNORECASE)  # -- cast keywords (wave 43D) -- "Freerunning—Return a blue creature you control to its owner's hand."
 
 
 def keyword_definition(line: str) -> dict[str, Any] | None:
@@ -227,6 +230,9 @@ def keyword_definition(line: str) -> dict[str, Any] | None:
     if (ev := _EVOKE_COST.fullmatch(line)) is not None:
         found = define(f"you may {ev['cost'][:1].lower()}{ev['cost'][1:]} rather than pay ~'s mana cost")
         return {**found, "tag": "evoke"} if found is not None else None
+    if (fr := _FREERUN_COST.fullmatch(line)) is not None:  # 702.173a: the other parts of an alternative cost, with its condition
+        found = define(f"you may {fr['cost'][:1].lower()}{fr['cost'][1:]} rather than pay ~'s mana cost if {FREERUN_COND}")
+        return {**found, "tag": "freerunning"} if found is not None else None
     m = _KEYWORD_LINE.fullmatch(line)
     if m is None:
         return None

@@ -1509,6 +1509,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "free_optional": casting.resume_free_optional,  # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b
+    "free_kicker_x": casting.resume_free_kicker_x,  # -- cast keywords (wave 43D) -- 107.3a: the X of a kicker cost paid on a free cast
     "slot": permissions.resume_slot,  # -- cast permissions (wave 30Q) -- Muldrotha: which permanent type a cast uses up
     "legend_rule": sba.resume_legend_rule,
     "graveyard_order": graveyard_order.resume,  # -- graveyard order (wave 40C) -- 404.3

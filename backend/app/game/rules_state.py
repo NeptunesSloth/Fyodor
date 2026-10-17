@@ -489,6 +489,7 @@ class TurnFact(BaseModel):
     # -- static_other sweep (wave 17C) -- prowl (702.76a): the damage source's creature types and its controller as it dealt the damage
     source_subtypes: list[str] = Field(default_factory=list)
     source_controller: str | None = Field(default=None, max_length=64)
+    source_commander: bool = False  # -- cast keywords (wave 43D) -- freerunning (702.173a): the damage source was a commander (903.3) as it dealt the damage
     # -- damage history (wave 6B) -- "damaged" facts (a permanent was dealt ``amount`` damage; ``object_id`` the
     # permanent): the object that dealt it
     source: str | None = Field(default=None, max_length=80)

@@ -549,12 +549,37 @@ def _entwine_extra(line: str) -> str | None:
     return m["rest"].strip() if m is not None and alt_costs.parse_cost(m["rest"].strip()) is not None else None
 
 
+# -- cast keywords (wave 43D) -- 702.33a, 702.157a, 702.56a: a kicker / squad / replicate cost that isn't mana ("Kicker—Sacrifice a land.",
+# "Squad—Exile four cards from your graveyard.", "Replicate—Pay {E}{E}{E}.") is an optional additional cost made of the parts an alternative cost
+# may have (alt_costs.parse_cost); paid with the other additional costs, once for each time it is paid (601.2b, 601.2h)
+_KICKER_EXTRA = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate))—(?P<rest>[^{}]+|pay (?:\{E\})+)$", re.IGNORECASE)
+
+
+def kicker_extra_parts(line: str) -> tuple[bool, str] | None:
+    """(paid any number of times, the cost) of a "Kicker—…" / "Squad—…" / "Replicate—…" line whose cost isn't mana, or None."""
+    from app.rules import alt_costs
+
+    m = _KICKER_EXTRA.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
+    if m is None:
+        return None
+    rest = m["rest"].strip()
+    if (e := re.fullmatch(r"(?i)pay ((?:\{E\})+)", rest)) is not None:  # ("Pay {E}{E}{E}" is "pay three {E}")
+        words = {v: k for k, v in _ENERGY_WORDS.items() if k not in ("a", "an", "one")}
+        n = e[1].count("{E}")
+        rest = f"pay {words[n]} {{E}}" if n in words else rest
+    rest = rest[:1].lower() + rest[1:]
+    found = alt_costs.parse_cost(rest)
+    return (bool(m["multi"] or m["many"]), rest) if found is not None and not found.mana else None
+
+
 def kicker_line(line: str) -> bool:
     """Is this keyword line a kicker the engine pays ("Kicker {2}{R}", "Multikicker {1}")?"""
-    if _entwine_extra(line) is not None:
+    if _entwine_extra(line) is not None or kicker_extra_parts(line) is not None:
         return True
     m = _KICKER.fullmatch(line.strip().rstrip("."))
-    return m is not None and "{X}" not in m["cost"].upper() and _MANA_ONLY.match(m["cost"]) is not None
+    # (-- cast keywords (wave 43D) -- 107.3a: "Kicker {X}" / "Kicker {X}{2}", one {X} and paid once: X is announced with the kicker cost)
+    one_x = m is not None and m["cost"].upper().count("{X}") == 1 and not (m["multi"] or m["many"] or m["once"] or m["entwine"])
+    return m is not None and ("{X}" not in m["cost"].upper() or one_x) and _MANA_ONLY.match(m["cost"]) is not None
 
 
 @dataclass(frozen=True)
@@ -564,6 +589,11 @@ class Kicker:
     entwine: bool = False  # -- casting extras (wave 18E) -- 702.42a: the count 1 means "choose all modes" (paid as kicker is)
     extra: str = ""  # (an entwine cost that isn't mana: "sacrifice two lands", paid with the additional costs)
     text: str = ""  # -- free-cast optional costs (wave 41D) -- the keyword line ("Kicker {R}", "Squad {2}"): the label of the question
+
+    @property
+    def x(self) -> bool:
+        """-- cast keywords (wave 43D) -- 107.3a: "Kicker {X}": the value of X is announced with the kicker cost."""
+        return "{X}" in self.cost.upper()
 
 
 def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
@@ -576,6 +606,9 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
             continue
         if (extra := _entwine_extra(ab.text)) is not None:
             found.append(Kicker("", entwine=True, extra=extra))
+            continue
+        if (non_mana := kicker_extra_parts(ab.text)) is not None:  # (wave 43D)
+            found.append(Kicker("", multi=non_mana[0], extra=non_mana[1], text=ab.text.strip().rstrip(".")))
             continue
         m = _KICKER.fullmatch(ab.text.strip().rstrip("."))
         if m is None or not kicker_line(ab.text):

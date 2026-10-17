@@ -665,6 +665,12 @@ def _prowl(m: re.Match[str]) -> Condition:
     return {"history": "prowl"}  # -- static_other sweep (wave 17C) -- prowl, 702.76a (history._prowl)
 
 
+@_history_pattern(r"a player was dealt combat damage this turn by a creature that, at the time it dealt that damage, was an assassin creature or a commander "
+                  r"under your control")
+def _freerunning(m: re.Match[str]) -> Condition:
+    return {"history": "freerunning"}  # -- cast keywords (wave 43D) -- freerunning, 702.173a (history._freerunning)
+
+
 @_history_pattern(r"you attacked(?: with a creature)? this turn")
 def _attacked(m: re.Match[str]) -> Condition:
     return {"history": "attacked"}  # 508.1: declared attackers; 508.4: a creature put onto the battlefield attacking never "attacked"
