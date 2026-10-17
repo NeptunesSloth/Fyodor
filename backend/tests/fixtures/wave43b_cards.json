@@ -338,6 +338,45 @@
   "toughness": "1"
  },
  {
+  "name": "Combat Celebrant",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Warrior",
+  "oracle_text": "If this creature hasn't been exerted this turn, you may exert it as it attacks. When you do, untap all other creatures you control and after this phase, there is an additional combat phase. (An exerted creature won't untap during your next untap step.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Exert"
+  ],
+  "power": "4",
+  "toughness": "1"
+ },
+ {
+  "name": "Tataru Taru",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Dwarf Advisor",
+  "oracle_text": "When Tataru Taru enters, you draw a card and target opponent may draw a card.\nScions' Secretary — Whenever an opponent draws a card, if it isn't that player's turn, create a tapped Treasure token. This ability triggers only once each turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Scions' Secretary",
+   "Treasure"
+  ],
+  "power": "0",
+  "toughness": "3"
+ },
+ {
   "name": "Hill Giant",
   "layout": "normal",
   "mana_cost": "{3}{R}",

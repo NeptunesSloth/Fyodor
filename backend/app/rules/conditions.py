@@ -113,7 +113,7 @@ _CTRL = re.compile(r"(?P<who>you|an opponent) (?P<neg>don't |doesn't )?controls?
 _LIFE = re.compile(r"you have (?:(?P<n>\w+) or (?P<cmp>less|more|fewer|greater)|at least (?P<least>\w+)) life")
 _HAND = re.compile(r"you have (?:(?P<no>no)|(?P<n>\w+) or (?P<cmp>more|fewer|less)) cards in (?:your )?hand")
 _YOUR_TURN = re.compile(r"it(?:'s| is) (?P<neg>not |n't )?your turn|it isn't your turn|it(?:'s| is) an opponent's turn")
-_THEIR_TURN = re.compile(r"it(?:'s| is) (?P<neg>not )?(?:that player's|their) turn")  # (wave 17D: the trigger event's player, 500.1)
+_THEIR_TURN = re.compile(r"it(?:'s| is| isn't) (?P<neg>not )?(?:that player's|their) turn")  # (wave 17D: the trigger event's player, 500.1; wave 43B: "isn't", Tataru Taru)
 _STATUS = {"you're the monarch": "monarch", "you are the monarch": "monarch", "you have the initiative": "initiative",
            "you have the city's blessing": "city_blessing",
            "you own a card in exile": "own_exiled"}  # -- activated other (wave 21E) -- (Dreadlight Monstrosity)
@@ -383,7 +383,7 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     m = _THEIR_TURN.fullmatch(t)
     if m:  # -- triggers (wave 17D) -- "if it's not that player's turn" (Price of Glory): the player the trigger event is about
         theirs: Condition = {"turn": "event_player"}
-        return {"not": theirs} if m["neg"] else theirs
+        return {"not": theirs} if m["neg"] or t.startswith("it isn't") else theirs
     if t in _STATUS:
         return {"status": _STATUS[t]}
     if t.lower() == "you chose a creature other than ~ as your ring-bearer":  # -- triggers (wave 19B) -- 701.54a: the creature this tempt chose

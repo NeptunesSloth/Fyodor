@@ -16,7 +16,7 @@ from __future__ import annotations
 import pytest
 
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, ask, attack, next_turn, settle
+from tests.test_rules_wave34b_activated import activate, ask, attack, next_turn, settle, stops
 from tests.test_rules_wave43b_mana import to_bobs_main
 from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand, zone_of
 from tests.wave43b_kit import library, life, names_in, on_top, open_cards
@@ -233,4 +233,63 @@ def test_goblin_guide_puts_a_revealed_land_into_the_defenders_hand_not_the_attac
     attack(s, guide)
     settle(s)
     assert hand(s, "p2") == 1 and names_in(s, "hand", "p2") == ["Island"] and hand(s) == 0
+    check(s)
+
+
+# ---- Combat Celebrant [1008] -----------------------------------------------------------------------------------------------------------------------------
+def test_combat_celebrant_exerted_untaps_the_others_adds_a_combat_and_is_not_offered_again_the_same_turn(cards):
+    """"If this creature hasn't been exerted this turn, you may exert it as it attacks. When you do, untap all other creatures you control and after this phase, there is an
+    additional combat phase." (701.43d, 603.12; the ruling 2017-04-18: all of your creatures, not only the attackers)"""
+    from app.rules import exert
+    from app.rules.plan import Plan
+
+    s = build(cards, ["Combat Celebrant", "Hill Giant"], ["Wall of Omens"])
+    celebrant, giant = put(s, "Combat Celebrant"), put(s, "Hill Giant")
+    next_turn(s)
+    act(s, "p1", type="tap", card_ids=[giant.id], tapped=True)
+    attack(s, celebrant)
+    d = ask(s)
+    assert d.kind == "choose_cards" and [o.id for o in d.options] == [celebrant.id]  # it may be exerted: it hasn't been this turn
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[celebrant.id])
+    turn, combats = s.state.turn.number, 0
+    for _ in range(40):  # through the first combat to the additional one
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            combats += 1
+            if combats == 1:
+                break
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert combats == 1 and s.state.turn.number == turn and s.state.turn.phase in ("combat", "declare_attackers", "beginning_of_combat"), s.state.turn.phase  # the additional combat phase
+    assert not s.state.cards[giant.id].tapped  # untap all other creatures you control
+    assert exert._already_exerted(Plan(s.state, "p1", s.cards, None), s.state.cards[celebrant.id])  # now it has been exerted this turn
+    check(s)
+
+
+# ---- Tataru Taru [1047] ----------------------------------------------------------------------------------------------------------------------------------
+def test_tataru_taru_makes_a_tapped_treasure_when_an_opponent_draws_on_a_turn_that_is_not_theirs(cards):
+    s = build(cards, ["Tataru Taru", "Grizzly Bears"], ["Opt"], forests=8, islands=8)
+    stops(s)
+    put(s, "Tataru Taru")
+    to_hand(s, "Grizzly Bears")
+    to_hand(s, "Opt", "p2")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Grizzly Bears").id)  # Bob gets priority on Alice's turn
+    mana(s, "p2", U=1)
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Opt", "p2").id)  # he draws a card on a turn that isn't his
+    settle(s)
+    treasures = [c for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield"]
+    assert len(treasures) == 1 and treasures[0].tapped  # "create a tapped Treasure token"
+    check(s)
+
+
+def test_tataru_taru_ignores_an_opponent_drawing_on_their_own_turn(cards):
+    s = build(cards, ["Tataru Taru"], forests=8, islands=8)
+    put(s, "Tataru Taru")
+    to_bobs_main(s)  # Bob's draw step: his own turn
+    assert not [c for c in s.state.cards.values() if c.name == "Treasure"]
     check(s)

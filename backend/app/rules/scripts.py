@@ -4475,7 +4475,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import opening_hand
 
         return opening_hand.definition(text, ch)
-    if ability.kind == "static" and text.startswith("You may exert "):  # -- static wordings (wave 6E) -- 701.43d
+    if ability.kind == "static" and text.startswith(("You may exert ", "If ~ hasn't been exerted this turn, you may exert ")):  # -- static wordings (wave 6E) -- 701.43d
         from app.rules import exert
 
         return exert.definition(text, ch, ability.index)
