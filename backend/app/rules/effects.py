@@ -1497,7 +1497,9 @@ def delayed_move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != e["object"]:
         return True  # it's a different object now
     if e.get("sacrifice"):  # -- keywords (wave 15E) -- blitz 702.152a: "Sacrifice it at the beginning of the next end step" (701.21a)
-        if card.controller == ctx["controller"]:
+        if e.get("by_now"):  # -- flash auras (wave 46B) -- whoever controls the permanent then sacrifices it
+            _sacrifice_cards(plan, [card.id], card.controller)
+        elif card.controller == ctx["controller"]:
             _sacrifice_cards(plan, [card.id], ctx["controller"])
         return True
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": e["to"]}}, actor=ctx["controller"])

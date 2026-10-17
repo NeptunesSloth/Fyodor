@@ -1931,6 +1931,19 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     return timing
 
 
+def flash_sac(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> bool:
+    """-- flash auras (wave 46B) -- "If you cast it any time a sorcery couldn't have been cast" (Ward of Lights): its own flash permission, used while a sorcery couldn't
+    be cast (not your main phase, or the stack isn't empty: 307.1). Ruling 2022-12-08: any other way of casting it then (a flash of its own or from another effect)
+    doesn't sacrifice it. ponytail: with two sources of flash the engine can't tell which the player used; it takes the other, never a wrong sacrifice."""
+    if info is None or not any(d.get("flash_sac") for d in scripts.definitions(ch).values()):
+        return False
+    t = state.turn
+    if (t.active_player == player and t.phase in MAIN_PHASES and not state.zones.get(STACK)) or "Instant" in ch.types or ch.has_flash:
+        return False
+    own = f"{ch.name}: as though it had flash"
+    return not any(g.flash and g.label != own for g in permissions.grants(state, player, card, ch, info, verb="cast"))
+
+
 def _flash_target_exists(state: GameState, player: str, card: CardInstance, key: str, info: CardInfo) -> bool:
     from app.rules import cost_changes
 
@@ -2348,6 +2361,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if problem:
         raise ActionError(problem)
     grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free, slot=a.slot, via=a.via)
+    sac_at_cleanup = not a.free and flash_sac(plan.state, plan.actor, card, ch, plan.info)  # (-- flash auras (wave 46B) -- judged before it is on the stack)
     if grant is not None and grant.how == "permission" and a.x_value and "{X}" in ch.mana_cost:
         # -- review 30c -- 202.3e, 601.2e: "with mana value 3 or less" reads the X announced (Lurrus ruling 2020-04-17: "{X}{W} … with X as 1 but not as 2")
         grant = cast_grant(plan.state, plan.actor, card, replace(ch, mana_value=ch.mana_value + a.x_value * ch.mana_cost.count("{X}")), plan.info,
@@ -2662,6 +2676,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     record.kicked = kicked or int(a.awaken) or int(gift_to is not None or bargained)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as
     record.gift_to = gift_to  # "If this spell was kicked"; wave 23D: a promised gift, 702.174k, likewise)
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
+    record.flash_sac = sac_at_cleanup
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Harmonize"] if harmonized else ["Jump-start"] if jumped else \
         ["Aftermath" if "aftermath" in ch.keywords else "Flashback"] if flashback else ["Dashed"] if a.dash else \

@@ -248,13 +248,14 @@ def dealt_cards(plan: Plan, ctx: Context, key: str, types: list[str] | None) -> 
 
 
 def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, name: str, *, sacrifice: bool = False,
-                warp: bool = False) -> None:
+                warp: bool = False, step: str = "end") -> None:
     """Unearth (702.84a) / dash (702.109a): "at the beginning of the next end step, exile it /
     return it to its owner's hand" — the object as it is now (603.7c)."""
     plan.rules.delayed.append(DelayedTrigger(
         id=secrets.token_hex(4), controller=controller, source_card=card_id, source_object=oid, name=name,
-        when={"kind": "step", "step": "end", "whose": "next"},
+        when={"kind": "step", "step": step, "whose": "next"},
         effects=[{"do": "delayed_move", "card": card_id, "object": oid, "to": to, **({"sacrifice": True} if sacrifice else {}),
+                  **({"by_now": True} if step == "cleanup" else {}),  # (-- flash auras (wave 46B) -- "the controller of the permanent it becomes sacrifices it")
                   **({"warp": True} if warp else {})}],
         turn=plan.state.turn.number, step=plan.state.turn.phase))
 
@@ -281,7 +282,7 @@ def describe_when(when: dict[str, Any]) -> str:
     if when.get("step") == "end_combat":  # -- other side (wave 6D) --
         return "at end of combat"
     whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's", "owner": "its owner's next"}[when["whose"]]
-    step = {"end": "end step", "main": "main phase"}.get(when["step"], "upkeep")  # (main: wave 5B)
+    step = {"end": "end step", "main": "main phase", "cleanup": "cleanup step"}.get(when["step"], "upkeep")  # (main: wave 5B)
     return f"at the beginning of {whose} {step}"
 
 
@@ -324,7 +325,7 @@ def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
         return False  # (its turn is over: "that turn's end step" never came)
     later_turn = turn > t.turn
     created_at = PHASES.index(t.step) if t.step in PHASES else -1
-    same_turn_before = turn == t.turn and created_at < PHASES.index(phase)
+    same_turn_before = turn == t.turn and created_at < PHASES.index(phase) + (phase == "cleanup")  # (-- flash auras (wave 46B) -- made in a cleanup step: due at the one that follows it, 514.3a)
     whose = w.get("whose")
     if whose == "next":  # the next such step to begin, this turn's if it hasn't yet (500.6)
         return later_turn or same_turn_before

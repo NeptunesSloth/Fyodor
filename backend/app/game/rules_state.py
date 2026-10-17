@@ -831,6 +831,7 @@ class PaymentRecord(BaseModel):
     cast_from: str | None = Field(default=None, max_length=20)
     cast_main: bool = False
     mana_known: bool = True
+    flash_sac: bool = False  # -- flash auras (wave 46B) -- cast with its own "as though it had flash" when a sorcery couldn't have been cast: sacrificed at the next cleanup step
 
 
 class Permission(BaseModel):

@@ -485,6 +485,13 @@ SELF_FLASH_COND = re.compile(r"^you may cast (?:this spell|~) as though it had f
                              r"(?P<pay>\{\d+\}) more to cast it|x is (?P<x>\d+) or less)(?:\. \(.*\))?$", re.IGNORECASE)
 
 
+# -- flash auras (wave 46B) -- 601.3b: "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the
+# permanent it becomes sacrifices it at the beginning of the next cleanup step." (Ward of Lights, Mystic Veil, Soar …): the flash is the card's own permission, the
+# sacrifice a delayed trigger created as the permanent spell resolves (603.7; ruling 2022-12-08: only when this ability was the one used, casting.flash_sac)
+SELF_FLASH_SAC = re.compile(r"^you may cast (?:this spell|~) as though it had flash\. if you cast it any time a sorcery couldn't have been cast, the controller of "
+                            r"the permanent it becomes sacrifices it at the beginning of the next cleanup step$", re.IGNORECASE)
+
+
 def flash_condition(t: str) -> dict[str, Any] | None:
     m = SELF_FLASH_COND.fullmatch(t)
     if m is None:
@@ -519,6 +526,9 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     if extra is not None:
         ok = costs.parse_additional_cost(extra) is not None
         return {"kind": "static", "static": "additional_cost", "cost": extra, "effects": []} if ok else None
+    if SELF_FLASH_SAC.fullmatch(t):  # -- flash auras (wave 46B) --
+        return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": True, "play": False,
+                "cast": True, "filter": None, "flash_sac": True, "effects": []}
     if (fl := flash_condition(t)) is not None:  # -- casting costs (wave 22F) -- 601.3b-d: flash only if a choice made while casting is …
         return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": True, "play": False,
                 "cast": True, "filter": None, "flash_if": fl, "effects": []}
