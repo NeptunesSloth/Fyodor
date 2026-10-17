@@ -14,7 +14,9 @@ import json
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
+from tests.test_rules_conditionals import until
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import ask, settle
 from tests.wave9c_kit import card_named, check, mana, put, to_hand
@@ -111,4 +113,37 @@ def test_zaffai_deals_10_to_one_opponent_at_random_only_for_a_spell_of_mana_valu
     assert life(s, "p3") == 40 - damage and life(s, "p2") == 40
     log = json.dumps(s.view("p2")["log"])
     assert ("Carol is chosen at random" in log) is bool(damage)  # (nothing is picked when the condition fails)
+    check(s)
+
+
+# -- "At the beginning of combat on your turn, choose an opponent at random. Ruhan attacks that player this combat if able." --------------
+def to_declare(s):
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+
+
+def test_ruhan_must_attack_the_opponent_chosen_at_random_not_another(cards, monkeypatch):
+    """508.1d: the requirement is to attack that player (not a planeswalker of theirs); another player may not be attacked while the requirement
+    can be obeyed (Ruhan ruling 2011-09-22). It lasts this combat only (611.2)."""
+    pin_random(monkeypatch)  # Carol
+    s = build3(cards, ["Ruhan of the Fomori"])
+    ruhan = put(s, "Ruhan of the Fomori")
+    until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None)  # (Alice's second turn: no summoning sickness)
+    to_declare(s)
+    assert "Carol is chosen at random" in json.dumps(s.view("p2")["log"])
+    check(s)  # a save and a load with the requirement in force
+    with pytest.raises(ActionError):
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": ruhan.id, "target": "p2"}])
+    with pytest.raises(ActionError):
+        act(s, "p1", type="declare_attackers", attackers=[])  # (it must attack: it is able)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": ruhan.id, "target": "p3"}])
+    check(s)
+
+
+def test_ruhan_is_free_when_the_chosen_opponent_has_left(cards):
+    s = build3(cards, ["Ruhan of the Fomori"])
+    ruhan = put(s, "Ruhan of the Fomori")
+    act(s, "p3", type="concede")
+    until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None)  # (turn 3 was Carol's: gone)
+    to_declare(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": ruhan.id, "target": "p2"}])  # (Bob is the only opponent left: he is the pick)
     check(s)

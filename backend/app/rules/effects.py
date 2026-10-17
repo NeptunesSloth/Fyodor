@@ -856,7 +856,7 @@ RESTRICTION_LABELS = {"cant_block": "Can't block", "cant_attack": "Can't attack"
 # -- attack restrictions (wave 32B) -- the marker of "can't attack you …" names the player (the rule's own text is "cant_attack_player:<id>")
 ATTACK_LABELS = {"cant_attack_player": "Can't attack {}", "cant_attack_player_pw": "Can't attack {} or their planeswalkers",
                  "cant_attack_player_perm": "Can't attack {} or their permanents", "attack_tax": "Attacking {} costs extra",
-                 "attack_tax_pw": "Attacking {} costs extra"}
+                 "attack_tax_pw": "Attacking {} costs extra", "attack_player": "Attacks {} if able"}  # (attack_player: wave 47B)
 
 
 def _restriction_label(plan: Plan, rule: str) -> str:
@@ -882,6 +882,11 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
     _remember(plan, ctx, e, cards)
+    if any("@that" in r for r in e["rules"]):  # -- random choices (wave 47B) -- "attacks that player": the player picked before (none left: nothing is required)
+        that = _players(plan, ctx, e["player"])
+        if not that:
+            return True
+        e = {**e, "rules": [r.replace("@that", that[0]) for r in e["rules"]]}
     e = {**e, "rules": [block_effects.args(ctx, r.replace("@you", ctx["controller"])
                         .replace("@src", f"e{plan.rules.timestamp + 1}" if r.startswith("block_extra:") else ctx.get("source_object") or ""))
                         for r in e["rules"]]}  # (@src: wave 7E; wave 13B: each "can block an additional creature" adds up, 509.1a; @it, @t1: wave 30P)  # -- combat (wave 5C) -- (Kardur)

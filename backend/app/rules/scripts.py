@@ -872,7 +872,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 e["player"] = f"ref:{bound(intro)}.{e['player'][3:]}"
             if e.get("player") == "that_player":  # -- static wordings (wave 6E) -- "that player exiles the top card of
                 intro = find(lambda i: i.player, index)  # their library": whose library, bound like "who" below
-                if intro is not None:
+                if intro is not None and intro.do == "choose_random":  # -- random choices (wave 47B) -- "Choose an opponent at random. … attacks that player"
+                    e["player"] = "ref:" + bound(intro)
+                elif intro is not None:
                     if event_player:
                         return None
                     g = _group_of(out[intro.index])

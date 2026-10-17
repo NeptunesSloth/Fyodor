@@ -353,6 +353,7 @@ _EXTRA = re.compile(r"(?:after this (?:(?P<main>main )|(?P<combat>combat ))?phas
                     r"|there is an additional combat phase after this (?:(?P<main2>main )|(?P<combat2>combat ))?phase)")
 _MUST = re.compile(r"(?P<o>.+?) attacks? this turn if able")
 _MUST_COMBAT = re.compile(r"(?P<o>.+?) attacks this combat if able")  # -- trigger other (wave 26B) -- 508.1d, this combat only
+_MUST_THAT = re.compile(r"(?P<o>.+?) attacks that player this combat if able")  # -- random choices (wave 47B) -- the player an instruction before picked (Ruhan)
 _MUST_YOU = re.compile(r"(?P<o>target creature(?: an opponent controls)?) attacks you this turn if able")  # -- activated other (wave 21E) --
 _EACH_COMBAT = re.compile(r"(?P<o>.+?) (?:attack each combat if able(?P<pl> and attack a player other than you if able)?"
                          r"|attacks each combat if able(?P<sg> and attacks a player other than you if able)?)"
@@ -419,6 +420,10 @@ def clause(text: str) -> tuple[Effects, Any] | None:
         if restricted is None:
             return None
         return ([restricted[0][0]] if m["eot"] else [{**restricted[0][0], "each_combat": True}]), restricted[1]
+    m = _MUST_THAT.fullmatch(text)
+    if m:  # 508.1d, Ruhan ruling 2011-09-22: that player, not a planeswalker of theirs; this combat only (611.2), the player bound by random_choice
+        found = _restrict(m["o"], [f"{ATTACK_PLAYER}:@that"])
+        return ([{**found[0][0], "player": "that_player", "duration": "end_of_combat"}], found[1]) if found is not None else None
     m = _MUST_YOU.fullmatch(text)
     if m:  # 508.1d: it attacks the effect's controller ("you") if able (ATTACK_PLAYER, as encore's tokens)
         return _restrict(m["o"], [f"{ATTACK_PLAYER}:@you"])
