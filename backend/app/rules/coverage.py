@@ -474,7 +474,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import graveyard_keywords
 
         return graveyard_keywords.supported(kw, line)
-    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "emerge", "foretell", "mutate", "web-slinging", "sneak", "freerunning"):  # -- keywords (wave 15E; sneak: 30I; freerunning: 43D) -- app/rules/alt_costs.py: the cost with its condition
+    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "emerge", "foretell", "mutate", "web-slinging", "sneak", "freerunning", "impending"):  # -- keywords (wave 15E; sneak: 30I; freerunning, impending: 43D) -- app/rules/alt_costs.py: the cost with its condition
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(line) is not None

@@ -512,6 +512,152 @@ def test_nyxborn_hydra_bestowed_with_x_gives_the_enchanted_creature_x_plus_x(car
     check(s)
 
 
+# ---- impending (702.176a) ---------------------------------------------------------------------------------------------------------------------
+def is_creature(s, name, pid="p1"):
+    return Plan(s.state, pid, s.cards, None).ch(s.state.cards[card_named(s, name, pid).id]).is_creature
+
+
+def test_overlord_cast_for_its_impending_cost_enters_with_four_time_counters_and_isnt_a_creature(cards):
+    """"Impending 4—{2}{W}{W}": rather than {5}{W}{W}; "it enters with four time counters", "as long as its impending cost was paid and it has a time
+    counter on it, it's not a creature" — the enters trigger still happens (two 2/1 Insects), and at the beginning of your end step a time counter is
+    removed. When the last one is gone it is a creature again."""
+    s = build(cards, ["Overlord of the Mistmoors"])
+    to_hand(s, "Overlord of the Mistmoors")
+    key = alt_key(s, "Overlord of the Mistmoors", "impending")
+    mana(s, W=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Overlord of the Mistmoors").id, alt_cost=key)
+    settle(s)
+    overlord = s.state.cards[card_named(s, "Overlord of the Mistmoors").id]
+    assert overlord.zone == "p1:battlefield" and overlord.counters.get("time") == 4
+    assert not is_creature(s, "Overlord of the Mistmoors")
+    assert len([c for c in s.state.cards.values() if c.name == "Insect" and c.zone == "p1:battlefield"]) == 2
+    s = reloaded_session(s)  # a save and a load: the cast record still says the impending cost was paid
+    assert not is_creature(s, "Overlord of the Mistmoors")
+    until(s, lambda s: s.state.cards[overlord.id].counters.get("time") == 3 and s.state.rules.decision is None)
+    settle(s)
+    assert s.state.cards[overlord.id].counters.get("time") == 3 and not is_creature(s, "Overlord of the Mistmoors")
+    act(s, "p1", type="counter", card_ids=[overlord.id], kind="time", delta=-3)  # (the table tool: the last counter is gone)
+    assert is_creature(s, "Overlord of the Mistmoors")
+    check(s)
+
+
+def test_overlord_cast_for_its_mana_cost_is_a_creature_with_no_time_counters(cards):
+    s = build(cards, ["Overlord of the Mistmoors"])
+    to_hand(s, "Overlord of the Mistmoors")
+    mana(s, W=2, C=5)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Overlord of the Mistmoors").id)
+    settle(s)
+    overlord = s.state.cards[card_named(s, "Overlord of the Mistmoors").id]
+    assert overlord.zone == "p1:battlefield" and not overlord.counters.get("time") and is_creature(s, "Overlord of the Mistmoors")
+    until(s, lambda s: s.state.turn.number >= 2)  # (past its controller's end step: nothing is removed from a permanent not cast for impending)
+    assert not s.state.cards[overlord.id].counters.get("time")
+    check(s)
+
+
+def test_the_impending_cost_is_offered_only_when_it_can_be_paid(cards):
+    """118.9: the hint lists the alternative cost only with {2}{R}{R} available; paid, Boilerbilges' enters trigger deals 4 damage."""
+    s = build(cards, ["Overlord of the Boilerbilges"])
+    to_hand(s, "Overlord of the Boilerbilges")
+    card_id = card_named(s, "Overlord of the Boilerbilges").id
+    mana(s, R=2, C=1)
+    assert not s.view("p1")["rules"]["hints"].get("alt_castable", {}).get(card_id)
+    mana(s, C=1)
+    (offer,) = s.view("p1")["rules"]["hints"]["alt_castable"][card_id]
+    act(s, "p1", type="cast_spell", card_id=card_id, alt_cost=offer["id"])
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            pick(s, "p2" if any(o.id == "p2" for o in d.options) else d.options[0].id)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert life(s, "p2") == 36 and s.state.cards[card_id].counters.get("time") == 4
+    check(s)
+
+
+# ---- affinity for tokens, Allies, historic permanents, outlaws (702.41a) ----------------------------------------------------------------------
+def test_hellspur_brute_costs_one_less_for_each_outlaw_you_control_and_a_two_type_outlaw_counts_once(cards):
+    """"Affinity for outlaws" ({4}{R}): an outlaw is an object with the Assassin, Mercenary, Pirate, Rogue and/or Warlock creature type (700.12), however
+    many of them. A Rogue, a Pirate Warlock and a Bear: two outlaws, so {2}{R}; the generic part only is reduced."""
+    s = build(cards, ["Hellspur Brute"])
+    token_of(s, "p1", "Sneak", "Token Creature — Human Rogue", "1/1")
+    token_of(s, "p1", "Cutthroat", "Token Creature — Human Pirate Warlock", "2/2")
+    bear(s, "p1", "Mine")
+    to_hand(s, "Hellspur Brute")
+    mana(s, R=1, C=1)
+    with pytest.raises(ActionError):  # ({2}{R} is three mana)
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Hellspur Brute").id)
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Hellspur Brute").id)
+    settle(s)
+    assert zone_of(s, "Hellspur Brute") == "p1:battlefield" and sum(s.state.players["p1"].mana.values()) == 0
+    check(s)
+
+
+def test_affinity_never_reduces_colored_mana(cards):
+    """Six outlaws against {4}{R}: only {4} goes; the {R} stays."""
+    s = build(cards, ["Hellspur Brute"])
+    for i in range(6):
+        token_of(s, "p1", f"Rogue {i}", "Token Creature — Human Rogue", "1/1")
+    to_hand(s, "Hellspur Brute")
+    mana(s, C=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Hellspur Brute").id)
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Hellspur Brute").id)
+    settle(s)
+    assert zone_of(s, "Hellspur Brute") == "p1:battlefield" and sum(s.state.players["p1"].mana.values()) == 1
+    check(s)
+
+
+def test_junk_winder_affinity_for_tokens_counts_tokens_not_other_permanents(cards):
+    """"Affinity for tokens" ({5}{U}{U}): two tokens and a creature that isn't one: {3}{U}{U}."""
+    s = build(cards, ["Junk Winder"])
+    token_of(s, "p1", "Clue", "Token Artifact — Clue", "0/0")
+    token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    put(s, "Krenko, Mob Boss")
+    to_hand(s, "Junk Winder")
+    mana(s, U=2, C=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Junk Winder").id)
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Junk Winder").id)
+    settle(s)
+    assert zone_of(s, "Junk Winder") == "p1:battlefield" and sum(s.state.players["p1"].mana.values()) == 0
+    check(s)
+
+
+def test_banish_to_another_universe_affinity_for_historic_permanents(cards):
+    """"Affinity for historic permanents" ({4}{W}): a legendary creature (Krenko), an artifact (Sol Ring) and a Saga are historic (700.6); a Bear isn't."""
+    s = build(cards, ["Banish to Another Universe", "Sol Ring"])
+    put(s, "Krenko, Mob Boss")
+    put(s, "Sol Ring")
+    token_of(s, "p1", "Chapter House", "Token Enchantment — Saga", "0/0")
+    bear(s, "p1", "Mine")
+    victim = bear(s)
+    to_hand(s, "Banish to Another Universe")
+    mana(s, W=1, C=1)  # ({4}{W} less 3 = {1}{W})
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Banish to Another Universe").id)
+    settle(s)
+    assert zone_of(s, "Banish to Another Universe") == "p1:battlefield" and not on_field(s, victim.id)
+    check(s)
+
+
+def test_allies_at_last_affinity_for_allies(cards):
+    """"Affinity for Allies" ({2}{G}): the plural names the Ally creature type (205.3m); two Allies make it {G}."""
+    s = build(cards, ["Allies at Last"])
+    a1 = token_of(s, "p1", "Gideon's Ally", "Token Creature — Kor Ally", "3/3")
+    a2 = token_of(s, "p1", "Another Ally", "Token Creature — Human Ally", "2/2")
+    victim = bear(s)
+    to_hand(s, "Allies at Last")
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Allies at Last").id, targets=[a1.id, a2.id, victim.id], target_counts=[2, 1])
+    settle(s)
+    assert not on_field(s, victim.id) and sum(s.state.players["p1"].mana.values()) == 0
+    check(s)
+
+
 # ---- miracle with {X} (702.94a, 107.3a) --------------------------------------------------------------------------------------------------------
 def draw_with_visionary(cards, top, *, first=None):
     """Alice casts Elvish Visionary ("When this creature enters, draw a card.") with ``top`` on top of her library; with ``first``, an earlier draw of

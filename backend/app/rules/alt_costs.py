@@ -225,10 +225,23 @@ def grant_web_slinging(t: str) -> dict[str, Any] | None:
 # of non-mana parts ("You may cast this card by paying [cost] rather than its mana cost"); a mana "Evoke {cost}" is casting.EVOKE's
 _EVOKE_COST = re.compile(r"^evoke—(?P<cost>[^{}]+)$", re.IGNORECASE)
 _FREERUN_COST = re.compile(r"^freerunning—(?P<cost>[^{}]+)$", re.IGNORECASE)  # -- cast keywords (wave 43D) -- "Freerunning—Return a blue creature you control to its owner's hand."
+# -- cast keywords (wave 43D) -- 702.176a: "Impending 4—{1}{U}{U}": the first of its four abilities is an alternative cost (tag "impending", ``n``: the time
+# counters it enters with); the enters-with, the "isn't a creature" and the end step trigger are read from the cast record (engine, layers, scripts)
+_IMPENDING = re.compile(r"^impending (?P<n>\d+)—(?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+
+
+def impending_n(ch: Characteristics) -> int | None:
+    """The time counters a permanent cast for its impending cost enters with (its one "Impending N—{cost}" line), or None."""
+    found = [m for a in ch.abilities if a.kind == "keywords" and "impending" in a.keywords
+             and (m := _IMPENDING.fullmatch(re.sub(r"\s*\(.*?\)", "", a.text).strip().rstrip("."))) is not None]
+    return int(found[0]["n"]) if len(found) == 1 else None
 
 
 def keyword_definition(line: str) -> dict[str, Any] | None:
     line = re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")
+    if (imp := _IMPENDING.fullmatch(line)) is not None and int(imp["n"]) > 0:
+        found = define(f"you may pay {imp['cost']} rather than pay ~'s mana cost")
+        return {**found, "tag": "impending", "n": int(imp["n"])} if found is not None else None
     if (ev := _EVOKE_COST.fullmatch(line)) is not None:
         found = define(f"you may {ev['cost'][:1].lower()}{ev['cost'][1:]} rather than pay ~'s mana cost")
         return {**found, "tag": "evoke"} if found is not None else None

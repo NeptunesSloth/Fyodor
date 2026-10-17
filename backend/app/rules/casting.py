@@ -1963,19 +1963,30 @@ def affinity_filter(ch: Characteristics) -> Any:
     return None
 
 
+OUTLAWS = frozenset({"Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"})  # -- cast keywords (wave 43D) -- 700.12
+
+
 def affinity_pred(what: str) -> Any:
-    """The predicate on permanents of "affinity for <what>" (lower case), or None for a wording we don't know."""
+    """The predicate on permanents (their characteristics, the permanent) of "affinity for <what>" (lower case), or None for a wording we don't know."""
     if what in _AFFINITY_TYPES:
         t = _AFFINITY_TYPES[what]
-        return lambda c: t in c.types
+        return lambda c, _card: t in c.types
     if what == "artifact creatures":
-        return lambda c: "Artifact" in c.types and c.is_creature
+        return lambda c, _card: "Artifact" in c.types and c.is_creature
+    # -- cast keywords (wave 43D) -- 702.41a "for each [text] you control": tokens (111), historic permanents (700.6), outlaws (700.12)
+    if what == "tokens":
+        return lambda _c, card: card.is_token
+    if what == "historic permanents":
+        return lambda c, _card: "Legendary" in c.supertypes or "Artifact" in c.types or "Saga" in c.subtypes
+    if what == "outlaws":
+        return lambda c, _card: bool(OUTLAWS & set(c.subtypes))
     from app.rules.creature_types import CREATURE_TYPES
     from app.rules.protection import _PLURALS
+    from app.rules.selectors import _IRREGULAR
 
-    sub = _PLURALS.get(what) or (what[:-1] if what.endswith("s") and what != "plains" else what).title()
+    sub = _IRREGULAR.get(what) or _PLURALS.get(what) or (what[:-1] if what.endswith("s") and what != "plains" else what).title()
     if sub in CREATURE_TYPES or sub in _AFFINITY_SUBTYPES:
-        return lambda c: sub in c.subtypes
+        return lambda c, _card: sub in c.subtypes
     return None
 
 
@@ -1989,9 +2000,9 @@ def affinity_discount(state: GameState, player: str, ch: Characteristics, info: 
         return 0
     from app.rules.layers import derive
 
-    mine = [derive(state, c, chars.of(c, info), info) for c in state.cards.values()
+    mine = [(derive(state, c, chars.of(c, info), info), c) for c in state.cards.values()
             if c.zone == zone_key(player, "battlefield") and c.controller == player]
-    return sum(1 for pred in preds for c in mine if pred(c))
+    return sum(1 for pred in preds for c, card_ in mine if pred(c, card_))
 
 
 def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int = 0,
