@@ -196,6 +196,14 @@ def _filter(sel: str | None, tail: str | None = None) -> tuple[bool, str | None]
 
     phrase = re.sub(r"^(\w+) spells and (\w+)$", r"\1 or \2", (sel or "").strip())  # "Dragon spells and artifact" → "Dragon or artifact"
     key = spell_filter(phrase or None, (tail or "").strip() or None)
+    if key is None and not tail and (m := re.fullmatch(r"(\w+) spells and (\w+)", (sel or "").strip())):
+        # (wave 45D: Gandalf the White "legendary spells and artifact spells", Liberator "colorless spells and artifact spells") a spell of either kind; two qualities of
+        # different kinds (a supertype or colorless with a type) can't be one selector's list, so each is its own selector
+        keys = [spell_filter(m[1]), spell_filter(m[2])]
+        if all(keys):
+            from app.rules.selectors import Selector
+
+            return True, Selector(either=(keys[0], keys[1]), zones=("stack",)).key()  # type: ignore[arg-type]
     return key is not None, key
 
 

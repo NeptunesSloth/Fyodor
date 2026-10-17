@@ -68,7 +68,9 @@ _TAIL = r", (?:that ability|it) triggers an additional time\.$"
 _CAUSE = re.compile(r"^If (?P<cause>.+?) causes a triggered ability of (?P<of>a permanent you control|(?:this creature|~) or an emblem you own) to trigger" + _TAIL)
 # (wave 43A: "As long as ~ is equipped, if a triggered ability of ~ or an Equipment attached to it triggers, …" (Cloud, Midgar Mercenary), "… triggers while you control six or more
 # Shrines, …" (Sanctum of All): the condition is read as the ability triggers)
-_SOURCE = re.compile(r"^(?:As long as (?P<equipped>~ is equipped), i|I)f a triggered ability of (?P<src>.+?) triggers(?: while (?P<while>.+?))?" + _TAIL)
+_SOURCE = re.compile(r"^(?:As long as (?:(?P<equipped>~ is equipped)|(?P<story>you have an enduring story)), i|I)f a triggered ability of (?P<src>.+?) triggers(?: while (?P<while>.+?))?" + _TAIL)
+# (wave 45D: "As long as you have an enduring story, if a triggered ability of a Dwarf you control triggers, …" (Bifur, Melodic Rider): read as the ability triggers; the designation is
+# gained before triggers are collected (702.195c), so "if Bifur entering causes you to have an enduring story, his ability triggers an additional time" (ruling of 2026-06-29))
 # -- trigger multipliers (wave 43A) -- 309.4c, 603.2d: "Room abilities of dungeons you own trigger an additional time." (Hama Pashar, Dungeon Delver's grant): the room ability of a dungeon its
 # owner ventured into triggers again (the same room: it doesn't move the marker again — rulings of 2021-07-23, 2022-06-10); each such effect adds one
 _ROOM = re.compile(r"^Room abilities of dungeons you own trigger an additional time\.$")
@@ -166,8 +168,8 @@ def static_definition(text: str) -> dict[str, Any] | None:
     out: dict[str, Any] = {"kind": "static", "static": STATIC, "source": keys, "effects": []}
     if m["equipped"]:
         out["while"] = "equipped"
-    if m["while"]:
-        cond = conditions.parse(m["while"])
+    if m["while"] or m["story"]:
+        cond = conditions.parse(m["while"] or m["story"])
         if cond is None:
             return None
         out["while"] = cond

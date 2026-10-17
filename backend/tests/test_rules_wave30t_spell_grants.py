@@ -50,8 +50,6 @@ def test_every_card_is_full(cards, name):
 
 
 @pytest.mark.parametrize("text", [
-    "You may cast colorless spells and artifact spells as though they had flash.",  # (Liberator, Gandalf: a color and a type in one list is no selector yet,
-    "You may cast legendary spells and artifact spells as though they had flash.",  # and both stay PARTIAL for their other lines)
     "As long as ~ is tapped, you may cast spells from your graveyard as though they had flash.",
     "The first kicked spell you cast each turn has convoke.",  # (a kicked spell isn't in the turn's cast records)
     "The first creature spell you cast each turn has cascade.",  # (only the grants researched here: convoke, improvise, casualty)

@@ -2382,6 +2382,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = _COUNTED_IF_YOU_DO.sub(_counted_if_you_do, body)  # -- reflexive this way (wave 30G) -- Neheb: "… draw that many cards and add that much {R}."
     body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus| and )",
                   r"\1, then draw a card for each card discarded this way", body)
+    # (wave 45D) Jared Carthalion: "For each of them, put a number of +1/+1 counters on it equal to the number of colors it is." is each chosen creature's own count
+    body = re.sub(r"(?i)\bfor each of them, put a number of (\+1/\+1) counters on it equal to the number of colors it is\b",
+                  r"put a number of \1 counters on each of them equal to the number of colors it is", body)
     # 701.70a: "Recruit" means "Draw a card, then discard a card. If you discarded a nonland card this way, create a 1/1 white
     # Human Soldier creature token." (one card is discarded, so the token is made once for it or not at all)
     body = re.sub(r"(?i)(?:^|(?<=, )|(?<=\. ))(?:you )?recruit(?=[.,]|$)",
@@ -4458,6 +4461,8 @@ def _conditional_static(ability: AbilityText, ch: Characteristics, text: str) ->
         return {**inner, "static_if": [cond]}
     if inner.get("static") == "grant" and inner.get("player_shield") and not inner.get("conditions"):
         return {**inner, "conditions": [cond]}
+    if inner.get("static") == "grant" and not inner.get("conditions") and all(r.startswith("attack_tax") for r in inner.get("rules") or ["-"]):
+        return {**inner, "conditions": [cond]}  # (wave 45D: Dáin) the attack tax is imposed (a grant's rules) only while the condition holds, 611.3a
     return None
 
 
