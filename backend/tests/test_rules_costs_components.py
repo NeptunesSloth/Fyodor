@@ -70,7 +70,8 @@ def test_parse_components():
     assert '"chosen_type"' in (parse_ability_cost("Sacrifice a creature of the chosen type").components[0].selector or "")
     assert parse_ability_cost("Exile Test Relic from your graveyard", card_name="Test Relic").from_graveyard
     assert kicker_line("Kicker {2}{W}") and kicker_line("Multikicker {1}")
-    assert not kicker_line("Kicker {1}{U} and/or {2}{B}") and kicker_line("Kicker—Sacrifice a land")  # (wave 43D: paid with the additional costs)
+    assert kicker_line("Kicker {1}{U} and/or {2}{B}") and kicker_line("Kicker—Sacrifice a land")  # (wave 43D: paid with the additional costs; wave 50H: 702.33b, two mana kicker costs)
+    assert not kicker_line("Kicker {X} and/or {2}{B}")  # (wave 50H: an {X} in either of the two costs is still refused)
     # (a token's creature types are the capitalized words: an enchantment artifact creature Golem, not a "Golem enchantment")
     parsed = parse_effects("Create a 3/3 colorless Golem enchantment artifact creature token.")
     assert parsed is not None and parsed[0][0]["token"]["type_line"] == "Token Enchantment Artifact Creature — Golem"
@@ -421,7 +422,8 @@ def test_kicker_coverage():
         return Characteristics(name="Probe", types=types, abilities=tuple(parse_abilities(text, spell=True)))
 
     assert coverage.of_characteristics(ch("Kicker {1}\nDraw a card. If this spell was kicked, draw a card.")).level == "FULL"
-    assert coverage.of_characteristics(ch("Kicker {1}{U} and/or {2}{B}\nDraw a card.")).level != "FULL"
+    assert coverage.of_characteristics(ch("Kicker {1}{U} and/or {2}{B}\nDraw a card.")).level == "FULL"  # (wave 50H: 702.33b)
+    assert coverage.of_characteristics(ch("Kicker {X} and/or {2}{B}\nDraw a card.")).level != "FULL"
     # 702.33g: a target chosen only if kicked (wave 4G: kicked_instead.applicable, tests/test_rules_wave4g_kicked_instead.py)
     assert coverage.of_characteristics(
         ch("Kicker {1}\nDraw a card. If this spell was kicked, destroy target creature.")).level == "FULL"

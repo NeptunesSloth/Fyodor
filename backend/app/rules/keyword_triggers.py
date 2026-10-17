@@ -42,6 +42,8 @@ MEANINGS: dict[str, str] = {
     "living weapon": "When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this "
                      "Equipment to it.",  # 702.92a
     "for mirrodin!": "When this Equipment enters, create a 2/2 red Rebel creature token, then attach this Equipment to it.",  # 702.163a
+    "haunt": "When this creature dies, exile it haunting target creature.",  # -- keywords (wave 50H) -- 702.55a (a permanent's: app/rules/haunt.py)
+    "job select": "When this Equipment enters, create a 1/1 colorless Hero creature token, then attach this Equipment to it.",  # -- keywords (wave 50H) -- 702.182a
     "annihilator": "Whenever this creature attacks, defending player sacrifices {n} permanents.",  # 702.86a
     "afflict": "Whenever this creature becomes blocked, defending player loses {n} life.",  # 702.130a
     # 702.156a: the triggered half of ravenous (its "enters with X +1/+1 counters" half is replacements.entering_counters;
@@ -122,7 +124,7 @@ def _definition(piece: str) -> str | None:
     if piece.startswith("recover "):  # -- casting extras (wave 18E) -- 702.59a
         kw, cost = "recover", piece[len("recover "):].upper()
     meaning = MEANINGS.get(kw)
-    if meaning is None or (kw in _NUMBERED) != bool(n):
+    if meaning is None or ((kw in _NUMBERED) != bool(n) and not (kw == "vanishing" and not n)):  # (-- keywords (wave 50H) -- 702.63b: "Vanishing" without a number is the two triggers only)
         return None
     one = n == "1"
     word = "a" if one else {"2": "two", "3": "three", "4": "four", "5": "five"}.get(n, n)

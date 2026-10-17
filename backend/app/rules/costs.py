@@ -544,6 +544,8 @@ def _self_text(part: str, card_name: str) -> str:
 # (702.175: once) are optional additional mana costs paid as kicker is (``CastSpell.kicker`` times): the engine's count is theirs
 _KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)|(?P<entwine>entwine)) (?P<cost>(?:\{[^}]+\})+)$",
                      re.IGNORECASE)
+# -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}" is "Kicker {A}, kicker {B}": two kicker costs, each paid at most once (Invasion's Battlemages)
+_KICKER2 = re.compile(r"^kicker (?P<a>(?:\{[^}]+\})+) and/or (?P<b>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
 # -- casting extras (wave 18E) -- 702.42a: an entwine cost that isn't mana ("Entwine—Sacrifice three lands.") is paid as additional costs are
@@ -582,10 +584,30 @@ def kicker_extra_parts(line: str) -> tuple[bool, str] | None:
     return (bool(m["multi"] or m["many"]), rest) if found is not None and not found.mana else None
 
 
+# -- keywords (wave 50H) -- 702.33a: "Kicker—{2}{R}, Sacrifice a land." (Dwarven Landslide): a mana part and parts an alternative cost may have, the mana added to the total
+# cost and the rest paid with the other additional costs, once
+_KICKER_MIXED = re.compile(r"^kicker—(?P<mana>(?:\{[^}X]+\})+), (?P<rest>[^{}]+)$", re.IGNORECASE)
+
+
+def kicker_mixed_parts(line: str) -> tuple[str, str] | None:
+    """(the mana, the other parts) of a "Kicker—{mana}, [parts]" line the engine pays, or None."""
+    from app.rules import alt_costs
+
+    m = _KICKER_MIXED.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
+    if m is None or not _MANA_ONLY.match(m["mana"]):
+        return None
+    rest = m["rest"].strip()
+    rest = rest[:1].lower() + rest[1:]
+    found = alt_costs.parse_cost(f"pay {m['mana']} and {rest}")
+    return (m["mana"], rest) if found is not None and found.mana == m["mana"] and found.cost.components else None
+
+
 def kicker_line(line: str) -> bool:
     """Is this keyword line a kicker the engine pays ("Kicker {2}{R}", "Multikicker {1}")?"""
-    if _entwine_extra(line) is not None or kicker_extra_parts(line) is not None:
+    if _entwine_extra(line) is not None or kicker_extra_parts(line) is not None or kicker_mixed_parts(line) is not None:
         return True
+    if (two := _KICKER2.fullmatch(line.strip().rstrip("."))) is not None:  # (-- keywords (wave 50H) -- both mana only, no {X})
+        return all(_MANA_ONLY.match(c) and "{X}" not in c.upper() for c in (two["a"], two["b"]))
     m = _KICKER.fullmatch(line.strip().rstrip("."))
     # (-- cast keywords (wave 43D) -- 107.3a: "Kicker {X}" / "Kicker {X}{2}", one {X} and paid once: X is announced with the kicker cost)
     one_x = m is not None and m["cost"].upper().count("{X}") == 1 and not (m["multi"] or m["many"] or m["once"] or m["entwine"])
@@ -599,6 +621,11 @@ class Kicker:
     entwine: bool = False  # -- casting extras (wave 18E) -- 702.42a: the count 1 means "choose all modes" (paid as kicker is)
     extra: str = ""  # (an entwine cost that isn't mana: "sacrifice two lands", paid with the additional costs)
     text: str = ""  # -- free-cast optional costs (wave 41D) -- the keyword line ("Kicker {R}", "Squad {2}"): the label of the question
+    second: str = ""  # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}": B, the second kicker cost. Then the cast's ``kicker`` is a mask (1: A, 2: B, 3: both)
+
+    def paid(self, times: int) -> int:
+        """-- keywords (wave 50H) -- how many kicker costs the cast's ``kicker`` pays (702.33d): the bits of the mask of two costs, else the count."""
+        return bin(times).count("1") if self.second else times
 
     @property
     def x(self) -> bool:
@@ -617,8 +644,14 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
         if (extra := _entwine_extra(ab.text)) is not None:
             found.append(Kicker("", entwine=True, extra=extra))
             continue
+        if (mixed := kicker_mixed_parts(ab.text)) is not None:  # (wave 50H)
+            found.append(Kicker(mixed[0], extra=mixed[1], text=ab.text.strip().rstrip(".")))
+            continue
         if (non_mana := kicker_extra_parts(ab.text)) is not None:  # (wave 43D)
             found.append(Kicker("", multi=non_mana[0], extra=non_mana[1], text=ab.text.strip().rstrip(".")))
+            continue
+        if (two := _KICKER2.fullmatch(ab.text.strip().rstrip("."))) is not None and kicker_line(ab.text):  # (wave 50H)
+            found.append(Kicker(two["a"], second=two["b"], text=ab.text.strip().rstrip(".")))
             continue
         m = _KICKER.fullmatch(ab.text.strip().rstrip("."))
         if m is None or not kicker_line(ab.text):

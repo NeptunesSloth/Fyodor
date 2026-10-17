@@ -958,7 +958,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
             continue
         q = _QUOTED.match(rest)
         if q:
-            text = q["q"] if q["q"][-1] in ".)" else q["q"] + "."  # (wave 16F: a quote ending a clause has no period of its own)
+            text = q["q"] if q["q"][-1] in ".)" else q["q"].rstrip(",") + "."  # (wave 16F: a quote ending a clause has no period of its own; wave 50H: "…draw a card," and is a Rogue: the comma is the list's)
             if granted_ability(text) is None:
                 return None
             grants.append(text)

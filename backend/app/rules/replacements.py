@@ -193,6 +193,11 @@ def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bo
     )
 
     riot.plan_entry(plan, card, controller, answers, out)
+    from app.rules import (
+        tribute,  # -- keywords (wave 50H) -- tribute N (702.104a): an opponent's choice as it enters
+    )
+
+    tribute.plan_entry(plan, card, controller, answers, out)
     if out.get("choice", {}).get("what") == enter_cost.WHAT and reserved:
         out["choice"]["reserved"] = sorted(reserved)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with (122.6) --
@@ -306,17 +311,21 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                     from app.rules import keyword_triggers
 
                     for piece in keyword_triggers.pieces(kw, ab.text):
-                        counters[kind] = counters.get(kind, 0) + int(piece.split()[1])
+                        if " " in piece:  # (-- keywords (wave 50H) -- 702.63b: "Vanishing" alone enters with no counters of its own)
+                            counters[kind] = counters.get(kind, 0) + int(piece.split()[1])
         from app.rules import (
             amplify,  # -- casting extras (wave 18E) -- 702.38a: N for each card revealed as it entered
             devour,  # -- keyword mechanics (wave 9D) -- 702.82a: N for each permanent sacrificed as it entered
             riot,  # -- keywords (wave 15E) -- 702.136a / 702.98a: the additional +1/+1 counter chosen
+            tribute,  # -- keywords (wave 50H) -- 702.104a: N additional counters, put by the opponent who paid
         )
 
         if amplify.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + amplify.counters(ch, choices)
         if riot.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + riot.counters(ch, choices)
+        if tribute.counters(ch, choices):
+            counters["+1/+1"] = counters.get("+1/+1", 0) + tribute.counters(ch, choices)
         if devour.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + devour.counters(ch, choices)
         for ab in ch.abilities:  # -- keyword mechanics (wave 9D) -- 702.44a sunburst: a +1/+1 counter (a creature, ignoring
@@ -441,6 +450,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
 
     if riot.is_choice(what):
         return riot.prompt(plan, card, controller)
+    from app.rules import tribute  # -- keywords (wave 50H) --
+
+    if tribute.is_choice(what):
+        return tribute.prompt(plan, card, controller, choice)
 
     if what == battles.PROTECTOR:  # 310.9a / 310.12a
         return f"{card.name}: as it enters, choose its protector", battles.choice_options(plan, controller, card)
@@ -481,7 +494,7 @@ def ask_entry_choice(plan: Plan, entries: list[Entry], index: int, ctx: dict[str
     if not options:  # (no opponent left to choose, 800.4: the choice is skipped)
         _enter_again(plan, entries, index, _answer(entry, choice, ""), ctx, shuffle)
         return
-    decide(plan, player=entry["player"], kind="choose_one", prompt=prompt, options=options,
+    decide(plan, player=choice.get("decider") or entry["player"], kind="choose_one", prompt=prompt, options=options,  # (-- keywords (wave 50H) -- tribute: the opponent decides, 702.104a)
            resume={"step": "enter_choice", "entries": entries, "index": index, "ctx": ctx, "shuffle": shuffle,
                    "choice": choice},
            source=card)
@@ -533,7 +546,7 @@ def stack_entry_choice(plan: Plan, card: CardInstance, controller: str) -> bool:
     if not options:
         r.entry_choices.setdefault(card.id, {})[choice["what"]] = ""
         return stack_entry_choice(plan, card, controller)
-    decide(plan, player=controller, kind="choose_one", prompt=prompt, options=options,
+    decide(plan, player=choice.get("decider") or controller, kind="choose_one", prompt=prompt, options=options,  # (-- keywords (wave 50H) -- tribute: the opponent decides)
            resume={"step": "stack_enter_choice", "card": card.id, "what": choice["what"]}, source=card)
     return True
 
@@ -692,6 +705,8 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
     if d.get("if_kicked") or d.get("per_kick"):  # 702.33e: how its spell was cast (the payment record)
         record = plan.rules.payments.get(plan.oid(card_id))
         kicked = record.kicked if record is not None else 0
+        if isinstance(d.get("if_kicked"), dict) and not values.kicked_holds(plan, {"source_object": plan.oid(card_id), "source_card": card_id}, d["if_kicked"]):
+            kicked = 0  # (-- keywords (wave 50H) -- 702.33f: kicked with that kicker's cost)
         amount = 0 if d.get("if_kicked") and not kicked else amount * kicked if d.get("per_kick") else amount
     if d.get("if_cast") is not None:  # -- refused modal/conditional (wave 3R1) -- adamant: how its spell was paid (601.2h)
         from app.rules import conditions
@@ -754,6 +769,11 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     if riot.gains_haste(ch, choices):
         layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
                           add_keywords=("haste",), duration="permanent", label="Haste (riot)")
+    from app.rules import tribute  # -- keywords (wave 50H) -- 702.104b: "if tribute wasn't paid" reads this
+
+    if tribute.counters(ch, choices):
+        plan.rules.tribute_paid.append(plan.oid(card))
+        plan.note(f"{plan.name((choices or {})[tribute.OPP])} pays tribute: {card.name} enters with {tribute.counters(ch, choices)} additional +1/+1 counters", [card.id])
     from app.rules import mana_units
 
     mana_units.entered(plan, card, controller)  # -- mana provenance (wave 18B) -- 106.6: "it gains haste"
@@ -768,10 +788,11 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import layers
 
         for d in scripts.definitions(ch).values():
-            if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters" and d.get("grant") and not d.get("self_in_group") \
+            if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters" and (d.get("grant") or d.get("grant_abilities")) and not d.get("self_in_group") \
                     and _counter_amount(plan, card.id, controller, d, x, newcomers) > 0:
                 layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
-                                  add_keywords=tuple(d["grant"]), duration="permanent", label=f"Enters with {d['grant'][0]}")
+                                  add_keywords=tuple(d.get("grant") or ()), add_abilities=list(d.get("grant_abilities") or ()),  # (wave 50H: a granted ability)
+                                  duration="permanent", label=f"Enters with {(d.get('grant') or d['grant_abilities'])[0]}")
             elif d["kind"] == "replacement" and d.get("replacement") == "enters_prepared":  # -- prepared (wave 13C) -- 722.3a
                 from app.rules import keyword_actions
 

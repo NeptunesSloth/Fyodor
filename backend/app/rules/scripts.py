@@ -334,6 +334,7 @@ def self_text(text: str, name: str) -> str:
     out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
     out = re.sub(r"(\bto the battlefield) and (attach this (?:Equipment|Aura) to it\b)", lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", out)  # (wave 19C: Nim Deathmantle: two instructions in order)
     out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room|Spacecraft|Planet)\b", "~", out)
+    out = re.sub(r"^(When) ~ enters or the creature (?:it|this card) haunts dies, ", r"\1 ~ enters and whenever the creature it haunts dies, ", out)  # -- keywords (wave 50H) -- 702.55: two halves
     out = re.sub(r"\b([Cc])onvert(s|ed)?\b", lambda m: f"{m[1].replace('c', 't').replace('C', 'T')}ransform{m[2] or ''}", out)  # (-- commanders (wave 50C) -- 701.28a: to convert a permanent is to turn it over as transforming does; "Convert Starscream." is "Transform ~.")
     # -- gift (wave 23D) -- 702.174k: a promised gift is read as the spell having been kicked (app/rules/gift.py): "If the gift was promised, …"
     # opens a sentence of the spell, "When ~ enters, if the gift was promised, …" is the permanent's intervening "if"
@@ -585,6 +586,8 @@ _MOVERS = {"destroy", "destroy_all", "exile", "exile_until", "bounce", "return_c
            "edict"}  # (edict: wave 4A)
 _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are tokens, not cards: 111.1)
 _RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
+_RECORDING["haunt"] = None  # -- keywords (wave 50H) -- 702.55a (app/rules/haunt.py)
+_RECORDING["paradigm"] = None  # (702.192a: app/rules/paradigm.py)
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
 _RECORDING["reveal_random"] = "revealed"  # -- random choices (wave 47B) -- "that card" is the card revealed at random
@@ -3919,7 +3922,7 @@ def _may_first_only(texts: list[str], effects: list[dict[str, Any]], sentences: 
     return 0 if any(_DEPENDENT.search(t) for t in texts[1:]) else len(first)
 
 
-_KICKED = re.compile(r"^if (?P<neg>this spell wasn't|(?:this spell|it|~) was) kicked, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$")  # (wave 45A: "this spell wasn't": Parting Gust's gift)
+_KICKED = re.compile(r"^if (?P<neg>this spell wasn't|(?:this spell|it|~) was) kicked(?: with its (?P<cost>(?:\{[^}]+\})+) kicker)?, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$", re.IGNORECASE)  # (wave 45A: "this spell wasn't": Parting Gust's gift)
 # -- refused look/cast-free (wave 3R5) -- after a free cast: a replacement effect on the spell cast (614.1a)
 _FREE_EXILE_GY = re.compile(r"^if (?:that spell|that card|a spell cast this way|(?P<is>an instant or sorcery) spell cast this way) "  # (wave 19C: "is")
                             r"would be put into (?P<g>your|their|a) graveyard, exile it instead$")
@@ -4279,6 +4282,8 @@ def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start
     if rest.startswith("you may ") or rest.startswith("instead "):
         return None
     instead = bool(m["instead1"] or m["instead2"])
+    if m["cost"] and m["neg"] == "this spell wasn't":
+        return None  # (-- keywords (wave 50H) -- no such wording)
     if not instead:
         rest = kicked_instead.plain_addition(rest)
     base = effects[prev_start:]
@@ -4299,6 +4304,8 @@ def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start
     if m["neg"] == "this spell wasn't":  # -- most-played cards II (wave 45A) -- "If the gift wasn't promised, return that card …" (Parting Gust): the effect happens only when it was not
         # kicked (702.33e read the other way); no "instead", and no target of its own (they would be chosen only when it isn't kicked)
         return None if instead or len(groups) > own else [*effects, {"do": "kicked_gate", "kicked": False, "n": len(alt)}, *alt]
+    if m["cost"] and (instead or len(groups) > own):
+        return None  # (-- keywords (wave 50H) -- a kicker-specific sentence may not bring its own targets: 702.33g is for the one kicker cost)
     if not kicked_instead.mark(groups, own, len(groups), True):
         return None
     if instead:
@@ -4310,7 +4317,7 @@ def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start
             return None
         return [*effects[:prev_start], {"do": "kicked_gate", "kicked": False, "n": len(base)}, *base,
                 {"do": "kicked_gate", "kicked": True, "n": len(alt)}, *alt]
-    return [*effects, {"do": "kicked_gate", "kicked": True, "n": len(alt)}, *alt]
+    return [*effects, {"do": "kicked_gate", "kicked": True, "n": len(alt), **({"with": m["cost"].upper()} if m["cost"] else {})}, *alt]
 
 
 ATTACHED_SUBJECTS = ("Enchanted creature", "Equipped creature", "Enchanted land")
@@ -4737,7 +4744,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return keyword_triggers.dynamic_x(text)
     if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
         return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
-    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",), ("freerunning",), ("impending",), ("more than meets the eye",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I; freerunning, impending: 43D)
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("cleave",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",), ("freerunning",), ("impending",), ("more than meets the eye",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I; freerunning, impending: 43D)
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(ability.text)
@@ -4897,7 +4904,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     return None
                 if trigger == "state" and "counters on" in m["state"]:  # (wave 19D: a state about ~'s own counters: "it" is ~)
                     body = re.sub(r"^(exile|sacrifice) it\b", r"\1 ~", body)
-                kicked = re.match(r"^if (?:it|~) was kicked, (?P<rest>.+)$", body) if name in ("enters_self", "cast_self") else None  # (wave 20F: cast_self, 702.33d)
+                kicked = re.match(r"^if (?:it|~) was kicked(?: (?P<twice>twice)| with its (?P<cost>(?:\{[^}]+\})+) kicker)?, (?P<rest>.+)$", body, re.IGNORECASE) \
+                    if name in ("enters_self", "cast_self") else None  # (-- keywords (wave 50H) -- 702.33f: "kicked twice" / "kicked with its {R} kicker")  # (wave 20F: cast_self, 702.33d)
                 if kicked is not None:  # 603.4 intervening "if": checked as it triggers (triggers._add)
                     body = kicked["rest"]
                 paid_if = re.match(r"^if you (?P<v>sacrificed|tapped) one or more [a-z ]+ this way, (?P<rest>.+)$", body) if name == "cast_self" else None
@@ -5155,7 +5163,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     if intervening == {"object": "self", "test": "in_graveyard"}:
                         out["gy_watch"] = True  # -- graveyard triggers (wave 19C) -- it sees the events that come after the card is there
                 if kicked is not None:
-                    out["if_kicked"] = True
+                    out["if_kicked"] = {"times": 2} if kicked["twice"] else {"with": kicked["cost"].upper()} if kicked["cost"] else True
                 if paid_if is not None:
                     out["if_paid"] = paid_if["v"]
                 if limit is not None:
@@ -5754,7 +5762,8 @@ def own_card_event_ability(d: Definition | None) -> bool:
     """-- trigger other (wave 36A) -- 702.29d, 701.9a: "When you cycle this card, …" / "When you discard this card, …" is a trigger of the card itself as it
     goes from the hand to the graveyard, not part of what the spell does as it resolves (Slice and Dice, Resounding Thunder, Edgar's Awakening)."""
     cond = (d or {}).get("cond") or {}
-    return d is not None and d.get("kind") == "triggered" and d.get("trigger") == "event" and cond.get("subject") == "self" and cond.get("event") in ("cycle", "discard")
+    return d is not None and d.get("kind") == "triggered" and d.get("trigger") == "event" and (
+        (cond.get("subject") == "self" and cond.get("event") in ("cycle", "discard")) or cond.get("subject") == "haunted")  # (-- keywords (wave 50H) -- 702.55c: and the haunt card's, from exile)
 
 
 def spell_definition(ch: Characteristics) -> Definition | None:
@@ -5847,10 +5856,10 @@ def spell_definition(ch: Characteristics) -> Definition | None:
 SHOCK = re.compile(r"^As ~ enters, you may pay (?P<n>\d+) life\. If you don't, it enters tapped\.$")
 # "~ enters [tapped] with N … counters on it [for each …]" (614.1c); "If ~ was kicked, it enters with …" (702.33e)
 # (-- counters (wave 30L) -- any +N/+M kind: "enters with X +1/+0 counters on it", Lightning Serpent; 122.1a, layers 7c)
-ENTERS_WITH = re.compile(r"^(?:(?P<kicked>If ~ was kicked, it)|~) enters (?P<tapped>tapped (?:and )?)?with "
+ENTERS_WITH = re.compile(r"^(?:(?P<kicked>If ~ was kicked(?: with its (?P<kcost>(?:\{[^}]+\})+) kicker)?, it)|~) enters (?P<tapped>tapped (?:and )?)?with "
                          r"(?P<n>twice X|X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "  # (twice X: wave 4K)
                          r"(?P<kind>[+-]\d+/[+-]\d+|(?:first|double) strike|[a-z]+) counters? on it(?: for each (?P<each>.+?)|, where X is (?P<xdef>.+?))?"
-                         r"(?: and with (?P<kw>haste|trample|flying|first strike|fear))?\.$")  # (kw: wave 7C)
+                         r"(?:(?: and with (?P<kw>haste|trample|flying|first strike|fear))?\.| and with \"(?P<q>[^\"]+)\")$")  # (kw: wave 7C; q: wave 50H, an ability it enters with)
 ENTERS_TAPPED_UNLESS = re.compile(r"^~ enters tapped unless (?P<cond>.+)\.$")
 _A_THING = r"(?:a|an) (?P<{name}>[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*|legendary(?: [a-z]+)? creature|basic land|planeswalker)"
 _UNLESS_ONE_OR_TWO = re.compile(r"^you control " + _A_THING.format(name="a") + r"(?: or (?:" + _A_THING.format(name="b") + r"|(?P<b2>[A-Z][A-Za-z]*)))?$")  # (wave 25A: "a Mount or Vehicle")
@@ -6324,10 +6333,16 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
                            "effects": []}
         if m["tapped"]:  # "~ enters tapped with two charge counters on it." (Vivid lands)
             out["tapped"] = True
-        if m["kicked"]:  # 702.33e: "If ~ was kicked, it enters with …"
-            out["if_kicked"] = True
+        if m["kicked"]:  # 702.33e: "If ~ was kicked, it enters with …" (-- keywords (wave 50H) -- 702.33f: "with its {1}{R} kicker")
+            out["if_kicked"] = {"with": m["kcost"]} if m["kcost"] else True
         if m["kw"]:  # -- counters (wave 7C) -- "… and with haste": the keyword it enters with, for as long as it stays
             out["grant"] = [m["kw"]]
+        if m["q"]:  # -- keywords (wave 50H) -- '… and with "Pay 3 life: Regenerate this creature."' (the Volvers): the same, a granted ability (613.1f)
+            from app.rules import granted
+
+            if (quoted := granted.quote(m["q"])) is None:  # (a static other objects depend on is refused: layers.py reads those from printed text, 113.10)
+                return None
+            out["grant_abilities"] = [quoted]
         if m["each"]:
             each_text = m["each"]
             if " counter on it for each " in each_text or " counters on it for each " in each_text:  # -- counters (wave 21D) -- the same
@@ -8080,6 +8095,25 @@ _CHOSEN["token_copy"] = "n"
 # Hammer of Nazahn: "attach that Equipment to …"): 701.3a-b — the source (or the trigger's object) attached to the
 # target if it can be, else it doesn't move (app/rules/attach_entry.py, through effects.attach_self). "it" is resolved by
 # resolve_it: this object ("When ~ enters"), or the object the trigger was about ("Whenever an Equipment … enters")
+# -- keywords (wave 50H) -- 702.192a paradigm: the spell's last instruction (oracle.parse_abilities appends it; app/rules/paradigm.py)
+@_first
+@effect(r"set up the paradigm of ~")
+def _paradigm(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "paradigm"}], None
+
+
+# -- keywords (wave 50H) -- 702.55a haunt: "exile it haunting target creature" (app/rules/haunt.py)
+@_first
+@effect(r"exile it haunting (?P<tgt>target creature)")
+def _haunt(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import haunt
+
+    found = haunt.parse(m["tgt"])
+    if found is None:
+        raise _NoMatch
+    return found
+
+
 @_first
 @effect(r"attach (?:it|that Equipment) to (?P<tgt>(?:up to one )?target [^,.]+)")
 def _attach_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:

@@ -411,6 +411,12 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return affinity_filter(Characteristics(name="", abilities=(AbilityText(index=0, text=line, kind="keywords",
                                                                               keywords=("affinity",)),))) is not None
+    if kw == "paradigm":  # -- keywords (wave 50H) -- 702.192a: app/rules/paradigm.py (an instant or sorcery's last instruction, oracle.parse_abilities)
+        return line.strip().lower() == "paradigm"
+    if kw == "tribute":  # -- keywords (wave 50H) -- app/rules/tribute.py (one instance)
+        from app.rules import tribute
+
+        return tribute.supported(line)
     if kw == "amplify":  # -- casting extras (wave 18E) -- app/rules/amplify.py (one instance)
         from app.rules import amplify
 
@@ -487,7 +493,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return graveyard_keywords.supported(kw, line)
     if kw == "living metal":  # -- commanders (wave 50C) -- 702.161a: scripts.define reads it as its static meaning
         return True
-    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "emerge", "foretell", "mutate", "web-slinging", "sneak", "freerunning", "impending", "more than meets the eye"):  # -- keywords (wave 15E; sneak: 30I; freerunning, impending: 43D) -- app/rules/alt_costs.py: the cost with its condition
+    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "cleave", "emerge", "foretell", "mutate", "web-slinging", "sneak", "freerunning", "impending", "more than meets the eye"):  # -- keywords (wave 15E; sneak: 30I; freerunning, impending: 43D) -- app/rules/alt_costs.py: the cost with its condition
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(line) is not None
@@ -511,7 +517,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
     if kw == "plot":  # -- keywords (wave 15E) -- casting.plot: a mana plot cost
         return re.fullmatch(r"plot (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
-        return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+        return re.fullmatch(r"suspend (?:\d+|x)\s*[—-]\s*(?:\{[^}]+\})+(?:\. x can't be 0)?", line.strip().rstrip(".").lower()) is not None  # (wave 50H: "Suspend X—{X}{3}{U}. X can't be 0.")
     if kw == "cumulative upkeep":  # triggers.cumulative_costs: a mana cost (-- keywords (wave 43C) -- or any cost the optional payment pays, 702.24a)
         from app.rules.triggers import keyword_cost
 
@@ -569,7 +575,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return flashback_parts(line) is not None
     if kw.endswith("cycling"):
-        return _MANA_CYCLING.fullmatch(line.strip().rstrip(".").lower()) is not None
+        return all(_MANA_CYCLING.fullmatch(p) for p in line.strip().rstrip(".").lower().split(", "))  # (wave 50H: "Mountaincycling {2}, forestcycling {2}")
     return kw in SUPPORTED_KEYWORDS
 
 
@@ -650,6 +656,14 @@ def features_of(ch: Characteristics) -> list[Feature]:
                     from app.rules import overload
 
                     add("keyword:overload", "Overload", _keyword_supported(kw, ab.text) and overload.supported(ch))
+                    continue
+                if kw == "haunt":  # -- keywords (wave 50H) -- 702.55a: a creature dying, or an instant or sorcery put into a graveyard during its resolution (engine.leave_stack)
+                    add("keyword:haunt", "Haunt", bool({"Creature", "Instant", "Sorcery"} & ch.types) and _keyword_supported(kw, ab.text))
+                    continue
+                if kw == "cleave":  # -- keywords (wave 50H) -- 702.148a: the spell read without the words in square brackets too
+                    from app.rules import cleave
+
+                    add("keyword:cleave", "Cleave", _keyword_supported(kw, ab.text) and cleave.supported(ch))
                     continue
                 add(f"keyword:{kw}", kw.capitalize(), _keyword_supported(kw, ab.text) if kw != "backup" else all(
                     keyword_triggers.backup_definition(ch, ab, n) is not None

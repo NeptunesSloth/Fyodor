@@ -776,6 +776,7 @@ class StackEntry(BaseModel):
     division: list[list[int]] = Field(default_factory=list)
     # 702.33d: how many times the spell was kicked (a copy keeps it: 707.10)
     kicked: int = 0
+    kicked_mask: int = 0  # -- keywords (wave 50H) -- 702.33f: of two kicker costs, which were paid (1: the first, 2: the second)
     # A triggered ability: what it triggered on (603.2), for "it", "that player", "that much"
     event: TriggerEvent | None = None
     # -- copy system (wave 2F): a copy of a spell or ability (707.10): the object id of what it
@@ -836,6 +837,7 @@ class PaymentRecord(BaseModel):
     tapped_for_cost: list[str] = Field(default_factory=list)  # "Tap an untapped creature you control" (not for mana)
     tapped_objects: list[str] = Field(default_factory=list)  # (review 26C) the object ids they were: "the creature tapped this way" (608.2h)
     kicked: int = 0  # 702.33d: times its kicker cost was paid
+    kicked_mask: int = 0  # -- keywords (wave 50H) -- 702.33f: of two kicker costs, which were paid (1: the first, 2: the second)
     gift_to: str | None = Field(default=None, max_length=64)  # -- gift (wave 23D) -- 702.174a: the opponent the gift was promised to
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
     prototyped: bool = False  # -- casting extras (wave 18E) -- 718.3: cast prototyped (the spell and the permanent have the alternative values)
@@ -1119,6 +1121,10 @@ class RulesState(BaseModel):
     # id -> {"color": "Blue"}), consumed by the entry (614.12a)
     entry_choices: dict[str, dict[str, str]] = Field(default_factory=dict)
     devoured: dict[str, int] = Field(default_factory=dict)  # -- keyword mechanics (wave 9D) -- object -> permanents it devoured (702.82b)
+    paradigm_seen: list[str] = Field(default_factory=list)  # -- keywords (wave 50H) -- "player:name" of the paradigm spells that have resolved (702.192a: the first time)
+    paradigm: list[dict[str, str]] = Field(default_factory=list)  # (and the cards they exiled, to copy at each of the player's precombat main phases)
+    haunting: dict[str, str] = Field(default_factory=dict)  # -- keywords (wave 50H) -- a haunt card's object in exile -> the object it haunts (702.55b)
+    tribute_paid: list[str] = Field(default_factory=list)  # -- keywords (wave 50H) -- objects that entered with their tribute paid (702.104b)
     devoured_ids: dict[str, list[str]] = Field(default_factory=dict)  # (wave 48B: and the objects they were, for "the Goblins it devoured": their last known information, 608.2h)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
     dashed: list[str] = Field(default_factory=list)

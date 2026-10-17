@@ -1345,12 +1345,31 @@ def suspend_tick(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True
     if card.counters.get("time", 0) > 0:
         plan.do({"type": "counter", "card_ids": [cid], "kind": "time", "delta": -1}, actor=card.owner)
+        from app.game.rules_state import (
+            emit,  # -- keywords (wave 50H) -- exile isn't a tracked zone: the removal is announced here (122.6), for "a time counter is removed from this card while it's exiled"
+        )
+
+        emit(plan.state, "counters", object_id=plan.oid(cid), card=cid, counter="time", amount=-1, actor=card.owner)
+        # ponytail: a time counter removed by any other effect (Clockspinning) isn't announced
     if card.counters.get("time", 0) > 0:
         return True
+    from app.rules import triggers
+
+    if triggers.exile_watch(plan, card):  # -- keywords (wave 50H) -- 702.62a: its own "time counter is removed" trigger and the "you may play it" one are two triggers: the offer waits on the stack
+        triggers.suspend_last(plan, card)
+        return True
+    return suspend_cast(plan, ctx, e)
+
+
+def suspend_cast(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """702.62a: "When the last time counter is removed from this card, if it's exiled, you may play it without paying its mana cost if able."""
+    card = plan.state.cards.get(e["card"])
+    if card is None or not card.zone.endswith(":exile") or (e.get("object") and plan.oid(card) != e["object"]):
+        return True  # (the intervening "if it's exiled": it isn't any more)
     # -- granted casts (wave 29B) -- any half / face (709.3, 712.11b, 715.3)
     from app.rules import granted_casts
 
-    return granted_casts.ask(plan, ctx, player=card.owner, cid=cid, head="The last time counter was removed", no="Leave it exiled", play=True)
+    return granted_casts.ask(plan, ctx, player=card.owner, cid=card.id, head="The last time counter was removed", no="Leave it exiled", play=True)
 
 
 def leave_uncast(plan: Plan, player: str, cid: str, how: str | None, group: Any = ()) -> None:
@@ -2661,7 +2680,7 @@ PRIMITIVES = {
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch, "cant_monarch": cant_monarch,
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen, "no_regen_turn": no_regen_turn,
-    "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "return_any": return_any, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
+    "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "return_any": return_any, "suspend_tick": suspend_tick, "suspend_cast": suspend_cast, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
     "sacrifice": sacrifice, "ascend": ascend, "explore": explore, "explore_each": explore_each, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
@@ -3419,7 +3438,7 @@ def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """702.33e: "If this spell was kicked, …" (``kicked`` True) — and, for "… instead", the
     unkicked text (``kicked`` False): the next ``n`` effects happen only if the spell was (or
     wasn't) kicked; otherwise they're skipped."""
-    if (values.kicked_count(plan, ctx) > 0) != bool(e["kicked"]):
+    if values.kicked_holds(plan, ctx, e.get("with")) != bool(e["kicked"]):  # (-- keywords (wave 50H) -- "kicked with its {R} kicker": ``with``)
         ctx["next"] += int(e["n"])
     return True
 
@@ -4775,6 +4794,11 @@ from app.rules import attach_entry as _attach_entry  # noqa: E402, I001
 
 PRIMITIVES.update(_attach_entry.PRIMITIVES)
 RESUME.update(_attach_entry.RESUME)  # (wave 25A: attach_choose)
+from app.rules import haunt as _haunt  # noqa: E402, I001  -- haunt (wave 50H) --
+from app.rules import paradigm as _paradigm  # noqa: E402, I001  -- paradigm (wave 50H) --
+
+PRIMITIVES.update(_haunt.PRIMITIVES)
+PRIMITIVES.update(_paradigm.PRIMITIVES)
 from app.rules import licids as _licids  # noqa: E402, I001  -- licids (wave 50A) --
 
 PRIMITIVES["licid"] = _licids.licid

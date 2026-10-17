@@ -680,6 +680,11 @@ def on_step_start(plan: Plan) -> None:
         from app.rules import sagas
 
         sagas.precombat_main(plan)
+        from app.rules import (
+            paradigm,  # -- keywords (wave 50H) -- 702.192a: the copies of the exiled paradigm cards
+        )
+
+        paradigm.main_phase(plan)
         # -- counters & designations (wave 3E): 728.1 rad counters (precombat main phase) --
         effects.designations.rad_trigger(plan)
     elif phase == "begin_combat":  # -- combat (wave 5C) -- "if it's the first combat phase of the turn"
@@ -892,6 +897,10 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         if stack[-1] != card_id:  # -- refused look/cast-free (wave 3R5) -- 608.2g: spells cast while it resolved are
             step["card_id"] = card_id  # above it now; it leaves the stack all the same (608.2n)
         plan.do(step, actor=controller)
+        if not countered:  # -- keywords (wave 50H) -- 702.55a haunt on an instant or sorcery: put into a graveyard during its resolution
+            from app.rules import haunt
+
+            haunt.spell_resolved(plan, card_id, controller)
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid

@@ -182,12 +182,12 @@ PROWL_COND = "a player was dealt combat damage this turn by a source you control
 FREERUN_COND = ("a player was dealt combat damage this turn by a creature that, at the time it dealt that damage, was an assassin creature or a commander "
                 "under your control")  # -- cast keywords (wave 43D) -- 702.173a
 KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None,
-                 "prowl": PROWL_COND, "overload": None, "emerge": None, "foretell": None, "mutate": None, "freerunning": FREERUN_COND,
+                 "prowl": PROWL_COND, "overload": None, "cleave": None, "emerge": None, "foretell": None, "mutate": None, "freerunning": FREERUN_COND,
                  "web-slinging": None, "sneak": None, "more than meets the eye": None}  # (wave 17C: prowl; wave 18D: mutate, 702.140a; wave 50C: 702.162a, converted)
 # (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate|web-slinging|sneak|freerunning|more than meets the eye)(?: from (?P<q>[A-Za-z]+))? "
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|cleave|emerge|foretell|mutate|web-slinging|sneak|freerunning|more than meets the eye)(?: from (?P<q>[A-Za-z]+))? "
                            r"(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
-X_KEYWORDS = frozenset({"surge", "warp", "bestow", "overload"})  # -- cast keywords (wave 43D) -- 107.3a: the cost may have {X} (the X announced for the spell is its too)
+X_KEYWORDS = frozenset({"surge", "warp", "bestow", "overload", "cleave"})  # -- cast keywords (wave 43D) -- 107.3a: the cost may have {X} (the X announced for the spell is its too)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
 # when the prowl condition holds for that spell
 GRANT_PROWL = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells you cast have prowl (?P<cost>(?:\{[^}X]+\})+)$")

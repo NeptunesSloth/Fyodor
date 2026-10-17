@@ -53,6 +53,7 @@ KEYWORDS = frozenset({
     "firebending", "storied", "mobilize", "harmonize", "renew", "undaunted",
     "mayhem", "web-slinging",  # -- Marvel keywords (wave 25A) -- 702.187, 702.188
     "more than meets the eye", "living metal",  # -- commanders (wave 50C) -- 702.162, 702.161 (the Transformers)
+    "tribute", "haunt", "paradigm",  # -- keywords (wave 50H) -- 702.104 (app/rules/tribute.py), 702.55 (app/rules/haunt.py), 702.192 (app/rules/paradigm.py)
     "recover", "amplify", "assist",  # -- casting extras (wave 18E) -- 702.59, 702.38, 702.132
     "phasing", "transmute",  # (wave 3R4: casting.transmute)
     "aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate", "increment",  # -- static_other sweep (wave 16B) -- 702.127 (casting.from_graveyard / cast_grant)
@@ -133,6 +134,10 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("enchant",)  # (the commas list what it may enchant)
     if re.fullmatch(r"ward—[^;]+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 17C) -- "Ward—{2}, Pay 2 life." (one cost of two parts)
         return ("ward",)
+    if re.fullmatch(r"protection from [^,;]+(?:, (?:and )?from [^,;]+)+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.16a: "Protection from blue, from black, and from red" is one keyword (app/rules/protection.py)
+        return ("protection",)
+    if re.fullmatch(r"kicker—(?:\{[^}]+\})+, [^;{}]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.33a: "Kicker—{2}{R}, Sacrifice a land." is one keyword (its cost has two parts)
+        return ("kicker",)
     if re.fullmatch(r"eternalize—\{[^;]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 49C) -- 702.129a: "Eternalize—{2}{W}{W}, Discard a card." is one keyword (its cost has two parts)
         return ("eternalize",)
     if re.fullmatch(r"companion\s*—.+", line.strip(), re.IGNORECASE):  # -- companion (wave 38D) -- 702.139a: one keyword (Kaheera's condition lists creature types)
@@ -286,6 +291,8 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         return []
     out: list[AbilityText] = []
     lines = [raw.strip() for raw in strip_reminders(oracle_text).split("\n") if raw.strip()]
+    if spell and any(line.startswith("Cleave {") for line in lines):  # -- keywords (wave 50H) -- 702.148a: cast any other way the brackets are only punctuation (cleave.cleaved)
+        lines = [line if line.startswith("Cleave {") else line.replace("[", "").replace("]", "") for line in lines]
     if not spell and "LEVEL " in oracle_text:  # -- keyword mechanics (wave 9D) -- a leveler's text as 702.87a / 711.2 say it
         from app.rules import levelers
 
@@ -300,12 +307,19 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
             lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
                               "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
                               "its owner's control."]
+    # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
+    for i, line in enumerate(lines):
+        if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):
+            lines[i] = w[1]
     # -- any number as an additional cost (wave 48B) -- 603.12: "As an additional cost to cast this spell, you may sacrifice one or more creatures. When you do, copy this spell for each
     # creature sacrificed this way." (Plumb the Forbidden) is the cost and a trigger of the spell on being cast (601.2i), which only exists if something was sacrificed
     if spell:
         for i, line in enumerate(lines):
             if m := re.fullmatch(r"(As an additional cost to cast this spell, you may sacrifice one or more (creature)s)\. When you do, copy this spell for each \2 sacrificed this way\.", line):
                 lines[i:i + 1] = [f"{m[1]}.", f"When you cast this spell, if you sacrificed one or more {m[2]}s this way, copy it for each {m[2]} sacrificed this way."]
+    # -- keywords (wave 50H) -- 702.192a: paradigm exiles the spell and sets up the copies (app/rules/paradigm.py): the spell's last instruction
+    if spell and "Paradigm" in lines:
+        lines.append("Set up the paradigm of ~.")
     # -- static_other sweep (wave 16B) -- 702.113a: "Awaken N—[cost]" means "You may cast this spell for [cost]" and "If you cast this spell for
     # its awaken cost, put N +1/+1 counters on target land you control. That land becomes a 0/0 Elemental creature with haste. It's still a
     # land." The cost is the keyword line's (casting: CastSpell.awaken); the effect is read as the spell's own "if kicked" line (the same

@@ -2422,6 +2422,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             from app.rules import overload
 
             ch = overload.overlay(ch)
+        if "cleave" in kinds:  # -- keywords (wave 50H) -- 702.148a: the words in square brackets are removed
+            from app.rules import cleave
+
+            ch = cleave.overlay(ch)
         bestowed_cast = "bestow" in kinds
         sneaking = "sneak" in kinds  # -- keywords (wave 30I) -- 702.190a
         mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature
@@ -2573,7 +2577,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
     definition = per_opponent.for_cast(plan, card.id, definition)  # -- per-opponent targets (wave 23A) --
     entwined = bool(a.kicker) and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine  # (an entwined spell isn't kicked: review 18E)
-    kicked = 0 if entwined else a.kicker
+    kicked = 0 if entwined else kick_count(ch, a.kicker)
     if entwined and not (definition or {}).get("modes"):
         raise ActionError(f"{ch.name} can be entwined only as a modal spell")  # -- casting extras (wave 18E) -- 702.42a
     splice_extra: list[AbilityCost] = []
@@ -2778,6 +2782,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     record.additional = (["buyback"] if a.buyback else []) + (["entwine"] if entwined else ["kicker"] if a.kicker else []) \
         + [f"optional:{o.source}" for o in optional]  # (wave 4I: Defiler of Vigor's life)
     record.prototyped = a.prototype  # -- casting extras (wave 18E) -- 718.3b
+    record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) -- "kicked with its {R} kicker", 702.33f)
     record.kicked = kicked or int(a.awaken) or int(gift_to is not None or bargained)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as
     record.gift_to = gift_to  # "If this spell was kicked"; wave 23D: a promised gift, 702.174k, likewise)
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
@@ -2800,7 +2805,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.kicker and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine:  # -- casting extras (wave 18E) --
         tags.append("Entwined")
     elif a.kicker:
-        tags.append("Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}")
+        tags.append("Kicked" if kicked == 1 else f"Kicked ×{kicked}")
     if a.awaken:
         tags.append("Awakened")
     if bargained:
@@ -2856,16 +2861,16 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=modal_effects(definition, picked, True), x=a.x_value, modes=picked,
-                                      **picked_targets.entry(None), kicked=kicked or int(a.awaken) or int(gift_to is not None or bargained))  # (-- static_other sweep (wave 16B) --)
+                                      **picked_targets.entry(None), kicked=kicked or int(a.awaken) or int(gift_to is not None or bargained), kicked_mask=record.kicked_mask)  # (-- static_other sweep (wave 16B) --)
     elif definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
         effects_in_order = modal_effects(definition, picked, False)
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
-                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=kicked or int(a.awaken) or int(gift_to is not None or bargained))
+                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=kicked or int(a.awaken) or int(gift_to is not None or bargained), kicked_mask=record.kicked_mask)
     elif definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=a.x_value,
-                                      **picked_targets.entry(definition), kicked=kicked or int(a.awaken) or int(gift_to is not None or bargained))
+                                      **picked_targets.entry(definition), kicked=kicked or int(a.awaken) or int(gift_to is not None or bargained), kicked_mask=record.kicked_mask)
     r.aura_targets = {k: v for k, v in r.aura_targets.items() if k != card.id and plan.state.cards.get(k) is not None
                       and plan.state.cards[k].zone == STACK}  # (review (wave 18D): never a target this card had as an earlier spell)
     if aura is not None and chosen:
@@ -2897,17 +2902,22 @@ def _find_ability(ch: Characteristics, index: int) -> AbilityText:
 CYCLING = re.compile(r"^(?P<kind>(?:basic )?(?:[a-z]+)?)cycling (?P<cost>(\{[^}]+\})+)$", re.IGNORECASE)
 
 
-def hand_ability(ch: Characteristics, index: int) -> tuple[str, str] | None:
-    """A cycling keyword on ability line ``index``: (kind, mana cost). kind "" = plain cycling,
-    "basic land" / "Swamp" / "Wizard" … = typecycling (search for that card)."""
+def hand_abilities(ch: Characteristics, index: int) -> list[tuple[str, str]]:
+    """The cycling keywords on ability line ``index``: (kind, mana cost) each. kind "" = plain cycling,
+    "basic land" / "Swamp" / "Wizard" … = typecycling (search for that card). -- keywords (wave 50H) -- one line may have several
+    ("Mountaincycling {2}, forestcycling {2}", 702.29e: each is an ability of its own)."""
     for ab in ch.abilities:
         if ab.index != index or ab.kind != "keywords":
             continue
-        m = CYCLING.fullmatch(ab.text.strip().rstrip("."))
-        if m:
-            kind = m["kind"].strip()
-            return (kind if kind.lower() != "basic land" else "basic land"), m["cost"]
-    return None
+        found = [CYCLING.fullmatch(p) for p in re.split(r",\s*", ab.text.strip().rstrip("."))]
+        if found and all(found):
+            return [((k if (k := m["kind"].strip()).lower() != "basic land" else "basic land"), m["cost"]) for m in found if m]
+    return []
+
+
+def hand_ability(ch: Characteristics, index: int) -> tuple[str, str] | None:
+    """The (first) cycling keyword on ability line ``index``: (kind, mana cost)."""
+    return next(iter(hand_abilities(ch, index)), None)
 
 
 # -- refused zones/sized (wave 3R4) -- 702.53a transmute: "[Cost], Discard this card: Search your library for a card
@@ -2948,10 +2958,16 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
     if (transmuting := transmute_cost(ch, a.ability)) is not None:  # -- refused zones/sized (wave 3R4) --
         transmute(plan, card, ch, a, transmuting)
         return
-    found = hand_ability(ch, a.ability)
-    if found is None:
+    pieces = hand_abilities(ch, a.ability)
+    if not pieces:
         raise ActionError("That card has no ability to use from your hand")
-    kind, mana_text = found
+    kind, mana_text = pieces[0]
+    if len(pieces) > 1:  # -- keywords (wave 50H) -- 702.29e: "Mountaincycling {2}, forestcycling {2}": the ability activated is announced first (601.2b)
+        if _first_alt(plan, "cycling"):
+            raise ActionError("Cycle it by hand while an effect lets you pay {0} for the first cycling each turn: Fyodor can't ask both choices yet")
+        if _equip_side(plan, card, ch, a, [c for _, c in pieces], cycling=True, labels=[f"{k}cycling {c}".capitalize() for k, c in pieces]) is None:
+            return  # waiting for the choice
+        kind, mana_text = pieces[int(next(c.cards[0] for c in a.cost_choices if c.component == costs.EITHER_SLOT and c.cards)[7:])]
     if _first_alt(plan, "cycling") and mana_text != "{0}":  # -- first activation (wave 48D) -- 118.9: "You may pay {0} rather than pay the cycling cost of the first card you cycle each turn" (typecycling too, 702.29f)
         side = _equip_side(plan, card, ch, a, [mana_text, "{0}"], cycling=True)  # (601.2b: announced before the cost is determined)
         if side is None:
@@ -3025,26 +3041,30 @@ def _stacked(plan: Plan, card: CardInstance, oid: str, ch: Characteristics, abil
 CREW = re.compile(r"^crew (?P<n>\d+)$", re.IGNORECASE)
 
 
-SUSPEND = re.compile(r"^suspend (?P<n>\d+)\s*[—-]\s*(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+SUSPEND = re.compile(r"^suspend (?P<n>\d+|x)\s*[—-]\s*(?P<cost>(?:\{[^}]+\})+)(?:\. x can't be 0)?$", re.IGNORECASE)  # (-- keywords (wave 50H) -- "Suspend X—{X}{3}{U}. X can't be 0.")
 
 
-def suspend_info(ch: Characteristics, index: int) -> tuple[int, str] | None:
-    """702.62 "Suspend N—{cost}" on ability line ``index``: (N, cost)."""
+def suspend_info(ch: Characteristics, index: int) -> tuple[int | None, str] | None:
+    """702.62 "Suspend N—{cost}" on ability line ``index``: (N, cost); N is None for "Suspend X—{X}{3}{U}. X can't be 0." (X is announced, 107.3d)."""
     for ab in ch.abilities:
         if ab.index == index and ab.kind == "keywords" and "suspend" in ab.keywords:
             m = SUSPEND.fullmatch(ab.text.strip().rstrip("."))
             if m:
-                return int(m["n"]), m["cost"]
+                return (None if m["n"].lower() == "x" else int(m["n"])), m["cost"]
     return None
 
 
-def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int, cost_text: str) -> None:
+def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int | None, cost_text: str) -> None:
     """702.62a: a special action — whenever you could begin to cast it, pay the suspend cost and
     exile it with N time counters. It doesn't use the stack."""
     problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info)
     if problem:
         raise ActionError(problem)
     cost = M.parse_cost(cost_text)
+    if n is None:  # -- keywords (wave 50H) -- 107.3d: X is chosen by the player taking the special action, immediately before they pay the cost; it can't be 0 (the printed line)
+        if not a.x_value or a.x_value < 1:
+            raise ActionError("Choose a value for X (it can't be 0)")
+        n, cost = a.x_value, cost.with_x(a.x_value)
     if payment_step(plan, a, cost, f"suspending {ch.name}", purpose=Purpose()):  # (review 18B: a special action, 116.2f: not a cast — restricted mana for spells or abilities doesn't pay it)
         return
     pay(plan, plan.actor, cost, f"paid {cost.text()} to suspend {ch.name}", sources=a.sources, purpose=Purpose())
@@ -3171,6 +3191,18 @@ DASH = re.compile(r"^dash (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 AWAKEN = re.compile(r"^awaken (?P<n>\d+)—(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)  # (wave 16B) 702.113a
 
 
+def kick_count(ch: Characteristics, times: int) -> int:
+    """-- keywords (wave 50H) -- 702.33d: how many times the cast's ``kicker`` kicks it (the bits of a mask of two kicker costs, else the count)."""
+    kick = kicker_cost(ch.abilities) if times else None
+    return kick.paid(times) if kick is not None else times
+
+
+def kick_mask(ch: Characteristics, times: int) -> int:
+    """-- keywords (wave 50H) -- 702.33f: which of the two kicker costs were paid (1: the first, 2: the second); 0 for any other card."""
+    kick = kicker_cost(ch.abilities) if times else None
+    return times if kick is not None and kick.second else 0
+
+
 def kicker_extra(ch: Characteristics, times: int, *, face_down: bool = False) -> M.ManaCost:
     """702.33a / 702.33c: the kicker cost paid ``times`` times — an additional cost (118.8) that
     joins the total cost (601.2f) before increases and reductions; the spell's mana cost and mana
@@ -3178,6 +3210,10 @@ def kicker_extra(ch: Characteristics, times: int, *, face_down: bool = False) ->
     kick = None if face_down else kicker_cost(ch.abilities)  # (a face-down spell has no abilities, 708.2)
     if kick is None:
         raise ActionError(f"{ch.name or 'That spell'} has no kicker cost Fyodor can pay: kick it by hand with the table tools")
+    if kick.second:  # -- keywords (wave 50H) -- 702.33b: ``times`` is a mask of the two costs, each paid at most once
+        if not 1 <= times <= 3:
+            raise ActionError(f"{ch.name} has two kicker costs: pay the first (1), the second (2) or both (3)")
+        return M.parse_cost("".join(c for c, bit in ((kick.cost, 1), (kick.second, 2)) if times & bit))
     if times > 1 and not kick.multi:
         raise ActionError(f"{ch.name} can be kicked only once")  # (multikicker: any number of times, 702.33c)
     if not kick.cost:  # (-- casting extras (wave 18E) -- an entwine cost with no mana: paid as an additional cost)
@@ -3442,7 +3478,7 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
     alt = ch.mana_cost if paid else r.alt_costs.get(card.id)
     out: list[tuple[str, str]] = []
     if (kick := kicker_cost(ch.abilities)) is not None and not kick.entwine:  # (702.42a: entwine by hand)
-        for n in range(1, FREE_KICKS + 1 if kick.multi else 2):
+        for n in range(1, 4 if kick.second else FREE_KICKS + 1 if kick.multi else 2):  # (wave 50H: the masks of two costs)
             try:
                 total = spell_cost(plan.state, card, ch, 0, plan.info, player=plan.actor, free=alt is None,
                                    alternative=M.parse_cost(alt) if alt is not None else None, kicker=n)
@@ -3450,11 +3486,14 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
                 break  # (a kicker cost Fyodor can't pay)
             if not can_pay(plan.state, plan.actor, total, plan.info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=plan.actor,
                                                                                       kicked=True)):
+                if kick.second:
+                    continue  # (-- keywords (wave 50H) -- another of the two costs may still be payable)
                 break
             if (more := kicker_parts(ch, n)) is not None and not any(c.kind in _HAND_PARTS for c in more.components) \
                     and additional_problem(plan, more, card, plan.actor):
                 break  # (-- cast keywords (wave 43D) -- a "Kicker—Sacrifice a land." with nothing to sacrifice; a part paid from the hand is always offered: no omission tells)
-            out.append((f"kicker:{n}", kick.text if n == 1 else f"{kick.text}, paid {n} times"))
+            out.append((f"kicker:{n}", f"Kicker {(kick.cost, kick.second, kick.cost + ' and ' + kick.second)[n - 1]}" if kick.second
+                        else kick.text if n == 1 else f"{kick.text}, paid {n} times"))
     for o in cost_changes.optional_offers(plan.state, plan.actor, card, ch, plan.info):
         if not o.kind:
             continue
@@ -3666,7 +3705,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     else:
         record = PaymentRecord(card=card.id, controller=plan.actor, alternative="free")
     record.additional = (["kicker"] if a.kicker else []) + [f"optional:{o.source}" for o in optional]  # -- free-cast optional costs (wave 41D) --
-    record.kicked = a.kicker or int(gift_to is not None or bargained)  # (702.33d; a promised gift and a bargain read as kicked, as with the cost: 702.174k, 702.166)
+    record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) --)
+    record.kicked = kick_count(ch, a.kicker) or int(gift_to is not None or bargained)  # (702.33d; a promised gift and a bargain read as kicked, as with the cost: 702.174k, 702.166)
     record.gift_to = gift_to
     was_suspended = card.id in r.suspended
     from_hand = card.zone == zone_key(plan.actor, "hand")
@@ -3696,7 +3736,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         plan.reserved_life = 0  # (wave 29C)
     plan.do({"type": "set_stack_info", "card_id": card.id,
              "tags": ([] if paid else [f"Cast for its {kind} cost" if alt is not None else "Cast without paying its mana cost"])
-             + (["Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}"] if a.kicker else []) + (["Bargained"] if bargained else [])})
+             + (["Kicked" if record.kicked == 1 else f"Kicked ×{record.kicked}"] if a.kicker else []) + (["Bargained"] if bargained else [])})
     record.x = a.x_value
     record_payment(plan, card.id, record)
     if a.targets:
@@ -3721,16 +3761,16 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=modal_effects(definition, picked, True), x=a.x_value, modes=picked,
-                                      **picked_targets.entry(None), kicked=record.kicked)
+                                      **picked_targets.entry(None), kicked=record.kicked, kicked_mask=record.kicked_mask)
     elif definition is not None and picked:
         effects_in_order = modal_effects(definition, picked, False)
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
-                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=record.kicked)
+                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=record.kicked, kicked_mask=record.kicked_mask)
     elif definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=a.x_value,
-                                      **picked_targets.entry(definition), kicked=record.kicked)
+                                      **picked_targets.entry(definition), kicked=record.kicked, kicked_mask=record.kicked_mask)
     r.aura_targets = {k: v for k, v in r.aura_targets.items() if k != card.id and plan.state.cards.get(k) is not None
                       and plan.state.cards[k].zone == STACK}  # (review (wave 18D): never a target this card had as an earlier spell)
     if aura is not None and chosen:
@@ -4196,7 +4236,8 @@ def _activated(plan: Plan, act: str) -> None:
     plan.rules.once_per_turn[f"activated:{plan.actor}:{act}"] = plan.state.turn.number
 
 
-def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, sides: list[str], cycling: bool = False) -> str | None:
+def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, sides: list[str], cycling: bool = False,
+                labels: list[str] | None = None) -> str | None:
     """-- cast keywords (wave 43D) -- 601.2b: the cost the activator announced for an equip ability that lets them pay one of several ("{2} or {B}",
     "Pay {3} or discard a card"; 702.6a, 118.3: a side that can't be paid can't be chosen), or None while they're asked. What is public decides whether one is
     offered (mana, the permanents, the counters): a side that discards a card from the hand is always offered, so that no omission tells the table what the
@@ -4227,7 +4268,7 @@ def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Activa
         a.cost_choices = [*a.cost_choices, A.CostChoice(component=costs.EITHER_SLOT, cards=[f"either:{offered[0]}"])]
         return sides[offered[0]]
     decide(plan, player=plan.actor, kind="choose_cards", prompt=f"{ch.name or 'It'}: choose the cost of its {'cycling' if cycling else 'equip'} ability (601.2b), or none to cancel",
-           options=[DecisionOption(id=f"either:{i}", label=sides[i]) for i in offered], min_choices=0, max_choices=1,
+           options=[DecisionOption(id=f"either:{i}", label=(labels or sides)[i]) for i in offered], min_choices=0, max_choices=1,
            resume={"step": "ability_cost", "component": costs.EITHER_SLOT, "amount": 1, "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
            source=card)
     return None
@@ -4425,7 +4466,7 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
         if r is not None and (not check_priority or (r.priority == player and r.decision is None)):
             ch = chars.of(state.cards[cid], info)
             out += [{"card_id": cid, "ability": ab.index, "x": True} for ab in ch.abilities
-                    if (found := hand_ability(ch, ab.index)) is not None and M.parse_cost(found[1]).x]
+                    if (found := hand_ability(ch, ab.index)) is not None and M.parse_cost(found[1]).x or (sus := suspend_info(ch, ab.index)) is not None and sus[0] is None]  # (wave 50H: Suspend X)
     for cid in state.zones.get(zone_key(player, "graveyard"), []):  # 113.6m: "Exile this card from your graveyard: …"
         card = state.cards[cid]
         ch = chars.of(card, info)

@@ -1002,6 +1002,8 @@ def _entry_choice(plan: Plan, card_id: str) -> str | None:
     card = plan.state.cards.get(card_id)
     if card is None or card.choices:
         return None
+    if any(ab.kind == "keywords" and "tribute" in ab.keywords for ab in plan.ch(card).abilities):  # -- keywords (wave 50H) -- 702.104a: the opponent's decision as it enters isn't asked of a token
+        return "tribute payment (an opponent's choice)"
     for d in scripts.definitions(plan.ch(card)).values():
         if d.get("kind") == "replacement" and d.get("replacement") == "enters_choice":
             return str(next((e.get("what") for e in d.get("effects") or [] if e.get("what")), "value"))
