@@ -127,7 +127,18 @@ def _pick(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
              "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you"}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick)]
+# -- cost reductions paid with objects (wave 47C) -- "choose a card at random exiled with Gorex and put that card into its owner's hand": the table picks one of the linked cards (recorded
+# as the move, so a replay is the same; return_choice's ``random``)
+_PICK_RANDOM = re.compile(r"^choose a card at random exiled with (?:it|~) and put (?:that card|it) into its owner's hand$")
+
+
+def _pick_random(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    if (own := _off(m)) is not None:
+        return own
+    return [{"do": "return_choice", "who": WHO, "n": 1, "upto": False, "random": True, "label": "card", "to": "hand"}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick), (_PICK_RANDOM, _pick_random)]
 
 # -- linked casting (wave 30H) -- 607.2a, 608.2g: in an ability that only refers to what another exiled, "cast a spell from among cards exiled with ~
 # [without paying its mana cost]" casts from the linked cards (the ones ``linked_cards`` binds, as "them"), as this ability resolves
@@ -143,7 +154,8 @@ def among(body: str) -> str:
 def _exiles(d: dict[str, Any] | None) -> bool:
     # (-- champion (wave 12B) -- also a payment: "sacrifice it unless you exile another Merfolk you control", recorded by
     # optional_payment._pay)
-    return d is not None and (d.get("static") == "exile_instead" or any(  # (-- linked exile (wave 30H) -- 607.2b: a replacement effect that exiles)
+    return d is not None and (d.get("static") == "exile_instead" or (d.get("static") == "own_optional" and d.get("optional") == "reduce" and d["cost"].startswith("Exile "))
+                              or any(  # (-- linked exile (wave 30H) -- 607.2b: a replacement effect that exiles; -- cost reductions paid with objects (wave 47C) -- 607.2q: a cost that exiles)
         e.get("do") in ("exile", "exile_top", "exile_until") or e.get("exile") or _picks_to_exile(e)
         or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile ")) for e in d.get("effects") or []))
 
@@ -187,7 +199,7 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
     if refers:
         exiling = [ab for ab in others if re.search(r"\bexiles?\b", ab.text, re.IGNORECASE)]  # (-- linked casting (wave 30H) -- "each player exiles the top X cards": Jeleva)
         exiling += [ab for ab in ch.abilities if ab.index != ability.index and ab.kind == "static"  # (607.2b: a replacement effect that exiles)
-                    and (scripts.define(ab, ch) or {}).get("static") == "exile_instead"]
+                    and (scripts.define(ab, ch) or {}).get("static") in ("exile_instead", "own_optional") and _exiles(scripts.define(ab, ch))]  # (wave 47C: 607.2q, Gorex's cost)
         from app.rules import hideaway
 
         if hideaway.exiles(ch):  # -- hideaway (wave 29D) -- 702.75a: the keyword is the exiling ability (and the only one: 607.2a)

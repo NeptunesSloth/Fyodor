@@ -72,6 +72,7 @@ PLAYER_GROUPS.update({f"{the} {kind}'s controller": "it.controller" for the in (
 # "~ deals 3 damage to target player or planeswalker. That player or that planeswalker's controller discards two cards."
 # (Blightning): the target player, or the target planeswalker's controller (app/rules/effects._players)
 PLAYER_GROUPS["that player or that planeswalker's controller"] = "target_player_or_controller"
+PLAYER_GROUPS["an opponent chosen at random"] = "random_opponent"  # -- random choices (wave 47B) -- app/rules/random_choice.py (scripts: the pick is made right before it)
 PLAYER_GROUPS["the exiled card's owner"] = "it.owner"  # -- resolution memory (wave 22D) -- 607.2a (exiled_with.linked_cards binds the card)
 # "Whenever ~ blocks or becomes blocked by a creature, ~ deals 3 damage to that creature and 3 damage to that creature's
 # controller" (Assembled Alphas): the creature on the other side of the block (509.3c-d; the trigger event's ``other``)
@@ -100,7 +101,7 @@ def _qty(word: str) -> int:
 def simple(group: dict[str, Any]) -> bool:
     """One "target [something]" with exactly one target: what definitions write as "target"."""
     return (group["min"], group["max"]) == (1, 1) and not ({"divide", "another", "distinct_from", "same_graveyard", "total", "different",
-                                                            "kicked", "opponent_group"} & set(group))  # -- kicked / instead (wave 4G) -- ("kicked"; wave 23A: a group for each opponent, per_opponent.FLAG)
+                                                            "kicked", "opponent_group", "random"} & set(group))  # (random: wave 47B) -- kicked / instead (wave 4G) -- ("kicked"; wave 23A: a group for each opponent, per_opponent.FLAG)
 
 
 def target_group(phrase: str) -> dict[str, Any] | None:
@@ -110,6 +111,9 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     carries "another": its selector without "another" (scripts: when an earlier target of the
     same ability exists, "another" means distinct from it). None if it isn't a target phrase."""
     p = phrase.strip()
+    if (p.startswith("target ") or p == "any target chosen at random") and p.endswith(" chosen at random"):  # -- random choices (wave 47B) -- "target opponent chosen at random": a target all the same (115.1), but the table
+        one = target_group(p[:-len(" chosen at random")])  # picks it as the ability goes on the stack (Scab-Clan Giant ruling 2013-04-15): each legal target equally likely
+        return {**one, "random": True} if one is not None and one["min"] == one["max"] == 1 and "another" not in one else None
     if p in _LEGACY_TARGETS:
         return {"what": _LEGACY_TARGETS[p], "min": 1, "max": 1}
     if m := _OPP_AS_ACTIVATED.fullmatch(p):  # -- activated other (wave 21E) -- (targets.legal_targets: only as it is chosen)
@@ -319,6 +323,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
     if p in ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact") \
             or re.fullmatch(r"enchanted (?:Plains|Island|Swamp|Mountain|Forest)", p):  # (wave 25D: the Genju: "Enchant Forest")
         return "host", "", None  # what the source Aura / Equipment is attached to
+    if p == "your Ring-bearer":  # -- random choices (wave 47B) -- 701.54a: the creature the Ring chose for its controller, if it still is (effects._cards)
+        return "each", "ring_bearer", None
     if p in PLAYER_GROUPS:
         return "players", PLAYER_GROUPS[p], None
     group = target_group(p)
@@ -1584,12 +1590,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "exchange_life", "who": "target"}], _one(target_group(m["o"]))
     # -- trigger tail (wave 16C) -- 119.5: "Target player's life total becomes 10." (Magister Sphinx), "Your life total becomes half your
     # starting life total, rounded up." (The Endstone): the player gains or loses the difference (effects.set_life)
-    m = re.fullmatch(r"(?P<s>target player's|your) life total becomes (?P<n>\d+|half your starting life total, rounded up)", text)
+    # (-- cost reductions paid with objects (wave 47C) -- "Up to one target player's life total becomes half their starting life total, rounded down." (Torgaar): 107.1a, 103.4)
+    m = re.fullmatch(r"(?P<s>(?:up to one )?target player's|your) life total becomes (?P<n>\d+|half (?:your|their) starting life total, rounded (?:up|down))", text)
     if m and rider is None:
-        n = "half_start" if m["n"][0] == "h" else int(m["n"])
+        n = ("half_start_down" if m["n"].endswith("down") else "half_start") if m["n"][0] == "h" else int(m["n"])
         if m["s"] == "your":
             return [{"do": "set_life", "who": "you", "n": n}], None
-        return [{"do": "set_life", "who": "target", "n": n}], _LEGACY_TARGETS["target player"]
+        return [{"do": "set_life", "who": "target", "n": n}], _one(target_group("up to one target player")) if m["s"].startswith("up") else _LEGACY_TARGETS["target player"]
     # -- most-played cards II (wave 45A) -- 701.10d: "Double target player's life total." (Beacon of Immortality), "Double your life total." (Revenge): the player
     # gains or loses what it takes to reach twice the total (119.5, effects.set_life: gain and loss events, so their triggers and replacements apply)
     m = re.fullmatch(r"double (?P<s>target player's|your) life total", text)

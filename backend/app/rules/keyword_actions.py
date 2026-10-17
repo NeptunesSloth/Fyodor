@@ -569,6 +569,8 @@ def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             continue
         if r.transformed.get(cid, 0) > r.objects.get(ctx.get("stack_id") or "", 1 << 60):
             continue  # (an ability not on the stack has no number: never ignored)
+        if e.get("since") is not None and r.transformed.get(cid, 0) > e["since"]:
+            continue  # (wave 47D) 701.27f: a delayed triggered ability counts from when it was created
         plan.do({"type": "set_face", "card_id": cid, "face": 1 - min(card.face, 1)}, actor=ctx["controller"])
         now = plan.state.cards[cid]
         # -- transform (wave 16F) -- 701.28: "When this creature transforms into …" (the same object, 712.18; designations.facts)

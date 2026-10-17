@@ -47,12 +47,13 @@ def parse(cond: dict[str, Any] | None, clause: str) -> tuple[list[dict[str, Any]
 
 def spell_rider(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """The deferred effect: the creature spell the watch triggered on (while it is still that spell on the stack) gets the riders."""
-    from app.rules import copying
+    from app.rules import copying, values
 
+    times = max(0, values.evaluate(plan, ctx, e["n"])) if "n" in e else 1  # (wave 47D: "for each …", "X additional counters": read as the trigger resolves, 608.2h)
     for sid in copying._stack_objects(plan, ctx, e["who"]):
         rec = plan.rules.payments.get(plan.oid(sid))
         if rec is not None:  # (a spell moved onto the stack by hand has no record: nothing to carry the rider)
-            rec.mana_riders = [*rec.mana_riders, *({**r, "name": ctx.get("name") or ""} for r in e["riders"])]
+            rec.mana_riders = [*rec.mana_riders, *({**r, "name": ctx.get("name") or ""} for r in e["riders"] * times)]
     return True
 
 

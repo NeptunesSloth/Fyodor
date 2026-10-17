@@ -292,6 +292,9 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
     choice."""
     from app.game.errors import ActionError
 
+    random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
+    if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
+        targets, counts = [], []
     if len(counts) > len(specs) or sum(counts) != len(targets):
         raise ActionError(f"Those aren't the right number of targets for {what}")
     out = GroupChoice(counts=list(counts))
@@ -307,6 +310,11 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
             plan, spec, chooser, source_card, source_object, event, x)
         lo, hi = group_limits(shaped, counted)
         allowed = free_limits(shaped, counted)[1]
+        if random_only and options and (lo, hi) == (1, 1):
+            import secrets
+
+            targets = [(plan.rng or secrets.SystemRandom()).choice(sorted(options))]
+            out.counts.append(1)
         if g >= len(out.counts) and hi == 0:  # -- kicked / instead (wave 4G) -- a group the spell doesn't require (601.2c)
             out.counts.append(0)
         if g >= len(out.counts):
