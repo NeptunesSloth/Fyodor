@@ -160,5 +160,28 @@
   "keywords": [],
   "power": "2",
   "toughness": "4"
+ },
+ {
+  "name": "The Gitrog, Ravenous Ride",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Frog Horror Mount",
+  "oracle_text": "Trample, haste\nWhenever The Gitrog deals combat damage to a player, you may sacrifice a creature that saddled it this turn. If you do, draw X cards, then put up to X land cards from your hand onto the battlefield tapped, where X is the sacrificed creature's power.\nSaddle 1",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Saddle",
+   "Haste",
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "5"
  }
 ]

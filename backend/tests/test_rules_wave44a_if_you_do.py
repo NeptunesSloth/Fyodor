@@ -17,11 +17,12 @@ import pytest
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, zone
 from tests.test_rules_effects import pass_until_stack_empty, run_until
-from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
+from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave44a_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -31,7 +32,7 @@ ETALI, SUSPICION = "Etali, Primal Conqueror // Etali, Primal Sickness", "Fevered
 OOL, SCAR = "Auntie Ool, Cursewretch", "Scar"
 EMIEL, UNICORN = "Emiel the Blessed", "Pearled Unicorn"
 RUFUS = "Rufus Shinra"
-FULL = [ETALI, SUSPICION, OOL, EMIEL, RUFUS]
+FULL = [ETALI, SUSPICION, OOL, EMIEL, RUFUS, "The Gitrog, Ravenous Ride"]
 
 
 @pytest.fixture()
@@ -243,6 +244,65 @@ def test_rufus_makes_no_second_darkstar(cards):
     put(s, "Darkstar")
     attack_with(s, put(s, RUFUS))
     assert len(named(s, "Darkstar")) == 1 and not named(s, "Darkstar")[0].is_token
+    check(s)
+
+
+# ---- "sacrifice a creature that saddled it. If you do, draw X cards, then put up to X land cards from your hand onto the battlefield tapped" (The Gitrog) ----
+GITROG = "The Gitrog, Ravenous Ride"
+
+
+def forests_to_hand(s, n):
+    ids = [c.id for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library"][:n]
+    act(s, "p1", type="move", card_ids=ids, to={"zone": "hand"})
+    return ids
+
+
+def gitrog_hits(s, saddler="Grizzly Bears"):
+    """Gitrog (haste), saddled by ``saddler``, attacks Bob unblocked; stops at the first decision of the trigger."""
+    from tests.test_rules_wave23d_triggers import saddle_up
+
+    to_hand(s, GITROG)
+    mana(s, B=1, G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, GITROG).id)
+    pass_until_stack_empty(s)
+    s.state.rules.controlled_since[card_named(s, saddler).id].turn = 0
+    saddle_up(s, GITROG, saddler)
+    act(s, "p1", type="pass_priority")  # -> declare attackers
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": card_named(s, GITROG).id, "target": "p2"}])
+    for _ in range(12):  # (no blockers; stop at the first decision of the combat damage trigger)
+        if s.state.rules.decision is not None:
+            return
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+def test_gitrog_sacrifices_the_saddler_draws_its_power_and_puts_up_to_that_many_lands_tapped(cards):
+    s = build(cards, [GITROG, "Grizzly Bears"], [])
+    bears = put(s, "Grizzly Bears")
+    hand = forests_to_hand(s, 3)
+    gitrog_hits(s)
+    assert decision(s).prompt.endswith("pay Sacrifice a creature that saddled it this turn?")
+    before = len(zone(s.state, "p1", "hand"))
+    choose(s, ["pay"])
+    assert s.state.cards[bears.id].zone == "p1:graveyard" and len(zone(s.state, "p1", "hand")) == before + 2  # (Bears had power 2: two cards drawn)
+    d = decision(s, "put_from_hand")
+    assert d.max_choices == 2 and set(hand) <= {o.id for o in d.options}
+    with pytest.raises(ActionError):
+        choose(s, hand)  # (three lands: more than X)
+    choose(s, hand[:2], resolve=True)
+    assert all(s.state.cards[c].zone == "p1:battlefield" and s.state.cards[c].tapped for c in hand[:2])
+    assert s.state.cards[hand[2]].zone == "p1:hand"
+    check(s)
+
+
+def test_gitrog_does_nothing_when_the_sacrifice_is_declined(cards):
+    s = build(cards, [GITROG, "Grizzly Bears"], [])
+    bears = put(s, "Grizzly Bears")
+    hand = forests_to_hand(s, 2)
+    gitrog_hits(s)
+    before = len(zone(s.state, "p1", "hand"))
+    choose(s, ["decline"], resolve=True)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and len(zone(s.state, "p1", "hand")) == before
+    assert all(s.state.cards[c].zone == "p1:hand" for c in hand) and s.state.rules.decision is None
     check(s)
 
 

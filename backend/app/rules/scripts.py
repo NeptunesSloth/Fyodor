@@ -2465,7 +2465,7 @@ def _no_regen_scope(got: Any) -> Any:
 # is then swapped for the value; only in amount fields that evaluate values (a target count or a selector bound would not).
 _WHERE_X = re.compile(r",? where X is (?P<def>[^.\"]+?)(?=\.(?: |$)|$)")
 _X_SENTINEL = 7919
-_X_KEYS = frozenset({"n", "p", "t"})
+_X_KEYS = frozenset({"n", "p", "t", "cap"})  # (cap: wave 44A, put_from_hand's "up to X")
 
 
 def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -7659,7 +7659,7 @@ def _for_each_of_them_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]
 
 
 @_first
-@effect(r"(?P<may>you may )?put (?:a|an|any number of) [^.]+? from your hand onto the battlefield(?: tapped(?: and attacking"
+@effect(r"(?P<may>you may )?put (?:a|an|any number of|up to \d+) [^.]+? from your hand onto the battlefield(?: tapped(?: and attacking"
         r"(?: (?:that player|that opponent|defending player))?)?)?(?:, where X is [^.]+)?")
 def _put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     """"You may put an Equipment card from your hand onto the battlefield." (Stoneforge Mystic): app/rules/put_from_hand.py.
