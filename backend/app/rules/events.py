@@ -280,6 +280,15 @@ _PLAY_FROM = r" from (?:exile|your graveyard|a graveyard|anywhere other than (?:
 
 
 def _parse(c: str) -> Condition | None:
+    # -- either with a batch half (wave 49D) -- "Whenever an opponent discards a card or mills one or more cards" (Lo and Li, Royal Advisors): one player's two
+    # actions, each its own event (603.2c); the "one or more" half is once per batch of its own (triggers.py reads the half that matched)
+    m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<a>[a-z]+ an? [^,]+?) or (?P<b>[a-z]+ one or more [^,]+)", c)
+    if m:
+        a, b = _parse(f"{m['p']} {m['a']}"), _parse(f"{m['p']} {m['b']}")
+        if a is None or b is None or a.get("aggregate") or not b.get("aggregate") or a["event"] == b["event"] or a.get("subject") != "player" \
+                or b.get("subject") != "player" or a.get("player") != b.get("player") or {a["event"], b["event"]} & {"either", "multi"}:
+            return None
+        return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
     # -- trigger other (wave 25B) -- 701.18b: to play a card is to play it as a land or cast it as a spell, whichever is appropriate
     # (-- trigger from (wave 30F) -- "Whenever you play a card from exile" (Prosper): a land played from there or a spell cast from there)
     m = re.fullmatch(rf"(?P<p>you|a player|an opponent) plays? a card(?P<f>{_PLAY_FROM})?", c)

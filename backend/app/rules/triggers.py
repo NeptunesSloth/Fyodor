@@ -1168,10 +1168,12 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
     for (watcher, ch, i, d), lo, hi in (watchers if watchers is not None else [(w, -1, -1) for w in _event_watchers(plan)]):
         if batch >= 0 and not (lo <= batch <= hi or (lo, hi) == (-1, -1)):
             continue
-        cond = d["cond"]
+        whole = d["cond"]
         for fact in facts:
-            if not _cond_matches(plan, cond, watcher, fact):
+            if not _cond_matches(plan, whole, watcher, fact):
                 continue
+            # -- either with a batch half (wave 49D) -- 603.2c: "discards a card or mills one or more cards": the half this event is batches (or not) on its own
+            cond = next((x for x in whole["conds"] if _cond_matches(plan, x, watcher, fact)), whole) if whole["event"] == "either" and any(x.get("aggregate") for x in whole["conds"]) else whole
             nth = cond.get("nth") if cond["event"] == "draw" else None
             if nth and plan.rules.draws_this_turn.get(fact[3] or "", 0) != nth:
                 continue
