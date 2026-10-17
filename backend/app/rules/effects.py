@@ -393,7 +393,7 @@ def set_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     for pid in _players(plan, ctx, e["who"]):
         start = plan.state.settings.starting_life
-        want = -(-start // 2) if e["n"] == "half_start" else _amount(plan, ctx, e["n"])  # (107.1a: rounded up)
+        want = -(-start // 2) if e["n"] == "half_start" else start // 2 if e["n"] == "half_start_down" else _amount(plan, ctx, e["n"])  # (107.1a: rounded up; wave 47C: down, Torgaar)
         diff = want - plan.state.players[pid].life
         if diff < 0:
             replace.lose_life(plan, [(pid, abs(diff))], actor=ctx["controller"])  # -- life modifiers (wave 28B) -- 119.5: a loss event

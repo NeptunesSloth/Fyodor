@@ -763,7 +763,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
     if kind in ("tokens", "sacrificed", "discarded"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)
         return sum(1 for f in log.facts if f.kind == {"tokens": "token", "sacrificed": "sacrifice", "discarded": "discard"}[kind]
-                   and (f.player == me or v.get("who") == "any"))  # (wave 21F: "who": "any" — each permanent sacrificed, whoever did it)
+                   and (f.player == me or v.get("who") == "any")  # (wave 21F: "who": "any" — each permanent sacrificed, whoever did it)
+                   and (v.get("sel") is None or note_matches(selectors.from_key(v["sel"]), f.types, f.subtypes, f.supertypes, token=f.token)))  # (wave 47C: artifacts or creatures)
     if kind == "opponents_attacked":  # -- this-turn state (wave 33D) -- 508.6: the opponents (still in the game, 800.4a) you declared attackers against
         return len({p for a in log.attackers.get(me, []) for p in log.attacked_who.get(a, []) if p != me and p in plan.live()})
     if kind in ("opp_lost", "opp_damage"):  # (the opponents still in the game: 800.4a)

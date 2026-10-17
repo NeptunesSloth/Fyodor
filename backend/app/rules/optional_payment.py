@@ -334,8 +334,12 @@ def _offer_alternatives(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """-- if you do (wave 6F) -- PAY one of ``alts`` (each offered only while payable in full, 118.3) or DECLINE."""
     name = str(e.get("bind") or "pay0")
     payer = payer_of(plan, ctx, e.get("who", "you"))
-    payable = [(i, text, cost) for i, text in enumerate(e["alts"])
-               if (cost := parse(text)) is not None and payer is not None and problem(plan, ctx, cost, payer) is None]
+    was, plan.excluded = plan.excluded, _taken(ctx, payer)
+    try:
+        payable = [(i, text, cost) for i, text in enumerate(e["alts"])
+                   if (cost := parse(text)) is not None and payer is not None and problem(plan, ctx, cost, payer) is None]
+    finally:
+        plan.excluded = was
     if payer is None or not payable:
         if payer is not None:
             plan.note(f"{plan.name(payer)} can't pay {' or '.join(e['alts'])} for {ctx.get('name') or 'it'}")
@@ -434,6 +438,12 @@ def defers(text: str | None, alts: list[str] | None = None) -> bool:
     return bool(costs) and all(c is not None and not c.mana for c in costs)
 
 
+def _taken(ctx: Context, payer: str | None) -> frozenset[str]:
+    """-- cost reductions paid with objects (wave 47C) -- what the payer's earlier choices of this resolution (chosen, not yet paid) already take: Rottenmouth Viper's "previously
+    chosen can't be chosen again" (ruling 2024-07-26)."""
+    return frozenset(c for o in (ctx.get("deferred_pay") or {}).values() if o["payer"] == payer for ids in o["chosen"].values() for c in ids)
+
+
 def _defer(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> None:
     payer = opt["payer"]
     picked = [c for ids in opt["chosen"].values() for c in ids]
@@ -489,7 +499,7 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
     payer = opt["payer"]
     source = _source(plan, ctx)
     picked = {int(k): list(v) for k, v in opt["chosen"].items()}
-    used = {c for ids in picked.values() for c in ids}
+    used = {c for ids in picked.values() for c in ids} | _taken(ctx, payer)
     for i, comp in cost.choices:
         if i in picked:
             continue

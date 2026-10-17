@@ -42,6 +42,9 @@ class Plan:
     # -- life payments (wave 29C) -- 119.4: the life a spell's additional costs ("pay X life") will also pay: Phyrexian mana can be paid with
     # life only up to what is left of the life total after it (casting.find_payment ``reserve``)
     reserved_life: int = 0
+    # -- cost reductions paid with objects (wave 47C) -- "for each counter, … sacrifices a nonland permanent … or discards a card": what a player's earlier choices of one resolution already
+    # take (paid together at the end), so none is chosen twice (optional_payment._taken)
+    excluded: frozenset[str] = frozenset()
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)
