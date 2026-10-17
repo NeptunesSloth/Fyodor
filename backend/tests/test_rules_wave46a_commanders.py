@@ -19,14 +19,14 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import pass_until_stack_empty
-from tests.wave9c_kit import build, check, life, mana, put, to_hand, zone_of
+from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave46a_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w46a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 PUNK, OBOSH = "Spider-Punk", "Obosh, the Preypiercer"
-FULL = [PUNK, OBOSH]
+FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained"]
 
 
 @pytest.fixture()
@@ -144,4 +144,96 @@ def test_obosh_does_not_double_an_opponents_sources(cards):
     act(s, "p2", type="cast_spell", card_id=bolt.id, targets=["p1"])  # in response: a source Alice doesn't control
     pass_until_stack_empty(s)
     assert life(s, "p1") == 37
+    check(s)
+
+
+# ---- 608.2c, 611.2a: Karrthus ----------------------------------------------------------------------------------------------------------------------
+KARRTHUS, GIOTT, POLUKRANOS = "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained"
+
+
+def on_table(s, name, pid):
+    return s.state.cards[card_named(s, name, pid).id]
+
+
+def test_karrthus_takes_every_dragon_and_untaps_them(cards):
+    s = build(cards, [KARRTHUS], ["Shivan Dragon"])
+    dragon = put(s, "Shivan Dragon", "p2")
+    act(s, "p2", type="tap", card_ids=[dragon.id], tapped=True)
+    mana(s, R=5, B=1, G=1)
+    cast(s, KARRTHUS)
+    pass_until_stack_empty(s)
+    d = on_table(s, "Shivan Dragon", "p2")
+    assert d.controller == "p1" and not d.tapped  # indefinitely Alice's, untapped
+    check(s)
+
+
+def test_karrthus_leaves_creatures_that_are_not_dragons_alone(cards):
+    s = build(cards, [KARRTHUS, "Grizzly Bears"], [])
+    bears = put(s, "Grizzly Bears")
+    act(s, "p1", type="tap", card_ids=[bears.id], tapped=True)
+    mana(s, R=5, B=1, G=1)
+    cast(s, KARRTHUS)
+    pass_until_stack_empty(s)
+    assert on_table(s, "Grizzly Bears", "p1").tapped
+    check(s)
+
+
+# ---- 603.2c: Giott ---------------------------------------------------------------------------------------------------------------------------------
+def choose(s, ids):
+    d = s.state.rules.decision
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+
+
+def cast_beside_giott(s, name, **m):
+    put(s, GIOTT)
+    forest = to_hand(s, "Forest")  # (the card to discard)
+    mana(s, **m)
+    cast(s, name)
+    return forest
+
+
+@pytest.mark.parametrize(("name", "cost"), [("Dwarven Trader", {"R": 1}), ("Bronze Sword", {"R": 1})])
+def test_giott_triggers_for_another_dwarf_and_for_an_equipment(cards, name, cost):
+    s = build(cards, [GIOTT, name], [])
+    forest = cast_beside_giott(s, name, **cost)
+    choose(s, ["pay"])  # the optional discard (the only card in hand), then the draw
+    assert s.state.cards[forest.id].zone == "p1:graveyard" and len(s.state.zones["p1:hand"]) == 1
+    check(s)
+
+
+def test_giott_does_not_trigger_for_a_creature_that_is_neither(cards):
+    s = build(cards, [GIOTT, "Grizzly Bears"], [])
+    cast_beside_giott(s, "Grizzly Bears", G=2)
+    assert s.state.rules.decision is None and not s.state.zones.get("stack")  # (no optional discard was offered)
+    check(s)
+
+
+# ---- 702.138b, 614.1c: Polukranos ------------------------------------------------------------------------------------------------------------------
+def settle_decisions(s):
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack") and not s.state.rules.pending_triggers:
+            return
+        if d is not None:
+            choose(s, [o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+
+
+def test_polukranos_enters_with_six_counters_cast_and_twelve_escaped(cards):
+    s = build(cards, [POLUKRANOS, "Grizzly Bears", "Llanowar Elves", "Memnite", "Ornithopter", "Snapcaster Mage"], [])
+    mana(s, B=3, G=3)
+    cast(s, POLUKRANOS)
+    settle_decisions(s)
+    assert on_table(s, POLUKRANOS, "p1").counters.get("+1/+1") == 6  # cast from hand: 614.1c
+    polu = card_named(s, POLUKRANOS)
+    act(s, "p1", type="move", card_ids=[polu.id], to={"player": "p1", "zone": "graveyard"})
+    for name in ("Grizzly Bears", "Llanowar Elves", "Memnite", "Ornithopter", "Snapcaster Mage"):
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[card_named(s, "Forest").id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, B=3, G=3)
+    act(s, "p1", type="cast_spell", card_id=polu.id)  # escape {4}{B}{G}, exile six other cards: 702.138a
+    settle_decisions(s)
+    assert on_table(s, POLUKRANOS, "p1").zone == "p1:battlefield"
+    assert on_table(s, POLUKRANOS, "p1").counters.get("+1/+1") == 12  # escaped: the larger amount instead
     check(s)

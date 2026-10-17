@@ -4688,7 +4688,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                             return None
                         names = [h[0] for h in halves if h]
                         generic = [h[1] for h in halves if h and h[1] is not None]
-                        if names == ["event", "event"] and generic[0]["event"] != generic[1]["event"] and not re.search(
+                        # (-- cant restrictions (wave 46A) -- the same event twice with different subjects, "Whenever Giott or another Dwarf you control enters and
+                        # whenever an Equipment you control enters": one object entering is one event, so one trigger however many halves it matches, 603.2c)
+                        if names == ["event", "event"] and not re.search(
                                 r"\b(?:it|its|it's|that|those|them|they)\b", re.sub(r"\bit's the \w+ time\b", "", m["body"])) and not any(
                                 g.get("aggregate") or g["event"] in ("either", "multi") for g in generic):
                             # -- ability words (wave 20C) -- "Whenever an enchantment you control enters and whenever you fully unlock a
@@ -5854,6 +5856,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     """A static line that is a replacement or prevention effect of the permanent itself."""
     if ability.kind != "static":
         return None
+    # -- cant restrictions (wave 46A) -- "~ enters with six +1/+1 counters on it. It escapes with twelve +1/+1 counters on it instead." (Polukranos, Unchained):
+    # the usual amount, and the escaped one that replaces it (614.1c, 702.138b); replacements.counter_amount reads "escaped_n"
+    if (esc := re.fullmatch(r"(~ enters with (?P<n>\w+) (?P<k>[+-]\d+/[+-]\d+) counters on it)\. It escapes with (?P<e>\w+) (?P=k) counters on it instead\.", text)) is not None \
+            and (base := define_replacement(ability, esc[1] + ".")) is not None and base.get("replacement") == "enters_with_counters" and (escaped := {**NUMBERS, "eleven": 11, "twelve": 12}.get(esc["e"])) is not None:
+        return {**base, "escaped_n": escaped}
     text = re.sub(r"^~ enters tapped if it's not your turn\.$", "~ enters tapped unless it's your turn.", text)  # (wave 19A: Eddymurk Crab)
     # -- refused grants/replacements (wave 3R2) -- "Damage can't be prevented." and friends (615.12)
     from app.rules import skips, source_shields
@@ -8011,10 +8018,12 @@ _CHOSEN["return_choice"] = "n"
 # until end of turn." The control-changing effect (layer 2, 613.1b) names its objects: a following "it" / "that
 # creature" is the target, as after any plain target (app/rules/language.py "control", app/rules/effects.py).
 _RECORDING.update({"gain_control": None, "exchange_control": None})
+# (-- cant restrictions (wave 46A) -- not across ", then": "Gain control of all Dragons, then untap all Dragons." (Karrthus) is two instructions in order, 608.2c,
+# which _clause splits; the control wording alone must not swallow the whole sentence and give up on it)
 
 
 @_first
-@effect(r"(?P<t>(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
+@effect(r"(?P<t>(?!.*, then )(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
 def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 

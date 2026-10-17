@@ -666,6 +666,11 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
 
         ctx = {"controller": controller, "source_card": card_id, "source_object": plan.oid(card_id)}
         amount = amount if conditions.holds(plan, ctx, d["if_cast"]) else 0
+    if d.get("escaped_n") is not None:  # -- cant restrictions (wave 46A) -- "It escapes with twelve +1/+1 counters on it instead." (Polukranos, Unchained): 702.138b
+        from app.rules import conditions
+
+        ctx = {"controller": controller, "source_card": card_id, "source_object": plan.oid(card_id)}
+        amount = int(d["escaped_n"]) if conditions.holds(plan, ctx, {"object": "self", "cast": {"escaped": True}}) else amount
     return amount
 
 
