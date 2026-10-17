@@ -61,6 +61,10 @@ def status(plan: Plan, you: str, kind: str) -> bool:
         return monarch != you
     if kind == "not_initiative":
         return table.initiative != you
+    if kind == "initiative_attack":  # -- initiative (wave 45B) -- 726.1, 506.2: you have it, or a creature you control is attacking the player who does
+        return table.initiative == you or (table.initiative is not None and any(
+            c.controller == you and c.attacking is not None and c.attacking.kind == "player" and c.attacking.id == table.initiative
+            for c in plan.state.cards.values() if c.zone.endswith(":battlefield")))
     if kind == "completed_dungeon":  # 309.7
         r = plan.state.rules
         return bool(r is not None and r.completed_dungeons.get(you))

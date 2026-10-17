@@ -70,8 +70,9 @@ def drive(s, want=(), limit=150):
 
 
 def test_the_undercity_and_initiative_cards_are_full():
-    """The fifteen cards whose only gap was Undercity's Arena (and Secret Door, which ventures into every dungeon)."""
-    assert len(DATA) == 16
+    """The fifteen cards whose only gap was Undercity's Arena, Secret Door (which ventures into every dungeon) and the cards of the same family that
+    wave 45B reads too: Loot Dispute, Undercellar Sweep, Sarevok's Tome, Undermountain Adventurer, Kick in the Door, You Find a Cursed Idol."""
+    assert len(DATA) == 22
     for c in DATA:
         assert coverage.of_card_data({**c, "faces": c.get("card_faces") or []}).level == "FULL", c["name"]
 
@@ -161,4 +162,136 @@ def test_combat_damage_to_the_initiative_holder_takes_it_and_ventures_into_under
     assert s.state.players["p1"].life == 38 and s.state.table.initiative == "p2"
     assert rules(s).dungeons["p2"].dungeon == "Undercity" and rules(s).dungeons["p2"].room == "Secret Entrance"
     assert rules(s).dungeons["p1"].room == "Secret Entrance"
+    check(s)
+
+
+def two_bears(s, pid="p1"):
+    """Move the player's two Grizzly Bears onto the battlefield (they have been there since before the turn)."""
+    bears = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == pid]
+    for c in bears:
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "battlefield"})
+    season(s)
+    return bears
+
+
+def mana_ability(s, c):
+    """(the ability index, the mana ability) of the card's only mana ability."""
+    from app.rules.casting import mana_abilities
+
+    ((index, ab),) = mana_abilities(s.state, s.state.cards[c.id], s.cards)
+    return index, ab
+
+
+def treasures(s, pid="p1"):
+    return [c for c in s.state.cards.values() if c.name == "Treasure" and c.zone == f"{pid}:battlefield"]
+
+
+def test_loot_dispute_makes_a_treasure_only_for_an_attack_on_the_player_with_the_initiative(cards):
+    """508.3a, 726.1: "Whenever you attack the player who has the initiative, create a Treasure token." Bob has it; one Bears attacks Bob, the other
+    Carol: one Treasure. Its combat damage to Bob then takes the initiative from him (726.2)."""
+    s = three(cards, ["Loot Dispute", "Grizzly Bears", "Grizzly Bears"])
+    put(s, "Loot Dispute")
+    first, second = two_bears(s)
+    act(s, "p2", type="set_initiative", player="p2")  # (by hand: no venture)
+    to_phase(s, "declare_attackers", turn=1)
+    attack(s, (first, "p2"), (second, "p3"))
+    drive(s, want=["Forest"])
+    assert len(treasures(s)) == 1
+    assert s.state.table.initiative == "p1" and rules(s).dungeons["p1"].room == "Secret Entrance"
+    check(s)
+
+
+def test_loot_dispute_does_not_trigger_for_an_attack_on_a_player_without_it(cards):
+    s = three(cards, ["Loot Dispute", "Grizzly Bears", "Grizzly Bears"])
+    put(s, "Loot Dispute")
+    first, _ = two_bears(s)
+    act(s, "p3", type="set_initiative", player="p3")
+    to_phase(s, "declare_attackers", turn=1)
+    attack(s, (first, "p2"))
+    drive(s)
+    assert not treasures(s) and s.state.table.initiative == "p3"
+    check(s)
+
+
+@pytest.mark.parametrize(("holder", "soldiers"), [(None, 0), ("p3", 0), ("p2", 2), ("p1", 2)])
+def test_undercellar_sweep_needs_the_initiative_for_you_or_the_player_you_attack(cards, holder, soldiers):
+    """"Whenever you attack, if you or a player you're attacking has the initiative, you create two 1/1 white Soldier creature tokens that are
+    tapped and attacking." Alice attacks Bob: she or Bob has it (two Soldiers), Carol has it or nobody does (none)."""
+    s = three(cards, ["Undercellar Sweep", "Grizzly Bears", "Grizzly Bears"])
+    put(s, "Undercellar Sweep")
+    first, _ = two_bears(s)
+    if holder:
+        act(s, holder, type="set_initiative", player=holder)
+    to_phase(s, "declare_attackers", turn=1)
+    attack(s, (first, "p2"))
+    drive(s, want=["p2", "Forest"])
+    made = [c for c in s.state.cards.values() if c.name == "Soldier" and c.zone == "p1:battlefield"]
+    assert len(made) == soldiers
+    assert all(c.tapped and c.attacking is not None or s.state.turn.phase != "declare_attackers" for c in made)
+    check(s)
+
+
+def test_sarevok_tome_adds_two_with_the_initiative(cards):
+    """"{T}: Add {C}. If you have the initiative, add {C}{C} instead." (605.3a: checked as the mana ability resolves)."""
+    s = build(cards, ["Sarevok's Tome"])
+    tome = put(s, "Sarevok's Tome")
+    index, ab = mana_ability(s, tome)
+    assert ab.options == (("C",),)
+    act(s, "p1", type="set_initiative", player="p1")
+    assert mana_ability(s, tome)[1].options == (("C", "C"),)
+    act(s, "p1", type="activate_ability", card_id=tome.id, ability=index)
+    assert dict(s.state.players["p1"].mana) == {"C": 2}
+    check(s)
+
+
+def test_undermountain_adventurer_adds_six_once_a_dungeon_is_completed(cards):
+    """"{T}: Add {G}{G}. If you've completed a dungeon, add six {G} instead." -- completed by Secret Door through Lost Mine of Phandelver (Cave
+    Entrance, Goblin Lair, Storeroom, Temple of Dumathoin)."""
+    s = build(cards, ["Undermountain Adventurer", "Secret Door"])
+    adventurer, door = put(s, "Undermountain Adventurer"), put(s, "Secret Door")
+    season(s)
+    assert mana_ability(s, adventurer)[1].options == (("G", "G"),)
+    for room in ("Lost Mine of Phandelver", "Goblin Lair", "Storeroom", "Temple of Dumathoin"):
+        mana(s, "p1", U=1, C=4)
+        act(s, "p1", type="activate_ability", card_id=door.id, ability=1)
+        drive(s, want=[room])
+    assert rules(s).completed_dungeons["p1"] == ["Lost Mine of Phandelver"]
+    assert mana_ability(s, adventurer)[1].options == (("G",) * 6,)
+    act(s, "p1", type="activate_ability", card_id=adventurer.id, ability=mana_ability(s, adventurer)[0])
+    assert dict(s.state.players["p1"].mana).get("G") == 6
+    check(s)
+
+
+def test_kick_in_the_door_a_counter_haste_no_wall_can_block_and_a_venture(cards):
+    """"Put a +1/+1 counter on target creature. That creature gains haste until end of turn and can't be blocked by Walls this turn. Venture into
+    the dungeon." Bob's Wall (Secret Door) may not block the hasty Bears, his Bears may."""
+    from tests.test_rules_wave30p_combat import block
+
+    s = build(cards, ["Kick in the Door", "Grizzly Bears"], ["Secret Door", "Grizzly Bears"])
+    bears = put(s, "Grizzly Bears")  # (summoning sick: haste is what lets it attack)
+    wall, blocker = put(s, "Secret Door", "p2"), put(s, "Grizzly Bears", "p2")
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Kick in the Door").id, targets=[bears.id])
+    drive(s, want=["Lost Mine of Phandelver"])
+    assert s.state.cards[bears.id].counters.get("+1/+1") == 1 and "haste" in ch(s, bears).keywords
+    assert rules(s).dungeons["p1"].room == "Cave Entrance"
+    to_phase(s, "declare_attackers", turn=1)
+    attack(s, (bears, "p2"))
+    for _ in range(12):
+        if (d := rules(s).decision) is not None and d.kind == "declare_blockers":
+            break
+        act(s, rules(s).priority, type="pass_priority")
+    with pytest.raises(ActionError, match="can't be blocked"):
+        block(s, "p2", (wall, bears))
+    block(s, "p2", (blocker, bears))
+    check(s)
+
+
+def test_you_find_a_cursed_idol_steal_its_eyes_makes_a_treasure_and_ventures(cards):
+    """"• Steal Its Eyes — Create a Treasure token and venture into the dungeon." (the third mode)."""
+    s = build(cards, ["You Find a Cursed Idol"])
+    mana(s, "p1", G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "You Find a Cursed Idol").id, modes=[2])
+    drive(s, want=["Dungeon of the Mad Mage"])
+    assert len(treasures(s)) == 1 and rules(s).dungeons["p1"].room == "Yawning Portal"
     check(s)

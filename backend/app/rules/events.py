@@ -105,7 +105,8 @@ _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a
               # or on what an opponent controls (a planeswalker's controller is the defending player, 508.5)
               "one of your opponents or a planeswalker an opponent controls": "opponent_or_pw",
               "one of your opponents or a planeswalker they control": "opponent_or_pw",
-              "the monarch": "monarch"}  # -- this-turn state (wave 42B) -- 725.1, 508.3a: the player who is the monarch, attacked directly (Okoye, The Spear of Bashenga)
+              "the monarch": "monarch",  # -- this-turn state (wave 42B) -- 725.1, 508.3a: the player who is the monarch, attacked directly (Okoye, The Spear of Bashenga)
+              "the player who has the initiative": "initiative"}  # -- initiative (wave 45B) -- 726.1, 508.3a: Loot Dispute
 _DEFENDER_RE = "|".join(re.escape(k) for k in sorted(_DEFENDERS, key=len, reverse=True))
 _PLAYER_VERBS = [
     (r"gains? life", "gain_life"),

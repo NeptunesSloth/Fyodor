@@ -216,6 +216,10 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
     if ab.instead_if == (M.PLAYED_LAND,):  # -- this-turn history (wave 4D) -- River of Tears
         played = state.rules is not None and state.rules.lands_this_turn(card.controller, state.turn.number) > 0
         return ab.instead if played else ab.options
+    if ab.instead_if and ab.instead_if[0][:1] == ("@status",):  # -- designations (wave 45B) -- 726.1 the initiative, 309.7 a completed dungeon
+        held = state.table.initiative == card.controller if ab.instead_if[0][1] == "initiative" \
+            else bool(state.rules is not None and state.rules.completed_dungeons.get(card.controller))
+        return ab.instead if held else ab.options
     if ab.instead_if and ab.instead_if[0][:1] == ("@counter",):  # -- opening hand (wave 18C) -- the source's own counter (122.1)
         return ab.instead if card.counters.get(ab.instead_if[0][1], 0) > 0 else ab.options
     if ab.instead_if and ab.instead_if[0][:1] in (("@count",), ("@power",)):  # -- kicked / instead (wave 4G) --

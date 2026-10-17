@@ -234,6 +234,9 @@ _NAMED_INSTEAD = re.compile(r"^If you control creatures named (?P<a>[A-Z][\w'-]*
 # played, not put onto the battlefield): ``instead_if`` holds this marker instead of permanents to control
 _PLAYED_LAND = re.compile(r"^If you played a land this turn, add (?P<add>(?:\{[WUBRGC]\})+) instead$")
 PLAYED_LAND = ("@played_land",)
+# -- designations (wave 45B) -- "If you have the initiative, add {C}{C} instead." (Sarevok's Tome), "If you've completed a dungeon, add six {G} instead."
+# (Undermountain Adventurer; 726.1, 309.7): checked as the ability resolves (605.3a); ``instead_if`` holds ("@status", <the designation>)
+_STATUS_INSTEAD = re.compile(r"^If you(?: have the (?P<i>initiative)|'ve completed a (?P<d>dungeon)), (?P<add>add .+) instead$")
 # -- opening hand (wave 18C) -- "If Gemstone Caverns has a luck counter on it, instead add one mana of any color." (122.1: the
 # source's own counters, checked as the ability resolves, 605.3a): ``instead_if`` holds ("@counter", <kind>)
 _OWN_COUNTER_INSTEAD = re.compile(r"^If (?:~|this [a-z]+|[A-Z][\w',-]*(?: (?:of |the |[A-Z])[\w',-]*)*) has an? (?P<k>[a-z]+) counter on "
@@ -451,6 +454,11 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             if more is None or not all(more):
                 return None
             instead_if, instead = (("@counter", oc.group("k")),), more
+        elif (si := _STATUS_INSTEAD.fullmatch(s)) and not instead and len(options) == 1:  # -- designations (wave 45B) --
+            more = _effect_options("A" + si["add"][1:], identity)
+            if more is None or len(more) != 1:
+                return None
+            instead_if, instead = (("@status", "initiative" if si["i"] else "completed_dungeon"),), more
         elif (pl := _PLAYED_LAND.fullmatch(s)) and not instead and len(options) == 1:  # -- this-turn history (wave 4D) --
             more = _effect_options("Add " + pl.group("add"), identity)
             if more is None or len(more) != 1:
