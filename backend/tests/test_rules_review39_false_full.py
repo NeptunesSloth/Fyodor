@@ -7,6 +7,8 @@ data/cards.sqlite). Every scenario checks the replay and a save and a load.
 * 615.12: a prevention effect applied to damage that can't be prevented prevents none of it, but its additional effect still happens, and its
   "that many" is the damage it applied to, not the damage prevented (Polukranos 2020-01-24, Jared Carthalion True Heir 2020-11-10, Gloom Surgeon
   2012-05-01; "for each 1 damage prevented this way" stays 0: Phyrexian Hydra 2011-06-01). Under Spider-Punk Polukranos kept every counter.
+* 702.195a: storied is an ability of the permanent as it is now (613): a Thorin that lost all its abilities gives no enduring story (it was read off
+  the printed card).
 """
 
 from __future__ import annotations
@@ -111,3 +113,28 @@ def test_under_spider_punk_polukranos_is_dealt_the_damage_and_still_loses_that_m
     s, polu = bolt_polukranos(cards, punk=True)
     assert polu.zone == "p1:graveyard"  # 3 damage dealt and 3 counters removed together: a 3/3 with 3 damage (its ruling of 2020-01-24)
     check(s)
+
+
+# ---- 702.195a: storied is read off the permanent as it is ----------------------------------------------------------------------------------------
+def test_thorin_without_its_abilities_gives_no_enduring_story(cards):
+    s = build(cards, ["Thorin Oakenshield", "Turn to Frog", "Memnite", "Ornithopter"], [])
+    thorin = put(s, "Thorin Oakenshield")
+    mana(s, U=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Turn to Frog").id, targets=[thorin.id])
+    pass_until_stack_empty(s)
+    put(s, "Memnite")
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Ornithopter").id)  # the third legendary or artifact permanent, but nothing has storied now
+    pass_until_stack_empty(s)
+    assert "p1" not in s.state.rules.enduring_story
+    check(s)
+
+
+def test_thorin_with_two_artifacts_gives_an_enduring_story(cards):
+    s = build(cards, ["Thorin Oakenshield", "Memnite", "Ornithopter"], [])
+    put(s, "Thorin Oakenshield")
+    put(s, "Memnite")
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Ornithopter").id)
+    pass_until_stack_empty(s)
+    assert "p1" in s.state.rules.enduring_story
+    check(s)
+

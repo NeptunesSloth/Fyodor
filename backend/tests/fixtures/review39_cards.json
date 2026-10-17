@@ -153,5 +153,55 @@
   ],
   "power": "2",
   "toughness": "1"
+ },
+ {
+  "name": "Thorin Oakenshield",
+  "layout": "normal",
+  "mana_cost": "{R}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Dwarf Noble",
+  "oracle_text": "Trample\nStoried (If you control three or more artifacts, legendaries, and/or Sagas, you have an enduring story for the rest of the game.)\nAs long as you have an enduring story, artifacts and creatures you control have ward {1}.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Trample",
+   "Storied"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Memnite",
+  "layout": "normal",
+  "mana_cost": "{0}",
+  "cmc": 0.0,
+  "type_line": "Artifact Creature — Construct",
+  "oracle_text": "",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Ornithopter",
+  "layout": "normal",
+  "mana_cost": "{0}",
+  "cmc": 0.0,
+  "type_line": "Artifact Creature — Thopter",
+  "oracle_text": "Flying",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "0",
+  "toughness": "2"
  }
 ]
