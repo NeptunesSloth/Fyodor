@@ -45,138 +45,6 @@
   "keywords": []
  },
  {
-  "name": "Electrolyze",
-  "layout": "normal",
-  "mana_cost": "{1}{U}{R}",
-  "cmc": 3.0,
-  "type_line": "Instant",
-  "oracle_text": "Electrolyze deals 2 damage divided as you choose among one or two targets.\nDraw a card.",
-  "colors": [
-   "R",
-   "U"
-  ],
-  "color_identity": [
-   "R",
-   "U"
-  ],
-  "keywords": []
- },
- {
-  "name": "Redirect",
-  "layout": "normal",
-  "mana_cost": "{U}{U}",
-  "cmc": 2.0,
-  "type_line": "Instant",
-  "oracle_text": "You may choose new targets for target spell.",
-  "colors": [
-   "U"
-  ],
-  "color_identity": [
-   "U"
-  ],
-  "keywords": []
- },
- {
-  "name": "Spectral Shield",
-  "layout": "normal",
-  "mana_cost": "{1}{W}{U}",
-  "cmc": 3.0,
-  "type_line": "Enchantment — Aura",
-  "oracle_text": "Enchant creature\nEnchanted creature gets +0/+2 and can't be the target of spells.",
-  "colors": [
-   "U",
-   "W"
-  ],
-  "color_identity": [
-   "U",
-   "W"
-  ],
-  "keywords": [
-   "Enchant"
-  ]
- },
- {
-  "name": "Karplusan Strider",
-  "layout": "normal",
-  "mana_cost": "{3}{G}",
-  "cmc": 4.0,
-  "type_line": "Creature — Yeti",
-  "oracle_text": "This creature can't be the target of blue or black spells.",
-  "colors": [
-   "G"
-  ],
-  "color_identity": [
-   "G"
-  ],
-  "keywords": [],
-  "power": "3",
-  "toughness": "4"
- },
- {
-  "name": "Lurker",
-  "layout": "normal",
-  "mana_cost": "{2}{G}",
-  "cmc": 3.0,
-  "type_line": "Creature — Beast",
-  "oracle_text": "This creature can't be the target of spells unless it attacked or blocked this turn.",
-  "colors": [
-   "G"
-  ],
-  "color_identity": [
-   "G"
-  ],
-  "keywords": [],
-  "power": "2",
-  "toughness": "3"
- },
- {
-  "name": "Fork",
-  "layout": "normal",
-  "mana_cost": "{R}{R}",
-  "cmc": 2.0,
-  "type_line": "Instant",
-  "oracle_text": "Copy target instant or sorcery spell, except that the copy is red. You may choose new targets for the copy.",
-  "colors": [
-   "R"
-  ],
-  "color_identity": [
-   "R"
-  ],
-  "keywords": []
- },
- {
-  "name": "Reverberate",
-  "layout": "normal",
-  "mana_cost": "{R}{R}",
-  "cmc": 2.0,
-  "type_line": "Instant",
-  "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
-  "colors": [
-   "R"
-  ],
-  "color_identity": [
-   "R"
-  ],
-  "keywords": []
- },
- {
-  "name": "Decimate",
-  "layout": "normal",
-  "mana_cost": "{2}{R}{G}",
-  "cmc": 4.0,
-  "type_line": "Sorcery",
-  "oracle_text": "Destroy target artifact, target creature, target enchantment, and target land. (You can't cast this spell unless you have legal choices for all its targets.)",
-  "colors": [
-   "G",
-   "R"
-  ],
-  "color_identity": [
-   "G",
-   "R"
-  ],
-  "keywords": []
- },
- {
   "name": "Talion, the Kindly Lord",
   "layout": "normal",
   "mana_cost": "{2}{U}{B}",
@@ -228,5 +96,86 @@
   "keywords": [
    "Landfall"
   ]
+ },
+ {
+  "name": "Hinata, Dawn-Crowned",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Kirin Spirit",
+  "oracle_text": "Flying, trample\nSpells you cast cost {1} less to cast for each target.\nSpells your opponents cast cost {1} more to cast for each target.",
+  "colors": [
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Trample"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Staggershock",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Staggershock deals 2 damage to any target.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Rebound"
+  ]
+ },
+ {
+  "name": "Asmoranomardicadaistinaculdacar",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "As long as you've discarded a card this turn, you may pay {B/R} to cast this spell.\nWhen Asmoranomardicadaistinaculdacar enters, you may search your library for a card named The Underworld Cookbook, reveal it, put it into your hand, then shuffle.\nSacrifice two Foods: Target creature deals 6 damage to itself.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Gemrazer",
+  "layout": "mutate",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Beast",
+  "oracle_text": "Mutate {1}{G}{G} (If you cast this spell for its mutate cost, put it over or under target non-Human creature you own. They mutate into the creature on top plus all abilities from under it.)\nReach, trample\nWhenever this creature mutates, destroy target artifact or enchantment an opponent controls.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Reach",
+   "Mutate",
+   "Trample"
+  ],
+  "power": "4",
+  "toughness": "4"
  }
 ]
