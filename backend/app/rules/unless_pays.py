@@ -91,7 +91,7 @@ def countered_this_way(text: str) -> bool:
 def concrete_cost(plan: Plan, ctx: Context, e: dict[str, Any]) -> str:
     """The cost text an optional payment asks for: its fixed ``cost``, plus ``per`` once for each of
     ``n`` (evaluated now, 608.2h) — a plain mana cost ("{3}", "{G}{G}"), "{0}" when nothing is owed."""
-    if e.get("alt"):  # "If you control a Bird, … pays {4} instead" (checked now: 608.2c)
+    if e.get("alt") and "cost" in e["alt"]:  # "If you control a Bird, … pays {4} instead" (checked now: 608.2c)
         from app.rules import conditions  # (conditions → effects → this module)
 
         return str(e["alt"]["cost"] if conditions.holds(plan, ctx, e["alt"]["cond"]) else e["cost"])

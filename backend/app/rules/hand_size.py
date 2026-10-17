@@ -30,8 +30,8 @@ MAX_HAND_SIZE = 7  # 402.2
 
 MODIFIES = "max_hand_size"
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-            "eleven": 11, "twelve": 12}
-_SET = re.compile(r"^Your maximum hand size is (?P<n>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\.$")
+            "eleven": 11, "twelve": 12, "twenty": 20}  # (wave 51C: Twenty-Toed Toad)
+_SET = re.compile(r"^Your maximum hand size is (?P<n>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|\d+)\.$")
 _CHANGE = re.compile(r"^(?P<who>Your|Each opponent's) maximum hand size is (?P<dir>reduced|increased) by "
                      r"(?P<n>one|two|three|four|five|six|seven|eight|nine|ten|\d+)\.$")
 

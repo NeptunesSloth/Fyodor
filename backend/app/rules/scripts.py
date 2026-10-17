@@ -4236,7 +4236,7 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
 
 # -- unless pays (wave 4C) --
 _THEY_DO = re.compile(r"^if (?:they|that player) (?P<v>do|does|don't|doesn't), (?P<rest>.+)$")
-_ALT_COST = re.compile(r"^if (?P<c>[^,]+), counter (?:that spell|it) unless its controller pays (?P<cost>(?:\{[^}X]+\})+) instead$")
+_ALT_COST = re.compile(r"^if (?P<c>[^,]+), counter (?:that spell|it)(?: unless its controller pays (?P<cost>(?:\{[^}X]+\})+))? instead$")  # (wave 51C: no cost = a hard counter, Stubborn Denial)
 
 
 def _unless_rider(text: str, effects: list[dict[str, Any]], prev_start: int) -> bool | str | None:
@@ -4278,7 +4278,7 @@ def _unless_rider(text: str, effects: list[dict[str, Any]], prev_start: int) -> 
             cond = conditions.parse(alt["c"], objects=True)
             if cond is None or "per" in prev[0] or prev[0].get("alt"):
                 return False
-            prev[0]["alt"] = {"cond": cond, "cost": alt["cost"]}
+            prev[0]["alt"] = {"cond": cond, "cost": alt["cost"]} if alt["cost"] else {"cond": cond, "hard": True}  # (wave 51C)
             return True
         prev[2]["exile"] = True
         return True
