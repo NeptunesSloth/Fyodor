@@ -125,8 +125,8 @@ def wrap_when(effects: list[dict[str, Any]], when: dict[str, Any], *, who: str |
 
 
 DEFERRED = "deferred:"
-# effects a delayed trigger doesn't defer; "transform": 701.27f counts from the delayed trigger's creation (not modeled)
-UNDEFERRABLE = ("delayed", "until", "optional_payment", "transform")
+# effects a delayed trigger doesn't defer
+UNDEFERRABLE = ("delayed", "until", "optional_payment")
 
 
 _MOVES = {"bounce", "return_card", "exile", "destroy", "sacrifice"}
@@ -190,6 +190,8 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     start = ctx["next"]
     deferred = [{**x, "do": x["do"].removeprefix(DEFERRED)} for x in ctx["effects"][start:start + n]]
     ctx["next"] = start + n
+    # -- transform (wave 47D) -- 701.27f: a delayed triggered ability transforms the permanent only if it hasn't transformed since the ability was created
+    deferred = [{**x, "since": plan.rules.next_object} if x["do"] == "transform" else x for x in deferred]
     refs = {k: v for k, v in (ctx.get("refs") or {}).items()}
     when = dict(e["when"])
     if when["kind"] == "event" or (when["kind"] == "watch" and when.get("bound")):  # (-- turn-long triggers (wave 33A) -- a watch on one object)
