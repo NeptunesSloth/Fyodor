@@ -344,6 +344,9 @@ def self_text(text: str, name: str) -> str:
     # (608.2c: the instruction is carried out for each in turn), "target opponent creates a 2/4 white Ox creature token and you draw a card" (Ox Drover): two instructions
     out = re.sub(r"\b([Yy])ou and target opponent each create (an? [^.,]+? token)\b", lambda m: f"{m[1]}ou create {m[2]} and target opponent creates {m[2]}", out)
     out = re.sub(r"(\btarget opponent creates an? [^.,]+? token) and (you draw a card)\b", r"\1. \2", out)
+    # "During turns other than yours, this spell costs {3} more to cast." (Hurkyl's Final Meditation) is "This spell costs {3} more to cast if it's not your turn."
+    out = re.sub(r"(?:^|(?<=\n))During (turns other than yours|your turn), this spell costs ((?:\{[\dX]+\})+) (more|less) to cast\.",
+                 lambda m: f"This spell costs {m[2]} {m[3]} to cast if it's {'not ' if m[1][0] == 't' else ''}your turn.", out)
     # -- trigger other (wave 44B) -- Namor the Sub-Mariner: "that many" is the number of those mana symbols in the cast spell's mana cost
     out = re.sub(r"(with one or more (\w+) mana symbols in its mana cost, create) that many ([^.]+? tokens)\.",
                  r"\1 X \3, where X is the number of \2 mana symbols in that spell's mana cost.", out)

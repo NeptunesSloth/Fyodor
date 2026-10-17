@@ -139,6 +139,32 @@ def test_days_undoing_shuffles_draws_seven_and_ends_the_turn(cards):
     check(s)
 
 
+def test_hurkyls_final_meditation_bounces_all_nonland_permanents_and_ends_the_turn(cards):
+    s = build(cards, ["Hurkyl's Final Meditation", "Hill Giant"], ["Grizzly Bears"])
+    giant, bears = put(s, "Hill Giant"), put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Hurkyl's Final Meditation")
+    mana(s, U=3, C=4)  # on its controller's turn: no extra {3}
+    cast(s, "Hurkyl's Final Meditation")
+    assert zone_of(s, "Hill Giant") == "p1:hand" and zone_of(s, "Grizzly Bears", "p2") == "p2:hand"
+    assert s.state.turn.number == 2 and zone_of(s, "Hurkyl's Final Meditation") == "p1:exile"
+    check(s)
+
+
+def test_hurkyls_final_meditation_costs_three_more_on_other_turns(cards):
+    s = build(cards, ["Hurkyl's Final Meditation"], [])
+    to_hand(s, "Hurkyl's Final Meditation")
+    stops(s)
+    to_phase(s, "upkeep", turn=2)
+    act(s, "p2", type="pass_priority")
+    mana(s, U=3, C=4)
+    with pytest.raises(ActionError, match="Not enough mana to pay"):
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Hurkyl's Final Meditation").id)  # {4}{U}{U}{U} and {3} more
+    mana(s, C=3)
+    cast(s, "Hurkyl's Final Meditation")
+    assert s.state.turn.number == 3
+    check(s)
+
+
 def test_glorious_end_ends_the_turn_and_its_controller_loses_at_their_next_end_step(cards):
     # 724.1e: the end step of this turn is skipped, so "your next end step" is the one of Alice's next turn; the delayed trigger (603.7) is made as the spell resolves
     s = build(cards, ["Glorious End"], [])
