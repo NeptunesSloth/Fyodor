@@ -66,7 +66,13 @@ def leave_game(plan: Plan, player: str) -> None:
         r.priority = None
     successor = plan.active if plan.active != player else plan.after(player)
     if state.table.monarch == player:
-        plan.do({"type": "set_monarch", "player": successor}, actor=successor)
+        from app.rules.effects import can_become_monarch
+
+        for _ in plan.live():  # (-- cant restrictions (wave 46A) -- 725.4: the next player in turn order who can become the monarch)
+            if successor != player and can_become_monarch(plan, successor):
+                plan.do({"type": "set_monarch", "player": successor}, actor=successor)
+                break
+            successor = plan.after(successor)
     if state.table.initiative == player:
         plan.do({"type": "set_initiative", "player": successor}, actor=successor)
     plan.note(f"{plan.name(player)} has left the game")

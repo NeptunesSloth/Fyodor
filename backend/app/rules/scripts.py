@@ -1899,6 +1899,11 @@ def _monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "monarch", "who": "you"}], None
 
 
+@effect(r"you can't become the monarch this turn")  # -- cant restrictions (wave 46A) -- 725.4 (Jared Carthalion, True Heir)
+def _cant_monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "cant_monarch", "who": "you"}], None
+
+
 @effect(r"draw {N} cards?, then discard {M} cards?")
 def _loot(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "draw", "who": "you", "n": num(m["n"])}, {"do": "discard", "who": "you", "n": num(m["m"])}], None

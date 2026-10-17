@@ -27,7 +27,7 @@ KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w46a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 PUNK, OBOSH = "Spider-Punk", "Obosh, the Preypiercer"
-FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea"]
+FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea", "Jared Carthalion, True Heir"]
 
 
 @pytest.fixture()
@@ -303,4 +303,31 @@ def test_eluge_takes_a_blue_symbol_off_the_first_instant_or_sorcery_for_each_flo
     cast(s, "Lightning Bolt", targets=["p2"])  # {R}: no {U} in it and no generic, so nothing to take off (118.7b)
     pass_until_stack_empty(s)
     assert cost(s, "Counterspell") == "{U}{U}"  # only the first instant or sorcery each turn
+    check(s)
+
+
+# ---- 725.4: Jared Carthalion ---------------------------------------------------------------------------------------------------------------------------
+JARED = "Jared Carthalion, True Heir"
+
+
+def test_jared_makes_an_opponent_the_monarch_and_alice_cannot_take_it_back_this_turn(cards):
+    s = build(cards, [JARED, "Palace Sentinels"], [])
+    mana(s, R=5, G=1, W=1)
+    cast(s, JARED)
+    choose(s, ["p2"])  # the enters trigger's target opponent
+    pass_until_stack_empty(s)
+    assert s.state.table.monarch == "p2"
+    mana(s, R=3, W=1)
+    cast(s, "Palace Sentinels")  # "When this creature enters, you become the monarch."
+    pass_until_stack_empty(s)
+    assert s.state.table.monarch == "p2"  # Alice can't become the monarch this turn
+    check(s)
+
+
+def test_without_jared_the_same_creature_makes_alice_the_monarch(cards):
+    s = build(cards, ["Palace Sentinels"], [])
+    mana(s, R=3, W=1)
+    cast(s, "Palace Sentinels")
+    pass_until_stack_empty(s)
+    assert s.state.table.monarch == "p1"
     check(s)
