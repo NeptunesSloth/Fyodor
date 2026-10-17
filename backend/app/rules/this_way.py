@@ -63,6 +63,9 @@ def parse(phrase: str) -> dict[str, Any] | None:
     if most is not None:  # Windfall: "the greatest number of cards a player discarded this way" (each player's own)
         return {"this_way": most["verb"], "of": None, "max_by": "owner"}
     p = re.sub(r"^the number of ", "", p)
+    if (types := re.fullmatch(r"card types? among (cards? .+ this way)", p)) is not None:  # -- if you do (wave 44A) -- "a card for each card type among cards discarded this way" (Kefka)
+        inner = parse(types[1])
+        return {**inner, "distinct": "types"} if inner is not None and inner.get("of") is None else None
     m = _PHRASE.match(p)
     if m is None:
         return None
@@ -287,6 +290,11 @@ def count(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     match the qualifier): see the module docstring. ``max_by: "owner"``: the most any one player had (a
     discarded or milled card is its owner's: 701.9a, 701.17a)."""
     found = _matched(plan, ctx, v)
+    if v.get("distinct"):  # "card types among cards discarded this way": the different types the cards have where they went (205.2a)
+        from app.rules import values
+
+        return len({"Kindred" if t == "Tribal" else t for new, _ in found if (c := plan.state.cards.get(new["card"])) is not None
+                    for t in plan.ch(c).types if t in values.CARD_TYPES})
     if v.get("delta"):  # -- static_other sweep (wave 16B) -- "draws that many cards plus / minus one"
         return max(0, len(found) + int(v["delta"]))
     if v.get("max_by") == "owner":

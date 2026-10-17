@@ -1003,6 +1003,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
     return out
 
 
+_ENTERS_WITH_IF = re.compile(r"if an? (?P<sel>[A-Z][a-z]+) enters this way, it enters with an additional \+1/\+1 counter on it")
 _FOR_EACH_LEADING = re.compile(r"^for each (?P<what>[^,]+), (?:you (?=create |draw |put ))?(?P<rest>[^,]+)$")
 # -- attached events (wave 30S) -- "for each Aura and Equipment attached to ~, create a 3/1 … token" (Valduk): the count of what is attached
 _ATTACHED_WHAT = re.compile(r"(?:Auras?|Equipment|Curses?)(?: and (?:Auras?|Equipment))?(?: you control)? attached to (?:~|it|him|her|them)")
@@ -2372,6 +2373,7 @@ def _split_tails(body: str, event_player: bool) -> str:
         return f"{m['first']}. ~ {_DEFENDER}."
     body = _OWNER_SHUFFLES.sub(lambda m: f"{m[1]}Shuffle ~ into its owner's library. Its owner draws {m[2]}", body)
     body = _YOU_ADD.sub(r"Add \1", body)  # "You add {R}." (Red Death, Shipwrecker) is "Add {R}."
+    body = re.sub(r"\bthat player reveals the chosen card, puts it on the bottom", "that player reveals and puts it on the bottom", body)  # (wave 44A: Vendilion Clique, language._PLAYER_LIBRARY)
     body = _EACH_RETURNS.sub(lambda m: f"Return all {m['x'].replace(' and all ', ' or ')} cards from all graveyards to "
                              + ("the battlefield under their owners' control" if m["d"] == "the battlefield" else "their owners' hands"), body)
     # "Goad target creature an opponent controls. That player draws a card.": the opponent named is the creature's controller (no event names a player here)
@@ -3104,6 +3106,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         if text.startswith("you may exile ") and not effects and (imprint := _exiled_with.imprint(text)) is not None:
             effects += imprint  # -- copied abilities (wave 18F) -- "Imprint — … you may exile an instant card from your hand."
+            continue
+        if effects and effects[-1].get("do") == "return_card" and effects[-1].get("to") == "battlefield" and not effects[-1].get("counter") \
+                and (hero := _ENTERS_WITH_IF.fullmatch(text)) is not None and (kind := selectors.parse(f"{hero['sel']} card")) is not None:
+            effects[-1] = {**effects[-1], "counter": "+1/+1", "counter_if": kind.key()}  # -- if you do (wave 44A) -- "If a Hero enters this way, it enters with an additional +1/+1 counter" (122.6)
             continue
         # -- unless pays (wave 4C) -- the riders of "Counter target spell unless its controller pays …" (608.2c, 118.12)
         if (rider := _unless_rider(text, effects, prev_start)) is not None:

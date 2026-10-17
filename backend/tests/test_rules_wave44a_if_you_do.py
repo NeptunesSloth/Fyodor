@@ -18,6 +18,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
+from app.game.visibility import SPECTATOR
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, zone
@@ -32,7 +33,8 @@ ETALI, SUSPICION = "Etali, Primal Conqueror // Etali, Primal Sickness", "Fevered
 OOL, SCAR = "Auntie Ool, Cursewretch", "Scar"
 EMIEL, UNICORN = "Emiel the Blessed", "Pearled Unicorn"
 RUFUS = "Rufus Shinra"
-FULL = [ETALI, SUSPICION, OOL, EMIEL, RUFUS, "The Gitrog, Ravenous Ride", "Akuta, Born of Ash", "Dihada, Binder of Wills", "Blex, Vexing Pest // Search for Blex"]
+FULL = [ETALI, SUSPICION, OOL, EMIEL, RUFUS, "The Gitrog, Ravenous Ride", "Akuta, Born of Ash", "Dihada, Binder of Wills", "Blex, Vexing Pest // Search for Blex",
+        "Kefka, Court Mage // Kefka, Ruler of Ruin", "Winter Soldier, Reborn Avenger", "Vendilion Clique"]
 
 
 @pytest.fixture()
@@ -407,6 +409,110 @@ def test_blex_search_loses_no_life_when_no_card_is_taken(cards):
     pass_until_stack_empty(s)
     choose(s, [], resolve=True)
     assert all(s.state.cards[c].zone == "p1:graveyard" for c in top) and life(s) == 40
+    check(s)
+
+
+# ---- "each player discards a card. Then you draw a card for each card type among cards discarded this way" (Kefka, Court Mage) ----------------------------
+KEFKA = "Kefka, Court Mage // Kefka, Ruler of Ruin"
+
+
+def kefka_discards(s, mine, theirs):
+    """Cast Kefka with ``mine`` as Alice's only other card in hand and ``theirs`` as Bob's only card: each discards it."""
+    to_hand(s, KEFKA)
+    to_hand(s, mine)
+    to_hand(s, theirs, "p2")
+    mana(s, U=1, B=1, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, KEFKA).id)
+    pass_until_stack_empty(s)
+    assert s.state.rules.decision is None  # (one card in each hand: nothing to choose)
+
+
+def test_kefka_draws_a_card_for_each_different_card_type_discarded(cards):
+    s = build(cards, [KEFKA, "Lightning Bolt"], ["Grizzly Bears"])
+    kefka_discards(s, "Lightning Bolt", "Grizzly Bears")  # an instant and a creature: two types
+    assert len(zone(s.state, "p1", "hand")) == 2  # (Kefka cast, Bolt discarded: a hand of the two cards drawn)
+    check(s)
+
+
+def test_kefka_draws_one_card_when_both_discards_share_a_type(cards):
+    s = build(cards, [KEFKA, "Grizzly Bears"], ["Young Wolf"])
+    kefka_discards(s, "Grizzly Bears", "Young Wolf")  # two creatures: one type
+    assert len(zone(s.state, "p1", "hand")) == 1
+    check(s)
+
+
+# ---- "If a Hero enters this way, it enters with an additional +1/+1 counter on it" (Winter Soldier, Reborn Avenger) --------------------------------------
+SOLDIER, BUCKY = "Winter Soldier, Reborn Avenger", "Winter Soldier, Bucky Barnes"
+
+
+def soldier_returns(s, name):
+    """Winter Soldier attacks on Alice's second turn with ``name`` (a creature card) in her graveyard: it is the target of the attack trigger."""
+    act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"zone": "graveyard"})
+    soldier = put(s, SOLDIER)
+    run_until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": soldier.id, "target": "p2"}])
+    d = s.state.rules.decision
+    if d is not None:
+        choose(s, [card_named(s, name).id])
+    pass_until_stack_empty(s)
+
+
+def test_winter_soldier_returns_a_hero_with_an_additional_counter(cards):
+    s = build(cards, [SOLDIER, BUCKY], [])
+    soldier_returns(s, BUCKY)
+    assert zone_of(s, BUCKY) == "p1:battlefield" and counters_on(s, BUCKY) == 1
+    check(s)
+
+
+def test_winter_soldier_returns_another_creature_without_a_counter(cards):
+    s = build(cards, [SOLDIER, "Grizzly Bears"], [])
+    soldier_returns(s, "Grizzly Bears")
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield" and counters_on(s, "Grizzly Bears") == 0
+    check(s)
+
+
+# ---- "look at target player's hand. You may choose a nonland card from it. If you do, that player reveals the chosen card, puts it on the bottom of their
+# library, then draws a card" (Vendilion Clique) ------------------------------------------------------------------------------------------------------
+CLIQUE = "Vendilion Clique"
+
+
+def clique_looks(s):
+    """Bob holds Lightning Bolt and an Island; Alice casts Clique at him and stops at her choice."""
+    bolt, island = to_hand(s, "Lightning Bolt", "p2"), to_hand(s, "Island", "p2")
+    to_hand(s, CLIQUE)
+    mana(s, U=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, CLIQUE).id)
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    if d is not None and d.kind != "choose_cards":  # (the trigger's target player)
+        choose(s, ["p2"])
+        pass_until_stack_empty(s)
+    return bolt, island
+
+
+def test_clique_puts_the_chosen_card_on_the_bottom_and_its_owner_draws(cards):
+    s = build(cards, [CLIQUE], ["Lightning Bolt"])
+    bolt, island = clique_looks(s)
+    d = decision(s)
+    assert [o.id for o in d.options] == [bolt.id]  # (the Island is a land)
+    top = zone(s.state, "p2", "library")[0]
+    choose(s, [bolt.id], resolve=True)
+    assert zone(s.state, "p2", "library")[-1] == bolt.id and s.state.cards[top].zone == "p2:hand" and s.state.cards[island.id].zone == "p2:hand"
+    assert any(" revealed " in (p.get("t") or "") for e in s.view(SPECTATOR)["log"] for p in e["parts"])  # (701.20a: shown to everyone before it goes down)
+    check(s)
+
+
+def test_clique_does_nothing_when_no_card_is_chosen(cards):
+    s = build(cards, [CLIQUE], ["Lightning Bolt"])
+    bolt, island = clique_looks(s)
+    before = len(zone(s.state, "p2", "hand"))
+    choose(s, [], resolve=True)
+    assert s.state.cards[bolt.id].zone == "p2:hand" and len(zone(s.state, "p2", "hand")) == before  # (no draw for Bob)
     check(s)
 
 

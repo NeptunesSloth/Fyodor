@@ -2409,8 +2409,9 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
                 "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
                 **({"transformed": True} if e.get("transformed") else {}),  # (-- transform, wave 11A -- 712.14a)
-                **({"counter": e["counter"]} if e.get("counter") else {}),
-                **({"counter_n": e["counter_n"]} if e.get("counter_n") else {})} for cid in cards]  # (counters it enters with, 122.6; n: wave 4M)
+                **({"counter": e["counter"]} if e.get("counter") and (not e.get("counter_if") or selectors.matches(
+                    plan, selectors.from_key(e["counter_if"]), plan.state.cards[cid], plan.ch(plan.state.cards[cid]), ctx["controller"])) else {}),
+                **({"counter_n": e["counter_n"]} if e.get("counter_n") else {})} for cid in cards]  # (counters it enters with, 122.6; n: wave 4M; counter_if: wave 44A)
     nxt = ctx["effects"][ctx["next"]] if e.get("as") and 0 <= ctx.get("next", -1) < len(ctx.get("effects") or ()) else {}
     if nxt.get("do") == "become" and nxt.get("lose_abilities") and nxt.get("who") == f"ref:{e['as']}" and nxt.get("duration") == "permanent":
         # -- review 35 -- "Return target creature card … to the battlefield. It's a Skeleton … and has no abilities." (Xu-Ifit, ruling 2025-07-25): it has
@@ -2909,6 +2910,9 @@ def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards = _cards(plan, ctx, e["who"])
     before = _remember(plan, ctx, e, cards)
     owners = {plan.state.cards[c].owner for c in cards}
+    for cid in cards if e.get("reveal") else ():  # -- if you do (wave 44A) -- 701.20a: "that player reveals the chosen card, puts it on the bottom" (Vendilion Clique): shown to everyone first
+        if plan.state.cards[cid].zone.endswith(":hand"):
+            plan.do({"type": "reveal", "card_ids": [cid]}, actor=plan.state.cards[cid].owner)
     if e["place"] == "shuffle":
         for cid in cards:
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"}},

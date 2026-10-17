@@ -1074,7 +1074,7 @@ _NTH_FROM_TOP = re.compile(rf"put (?P<o>.+?) into {_OWNERS} library (?P<nth>seco
 _SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
 # (the player whose card was chosen from the revealed hand: the card goes to its owner's library, 401.3 / 701.24)
 _PLAYER_LIBRARY = re.compile(r"that player (?:shuffles (?:that card|it) into their library|puts (?:that card|it) into their library "
-                             r"(?P<nth>second|third|fourth|fifth|sixth|seventh) from the top)")
+                             r"(?P<nth>second|third|fourth|fifth|sixth|seventh) from the top|(?P<bottom>(?P<rev>reveals and )?puts (?:that card|it) on the bottom of their library))")
 _OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that permanent's) owner shuffles it into their library")
 # -- static_other sweep (wave 17C) -- "The owner of target creature or enchantment puts it into their library second from the top or on the
 # bottom." (Lost Days, Temporal Cleansing): its owner's choice between the two places; "The owner of target artifact or enchantment an
@@ -1365,8 +1365,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "to_library", "who": "self" if m["o"] == "~'s" else "it", "place": "shuffle"}], None
     m = _PLAYER_LIBRARY.fullmatch(text)  # -- static_other sweep (wave 26A) -- "That player shuffles that card into their library." (Perish the Thought)
     if m:
-        where: int | str = ("second", "third", "fourth", "fifth", "sixth", "seventh").index(m["nth"]) + 2 if m["nth"] else "shuffle"
-        return [{"do": "to_library", "who": "it", "place": where}], None
+        where: int | str = ("second", "third", "fourth", "fifth", "sixth", "seventh").index(m["nth"]) + 2 if m["nth"] else "bottom" if m["bottom"] else "shuffle"  # (bottom: wave 44A, Vendilion Clique)
+        return [{"do": "to_library", "who": "it", "place": where, **({"reveal": True} if m["rev"] else {})}], None
     m = _OWNER_CHOICE.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"] or m["o2"])
