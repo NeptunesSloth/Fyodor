@@ -273,6 +273,13 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                         m = re.fullmatch(r"bloodthirst (\d+)", ab.text.strip().rstrip(".").lower())
                         if m:
                             counters["+1/+1"] = counters.get("+1/+1", 0) + int(m.group(1))
+        for ab in ch.abilities:  # -- random choices (wave 47B) -- 702.54b bloodthirst X: the total damage your opponents have been dealt this turn (Indoraptor ruling 2023-11-10: by any source)
+            if ab.kind == "keywords" and "bloodthirst" in ab.keywords and ab.text.strip().rstrip(".").lower() == "bloodthirst x":
+                from app.rules import history
+
+                dealt = sum(f.amount for f in history.log_for(plan).facts if f.kind == "damage" and f.player != controller)
+                if dealt:
+                    counters["+1/+1"] = counters.get("+1/+1", 0) + dealt
         for ab in ch.abilities:  # -- keyword pieces (wave 8A) -- 702.43a modular N: "This permanent enters with N +1/+1 counters"
             for kw in ("modular", "graft"):  # (-- keyword mechanics (wave 9D) -- 702.58a graft N: the same)
                 if ab.kind == "keywords" and kw in ab.keywords:

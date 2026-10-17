@@ -72,6 +72,7 @@ PLAYER_GROUPS.update({f"{the} {kind}'s controller": "it.controller" for the in (
 # "~ deals 3 damage to target player or planeswalker. That player or that planeswalker's controller discards two cards."
 # (Blightning): the target player, or the target planeswalker's controller (app/rules/effects._players)
 PLAYER_GROUPS["that player or that planeswalker's controller"] = "target_player_or_controller"
+PLAYER_GROUPS["an opponent chosen at random"] = "random_opponent"  # -- random choices (wave 47B) -- app/rules/random_choice.py (scripts: the pick is made right before it)
 PLAYER_GROUPS["the exiled card's owner"] = "it.owner"  # -- resolution memory (wave 22D) -- 607.2a (exiled_with.linked_cards binds the card)
 # "Whenever ~ blocks or becomes blocked by a creature, ~ deals 3 damage to that creature and 3 damage to that creature's
 # controller" (Assembled Alphas): the creature on the other side of the block (509.3c-d; the trigger event's ``other``)
@@ -100,7 +101,7 @@ def _qty(word: str) -> int:
 def simple(group: dict[str, Any]) -> bool:
     """One "target [something]" with exactly one target: what definitions write as "target"."""
     return (group["min"], group["max"]) == (1, 1) and not ({"divide", "another", "distinct_from", "same_graveyard", "total", "different",
-                                                            "kicked", "opponent_group"} & set(group))  # -- kicked / instead (wave 4G) -- ("kicked"; wave 23A: a group for each opponent, per_opponent.FLAG)
+                                                            "kicked", "opponent_group", "random"} & set(group))  # (random: wave 47B) -- kicked / instead (wave 4G) -- ("kicked"; wave 23A: a group for each opponent, per_opponent.FLAG)
 
 
 def target_group(phrase: str) -> dict[str, Any] | None:
@@ -110,6 +111,9 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     carries "another": its selector without "another" (scripts: when an earlier target of the
     same ability exists, "another" means distinct from it). None if it isn't a target phrase."""
     p = phrase.strip()
+    if (p.startswith("target ") or p == "any target chosen at random") and p.endswith(" chosen at random"):  # -- random choices (wave 47B) -- "target opponent chosen at random": a target all the same (115.1), but the table
+        one = target_group(p[:-len(" chosen at random")])  # picks it as the ability goes on the stack (Scab-Clan Giant ruling 2013-04-15): each legal target equally likely
+        return {**one, "random": True} if one is not None and one["min"] == one["max"] == 1 and "another" not in one else None
     if p in _LEGACY_TARGETS:
         return {"what": _LEGACY_TARGETS[p], "min": 1, "max": 1}
     if m := _OPP_AS_ACTIVATED.fullmatch(p):  # -- activated other (wave 21E) -- (targets.legal_targets: only as it is chosen)
@@ -314,6 +318,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
     if p in ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact") \
             or re.fullmatch(r"enchanted (?:Plains|Island|Swamp|Mountain|Forest)", p):  # (wave 25D: the Genju: "Enchant Forest")
         return "host", "", None  # what the source Aura / Equipment is attached to
+    if p == "your Ring-bearer":  # -- random choices (wave 47B) -- 701.54a: the creature the Ring chose for its controller, if it still is (effects._cards)
+        return "each", "ring_bearer", None
     if p in PLAYER_GROUPS:
         return "players", PLAYER_GROUPS[p], None
     group = target_group(p)

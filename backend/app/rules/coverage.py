@@ -103,6 +103,8 @@ def modal_supported(d: dict[str, Any]) -> bool:
 
 def definition_supported(d: dict[str, Any]) -> bool:
     """A replacement / prevention definition is automated only when its kind is listed above."""
+    if any(isinstance(g, dict) and g.get("random") for g in d.get("targets") or []) and len(d["targets"]) != 1:
+        return False  # -- random choices (wave 47B) -- "target … chosen at random" is read as the ability's only target group (the pick is made as the targets are chosen, not between questions)
     if d.get("kind") == "mode" or (d.get("modes") and d.get("kind") in ("triggered", "activated")):
         return modal_supported(d)  # (wave 1A) a modal triggered / activated ability
     # -- reanimation (wave 3R) -- "return this card from your graveyard": only an activated ability works from
@@ -501,7 +503,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
         mine = [p for p in pieces if p.startswith(kw)]
         return bool(mine) and all(re.fullmatch(rf"{kw} \d+", p) for p in mine)
     if kw in ("bloodthirst", "toxic", "fabricate", "firebending", "dredge"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
-        return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
+        return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None or (  # (-- random choices (wave 47B) -- 702.54b "Bloodthirst X": replacements.entering_counters)
+            kw == "bloodthirst" and line.strip().rstrip(".").lower() == "bloodthirst x")
     if kw == "plot":  # -- keywords (wave 15E) -- casting.plot: a mana plot cost
         return re.fullmatch(r"plot (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
