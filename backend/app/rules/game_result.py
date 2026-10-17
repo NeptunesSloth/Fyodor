@@ -27,6 +27,8 @@ _TEXT = re.compile(r"^You can't (?P<a>lose|win) the game and your opponents can'
 
 
 def static_definition(text: str) -> dict[str, Any] | None:
+    if text.strip() == "You don't lose the game for having 0 or less life.":  # -- most-played cards III (wave 46C) -- read by ``zero_life_ok``
+        return {"kind": "static", "static": KIND, "you": "zero_life", "opponents": None, "effects": []}
     if text.strip() == "You can't lose the game.":  # -- prohibitions (wave 22B) -- Lich's Mastery: only its controller
         return {"kind": "static", "static": KIND, "you": "lose", "opponents": None, "effects": []}
     m = _TEXT.match(text.strip())
@@ -60,6 +62,23 @@ def cannot_lose(plan: Plan, player: str) -> bool:
 
 def cannot_win(plan: Plan, player: str) -> bool:
     return _stops(plan, player, "win")
+
+
+def zero_life_ok(plan: Plan, player: str) -> bool:
+    """-- most-played cards III (wave 46C) -- 704.5a: "You don't lose the game for having 0 or less life." (Marina Vendrell's Grimoire): the state-based action does
+    nothing to the controller of the permanent (any other reason to lose still does)."""
+    from app.rules import scripts
+    from app.rules.replace import conditional_lines
+
+    for c in plan.state.cards.values():
+        if c.controller != player or not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
+            continue
+        ch = plan.ch(c)
+        skip = conditional_lines(ch)
+        if any(i not in skip and d.get("kind") == "static" and (d.get("zero_life") or (d.get("static") == KIND and d.get("you") == "zero_life"))
+               for i, d in scripts.definitions(ch).items()):
+            return True
+    return False
 
 
 # -- resolved effects (wave 22B) -- "You can't lose the game this turn and your opponents can't win the game this turn." (Angel's Grace),
