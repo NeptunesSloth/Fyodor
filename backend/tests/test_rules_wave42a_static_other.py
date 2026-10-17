@@ -558,6 +558,33 @@ def test_mana_for_a_spell_from_anywhere_other_than_your_hand(cards, zone, ok):
     assert casting.spend_allowed(kind, None) is False  # (not for a cost that is no spell's)
 
 
+def test_mmenon_gives_an_artifact_mana_that_cannot_pay_for_a_spell_cast_from_the_hand(cards):
+    s = build(cards, ["Mm'menon, the Right Hand", "Sol Ring", "Divination"], forests=30)
+    put(s, "Mm'menon, the Right Hand")
+    ring = put(s, "Sol Ring")
+    index = next(a.index for a in ch(s, "Sol Ring").abilities if "Add {U}" in a.text)  # the granted mana ability (layer 6)
+    div = to_hand(s, "Divination")
+    act(s, "p1", type="activate_ability", card_id=ring.id, ability=index)
+    mana(s, "p1", C=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=div.id)  # {2}{U}: the {U} may not be spent on a spell cast from the hand (601.2a)
+    assert zone_of(s, "Divination") == "p1:hand"
+    check(s)
+
+
+# -- "creature card with no abilities" (Fang-Druid Summoner, Rise from the Wreck, Ruxa): a card in a zone other than the battlefield has the abilities of its rules text
+def test_a_creature_card_with_no_abilities_is_found_among_the_cards_with_abilities(cards):
+    from app.rules import selectors
+
+    s = build(cards, ["Grizzly Bears", "Elvish Mystic"], forests=20)
+    sel = selectors.parse("creature card with no abilities in your library")
+    assert sel is not None
+    view = Plan(s.state, "p1", s.cards, None)
+    bears, mystic = card_named(s, "Grizzly Bears"), card_named(s, "Elvish Mystic")
+    assert selectors.matches(view, sel, bears, view.ch(bears), "p1", None) and not selectors.matches(view, sel, mystic, view.ch(mystic), "p1", None)
+    check(s)
+
+
 # -- Wirecat / Technodrome: "This creature can't attack or block if an enchantment is on the battlefield." / "... unless its power is 6 or greater." ---------
 def copies_in(s, name, n, pid="p1"):
     cs = [c for c in s.state.cards.values() if c.name == name and c.owner == pid and not c.zone.endswith(":battlefield")][:n]
