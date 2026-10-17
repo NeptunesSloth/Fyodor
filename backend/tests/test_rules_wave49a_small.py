@@ -25,12 +25,13 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import settle, stops, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
+from tests.wave43b_kit import on_top
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave49a_small_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w49a", number=f"B{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-FULL = ["Stormwing Entity", "Even the Score", "Discontinuity", "Brush Off", "Consuming Ashes", "Exile", "Barren Glory"]
+FULL = ["Stormwing Entity", "Even the Score", "Discontinuity", "Brush Off", "Consuming Ashes", "Exile", "Barren Glory", "Destroy the Evidence", "Regenerate"]
 
 
 @pytest.fixture()
@@ -181,6 +182,20 @@ def test_exile_exiles_a_nonwhite_attacker_and_gains_its_toughness(cards):
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Exile").id, targets=[bears.id])
     settle(s)
     assert s.state.cards[bears.id].zone == "p2:exile" and life(s, "p1") == 42
+    check(s)
+
+
+def test_destroy_the_evidence_reads_destroy_as_the_verb_not_its_name(cards):
+    """"Destroy target land. Its controller reveals cards from the top of their library until they reveal a land card, then puts those cards into their graveyard." - the
+    card is named for its first word, which is the verb here (and so is the card Regenerate's)."""
+    s = build(cards, ["Destroy the Evidence"], ["Grizzly Bears"])
+    island = put(s, "Island", "p2")
+    bears = on_top(s, "Grizzly Bears", "p2")
+    mana(s, B=1, C=4)
+    cast(s, "Destroy the Evidence", targets=[island.id])
+    settle(s)
+    assert s.state.cards[island.id].zone == "p2:graveyard" and s.state.cards[bears.id].zone == "p2:graveyard"  # Bears, then the next land (an Island)
+    assert len(s.state.zones["p2:graveyard"]) == 3
     check(s)
 
 
