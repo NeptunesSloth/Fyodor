@@ -15,6 +15,7 @@ Every scenario checks the replay and a save and a load.
   the greatest power or is tied for greatest power among creatures on the battlefield" (Strength-Testing Hammer). "Each opponent chooses a creature with the greatest mana value among
   creatures they control" (Summon: Valefor) stays manual: the extreme is among the chooser's own creatures.
 * 506.4: "Untap target nonattacking creature. It gets +1/+3 until end of turn." (Alarum), "Target nonattacking, nonblocking creature gets +0/+2 until end of turn." (Unlikely Alliance).
+* 508.1, 510.1: "Whenever this creature attacks and isn't blocked, it assigns no combat damage this turn and defending player loses 2 life." (Keeper of Tresserhorn, Lim-Dul's Paladin).
 * 118.12: "At the beginning of your upkeep, sacrifice this creature unless you mill two cards." (Deep Spawn) - the payment is the controller's choice.
 * 602.2: "{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target." (Granite Shard and the other Shards) - the ability may be paid either way, not both (the rulings).
 * 702.129a: "Eternalize—{2}{W}{W}, Discard a card." (Sunscourge Champion, Sinuous Striker) - the keyword's cost has a second part, a discard from the hand (the card with
@@ -466,4 +467,16 @@ def test_unlikely_alliance_needs_a_creature_that_neither_attacks_nor_blocks(card
     act(s, "p1", type="activate_ability", card_id=alliance.id, ability=0, targets=[bears.id])
     settle(s)
     assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bears.id]).pt == (2, 4)
+    check(s)
+
+
+def test_an_unblocked_attacker_assigns_no_combat_damage_and_the_defender_loses_life(cards):
+    """Lim-D\u00fbl's Paladin has the same sentence (4 life) but an upkeep cost of its own, so Keeper of Tresserhorn shows it."""
+    s = build(cards, ["Keeper of Tresserhorn"])
+    attacker = put(s, "Keeper of Tresserhorn")
+    to_phase(s, "main1", turn=3)
+    stops(s)
+    attack(s, attacker)
+    to_phase(s, "main2")
+    assert life(s, "p2") == 38  # (the power it would have dealt is not assigned)
     check(s)

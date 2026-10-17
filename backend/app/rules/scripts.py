@@ -2226,6 +2226,9 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
         left, right = _one_clause(f"{selfdmg['s']} {selfdmg['a']}"), _one_clause(f"~ deals {selfdmg['d']}")
         if left is not None and right is not None and left[1] is None and right[1] is None:
             return left[0] + right[0], None
+    # -- combat (wave 49C) -- "it assigns no combat damage this turn and defending player loses 4 life." (Lim-Dûl's Paladin): two instructions in order (608.2c)
+    if (both := re.fullmatch(r"(?P<a>(?:it|~|this creature) assigns no combat damage this turn) and (?P<b>defending player loses \d+ life)", text)) is not None:
+        return _clause(f"{both['a']}, then {both['b']}", may_ok)
     # -- if you do (wave 40A) -- "~ gets +2/+1 and creatures you control gain haste until end of turn" (Moku): two subjects, one duration (611.2a: each
     # effect lasts until end of turn) — the pump, then the group's grant, each with the duration (608.2c)
     if (duo := re.fullmatch(r"(?P<s>~|this creature) gets (?P<pt>[+−-]\d+/[+−-]\d+) and (?P<g>(?:other )?creatures [^.,\"]+? (?:gain|have) [^.,\"]+?) until end of turn",
