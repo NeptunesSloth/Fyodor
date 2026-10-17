@@ -23,7 +23,7 @@ from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import pass_until_stack_empty
-from tests.test_rules_wave34b_activated import ability, next_turn, stops, to_phase
+from tests.test_rules_wave34b_activated import next_turn, stops, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave44d_cards.json").read_text("utf-8"))
@@ -355,12 +355,13 @@ def to_hand_n(s, n, pid="p1"):
     return ids
 
 
-def settle_all(s):
-    """Answer what is asked with the first option and let the stack resolve (never passing into another step)."""
+def settle_all(s, no=False):
+    """Answer what is asked with the first option ("no" to a yes-or-no question when ``no``) and let the stack resolve (never passing into another step)."""
     for _ in range(20):
         d = s.state.rules.decision
         if d is not None:
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+            ids = ["no"] if no and d.kind == "confirm" else [o.id for o in d.options][: max(1, d.min_choices)]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
         elif s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
         else:
@@ -599,12 +600,7 @@ def test_azula_gets_an_experience_counter_for_the_player_who_discarded(cards):
 
 def test_azula_gets_none_when_nobody_discarded(cards):
     s = azula_attacks(cards)
-    for _ in range(10):
-        d = s.state.rules.decision
-        if d is None:
-            break
-        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options] if d.kind == "order" else [])  # (order both, decline the discard)
-    pass_until_stack_empty(s)
+    settle_all(s, no=True)
     assert exp(s) == 0 and not s.state.zones["p1:graveyard"]
     check(s)
 
@@ -701,4 +697,23 @@ def test_thryx_makes_spells_with_mana_value_5_or_more_cheaper_and_uncounterable(
 def test_thryx_does_not_protect_a_spell_of_lower_mana_value(cards):
     s, giant = thryx_casts(cards, "Hill Giant", {"R": 1, "C": 3})  # mana value 4: in full, and a counterspell works
     assert s.state.cards[giant.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_azula_counts_a_player_who_discarded_earlier_in_the_turn_even_when_she_declines(cards):
+    s = build(cards, [AZULA, "Mind Rot"], [])
+    az = put(s, AZULA)
+    next_turn(s)
+    to_hand_n(s, 1)
+    to_hand_n(s, 2, "p2")
+    bob = len(s.state.zones["p2:hand"])
+    mana(s, B=1, C=2)
+    cast(s, "Mind Rot", targets=["p2"])  # Bob discards two cards
+    settle_all(s)
+    assert len(s.state.zones["p2:hand"]) == bob - 2
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": az.id, "target": "p2"}])
+    settle_all(s, no=True)
+    assert exp(s) == 1 and len(s.state.zones["p1:hand"]) >= 1  # (Bob's discard counts; Alice kept hers)
     check(s)
