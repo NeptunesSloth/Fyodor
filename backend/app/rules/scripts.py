@@ -4511,7 +4511,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # shield counter on ~, you and other Heroes you control have hexproof." (Captain America): the static ability the rest of the sentence is, applying only
 # while the condition holds. Tried last, so it never reads what a grammar above it reads; for the statics whose readers check ``static_if`` (replacement and
 # prevention effects: replace.static_candidates, replacements._static_records; the limits: cast_limits._statics; a player's hexproof: player_shields).
-_WHEN_KINDS = frozenset({"replace", "prevent", "cast_limit"})
+_WHEN_KINDS = frozenset({"replace", "prevent", "cast_limit", "first_alt"})
 
 
 def _conditional_static(ability: AbilityText, ch: Characteristics, text: str) -> Definition | None:
