@@ -179,7 +179,7 @@ class Plan:
         and types of any permanent when they differ from the printed ones (603.10a: abilities that
         trigger as it leaves look back at the abilities it had; 700.4: an animated land dies as a
         creature)."""
-        from app.rules import granted, keyword_actions  # (granted → plan for type hints only)
+        from app.rules import granted  # (granted → plan for type hints only)
 
         out: dict[str, tuple[Any, Any, Any, Any, Any, Any]] = {}
         for cid in payload.get("card_ids") or []:
@@ -187,7 +187,7 @@ class Plan:
             if card is not None and card.zone.endswith(":battlefield"):
                 now = self.ch(card)
                 abilities, keywords, traits = granted.last_existed(chars.of(card, self.info), now)
-                goaded = keyword_actions.goaded_by(now)  # -- goad (wave 48D) -- 701.15b, 608.2h: a goaded creature that dies was goaded as it last existed
+                goaded = {r[7:] for r in now.imposed if r.startswith("goaded:")}  # -- goad (wave 48D) -- (keyword_actions.GOADED, not imported: it would be a cycle for mypy) 701.15b, 608.2h: a goaded creature that dies was goaded as it last existed
                 if now.pt is not None or abilities is not None or keywords is not None or traits is not None or goaded:
                     out[self.oid(card)] = (now.pt, abilities, keywords, traits, now.base_pt, goaded)
         return out

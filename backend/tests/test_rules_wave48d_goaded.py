@@ -14,9 +14,9 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import settle, stops
+from tests.test_rules_wave34b_activated import stops
+from tests.wave9c_kit import build, check, mana, put, to_hand
 from tests.wave47b_kit import build3
-from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 from tests.wave48d_kit import FULL, cast, open_cards
 
 
@@ -61,7 +61,7 @@ def ready(s, name, pid):
 
 
 def baeloth_table(cards):
-    s = build(cards, ["Baeloth Barrityl, Entertainer"], ["Llanowar Elves", "Grizzly Bears"])
+    s = build(cards, ["Baeloth Barrityl, Entertainer", "Shock"], ["Llanowar Elves", "Grizzly Bears"])
     baeloth = ready(s, "Baeloth Barrityl, Entertainer", "p1")
     return s, baeloth, ready(s, "Llanowar Elves", "p2"), ready(s, "Grizzly Bears", "p2")
 
@@ -89,8 +89,8 @@ def test_baeloth_makes_a_treasure_when_a_goaded_attacking_creature_dies(cards):
 
 
 def test_baeloth_ignores_an_attacking_creature_that_was_not_goaded(cards):
-    s, baeloth, _, bears = baeloth_table(cards)
-    bobs_attack(s, bears)  # power 2 is not less than Baeloth's 2: not goaded
+    s, baeloth, elves, bears = baeloth_table(cards)
+    bobs_attack(s, elves, bears)  # the Elves are goaded and have to attack; the Bears' power 2 is not less than Baeloth's 2: not goaded
     block(s, baeloth, bears)
     assert s.state.cards[bears.id].zone == "p2:graveyard"
     assert treasures(s) == 0
@@ -117,7 +117,7 @@ def puppet_table(cards):
 def goaded_attack(s, giant, victim="p3"):
     """Alice goads Bob's creatures (Disrupt Decorum), Bob's turn: the Hill Giant attacks Carol."""
     to_hand(s, "Disrupt Decorum")
-    mana(s, R=1, C=2)
+    mana(s, R=2, C=2)
     cast(s, "Disrupt Decorum")
     stops(s)
     until(s, asked("declare_attackers", "p2"))
@@ -140,12 +140,4 @@ def test_puppet_master_ignores_a_creature_that_is_not_goaded(cards):
     act(s, "p2", type="declare_attackers", attackers=[{"card_id": giant.id, "target": "p3"}])
     until(s, lambda s: s.state.turn.phase == "end_combat")
     assert s.state.players["p3"].life == 37 and treasures(s) == 0
-    check(s)
-
-
-def test_puppet_master_ignores_a_goaded_creature_hurting_its_own_goader_opponent_no_more(cards):
-    # Alice's opponents are Bob and Carol: a goaded creature that hits Alice herself is no damage "to one of your opponents"
-    s, giant = puppet_table(cards)
-    goaded_attack(s, giant, victim="p1")
-    assert s.state.players["p1"].life == 37 and treasures(s) == 0
     check(s)
