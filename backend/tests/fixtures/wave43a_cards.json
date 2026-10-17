@@ -1,0 +1,815 @@
+[
+ {
+  "name": "Panharmonicon",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact",
+  "oracle_text": "If an artifact or creature entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Yarok, the Desecrated",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{G}{U}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Elemental Horror",
+  "oracle_text": "Deathtouch, lifelink\nIf a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+  "colors": [
+   "B",
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Lifelink",
+   "Deathtouch"
+  ],
+  "power": "3",
+  "toughness": "5"
+ },
+ {
+  "name": "Ancient Greenwarden",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "Reach (This creature can block creatures with flying.)\nYou may play lands from your graveyard.\nIf a land entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Reach"
+  ],
+  "power": "5",
+  "toughness": "7"
+ },
+ {
+  "name": "Elesh Norn, Mother of Machines",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Phyrexian Praetor",
+  "oracle_text": "Vigilance\nIf a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.\nPermanents entering don't cause abilities of permanents your opponents control to trigger.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "7"
+ },
+ {
+  "name": "Isshin, Two Heavens as One",
+  "layout": "normal",
+  "mana_cost": "{R}{W}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Samurai",
+  "oracle_text": "If a creature attacking causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+  "colors": [
+   "B",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Windcrag Siege",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{W}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "As this enchantment enters, choose Mardu or Jeskai.\n• Mardu — If a creature attacking causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.\n• Jeskai — At the beginning of your upkeep, create a 1/1 red Goblin creature token. It gains lifelink and haste until end of turn.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Wulfgar of Icewind Dale",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Barbarian",
+  "oracle_text": "Melee (Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)\nIf a creature you control attacking causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Melee"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Felix Five-Boots",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{G}{U}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Ooze Rogue",
+  "oracle_text": "Menace, ward {2}\nIf a creature you control dealing combat damage to a player causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+  "colors": [
+   "B",
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Menace",
+   "Ward"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Roaming Throne",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact Creature — Golem",
+  "oracle_text": "Ward {2}\nAs this creature enters, choose a creature type.\nThis creature is the chosen type in addition to its other types.\nIf a triggered ability of another creature you control of the chosen type triggers, it triggers an additional time.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Ward"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Echoes of Eternity",
+  "layout": "normal",
+  "mana_cost": "{3}{C}{C}{C}",
+  "cmc": 6.0,
+  "type_line": "Kindred Enchantment — Eldrazi",
+  "oracle_text": "If a triggered ability of a colorless spell you control or another colorless permanent you control triggers, that ability triggers an additional time.\nWhenever you cast a colorless spell, copy it. You may choose new targets for the copy. (A copy of a permanent spell becomes a token.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Cloud, Midgar Mercenary",
+  "layout": "normal",
+  "mana_cost": "{W}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Soldier Mercenary",
+  "oracle_text": "When Cloud enters, search your library for an Equipment card, reveal it, put it into your hand, then shuffle.\nAs long as Cloud is equipped, if a triggered ability of Cloud or an Equipment attached to it triggers, that ability triggers an additional time.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Wizard's Staff",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "Equipped creature has prowess. (Whenever its controller casts a noncreature spell, that creature gets +1/+1 until end of turn.)\nIf a triggered ability of equipped creature triggers, that ability triggers an additional time.\nEquip Wizard {1}\nEquip {3}",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "The Masamune",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Legendary Artifact — Equipment",
+  "oracle_text": "As long as equipped creature is attacking, it has first strike and must be blocked if able.\nEquipped creature has \"If a creature dying causes a triggered ability of this creature or an emblem you own to trigger, that ability triggers an additional time.\"\nEquip {2}",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Sanctum of All",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Enchantment — Shrine",
+  "oracle_text": "At the beginning of your upkeep, you may search your library and/or graveyard for a Shrine card and put it onto the battlefield. If you search your library this way, shuffle.\nIf a triggered ability of another Shrine you control triggers while you control six or more Shrines, that ability triggers an additional time.",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Naban, Dean of Iteration",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "If a Wizard you control entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Starfield Vocalist",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Bard",
+  "oracle_text": "If a permanent entering the battlefield causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.\nWarp {1}{U} (You may cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Warp"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Traveling Chocobo",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Bird",
+  "oracle_text": "You may look at the top card of your library any time.\nYou may play lands and cast Bird spells from the top of your library.\nIf a land or Bird you control entering the battlefield causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Virtue of Knowledge // Vantress Visions",
+  "layout": "adventure",
+  "mana_cost": "{4}{U} // {1}{U}",
+  "cmc": 5.0,
+  "type_line": "Enchantment // Instant — Adventure",
+  "oracle_text": "If a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.\n//\nCopy target activated or triggered ability you control. You may choose new targets for the copy.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "card_faces": [
+   {
+    "name": "Virtue of Knowledge",
+    "mana_cost": "{4}{U}",
+    "type_line": "Enchantment",
+    "oracle_text": "If a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time."
+   },
+   {
+    "name": "Vantress Visions",
+    "mana_cost": "{1}{U}",
+    "type_line": "Instant — Adventure",
+    "oracle_text": "Copy target activated or triggered ability you control. You may choose new targets for the copy."
+   }
+  ]
+ },
+ {
+  "name": "Hama Pashar, Ruin Seeker",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "Room abilities of dungeons you own trigger an additional time.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Dungeon Delver",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Enchantment — Background",
+  "oracle_text": "Commander creatures you own have \"Room abilities of dungeons you own trigger an additional time.\"",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Evolution Sage",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Elf Druid",
+  "oracle_text": "Landfall — Whenever a land you control enters, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Proliferate",
+   "Landfall"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Dwynen's Elite",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Elf Warrior",
+  "oracle_text": "When this creature enters, if you control another Elf, create a 1/1 green Elf Warrior creature token.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Welcoming Vampire",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Vampire",
+  "oracle_text": "Flying\nWhenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Staff of the Storyteller",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "When this artifact enters, create a 1/1 white Spirit creature token with flying.\nWhenever you create one or more creature tokens, put a story counter on this artifact.\n{W}, {T}, Remove a story counter from this artifact: Draw a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Gleam of Battle",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{W}",
+  "cmc": 6.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever a creature you control attacks, put a +1/+1 counter on it.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Thieving Magpie",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Bird",
+  "oracle_text": "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhenever this creature deals damage to an opponent, draw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Kozilek, Butcher of Truth",
+  "layout": "normal",
+  "mana_cost": "{10}",
+  "cmc": 10.0,
+  "type_line": "Legendary Creature — Eldrazi",
+  "oracle_text": "When you cast this spell, draw four cards.\nAnnihilator 4 (Whenever this creature attacks, defending player sacrifices four permanents of their choice.)\nWhen Kozilek is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Annihilator"
+  ],
+  "power": "12",
+  "toughness": "12"
+ },
+ {
+  "name": "Prossh, Skyraider of Kher",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{R}{G}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Dragon",
+  "oracle_text": "When you cast this spell, create X 0/1 red Kobold creature tokens named Kobolds of Kher Keep, where X is the amount of mana spent to cast it.\nFlying\nSacrifice another creature: Prossh gets +1/+0 until end of turn.",
+  "colors": [
+   "B",
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Sword of the Animist",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Legendary Artifact — Equipment",
+  "oracle_text": "Equipped creature gets +1/+1.\nWhenever equipped creature attacks, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\nEquip {2}",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Blood Artist",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Vampire",
+  "oracle_text": "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "1"
+ },
+ {
+  "name": "Gandalf the White",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Avatar Wizard",
+  "oracle_text": "Flash\nYou may cast legendary spells and artifact spells as though they had flash.\nIf a legendary permanent or an artifact entering or leaving the battlefield causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flash"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Elvish Visionary",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Elf Shaman",
+  "oracle_text": "When this creature enters, draw a card.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Soul Warden",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human Cleric",
+  "oracle_text": "Whenever another creature enters, you gain 1 life.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Perilous Myr",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact Creature — Phyrexian Myr",
+  "oracle_text": "When this creature dies, it deals 2 damage to any target.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Ghitu Journeymage",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "When this creature enters, if you control another Wizard, this creature deals 2 damage to each opponent.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Revenge of Ravens",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever a creature attacks you or a planeswalker you control, that creature's controller loses 1 life and you gain 1 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Eternal of Harsh Truths",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Zombie Cleric",
+  "oracle_text": "Afflict 2 (Whenever this creature becomes blocked, defending player loses 2 life.)\nWhenever this creature attacks and isn't blocked, draw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Afflict"
+  ],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Honden of Cleansing Fire",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Enchantment — Shrine",
+  "oracle_text": "At the beginning of your upkeep, you gain 2 life for each Shrine you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Sanctum of Tranquil Light",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Legendary Enchantment — Shrine",
+  "oracle_text": "{5}{W}: Tap target creature. This ability costs {1} less to activate for each Shrine you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Go-Shintai of Hidden Cruelty",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Enchantment Creature — Shrine",
+  "oracle_text": "Deathtouch\nAt the beginning of your end step, you may pay {1}. When you do, destroy target creature with toughness X or less, where X is the number of Shrines you control.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Deathtouch"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Go-Shintai of Shared Purpose",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Enchantment Creature — Shrine",
+  "oracle_text": "Vigilance\nAt the beginning of your end step, you may pay {1}. If you do, create a 1/1 colorless Spirit creature token for each Shrine you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Go-Shintai of Lost Wisdom",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Enchantment Creature — Shrine",
+  "oracle_text": "Flying\nAt the beginning of your end step, you may pay {1}. When you do, target player mills X cards, where X is the number of Shrines you control. (To mill a card, a player puts the top card of their library into their graveyard.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Mill"
+  ],
+  "power": "0",
+  "toughness": "4"
+ },
+ {
+  "name": "Nadaar, Selfless Paladin",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Dragon Knight",
+  "oracle_text": "Vigilance\nWhenever Nadaar enters or attacks, venture into the dungeon. (Enter the first room or advance to the next room.)\nOther creatures you control get +1/+1 as long as you've completed a dungeon.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Vigilance",
+   "Venture into the dungeon"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Solemn Simulacrum",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact Creature — Golem",
+  "oracle_text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Skullclamp",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "Equipped creature gets +1/-1.\nWhenever equipped creature dies, draw two cards.\nEquip {1}",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Akrasan Squire",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human Soldier",
+  "oracle_text": "Exalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Exalted"
+  ],
+  "power": "1",
+  "toughness": "1"
+ }
+]
