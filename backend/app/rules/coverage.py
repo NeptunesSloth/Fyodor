@@ -138,8 +138,8 @@ def definition_supported(d: dict[str, Any]) -> bool:
 # initiative (726), venture into the dungeon (701.49, 309) and the Ring tempts you (701.54) are carried out
 # by app/rules/designations.py. A card that ventures (or takes the initiative: 726.2 ventures into Undercity)
 # is carried out, but it is FULL only while every room it may lead into is automated too
-# (designations.room_definition; an "engine:dungeon" feature otherwise): goad (Undercity's Arena), Oubliette,
-# Mad Wizard's Lair and Throne of the Dead Three are resolved by hand.
+# (designations.room_definition; an "engine:dungeon" feature otherwise); every room of the four dungeons is automated (wave 45B: Undercity's
+# Arena, goad).
 def counters_designations_gap(d: dict[str, Any]) -> str | None:
     from app.rules import designations
 
@@ -182,6 +182,7 @@ SUPPORTED_REPLACE_OPS["draw_count"] = frozenset({"add", "each_one"})  # 121.2a: 
 SUPPORTED_REPLACE_OPS["life_loss"] = frozenset({"mul", "floor"})  # 119.3: Bloodletter of Aclazotz (app/rules/replace.py lose_life); floor: wave 35C
 SUPPORTED_REPLACEMENTS |= {
     "enters_tapped_others",  # 614.1d, 614.12: "Creatures your opponents control enter tapped."
+    "enters_untapped_others",  # 614.1d: "Lands you control enter untapped." (wave 45A)
     "exile_if_dies",  # "If that creature / a creature dealt damage this way would die this turn, exile it instead." (611.2a)
 }
 
@@ -196,8 +197,8 @@ def stage2_supported(d: dict[str, Any]) -> bool | None:
 
             return draw_bodies.supported(op.get("effects") or [])
         return op.get("do") in SUPPORTED_REPLACE_OPS.get(str(d.get("event")), frozenset())
-    if d.get("kind") == "static" and d.get("static") == "enters_tapped_others":
-        return "enters_tapped_others" in SUPPORTED_REPLACEMENTS
+    if d.get("kind") == "static" and d.get("static") in ("enters_tapped_others", "enters_untapped_others"):
+        return str(d["static"]) in SUPPORTED_REPLACEMENTS
     effects = d.get("effects") or []
     if any(e.get("do") == "exile_if_dies" for e in effects) and "exile_if_dies" not in SUPPORTED_REPLACEMENTS:
         return False
@@ -256,6 +257,7 @@ SUPPORTED_KEYWORDS: set[str] = {
 # precombat main phase, chapter abilities (a chapter line is automated when its effect parses: it is a
 # template), the 714.4 sacrifice; read ahead (702.155): the number chosen as it enters, skipped chapters.
 SUPPORTED_KEYWORDS.add("read ahead")
+SUPPORTED_KEYWORDS.add("storied")  # -- storied (wave 45D) -- 702.195 (designations.storied_permanents)
 SUPPORTED_KEYWORDS.add("ascend")  # -- keywords (wave 15E) -- 702.131 (designations.ascend_permanents; effects.ascend)
 SUPPORTED_KEYWORDS.add("umbra armor")  # -- keywords (wave 15E) -- 702.89a (regeneration.umbra_armor)
 SUPPORTED_KEYWORDS.add("start your engines!")  # -- speed (wave 24B) -- 702.179 (app/rules/speed.py)
@@ -275,7 +277,6 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
     # test_rules_keyword_actions.py
     "amass", "connive", "monstrosity", "bolster", "support",
     # -- counters & designations (wave 3E): app/rules/designations.py, tests/test_rules_designations.py
-    # (venture into Undercity's Arena room — goad — is still resolved by hand)
     "venture into the dungeon", "the ring tempts you",
     # -- keyword actions & face-down (wave 3F) -- test_rules_keywords3f.py
     "goad", "manifest", "manifest dread", "cloak", "earthbend", "incubate",
@@ -624,9 +625,8 @@ def features_of(ch: Characteristics) -> list[Feature]:
         add("combat", "Attack and block")
     if "Planeswalker" in ch.types:
         add("planeswalker", "Loyalty and damage to planeswalkers")
-    if "Battle" in ch.types:  # 310 (app/rules/battles.py): a Siege's defeat is cast transformed by hand (310.12b)
-        add("battle", "Defense, protector, attacks (310)" + ("; casting it transformed when defeated is by hand"
-                                                            if "Siege" in ch.subtypes else ""), "Siege" not in ch.subtypes)
+    if "Battle" in ch.types:  # 310 (app/rules/battles.py): a Siege's defeat casts it transformed (310.12b; wave 45B)
+        add("battle", "Defense, protector, attacks (310)", True)
     for ab in ch.abilities:
         if script is not None and ab.index in script.covers:
             add(f"script:{ab.index}", ab.text, True)

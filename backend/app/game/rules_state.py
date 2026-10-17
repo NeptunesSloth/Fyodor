@@ -672,6 +672,9 @@ class TriggerEvent(BaseModel):
     # -- trigger multipliers (wave 43A) -- 120.2: damage events: whether the damage was combat damage (None: not a damage event / not recorded); read by the
     # "dealing combat damage to a player" multiplier (trigger_multipliers.py)
     combat: bool | None = None
+    # -- attacked object (wave 45A) -- 508.5: the planeswalker or battle an attacking creature's event is about, as it triggered ("deals 1 damage to the player or
+    # planeswalker it's attacking"); None when it attacks a player (``defended``)
+    attacked: ObjectRef | None = None
 
 
 class PendingTrigger(BaseModel):
@@ -1208,6 +1211,7 @@ class RulesState(BaseModel):
     # 309.2a / 309.4: each player's dungeon card in the command zone and the room their venture marker is on
     dungeons: dict[str, DungeonMark] = Field(default_factory=dict)
     completed_dungeons: dict[str, list[str]] = Field(default_factory=dict)  # 309.7: player -> dungeons completed, in order
+    enduring_story: list[str] = Field(default_factory=list)  # -- storied (wave 45D) -- 702.195b: players with the designation, for the rest of the game
     ring_tempted: dict[str, int] = Field(default_factory=dict)  # 701.54c: player -> times the Ring tempted them (their emblem)
     ring_bearers: dict[str, str] = Field(default_factory=dict)  # 701.54a: player -> their Ring-bearer (rules object id)
     # -- keyword actions & face-down (wave 3F) -- firebending (702.189a): the {R} each player added that

@@ -115,7 +115,8 @@ _HAND = re.compile(r"you have (?:(?P<no>no)|(?P<n>\w+) or (?P<cmp>more|fewer|les
 _YOUR_TURN = re.compile(r"it(?:'s| is) (?P<neg>not |n't )?your turn|it isn't your turn|it(?:'s| is) an opponent's turn")
 _THEIR_TURN = re.compile(r"it(?:'s| is| isn't) (?P<neg>not )?(?:that player's|their) turn")  # (wave 17D: the trigger event's player, 500.1; wave 43B: "isn't", Tataru Taru)
 _STATUS = {"you're the monarch": "monarch", "you are the monarch": "monarch", "you have the initiative": "initiative",
-           "you have the city's blessing": "city_blessing",
+           "you or a player you're attacking has the initiative": "initiative_attack",  # -- initiative (wave 45B) -- Undercellar Sweep
+           "you have the city's blessing": "city_blessing", "you have an enduring story": "enduring_story",
            "you own a card in exile": "own_exiled"}  # -- activated other (wave 21E) -- (Dreadlight Monstrosity)
 _THIS_TURN = r"(?P<when>this|last) turn"
 _EVENT_ATTACKING = re.compile(r"(?P<n>\w+) or more of those creatures (?:are|is) attacking you and/or planeswalkers you control")
@@ -614,6 +615,7 @@ def _more_ifs(t: str) -> Condition | None:
 # monarch" (725), "you've completed a dungeon" (309.7), "it's day / night" (731).
 _HAS_COUNTERS = re.compile(r"(?P<who>you|an opponent) (?:has|have) (?:(?P<no>no)|(?P<a>a|an|one or more)|(?P<n>\w+) or more) "
                            r"(?P<kind>poison|experience|rad|energy) counters?")
+_COMPLETED = re.compile(r"you(?: (?P<neg>haven't|have not)|'ve| have) completed (?P<d>Lost Mine of Phandelver|Dungeon of the Mad Mage|Tomb of Annihilation|Undercity)")
 _DESIGNATIONS = {"there is no monarch": "no_monarch", "an opponent is the monarch": "opponent_monarch",
                  "you're not the monarch": "not_monarch", "you aren't the monarch": "not_monarch",
                  "you don't have the initiative": "not_initiative", "you've completed a dungeon": "completed_dungeon",
@@ -655,6 +657,9 @@ def designation_condition(t: str) -> Condition | None:
         return out
     if t in _DESIGNATIONS:
         return {"status": _DESIGNATIONS[t]}
+    if (c := _COMPLETED.fullmatch(t)) is not None:  # -- dungeons (wave 45B) -- 309.7: "if you haven't completed Tomb of Annihilation" (Acererak the Archlich)
+        held: Condition = {"status": f"completed:{c['d']}"}
+        return {"not": held} if c["neg"] else held
     return None
 # -- end counters & designations (wave 3E) --
 
@@ -1508,7 +1513,9 @@ def _status(plan: Plan, you: str, kind: str) -> bool:
         from app.rules import designations
 
         return designations.status(plan, you, kind)
-    return bool(plan.state.players[you].city_blessing)  # 702.131c ascend: the city's blessing
+    from app.rules import designations
+
+    return bool(plan.state.players[you].city_blessing) or designations.ascend_permanent_due(plan, you)  # 702.131c ascend: the city's blessing (702.131b: at once; wave 45A)
 
 
 def _versus(plan: Plan, ctx: dict[str, Any], spec: dict[str, Any]) -> bool:
@@ -1754,6 +1761,8 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "it", "cast": {"total": "under_mv", "event_spell": True}}
     if _SPENT_OVER_PT.fullmatch(t):  # -- static_other sweep (wave 16B) -- increment: more than the source's power or toughness (702.190a)
         return {"object": "it", "cast": {"total": "over_min_pt", "event_spell": True}}
+    if re.fullmatch(r"the amount of mana spent to cast (?:it|that spell) is greater than (?:~|this creature)'s power", t):  # (wave 45D: Liberator) the amount actually spent (ruling 2022-10-14)
+        return {"object": "it", "cast": {"total": "over_power", "event_spell": True}}
     m = _SOME_OF_THEM.fullmatch(t)
     if m:  # -- counters (wave 33C) -- Celes, Kotis: "if one or more of them entered from a graveyard or was cast from a graveyard" (an aggregated enter)
         parts: list[Condition] = [{"object": "event", "each": "any", "cast": {"entered_from": "graveyard"}}]
@@ -1922,12 +1931,12 @@ def _total_mana_spent(plan: Plan, ctx: dict[str, Any], need: int | str) -> bool:
 
         spell = plan.state.cards.get(record.card)
         return spell is not None and sum(record.mana_spent.values()) < mana_value(spell, plan.ch(spell))
-    if need == "over_min_pt":  # increment: strictly more than the smaller of the source's power and toughness (as it is now, 603.4)
+    if need in ("over_min_pt", "over_power"):  # increment: strictly more than the smaller of the source's power and toughness (as it is now, 603.4); (wave 45D) Liberator: its power
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is None or not src.zone.endswith(":battlefield"):
             return False
         ch = plan.ch(src)
-        stats = [s for s in (values._stat_of(ch, "power"), values._stat_of(ch, "toughness")) if s is not None]
+        stats = [s for s in (values._stat_of(ch, "power"), None if need == "over_power" else values._stat_of(ch, "toughness")) if s is not None]
         return bool(stats) and sum(record.mana_spent.values()) > min(stats)
     return sum(record.mana_spent.values()) >= int(need)
 

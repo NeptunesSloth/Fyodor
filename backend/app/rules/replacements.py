@@ -78,7 +78,21 @@ def unless_holds(plan: Plan, controller: str, card: CardInstance, cond: dict[str
     return conditions.holds(plan, {"controller": controller, "source_card": card.id}, cond)
 
 
-def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bool | None = None,
+def others_enter_untapped(plan: Plan, card: CardInstance, controller: str) -> bool:
+    """-- most-played cards II (wave 45A) -- 614.1d: "Lands you control enter untapped." (Horizon Explorer): the same reading as ``others_enter_tapped``. Its ruling
+    (2025-07-25): a permanent put onto the battlefield tapped by an instruction always enters untapped; against its own "enters tapped" the controller chooses the
+    order, so can have either. ponytail: modelled as always choosing untapped, so a shock land is not asked to pay life (a payoff for entering tapped isn't modelled)."""
+    return others_enter_tapped(plan, card, controller, "enters_untapped_others")
+
+
+def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> dict[str, Any]:
+    out = _entry_plan(plan, card, controller, **kw)
+    if out.get("tapped") and others_enter_untapped(plan, card, controller):
+        out["tapped"] = False
+    return out
+
+
+def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bool | None = None,
                tapped: bool = False, answers: dict[str, str] | None = None, x: int | None = None,
                extra: dict[str, int] | None = None, reserved: set[str] | None = None, bare: bool = False) -> dict[str, Any]:
     """How the permanent's own replacement effects modify its entering: {"tapped": bool, "life": N
@@ -124,8 +138,8 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
         if d["replacement"] != "pay_life_or_tapped":
             continue
         life = int(d["life"])
-        if out["tapped"] or "choice" in out:
-            continue  # it enters tapped anyway ("put it onto the battlefield tapped"), or another choice comes first
+        if out["tapped"] or "choice" in out or others_enter_untapped(plan, card, controller):
+            continue  # it enters tapped anyway ("put it onto the battlefield tapped"), or another choice comes first (wave 45A: or it enters untapped whatever it says)
         player = plan.state.players.get(controller)
         from app.rules import (
             life_lock,  # -- can't lose life (wave 29D) -- 119.8: nor by a player who can't lose life
@@ -204,7 +218,7 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
 ORDER = "order:"  # an entering answer that is a 616.1 order: "order:<question>" -> the effect applied first
 
 
-def others_enter_tapped(plan: Plan, card: CardInstance, controller: str) -> bool:
+def others_enter_tapped(plan: Plan, card: CardInstance, controller: str, static: str = "enters_tapped_others") -> bool:
     """614.1d: "Creatures your opponents control enter tapped." — statics of permanents on the
     battlefield, checked against the permanent as it would exist on the battlefield under the
     player it enters under (614.12; it doesn't see itself: "Permanents enter tapped" doesn't make
@@ -219,7 +233,7 @@ def others_enter_tapped(plan: Plan, card: CardInstance, controller: str) -> bool
             continue
         src_ch = plan.ch(src)
         for i, d in scripts.definitions(src_ch).items():
-            if d["kind"] != "static" or d.get("static") != "enters_tapped_others":
+            if d["kind"] != "static" or d.get("static") != static:
                 continue
             if i in conditional_lines(src_ch) or "Room" in src_ch.subtypes:
                 continue  # (a level's or an unlocked door's ability: not tracked, never applied)
@@ -825,6 +839,11 @@ def token_enters_tapped(plan: Plan, controller: str, spec: dict[str, Any]) -> bo
         if d["replacement"] == "enters_with_counters" and d.get("tapped"):
             return True
     return others_enter_tapped(plan, probe, controller)  # -- replacement effects stage 2 (wave 2E): 614.1d --
+
+
+def token_enters_untapped(plan: Plan, controller: str, spec: dict[str, Any]) -> bool:
+    """-- most-played cards II (wave 45A) -- a token about to be created, under "Lands you control enter untapped" (Horizon Explorer: a tapped Mutavault token enters untapped)."""
+    return others_enter_untapped(plan, _token_probe(controller, spec), controller)
 
 
 # -- zone changes (614.1a "instead", 702.84a, 702.35a, 903.9b) ------------------------------------------

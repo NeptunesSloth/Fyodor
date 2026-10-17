@@ -985,7 +985,7 @@ def token_copy_request(plan: Plan, ctx: Context, controller: str, recipe: CopyRe
         return None
     probe = {"name": ch.name, "power": ch.power, "toughness": ch.toughness, "colors": sorted(ch.colors),
              "type_line": type_line(ch), "text": ch.oracle_text}
-    tapped = tapped or replacements.token_enters_tapped(plan, controller, probe)
+    tapped = (tapped or replacements.token_enters_tapped(plan, controller, probe)) and not replacements.token_enters_untapped(plan, controller, probe)  # (wave 45A)
     source = ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None
     # (the copy's types as it's created, for type-restricted token replacements — Ojer Taq; 614.16, 707.2)
     return (controller, {**spec, "type_line": probe["type_line"], "_copy": recipe.model_dump(mode="json")}, count, source, tapped)

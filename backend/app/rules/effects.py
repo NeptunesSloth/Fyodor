@@ -133,6 +133,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         from app.rules import defending
 
         return defending.players(plan, ctx)
+    if who == "attacked":  # -- attacked object (wave 45A) -- "the player or planeswalker it's attacking" (508.5; app/rules/defending.py)
+        from app.rules import defending
+
+        return defending.attacked(plan, ctx)[0]
     if who == "chosen_player":  # -- chosen player (wave 4J) -- the player the source chose as it entered (614.12a)
         from app.rules import chosen
 
@@ -167,10 +171,26 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         return radiance.cards(plan, ctx, who)
     if who.startswith(selectors.PREFIX):  # "each creature you control", "all other Goblins" …
         sel = selectors.from_key(who)
+        if any(isinstance(c[2], str) and c[2].startswith(selectors.TARGET_STAT) for c in sel.compare):  # -- most-played cards II (wave 45A) -- "power greater than target creature's power"
+            first = next(iter(target_refs(ctx, "target")), {})  # (its power as the spell resolves, 608.2b; none left: the spell didn't resolve)
+            tc = plan.state.cards.get(first.get("id", ""))
+            if tc is None or not tc.zone.endswith(":battlefield") or plan.oid(tc) != first.get("object_id"):
+                return []
+            bound: list[tuple[str, str, int | str]] = []
+            for w, o, n in sel.compare:
+                v = selectors._stat(plan.ch(tc), n[len(selectors.TARGET_STAT):]) if isinstance(n, str) and n.startswith(selectors.TARGET_STAT) else n
+                if v is None:
+                    return []
+                bound.append((w, o, v))
+            sel = selectors.replace(sel, compare=tuple(bound))
         return [] if sel.player else selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.cards
                 and plan.oid(t["id"]) == t.get("object_id")]
+    if who == "attacked":  # -- attacked object (wave 45A) --
+        from app.rules import defending
+
+        return defending.attacked(plan, ctx)[1]
     if who == "self":
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
@@ -1064,7 +1084,7 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
                     "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
             # a token enters tapped when its creator says so ("create a tapped …") or its own text does
             # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
-            tapped = bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)
+            tapped = (bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)) and not replacements.token_enters_untapped(plan, pid, spec)  # (wave 45A)
             requests.append((pid, spec, count * each[pid] if each is not None else count, source, tapped))
     # (the tokens are recorded as binding "as", the new objects they are: "they gain haste")
     if not requests:  # (every kind counted 0)
@@ -1086,7 +1106,10 @@ def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # (Geralf): "other" is than IT, the object the counters go on, not than the ability's source
         counted = e["who"] == "event" and len(cards) == 1 and isinstance(e["n"], dict) and "count" in e["n"]
         n = _amount(plan, {**ctx, "other_than": cards[0]} if counted else ctx, e["n"])
-        puts = [(cid, e["kind"], n) for cid in cards] if n else []
+        if isinstance(e["n"], dict) and e["n"].get("colors") == e["who"] and len(cards) > 1:  # (wave 45D) "equal to the number of colors it is": each one's own
+            puts = [(cid, e["kind"], k) for cid in cards if (k := len(plan.ch(plan.state.cards[cid]).colors))]
+        else:
+            puts = [(cid, e["kind"], n) for cid in cards] if n else []
         for more in e.get("also") or ():  # -- counters (wave 5H) -- several kinds at once (one event, 122.6)
             k = _amount(plan, ctx, more["n"])
             more_cards = _cards(plan, ctx, more["who"]) if more.get("who") else cards

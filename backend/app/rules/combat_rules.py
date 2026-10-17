@@ -66,7 +66,7 @@ _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 
 # -- statics ---------------------------------------------------------------------------------------------------------
 _TAX_RE = re.compile(r"(?P<sub>.+?) can't attack you unless their controller pays (?P<cost>(?:\{[^}]+\})+) for each "
-                     r"creature they control that's attacking you(?:, where X is (?P<x>.+))?\.")
+                     r"(?:creature they control that's attacking you|of those creatures)(?:, where X is (?P<x>.+))?\.")  # (wave 45D: Dáin)
 _TAX_PW_RE = re.compile(r"(?P<sub>.+?) can't attack you or planeswalkers you control unless their controller pays "
                         r"(?P<cost>(?:\{[^}]+\})+) for each of those creatures(?:, where X is (?P<x>.+))?\.")
 _CTRL_RE = re.compile(r"(?P<sub>.+?) can't block creatures you control\.")
