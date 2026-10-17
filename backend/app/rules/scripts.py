@@ -327,6 +327,7 @@ def self_text(text: str, name: str) -> str:
     # opens a sentence of the spell, "When ~ enters, if the gift was promised, …" is the permanent's intervening "if"
     out = re.sub(r"(?:^|(?<=\. ))If the gift was promised, ", "If this spell was kicked, ", out)
     out = re.sub(r"\bif the gift was promised, ", "if it was kicked, ", out)
+    out = re.sub(r"(?:^|(?<=\. ))If the gift wasn't promised, ", "If this spell wasn't kicked, ", out)  # (wave 45A: Parting Gust)
     # -- keywords (wave 30E) -- 702.166b: a bargained spell is read the same way (a bargain card has no kicker): casting.py records it as kicked
     out = re.sub(r"(?:^|(?<=\. ))If this spell was bargained, ", "If this spell was kicked, ", out)
     out = re.sub(r"\bif it was bargained, ", "if it was kicked, ", out)
@@ -3691,7 +3692,7 @@ def _may_first_only(texts: list[str], effects: list[dict[str, Any]], sentences: 
     return 0 if any(_DEPENDENT.search(t) for t in texts[1:]) else len(first)
 
 
-_KICKED = re.compile(r"^if (?:this spell|it|~) was kicked, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$")
+_KICKED = re.compile(r"^if (?:this spell|it|~) (?P<neg>wasn't|was) kicked, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$")
 # -- refused look/cast-free (wave 3R5) -- after a free cast: a replacement effect on the spell cast (614.1a)
 _FREE_EXILE_GY = re.compile(r"^if (?:that spell|that card|a spell cast this way|(?P<is>an instant or sorcery) spell cast this way) "  # (wave 19C: "is")
                             r"would be put into (?P<g>your|their|a) graveyard, exile it instead$")
@@ -4059,6 +4060,9 @@ def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start
         alt = restated if restated is not None else _add_groups(groups, *found)
     except _NoMatch:
         return None
+    if m["neg"] == "wasn't":  # -- most-played cards II (wave 45A) -- "If the gift wasn't promised, return that card …" (Parting Gust): the effect happens only when it was not
+        # kicked (702.33e read the other way); no "instead", and no target of its own (they would be chosen only when it isn't kicked)
+        return None if instead or len(groups) > own else [*effects, {"do": "kicked_gate", "kicked": False, "n": len(alt)}, *alt]
     if not kicked_instead.mark(groups, own, len(groups), True):
         return None
     if instead:

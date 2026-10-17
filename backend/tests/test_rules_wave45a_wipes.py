@@ -77,3 +77,27 @@ def test_that_creatures_power_with_no_chosen_target_stays_manual():
     # (which creature is "that creature" in a trigger with no target? the attacker, maybe - not read)
     chs = characteristics("Test Card", "Enchantment", "Whenever a creature attacks, destroy all creatures with power less than that creature's power.")
     assert coverage.of_characteristics(chs).level != "FULL"
+
+
+# ---- Parting Gust [1644] ---------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("gift", [False, True])
+def test_parting_gust_returns_the_creature_at_the_next_end_step_only_when_the_gift_was_not_promised(cards, gift):
+    from tests.test_rules_wave34b_activated import settle, stops, to_phase
+
+    s = build(cards, ["Parting Gust"], ["Grizzly Bears"])
+    stops(s)
+    bears = put(s, "Grizzly Bears", "p2")
+    c = to_hand(s, "Parting Gust")
+    mana(s, W=2)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[bears.id], optional_costs=[f"{c.id}:gift"] if gift else [])
+    settle(s)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:exile"
+    to_phase(s, "end")
+    settle(s)
+    if gift:  # 702.174: the gift was promised: Bob got a tapped Fish and his Bears stay exiled
+        assert zone_of(s, "Grizzly Bears", "p2") == "p2:exile"
+        assert any(c.is_token and c.name == "Fish" and c.controller == "p2" for c in s.state.cards.values())
+    else:  # a new object, with a +1/+1 counter (the ruling 2024-07-26: it returns as a new object)
+        now = card_named(s, "Grizzly Bears", "p2")
+        assert now.zone == "p2:battlefield" and now.counters.get("+1/+1") == 1
+    check(s)
