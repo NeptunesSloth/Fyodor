@@ -432,6 +432,8 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
             lost |= gone
             granted -= gone
         elif isinstance(item, ContinuousEffect):
+            if item.lose_index:  # -- licids (wave 50A) -- 613.1f: "This creature loses this ability" (only that printed one)
+                abilities = tuple(a for a in abilities if a.index not in item.lose_index)
             if item.remove_abilities:
                 abilities = ()
                 lost |= {k for a in printed if a.kind == "keywords" for k in a.keywords} | granted

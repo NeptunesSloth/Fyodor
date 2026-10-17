@@ -530,4 +530,6 @@ export interface CardStats {
   halves?: { name: string; mana_cost: string }[];
   /** Abilities granted by other permanents (numbered from 100). */
   abilities?: { index: number; text: string; kind: string }[];
+  /** -- licids (wave 50A) -- 116.2c: the cost you may pay (a special action) to end the effect you have on this permanent ("You may pay {W} to end this effect"). */
+  end_cost?: string;
 }

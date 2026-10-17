@@ -2302,6 +2302,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     ``event_player``: the trigger event names a player ("that player" may mean them)."""
     from app.rules import refused_zones  # -- refused zones/sized (wave 3R4) -- Gifts piles (a leaf module)
 
+    body = _licids.rewrite(body)  # -- licids (wave 50A) --
     if (gifts := refused_zones.gifts_ability(body)) is not None:
         return gifts
     from app.rules import (
@@ -8549,6 +8550,11 @@ EFFECTS.extend(_turn_grants.LAST)
 from app.rules import attach_abilities as _attach_abilities  # noqa: E402
 
 EFFECTS[:0] = _attach_abilities.TEMPLATES
+# -- licids (wave 50A) -- "This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {W} to end
+# this effect." (app/rules/licids.py)
+from app.rules import licids as _licids  # noqa: E402
+
+EFFECTS[:0] = _licids.TEMPLATES
 # -- tap or untap (wave 6D) -- "You may tap or untap target permanent." (app/rules/tap_or_untap.py)
 from app.rules import tap_or_untap as _tap_or_untap  # noqa: E402
 
