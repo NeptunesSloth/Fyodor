@@ -875,13 +875,15 @@ def test_sanwell_exiles_six_and_casts_a_vehicle_or_artifact_creature_from_among_
 
 
 # -- shapes the promoted cards share (cards whose other lines are already read) ------------------------------------------------------------------------
-def play_out(s, declines=(), limit=40):
-    """Resolve everything; each decision is answered with its first option, but the "Don't …" option for a player in ``declines``."""
+def play_out(s, declines=(), picks=(), limit=40):
+    """Resolve everything; each decision is answered with its first option (the one whose label has a word of ``picks`` if any), but the "Don't …" option for a player in
+    ``declines``."""
     for _ in range(limit):
         d = s.state.rules.decision
         if d is not None:
             no = next((o for o in d.options if o.label.startswith("Don't")), None) if d.player in declines else None
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=[(no or d.options[0]).id][: max(1, d.min_choices)])
+            want = next((o for p in picks for o in d.options if p in o.label), None)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[(no or want or d.options[0]).id][: max(1, d.min_choices)])
         elif s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
         else:
@@ -916,4 +918,54 @@ def test_warping_wurm_grows_as_it_phases_in(cards):
     finish_turn(s)
     to_main1(s, 3)
     assert s.state.cards[wurm.id].zone in ("p1:battlefield", "p1:phased") and s.state.cards[wurm.id].counters.get("+1/+1", 0) == 1
+    check(s)
+
+
+@pytest.mark.parametrize("pick, hero, draws", [("Masked Meower", True, 0), ("<none>", False, 1)])
+def test_origin_of_the_avengers_chapter_ii_puts_a_hero_or_draws(cards, pick, hero, draws):
+    """II - "You may put a Hero creature card with mana value 3 or less from your hand onto the battlefield. If you don't, draw a card." (the Saga's lore counter, 714.2c)."""
+    s = build(cards, ["Origin of the Avengers", "Masked Meower"], [])
+    saga, meower = to_hand(s, "Origin of the Avengers"), to_hand(s, "Masked Meower")
+    mana(s, "p1", W=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=saga.id)
+    drive(s, [], lambda s: s.state.rules.decision is None and not s.state.zones.get("stack"))
+    finish_turn(s)
+    library = len(s.state.zones["p1:library"])
+    drive(s, [pick], lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None and not s.state.zones.get("stack"))
+    assert (s.state.cards[meower.id].zone == "p1:battlefield") == hero
+    assert library - len(s.state.zones["p1:library"]) == draws + 1  # (the turn's own draw, and the Saga's if the Hero wasn't put)
+    check(s)
+
+
+def test_shimmering_efreet_phases_a_creature_out_as_it_phases_in(cards):
+    s = build(cards, ["Shimmering Efreet"], ["Grizzly Bears"])
+    efreet, bears = put(s, "Shimmering Efreet"), put(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="phase_shift", card_ids=[efreet.id], out=True)
+    finish_turn(s)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "upkeep")
+    play_out(s, picks=("Grizzly Bears",))
+    assert s.state.cards[efreet.id].zone == "p1:battlefield" and s.state.cards[bears.id].zone == "p2:phased"
+    check(s)
+
+
+@pytest.mark.parametrize("pay", ["Grizzly Bears", "Soldier", "Ice Cream Kitty"])
+def test_ice_cream_kitty_sacrifices_another_creature_or_token(cards, pay):
+    """"{2}, Sacrifice another creature or token: Draw a card. Activate only as a sorcery." - not itself (another)."""
+    s = build(cards, ["Ice Cream Kitty", "Grizzly Bears", "Raise the Alarm"], [])
+    kitty, bears = put(s, "Ice Cream Kitty"), put(s, "Grizzly Bears")
+    mana(s, "p1", W=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Raise the Alarm").id)
+    settle(s)
+    token = next(c for c in s.state.cards.values() if c.name == "Soldier" and c.zone == "p1:battlefield")
+    victim = {"Grizzly Bears": bears, "Soldier": token, "Ice Cream Kitty": kitty}[pay]
+    library = len(s.state.zones["p1:library"])
+    mana(s, "p1", G=2)
+    cost = [{"component": 1, "cards": [victim.id]}]
+    if pay == "Ice Cream Kitty":
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=kitty.id, ability=ability(s, kitty, "Draw a card"), cost_choices=cost)
+        return
+    act(s, "p1", type="activate_ability", card_id=kitty.id, ability=ability(s, kitty, "Draw a card"), cost_choices=cost)
+    settle(s)
+    assert victim.id not in on_battlefield_ids(s) and library - len(s.state.zones["p1:library"]) == 1
     check(s)

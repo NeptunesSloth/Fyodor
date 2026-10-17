@@ -3540,6 +3540,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 after_may = _if_you_do_after_may(if_do, effects, optional, i, len(texts))
                 if after_may is None:
                     return None
+                if if_do["neg"]:  # -- trigger other (wave 50G) -- "You may put a land card from your hand onto the battlefield. If you don't, …": the "may" is the put's own choice (none chosen, or no card to put, is "you don't"), never a question about the whole ability, which would skip the "If you don't" part too (a chapter ability, an activated one)
+                    effects[0]["optional"], optional = True, False
                 added = _add_groups(groups, *after_may)  # (B's own target, if any: wave 4A)
                 # (118.12: "If you do" reads whether A was started, whatever a replacement made of it; A impossible is "can't")
                 tracked = [e for e in effects if e["do"] in _PROBED]

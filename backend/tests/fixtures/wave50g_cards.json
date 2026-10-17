@@ -700,5 +700,61 @@
   ],
   "power": "1",
   "toughness": "1"
+ },
+ {
+  "name": "Origin of the Avengers",
+  "layout": "saga",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Scry 2.\nII — You may put a Hero creature card with mana value 3 or less from your hand onto the battlefield. If you don't, draw a card.\nIII — Put a +1/+1 counter on each creature you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Scry"
+  ]
+ },
+ {
+  "name": "Shimmering Efreet",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Efreet",
+  "oracle_text": "Flying\nPhasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nWhenever this creature phases in, target creature phases out. (It phases in before its controller untaps during their next untap step.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Phasing"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Ice Cream Kitty",
+  "layout": "normal",
+  "mana_cost": "{1}{B/G}",
+  "cmc": 2.0,
+  "type_line": "Artifact Creature — Food Cat Mutant",
+  "oracle_text": "{2}, Sacrifice another creature or token: Draw a card. Activate only as a sorcery.\n{2}, {T}, Sacrifice this creature: You gain 3 life.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
  }
 ]
