@@ -1811,6 +1811,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         # order given (608.2c); "it" is bound like any pronoun
         if (found_both := _tap_it_and_all(m["v"], m["o"])) is not None:
             return found_both
+        if m["v"] == "destroy" and (tc := re.fullmatch(r"(?:all|each) creatures with (?P<w>power|toughness) (?P<d>greater|less) than (?P<t>target|that) creature's (?P<r>power|toughness)", m["o"])):
+            # -- most-played cards II (wave 45A) -- "Destroy all creatures with power greater than target creature's power." (Fell the Mighty): the target is named inside the
+            # selector; "that creature's" (Mandate of Abaddon) is the one an earlier sentence chose (scripts._event_refs_ok refuses it when no target was chosen)
+            sel = selectors.parse(f"creatures with {tc['w']} {tc['d']} than target creature's {tc['r']}")
+            if sel is None:
+                raise _Fail
+            return [{"do": "destroy", "who": sel.key()}], _one(target_group("target creature")) if tc["t"] == "target" else None
         whos, groups = _objects(m["o"])
         if len(whos) > 1:  # "destroy target artifact and target enchantment": one group each (115.3)
             # -- activated other (wave 34B) -- "Exile ~ and target creature without flying that's attacking you." (Hunting Kavu), "Exile Mangara and target

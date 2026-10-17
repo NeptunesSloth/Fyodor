@@ -611,6 +611,16 @@ def _compare_source(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], _REF_OPS[m["op"]], SOURCE_STAT + _REF_STAT[ref])))
 
 
+# -- most-played cards II (wave 45A) -- "Destroy all creatures with power greater than target creature's power." (Fell the Mighty), "… less than that creature's power"
+# (Mandate of Abaddon): the stat of the spell's one target creature as the spell resolves (effects._cards binds it; a definition without that target is refused)
+TARGET_STAT = "tgt:"
+
+
+@_suffix(r"with (?P<what>power|toughness) (?P<op>less than|greater than) (?:target|that) creature's (?P<ref>power|toughness)")
+def _compare_target(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, compare=(*s.compare, (m["what"], _REF_OPS[m["op"]], TARGET_STAT + m["ref"])))
+
+
 @_suffix(r"with (?P<eq>equal or )?lesser (?P<what>mana value|power|toughness)(?: than the creature that died)?")
 def _compare_event(s: Selector, m: re.Match[str]) -> Selector:
     # -- reanimation (wave 16F) -- "return target creature card with lesser mana value from your graveyard" (Jackdaw Savior,

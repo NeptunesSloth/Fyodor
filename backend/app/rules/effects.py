@@ -169,6 +169,13 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         return radiance.cards(plan, ctx, who)
     if who.startswith(selectors.PREFIX):  # "each creature you control", "all other Goblins" …
         sel = selectors.from_key(who)
+        if any(isinstance(c[2], str) and c[2].startswith(selectors.TARGET_STAT) for c in sel.compare):  # -- most-played cards II (wave 45A) -- "power greater than target creature's power"
+            first = next(iter(target_refs(ctx, "target")), None)  # (its power as the spell resolves, 608.2b; none left: the spell didn't resolve)
+            tc = plan.state.cards.get(first["id"]) if first else None
+            if tc is None or not tc.zone.endswith(":battlefield") or plan.oid(tc) != first.get("object_id"):
+                return []
+            sel = selectors.replace(sel, compare=tuple((w, o, selectors._stat(plan.ch(tc), n[len(selectors.TARGET_STAT):]))
+                                                       if isinstance(n, str) and n.startswith(selectors.TARGET_STAT) else (w, o, n) for w, o, n in sel.compare))
         return [] if sel.player else selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.cards

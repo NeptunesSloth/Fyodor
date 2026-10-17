@@ -5057,6 +5057,8 @@ def _event_refs_ok(d: Definition) -> bool:
         return False  # -- cast keywords (wave 43D) -- "the number of times that spell was kicked": the spell a cast trigger is about
     if '"before": true' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- spell copies (wave 31D) -- "cast before it this turn": the spell a cast trigger is about
+    if "tgt:" in raw and not (d.get("kind") == "spell" and isinstance(d.get("target"), dict)):
+        return False  # -- most-played cards II (wave 45A) -- "power less than that creature's power": the spell's one chosen target; no target of that spell, nothing to compare with
     if '"of": "roll"' in raw and not (ev is not None and ev["event"] == "roll_die"):
         return False  # -- dice (wave 24B) -- "if the roll was 4 or higher": the one die a roll trigger is about
     if '"of": "event"' in raw and not (ev is not None and (ev["event"] == "you_attack" and ev.get("min_attackers") or ev["event"] == "attack" and ev.get("aggregate"))):
