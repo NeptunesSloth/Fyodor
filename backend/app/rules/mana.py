@@ -77,8 +77,8 @@ def parse_cost(text: str | None) -> ManaCost:
             x += 1
         elif sym in ALL_MANA or sym == SNOW:  # -- snow mana (wave 7E) -- {S} is a colored requirement of its own (107.4h)
             colored.append(sym)
-        elif sym.endswith("/P") and sym[0] in COLORS:
-            phyrexian.append(sym[0])
+        elif sym.endswith("/P") and all(c in COLORS for c in sym[:-2].split("/")):
+            phyrexian.append(sym[:-2])  # (-- review 38 -- 107.4f: a hybrid Phyrexian {G/W/P} is kept whole, "G/W": {G}, {W} or 2 life)
         elif "/" in sym:
             hybrid.append(tuple(sym.split("/")))
         else:
@@ -605,7 +605,7 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
 
     phy = cost.phyrexian
     by_life = {tuple(sorted(phy[i] for i in ix)): ix for k in range(len(phy) + 1) for ix in combinations(range(len(phy)), k)}
-    attempts = [(base + [(c,) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
+    attempts = [(base + [tuple(c.split("/")) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
     for reqs, life_cost in attempts:
         if life_cost and life_cost > life:  # 119.4 (wave 29C): the life total only has to be at least the payment — all of it may be paid
             continue

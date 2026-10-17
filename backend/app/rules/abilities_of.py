@@ -127,7 +127,8 @@ def _keyword_lines(plan: Plan, lender: CardInstance, keywords: list[str]) -> lis
         if ab.index >= BORROWED or ab.kind != "keywords":
             continue
         for kw in ab.keywords:
-            if kw in keywords or (kw.endswith("walk") and "landwalk" in keywords):
+            # (-- review 38 -- 702.11e: a "hexproof from [quality]" line is a hexproof ability, lent as it is: Eater of Virtue ruling 2022-02-18)
+            if kw in keywords or (kw.endswith("walk") and "landwalk" in keywords) or (kw == "hexproof from" and "hexproof" in keywords):
                 out.append(replace(ab, keywords=(kw,)))
     return out
 

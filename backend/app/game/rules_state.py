@@ -670,6 +670,9 @@ class TriggerEvent(BaseModel):
     # -- trigger multipliers (wave 43A) -- 120.2: damage events: whether the damage was combat damage (None: not a damage event / not recorded); read by the
     # "dealing combat damage to a player" multiplier (trigger_multipliers.py)
     combat: bool | None = None
+    # -- attacked object (wave 45A) -- 508.5: the planeswalker or battle an attacking creature's event is about, as it triggered ("deals 1 damage to the player or
+    # planeswalker it's attacking"); None when it attacks a player (``defended``)
+    attacked: ObjectRef | None = None
 
 
 class PendingTrigger(BaseModel):

@@ -359,6 +359,12 @@ def _stat(phrase: str, its: str = "it") -> Any:
     its own subject ("~ deals damage equal to its power": ~'s). Also any quantity the value
     grammar reads ("the number of lands you control", "your devotion to red", "twice its power":
     app/rules/values.py), and "~'s power" (the source's, 608.2h)."""
+    if (d := re.fullmatch(r"the difference between (?P<a>that creature's power|its power|~'s power) and (?P<b>its toughness|that creature's toughness|~'s toughness)", phrase)) is not None:
+        # -- most-played cards II (wave 45A) -- "the difference between that creature's power and its toughness" (Jaws of Defeat): how far apart they are, one object's own (608.2h)
+        a, b = d["a"], d["b"]
+        if b.startswith("its ") and not a.startswith("its "):
+            b = a.rsplit(" ", 1)[0] + " " + b[len("its "):]  # ("that creature's power and its toughness": the same creature)
+        return {"diff": [_stat(a, its), _stat(b, its)]}
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
@@ -665,7 +671,10 @@ def _apply(n: Any, rider: Any) -> Any:
     return v if n == 1 else {"times": [n, v]}
 
 
-_SUBJ = rf"(?:(?P<s>target player|target opponent|{PLAYER_PHRASES}) )?"
+# -- most-played cards II (wave 45A) -- "Any number of target players each mill two cards." (Court of Cunning), "Two target players each draw a card." (Gleaming Splendor): one
+# target group of players (115.1, 601.2c), every chosen player does it (effects._players: "target" is the whole group)
+_MULTI_PLAYERS = r"(?:any number of|up to (?:one|two|three|four)|two|three|four) target (?:players|opponents) each"
+_SUBJ = rf"(?:(?P<s>{_MULTI_PLAYERS}|target player|target opponent|{PLAYER_PHRASES}) )?"
 
 
 def _subject(m: re.Match[str]) -> tuple[str, str | None]:
@@ -675,6 +684,8 @@ def _subject(m: re.Match[str]) -> tuple[str, str | None]:
     s = m["s"] or "you"
     if s in ("target player", "target opponent"):
         return "target", _LEGACY_TARGETS[s]
+    if s.endswith(" each") and "target" in s:  # (wave 45A: the group of players, not one)
+        return "target", _one(target_group(s.removesuffix(" each")))
     return PLAYER_GROUPS[s], None
 
 
@@ -1569,6 +1580,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["s"] == "your":
             return [{"do": "set_life", "who": "you", "n": n}], None
         return [{"do": "set_life", "who": "target", "n": n}], _LEGACY_TARGETS["target player"]
+    # -- most-played cards II (wave 45A) -- 701.10d: "Double target player's life total." (Beacon of Immortality), "Double your life total." (Revenge): the player
+    # gains or loses what it takes to reach twice the total (119.5, effects.set_life: gain and loss events, so their triggers and replacements apply)
+    m = re.fullmatch(r"double (?P<s>target player's|your) life total", text)
+    if m and rider is None:
+        if m["s"] == "your":
+            return [{"do": "set_life", "who": "you", "n": {"times": [2, {"life": "you"}]}}], None
+        return [{"do": "set_life", "who": "target", "n": {"times": [2, {"for_player": "target", "of": {"life": "you"}}]}}], _LEGACY_TARGETS["target player"]
     # -- trigger other (wave 25B) -- 119.5: "Your life total becomes the number of creatures you control" (Touch of the Eternal), "… the number of
     # charge counters on this artifact" (Eternity Vessel), "… the total toughness of creatures you control" (Loxodon Lifechanter): a counted amount
     m = re.fullmatch(r"(?P<s>target player's|your) life total becomes (?:equal to )?(?P<v>the (?:number|total) .+)", text)
@@ -1760,6 +1778,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         recipients = re.sub(r"(creatures?) and (planeswalkers?|battles?) (?=you don't control|that player controls)",
                             r"\1 or \2 ", recipients)
         for part in re.split(r" and (?=each |you$)|" + _AND_TARGET, recipients):
+            if re.fullmatch(r"the player or planeswalker (?:it's|that creature is) attacking", part):  # -- most-played cards II (wave 45A) -- 508.5 (defending.attacked)
+                effects.append({"do": "damage", "who": "attacked", "n": n, **src})
+                continue
             if part == "each other opponent":  # -- sized amounts (wave 3D) -- the opponents besides the one the event named
                 effects.append({"do": "damage", "who": "each_other_opponent", "n": n, **src})
                 continue
@@ -1812,6 +1833,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         # order given (608.2c); "it" is bound like any pronoun
         if (found_both := _tap_it_and_all(m["v"], m["o"])) is not None:
             return found_both
+        if m["v"] == "destroy" and (tc := re.fullmatch(r"(?:all|each) creatures with (?P<w>power|toughness) (?P<d>greater|less) than (?P<t>target|that) creature's (?P<r>power|toughness)", m["o"])):
+            # -- most-played cards II (wave 45A) -- "Destroy all creatures with power greater than target creature's power." (Fell the Mighty): the target is named inside the
+            # selector; "that creature's" (Mandate of Abaddon) is the one an earlier sentence chose (scripts._event_refs_ok refuses it when no target was chosen)
+            sel = selectors.parse(f"creatures with {tc['w']} {tc['d']} than target creature's {tc['r']}")
+            if sel is None:
+                raise _Fail
+            return [{"do": "destroy", "who": sel.key()}], _one(target_group("target creature")) if tc["t"] == "target" else None
         whos, groups = _objects(m["o"])
         if len(whos) > 1:  # "destroy target artifact and target enchantment": one group each (115.3)
             # -- activated other (wave 34B) -- "Exile ~ and target creature without flying that's attacking you." (Hunting Kavu), "Exile Mangara and target
@@ -2677,6 +2705,10 @@ _V3 = (r"draws|loses|gains|discards|mills|sacrifices|creates|puts|exiles|returns
        r"gets|searches")
 COMPOUND = (rf"(?P<s>target player|target opponent|each player|each opponent|each of your opponents|that player) "
             rf"(?P<l>(?:{_V3}) [^\"]+?) and (?P<r>(?:{_V3}) .+)")  # (wave 26A: no "and" inside a quoted ability: an emblem's text)
+# -- most-played cards II (wave 45A) -- "Any number of target opponents each sacrifice a creature … and lose 3 life." (Will of the Abzan): the group of players is the subject of both
+# halves (a bare "lose" would be read as the controller's own); scripts._compound_multi
+_VB = r"draw|lose|gain|discard|mill|sacrifice|create|put|exile|return|reveal|shuffle|scry|surveil|get"
+COMPOUND_MULTI = (rf"(?P<s>{_MULTI_PLAYERS}) (?P<l>(?:{_VB}) [^\"]+?) and (?P<r>(?:{_VB}) .+)")
 
 
 # -- delayed triggers & durations (agent J) --------------------------------------------------------

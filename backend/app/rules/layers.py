@@ -789,6 +789,8 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
             setters.append(((st.seq, 0, 0), st.definition["base"][0], st.definition["base"][1]))
         elif st.definition.get("base_mv"):  # -- layers (wave 22A) -- "base power and toughness each equal to its mana value" (Opalescence)
             setters.append(((st.seq, 0, 0), int(ch.mana_value), int(ch.mana_value)))
+        elif (st.definition.get("each") or {}).get("set"):  # -- most-played cards II (wave 45A) -- "base power and toughness X/X, where X is …" (Aettir and Priwen, Dollmaker's Shop)
+            setters.append(((st.seq, 0, 0), each_amounts.get(id(st), 0), each_amounts.get(id(st), 0)))
     for e in effects:  # 7b: resolved setting effects, interleaved by timestamp (613.7)
         if e.layer == "7b":
             setters.append(((e.object_seq, 1, e.timestamp), e.power, e.toughness))
@@ -812,7 +814,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         p += st.definition["p"]
         t += st.definition["t"]
         each = st.definition.get("each")
-        if each is not None:  # "… gets +1/+1 for each Elf you control" (613.4c, a dynamic amount)
+        if each is not None and not each.get("set"):  # "… gets +1/+1 for each Elf you control" (613.4c, a dynamic amount)
             n = each_amounts.get(id(st), 0)
             p += each["p"] * n
             t += each["t"] * n
