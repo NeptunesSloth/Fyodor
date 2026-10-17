@@ -81,12 +81,33 @@
   "keywords": []
  },
  {
-  "name": "Varragoth, Bloodsky Sire",
+  "name": "Notion Thief",
   "layout": "normal",
-  "mana_cost": "{2}{B}",
-  "cmc": 3.0,
-  "type_line": "Legendary Creature — Demon Rogue",
-  "oracle_text": "Deathtouch\nBoast — {1}{B}: Target player searches their library for a card, then shuffles and puts that card on top. (Activate only if this creature attacked this turn and only once each turn.)",
+  "mana_cost": "{2}{U}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Rogue",
+  "oracle_text": "Flash\nIf an opponent would draw a card except the first one they draw in each of their draw steps, instead that player skips that draw and you draw a card.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Flash"
+  ],
+  "power": "3",
+  "toughness": "1"
+ },
+ {
+  "name": "Bloodghast",
+  "layout": "normal",
+  "mana_cost": "{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Vampire Spirit",
+  "oracle_text": "This creature can't block.\nThis creature has haste as long as an opponent has 10 or less life.\nLandfall — Whenever a land you control enters, you may return this card from your graveyard to the battlefield.",
   "colors": [
    "B"
   ],
@@ -94,10 +115,45 @@
    "B"
   ],
   "keywords": [
-   "Boast",
-   "Deathtouch"
+   "Landfall"
   ],
   "power": "2",
-  "toughness": "3"
+  "toughness": "1"
+ },
+ {
+  "name": "Elesh Norn, Mother of Machines",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Phyrexian Praetor",
+  "oracle_text": "Vigilance\nIf a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.\nPermanents entering don't cause abilities of permanents your opponents control to trigger.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "7"
+ },
+ {
+  "name": "Elvish Visionary",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Elf Shaman",
+  "oracle_text": "When this creature enters, draw a card.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
  }
 ]
