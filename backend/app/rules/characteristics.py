@@ -13,8 +13,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
 from app.game.state import CardInstance
-from app.rules import read_pass
-from app.rules import levelers
+from app.rules import levelers, read_pass
 from app.rules.oracle import AbilityText, parse_abilities
 
 SUPERTYPES = frozenset({"Basic", "Legendary", "Snow", "World", "Ongoing", "Elite", "Host"})
@@ -245,8 +244,7 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
     cost = str(src.get("mana_cost") or (data.get("mana_cost") if src is data else "") or "")
     colors = src.get("colors") if src.get("colors") is not None else data.get("colors")
     station = levelers.station_creature(text) is not None  # -- Station (wave 46D) -- 721.2c: its power/toughness box is the station symbol's
-    abilities = with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"}),
-                                                    pt=(src.get("power"), src.get("toughness")) if station else (None, None)), subtypes)
+    abilities = with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"}), pt=(src.get("power"), src.get("toughness"))), subtypes)
     return Characteristics(
         name=str(src.get("name") or data.get("name") or ""),
         supertypes=supertypes,

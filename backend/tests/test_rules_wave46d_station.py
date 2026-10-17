@@ -74,6 +74,14 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
+@pytest.mark.parametrize("name", ["Exploration Broodship", "Tapestry Warden"])
+def test_what_is_not_read_stays_partial(cards, name):
+    """Exploration Broodship: an additional land play and a graveyard permission that depend on charge counters (no condition on those
+    statics yet); Tapestry Warden (702.184c): stations using toughness, checked as the ability resolves, a departed creature as it last existed."""
+    cov = coverage.of_card_data(cards.resolve(name))
+    assert cov.level == "PARTIAL" and len(cov.manual_parts) == (2 if name == "Exploration Broodship" else 1)
+
+
 def test_station_puts_counters_equal_to_the_tapped_creatures_power(cards):
     s = build(cards, ["Galvanizing Sawship"])
     put(s, "Galvanizing Sawship")
@@ -215,7 +223,6 @@ def test_negative_power_puts_no_counters(cards):
 def test_the_seriema_gives_a_tapped_legend_indestructible(cards):
     s = build(cards, ["The Seriema"])
     put(s, "The Seriema")
-    until_asked(s)
     legend = creature(s, "p1", "Hero", pt="7/7", type_line="Token Legendary Creature — Human")
     assert "indestructible" not in ch_of_id(s, legend.id).keywords
     station(s, "The Seriema", legend)
@@ -302,6 +309,8 @@ def decide_all(s, picks=(), limit=40):
     picks = list(picks)
     for _ in range(limit):
         d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            return
         if d is not None:
             ids = [o.id for o in d.options]
             want = next((o.id for o in d.options for p in picks if p in (o.id, o.label)), None)
@@ -359,6 +368,42 @@ def test_larval_scoutlander_sacrifices_a_lander_for_two_basic_lands(cards):
     decide_all(s, ["pay", lander.id])
     assert lander.id not in s.state.zones["p1:battlefield"]  # (sacrificed to the "you may sacrifice a land or Lander")
     assert len([c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Forest"]) == lands + 2
+    check(s)
+
+
+def test_dawnsire_deals_100_damage_when_you_attack_at_ten_counters(cards):
+    s = build(cards, ["Dawnsire, Sunstar Dreadnought"])
+    put(s, "Dawnsire, Sunstar Dreadnought")
+    bear = creature(s, "p1", "Bear", pt="2/2")
+    wall = creature(s, "p2", "Wall", pt="0/4")
+    ready(s, "Bear")
+    add_charge(s, "Dawnsire, Sunstar Dreadnought", 9)
+    act(s, "p1", type="pass_priority")  # -> declare attackers: 9 counters, nothing granted yet
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
+    decide_all(s)
+    assert wall.id in s.state.zones["p2:battlefield"] and not s.state.zones.get("stack")  # (no trigger below ten)
+    s2 = build(cards, ["Dawnsire, Sunstar Dreadnought"])
+    put(s2, "Dawnsire, Sunstar Dreadnought")
+    bear2 = creature(s2, "p1", "Bear", pt="2/2")
+    wall2 = creature(s2, "p2", "Wall", pt="0/4")
+    ready(s2, "Bear")
+    add_charge(s2, "Dawnsire, Sunstar Dreadnought", 10)
+    act(s2, "p1", type="pass_priority")
+    act(s2, "p1", type="declare_attackers", attackers=[{"card_id": bear2.id, "target": "p2"}])
+    decide_all(s2, [wall2.id])
+    assert wall2.id not in s2.state.zones["p2:battlefield"]  # (100 damage to up to one target creature or planeswalker)
+    check(s2)
+
+
+def test_debris_field_crusher_pumps_itself_once_it_is_a_creature(cards):
+    s = build(cards, ["Debris Field Crusher"])
+    put(s, "Debris Field Crusher")
+    add_charge(s, "Debris Field Crusher", 8)
+    index = next(a.index for a in ch_of(s, "Debris Field Crusher").abilities if a.index >= 100 and a.text.startswith("{1}{R}"))
+    mana(s, R=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=card_named(s, "Debris Field Crusher").id, ability=index)
+    answer(s)
+    assert ch_of(s, "Debris Field Crusher").pt == (3, 5) and "flying" in ch_of(s, "Debris Field Crusher").keywords
     check(s)
 
 

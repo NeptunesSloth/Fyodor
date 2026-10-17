@@ -80,16 +80,16 @@ def station_creature(text: str) -> int | None:
 
 def station(lines: list[str], text: str, pt: tuple[str | None, str | None], is_keyword: Callable[[str], bool]) -> list[str]:
     """The station card's lines with the station ability and the station symbols written out as CR 702.184a / 721.2 sentences."""
-    at, syms = station_creature(text), [i for i, line in enumerate(lines) if _STATION_SYMBOL.match(line)]
-    if lines.count("Station") != 1 or (at is None) != (pt == (None, None)) or not syms or syms[0] < lines.index("Station") \
-            or (at is not None and (at not in {int(_STATION_SYMBOL.match(lines[i])[1]) for i in syms} or not all(  # type: ignore[index]
-                (v or "").isdigit() for v in pt))):
+    at, marks = station_creature(text), [m for line in lines if (m := _STATION_SYMBOL.match(line))]
+    first = next((i for i, line in enumerate(lines) if _STATION_SYMBOL.match(line)), None)
+    if lines.count("Station") != 1 or first is None or lines.index("Station") > first or (at is not None and (
+            not any(int(m[1]) == at for m in marks) or not all((v or "").isdigit() for v in pt))):
         return lines
-    out, when = [STATION if line == "Station" else line for line in lines[: syms[0]]], ""
-    for line in lines[syms[0]:]:
+    out, when = [STATION if line == "Station" else line for line in lines[:first]], ""
+    for line in lines[first:]:
         if m := _STATION_SYMBOL.match(line):
             when, line = f"this permanent has {m[1]} or more charge counters on it", m[2]
-            if int(m[1]) == at:
+            if int(m[1]) == at:  # (a power/toughness box only where the reminder text says it is a creature)
                 out.append(f"As long as {when}, it is a {pt[0]}/{pt[1]} creature in addition to its other types.")
         out.append(granted(when, line, is_keyword))
     return out

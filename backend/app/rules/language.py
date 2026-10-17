@@ -2052,10 +2052,10 @@ def _parse(text: str) -> tuple[Effects, Any]:
         from app.rules import counter_pick
 
         kind, key, group = ref(m["o"])
-        found = counter_pick.parse(m["k"], _who(kind, key)) if kind != "players" else None
-        if found is None:
+        picks = counter_pick.parse(m["k"], _who(kind, key)) if kind != "players" else None
+        if picks is None:
             raise _Fail
-        return found, _one(group)
+        return picks, _one(group)
     # -- counters (wave 5H) -- "put a +1/+1 counter, a reach counter, and a deathtouch counter on target creature",
     # "put two +1/+1 counters and a flying counter on …": counters of several kinds put at once (one event, 122.6)
     m = re.fullmatch(rf"put (?P<list>(?:(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+(?: [a-z]+)?) counters?,? )+and "
