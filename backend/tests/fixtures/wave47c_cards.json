@@ -314,22 +314,38 @@
   "toughness": "1"
  },
  {
-  "name": "Wall of Omens",
+  "name": "Reverberate",
   "layout": "normal",
-  "mana_cost": "{1}{W}",
+  "mana_cost": "{R}{R}",
   "cmc": 2.0,
-  "type_line": "Creature — Wall",
-  "oracle_text": "Defender\nWhen this creature enters, draw a card.",
+  "type_line": "Instant",
+  "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
   "colors": [
-   "W"
+   "R"
   ],
   "color_identity": [
-   "W"
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Hexdrinker",
+  "layout": "leveler",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature — Snake",
+  "oracle_text": "Level up {1} ({1}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 3-7\n4/4\nProtection from instants\nLEVEL 8+\n6/6\nProtection from everything",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
   ],
   "keywords": [
-   "Defender"
+   "Level Up",
+   "Protection"
   ],
-  "power": "0",
-  "toughness": "4"
+  "power": "2",
+  "toughness": "1"
  }
 ]

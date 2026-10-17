@@ -251,7 +251,7 @@ def own_changes(state: GameState, player: str, card: CardInstance, ch: Character
     out = Changes()
     view = None
     for d in definitions.values():
-        change = d.get("change") if d.get("static") == "self_cost" else None
+        change = d.get("change") if d.get("static") in ("self_cost", "own_optional") else None  # (own_optional: wave 47C, Dargo's second reduction)
         if not change:
             continue
         view = view or view_of(on_stack(state, card), player, info)
@@ -600,7 +600,8 @@ def own_cost(text: str) -> Any:
 # for each creature sacrificed this way." (Torgaar), the March cycle ("exile any number of blue cards from your hand"), Gorex, Explosive Singularity: announced with the other
 # additional costs, the objects chosen as the total cost is determined (601.2f: each takes N generic off, never below {0}, 118.7a) and paid with the rest (601.2h)
 ANY_COST = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>(?:sacrifice|exile|tap) any number of [^.]+)\. this spell costs \{(?P<n>\d+)\} less to cast "
-                      r"for each (?P<noun>card|creature|permanent) (?:sacrificed|exiled|tapped) this way$", re.IGNORECASE)
+                      r"for each (?P<noun>card|creature|permanent) (?:sacrificed|exiled|tapped) this way"
+                      r"(?: and \{(?P<m>\d+)\} less to cast (?P<more>for each other artifact or creature you've sacrificed this turn))?$", re.IGNORECASE)
 
 
 def optional_definition(t: str) -> dict[str, Any] | None:
@@ -612,7 +613,10 @@ def optional_definition(t: str) -> dict[str, Any] | None:
         if C.any_number_part(any_cost["cost"], int(any_cost["n"])) is None:
             return None
         text = any_cost["cost"][0].upper() + any_cost["cost"][1:]
-        return {"kind": "static", "static": "own_optional", "optional": "reduce", "cost": text, "n": int(any_cost["n"]), "effects": []}
+        more = parse_change(any_cost["m"], "less", f" {any_cost['more']}") if any_cost["m"] else {}  # (Dargo: also for what was sacrificed before this cast, 601.2f)
+        if more is None:
+            return None
+        return {"kind": "static", "static": "own_optional", "optional": "reduce", "cost": text, "n": int(any_cost["n"]), "effects": [], **({"change": more} if more else {})}
     if (own := OWN_OPTIONAL.fullmatch(t)) is not None:
         text = own["cost"][0].upper() + own["cost"][1:]
         parsed = own_cost(text)

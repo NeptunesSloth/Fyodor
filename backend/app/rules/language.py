@@ -1574,12 +1574,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "exchange_life", "who": "target"}], _one(target_group(m["o"]))
     # -- trigger tail (wave 16C) -- 119.5: "Target player's life total becomes 10." (Magister Sphinx), "Your life total becomes half your
     # starting life total, rounded up." (The Endstone): the player gains or loses the difference (effects.set_life)
-    m = re.fullmatch(r"(?P<s>target player's|your) life total becomes (?P<n>\d+|half your starting life total, rounded up)", text)
+    # (-- cost reductions paid with objects (wave 47C) -- "Up to one target player's life total becomes half their starting life total, rounded down." (Torgaar): 107.1a, 103.4)
+    m = re.fullmatch(r"(?P<s>(?:up to one )?target player's|your) life total becomes (?P<n>\d+|half (?:your|their) starting life total, rounded (?:up|down))", text)
     if m and rider is None:
-        n = "half_start" if m["n"][0] == "h" else int(m["n"])
+        n = ("half_start_down" if m["n"].endswith("down") else "half_start") if m["n"][0] == "h" else int(m["n"])
         if m["s"] == "your":
             return [{"do": "set_life", "who": "you", "n": n}], None
-        return [{"do": "set_life", "who": "target", "n": n}], _LEGACY_TARGETS["target player"]
+        return [{"do": "set_life", "who": "target", "n": n}], _one(target_group("up to one target player")) if m["s"].startswith("up") else _LEGACY_TARGETS["target player"]
     # -- most-played cards II (wave 45A) -- 701.10d: "Double target player's life total." (Beacon of Immortality), "Double your life total." (Revenge): the player
     # gains or loses what it takes to reach twice the total (119.5, effects.set_life: gain and loss events, so their triggers and replacements apply)
     m = re.fullmatch(r"double (?P<s>target player's|your) life total", text)

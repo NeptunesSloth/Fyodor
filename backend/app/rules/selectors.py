@@ -1384,6 +1384,9 @@ def parse_either(phrase: str) -> Selector | None:
     a, b = _parse(m["head"] or m["head2"]), _parse(m["last"] or m["last2"])
     if a is None or b is None or a.player or b.player or a.zones != ("battlefield",) or b.zones != ("battlefield",):
         return None
+    mv = tuple(c for c in b.compare if c[0] == "mv")
+    if mv and not a.compare:  # -- cost reductions paid with objects (wave 47C) -- "artifact, creature, or enchantment with mana value X or less" (March of Otherworldly Light): every permanent has a
+        a = replace(a, compare=mv)  # mana value, so it limits each kind (a power or a keyword belongs to the last kind alone, as for Exorcise)
     return Selector(either=(a.key(), b.key()))
 
 
