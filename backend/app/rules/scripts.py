@@ -1613,6 +1613,18 @@ def _create_predefined(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | No
                        "type_line": type_line, "text": text}}], None
 
 
+# -- named tokens (wave 49D) -- "Create a Tarmogoyf token." (Disa, Tarmogoyf Nest), "a Gingerbrute token" (Ginger), "a Spellgorger Weird token" (Ral):
+# the rulings read it as a token that's a copy of the card of that name, so it has the card's copiable values, mana cost included (707.2, 111.4)
+NAMED_TOKENS = {  # name: (mana cost, colors, power, toughness, type line, the card's Oracle text)
+    "Tarmogoyf": ("{1}{G}", ["G"], "*", "1+*", "Token Creature — Lhurgoyf",
+                  "Tarmogoyf's power is equal to the number of card types among cards in all graveyards and its toughness is equal to that number plus 1."),
+    "Gingerbrute": ("{1}", [], "1", "1", "Token Artifact Creature — Food Golem",
+                    "Haste\n{1}: This creature can't be blocked this turn except by creatures with haste.\n{2}, {T}, Sacrifice this creature: You gain 3 life."),
+    "Spellgorger Weird": ("{2}{R}", ["R"], "2", "2", "Token Creature — Weird",
+                          "Whenever you cast a noncreature spell, put a +1/+1 counter on this creature."),
+}
+
+
 # -- if you do (wave 8C) -- "put your choice of a +1/+1, first strike, or trample counter on that creature" (counter_pick.py)
 @effect(r"put your choice of (?P<kinds>.+?) counters? on (?P<who>~|this creature|it|that creature)")
 def _counter_pick(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
@@ -1979,6 +1991,16 @@ def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if found is None:
         raise _NoMatch
     return found, None
+
+
+# (wave 49D) a named token before the general token grammar, which reads "a Tarmogoyf token" as a predefined one it doesn't know
+@_first
+@effect(r"create {N} (?P<kind>Tarmogoyf|Gingerbrute|Spellgorger Weird) tokens?")
+def _create_named(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    cost, colors, p, t, type_line, text = NAMED_TOKENS[m["kind"]]
+    return [{"do": "create_token", "who": "you", "n": num(m["n"]),
+             "token": {"name": m["kind"], "power": p, "toughness": t, "colors": list(colors), "type_line": type_line, "text": text,
+                       "mana_cost": cost}}], None
 
 
 # -- token & pump wordings (wave 6C) -- the token grammar's newer forms (app/rules/token_grammar.py): "For each …, create
