@@ -231,6 +231,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
     if e.counter == "roll_die" and e.player:  # -- dice (wave 24B) -- one die (706.2): its result, the natural result, the size, the turn's count
         return [("roll_die", None, None, e.player, {"amount": e.amount, "natural": e.natural, "sides": e.sides, "nth": e.nth,
                                                     "actor": e.player})]
+    if e.counter == "coin_flip" and e.player:  # -- coin events (wave 45C) -- 705.2: the flipper won (1) or lost (0) a flip (rules/coin_flips.py)
+        return [("coin_flip", None, None, e.player, {"won": bool(e.amount), "actor": e.player})]
     if e.counter == "crime" and e.player:  # -- crimes (wave 6D) -- 700.13
         return [("commit_crime", None, None, e.player, {})]
     if e.counter in ("monstrous", "renowned") and e.card in plan.state.cards:  # -- becomes monstrous (wave 6D) --
@@ -243,6 +245,19 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             ch = plan.ch(card)
             return [("transform", card, ch, card.controller, {"oid": e.object_id, "face_name": ch.name})]
+        return []
+    if e.counter == "destroyed" and e.card:  # -- destroy events (wave 45C) -- 701.8: the permanent as it last existed on the battlefield (603.10a)
+        from app.rules import triggers
+
+        got = triggers._object_then(plan, e.card, e.object_id)
+        if got is None:
+            return []
+        return [("destroyed", got[0], got[1], got[0].controller,
+                 {"oid": e.object_id, "snap": None if triggers._live(plan, got[0]) else plan.rules.lki.get(e.object_id or "")})]
+    if e.counter == "control" and e.card in plan.state.cards:  # -- control events (wave 45C) -- 603.10d: ``player`` gained control of it from ``was``
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("control_change", card, plan.ch(card), e.player, {"oid": e.object_id, "was": e.from_zone})]
         return []
     if e.counter == "mutated" and e.card in plan.state.cards:  # -- merged permanents (wave 18D) -- 702.140d: a spell merged with it
         card = plan.state.cards[e.card]

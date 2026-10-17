@@ -35,7 +35,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from app.game.rules_state import Event
+    from app.game.rules_state import Event, TriggerEvent
     from app.game.state import CardInstance
     from app.rules.characteristics import Characteristics
     from app.rules.oracle import AbilityText
@@ -229,6 +229,22 @@ def lore_triggers(plan: Plan, events: list[Event]) -> None:
                                  objects=[ObjectRef(card=card.id, object_id=e.object_id or "", zone=card.zone)])
             triggers._add(plan, controller=card.controller, source_card=card.id, source_object=e.object_id or "",
                           name=ch.name, index=i, definition=d, event=event)
+            chapter_event(plan, event, "triggers")
+
+
+def chapter_event(plan: Plan, event: TriggerEvent, when: str) -> None:
+    """-- saga events (wave 45C) -- 714.2d: the chapter ability ``event`` is about is its Saga's final one (the greatest chapter number): "Whenever the
+    final chapter ability of a Saga you control triggers / resolves" (Historian's Boon; Tom Bombadil, Narci: after it left the stack, per their
+    rulings), asked of the Saga as it is or as it last existed (603.10a). ponytail: a copy of a chapter ability (707.10) isn't one, so it is skipped."""
+    from app.rules import triggers
+
+    ref = event.objects[0]
+    got = triggers._object_then(plan, ref.card, ref.object_id)
+    if got is None or event.amount != final_chapter(got[1]):
+        return
+    snap = None if triggers._live(plan, got[0]) else plan.rules.lki.get(ref.object_id)
+    triggers._fire_generic(plan, [("final_chapter", got[0], got[1], got[0].controller,
+                                   {"oid": ref.object_id, "when": when, "snap": snap})], -1, {})
 
 
 # -- the state-based action (714.4) -----------------------------------------------------------------

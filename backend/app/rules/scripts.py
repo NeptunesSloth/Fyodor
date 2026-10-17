@@ -447,6 +447,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     if name == "state":
         return "self"  # -- state triggers (wave 19C) -- "When ~ has no ice counters on it, sacrifice it": the permanent itself (603.8)
     subject = cond.get("subject")
+    if event == "final_chapter":
+        return "event"  # -- saga events (wave 45C) -- Narci: "that Saga's mana value" ("that permanent"): the Saga whose final chapter ability it is
     if subject == "player" and event == "cast":
         return "event_spell"  # -- sized amounts (wave 3D) -- "that spell's mana value": read from the spell, never "it"
     if subject == "player" and event == "sacrifice" and cond.get("obj") and not cond.get("aggregate"):
@@ -4792,6 +4794,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # control or a battle you protect (defending.defended); that never changes while it attacks (a creature removed from combat keeps it),
                     # so the intervening "if" (603.4) is part of the trigger event
                     body, cond = body[len("if you're the defending player, "):], {**cond, "defending_player": "you"}
+                if cond is not None and cond.get("event") == "tapped" and body.startswith("if it isn't being declared as an attacker, "):
+                    # -- tap events (wave 45C) -- 508.1f, 603.4: Rhoda, Verity Circle: it became tapped some other way than as it was declared an attacker;
+                    # past by the time the ability resolves, so (like the "if" of 38A's Ever-Watching Threshold) it is part of the trigger event
+                    body, cond = body[len("if it isn't being declared as an attacker, "):], {**cond, "not_declared": True}
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
                 if ante == "event" and cond is not None and not other_side.wanted(cond):  # -- this-turn state (wave 33D) -- Hixus: with no creature on
                     body = re.sub(r"\bexile that creature until ~ leaves the battlefield", "exile it until ~ leaves the battlefield", body)  # the other side,
