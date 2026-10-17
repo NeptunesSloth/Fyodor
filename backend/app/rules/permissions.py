@@ -188,6 +188,9 @@ GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?(?:you may )?(?P<w
 # -- cast a copy (wave 13C) -- "You may cast the copy without paying its mana cost." (707.12; each copy is its own choice, 707.12a)
 # (wave 18F: without "without paying …" the copy's mana cost is paid: 707.12 "You may cast the copy. (You still pay its costs.)")
 FREE_COPY = re.compile(r"^(?:if you do, )?you may cast (?P<w>the copy|the copies|any number of the copies)(?P<free> without paying (?:its|their) mana costs?)?$")
+# -- trigger other (wave 44D) -- "Whenever you discard a nonland card, you may cast it from your graveyard." (Oskar, Rubbish Reclaimer): cast now, as this resolves (608.2g), paying its
+# costs (the Oskar ruling of 2022-04-29: "You may cast the spell immediately. You must pay all costs")
+CAST_IT_FROM_GRAVEYARD = re.compile(r"^(?:you may )?cast (?:it|that card) from your graveyard$")
 # -- cast without paying (wave 3C) --
 # "You may cast a spell with mana value 5 or less from your hand without paying its mana cost." (cast now,
 # as this resolves: 608.2g) / "You may cast an instant or sorcery spell from your hand with mana value X
@@ -906,6 +909,8 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     m = LOOK_EXILED.fullmatch(text)  # -- hidden exile (wave 18A) --
     if m:
         return [{"do": "look_exiled", "who": "them:card" if m["what"] in ("those cards", "them") else "it:card", "optional": True}], None
+    if CAST_IT_FROM_GRAVEYARD.fullmatch(text):
+        return [{"do": "free_cast", "zone": "that", "who": "ref:event", "filter": None, "optional": True, "mv": None, "n": 1, "paid": True}], None
     m = FREE_COPY.fullmatch(text)  # -- cast a copy (wave 13C) --
     if m:
         many = m["w"] != "the copy"

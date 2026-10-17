@@ -38,9 +38,9 @@ MINN, MASTER, VONDAM = "Minn, Wily Illusionist", "The Master of Lake-town", "Syr
 HISOKA, MAGETA, JOLRAEL = "Hisoka, Minamo Sensei", "Mageta the Lion", "Jolrael, Empress of Beasts"
 WILL, ROWAN, ZIMONE, AGATHA = "Will, Scion of Peace", "Rowan, Scion of War", "Zimone, Infinite Analyst", "Agatha of the Vile Cauldron"
 TIFA, HULK, AZULA = "Tifa, Martial Artist", "Bruce Banner // The Incredible Hulk", "Azula, Ruthless Firebender"
-NAEL = "Nael, Avizoa Aeronaut"
+NAEL, OSKAR = "Nael, Avizoa Aeronaut", "Oskar, Rubbish Reclaimer"
 FULL = [BRISELA, NEVINYRRAL, KNIGHT, ELLIE, MEREN, BORTUK, JACE, NISSA, SHEOLDRED, ZUKO, MIZZIX, WITCH, MINN, MASTER, VONDAM, HISOKA, MAGETA, JOLRAEL, WILL, ROWAN,
-        ZIMONE, AGATHA, TIFA, HULK, AZULA, NAEL]
+        ZIMONE, AGATHA, TIFA, HULK, AZULA, NAEL, OSKAR]
 
 
 @pytest.fixture()
@@ -632,4 +632,34 @@ def test_nael_draws_when_the_lands_have_all_five_basic_land_types(cards):
 def test_nael_does_not_draw_with_fewer_basic_land_types(cards):
     s, hand = nael_hits(cards, ["Island"])
     assert len(s.state.zones["p1:hand"]) == hand
+    check(s)
+
+
+def oskar_discards(cards):
+    s = build(cards, [OSKAR, "Merfolk Looter", "Divination"], [])
+    put(s, OSKAR)
+    put(s, "Merfolk Looter")
+    next_turn(s)
+    div = to_hand(s, "Divination")
+    act(s, "p1", type="activate_ability", card_id=card_named(s, "Merfolk Looter").id, ability=0)
+    pass_until_stack_empty(s)
+    mana(s, U=1, C=2)
+    decide(s, [div.id])  # (the discard)
+    return s, div
+
+
+def test_oskar_casts_a_discarded_nonland_card_from_the_graveyard(cards):
+    s, div = oskar_discards(cards)
+    assert s.state.rules.decision.prompt.startswith("Choose a spell to cast")
+    hand = len(s.state.zones["p1:hand"])
+    decide(s, [div.id])  # (paying {2}{U} from the pool)
+    assert len(s.state.zones["p1:hand"]) == hand + 2 and s.state.cards[div.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_oskar_may_leave_the_discarded_card_in_the_graveyard(cards):
+    s, div = oskar_discards(cards)
+    hand = len(s.state.zones["p1:hand"])
+    decide(s, [])
+    assert len(s.state.zones["p1:hand"]) == hand and s.state.cards[div.id].zone == "p1:graveyard"
     check(s)
