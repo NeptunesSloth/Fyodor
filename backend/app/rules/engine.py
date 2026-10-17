@@ -208,6 +208,9 @@ def absorb_manual_events(plan: Plan) -> None:
             from app.rules import history  # -- this-turn history (wave 4D) --
 
             history.note_cast(plan, card)
+            from app.rules import prohibitions
+
+            prohibitions.bind_next_uncounterable(plan, card, card.controller)  # -- most-played cards (wave 43B) -- also a spell cast by hand
             # -- review (wave 4R) -- "their first noncreature spell each turn" counts a spell cast by hand too (601.2i)
             from app.rules import unless_pays
 

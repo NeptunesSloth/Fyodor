@@ -61,7 +61,7 @@ def definition(text: str) -> dict[str, Any] | None:
     from app.rules import selectors
 
     if _CAGED_SUN.match(text.strip()) is not None:
-        return {"kind": "triggered", "trigger": "tap_for_mana", "who": "you", "sel": selectors.parse("land").key(), "extra": "chosen", "chosen": True,
+        return {"kind": "triggered", "trigger": "tap_for_mana", "who": "you", "sel": selectors.Selector(types=("Land",)).key(), "extra": "chosen", "chosen": True,
                 "any_ability": True, "monarch": False, "optional": False, "target": None, "effects": []}
     if (alt := _ITS_CONTROLLER.match(text.strip())) is not None:
         if alt["chosen"]:
@@ -137,7 +137,9 @@ def _triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any
             ch = derive(state, c, copiable(state, c, info), info)
             for d in scripts.definitions(ch).values():
                 if d.get("trigger") == "tap_for_mana" and d.get("chosen"):
-                    from app.rules.casting import _chosen_color  # (wave 43B) no color chosen: the trigger never triggers (Gauntlet of Power ruling 2022-12-08)
+                    from app.rules.casting import (
+                        _chosen_color,  # (wave 43B) no color chosen: the trigger never triggers (Gauntlet of Power ruling 2022-12-08)
+                    )
 
                     if (color := _chosen_color(c)) is not None:
                         out.append((c.controller, {**d, "extra": [[color]], "only": color}, c.id))

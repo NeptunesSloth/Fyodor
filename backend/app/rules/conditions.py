@@ -1589,12 +1589,12 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
             return crew_saddle.is_saddled(plan, card)
         return plan.oid(card) in (plan.rules.monstrous if cond["designation"] == "monstrous" else plan.rules.renowned)
     if "beats_all" in cond:  # -- most-played cards (wave 43B) -- strictly greater than every other creature on the battlefield (Selvala ruling 2016-08-23: ties draw nothing)
-        mine = values._stat_of(ch, cond["beats_all"])
-        if mine is None:
+        stat = values._stat_of(ch, cond["beats_all"])
+        if stat is None:
             return False
         others = [values._stat_of(plan.ch(c), cond["beats_all"]) for c in plan.state.cards.values()
                   if c.id != card.id and c.zone.endswith(":battlefield") and plan.in_game(c) and plan.ch(c).is_creature]
-        return all(o is None or mine > o for o in others)
+        return all(o is None or stat > o for o in others)
     if "beats_self" in cond:  # "its power is greater than ~'s": either stat named (as it is, or as it last existed, 608.2h)
         mine = values._object(plan, ctx, "self")
         if mine is None:

@@ -680,7 +680,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             sel = selectors.replace(sel, extras=tuple("blocking_source" if x == "blocking_event" else x for x in sel.extras))
             return sum(1 for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away)
         if "shares_type_event" in sel.extras:  # -- most-played cards (wave 43B) -- "for each other attacking creature that shares a creature type with it" (Shared Animosity): "it"
-            from app.rules import context  # is the creature the trigger is about, as this resolves; the others than IT are counted
+            from app.rules import (
+                context,  # is the creature the trigger is about, as this resolves; the others than IT are counted
+            )
 
             event_creatures = context.objects(plan, ctx, context.EVENT)
             return sum(1 for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away)

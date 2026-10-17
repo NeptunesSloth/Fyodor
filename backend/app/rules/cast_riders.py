@@ -38,9 +38,6 @@ def _creature_spell_watch(cond: dict[str, Any] | None) -> bool:
 def parse(cond: dict[str, Any] | None, clause: str) -> tuple[list[dict[str, Any]], None] | None:
     """The deferred effect of a "when you next cast a creature spell this turn" watch that changes the spell, or None."""
     text = clause.strip().rstrip(".")
-    if text == "that spell can't be countered" and cond is not None and cond.get("event") == "cast" and cond.get("subject") == "player" \
-            and cond.get("player") == "you":  # -- most-played cards (wave 43B) -- 101.2, 701.6, 106.6: "The next spell you cast this turn can't be countered." (Mistrise Village)
-        return [{"do": "spell_rider", "who": "event_spell", "riders": [{"kind": "uncounterable"}]}], None
     if (m := _COUNTERS.fullmatch(text)) is not None and _creature_spell_watch(cond):
         return [{"do": "spell_rider", "who": "event_spell", "riders": [{"kind": "counter"}] * _NUMBERS[m["n"].lower()]}], None
     if _HASTE.fullmatch(text) is not None and _creature_spell_watch(cond):

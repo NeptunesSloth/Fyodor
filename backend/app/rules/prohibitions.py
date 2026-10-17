@@ -257,7 +257,33 @@ def cant_search_turn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool
     return True
 
 
-PRIMITIVES = {"cant_search_turn": cant_search_turn, "uncounterable_turn": uncounterable_turn}
+def uncounterable_next(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"The next [creature] spell you cast this turn can't be countered.": waits for that spell (``bind_next_uncounterable``, as it is cast)."""
+    r = plan.rules
+    turn = plan.state.turn.number
+    r.results = [x for x in r.results if x["turn"] == turn]
+    r.results.append({"player": ctx["controller"], "what": "uncounterable_next", "turn": turn, "filter": e.get("filter")})
+    return True
+
+
+def bind_next_uncounterable(plan: Plan, card: Any, player: str) -> None:
+    """A spell was just cast by ``player`` (601.2a): every waiting "next spell … can't be countered" of theirs that fits it now belongs to this very spell (400.7: a new
+    object later is another spell), and is used up."""
+    from app.rules import permissions
+
+    r = plan.rules
+    turn = plan.state.turn.number
+    waiting = [x for x in r.results if x.get("what") == "uncounterable_next" and x["turn"] == turn and x["player"] == player]
+    if not waiting:
+        return
+    ch = plan.ch(card)
+    oid = r.object_id(card.id)
+    for x in waiting:
+        if not x.get("filter") or permissions.spell_matches(plan.state, player, card, ch, x["filter"], plan.info):
+            x["what"], x["oid"] = "uncounterable", oid
+
+
+PRIMITIVES = {"cant_search_turn": cant_search_turn, "uncounterable_turn": uncounterable_turn, "uncounterable_next": uncounterable_next}
 
 
 def cant_cause_sacrifice(plan: Plan, victim: str, by: str) -> str | None:

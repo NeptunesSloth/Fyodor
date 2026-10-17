@@ -6355,17 +6355,16 @@ def _watch_whenever_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any
     return _from_language(watches.parse_leading(m["rest"]))
 
 
-@effect(r"the next (?P<spell>(?:[a-z]+ )*?[a-z]+ spell|spell) you cast this turn can't be countered")
-def _watch_next_uncounterable(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    # -- most-played cards (wave 43B) -- "The next [creature] spell you cast this turn can't be countered." (Mistrise Village, Insist): the first such spell
-    # you cast from now on, as "When you next cast a … spell this turn, that spell can't be countered" says (603.7)
-    from app.rules import events, watches
+@effect(r"the next (?:(?P<sel>[a-z, ]+?) )?spell you cast this turn can't be countered")
+def _next_uncounterable(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    # -- most-played cards (wave 43B) -- "The next [creature] spell you cast this turn can't be countered." (Mistrise Village, Insist, Overmaster): a continuous effect that
+    # attaches to the next such spell as it is cast (601.2a, 611.2a) - not a trigger: nothing can respond between the cast and the effect (prohibitions.bind_next_uncounterable)
+    from app.rules import permissions
 
-    spell = m["spell"]
-    cond = events.parse_condition(f"you cast {'an' if spell[0] in 'aeiou' else 'a'} {spell}")
-    if cond is None or set(cond) - {"event", "subject", "player", "spell"}:
+    key = permissions.spell_filter(m["sel"]) if m["sel"] else None
+    if m["sel"] and key is None:
         raise _NoMatch
-    return _from_language(watches.build(cond, "that spell can't be countered", once=True, text=f"you next cast a {spell}"))
+    return [{"do": "uncounterable_next", "filter": key}], None
 
 
 @effect(r"when you next cast (?P<spell>.+?) this turn, (?P<clause>.+)")

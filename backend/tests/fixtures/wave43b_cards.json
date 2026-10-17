@@ -1,0 +1,444 @@
+[
+ {
+  "name": "Chaos Warp",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "The owner of target permanent shuffles it into their library, then reveals the top card of their library. If it's a permanent card, they put it onto the battlefield.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Boseiju, Who Endures",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Legendary Land",
+  "oracle_text": "{T}: Add {G}.\nChannel — {1}{G}, Discard this card: Destroy target artifact, enchantment, or nonbasic land an opponent controls. That player may search their library for a land card with a basic land type, put it onto the battlefield, then shuffle. This ability costs {1} less to activate for each legendary creature you control.",
+  "colors": [],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Channel"
+  ]
+ },
+ {
+  "name": "Syr Konrad, the Grim",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{B}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Knight",
+  "oracle_text": "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a creature card leaves your graveyard, Syr Konrad deals 1 damage to each opponent.\n{1}{B}: Each player mills a card. (They each put the top card of their library into their graveyard.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Mill"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Bolas's Citadel",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Legendary Artifact",
+  "oracle_text": "You may look at the top card of your library any time.\nYou may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.\n{T}, Sacrifice ten nonland permanents: Each opponent loses 10 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Utopia Sprawl",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant Forest\nAs this Aura enters, choose a color.\nWhenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Caged Sun",
+  "layout": "normal",
+  "mana_cost": "{6}",
+  "cmc": 6.0,
+  "type_line": "Artifact",
+  "oracle_text": "As this artifact enters, choose a color.\nCreatures you control of the chosen color get +1/+1.\nWhenever a land's ability causes you to add one or more mana of the chosen color, add an additional one mana of that color.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Gauntlet of Power",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Artifact",
+  "oracle_text": "As this artifact enters, choose a color.\nCreatures of the chosen color get +1/+1.\nWhenever a basic land is tapped for mana of the chosen color, its controller adds an additional one mana of that color.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Mistrise Village",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped unless you control a Mountain or a Forest.\n{T}: Add {U}.\n{U}, {T}: The next spell you cast this turn can't be countered.",
+  "colors": [],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Selvala, Heart of the Wilds",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Elf Scout",
+  "oracle_text": "Whenever another creature enters, its controller may draw a card if its power is greater than each other creature's power.\n{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Midnight Clock",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add {U}.\n{2}{U}: Put an hour counter on this artifact.\nAt the beginning of each upkeep, put an hour counter on this artifact.\nWhen the twelfth hour counter is put on this artifact, shuffle your hand and graveyard into your library, then draw seven cards. Exile this artifact.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Shared Animosity",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever a creature you control attacks, it gets +1/+0 until end of turn for each other attacking creature that shares a creature type with it.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Archivist of Oghma",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Halfling Cleric",
+  "oracle_text": "Flash\nWhenever an opponent searches their library, you gain 1 life and draw a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flash"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Wan Shi Tong, Librarian",
+  "layout": "normal",
+  "mana_cost": "{X}{U}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Bird Spirit",
+  "oracle_text": "Flash\nFlying, vigilance\nWhen Wan Shi Tong enters, put X +1/+1 counters on him. Then draw half X cards, rounded down.\nWhenever an opponent searches their library, put a +1/+1 counter on Wan Shi Tong and draw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance",
+   "Flash"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Starting Town",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land — Town",
+  "oracle_text": "This land enters tapped unless it's your first, second, or third turn of the game.\n{T}: Add {C}.\n{T}, Pay 1 life: Add one mana of any color.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Expressive Iteration",
+  "layout": "normal",
+  "mana_cost": "{U}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Look at the top three cards of your library. Put one of them into your hand, put one of them on the bottom of your library, and exile one of them. You may play the exiled card this turn.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Narset, Parter of Veils",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker — Narset",
+  "oracle_text": "Each opponent can't draw more than one card each turn.\n−2: Look at the top four cards of your library. You may reveal a noncreature, nonland card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "loyalty": "5"
+ },
+ {
+  "name": "Aven Mindcensor",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Bird Wizard",
+  "oracle_text": "Flash\nFlying\nIf an opponent would search a library, that player searches the top four cards of that library instead.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Flash"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Goblin Guide",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Creature — Goblin Scout",
+  "oracle_text": "Haste\nWhenever this creature attacks, defending player reveals the top card of their library. If it's a land card, that player puts it into their hand.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Haste"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Domri, Anarch of Bolas",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker — Domri",
+  "oracle_text": "Creatures you control get +1/+0.\n+1: Add {R} or {G}. Creature spells you cast this turn can't be countered.\n−2: Target creature you control fights target creature you don't control.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Fight"
+  ],
+  "loyalty": "3"
+ },
+ {
+  "name": "Overmaster",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "The next instant or sorcery spell you cast this turn can't be countered.\nDraw a card.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Spirit of the Labyrinth",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment Creature — Spirit",
+  "oracle_text": "Each player can't draw more than one card each turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "1"
+ },
+ {
+  "name": "Hill Giant",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Shock",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Shock deals 2 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Wall of Omens",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Wall",
+  "oracle_text": "Defender\nWhen this creature enters, draw a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "0",
+  "toughness": "4"
+ },
+ {
+  "name": "Elvish Mystic",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature — Elf Druid",
+  "oracle_text": "{T}: Add {G}.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Goblin Piker",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Goblin Warrior",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Shivan Dragon",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ }
+]
