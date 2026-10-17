@@ -66,6 +66,8 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     t = text.strip().rstrip(",").replace("’", "'")
     t = re.sub(r"^(defending player|that player|an opponent) is poisoned$", r"\1 has a poison counter", t)  # -- player counters (wave 20F) -- 122.1f
     t = re.sub(r"^your library has no cards in it$", "there are no cards in your library", t)  # -- activated other (wave 34B) -- Doctor Doom, Unrivaled: "your library has no cards in it" is the condition "there are no cards in your library" read as the effect resolves (608.2c)
+    t = re.sub(r"^you control no (\w+) other than (?:this \w+|~)(?= and |$)", r"you control no other \1", t)  # -- most-played cards (wave 49A) -- Barren Glory: "no permanents other than this enchantment"
+    t = re.sub(r"^(you control no other \w+) and have ", r"\1 and you have ", t)  # (the elided subject of the second half)
     t = t.replace("your team controls", "you control")  # -- trailing & intervening ifs (wave 38A) -- 102.4: outside a team game "your team" is "you" (Sickle Dancer)
     if "your starting life total" in t:  # -- trailing & intervening ifs (wave 38A) -- 119.1, 903.7: "if your life total is greater than your starting life total" (Cosmos Elixir)
         from app.rules import static_conditions

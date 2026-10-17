@@ -188,5 +188,20 @@
   ],
   "power": "1",
   "toughness": "1"
+ },
+ {
+  "name": "Barren Glory",
+  "layout": "normal",
+  "mana_cost": "{4}{W}{W}",
+  "cmc": 6.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of your upkeep, if you control no permanents other than this enchantment and have no cards in hand, you win the game.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
  }
 ]

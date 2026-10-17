@@ -30,7 +30,7 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave49a_small_cards.jso
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w49a", number=f"B{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-FULL = ["Stormwing Entity", "Even the Score", "Discontinuity", "Brush Off", "Consuming Ashes", "Exile"]
+FULL = ["Stormwing Entity", "Even the Score", "Discontinuity", "Brush Off", "Consuming Ashes", "Exile", "Barren Glory"]
 
 
 @pytest.fixture()
@@ -181,4 +181,21 @@ def test_exile_exiles_a_nonwhite_attacker_and_gains_its_toughness(cards):
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Exile").id, targets=[bears.id])
     settle(s)
     assert s.state.cards[bears.id].zone == "p2:exile" and life(s, "p1") == 42
+    check(s)
+
+
+@pytest.mark.parametrize("extra", ["", "hand", "permanent"])
+def test_barren_glory_wins_only_with_an_empty_hand_and_no_other_permanents(cards, extra):
+    """"If you control no permanents other than this enchantment and have no cards in hand, you win the game." is checked as her upkeep begins."""
+    s = build(cards, ["Barren Glory"])
+    put(s, "Barren Glory")
+    assert not s.state.zones.get("p1:hand")  # (the table starts with empty hands)
+    if extra == "hand":
+        to_hand(s, "Forest")
+    if extra == "permanent":
+        put(s, "Forest")
+    stops(s)
+    to_phase(s, "upkeep", turn=3)
+    settle(s)
+    assert (s.state.rules.winner == "p1") == (extra == "")
     check(s)
