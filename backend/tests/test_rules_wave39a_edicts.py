@@ -715,10 +715,7 @@ def test_indulgent_tormentor_the_target_opponent_may_sacrifice_or_pay_or_alice_d
     "Each player sacrifices half the permanents they control of their choice, round down each time.",
     # the count of a blocked creature that isn't the source or the event's creature
     "Whenever a creature you control attacks, it gets +1/+1 until end of turn for each creature blocking it.",
-    # Odric, Lunarch Marshal: the variants of hexproof / protection / landwalk a creature may have are granted as those exact abilities (the 2020 ruling), which
-    # a keyword set can't say; "The same is true for …" is not read either
-    "At the beginning of each combat, creatures you control gain first strike until end of turn if a creature you control has first strike. "
-    "The same is true for flying, deathtouch, double strike, haste, hexproof, indestructible, lifelink, menace, reach, skulk, trample, and vigilance.",
+    # (Odric, Lunarch Marshal is read since wave 50J: the variants are granted as the lines they are, app/rules/keyword_soup.py, tests/test_rules_wave50j_small.py)
 ])
 def test_unread_wordings_stay_manual(text):
     from tests.test_rules_scripts import ch as characteristics

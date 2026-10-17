@@ -1044,6 +1044,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if "life_x" in e:  # -- sized payments (wave 5G) -- "pay X life, where X is its power"
                 e["life_x"] = _bind_stats(e["life_x"], lambda verb=None, at=index: stat_ref(at, verb),
                                           (lambda: "event") if antecedent == "event_spell" else None)
+            if "energy_n" in e:  # -- energy X (wave 50J) -- "unless you pay an amount of {E} equal to its mana value" (Satya): the token the ability made
+                e["energy_n"] = _bind_stats(e["energy_n"], lambda verb=None, at=index: stat_ref(at, verb), None)
             for pk in ("p", "t"):  # -- as long as (wave 9B) -- "gets +X/+X …, where X is the discarded card's mana value" (a pump / become)
                 # (wave 20A: a pump's plain "it" is "that card's mana value", language._Ante; a "become" reads its own "it";
                 # -- layers (wave 30O) -- except "base power … equal to that creature's power", whose "it" is another object, ``ante``)
@@ -2011,7 +2013,7 @@ def _first(fn):  # type: ignore[no-untyped-def]
 @effect(r"create (?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|twice X|half X) (?:tapped (?:and attacking )?)?"  # (half/twice, X/X: wave 4K; wave 30P: "tapped and attacking 1/1 …")
         r"(?:(?:(?:\d+|X)/(?:\d+|X) )?(?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) "
         r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)* (?:enchantment )?(?:artifact )?(?:land )?creature tokens?|[A-Z][a-z]+ tokens?"
-        r"|\d+/\d+ (?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) Vehicle artifact tokens?)"  # (wave 38B)
+        r"|(?:\d+|X)/(?:\d+|X) (?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) Vehicle artifact tokens?)"  # (wave 38B; wave 50J: X/X, Pia Nalaar)
         r"(?: named [A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*)?(?: with (?:(?!, then | if | unless )[^\"])*(?:\"[^\"]+\")?)?"  # (wave 38B: nor a trailing " if …": _trailing_conditional)
         r"(?: that(?:'s| are) (?:tapped and )?attacking(?: (?:that player|that opponent|defending player))?)?"  # (wave 30P)
         r"(?: for each [^\"]+|, where [xX] is [^\"]+|, rounded (?:up|down))?")
@@ -2384,6 +2386,24 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = re.sub(r"(\. |^)It's (an? [^.]+? for as long as it has an? [^.]+? counter on it)(?=\.|$)", r"\1It becomes \2", body)  # (-- commanders (wave 50C) -- Sauron, Dino Devotee: "It's a green Dinosaur with base power and toughness 5/5 for as long as it has a saurian counter on it" is a duration effect on the creature just given the counter, 611.2a)
     if (gifts := refused_zones.gifts_ability(body)) is not None:
         return gifts
+    from app.rules import keyword_soup  # -- keyword soups (wave 50J) --
+
+    if (soup := keyword_soup.bind(body, it)) is not None:
+        return soup
+    from app.rules import combat_rules  # -- blocking tokens (wave 50J) --
+
+    if (blocker := combat_rules.blocking_token(body, it, parse_effects)) is not None:
+        return blocker
+    # -- bushido grant (wave 50J) -- "That creature gains bushido 1 and becomes a Samurai in addition to its other creature types." (Sensei Golden-Tail): two continuous effects of
+    # one object (611.2a: no duration, so for good), the keyword given as the ability it is ("Bushido 1", 702.45a)
+    body = re.sub(r"\b(That creature) gains bushido (\d+) and becomes (an? [A-Z][a-z]+ in addition to its other creature types)\b", r'\1 gains "Bushido \2". \1 becomes \3', body)
+    body = re.sub(r"(can't be blocked by creatures) of that color\b", r"\1 of the chosen color", body)  # -- chosen type (wave 50J) -- Skrelv: the color chosen before
+    # -- exile with a counter (wave 50J) -- "Choose target creature card in a graveyard. Exile it with a brain counter on it." (Rex, Cyber-Hound): the counter goes on the card in exile
+    body = re.sub(r"\b([Ee]xile (?:it|that card)(?: from their graveyard)?) with an? ([a-z]+) counter on it\.", r"\1. Put a \2 counter on it.", body)
+    if "one or more {E}" in body:  # -- energy X (wave 50J) --
+        from app.rules import paid_x
+
+        body = paid_x.energy_text(body)
     from app.rules import (
         resolve_exile,  # -- cast riders (wave 38C) -- "Exile that card instead of putting it into your graveyard as it resolves. If you do, …"
     )
@@ -4145,6 +4165,9 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         its = "target" if m["who"] in ("its controller", "that player", "they") else None  # (checked below: a target object)
         if re.fullmatch(r"(?:\{E\})+", rest):  # "unless you pay {E}{E}" (107.14: energy counters, not mana)
             cost = optional_payment.cost_text(f"pay {rest}")
+        elif (em := re.fullmatch(r"an amount of \{E\} equal to (?P<v>.+)", rest)) is not None:  # -- energy X (wave 50J) -- Satya: "equal to its mana value"
+            energy_n = unless_pays._value(em["v"], "it")
+            sized, cost = ({"cost": "", "energy_n": energy_n}, "") if energy_n is not None else (None, None)
         else:
             sized = unless_pays.sized_cost(rest, its)
             cost = "" if sized is not None else None
@@ -4352,6 +4375,10 @@ def granted_ability(text: str) -> AbilityText | None:
         line = ab.text.rstrip(".")  # -- protection grants (wave 5E) -- (a resolved grant's text ends with a period)
         if re.fullmatch(statics.MEANING_GRANTS, line.lower()) or line.lower() in ("riot", "unleash"):  # -- static grants (wave 15A) -- (wave 42A: unleash, the same)
             return ab  # "Extort", "Afflict 2": their CR meaning; (wave 17C) riot: read as it enters (app/rules/riot.py)
+        if ab.keywords == ("hexproof from",):  # -- keyword soups (wave 50J) -- 702.11d: a variant of hexproof, given as its holder has it (Odric, Lunarch Marshal)
+            from app.rules import protection
+
+            return ab if protection.hexproof(line) is not None else None
         if ab.keywords == ("cumulative upkeep",):  # -- attached events (wave 20A) -- 702.24a: a triggered ability of whatever has it (triggers._cumulative_upkeep)
             from app.rules.coverage import _keyword_supported
 
@@ -4445,6 +4472,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if d is not None and d.get("kind") != "spell" and kicked_instead.has_kicked_groups(d):
         return None
+    if d is not None and any(e.get("do") == "create_token" and "Vehicle" in str((e.get("token") or {}).get("type_line")) and (e["token"].get("power") == {"x": 1})
+                             for e in d.get("effects") or []):
+        return None  # -- energy X (wave 50J) -- an X/X Vehicle token is read only with the X a payment paid (Pia Nalaar: bound as paid_x), never a bare X
     cond = d.get("cond") if d is not None and d.get("kind") == "triggered" else None
     if cond is not None and cond.get("event") == "enter" and cond.get("aggregate"):
         # "Whenever one or more artifacts you control enter, ~ deals that much damage": the number of them (603.2c)
@@ -4847,6 +4877,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return {"kind": "static", "static": "day_as_enters", "effects": []}  # (wave 3E: app/rules/designations.py, 731.1)
     if ability.kind == "static" and text == "Creatures you control can boast twice during each of your turns rather than once.":
         return {"kind": "static", "static": "boast_twice", "effects": []}  # -- most-played cards (wave 43B) -- 702.142: read by restrictions ``per_turn`` (wave 4H, tested in test_rules_wave4h_activation_costs.py)
+    if ability.kind == "static" and text == "Each power-up ability of permanents you control can be activated an additional time.":
+        return {"kind": "static", "static": "power_up_again", "effects": []}  # -- power-up (wave 50J) -- read by restrictions ``per_game`` (Wonder Man)
     if ability.kind == "static" and text == "~ can be your commander.":
         return {"kind": "static", "static": "deckbuilding", "effects": []}  # 903.3a: deck construction only
     # -- static_other sweep (wave 19A) -- 510.1c: "You may have this creature assign its combat damage as though it weren't blocked."
@@ -5915,7 +5947,7 @@ LIBRARY_INSTEAD_SELF = re.compile(r"^If ~ would die, put it on (?P<pos>top|the b
 # Statics: "If a creature an opponent controls would die, exile it instead." / Rest in Peace / Leyline of the Void
 EXILE_INSTEAD_STATIC = re.compile(r"^If (?P<subject>a card or token|a card|(?:a|an|another) (?P<sel>[A-Za-z][A-Za-z' ~]+?)) would "
                                   r"(?P<what>die|be put into (?P<whose>a|your|an opponent's) graveyard(?P<any> from anywhere)?), "
-                                  r"exile (?:it|that card) instead\.$")  # (any: "If a permanent would be put into a graveyard" — wave 20B)
+                                  r"exile (?:it|that card)(?: with an? (?P<ctr>[a-z]+) counter on it)? instead\.$")  # (any: "If a permanent would be put into a graveyard" — wave 20B; ctr: wave 50J, Rayami)
 # Prevention: "Prevent all [combat] damage that would be dealt [this turn] [to …] [by …] [this turn]."
 PREVENT_ALL = re.compile(r"^prevent all (?P<kind>combat |noncombat )?damage that would be dealt(?P<t1> this turn)?"
                          r"(?: to (?P<to>.+?))?(?P<t2> this turn)?(?: by (?P<by>.+?))?(?P<t3> this turn)?$")
@@ -6429,7 +6461,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return None
     if m:
         out = {"kind": "static", "static": "exile_instead", "effects": [],
-               **({"rider": rider} if rider is not None else {}),
+               **({"rider": rider} if rider is not None else {}), **({"counter": m["ctr"]} if m["ctr"] else {}),
                "from": "anywhere" if m["any"] else "battlefield",
                "graveyard_of": {"a": "any", "your": "you", "an opponent's": "opponent"}.get(m["whose"] or "a", "any")}
         if m["subject"] in ("a card or token", "a card") and m["what"] != "die" and not m["any"]:
@@ -8420,7 +8452,7 @@ def _exile_until_monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # -- keyword actions & face-down (wave 3F) -- goad names its objects ("goad it" after a target, "tap it and goad
 # it"); manifest / cloak put cards onto the battlefield ("then put X +1/+1 counters on it": the face-down
 # permanent it made, app/rules/facedown.py binds it)
-_RECORDING.update({"goad": None, "manifest": None, "detain": None, "suspect": None, "exile_hand_down": "exiled"})  # (detain, suspect: wave 12A; exile_hand_down: 18A)
+_RECORDING.update({"goad": "goaded", "manifest": None, "detain": None, "suspect": None, "exile_hand_down": "exiled"})  # (detain, suspect: wave 12A; exile_hand_down: 18A)
 _MOVERS.update({"manifest", "exile_hand_down"})  # (exile_hand_down: wave 18A)
 _CHOSEN.update({"manifest": "n", "exile_hand_down": "n"})
 

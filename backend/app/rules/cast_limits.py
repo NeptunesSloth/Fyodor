@@ -57,7 +57,7 @@ Context = dict[str, Any]
 Definition = dict[str, Any]
 
 # -- grammar ---------------------------------------------------------------------------------------
-_SPELLS = r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<tail> with the chosen name| with mana value \d+ or (?:greater|less))?"  # (wave 22B: card_names.py; wave 44D: Brisela's mana value bound, as STATIC_NOBODY reads it)
+_SPELLS = r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<tail> with the chosen name| with mana value \d+ or (?:greater|less)| with mana value greater than the number of lands you control)?"  # (wave 22B: card_names.py; wave 44D: Brisela's mana value bound, as STATIC_NOBODY reads it; wave 50J: Lavinia's, counted for the caster)
 _FROM = r"(?: from (?P<frm>anywhere other than their hands|graveyards or libraries|graveyards or exile|graveyards))?"
 _ACT = (r"(?: or (?P<act>activate abilities of artifacts, creatures, or enchantments|activate abilities that aren't mana abilities"
         r"|activate abilities of cards in graveyards|activate planeswalkers' loyalty abilities))?")
@@ -66,14 +66,14 @@ _FROMS = {"anywhere other than their hands": ("not_hand",), "graveyards": ("grav
 _ACTS = {"activate abilities of artifacts, creatures, or enchantments": "ace",
          "activate abilities that aren't mana abilities": "nonmana",
          "activate abilities of cards in graveyards": "graveyard", "activate planeswalkers' loyalty abilities": "loyalty"}
-_WHO = {"your opponents": "opponents", "players": "each", "each player": "each", "you": "you",
+_WHO = {"your opponents": "opponents", "each opponent": "opponents", "players": "each", "each player": "each", "you": "you",
         "enchanted player": "enchanted", "enchanted creature's controller": "host_controller"}  # (wave 25D: an Aura's Curse, Brand of Ill Omen)
 _WHEN = {"during your turn": "your_turn", "during combat": "combat"}
 # "Your opponents can't cast spells during your turn." / "During your turn, your opponents can't cast spells or activate
 # abilities of artifacts, creatures, or enchantments." / "Your opponents can't cast spells from anywhere other than their
 # hands." / "Players can't cast spells from graveyards or activate abilities of cards in graveyards." / "During combat,
 # players can't cast spells or activate abilities that aren't mana abilities." / "You can't cast creature spells."
-STATIC_CAST = re.compile(rf"^(?:(?P<lead>during your turn|during combat), )?(?P<who>your opponents|players|each player|you|enchanted player|enchanted creature's controller) "
+STATIC_CAST = re.compile(rf"^(?:(?P<lead>during your turn|during combat), )?(?P<who>your opponents|each opponent|players|each player|you|enchanted player|enchanted creature's controller) "
                          rf"can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>during your turn|during combat))?$")
 # "Each player can't cast more than one spell each turn." / "Each player can't cast more than one noncreature spell each turn."
 # -- prohibitions (wave 22B) -- 601.3: "Spells with the chosen name can't be cast." (Meddling Mage, Nevermore), "Creature spells can't be cast."
@@ -256,7 +256,7 @@ FIRST_ALT = re.compile(r"you may pay \{0\} rather than pay the (?:(?P<eq>equip) 
 
 def static_definition(text: str) -> Definition | None:
     """The definition of a static line of this grammar (``permissions.define_static`` asks), or None."""
-    t = _lower_first(text.strip().rstrip("."))
+    t = _lower_first(text.strip().rstrip(".")).replace("the number of lands that player controls", "the number of lands you control")  # (wave 50J: counted for the caster, who is "you" to the spell selector)
     if (own := HAS_FLASH_WHILE.fullmatch(t)) is not None:  # (wave 35D)
         t = f"you may cast this spell as though it had flash if {own['c']}"
     if (lead := AS_LONG_FLASH.fullmatch(t)) is not None:

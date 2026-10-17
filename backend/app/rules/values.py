@@ -381,6 +381,11 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         if on is None or (m["kind"] and m["kind"] in UNMODELED_COUNTERS):
             return None
         return {"counters": m["kind"], "on": on}
+    if (m := re.fullmatch(r"abilities from among (?P<ks>.+?) found among (?P<sel>.+)", what)) is not None:  # -- keyword soups (wave 50J) -- Odric, Blood-Cursed
+        from app.rules import keyword_soup
+
+        ks, key = keyword_soup.words(m["ks"]), _selector_key(m["sel"])
+        return {"abilities_among": ks, "among": key} if ks and key else None
     m = _AMONG.match(what)
     if m and m["sel"] in ("spells you've cast this turn", "spells you have cast this turn") and _DISTINCT[m["kind"]] == "types":
         return {"cast_types": "you"}  # -- trigger other (wave 44B) -- April O'Neil: the card types of this turn's cast spells, as they were cast (601.2i, history.CastNote)
@@ -841,6 +846,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return max(tally.values(), default=0)
     if "distinct" in v:
         return _distinct(plan, ctx, v["distinct"], v["among"])
+    if "abilities_among" in v:  # -- keyword soups (wave 50J) --
+        from app.rules import keyword_soup
+
+        return keyword_soup.count(plan, ctx, v["among"], v["abilities_among"])
     if "devotion" in v:
         return _devotion(plan, you, v["devotion"])
     if ("sum" in v or "max" in v) and v.get("of") == "event":  # -- event batches (wave 34C) -- "their total power" / "the greatest power among them": the

@@ -46,17 +46,18 @@ if TYPE_CHECKING:
 _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled", "blinked"), "sacrificed": ("sacrificed",),  # (blinked, wave 46C: "Exile target creature you control, then return that card to the battlefield. If a Pirate was exiled this way, …", Siren's Ruse)
           "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned", "blinked"), "your_hand": ("returned", "put_hand", "blinked"),
           "graveyard": ("destroyed", "sacrificed", "milled", "discarded", "put_graveyard"), "your_graveyard": ("milled", "discarded", "put_graveyard"),
-          "died": ("destroyed", "sacrificed"), "tapped": ("tapped",),
+          "died": ("destroyed", "sacrificed"), "tapped": ("tapped",), "goaded": ("goaded",),  # (goaded: wave 50J)
           "revealed": ("revealed",), "shuffled": ("shuffled",),  # (wave 10C: reveal_hand.py)
           "battlefield_put": ("put_battlefield",),  # -- most-played cards II (wave 45A) -- "If you put a Cave onto the battlefield this way" (put_from_hand)
           "created": ("created",)}  # -- reflexive this way (wave 30G) -- 603.12: "create a token. When you do, …" (the tokens it made)
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
-    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?|you put into your hand|you put onto the battlefield"
+    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|goaded|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?|you put into your hand|you put onto the battlefield"
     r"|put into (?P<gy>a|your|their|its owner's|that player's|their owners') graveyards?|died|that died) this way$")
 _NOUN_ONLY = re.compile(r"^(?:cards?)$")
 _GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discarded|milled) this way$")
 _TOTAL = re.compile(r"^the total (?P<stat>power|toughness) of the (?P<verb>sacrificed|tapped) (?P<what>.+)$")
+_TOTAL_GOADED = re.compile(r"^the total (?P<stat>power|toughness) of (?P<what>.+?) goaded this way$")  # -- goad (wave 50J) -- Havoc Eater
 
 
 def parse(phrase: str) -> dict[str, Any] | None:
@@ -66,6 +67,8 @@ def parse(phrase: str) -> dict[str, Any] | None:
     p = phrase.strip()
     if (total := _TOTAL.match(p)) is not None and (sel := selectors.parse(total["what"])) is not None and sel.player is None:  # -- any number as an additional cost (wave 48B) -- Corpse Cobble
         return {"this_way": total["verb"], "of": sel.key(), "stat": total["stat"]}  # ("the total power of the sacrificed creatures": as each last existed, 608.2h)
+    if (tg := _TOTAL_GOADED.match(p)) is not None and (sel := selectors.parse(tg["what"])) is not None and sel.player is None:
+        return {"this_way": "goaded", "of": sel.key(), "stat": tg["stat"]}
     most = _GREATEST.match(p)
     if most is not None:  # Windfall: "the greatest number of cards a player discarded this way" (each player's own)
         return {"this_way": most["verb"], "of": None, "max_by": "owner"}
@@ -301,7 +304,7 @@ def unbound(v: Any) -> bool:
 
 
 def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], you: str) -> bool:
-    if kind in ("tapped", "revealed", "created"):  # (tap_choice binds exactly the permanents it tapped; reveal_hand: the cards it showed, which stay put; create_token: the tokens it made)
+    if kind in ("tapped", "revealed", "created", "goaded"):  # (wave 50J: goaded, ``_matched`` keeps those it goaded; tap_choice binds exactly the permanents it tapped; reveal_hand: the cards it showed, which stay put; create_token: the tokens it made)
         return True
     old_card = plan.state.cards.get(was["card"])
     if kind == "shuffled":  # (-- static_other sweep (wave 16B) -- a library shuffle gives its cards new ids: gone from where it was, or in a library)
@@ -415,6 +418,8 @@ def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[d
     for new, was in zip(news, wases, strict=False):
         if not _happened(plan, v["this_way"], new, was, you):
             continue
+        if v["this_way"] == "goaded" and new["object_id"] not in ctx.get("goaded", []):
+            continue  # -- goad (wave 50J) -- 701.15d: goading a creature the same player already goaded has no effect, so it wasn't goaded this way
         if v.get("named") and getattr(plan.state.cards.get(new["card"]), "name", None) != v["named"]:
             continue  # -- reflexive this way (wave 30G) -- the tokens this instruction asked for, by name (a Chatterfang's extra Squirrels aren't)
         if v.get("by") == "you" and getattr(plan.state.cards.get(new["card"]), "owner", None) != you:

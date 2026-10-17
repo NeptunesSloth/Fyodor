@@ -2929,9 +2929,9 @@ DISCARD_ALL_REVEALED = (rf"(?P<s>{CHOOSER}) reveals their hand and discards all 
                         r"(?P<tail> with (?:(?:the chosen|that) name|that spell's mana value))?")  # (wave 22B: Cabal Therapy, "all cards with that name"; wave 36A: Infernal Kirin)
 DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
-CHOOSE_VALUE = rf"choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player|{_NAME_WHAT})"
+CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|{_NAME_WHAT})"  # (wave 50J: odd or even, Thanos)
 CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
-ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink)\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key)
+ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink)\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key)
 
 
 # -- choose own (wave 32A) -- "Then you may choose a token you control." (Brudiclad), "Choose a Giant creature you control. It deals damage equal to its

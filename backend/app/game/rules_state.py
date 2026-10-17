@@ -1080,6 +1080,7 @@ class RulesState(BaseModel):
     # -- most-played cards (wave 43B) -- 500.1: the turns each player has begun (extra turns too; empty until the game's first turn ends: that is the first
     # player's first turn); read by "your first, second, or third turn of the game" (values "turns_taken", engine.start_next_turn)
     turns_taken: dict[str, int] = Field(default_factory=dict)
+    no_power_up_turns: list[int] = Field(default_factory=list)  # -- power-up (wave 50J) -- the turn numbers power-up abilities can't be activated in (Kang the Conqueror's extra turn)
     extra_turn: bool = False  # -- static_other (wave 42A) -- 500.7: the turn in progress is an extra turn ("can't attack during extra turns", Medomai; engine.start_next_turn)
     # … and "can't gain life this turn / for the rest of the game" (614.17; app/rules/cant_gain.py):
     # {"id", "player", "controller", "turn" (None: the rest of the game), "label"}

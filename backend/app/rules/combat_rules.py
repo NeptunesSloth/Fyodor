@@ -764,7 +764,40 @@ def block_cap(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"block_cap": block_cap, "encore_attack": encore_attack, "extra_phases": extra_phases, "create_attacking_each": create_attacking_each,
+# -- blocking tokens (wave 50J) -- "Whenever Brimaz blocks a creature, create a 1/1 white Cat Soldier creature token with vigilance that's blocking that creature."
+# 509.4: a creature put onto the battlefield blocking is a blocking creature that never "blocked" (no block triggers); 509.4a: if the creature it is to block is no longer
+# attacking, or its controller isn't a defending player for it, it enters but never blocks; 509.4b: requirements and restrictions of the declaration don't apply.
+# Read only where the creature is the one the trigger's source blocks (so it is a blocked creature already: an unblocked attacker would stay unblocked, 509.1h)
+_BLOCKING_TOKEN = re.compile(r"^(?P<make>[Cc]reate (?:a|an) [^.]+? token[^.]*?) that's blocking that creature\.$")
+
+
+def blocking_token(body: str, it: str | None, parse: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    m = _BLOCKING_TOKEN.match(body.strip())
+    if m is None or it != "event":
+        return None
+    found = parse(m["make"] + ".", it)
+    if found is None or len(found[0]) != 1 or found[0][0].get("do") != "create_token" or found[1] is not None or found[2]:
+        return None
+    return [{**found[0][0], "as": "blk0"}, {"do": "enter_blocking", "who": "ref:blk0", "blocked": "event"}], None, False
+
+
+def enter_blocking(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    for att_id in effects._cards(plan, ctx, e["blocked"]):
+        attacker = plan.state.cards[att_id]
+        for cid in effects._cards(plan, ctx, e["who"]):
+            token = plan.state.cards[cid]
+            target = attacker.attacking
+            protected = target is not None and (target.id == token.controller or (
+                target.id in plan.state.cards and plan.state.cards[target.id].controller == token.controller))  # (a planeswalker's controller; a battle's protector: not read)
+            if attacker.zone.endswith(":battlefield") and token.zone.endswith(":battlefield") and protected and plan.ch(token).is_creature:
+                plan.do({"type": "block", "card_id": cid, "attacker_id": att_id, "also": token.blocking is not None}, actor=ctx["controller"])
+                plan.note(f"{token.name} enters blocking {plan.ch(attacker).name}", [cid, att_id], actor=ctx["controller"])
+    return True
+
+
+PRIMITIVES = {"enter_blocking": enter_blocking, "block_cap": block_cap, "encore_attack": encore_attack, "extra_phases": extra_phases, "create_attacking_each": create_attacking_each,
               "remove_from_combat": remove_from_combat, "double_pt": double_pt,
               "myriad_choose": myriad_choose, "myriad_create": myriad_create}
 RESUME = {"attack_each_opponent": resume_attack_each, "myriad_pick": resume_myriad}

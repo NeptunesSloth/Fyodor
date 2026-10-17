@@ -3949,6 +3949,7 @@ def discard_named(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 # Named choices (105.1 colors, 205.3m creature types, 205.3i basic land types, players).
 CHOICE_OPTIONS: dict[str, list[str]] = {
     "color": ["White", "Blue", "Black", "Red", "Green"],
+    "odd or even": ["Odd", "Even"],  # -- chosen quality (wave 50J) -- 107.1: zero is even
     "basic land type": ["Plains", "Island", "Swamp", "Mountain", "Forest"],
     # -- commanders (wave 47A) -- 205.2a: "As Umori enters, choose a card type." / "… other than creature or land." (Stenn): the card types a spell or a permanent can have
     "card type": ["Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"],
@@ -3958,7 +3959,7 @@ CHOICE_OPTIONS: dict[str, list[str]] = {
 CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
                  "opponent": "Chosen opponent", "player": "Chosen player", "card type": "Chosen card type",
                  "card type other than creature or land": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type",
-                 "number between 1 and 10": "Chosen number",  # (wave 49B: Talion, the Kindly Lord)
+                 "number between 1 and 10": "Chosen number", "odd or even": "Chosen quality",  # (wave 49B: Talion, the Kindly Lord; wave 50J: Gollum, Riddle Master)
                  "two abilities from among first strike, vigilance, and lifelink": "Chosen abilities"}  # (wave 49B: Greymond, Avacyn's Stalwart)
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
 CHOICE_LABELS.update({w: card_names.LABEL for w in card_names.ALL_WHATS})  # -- card names (wave 22B) -- 201.4
@@ -4028,7 +4029,7 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
     if e.get("as"):
         context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}
-    if not e.get("remember") and (e["what"] in ("creature type", "color") or card_names.is_choice(e["what"])):  # -- chosen type (wave 4J) --
+    if not e.get("remember") and (e["what"] in ("creature type", "color", "odd or even") or card_names.is_choice(e["what"])):  # -- chosen type (wave 4J) --
         from app.rules import chosen as picked
 
         what = "card name" if card_names.is_choice(e["what"]) else e["what"]  # (wave 22B)
@@ -4052,6 +4053,10 @@ RESUME = {"edict": resume_edict, "player_chooses": resume_player_chooses, "choos
 from app.rules import counter_pick as _counter_pick  # noqa: E402, I001
 
 PRIMITIVES["pick_counter"] = _counter_pick.pick_counter
+from app.rules import keyword_soup as _keyword_soup  # noqa: E402, I001  # -- keyword soups (wave 50J) --
+
+PRIMITIVES["keyword_soup"] = _keyword_soup.soup
+RESUME["keyword_soup"] = _keyword_soup.resume
 RESUME["pick_counter"] = _counter_pick.resume
 RESUME.update(_voting.RESUME)  # -- voting (wave 18C) --
 RESUME.update(_tempting.RESUME)
