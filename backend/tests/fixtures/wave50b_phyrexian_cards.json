@@ -1,0 +1,82 @@
+[
+ {
+  "name": "Dismember",
+  "layout": "normal",
+  "mana_cost": "{1}{B/P}{B/P}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "({B/P} can be paid with either {B} or 2 life.)\nTarget creature gets -5/-5 until end of turn.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Gut Shot",
+  "layout": "normal",
+  "mana_cost": "{R/P}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "({R/P} can be paid with either {R} or 2 life.)\nGut Shot deals 1 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Ajani, Sleeper Agent",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G/W/P}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Ajani",
+  "oracle_text": "Compleated ({G/W/P} can be paid with {G}, {W}, or 2 life. If life was paid, this planeswalker enters with two fewer loyalty counters.)\n+1: Reveal the top card of your library. If it's a creature or planeswalker card, put it into your hand. Otherwise, you may put it on the bottom of your library.\n−3: Distribute three +1/+1 counters among up to three target creatures. They gain vigilance until end of turn.\n−6: You get an emblem with \"Whenever you cast a creature or planeswalker spell, target opponent gets two poison counters.\"",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Compleated"
+  ],
+  "loyalty": "4"
+ },
+ {
+  "name": "Spellskite",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact Creature — Phyrexian Horror",
+  "oracle_text": "{U/P}: Change a target of target spell or ability to this creature. ({U/P} can be paid with either {U} or 2 life.)",
+  "colors": [],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "4"
+ },
+ {
+  "name": "Mutagenic Growth",
+  "layout": "normal",
+  "mana_cost": "{G/P}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "({G/P} can be paid with either {G} or 2 life.)\nTarget creature gets +2/+2 until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ }
+]

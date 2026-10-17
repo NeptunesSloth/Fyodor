@@ -1146,9 +1146,8 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
                        "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
         return
     if ep.get("choice") is not None:
-        n = ep["choice"]["life"]
-        decide(plan, player=plan.actor, kind="choose_one", prompt=f"{plan.ch(probe).name}: pay {n} life, or it enters tapped?",
-               options=[DecisionOption(id="pay", label=f"Pay {n} life (untapped)"), DecisionOption(id="tapped", label="Enters tapped")],
+        prompt, options = replacements.shock_prompt(plan.ch(probe).name or "", ep["choice"]["life"], bool(ep["choice"].get("untapped")))
+        decide(plan, player=plan.actor, kind="choose_one", prompt=prompt, options=options,
                resume={"step": "shock", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
         return
     if a.face is not None and a.face != card.face:
@@ -1500,6 +1499,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "shuffle_library": effects.resume_shuffle_library,
     "cast_modes": casting.resume_cast_modes,
     "cast_slot_target": casting.resume_cast_slot_target,
+    "phyrexian": casting.resume_phyrexian,  # -- phyrexian mana (wave 50B) --
     "cast_group": casting.resume_cast_group,
     "cast_divide": casting.resume_cast_divide,
     "trigger_group": triggers.resume_group,

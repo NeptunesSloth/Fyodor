@@ -398,7 +398,7 @@ def test_spellskite_chooses_which_of_two_targets(cards):
     skite = on_field(s, "Spellskite", "p2")
     trail = alice_casts(s, "Arc Trail", targets=["p2", bears.id], counts=[1, 1], R=1, C=1)
     mana(s, "p2", U=1)
-    act(s, "p2", type="activate_ability", card_id=skite.id, ability=0, targets=[trail.id])
+    act(s, "p2", type="activate_ability", card_id=skite.id, ability=0, targets=[trail.id], life_symbols=[])
     d = until_asked(s)
     assert d is not None and d.player == "p2" and [o.id for o in d.options] == ["0", "1"]
     roundtrip(s)
