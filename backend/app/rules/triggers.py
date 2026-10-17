@@ -1671,7 +1671,7 @@ def keyword_cost(line: str, word: str) -> tuple[str, Any] | None:
 
     if (cost := optional_payment.cost_text(_phrase(m["phrase"]))) is not None:
         return "cost", cost
-    done = effect_cost(m["phrase"])
+    done = effect_cost(m["phrase"]) if word == "cumulative upkeep" else None  # (no echo cost is an instruction: not read)
     return ("do", done) if done is not None else None
 
 
@@ -1767,13 +1767,9 @@ def _echo(plan: Plan) -> None:
         r.echo_done[:] = [k for k in r.echo_done if not k.startswith(f"{plan.oid(card)}:")]
         r.echo_done.append(key)
         kind, cost = found
-        if kind == "mana":
-            effects = [{"do": "pay_or_sacrifice", "cost": cost}]
-        elif kind == "cost":
-            effects = [{"do": "optional_payment", "who": "you", "cost": cost, "bind": "pay0"},
-                       {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1}, {"do": "sacrifice", "who": "self"}]
-        else:
-            effects = pay_or_else("pay its echo cost", "you", cost, [{"do": "sacrifice", "who": "self"}])
+        effects = [{"do": "pay_or_sacrifice", "cost": cost}] if kind == "mana" else [
+            {"do": "optional_payment", "who": "you", "cost": cost, "bind": "pay0"},
+            {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1}, {"do": "sacrifice", "who": "self"}]
         _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
              index=3000, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None, "effects": effects})
 
