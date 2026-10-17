@@ -43,6 +43,7 @@ _COLORS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 _ADJECTIVES = frozenset({"legendary", "white", "blue", "black", "red", "green", "colorless", "multicolored", "snow",
                          "attacking", "blocking", "tapped", "untapped"})  # (wave 9B: "enchanted creature is attacking")
 _ATTACHED = re.compile(r"(?P<who>equipped|enchanted) (?P<noun>creature|permanent|land|artifact) (?P<neg>is not|isn't|is) (?P<desc>.+)")
+_BLOCK_REL = re.compile(r"(?P<who>equipped|enchanted) creature is (?P<rel>blocking or blocked by|blocking|blocked by) (?:an? )?(?P<desc>.+)")
 # -- as long as (wave 25A) -- "As long as you control enchanted creature" / "As long as another player controls enchanted creature" (Mishra's
 # Domination, Dog Umbra): the controller of the object the source is attached to, against the source's controller (301.5, 303.4)
 _ATTACHED_CONTROLLER = re.compile(r"(?P<who>you|another player) controls? (?P<what>enchanted|equipped) (?P<noun>creature|permanent|land|artifact)")
@@ -122,6 +123,12 @@ def parse(text: str) -> Condition | None:
     t = text.strip()
     if t in ("~ is paired with another creature", "this creature is paired with another creature"):  # -- soulbond (wave 24B) -- 702.95b
         return {"static": "paired"}
+    m = _BLOCK_REL.fullmatch(t)
+    if m:  # -- most-played cards II (wave 45A) -- "as long as it's blocking or blocked by a Goblin or Orc" (Sting): a block relation, not a thing the host is (509.1)
+        sel = selectors.parse(m["desc"])
+        if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.other or sel.extras:
+            return None
+        return {"static": "block_rel", "rel": m["rel"], "sel": sel.key(), "who": m["who"]}
     m = _ATTACHED.fullmatch(t)
     if m and m["desc"] == "attacking alone":  # -- as long as (wave 35D) -- 506.5: the object it is attached to is the only attacking creature
         alone: Condition = {"static": "host_test", "test": "attacking_alone", "who": m["who"], "noun": m["noun"]}
@@ -325,7 +332,7 @@ def either(text: str) -> Condition | None:
 KINDS = frozenset({"top_card", "exiled_count", "attached_ctrl_is", "self_is", "attached_ctrl", "attached_stat", "attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all",
                     "most_common_color", "hand_most", "paired", "any_hand",  # (wave 20B)
                     "ring_bearer", "self_attached", "host_attached", "dealt_damage", "was_cast", "single_graveyard", "exile_owned", "blocked_by",
-                    "transformed", "doors", "named", "either", "host_test", "self_stat"})  # (wave 35D; 42A: self_stat)
+                    "transformed", "doors", "named", "either", "host_test", "self_stat", "block_rel"})  # (wave 35D; 42A: self_stat; 45A: block_rel)
 
 
 def attached_object(plan: Plan, source: CardInstance) -> CardInstance | None:
@@ -439,7 +446,7 @@ def life_vs_start(plan: Plan, cond: Condition, controller: str) -> bool:
 
 
 _HOLDS_35D = frozenset({"ring_bearer", "self_attached", "host_attached", "dealt_damage", "was_cast", "single_graveyard", "exile_owned",
-                        "blocked_by", "transformed", "doors", "named", "either", "host_test"})
+                        "blocked_by", "transformed", "doors", "named", "either", "host_test", "block_rel"})
 
 
 def _holds_35d(plan: Plan, cond: Condition, source: CardInstance, controller: str) -> bool:
@@ -470,6 +477,12 @@ def _holds_35d(plan: Plan, cond: Condition, source: CardInstance, controller: st
         sel = selectors.from_key(cond["sel"]) if cond["sel"] else None
         return any((c := state.cards.get(cid)) is not None and (sel is None or (not c.unseen and selectors.matches(
             plan, sel, c, plan.ch(c), controller, source.id))) for p in owners for cid in state.zones.get(f"{p}:exile", ()))
+    if kind == "block_rel":  # -- most-played cards II (wave 45A) -- 509.1: the object it is attached to blocks a creature of that kind, or is blocked by one
+        host = attached_object(plan, source)
+        sel = selectors.from_key(cond["sel"])
+        found = [c for c in state.cards.values() if c.zone.endswith(":battlefield") and selectors.matches(plan, sel, c, plan.ch(c), controller, source.id)]
+        return host is not None and ((cond["rel"] != "blocked by" and any(host.blocks(c.id) for c in found))
+                                     or (cond["rel"] != "blocking" and any(c.blocks(host.id) for c in found)))
     if kind == "blocked_by":  # 509.1: the creatures that block it (a creature blocking more than one attacker blocks each)
         return on_field and sum(1 for c in state.cards.values() if c.zone.endswith(":battlefield") and c.blocks(source.id)) >= cond["n"]
     if kind == "transformed":  # 701.27g: a double-faced permanent with its back face up (a merged or melded permanent never is)

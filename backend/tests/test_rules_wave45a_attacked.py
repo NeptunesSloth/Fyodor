@@ -16,6 +16,7 @@ import pytest
 
 from app.game.errors import ActionError
 from app.rules import coverage
+from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_wave5j_token_copies import drive
 from tests.test_rules_wave34b_activated import activate, next_turn, stops
@@ -193,5 +194,56 @@ def test_shoot_the_sheriff_cannot_target_an_outlaw(cards, name):
     s = outlaw_table(cards)
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=card_named(s, "Shoot the Sheriff").id, targets=[card_named(s, name, "p2").id])  # 700.12a: Pirate, Warlock
+    check(s)
+
+
+# ---- Sting, the Glinting Dagger [1634] -------------------------------------------------------------------------------------------------------------------
+def first_strike(s, name, pid="p1"):
+    return "first strike" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card_named(s, name, pid).id]).keywords
+
+
+def until_decision(s, kind, limit=60):
+    """Pass priority (answering anything else with its first options) until this decision is asked."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == kind:
+            return d
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    raise AssertionError(f"never asked {kind}")
+
+
+@pytest.mark.parametrize("attacker, expected", [("Goblin Piker", True), ("Grizzly Bears", False)])
+def test_sting_gives_first_strike_to_the_equipped_creature_blocking_a_goblin_or_orc(cards, attacker, expected):
+    s = build(cards, ["Sting, the Glinting Dagger", "Hill Giant"], ["Goblin Piker", "Grizzly Bears"])
+    stops(s)
+    giant, sting, enemy = put(s, "Hill Giant"), put(s, "Sting, the Glinting Dagger"), put(s, attacker, "p2")
+    act(s, "p1", type="attach", card_ids=[sting.id], to=giant.id)
+    assert not first_strike(s, "Hill Giant")  # (blocking nothing)
+    until_decision(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[])  # Alice's turn 1: no attack
+    d = until_decision(s, "declare_attackers")  # Bob's turn 2
+    assert d.player == "p2"
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": enemy.id, "target": "p1"}])
+    until_decision(s, "declare_blockers")
+    act(s, "p1", type="declare_blockers", blocks=[{"blocker_id": giant.id, "attacker_id": enemy.id}])
+    assert first_strike(s, "Hill Giant") is expected  # 509.1: blocking a Goblin (the Piker); a Bear is neither a Goblin nor an Orc
+    check(s)
+
+
+@pytest.mark.parametrize("blocker, expected", [("Goblin Piker", True), ("Grizzly Bears", False)])
+def test_sting_gives_first_strike_to_the_equipped_creature_blocked_by_a_goblin_or_orc(cards, blocker, expected):
+    s = build(cards, ["Sting, the Glinting Dagger", "Hill Giant"], ["Goblin Piker", "Grizzly Bears"])
+    stops(s)
+    giant, sting, enemy = put(s, "Hill Giant"), put(s, "Sting, the Glinting Dagger"), put(s, blocker, "p2")
+    act(s, "p1", type="attach", card_ids=[sting.id], to=giant.id)
+    next_turn(s)  # Alice's turn 3: the Giant has been there since the turn began
+    until_decision(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": giant.id, "target": "p2"}])
+    until_decision(s, "declare_blockers")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": enemy.id, "attacker_id": giant.id}])
+    assert first_strike(s, "Hill Giant") is expected
     check(s)
 
