@@ -33,7 +33,7 @@ EXTRA = [card(c["name"], set_code="w44b", number=f"B{i:02d}", **{k: v for k, v i
 COMMANDERS = ["Zagras, Thief of Heartbeats", "Merry, Esquire of Rohan", "Kazuul, Tyrant of the Cliffs", "Selvala, Heart of the Wilds", "Rayne, Academy Chancellor",
               "Amalia Benavides Aguirre", "Jenson Carthalion, Druid Exile", "Michelangelo, Improviser", "Danitha, Sword of Hope", "Rose Noble",
               "Tameshi, Reality Architect", "The Beast, Deathless Prince", "Ultron the Annihilator", "Kolodin, Triumph Caster",
-              "Mirko Vosk, Mind Drinker"]
+              "Mirko Vosk, Mind Drinker", "Gornog, the Red Reaper", "Whirlwind, Killer Cyclone", "Vraska, the Cutting Glare", "Splinter, Aging Champion"]
 
 
 @pytest.fixture()
@@ -453,4 +453,106 @@ def test_soul_charmer_gains_life_unless_the_blockers_controller_pays(cards, answ
     act(s, "p2", type="choose", decision_id=d.id, option_ids=[answer])
     settle(s)
     assert s.state.players["p1"].life == life_before + gained
+    check(s)
+
+
+# -- Gornog, the Red Reaper / Whirlwind, Killer Cyclone ------------------------------------------------------------------------------------------------
+def subtypes(s, name, pid):
+    from app.rules.plan import Plan
+
+    return set(Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card_named(s, name, pid).id]).subtypes)
+
+
+def test_gornog_turns_a_creature_of_the_player_attacked_into_a_coward(cards):
+    """Gornog: "Whenever one or more Warriors you control attack a player, target creature that player controls becomes a Coward." In a three-player game it
+    triggers for Bob (the player attacked, 508.3e) and can only choose Bob's creature, not Carol's; the type change has no duration (ruling of 2024-11-08)."""
+    s = table(cards, ["Gornog, the Red Reaper", "Grizzly Bears"], ["Grizzly Bears", "Hill Giant"], players=3)
+    gornog = put(s, "Gornog, the Red Reaper")
+    put(s, "Grizzly Bears", "p2")
+    put(s, "Hill Giant", "p3")
+    attack_as(s, "p1", [gornog], "p2")
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and d.kind != "declare_blockers":
+            assert all(s.state.cards[o.card_id].controller == "p2" for o in d.options if getattr(o, "card_id", None) in s.state.cards), d
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert subtypes(s, "Grizzly Bears", "p2") == {"Coward"} and subtypes(s, "Hill Giant", "p3") == {"Giant"}
+    check(s)
+
+
+def test_gornog_does_nothing_when_no_warrior_attacks(cards):
+    s = table(cards, ["Gornog, the Red Reaper", "Grizzly Bears"], ["Grizzly Bears"])
+    put(s, "Gornog, the Red Reaper")
+    bears, theirs = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2")
+    ready(s, "Grizzly Bears")
+    attack_as(s, "p1", [s.state.cards[bears.id]], "p2")
+    assert not s.state.zones.get("stack") and s.state.rules.decision is None or s.state.rules.decision.kind == "declare_blockers"
+    assert subtypes(s, "Grizzly Bears", "p2") == {"Bear"} and s.state.cards[theirs.id].zone == "p2:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize("entered_this_turn", [True, False])
+def test_whirlwind_stops_a_creature_blocking_only_for_creatures_that_entered_this_turn(cards, entered_this_turn):
+    """Whirlwind: "Whenever one or more creatures you control that entered this turn attack a player, target creature that player controls can't block this turn."
+    Cast this turn (haste) it triggers and Bob's Bears can't block; one that entered earlier doesn't."""
+    from app.game.errors import ActionError
+    from tests.wave36a_kit import next_own_turn
+
+    s = table(cards, ["Whirlwind, Killer Cyclone"], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    if entered_this_turn:
+        cast_from_hand(s, "Whirlwind, Killer Cyclone", R=1, C=2)
+    else:
+        put(s, "Whirlwind, Killer Cyclone")
+        next_own_turn(s)
+    whirlwind = s.state.cards[card_named(s, "Whirlwind, Killer Cyclone").id]
+    attack_as(s, "p1", [whirlwind], "p2")
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and d.kind != "declare_blockers":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    if entered_this_turn:
+        with pytest.raises(ActionError, match="can't block"):
+            block(s, "p2", (bears, whirlwind))
+    else:
+        block(s, "p2", (bears, whirlwind))
+    check(s)
+
+
+# -- Vraska, the Cutting Glare / Splinter, Aging Champion ----------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("lands", "destroyed"), [(6, True), (5, False)])
+def test_vraska_destroys_a_permanent_and_its_controller_creates_a_treasure(cards, lands, destroyed):
+    """Vraska: "if you control six or more lands, destroy target permanent an opponent controls. They create a Treasure token." - "they" are the player who
+    controlled it (Bob), not Alice; with five lands it doesn't trigger (603.4)."""
+    s = table(cards, ["Vraska, the Cutting Glare"], ["Grizzly Bears"])
+    put(s, "Grizzly Bears", "p2")
+    for _ in range(lands):
+        act(s, "p1", type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")],
+            to={"player": "p1", "zone": "battlefield"})
+    cast_from_hand(s, "Vraska, the Cutting Glare", B=2, G=1)
+    treasures = {p: sum(1 for c in s.state.cards.values() if c.name == "Treasure" and c.controller == p and c.zone.endswith(":battlefield")) for p in ("p1", "p2")}
+    assert zone(s, "Grizzly Bears", "p2") == ("p2:graveyard" if destroyed else "p2:battlefield")
+    assert treasures == {"p1": 0, "p2": int(destroyed)}
+    check(s)
+
+
+def test_splinter_lets_you_and_another_player_draw_when_it_leaves(cards):
+    s = table(cards, ["Splinter, Aging Champion", "Lightning Bolt"], ["Grizzly Bears"])
+    splinter = put(s, "Splinter, Aging Champion")
+    bolt = card_named(s, "Lightning Bolt")
+    act(s, "p1", type="move", card_ids=[bolt.id], to={"zone": "hand"})
+    before = {p: library(s, p) for p in ("p1", "p2")}
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[splinter.id])
+    settle(s)
+    assert zone(s, "Splinter, Aging Champion") == "p1:graveyard"
+    assert {p: before[p] - library(s, p) for p in ("p1", "p2")} == {"p1": 1, "p2": 1}
     check(s)
