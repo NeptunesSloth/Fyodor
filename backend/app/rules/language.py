@@ -138,11 +138,18 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     dm = _DIFFERENT.fullmatch(rest)  # (wave 3R4) "… target creature cards with different names …" (201.2, 202.3)
     if dm is not None:
         rest = dm["a"] + (dm["b"] or "")
+    rm = _SHARES.fullmatch(rest) or _CONTROLLERS.fullmatch(rest)  # -- group relations (wave 51A) -- "two target creatures that share a creature type" / "… controlled by different players" (601.2c)
+    if rm is not None:
+        if (m["n"] or m["upto"] or m["range"]) not in ("two", "2", "one or two"):
+            raise _Fail  # ponytail: pairs only; for more targets, what a relation that stops holding on resolution makes illegal (608.2b) is unsettled
+        rest = rm["a"] + (rm["b"] or "")
     what, constraints = ("any", {}) if rest == "targets" else _group_constraints(_target_key(rest))
     if total is not None:
         constraints = {**constraints, "total": total}  # (checked by targets.choose_groups)
     if dm is not None:
         constraints = {**constraints, "different": "name" if dm["k"] == "names" else "mana_value"}
+    if rm is not None:
+        constraints = {**constraints, **({"shares": rm["k"] + "_type"} if "k" in rm.groupdict() else {"controllers": "different"})}
     if m["other"]:  # "up to two other target creatures": other than the source, or than an earlier target
         if rest == "targets":
             what, constraints = "", {"another": "any"}  # ("each of up to two other targets": than the earlier one)
@@ -184,6 +191,8 @@ def target_group(phrase: str) -> dict[str, Any] | None:
 _TOTAL = re.compile(r"(?P<a>.+?) with total (?P<stat>mana value|power) (?P<n>\d+|X) or less(?P<b> .+)?")  # (wave 3R4; 34C: X, the one announced)
 _TOTAL_STATS = {"mana value": "mana_value", "power": "power"}
 _DIFFERENT = re.compile(r"(?P<a>.+?) with different (?P<k>names|mana values)(?P<b> .+)?")  # (wave 3R4)
+_SHARES = re.compile(r"(?P<a>.+?) that share an? (?P<k>creature|card|permanent) type(?P<b> .+)?")  # (wave 51A) 205.2, 205.3m
+_CONTROLLERS = re.compile(r"(?P<a>.+?) controlled by different players(?P<b> .+)?")  # (wave 51A)
 
 
 def _group_constraints(key: str) -> tuple[str, dict[str, Any]]:
@@ -3976,7 +3985,7 @@ def _exchange(phrase: str) -> tuple[Effects, Any] | None:
     both = _control_object(phrase)
     if both is not None:  # "two target creatures": one group of exactly two (701.12a: both or nothing)
         group = both[2]
-        if both[0] != "target" or group is None or (group["min"], group["max"]) != (2, 2) or "another" in group:
+        if both[0] != "target" or group is None or (group["min"], group["max"]) != (2, 2):  # (wave 51A: "two other target creatures", other than the source, is read as for any group)
             return None
         return [{"do": "exchange_control", "who": "target"}], group
     left, sep, right = phrase.partition(" and target ")

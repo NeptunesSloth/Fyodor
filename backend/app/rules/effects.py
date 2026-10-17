@@ -43,7 +43,7 @@ from app.rules import (
 )
 from app.rules import this_way as _this_way  # -- "this way" outcomes (wave 4A) --
 from app.rules.plan import Plan, decide
-from app.rules.targets import source_of, still_legal
+from app.rules.targets import relation_ok, source_of, still_legal
 
 Context = dict[str, Any]  # {"controller", "source_card", "source_object", "name", "targets": [...], "stack_id", "kind"}
 
@@ -3501,7 +3501,8 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         groups: list[list[dict[str, Any] | None]] = []
         for refs, gspec in zip(entry.groups, entry.group_specs, strict=False):
             # an illegal target keeps its place (None), so the division stays as announced (115.7f)
-            groups.append([t.model_dump() if still_legal(plan, gspec["what"], entry.controller, t, src, entry.source_card, attacker)
+            together = relation_ok(plan, gspec, refs)  # (wave 51A) "that share a creature type": no longer so, all of the group's targets are illegal (608.2b; Shifting Loyalties ruling)
+            groups.append([t.model_dump() if together and still_legal(plan, gspec["what"], entry.controller, t, src, entry.source_card, attacker)
                            else None for t in refs])
         chosen = sum(len(refs) for refs in entry.groups)
         if chosen and not any(t for g in groups for t in g):
