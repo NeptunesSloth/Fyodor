@@ -289,3 +289,34 @@ def test_chainer_returns_a_creature_black_and_a_nightmare(cards):
     c = chars(s, got)
     assert list(c.colors) == ["B"] and "Nightmare" in c.subtypes and "Bear" in c.subtypes  # black only (105.3), a Nightmare in addition (205.1b)
     check(s)
+
+
+def test_demonic_junker_destroys_one_creature_per_player_and_grows_only_if_one_of_its_controllers_died(cards):
+    s = build(cards, ["Demonic Junker", "Grizzly Bears"], ["Grizzly Bears"])
+    mine = put(s, "Grizzly Bears")
+    theirs = put(s, "Grizzly Bears", "p2")
+    cast_from_hand(s, "Demonic Junker", B=1, G=6)
+    settle(s)  # the first option of each group: the Bears of Alice, then Bob's
+    assert s.state.cards[mine.id].zone == "p1:graveyard" and s.state.cards[theirs.id].zone == "p2:graveyard"
+    assert s.state.cards[card_named(s, "Demonic Junker").id].counters.get("+1/+1") == 2
+    check(s)
+
+
+def test_battle_at_the_helvault_exiles_a_permanent_of_each_player(cards):
+    s = build(cards, ["Battle at the Helvault", "Grizzly Bears"], ["Grizzly Bears"])
+    mine = put(s, "Grizzly Bears")
+    theirs = put(s, "Grizzly Bears", "p2")
+    cast_from_hand(s, "Battle at the Helvault", W=2, G=4)
+    settle(s, target="Grizzly Bears")
+    assert s.state.cards[mine.id].zone == "p1:exile" and s.state.cards[theirs.id].zone == "p2:exile"
+    check(s)
+
+
+def test_demonic_junker_destroying_only_the_opponents_creature_adds_no_counters(cards):
+    s = build(cards, ["Demonic Junker"], ["Grizzly Bears"])
+    theirs = put(s, "Grizzly Bears", "p2")
+    cast_from_hand(s, "Demonic Junker", B=1, G=6)
+    settle(s)
+    assert s.state.cards[theirs.id].zone == "p2:graveyard"
+    assert not s.state.cards[card_named(s, "Demonic Junker").id].counters.get("+1/+1")
+    check(s)

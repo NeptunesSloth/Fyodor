@@ -53,7 +53,7 @@ def parse(body: str, read: Callable[[str], Parsed | None]) -> Parsed | None:
         if pre is None or pre[1] is not None or pre[2] or re.search(r'"(?:target|optional|bind|skip)', json.dumps(pre[0], default=str)):
             return None
         before = pre[0]
-    return before + found[0], [{**group, FLAG: m["who"], "from": len(before)}], found[2]
+    return before + found[0], [{**group, FLAG: True if m["who"] == "opponent" else m["who"], **({"from": len(before)} if before else {})}], found[2]
 
 
 def flagged(definition: dict[str, Any]) -> bool:
