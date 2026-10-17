@@ -1,0 +1,801 @@
+[
+ {
+  "name": "Spider-Punk",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Spider Human Hero",
+  "oracle_text": "Riot (This creature enters with your choice of a +1/+1 counter or haste.)\nOther Spiders you control have riot.\nSpells and abilities can't be countered.\nDamage can't be prevented.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Riot"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Obosh, the Preypiercer",
+  "layout": "normal",
+  "mana_cost": "{3}{B/R}{B/R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Hellion Horror",
+  "oracle_text": "Companion — Your starting deck contains only cards with odd mana values and land cards. (If this card is your chosen companion, you may put it into your hand from outside the game for {3} as a sorcery.)\nIf a source you control with an odd mana value would deal damage to a permanent or player, it deals double that damage to that permanent or player instead.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Companion",
+   "Double"
+  ],
+  "power": "3",
+  "toughness": "5"
+ },
+ {
+  "name": "Stifle",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Counterspell",
+  "layout": "normal",
+  "mana_cost": "{U}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Counter target spell.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Elvish Visionary",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Elf Shaman",
+  "oracle_text": "When this creature enters, draw a card.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Stoke the Flames",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nStoke the Flames deals 4 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Convoke"
+  ]
+ },
+ {
+  "name": "Lightning Bolt",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Blaze",
+  "layout": "normal",
+  "mana_cost": "{X}{R}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Blaze deals X damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Karrthus, Tyrant of Jund",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{R}{G}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Dragon",
+  "oracle_text": "Flying, haste\nWhen Karrthus enters, gain control of all Dragons, then untap all Dragons.\nOther Dragon creatures you control have haste.",
+  "colors": [
+   "B",
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Haste"
+  ],
+  "power": "7",
+  "toughness": "7"
+ },
+ {
+  "name": "Shivan Dragon",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Giott, King of the Dwarves",
+  "layout": "normal",
+  "mana_cost": "{R}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Dwarf Noble",
+  "oracle_text": "Double strike\nWhenever Giott or another Dwarf you control enters and whenever an Equipment you control enters, you may discard a card. If you do, draw a card.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Double strike"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Dwarven Trader",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Creature — Dwarf",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Bronze Sword",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "Equipped creature gets +2/+0.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Polukranos, Unchained",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Zombie Hydra",
+  "oracle_text": "Polukranos enters with six +1/+1 counters on it. It escapes with twelve +1/+1 counters on it instead.\nIf damage would be dealt to Polukranos while it has a +1/+1 counter on it, prevent that damage and remove that many +1/+1 counters from it.\n{1}{B}{G}: Polukranos fights another target creature.\nEscape—{4}{B}{G}, Exile six other cards from your graveyard.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Fight",
+   "Escape"
+  ],
+  "power": "0",
+  "toughness": "0"
+ },
+ {
+  "name": "Grizzly Bears",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Bear",
+  "oracle_text": "",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Llanowar Elves",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature — Elf Druid",
+  "oracle_text": "{T}: Add {G}.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Memnite",
+  "layout": "normal",
+  "mana_cost": "{0}",
+  "cmc": 0.0,
+  "type_line": "Artifact Creature — Construct",
+  "oracle_text": "",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Ornithopter",
+  "layout": "normal",
+  "mana_cost": "{0}",
+  "cmc": 0.0,
+  "type_line": "Artifact Creature — Thopter",
+  "oracle_text": "Flying",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "0",
+  "toughness": "2"
+ },
+ {
+  "name": "Snapcaster Mage",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "Flash\nWhen this creature enters, target instant or sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost. (You may cast that card from your graveyard for its flashback cost. Then exile it.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flash"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Island",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Basic Land — Island",
+  "oracle_text": "({T}: Add {U}.)",
+  "colors": [],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Edgewalker",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Cleric",
+  "oracle_text": "Cleric spells you cast cost {W}{B} less to cast. This effect reduces only the amount of colored mana you pay. (For example, if you cast a Cleric spell with mana cost {1}{W}, it costs {1} to cast.)",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Monk Idealist",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Monk Cleric",
+  "oracle_text": "When this creature enters, return target enchantment card from your graveyard to your hand.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Dune Diviner",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Snake Cleric",
+  "oracle_text": "{1}, Tap an untapped Desert you control: You gain 1 life.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Morophon, the Boundless",
+  "layout": "normal",
+  "mana_cost": "{7}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Shapeshifter",
+  "oracle_text": "Changeling (This card is every creature type.)\nAs Morophon enters, choose a creature type.\nSpells of the chosen type you cast cost {W}{U}{B}{R}{G} less to cast. This effect reduces only the amount of colored mana you pay.\nOther creatures you control of the chosen type get +1/+1.",
+  "colors": [],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Changeling"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Ragemonger",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Minotaur Shaman",
+  "oracle_text": "Minotaur spells you cast cost {B}{R} less to cast. This effect reduces only the amount of colored mana you pay. (For example, if you cast a Minotaur spell with mana cost {2}{R}, it costs {2} to cast.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Skirsdag High Priest",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Cleric",
+  "oracle_text": "Morbid — {T}, Tap two untapped creatures you control: Create a 5/5 black Demon creature token with flying. Activate only if a creature died this turn.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Morbid"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Eluge, the Shoreless Sea",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Elemental Fish",
+  "oracle_text": "Eluge's power and toughness are each equal to the number of Islands you control.\nWhenever Eluge enters or attacks, put a flood counter on target land. It's an Island in addition to its other types for as long as it has a flood counter on it.\nThe first instant or sorcery spell you cast each turn costs {U} (or {1}) less to cast for each land you control with a flood counter on it.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "*",
+  "toughness": "*"
+ },
+ {
+  "name": "Jared Carthalion, True Heir",
+  "layout": "normal",
+  "mana_cost": "{R}{G}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Warrior",
+  "oracle_text": "When Jared Carthalion enters, target opponent becomes the monarch. You can't become the monarch this turn.\nIf damage would be dealt to Jared Carthalion while you're the monarch, prevent that damage and put that many +1/+1 counters on it.",
+  "colors": [
+   "G",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Palace Sentinels",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Soldier",
+  "oracle_text": "When this creature enters, you become the monarch.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Momo, Friendly Flier",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Legendary Creature — Lemur Bat Ally",
+  "oracle_text": "Flying\nThe first non-Lemur creature spell with flying you cast during each of your turns costs {1} less to cast.\nWhenever another creature you control with flying enters, Momo gets +1/+1 until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Kadena, Slinking Sorcerer",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{G}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Snake Wizard Sorcerer",
+  "oracle_text": "The first face-down creature spell you cast each turn costs {3} less to cast.\nWhenever a face-down creature you control enters, draw a card.",
+  "colors": [
+   "B",
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Wind Drake",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Drake",
+  "oracle_text": "Flying",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Exalted Angel",
+  "layout": "normal",
+  "mana_cost": "{4}{W}{W}",
+  "cmc": 6.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying\nWhenever this creature deals damage, you gain that much life.\nMorph {2}{W}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Morph"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Battering Craghorn",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Goat Beast",
+  "oracle_text": "First strike\nMorph {1}{R}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Morph",
+   "First strike"
+  ],
+  "power": "3",
+  "toughness": "1"
+ },
+ {
+  "name": "Storm Crow",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Bird",
+  "oracle_text": "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Kaza, Roil Chaser",
+  "layout": "normal",
+  "mana_cost": "{U}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "Flying, haste\n{T}: The next instant or sorcery spell you cast this turn costs {X} less to cast, where X is the number of Wizards you control as this ability resolves.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Haste"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Divination",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Draw two cards.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Mana Leak",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Counter target spell unless its controller pays {3}.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Hardened Berserker",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Berserker",
+  "oracle_text": "Whenever this creature attacks, the next spell you cast this turn costs {1} less to cast.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Maelstrom Muse",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U/R}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Djinn Wizard",
+  "oracle_text": "Flying\nWhenever this creature attacks, the next instant or sorcery spell you cast this turn costs {X} less to cast, where X is this creature's power as this ability resolves.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Ghired, Conclave Exile",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{G}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Shaman",
+  "oracle_text": "When Ghired enters, create a 4/4 green Rhino creature token with trample.\nWhenever Ghired attacks, populate. The token enters tapped and attacking. (To populate, create a token that's a copy of a creature token you control.)",
+  "colors": [
+   "G",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Populate"
+  ],
+  "power": "2",
+  "toughness": "5"
+ },
+ {
+  "name": "Doc Aurlock, Grizzled Genius",
+  "layout": "normal",
+  "mana_cost": "{G}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Bear Druid",
+  "oracle_text": "Spells you cast from your graveyard or from exile cost {2} less to cast.\nPlotting cards from your hand costs {2} less.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Highway Robbery",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "You may discard a card or sacrifice a land. If you do, draw two cards.\nPlot {1}{R} (You may pay {1}{R} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Plot"
+  ]
+ },
+ {
+  "name": "Paladin Danse, Steel Maverick",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Artifact Creature — Synth Knight",
+  "oracle_text": "Vigilance, lifelink\nExile Paladin Danse: Each creature you control that's an artifact or Human gains indestructible until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Lifelink",
+   "Vigilance"
+  ],
+  "power": "3",
+  "toughness": "3"
+ }
+]

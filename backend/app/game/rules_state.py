@@ -465,6 +465,8 @@ class CastNote(BaseModel):
     alt: str | None = Field(default=None, max_length=20)  # -- void (wave 19E) -- the alternative cost it was cast for ("warp": 702.185a)
     became: str | None = Field(default=None, max_length=80)  # the permanent a permanent spell became (608.3)
     x_cost: bool = False  # -- history (wave 22E) -- its mana cost has {X} ("a spell with {X} in its mana cost", 107.3); older saves: False
+    keywords: list[str] = Field(default_factory=list)  # -- cant restrictions (wave 46A) -- the keywords it had as cast ("the first creature spell with flying you cast", Momo)
+    face_down: bool = False  # -- cant restrictions (wave 46A) -- it was cast face down ("the first face-down creature spell you cast each turn", Kadena); older saves: False
 
 
 class TurnFact(BaseModel):
@@ -834,6 +836,7 @@ class PaymentRecord(BaseModel):
     cast_from: str | None = Field(default=None, max_length=20)
     cast_main: bool = False
     mana_known: bool = True
+    flash_sac: bool = False  # -- flash auras (wave 46B) -- cast with its own "as though it had flash" when a sorcery couldn't have been cast: sacrificed at the next cleanup step
 
 
 class Permission(BaseModel):
@@ -897,7 +900,7 @@ class CostModifier(BaseModel):
     turn: int = 0  # the turn it was created
     source: str | None = None
     label: str = Field(default="", max_length=120)
-    mana: str = Field(default="", max_length=1)  # -- cost changers (wave 4I) -- a colored change ("{W} more"): its color
+    mana: str = Field(default="", max_length=8)  # -- cost changers (wave 4I) -- a colored change ("{W} more"): its color (wave 46A: several, "!" first: only colored)
 
 
 class NextSpellGrant(BaseModel):
@@ -913,6 +916,7 @@ class NextSpellGrant(BaseModel):
     turn: int = 0
     source: str | None = None
     label: str = Field(default="", max_length=120)
+    amount: int = 0  # -- cant restrictions (wave 46A) -- keyword "cost": the generic mana it takes off ("The next spell you cast this turn costs {1} less to cast.", 601.2f, 118.7a)
 
 
 class TopReveal(BaseModel):
@@ -1208,6 +1212,7 @@ class RulesState(BaseModel):
     # 309.2a / 309.4: each player's dungeon card in the command zone and the room their venture marker is on
     dungeons: dict[str, DungeonMark] = Field(default_factory=dict)
     completed_dungeons: dict[str, list[str]] = Field(default_factory=dict)  # 309.7: player -> dungeons completed, in order
+    enduring_story: list[str] = Field(default_factory=list)  # -- storied (wave 45D) -- 702.195b: players with the designation, for the rest of the game
     ring_tempted: dict[str, int] = Field(default_factory=dict)  # 701.54c: player -> times the Ring tempted them (their emblem)
     ring_bearers: dict[str, str] = Field(default_factory=dict)  # 701.54a: player -> their Ring-bearer (rules object id)
     # -- keyword actions & face-down (wave 3F) -- firebending (702.189a): the {R} each player added that
@@ -1565,6 +1570,10 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             if new_name == "battlefield":  # 707.5: the copy effect it is entering with is the new object's
                 for eff in rules.effects:
                     if eff.layer == "1" and eff.source == ENTERING_COPY + card_id and old_oid in eff.affected:
+                        eff.affected.append(new_oid)
+            if new_name == "battlefield" and old_name == "stack":  # -- color lace (wave 46B) -- 400.7a: what a spell or ability did to a permanent spell goes on
+                for eff in rules.effects:  # applying to the permanent it becomes (a color, a type, a keyword, a control change), for the rest of its duration
+                    if old_oid in eff.affected and new_oid not in eff.affected:
                         eff.affected.append(new_oid)
         else:
             rules.objects.pop(card_id, None)

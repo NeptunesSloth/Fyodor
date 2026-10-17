@@ -476,6 +476,7 @@ _TURN_LIFE_GREATER = re.compile(r"^(?:the )?amount of life you(?:'ve| have)? (?:
 _TURN_CAST = re.compile(r"^(?:the number of )?(?P<other>other )?(?:(?P<sel>[a-z]+(?: (?:and|or) [a-z]+)?) )?spells?"
                         r"(?: (?P<who>you|they)(?:'ve| have))? cast(?P<before> before it)? this turn(?P<first> other than the first)?$")
 _TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
+_TURN_OPP_DREW = re.compile(r"^(?:the number of )?cards? your opponents(?:'ve| have) drawn this turn$")  # -- commanders (wave 47A) -- Heliod, the Radiant Dawn
 # -- this-turn history (wave 30R) -- also "creature you controlled that died", "creature put into your graveyard from the battlefield" (dies, 700.4,
 # into its owner's graveyard, 400.3) and "permanent that left the battlefield under your control" (to any zone): history.amount "died"
 _TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?|permanents?|[A-Z][a-z-]+)(?P<ctl> you controlled)?"
@@ -527,6 +528,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "attackers", **({"who": "you"} if m["mine"] else {})}
     if _TURN_DREW.match(what):
         return {"turn_history": "drew"}
+    if _TURN_OPP_DREW.match(what):  # the cards your opponents (still in the game, 800.4a) drew this turn, all of them together (121.1)
+        return {"turn_history": "opp_drew"}
     m = _TURN_EXILED.match(what)
     if m:  # -- this-turn history (wave 41B) -- "the number of creatures that were exiled under your opponents' control this turn" (Vren): each left the battlefield
         # for exile, controlled by an opponent as it left (608.2i: as it last existed there)

@@ -42,7 +42,7 @@ names right now (611.3a: a creature that enters later too) and are read by app/r
 the untap step. The vocabulary (``RULES`` plus parameterised ones, ``name:value``):
 
     cant_block, cant_attack, cant_attack_or_block, cant_be_blocked, must_attack, must_block,
-    must_be_blocked, doesnt_untap, max_one_blocker, cant_attack_alone, cant_block_alone, cant_attack_attacked (wave 19A),
+    must_be_blocked, doesnt_untap, max_one_blocker, block_by_all (wave 47A), cant_attack_alone, cant_block_alone, cant_attack_attacked (wave 19A),
     cant_activate, attack_despite_defender (wave 4B: "can attack as though it didn't have defender"),
     min_blockers:N                         "can't be blocked except by N or more creatures"
     cant_be_blocked_by:<sel>[|<sel>…]       "can't be blocked by artifact creatures"
@@ -209,8 +209,9 @@ def parse(text: str) -> Definition | None:
         return _definition("self", None, [], rules=[f"cant_be_blocked_by_power:{m['dir']}"])
     # -- lure (wave 12B) -- "All creatures able to block ~ do so." / "…, and all creatures able to block it do so." (Lure,
     # Nemesis Mask): every creature able to block it must (509.1c) — the rule "lure" on the attacker
-    body = re.sub(r"^All (?P<w>[A-Za-z ]+?) able to block (?P<o>~|this creature|enchanted creature|equipped creature) do so$",
-                  lambda m: f"{'~' if m['o'] in ('~', 'this creature') else m['o'].capitalize()} must be blocked by all {m['w']} able",
+    # (-- ability words (wave 46B) -- also after a condition: "Threshold — As long as there are seven or more cards in your graveyard, all creatures able to block this creature do so.")
+    body = re.sub(r"^(?P<c>As long as [^,]+, )?[Aa]ll (?P<w>[A-Za-z ]+?) able to block (?P<o>~|this creature|enchanted creature|equipped creature) do so$",
+                  lambda m: f"{m['c'] or ''}{'~' if m['o'] in ('~', 'this creature') else m['o'].capitalize()} must be blocked by all {m['w']} able",
                   body)
     body = re.sub(r"(?P<sep>, and| and|,) all creatures able to block it do so$", r"\g<sep> must be blocked by all creatures able", body)
     # -- counters (wave 44C) -- 510.1a: "If Loot's power is negative, he assigns combat damage as though his power were positive." (Loot, the Anomaly)
@@ -218,6 +219,10 @@ def parse(text: str) -> Definition | None:
                   "~ assigns combat damage as though its power were positive", body)
     # -- counters (wave 44C) -- 509.1c: "Gorm must be blocked if able, and Gorm must be blocked by two or more creatures if able." (Gorm the Great): two requirements on the attacker
     body = re.sub(r"^~ must be blocked if able, and ~ (must be blocked by two or more creatures if able)$", r"~ must be blocked if able and \1", body)
+    # -- commanders (wave 47A) -- 509.1b: "Tromokratis can't be blocked unless all creatures defending player controls block it." is a block restriction (the rule
+    # block_by_all), not a condition; "has hexproof unless it's attacking or blocking" is "has hexproof as long as it isn't attacking or blocking" (611.3a)
+    body = re.sub(r"^(?P<s>.+) can't be blocked unless all creatures defending player controls block (?:it|~)$", r"\g<s> can't be blocked by fewer than all creatures defending player controls", body)
+    body = re.sub(r"^(?P<s>~|It) (?P<v>has|have) (?P<k>[a-z ]+?) unless it's (?P<c>attacking or blocking|attacking|blocking)$", r"\g<s> \g<v> \g<k> as long as it isn't \g<c>", body)
     # -- borrowed abilities (wave 18F) -- "As long as ~ is on the battlefield, …": a static of a permanent works there only (611.3b)
     body = re.sub(r"^As long as (?:~|it) is on the battlefield, ", "", body)
     # -- static_other (wave 42A) -- 205.4, 613.1d: "Aeve isn't legendary if it's a token." (Aeve, Progenitor Ooze): the supertype taken off while it is a token (a layer 4
@@ -255,6 +260,12 @@ def parse(text: str) -> Definition | None:
     elif m:
         conds.append({"static": "your_turn"})
         body = m["rest"]
+        # -- commanders (wave 47A) -- "During your turn, as long as Cloud is equipped, it has double strike": both conditions must hold (611.3a)
+        both = re.match(r"^as long as (?P<cond>.+?), (?P<rest>(?:~|it|[A-Z]|[a-z]+ ).+)$", body)
+        if both and (more := _condition(both["cond"])) is not None:
+            conds.append(more)
+            body = both["rest"]
+            names_source = _names_source(both["cond"])
     else:
         # -- conditional statics (wave 4B) -- the subject after the condition may be any group ("As long as
         # ~ has seven or more quest counters on it, creatures you control get +5/+5.")
@@ -962,7 +973,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
 _FROM_JOIN = "\u0001from "
 _PIECE_VERB = r"gets?|ha(?:s|ve)|gains?|loses?|is|are|can't|can|attacks?|blocks?|must|doesn't|don't|becomes?|enters?|assigns?"  # (the verbs a predicate piece starts with)
 _PARAM_KEYWORDS = ("protection", "ward", "toxic", "annihilator", "afflict", "poisonous", "bushido", "mobilize", "frenzy",
-                   "soulshift", "afterlife", "crew", "equip")  # (wave 15E: keywords whose line is carried out wherever it is: keyword_triggers; 17C: crew, equip)
+                   "soulshift", "afterlife", "crew", "equip", "renown")  # (wave 47A: renown, Aragorn Hornburg Hero; wave 15E: keywords whose line is carried out wherever it is: keyword_triggers; 17C: crew, equip)
 
 
 def keyword_line(rest: str) -> str | None:
@@ -992,6 +1003,7 @@ RULES: dict[str, tuple[str, ...]] = {
     "can't attack a player it has already attacked this turn": ("cant_attack_attacked",),  # -- static_other sweep (wave 19A) -- 508.1c
     "can't attack or block alone": ("cant_attack_alone", "cant_block_alone"),
     "can't be blocked by more than one creature": ("max_one_blocker",),
+    "can't be blocked by fewer than all creatures defending player controls": ("block_by_all",),  # (wave 47A: Tromokratis, combat.declare_blockers)
     "attacks each combat if able": ("must_attack",),
     "attack each combat if able": ("must_attack",),
     "blocks each combat if able": ("must_block",),

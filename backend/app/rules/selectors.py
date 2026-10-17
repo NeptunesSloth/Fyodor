@@ -47,7 +47,7 @@ OTHER_SUBTYPES = {"Equipment", "Aura", "Vehicle", "Food", "Clue", "Treasure", "B
                   "Curse", "Plains", "Island", "Swamp", "Mountain", "Forest", "Desert", "Gate", "Cave", "Town",
                   "Sphere", "Lesson", "Adventure", "Arcane", "Trap", "Room", "Class", "Case", "Background",
                   "Fortification", "Attraction", "Contraption", "Powerstone", "Map", "Incubator", "Junk",
-                  "Lair", "Locus", "Bobblehead", "Cartouche", "Spacecraft", "Rune", "Plan"}  # (wave 25C: Rune, 205.3h; wave 35D: Plan, 205.3h)  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
+                  "Lair", "Locus", "Bobblehead", "Cartouche", "Spacecraft", "Rune", "Plan", "Lander"}  # (wave 25C: Rune, 205.3h; wave 35D: Plan, 205.3h)  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
 # -- kicked / instead (wave 4G) -- 205.3j: the planeswalker types ("If you control a Jace planeswalker, …"), read only
 # when written capitalized (a word like "will" is never one)
 PLANESWALKER_TYPES = frozenset({
@@ -431,6 +431,14 @@ def _power_over_base(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "power_gt_base"))
 
 
+@_suffix(r"that (?:isn't|is not|aren't|are not) an? (?P<sub>[A-Z][A-Za-z]+)")  # -- commanders (wave 47A) -- Heliod, the Radiant Dawn: "enchantment card that isn't a God" (a subtype, 205.3)
+def _isnt_subtype(s: Selector, m: re.Match[str]) -> Selector:
+    core = _core(m["sub"])
+    if core is None or core[0] != "sub":
+        raise ValueError(m["sub"])
+    return replace(s, not_subtypes=(*s.not_subtypes, core[1]))
+
+
 @_suffix(r"with toughness greater than (?:its|their) power")  # (Ghalta the Immovable, Bedrock Tortoise)
 def _toughness_over_power(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "toughness_gt_power"))
@@ -465,12 +473,16 @@ def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:  # (wave 19D: "th
 # a Barbarian, a Warrior, or a Berserker": any of these creature types (205.3m)
 # (-- counters (wave 33C) -- "each other creature you control that's a token or a Rabbit" (Finneas, Ace Archer): "token" is one of the alternatives, kept
 # as the word in the list and read as the object's being a token (111.7); alone it is no creature type: "that's a token" stays unread)
-@_suffix(r"that['’]s (?P<list>an? (?:[A-Z][\w'’-]*|token)(?:(?:,|,? or|,? and/or) (?:an? )?(?:[A-Z][\w'’-]*|token))*)")
+# (-- cant restrictions (wave 46A) -- "each creature you control that's an artifact or Human" (Paladin Danse): a card type is one of the alternatives too, read from the object's types)
+_THAT_WORD = r"[A-Z][\w'’-]*|token|artifact|enchantment|land|planeswalker|battle"
+
+
+@_suffix(rf"that['’]s (?P<list>an? (?:{_THAT_WORD})(?:(?:,|,? or|,? and/or) (?:an? )?(?:{_THAT_WORD}))*)")
 def _thats_types(s: Selector, m: re.Match[str]) -> Selector:
     words = [w for w in re.split(r",? (?:or|and/or) |, ", m["list"]) if w]
     subs = [("tok", "token") if re.sub(r"^an? ", "", w) == "token" else _core(re.sub(r"^an? ", "", w)) for w in words]
-    found = [c for c in subs if c is not None and c[0] in ("sub", "tok")]
-    if not subs or len(found) != len(subs) or found == [("tok", "token")]:
+    found = [c for c in subs if c is not None and c[0] in ("sub", "tok", "type")]
+    if not subs or len(found) != len(subs) or found == [("tok", "token")] or (len(subs) < 2 and found[0][0] == "type"):
         raise ValueError("not a list of creature types")
     return replace(s, extras=(*s.extras, "subtype_any:" + "|".join(c[1] for c in found)))
 
@@ -705,9 +717,19 @@ _WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "h
 # an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
 
+@_suffix(r"with (?P<a>" + "|".join(_WITH_KEYWORDS) + r") or (?P<b>" + "|".join(_WITH_KEYWORDS) + r")")  # (wave 45D: "creatures you control with flash or haste", Sonic, Shadow)
+def _with_kw_any(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"any_kw:{m['a']},{m['b']}"))  # either keyword
+
+
 @_suffix(r"(?:with|that has) (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")  # (wave 15B: "a spell that has convoke")
 def _with_kw(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, with_keywords=(*s.with_keywords, m["kw"]))
+
+
+@_suffix(r"with (?:a|an) mana abilit(?:y|ies)")  # (wave 45D) 605.1a: an activated ability that could add mana ("creatures you control with a mana ability", Raggadragga)
+def _with_mana_ability(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "mana_ability"))
 
 
 @_suffix(r"with (?:a )?(?:cycling|cycling abilit(?:y|ies))")  # -- reanimation (wave 20C) -- 702.29f: typecycling abilities are cycling abilities (wave 32C: "a cycling ability", Rooting Moloch)
@@ -991,7 +1013,7 @@ def _has_counter(card: CardInstance, kind: str) -> bool:
 # creature type. Destroy all creatures that aren't of the chosen type": bind_chosen substitutes that answer).
 # ``matches`` reads the source's record; without a source or a valid record nothing matches (never a guess).
 CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_chosen_type": "creature type",
-                 "not_chosen_color": "color", "chosen_name": "card name"}  # (-- card names (wave 22B) -- app/rules/card_names.py)
+                 "not_chosen_color": "color", "chosen_name": "card name", "chosen_card_type": "card type"}  # (wave 47A: card type, Umori)  # (-- card names (wave 22B) -- app/rules/card_names.py)
 
 
 @_suffix(r"(?:with|that has) (?:the chosen|that) name")  # -- card names (wave 22B) -- 709.4a: one of its names is the chosen name
@@ -1023,6 +1045,8 @@ def bind_chosen(sel: Selector, value: str) -> Selector | None:
         if neg:
             return replace(sel, extras=rest, not_subtypes=(value,))
         return replace(sel, extras=rest, subtypes=(value,))
+    if what == "card type" and value in CARD_TYPES.values():  # -- commanders (wave 47A) -- the card type chosen as the source entered (Umori, Stenn)
+        return None if sel.types or sel.not_types else replace(sel, extras=rest, types=(value,))
     color = COLORS.get(value.strip().lower())
     if what == "color" and color is not None:
         if sel.colors or sel.not_colors:
@@ -1039,7 +1063,7 @@ def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
     card = plan.state.cards.get(source or "")
     if card is None:
         return None
-    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name"}[what]
+    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name", "card type": "Chosen card type"}[what]
     value = card.choices.get(label)
     return value.strip() if value else None
 
@@ -1057,6 +1081,8 @@ def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | Non
     if bound.subtypes and not set(bound.subtypes) & ch.subtypes:
         return False
     if set(bound.not_subtypes) & ch.subtypes:
+        return False
+    if bound.types and not set(bound.types) & ch.types:  # (wave 47A: a card type)
         return False
     if bound.colors and not set(bound.colors) & ch.colors:
         return False
@@ -1144,7 +1170,7 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, multicolored=False, colorless=False)
     if low == "commander":
         return replace(s, commander=True)
-    if low in ("enchanted", "equipped", "modified", "historic", "goaded"):  # (wave 11C: modified 700.9, historic 700.6; wave 22E: goaded 701.15)
+    if low in ("enchanted", "equipped", "modified", "historic", "goaded", "renowned"):  # (wave 11C: modified 700.9, historic 700.6; wave 22E: goaded 701.15; wave 47A: renowned 702.112b)
         return replace(s, extras=(*s.extras, low))
     if low in ("face-down", "face-up"):  # -- keyword actions & face-down (wave 3F) -- 708: "face-down creatures you control"
         return replace(s, extras=(*s.extras, low.replace("-", "_")))
@@ -1776,6 +1802,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.with_keywords and not set(sel.with_keywords) <= ch.keywords:
         return False
+    if any(x.startswith("any_kw:") and not set(x[7:].split(",")) & ch.keywords for x in sel.extras):  # (wave 45D)
+        return False
+    if "mana_ability" in sel.extras and not any(a.kind == "mana" for a in ch.abilities):  # (wave 45D)
+        return False
     if set(sel.without_keywords) & ch.keywords:
         return False
     for what, op, n in sel.compare:
@@ -1904,6 +1934,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "shares_commander_type" and not _shares_commander_type_now(plan, ch, you):  # (wave 22E)
             return False
+        if extra == "renowned" and not (plan.rules is not None and plan.oid(card) in plan.rules.renowned):
+            return False  # -- commanders (wave 47A) -- 702.112b: the designation is on this object (a new object has none, 400.7)
         if extra == "goaded":  # (wave 22E) 701.15b: goaded by someone (a goad effect lasts until that player's next turn: layers' imposed rules)
             from app.rules.keyword_actions import goaded_by
 
@@ -2012,7 +2044,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             p, t = _stat(ch, "power"), _stat(ch, "toughness")
             if p is None or t is None or t <= p:
                 return False
-        if extra.startswith("subtype_any:") and not (set(extra[12:].split("|")) & ch.subtypes or (card.is_token and "token" in extra[12:].split("|"))):  # (wave 6C; 33C: "a token or a Rabbit")
+        if extra.startswith("subtype_any:") and not (set(extra[12:].split("|")) & (ch.subtypes | ch.types) or (card.is_token and "token" in extra[12:].split("|"))):  # (wave 6C; 33C: "a token or a Rabbit")
             return False
         if extra == "mergeable":  # -- merged permanents (wave 18D) -- a permanent a mutating spell can merge with (app/rules/merged.py)
             from app.rules import merged

@@ -98,7 +98,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption, turn_log_now
 from app.game.state import CardInstance, zone_key
-from app.rules import scripts, selectors, statics
+from app.rules import scripts, selectors, stack_interaction, statics
 
 if TYPE_CHECKING:
     from app.rules.characteristics import Characteristics
@@ -1677,7 +1677,8 @@ def source_info(plan: Plan, card_id: str | None, oid: str | None, ch: Any, contr
     return {"card": card_id, "controller": ctrl, "spell": spell, "entered": soid is not None and any(e.object_id == soid for e in log_for(plan, False).entered),
             "colors": sorted(ch.colors) if ch is not None else [], "types": sorted(ch.types) if ch is not None else [],
             "subtypes": sorted(ch.subtypes) if ch is not None else [],
-            "has_counters": any(n > 0 for n in counters.values())}  # (-- counters (wave 41A) -- "a creature you control with a counter on it", Raphael, the Muscle)
+            "has_counters": any(n > 0 for n in counters.values()),  # (-- counters (wave 41A) -- "a creature you control with a counter on it", Raphael, the Muscle)
+            "mv": None if ch is None else stack_interaction.mana_value(card if spell else None, ch)}  # (-- cant restrictions (wave 46A) -- Obosh: 202.3e)
 
 
 def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -> bool:
@@ -1706,6 +1707,8 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
     if spec.get("entered") and not src.get("entered"):  # (wave 44C)
         return False
     if spec.get("has_counters") and not src.get("has_counters"):  # (wave 41A: a source with a counter of any kind on it as it would deal the damage)
+        return False
+    if spec.get("mv_parity") and (src.get("mv") is None or src["mv"] % 2 != (spec["mv_parity"] == "odd")):  # (wave 46A)
         return False
     if spec.get("colors") and not set(spec["colors"]) & set(src.get("colors") or ()):
         return False

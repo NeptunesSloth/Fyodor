@@ -403,6 +403,11 @@ def _source(phrase: str) -> dict[str, Any] | None:
         # -- counters (wave 41A) -- "a creature you control with a counter on it" (Raphael, the Muscle): the source has a counter of any kind on it as it would deal the damage
         inner = _source(counted["src"])
         return None if inner is None or "alts" in inner else {**inner, "has_counters": True}
+    if (par := re.fullmatch(r"(?P<src>.+?) with an? (?P<par>odd|even) mana value", phrase)) is not None:
+        # -- cant restrictions (wave 46A) -- "a source you control with an odd mana value" (Obosh, the Preypiercer): the source's mana value as it would deal the damage
+        # (an X spell on the stack counts its X, any other object has X as 0: 202.3e)
+        inner = _source(par["src"])
+        return None if inner is None or "alts" in inner else {**inner, "mv_parity": par["par"]}
     # -- as long as (wave 9B) -- "a Lizard, Mouse, Otter, or Raccoon you control" (Valley Flamecaller): sources of any of the
     # creature types; "a red instant or sorcery spell you control or a red planeswalker you control" (Pyromancer's Gauntlet):
     # either description (609.7c), each with its own controller
@@ -606,6 +611,8 @@ def _damage_plain(text: str) -> Definition | None:
         noun = "source" if dbl["src"] == "sources" else "creature"  # (wave 44C: "creature sources", Absorbing Man and Titania)
         text = (f"If a {noun} {dbl['ctl']}{' with a counter on it' if dbl['with'] else ''} would deal damage to a permanent or player, "
                 "it deals double that damage instead.")
+    if text == "Double all damage ~ would deal.":  # -- commanders (wave 47A) -- Wolverine, Best There Is: "If ~ would deal damage to a permanent or player, it deals double that damage instead." (every recipient there is)
+        text = "If ~ would deal damage to a permanent or player, it deals double that damage instead."
     if (d := _damage_to(text)) is not None:
         return d
     m = _DAMAGE.match(text)

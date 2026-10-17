@@ -257,6 +257,7 @@ SUPPORTED_KEYWORDS: set[str] = {
 # precombat main phase, chapter abilities (a chapter line is automated when its effect parses: it is a
 # template), the 714.4 sacrifice; read ahead (702.155): the number chosen as it enters, skipped chapters.
 SUPPORTED_KEYWORDS.add("read ahead")
+SUPPORTED_KEYWORDS.add("storied")  # -- storied (wave 45D) -- 702.195 (designations.storied_permanents)
 SUPPORTED_KEYWORDS.add("ascend")  # -- keywords (wave 15E) -- 702.131 (designations.ascend_permanents; effects.ascend)
 SUPPORTED_KEYWORDS.add("umbra armor")  # -- keywords (wave 15E) -- 702.89a (regeneration.umbra_armor)
 SUPPORTED_KEYWORDS.add("start your engines!")  # -- speed (wave 24B) -- 702.179 (app/rules/speed.py)
@@ -300,8 +301,7 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     # ("up to X target …": read now, the number of targets announced with X, 601.2c — wave 4K)
     # (copy system, wave 2F / 3R3: "copy target spell", and "copy it / that spell" for the spell a cast trigger
     # was about, are read now: app/rules/copying.py)
-    (re.compile(r"\bshuffles? up to \w+ target cards? from their graveyard\b", re.I),
-     "cards from a target player's graveyard (a zone bound to an earlier target): not modelled"),
+    # ("target player shuffles up to N target cards from their graveyard into their library": read now, wave 46B — the graveyard_of target group)
     (re.compile(r"\btarget creature with the greatest\b", re.I), "\"the greatest … among\" (a computed extreme): not modelled"),
     (re.compile(r"(?<!switch )\btarget creature's power and toughness\b", re.I),  # (switching: wave 7E, choice_grants.switch_pt)
      "switching or reading a target's P/T pair: not modelled"),

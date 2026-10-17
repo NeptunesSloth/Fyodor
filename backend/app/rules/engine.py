@@ -695,6 +695,7 @@ def on_step_start(plan: Plan) -> None:
         else:
             combat_damage(plan, "only", "done")
     elif phase == "cleanup":
+        delayed.at_step(plan, "cleanup")  # -- flash auras (wave 46B) -- 514.3a: "at the beginning of the next cleanup step" waits to go on the stack after 514.1-2
         cleanup_step(plan)
     if phase in ("main1", "main2"):  # -- stack interaction (wave 5B) -- "at the beginning of your next main phase" (603.7)
         delayed.at_step(plan, phase)
@@ -1026,6 +1027,10 @@ def resolve_top_of_stack(plan: Plan) -> None:
         entered_now = plan.state.cards.get(top_id)
         if entered_now is not None and entered_now.zone.endswith(":battlefield"):
             delayed.create_move(plan, controller, top_id, plan.oid(top_id), "exile", entered_now.name, warp=True)
+    if rec is not None and rec.flash_sac and entering and not manual:  # -- flash auras (wave 46B) -- the controller of the permanent sacrifices it at the next cleanup step
+        entered_now = plan.state.cards.get(top_id)
+        if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            delayed.create_move(plan, controller, top_id, plan.oid(top_id), "graveyard", entered_now.name, sacrifice=True, step="cleanup")
     if rec is not None and rec.alternative == "blitz" and entering and not manual:  # -- keywords (wave 15E) -- 702.152a
         entered_now = plan.state.cards.get(top_id)
         if entered_now is not None and entered_now.zone.endswith(":battlefield"):

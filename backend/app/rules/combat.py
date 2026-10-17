@@ -221,6 +221,9 @@ def _phrase(arg: str) -> str:
             text += "s"
         if sel.with_keywords:
             text += " with " + " and ".join(sel.with_keywords)
+        for x in sel.extras:  # (wave 45D's either-keyword selector)
+            if x.startswith("any_kw:"):
+                text += " with " + " or ".join(x[7:].split(","))
         if sel.without_keywords:
             text += " without " + " and ".join(sel.without_keywords)
         for what, op, n in sel.compare:
@@ -659,6 +662,11 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
                               + (" (menace)" if "menace" in ach.keywords else ""))
         if "max_one_blocker" in scripts.statics(ach) and n > 1:
             raise ActionError(f"{ach.name} can't be blocked by more than one creature")
+        # -- commanders (wave 47A) -- 509.1b, Tromokratis (2014-02-01): "can't be blocked unless all creatures defending player controls block it" — every creature the
+        # declaring player controls, a tapped one included, which can't then (so it can't be blocked). ponytail: a "must be blocked if able" on it isn't reconciled
+        if "block_by_all" in scripts.statics(ach) and n < sum(1 for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == plan.actor
+                                                     and plan.ch(c).is_creature):
+            raise ActionError(f"{ach.name} can't be blocked unless all creatures you control block it")
     if len(used) == 1:  # 506.5: blocking alone (one creature declared as a blocker, however many attackers it blocks)
         lone = plan.state.cards[a.blocks[0].blocker_id]
         if "cant_block_alone" in scripts.statics(plan.ch(lone)):

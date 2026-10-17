@@ -1108,7 +1108,10 @@ def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # (Geralf): "other" is than IT, the object the counters go on, not than the ability's source
         counted = e["who"] == "event" and len(cards) == 1 and isinstance(e["n"], dict) and "count" in e["n"]
         n = _amount(plan, {**ctx, "other_than": cards[0]} if counted else ctx, e["n"])
-        puts = [(cid, e["kind"], n) for cid in cards] if n else []
+        if isinstance(e["n"], dict) and e["n"].get("colors") == e["who"] and len(cards) > 1:  # (wave 45D) "equal to the number of colors it is": each one's own
+            puts = [(cid, e["kind"], k) for cid in cards if (k := len(plan.ch(plan.state.cards[cid]).colors))]
+        else:
+            puts = [(cid, e["kind"], n) for cid in cards] if n else []
         for more in e.get("also") or ():  # -- counters (wave 5H) -- several kinds at once (one event, 122.6)
             k = _amount(plan, ctx, more["n"])
             more_cards = _cards(plan, ctx, more["who"]) if more.get("who") else cards
@@ -1519,7 +1522,9 @@ def delayed_move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != e["object"]:
         return True  # it's a different object now
     if e.get("sacrifice"):  # -- keywords (wave 15E) -- blitz 702.152a: "Sacrifice it at the beginning of the next end step" (701.21a)
-        if card.controller == ctx["controller"]:
+        if e.get("by_now"):  # -- flash auras (wave 46B) -- whoever controls the permanent then sacrifices it
+            _sacrifice_cards(plan, [card.id], card.controller)
+        elif card.controller == ctx["controller"]:
             _sacrifice_cards(plan, [card.id], ctx["controller"])
         return True
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": e["to"]}}, actor=ctx["controller"])
@@ -1575,8 +1580,9 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         return
     from app.rules import permissions, scripts
 
-    if card.ability is None and (scripts.uncounterable(plan.ch(card)) or _mana_units.uncounterable(plan, card)  # (wave 18B: 106.6)
-                                 or permissions.spell_uncounterable(plan.state, plan.info, card, plan.ch(card))):
+    if (permissions.abilities_uncounterable(plan.state, plan.info) if card.ability is not None  # (-- cant restrictions (wave 46A) -- Spider-Punk: 101.2)
+            else scripts.uncounterable(plan.ch(card)) or _mana_units.uncounterable(plan, card)  # (wave 18B: 106.6)
+            or permissions.spell_uncounterable(plan.state, plan.info, card, plan.ch(card))):
         plan.note(f"{card.name} can't be countered", [stack_id])
         return
     r = plan.rules
@@ -2239,10 +2245,22 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
     continue_effects(plan, ctx)
 
 
+def can_become_monarch(plan: Plan, pid: str) -> bool:
+    """-- cant restrictions (wave 46A) -- 725.4: "You can't become the monarch this turn." (Jared Carthalion, True Heir) — the turn's records."""
+    return not any(x.get("what") == "cant_monarch" and x["player"] == pid and x["turn"] == plan.state.turn.number for x in plan.rules.results)
+
+
 def monarch(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for pid in _players(plan, ctx, e["who"]):
-        if plan.state.table.monarch != pid:
+        if plan.state.table.monarch != pid and can_become_monarch(plan, pid):
             plan.do({"type": "set_monarch", "player": pid}, actor=pid)
+    return True
+
+
+def cant_monarch(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    for pid in _players(plan, ctx, e["who"]):
+        plan.rules.results.append({"what": "cant_monarch", "player": pid, "turn": plan.state.turn.number})
+        plan.note(f"{plan.name(pid)} can't become the monarch this turn", actor=ctx["controller"])
     return True
 
 
@@ -2593,7 +2611,7 @@ PRIMITIVES = {
     "draw": draw, "gain_life": gain_life, "lose_life": lose_life, "damage": damage, "pump": pump, "grant": grant,
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
-    "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
+    "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch, "cant_monarch": cant_monarch,
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen, "no_regen_turn": no_regen_turn,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "return_any": return_any, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
@@ -3043,8 +3061,11 @@ def shuffle_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return False
     players = _players(plan, ctx, e["who"])
     # (-- static_other sweep (wave 16B) -- "then draws that many cards": the cards shuffled in are the binding "as", each its owner's)
-    before = _remember(plan, ctx, e, [c for pid in players for zone in e.get("zones") or [] for c in plan.state.zones.get(zone_key(pid, zone), [])])
+    chosen = _cards(plan, ctx, e["cards"]) if e.get("cards") else []  # -- shuffle target cards (wave 46B) -- the target cards still the same objects (608.2b)
+    before = _remember(plan, ctx, e, [c for pid in players for zone in e.get("zones") or [] for c in plan.state.zones.get(zone_key(pid, zone), [])] + chosen)
     for pid in players:
+        if mine := [c for c in chosen if plan.state.cards[c].zone == zone_key(pid, "graveyard")]:  # (their graveyard: 701.24a puts them in before the shuffle)
+            plan.do({"type": "move", "card_ids": mine, "to": {"player": pid, "zone": "library"}}, actor=pid)
         for zone in e.get("zones") or []:
             cards = list(plan.state.zones.get(zone_key(pid, zone), []))
             if e.get("sel"):  # (wave 16C: "all creature cards from your graveyard")
@@ -3830,9 +3851,14 @@ def discard_named(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 CHOICE_OPTIONS: dict[str, list[str]] = {
     "color": ["White", "Blue", "Black", "Red", "Green"],
     "basic land type": ["Plains", "Island", "Swamp", "Mountain", "Forest"],
+    # -- commanders (wave 47A) -- 205.2a: "As Umori enters, choose a card type." / "… other than creature or land." (Stenn): the card types a spell or a permanent can have
+    "card type": ["Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"],
+    "card type other than creature or land": ["Artifact", "Battle", "Enchantment", "Instant", "Kindred", "Planeswalker", "Sorcery"],
+    "artifact, creature, enchantment, instant, or sorcery": ["Artifact", "Creature", "Enchantment", "Instant", "Sorcery"],  # (Cloud Key)
 }
 CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
-                 "opponent": "Chosen opponent", "player": "Chosen player"}
+                 "opponent": "Chosen opponent", "player": "Chosen player", "card type": "Chosen card type",
+                 "card type other than creature or land": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type"}
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
 CHOICE_LABELS.update({w: card_names.LABEL for w in card_names.ALL_WHATS})  # -- card names (wave 22B) -- 201.4
 

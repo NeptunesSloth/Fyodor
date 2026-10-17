@@ -350,6 +350,7 @@ def _who(kind: str, key: str) -> str:
 
 # -- dynamic values (agent F) -------------------------------------------------------------------
 _STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
+_DIFF = re.compile(r"the difference between (?P<a>that creature's power|its power|~'s power) and (?P<b>its toughness|that creature's toughness|~'s toughness|toughness)")
 
 
 def _stat(phrase: str, its: str = "it") -> Any:
@@ -359,11 +360,11 @@ def _stat(phrase: str, its: str = "it") -> Any:
     its own subject ("~ deals damage equal to its power": ~'s). Also any quantity the value
     grammar reads ("the number of lands you control", "your devotion to red", "twice its power":
     app/rules/values.py), and "~'s power" (the source's, 608.2h)."""
-    if (d := re.fullmatch(r"the difference between (?P<a>that creature's power|its power|~'s power) and (?P<b>its toughness|that creature's toughness|~'s toughness)", phrase)) is not None:
+    if (d := _DIFF.fullmatch(phrase)) is not None:
         # -- most-played cards II (wave 45A) -- "the difference between that creature's power and its toughness" (Jaws of Defeat): how far apart they are, one object's own (608.2h)
         a, b = d["a"], d["b"]
-        if b.startswith("its ") and not a.startswith("its "):
-            b = a.rsplit(" ", 1)[0] + " " + b[len("its "):]  # ("that creature's power and its toughness": the same creature)
+        if b == "toughness" or b.startswith("its ") and not a.startswith("its "):  # (wave 47A: Doran, "its power and toughness")
+            b = a.rsplit(" ", 1)[0] + " toughness"  # ("that creature's power and its toughness": the same creature)
         return {"diff": [_stat(a, its), _stat(b, its)]}
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
@@ -629,6 +630,8 @@ def _rider_value(phrase: str) -> Any:
                     r"the sacrificed (?:creature|artifact|permanent|land)'s|the discarded card's|the milled card's|the spell's|"
                     r"the exiled (?:creature )?card's|the exiled creature's) (?:power|toughness|mana value)", phrase) or re.fullmatch(
                         r"the mana value of (?:that spell|the spell|the milled card)|the (?:power|toughness|mana value) of (?:the exiled card|the card you exiled)", phrase):  # (wave 19F; 34C: "the power of the exiled card")
+        return _stat(phrase)
+    if _DIFF.fullmatch(phrase):  # (wave 47A: Doran, "where X is the difference between its power and toughness")
         return _stat(phrase)
     if phrase in ("of its colors", "of that spell's colors"):  # -- value grammar (wave 23C) -- "for each of its colors": how many colors the object is (105.1)
         return {"colors": "that_spell" if "spell" in phrase else "it"}
@@ -1101,6 +1104,9 @@ _OWNER_SHUFFLES_TARGET = re.compile(r"the owner of (?P<o>target .+?) shuffles it
 _YOUR_CHOICE = re.compile(r"put (?P<o>.+?) on your choice of the top or bottom of (?:its|their) owner's library")
 _OWNER_CHOICE = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it on their choice of the top or bottom of their library")
 # (-- static_other sweep (wave 16B) -- "the cards from your hand": the hand alone, for a count of what was shuffled in)
+# -- shuffle target cards (wave 46B) -- "Target player shuffles up to three target cards from their graveyard into their library." (Memory's Journey, Stream of
+# Consciousness, Krosan Reclamation, Loaming Shaman): the cards are in that player's graveyard (the target group's "graveyard_of": targets.choose_groups)
+_SHUFFLE_CARDS = re.compile(r"target player shuffles (?P<q>up to \w+|any number of) target cards from their graveyard into their library")
 _SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)?|shuffle (?:your|the cards from your) (?P<z>graveyard|hand and graveyard|hand) into your library"
                       rf"|{_SUBJECTS} shuffles(?: their library| (?:their|the cards from their) (?P<z2>graveyard|hand and graveyard|hand) into their library)?)")
 
@@ -1351,6 +1357,12 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "rest_looked", "to": "exile"} if m["exile"] else _rest(m["rest"] or m["rest2"])], None
     if text == "shuffle that library":  # -- most-played cards III (wave 46C) -- the library the instruction before revealed from, found card or not (Polymorph, Transmogrify: 701.24a)
         return [{"do": "shuffle_library", "who": "looked_owner", "zones": []}], None
+    m = _SHUFFLE_CARDS.fullmatch(text)
+    if m:  # -- shuffle target cards (wave 46B) -- 701.24a: the target player's chosen graveyard cards go into their library, then it is shuffled (even with no card)
+        cards = target_group(f"{m['q']} target cards from a graveyard")
+        if cards is None:
+            raise _Fail
+        return [{"do": "shuffle_library", "who": "target", "zones": [], "cards": "target:1"}], [{"what": "player", "min": 1, "max": 1}, {**cards, "graveyard_of": 0}]
     m = _SHUFFLE.fullmatch(text)
     if m:
         who, group = ("you", None)
@@ -2047,6 +2059,17 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "lki_counters", "from": "it" if m["whose"] in ("its", "those") else "self_named",
                  "who": _who(kind, key)}], _one(group)
+    # -- Station (wave 46D) -- "put your choice of a +1/+1 counter or two charge counters on up to one other target artifact" (Inspirit, Flagship
+    # Vessel): the kind is chosen as the instruction is carried out (608.2d), after the target is (counter_pick.py)
+    m = re.fullmatch(r"put your choice of (?P<k>.+) on (?P<o>(?:up to \w+ )?(?:other )?target .+)", text)
+    if m and rider is None:
+        from app.rules import counter_pick
+
+        kind, key, group = ref(m["o"])
+        picks = counter_pick.parse(m["k"], _who(kind, key)) if kind != "players" else None
+        if picks is None:
+            raise _Fail
+        return picks, _one(group)
     # -- counters (wave 5H) -- "put a +1/+1 counter, a reach counter, and a deathtouch counter on target creature",
     # "put two +1/+1 counters and a flying counter on …": counters of several kinds put at once (one event, 122.6)
     m = re.fullmatch(rf"put (?P<list>(?:(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+(?: [a-z]+)?) counters?,? )+and "
@@ -2847,7 +2870,8 @@ DISCARD_ALL_REVEALED = (rf"(?P<s>{CHOOSER}) reveals their hand and discards all 
 DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
 CHOOSE_VALUE = rf"choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player|{_NAME_WHAT})"
-ENTERS_CHOICE = re.compile(r"^As ~ enters, choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player)\.$")
+CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
+ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|card type(?: other than creature or land)?|{CARD_TYPE_FIVE})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key)
 
 
 # -- choose own (wave 32A) -- "Then you may choose a token you control." (Brudiclad), "Choose a Giant creature you control. It deals damage equal to its
@@ -3121,7 +3145,7 @@ _BECOME = re.compile(
     r"(?:a|an) (?P<desc>.+?)"
     r"(?P<addition> in addition to its other (?P<addcolors>colors and )?(?:creature )?types)?"
     r"(?P<still> that(?:'s| are) still (?:an? )?(?:land|artifact|enchantment|planeswalker|creature)s?)?"  # (wave 19A: "that are still lands")
-    r"(?: and gains? (?:(?P<gain>[a-z ,]+)|(?P<gainq>\"[^\"]*\"(?:,? and \"[^\"]*\")*)))?"
+    r"(?: and gains? (?:(?P<gain>[a-z ,]+?)|(?P<gainq>\"[^\"]*\"(?:,? and \"[^\"]*\")*)))?"
     r"(?:(?P<trail> until end of turn)|(?P<ntrail> until your next turn))?"
     r"(?P<cbb> and can't be blocked this turn)?$")  # (cbb: wave 7E, Dimir Keyrune)
 _DESC = re.compile(  # (each part optional, space-separated: "legendary 8/12 green Spirit artifact creature with …")
@@ -3396,15 +3420,17 @@ _BECOME_COLOR = re.compile(r"^(?:(?P<lead>until end of turn, ))?(?P<o>.+?)(?: ga
 
 def _become_color(m: re.Match[str]) -> tuple[Effects, Any]:
     kind, key, group = ref(m["o"])
-    if kind == "players" or not (m["lead"] or m["trail"]):
-        raise _Fail  # (no duration: a color for the rest of the game, not read)
+    # -- color lace (wave 46B) -- no duration: for the rest of the game (611.2a; Thoughtlace); a rider ("and gains …") would need its own duration
+    perm = not (m["lead"] or m["trail"])
+    if kind == "players" or (perm and (m["pp"] or m["gain"] or m["pre"])):
+        raise _Fail
     who = _who(kind, key)
     colors = [] if m["colors"] == "colorless" else list(_COLOR_LETTERS.values()) if m["colors"] == "all colors" \
         else [_COLOR_LETTERS[c] for c in re.split(r",? and |, ", m["colors"])]
     if m["add"] and not colors:
         raise _Fail
     out: Effects = [{"do": "become", "who": who, "types": [], **({"add_colors": colors} if m["add"] else {"colors": colors}),
-                     "duration": "end_of_turn"}]
+                     "duration": "permanent" if perm else "end_of_turn"}]
     if m["pp"]:
         out.append({"do": "pump", "who": who, "p": _signed(m["pp"]), "t": _signed(m["tt"])})
     if m["gain"] or m["pre"]:
@@ -3814,6 +3840,10 @@ def _control_object(phrase: str) -> tuple[str, str, dict[str, Any] | None] | Non
 
 def control_forms(text: str) -> tuple[Effects, Any] | None:
     """The control-changing wordings above; None when the sentence is not one of them."""
+    if re.fullmatch(r"that player untaps (?:~|this creature) and gains control of (?:it|~)", text):
+        # -- commanders (wave 47A) -- Karona, False God: "At the beginning of each player's upkeep, that player untaps Karona and gains control of it": the player the trigger is
+        # about (the one whose upkeep it is) gets control (613.1b, permanent), after the untap
+        return [{"do": "untap", "who": "self"}, {"do": "gain_control", "who": "self", "to": "event_player"}], None
     m = _CT_UNTAP.fullmatch(text)
     if m:
         found = _control_object(m["o"])

@@ -50,7 +50,7 @@ KEYWORDS = frozenset({
     "exploit",  # (wave 23D)
     "myriad", "melee", "friends forever", "choose a background", "doctor's companion", "space sculptor", "gift",
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
-    "firebending", "mobilize", "harmonize", "renew", "undaunted",
+    "firebending", "storied", "mobilize", "harmonize", "renew", "undaunted",
     "mayhem", "web-slinging",  # -- Marvel keywords (wave 25A) -- 702.187, 702.188
     "recover", "amplify", "assist",  # -- casting extras (wave 18E) -- 702.59, 702.38, 702.132
     "phasing", "transmute",  # (wave 3R4: casting.transmute)
@@ -272,10 +272,11 @@ def split_sentences(body: str) -> list[str]:
     return [s for s in out if s]
 
 
-def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[AbilityText]:
+def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[str | None, str | None] = (None, None)) -> list[AbilityText]:
     """Split Oracle text into classified ability lines (reminder text removed).
 
-    ``spell`` is true for instants and sorceries: their non-keyword lines are the spell's effect."""
+    ``spell`` is true for instants and sorceries: their non-keyword lines are the spell's effect.
+    ``pt``: a station card's printed power and toughness (the box under its last station symbol, 721.2b)."""
     if not oracle_text:
         return []
     out: list[AbilityText] = []
@@ -284,6 +285,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         from app.rules import levelers
 
         lines = levelers.rewrite(lines, lambda t: _keywords_line(t) is not None)
+    if not spell and "Station" in lines:  # -- Station (wave 46D) -- a station card's text as 702.184a / 721.2 say it
+        from app.rules import levelers
+
+        lines = levelers.station(lines, oracle_text, pt, lambda t: _keywords_line(t) is not None)
     # -- keyword meanings (wave 12B) -- 702.72a: "Champion an [object]" represents two linked triggered abilities (607.2a)
     for i, line in enumerate(lines):
         if m := re.fullmatch(r"Champion an? ([A-Za-z]+(?: or [A-Za-z]+)?)", line):

@@ -196,6 +196,14 @@ def _filter(sel: str | None, tail: str | None = None) -> tuple[bool, str | None]
 
     phrase = re.sub(r"^(\w+) spells and (\w+)$", r"\1 or \2", (sel or "").strip())  # "Dragon spells and artifact" → "Dragon or artifact"
     key = spell_filter(phrase or None, (tail or "").strip() or None)
+    if key is None and not tail and (m := re.fullmatch(r"(\w+) spells and (\w+)", (sel or "").strip())):
+        # (wave 45D: Gandalf the White "legendary spells and artifact spells", Liberator "colorless spells and artifact spells") a spell of either kind; two qualities of
+        # different kinds (a supertype or colorless with a type) can't be one selector's list, so each is its own selector
+        keys = [spell_filter(m[1]), spell_filter(m[2])]
+        if all(keys):
+            from app.rules.selectors import Selector
+
+            return True, Selector(either=(keys[0], keys[1]), zones=("stack",)).key()  # type: ignore[arg-type]
     return key is not None, key
 
 
@@ -917,6 +925,8 @@ def self_flash(state: GameState, player: str, card: CardInstance, ch: Characteri
     from app.rules.plan import Plan
 
     for d in scripts.definitions(ch).values():
+        if d.get("static") == "permission" and d.get("self") and d.get("flash") and d.get("flash_sac"):
+            return f"{ch.name}: as though it had flash"  # -- flash auras (wave 46B) -- unconditional (the sacrifice is casting.flash_sac's)
         if d.get("static") == "permission" and d.get("self") and d.get("flash") and d.get("if") is not None:
             ctx = {"controller": player, "source_card": card.id, "source_object": state.rules.object_id(card.id) if state.rules else None}
             if conditions.holds(Plan.view(state, player, info), ctx, d["if"]):
