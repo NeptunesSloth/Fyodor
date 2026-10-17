@@ -735,6 +735,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             return find(lambda i: i.do == "linked_cards", index)
 
         def ok(i: _Introducer) -> bool:
+            if i.do == "rest_looked" and verb in (None, "card"):  # (wave 44A: the rest of the cards looked at only count for "put into your graveyard / hand this way")
+                return False
             if not i.objects or (skip_gated and closed_gate(i.index, index) and _group_of(out[i.index]) is None):  # (a targeted instruction names its target whichever branch ran)
                 return False
             if verb == "card":  # "that card": a card, so not a token an instruction created (111.1)
@@ -837,7 +839,10 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     if intro is None:
                         return None
                 else:
-                    intro = objects(index, 1 if pronoun == "it" else 2, verb or None, skip_gated=in_alt_branch(index))
+                    intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
+                    if intro is not None and pronoun == "it" and not verb and in_alt_branch(index) and closed_gate(intro.index, index) \
+                            and antecedent in ("event", "self") and out[intro.index].get("who") == antecedent:
+                        intro = None  # (the "instead" branch's "it" is the base branch's own: the trigger's object, not something the base recorded)
                 if e.get("do") in ("grant_play", "free_cast", "look_exiled", "plotted") and (
                         intro is None or (intro.do not in _MOVERS and not _exiles_countered(out[intro.index]))):
                     # "You may play that card this turn": only what an earlier instruction of this
