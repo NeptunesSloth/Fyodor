@@ -242,6 +242,25 @@ def test_ox_drover_gives_the_opponent_an_ox_and_draws_you_a_card(cards):
     check(s)
 
 
+def test_sirens_ruse_draws_only_when_the_blinked_creature_was_a_pirate(cards):
+    # 608.2h: "If a Pirate was exiled this way" - the creature as it last existed; it came back as a new object (400.7)
+    s = build(cards, ["Siren's Ruse", "Swab Goblin", "Hill Giant"], [])
+    goblin, giant = put(s, "Swab Goblin"), put(s, "Hill Giant")
+    to_hand(s, "Siren's Ruse")
+    mana(s, U=1, C=1)
+    hand = len(s.state.zones["p1:hand"])
+    cast(s, "Siren's Ruse", targets=[giant.id])
+    assert len(s.state.zones["p1:hand"]) == hand - 1  # no draw: Siren's Ruse left the hand, the Giant is no Pirate
+    assert len(on_table(s, "battlefield", "p1", "Hill Giant")) == 1
+    to_hand(s, "Siren's Ruse")
+    mana(s, U=1, C=1)
+    hand = len(s.state.zones["p1:hand"])
+    cast(s, "Siren's Ruse", targets=[goblin.id])
+    assert len(s.state.zones["p1:hand"]) == hand  # the Pirate: one card drawn
+    assert len(on_table(s, "battlefield", "p1", "Swab Goblin")) == 1
+    check(s)
+
+
 def equip_on_bobs_turn(s, hammer, target):
     """Bob's upkeep (turn 2), Bob passes: Alice has priority and equips."""
     stops(s)

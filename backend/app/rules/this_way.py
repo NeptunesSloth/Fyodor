@@ -40,8 +40,8 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 # The verbs, each with the recording effects' verbs (scripts._RECORDING) that it may name.
-_VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled",), "sacrificed": ("sacrificed",),
-          "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned",), "your_hand": ("returned", "put_hand"),
+_VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled", "blinked"), "sacrificed": ("sacrificed",),  # (blinked, wave 46C: "Exile target creature you control, then return that card to the battlefield. If a Pirate was exiled this way, …", Siren's Ruse)
+          "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned", "blinked"), "your_hand": ("returned", "put_hand", "blinked"),
           "graveyard": ("destroyed", "sacrificed", "milled", "discarded", "put_graveyard"), "your_graveyard": ("milled", "discarded", "put_graveyard"),
           "died": ("destroyed", "sacrificed"), "tapped": ("tapped",),
           "revealed": ("revealed",), "shuffled": ("shuffled",),  # (wave 10C: reveal_hand.py)
@@ -283,7 +283,7 @@ def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], y
         return old_card is not None and old_card.zone == f"{you}:hand" if kind == "your_hand" else \
             old_card is not None and old_card.zone.endswith(":hand")
     if kind == "exiled":
-        return dest == "exile"
+        return dest in ("exile", "battlefield")  # (wave 46C: a blinked permanent came back as a new object, 400.7, but it was exiled)
     if kind == "battlefield_put":
         return dest == "battlefield"
     if kind in ("graveyard", "your_graveyard"):

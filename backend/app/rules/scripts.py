@@ -534,7 +534,7 @@ def _group_of(e: dict[str, Any]) -> int | None:
 # new object in exile (400.7j). Each maps to the verb "… <verb> this way" names, if any.
 _RECORDING: dict[str, str | None] = {
     "destroy": "destroyed", "destroy_all": "destroyed", "exile": "exiled", "exile_until": "exiled",
-    "bounce": "returned", "return_card": "returned", "blink": "returned", "sacrifice": "sacrificed",
+    "bounce": "returned", "return_card": "returned", "blink": "blinked", "sacrifice": "sacrificed",  # (blink, wave 46C: exiled and returned)
     "sacrifice_choice": "sacrificed", "discard": "discarded", "mill": "milled", "search": None, "pick_looked": None,
     "create_token": "created", "tap": None, "untap": None, "phase_out": None, "pump": None, "grant": None, "restrict": None,
     "add_counters": None, "remove_counters": None, "regenerate": None, "damage": None,
