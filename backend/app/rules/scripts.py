@@ -5025,9 +5025,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     body = re.sub(r"\breturn ~ to the battlefield under ~'s owner's control(?P<w> with (?:an?|\w+) [^.]*? counters? on) ~(?=\.)",
                                   r"return it to the battlefield under its owner's control\g<w> it", body)
                     body = re.sub(r"(?<=\. )~ loses all abilities and gains (haste)\.$", r"It loses all abilities. It gains \1.", body)
+                from_gy = False  # (review 42: "this card from your graveyard": the returned card must still be in the graveyard)
                 if ante == "event" and cond is not None and cond.get("event") == "discard" and cond.get("subject") == "self":
                     # -- discard causes (wave 50E) -- "… you gain 2 life, and you return this card from your graveyard to your hand at the beginning of the next end
                     # step." (Mangara's Blessing, Sand Golem, Pure Intentions): the discarded card, found where it went (400.7e) if it is still there, as "return it …"
+                    from_gy = "this card from your graveyard" in body
                     body = re.sub(r",? and (?:you )?return this card from your graveyard to ", ". Return it to ", body)
                     body = body.replace("return this card from your graveyard to ", "return it to ")
                     body = re.sub(r"^it deals ", "~ deals ", body)  # (Guerrilla Tactics: the card is the source of its own ability's damage, 113.6m)
@@ -5068,6 +5070,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                                   {"do": "counter", "who": "event_source"}]
                 parsed = _own_choice(parse_effects(body, it=ante, event_player=has_player)) if (tm is None and not plain_counter and um is None) \
                     or not _targeted(cond) else (counter_it, None, False)  # (_own_choice for a trigger: wave 25C)
+                if from_gy and parsed is not None:  # (review 42: the card only while it is in the graveyard, effects._cards "event_gy")
+                    parsed = ([{**x, "who": "event_gy"} if x.get("who") == "event" and x.get("do", "").removeprefix("deferred:") in ("bounce", "return_card")
+                               else x for x in parsed[0]], *parsed[1:])
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
                 if parsed is None and cond is not None and cond.get("other") and cond.get("subject", "self") in ("self", "host") and (
