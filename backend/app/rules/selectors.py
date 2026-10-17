@@ -1120,8 +1120,19 @@ def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
     return value.strip() if value else None
 
 
+def _parity_holds(card: CardInstance | None, ch: Characteristics, mv: bool, even: bool) -> bool:
+    """-- chosen quality (wave 50J) -- is its mana value (a spell's X counts on the stack, 202.3e) or power odd / even? (107.1: zero is even; a power of * is no number)"""
+    from app.rules.stack_interaction import mana_value
+
+    quality = mana_value(card, ch) if mv else (ch.pt[0] if ch.pt is not None else None)
+    return quality is not None and (int(quality) % 2 == 0) == even
+
+
 def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | None, card: CardInstance | None = None) -> bool:
     what = chosen_what(sel)
+    if what == "odd or even":  # the quality the source chose as it entered (Gollum, Riddle Master)
+        quality = source_choice(plan, source, what)
+        return quality in ("Odd", "Even") and _parity_holds(card, ch, "chosen_parity_mv" in sel.extras, quality == "Even")
     if what == "number":  # (wave 49B) a spell's mana value, power or toughness is the number the source chose as it entered (a power or toughness of * is no number here)
         from app.rules.stack_interaction import mana_value
 
@@ -2027,10 +2038,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if not goaded_by(ch):
                 return False
         if extra.startswith("parity:"):  # -- chosen quality (wave 50J) -- the mana value (a spell's X counts on the stack, 202.3e) or power is odd / even as chosen earlier in this resolution
-            from app.rules.stack_interaction import mana_value
-
-            quality = mana_value(card, ch) if extra.split(":")[1] == "mv" else (ch.pt[0] if ch.pt is not None else None)
-            if quality is None or (int(quality) % 2 == 0) != (extra.endswith(":even")):
+            if not _parity_holds(card, ch, extra.split(":")[1] == "mv", extra.endswith(":even")):
                 return False
         if extra.startswith("name:"):  # -- card names (wave 22B) -- 709.4a, a name chosen earlier in this resolution
             from app.rules import card_names

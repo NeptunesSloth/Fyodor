@@ -24,7 +24,7 @@ from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, attach, attack, block, next_turn, stops, to_phase
-from tests.wave9c_kit import build, card_named, cast, check, mana, pt, put, to_hand, zone_of
+from tests.wave9c_kit import build, card_named, cast, check, life, mana, pt, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave50j_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -70,7 +70,7 @@ def combat(s):
 @pytest.mark.parametrize("name", ["Odric, Lunarch Marshal", "Akroma, Vision of Ixidor", "Odric, Blood-Cursed", "Bleeding Effect", "Majestic Myriarch",
                                   "Kaima, the Fractured Calm", "Havoc Eater", "Pia Nalaar, Chief Mechanic", "Rampaging Aetherhood", "Sensei Golden-Tail", "Kathril, Aspect Warper",
                                   "Concerted Effort", "Thunderous Orator", "Wonder Man, Hollywood Hero", "Kang the Conqueror",
-                                  "Thanos, the Mad Titan", "Extinction Event"])
+                                  "Thanos, the Mad Titan", "Extinction Event", "Gollum, Riddle Master"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -324,6 +324,31 @@ def test_extinction_event_exiles_each_creature_with_the_chosen_quality(cards):
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Extinction Event").id)
     settle(s, answer="Odd")
     assert zone_of(s, "Serra Angel", "p2") == "p2:exile" and zone_of(s, "Llanowar Elves") == "p1:exile" and zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield"
+    check(s)
+
+
+def test_gollum_riddle_master_triggers_for_spells_of_the_quality_it_chose_as_it_entered(cards):
+    s = build(cards, mine=["Gollum, Riddle Master"], theirs=["Llanowar Elves", "Lightning Bolt", "Grizzly Bears"])
+    to_hand(s, "Gollum, Riddle Master")
+    mana(s, B=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Gollum, Riddle Master").id)
+    settle(s, answer="Odd")  # (614.12a: chosen as it enters)
+    assert s.state.cards[card_named(s, "Gollum, Riddle Master").id].choices.get("Chosen quality") == "Odd"
+    to_phase(s, "main1", turn=2)
+    for name in ("Grizzly Bears", "Llanowar Elves", "Lightning Bolt"):
+        to_hand(s, name, "p2")
+    mana(s, "p2", G=2)
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Grizzly Bears", "p2").id)  # (mana value 2: even)
+    settle(s)
+    assert counters(s, "Gollum, Riddle Master") == {}
+    mana(s, "p2", G=1)
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Llanowar Elves", "p2").id)  # (mana value 1: odd)
+    settle(s)
+    assert counters(s, "Gollum, Riddle Master") == {"+1/+1": 1}  # (the first mode: the choice settle makes)
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Lightning Bolt", "p2").id, targets=["p2"])
+    settle(s)
+    assert counters(s, "Gollum, Riddle Master") == {"+1/+1": 1} and life(s, "p2") == 40 - 3 - 2 and life(s, "p1") == 40 + 2  # (another mode: one that hasn't been chosen)
     check(s)
 
 
