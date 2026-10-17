@@ -1,0 +1,138 @@
+[
+ {
+  "name": "Akroma's Will",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n• Creatures you control gain flying, vigilance, and double strike until end of turn.\n• Creatures you control gain lifelink, indestructible, and protection from each color until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Atarka's Command",
+  "layout": "normal",
+  "mana_cost": "{R}{G}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose two —\n• Your opponents can't gain life this turn.\n• Atarka's Command deals 3 damage to each opponent.\n• You may put a land card from your hand onto the battlefield.\n• Creatures you control get +1/+1 and gain reach until end of turn.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Tooth and Nail",
+  "layout": "normal",
+  "mana_cost": "{5}{G}{G}",
+  "cmc": 7.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose one —\n• Search your library for up to two creature cards, reveal them, put them into your hand, then shuffle.\n• Put up to two creature cards from your hand onto the battlefield.\nEntwine {2} (Choose both if you pay the entwine cost.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Entwine"
+  ]
+ },
+ {
+  "name": "Inscription of Abundance",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Kicker {2}{G}\nChoose one. If this spell was kicked, choose any number instead.\n• Put two +1/+1 counters on target creature.\n• Target player gains X life, where X is the greatest power among creatures they control.\n• Target creature you control fights target creature you don't control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Fight",
+   "Kicker"
+  ]
+ },
+ {
+  "name": "Kozilek's Command",
+  "layout": "normal",
+  "mana_cost": "{X}{C}{C}",
+  "cmc": 2.0,
+  "type_line": "Kindred Instant — Eldrazi",
+  "oracle_text": "Choose two —\n• Target player creates X 0/1 colorless Eldrazi Spawn creature tokens with \"Sacrifice this token: Add {C}.\"\n• Target player scries X, then draws a card.\n• Exile target creature with mana value X or less.\n• Exile up to X target cards from graveyards.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Scry"
+  ]
+ },
+ {
+  "name": "Bumi, King of Three Trials",
+  "layout": "normal",
+  "mana_cost": "{5}{G}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Human Noble Ally",
+  "oracle_text": "When Bumi enters, choose up to X, where X is the number of Lesson cards in your graveyard —\n• Put three +1/+1 counters on Bumi.\n• Target player scries 3.\n• Earthbend 3. (Target land you control becomes a 0/0 creature with haste that's still a land. Put three +1/+1 counters on it. When it dies or is exiled, return it to the battlefield tapped.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Earthbend",
+   "Scry"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "The Ruinous Wrecking Crew",
+  "layout": "normal",
+  "mana_cost": "{X}{B}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Villain",
+  "oracle_text": "The Ruinous Wrecking Crew enters with X +1/+1 counters on it.\nWhen The Ruinous Wrecking Crew enters, choose up to X —\n• Discard a card, then draw a card.\n• Target opponent loses 2 life.\n• Destroy target token.\n• Each player sacrifices a creature of their choice.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Choose Your Weapon",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose one —\n• Two-Weapon Fighting — Double target creature's power and toughness until end of turn.\n• Archery — This spell deals 5 damage to target creature with flying.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Double"
+  ]
+ }
+]

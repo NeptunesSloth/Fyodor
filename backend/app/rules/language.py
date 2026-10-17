@@ -1680,6 +1680,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
             n = _stat(m["stat"])
             return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
+    # -- most-played modal spells (wave 50I) -- 701.22a, 701.25a: "Target player scries X, then draws a card." (Kozilek's Command): the named player looks (effects._look)
+    m = re.fullmatch(rf"(?P<s>target player|target opponent) (?P<v>scries|surveils) (?P<n>{AMT})", text)
+    if m and rider is None:
+        who, target = _subject(m)
+        return [{"do": m["v"][:-1] if m["v"] == "surveils" else "scry", "who": who, "n": _amount(m["n"])}], target
     m = re.fullmatch(_SUBJ + rf"sacrifices? (?P<n>{AMT}|another) (?P<sel>.+)", text)
     if m and rider is None:
         who, target = _subject(m)

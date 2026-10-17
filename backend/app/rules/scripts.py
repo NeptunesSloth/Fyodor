@@ -1192,7 +1192,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player", "cards")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
+_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player", "cards", "for_player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)  # (for_player: wave 50I, "Target player gains X life, where X is the greatest power among creatures they control" in a mode with other groups)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -5623,7 +5623,7 @@ _MODAL_HEADERS = {
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 _REPEAT_HEADER = re.compile(r"^Choose (?P<n>three|four|five)\. You may choose the same mode more than once\.$")
 _INSTEAD_HEADER = re.compile(r"^(?:[A-Z][a-z]+(?: \d+)? — )?Choose one\. If (?P<c>.+?)(?: as you cast this spell)?, (?P<may>you may )?"
-                             r"choose (?P<k>both|two|one or more) instead\.$")
+                             r"choose (?P<k>both|two|one or more|any number) instead\.$")
 
 
 def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | None:
@@ -5640,7 +5640,9 @@ def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | No
     if cond is None or set(conditions.objects_in(cond)) - {"self"} or ('"cast"' in json.dumps(cond) and cond not in (
             {"object": "self", "cast": {"kicked": True}}, {"object": "self", "cast": {"optional": "teamwork"}})):
         return None
-    both = m["k"] != "one or more"
+    both = m["k"] not in ("one or more", "any number")
+    # (-- most-played modal spells (wave 50I) -- "If this spell was kicked, choose any number instead." (Inscription of Abundance) reads as "one or more";
+    # ponytail: choosing no mode at all, which does nothing, isn't offered)
     return 1, 1, False, {"cond": cond, "min": 1 if m["may"] or not both else 2, "max": 2 if both else 99}
 
 
@@ -5656,7 +5658,9 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
     for ab in lines[1:]:
         if not ab.text.startswith("• "):
             return None
-        parsed = parse_effects(self_text(ab.text[2:], name))
+        # (-- most-played modal spells (wave 50I) -- a mode that is all "You may put a land card from your hand onto the battlefield." (Atarka's Command) is the
+        # instruction's own choice, as for a one-line spell (_own_choice); "This spell deals X damage" is the spell itself)
+        parsed = _own_choice(parse_effects(self_text(ab.text[2:], name).replace("This spell deals ", "~ deals ")))
         if parsed is None or parsed[2]:  # ("you may" inside a mode: not yet)
             return None
         effects, target, _ = parsed
@@ -8096,7 +8100,7 @@ def _for_each_of_them_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]
 
 
 @_first
-@effect(r"(?P<may>you may )?put (?:a|an|any number of|up to \d+) [^.]+? from your hand onto the battlefield(?: tapped(?: and attacking"
+@effect(r"(?P<may>you may )?put (?:a|an|any number of|up to (?:\d+|one|two|three|four|five)) [^.]+? from your hand onto the battlefield(?: tapped(?: and attacking"
         r"(?: (?:that player|that opponent|defending player))?)?)?(?:, where X is [^.]+)?")
 def _put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     """"You may put an Equipment card from your hand onto the battlefield." (Stoneforge Mystic): app/rules/put_from_hand.py.

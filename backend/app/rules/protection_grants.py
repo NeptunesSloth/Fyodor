@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 Context = dict[str, Any]
 
-_GAIN = re.compile(r"^(?P<o>.+?) gains? protection from (?P<q>.+?) until end of turn$")
+_GAIN = re.compile(r"^(?P<o>.+?) gains? (?:(?P<kw>[a-z]+(?: strike)?(?:(?:, and |, | and )[a-z]+(?: strike)?)*)(?:, and | and |, ))?protection from (?P<q>.+?) until end of turn$")  # (wave 50I: keywords first)
 COLORS = ["White", "Blue", "Black", "Red", "Green"]
 CHOSEN_LINE = "Protection from the chosen color"
 CHOICES: dict[str, list[str]] = {
@@ -64,6 +64,11 @@ def clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         raise L._Fail  # (a player gaining protection: app/rules/player_shields.py)
     who = L._who(kind, key)
     q = m["q"]
+    kws = re.split(r", and |, | and ", m["kw"]) if m["kw"] else []
+    if kws and (not all(re.fullmatch(L.GRANT_KEYWORDS, k) for k in kws) or (line := fixed_line(q)) is None):
+        raise L._Fail  # -- most-played modal spells (wave 50I) -- "gain lifelink, indestructible, and protection from each color" (Akroma's Will): one grant, 613.1f; a choice stays apart
+    if kws:
+        return [{"do": "grant", "who": who, "keywords": kws, "abilities": [line]}], L._one(group)
     if q == "the color of its controller's choice" and who == "target":  # -- activated other (wave 34B) -- Wishmonger, Pale Wayfarer: the target's controller chooses
         return [{"do": "protection_choice", "who": who, "options": list(COLORS), "chooser": "controller"}], L._one(group)
     if q in CHOICES:

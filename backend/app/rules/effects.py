@@ -1045,6 +1045,8 @@ def surveil(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     pid = ctx["controller"]
+    if e.get("who") == "target" and (named := _players(plan, ctx, "target")):  # -- most-played modal spells (wave 50I) -- "Target player scries 3": that player looks
+        pid = named[0]
     n = _amount(plan, ctx, e["n"])
     if where == "bottom" and n > 0 and (replaced := replace.keyword_replace(plan, ctx, e, "scry", pid, n=n)) is not None:
         return replaced  # -- keyword actions (wave 35C) -- "If you would scry a number of cards, draw that many cards instead." (Eligeth)

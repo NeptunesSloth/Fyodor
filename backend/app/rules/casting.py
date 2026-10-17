@@ -812,6 +812,7 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     else asked. A mode whose target can't be chosen can't be chosen (700.2a). ``exclude``: modes that
     can't be chosen either ("choose one that hasn't been chosen"). Returns None while waiting."""
     modal, modes = definition["modal"], definition["modes"]
+    plan.x_choice = getattr(a, "x_value", None)  # -- most-played modal spells (wave 50I) -- 601.2b: X is announced before the modes; a mode's "creature with mana value X or less" reads it
     lo, hi, repeat = modal["min"], modal["max"], modal["repeat"]
     allowed = choosable_modes(plan, definition, a.card_id, exclude, isinstance(a, A.CastSpell))
     if (inst := modal.get("instead")) is not None and _instead_holds(plan, a, inst["cond"]):

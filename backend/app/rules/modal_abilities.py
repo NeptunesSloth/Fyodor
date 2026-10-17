@@ -83,10 +83,10 @@ Definition = dict[str, Any]
 # How many modes may be chosen (fewest, most); most None: every mode ("one or more", "any number").
 _COUNTS: dict[str, tuple[int, int | None]] = {
     "one": (1, 1), "two": (2, 2), "three": (3, 3), "four": (4, 4), "one or both": (1, 2), "one or more": (1, None),
-    "any number": (0, None), "up to one": (0, 1), "up to two": (0, 2), "up to three": (0, 3), "up to four": (0, 4),
+    "any number": (0, None), "up to one": (0, 1), "up to two": (0, 2), "up to three": (0, 3), "up to four": (0, 4), "up to X": (0, None),
 }
 _HEADER = re.compile(
-    r"^(?P<prefix>.*?)[Cc]hoose (?P<count>one or both|one or more|any number|up to (?:one|two|three|four)|one|two|three|four)"
+    r"^(?P<prefix>.*?)[Cc]hoose (?P<count>one or both|one or more|any number|up to (?:one|two|three|four|X)|one|two|three|four)(?P<xdef>, where X is [^—.]+?)?"
     r"(?P<random> at random)?(?P<memory> that hasn['’]t been chosen(?: this turn)?)?(?P<also> and [^—.]+)?(?P<end> —|\.)(?P<rest>.*)$")  # (wave 50C: also)
 # "…, if <condition>, " before the mode: a trigger's intervening "if" (603.4)
 _INTERVENING = re.compile(r"^(?P<head>.+?), if (?P<cond>[^,]+), $")
@@ -136,6 +136,13 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         return {}  # (a sentence after the modes that is about this ability — a limit, a restriction — isn't read)
     lo, top = _COUNTS[m["count"]]
     hi = n if top is None else min(top, n)
+    x_max: Any = None
+    if m["count"] == "up to X" or m["xdef"]:  # -- commanders (wave 50I) -- "choose up to X, where X is the number of Lesson cards in your graveyard —" (Bumi), "choose up to X —" (X as cast)
+        from app.rules import language
+
+        x_max = language.x_definition(m["xdef"][len(", where X is "):]) if m["xdef"] else {"x": 1}
+        if m["count"] != "up to X" or x_max is None or ab.kind != "triggered" or m["random"] or m["memory"] or m["also"] or extra is not None:
+            return {}  # (the limit is read once as the ability goes on the stack, 700.2b)
     if n < 2 or lo > n or (m["count"] == "one or both" and n != 2):  # (700.2: two or more options)
         return {}
     if ab.kind != "triggered" and lo == 0:
@@ -211,6 +218,8 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         return {}  # -- modal frames (wave 33B) -- a mode's target groups are read only with the plain "choose one —" header (wave 50C: or "that hasn't been chosen")
     if also is not None:
         modal["also"] = also  # (wave 50C)
+    if x_max is not None:
+        modal["x_max"] = x_max  # (wave 50I)
     if m["random"]:
         modal["random"] = True  # -- refused modal/conditional (wave 3R1) --
     if extra is not None:  # -- refused modal/conditional (wave 3R1) --
@@ -505,6 +514,12 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
         # -- refused modal/conditional (wave 3R1) --
         if modal.get("instead") is not None and _instead_holds(plan, t, modal["instead"]["cond"]):
             lo, hi = modal["instead"]["min"], min(modal["instead"]["max"], len(allowed))
+        if modal.get("x_max") is not None:  # -- commanders (wave 50I) -- "choose up to X": X as the ability goes on the stack (700.2b); none (X = 0): removed
+            from app.rules import values
+            from app.rules.triggers import cast_x
+
+            hi = min(hi, max(0, values.evaluate(plan, {"controller": t.controller, "source_card": t.source_card, "source_object": t.source_object,
+                                                       "x": cast_x(plan, t) or 0}, modal["x_max"])))
         if modal.get("different_players") and allowed:  # each chosen mode needs a player no other one targets
             hi = min(hi, len(legal(allowed[0])))
         if modal.get("zero_or_all"):  # -- commanders (wave 50C) -- "you may choose two": none, or exactly two (when two can't be chosen, none)
@@ -512,7 +527,7 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
             if hi == 0:
                 _remove(plan, t, "has no mode that can be chosen")
                 return True
-        if not allowed or len(allowed) < lo or hi < lo:  # 700.2b: no mode can be chosen: removed from the stack
+        if not allowed or len(allowed) < lo or hi < max(lo, 1):  # 700.2b: no mode can be chosen: removed from the stack (wave 50I: "up to X" with X = 0)
             _remove(plan, t, "has no mode that can be chosen")
             return True
         picked = modal.get("instead") is not None and modal["instead"].get("pick") and _instead_holds(plan, t, modal["instead"]["cond"])
