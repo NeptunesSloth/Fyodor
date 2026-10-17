@@ -1137,6 +1137,11 @@ def _object_event(c: str) -> Condition | None:
                 **({"during": "you"} if m["d"] else {})}  # (``other``: the Vehicle or Mount, for "that Mount or Vehicle")
     if c == "~ becomes crewed":
         return {"event": "crewed", "subject": "self"}
+    # -- tap events (wave 45C) -- 701.26a: "Whenever you tap one or more untapped creatures your opponents control" (Sharae): the player whose step
+    # tapped them (an untapped permanent is the only one that can become tapped), once for the batch (603.2c)
+    m = re.fullmatch(r"you tap (?P<o>one or more) (?:untapped )?(?P<rest>.+)", c)
+    if m and (base := _subject(f"{m['o']} {m['rest']}", many=True)) is not None and base["subject"] == "sel":
+        return {**base, "event": "tapped", "tapper": "you"}
     # -- control events (wave 45C) -- 603.10d: "Whenever an opponent gains control of a permanent from you" (Zidane): looks back in time (the permanent,
     # itself too, as it was under its old controller); the other control-change wordings stay manual
     m = re.fullmatch(r"an opponent gains control of (?P<o>~|an? [\w ]+?) from you", c)

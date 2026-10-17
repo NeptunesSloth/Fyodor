@@ -1631,7 +1631,10 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                     rules.timestamp += 1
                     rules.counter_stamps.setdefault(card_id, {})[kind] = [rules.next_object, rules.timestamp]
         if card.tapped != snap.tapped:
-            emit(state, "tapped" if card.tapped else "untapped", object_id=oid, card=card_id)
+            # -- tap events (wave 45C) -- 701.26a: who tapped it (the step's actor: "whenever you tap …"), and (``combat``) whether it became tapped as it was
+            # declared an attacker (508.1f: "if it isn't being declared as an attacker")
+            emit(state, "tapped" if card.tapped else "untapped", object_id=oid, card=card_id, actor=actor,
+                 combat=card.tapped and card.attacking is not None and not snap.attacking)
         # -- attachment events (wave 30S) -- 603.2e, 701.3d: it became attached to a (different) object or player, and let go of the one it was
         # attached to (a host that left cleared it, ops.move; an Aura attached to another host lets go of the first)
         if _zone_name(card.zone) == "battlefield" and (card.attached_to, card.attached_player) != (snap.attached_to, snap.attached_player):
