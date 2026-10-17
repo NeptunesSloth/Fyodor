@@ -111,15 +111,16 @@ def end_of_turn_effects(s):
 
 
 @pytest.mark.parametrize("name", ["Chronomantic Escape", "Web of Inertia", "Champions of Minas Tirith", "The Second Doctor",
-                                  "Willie Lumpkin, Postman", "Forbidding Spirit", "Eriette of the Charmed Apple", "Killian, Decisive Mentor"])
+                                  "Willie Lumpkin, Postman", "Forbidding Spirit", "Eriette of the Charmed Apple", "Killian, Decisive Mentor",
+                                  "Sivitri, Dragon Master"])  # (Sivitri: wave 49D, an attack cost of life)
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
-@pytest.mark.parametrize("name", ["Orzhov Advokist", "Call for Aid", "Sivitri, Dragon Master"])
+@pytest.mark.parametrize("name", ["Orzhov Advokist", "Call for Aid"])
 def test_still_manual(cards, name):
     """Orzhov Advokist (each player puts counters on a creature they choose), Call for Aid ("You can't attack that player this turn", "You can't sacrifice those
-    creatures") and Sivitri (an attack cost of life, not mana) are not read."""
+    creatures") are not read."""
     assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL", name
 
 

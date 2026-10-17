@@ -561,7 +561,7 @@ RESTRICTIONS = {"block": ["cant_block"], "attack": ["cant_attack"], "attack or b
 # effect with a duration (611.2a): this turn / this combat / "during their next turn" (a player's, ``their_turn``) -- or, with "unless their controller pays
 # {2} for each of those creatures", an attack cost (508.1d, 508.1h-j: app/rules/combat_rules.py)
 _CANT_ATTACK_YOU = re.compile(r"(?P<o>.+?) can't attack (?P<t>you|you or planeswalkers you control|you or permanents you control)"
-                              r"(?: unless their controller pays (?P<cost>(?:\{[^}]+\})+) for each of those creatures)?"
+                              r"(?: unless their controller pays (?P<cost>(?:\{[^}]+\})+|[1-9]\d* life) for each of those creatures)?"  # (wave 49D: life, Sivitri)
                               r" (?P<d>this turn|this combat|during their next turn)")
 _ATTACK_YOU = {"you": "cant_attack_player", "you or planeswalkers you control": "cant_attack_player_pw",
                "you or permanents you control": "cant_attack_player_perm"}
@@ -578,8 +578,8 @@ def _cant_attack_you(m: re.Match[str]) -> tuple[Effects, Any]:
     if m["cost"]:  # (508.1d: nobody has to pay, so this never forces an attack; one rule per source, so two of them cost twice)
         from app.rules import mana as M
 
-        cost = M.parse_cost(m["cost"])
-        if m["t"] not in _TAX_YOU or cost.unsupported or cost.is_free or cost.x:
+        cost = M.parse_cost("{0}" if m["cost"].endswith(" life") else m["cost"])  # -- life attack costs (wave 49D) -- 508.1g-h, 119.4: "pays 2 life for each of those creatures"
+        if m["t"] not in _TAX_YOU or cost.unsupported or (cost.is_free and not m["cost"].endswith(" life")) or cost.x:
             raise _Fail
         rules = [f"{_TAX_YOU[m['t']]}:@you:{m['cost']}:@src"]
     else:

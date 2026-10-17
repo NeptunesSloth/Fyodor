@@ -1091,7 +1091,8 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
             if each is not None and pid not in plan.live():
                 continue
             spec = {"name": t["name"], "power": pt["power"], "toughness": pt["toughness"],
-                    "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
+                    "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or "",
+                    **({"mana_cost": t["mana_cost"]} if t.get("mana_cost") else {})}  # (wave 49D: 111.3)
             # a token enters tapped when its creator says so ("create a tapped …") or its own text does
             # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
             tapped = (bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)) and not replacements.token_enters_untapped(plan, pid, spec)  # (wave 45A)
@@ -4118,9 +4119,9 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if e.get("colors") is not None or e.get("add_colors"):
             made.append(layers.add_effect(plan, layer="5", **common, set_colors=e.get("colors"),
                                           add_colors=list(e.get("add_colors") or [])).id)
-        if e.get("keywords") or e.get("abilities") or e.get("lose_abilities"):
+        if e.get("keywords") or e.get("abilities") or e.get("lose_abilities") or e.get("lose_index"):  # (-- licids (wave 50A) -- lose_index: "loses this ability", 613.1f)
             made.append(layers.add_effect(plan, layer="6", **common, add_keywords=tuple(e.get("keywords") or ()),
-                                          add_abilities=list(e.get("abilities") or []),
+                                          add_abilities=list(e.get("abilities") or []), lose_index=list(e.get("lose_index") or ()),
                                           remove_abilities=bool(e.get("lose_abilities"))).id)
         if p is not None or t is not None:
             made.append(layers.add_effect(plan, layer="7b", **common, power=p, toughness=t).id)
@@ -4134,10 +4135,10 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                     effect.source_card, effect.until_player = ctx.get("source_card"), ctx["controller"]
         ctx["animated"] = [*ctx.get("animated", []), *made]  # (for a following "It's still a land.")
         markers: list[str] = []
-        for cid in group:  # the table marker (cleared at cleanup for "until end of turn", 514.2; by a zone change, 400.7)
+        for cid in group:  # the table marker (cleared at cleanup for "until end of turn", 514.2; by a zone change, 400.7); (-- licids (wave 50A) -- ``marker``: its own words)
             markers += delayed.marker_ids(plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60],
                                                    "value": f"{p}/{t}" if p is not None and t is not None else None,
-                                                   "text": _MARKER_TEXT.get(duration) or (delayed.LABELS[duration].replace("~", name or "its source")  # (review 23B: whose)
+                                                   "text": e.get("marker") or _MARKER_TEXT.get(duration) or (delayed.LABELS[duration].replace("~", name or "its source")  # (review 23B: whose)
                                                            if duration.startswith("source_") else "as long as it's on the battlefield")}))
         for effect in plan.rules.effects:  # ending the effects removes these markers (app/rules/delayed.py)
             if effect.id in made:
@@ -4715,6 +4716,9 @@ from app.rules import attach_entry as _attach_entry  # noqa: E402, I001
 
 PRIMITIVES.update(_attach_entry.PRIMITIVES)
 RESUME.update(_attach_entry.RESUME)  # (wave 25A: attach_choose)
+from app.rules import licids as _licids  # noqa: E402, I001  -- licids (wave 50A) --
+
+PRIMITIVES["licid"] = _licids.licid
 from app.rules import populate as _populate  # noqa: E402, I001
 
 PRIMITIVES.update(_populate.PRIMITIVES)

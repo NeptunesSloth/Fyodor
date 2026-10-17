@@ -288,6 +288,7 @@ class ObjectSnapshot(BaseModel):
     base_power: int | None = None  # -- base power (wave 30J) -- 208.4b, as it last existed (608.2h): "with base power 0", "power greater than its base power"
     base_toughness: int | None = None
     token_colors: list[str] = Field(default_factory=list)
+    token_mana_cost: str = ""  # (wave 49D) a token's mana cost, as it last existed (608.2h)
     commander_key: str | None = None
     counters: dict[str, int] = Field(default_factory=dict)
     damage: int = 0
@@ -321,6 +322,8 @@ class ObjectSnapshot(BaseModel):
     # -- stack interaction (wave 5B) -- the X a spell on the stack had (202.3e: its mana value counts it),
     # so "that spell's mana value" after it was countered reads it as it last existed (608.2h)
     x: int | None = None
+    # -- goad (wave 48D) -- 701.15b, 608.2h: the players who had goaded it as it last existed ("Whenever a goaded creature dies"), recorded by the rules engine as it moves it
+    goaded: list[str] = Field(default_factory=list)
 
 
 EventKind = Literal[
@@ -620,6 +623,11 @@ class ContinuousEffect(BaseModel):
     # this effect's timestamp; later grants apply again) and quoted abilities it gains (their text).
     remove_abilities: bool = False
     add_abilities: list[str] = Field(default_factory=list)
+    # -- licids (wave 50A) -- 613.1f: "loses this ability" (one printed ability, by its index); 116.2c: "You may pay {W} to end this effect" - the
+    # special action's cost (``end_cost``, for ``controller``) ends every effect of the same resolution (``end_group``: the first one's timestamp)
+    lose_index: list[int] = Field(default_factory=list)
+    end_cost: str | None = None
+    end_group: int = 0
     # -- copy system (wave 2F): layer 1a (613.2a) — a copy effect: the affected objects' copiable
     # values become this recipe's (707.2-707.5); the latest (by timestamp) applies (613.7)
     copy_recipe: CopyRecipe | None = None
@@ -676,6 +684,8 @@ class TriggerEvent(BaseModel):
     # -- attacked object (wave 45A) -- 508.5: the planeswalker or battle an attacking creature's event is about, as it triggered ("deals 1 damage to the player or
     # planeswalker it's attacking"); None when it attacks a player (``defended``)
     attacked: ObjectRef | None = None
+    # -- voting (wave 48D) -- 701.38: "Whenever players finish voting": the [voter, choice] of every vote of the voting that finished, as cast
+    ballots: list[list[str]] = Field(default_factory=list)
 
 
 class PendingTrigger(BaseModel):
@@ -1318,6 +1328,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         face_down=c.face_down, face=c.face, is_token=c.is_token,
         token_power=token.power if token else None, token_toughness=token.toughness if token else None,
         token_type_line=token.type_line if token else None, token_colors=list(token.colors) if token else [],
+        token_mana_cost=token.mana_cost if token else "",
         commander_key=c.commander_key, counters=dict(c.counters), damage=c.damage,
         effects=[e.value or e.name for e in c.effects], attacking=c.attacking is not None,
         attack_on=f"{c.attacking.kind}:{c.attacking.id}" if c.attacking is not None else None,  # (wave 38A)

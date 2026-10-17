@@ -96,7 +96,7 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, is_token=snap.is_token,
                         token=TokenDef(name=snap.name, text=snap.text, power=snap.token_power, toughness=snap.token_toughness,
-                                      colors=snap.token_colors, type_line=snap.token_type_line or "Token Creature")
+                                      colors=snap.token_colors, type_line=snap.token_type_line or "Token Creature", mana_cost=snap.token_mana_cost)
                         if snap.is_token and not snap.printing else None,
                         merged=[MergedPart(**p) for p in snap.merged], melded=snap.melded)  # (wave 18D: a merged permanent's cards)
     ch = chars.of(card, plan.info)
@@ -115,7 +115,8 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
     # -- quoted grants (wave 2D) -- the abilities and keywords it had (603.10a): granted ones too
     from app.rules import granted
 
-    return granted.as_last_existed(ch, snap)
+    ch = granted.as_last_existed(ch, snap)
+    return replace(ch, imposed=ch.imposed | {f"goaded:{p}" for p in snap.goaded}) if snap.goaded else ch  # -- goad (wave 48D) -- 701.15b, 608.2h
 
 
 def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, name: str, index: int,
@@ -1136,7 +1137,8 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
                         if kind in _PAIRED.values() and info.get("other") in plan.state.cards
-                        else _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None)  # (wave 19B: the Ring-bearer chosen)
+                        else _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None,  # (wave 19B: the Ring-bearer chosen)
+                        ballots=info.get("ballots") or [])  # (-- voting (wave 48D) --)
 
 
 def _attack_object(plan: Plan, kind: str, obj: CardInstance | None) -> ObjectRef | None:
@@ -1168,10 +1170,12 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
     for (watcher, ch, i, d), lo, hi in (watchers if watchers is not None else [(w, -1, -1) for w in _event_watchers(plan)]):
         if batch >= 0 and not (lo <= batch <= hi or (lo, hi) == (-1, -1)):
             continue
-        cond = d["cond"]
+        whole = d["cond"]
         for fact in facts:
-            if not _cond_matches(plan, cond, watcher, fact):
+            if not _cond_matches(plan, whole, watcher, fact):
                 continue
+            # -- either with a batch half (wave 49D) -- 603.2c: "discards a card or mills one or more cards": the half this event is batches (or not) on its own
+            cond = next((x for x in whole["conds"] if _cond_matches(plan, x, watcher, fact)), whole) if whole["event"] == "either" and any(x.get("aggregate") for x in whole["conds"]) else whole
             nth = cond.get("nth") if cond["event"] == "draw" else None
             if nth and plan.rules.draws_this_turn.get(fact[3] or "", 0) != nth:
                 continue
@@ -1965,6 +1969,12 @@ def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False
                            "word": (w[1].lower() if (w := re.match(r"(Exhaust|Boast|Power-up) — ", text)) else None),  # (wave 33C: its ability word)
                            "source_ref": ObjectRef(card=ability.id, object_id=plan.oid(ability), zone=ability.zone) if ability else None})],
                   -1, {})
+
+
+def voted(plan: Plan, starter: str, ballots: list[list[str]]) -> None:
+    """-- voting (wave 48D) -- 701.38: the votes of one spell or ability are all in: "Whenever players finish voting" triggers (603.2) as it finishes resolving
+    (rulings of Grudge Keeper); the trigger carries the votes of this voting alone."""
+    _fire_generic(plan, [("voted", None, None, starter, {"ballots": [list(b) for b in ballots]})], -1, {})
 
 
 def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -> None:

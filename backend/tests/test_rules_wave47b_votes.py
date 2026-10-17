@@ -172,3 +172,15 @@ def test_truth_or_consequences_with_no_consequences_votes_deals_nothing(cards, m
     settle(s)
     assert (life(s, "p2"), life(s, "p3")) == (40, 40)
     check(s)
+
+
+def test_mob_verdict_damage_for_each_vote_is_one_event_per_recipient():
+    """Lead fix after review 40: damage dealt "for each" of something is one event (Kazarov ruling), so Mob Verdict's per-vote damage is
+    multiplied, not repeated."""
+    from app.rules.scripts import parse_effects
+
+    text = ("Each player secretly votes for another player, then those votes are revealed. For each vote an opponent received, Mob Verdict deals 2 "
+            "damage to that player and each creature that player controls. For each vote you received, draw a card.")
+    effects = parse_effects(text.replace("Mob Verdict", "~"))[0]
+    each = next(e for e in effects if e.get("do") == "vote_each" and e.get("skip") == 2)
+    assert each.get("scale") is True

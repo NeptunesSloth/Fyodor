@@ -261,6 +261,24 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "unlock_door", card_id: "rb", door: 2 }]);
   });
 
+  it("offers the special action that ends a Licid's effect (116.2c) when the server lists its cost", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true }, stats: { lb: { end_cost: "{W}" } } });
+    const v = { ...base, cards: { ...base.cards, lb: card("lb", "p1:battlefield", "licid"), lc: card("lc", "p1:battlefield", "licid") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        licid: { id: "licid", name: "Calming Licid", type_line: "Creature — Licid", oracle_text: "{W}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature." } as CardData,
+      },
+    });
+    const end = rulesMenu(v.cards.lb!, v, "p1").find((i) => i !== "separator" && i.label.startsWith("End the effect"));
+    if (!end || end === "separator") throw new Error("expected the special action");
+    expect(end.label).toBe("End the effect ({W}, special action)");
+    expect(end.disabled).toBe(false);
+    end.onClick?.();
+    expect(sent).toEqual([{ type: "end_effect", card_id: "lb" }]);
+    expect(rulesMenu(v.cards.lc!, v, "p1").some((i) => i !== "separator" && i.label.startsWith("End the effect"))).toBe(false); // no effect of yours on it
+  });
+
   it("offers your companion's special action (116.2g) with priority, as its Companion line", () => {
     const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true } });
     const v = { ...base, cards: { ...base.cards, lu: card("lu", "p1:companion", "lurrus"), ob: card("ob", "p2:companion", "lurrus") } } as unknown as GameView;
