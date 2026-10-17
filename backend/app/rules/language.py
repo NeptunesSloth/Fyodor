@@ -170,7 +170,12 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     each_opponents = what.startswith(selectors.PREFIX) and re.search(r"\ban opponent controls\b", rest) is not None \
         and selectors.from_key(what).controller == "opponent" and selectors.from_key(what).zones == ("battlefield",)
     if hi > 1 and not each_opponents and re.search(r"\ban opponent(?:'s)?\b", rest):
-        raise _Fail  # "two target cards from an opponent's graveyard": the same opponent? (not a guess)
+        # -- activated other (wave 48A) -- "two target cards from an opponent's graveyard" (Deadeye Tracker, Spurnmage Advocate): all in the graveyard of one opponent (rulings
+        # 2018-01-19 "You can't activate … without targeting two cards in a single opponent's graveyard"); any other wording naming an opponent stays refused
+        if not (what.startswith(selectors.PREFIX) and selectors.from_key(what).zones == ("graveyard",) and selectors.from_key(what).zone_owner == "opponent"
+                and rest.endswith("from an opponent's graveyard")):
+            raise _Fail
+        constraints = {**constraints, "same_graveyard": True}
     if hi > 1 and what.startswith(selectors.PREFIX) and selectors.from_key(what).controller == "defending":
         raise _Fail  # "two target creatures defending player controls": one specific defending player (508.5a)
     return {"what": what, "min": lo, "max": hi, **constraints}
@@ -399,7 +404,7 @@ def _stat(phrase: str, its: str = "it") -> Any:
     if phrase in ("the number of colors that spell is", "the number of colors it is"):  # -- value grammar (wave 23C) -- how many colors an object is (105.1)
         return {"colors": "that_spell" if "spell" in phrase else its}
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
-    m = re.fullmatch(r"(?:(?P<its>its)|that (?P<noun>creature|permanent|card|artifact|enchantment|land|planeswalker)(?P<cd> card)?'s|"  # (wave 26A: "that creature card's toughness")
+    m = re.fullmatch(r"(?:(?P<its>its)|(?:that|the(?! card)) (?P<noun>creature|permanent|card|artifact|enchantment|land|planeswalker)(?P<cd> card)?'s|"  # (wave 26A: "that creature card's toughness"; wave 48A: "the artifact's mana value" reads as "that artifact's", Viashino Heretic)
                      r"(?P<spell>that spell's)|(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
     if m and (m["noun"] == "card" or m["cd"]):
         # -- damage sized by a count (wave 20A) -- "gets +X/+0, where X is that card's mana value" (Goblin Machinist): the card an earlier instruction
@@ -1509,9 +1514,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if found is not None:
         return found
     text, rider = _with_rider(text)
-    kw_x = re.fullmatch(r"(?:you )?(?P<v>earthbend|incubate) [xX]", text) if rider is not None and rider[0] == "x" else None
+    kw_x = re.fullmatch(r"(?:you )?(?P<v>earthbend|incubate|empower Jace) [xX](?P<twice> twice)?", text) if rider is not None and rider[0] == "x" else None
     if kw_x:
-        found = keyword_forms(f"{kw_x['v']} x")  # -- keyword actions & face-down (wave 3F) -- "earthbend X, where X is …"
+        found = keyword_forms(f"{kw_x['v']} x{kw_x['twice'] or ''}")  # -- keyword actions & face-down (wave 3F) -- "earthbend X, where X is …"
         if found is None:
             raise _Fail
         return [_bind_x(e, rider[1]) for e in found[0]], found[1]
@@ -2186,10 +2191,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # -- trigger other (wave 39A) -- "attacking red creatures get +2/+0 and attacking white creatures get +0/+2 until end of turn." (Agrus Kos, Wojek Veteran): two
     # groups, each its own pump with its own modifier (611.2c: each set of creatures is fixed as this resolves; a creature that is both gets both)
     m = _PUMP_TWO.fullmatch(text)
-    if m and rider is None:
+    if m and (rider is None or rider[0] == "x"):
         half_a = _PUMP.fullmatch(f"{m['a']} gets {m['pa']} until end of turn")
         half_b = _PUMP.fullmatch(f"{m['b']} gets {m['pb']} until end of turn")
-        if half_a is None or half_b is None or ref(half_a["o"])[0] != "each" or ref(half_b["o"])[0] != "each":
+        if half_a is None or half_b is None:
+            raise _Fail
+        (ka, _, ga), (kb, _, gb) = ref(half_a["o"]), ref(half_b["o"])
+        if (ka, kb) == ("target", "target") and ga is not None and gb is not None:  # -- activated sweep (wave 48A) -- "target creature gets +0/+2 and another target creature gets -2/-0" (Rookie Mistake): two targets, each its own pump (115.3); "+X/+0 and -0/-X, where X is …" (Monoist Circuit-Feeder): the one X for both
+            return [*_pump(half_a, rider)[0], *({**e, "who": _shift(e["who"], 1)} for e in _pump(half_b, rider)[0])], _out([ga, gb])
+        if (ka, kb) != ("each", "each") or rider is not None:
             raise _Fail
         return [*_pump(half_a, None)[0], *_pump(half_b, None)[0]], None
     m = _PUMP.fullmatch(text)
@@ -2346,7 +2356,7 @@ _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P
                    r"| and (?P<mb>must be blocked this turn if able)"  # (mb: wave 6E, 509.1c)
                    r"| and can (?P<bx>block (?:an additional creature|an additional \w+ creatures|up to \w+ additional creatures"
                    r"|any number of creatures)) this turn)?")  # (bx: wave 13B, 509.1a)
-_PUMP_TWO = re.compile(r"(?P<a>.+?) gets? (?P<pa>[+\-−]\d+/[+\-−]\d+) and (?P<b>(?:(?!\b(?:and|gets?)\b).)+?) gets? (?P<pb>[+\-−]\d+/[+\-−]\d+) until end of turn")  # (wave 39A)
+_PUMP_TWO = re.compile(r"(?P<a>.+?) gets? (?P<pa>[+\-−](?:\d+|[xX])/[+\-−](?:\d+|[xX])) and (?P<b>(?:(?!\b(?:and|gets?)\b).)+?) gets? (?P<pb>[+\-−](?:\d+|[xX])/[+\-−](?:\d+|[xX])) until end of turn")  # (wave 39A; 48A: X)
 _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
 # -- activated other (wave 42C) -- "Permanents your opponents control lose hexproof, indestructible, protection, shroud, and ward until end of turn." (Shay Cormac): losing
 # protection (702.16, every instance) or ward (702.21) takes no quality or cost, so (unlike gaining them) it is a keyword in its own right
@@ -4091,14 +4101,24 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         if m["spec"] and (up or spec is None):
             return None
         return [{"do": "turn_face_up" if up else "turn_face_down", "who": _who(kind, key), **({"spec": spec} if spec else {})}], _one(group)
-    m = re.fullmatch(r"(?:you )?incubate (?P<n>\d+|[xX])", text)
-    if m and has_primitive("incubate"):  # 701.53a
-        return [{"do": "incubate", "n": _amount(m["n"])}], None
+    m = re.fullmatch(r"(?:you )?incubate (?P<n>\d+|[xX])(?P<twice> twice)?", text)
+    if m and has_primitive("incubate"):  # 701.53a; -- keyword actions (wave 48A) -- "Incubate X twice" (Glistening Dawn): two separate Incubator tokens, one instruction after the other
+        return [*([{"do": "repeat", "n": 2, "span": 1}] if m["twice"] else []), {"do": "incubate", "n": _amount(m["n"])}], None
+    m = re.fullmatch(r"(?:you )?empower Jace (?P<n>\d+|[xX])", text)
+    if m and has_primitive("empower_jace"):  # -- keyword actions (wave 48A) -- 701.71a
+        return [{"do": "empower_jace", "n": _amount(m["n"])}], None
     # -- transform (wave 11A) -- 701.27a: "transform ~" / "transform this creature"; the source only (an ability putting
     # "it" or another object through is not read), once per object since the ability was put on the stack (701.27f)
     if re.fullmatch(r"transform (?:this token|~|this (?:creature|artifact|land|enchantment|permanent|saga|vehicle))", text) \
             and has_primitive("transform"):
         return [{"do": "transform", "who": "self"}], None  # (701.27c: anything that isn't double-faced doesn't turn over)
+    m = re.fullmatch(r"transform (?P<o>(?:up to one )?target .+)", text)
+    if m and has_primitive("transform"):  # -- transform (wave 48A) -- "transform up to one target Werewolf you control" (Waxing Moon), "transform target Incubator token you control": a chosen permanent on the battlefield (701.27a)
+        try:
+            kind, key, group = ref(m["o"])
+        except _Fail:
+            return None
+        return ([{"do": "transform", "who": "target"}], _one(group)) if kind == "target" and on_battlefield_only(key) else None
     if text in ("transform it", "transform him", "transform her") and has_primitive("transform"):  # -- transform (wave 20F) --
         return [{"do": "transform", "who": "it"}], None  # (the pronoun's antecedent is bound by scripts.resolve_it: the source in its own trigger)
     # -- flip (wave 24C) -- 710: "flip ~" / "flip this creature" / "flip it" (the source only: a flip card's own ability)

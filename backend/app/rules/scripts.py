@@ -2242,7 +2242,7 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
                   r"\g<a>, then \g<b>, then ", text)
     for joiner in (r", then ", r" and (?=(?:~(?= )|(?:you|target|each|it|that player|that opponent|that (?:creature|land|permanent|artifact)|draw|lose|gain|put|return|exile|"  # (wave 25B: "and ~ deals …": no \b after the ~)  (wave 30M: "Tap target creature, and that creature doesn't untap …")
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
-                                 r"remove|add|investigate|prevent|amass|proliferate|manifest|transform|suspect|venture)\b))"):  # (wave 45B: venture, "Create a Treasure token and venture into the dungeon") (wave 25B: suspect)  # (wave 20F: transform)  # (remove: wave 6D, "untap it and remove it from combat")
+                                 r"remove|add|investigate|prevent|amass|proliferate|manifest|transform|suspect|venture|incubate|empower)\b))"):  # (wave 48A: "you gain 5 life and incubate 5" -- Tangled Skyline) (wave 45B: venture, "Create a Treasure token and venture into the dungeon") (wave 25B: suspect)  # (wave 20F: transform)  # (remove: wave 6D, "untap it and remove it from combat")
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
@@ -2335,6 +2335,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # cards." (Geth), "…, then exile that player's graveyard." (Nurgle's Conscription): that player is whose graveyard the card was in, its owner (400.3)
     body = re.sub(r"(from an opponent's graveyard[^.]*?\.) Then that player (mills [^.]*\.)", r"\1 Then its owner \2", body)
     body = re.sub(r"(from an opponent's graveyard[^.]*?), then exile that player's graveyard\.", r"\1. Exile its owner's graveyard.", body)
+    # -- activated sweep (wave 48A) -- "Return target permanent to its owner's hand. Then that player discards a card." (Recoil): "that player" is the owner the permanent was returned to
+    body = re.sub(r"(\b[Rr]eturn target [^.]*? to its owner's hand\.) Then that player (discards a card)", r"\1 Then its owner \2", body)
     # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
     # opponent, the token grammar's "… for each opponent". (wave 38B: not "… tapped and attacking that opponent" (Stampede Surfer): each token attacks
     # its own opponent, combat_rules.create_attacking_each, not one count of them all attacking the trigger's)
