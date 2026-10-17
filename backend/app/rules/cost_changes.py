@@ -87,6 +87,10 @@ def parse_change(symbol: str, direction: str, rest: str) -> Change | None:
         return None
     if symbol.isdigit():
         out["n"] = int(symbol)
+    elif symbol[0].isdigit():  # -- most-played cards (wave 49A) -- "{2}{U}": a generic amount (118.7a) and a colored one (118.7b/c), both taken off the cost
+        if only is not None or direction != "less":
+            return None
+        out["n"], out["also"] = int(symbol.split("}{")[0]), "".join(symbol.split("}{")[1:])
     else:
         out["n"], out["mana"] = 1, ("!" if only is not None else "") + "".join(symbol.split("}{"))  # (118.7b/c: a colored amount; "!": only colored, wave 46A)
     if m["each"]:
@@ -186,15 +190,18 @@ def ability_delta(state: GameState, player: str, card: CardInstance, ch: Charact
 
 
 # -- spells: their own "This spell costs …" and the table's "<spells> cost …" -----------------------------------------
-SELF_SENTENCE = re.compile(rf"^(?:this spell|~) costs {_SYMBOL} (?P<dir>less|more) to cast(?P<rest>.*)$")
+# (-- most-played cards (wave 49A) -- its own reduction may be several symbols, "{2}{U}" (Stormwing Entity), "{U}{U}{U}" (Even the Score), 118.7a-c)
+_SELF_SYMBOLS = r"\{(?P<n>\d+|X|(?:\d+\}\{)?[WUBRG](?:\}\{[WUBRG])*)\}"
+SELF_SENTENCE = re.compile(rf"^(?:this spell|~) costs {_SELF_SYMBOLS} (?P<dir>less|more) to cast(?P<rest>.*)$")
 
 
-_SELF_IF_FIRST = re.compile(rf"^if (?P<cond>[^,]+), (?P<rest>(?:this spell|~) costs {_SYMBOL} less to cast)$")
+_SELF_IF_FIRST = re.compile(rf"^if (?P<cond>[^,]+), (?P<rest>(?:this spell|~) costs {_SELF_SYMBOLS} less to cast)$")
+_SELF_TURN_FIRST = re.compile(rf"^during your turn, (?P<rest>(?:this spell|~) costs {_SELF_SYMBOLS} less to cast)$")  # (wave 49A) Discontinuity
 
 
 def is_self(t: str) -> bool:
     """Is this line the spell's own cost change ("This spell costs …", "If …, this spell costs {6} less to cast")?"""
-    return bool(SELF_SENTENCE.fullmatch(t) or _SELF_IF_FIRST.fullmatch(t))
+    return bool(SELF_SENTENCE.fullmatch(t) or _SELF_IF_FIRST.fullmatch(t) or _SELF_TURN_FIRST.fullmatch(t))
 
 
 def self_change(t: str) -> Change | None:
@@ -204,6 +211,8 @@ def self_change(t: str) -> Change | None:
     first = _SELF_IF_FIRST.fullmatch(t)
     if first:
         t = f"{first['rest']} if {first['cond']}"
+    if (turn := _SELF_TURN_FIRST.fullmatch(t)) is not None:
+        t = f"{turn['rest']} during your turn"
     m = SELF_SENTENCE.fullmatch(t)
     if m is None:
         return None
@@ -262,6 +271,8 @@ def own_changes(state: GameState, player: str, card: CardInstance, ch: Character
         n = min(n, change["cap"]) if "cap" in change else n
         if n:
             out.add(change["dir"] * n, change.get("mana"))
+            if change.get("also"):  # (wave 49A) the colored part of "{2}{U}"
+                out.add(change["dir"], change["also"])
     return out
 
 

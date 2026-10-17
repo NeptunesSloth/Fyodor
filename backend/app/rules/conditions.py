@@ -747,6 +747,12 @@ def _drew(m: re.Match[str]) -> Condition | None:
     return None if n is None else {"history": "drew", "n": n}
 
 
+@_history_pattern(r"an opponent has drawn (?P<n>\w+) or more cards this turn")
+def _opponent_drew(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])  # (wave 49A) one opponent, not all of them together
+    return None if n is None else {"history": "drew", "who": "opponent", "n": n}
+
+
 @_history_pattern(r"you(?:'ve)? cast (?P<n>\w+) or more spells this turn")
 def _spells(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"])
@@ -1226,6 +1232,7 @@ def _object(t: str) -> Condition | None:
     t = re.sub(r"^(it|~|that (?:creature|permanent)) has (power|toughness|mana value) (?=\w+ or (?:less|greater|more|fewer)|exactly \w+)",  # (wave 26D; 36A: ~, "exactly")
                lambda m: f"{'its' if m[1] == 'it' else m[1] + chr(39) + 's'} {m[2]} is ", t)  # "it has power 4 or greater" = "its power is 4 or greater"
     t = re.sub(r"^the creature had (?=(?:power|toughness|mana value) \w+ or )", "that creature had ", t)  # -- named permanents (wave 35C) -- Anax: the creature that died
+    t = re.sub(r"^it had (power|toughness|mana value) (?=\w+ or )", r"its \1 was ", t)  # -- most-played cards (wave 49A) -- "If it had mana value 3 or less" (Consuming Ashes): as it last existed (608.2h)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)'s (?:power|toughness|mana value)) (\w+ or )", r"\1 was \2", t)
     t = re.sub(r"^it has the same (power|toughness|mana value) as the (discarded|revealed) card$", r"its \1 is equal to the \2 card's \1", t)  # (wave 44D: Hisoka, Minamo Sensei)
